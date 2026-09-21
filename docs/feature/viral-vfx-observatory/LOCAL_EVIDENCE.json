@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "base_sha": "448db2ee37432454a43c608459f6aded537be05f",
+  "scope": "LOCAL_PATCHED_BASE_WHEELS_NOT_INSTALLED_FEATURE_ARCHIVE",
+  "tested_commit_sha": null,
+  "binding": "Pre-commit tests bind to these exact Git blob bytes, not to an already published candidate SHA.",
+  "source_blobs": {
+    "command-center/bcc/video_studio/viral_vfx.py": "0dd136ecbbcd4ea8ac35201c4b937585bc4623d8",
+    "command-center/bcc/video_studio/render.py": "4c0ba67c493b07d37916a0a225397a2e5caf407f",
+    "command-center/bcc/video_studio/commands.py": "4f310f642e2617b259824c0b3102bc42a9ff98a1",
+    "command-center/bcc/features/observatory.py": "7f37e42c1c2385303f77a6b627a876a272efe902",
+    "command-center/bcc/features/viral_vfx.py": "cdd7e0935af58e240c632397e8765f5e8ad21da5",
+    "command-center/ui/api.js": "88c136b2898a130d2175039d0c3db481ffb87739",
+    "command-center/ui/api_trace.js": "b89b5a399d024fc084a74b4526762f3b8b945d9e",
+    "command-center/ui/pages/viral_vfx_panel.js": "af06bc4add7a0a3642f9cd7a45e509bb570adbd4",
+    "command-center/ui/pages/observatory.js": "6be777c56c4d2c7d2068635fa92673fa9787d602",
+    "command-center/ui/pages/index.js": "47cef536ce71a104daf5f153a28511e75e3cdd21",
+    "command-center/ui/tests/viral_observatory.test.mjs": "bd4670cbfc02e154acb1c8e8084d6afe07eb7dc5",
+    "tools/feature_tests/test_viral_vfx_observatory.py": "6475c48ca85a616c6c4c6f4e383951964e13efb6"
+  },
+  "environment": {"os":"Linux", "python":"3.13.5", "node":"22.16", "ffmpeg":"7.1.5", "chromium":"144"},
+  "completed_groups": [
+    {"name":"native_filters_http_sqlite", "passed":48, "failed":0, "errors":0, "skipped":0, "elapsed_seconds":29.671},
+    {"name":"native_15_second_render", "passed":1, "failed":0, "errors":0, "skipped":0, "elapsed_seconds":31.421},
+    {"name":"real_chromium_dom_fixture_api", "passed":1, "failed":0, "errors":0, "skipped":0, "elapsed_seconds":4.340},
+    {"name":"node_api_trace_graph_commands", "passed":14, "failed":0, "skipped":0, "elapsed_ms":324.389435}
+  ],
+  "native_output": {
+    "input":"synthetic testsrc2 and sine; not AI-generated media or licensed phonk",
+    "width":180, "height":320, "duration_ticks":15000000,
+    "fps":{"num":30,"den":1}, "decoded_video_frames":450,
+    "has_video":true, "has_audio":true, "full_decode":true,
+    "bytes":1757458,
+    "sha256":"846fb2304cc78b55d2eace51e665fda34a1ef792466dc5d80be6b9506b8150bb",
+    "av_start_offset_ticks":0,
+    "result":"PASS"
+  },
+  "running_app_browser": {"result":"BLOCKED_BY_ENVIRONMENT", "reason":"net::ERR_BLOCKED_BY_ADMINISTRATOR on localhost before login", "security_policy_changed":false},
+  "incomplete_attempts":"Combined local pytest runs reached environment timeout or failed to exit; not counted as clean PASS. Completed groups were rerun in independent processes.",
+  "not_proven":["running-app browser workflow","full regression matrix","feature wheel/application ZIP","Windows","PostgreSQL","1080p performance","Ryzen/Radeon","live model","Higgsfield generation","automatic beat detection","automatic phonk edit"],
+  "merge_ready":false,
+  "release_branch_modified":false,
+  "accepted_application_zip_modified":false
+}

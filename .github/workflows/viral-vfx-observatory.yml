@@ -1,0 +1,84 @@
+name: Viral VFX and Observatory feature acceptance
+on:
+  workflow_dispatch:
+  push:
+    branches: ['feat/viral-vfx-observatory-20260921']
+  pull_request:
+    branches: ['release/bossman-owner']
+    paths:
+      - 'command-center/bcc/features/observatory.py'
+      - 'command-center/bcc/features/viral_vfx.py'
+      - 'command-center/bcc/video_studio/**'
+      - 'command-center/ui/**'
+      - 'tools/feature_tests/test_viral_vfx_observatory.py'
+      - '.github/workflows/viral-vfx-observatory.yml'
+permissions:
+  contents: read
+concurrency:
+  group: viral-observatory-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+jobs:
+  feature:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      BOSSMAN_OFFLINE_MODE_ENABLED: '1'
+      BCC_REQUIRE_BROWSER: '1'
+      BCC_DATA_DIR: ${{ runner.temp }}/vfx-default
+      VFX_EVIDENCE_DIR: ${{ runner.temp }}/vfx-observatory-proof
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install declared test tools only
+        run: |
+          python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev,browser]'
+          python -m playwright install --with-deps chromium
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg
+      - name: Bind evidence to actual checkout
+        shell: python
+        run: |
+          import json, os, pathlib, platform, subprocess
+          sha = subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip()
+          assert sha == os.environ['BOSSMAN_ACCEPTANCE_SHA']
+          out = pathlib.Path(os.environ['VFX_EVIDENCE_DIR']); out.mkdir()
+          (out/'identity.json').write_text(json.dumps({'tested_sha':sha,
+            'tier':'SOURCE_FEATURE_ACCEPTANCE', 'python':platform.python_version(),
+            'os':platform.system(), 'windows':'NOT_RUN', 'owner_gpu':'NOT_RUN',
+            'live_model':'NOT_RUN','higgsfield_generation':'NOT_RUN'}, indent=2))
+      - name: Pixel effects, canonical HTTP and real SQLite contracts
+        run: python -m pytest tools/feature_tests/test_viral_vfx_observatory.py -q -k 'not native_fifteen and not chromium' --timeout=60 --junitxml="$VFX_EVIDENCE_DIR/contracts.xml"
+      - name: Native 15-second render, 450 frames, audio and full decode
+        run: python -m pytest tools/feature_tests/test_viral_vfx_observatory.py -q -k native_fifteen --timeout=240 --junitxml="$VFX_EVIDENCE_DIR/native.xml"
+      - name: Actual Chromium DOM with explicit fixture API
+        run: python -m pytest tools/feature_tests/test_viral_vfx_observatory.py -q -k chromium_dom --timeout=90 --junitxml="$VFX_EVIDENCE_DIR/dom.xml"
+      - name: Real Chromium with running app, persistence and provider-job refusal
+        run: python -m pytest tools/feature_tests/test_viral_vfx_observatory.py -q -k real_chromium --timeout=180 --junitxml="$VFX_EVIDENCE_DIR/browser.xml"
+      - name: Native API transport and graph contracts
+        run: node --test command-center/ui/tests/viral_observatory.test.mjs
+      - name: No silent skips, missing cases or modified checkout
+        shell: python
+        run: |
+          import os, pathlib, subprocess, xml.etree.ElementTree as ET
+          out=pathlib.Path(os.environ['VFX_EVIDENCE_DIR'])
+          for name, minimum in [('contracts',48),('native',1),('dom',1),('browser',1)]:
+            suites=list(ET.parse(out/(name+'.xml')).getroot().iter('testsuite'))
+            assert sum(int(s.get('tests','0')) for s in suites)>=minimum, name
+            for key in ('failures','errors','skipped'):
+              assert sum(int(s.get(key,'0')) for s in suites)==0,(name,key)
+          subprocess.run(['git','diff','--exit-code'],check=True)
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: viral-vfx-observatory-proof-${{ env.BOSSMAN_ACCEPTANCE_SHA }}
+          path: ${{ env.VFX_EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 14

@@ -426,6 +426,20 @@ def apply_command(project, command, actor="human"):
         if not isinstance(effect.get("params", {}), dict) or type(effect["enabled"]) is not bool:
             raise StudioError("Effect requires typed parameters and enabled flag")
         effect.setdefault("params", {})
+        if effect["type"] == "viral_vfx":
+            from .viral_vfx import validate_params
+            try:
+                validate_params(effect["params"])
+            except ValueError as exc:
+                raise StudioError(str(exc)) from exc
+            # A visual preset on an audio owner would be a silent no-op.
+            if cmd.get("track_id") and owner.get("kind") == "audio":
+                raise StudioError("VFX requires a video or adjustment owner")
+            if cmd.get("clip_id"):
+                _, vfx_track, _ = clip(p, cmd["clip_id"])
+                if (vfx_track["kind"] == "audio" or owner.get("audio_only")
+                        or owner.get("media_id") in p["media"] and not p["media"][owner["media_id"]].get("has_video")):
+                    raise StudioError("VFX requires a visual clip")
         current = next((x for x in effects if x["id"] == effect["id"]), None)
         if current:
             effects[effects.index(current)] = effect

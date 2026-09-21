@@ -98,6 +98,7 @@ function notifyUnauthorized() {
    Как только запрос завершился, запись снимается — следующий вызов пойдёт в
    сеть заново. Изменяющие методы сюда не попадают никогда. */
 const inflight = new Map();
+import {traceBegin, traceEnd, resetTraceSession} from './api_trace.js';
 
 /* Граница сессии. Склейка законна только внутри ОДНОЙ сессии: GET, начатый до
    выхода (или до входа, или до 401), нельзя отдать вызову, сделанному после —
@@ -108,6 +109,7 @@ let sessionGen = 0;
 function sessionBoundary() {
   sessionGen += 1;
   inflight.clear();
+  resetTraceSession();
 }
 export function sessionGeneration() { return sessionGen; }
 
@@ -123,7 +125,21 @@ async function request(method, path, body, opts = {}) {
   return p;
 }
 
-async function rawRequest(method, path, body, { signal } = {}) {
+async function rawRequest(method, path, body, opts = {}) {
+  const ticket = traceBegin(method, path, opts.traceOrigin);
+  if (!ticket) return rawRequestUntraced(method, path, body, opts);
+  const receipt = {status: null};
+  try {
+    const result = await rawRequestUntraced(method, path, body, {...opts, receipt});
+    traceEnd(ticket, receipt.status, 'HTTP_OK');
+    return result;
+  } catch (error) {
+    traceEnd(ticket, receipt.status, error?.name === 'AbortError' ? 'ABORTED' : error?.status ? 'HTTP_ERROR' : 'TRANSPORT_ERROR');
+    throw error;
+  }
+}
+
+async function rawRequestUntraced(method, path, body, { signal, receipt } = {}) {
   const headers = {};
   const csrf = getCsrf();
   if (csrf && UNSAFE.has(method)) headers[CSRF_HEADER] = csrf;
@@ -146,6 +162,7 @@ async function rawRequest(method, path, body, { signal } = {}) {
     throw new ApiError(humanStatus(0, path), { status: 0, hint: hintFor(0), path });
   }
 
+  if (receipt) receipt.status = res.status;
   const text = await res.text();
   let data = null;
   if (text) {
@@ -207,7 +224,7 @@ export function pick(obj, keys, fallback = undefined) {
 export const api = {
   // V2: универсальный вызов для feature-страниц (контракты §8) — свои endpoint'ы
   // фича зовёт через raw, не расширяя этот файл
-  raw: (path, { method = 'GET', body } = {}) => request(method, path, body),
+  raw: (path, { method = 'GET', body, signal, traceOrigin } = {}) => request(method, path, body, {signal, traceOrigin}),
 
   // auth: токен → серверная сессия (cookie); в браузере остаётся только CSRF
   login: async (token) => {

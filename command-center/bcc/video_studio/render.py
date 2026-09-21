@@ -37,7 +37,10 @@ def filter_graph_option(ffmpeg: str, mtime_ns: int, size: int) -> str:
             else "-/filter_complex")
 
 
+from .viral_vfx import compile_filter as viral_filter, validate_params as validate_vfx
+
 EFFECT_PARAMETERS = {
+    "viral_vfx": {"preset", "intensity", "bpm", "offset"},
     "eq":{"brightness","contrast","saturation","gamma"}, "color":{"brightness","contrast","saturation","gamma"},
     "colorbalance":{"rs","gs","bs","rm","gm","bm","rh","gh","bh"}, "curves":{"master","red","green","blue"},
     "lut3d":{"cube_text"}, "chroma":{"color","similarity","blend"}, "chromakey":{"color","similarity","blend"},
@@ -55,6 +58,7 @@ def validate_effect(effect):
     params=effect.get("params",{})
     if not isinstance(params,dict) or set(params)-EFFECT_PARAMETERS[kind]:raise ValueError("unsupported effect parameters")
     if type(effect.get("enabled",True)) is not bool:raise ValueError("effect enabled must be boolean")
+    if kind == "viral_vfx": validate_vfx(params)
     return effect
 
 
@@ -269,7 +273,9 @@ class Compiler:
             if not effect.get("enabled",True): continue
             kind,p = effect["type"], effect.get("params",{})
             val=lambda k,d,lo=-1e6,hi=1e6:fmt(number(p.get(k,d),minimum=lo,maximum=hi))
-            if kind in {"eq","color"}:
+            if kind == "viral_vfx":
+                filters.append(viral_filter(p, start_seconds=seconds(clip.get("start", 0))))
+            elif kind in {"eq","color"}:
                 filters.append(f"eq=brightness={val('brightness',0,-1,1)}:contrast={val('contrast',1,-1000,1000)}:saturation={val('saturation',1,0,3)}:gamma={val('gamma',1,.1,10)}")
             elif kind=="colorbalance":
                 filters.append("colorbalance="+":".join(k+"="+val(k,0,-1,1) for k in ["rs","gs","bs","rm","gm","bm","rh","gh","bh"]))
