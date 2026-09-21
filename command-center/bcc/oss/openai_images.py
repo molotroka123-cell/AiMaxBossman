@@ -215,6 +215,10 @@ class OpenAIImageProvider:
             raise ValueError("OpenAI image response contains invalid base64") from exc
 
         measured_w, measured_h, mime = _verify_image(raw, output_format)
+        if (measured_w, measured_h) != (width, height):
+            raise ValueError(
+                f"OpenAI returned {measured_w}x{measured_h}, expected {width}x{height}"
+            )
         return raw, mime, {
             "provider": "openai",
             "provider_alias": self.alias,
