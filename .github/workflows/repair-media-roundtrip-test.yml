@@ -1,66 +1,56 @@
-name: One-shot media roundtrip assertion repair
+name: Read-only closure diagnostic snapshot
 
+# The one-shot test repair is already in the canonical tree. Release checks
+# must never mutate their own tests or push an untested moving HEAD.
 on:
   push:
-    branches:
-      - release/bossman-owner
+    branches: [release/bossman-owner]
+    paths: [.github/workflows/repair-media-roundtrip-test.yml]
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: closure-snapshot-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
-  repair:
+  snapshot:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          ref: release/bossman-owner
-      - name: Update stale Image Studio path assertion
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Snapshot tracked source and generated skip inventory without mutation
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('command-center/tests/test_media_roundtrip_studio.py')
-          text = path.read_text(encoding='utf-8')
-          old = '''def test_image_storage_roundtrip_produces_a_measured_real_file(tmp_path):
-              """Оборот Image Studio через продуктовое хранилище ImageStorage."""
-              result = roundtrip.image_roundtrip(tmp_path)
-              assert result["status"] == "PASS"
-              assert result["stored_through"] == "bcc.v2.images_runtime.ImageStorage"
-              assert result["import"]["measured_format"] == "png_pipe"
-              assert result["import"]["sha256"] == result["fixture"]["sha256"]
-          '''.replace('              ', '    ')
-          new = '''def test_image_storage_roundtrip_produces_a_measured_real_file(tmp_path):
-              """Оборот Image Studio через настоящий HTTP-контур продукта."""
-              result = roundtrip.image_roundtrip(tmp_path)
-              assert result["status"] == "PASS"
-              assert result["stored_through"] == "bcc.features.images HTTP API"
-              transform = result["transform"]
-              assert transform["engine"] == "bcc.features.images.transform_asset"
-              assert transform["persisted_reopen"] is True
-              assert transform["bytes_changed"] is True
-              assert result["import"]["measured_format"] == "png_pipe"
-              assert result["import"]["sha256"] == result["fixture"]["sha256"]
-          '''.replace('              ', '    ')
-          count = text.count(old)
-          if count == 0:
-              print('Target block already updated; nothing to repair.')
-              raise SystemExit(0)
-          if count != 1:
-              raise SystemExit(f'Expected exactly one stale assertion block, found {count}')
-          path.write_text(text.replace(old, new), encoding='utf-8')
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          out="$RUNNER_TEMP/closure-snapshot"
+          mkdir -p "$out"
+          git archive --format=tar.gz --output="$out/source.tar.gz" HEAD
+          git rev-parse HEAD > "$out/source-sha.txt"
+          git rev-parse HEAD^{tree} > "$out/tree-sha.txt"
+          python - "$out" <<'PY'
+          import importlib.util, json, pathlib, sys
+          spec = importlib.util.spec_from_file_location('skips_registry', 'tools/skips_registry.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          rows = module.collect()
+          out = pathlib.Path(sys.argv[1])
+          (out / 'SKIPS_REGISTRY.md').write_text(module.render(rows), encoding='utf-8')
+          (out / 'skip-rows.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
           PY
-          python -m py_compile command-center/tests/test_media_roundtrip_studio.py
-      - name: Commit verified test repair
-        shell: bash
-        run: |
-          if git diff --quiet -- command-center/tests/test_media_roundtrip_studio.py; then
-            echo 'No repair commit required.'
-            exit 0
-          fi
-          git config user.name 'bossman-closure-bot'
-          git config user.email 'actions@users.noreply.github.com'
-          git add command-center/tests/test_media_roundtrip_studio.py
-          git commit -m 'test(media): assert real Image Studio HTTP edit path'
-          git push origin HEAD:release/bossman-owner
+          git diff --exit-code
+          (cd "$out" && sha256sum source.tar.gz SKIPS_REGISTRY.md > SHA256SUMS)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: closure-source-${{ github.sha }}
+          path: ${{ runner.temp }}/closure-snapshot/
+          if-no-files-found: error
+          retention-days: 7
