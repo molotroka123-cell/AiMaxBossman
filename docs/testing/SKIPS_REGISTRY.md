@@ -1,10 +1,11 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 235. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 236. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
 |---|---|---|---|---|---|---|
+| `command-center/tests/test_release_ux_torture.py:19` | skipif | `not chromium_available()` | Chromium/Playwright unavailable on this host | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_action_router.py:217` | skipif | `not _has_chromium()` | Chromium не предустановлен | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_action_router.py:252` | skipif | `not _has_chromium()` | Chromium не предустановлен | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_apps_files_browser_owner.py:22` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
