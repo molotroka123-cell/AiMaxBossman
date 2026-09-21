@@ -180,26 +180,42 @@ def _haystack(obs: dict) -> str:
 
 
 def verify(obs: dict, expect: dict | None) -> tuple[bool | None, list[str]]:
-    """Постусловие по СВЕЖЕМУ наблюдению. Пустое expect — None (не проверено)."""
-    expect = {k: str(v) for k, v in (expect or {}).items() if str(v or "").strip()}
-    if not expect:
+    """Постусловие по СВЕЖЕМУ наблюдению.
+
+    Пустое expect → None (не проверяли). Непустое, но с неизвестным или
+    неверно типизированным ключом → False (проверить не смогли — считаем НЕ
+    подтверждённым, fail closed). verified=True возможно ТОЛЬКО когда хотя бы
+    одно ИЗВЕСТНОЕ условие реально проверено и все известные сошлись."""
+    KNOWN = ("window_title_contains", "contains_text", "absent_text")
+    if not isinstance(expect, dict) or not expect:
+        return None, ["постусловие не задано — результат не проверен"]
+    clean, bad = {}, []
+    for k, v in expect.items():
+        if isinstance(v, (str, int, float, bool)) and str(v).strip():
+            clean[k] = str(v)
+        elif str(v or "").strip():
+            bad.append(k)                       # непустое, но не скаляр — неверный тип
+    unknown = sorted(set([k for k in clean if k not in KNOWN] + bad))
+    if unknown:
+        return False, [f"ожидание {', '.join(unknown)} не поддержано — "
+                       f"проверить не смогли, считаю НЕ подтверждённым"]
+    if not clean:
         return None, ["постусловие не задано — результат не проверен"]
     title = str((obs.get("window") or {}).get("title") or "").lower()
     hay = _haystack(obs).lower()
-    notes, ok = [], True
-    if "window_title_contains" in expect:
-        hit = expect["window_title_contains"].lower() in title
-        ok &= hit
+    notes, ok, checked = [], True, 0
+    if "window_title_contains" in clean:
+        hit = clean["window_title_contains"].lower() in title; ok &= hit; checked += 1
         notes.append(f"заголовок {'содержит' if hit else 'НЕ содержит'} "
-                     f"«{expect['window_title_contains']}»")
-    if "contains_text" in expect:
-        hit = expect["contains_text"].lower() in hay
-        ok &= hit
-        notes.append(f"на экране {'есть' if hit else 'НЕТ'} «{expect['contains_text']}»")
-    if "absent_text" in expect:
-        hit = expect["absent_text"].lower() not in hay
-        ok &= hit
-        notes.append(f"«{expect['absent_text']}» {'отсутствует' if hit else 'ВСЁ ЕЩЁ на экране'}")
+                     f"«{clean['window_title_contains']}»")
+    if "contains_text" in clean:
+        hit = clean["contains_text"].lower() in hay; ok &= hit; checked += 1
+        notes.append(f"на экране {'есть' if hit else 'НЕТ'} «{clean['contains_text']}»")
+    if "absent_text" in clean:
+        hit = clean["absent_text"].lower() not in hay; ok &= hit; checked += 1
+        notes.append(f"«{clean['absent_text']}» {'отсутствует' if hit else 'ВСЁ ЕЩЁ на экране'}")
+    if not checked:
+        return None, ["постусловие не задано — результат не проверен"]
     return ok, notes
 
 
@@ -281,7 +297,7 @@ async def _focus(st: "ComputerState", handle: int) -> bool:
     return int(fg.get("handle") or 0) == int(handle)
 
 
-async def act(svc, args: dict) -> dict[str, Any]:
+async def act(svc, args: dict, *, approved: bool = False) -> dict[str, Any]:
     """Одно действие по свежему наблюдению + автоматическая проверка результата."""
     ok, why = availability()
     if not ok:
@@ -328,11 +344,19 @@ async def act(svc, args: dict) -> dict[str, Any]:
                                                      observation=pol_obs)
         if not decision.allow:
             raise ActRefused(f"политика запретила действие: {decision.reason}")
-        if decision.requires_approval and not args.get("_approved_consequence"):
-            raise ActRefused(
-                f"действие последствийное ({decision.reason}) — повторите вызов с "
-                f"semantic=\"{(decision.approval_kind or '').removeprefix('computer_')}\": "
-                f"тогда оно пройдёт через подтверждение владельца")
+        if decision.requires_approval:
+            # Одобрение засчитывается ТОЛЬКО когда (1) до нас дошёл доверенный путь
+            # после подтверждения владельца (approved задаёт обёртка _t_act, не
+            # модель) и (2) effect-hook действительно МОГ вынести это последствие
+            # на подтверждение (semantic или подпись цели/текста). Последствие,
+            # известное лишь по переднему окну, владельцу не показывали — отказ,
+            # чтобы модель назвала его semantic и владелец увидел ASK.
+            asked = core["ComputerPolicy"].ask_consequence(args) is not None
+            if not (approved and asked):
+                raise ActRefused(
+                    f"действие последствийное ({decision.reason}) — повторите вызов с "
+                    f"semantic=\"{(decision.approval_kind or '').removeprefix('computer_')}\": "
+                    f"тогда оно пройдёт через подтверждение владельца")
 
         if kind in ("click", "double_click") and coords:
             # Координатный запасной путь: ПЕРЕД кликом перечитываем экран и
@@ -426,11 +450,11 @@ async def _t_observe(args, ctx):
 
 async def _t_act(args, ctx):
     args = dict(args)
-    # effect_hook уже поднял ASK для заявленного последствия; сюда доходит только одобренное.
-    if args.get("semantic"):
-        args["_approved_consequence"] = True
+    # effect_hook уже поднял ASK для последствия (semantic ЛИБО подпись цели/текста);
+    # сюда управление доходит только после подтверждения владельца. approved НЕ
+    # выводится из полей модели — его ставит эта доверенная обёртка.
     try:
-        res = await act(ctx.svc, args)
+        res = await act(ctx.svc, args, approved=True)
     except ActRefused as exc:
         return ToolResult(content=f"действие не выполнено: {exc}", one_line="computer.act: отказ",
                           error=True)
@@ -449,7 +473,7 @@ async def _t_act(args, ctx):
 
 def _act_effect(args: dict):
     from bossman.computer_operator.policy import ComputerPolicy
-    declared = ComputerPolicy.declared_consequence(args or {})
+    declared = ComputerPolicy.ask_consequence(args or {})
     if declared:
         return ("ask", f"последствийное действие на рабочем столе: {declared}")
     return None
