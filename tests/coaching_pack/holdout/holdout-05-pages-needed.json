@@ -1,0 +1,23 @@
+{
+  "task_id": "holdout-05-pages-needed",
+  "split": "holdout",
+  "task_class": "integer-division",
+  "title": "Pages needed",
+  "prompt": "Write pages_needed(items, per_page) returning how many pages are needed to show all items (per_page >= 1); zero items need zero pages.",
+  "signature": "def pages_needed(items, per_page):",
+  "hidden_tests": [
+    "assert pages_needed(10, 3) == 4",
+    "assert pages_needed(9, 3) == 3",
+    "assert pages_needed(0, 5) == 0",
+    "assert pages_needed(1, 1) == 1"
+  ],
+  "reference_solution": "def pages_needed(items, per_page):\n    full, rem = divmod(items, per_page)\n    return full + (1 if rem else 0)\n",
+  "teacher_lesson": "Use divmod for page counts; a float is not a count.",
+  "mock": {
+    "label": "MOCK — scripted student, not a model",
+    "first_attempt": "def pages_needed(items, per_page):\n    return items / per_page\n",
+    "second_attempt": null,
+    "lesson_trigger": "divmod",
+    "student_lesson": null
+  }
+}
