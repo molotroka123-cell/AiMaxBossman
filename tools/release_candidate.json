@@ -15,7 +15,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из push;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-21-pre-evo-owner-hardware-ux-settle-fix",
+  "candidate_label": "rc-2026-09-21-pre-evo-owner-music-preset-hotfix",
   "declared_for": "release/bossman-owner",
-  "note": "Exact-SHA pre-EVO owner-hardware candidate redeclared after the release UX torture gate exposed an async route/render settling race: hash navigation could be correct while #view was briefly empty before render. The gate now waits, within the same bounded timeout, for the requested hash, no skeleton, and real non-empty rendered text; a genuinely blank or stuck route still fails closed. This declaration schedules the full mandatory matrix including Windows bundle, Windows owner tasks, and owner scenarios. Intelligence Preservation and human-speed evidence remain fail-closed where real evidence is unavailable; no benchmark evidence is fabricated."
+  "note": "Reproduce and repair the actual c3947038 Windows freeze blocker: Music Studio preset clicks waited on optional generator health before updating visible fields and selection. Preset and manual-edit feedback are now synchronous and do not invoke generation or relax availability. Add two required installed-Windows browser regressions with an explicitly unavailable/pending health transport; raise the acceptance minimum from 47 to 49 without removing any gates. This declaration schedules a fresh exact-SHA matrix. Real model/hardware evidence remains separate and fail-closed; this is a candidate, not a readiness claim."
 }

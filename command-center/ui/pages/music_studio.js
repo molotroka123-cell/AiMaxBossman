@@ -15,6 +15,33 @@ const MusicPage={
     const presets=await api.raw('/api/music/presets').catch(()=>({items:[]}));
     const ready=state.health?.status==='READY';
     const unavailable=state.health?.reason||'ACE-Step 1.5 локально не настроен или не отвечает';
+    // Choosing a style is local form editing, not a generator health check.
+    // Re-rendering via ctx.refresh() waits for ACE-Step and leaves the old
+    // fields/buttons visible when that optional service is slow or offline.
+    const presetButtons=[];
+    const syncPresetSelection=()=>{
+      for(const {button,preset} of presetButtons){
+        const selected=state.presetId===preset.id;
+        button.setAttribute('aria-pressed',selected?'true':'false');
+        button.title=selected?'Выбранный стиль':'Выбрать стиль '+preset.label;
+        button.classList.toggle('btn-primary',selected);
+      }
+    };
+    const clearPreset=()=>{state.presetId='';syncPresetSelection()};
+    const promptInput=h('textarea.input',{value:state.prompt,
+      onInput:e=>{state.prompt=e.target.value;clearPreset()},rows:5});
+    const bpmInput=h('input.input',{type:'number',min:40,max:240,value:state.bpm,
+      onInput:e=>{state.bpm=Number(e.target.value);clearPreset()}});
+    const presetControls=(presets.items||[]).map(preset=>{
+      const button=h('button.btn.btn-sm',{type:'button',onClick:()=>{
+        state.prompt=preset.prompt;state.bpm=preset.bpm;state.presetId=preset.id;
+        promptInput.value=state.prompt;bpmInput.value=state.bpm;
+        syncPresetSelection();
+      }},preset.label);
+      presetButtons.push({button,preset});
+      return button;
+    });
+    syncPresetSelection();
     return h('div.stack.lg',
       h('div.page-head',
         h('div',h('h1','Music Studio'),h('div.dim','Локальная генерация музыки · ACE-Step 1.5')),
@@ -23,15 +50,10 @@ const MusicPage={
       h('section.panel',
         h('div.panel-head',h('h2','Стиль')),
         h('div.panel-body',
-          h('div.row.wrap',...(presets.items||[]).map(p=>h('button.btn.btn-sm',{
-            type:'button',
-            'aria-pressed':state.presetId===p.id?'true':'false',
-            title:state.presetId===p.id?'Выбранный стиль':'Выбрать стиль '+p.label,
-            onClick:()=>{state.prompt=p.prompt;state.bpm=p.bpm;state.presetId=p.id;ctx.refresh()},
-          },p.label))),
-          field('Описание',h('textarea.input',{value:state.prompt,onInput:e=>{state.prompt=e.target.value;state.presetId=''},rows:5})),
+          h('div.row.wrap',...presetControls),
+          field('Описание',promptInput),
           h('div.row',
-            field('BPM',h('input.input',{type:'number',min:40,max:240,value:state.bpm,onInput:e=>{state.bpm=Number(e.target.value);state.presetId=''}})),
+            field('BPM',bpmInput),
             field('Длина, сек',h('input.input',{type:'number',min:10,max:600,value:state.duration,onInput:e=>state.duration=Number(e.target.value)}))),
           field('Lyrics / instrumental',h('textarea.input',{value:state.lyrics,onInput:e=>state.lyrics=e.target.value,rows:4})),
           h('button.btn.btn-primary',{
