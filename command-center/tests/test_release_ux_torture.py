@@ -35,10 +35,18 @@ def _collect(page):
 
 
 def _assert_page_settled(page, page_id: str):
+    # A hash change is synchronous, while the router/render path is async.  Do
+    # not mistake the brief window between those two events (empty #view and no
+    # skeleton yet) for a dead page.  Requiring real visible text here keeps the
+    # gate fail-closed: a genuinely blank view still times out after 15 seconds.
     page.wait_for_function(
-        """id => location.hash.startsWith('#/' + id)
-          && document.querySelector('#view')
-          && !document.querySelector('#view .skeleton')""",
+        """id => {
+          const view = document.querySelector('#view');
+          return location.hash.startsWith('#/' + id)
+            && view
+            && !view.querySelector('.skeleton')
+            && (view.innerText || '').trim().length > 0;
+        }""",
         arg=page_id, timeout=15000)
     text = page.locator("#view").inner_text().strip()
     assert text, f"{page_id}: visible view is empty"
