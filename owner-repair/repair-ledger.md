@@ -81,3 +81,40 @@ FAST `qwen3.6-35b-a3b` Q5_K_M @ 127.0.0.1:8082, llama.cpp b10964 Vulkan, ctx 327
 
 ## 2026-09-21T21:00Z — teacher — checkpoint push on owner request
 - See CONTINUATION.md. Full-suite triage and exact-SHA CI pending. Not 1.0.
+
+---
+
+## 2026-09-21 — integration session II (GitHub-only) — teacher
+
+Context switched from audit to integration on owner request. Five fixes pushed to
+release/bossman-owner, each small, tested, and non-weakening.
+
+- **cb7aefe7 — CI obligatory root lane green.** tests/test_studio_catalog.py hard-coded
+  6 models / a summary literal / models[-1]=higgsfield; the sd.cpp provider (6384c8f0)
+  grew the catalog to 8. Bumped 6→8, selected higgsfield by provider identity, replaced
+  the blanket `all(price.usd is None)` with a teeth-keeping invariant (no committed
+  non-zero charge; usd==0 only when free) — negative control: usd=5 and usd=0/free=False
+  both still rejected. Regenerated docs/testing/SKIPS_REGISTRY.md (entries=239,
+  without_reason=0). Also unblocks browser-user-paths.
+- **59daf7c3 — Computer Use CU-VERIFY + CU-APPROVAL.** verify() returned verified=True
+  for an unknown non-empty expect with zero checks — now empty→None, unknown/mistyped→
+  False, True only when a known condition ran. Approval was stamped from the model's
+  `semantic` field while the ASK fired only on declared_consequence(semantic): a benign
+  semantic="click" on target="Delete account" executed without an owner ASK. New
+  ComputerPolicy.ask_consequence (declared OR named target/text label) drives the ASK;
+  _t_act no longer derives approval from a model field; act() takes a trusted `approved`
+  param and refuses a foreground-only consequence until it is named. 9 new regressions,
+  57 existing computer tests unchanged.
+- **def1a714 — F-17 UX-settle oracle.** #view stamped data-rendered=<page id> only after
+  the target content is in place; oracle waits for it. Probe over 36 pages: old condition
+  raced on stale content 33/36, new oracle accepted a bad state 0/36. Makes the obligatory
+  Command Center CI monkey test deterministic (it had reddened six candidates today).
+- **26ef7f76 — sd.cpp MEDIA-HASH + MEDIA-CANCEL.** engine_files verified size only and
+  provenance recorded the manifest sha as observed; now _verified_sha hashes each file
+  once (cached by path,size,mtime) and records expected+observed as distinct fields. _run
+  no longer spawns after cancel and kills the process tree; the read loop is deadline-bounded.
+  2 new regressions. MEDIA-RESTART (in-memory _jobs) left OPEN — needs the durable store.
+
+Full-suite triage: the local 62-fail run lacked ffmpeg; with ffmpeg+Chromium 67/69 pass,
+the 2 residuals being F-17 (fixed) and the missing `mcp` extra (installs and passes).
+Zero real product regressions.
