@@ -165,7 +165,9 @@ async def fail(svc,jid,reason,message,verdict='FAIL'):
             # Red team 2026-09-21 (RT-S5): задание, упавшее на втором выходе, оставляло
             # первый выход в галерее как обычный run. Незавершённое задание не
             # даёт результатов: частичные выходы уходят в корзину, файлы удаляются.
-            partial=[dict(r._mapping) for r in (await s.execute(sa.select(runs.c.id,runs.c.file_path).where(runs.c.job_id==jid,runs.c.deleted==False))).all()]  # noqa: E712
+            # Исключение — перерасход бюджета: байты уже оплачены и проверены,
+            # выбрасывать их — второй ущерб (test_studio_cloud); они остаются.
+            partial=[] if reason=='budget' else [dict(r._mapping) for r in (await s.execute(sa.select(runs.c.id,runs.c.file_path).where(runs.c.job_id==jid,runs.c.deleted==False))).all()]  # noqa: E712
             if partial:
                 await s.execute(sa.update(runs).where(runs.c.id.in_([r['id'] for r in partial])).values(deleted=True))
         await s.commit()

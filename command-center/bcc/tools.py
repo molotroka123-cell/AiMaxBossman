@@ -417,6 +417,16 @@ def malformed_arguments(spec: ToolSpec, args: Any) -> str | None:
     """
     if not isinstance(args, dict):
         return f"аргументы должны быть JSON-объектом, получено {type(args).__name__}"
+    if "_raw" in args and spec.normalize_args is not None:
+        # Инструмент с собственным нормализатором (web.search/web.open) умеет
+        # восстановить фразу или токен из `_raw` — та же форма, которую видит
+        # владелец при одобрении. Отказ только если `_raw` пережил нормализацию.
+        try:
+            args = spec.normalize_args(dict(args))
+        except Exception:  # noqa: BLE001 — нормализатор упал: аргументы непригодны
+            return "аргументы инструмента не разобраны (нормализация не удалась)"
+        if not isinstance(args, dict):
+            return "аргументы инструмента не разобраны (нормализация вернула не объект)"
     if "_raw" in args:
         return "аргументы инструмента не разобраны (провайдер вернул повреждённый JSON)"
     if set(args) == {"value"} and spec.input_schema and "value" not in spec.input_schema:
