@@ -124,6 +124,14 @@ def _safe_payload(data: Any, depth: int = 0) -> Any:
             name = str(key)
             if name.lower() in FORBIDDEN_KEYS:
                 out[name] = "[не записывается]"
+            elif (name == "features" and isinstance(value, list)
+                  and all(isinstance(v, str) for v in value)):
+                # Environment snapshots are only useful when their live feature
+                # inventory is complete. The generic 50-item log cap started
+                # silently dropping later feature names (including
+                # testing_period) once the product grew beyond 50 modules. Keep
+                # this bounded but high enough for the explicit inventory.
+                out[name] = [_safe_payload(v, depth + 1) for v in value[:200]]
             else:
                 out[name] = _safe_payload(value, depth + 1)
         return out

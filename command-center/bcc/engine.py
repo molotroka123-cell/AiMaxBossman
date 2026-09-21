@@ -398,7 +398,13 @@ class TaskEngine:
                 worker = self._active.get(run_id)
                 if worker is not None and not worker.done():
                     self._cancelling.add(run_id)
-                    worker.cancel()
+                    # Stop may be requested from inside this same worker. Cancelling
+                    # the current task here can tear an in-process request through
+                    # DB rollback and strand a checked-out connection. Sticky task
+                    # state is observed by completion/interrupt handling after the
+                    # callback unwinds, so only cancel a different worker task.
+                    if worker is not asyncio.current_task():
+                        worker.cancel()
         return {"ok": True, "status": "stopped"}
 
     async def pause(self, task_id: int) -> dict:
