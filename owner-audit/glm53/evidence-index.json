@@ -64,6 +64,34 @@
       "note": "first launch console log (file locked by running backend at hash time; size recorded)",
       "sha256": "LOCKED_BY_RUNNING_BACKEND",
       "bytes": 71280
+    },
+    {
+      "id": "EV-009",
+      "path": "C:\\Users\\asd\\Bossman\\benchmarks\\ace_magic\\cp02_api_results.json",
+      "note": "CP-02 round 1: file-intelligence FEATURE_DISABLED (honest fail-closed), memory 503 before config",
+      "sha256": "1dc83da5acf8beb031f63d25b0d943907f13aefa3b5560482dc70738cb77bef4",
+      "bytes": 967
+    },
+    {
+      "id": "EV-010",
+      "path": "C:\\Users\\asd\\Bossman\\benchmarks\\ace_magic\\cp02_memory_results.json",
+      "note": "CP-02 round 2: health 503 empty; write 200 (wrong payload, silent drop); search empty for marker; stats indexed",
+      "sha256": "5603a971fb907c9402c17faf87f44d57b3db68ccedbfb40c82b82ab63c4826df",
+      "bytes": 549
+    },
+    {
+      "id": "EV-011",
+      "path": "C:\\Users\\asd\\Bossman\\benchmarks\\ace_magic\\cp02_memory_results2.json",
+      "note": "CP-02 round 3: FactIn-compliant write -> 409 EMPTY; facts total=0; search positive/negative controls",
+      "sha256": "82e70f6269de0058d16533292f79061568a812e817c7a6b285c5537c7513309b",
+      "bytes": 521
+    },
+    {
+      "id": "EV-012",
+      "path": "C:\\Users\\asd\\Bossman\\audit-memory\\BOSSMAN Memory\\2026-09-21-1822-memory.md",
+      "note": "note file produced by malformed write: frontmatter only, payload content silently dropped (113 bytes)",
+      "sha256": "6536b4a2aa10d83daeaeba9af06e1d7aebd9cd973ad5c04543294f24eb8ecc82",
+      "bytes": 113
     }
   ],
   "note": "Large/private evidence intentionally not committed. Screenshots containing the owner desktop are never committed; hashes recorded here prove their local integrity."
