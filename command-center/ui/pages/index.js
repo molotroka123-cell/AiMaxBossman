@@ -47,6 +47,8 @@ export const FEATURE_PAGES = [
     () => import('./oss.js'), (m) => m.default),
   lazyPage({ id: 'video-studio', title: 'Video Studio', icon: 'film', nav: 'primary', section: 'studio' },
     () => import('./video_studio.js'), (m) => m.default),
+  lazyPage({ id: 'music-studio', title: 'Music Studio', icon: 'activity', nav: 'primary', section: 'studio' },
+    () => import('./music_studio.js'), (m) => m.default),
   lazyPage({ id: 'bossman-chat', title: 'История видео и чат', icon: 'terminal', section: 'studio', nav: 'more' },
     () => import('../video_chat.js'), (m) => m.ChatPage),
   lazyPage({ id: 'home-v3', title: 'Главная', icon: 'home', nav: 'primary', section: 'main' },
