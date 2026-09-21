@@ -48,6 +48,11 @@ async def setup(svc):
             await s.execute(sa.update(image_jobs).where(image_jobs.c.id.in_(active)).values(status='failed',error='interrupted_unknown: inspect provider before retry',finished_at=utcnow()))
             await s.execute(sa.update(jobs).where(jobs.c.job_id.in_(active)).values(reason='interrupted_unknown',verdict='OWNER_REQUIRED'))
         await s.commit()
+    # Engine child processes recorded by sdcpp sidecars whose owner process died: kill by verified PID identity.
+    try:
+        from bcc.studio.providers.sdcpp import reconcile_orphans
+        await asyncio.to_thread(reconcile_orphans,svc.settings.data_dir/'studio'/'engine-work')
+    except Exception:pass
 
 
 def model_specs():
