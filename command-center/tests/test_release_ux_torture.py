@@ -35,15 +35,18 @@ def _collect(page):
 
 
 def _assert_page_settled(page, page_id: str):
-    # A hash change is synchronous, while the router/render path is async.  Do
-    # not mistake the brief window between those two events (empty #view and no
-    # skeleton yet) for a dead page.  Requiring real visible text here keeps the
-    # gate fail-closed: a genuinely blank view still times out after 15 seconds.
+    # A hash change is synchronous; the router/render path is async and passes
+    # through a textless skeleton whose "no skeleton + non-empty text" the
+    # PREVIOUS page still satisfies (that is why requiring non-empty text alone
+    # still raced).  Wait for the product's own end-of-render signal —
+    # #view[data-rendered] set to THIS page id only after the target content is
+    # in place — so the oracle can return only once the target really rendered.
     page.wait_for_function(
         """id => {
           const view = document.querySelector('#view');
           return location.hash.startsWith('#/' + id)
             && view
+            && view.dataset.rendered === id
             && !view.querySelector('.skeleton')
             && (view.innerText || '').trim().length > 0;
         }""",
