@@ -1,0 +1,14 @@
+{
+  "checkpoint": "CP-01",
+  "tested_sha": "0c3e22ffd44c9b2c3e4f90b2e86456c28ca43f39",
+  "branch": "audit/owner-aster-20260921",
+  "handoff": "C:\\Users\\asd\\Bossman\\handoff\\models-ready.json",
+  "evidence": [
+    {"kind":"endpoint", "url":"http://127.0.0.1:8081/health", "result":"ok"},
+    {"kind":"endpoint", "url":"http://127.0.0.1:8082/health", "result":"ok"},
+    {"kind":"endpoint", "url":"http://127.0.0.1:8800/health", "result":"ready_degraded_browser_unknown"},
+    {"kind":"model", "id":"qwen3.8-27b", "revision":"4ca720788d1e01f1bff70c033e0d0028fd02e502", "result":"loaded_and_tested"},
+    {"kind":"model", "id":"qwen3.6-35b-a3b", "revision":"a483e9e6cbd595906af30beda3187c2663a1118c", "result":"loaded_and_tested"},
+    {"kind":"runtime", "build":"b10964", "backend":"Vulkan", "result":"both_servers"}
+  ]
+}
