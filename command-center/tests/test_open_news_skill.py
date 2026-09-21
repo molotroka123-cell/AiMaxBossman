@@ -333,7 +333,7 @@ def test_missing_or_tampered_required_assets_fail_build(monkeypatch, tmp_path):
 def test_feed_overflow_is_named_and_source_dates_not_invented(monkeypatch):
     payload = rss(''.join(item(f"https://example.com/{i}") for i in range(45)))
     mocked_http(monkeypatch, lambda req: httpx.Response(200, headers={"content-type": "text/xml"}, content=payload))
-    report = asyncio.run(news.search_news({"query": "x", "limit": 2}))
+    report = asyncio.run(news.search_news({"query": "local model", "limit": 2}))
     assert report["feed_truncated"] is True and report["truncated"] is True
     assert len(report["results"]) == 2
     assert report["results"][0]["published_at"] == "Sun, 20 Sep 2026 10:00:00 GMT"

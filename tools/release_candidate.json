@@ -22,7 +22,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из пуша;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-20-audit-closure",
-  "declared_for": "release/bossman-owner",
-  "note": "Audit closure candidate from 6ae8e70f9f3ff468f7ea891d61745dcb8f562f3b. Fixes verified red checks: native Image Studio roundtrip retains measured import evidence; PRE-EVO Chromium torture skip is registered; self-modifying CI was already replaced by read-only diagnostics. Intelligence Preservation remains intentionally fail-closed without real same-model measurement and is not represented as PASS. Human-speed Windows degenerate thread_cpu measurement remains evidence-quality/non-release component measurement, not fabricated latency. Trigger exact-SHA workflows; old/cancelled/queued evidence does not transfer."
+  "candidate_label": "rc-2026-09-20-convergence-mimik-open-news",
+  "declared_for": "claude/bossman-final-convergence-hu2702",
+  "note": "Converges owner release ce095d55, canonical PREP/open-news 6cb62d92 and Dashboard Next contract 7db0db97. Image candidate 43bc5e4b is retained in ancestry/source snapshot but NOT activated because its paid route lacks canonical governance. Both skills and typed Skills form have bounded local regression evidence; full exact-SHA CI, new Windows archive, real owner GUI/model/Studio/soak/rollback/Ryzen/intelligence acceptance remain required. Old or queued evidence never transfers to this candidate."
 }

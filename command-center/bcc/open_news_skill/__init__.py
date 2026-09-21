@@ -309,9 +309,13 @@ async def search_news(args: dict) -> dict:
     except (httpx.HTTPError, TimeoutError):
         raise NewsFetchError("rss_transport_failed_or_timed_out") from None
     records, discarded, feed_truncated = parse_rss(bytes(chunks), args.get("limit", 10))
-    report = process_articles({"articles": records, "limit": args.get("limit", 10)})
+    # Upstream query semantics include a local word-boundary filter: RSS
+    # acquisition alone does not prove every returned item matches the request.
+    report = process_articles({"articles": records, "limit": args.get("limit", 10),
+                               "query": args["query"], "query_mode": args.get("query_mode", "any")})
     # The endpoint has executed, but returned dates and claims remain unverified.
     report.update(status=("FETCHED_RSS" if report["results"] else
+                          "NO_MATCHING_RESULTS" if records else
                           "NO_USABLE_RESULTS" if discarded else "NO_RESULTS"),
                   source_kind="google_news_rss", network_requests=1,
                   fetched_at=datetime.now(timezone.utc).isoformat(),

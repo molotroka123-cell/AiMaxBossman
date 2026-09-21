@@ -4,7 +4,7 @@ description: "Отдельный новостной скилл: подтверж
 compatibility: "Bossman canonical skill runtime; OpenCode/Claude can read the process, but need the named Bossman tools."
 metadata:
   owner: bossman
-  version: "1.0.0"
+  version: "1.0.1"
   upstream: "https://github.com/alphap365/open-news"
   upstream_sha: "ebb0e9b4deb0bf8fa8983e6324276a51f091ab43"
   license: MIT
@@ -73,7 +73,7 @@ output_schema:
   properties:
     status:
       type: string
-      enum: [FETCHED_RSS, PROCESSED_INPUT, NO_RESULTS, NO_USABLE_RESULTS, BLOCKED, ERROR]
+      enum: [FETCHED_RSS, PROCESSED_INPUT, NO_RESULTS, NO_USABLE_RESULTS, NO_MATCHING_RESULTS, BLOCKED, ERROR]
     findings:
       type: array
       items:

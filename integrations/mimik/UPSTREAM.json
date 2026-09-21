@@ -1,0 +1,47 @@
+{
+  "repository": "https://github.com/westpoint-io/mimik",
+  "commit": "905098ac005a7caad68949189a81e43ac8c327a1",
+  "license": "MIT",
+  "license_blob": "01bfa8ca44964f50ee0d259e5b541c174cd63133",
+  "license_sha256": "63f5c6a5a274bfcd43cd4e9b3bdd89e64f3be9b9500c95e7e0ab45ca5da5bcda",
+  "integration": "text_export_adapter",
+  "reference_files": [
+    {
+      "local_path": "integrations/mimik/reference/markdown-export.ts",
+      "upstream_path": "src/core/export/markdown-export.ts",
+      "git_blob": "53da7d774c3557b0601bd422c6b0a73ca60ef5af",
+      "sha256": "2a6fff7b7a316b4ca107d230f7cbca400d8acc96d970e0e8473dafa266d430ff",
+      "modified": false
+    },
+    {
+      "local_path": "integrations/mimik/reference/blocks.ts",
+      "upstream_path": "src/core/guides/blocks.ts",
+      "git_blob": "50a21340a355d71b9d7db2034d70c1f42ebd1821",
+      "sha256": "62e6b7646e7d15b16f2d277996c67deb3c509e710668ea11d024143f51ece993",
+      "modified": false
+    },
+    {
+      "local_path": "integrations/mimik/reference/types.ts",
+      "upstream_path": "src/core/guides/types.ts",
+      "git_blob": "3a34bb23d03fb3d1d155aae0a82c018dff858ccf",
+      "sha256": "ca77b69c6f943decbf9d800761ba1c3277343712a213ebed81e46fd7d6852723",
+      "modified": false
+    }
+  ],
+  "adaptations": [
+    "Python adapter for the Markdown export and internal Snapshot type",
+    "Block numbering mirrors actionSteps/stepNumbers; callouts never count as execution",
+    "Text-only privacy minimization; no screenshots passed to model by this tool"
+  ],
+  "not_integrated": [
+    "extension installation",
+    "capture",
+    "Guide Me replay",
+    "voice",
+    "cloud AI",
+    "screenshots processing",
+    "PDF/DOCX/video exports"
+  ],
+  "new_dependencies": [],
+  "live_capture_acceptance": "NOT_RUN"
+}

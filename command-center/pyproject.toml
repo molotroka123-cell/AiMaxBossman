@@ -35,7 +35,7 @@ apps = ["numpy>=1.26"]
 # The owner installation ships the existing integrations. Individual extras
 # remain available for small server-only/development installations.
 runtime = ["bossman-command-center[browser,mcp,openclaw,video-interchange,documents,speech,semantic-memory,apps]==0.1.0"]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "greenlet>=3.0", "pytest-timeout>=2.2", "pytest-cov>=5.0"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "greenlet>=3.0", "pytest-timeout>=2.2", "pytest-cov>=5.0", "setuptools>=68"]
 # Браузерные тесты. Отдельной группой, а не в dev: Playwright тянет за собой
 # браузер, и требовать его от всех, кто просто хочет прогнать юнит-тесты,
 # незачем. Без этой группы браузерные тесты честно SKIP'аются, а не падают.
