@@ -28,14 +28,18 @@ def _expected_restart_console_error(text: str) -> bool:
     """Only transport noise caused by the deliberate server-death window.
 
     Killing the exact process under test necessarily races Chromium's resource
-    loader and events WebSocket.  Hiding arbitrary console errors would weaken
-    the acceptance gate, so the exemption is deliberately tiny and is applied
-    only to entries captured between ``live.restart()`` and verified recovery.
+    loader and events WebSocket. Windows can surface the same socket teardown
+    as either REFUSED or RESET depending on which side closes first. Hiding
+    arbitrary console errors would weaken the acceptance gate, so the exemption
+    is deliberately tiny and is applied only to entries captured between
+    ``live.restart()`` and verified recovery.
     """
+    transport = ('ERR_CONNECTION_REFUSED', 'ERR_CONNECTION_RESET')
     return (
-        text == 'Failed to load resource: net::ERR_CONNECTION_REFUSED'
+        text.startswith('Failed to load resource: net::')
+        and any(code in text for code in transport)
         or ('WebSocket connection to ' in text and '/api/events' in text
-            and 'ERR_CONNECTION_REFUSED' in text)
+            and any(code in text for code in transport))
     )
 
 
@@ -43,7 +47,8 @@ def _expected_restart_request_failure(row: dict, base_url: str) -> bool:
     failure = row.get('failure') or ''
     return (
         row.get('url', '').startswith(base_url)
-        and ('ERR_CONNECTION_REFUSED' in failure or 'ERR_ABORTED' in failure)
+        and any(code in failure for code in (
+            'ERR_CONNECTION_REFUSED', 'ERR_CONNECTION_RESET', 'ERR_ABORTED'))
     )
 
 
@@ -142,8 +147,8 @@ def test_local_creative_creation_uses_real_ui_and_survives_edit_restart_rollback
                 expect(page.locator('textarea.bd-code')).to_have_value(edited)
 
                 # Record the deliberate outage separately. Chromium is allowed
-                # to report only connection-refused noise while the exact test
-                # server is dead; recovery is then proved through UI + API.
+                # to report only connection-refused/reset noise while the exact
+                # test server is dead; recovery is then proved through UI + API.
                 restart_console_at = len(console_errors)
                 restart_requests_at = len(request_failures)
                 live.restart()
