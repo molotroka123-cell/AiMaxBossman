@@ -14,6 +14,10 @@ python -m bcc.owner_acceptance --data-dir "$env:BCC_DATA_DIR" --output OWNER_HAR
 
 Then follow the interactive HW-01…HW-13 checklist. Every case is one of PASS, FAIL, OWNER_ACTION_REQUIRED or NOT_TESTED. Missing credentials or a human-only login checkpoint is OWNER_ACTION_REQUIRED; missing product code is FAIL.
 
+## Exact-SHA evidence rule
+
+A GitHub workflow record is evidence only when jobs actually executed against the candidate SHA. `action_required`, skipped, cancelled, queued-only, or completed runs with zero jobs are not PASS and must never be inherited from another SHA. The Windows artifact and final owner certificate must name the same TESTED_SHA that produced the executed mandatory release jobs.
+
 ## Local + cloud acceptance lanes
 
 The owner-hardware run must explicitly cover:
