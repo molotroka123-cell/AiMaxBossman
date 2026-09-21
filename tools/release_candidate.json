@@ -22,7 +22,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из пуша;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-21-owner-test-prep",
+  "candidate_label": "rc-2026-09-21-owner-test-prep-2",
   "declared_for": "release/bossman-owner",
-  "note": "Owner-test preparation candidate. Repairs the deterministic skips registry mismatch reproduced on exact-SHA root CI and Editors safety without weakening or deleting any skip/test. No previous-SHA evidence transfers. Re-run every path-filtered mandatory workflow on this new SHA. Real owner Windows GUI/local-model/GPU/Telegram/intelligence evidence remains owner-required or fail-closed."
+  "note": "Owner-test preparation candidate after repairing owner-acceptance wrapper truthfulness: prefer bundled runtime, delete stale certification outputs before each run, require fresh JSON, and point to HW-01..HW-13 including MVCR. No previous-SHA evidence transfers. Re-run every path-filtered mandatory workflow on this new SHA. Real owner Windows GUI/local-model/GPU/Telegram/intelligence evidence remains owner-required or fail-closed."
 }
