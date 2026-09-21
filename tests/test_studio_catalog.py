@@ -13,10 +13,17 @@ spec.loader.exec_module(catalog)
 
 def test_catalog_is_unverified_and_disabled():
     models = catalog.load()['models']
-    assert len(models) == 6
+    # 6 прежних + 2 локальных движка sd.cpp (2026-09-21): всё по-прежнему
+    # UNVERIFIED и выключено, пока владелец не прогнал живую генерацию.
+    assert len(models) == 8
+    assert {m['provider'] for m in models} == {'comfyui', 'openrouter', 'higgsfield', 'sdcpp'}
     assert all(not m['answers']['VERIFIED'] and not m['enabled'] for m in models)
-    assert all(m['price']['usd'] is None for m in models)
-    assert catalog.summary(catalog.load()) == 'BOSSMAN_STUDIO_CATALOG=6 verified=0 unverified=6'
+    # Цена: облако/ComfyUI — неизвестна (None); локальный движок — 0 по объявлению
+    # «local engine, no provider charge», а не «бесплатно» по умолчанию.
+    assert all(m['price']['usd'] is None for m in models if m['provider'] != 'sdcpp')
+    assert all(m['price'] == {'kind': 'local', 'usd': 0, 'source': 'local engine, no provider charge'}
+               for m in models if m['provider'] == 'sdcpp')
+    assert catalog.summary(catalog.load()) == 'BOSSMAN_STUDIO_CATALOG=8 verified=0 unverified=8'
 
 @pytest.mark.parametrize('field,value', [('width',512),('height',1024),('steps',30),('seed',0)])
 def test_local_settings_accept(field,value):
@@ -47,6 +54,6 @@ def test_cloud_unknown_price_not_auto_eligible():
 
 
 def test_higgsfield_has_no_guessed_endpoints():
-    model = catalog.load()['models'][-1]
+    model = next(m for m in catalog.load()['models'] if m['provider'] == 'higgsfield')
     assert model['status'] == 'OWNER_REQUIRED: official REST contract not supplied'
     assert not any(word in json.dumps(model) for word in ('https://','Authorization','/requests/'))

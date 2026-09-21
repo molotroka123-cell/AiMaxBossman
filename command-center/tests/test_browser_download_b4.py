@@ -76,7 +76,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
         elif p == "/evil":
             self._send(TXT, "application/octet-stream",
-                       {"Content-Disposition": 'attachment; filename="..\..\CON.txt"'})
+                       {"Content-Disposition": 'attachment; filename="..\\..\\CON.txt"'})
         elif p == "/stall.bin":
             # Заголовки есть, тела нет — сервер «завис».
             self.send_response(200)
