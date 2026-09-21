@@ -22,7 +22,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из пуша;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-20-pre-evo-owner-hardware-closure-b",
+  "candidate_label": "rc-2026-09-21-owner-test-prep",
   "declared_for": "release/bossman-owner",
-  "note": "Final closure candidate after exact-SHA CI diagnosis. Fixes the PRE-EVO Chromium palette-close assertion by verifying the real hidden state instead of waiting for a hidden element to become visible, and restores deterministic skip-registry agreement while keeping the release-critical UX environment gate prominently visible. No product safety gate was weakened. Intelligence Preservation remains intentionally fail-closed without real same-model measurement. Trigger every path-filtered mandatory workflow on this new exact SHA; no prior-SHA success transfers."
+  "note": "Owner-test preparation candidate. Repairs the deterministic skips registry mismatch reproduced on exact-SHA root CI and Editors safety without weakening or deleting any skip/test. No previous-SHA evidence transfers. Re-run every path-filtered mandatory workflow on this new SHA. Real owner Windows GUI/local-model/GPU/Telegram/intelligence evidence remains owner-required or fail-closed."
 }
