@@ -23,7 +23,8 @@ from fastapi import APIRouter, HTTPException, Request
 
 from ..db import settings_kv, utcnow
 from ..tools import REGISTRY, ToolResult, ToolSpec
-from ..v2.browser_control import (AmbiguousSelector, BrowserApprovalRequired, BrowserPolicy,
+from ..v2.browser_control import (AmbiguousSelector, BrowserApprovalRequired,
+                                  BrowserDownloadApprovalRequired, BrowserDownloadFailed, BrowserPolicy,
                                   BrowserPolicyDenied, BrowserTakeoverActive, BrowserUnavailable,
                                   CaptchaBlocked, StaleElementReference, redact_secrets)
 from ..v2.tables import browser_sessions as bs_t
@@ -150,6 +151,17 @@ async def _act(ctx, args: dict, action: str, run) -> ToolResult:
     except BrowserPolicyDenied as exc:
         return ToolResult(content=f"действие запрещено политикой браузера: {exc}",
                           one_line=f"browser.{action}: deny", error=True)
+    except BrowserDownloadApprovalRequired as exc:
+        return ToolResult(content=f"{exc}. Файл НЕ сохранён. Если он нужен — вызовите "
+                                  f"browser.download с url={exc.url!r} (требует подтверждения).",
+                          one_line="browser: загрузка ждёт подтверждения", error=True,
+                          data={"download_url": exc.url, "filename": exc.filename,
+                                "needs_approval": True})
+    except BrowserDownloadFailed as exc:
+        await ctx.svc.bus.emit("browser.download", session_id=sid, status="failed",
+                               error=str(exc)[:300])
+        return ToolResult(content=f"файл не скачан: {exc}", one_line="browser.download: не удалось",
+                          error=True, data={"download": exc.record})
     except BrowserApprovalRequired:
         return ToolResult(content="политика сессии требует подтверждения человека",
                           one_line=f"browser.{action}: ask", error=True)
@@ -182,6 +194,20 @@ async def _act(ctx, args: dict, action: str, run) -> ToolResult:
         return ToolResult(content=f"ошибка браузера: {type(exc).__name__}: {exc}",
                           one_line=f"browser.{action}: ошибка", error=True)
 
+    if isinstance(result, dict) and result.get("download"):
+        dl = result["download"]
+        async with ctx.svc.db.session() as s:
+            await s.execute(sa.update(bs_t).where(bs_t.c.id == sid).values(
+                last_action="download", updated_at=utcnow()))
+            await s.commit()
+        await ctx.svc.bus.emit("browser.download", session_id=sid, status=dl.get("status"),
+                               filename=dl.get("filename"), path=dl.get("path"),
+                               bytes=dl.get("bytes"), sha256=dl.get("sha256"),
+                               mime=dl.get("mime"), quarantined=dl.get("quarantined"))
+        return ToolResult(content=f"{result.get('message')}\nsha256: {dl.get('sha256')}\n"
+                                  f"mime: {dl.get('mime')}",
+                          one_line=f"browser.download: {dl.get('filename')}",
+                          data={"session_id": sid, "download": dl, "path": dl.get("path")})
     if isinstance(result, dict):
         async with ctx.svc.db.session() as s:
             await s.execute(sa.update(bs_t).where(bs_t.c.id == sid).values(
@@ -201,8 +227,11 @@ async def _open(args, ctx):
     url = str(args.get("url") or "")
     if not url:
         return ToolResult(content="нужен аргумент url", one_line="browser.open: нет url", error=True)
+    # allow_download=False: адрес-файл не сохраняется молча — только через
+    # ASK-инструмент browser.download (B4).
     return await _act(ctx, args, "navigate",
-                      lambda m, sid: m.navigate(sid, url, actor="agent", approved=True))
+                      lambda m, sid: m.navigate(sid, url, actor="agent", approved=True,
+                                                allow_download=False))
 
 
 async def _read_dom(args, ctx):
@@ -217,7 +246,21 @@ async def _click(args, ctx):
         return ToolResult(content="нужен ref из свежего DOM-снимка (надёжнее) или selector",
                           one_line="browser.click: нет цели", error=True)
     return await _act(ctx, args, "click",
-                      lambda m, sid: m.click(sid, sel, ref=ref, actor="agent", approved=True))
+                      lambda m, sid: m.click(sid, sel, ref=ref, actor="agent", approved=True,
+                                             allow_download=False))
+
+
+async def _download(args, ctx):
+    """Скачать файл: по url или кликом по ref/selector. ASK — решение уже принято."""
+    url = str(args.get("url") or "")
+    sel = str(args.get("selector") or "")
+    ref = str(args.get("ref") or "")
+    if not (url or sel or ref):
+        return ToolResult(content="нужен url файла или ref/selector ссылки на него",
+                          one_line="browser.download: нет цели", error=True)
+    return await _act(ctx, args, "download",
+                      lambda m, sid: m.download(sid, url=url, selector=sel, ref=ref,
+                                                actor="agent", approved=True))
 
 
 async def _type(args, ctx):
@@ -380,6 +423,16 @@ SPECS = [
              handler=_open, input_schema={"url": {"type": "string"}}, required=["url"],
              category="read", permission="browser.read", source="browser",
              default_effect="auto", timeout_seconds=90.0, external_output=True),
+    ToolSpec(name="browser.download",
+             description="Скачать файл в папку загрузок сессии: url файла или ref/selector "
+                         "ссылки. Файл проверяется на диске (размер, sha256, тип); "
+                         "исполняемые — в карантин. Требует подтверждения.",
+             handler=_download,
+             input_schema={"url": {"type": "string"}, "ref": {"type": "string"},
+                           "selector": {"type": "string"}}, required=[],
+             category="write", permission="browser.control", source="browser",
+             default_effect="ask", timeout_seconds=180.0, idempotent=False,
+             effect_hook=lambda a: ("ask", "скачивание файла на диск владельца")),
     ToolSpec(name="browser.read_dom", description="Перечитать текущую страницу (DOM-снимок).",
              handler=_read_dom, input_schema={}, category="read", permission="browser.read",
              source="browser", default_effect="auto", timeout_seconds=60.0, external_output=True),

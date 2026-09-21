@@ -91,7 +91,8 @@ CAPABILITY_BROWSER = "BROWSER_ACTION"
 # вторая браузерная реализация не создаётся, только выдаётся доступ к готовой.
 BROWSER_TOOLS = ("browser.open", "browser.read_dom", "browser.screenshot",
                  "browser.click", "browser.type", "browser.select",
-                 "browser.back", "browser.reload", "browser.submit", "browser.login")
+                 "browser.back", "browser.reload", "browser.submit", "browser.login",
+                 "browser.download")
 
 # Известные домены по ключевому слову задачи — детерминированный, закрытый
 # список (без LLM и без угадывания произвольных сайтов: см. докстринг модуля).

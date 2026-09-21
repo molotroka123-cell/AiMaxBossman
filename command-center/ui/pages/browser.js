@@ -180,9 +180,11 @@ function openLivePanel(id, ctx) {
   async function doNavigate() {
     if (!urlEl.value.trim()) { toast('Введите адрес', { type: 'warn' }); return; }
     try {
-      await api.raw(`/api/browser/sessions/${encodeURIComponent(id)}/act`, {
+      const res = await api.raw(`/api/browser/sessions/${encodeURIComponent(id)}/act`, {
         method: 'POST', body: { action: 'navigate', url: urlEl.value.trim(), actor: 'human' },
       });
+      // B4: адрес оказался файлом — показываем, что и куда реально сохранено.
+      if (res && res.download && res.download.status === 'saved') toastOk(res.message || `Файл скачан: ${res.download.filename}`);
       await Promise.all([refreshState(), refreshShot()]);
     } catch (e) { toastError(e, 'Не удалось перейти'); }
   }

@@ -180,6 +180,135 @@ class BrowserTakeoverActive(RuntimeError):
     pass
 
 
+class BrowserDownloadApprovalRequired(BrowserApprovalRequired):
+    """Страница начала загрузку, а права скачивать у этого действия нет.
+
+    Загрузка отменена ДО записи на диск: файл без решения человека не остаётся
+    ни в папке загрузок, ни во временном каталоге Playwright."""
+
+    def __init__(self, filename: str, url: str):
+        super().__init__("download", f"страница начала загрузку файла {filename!r} — "
+                                     f"скачивание требует подтверждения (browser.download)")
+        self.filename = filename
+        self.url = url
+
+
+class BrowserDownloadFailed(RuntimeError):
+    """Загрузка началась, но настоящего файла нет: обрыв, отмена, лимит, пустой ответ.
+
+    Никогда не превращается в «успешно скачано» — B4 (owner audit 2026-09-21)
+    был ровно об этом: навигация на файл давала 500 и ни одного байта на диске."""
+
+    def __init__(self, detail: str, *, record: dict[str, Any] | None = None):
+        super().__init__(detail)
+        self.record = record or {}
+
+
+# ------------------------------------------------ B4: загрузки браузера
+#
+# Chromium не «открывает» ответ с Content-Disposition: attachment или бинарный
+# тип — он начинает ЗАГРУЗКУ, и Playwright бросает из goto() «Download is
+# starting». Раньше это исключение улетало в HTTP 500, файл не сохранялся.
+# Теперь каждая страница сессии слушает событие download, а действие, которое
+# его вызвало, ждёт его, сохраняет в безопасный каталог сессии и проверяет файл.
+
+DOWNLOAD_MAX_MB_ENV = "BCC_BROWSER_DOWNLOAD_MAX_MB"
+# Сколько клик ждёт, не началась ли загрузка. Больше — медленнее каждый клик;
+# меньше — медленный сервер не успеет. Явное действие download ждёт полный таймаут.
+CLICK_DOWNLOAD_GRACE_S = 0.75
+DOWNLOAD_START_TIMEOUT_S = 30.0
+DOWNLOAD_FINISH_TIMEOUT_S = 600.0
+DOWNLOAD_TIMEOUT_ENV = "BCC_BROWSER_DOWNLOAD_TIMEOUT_S"
+EXECUTABLE_SUFFIXES = frozenset({
+    ".exe", ".msi", ".msix", ".bat", ".cmd", ".com", ".scr", ".ps1", ".psm1", ".vbs",
+    ".vbe", ".js", ".jse", ".wsf", ".wsh", ".hta", ".jar", ".dll", ".lnk", ".reg",
+    ".cpl", ".sh", ".app", ".dmg", ".pkg", ".apk", ".appx", ".appxbundle", ".iso",
+})
+_MAGIC = [
+    (b"%PDF-", "application/pdf"),
+    (b"PK\x03\x04", "application/zip"),
+    (b"PK\x05\x06", "application/zip"),
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF8", "image/gif"),
+    (b"MZ", "application/x-msdownload"),
+]
+
+
+def _download_finish_timeout() -> float:
+    try:
+        return max(1.0, float(os.environ.get(DOWNLOAD_TIMEOUT_ENV, "") or DOWNLOAD_FINISH_TIMEOUT_S))
+    except ValueError:
+        return DOWNLOAD_FINISH_TIMEOUT_S
+
+
+def _download_max_bytes() -> int:
+    try:
+        mb = float(os.environ.get(DOWNLOAD_MAX_MB_ENV, "") or 500)
+    except ValueError:
+        mb = 500.0
+    return int(max(1.0, mb) * 1024 * 1024)
+
+
+def safe_download_name(name: str) -> str:
+    """Имя файла без путей, управляющих символов и зарезервированных имён Windows."""
+    name = str(name or "").replace("\\", "/").rsplit("/", 1)[-1]
+    name = re.sub(r"[\x00-\x1f<>:\"|?*]+", "_", name).strip().strip(".")
+    stem = name.split(".", 1)[0].upper()
+    if stem in {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
+                *(f"LPT{i}" for i in range(1, 10))}:
+        name = "_" + name
+    return name[:180] or "download.bin"
+
+
+def _unique_path(folder: Path, name: str) -> Path:
+    """Одноимённые загрузки не затирают друг друга: report.pdf, report (1).pdf …"""
+    path = folder / name
+    stem, dot, ext = name.rpartition(".")
+    if not dot:
+        stem, ext = name, ""
+    i = 1
+    while path.exists() or path.with_name(path.name + ".part").exists():
+        path = folder / (f"{stem} ({i})" + (f".{ext}" if ext else ""))
+        i += 1
+    return path
+
+
+def _sniff_mime(path: Path) -> str:
+    import mimetypes
+    try:
+        with path.open("rb") as fh:
+            head = fh.read(16)
+    except OSError:
+        head = b""
+    for magic, mime in _MAGIC:
+        if head.startswith(magic):
+            return mime
+    return mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+
+
+def _sha256(path: Path) -> str:
+    import hashlib
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _is_download_navigation(exc: BaseException) -> bool:
+    return "download is starting" in str(exc).lower()
+
+
+def human_size(size: int) -> str:
+    value = float(size)
+    for unit in ("байт", "КБ", "МБ", "ГБ"):
+        if value < 1024 or unit == "ГБ":
+            return f"{int(value)} {unit}" if unit == "байт" else f"{value:.1f} {unit}"
+        value /= 1024
+    return f"{size} байт"
+
+
 @dataclass(slots=True)
 class BrowserPolicy:
     enabled: bool = True
@@ -314,6 +443,12 @@ class BrowserRuntimeSession:
     secrets: set[str] = field(default_factory=set)
     # Обнаруженная капча. Агент её не решает — она передаётся человеку.
     captcha: dict[str, Any] = field(default_factory=dict)
+    # B4: загрузки, начатые любой страницей сессии (включая popup). Действие,
+    # вызвавшее загрузку, забирает её отсюда; незабранные остаются во временном
+    # каталоге Playwright и удаляются вместе с контекстом — на диск владельца
+    # без решения действия они не попадают.
+    download_queue: Any = None
+    downloads: list[dict[str, Any]] = field(default_factory=list)
 
 
 MASK = "***"
@@ -561,13 +696,197 @@ class BrowserManager:
                 page = pages[0] if pages else await context.new_page()
             else:
                 browser = await pw.chromium.launch(headless=headless, executable_path=executable)
-                context = await browser.new_context(viewport={"width": 1440, "height": 900})
+                context = await browser.new_context(viewport={"width": 1440, "height": 900},
+                                                    accept_downloads=True)
                 page = await context.new_page()
-            self._sessions[session_id] = BrowserRuntimeSession(
+            sess = BrowserRuntimeSession(
                 id=session_id, policy=policy, context=context, page=page,
                 browser=browser, profile_name=profile_name
             )
+            self._watch_downloads(sess)
+            self._sessions[session_id] = sess
         return await self.status(session_id)
+
+    # ------------------------------------------------ B4: загрузки
+
+    def downloads_dir(self, session_id: int) -> Path:
+        return self.data_dir / "downloads" / f"session-{int(session_id)}"
+
+    def _watch_downloads(self, sess: BrowserRuntimeSession) -> None:
+        sess.download_queue = asyncio.Queue()
+
+        def attach(page: Any) -> None:
+            try:
+                page.on("download", sess.download_queue.put_nowait)
+            except Exception:  # noqa: BLE001 — фейковая страница в юнит-тестах
+                pass
+
+        for page in list(getattr(sess.context, "pages", []) or []):
+            attach(page)
+        if sess.page not in (getattr(sess.context, "pages", None) or []):
+            attach(sess.page)
+        try:
+            sess.context.on("page", attach)
+        except Exception:  # noqa: BLE001
+            pass
+
+    @staticmethod
+    def _drain_downloads(sess: BrowserRuntimeSession) -> None:
+        """Забыть загрузки, начатые ДО текущего действия: их не просили."""
+        q = sess.download_queue
+        while q is not None and not q.empty():
+            q.get_nowait()
+
+    @staticmethod
+    async def _next_download(sess: BrowserRuntimeSession, timeout: float) -> Any:
+        q = sess.download_queue
+        if q is None:
+            return None
+        if timeout <= 0:
+            return None if q.empty() else q.get_nowait()
+        try:
+            return await asyncio.wait_for(q.get(), timeout)
+        except asyncio.TimeoutError:
+            return None
+
+    def _download_allowed(self, sess: BrowserRuntimeSession, url: str, *, actor: str,
+                          approved: bool, allow_download: bool | None) -> bool:
+        decision = sess.policy.decision("download", url=url)
+        if decision == "deny":
+            raise BrowserPolicyDenied("download", "browser action denied: download"
+                                      + (f" — {target_refusal(url)}" if target_refusal(url) else ""))
+        if allow_download is not None:
+            return allow_download
+        return decision == "auto" or actor == "human" or approved
+
+    async def _save_download(self, sess: BrowserRuntimeSession, download: Any, *,
+                             trigger: str, source_url: str, actor: str,
+                             approved: bool, allow_download: bool | None) -> dict[str, Any]:
+        """download event → разрешение → .part → проверка → окончательное имя.
+
+        Успех — только когда файл реально лежит на диске и его размер совпал с
+        прочитанным. Всё остальное — BrowserDownloadFailed с записью в журнале
+        сессии, а не «скачано»."""
+        import time
+        file_url = str(getattr(download, "url", "") or source_url)
+        name = safe_download_name(getattr(download, "suggested_filename", "") or "")
+        record: dict[str, Any] = {
+            "session_id": sess.id, "trigger": trigger, "source_url": source_url,
+            "url": file_url, "filename": name, "status": "started",
+            "started_at": time.time(),
+        }
+        try:
+            # Редирект мог увести загрузку на приватный адрес — там она и умрёт.
+            why = target_refusal(file_url) if file_url.startswith(("http:", "https:")) else ""
+            if why:
+                await download.cancel()
+                raise BrowserPolicyDenied("download", f"browser action denied: download — {why}")
+            try:
+                allowed = self._download_allowed(sess, file_url, actor=actor, approved=approved,
+                                                 allow_download=allow_download)
+            except BrowserPolicyDenied:
+                await download.cancel()
+                raise
+            if not allowed:
+                await download.cancel()
+                record["status"] = "needs_approval"
+                raise BrowserDownloadApprovalRequired(name, file_url)
+            failure = await asyncio.wait_for(download.failure(), _download_finish_timeout())
+            if failure:
+                raise BrowserDownloadFailed(f"загрузка «{name}» прервана: {failure}")
+            folder = self.downloads_dir(sess.id)
+            folder.mkdir(parents=True, exist_ok=True)
+            executable = Path(name).suffix.lower() in EXECUTABLE_SUFFIXES
+            if executable:
+                folder = folder / "quarantine"
+                folder.mkdir(parents=True, exist_ok=True)
+            path = _unique_path(folder, name)
+            part = path.with_name(path.name + ".part")
+            try:
+                await download.save_as(str(part))
+                size = part.stat().st_size if part.exists() else -1
+                if size < 0:
+                    raise BrowserDownloadFailed(f"файл «{name}» не появился на диске")
+                if size == 0:
+                    raise BrowserDownloadFailed(f"загрузка «{name}» пустая (0 байт) — файла нет")
+                limit = _download_max_bytes()
+                if size > limit:
+                    raise BrowserDownloadFailed(
+                        f"файл «{name}» {human_size(size)} больше лимита {human_size(limit)} "
+                        f"({DOWNLOAD_MAX_MB_ENV})")
+                digest = _sha256(part)
+                os.replace(part, path)
+            finally:
+                if part.exists():
+                    part.unlink(missing_ok=True)
+            if not path.is_file() or path.stat().st_size != size:
+                raise BrowserDownloadFailed(f"файл «{name}» не подтвердился на диске после записи")
+            record.update(status="saved", path=str(path), filename=path.name, bytes=size,
+                          size_human=human_size(size), sha256=digest, mime=_sniff_mime(path),
+                          quarantined=executable, finished_at=time.time())
+            return record
+        except BrowserDownloadFailed as exc:
+            record.update(status="failed", error=str(exc), finished_at=time.time())
+            exc.record = record
+            raise
+        except (BrowserPolicyDenied, BrowserApprovalRequired) as exc:
+            record.setdefault("error", str(exc))
+            if record["status"] == "started":
+                record["status"] = "denied"
+            raise
+        except asyncio.TimeoutError as exc:
+            try:
+                await download.cancel()
+            except Exception:  # noqa: BLE001
+                pass
+            record.update(status="failed", error="загрузка не завершилась вовремя",
+                          finished_at=time.time())
+            raise BrowserDownloadFailed(record["error"], record=record) from exc
+        except Exception as exc:  # noqa: BLE001 — любая ошибка Playwright = честный отказ
+            record.update(status="failed", error=f"{type(exc).__name__}: {exc}"[:300],
+                          finished_at=time.time())
+            raise BrowserDownloadFailed(f"загрузка «{name}» не удалась: {record['error']}",
+                                        record=record) from exc
+        finally:
+            sess.downloads.append(record)
+            del sess.downloads[:-100]
+
+    async def _download_result(self, sess: BrowserRuntimeSession, record: dict[str, Any]) -> dict[str, Any]:
+        status = await self.status(sess.id)
+        where = " (в карантине: исполняемый файл)" if record.get("quarantined") else ""
+        return {**status, "download": record,
+                "message": f"Файл скачан: {record['filename']} — {record['size_human']}{where}. "
+                           f"Путь: {record['path']}"}
+
+    async def download(self, session_id: int, *, url: str = "", selector: str = "",
+                       ref: str = "", actor: str = "agent", approved: bool = False,
+                       timeout: float = DOWNLOAD_START_TIMEOUT_S) -> dict[str, Any]:
+        """Явная загрузка: по URL файла или кликом по ссылке/кнопке. Ждёт файл."""
+        sess = self._session(session_id)
+        if url:
+            self._guard(sess, "navigate", url=url, actor=actor, approved=approved)
+        self._guard(sess, "download", url=url, actor=actor, approved=approved)
+        if url:
+            return await self.navigate(session_id, url, actor=actor, approved=approved,
+                                       allow_download=True, expect_download=True,
+                                       download_timeout=timeout)
+        loc = await self._target(sess, selector, ref)
+        self._drain_downloads(sess)
+        source = str(sess.page.url or "")
+        await loc.click(timeout=30000)
+        dl = await self._next_download(sess, timeout)
+        if dl is None:
+            rec = {"session_id": session_id, "trigger": "click", "source_url": source,
+                   "status": "failed", "error": "клик не начал загрузку"}
+            sess.downloads.append(rec)
+            raise BrowserDownloadFailed(f"за {timeout:.0f} с после клика загрузка не началась",
+                                        record=rec)
+        record = await self._save_download(sess, dl, trigger="click", source_url=source,
+                                           actor=actor, approved=approved, allow_download=True)
+        return await self._download_result(sess, record)
+
+    async def list_downloads(self, session_id: int) -> list[dict[str, Any]]:
+        return list(self._session(session_id).downloads)
 
     async def stop(self, session_id: int) -> None:
         sess = self._sessions.pop(session_id, None)
@@ -639,6 +958,7 @@ class BrowserManager:
             "profile_name": sess.profile_name,
             "mode": sess.policy.mode,
             "pages": len(sess.context.pages),
+            "downloads": len(sess.downloads),
         }, sess.secrets)
 
     async def pause(self, session_id: int) -> dict[str, Any]:
@@ -659,7 +979,14 @@ class BrowserManager:
         return await self.status(session_id)
 
     async def navigate(self, session_id: int, url: str, *,
-                       actor: str = "agent", approved: bool = False) -> dict[str, Any]:
+                       actor: str = "agent", approved: bool = False,
+                       allow_download: bool | None = None, expect_download: bool = False,
+                       download_timeout: float = DOWNLOAD_START_TIMEOUT_S) -> dict[str, Any]:
+        """Перейти по адресу. Если адрес отдаёт файл — скачать его (B4).
+
+        allow_download=None: решает политика сессии (download=ask → человек или
+        одобрение). Инструменты агента передают False, чтобы загрузка шла только
+        через отдельный ASK-инструмент browser.download."""
         sess = self._session(session_id)
         self._guard(sess, "navigate", url=url, actor=actor, approved=approved)
         # F-010: DNS-проверка цели (все адреса публичные) — до первого касания
@@ -668,7 +995,36 @@ class BrowserManager:
         refusal = await loop.run_in_executor(None, sess.policy.navigation_refusal, url)
         if refusal:
             raise BrowserPolicyDenied("navigate", f"browser action denied: navigate — {refusal}")
-        await sess.page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        self._drain_downloads(sess)
+        try:
+            await sess.page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            started = False
+        except Exception as exc:
+            # «Download is starting» — не ошибка навигации, а начало загрузки.
+            # Любая другая ошибка goto остаётся ошибкой, если загрузки нет.
+            started = _is_download_navigation(exc)
+            dl = await self._next_download(sess, download_timeout if started else 1.0)
+            if dl is None:
+                if started:
+                    rec = {"session_id": session_id, "trigger": "navigate", "source_url": url,
+                           "status": "failed", "error": "браузер объявил загрузку, файл не пришёл"}
+                    sess.downloads.append(rec)
+                    raise BrowserDownloadFailed(
+                        "браузер начал загрузку, но файл так и не был получен", record=rec) from exc
+                raise
+            record = await self._save_download(sess, dl, trigger="navigate", source_url=url,
+                                               actor=actor, approved=approved,
+                                               allow_download=allow_download)
+            return await self._download_result(sess, record)
+        dl = await self._next_download(sess, download_timeout if expect_download else 0)
+        if dl is not None:
+            record = await self._save_download(sess, dl, trigger="navigate", source_url=url,
+                                               actor=actor, approved=approved,
+                                               allow_download=allow_download)
+            return await self._download_result(sess, record)
+        if expect_download:
+            raise BrowserDownloadFailed("адрес открылся как страница, а не как файл — "
+                                        "загрузки не было")
         # Редирект с публичного сайта на приватную цель обходит проверку до goto:
         # проверяем, куда реально приехали, и уходим с такой страницы, не читая её.
         landed = str(getattr(sess.page, "url", "") or "")
@@ -725,11 +1081,21 @@ class BrowserManager:
 
     async def click(self, session_id: int, selector: str = "", *,
                     ref: str = "", actor: str = "agent",
-                    approved: bool = False) -> dict[str, Any]:
+                    approved: bool = False,
+                    allow_download: bool | None = None) -> dict[str, Any]:
         sess = self._session(session_id)
         self._guard(sess, "click", actor=actor, approved=approved)
         loc = await self._target(sess, selector, ref)
+        self._drain_downloads(sess)
+        source = str(sess.page.url or "")
         await loc.click(timeout=30000)
+        # Клик по ссылке-файлу начинает загрузку: не теряем её молча (B4).
+        dl = await self._next_download(sess, CLICK_DOWNLOAD_GRACE_S)
+        if dl is not None:
+            record = await self._save_download(sess, dl, trigger="click", source_url=source,
+                                               actor=actor, approved=approved,
+                                               allow_download=allow_download)
+            return await self._download_result(sess, record)
         return await self.status(session_id)
 
     async def type_text(self, session_id: int, selector: str = "", text: str = "", *,

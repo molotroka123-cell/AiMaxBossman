@@ -86,7 +86,7 @@ _REFUSAL_RE = re.compile(
 # текст и просто сожжёт токены владельца).
 _ACTION_TOOLS = frozenset({
     "browser.open", "browser.click", "browser.type", "browser.select",
-    "browser.submit", "browser.back", "browser.reload", "browser.login",
+    "browser.submit", "browser.back", "browser.reload", "browser.login", "browser.download",
     "terminal.run",
 })
 

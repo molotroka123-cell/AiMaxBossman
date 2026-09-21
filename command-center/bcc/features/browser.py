@@ -18,7 +18,8 @@ from fastapi.responses import FileResponse
 
 from ..browser_runtime import INSTALL_HINT, PREINSTALLED_CHROMIUM
 from ..db import fetch_one, tasks as tasks_t, utcnow
-from ..v2.browser_control import (BrowserApprovalRequired, BrowserManager, BrowserPolicy,
+from ..v2.browser_control import (BrowserApprovalRequired, BrowserDownloadApprovalRequired,
+                                  BrowserDownloadFailed, BrowserManager, BrowserPolicy,
                                   BrowserPolicyDenied, BrowserTakeoverActive, BrowserUnavailable)
 from ..v2.tables import browser_sessions as bs_t
 from . import Feature
@@ -139,6 +140,13 @@ async def act(session_id: int, request: Request):
             res = await mgr.navigate(session_id, body["url"], actor=actor, approved=approved)
         elif action == "click":
             res = await mgr.click(session_id, body["selector"], actor=actor, approved=approved)
+        elif action == "download":
+            # B4: явная загрузка — по адресу файла или кликом по ссылке.
+            if not (body.get("url") or body.get("selector")):
+                raise HTTPException(422, {"message": "download: нужен url или selector"})
+            res = await mgr.download(session_id, url=str(body.get("url") or ""),
+                                     selector=str(body.get("selector") or ""),
+                                     actor=actor, approved=approved)
         elif action == "type":
             res = await mgr.type_text(session_id, body["selector"], body.get("text", ""),
                                       actor=actor, approved=approved)
@@ -154,16 +162,44 @@ async def act(session_id: int, request: Request):
         raise HTTPException(404, {"message": "сессия не запущена"})
     except BrowserTakeoverActive:
         raise HTTPException(409, {"message": "активен Human Take Over — действия агента заблокированы"})
-    except BrowserApprovalRequired:
+    except BrowserApprovalRequired as exc:
         aid = await svc.approvals.create(kind="browser", preview=preview)
-        raise HTTPException(202, {"message": "нужно подтверждение",
-                                  "approval_id": aid.get("id")})
+        detail = str(exc) if isinstance(exc, BrowserDownloadApprovalRequired) else "нужно подтверждение"
+        raise HTTPException(202, {"message": detail, "approval_id": aid.get("id")})
     except BrowserPolicyDenied as exc:
         raise HTTPException(403, {"message": f"действие запрещено политикой: {exc}"})
+    except BrowserDownloadFailed as exc:
+        # Честный отказ с причиной, а не 500 и не «скачано» (B4).
+        await svc.bus.emit("browser.download", session_id=session_id, status="failed",
+                           error=str(exc)[:300], url=str(exc.record.get("url") or subject)[:300])
+        raise HTTPException(422, {"message": f"файл не скачан: {exc}",
+                                  "download": exc.record})
+    except HTTPException:
+        raise
+    except KeyError as exc:
+        raise HTTPException(422, {"message": f"{action}: не хватает поля {exc}"})
+    except Exception as exc:  # noqa: BLE001 — ошибка Playwright/сети: причина владельцу, не 500
+        text = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
+        raise HTTPException(502, {"message": f"браузер не смог выполнить «{action}»: {text[:300]}"})
     await _record(svc, session_id, current_url=res.get("url", ""), last_action=action)
     await svc.bus.emit("agent.tool_call", tool="browser", session_id=session_id,
                        action=action, url=res.get("url", ""))
+    dl = res.get("download") if isinstance(res, dict) else None
+    if dl:
+        await svc.bus.emit("browser.download", session_id=session_id, status=dl.get("status"),
+                           filename=dl.get("filename"), path=dl.get("path"), bytes=dl.get("bytes"),
+                           sha256=dl.get("sha256"), mime=dl.get("mime"),
+                           quarantined=dl.get("quarantined"), url=str(dl.get("url") or "")[:300])
     return res
+
+
+@router.get("/browser/sessions/{session_id}/downloads")
+async def downloads(session_id: int, request: Request):
+    """Журнал загрузок живой сессии: сохранённые, отменённые и сорвавшиеся."""
+    try:
+        return await _mgr(request.app.state.svc).list_downloads(session_id)
+    except LookupError:
+        raise HTTPException(404, {"message": "сессия не запущена"})
 
 
 @router.get("/browser/sessions/{session_id}/screenshot")
