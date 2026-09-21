@@ -1567,7 +1567,8 @@ class TaskEngine:
         Без него неоднозначная прежняя отправка поднимает AmbiguousPriorEffect."""
         ctx = ToolContext(svc=self.services, task=task, run_id=run_id, agent=agent,
                           step=step, workspace=str(task.get("workspace_path") or ""),
-                          call_id=str(call.id))
+                          call_id=str(call.id),
+                          approval_id=int(approval_id) if approval_id is not None else None)
         # FL-01 §2.2 п.3: fence проверяется ДО эффекта, не только при записи receipt.
         await self.assert_fence(run_id)
         # INV-2 идемпотентность: неидемпотентный шаг с тем же (task, step, args)

@@ -13,21 +13,30 @@ wiring-дефект продукта, а не ограничение среды.
   * `LocalScreenshotProvider` (кадры с окном хранения);
   * `AppLaunchAdapter` + allowlist приложений (никакого exec из вывода модели);
   * `ComputerPolicy` (лексикон последствий по УЛИКАМ экрана, запрет голых
-    координат без названной цели).
+    координат без названной цели, защищённые окна Bossman/UAC).
 Подтверждения, «Стоп», журнал — канонические механизмы Command Center
 (tool-loop ASK/AUTO, bus → Flight Recorder).
 
 Контракт для модели:
   1. computer.observe → поколение `generation`, окно, элементы UIA с центрами.
   2. computer.act(generation=…) → действие ТОЛЬКО по свежему наблюдению;
-     устаревшее поколение — отказ «перечитайте экран».
-  3. Цель — по имени элемента (UIA). Координаты — лишь запасной путь:
-     нужны `coordinate_fallback=true` и имя цели; перед кликом экран
-     перечитывается, и точка обязана лежать внутри названного элемента.
+     устаревшее поколение или наблюдение старше MAX_OBS_AGE_S — отказ.
+  3. Цель — по имени элемента (UIA). Две одинаковые подписи — отказ, пока
+     модель не укажет `index` элемента из наблюдения. Координаты — лишь
+     запасной путь: нужны `coordinate_fallback=true` и имя цели; перед кликом
+     экран перечитывается, и точка обязана лежать внутри названного элемента.
   4. После действия экран перечитывается сам; `expect` проверяется по новому
      наблюдению → verified true/false. Без `expect` — verified=null, а не «ок».
-  5. «Стоп» владельца (POST /api/computer/stop) обрывает набор между порциями
-     и блокирует новые действия до «Продолжить».
+     Неизвестное или неверно типизированное ожидание — invalid, не «проверено».
+  5. «Стоп» владельца (POST /api/computer/stop) обрывает набор между порциями,
+     блокирует новые действия до «Продолжить», переживает перезапуск backend
+     (файл STOP в data_dir/computer) и после «Продолжить» обесценивает все
+     прежние наблюдения — старая очередь по устаревшему экрану не исполняется.
+  6. Разрешение на последствийное действие приходит ТОЛЬКО из доверенного
+     контекста вызова (ToolContext.approval_id, строка approvals), привязано к
+     ВИДУ последствия и перепроверяется по свежему экрану перед эффектом.
+     Заявление модели (`semantic`, любой служебный аргумент) разрешением
+     не является.
 """
 from __future__ import annotations
 
@@ -35,6 +44,7 @@ import asyncio
 import platform
 import threading
 import time
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -49,6 +59,14 @@ router = APIRouter()
 MAX_ELEMENTS = 150
 MAX_VALUE_CHARS = 4000
 SETTLE_S = 0.6
+# Наблюдение старше этого — не основание для действия, даже с тем же generation:
+# за это время владелец мог переключить окно, а экран — измениться без нас.
+MAX_OBS_AGE_S = 45.0
+# Зависший адаптер (COM-вызов UIA без ответа, залипший драйвер ввода) не должен
+# держать замок рабочего стола вечно: исход шага объявляется НЕИЗВЕСТНЫМ, замок
+# освобождается, следующий шаг обязан перечитать экран.
+ACT_TIMEOUT_S = 60.0
+LAUNCH_WAIT_S = 5.0
 KINDS = ("focus", "click", "double_click", "type", "hotkey", "scroll", "invoke", "launch", "wait",
          "focus_window")
 # Действия, которые шлют ввод в ТЕКУЩЕЕ окно переднего плана. Перед ними окно
@@ -56,6 +74,13 @@ KINDS = ("focus", "click", "double_click", "type", "hotkey", "scroll", "invoke",
 # Windows не отдаёт фокус только что запущенному Блокноту, и набор ушёл в поиск
 # «Параметров». Ввод «куда-то» — хуже отказа.
 INPUT_KINDS = frozenset({"focus", "click", "double_click", "type", "hotkey", "scroll", "invoke"})
+# Постусловия, которые умеет проверять verify(). Всё остальное — invalid.
+EXPECT_KEYS = frozenset({"window_title_contains", "contains_text", "absent_text",
+                         "file_exists", "file_contains"})
+MIN_EXPECT_CHARS = 2
+# Служебные аргументы, которые модель писать не может: приходят только из кода.
+RESERVED_ARGS = frozenset({"_approved_consequence", "_approval_id", "_approved_kind"})
+STOP_FILE = "STOP"
 
 
 def _core():
@@ -119,19 +144,56 @@ def _element_with_rect(c) -> dict[str, Any]:
 
 @dataclass
 class ComputerState:
-    generation: int = 0
+    # Поколение уникально для ПРОЦЕССА: после перезапуска backend числа не
+    # повторяются, и generation из прошлой жизни никогда не совпадёт с текущим.
+    generation: int = field(default_factory=lambda: int(time.time()) * 1000)
+    session: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
     last: dict[str, Any] = field(default_factory=dict)
     stop: threading.Event = field(default_factory=threading.Event)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     desktop: Any = None
     shots: Any = None
     launcher: Any = None
+    launched_pid: int | None = None
+    stop_path: Path | None = None
+    # Исход последнего действия неизвестен (таймаут адаптера): до свежего
+    # наблюдения действия запрещены.
+    outcome_unknown: str = ""
+
+    def stopped(self) -> bool:
+        return self.stop.is_set()
+
+    def set_stop(self, by: str) -> None:
+        self.stop.set()
+        if self.stop_path is not None:
+            try:
+                self.stop_path.parent.mkdir(parents=True, exist_ok=True)
+                self.stop_path.write_text(f"{by}\n{time.time()}\n", encoding="utf-8")
+            except OSError:
+                pass
+
+    def clear_stop(self) -> None:
+        self.stop.clear()
+        if self.stop_path is not None:
+            try:
+                self.stop_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        # «Продолжить» ≠ «доиграть очередь»: всё, что планировалось по экрану
+        # до «Стоп», обесценивается — модель обязана перечитать экран.
+        self.generation += 1
+        self.last = {}
 
 
 def _state(svc) -> ComputerState:
     st = getattr(svc, "_computer_state", None)
     if st is None:
         st = ComputerState()
+        st.stop_path = Path(svc.settings.data_dir) / "computer" / STOP_FILE
+        # Безопасное поведение после перезапуска: «Стоп», нажатый до падения
+        # backend, остаётся в силе, пока владелец сам не нажмёт «Продолжить».
+        if st.stop_path.is_file():
+            st.stop.set()
         svc._computer_state = st
     if st.desktop is None:
         core = _core()
@@ -143,7 +205,14 @@ def _state(svc) -> ComputerState:
         st.desktop.set_interrupt(st.stop)
         shots_dir = Path(svc.settings.data_dir) / "computer" / "screens"
         st.shots = core["LocalScreenshotProvider"](root=shots_dir, retention=32)
-        st.launcher = core["AppLaunchAdapter"]()
+        from bossman.computer_operator.adapters.app_launch import spawn_detached
+
+        async def launcher(exe):
+            proc = await spawn_detached(exe)
+            st.launched_pid = int(getattr(proc, "pid", 0) or 0) or None
+            return proc
+
+        st.launcher = core["AppLaunchAdapter"](launcher=launcher)
     return st
 
 
@@ -157,12 +226,13 @@ async def observe(svc, *, screenshot: bool = True) -> dict[str, Any]:
     if screenshot:
         shot, _ = await st.shots.capture()
     st.generation += 1
+    st.outcome_unknown = ""
     elements = list((tree or {}).get("elements") or [])[:MAX_ELEMENTS]
     for i, el in enumerate(elements):
         el["i"] = i
-    obs = {"generation": st.generation, "observed_at": time.time(),
-           "window": {k: fg.get(k) for k in ("title", "app", "handle", "error") if k in fg},
-           "elements": elements, "screenshot": shot, "stopped": st.stop.is_set()}
+    obs = {"generation": st.generation, "session": st.session, "observed_at": time.time(),
+           "window": {k: fg.get(k) for k in ("title", "app", "handle", "pid", "error") if k in fg},
+           "elements": elements, "screenshot": shot, "stopped": st.stopped()}
     st.last = obs
     await svc.bus.emit("computer.observe", generation=st.generation,
                        window=str(fg.get("title") or "")[:200], elements=len(elements),
@@ -179,35 +249,113 @@ def _haystack(obs: dict) -> str:
     return "\n".join(parts)
 
 
-def verify(obs: dict, expect: dict | None) -> tuple[bool | None, list[str]]:
-    """Постусловие по СВЕЖЕМУ наблюдению. Пустое expect — None (не проверено)."""
-    expect = {k: str(v) for k, v in (expect or {}).items() if str(v or "").strip()}
-    if not expect:
+def verify(obs: dict, expect: Any, *, started_at: float | None = None) -> tuple[bool | None, list[str]]:
+    """Постусловие по СВЕЖЕМУ наблюдению.
+
+    Возвращает (verified, notes):
+      * None  — постусловие не задано: результат НЕ проверен (не «ок»);
+      * False — хотя бы одна проверка не подтвердилась ИЛИ ожидание невалидно
+        (не объект, неизвестное поле, не строка, короче MIN_EXPECT_CHARS);
+      * True  — только когда выполнена ХОТЯ БЫ ОДНА известная проверка и все
+        выполненные проверки подтвердились.
+    Заголовок окна сам по себе не доказывает сохранение файла: для этого есть
+    `file_exists`/`file_contains`, которые читают диск, а не экран.
+    """
+    if expect is None:
         return None, ["постусловие не задано — результат не проверен"]
+    if not isinstance(expect, dict):
+        return False, [f"expect должен быть объектом, получено {type(expect).__name__} — не проверено"]
+    cleaned: dict[str, str] = {}
+    invalid: list[str] = []
+    for k, v in expect.items():
+        key = str(k)
+        if key not in EXPECT_KEYS:
+            invalid.append(f"неизвестное поле expect «{key}» (допустимы: {', '.join(sorted(EXPECT_KEYS))})")
+            continue
+        if not isinstance(v, str):
+            invalid.append(f"expect.{key}: ожидается строка, получено {type(v).__name__}")
+            continue
+        if len(v.strip()) < MIN_EXPECT_CHARS:
+            invalid.append(f"expect.{key}: слишком короткое условие (минимум {MIN_EXPECT_CHARS} символа)")
+            continue
+        cleaned[key] = v.strip()
+    if invalid:
+        return False, invalid + ["ожидание невалидно — результат НЕ подтверждён"]
+    if not cleaned:
+        return None, ["постусловие пустое — результат не проверен"]
     title = str((obs.get("window") or {}).get("title") or "").lower()
     hay = _haystack(obs).lower()
-    notes, ok = [], True
-    if "window_title_contains" in expect:
-        hit = expect["window_title_contains"].lower() in title
+    notes: list[str] = []
+    ok = True
+    checks = 0
+    if "window_title_contains" in cleaned:
+        hit = cleaned["window_title_contains"].lower() in title
         ok &= hit
+        checks += 1
         notes.append(f"заголовок {'содержит' if hit else 'НЕ содержит'} "
-                     f"«{expect['window_title_contains']}»")
-    if "contains_text" in expect:
-        hit = expect["contains_text"].lower() in hay
+                     f"«{cleaned['window_title_contains']}»")
+    if "contains_text" in cleaned:
+        hit = cleaned["contains_text"].lower() in hay
         ok &= hit
-        notes.append(f"на экране {'есть' if hit else 'НЕТ'} «{expect['contains_text']}»")
-    if "absent_text" in expect:
-        hit = expect["absent_text"].lower() not in hay
+        checks += 1
+        notes.append(f"на экране {'есть' if hit else 'НЕТ'} «{cleaned['contains_text']}»")
+    if "absent_text" in cleaned:
+        hit = cleaned["absent_text"].lower() not in hay
         ok &= hit
-        notes.append(f"«{expect['absent_text']}» {'отсутствует' if hit else 'ВСЁ ЕЩЁ на экране'}")
-    return ok, notes
+        checks += 1
+        notes.append(f"«{cleaned['absent_text']}» {'отсутствует' if hit else 'ВСЁ ЕЩЁ на экране'}")
+    if "file_exists" in cleaned or "file_contains" in cleaned:
+        raw = cleaned.get("file_exists") or ""
+        target = Path(raw) if raw else None
+        if "file_contains" in cleaned and target is None:
+            ok = False
+            checks += 1
+            notes.append("file_contains требует file_exists с путём к файлу")
+        elif target is not None:
+            checks += 1
+            if not target.is_absolute():
+                ok = False
+                notes.append(f"file_exists: путь «{raw}» не абсолютный — не проверено")
+            elif not target.is_file():
+                ok = False
+                notes.append(f"файл «{raw}» НЕ существует")
+            else:
+                try:
+                    mtime = target.stat().st_mtime
+                except OSError as exc:
+                    ok = False
+                    notes.append(f"файл «{raw}»: {type(exc).__name__}")
+                else:
+                    fresh = started_at is None or mtime >= started_at - 1.0
+                    ok &= fresh
+                    notes.append(f"файл «{raw}» {'записан после действия' if fresh else 'СТАРЕЕ действия (не сохранён им)'}")
+                    if "file_contains" in cleaned:
+                        try:
+                            body = target.read_text(encoding="utf-8", errors="replace")
+                        except OSError as exc:
+                            ok = False
+                            notes.append(f"файл «{raw}» не читается: {type(exc).__name__}")
+                        else:
+                            hit = cleaned["file_contains"] in body
+                            ok &= hit
+                            notes.append(f"в файле {'есть' if hit else 'НЕТ'} «{cleaned['file_contains']}»")
+    if checks == 0:
+        return None, ["ни одна проверка не выполнена — результат не проверен"]
+    return bool(ok), notes
 
 
-def _find(obs: dict, target: str) -> list[dict]:
+def _find(obs: dict, target: str, index: Any = None) -> list[dict]:
+    """Элементы по имени. `index` (номер из наблюдения) снимает неоднозначность
+    и ОБЯЗАН указывать на элемент с этим же именем."""
     t = target.strip().lower()
-    exact = [e for e in obs.get("elements") or [] if str(e.get("name") or "").strip().lower() == t]
-    return exact or [e for e in obs.get("elements") or []
-                     if t and t in str(e.get("name") or "").lower()]
+    elements = list(obs.get("elements") or [])
+    if isinstance(index, int) and not isinstance(index, bool):
+        el = next((e for e in elements if e.get("i") == index), None)
+        if el is None or str(el.get("name") or "").strip().lower() != t:
+            return []
+        return [el]
+    exact = [e for e in elements if str(e.get("name") or "").strip().lower() == t]
+    return exact or [e for e in elements if t and t in str(e.get("name") or "").lower()]
 
 
 def _render_obs(obs: dict) -> str:
@@ -230,16 +378,56 @@ class ActRefused(RuntimeError):
     pass
 
 
-def _top_windows() -> list[tuple[int, str]]:
+def _top_windows() -> list[tuple[int, str, int]]:
+    """(handle, title, pid) видимых окон верхнего уровня."""
     from pywinauto import Desktop
     out = []
     for w in Desktop(backend="uia").windows():
         try:
             if w.is_visible():
-                out.append((int(w.handle), str(w.window_text() or "")))
+                try:
+                    pid = int(w.process_id() or 0)
+                except Exception:  # noqa: BLE001
+                    pid = 0
+                out.append((int(w.handle), str(w.window_text() or ""), pid))
         except Exception:  # noqa: BLE001
             continue
     return out
+
+
+def _process_name(pid: int) -> str:
+    try:
+        import psutil
+        return str(psutil.Process(pid).name() or "").lower()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _expected_exes(app: str) -> set[str]:
+    try:
+        from bossman.computer_operator.applist import APP_ALLOWLIST
+        return {n.lower() for n in APP_ALLOWLIST.get(app, {}).get("windows", ())}
+    except Exception:  # noqa: BLE001
+        return set()
+
+
+def attribute_new_window(new: list[tuple[int, str, int]], *, launched_pid: int | None,
+                         expected_exes: set[str], process_name=_process_name) -> tuple[int, str] | None:
+    """Какое из НОВЫХ окон принадлежит запущенному приложению.
+
+    Первое попавшееся новое окно — не ответ: за 5 с могло всплыть чужое
+    (уведомление, чужой установщик, Параметры). Окно принимается, если его
+    процесс — тот, что мы запустили, или процесс с ожидаемым именем
+    исполняемого файла из allowlist (Win11 Notepad перезапускает себя другим
+    процессом). Иначе — None: отказ, а не догадка.
+    """
+    for h, title, pid in new:
+        if launched_pid and pid == launched_pid:
+            return h, title
+    for h, title, pid in new:
+        if pid and expected_exes and process_name(pid) in expected_exes:
+            return h, title
+    return None
 
 
 def _set_foreground(handle: int) -> None:
@@ -281,30 +469,69 @@ async def _focus(st: "ComputerState", handle: int) -> bool:
     return int(fg.get("handle") or 0) == int(handle)
 
 
-async def act(svc, args: dict) -> dict[str, Any]:
-    """Одно действие по свежему наблюдению + автоматическая проверка результата."""
+def _stop_check(st: ComputerState, phase: str) -> None:
+    if st.stopped():
+        raise ActRefused(f"владелец нажал «Стоп» ({phase}): действия на рабочем столе "
+                         f"остановлены до «Продолжить»")
+
+
+def _policy_observation(core, obs: dict, generation: int):
+    fg = dict((obs or {}).get("window") or {})
+    return core["Observation"]("obs", time.time(), fg, "", None, None, False, generation)
+
+
+async def _bounded(st: ComputerState, coro, what: str):
+    """Адаптер с таймаутом: зависание = НЕИЗВЕСТНЫЙ исход, не вечный замок."""
+    try:
+        return await asyncio.wait_for(coro, timeout=ACT_TIMEOUT_S)
+    except asyncio.TimeoutError:
+        st.outcome_unknown = f"{what} не ответил за {ACT_TIMEOUT_S:.0f} с — исход неизвестен"
+        st.last = {}
+        raise ActRefused(f"{st.outcome_unknown}; перечитайте экран (computer.observe) "
+                         f"прежде чем действовать дальше")
+
+
+async def act(svc, args: dict, *, approved_kind: str | None = None,
+              approval_ref: int | None = None) -> dict[str, Any]:
+    """Одно действие по свежему наблюдению + автоматическая проверка результата.
+
+    `approved_kind` — вид последствия (например "delete"), который владелец
+    одобрил ДЛЯ ЭТОГО вызова; приходит из доверенного контекста, не из args.
+    """
     ok, why = availability()
     if not ok:
         raise ActRefused(why)
     core = _core()
     AK = core["ActionKind"]
     st = _state(svc)
+    args = {k: v for k, v in dict(args or {}).items() if k not in RESERVED_ARGS}
     kind = str(args.get("action") or "").strip().lower()
     if kind not in KINDS:
         raise ActRefused(f"action: одно из {', '.join(KINDS)}")
-    if st.stop.is_set():
-        raise ActRefused("владелец нажал «Стоп»: действия на рабочем столе остановлены до «Продолжить»")
+    _stop_check(st, "до очереди")
     target = str(args.get("target") or "").strip()
+    started_at = time.time()
     async with st.lock:                            # один рабочий стол — одно действие за раз
+        # «Стоп» мог прийти, пока действие ждало замок: очередь из двух действий,
+        # STOP между ними — второе не исполняется.
+        _stop_check(st, "после ожидания очереди")
+        if st.outcome_unknown:
+            raise ActRefused(f"исход прошлого действия неизвестен ({st.outcome_unknown}) — "
+                             f"сначала computer.observe")
         if kind not in ("launch", "wait"):
             gen = args.get("generation")
-            if not st.last or not isinstance(gen, int) or gen != st.generation:
+            if (not st.last or not isinstance(gen, int) or isinstance(gen, bool)
+                    or gen != st.generation):
                 raise ActRefused(
                     f"наблюдение устарело (generation={gen!r}, текущее {st.generation}): "
                     f"вызовите computer.observe и действуйте по свежему экрану")
+            age = time.time() - float(st.last.get("observed_at") or 0)
+            if age > MAX_OBS_AGE_S:
+                raise ActRefused(f"наблюдение старше {MAX_OBS_AGE_S:.0f} с ({age:.0f} с) — "
+                                 f"перечитайте экран (computer.observe)")
         before = st.last
         if kind in INPUT_KINDS:
-            fg_now = await st.desktop.foreground()
+            fg_now = await _bounded(st, st.desktop.foreground(), "проверка окна")
             want = (before.get("window") or {}).get("handle")
             if want and int(fg_now.get("handle") or 0) != int(want):
                 raise ActRefused(
@@ -312,37 +539,68 @@ async def act(svc, args: dict) -> dict[str, Any]:
                     f"а сейчас впереди «{fg_now.get('title')}». Ввод не отправлен — вызовите "
                     f"computer.observe (или focus_window) и действуйте по свежему экрану")
         x, y = args.get("x"), args.get("y")
-        coords = isinstance(x, int) and isinstance(y, int)
+        coords = (isinstance(x, int) and isinstance(y, int)
+                  and not isinstance(x, bool) and not isinstance(y, bool))
+        index = args.get("index")
+        if index is not None and (not isinstance(index, int) or isinstance(index, bool)):
+            raise ActRefused("index: целое число элемента из наблюдения")
+        if target and kind in ("click", "double_click", "invoke", "focus") and not coords:
+            hits = _find(before, target, index)
+            exact = [e for e in hits if str(e.get("name") or "").strip().lower() == target.lower()]
+            if len(exact) > 1:
+                raise ActRefused(
+                    f"на экране {len(exact)} элемента с именем «{target}» "
+                    f"(индексы {', '.join(str(e.get('i')) for e in exact)}) — укажите index")
+            if index is not None and not hits:
+                raise ActRefused(f"элемент [{index}] не называется «{target}» в наблюдении "
+                                 f"{before.get('generation')} — цель не подтверждена")
+            if index is not None and hits and "x" in hits[0] and kind in ("click", "double_click"):
+                # Однозначная цель по индексу: клик в центр ЭТОГО элемента через
+                # координатный путь с повторным чтением экрана (ниже).
+                x, y, coords = hits[0]["x"], hits[0]["y"], True
+                args["coordinate_fallback"] = True
         mapping = {"focus": AK.FOCUS, "click": AK.UI_INVOKE if (target and not coords) else AK.CLICK,
                    "double_click": AK.DOUBLE_CLICK, "type": AK.TYPE, "hotkey": AK.HOTKEY,
                    "scroll": AK.SCROLL, "invoke": AK.UI_INVOKE, "launch": AK.APP_LAUNCH,
                    "wait": AK.WAIT, "focus_window": AK.WAIT}
+        action_args = {k: args[k] for k in ("keys", "clicks", "coordinate_fallback", "semantic",
+                                             "interval") if k in args}
+        if coords:
+            action_args["x"], action_args["y"] = x, y
+        # Уверенность НЕ самозаявленная: координатный путь считается обоснованным
+        # только после проверки попадания в названный элемент на свежем экране.
         a = core["ComputerAction"].make(
-            mapping[kind], target=target or None, text=args.get("text"),
-            args={k: args[k] for k in ("x", "y", "keys", "clicks", "coordinate_fallback", "semantic",
-                                       "interval") if k in args},
-            confidence=float(args.get("confidence") or 1.0), source="planner")
-        fg = dict((before or {}).get("window") or {})
-        pol_obs = core["Observation"]("obs", time.time(), fg, "", None, None, False, st.generation)
-        decision = core["ComputerPolicy"]().classify(a, mode=core["TaskMode"].CONTROL,
-                                                     observation=pol_obs)
+            mapping[kind], target=target or None, text=args.get("text"), args=action_args,
+            confidence=1.0, source="planner")
+        pol_obs = _policy_observation(core, before, st.generation)
+        policy = core["ComputerPolicy"]()
+        decision = policy.classify(a, mode=core["TaskMode"].CONTROL, observation=pol_obs)
         if not decision.allow:
             raise ActRefused(f"политика запретила действие: {decision.reason}")
-        if decision.requires_approval and not args.get("_approved_consequence"):
+        required = (decision.approval_kind or "").removeprefix("computer_") if decision.requires_approval else None
+        if required and approved_kind != required:
+            if approved_kind:
+                raise ActRefused(
+                    f"одобрено последствие «{approved_kind}», а действие ведёт к «{required}» "
+                    f"({decision.reason}) — одобрение не переносится, повторите вызов с "
+                    f"semantic=\"{required}\"")
             raise ActRefused(
                 f"действие последствийное ({decision.reason}) — повторите вызов с "
-                f"semantic=\"{(decision.approval_kind or '').removeprefix('computer_')}\": "
-                f"тогда оно пройдёт через подтверждение владельца")
+                f"semantic=\"{required}\": тогда оно пройдёт через подтверждение владельца")
 
         if kind in ("click", "double_click") and coords:
             # Координатный запасной путь: ПЕРЕД кликом перечитываем экран и
             # требуем, чтобы точка лежала внутри названного элемента.
-            fresh = await observe(svc, screenshot=False)
-            hits = [e for e in _find(fresh, target) if "left" in e
+            fresh = await _bounded(st, observe(svc, screenshot=False), "наблюдение")
+            hits = [e for e in _find(fresh, target, index) if "left" in e
                     and e["left"] <= x <= e["right"] and e["top"] <= y <= e["bottom"]]
             if not hits:
                 raise ActRefused(f"координаты ({x},{y}) не попадают в элемент «{target}» на "
                                  f"свежем экране (generation {fresh['generation']}) — клик не выполнен")
+            if len(hits) > 1:
+                raise ActRefused(f"в точке ({x},{y}) на свежем экране {len(hits)} элемента «{target}» "
+                                 f"— цель неоднозначна, клик не выполнен")
+            before = fresh
         elif kind == "type" and target:
             # Живой прогон 2026-09-21: «Имя файла:» в диалоге сохранения — это и
             # ComboBox, и Edit внутри; фокус на обёртке, и вставка уходила в никуда.
@@ -358,38 +616,68 @@ async def act(svc, args: dict) -> dict[str, Any]:
             editable = [e for e in (before or {}).get("elements") or []
                         if e.get("control_type") in ("Document", "Edit") and e.get("name")]
             if len(editable) == 1:
-                await st.desktop.execute(
-                    core["ComputerAction"].make(AK.FOCUS, target=editable[0]["name"]), None)
+                await _bounded(st, st.desktop.execute(
+                    core["ComputerAction"].make(AK.FOCUS, target=editable[0]["name"]), None), "фокус поля")
             elif kind == "type" and len(editable) > 1:
                 raise ActRefused("в окне несколько полей ввода: "
                                  + ", ".join(f"«{e['name']}»" for e in editable[:8])
                                  + " — укажите target")
 
+        if required:
+            # Одобрение привязано к экрану: перед эффектом политика
+            # пересматривается по СВЕЖЕМУ окну. Если экран сменился так, что
+            # последствие уже другое (или окно защищено) — отказ, не эффект.
+            fresh = await _bounded(st, observe(svc, screenshot=False), "наблюдение")
+            d2 = policy.classify(a, mode=core["TaskMode"].CONTROL,
+                                 observation=_policy_observation(core, fresh, st.generation))
+            if not d2.allow:
+                raise ActRefused(f"перед эффектом политика запретила действие: {d2.reason}")
+            now_required = (d2.approval_kind or "").removeprefix("computer_") if d2.requires_approval else None
+            if now_required != required:
+                raise ActRefused(f"экран изменился: одобрено «{required}», сейчас последствие "
+                                 f"«{now_required or 'нет'}» — одобрение не применено")
+            fg_now = fresh.get("window") or {}
+            if (before.get("window") or {}).get("handle") and int(fg_now.get("handle") or 0) != \
+                    int((before.get("window") or {}).get("handle") or 0):
+                raise ActRefused("окно сменилось после одобрения — одобрение не применено")
+            before = fresh
+        # Последняя проверка «Стоп» — непосредственно перед эффектом.
+        _stop_check(st, "перед эффектом")
         if kind == "type" and args.get("replace"):
-            await st.desktop.execute(core["ComputerAction"].make(
-                AK.HOTKEY, args={"keys": ["ctrl", "a"]}), None)
+            await _bounded(st, st.desktop.execute(core["ComputerAction"].make(
+                AK.HOTKEY, args={"keys": ["ctrl", "a"]}), None), "выделение")
         t0 = time.perf_counter()
         if kind == "wait":
             await asyncio.sleep(min(10.0, max(0.0, float(args.get("seconds") or 1))))
         elif kind == "launch":
-            known = {h for h, _ in await asyncio.to_thread(_top_windows)}
-            await st.launcher.execute(a, None)
+            from bossman.computer_operator.applist import canonical_app
+            app = canonical_app(target)
+            known = {h for h, _, _ in await asyncio.to_thread(_top_windows)}
+            st.launched_pid = None
+            await _bounded(st, st.launcher.execute(a, None), "запуск")
             # Windows не отдаёт передний план процессу, запущенному из фона:
-            # находим НОВОЕ окно и переводим фокус на него явно.
-            new = []
-            for _ in range(20):
+            # находим окно ЗАПУЩЕННОГО приложения и переводим фокус на него явно.
+            chosen = None
+            seen_new: list[tuple[int, str, int]] = []
+            for _ in range(int(LAUNCH_WAIT_S / 0.25)):
                 await asyncio.sleep(0.25)
-                new = [(h, t) for h, t in await asyncio.to_thread(_top_windows) if h not in known]
-                if new:
+                seen_new = [w for w in await asyncio.to_thread(_top_windows) if w[0] not in known]
+                chosen = attribute_new_window(seen_new, launched_pid=st.launched_pid,
+                                              expected_exes=_expected_exes(app or ""))
+                if chosen:
                     break
-            if not new:
-                raise ActRefused(f"«{target}» запущен, но новое окно не появилось за 5 с")
-            if not await _focus(st, new[0][0]):
-                raise ActRefused(f"окно «{new[0][1]}» появилось, но фокус получить не удалось")
+            if not chosen:
+                foreign = "; ".join(f"«{t}»" for _, t, _ in seen_new[:4])
+                raise ActRefused(
+                    f"«{target}» запущен, но окно запущенного приложения не появилось за "
+                    f"{LAUNCH_WAIT_S:.0f} с"
+                    + (f" (новые чужие окна: {foreign} — не трогаем)" if foreign else ""))
+            if not await _focus(st, chosen[0]):
+                raise ActRefused(f"окно «{chosen[1]}» появилось, но фокус получить не удалось")
         elif kind == "focus_window":
             if not target:
                 raise ActRefused("focus_window: нужен target — часть заголовка окна")
-            wins = [(h, t) for h, t in await asyncio.to_thread(_top_windows)
+            wins = [(h, t) for h, t, _ in await asyncio.to_thread(_top_windows)
                     if target.lower() in t.lower()]
             if len(wins) != 1:
                 raise ActRefused(f"окон с «{target}» в заголовке: {len(wins)} — "
@@ -397,16 +685,18 @@ async def act(svc, args: dict) -> dict[str, Any]:
             if not await _focus(st, wins[0][0]):
                 raise ActRefused(f"не удалось вывести «{wins[0][1]}» на передний план")
         else:
-            await st.desktop.execute(a, None)
+            await _bounded(st, st.desktop.execute(a, None), "действие")
         await asyncio.sleep(SETTLE_S)
-        after = await observe(svc)
-        verified, notes = verify(after, args.get("expect"))
+        after = await _bounded(st, observe(svc), "наблюдение")
+        verified, notes = verify(after, args.get("expect"), started_at=started_at)
         result = {"action": kind, "target": target, "coordinates": [x, y] if coords else None,
                   "before_generation": (before or {}).get("generation"),
                   "after_generation": after["generation"], "verified": verified, "checks": notes,
+                  "approved_kind": approved_kind if required else None, "approval_ref": approval_ref,
                   "elapsed_ms": int((time.perf_counter() - t0) * 1000), "observation": after}
     await svc.bus.emit("computer.act", action=kind, target=target[:200], verified=verified,
                        before=result["before_generation"], after=result["after_generation"],
+                       approved_kind=result["approved_kind"], approval_id=approval_ref,
                        window=str((after.get("window") or {}).get("title") or "")[:200])
     return result
 
@@ -424,13 +714,29 @@ async def _t_observe(args, ctx):
                       external=True)
 
 
+def approved_consequence(args: dict, ctx) -> tuple[str | None, int | None]:
+    """Что владелец одобрил для ЭТОГО вызова — из доверенного контекста.
+
+    Движок исполняет вызов с `ctx.approval_id`, когда строка approvals решена
+    владельцем; `effect_hook` ниже поднимает ASK ровно для заявленного вида
+    последствия, и одобрение привязано к digest'у аргументов. Поэтому вид
+    одобренного последствия = заявленный вид, и только при наличии approval_id.
+    Без approval_id (AUTO, вызов вне движка) одобрения НЕТ, что бы ни писала
+    модель в semantic или служебных полях.
+    """
+    from bossman.computer_operator.policy import ComputerPolicy
+    approval_id = getattr(ctx, "approval_id", None)
+    if approval_id is None:
+        return None, None
+    declared = ComputerPolicy.declared_consequence(args or {})
+    return declared, int(approval_id)
+
+
 async def _t_act(args, ctx):
-    args = dict(args)
-    # effect_hook уже поднял ASK для заявленного последствия; сюда доходит только одобренное.
-    if args.get("semantic"):
-        args["_approved_consequence"] = True
+    args = {k: v for k, v in dict(args or {}).items() if k not in RESERVED_ARGS}
+    approved_kind, approval_ref = approved_consequence(args, ctx)
     try:
-        res = await act(ctx.svc, args)
+        res = await act(ctx.svc, args, approved_kind=approved_kind, approval_ref=approval_ref)
     except ActRefused as exc:
         return ToolResult(content=f"действие не выполнено: {exc}", one_line="computer.act: отказ",
                           error=True)
@@ -466,15 +772,20 @@ SPECS = [
                          "action: focus|click|double_click|type|hotkey|scroll|invoke|launch|wait|"
                          "focus_window (target = часть заголовка окна). Ввод идёт только в "
                          "окно из наблюдения — если фокус ушёл, отказ. "
-                         "Цель — имя элемента (target); координаты x,y только с "
-                         "coordinate_fallback=true и target. expect: {window_title_contains, "
-                         "contains_text, absent_text} проверяется по новому экрану. launch: только "
+                         "Цель — имя элемента (target); при двух одинаковых именах укажите index "
+                         "из наблюдения. Координаты x,y только с coordinate_fallback=true и target. "
+                         "expect: {window_title_contains, contains_text, absent_text, file_exists "
+                         "(абсолютный путь), file_contains} проверяется по новому экрану/диску; "
+                         "неизвестные поля делают результат НЕ подтверждённым. launch: только "
                          "notepad/calculator. Последствийное (удалить/оплатить/отправить) — "
-                         "semantic=<вид>, пойдёт через подтверждение.",
+                         "semantic=<вид>, пойдёт через подтверждение владельца; само слово "
+                         "semantic разрешением не является.",
              handler=_t_act,
              input_schema={"action": {"type": "string", "enum": list(KINDS)},
                            "generation": {"type": "integer"},
                            "target": {"type": "string"}, "text": {"type": "string"},
+                           "index": {"type": "integer",
+                                     "description": "номер элемента из наблюдения при одинаковых именах"},
                            "keys": {"type": "array", "items": {"type": "string"}},
                            "x": {"type": "integer"}, "y": {"type": "integer"},
                            "coordinate_fallback": {"type": "boolean"},
@@ -494,10 +805,30 @@ SPECS = [
 @router.get("/computer/status")
 async def http_status(request: Request):
     ok, why = availability()
-    st = getattr(request.app.state.svc, "_computer_state", None)
+    svc = request.app.state.svc
+    st = getattr(svc, "_computer_state", None)
+    if st is None:
+        # Состояние ещё не создано, но файл STOP с прошлой жизни — уже факт.
+        stop_path = Path(svc.settings.data_dir) / "computer" / STOP_FILE
+        stopped = stop_path.is_file()
+    else:
+        stopped = st.stopped()
     return {"available": ok, "detail": why or "Windows UIA + pyautogui готовы",
-            "stopped": bool(st and st.stop.is_set()), "generation": st.generation if st else 0,
+            "stopped": stopped, "generation": st.generation if st else 0,
+            "session": st.session if st else None,
+            "outcome_unknown": (st.outcome_unknown if st else "") or None,
             "tools": [s.name for s in SPECS]}
+
+
+def _owner_state(svc) -> ComputerState:
+    st = getattr(svc, "_computer_state", None)
+    if st is None:
+        st = ComputerState()
+        st.stop_path = Path(svc.settings.data_dir) / "computer" / STOP_FILE
+        if st.stop_path.is_file():
+            st.stop.set()
+        svc._computer_state = st
+    return st
 
 
 @router.post("/computer/observe")
@@ -510,23 +841,24 @@ async def http_observe(request: Request):
 
 @router.post("/computer/stop")
 async def http_stop(request: Request):
-    """«Стоп» владельца: обрывает набор текста и блокирует новые действия."""
+    """«Стоп» владельца: обрывает набор текста, блокирует новые действия,
+    переживает перезапуск backend (файл STOP)."""
     svc = request.app.state.svc
-    st = getattr(svc, "_computer_state", None) or ComputerState()
-    svc._computer_state = st
-    st.stop.set()
+    st = _owner_state(svc)
+    st.set_stop("owner")
     await svc.bus.emit("computer.stop", by="owner")
-    return {"stopped": True}
+    return {"stopped": True, "persisted": bool(st.stop_path and st.stop_path.is_file())}
 
 
 @router.post("/computer/resume")
 async def http_resume(request: Request):
+    """«Продолжить» владельца. Только через панель (сессия + CSRF); у модели нет
+    инструмента, который сюда доходит. Все прежние наблюдения обесцениваются."""
     svc = request.app.state.svc
-    st = getattr(svc, "_computer_state", None) or ComputerState()
-    svc._computer_state = st
-    st.stop.clear()
-    await svc.bus.emit("computer.resume", by="owner")
-    return {"stopped": False}
+    st = _owner_state(svc)
+    st.clear_stop()
+    await svc.bus.emit("computer.resume", by="owner", generation=st.generation)
+    return {"stopped": False, "generation": st.generation}
 
 
 async def _setup(svc) -> None:

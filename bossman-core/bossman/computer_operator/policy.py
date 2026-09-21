@@ -12,7 +12,38 @@ CONSEQUENTIAL=frozenset({
 })
 MIN_VISION_CONFIDENCE=.72
 MAX_TYPE_CHARS=20000
-BOSSMAN_SURFACE_TOKENS=("bossman","approval","approve","confirm action","emergency")
+# Защищённая поверхность Bossman — это ОКНА и ЦЕЛИ, а не слова в тексте.
+#
+# До 2026-09-21 одна чёрная метка ("bossman"/"approve"/…) проверялась сразу по
+# target, по ВВОДИМОМУ ТЕКСТУ и по semantic. Живой прогон показал цену:
+# агент не мог напечатать в Блокноте путь `…\Bossman\…` или обычную фразу
+# со словом «approve», хотя ни то ни другое не касается ни одной кнопки
+# подтверждения. При этом та же проверка НЕ видела настоящую поверхность —
+# окно Command Center, UAC, диалог учётных данных, — если модель назвала цель
+# нейтрально («кнопка справа»).
+#
+# Теперь три слоя, каждый с отрицательным контролем в тестах:
+#   1. PROTECTED_WINDOW_TOKENS — окно переднего плана из НАБЛЮДЕНИЯ (не из
+#      слов модели). Любой ввод в такое окно запрещён: Bossman/Command Center
+#      (самоодобрение через собственный UI), UAC/Windows Security/учётные
+#      данные (повышение прав и секреты). Нет наблюдения — идентичность окна
+#      неизвестна, и чувствительные цели ниже отказываются fail-closed.
+#   2. SENSITIVE_TARGET_TOKENS — имя ЭЛЕМЕНТА-цели: «Approve», «Подтвердить»,
+#      «Продолжить»/«Resume», «Emergency». Разрешено только когда окно
+#      переднего плана известно И не защищено (например, «Продолжить» в
+#      установщике). При неизвестной идентичности — отказ.
+#   3. Слово «bossman» в имени цели или в semantic — всегда отказ: модель сама
+#      называет поверхность Bossman целью действия.
+# Вводимый текст (a.text) — содержимое документа владельца; он проверяется
+# ТОЛЬКО когда идентичность окна неизвестна (fail-closed) или окно защищено.
+PROTECTED_WINDOW_TOKENS=("bossman","command center","user account control",
+ "контроль учетных записей","контроль учётных записей","windows security",
+ "безопасность windows","credential manager","диспетчер учетных данных",
+ "диспетчер учётных данных","bcc-desktop")
+SENSITIVE_TARGET_TOKENS=("approve","approval","одобр","подтвердить","confirm action",
+ "emergency","unlock","разблокир","resume","продолжить")
+# Историческое имя: совместимость для внешних импортов. Семантика — см. выше.
+BOSSMAN_SURFACE_TOKENS=("bossman",)+SENSITIVE_TARGET_TOKENS
 SECRET_REF_TOKENS=("credential","secret")
 
 # Лексикон последствий. Ищется в УЛИКАХ НАБЛЮДЕНИЯ — подписи элемента, по
@@ -64,12 +95,43 @@ class PolicyDecision:
 
 class ComputerPolicy:
     @staticmethod
-    def _surface_text(a:ComputerAction)->str:
-        return " ".join(x for x in (a.target,a.text,str(a.args.get("semantic") or "")) if x).lower()
+    def foreground_identity(observation:Observation|None)->str|None:
+        """Заголовок/приложение окна переднего плана из наблюдения, либо None
+        (наблюдения нет или окно не названо) — «идентичность неизвестна»."""
+        fg=getattr(observation,"foreground",None)
+        if not isinstance(fg,dict):return None
+        parts=[str(fg.get(k) or "") for k in FOREGROUND_FIELDS]
+        text=" ".join(p for p in parts if p).strip().lower()
+        return text or None
     @classmethod
-    def touches_bossman_surface(cls,a:ComputerAction)->bool:
-        hay=cls._surface_text(a)
-        return any(tok in hay for tok in BOSSMAN_SURFACE_TOKENS)
+    def protected_window(cls,observation:Observation|None)->bool:
+        ident=cls.foreground_identity(observation)
+        return bool(ident) and any(tok in ident for tok in PROTECTED_WINDOW_TOKENS)
+    @classmethod
+    def touches_bossman_surface(cls,a:ComputerAction,observation:Observation|None=None)->bool:
+        """Действие касается защищённой поверхности (см. комментарий к токенам).
+
+        Вход (без наблюдения) — не «всё разрешено», а «идентичность окна
+        неизвестна»: чувствительная цель или чувствительный текст в неизвестном
+        окне отвергаются. Обычный текст («hello world», путь к файлу без
+        чувствительных слов) в неизвестном окне не отвергается — это и есть
+        отделение содержимого от поверхности."""
+        target=(a.target or "").lower()
+        semantic=str(a.args.get("semantic") or "").lower()
+        if "bossman" in target or "bossman" in semantic:return True
+        # semantic — заявление модели о СВОЁМ намерении: «approve yourself»,
+        # «emergency unlock» называют поверхность целью и отвергаются всегда.
+        if any(tok in semantic for tok in SENSITIVE_TARGET_TOKENS):return True
+        input_kinds={ActionKind.CLICK,ActionKind.DOUBLE_CLICK,ActionKind.UI_INVOKE,ActionKind.DRAG,
+                     ActionKind.HOTKEY,ActionKind.TYPE,ActionKind.FOCUS,ActionKind.SCROLL}
+        if a.kind in input_kinds and cls.protected_window(observation):return True
+        identity_known=cls.foreground_identity(observation) is not None
+        if any(tok in target for tok in SENSITIVE_TARGET_TOKENS):
+            return not identity_known
+        if a.kind is ActionKind.TYPE and not identity_known:
+            text=(a.text or "").lower()
+            if any(tok in text for tok in SENSITIVE_TARGET_TOKENS):return True
+        return False
     @staticmethod
     def _observed_text(a:ComputerAction,observation:Observation|None)->str:
         """Улики, которых у модели нет: подпись цели и переднее приложение.
@@ -130,7 +192,7 @@ class ComputerPolicy:
     def classify(self,a:ComputerAction,*,mode:TaskMode,locked:bool=False,
                  observation:Observation|None=None)->PolicyDecision:
         if locked: return PolicyDecision(False,reason="operator locked")
-        if self.touches_bossman_surface(a):
+        if self.touches_bossman_surface(a,observation):
             return PolicyDecision(False,reason="bossman security surface is not a desktop target")
         if mode is TaskMode.OBSERVE_ONLY and a.kind not in {
             ActionKind.NOOP,ActionKind.WAIT,ActionKind.TAKE_SCREENSHOT,ActionKind.COMPLETE,ActionKind.FAIL

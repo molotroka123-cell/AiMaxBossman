@@ -108,6 +108,35 @@ function facts(body) {
     line('проверка p95', lat.verification_ms ? `${lat.verification_ms.p95 ?? '—'} мс` : '—'));
 }
 
+/* Рабочий стол (Computer Use): владельческие «Стоп»/«Продолжить». Кнопки
+   существуют ТОЛЬКО здесь — у модели нет инструмента, который доходит до
+   /api/computer/stop|resume (сессия + CSRF панели). «Стоп» переживает
+   перезапуск backend; «Продолжить» обесценивает прежние наблюдения агента. */
+function desktopPanel(status, ctx) {
+  const stopped = !!(status && status.stopped);
+  const avail = status ? status.available : null;
+  const call = async (op) => {
+    try {
+      await api.raw(`/api/computer/${op}`, { method: 'POST', body: { by: 'owner' } });
+      await ctx.refresh();
+    } catch (e) { toastError(e, op === 'stop' ? 'Не удалось остановить' : 'Не удалось продолжить'); }
+  };
+  const line = h('div.row.tight',
+    h('span', { id: 'computer-stop-state', class: `badge badge-${stopped ? 'warn' : (avail ? 'ok' : 'idle')}` },
+      stopped ? 'СТОП' : (avail ? 'РАЗРЕШЕНО' : 'НЕДОСТУПНО')),
+    h('span.small.dim', { style: { marginLeft: '8px' } },
+      stopped ? 'действия агента на рабочем столе остановлены до «Продолжить»'
+        : (status && status.detail) || ''),
+    status && status.outcome_unknown ? h('span.badge.badge-warn', { style: { marginLeft: '8px' } },
+      `исход неизвестен: ${status.outcome_unknown}`) : null,
+    h('div.spacer'),
+    h('button.btn.btn-sm.btn-danger', { id: 'computer-stop', type: 'button', disabled: stopped,
+      onClick: () => call('stop') }, icon('stop', 12), h('span', 'Стоп')),
+    h('button.btn.btn-sm', { id: 'computer-resume', type: 'button', disabled: !stopped,
+      onClick: () => call('resume') }, icon('retry', 12), h('span', 'Продолжить')));
+  return panel('Рабочий стол (Computer Use)', line);
+}
+
 const ControlPage = {
   id: 'control',
   title: 'Пульт',
@@ -122,6 +151,8 @@ const ControlPage = {
     } catch (e) {
       return errorBanner(e, ctx);
     }
+    let computer = null;
+    try { computer = await api.raw('/api/computer/status'); } catch { computer = null; }
     const view = body.owner_view || { rows: [], rule: '' };
     const rows = view.rows || [];
     const attention = rows.filter((r) => r.attention);
@@ -137,6 +168,7 @@ const ControlPage = {
       attention.length
         ? panel(h('h2', `Требует вашего решения (${attention.length})`), table(attention))
         : null,
+      desktopPanel(computer, ctx),
       panel('Работы', table(rows)),
       panel('Состояние системы', facts(body)),
       h('div.xsmall.dim', view.rule || ''));
@@ -145,7 +177,8 @@ const ControlPage = {
   onEvent(ev) {
     // Перерисовываем только по событиям жизненного цикла — не по каждому логу.
     return ['task.created', 'task.queued', 'task.blocked', 'task.finalized', 'task.failed', 'task.stopped',
-      'approval.created', 'approval.decided', 'verification.result'].includes(ev.kind);
+      'approval.created', 'approval.decided', 'verification.result',
+      'computer.stop', 'computer.resume'].includes(ev.kind);
   },
 };
 

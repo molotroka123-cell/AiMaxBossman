@@ -66,6 +66,11 @@ class ToolContext:
     step: int = 0
     workspace: str = ""
     call_id: str = ""
+    # Доверенный контекст одобрения: id строки `approvals`, по которой движок
+    # исполняет ЭТОТ вызов (None — AUTO или вызов вне движка). Инструмент,
+    # чьё действие имеет последствие, читает разрешение ОТСЮДА, а не из
+    # аргументов модели: аргумент модель пишет сама, строку approvals — нет.
+    approval_id: int | None = None
 
 
 Handler = Callable[[dict, ToolContext], Awaitable[ToolResult]]
