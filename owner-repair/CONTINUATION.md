@@ -15,8 +15,8 @@ Exact-SHA CI for the pushed head: **not yet checked**. Windows artifact: **not b
 
 ## Open items, in order
 1. **Full command-center suite triage.** Run log: `owner-repair/evidence/cc-full-suite.log`
-   (run WITHOUT ffmpeg on PATH — rerun with `PATH=<app>\media;%PATH%`). About 15–20 failures
-   seen. For each failure, compare with a baseline worktree at 0c3e22ff before calling it a regression.
+   (run WITHOUT ffmpeg on PATH — rerun with `PATH=<app>\media;%PATH%`). Result: 62 failed, 3704 passed,
+   193 skipped, 7 errors; exact list in `owner-repair/evidence/cc-full-suite-failures.txt`. For each failure, compare with a baseline worktree at 0c3e22ff before calling it a regression.
    Known pre-existing/host: `test_v21_tools_terminal_browser::test_model_runs_real_command_and_reads_output`
    (Git sh), `bossman-core test_windows_host_shell::test_posix_local_shell_unchanged`,
    `test_studio_integrations::test_web_designer_uses_existing_edit_and_version_gate` (to confirm on base).
