@@ -92,6 +92,41 @@
       "note": "note file produced by malformed write: frontmatter only, payload content silently dropped (113 bytes)",
       "sha256": "6536b4a2aa10d83daeaeba9af06e1d7aebd9cd973ad5c04543294f24eb8ecc82",
       "bytes": 113
+    },
+    {
+      "id": "EV-013",
+      "path": "C:\\Users\\asd\\Bossman\\benchmarks\\ace_magic\\perf_main_solo.json",
+      "note": "CP-06: MAIN solo, native timings TG 9.8 / PP 8.1 / TTFT 4.83s + utilization",
+      "sha256": "9ec210313cef73166fb91d8b393f5ae0130f82526463e3da6b5a7c75e3df2c68",
+      "bytes": 933
+    },
+    {
+      "id": "EV-014",
+      "path": "C:\\Users\\asd\\Bossman\\benchmarks\\ace_magic\\perf_main_resident_warm.json",
+      "note": "CP-06: MAIN both-resident warm, TG 10.2 / PP 10.9 / TTFT 3.57s (co-residency no penalty)",
+      "sha256": "d7447c64ed0dd7845a4bc69820f6525c12cf8429c10911e9a69be3371a337e44",
+      "bytes": 990
+    },
+    {
+      "id": "EV-015",
+      "path": "C:\\Users\\asd\\Bossman\\benchmarks\\ace_magic\\perf_fast_resident.json",
+      "note": "CP-06: FAST both-resident, TG 48.9 / PP 25.6 / TTFT 1.52s",
+      "sha256": "d413f043006c142a1d9bfd2b621fbcaa442b63290a74fe621547a69fbbba26f1",
+      "bytes": 988
+    },
+    {
+      "id": "EV-016",
+      "path": "C:\\Users\\asd\\Bossman\\tests\\main-8081-v.err.log",
+      "note": "CP-06: llama.cpp verbose log MAIN: Vulkan0=AMD Radeon 8060S, 66/66 layers offloaded, Flash Attention enabled",
+      "sha256": "2a783a6f9ca1a1bf4fc4f363bb5cc4869980e98d707060f25c6f8bfb085855d8",
+      "bytes": 395909
+    },
+    {
+      "id": "EV-017",
+      "path": "C:\\Users\\asd\\Bossman\\tests\\fast-8082-v.err.log",
+      "note": "CP-06: llama.cpp verbose log FAST: 41/41 layers offloaded, Flash Attention enabled",
+      "sha256": "552bba8c5add7e209f54912322904a926438e86c1df741180785c769e8a9a35b",
+      "bytes": 650477
     }
   ],
   "note": "Large/private evidence intentionally not committed. Screenshots containing the owner desktop are never committed; hashes recorded here prove their local integrity."
