@@ -173,13 +173,13 @@ python tools/exact_sha_certify.py --sha "$TESTED_SHA" --runs-json runs.json --ou
 
 - **Current bottleneck:** The repair pass is materially ahead of the 2026-09-07 scorecard, but the final repaired exact-SHA Windows artifact still needs mandatory CI, clean-install owner re-run, Video Studio product-path acceptance, coaching/holdout and an independent red-team.
 - **Next highest-value fix:** Finish mandatory exact-SHA CI, build one clean Windows 1.0-RC artifact, then run the full owner acceptance and independent red-team on those exact bytes.
-- **Last evidence SHA:** `a2790632feed52b6b6ec21f017d85fb5151ca4f3` · **Current HEAD SHA:** `a131dcf56b9fa8bf6203bffa0bc260dec491f0cd` · **Evidence freshness:** CURRENT_REPAIR_EVIDENCE / CURRENT_HEAD_CI_PENDING
+- **Last evidence SHA:** `a2790632feed52b6b6ec21f017d85fb5151ca4f3` · **Current HEAD SHA:** `1b7cf6d924fd` · **Evidence freshness:** PARTIALLY_STALE
 - **Last scorecard update:** 2026-09-22
-- **Benchmark hard failures:** none confirmed in current repair evidence
-- **Live hardware attestation:** PARTIAL — owner-hardware baseline + targeted post-repair checks exist; final repaired artifact re-run pending
-- **Exact-SHA CI:** PENDING_CURRENT_HEAD
+- **Benchmark hard failures:** none observed
+- **Live hardware attestation:** PENDING
+- **Exact-SHA CI:** UNPROVEN
 
-_Среднее (вторично, не сертификат): 8.0/10. Было 7.4/10 на 2026-09-07. Рост отражает реальные owner-hardware проверки, Computer Use, browser/download, approval/security и telemetry fixes; 10.0 остаётся недоступным без полного exact-SHA owner acceptance._
+_Среднее (вторично, не авторитетно): 8.0/10. 10.0 = ATTESTED; ни одна ось не ATTESTED без живой аттестации железа._
 <!-- BOSSMAN_LIVE_SCORECARD_END -->
 
 </details>

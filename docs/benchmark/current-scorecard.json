@@ -2,8 +2,8 @@
   "schema": "bossman.live-scorecard/1",
   "last_update": "2026-09-22",
   "last_evidence_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
-  "exact_sha_ci": "PENDING_CURRENT_HEAD",
-  "live_hardware_attestation": "PARTIAL",
+  "exact_sha_ci": "UNPROVEN",
+  "live_hardware_attestation": "PENDING",
   "benchmark_hard_failures": [],
   "current_bottleneck": "The repair pass is materially ahead of the 2026-09-07 scorecard, but the final repaired exact-SHA Windows artifact still needs mandatory CI, clean-install owner re-run, Video Studio product-path acceptance, coaching/holdout and an independent red-team.",
   "next_highest_value_fix": "Finish mandatory exact-SHA CI, build one clean Windows 1.0-RC artifact, then run the full owner acceptance and independent red-team on those exact bytes.",
@@ -26,7 +26,7 @@
       ],
       "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
       "last_verified_at": "2026-09-22",
-      "live_attestation": "PARTIAL",
+      "live_attestation": "PENDING",
       "regression_delta": 0
     },
     {
@@ -47,7 +47,7 @@
       ],
       "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
       "last_verified_at": "2026-09-22",
-      "live_attestation": "PARTIAL",
+      "live_attestation": "PENDING",
       "regression_delta": 0
     },
     {
@@ -68,7 +68,7 @@
       ],
       "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
       "last_verified_at": "2026-09-22",
-      "live_attestation": "PARTIAL_OWNER_HARDWARE",
+      "live_attestation": "PENDING",
       "regression_delta": 0
     },
     {
@@ -89,7 +89,7 @@
       ],
       "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
       "last_verified_at": "2026-09-22",
-      "live_attestation": "PARTIAL",
+      "live_attestation": "PENDING",
       "regression_delta": 0
     },
     {
@@ -110,7 +110,7 @@
       ],
       "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
       "last_verified_at": "2026-09-22",
-      "live_attestation": "PARTIAL",
+      "live_attestation": "PENDING",
       "regression_delta": 0
     },
     {
@@ -131,7 +131,7 @@
       ],
       "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
       "last_verified_at": "2026-09-22",
-      "live_attestation": "PARTIAL",
+      "live_attestation": "PENDING",
       "regression_delta": 0
     },
     {
@@ -152,7 +152,7 @@
       ],
       "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
       "last_verified_at": "2026-09-22",
-      "live_attestation": "PARTIAL",
+      "live_attestation": "PENDING",
       "regression_delta": 0
     },
     {
@@ -173,7 +173,7 @@
       ],
       "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
       "last_verified_at": "2026-09-22",
-      "live_attestation": "PARTIAL_OWNER_HARDWARE",
+      "live_attestation": "PENDING",
       "regression_delta": 0
     },
     {
@@ -194,7 +194,7 @@
       ],
       "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
       "last_verified_at": "2026-09-22",
-      "live_attestation": "PARTIAL",
+      "live_attestation": "PENDING",
       "regression_delta": 0
     },
     {
@@ -215,7 +215,7 @@
       ],
       "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
       "last_verified_at": "2026-09-22",
-      "live_attestation": "PARTIAL",
+      "live_attestation": "PENDING",
       "regression_delta": 0
     }
   ]
