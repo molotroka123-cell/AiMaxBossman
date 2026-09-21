@@ -130,9 +130,15 @@ function desktopPanel(status, ctx) {
     status && status.outcome_unknown ? h('span.badge.badge-warn', { style: { marginLeft: '8px' } },
       `исход неизвестен: ${status.outcome_unknown}`) : null,
     h('div.spacer'),
+    /* Выключенная кнопка обязана объяснять почему (installed UI sweep:
+       disabled_silent — блокер заморозки), поэтому title стоит всегда. */
     h('button.btn.btn-sm.btn-danger', { id: 'computer-stop', type: 'button', disabled: stopped,
+      title: stopped ? 'Уже остановлено — действия агента на рабочем столе запрещены'
+        : 'Остановить действия агента на рабочем столе (переживает перезапуск)',
       onClick: () => call('stop') }, icon('stop', 12), h('span', 'Стоп')),
     h('button.btn.btn-sm', { id: 'computer-resume', type: 'button', disabled: !stopped,
+      title: stopped ? 'Снять «Стоп»: агент обязан заново прочитать экран'
+        : 'Нечего продолжать — «Стоп» не нажат',
       onClick: () => call('resume') }, icon('retry', 12), h('span', 'Продолжить')));
   return panel('Рабочий стол (Computer Use)', line);
 }

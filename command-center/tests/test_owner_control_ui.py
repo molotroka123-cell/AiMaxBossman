@@ -145,12 +145,16 @@ def test_owner_stop_and_resume_buttons_drive_the_computer_state(live):
             _open(page, live)
             page.wait_for_selector("#computer-stop", timeout=15000)
             assert page.locator("#computer-resume").is_disabled()
+            # выключенная кнопка объясняет причину (UI sweep: disabled_reason, не disabled_silent)
+            assert (page.get_attribute("#computer-resume", "title") or "").strip()
+            assert (page.get_attribute("#computer-stop", "title") or "").strip()
             page.click("#computer-stop")
             page.wait_for_function("document.querySelector('#computer-stop-state') && "
                                    "document.querySelector('#computer-stop-state').innerText.includes('СТОП')",
                                    timeout=15000)
             assert stop_file.is_file()
             assert page.locator("#computer-stop").is_disabled()
+            assert "остановлено" in (page.get_attribute("#computer-stop", "title") or "").lower()
             page.reload()
             page.wait_for_selector("#computer-resume", timeout=15000)
             assert "СТОП" in page.locator("#computer-stop-state").inner_text()
