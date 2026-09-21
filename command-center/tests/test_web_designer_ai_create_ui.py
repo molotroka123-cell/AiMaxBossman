@@ -24,6 +24,29 @@ HTML = ('<!doctype html><html><head><meta charset="utf-8"><title>Creative UI fix
         '</head><body><h1 id="creative-ui">Creative UI original</h1><p>Test data only.</p></body></html>')
 
 
+def _expected_restart_console_error(text: str) -> bool:
+    """Only transport noise caused by the deliberate server-death window.
+
+    Killing the exact process under test necessarily races Chromium's resource
+    loader and events WebSocket.  Hiding arbitrary console errors would weaken
+    the acceptance gate, so the exemption is deliberately tiny and is applied
+    only to entries captured between ``live.restart()`` and verified recovery.
+    """
+    return (
+        text == 'Failed to load resource: net::ERR_CONNECTION_REFUSED'
+        or ('WebSocket connection to ' in text and '/api/events' in text
+            and 'ERR_CONNECTION_REFUSED' in text)
+    )
+
+
+def _expected_restart_request_failure(row: dict, base_url: str) -> bool:
+    failure = row.get('failure') or ''
+    return (
+        row.get('url', '').startswith(base_url)
+        and ('ERR_CONNECTION_REFUSED' in failure or 'ERR_ABORTED' in failure)
+    )
+
+
 def test_local_creative_creation_uses_real_ui_and_survives_edit_restart_rollback(live, tmp_path):
     calls = []
     release_response = threading.Event()
@@ -117,10 +140,23 @@ def test_local_creative_creation_uses_real_ui_and_survives_edit_restart_rollback
                 }''', arg=[endpoint, edited], timeout=15000)
                 page.reload()
                 expect(page.locator('textarea.bd-code')).to_have_value(edited)
+
+                # Record the deliberate outage separately. Chromium is allowed
+                # to report only connection-refused noise while the exact test
+                # server is dead; recovery is then proved through UI + API.
+                restart_console_at = len(console_errors)
+                restart_requests_at = len(request_failures)
                 live.restart()
                 page.reload()
                 expect(page.frame_locator('iframe.bd-frame').locator('#creative-ui')).to_have_text('Creative UI edited')
                 assert page.request.get(endpoint).json()['code'] == edited
+                restart_console = console_errors[restart_console_at:]
+                restart_requests = request_failures[restart_requests_at:]
+                assert all(_expected_restart_console_error(line) for line in restart_console), restart_console
+                assert all(_expected_restart_request_failure(row, live.url) for row in restart_requests), restart_requests
+                del console_errors[restart_console_at:]
+                del request_failures[restart_requests_at:]
+
                 first_version = page.locator('div.bd-vers').filter(has=page.locator('b', has_text='v1'))
                 first_version.get_by_role('button', name='Вернуть', exact=True).click()
                 page.get_by_role('dialog').get_by_role('button', name='Вернуть', exact=True).click()
