@@ -15,7 +15,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из push;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-21-pre-evo-owner-music-preset-profile-sync",
-  "declared_for": "release/bossman-owner",
-  "note": "Complete the music preset hotfix integration: register the new installed-browser test in the Windows push path filter and update exact profile-contract expectations to 49 cases across 18 modules, keeping every negative control. All build jobs, commands, permissions and freeze gates remain unchanged. This declaration requests the full matrix for this exact candidate; no readiness or live-model evidence is fabricated."
+  "candidate_label": "rc-2026-09-21-bossman-1.0-rc-owner-ready",
+  "declared_for": "claude/bossman-1-0-rc-owner-ready-cfesui → release/bossman-owner (PR #71)",
+  "note": "BOSSMAN 1.0-RC owner-ready candidate: Computer Use approval/verify/STOP/target/surface fixes, sd.cpp media provider hardening (hash, cancel, restart, atomic verified output) with bootstrap tooling, coaching lessons through the canonical LearningStore + coaching runner, full-suite triage fixes, red-team defects closed, Owner-Run/Media-Setup/Coaching/Collect-Diagnostics launchers, START_TOMORROW_RU. This declaration requests the full mandatory matrix (incl. both Windows jobs and owner scenarios) for the exact SHA born from this push. Status claimed: READY_FOR_OWNER_RUN only after that matrix is CERTIFIED; OWNER_HARDWARE_CERTIFIED is not claimed; no live-model, real-generation or learning-gain evidence is fabricated."
 }

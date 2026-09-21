@@ -1,54 +1,48 @@
-# CONTINUATION — Bossman 1.0 repair (checkpoint 2026-09-21T21:00Z)
+# CONTINUATION — Bossman 1.0-RC (checkpoint 2026-09-21, GitHub-only closure)
 
-Status: **engineering checkpoint, NOT 1.0, NOT certified.** Paused on the owner's request.
+Status: **BOSSMAN_1.0_RC candidate declared; READY_FOR_OWNER_RUN pending the exact-SHA certificate of the
+final push** (see the handoff comment on PR #71 for CANDIDATE_SHA, CI matrix and the inner ZIP SHA-256).
+OWNER_HARDWARE_CERTIFIED: **not claimed** — the owner runs tomorrow's protocol on the new archive.
 
-## Branch / commits (release/bossman-owner, pushed on top of 0c3e22ff)
-| SHA | What | State |
-|---|---|---|
-| 79a12276 | B4 browser download (P1) | FIXED, regression PASS (real Chromium) |
-| 84cbd788 | AP-ALL approvals filter (P2) | FIXED, regression PASS |
-| 8fe29925 | TEL-001 honest model speed (P2) | FIXED, live check PASS (MAIN 10.2, FAST 50.1 tok/s) |
-| 9cf8fe4c | Computer Use wired into owner product | FIXED, live Notepad 12/12 PASS |
-| 6384c8f0 | Local AI video/image engine (sd.cpp Vulkan) | WIP (see below) |
+## Lines and commits
+| what | value |
+|---|---|
+| FINAL_BRANCH | `claude/bossman-1-0-rc-owner-ready-cfesui` (harness-designated; PR #71 → `release/bossman-owner`) |
+| START_SHA | `9c3369b400cbea08e794017a652bf7567ad4f70d` (remote HEAD of release/bossman-owner at start; nothing rolled back) |
+| previous owner baseline | `0c3e22ffd44c9b2c3e4f90b2e86456c28ca43f39` |
+| CANDIDATE_SHA | the tip of FINAL_BRANCH after the push carrying `tools/release_candidate.json` = `rc-2026-09-21-bossman-1.0-rc-owner-ready` |
 
-Exact-SHA CI for the pushed head: **not yet checked**. Windows artifact: **not built**.
+Commits on top of START_SHA (all pushed, no force-push):
+b8134d5 computer use · deb9470 learning loop · fe56874 release tooling · 508f2be CI contract · 4e74a23 triage fixes ·
+c16ba1b sd.cpp hardening · fcaf2ad shield/skips · 4c2197c red-team fixes + B4 inline documents · (this) RC declaration.
 
-## Open items, in order
-1. **Full command-center suite triage.** Run log: `owner-repair/evidence/cc-full-suite.log`
-   (run WITHOUT ffmpeg on PATH — rerun with `PATH=<app>\media;%PATH%`). Result: 62 failed, 3704 passed,
-   193 skipped, 7 errors; exact list in `owner-repair/evidence/cc-full-suite-failures.txt`. For each failure, compare with a baseline worktree at 0c3e22ff before calling it a regression.
-   Known pre-existing/host: `test_v21_tools_terminal_browser::test_model_runs_real_command_and_reads_output`
-   (Git sh), `bossman-core test_windows_host_shell::test_posix_local_shell_unchanged`,
-   `test_studio_integrations::test_web_designer_uses_existing_edit_and_version_gate` (to confirm on base).
-2. **Media engine finish:**
-   - Write `C:\Users\asd\Bossman\models\media\MANIFEST.json` (sha256 + bytes for all 6 files;
-     `download.sh` there has pinned revisions). Engine: sd.cpp `master-890-74988b2`,
-     vulkan zip sha256 `744c8f81…c5d896`, at `C:\Users\asd\Bossman\media-runtime\sdcpp\vulkan\sd-cli.exe`.
-   - Isolate the noise cause: `--vae-tiling` versus low resolution/steps. Variant A (832x480, 20 steps,
-     no fa, no tiling) = correct clip, `C:\Users\asd\cu-work\gen\varA.webm` sha256 `33a95853…223610`.
-     Variants smoke/B = noise.
-   - Real product-path runs through `/api/studio/jobs`: T2V ≥3 s, I2V from a Z-Image result,
-     cancel, error; ffprobe + full decode + frame check; write `owner-repair/video-generation-proof.md`.
-   - Test Z-Image-Turbo (files downloaded). ROCm torch works (ComfyUI venv at
-     `C:\Users\asd\Bossman\media-runtime`), so it is an option for the existing ComfyUI image adapter.
-   - Owner install configuration: set BOSSMAN_SDCPP_BIN / BOSSMAN_MEDIA_MODELS (app-support env or docs).
-3. Computer Use: add a STOP/Resume button to the UI; check the agent-driven path with a local model.
-4. Coaching loop (broken counter, owner-test-pack 02_coding_app), ≥5 tasks, holdout, restart reuse.
-5. Owner scenarios 1–10 through the installed UI (Playwright driver like `C:\Users\asd\Bossman\ui-*.py`), MVČR
-   up to the legal boundary.
-6. Exact-SHA CI → Windows artifact → clean install → rerun → independent red team → 1.0 tag.
-7. Owner wishes: desktop shortcut and startup animation (at the very end).
+## What was done today (measured in this container, Linux, ffmpeg + Chromium)
+- Computer Use: CU-VERIFY/APPROVAL/STOP/TARGET/PATH fixed, 27 regressions + real-Chromium STOP/Resume UI test.
+- sd.cpp media: real sha256 verification (expected/observed), safe cancel (no orphan, bounded pump), durable
+  sidecars + orphan reconciliation on restart, Pillow-decoded inputs, atomic verified output, backend observed
+  from the engine log, A/B preset planner; config in `<data_dir>/media/config.json`; 68 hostile MOCK_ENGINE tests.
+- Learning: LessonBook over the canonical LearningStore; poison filter with Unicode/base64 normalisation;
+  coaching runner (5 train + 5 holdout). COACHING_PIPELINE_TESTED · LOCAL_LEARNING_GAIN_NOT_MEASURED · WEIGHTS_UNCHANGED.
+- Full-suite triage: 69 Windows failures classified (0 regressions; 3 Windows-only product defects fixed;
+  45 harness/ffmpeg; 12 UNRESOLVED need the Windows traceback). `owner-repair/full-suite-triage.md`.
+- Red team (separate context): 65 cases, 4 OPEN defects → fixed; `owner-repair/redteam-rc-20260921.md`.
+- Release tooling: Owner-Run.cmd, Media-Setup.cmd, Coaching.cmd, Collect-Diagnostics.cmd; doctor probes for
+  llama-server MAIN/FAST and the media engine; START_TOMORROW_RU.md; docs/owner/ROLLBACK_RU.md.
 
-## Running processes / environment
-- llama-server MAIN :8081 (qwen3.8-27b) and FAST :8082 (qwen3.6-35b-a3b) started by the engineer; leave or stop.
-- Lease file: `C:\Users\asd\Bossman\handoff\LEASE.json` (engineer holds desktop/backend/GPU).
-- Dev venv: `wt-release\.venv` (command-center[dev,browser], bossman-core[dev,windows]).
-  Browser tests: `PLAYWRIGHT_BROWSERS_PATH=<app>\browser`, ffmpeg in `<app>\media`.
-- Test work folders: `C:\Users\asd\cu-work` (Computer Use + generation scratch). No user data touched;
-  one stray test file in Documents was created and removed (ledger).
+## Known open / honest limits
+- Real sd.cpp generation, I2V, noise-cause isolation: NOT RUN (no engine/weights here) — A/B plan shipped.
+- Learning gain on the local model: NOT MEASURED (mock backend only).
+- 12 UNRESOLVED Windows-only failures: need `pytest -x --tb=long` on the owner machine with ffmpeg on PATH.
+- Harness-only Linux failures in this container: `test_packaging_installed`/`test_installed_product_paths`
+  (venv without pip), `test_benchmark_truth` (shallow clone lacks commit 8a13f1d), `test_fable_manifest_mac_pinning_opt_in`
+  (timed out only under 4 parallel suites; passes alone in ~100 s).
+- Startup animation: not implemented (owner wish, lowest priority). Shortcut: existing path, tests green.
 
-## Known limitation to document
-- Agent cannot type text containing "bossman"/"approve"/"confirm action"/"emergency" (core anti-self-approval
-  policy; kept on purpose).
-- open-higgsfield upstream has no license → not vendored (REFERENCE_ONLY). "Higgsfield" in Bossman 1.0 =
-  Studio product path with a local engine; cloud Higgsfield = NOT_RUN.
+## Next command (if resumed)
+```
+git fetch origin claude/bossman-1-0-rc-owner-ready-cfesui && git checkout claude/bossman-1-0-rc-owner-ready-cfesui
+python tools/exact_sha_certify.py --sha $(git rev-parse HEAD) --fetch --repo molotroka123-cell/AiMaxBossman
+```
+If NOT_CERTIFIED: read the failing job log, fix, push a small commit (a new push = a new candidate SHA), re-certify.
+If CERTIFIED: download `bossman-windows-<SHA>` from the bundle run, record the inner ZIP SHA-256 in the PR
+handoff, then the owner runs `START_TOMORROW_RU.md`.
