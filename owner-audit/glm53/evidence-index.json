@@ -1,0 +1,70 @@
+{
+  "auditor": "glm53",
+  "audit_branch": "audit/owner-glm53-20260921",
+  "tested_sha": "0c3e22ffd44c9b2c3e4f90b2e86456c28ca43f39",
+  "windows_artifact": {
+    "name": "BOSSMAN-Windows-x64-0c3e22ffd44c.zip",
+    "sha256": "437fadccd90330ce8e8acb21474adc7b33a54454d21ef72d1ccfd89f1b1f89d6",
+    "bytes": 783256441,
+    "install_path": "C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-0c3e22ffd44c"
+  },
+  "evidence": [
+    {
+      "id": "EV-001",
+      "path": "C:\\Users\\asd\\Bossman\\evidence\\baseline-startup-3.png",
+      "note": "desktop screenshot: Bossman login page (contains owner desktop — NOT committed)",
+      "sha256": "LOCAL_ONLY_SEE_NOTE",
+      "bytes": 264552
+    },
+    {
+      "id": "EV-002",
+      "path": "C:\\Users\\asd\\Bossman\\evidence\\after-login.png",
+      "note": "desktop screenshot: home page after token login, build 0c3e22ffd44c, СИСТЕМА В СТРОЮ (owner desktop visible — NOT committed)",
+      "sha256": "LOCAL_ONLY_SEE_NOTE",
+      "bytes": 392006
+    },
+    {
+      "id": "EV-003",
+      "path": "C:\\Users\\asd\\Bossman\\evidence\\apps-page.png",
+      "note": "desktop screenshot: Apps page, 9 installed / 0 running (owner desktop visible — NOT committed)",
+      "sha256": "LOCAL_ONLY_SEE_NOTE",
+      "bytes": 397296
+    },
+    {
+      "id": "EV-004",
+      "path": "C:\\Users\\asd\\Bossman\\evidence\\ui-00-debug-afterlogin.png",
+      "note": "headless real-UI screenshot: logged-in home page (clean, commit-safe if needed)",
+      "sha256": "LOCAL_ONLY_SEE_NOTE",
+      "bytes": 0
+    },
+    {
+      "id": "EV-005",
+      "path": "C:\\Users\\asd\\Bossman\\verify-installed.json",
+      "note": "verify_installed_product.py output, EXIT=0, restart_persistence/auth/resources PASS",
+      "sha256": "LOCAL_ONLY_SEE_NOTE",
+      "bytes": 0
+    },
+    {
+      "id": "EV-006",
+      "path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\evening\\0c3e22ffd44c9b2c3e4f90b2e86456c28ca43f39\\20260921T180455Z-76aad1",
+      "note": "shipped Evening-Test evidence dir on owner hardware (run 20260921T180455Z-76aad1, PASS)",
+      "sha256": "LOCAL_ONLY_DIR",
+      "bytes": 0
+    },
+    {
+      "id": "EV-007",
+      "path": "C:\\Users\\asd\\Bossman\\downloads\\freeze-verdict\\ASTRA6-FREEZE.json",
+      "note": "CI freeze verdict for TESTED_SHA: WINDOWS_RC_READY_OWNER_REQUIRED, blockers=[]",
+      "sha256": "LOCAL_ONLY_SEE_NOTE",
+      "bytes": 2677
+    },
+    {
+      "id": "EV-008",
+      "path": "C:\\Users\\asd\\Bossman\\startup.log",
+      "note": "first launch console log",
+      "sha256": "LOCAL_ONLY_SEE_NOTE",
+      "bytes": 0
+    }
+  ],
+  "note": "Byte sizes/hashes for LOCAL_ONLY files are recorded locally; large/private evidence intentionally not committed. Screenshots containing the owner desktop are never committed."
+}
