@@ -6,7 +6,14 @@ from .helpers import make_stack
 
 
 async def test_benchmark_runs_in_background_and_stores(env):
-    env.svc.registry.adapter_factory = lambda m, p: FakeAdapter("ответ", tokens=(30, 12))
+    # TEL-001: скорость генерации — только честный замер; фейку нужны timings сервера.
+    class _Timed(FakeAdapter):
+        async def chat(self, model, messages, **kw):
+            res = await super().chat(model, messages, **kw)
+            res.provider_meta = {"timings": {"predicted_per_second": 12.5, "prompt_per_second": 80.0,
+                                             "prompt_ms": 300.0, "predicted_n": 12}}
+            return res
+    env.svc.registry.adapter_factory = lambda m, p: _Timed("ответ", tokens=(30, 12))
     stack = await make_stack(env.client)
     r = (await env.client.post("/api/benchmarks",
                                json={"model_id": stack["model"]["id"]})).json()

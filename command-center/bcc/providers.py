@@ -267,7 +267,9 @@ class OpenAICompatAdapter(_BaseAdapter):
             model=data.get("model") or model,
             tool_calls=calls,
             raw_message=dict(message),
-            provider_meta={k: data[k] for k in ("id", "provider", "usage") if k in data},
+            # timings: llama.cpp отдаёт собственные замеры prefill/генерации —
+            # по ним честная скорость (TEL-001), а не токены / вся латентность.
+            provider_meta={k: data[k] for k in ("id", "provider", "usage", "timings") if k in data},
         )
 
     async def health(self) -> Health:

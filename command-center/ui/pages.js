@@ -399,8 +399,12 @@ function modelCard(m, provider, ctx) {
     statusDetail ? h('div.xsmall.dim.wrap-any', statusDetail) : null,
 
     (bench || m.last_check) ? h('div.stat-strip',
-      bench && bench.gen_tps ? h('div', { title: 'скорость ответа, слов в секунду' }, h('span.s-label', 'Ответ'), h('span.s-value', `${fmtNum(bench.gen_tps, 1)} сл/с`)) : null,
-      bench && bench.prompt_tps ? h('div', { title: 'скорость чтения запроса' }, h('span.s-label', 'Чтение'), h('span.s-value', `${fmtNum(bench.prompt_tps, 1)} сл/с`)) : null,
+      // TEL-001: скорость показываем только из честного замера (есть method);
+      // старые записи «токены / вся латентность» не выдаём за скорость генерации.
+      bench && bench.method && bench.gen_tps ? h('div', { title: 'скорость генерации, токенов в секунду (замер сервера)' }, h('span.s-label', 'Генерация'), h('span.s-value', `${fmtNum(bench.gen_tps, 1)} ток/с`)) : null,
+      bench && bench.method && bench.prompt_tps ? h('div', { title: 'скорость чтения запроса (prefill), токенов в секунду' }, h('span.s-label', 'Чтение'), h('span.s-value', `${fmtNum(bench.prompt_tps, 1)} ток/с`)) : null,
+      bench && bench.method && bench.ttft_ms ? h('div', { title: 'время до первого токена' }, h('span.s-label', 'Первый токен'), h('span.s-value', `${fmtNum(bench.ttft_ms)} мс`)) : null,
+      bench && !bench.method && bench.gen_tps ? h('div', { title: 'старый замер делил токены на всю задержку — нажмите «Проба» для честного' }, h('span.s-label', 'Скорость'), h('span.s-value', 'замер устарел')) : null,
       bench && bench.latency_ms ? h('div', h('span.s-label', 'Задержка'), h('span.s-value', `${fmtNum(bench.latency_ms)} мс`)) : null,
       m.last_check ? h('div', h('span.s-label', 'Проверка'), h('span.s-value', fmtRelative(m.last_check))) : null,
     ) : null,
@@ -427,8 +431,9 @@ function modelCard(m, provider, ctx) {
           const b = (r.bench && typeof r.bench === 'object') ? r.bench : r;
           replace(testOut, h('div.stack.sm',
             h('div.stat-strip',
-              h('div', { title: 'скорость ответа, слов в секунду' }, h('span.s-label', 'Ответ'), h('span.s-value', b.gen_tps ? `${fmtNum(b.gen_tps, 1)} сл/с` : '—')),
-              h('div', { title: 'скорость чтения запроса' }, h('span.s-label', 'Чтение'), h('span.s-value', b.prompt_tps ? `${fmtNum(b.prompt_tps, 1)} сл/с` : '—')),
+              h('div', { title: 'скорость генерации, токенов в секунду (замер сервера)' }, h('span.s-label', 'Генерация'), h('span.s-value', b.gen_tps ? `${fmtNum(b.gen_tps, 1)} ток/с` : '—')),
+              h('div', { title: 'скорость чтения запроса (prefill)' }, h('span.s-label', 'Чтение'), h('span.s-value', b.prompt_tps ? `${fmtNum(b.prompt_tps, 1)} ток/с` : '—')),
+              h('div', { title: 'время до первого токена' }, h('span.s-label', 'Первый токен'), h('span.s-value', b.ttft_ms ? `${fmtNum(b.ttft_ms)} мс` : '—')),
               h('div', h('span.s-label', 'Задержка'), h('span.s-value', b.latency_ms ? `${fmtNum(b.latency_ms)} мс` : '—'))),
             pick(r, ['output', 'text', 'sample', 'result'])
               ? h('pre.block', String(pick(r, ['output', 'text', 'sample', 'result'])).slice(0, 600))

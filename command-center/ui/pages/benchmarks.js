@@ -39,7 +39,7 @@ const BenchmarksPage = {
     const recPanel = panel('Самая быстрая модель', rec && rec.for_speed
       ? h('div.row', h('span.small', 'Отвечает быстрее всех:'), h('div.spacer'),
         h('span.badge.badge-ok.mono', modelLabel(rec.for_speed.model_id)),
-        h('span.xsmall.dim', { title: 'токенов в секунду — примерно слова в секунду' }, `${fmtNum(rec.for_speed.gen_tps, 1)} слов/сек`))
+        h('span.xsmall.dim', { title: 'скорость генерации, токенов в секунду' }, `${fmtNum(rec.for_speed.gen_tps, 1)} ток/с`))
       : h('div.small.dim', rec ? `Пока мало завершённых замеров, чтобы сравнивать (учтено: ${rec.based_on}).` : 'Данных пока нет.'));
 
     const body = benchR.status === 'rejected'
@@ -64,8 +64,10 @@ function benchCard(b, modelLabel, ctx) {
       statusBadge(b.status, { live: b.status === 'running' })),
     b.status === 'completed'
       ? h('div.stat-strip',
-        res.gen_tps ? h('div', { title: 'токенов в секунду — примерно слова' }, h('span.s-label', 'Скорость'), h('span.s-value', `${fmtNum(res.gen_tps, 1)} сл/с`)) : null,
-        res.ttft_ms_approx ? h('div', { title: 'сколько ждать до начала ответа' }, h('span.s-label', 'Первый ответ'), h('span.s-value', `${fmtNum(res.ttft_ms_approx)} мс`)) : null,
+        res.speed_method && res.gen_tps ? h('div', { title: 'скорость генерации, токенов в секунду' }, h('span.s-label', 'Генерация'), h('span.s-value', `${fmtNum(res.gen_tps, 1)} ток/с`)) : null,
+        res.speed_method && res.prompt_tps ? h('div', { title: 'скорость чтения запроса (prefill)' }, h('span.s-label', 'Чтение'), h('span.s-value', `${fmtNum(res.prompt_tps, 1)} ток/с`)) : null,
+        res.ttft_ms ? h('div', { title: 'время до первого токена' }, h('span.s-label', 'Первый токен'), h('span.s-value', `${fmtNum(res.ttft_ms)} мс`)) : null,
+        !res.speed_method && res.gen_tps ? h('div', { title: 'старый метод: токены / вся задержка — перезапустите замер' }, h('span.s-label', 'Скорость'), h('span.s-value', 'замер устарел')) : null,
         res.latency_ms_median ? h('div', { title: 'типичное время одного ответа' }, h('span.s-label', 'Задержка'), h('span.s-value', `${fmtNum(res.latency_ms_median)} мс`)) : null,
         res.stability ? h('div', h('span.s-label', 'Стабильно'), h('span.s-value', `${Math.round((res.stability.success_rate || 0) * 100)}%`)) : null)
       : b.status === 'failed' ? h('div.xsmall', { style: { color: 'var(--err)' } }, b.error || 'ошибка')
@@ -113,9 +115,10 @@ async function openBenchDetail(id, modelLabel) {
     b.status === 'failed' ? h('div.small', { style: { color: 'var(--err)' } }, b.error) : null,
     b.status === 'completed' ? h('div.stack.sm',
       h('div.stat-strip',
-        h('div', { title: 'сколько ждать до начала ответа' }, h('span.s-label', 'Первый ответ'), h('span.s-value', res.ttft_ms_approx ? `${fmtNum(res.ttft_ms_approx)} мс` : '—')),
-        h('div', { title: 'как быстро читает ваш текст' }, h('span.s-label', 'Чтение'), h('span.s-value', res.prompt_tps ? `${fmtNum(res.prompt_tps, 1)} сл/с` : '—')),
-        h('div', { title: 'как быстро пишет ответ' }, h('span.s-label', 'Ответ'), h('span.s-value', res.gen_tps ? `${fmtNum(res.gen_tps, 1)} сл/с` : '—')),
+        h('div', { title: 'время до первого токена' }, h('span.s-label', 'Первый токен'), h('span.s-value', res.ttft_ms ? `${fmtNum(res.ttft_ms)} мс` : '—')),
+        h('div', { title: 'скорость чтения запроса (prefill), токенов в секунду' }, h('span.s-label', 'Чтение'), h('span.s-value', res.speed_method && res.prompt_tps ? `${fmtNum(res.prompt_tps, 1)} ток/с` : '—')),
+        h('div', { title: 'скорость генерации, токенов в секунду' }, h('span.s-label', 'Генерация'), h('span.s-value', res.speed_method && res.gen_tps ? `${fmtNum(res.gen_tps, 1)} ток/с` : (res.gen_tps ? 'замер устарел' : '—'))),
+        h('div', { title: 'как измерено' }, h('span.s-label', 'Метод'), h('span.s-value', res.speed_method === 'server_timings' ? 'замер сервера' : res.speed_method === 'differential' ? 'разностный' : '—')),
         h('div', { title: 'типичное время одного ответа' }, h('span.s-label', 'Задержка'), h('span.s-value', res.latency_ms_median ? `${fmtNum(res.latency_ms_median)} мс` : '—'))),
       res.stability ? h('div.row', h('span.small', 'Стабильность:'), h('div.spacer'),
         h('span.badge', `${Math.round((res.stability.success_rate || 0) * 100)}% успешных`),

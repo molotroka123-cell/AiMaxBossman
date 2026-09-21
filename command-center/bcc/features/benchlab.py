@@ -1,7 +1,7 @@
 """Feature 04 — Model Benchmark Lab.
 
-Фоновый benchmark: TTFT (approx по первому ответу), prompt/gen tok/s (медиана 3
-прогонов), latency, coding/reasoning-семплы, stability (5 запросов). НИКАКИХ
+Фоновый benchmark: TTFT, prefill tok/s, generation tok/s (server timings
+llama.cpp или дифференциальный замер, медиана 3 — см. bcc/model_speed.py), latency, coding/reasoning-семплы, stability (5 запросов). НИКАКИХ
 хардкод-скоров — только измеренное. Не блокирует API/UI (фон, одна за раз).
 Повторный прогон — новая запись. Сравнение и рекомендации из stored results.
 """
@@ -30,17 +30,10 @@ async def _measure(adapter, model_name: str) -> dict:
         dt = time.perf_counter() - t0
         return dt, res
 
-    # 3 прогона для tok/s (медиана)
-    gen_tps, prompt_tps, latencies = [], [], []
-    for _ in range(3):
-        dt, res = await one("Считай до трёх и остановись.")
-        latencies.append(dt * 1000)
-        if res.tokens_out:
-            gen_tps.append(res.tokens_out / dt)
-        if res.tokens_in:
-            prompt_tps.append(res.tokens_in / dt)
-    # TTFT approx = латентность самого короткого ответа (без стриминга — честно approx)
-    ttft_ms = min(latencies) if latencies else None
+    # TEL-001: 3 честных замера скорости (server timings или дифференциальный),
+    # медиана. TTFT/prefill/генерация/латентность — раздельно.
+    from ..model_speed import measure_speed, median_of
+    speed = median_of([await measure_speed(adapter, model_name) for _ in range(3)])
     # coding + reasoning семплы (сохраняем длину/выдержку, не оцениваем «на глаз»)
     _, coding = await one("Напиши функцию сложения двух чисел на Python.", 128)
     _, reasoning = await one("Если A>B и B>C, что больше — A или C? Кратко.", 64)
@@ -54,10 +47,12 @@ async def _measure(adapter, model_name: str) -> dict:
         except Exception:
             pass
     return {
-        "ttft_ms_approx": round(ttft_ms, 1) if ttft_ms else None,
-        "prompt_tps": round(statistics.median(prompt_tps), 2) if prompt_tps else None,
-        "gen_tps": round(statistics.median(gen_tps), 2) if gen_tps else None,
-        "latency_ms_median": round(statistics.median(latencies), 1) if latencies else None,
+        "speed_method": speed.get("method"),
+        "ttft_ms": speed.get("ttft_ms"),
+        "prompt_tps": speed.get("prompt_tps"),
+        "gen_tps": speed.get("gen_tps"),
+        "latency_ms_median": speed.get("latency_ms"),
+        "gen_tokens": speed.get("tokens_out"),
         "coding_sample_len": len(coding.text), "coding_sample": coding.text[:200],
         "reasoning_sample": reasoning.text[:200],
         "tool_calling": "not_tested (адаптер не пробрасывает tools)",
@@ -141,7 +136,8 @@ async def compare(request: Request, ids: str):
         res = b.get("results") or {}
         out.append({"benchmark_id": b["id"], "model_id": b["model_id"],
                     "gen_tps": res.get("gen_tps"), "latency_ms": res.get("latency_ms_median"),
-                    "ttft_ms": res.get("ttft_ms_approx"),
+                    "ttft_ms": res.get("ttft_ms", res.get("ttft_ms_approx")),
+                    "prompt_tps": res.get("prompt_tps"), "method": res.get("speed_method"),
                     "stability": (res.get("stability") or {}).get("success_rate")})
     return {"compared": out}
 
@@ -157,7 +153,9 @@ async def recommendations(request: Request):
     for r in rows:
         b = dict(r._mapping)
         latest.setdefault(b["model_id"], b)     # последний по модели
-    ranked = [b for b in latest.values() if (b.get("results") or {}).get("gen_tps")]
+    # TEL-001: сравниваем только честные замеры (с методом), не старые «ток/латентность».
+    ranked = [b for b in latest.values() if (b.get("results") or {}).get("gen_tps")
+              and (b.get("results") or {}).get("speed_method") in ("server_timings", "differential")]
     fastest = max(ranked, key=lambda b: b["results"]["gen_tps"], default=None)
     return {"for_speed": (fastest and {"model_id": fastest["model_id"],
                                        "gen_tps": fastest["results"]["gen_tps"]}) or None,

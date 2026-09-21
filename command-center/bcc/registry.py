@@ -231,13 +231,26 @@ class Registry:
             await self.bus.emit("model.status", id=model_id, alias=model["alias"],
                                 status="error", detail=detail)
             raise ProviderError(f"модель {model['alias']}: {detail}", kind="empty_response")
+        # TEL-001: скорость — только из собственных замеров сервера (llama.cpp
+        # `timings`). «tokens_out / вся латентность» короткого ответа показывал
+        # 1.6 ток/с у модели с настоящими ~10. Нет замеров сервера — null и
+        # подсказка про Bench Lab (там дифференциальный замер), а не выдумка.
+        from .model_speed import from_timings
+        meta = result.provider_meta if isinstance(result.provider_meta, dict) else {}
+        speed = (from_timings(meta["timings"], elapsed * 1000, result.tokens_out)
+                 if isinstance(meta.get("timings"), dict) else None)
         bench = {
-            "prompt_tps": round(result.tokens_in / elapsed, 2) if result.tokens_in else None,
-            "gen_tps": round(result.tokens_out / elapsed, 2) if result.tokens_out else None,
+            "method": speed["method"] if speed else "unavailable",
+            "ttft_ms": speed["ttft_ms"] if speed else None,
+            "prompt_tps": speed["prompt_tps"] if speed else None,
+            "gen_tps": speed["gen_tps"] if speed else None,
             "latency_ms": int(elapsed * 1000),
+            "tokens_out": result.tokens_out,
             "answer": result.text[:200],
             "tested_at": utcnow().isoformat(),
         }
+        if speed is None:
+            bench["note"] = "сервер не отдал timings — точная скорость в Bench Lab"
         async with self.db.session() as s:
             await s.execute(sa.update(models_t).where(models_t.c.id == model_id).values(
                 bench=bench, status="online", status_detail="", last_check=utcnow()))
