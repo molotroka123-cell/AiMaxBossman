@@ -25,8 +25,6 @@ jobs:
       BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       BOSSMAN_OFFLINE_MODE_ENABLED: '1'
       BCC_REQUIRE_BROWSER: '1'
-      BCC_DATA_DIR: ${{ runner.temp }}/vfx-default
-      VFX_EVIDENCE_DIR: ${{ runner.temp }}/vfx-observatory-proof
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,6 +35,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Set runner-local test paths
+        run: |
+          echo "BCC_DATA_DIR=$RUNNER_TEMP/vfx-default" >> "$GITHUB_ENV"
+          echo "VFX_EVIDENCE_DIR=$RUNNER_TEMP/vfx-observatory-proof" >> "$GITHUB_ENV"
       - name: Install declared test tools only
         run: |
           python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev,browser]'
