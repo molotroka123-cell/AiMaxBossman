@@ -22,7 +22,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из пуша;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-20-final-closure-5",
+  "candidate_label": "rc-2026-09-20-final-closure-6",
   "declared_for": "release/bossman-owner",
-  "note": "Exact-SHA closure rerun from dedae81af880fc1639dbb99df07ed849f25878a2. Preserves concurrent UX torture gate and adds atomic project-scoped context deletion. Cross-stack review used OpenHands boundaries/quality gates, Agent Zero project isolation, and browser-use-style verified browser effects as design checks; no wholesale foreign architecture merged. Trigger mandatory Windows/owner workflows for this exact SHA. Intelligence Preservation remains fail-closed without real same-model evidence."
+  "note": "Exact-SHA pre-EVO owner-hardware candidate after restoring real user-authored Actions execution and making Installed product chain reachable from every release declaration. This declaration triggers Windows bundle, Windows owner tasks, owner scenarios, and installed-product evidence for the same resulting SHA. Do not inherit old certificates or action_required zero-job runs. Intelligence Preservation remains intentionally fail-closed without real same-model evidence."
 }
