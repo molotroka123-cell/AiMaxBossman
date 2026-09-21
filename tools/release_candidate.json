@@ -22,7 +22,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из пуша;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-21-music-studio",
+  "candidate_label": "rc-2026-09-21-owner-acceptance-kit",
   "declared_for": "release/bossman-owner",
-  "note": "Adds local Music Studio using official ACE-Step 1.5 async REST contract, loopback-only provider boundary, Bossman UI page, generic phonk/drift-phonk/ultrafunk/nightcore/electro presets, contract tests and owner hardware acceptance documentation. No CI mock is counted as real music generation; REAL_LOCAL_MODEL remains owner-hardware-required until ACE-Step runs on the Ryzen AI Max+ 395 / Radeon 8060S machine. Existing release gates remain unchanged."
+  "note": "Adds local Music Studio using official ACE-Step 1.5 async REST contract, loopback-only provider boundary, Bossman UI page, generic phonk/drift-phonk/ultrafunk/nightcore/electro presets, contract tests and owner hardware acceptance documentation. No CI mock is counted as real music generation; REAL_LOCAL_MODEL remains owner-hardware-required until ACE-Step runs on the Ryzen AI Max+ 395 / Radeon 8060S machine. Existing release gates remain unchanged. This candidate additionally repairs the Windows support-copy path so the current INSTALL/OWNER_ACCEPTANCE/KNOWN_LIMITATIONS, root owner-acceptance.ps1, and complete HW-01..HW-13 protocol ship inside the application ZIP. The owner wrapper invalidates stale output before configuration checks, refuses global Python fallback for an installed bundle, and rejects contradictory or wrong-build PASS receipts. Targeted support-copy/ZIP and source-contract regressions are not Windows runtime or hardware attestation. Trading stays PAPER/READ-ONLY; the first MVCR run stops at WAIT_APPROVAL without transmission. No freeze or READY claim is made by this declaration."
 }

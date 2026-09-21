@@ -115,6 +115,19 @@ OWNER_RUN_FILES = (
 )
 
 
+# Keep the current owner protocol at its documented relative paths in the ZIP.
+# This is an explicit allowlist: no private reports, secrets or arbitrary tests
+# are copied. These files enter the existing MANIFEST.json/SHA256SUMS inventory.
+OWNER_ACCEPTANCE_FILES = (
+    "INSTALL.md", "OWNER_ACCEPTANCE.md", "KNOWN_LIMITATIONS.md", "owner-acceptance.ps1",
+    "tests/owner_hardware/README.md", "tests/owner_hardware/manifest.json",
+    "tests/owner_hardware/HOTSPOTS_AND_HOTFIX_PLAYBOOK.md",
+    "tests/owner_hardware/MODEL_STACK_2026-09-20.md",
+    "tests/owner_hardware/CLOUD_STACK_2026-09-20.md",
+    "tests/owner_scenarios/OWNER_HARDWARE_FIRST_RUN.md",
+)
+
+
 # The eight accepted OSS directions (docs/oss/README.md), stated per archive:
 # what is inside the ZIP, what the owner configures, what needs weights, what
 # needs a separate service. VERIFIED is never claimed by the build: it is a
@@ -628,8 +641,33 @@ def install_owner_run(target: Path) -> dict:
     return {"path": "app-support/owner-final-run", "files": shipped}
 
 
+
+def install_owner_acceptance(home: Path) -> None:
+    """Ship the complete HW-01..HW-13 protocol, never a hardware PASS claim."""
+    missing = [name for name in OWNER_ACCEPTANCE_FILES if not (ROOT / name).is_file()]
+    if missing:
+        raise RuntimeError("owner acceptance input missing: " + ", ".join(missing))
+    try:
+        protocol = json.loads((ROOT / "tests/owner_hardware/manifest.json").read_text(encoding="utf-8"))
+        cases = protocol["cases"]
+        expected = {f"HW-{number:02d}" for number in range(1, 14)}
+        if (not isinstance(cases, list) or len(cases) != len(expected)
+                or {case["id"] for case in cases} != expected
+                or any(not isinstance(case.get("checks"), list) or not case["checks"]
+                       or any(not isinstance(check, str) or not check.strip() for check in case["checks"])
+                       for case in cases)):
+            raise ValueError("expected HW-01..HW-13 with nonempty checks")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise RuntimeError("owner acceptance manifest is invalid: expected HW-01..HW-13") from exc
+    for name in OWNER_ACCEPTANCE_FILES:
+        target = home / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / name, target)
+
+
 def install_support(support: Path) -> dict:
     support.mkdir(parents=True, exist_ok=True)
+    install_owner_acceptance(support.parent)
     for origin, name in SUPPORT_SCRIPTS:
         if not origin.exists():
             raise RuntimeError(f"support script missing: {origin}")
@@ -751,6 +789,9 @@ def main(argv: list[str] | None = None) -> int:
         "`app-support/owner-final-run/` holds the owner's own run: start with "
         "`README_RU.md` there. Those files are listed in MANIFEST.json, and "
         "Evening-Test.cmd fails if any of them is missing or altered.\n\n"
+        "The current offline first-run protocol is in `OWNER_ACCEPTANCE.md` and "
+        "`tests/owner_hardware/manifest.json` (HW-01..HW-13). "
+        "`owner-acceptance.ps1` checks the installed core; it does not certify all hardware cases.\n\n"
         "Your data lives in `%LOCALAPPDATA%\\Bossman\\CommandCenter` and survives "
         "replacing this folder with a newer build.\n",
         encoding="utf-8")
