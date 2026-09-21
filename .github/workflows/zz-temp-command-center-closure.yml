@@ -42,7 +42,7 @@ jobs:
           engine = Path('command-center/bcc/engine.py')
           text = engine.read_text(encoding='utf-8')
           old = '''                if worker is not None and not worker.done():\n                    self._cancelling.add(run_id)\n                    worker.cancel()\n'''
-          new = '''                if worker is not None and not worker.done():\n                    self._cancelling.add(run_id)\n                    # Stop may be requested from inside this same worker (for example\n                    # a tool/hook making an in-process ASGI request). Cancelling the\n                    # current task here tears that request through an aiosqlite/SA\n                    # rollback and can strand a checked-out connection. The sticky\n                    # task status is observed by _complete_run/_check_interrupt as\n                    # soon as the callback unwinds, so only cancel a *different*\n                    # worker task.\n                    if worker is not asyncio.current_task():\n                        worker.cancel()\n'''
+          new = '''                if worker is not None and not worker.done():\n                    self._cancelling.add(run_id)\n                    # Stop may be requested from inside this same worker. Cancelling\n                    # the current task here can tear an in-process request through\n                    # DB rollback and strand a checked-out connection. Sticky task\n                    # state is observed by completion/interrupt handling after the\n                    # callback unwinds, so only cancel a different worker task.\n                    if worker is not asyncio.current_task():\n                        worker.cancel()\n'''
           if text.count(old) != 1:
               raise SystemExit(f'expected exactly one stop-cancel block, found {text.count(old)}')
           engine.write_text(text.replace(old, new), encoding='utf-8')
@@ -50,7 +50,7 @@ jobs:
           testing = Path('command-center/bcc/features/testing_period.py')
           text = testing.read_text(encoding='utf-8')
           old = '        "features": sorted(f.name for f in getattr(svc, "features", []) or []),\n'
-          new = '''        # setup() records session.env while this feature is still being\n        # registered, so svc.features can legitimately lag by one entry. Include\n        # the active testing-period feature explicitly; when disabled setup does\n        # not emit a snapshot at all.\n        "features": sorted({f.name for f in getattr(svc, "features", []) or []}\n                           | {"testing_period"}),\n'''
+          new = '''        "features": sorted({f.name for f in getattr(svc, "features", []) or []}\n                           | {"testing_period"}),\n'''
           if text.count(old) != 1:
               raise SystemExit(f'expected exactly one env feature line, found {text.count(old)}')
           testing.write_text(text.replace(old, new), encoding='utf-8')
@@ -64,9 +64,18 @@ jobs:
           python -m pip install -e "./command-center[dev,mcp,browser]"
           python -m pip install asyncpg redis
 
+      - name: Diagnose imported snapshot implementation
+        run: |
+          python - <<'PY'
+          import inspect
+          import bcc.features.testing_period as tp
+          from bcc.features import load_features
+          print('MODULE', tp.__file__)
+          print('FEATURES', [f.name for f in load_features()])
+          print(inspect.getsource(tp._env_snapshot))
+          PY
+
       - name: Verify the two exact regressions
-        env:
-          BCC_DATA_DIR: ${{ runner.temp }}/bcc-data
         run: |
           python -m pytest -q \
             command-center/tests/test_engine_stop.py::test_stop_leaves_no_connection_behind \
@@ -78,5 +87,5 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add command-center/bcc/engine.py command-center/bcc/features/testing_period.py .github/workflows/zz-temp-command-center-closure.yml
           git diff --cached --check
-          git commit -m "fix(command-center): make nested stop drain safely"
+          git commit -m "fix(command-center): close stop and session snapshot leaks"
           git push origin HEAD:release/bossman-owner
