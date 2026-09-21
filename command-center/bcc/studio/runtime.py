@@ -86,7 +86,7 @@ async def models(svc):
             except ValueError:available=False
         if m['provider']=='openrouter':
             price=p['prices'].get(m['id'])
-            available=bool(p['enabled'] and credential and credential.configured and not credential.conflicts and price is not None and (not p['free_only'] or price==0))
+            available=bool(p['enabled'] and credential and credential.configured and not credential.conflicts and price is not None and (not p['free_only'] or (price==0 and catalog.declared_free(m['id']) is True)))
         proof=await one(svc,config,config.c.key,'probe:'+m['id'])
         verified=False
         if proof and available:

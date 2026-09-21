@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS documents (
   sensitivity TEXT NOT NULL DEFAULT 'normal',
   content_hash TEXT NOT NULL DEFAULT ''
 );
+CREATE INDEX IF NOT EXISTS idx_documents_source_scope ON documents(project, source_uri, content_hash);
 CREATE TABLE IF NOT EXISTS chunks (
   chunk_id TEXT PRIMARY KEY,
   document_id TEXT NOT NULL,
@@ -90,13 +91,30 @@ class ContextStore:
     def document_indexed(self, document_id: str) -> bool:
         """Документ уже проиндексирован (есть хотя бы один чанк)?
 
-        document_id = stable_id(source_uri, content_hash), поэтому равенство id
-        означает «тот же источник с тем же содержимым». Позволяет пропустить
-        повторный chunk+embed идентичного текста (FABLE5 perf: memory.md
-        переэмбеддился на каждой задаче)."""
+        This low-level check accepts an already resolved ID. Ingestion must
+        use indexed_document_id to validate the project of legacy IDs whose
+        original identity did not include a project."""
         row = self.db.execute(
             "SELECT 1 FROM chunks WHERE document_id=? LIMIT 1", (document_id,)).fetchone()
         return row is not None
+
+    def indexed_document_id(self, source_uri: str, content_hash: str, *, project: str) -> str | None:
+        """Return an existing index only for this exact source and project.
+
+        Scope equality is unconditional: project='' is a scope here, not an
+        instruction to search every project. Joining chunks back to their
+        document also prevents an orphan or mismatched chunk from producing a
+        false cache hit. Legacy IDs remain valid in their original project.
+        """
+        row = self.db.execute(
+            """SELECT d.document_id FROM documents d
+               WHERE d.project=? AND d.source_uri=? AND d.content_hash=?
+                 AND EXISTS (SELECT 1 FROM chunks c
+                             WHERE c.document_id=d.document_id AND c.project=d.project)
+               ORDER BY d.document_id LIMIT 1""",
+            (project, source_uri, content_hash),
+        ).fetchone()
+        return row[0] if row is not None else None
 
     def upsert_document(self, doc: Document) -> None:
         self.db.execute(
@@ -126,6 +144,40 @@ class ContextStore:
                 self.db.execute("INSERT INTO chunks_fts(chunk_id,text,heading,project,source_uri) VALUES (?,?,?,?,?)",
                                 (c.chunk_id,c.text,c.heading,c.project,c.source_uri))
         self.db.commit()
+
+    def delete_document(self, document_id: str, *, project: str) -> bool:
+        """Delete one document and every retrieval artifact in the same scope.
+
+        Project is mandatory even though document_id is globally unique in new
+        data: legacy IDs predate scoped identity. This makes owner-data deletion
+        fail closed instead of letting a stale/cross-project caller erase data.
+        FTS is cleared in the same SQLite transaction as chunks/documents so a
+        successful return means search cannot still surface deleted text.
+        """
+        row = self.db.execute(
+            "SELECT document_id FROM documents WHERE document_id=? AND project=?",
+            (document_id, project),
+        ).fetchone()
+        if row is None:
+            return False
+        try:
+            self.db.execute("BEGIN IMMEDIATE")
+            chunk_ids = [r[0] for r in self.db.execute(
+                "SELECT chunk_id FROM chunks WHERE document_id=? AND project=?",
+                (document_id, project),
+            ).fetchall()]
+            if self._fts:
+                for chunk_id in chunk_ids:
+                    self.db.execute("DELETE FROM chunks_fts WHERE chunk_id=?", (chunk_id,))
+            self.db.execute("DELETE FROM chunks WHERE document_id=? AND project=?",
+                            (document_id, project))
+            self.db.execute("DELETE FROM documents WHERE document_id=? AND project=?",
+                            (document_id, project))
+            self.db.commit()
+            return True
+        except BaseException:
+            self.db.rollback()
+            raise
 
     def lexical_search(self, query: str, limit: int = 50, project: str = "") -> list[tuple[Chunk, float]]:
         if self._fts:

@@ -64,6 +64,57 @@ async def test_prune_is_bounded_by_age_and_rows(env):
     assert left <= 20 and "old.event" not in kinds
 
 
+async def test_fresh_chain_is_found_in_a_journal_past_the_old_scan_window(env):
+    """BL-108: цепочка СВЕЖЕГО действия находится в выросшем журнале.
+
+    Отбор шёл по 5000 самым СТАРЫМ строкам журнала с фильтрацией в памяти, а
+    ретеншн разрешает 200 000 (`control_plane.RETENTION_MAX_ROWS`). На
+    установке, пережившей пять тысяч событий, `/api/observability/trace/...`
+    для действия, которое владелец только что видел на экране, отвечал пустым
+    списком — неотличимо от «такого действия не было».
+    """
+    bus, tid = env.svc.bus, run_trace_id(4242)
+    async with env.svc.db.session() as s:
+        await s.execute(sa.insert(events_t), [{"kind": "noise", "ts": utcnow(), "data": {"i": i}}
+                                              for i in range(5200)])
+        await s.commit()
+    with trace(tid):
+        await bus.emit("action.started", step="первый")
+        await bus.emit("action.result", ok=True)
+
+    chain = await bus.by_trace(tid)
+    assert [e["kind"] for e in chain] == ["action.started", "action.result"], chain
+    r = await env.client.get(f"/api/observability/trace/{tid}")
+    assert r.status_code == 200 and [e["kind"] for e in r.json()["events"]] == [
+        "action.started", "action.result"]
+
+
+async def test_trace_chain_does_not_over_match(env):
+    """Отрицательный контроль к BL-108: чужая цепочка и событие без трассы не приезжают."""
+    bus = env.svc.bus
+    with trace(run_trace_id(11)):
+        await bus.emit("action.started", step="моё")
+    with trace(run_trace_id(12)):
+        await bus.emit("action.started", step="чужое")
+    await bus.emit("action.started", step="без трассы")
+
+    mine = await bus.by_trace(run_trace_id(11))
+    assert len(mine) == 1 and mine[0]["data"]["step"] == "моё", mine
+    assert await bus.by_trace(run_trace_id(99)) == []          # несуществующая трасса — пусто
+    assert all(e["data"].get("trace_id") == run_trace_id(11) for e in mine)
+
+
+async def test_trace_chain_limit_keeps_the_freshest(env):
+    """Страница ответа ограничена, но обрезается СТАРОЕ, а не последняя улика."""
+    bus, tid = env.svc.bus, run_trace_id(77)
+    with trace(tid):
+        for i in range(8):
+            await bus.emit("action.step", i=i)
+    page = await bus.by_trace(tid, limit=3)
+    assert [e["data"]["i"] for e in page] == [5, 6, 7], page
+    assert await bus.by_trace(tid, limit=0) != []              # вырожденный предел не гасит ответ
+
+
 async def test_control_plane_exposes_measured_latency_only(env):
     body = (await env.client.get("/api/control-plane")).json()
     lat = body["latency"]

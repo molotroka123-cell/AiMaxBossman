@@ -123,8 +123,10 @@ class CostedPlanner:
                                        expected=ExpectedState(contains_text="ok"))
         self.remaining -= 1
         return ComputerAction.make(ActionKind.CLICK, expected=ExpectedState(contains_text="ok"),
+                                   target=f"button:row-{self.calls}",
                                    args={"x": 10, "y": 10 + self.calls,
-                                         "semantic": f"button:row-{self.calls}"})
+                                         "semantic": f"button:row-{self.calls}",
+                                         "coordinate_fallback": True})
 
 
 class CostedAdapter:
@@ -188,12 +190,17 @@ async def profile(*, steps: int, observe_ms: float, plan_ms: float, act_ms: floa
         elapsed = time.perf_counter() - started
         # Пол не входит в измеряемое время шага: его тики стоят между шагами и
         # вычитаются из общей стены вместе с объявленными стоимостями.
+        # ВАЖНО: если прогон не дошёл ни до одного verified step, samples пусты.
+        # Это НЕ latency-число и не повод падать ValueError раньше честного
+        # "profile run did not complete cleanly" ниже.
         floor_total_ms = sum(floor.samples)
-        floor_p50 = floor.at(50)
+        floor_p50 = floor.at(50) if floor.samples else None
         floor.close()
 
     if state is not TaskState.COMPLETED or adapter.executed != steps:
         raise RuntimeError(f"profile run did not complete cleanly: {state} after {adapter.executed} actions")
+    if floor_p50 is None:
+        raise RuntimeError("profile completed without a verified storage-floor sample")
 
     marks = [started] + per_step
     step_ms = [(marks[i + 1] - marks[i]) * 1000 for i in range(len(marks) - 1)]

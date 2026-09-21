@@ -525,8 +525,18 @@ function renderInspector(box) {
 
     children.push(h('div.bd-row',
       btn('Удалить элемент', async () => {
-        const yes = await confirmDialog({ title: 'Удалить элемент?', text: `Тег <${sel.tag}> будет убран из кода — версия сохранится в истории.`, danger: true, okText: 'Удалить' });
-        if (yes) await sendEdit({ op: 'delete', bd_id: sel.bd_id, path: sel.path }, 'Элемент удалён');
+        const rootDelete = ['html', 'body'].includes(String(sel.tag || '').toLowerCase());
+        const yes = await confirmDialog(rootDelete ? {
+          title: 'Удалить ВЕСЬ документ?',
+          text: 'THIS WILL DELETE THE ENTIRE SITE/DOCUMENT CONTENT. Будет удалено ВСЁ содержимое этого сайта/документа. Перед удалением Bossman проверит сохранённую recovery-версию.',
+          danger: true, okText: 'Удалить весь документ'
+        } : {
+          title: 'Удалить элемент?',
+          text: `Тег <${sel.tag}> будет убран из кода — версия сохранится в истории.`,
+          danger: true, okText: 'Удалить'
+        });
+        if (yes) await sendEdit({ op: 'delete', bd_id: sel.bd_id, path: sel.path,
+          destructive_root_ack: rootDelete }, rootDelete ? 'Содержимое документа удалено' : 'Элемент удалён');
       }, { variant: 'danger', size: 'sm' })));
   }
   children.push(h('div', { style: { fontSize: '11.5px', color: 'var(--bx-ink-3,#8b93a7)', marginTop: '10px' } },

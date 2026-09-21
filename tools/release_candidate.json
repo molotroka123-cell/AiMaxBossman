@@ -1,0 +1,28 @@
+{
+  "_": "Объявление КАНДИДАТА выпуска. Правка этого файла — и есть объявление.",
+  "__why": [
+    "Сертификат выдаётся только когда КАЖДОЕ обязательное задание имеет",
+    "завершённый успешный прогон на ТОЧНОМ SHA кандидата",
+    "(tools/exact_sha_certify.py). Три обязательных задания подняты фильтром",
+    "путей и намеренно не поднимаются на каждый коммит: владельческий прогон",
+    "Windows идёт сорок минут, сборка архива — двадцать пять.",
+    "",
+    "Из этого следовало неприятное: кандидат, диff которого не задевает ровно",
+    "тех файлов, прогона не получает ВООБЩЕ, а отсутствующий прогон даёт",
+    "MISSING и не окрашен никак. Оставался ручной workflow_dispatch, то есть",
+    "порядок выпуска, который держится на «не забыть нажать». Это ничем не",
+    "отличается от отсутствующей проверки (BL-107).",
+    "",
+    "Теперь объявление кандидата — ДЕЙСТВИЕ, а не памятка: этот файл стоит в",
+    "фильтре путей каждого обязательного задания, поднимаемого фильтром, и",
+    "правка его поднимает ровно их. Сверяется",
+    "tests/test_required_workflows_are_reachable.py.",
+    "",
+    "SHA здесь НЕТ и быть не может: коммит с этим файлом ещё не существует в",
+    "момент его правки. Кандидатом становится SHA, который родится из пуша;",
+    "его и подают в сертификатор."
+  ],
+  "candidate_label": "rc-2026-09-20-audit-closure",
+  "declared_for": "release/bossman-owner",
+  "note": "Audit closure candidate from 6ae8e70f9f3ff468f7ea891d61745dcb8f562f3b. Fixes verified red checks: native Image Studio roundtrip retains measured import evidence; PRE-EVO Chromium torture skip is registered; self-modifying CI was already replaced by read-only diagnostics. Intelligence Preservation remains intentionally fail-closed without real same-model measurement and is not represented as PASS. Human-speed Windows degenerate thread_cpu measurement remains evidence-quality/non-release component measurement, not fabricated latency. Trigger exact-SHA workflows; old/cancelled/queued evidence does not transfer."
+}

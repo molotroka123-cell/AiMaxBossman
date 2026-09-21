@@ -1,0 +1,60 @@
+{
+  "_": "Ветки, из которых МОЖЕТ собираться продукт, который скачивает владелец.",
+  "__why": [
+    "Оба задания Windows — сборка архива (windows-bundle.yml) и владельческий",
+    "прогон (windows-owner-tasks.yml) — и проверка открытых интеграций",
+    "(oss-integrations.yml) ограничены списком веток. Ветка, не попавшая в",
+    "список, не проверяется ВООБЩЕ: не красный прогон, а отсутствие прогона.",
+    "Молчание при этом читается как «проверок нет», а выглядит как «проверок",
+    "не требовалось».",
+    "",
+    "Так и вышло дважды. release/bossman-owner заведена под сведение воедино",
+    "уже ПОСЛЕ того, как фильтры были написаны: сорок четыре прогона на ней не",
+    "содержали ни одного Windows-задания, а у oss-integrations было ровно ноль",
+    "прогонов в любом виде — у этого задания нет и триггера pull_request,",
+    "поэтому запасного пути через PR тоже не было (BL-089).",
+    "",
+    "Этот файл — единственное объявление. tests/test_windows_workflows_cover_",
+    "owner_branches.py сверяет с ним задания настоящей семантикой шаблонов",
+    "GitHub, а не поиском подстроки.",
+    "",
+    "installed-product.yml добавлен сюда при заведении, а не после того, как",
+    "выяснится, что он молчал: цепочка установленного продукта смотрит на тот",
+    "же список веток, что и пара Windows, и своя группа concurrency не",
+    "позволяет ей выбивать сборку архива из очереди.",
+    "",
+    "BL-106: список пополняется не «когда вспомнили», а по требованию",
+    "сертификата. tests/test_required_workflows_are_reachable.py берёт",
+    "имена из tools/exact_sha_certify.DEFAULT_REQUIRED, находит файлы и",
+    "требует, чтобы каждое ОГРАНИЧЕННОЕ ветками обязательное задание стояло",
+    "здесь. bossman-v2-repair.yml был обязателен для сертификата, слушал одну",
+    "чужую ветку и не был объявлен нигде: прогонов на release/bossman-owner",
+    "ровно ноль, то есть сертификат не мог быть выдан НИКОГДА."
+  ],
+  "canonical": "release/bossman-owner",
+  "must_be_covered": [
+    "release/bossman-owner",
+    "claude/bossman-final-convergence-hu2702",
+    "night/v7-convergence-20260908"
+  ],
+  "must_not_be_covered": [
+    "main",
+    "scratch/experiment",
+    "releases/not-our-prefix",
+    "wip/whatever"
+  ],
+  "workflows": [
+    ".github/workflows/windows-bundle.yml",
+    ".github/workflows/windows-owner-tasks.yml",
+    ".github/workflows/oss-integrations.yml",
+    ".github/workflows/installed-product.yml",
+    ".github/workflows/owner-scenarios.yml",
+    ".github/workflows/bossman-v2-repair.yml",
+    ".github/workflows/fable-media-fleet.yml"
+  ],
+  "windows_pair": [
+    ".github/workflows/windows-bundle.yml",
+    ".github/workflows/windows-owner-tasks.yml"
+  ],
+  "release_candidate_marker": "tools/release_candidate.json"
+}

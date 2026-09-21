@@ -190,7 +190,7 @@ def test_permanent_lock_still_raises_and_keeps_revision(tmp_path, monkeypatch):
 
 def test_low_confidence_coordinate_click_denied_whatever_source_says():
     """Модель снимала с себя порог, объявив source="planner"."""
-    a = click(args={"x": 10, "y": 10}, confidence=.1, source="planner")
+    a = click(target="test target", args={"x": 10, "y": 10, "coordinate_fallback": True}, confidence=.1, source="planner")
     d = ComputerPolicy().classify(a, mode=TaskMode.CONTROL)
     assert not d.allow and d.reason == "low vision confidence"
 
@@ -202,7 +202,7 @@ def test_declared_vision_source_still_gated():
 
 
 @pytest.mark.parametrize("a", [
-    click(args={"x": 10, "y": 10}, confidence=.95, source="planner"),   # уверенная координата
+    click(target="test target", args={"x": 10, "y": 10, "coordinate_fallback": True}, confidence=.95, source="planner"),   # уверенная координата
     click(target="Save button", confidence=.1, source="planner"),       # структурная цель, не пиксель
 ])
 def test_legitimate_actions_not_gated(a):

@@ -1,0 +1,560 @@
+{
+  "type": "bossman.convergence_inventory",
+  "schema": 1,
+  "features_loaded": 66,
+  "features_reachable": 60,
+  "ui_pages": 30,
+  "counts": {
+    "NOT_MEASURED": 0,
+    "NOT_IMPLEMENTED": 0,
+    "NOT_REACHABLE": 0,
+    "UNTESTED": 0,
+    "L1_CONTRACT": 13,
+    "L2_CI_INTEGRATION": 4
+  },
+  "areas": [
+    {
+      "id": "core_ai",
+      "title": "Ядро ИИ: модели, маршрутизация, запасной путь, стоимость",
+      "directive_section": "6",
+      "features_declared": [
+        "router",
+        "openrouter",
+        "local_first",
+        "second_opinion"
+      ],
+      "features_present": [
+        "router",
+        "openrouter",
+        "local_first",
+        "second_opinion"
+      ],
+      "features_reachable": [
+        "router",
+        "openrouter",
+        "local_first",
+        "second_opinion"
+      ],
+      "ui_pages_related": [],
+      "test_files": 140,
+      "test_files_sample": [
+        "tests/test_astra6_freeze.py",
+        "tests/test_audit_p0_cache_evidence.py",
+        "tests/test_cache_observation.py",
+        "tests/test_ci_secret_scan.py"
+      ],
+      "installed_profile_modules": [],
+      "evidence_level": "L1_CONTRACT",
+      "why": "4 фич достижимы, 140 тестовых файлов; на установленном продукте НЕ проверяется"
+    },
+    {
+      "id": "context_memory",
+      "title": "Контекст и память владельца",
+      "directive_section": "7",
+      "features_declared": [
+        "tools_memory",
+        "provenance",
+        "snapshot"
+      ],
+      "features_present": [
+        "tools_memory",
+        "provenance",
+        "snapshot"
+      ],
+      "features_reachable": [
+        "tools_memory",
+        "provenance",
+        "snapshot"
+      ],
+      "ui_pages_related": [],
+      "test_files": 134,
+      "test_files_sample": [
+        "tests/test_astra6_freeze.py",
+        "tests/test_intelligence_preservation_gate.py",
+        "tests/test_local_model_strategy_compare.py",
+        "tests/test_owner_machine_report.py"
+      ],
+      "installed_profile_modules": [
+        "test_oss_memory_refusals"
+      ],
+      "evidence_level": "L2_CI_INTEGRATION",
+      "why": "3 фич достижимы, 134 тестовых файлов, и 1 модуль(ей) в профиле приёмки на УСТАНОВЛЕННОМ продукте"
+    },
+    {
+      "id": "computer_control",
+      "title": "Управление компьютером",
+      "directive_section": "8",
+      "features_declared": [
+        "apps_control",
+        "oss_integrations"
+      ],
+      "features_present": [
+        "apps_control",
+        "oss_integrations"
+      ],
+      "features_reachable": [
+        "apps_control",
+        "oss_integrations"
+      ],
+      "ui_pages_related": [],
+      "test_files": 59,
+      "test_files_sample": [
+        "tests/test_app_icon_assets.py",
+        "tests/test_context_bytes_checkpoint.py",
+        "tests/test_evening_acceptance_harness.py",
+        "tests/test_operator_step_profile.py"
+      ],
+      "installed_profile_modules": [],
+      "evidence_level": "L1_CONTRACT",
+      "why": "2 фич достижимы, 59 тестовых файлов; на установленном продукте НЕ проверяется"
+    },
+    {
+      "id": "browser_agent",
+      "title": "Браузерный агент",
+      "directive_section": "9",
+      "features_declared": [
+        "browser",
+        "tools_browser",
+        "browser_help",
+        "web_research"
+      ],
+      "features_present": [
+        "browser",
+        "tools_browser",
+        "browser_help",
+        "web_research"
+      ],
+      "features_reachable": [
+        "browser",
+        "tools_browser",
+        "browser_help",
+        "web_research"
+      ],
+      "ui_pages_related": [
+        "browser"
+      ],
+      "test_files": 126,
+      "test_files_sample": [
+        "tests/test_acceptance_registry.py",
+        "tests/test_bundle_evening_test.py",
+        "tests/test_epoch4_mission_ir.py",
+        "tests/test_evening_acceptance_harness.py"
+      ],
+      "installed_profile_modules": [
+        "test_apps_files_browser_owner"
+      ],
+      "evidence_level": "L2_CI_INTEGRATION",
+      "why": "4 фич достижимы, 126 тестовых файлов, и 1 модуль(ей) в профиле приёмки на УСТАНОВЛЕННОМ продукте"
+    },
+    {
+      "id": "file_intelligence",
+      "title": "Работа с файлами",
+      "directive_section": "10",
+      "features_declared": [
+        "file_intelligence",
+        "unified_search"
+      ],
+      "features_present": [
+        "file_intelligence",
+        "unified_search"
+      ],
+      "features_reachable": [
+        "file_intelligence",
+        "unified_search"
+      ],
+      "ui_pages_related": [
+        "file-intelligence"
+      ],
+      "test_files": 7,
+      "test_files_sample": [
+        "tests/test_packaging_installed.py",
+        "command-center/tests/test_file_intelligence_contract.py",
+        "command-center/tests/test_file_intelligence_feature.py",
+        "command-center/tests/test_file_intelligence_hostile.py"
+      ],
+      "installed_profile_modules": [],
+      "evidence_level": "L1_CONTRACT",
+      "why": "2 фич достижимы, 7 тестовых файлов; на установленном продукте НЕ проверяется"
+    },
+    {
+      "id": "terminal_agent",
+      "title": "Терминал и инженерный агент",
+      "directive_section": "11",
+      "features_declared": [
+        "terminal",
+        "tools_terminal",
+        "tools_code",
+        "coding_tasks"
+      ],
+      "features_present": [
+        "terminal",
+        "tools_terminal",
+        "tools_code",
+        "coding_tasks"
+      ],
+      "features_reachable": [
+        "terminal",
+        "tools_code",
+        "coding_tasks"
+      ],
+      "ui_pages_related": [
+        "terminal"
+      ],
+      "test_files": 154,
+      "test_files_sample": [
+        "tests/test_action_receipt.py",
+        "tests/test_curated_agent_skills.py",
+        "tests/test_epoch4_mission_ir.py",
+        "tests/test_evening_acceptance_harness.py"
+      ],
+      "installed_profile_modules": [],
+      "evidence_level": "L1_CONTRACT",
+      "why": "3 фич достижимы, 154 тестовых файлов; на установленном продукте НЕ проверяется"
+    },
+    {
+      "id": "multi_agent",
+      "title": "Мультиагентная система",
+      "directive_section": "12",
+      "features_declared": [
+        "agentmap",
+        "nl_orchestra",
+        "forks",
+        "organization"
+      ],
+      "features_present": [
+        "agentmap",
+        "nl_orchestra",
+        "forks",
+        "organization"
+      ],
+      "features_reachable": [
+        "agentmap",
+        "nl_orchestra",
+        "forks",
+        "organization"
+      ],
+      "ui_pages_related": [
+        "agentmap",
+        "orchestras"
+      ],
+      "test_files": 113,
+      "test_files_sample": [
+        "tests/test_action_receipt.py",
+        "tests/test_astra6_freeze.py",
+        "tests/test_audit_p0_learning_journal.py",
+        "tests/test_audit_p0_trace_identity.py"
+      ],
+      "installed_profile_modules": [],
+      "evidence_level": "L1_CONTRACT",
+      "why": "4 фич достижимы, 113 тестовых файлов; на установленном продукте НЕ проверяется"
+    },
+    {
+      "id": "approvals",
+      "title": "Модель одобрений владельца",
+      "directive_section": "13",
+      "features_declared": [
+        "action_gate",
+        "nl_permissions",
+        "review_gate",
+        "action_contract"
+      ],
+      "features_present": [
+        "action_gate",
+        "nl_permissions",
+        "review_gate",
+        "action_contract"
+      ],
+      "features_reachable": [
+        "nl_permissions",
+        "review_gate"
+      ],
+      "ui_pages_related": [],
+      "test_files": 176,
+      "test_files_sample": [
+        "tests/test_epoch4_metrics.py",
+        "tests/test_epoch4_performance_plumbing.py",
+        "tests/test_owner_breaker_harness.py",
+        "tests/test_v5_intelligence_preservation.py"
+      ],
+      "installed_profile_modules": [],
+      "evidence_level": "L1_CONTRACT",
+      "why": "2 фич достижимы, 176 тестовых файлов; на установленном продукте НЕ проверяется"
+    },
+    {
+      "id": "telegram",
+      "title": "Телеграм как удалённый интерфейс",
+      "directive_section": "14",
+      "features_declared": [
+        "tools_openclaw",
+        "plugins"
+      ],
+      "features_present": [
+        "tools_openclaw",
+        "plugins"
+      ],
+      "features_reachable": [
+        "tools_openclaw",
+        "plugins"
+      ],
+      "ui_pages_related": [],
+      "test_files": 21,
+      "test_files_sample": [
+        "tests/test_ci_secret_scan.py",
+        "command-center/tests/test_action_contract.py",
+        "command-center/tests/test_finalize_capability_match.py",
+        "command-center/tests/test_mission010_execution_truth.py"
+      ],
+      "installed_profile_modules": [],
+      "evidence_level": "L1_CONTRACT",
+      "why": "2 фич достижимы, 21 тестовых файлов; на установленном продукте НЕ проверяется"
+    },
+    {
+      "id": "command_center",
+      "title": "Командный центр — один понятный интерфейс",
+      "directive_section": "15",
+      "features_declared": [
+        "command_bar",
+        "control_plane",
+        "reality"
+      ],
+      "features_present": [
+        "command_bar",
+        "control_plane",
+        "reality"
+      ],
+      "features_reachable": [
+        "command_bar",
+        "control_plane",
+        "reality"
+      ],
+      "ui_pages_related": [],
+      "test_files": 13,
+      "test_files_sample": [
+        "tests/test_solana_safety.py",
+        "command-center/tests/test_cc_ux_p2_findings.py",
+        "command-center/tests/test_command_bar.py",
+        "command-center/tests/test_command_bar_ui.py"
+      ],
+      "installed_profile_modules": [],
+      "evidence_level": "L1_CONTRACT",
+      "why": "3 фич достижимы, 13 тестовых файлов; на установленном продукте НЕ проверяется"
+    },
+    {
+      "id": "image_studio",
+      "title": "Студия изображений",
+      "directive_section": "16",
+      "features_declared": [
+        "images",
+        "studio"
+      ],
+      "features_present": [
+        "images",
+        "studio"
+      ],
+      "features_reachable": [
+        "images",
+        "studio"
+      ],
+      "ui_pages_related": [
+        "images",
+        "video-studio"
+      ],
+      "test_files": 76,
+      "test_files_sample": [
+        "tests/test_app_icon_assets.py",
+        "tests/test_astra6_freeze.py",
+        "tests/test_capability_matrix.py",
+        "tests/test_ci_secret_scan.py"
+      ],
+      "installed_profile_modules": [
+        "test_images_cancel_button",
+        "test_images_library_ui",
+        "test_studio_gallery_ui"
+      ],
+      "evidence_level": "L2_CI_INTEGRATION",
+      "why": "2 фич достижимы, 76 тестовых файлов, и 3 модуль(ей) в профиле приёмки на УСТАНОВЛЕННОМ продукте"
+    },
+    {
+      "id": "video_studio",
+      "title": "Видеостудия",
+      "directive_section": "17",
+      "features_declared": [
+        "video_studio"
+      ],
+      "features_present": [
+        "video_studio"
+      ],
+      "features_reachable": [
+        "video_studio"
+      ],
+      "ui_pages_related": [
+        "video-studio"
+      ],
+      "test_files": 52,
+      "test_files_sample": [
+        "tests/test_bundle_evening_test.py",
+        "tests/test_evening_acceptance_harness.py",
+        "tests/test_installed_ui_sweep.py",
+        "tests/test_media_ci_preflight.py"
+      ],
+      "installed_profile_modules": [],
+      "evidence_level": "L1_CONTRACT",
+      "why": "1 фич достижимы, 52 тестовых файлов; на установленном продукте НЕ проверяется"
+    },
+    {
+      "id": "learning",
+      "title": "Обучение на успешной работе",
+      "directive_section": "19",
+      "features_declared": [
+        "skills",
+        "benchlab",
+        "failure_to_case",
+        "healing"
+      ],
+      "features_present": [
+        "skills",
+        "benchlab",
+        "failure_to_case",
+        "healing"
+      ],
+      "features_reachable": [
+        "skills",
+        "benchlab",
+        "failure_to_case",
+        "healing"
+      ],
+      "ui_pages_related": [],
+      "test_files": 67,
+      "test_files_sample": [
+        "tests/test_audit_p0_learning_journal.py",
+        "tests/test_audit_p0_trace_identity.py",
+        "tests/test_installed_ui_sweep.py",
+        "tests/test_learning_orphan_case_adoption.py"
+      ],
+      "installed_profile_modules": [],
+      "evidence_level": "L1_CONTRACT",
+      "why": "4 фич достижимы, 67 тестовых файлов; на установленном продукте НЕ проверяется"
+    },
+    {
+      "id": "continuity",
+      "title": "Непрерывность задач через перезапуск",
+      "directive_section": "20",
+      "features_declared": [
+        "snapshot",
+        "watchdog",
+        "missions"
+      ],
+      "features_present": [
+        "snapshot",
+        "watchdog",
+        "missions"
+      ],
+      "features_reachable": [
+        "snapshot",
+        "watchdog",
+        "missions"
+      ],
+      "ui_pages_related": [],
+      "test_files": 150,
+      "test_files_sample": [
+        "tests/test_acceptance_registry.py",
+        "tests/test_audit_p0_learning_journal.py",
+        "tests/test_bundle_evening_test.py",
+        "tests/test_epoch4_mission_ir.py"
+      ],
+      "installed_profile_modules": [
+        "test_web_designer_recovery_ui"
+      ],
+      "evidence_level": "L2_CI_INTEGRATION",
+      "why": "3 фич достижимы, 150 тестовых файлов, и 1 модуль(ей) в профиле приёмки на УСТАНОВЛЕННОМ продукте"
+    },
+    {
+      "id": "security",
+      "title": "Безопасность и границы прав",
+      "directive_section": "21",
+      "features_declared": [
+        "action_gate",
+        "nl_permissions",
+        "plugins"
+      ],
+      "features_present": [
+        "action_gate",
+        "nl_permissions",
+        "plugins"
+      ],
+      "features_reachable": [
+        "nl_permissions",
+        "plugins"
+      ],
+      "ui_pages_related": [],
+      "test_files": 186,
+      "test_files_sample": [
+        "tests/test_astra6_freeze.py",
+        "tests/test_cache_observation.py",
+        "tests/test_ci_secret_scan.py",
+        "tests/test_learning_store_authority.py"
+      ],
+      "installed_profile_modules": [],
+      "evidence_level": "L1_CONTRACT",
+      "why": "2 фич достижимы, 186 тестовых файлов; на установленном продукте НЕ проверяется"
+    },
+    {
+      "id": "governor",
+      "title": "Губернатор ресурсов и стоимости",
+      "directive_section": "22",
+      "features_declared": [
+        "governor",
+        "spend_meter"
+      ],
+      "features_present": [
+        "governor",
+        "spend_meter"
+      ],
+      "features_reachable": [
+        "governor",
+        "spend_meter"
+      ],
+      "ui_pages_related": [
+        "governor"
+      ],
+      "test_files": 157,
+      "test_files_sample": [
+        "tests/test_cache_observation.py",
+        "tests/test_epoch4_metrics.py",
+        "tests/test_epoch4_mission_ir.py",
+        "tests/test_epoch4_performance_plumbing.py"
+      ],
+      "installed_profile_modules": [],
+      "evidence_level": "L1_CONTRACT",
+      "why": "2 фич достижимы, 157 тестовых файлов; на установленном продукте НЕ проверяется"
+    },
+    {
+      "id": "local_models",
+      "title": "Локальные модели на железе владельца",
+      "directive_section": "23",
+      "features_declared": [
+        "local_first",
+        "openrouter"
+      ],
+      "features_present": [
+        "local_first",
+        "openrouter"
+      ],
+      "features_reachable": [
+        "local_first",
+        "openrouter"
+      ],
+      "ui_pages_related": [],
+      "test_files": 66,
+      "test_files_sample": [
+        "tests/test_intelligence_measurement_metadata.py",
+        "tests/test_learning_trace.py",
+        "tests/test_local_hardware_ab_portability.py",
+        "tests/test_local_model_strategy_compare.py"
+      ],
+      "installed_profile_modules": [],
+      "evidence_level": "L1_CONTRACT",
+      "why": "2 фич достижимы, 66 тестовых файлов; на установленном продукте НЕ проверяется"
+    }
+  ]
+}

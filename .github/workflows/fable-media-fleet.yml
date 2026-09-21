@@ -15,6 +15,14 @@ on:
       - claude/bossman-control-v03-43igbk
       - claude/bossman-final-audit-closure-aucx9x
       - 'release/**'
+      # BL-106: поимённый список молча терял владельческие ветки. Две из трёх
+      # объявленных в tools/owner_facing_branches.json сюда не попадали —
+      # задание обязательно для сертификата, а по пушу в них не поднималось
+      # вовсе. Шаблоны не устаревают при заведении новой ветки; группа
+      # concurrency ниже привязана к github.ref, поэтому соседние прогоны
+      # друг друга не отменяют.
+      - 'claude/**'
+      - 'night/**'
   pull_request:
   workflow_dispatch:
 
@@ -67,6 +75,17 @@ jobs:
           set -o pipefail
           python tools/media_ci_preflight.py | tee acceptance-results/ffmpeg.json
           python -m pytest tests/test_media_ci_preflight.py -q --junitxml=acceptance-results/preflight.xml
+      - name: Настоящий медиа-оборот обеих студий (заготовка -> правка -> рендер -> ffprobe)
+        # Preflight выше доказывает только, что ffmpeg на машине есть. Этот шаг
+        # доказывает ПРОДУКТ: детерминированная заготовка правится через
+        # apply_command, рендерится через render_project, и выходной файл
+        # измеряется независимым ffprobe. В той же улике лежит отрицательный
+        # контроль — без него измерение выше ничего не значило бы.
+        if: ${{ !cancelled() && steps.media-ready.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          python tools/media_roundtrip.py --output acceptance-results/media-roundtrip.json
       - name: Fleet authentication, actual TLS RPC and existing safety
         working-directory: bossman-core
         shell: bash
@@ -79,7 +98,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          python -m pytest tests/test_video_studio_*.py tests/test_video_export_receipt.py tests/test_video_native_finalize_contract.py tests/test_web_designer.py tests/test_web_designer_source_fidelity.py -q --timeout=120 --junitxml=../acceptance-results/media-web.xml | tee ../acceptance-results/media-web.log
+          python -m pytest tests/test_video_studio_*.py tests/test_media_roundtrip_studio.py tests/test_video_export_receipt.py tests/test_video_native_finalize_contract.py tests/test_web_designer.py tests/test_web_designer_source_fidelity.py -q --timeout=120 --junitxml=../acceptance-results/media-web.xml | tee ../acceptance-results/media-web.log
       - name: Fable execution-truth interaction regressions
         if: ${{ !cancelled() && steps.media-ready.outcome == 'success' }}
         working-directory: command-center

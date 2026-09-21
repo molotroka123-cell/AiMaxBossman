@@ -18,6 +18,7 @@ import tempfile
 import threading
 import uuid
 from fractions import Fraction
+from ..single_flight import await_shared
 
 TICKS = 1_000_000
 DERIVED_MANIFEST = "derived-manifest.json"
@@ -27,7 +28,7 @@ async def blocking(function, *args):
     """Do not abandon a file worker while its caller removes temporary files."""
     task = asyncio.create_task(asyncio.to_thread(function, *args))
     try:
-        return await asyncio.shield(task)
+        return await await_shared(task)
     except asyncio.CancelledError:
         await task
         raise

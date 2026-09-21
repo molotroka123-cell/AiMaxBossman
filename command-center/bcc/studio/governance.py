@@ -3,6 +3,7 @@ import math
 from datetime import datetime,timezone
 import sqlalchemy as sa
 from sqlalchemy.dialects.sqlite import insert
+from bcc.studio import catalog
 from bcc.studio.tables import config,budget,jobs
 from bcc.studio.runtime import one,digest,StudioError
 from bcc.v2.governor import GovernorState,GovernorThresholds
@@ -38,6 +39,12 @@ async def reserve(svc,model,jid,count,inputs):
     price=p['prices'].get(model)
     if price is None:raise StudioError('unknown_price','OWNER_REQUIRED: price upper bound missing','OWNER_REQUIRED')
     if p['free_only'] and price!=0:raise StudioError('budget','free_only refuses paid model','OWNER_REQUIRED')
+    # BL-084. Ноль в поле владельца — это его ОЦЕНКА верхнего предела, а не
+    # тариф провайдера. Пропускать по нему платную модель значит отдавать
+    # первый настоящий платный вызов за опечатку. Бесплатность подтверждает
+    # каталог поставки, и только он.
+    if p['free_only'] and catalog.declared_free(model) is not True:
+        raise StudioError('budget','free_only: нулевая цена не подтверждена каталогом как бесплатный тариф','OWNER_REQUIRED')
     amount=price*count
     if amount>p['per_job_usd']:raise StudioError('budget','per-job budget exceeded','OWNER_REQUIRED')
     if inputs:

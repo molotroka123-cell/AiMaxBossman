@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
 from .mcp_hub import MCPServerSpec, MCPToolView
+from ..single_flight import await_shared
 
 # --------------------------------------------------------------- SDK (лениво)
 
@@ -157,7 +158,7 @@ class _Connection:
         self._crashed_notified = False
         self._task = asyncio.create_task(self._run(), name=f"mcp-{self.spec.id}")
         try:
-            await asyncio.wait_for(asyncio.shield(self._ready),
+            await asyncio.wait_for(await_shared(self._ready),
                                    timeout=max(5.0, float(self.spec.timeout_seconds)))
         except asyncio.TimeoutError:
             await self.stop()
@@ -169,7 +170,7 @@ class _Connection:
             return
         self._queue.put_nowait(_STOP)
         try:
-            await asyncio.wait_for(asyncio.shield(task), timeout=10.0)
+            await asyncio.wait_for(await_shared(task), timeout=10.0)
         except (asyncio.TimeoutError, asyncio.CancelledError):
             task.cancel()
         except Exception:
@@ -192,7 +193,7 @@ class _Connection:
         self._queue.put_nowait((method, args, kwargs, fut))
         limit = timeout if timeout is not None else float(self.spec.timeout_seconds)
         try:
-            return await asyncio.wait_for(asyncio.shield(fut), timeout=limit)
+            return await asyncio.wait_for(await_shared(fut), timeout=limit)
         except asyncio.TimeoutError:
             fut.cancel()
             raise MCPCallError(

@@ -9,6 +9,7 @@ import asyncio
 from copy import deepcopy
 
 from .lifecycle import sleep_or_stop, stopping
+from .single_flight import await_shared
 import shutil
 import subprocess
 import time
@@ -76,14 +77,12 @@ class MetricsSampler:
             pending = asyncio.create_task(self._read_off_loop())
             self._pending_read = pending
             pending.add_done_callback(self._read_finished)
-        # asyncio.shield() grew its own "exception in shielded future" reporting
-        # on Python 3.14 when every outer waiter is cancelled and the inner task
-        # fails later. asyncio.wait() preserves the same cancellation contract —
-        # cancelling this waiter does NOT cancel a Task passed to wait — without
-        # creating that extra shield Future. The task callback below remains the
-        # single owner of an orphaned late exception.
-        done, _ = await asyncio.wait({pending})
-        data = next(iter(done)).result()
+        # Cancelling one requester must not cancel the shared read and launch a
+        # duplicate subprocess for another. Cancellation still reaches the caller.
+        # Not asyncio.shield(): on Python 3.14 a cancelled shield reports the
+        # shared read's failure through the loop exception handler even after
+        # _read_finished has consumed it (см. bcc/single_flight.py).
+        data = await await_shared(pending)
         return deepcopy(data)
 
     async def _read_off_loop(self) -> dict:

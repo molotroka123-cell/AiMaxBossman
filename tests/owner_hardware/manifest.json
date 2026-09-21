@@ -1,0 +1,214 @@
+{
+  "schema_version": 3,
+  "generated_for": "BOSSMAN PRE-EVO 1.0 owner hardware acceptance",
+  "model_stack_doc": "tests/owner_hardware/MODEL_STACK_2026-09-20.md",
+  "statuses": [
+    "PASS",
+    "FAIL",
+    "OWNER_ACTION_REQUIRED",
+    "NOT_TESTED"
+  ],
+  "cases": [
+    {
+      "id": "HW-01",
+      "title": "Local AI and model routing",
+      "checks": [
+        "conversation",
+        "coding_repo_task",
+        "reasoning",
+        "structured_output",
+        "tool_call",
+        "context",
+        "fallback",
+        "router_selects_task_appropriate_model",
+        "qwen38_27b_main_brain",
+        "qwen38_flash_next_heavy_brain",
+        "nex_n25_mini_gui_worker",
+        "occamy10_agent_worker",
+        "qwen36_35b_a3b_fast_worker",
+        "nemotron35_lightning_fast_worker",
+        "gpt_oss_120b_verifier",
+        "resident_fleet_memory_pressure",
+        "bare_llm_vs_bossman_ab_plan_ready"
+      ]
+    },
+    {
+      "id": "HW-02",
+      "title": "Computer Control",
+      "checks": [
+        "real_windows_apps",
+        "mouse",
+        "keyboard",
+        "semantic_target",
+        "accessibility_or_structured_target",
+        "visual_target",
+        "coordinate_fallback",
+        "stale_screenshot_rejected",
+        "moved_target_recovered",
+        "wrong_foreground_recovered",
+        "bounded_retry",
+        "post_action_verification"
+      ]
+    },
+    {
+      "id": "HW-03",
+      "title": "Browser",
+      "checks": [
+        "chromium_or_edge",
+        "download",
+        "upload",
+        "multi_tab",
+        "login_handoff"
+      ]
+    },
+    {
+      "id": "HW-04",
+      "title": "Files",
+      "checks": [
+        "find",
+        "edit",
+        "create",
+        "organize",
+        "verify_bytes"
+      ]
+    },
+    {
+      "id": "HW-05",
+      "title": "Restart",
+      "checks": [
+        "long_task",
+        "kill_process",
+        "restart",
+        "resume",
+        "no_duplicate_effect"
+      ]
+    },
+    {
+      "id": "HW-06",
+      "title": "Telegram",
+      "checks": [
+        "real_owner_account",
+        "approval",
+        "resume",
+        "completion",
+        "duplicate_callback"
+      ]
+    },
+    {
+      "id": "HW-07",
+      "title": "Image Studio and image-model routing",
+      "checks": [
+        "import",
+        "native_edit",
+        "persist",
+        "reopen",
+        "export",
+        "qwen_image_2512_quality",
+        "flux2_klein_4b_fast_edit",
+        "z_image_turbo_ultrafast",
+        "hunyuanimage30_candidate_comparison",
+        "text_rendering",
+        "multi_step_edit",
+        "memory_peak",
+        "latency"
+      ]
+    },
+    {
+      "id": "HW-08",
+      "title": "Video Studio and video-model routing",
+      "checks": [
+        "import",
+        "edit",
+        "persist",
+        "restart",
+        "render",
+        "ffprobe",
+        "full_decode",
+        "ltx25_default",
+        "ltx25_audio_video_if_supported",
+        "ltx25_quantized_quality_tradeoff",
+        "wan22_a14b_quality",
+        "hunyuanvideo15_light_fallback",
+        "memory_peak",
+        "time_to_first_result",
+        "total_render_time"
+      ]
+    },
+    {
+      "id": "HW-09",
+      "title": "Multi-agent and tool/structured-output",
+      "checks": [
+        "planner",
+        "worker",
+        "verifier",
+        "evidence",
+        "correct_tool_selection",
+        "unnecessary_tool_avoidance",
+        "argument_names",
+        "argument_types",
+        "schema_compliance",
+        "required_fields",
+        "no_hallucinated_fields",
+        "multi_tool_ordering",
+        "tool_failure_recovery",
+        "runtime_constrained_decoding_or_schema_enforcement",
+        "final_state_verification"
+      ]
+    },
+    {
+      "id": "HW-10",
+      "title": "MVCR",
+      "checks": [
+        "official_source",
+        "download_forms",
+        "verified_owner_facts",
+        "package_review",
+        "wait_approval"
+      ]
+    },
+    {
+      "id": "HW-11",
+      "title": "Unknown task",
+      "checks": [
+        "unseen_natural_language_task",
+        "tool_selection",
+        "verification",
+        "router_choice_recorded",
+        "owner_interventions_counted"
+      ]
+    },
+    {
+      "id": "HW-12",
+      "title": "Long autonomy",
+      "checks": [
+        "multi_hour_safe_task",
+        "checkpoints",
+        "budget_bound",
+        "recovery",
+        "model_fallback",
+        "memory_stability",
+        "system_responsiveness"
+      ]
+    },
+    {
+      "id": "HW-13",
+      "title": "Cloud routing / privacy / budget",
+      "checks": [
+        "local_first_when_suitable",
+        "free_public_worker",
+        "private_data_block",
+        "ask_before_cloud_for_ambiguous_data",
+        "no_silent_free_to_paid_escalation",
+        "per_task_budget_ceiling",
+        "premium_route_requires_explicit_approval",
+        "minimal_context_premium_review",
+        "structured_output_runtime_schema_enforcement",
+        "provider_timeout_rate_limit_auth_failure_recovery",
+        "cloud_cost_accounting_survives_restart",
+        "training_data_sensitive_provider_opt_in_only",
+        "local_media_plus_cloud_public_worker_concurrency"
+      ]
+    }
+  ],
+  "cloud_stack_doc": "tests/owner_hardware/CLOUD_STACK_2026-09-20.md"
+}

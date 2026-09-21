@@ -14,6 +14,7 @@ import contextlib
 import base64
 import binascii
 import hashlib
+import io
 import json
 import secrets
 from pathlib import Path
@@ -23,6 +24,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+from PIL import Image, ImageOps
 
 from ..db import models as models_t, rows_dicts, utcnow
 from ..v2.images_runtime import ImageStorage, MockImageProvider, safe_filename
@@ -93,6 +95,12 @@ class ImportAssetIn(BaseModel):
     title: str = ""
     collection_id: int | None = None
     tags: list[str] = Field(default_factory=list)
+
+
+class ImageTransformIn(BaseModel):
+    operation: str = Field(pattern="^(grayscale|rotate90|rotate180|flip_horizontal|resize)$")
+    width: int | None = Field(default=None, ge=16, le=8192)
+    height: int | None = Field(default=None, ge=16, le=8192)
 
 
 # ---------- helpers ----------
@@ -287,6 +295,72 @@ async def patch_asset(asset_id: int, body: AssetPatch, request: Request):
     return _asset_public((await _find_one(svc, assets_t, asset_id)) or {})
 
 
+#: Тип импортируемой картинки МЕРЯЕТСЯ по байтам, а не читается из имени.
+#:
+#: До этой правки `mime_type` брался из расширения (`allowed[suffix]`), и
+#: страница ошибки 502, сохранённая браузером как `screenshot.png`,
+#: принималась библиотекой и отдавалась с `Content-Type: image/png`.
+#: Воспроизведено настоящим HTTP-запросом: 200 на импорт, `image/png` в базе,
+#: а в теле `<!doctype html><html><head><title>502 Ba`.
+#:
+#: Владельцу это стоит не безопасности, а правды: испорченная загрузка молча
+#: становится «картинкой», и ломается всё дальнейшее — предпросмотр, монтаж,
+#: экспорт, — но уже далеко от места, где ошиблись.
+_MAGIC: tuple[tuple[bytes, str], ...] = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+)
+
+
+def _looks_like_svg(raw: bytes) -> bool:
+    """SVG — текст, поэтому подпись ищется структурно, а не сигнатурой.
+
+    Разбор XML здесь НЕ используется намеренно: он открывает «миллиард смешков»
+    и разбор внешних сущностей на данных, которые нам только что прислали.
+    Вместо этого снимаются пролог, комментарии и DOCTYPE, после чего ПЕРВЫЙ же
+    тег обязан быть `<svg`. HTML-страница, внутри которой где-то встречается
+    `<svg`, так не проходит — а именно она и была дефектом.
+    """
+    head = raw[:4096].lstrip(b"\xef\xbb\xbf").lstrip()
+    while True:
+        if head[:5] == b"<?xml":
+            cut = head.find(b"?>")
+            if cut < 0:
+                return False
+            head = head[cut + 2:].lstrip()
+        elif head[:4] == b"<!--":
+            cut = head.find(b"-->")
+            if cut < 0:
+                return False
+            head = head[cut + 3:].lstrip()
+        elif head[:9].lower() == b"<!doctype":
+            cut = head.find(b">")
+            if cut < 0:
+                return False
+            # DOCTYPE html — это страница, а не картинка, и подменять одно
+            # другим нельзя даже если внутри потом встретится <svg>.
+            if b"html" in head[:cut].lower():
+                return False
+            head = head[cut + 1:].lstrip()
+        else:
+            break
+    return head[:4].lower() == b"<svg"
+
+
+def measured_image_type(raw: bytes) -> str | None:
+    """Что это НА САМОМ ДЕЛЕ. `None` — опознать не удалось."""
+    for signature, mime in _MAGIC:
+        if raw.startswith(signature):
+            return mime
+    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return "image/webp"
+    if _looks_like_svg(raw):
+        return "image/svg+xml"
+    return None
+
+
 @router.post("/images/assets/import")
 async def import_asset(body: ImportAssetIn, request: Request):
     svc = request.app.state.svc
@@ -305,6 +379,14 @@ async def import_asset(body: ImportAssetIn, request: Request):
                ".webp": "image/webp", ".gif": "image/gif", ".svg": "image/svg+xml"}
     if suffix not in allowed:
         raise HTTPException(422, {"message": "поддерживаются PNG/JPG/WEBP/GIF/SVG"})
+    measured = measured_image_type(raw)
+    if measured is None:
+        raise HTTPException(422, {"message": (
+            f"содержимое не опознано как картинка, хотя имя обещает {suffix}. "
+            f"Так выглядит сохранённая страница ошибки")})
+    if measured != allowed[suffix]:
+        raise HTTPException(422, {"message": (
+            f"содержимое — {measured}, а имя обещает {allowed[suffix]} ({suffix})")})
     name = f"import-{secrets.token_hex(6)}-{safe_filename(Path(body.filename).stem)}{suffix}"
     path = _storage(svc).save(f"imports/{name}", raw)
     async with svc.db.session() as s:
@@ -313,7 +395,7 @@ async def import_asset(body: ImportAssetIn, request: Request):
             model_alias="import",
             file_path=str(path),
             file_bytes=len(raw),
-            mime_type=allowed[suffix],
+            mime_type=measured,
             tags=_clean_tags(body.tags),
             collection_id=body.collection_id,
             meta={"imported": True, "original_filename": body.filename},
@@ -323,6 +405,66 @@ async def import_asset(body: ImportAssetIn, request: Request):
         await s.commit()
     await svc.bus.emit("image.asset.created", asset_id=asset_id, imported=True)
     return _asset_public((await _find_one(svc, assets_t, asset_id)) or {})
+
+
+@router.post("/images/assets/{asset_id}/transform")
+async def transform_asset(asset_id: int, body: ImageTransformIn, request: Request):
+    """Native Image Studio edit path: source asset -> transform -> persisted derived asset.
+
+    This is intentionally separate from image generation providers. The source file
+    is never mutated; every transform produces a new reopenable asset with provenance.
+    """
+    svc = request.app.state.svc
+    source = await _find_one(svc, assets_t, asset_id)
+    if source is None or source.get("status") == "deleted":
+        raise HTTPException(404, {"message": "исходное изображение не найдено"})
+    try:
+        path = _storage(svc).resolve_existing(source["file_path"])
+        raw = path.read_bytes()
+        image = Image.open(io.BytesIO(raw))
+        image.load()
+    except (OSError, ValueError) as exc:
+        raise HTTPException(422, {"message": "изображение не декодируется редактором"}) from exc
+
+    op = body.operation
+    if op == "grayscale":
+        edited = ImageOps.grayscale(image).convert("RGB")
+    elif op == "rotate90":
+        edited = image.transpose(Image.Transpose.ROTATE_90)
+    elif op == "rotate180":
+        edited = image.transpose(Image.Transpose.ROTATE_180)
+    elif op == "flip_horizontal":
+        edited = ImageOps.mirror(image)
+    else:
+        if body.width is None or body.height is None:
+            raise HTTPException(422, {"message": "resize требует width и height"})
+        edited = image.resize((body.width, body.height), Image.Resampling.LANCZOS)
+
+    out = io.BytesIO()
+    edited.save(out, format="PNG")
+    payload = out.getvalue()
+    digest = hashlib.sha256(payload).hexdigest()[:16]
+    name = f"edits/{asset_id}-{op}-{secrets.token_hex(5)}.png"
+    saved = _storage(svc).save(name, payload)
+    meta = dict(source.get("meta") or {})
+    meta.update({"edited": True, "source_asset_id": asset_id, "operation": op,
+                 "sha256_16": digest})
+    width, height = edited.size
+    async with svc.db.session() as s:
+        res = await s.execute(sa.insert(assets_t).values(
+            title=(str(source.get("title") or f"image-{asset_id}") + f" · {op}")[:240],
+            prompt=source.get("prompt") or "", negative_prompt=source.get("negative_prompt") or "",
+            model_alias="image-editor", aspect_ratio=f"{width}:{height}", width=width, height=height,
+            mime_type="image/png", file_path=str(saved), file_bytes=len(payload),
+            collection_id=source.get("collection_id"), tags=list(source.get("tags") or []),
+            meta=meta, created_at=utcnow(),
+        ))
+        new_id = int(res.inserted_primary_key[0])
+        await s.commit()
+    await svc.bus.emit("image.asset.transformed", asset_id=new_id, source_asset_id=asset_id,
+                       operation=op)
+    row = await _find_one(svc, assets_t, new_id)
+    return _asset_public(row or {})
 
 
 # ---------- jobs ----------

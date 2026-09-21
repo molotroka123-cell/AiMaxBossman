@@ -1,11 +1,9 @@
 {
-  "type": "bossman.responsiveness",
-  "schema": 1,
-  "completed": false,
-  "verdict": "INSUFFICIENT_EVIDENCE",
+  "verdict": "REFERENCE_ONLY",
   "mode": "reference",
-  "elapsed_load_seconds": 122.39033626399987,
-  "turns": 58,
+  "budget_fixed_at": "2026-09-18",
+  "reference_only": true,
+  "completed": true,
   "lines": [
     {
       "metric": "cold_start_to_interactive_s",
@@ -66,19 +64,28 @@
     {
       "metric": "soak_rss_growth_pct",
       "limit": 15.0,
-      "measured": null,
-      "verdict": "INSUFFICIENT_EVIDENCE",
-      "detail": "прогон прерван на 2-й минуте нагрузки (58 переходов); выдержка не завершена",
+      "measured": 10.849849461571141,
+      "verdict": "REFERENCE_ONLY",
+      "detail": "10.8 против предела 15.0 — В БЮДЖЕТЕ; 60 мин нагрузки (1702 переходов) плюс 3 мин покоя, дерево 1268.9 → 1406.6 MiB",
       "where": "дерево процессов"
     },
     {
       "metric": "soak_idle_cpu_pct_of_one_core",
       "limit": 2.0,
-      "measured": null,
-      "verdict": "INSUFFICIENT_EVIDENCE",
-      "detail": "прогон прерван на 2-й минуте нагрузки (58 переходов); выдержка не завершена",
+      "measured": 1.4110009642995969,
+      "verdict": "REFERENCE_ONLY",
+      "detail": "1.4 против предела 2.0 — В БЮДЖЕТЕ; 3.0 мин тишины после нагрузки",
       "where": "дерево процессов"
     }
   ],
-  "means": "снимок незаконченного прогона: доказательством не является"
+  "notes": [
+    "разделов в обходе: 31",
+    "галерея постраничная по 60 карточек: пара 100/1000 меряет стоимость запроса и подсчёта, а не размер DOM",
+    "CPU дерева ПОД НАГРУЗКОЙ 30.7 % одного ядра при переходе раз в 2 с — величина без бюджета, приводится рядом, чтобы её не путали с покоем"
+  ],
+  "refusal_rules": [
+    "Бюджет не поднимается после неудачного замера. Неудача записывается как FAIL и разбирается.",
+    "Пока замера нет, строка имеет вердикт INSUFFICIENT_EVIDENCE, а не PASS.",
+    "Замер на Linux из исходников — REFERENCE_ONLY: он не является доказательством об установленном архиве Windows."
+  ]
 }

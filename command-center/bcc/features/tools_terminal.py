@@ -17,8 +17,11 @@ tool-loop с правами AUTO/ASK/DENY.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import re
+
+import httpx
 from pathlib import Path
 
 import sqlalchemy as sa
@@ -29,7 +32,7 @@ from ..v2 import scratch
 from ..v2.scratch import base_dir as _scratch_base_dir
 from ..v2.tables import terminal_sessions as term_t
 from ..v2.terminal_control import (TerminalManager, TerminalPolicy, _is_single_command,
-                                   auto_patterns, within)
+                                   auto_patterns, unrecoverable_delete_target, within)
 from . import Feature
 
 ROOTS_KEY = "terminal.roots"
@@ -129,6 +132,12 @@ async def _mode(svc) -> str:
 
 
 def hard_deny_reason(command: str) -> str:
+    # Один и тот же распознаватель, что у нижнего рубежа (bcc/v2/terminal_control):
+    # два списка «что нельзя никогда» неизбежно разъехались бы, и владелец узнал
+    # бы об этом ровно один раз. BL-100.
+    target = unrecoverable_delete_target(command or "")
+    if target:
+        return f"необратимое удаление: {target}"
     for pattern, reason in HARD_DENY:
         if pattern.search(command or ""):
             return reason
@@ -171,12 +180,74 @@ async def _resolve_cwd(ctx, args: dict, *, create_scratch: bool = True) -> tuple
     return Path(raw).expanduser().resolve(), roots
 
 
+_PIPE_TO_SHELL_URL = re.compile(
+    r"(?is)\b(?:curl|wget)\b[^|]*?(https?://[^\s|;]+)[^|]*\|\s*(?:/bin/)?(?:ba)?sh\b")
+REMOTE_SCRIPT_MAX_BYTES = 2 * 1024 * 1024
+
+
+def _piped_remote_url(command: str) -> str | None:
+    match = _PIPE_TO_SHELL_URL.search(str(command or ""))
+    return match.group(1).rstrip("'\\\"") if match else None
+
+
+async def _fetch_remote_script(url: str) -> bytes:
+    """Fetch the exact bytes being approved, fail-closed on SSRF/redirect/size."""
+    from ..v2.browser_control import resolved_target_refusal
+    refusal = resolved_target_refusal(url)
+    if refusal:
+        raise PermissionError(f"remote script source refused: {refusal}")
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, trust_env=False) as client:
+        async with client.stream("GET", url, headers={"Accept": "application/octet-stream"}) as response:
+            response.raise_for_status()
+            final_url = str(response.url)
+            refusal = resolved_target_refusal(final_url)
+            if refusal:
+                raise PermissionError(f"remote script redirect refused: {refusal}")
+            parts: list[bytes] = []
+            size = 0
+            async for chunk in response.aiter_bytes():
+                size += len(chunk)
+                if size > REMOTE_SCRIPT_MAX_BYTES:
+                    raise ValueError(f"remote script exceeds {REMOTE_SCRIPT_MAX_BYTES} bytes")
+                parts.append(chunk)
+    return b"".join(parts)
+
+
+async def _bind_remote_script_content(args: dict) -> str | None:
+    """Bind curl/wget | sh approval to downloaded bytes, not just the URL.
+
+    Before ASK the hook stores source+SHA in the canonical arguments, so both are
+    visible in the preview and part of approval_digest. At effect time the same
+    hook refetches and compares; changed bytes refuse execution. A new model call
+    can then create a fresh approval for the new digest.
+    """
+    url = _piped_remote_url(str(args.get("command") or ""))
+    if not url:
+        return None
+    try:
+        data = await _fetch_remote_script(url)
+    except (httpx.HTTPError, PermissionError, ValueError, OSError) as exc:
+        return f"curl|sh preflight failed closed: {type(exc).__name__}: {exc}"
+    digest = hashlib.sha256(data).hexdigest()
+    previous = str(args.get("_remote_content_sha256") or "")
+    if previous and previous != digest:
+        return ("downloaded script changed after approval: old sha256="
+                f"{previous}, current sha256={digest}; request a NEW approval")
+    args["_remote_source_url"] = url
+    args["_remote_content_sha256"] = digest
+    args["_remote_content_bytes"] = len(data)
+    return None
+
+
 async def _run_context_deny(args: dict, ctx) -> str | None:
     """Read current roots before ASK; no mkdir/chmod/process or new authority.
 
     _tool_run repeats ownership/root checks at the actual effect boundary. A
     successful preflight is not a capability and cannot survive a later revoke.
     """
+    remote_block = await _bind_remote_script_content(args)
+    if remote_block:
+        return remote_block
     cwd, roots = await _resolve_cwd(ctx, args, create_scratch=False)
     own = scratch.for_context(ctx)
     blocked = scratch.violation(ctx.svc.settings, own, cwd)

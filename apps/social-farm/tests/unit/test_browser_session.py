@@ -395,3 +395,56 @@ async def test_audit_records_what_the_owner_will_need_in_a_month():
     assert record.idempotency_key == "idem-1"
     assert record.state_after == "READY"
     assert "<" not in flatten(sess.audit.dicts(sess.redactor)), "разметки в аудите нет"
+
+
+# --------------------------------------------- дрейф интерфейса доходит до реестра
+
+async def test_a_vanished_target_is_counted_as_interface_drift():
+    """Пропавшая цель — это САМЫЙ частый способ, которым интерфейс уезжает.
+
+    BL-105. `TARGET_MISSING` и `TARGET_AMBIGUOUS` объявлены в
+    `DETERMINISTIC_FAILURES` именно как признаки дрейфа, но поднимались
+    единственным путём, который реестр возможностей не трогал: `_locate`
+    собирал `BrokenUi` руками, минуя `_broken`. Понижение в
+    `BROKEN_UI_VERSION` по пропавшей цели поэтому не срабатывало ВООБЩЕ —
+    счётчик двигали только те пути, где до нажатия уже дошло.
+    """
+    dom, sess = ready_session()
+    await sess.start()
+    element(dom, text="Поделиться").text = "Опубликовать"   # кнопку переименовали
+    with pytest.raises(BrokenUi) as exc:
+        await sess.plan("media.publish.image")
+    assert exc.value.kind is FailureKind.TARGET_MISSING
+    assert sess.ledger.records["media.publish.image"].consecutive_failures == 1
+
+
+async def test_an_ambiguous_target_is_counted_too():
+    """Неоднозначность — тот же дрейф: на месте одной кнопки стало три."""
+    page = feed_page()
+    page.elements.append(FixtureElement(tag="button", text="Удалить",
+                                        attributes={"id": "drop2"}))
+    page.text = page.text + " Удалить публикацию?"
+    dom = FixtureDom(page)
+    sess = session(dom)
+    await sess.start()
+    with pytest.raises(BrokenUi) as exc:
+        await sess.plan("media.delete")
+    assert exc.value.kind is FailureKind.TARGET_AMBIGUOUS
+    assert sess.ledger.records["media.delete"].consecutive_failures == 1
+
+
+async def test_three_vanished_targets_demote_the_capability():
+    """Обратная сторона: счётчик не просто растёт, он доводит до понижения.
+
+    Без неё «считается» означало бы только «увеличивается число», и понижение
+    могло бы не наступать никогда.
+    """
+    dom, sess = ready_session()
+    await sess.start()
+    element(dom, text="Поделиться").text = "Опубликовать"
+    for _ in range(3):
+        with pytest.raises(BrokenUi):
+            await sess.plan("media.publish.image")
+    record = sess.ledger.records["media.publish.image"]
+    assert record.consecutive_failures == 3
+    assert record.state.value == "BROKEN_UI_VERSION", record.state

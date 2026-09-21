@@ -2425,7 +2425,15 @@ class TaskEngine:
 
     async def _log(self, run_id: int, level: str, kind: str, message: str,
                    data: dict | None = None) -> None:
-        """Строка лога run'а: в run_events и в живую ленту (секретов в message нет)."""
+        """Строка лога run'а: в run_events и в живую ленту.
+
+        BL-099: раньше здесь стояло допущение «секретов в message нет». Это
+        было именно допущение — строка собирается из вывода инструмента и из
+        команды владельца. Шина чистит свой путь сама, но строка `run_events`
+        мимо неё, поэтому чистится здесь, тем же распознавателем.
+        """
+        message = _ps_redact_text(message)
+        data = _ps_redact(data, scrub_text=True) if data is not None else None
         async with self.db.session() as s:
             await s.execute(sa.insert(run_events_t).values(
                 run_id=run_id, ts=utcnow(), level=level, kind=kind, message=message, data=data))

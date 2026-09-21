@@ -170,9 +170,97 @@ def bounded_retry(attempts_made: int, *, budget: int = DEFAULT_ATTEMPT_BUDGET) -
     return RetryDecision(True, attempts_made + 1, budget, REASON_WITHIN_BUDGET, False)
 
 
-def _effect_class(payload: Mapping[str, Any]) -> str:
-    value = payload.get("effect_class") if isinstance(payload, Mapping) else None
-    return value if value in EFFECT_CLASSES else IRREVERSIBLE
+def _effect_class(payload: Mapping[str, Any], *, store: Any = None,
+                  proposal_id: str | None = None) -> str:
+    """Класс эффекта всей брони. Необъявленное — всегда IRREVERSIBLE.
+
+    Сценарий владельца №18 нашёл прогоном, что объявить идемпотентность было
+    НЕЧЕМ: `AdmissionProposal.to_payload()` кладёт объявленные эффекты в
+    `expected_effects`, а здесь искался только ключ `effect_class` верхнего
+    уровня, которого нет вовсе. Поэтому любая бронь считалась необратимой,
+    после срыва парковалась и требовала владельца — даже идемпотентная запись
+    файла.
+
+    Парковка при НЕИЗВЕСТНОМ классе остаётся безопасной стороной и здесь не
+    ослаблена: незавершённый необратимый эффект молча повторять нельзя. Ниже
+    добавлен только способ объявить класс, и объявление читается строго:
+
+    * `expected_effects` пуст или не список — IRREVERSIBLE;
+    * хотя бы один эффект без внятного класса — IRREVERSIBLE (весь набор);
+    * хотя бы один IRREVERSIBLE — IRREVERSIBLE, самый строгий решает за бронь.
+      Иначе идемпотентную запись можно было бы приложить к необратимой отправке
+      денег и получить разрешение повторить обе.
+    """
+    if not isinstance(payload, Mapping):
+        return IRREVERSIBLE
+    value = payload.get("effect_class")
+    if value in EFFECT_CLASSES:
+        return value
+    effects = payload.get("expected_effects")
+    if not isinstance(effects, (list, tuple)) or not effects:
+        # Бронь объявленных эффектов НЕ НЕСЁТ: `v5_reservations` хранит шесть
+        # колонок, и эффектов среди них нет. Но она несёт `proposal_id`, а само
+        # предложение сохранено долговечно и сверено при выдаче брони — именно
+        # оно и есть запись о том, ЧТО было допущено.
+        effects = _effects_of_proposal(store, proposal_id)
+    if not isinstance(effects, (list, tuple)) or not effects:
+        return IRREVERSIBLE
+    declared: list[str] = []
+    for effect in effects:
+        one = _from_effect_kind(effect)
+        if one is None:
+            return IRREVERSIBLE
+        declared.append(one)
+    if IRREVERSIBLE in declared:
+        return IRREVERSIBLE
+    return IDEMPOTENT if all(one == IDEMPOTENT for one in declared) else REVERSIBLE
+
+
+#: Словарь видов эффектов продукта -> классы восстановления.
+#:
+#: Виды объявлены в `bossman_shared/mission_ir.py::EFFECT_KINDS` и ИМЕННО их
+#: пишут предложения. Первая версия этой правки читала поле `effect_class`,
+#: которого продукт не пишет НИКОГДА, то есть была мёртвым кодом: механизм
+#: выглядел рабочим и не срабатывал ни разу. Поймано сценарием владельца №18,
+#: а не чтением.
+#:
+#: READ_ONLY попадает в IDEMPOTENT, а не в отдельный класс: повторить чтение
+#: безопасно, и для решения о возобновлении это то же самое.
+_KIND_TO_CLASS = {
+    "READ_ONLY": IDEMPOTENT,
+    "IDEMPOTENT_WRITE": IDEMPOTENT,
+    "REVERSIBLE_WRITE": REVERSIBLE,
+    "IRREVERSIBLE": IRREVERSIBLE,
+}
+
+
+def _effects_of_proposal(store: Any, proposal_id: str | None) -> Any:
+    """Объявленные эффекты долговечного предложения. Не прочиталось — ничего.
+
+    Отказ здесь НЕ исключение, а отсутствие объявления: выше оно превращается в
+    IRREVERSIBLE. Восстановление не имеет права падать из-за пропавшей строки,
+    но и не имеет права счесть её разрешением.
+    """
+    if store is None or not proposal_id:
+        return None
+    try:
+        record = store.get_proposal(proposal_id)
+    except Exception:  # noqa: BLE001 — неизвестное предложение это неизвестность
+        return None
+    payload = record.get("payload") if isinstance(record, Mapping) else None
+    if not isinstance(payload, Mapping):
+        return None
+    return payload.get("expected_effects")
+
+
+def _from_effect_kind(effect: Any) -> str | None:
+    """Класс одного объявленного эффекта. `None` — объявления нет или оно чужое."""
+    if not isinstance(effect, Mapping):
+        return None
+    explicit = effect.get("effect_class")
+    if explicit in EFFECT_CLASSES:
+        return explicit
+    return _KIND_TO_CLASS.get(effect.get("kind"))
 
 
 def _decide(effect_class: str, answer: str) -> tuple[str, str, bool]:
@@ -206,7 +294,8 @@ def recover(store: ObjectiveStore, objective_id: str, *, now: float,
     outcomes: list[ReservationOutcome] = []
     for reservation in store.open_reservations(objective_id):
         payload = reservation.get("payload") or {}
-        effect_class = _effect_class(payload)
+        effect_class = _effect_class(payload, store=store,
+                                     proposal_id=reservation.get("proposal_id"))
         try:
             answer = is_effect_applied(reservation)
         except Exception:  # a probe that fails answers UNKNOWN, never APPLIED

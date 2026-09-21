@@ -809,6 +809,7 @@ class VideoService:
 
     async def prepared_file(self,project_id,media_id,kind):
         from .read_verification import open_verified
+        from .model import DerivativeNotPrepared
         handle,media=await self.media_file(project_id,media_id)
         # Проверка исходника авторизует запрос, но отдаём мы ДРУГОЙ файл.
         # Производная не адресуется содержимым: containment plus is_file() says
@@ -820,10 +821,12 @@ class VideoService:
         if not path.is_relative_to(self.root/"cache"):
             raise PermissionError("cache artifact escaped storage")
         if not path.is_file():
-            raise RuntimeError("queue analysis action prepare before requesting this derivative")
+            raise DerivativeNotPrepared(
+                "queue analysis action prepare before requesting this derivative")
         entry=self.media.derived_manifest(media["sha256"]).get(kind)
         if not isinstance(entry,dict) or entry.get("name")!=name:
-            raise RuntimeError("derivative has no recorded digest; re-run the prepare action")
+            raise DerivativeNotPrepared(
+                "derivative has no recorded digest; re-run the prepare action")
         return await open_verified(path,entry.get("sha256"),
             "prepared derivative does not match the digest recorded when it was created",
             size=entry.get("bytes"))

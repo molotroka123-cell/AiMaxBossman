@@ -1,0 +1,56 @@
+name: Read-only closure diagnostic snapshot
+
+# The one-shot test repair is already in the canonical tree. Release checks
+# must never mutate their own tests or push an untested moving HEAD.
+on:
+  push:
+    branches: [release/bossman-owner]
+    paths: [.github/workflows/repair-media-roundtrip-test.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: closure-snapshot-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Snapshot tracked source and generated skip inventory without mutation
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          out="$RUNNER_TEMP/closure-snapshot"
+          mkdir -p "$out"
+          git archive --format=tar.gz --output="$out/source.tar.gz" HEAD
+          git rev-parse HEAD > "$out/source-sha.txt"
+          git rev-parse HEAD^{tree} > "$out/tree-sha.txt"
+          python - "$out" <<'PY'
+          import importlib.util, json, pathlib, sys
+          spec = importlib.util.spec_from_file_location('skips_registry', 'tools/skips_registry.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          rows = module.collect()
+          out = pathlib.Path(sys.argv[1])
+          (out / 'SKIPS_REGISTRY.md').write_text(module.render(rows), encoding='utf-8')
+          (out / 'skip-rows.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
+          PY
+          git diff --exit-code
+          (cd "$out" && sha256sum source.tar.gz SKIPS_REGISTRY.md > SHA256SUMS)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: closure-source-${{ github.sha }}
+          path: ${{ runner.temp }}/closure-snapshot/
+          if-no-files-found: error
+          retention-days: 7

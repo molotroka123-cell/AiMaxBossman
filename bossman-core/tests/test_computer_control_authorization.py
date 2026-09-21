@@ -43,7 +43,8 @@ def click(target="Кнопка"):
     # Нейтральная подпись: лексикон последствий не должен поднимать approval,
     # иначе тест мерил бы совсем другую стену.
     return ComputerAction.make(ActionKind.CLICK, expected=ExpectedState(contains_text=SCREEN),
-                               target=target, args={"x": 10, "y": 10})
+                               target=target, args={"x": 10, "y": 10,
+                                                    "coordinate_fallback": True})
 
 
 async def _approval_create(kind, preview, tool=None, payload=None):
