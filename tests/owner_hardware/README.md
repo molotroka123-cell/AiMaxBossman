@@ -2,7 +2,7 @@
 
 Run only against the exact installed release candidate. Do not run from an editable checkout.
 
-The machine-readable checklist is `manifest.json`. The local model-fleet acceptance target is `MODEL_STACK_2026-09-20.md`. The cloud augmentation and routing acceptance target is `CLOUD_STACK_2026-09-20.md`. The existing MVČR scenario remains authoritative at `tests/owner_scenarios/OWNER_HARDWARE_FIRST_RUN.md`.
+The machine-readable checklist is `manifest.json`. The local model-fleet acceptance target is `MODEL_STACK_2026-09-20.md`. The cloud augmentation and routing acceptance target is `CLOUD_STACK_2026-09-20.md`. Predicted real-machine failure points and the immediate engineering response are in `HOTSPOTS_AND_HOTFIX_PLAYBOOK.md`. The existing MVČR scenario remains authoritative at `tests/owner_scenarios/OWNER_HARDWARE_FIRST_RUN.md`.
 
 ## One owner command
 
