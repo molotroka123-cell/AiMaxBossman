@@ -15,7 +15,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из push;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-21-pre-evo-owner-freeze-closure",
+  "candidate_label": "rc-2026-09-21-pre-evo-owner-freeze-ux-closure",
   "declared_for": "release/bossman-owner",
-  "note": "Final pre-EVO closure pass before owner hardware. Adds explicit CONTROL-001 regression coverage proving coordinates are only a named high-confidence vision/coordinate_fallback path, records authoritative SECURITY-001 and OS-64 release decisions without weakening policy, resolves the salvage ledger into explicit current-release dispositions, and adds the recommendation-first PRE-EVO 1.0 proposal. Existing product-path proofs for Web Designer, Image Studio and Telegram remain unchanged. Intelligence Preservation and unmeasurable Windows human-speed evidence stay fail-closed non-release axes; no benchmark evidence is fabricated. This declaration requires a fresh exact-SHA mandatory matrix and a clean Windows artifact; no green result transfers from an older SHA."
+  "note": "Fresh exact-SHA candidate after closing the measured owner-acceptance failures on 66601b3: Web Designer create/edit/restart/rollback now separates only the deliberate localhost restart disconnect window from real console failures; Music Studio presets expose selected state and local generation is disabled with an explicit reason when ACE-Step health is not READY instead of producing an avoidable 503; the installed UI sweep no longer treats its own testing-period observer POST as a product action pending forever. Safety, approvals, budgets and no-fake-success semantics are unchanged. Intelligence Preservation remains fail-closed without real same-model evidence. This declaration requires the full mandatory exact-SHA matrix and a newly built Windows artifact; no result transfers from an older SHA."
 }
