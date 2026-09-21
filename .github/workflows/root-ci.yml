@@ -6,6 +6,10 @@ on:
   push:
     branches: ["**"]
   pull_request:
+  # Exact-SHA certification treats a missing run as NOT_CERTIFIED. Keep a
+  # manual recovery path so an external scheduler miss can be retried without
+  # weakening, skipping, or editing any release gate.
+  workflow_dispatch:
 
 permissions:
   contents: read
