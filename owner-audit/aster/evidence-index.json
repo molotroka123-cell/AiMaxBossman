@@ -3,6 +3,9 @@
   "tested_sha": "0c3e22ffd44c9b2c3e4f90b2e86456c28ca43f39",
   "branch": "audit/owner-aster-20260921",
   "handoff": "C:\\Users\\asd\\Bossman\\handoff\\models-ready.json",
+  "blockers": [
+    {"id":"CP-BLOCKER-20260921T1838Z", "severity":"P1", "finding":"pending approval id 3 disappeared after Bossman restart; health/models recovered"}
+  ],
   "evidence": [
     {"kind":"endpoint", "url":"http://127.0.0.1:8081/health", "result":"ok"},
     {"kind":"endpoint", "url":"http://127.0.0.1:8082/health", "result":"ok"},
