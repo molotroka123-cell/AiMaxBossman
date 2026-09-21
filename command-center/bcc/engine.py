@@ -29,7 +29,7 @@ from .providers import ChatResult, ProviderError
 from .registry import Registry
 from .tools import (REGISTRY as TOOLS, ToolContext, agent_policy_rules, allowed_tools_for,
                     approval_digest,
-                    args_hash, decide_effect, execute_tool)
+                    args_hash, decide_effect, execute_tool, malformed_arguments)
 
 ACTIVE_RUN_STATUSES = ("queued", "leased", "running")
 TERMINAL_TASK_STATUSES = ("completed", "failed", "stopped", "cancelled")
@@ -1382,6 +1382,22 @@ class TaskEngine:
                                 f"{call.name}: инструмент не выдан агенту")
                 continue
 
+            # Red team 2026-09-21 (RT-M3): аргументы, которые провайдер не смог
+            # разобрать ({"_raw": …}) или в которых нет обязательных полей, не
+            # доходят ни до политики, ни до обработчика. Иначе `_resource_of`
+            # не видит `command`, правило владельца `rm*→deny` и хук `rm` молчат,
+            # а обработчик получает мусор под AUTO. Отказ — данными для модели.
+            malformed = malformed_arguments(spec, call.arguments)
+            if malformed:
+                await self._record_tool_call(run_id, task["id"], step, call, spec,
+                                             effect="deny", status="denied", preview=malformed)
+                messages.append(_tool_message(
+                    call, f"вызов {spec.name} отклонён: {malformed} — повторите вызов с "
+                          f"корректным JSON-объектом аргументов"))
+                await self._log(run_id, "warn", "tool.denied", f"{spec.name}: {malformed}")
+                await self.bus.emit("tool.denied", task_id=task["id"], run_id=run_id,
+                                    tool=spec.name, reason=malformed)
+                continue
             effect, reason = decide_effect(spec, call.arguments, agent, policy_rules)
             if effect != "deny":
                 # A path forbidden by current owner roots must not ask for an

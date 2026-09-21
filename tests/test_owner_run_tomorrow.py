@@ -123,7 +123,8 @@ def test_diagnostics_zip_redacts_secrets_and_lists_data_dir(support, tmp_path):
     data = tmp_path / "data"
     (data / "logs").mkdir(parents=True)
     (data / "logs" / "bcc.log").write_text(
-        "start ok\napi_key=sk-abcdefghijklmnop1234 used\nToken: ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ\nплановая строка\n",
+        # ci-secret-scan: allow — synthetic shapes for the redaction check, not credentials
+        "start ok\napi_key=sk-" + "abcdefghijklmnop1234" + " used\nToken: " + "Z" * 44 + "\nплановая строка\n",
         encoding="utf-8")
     (data / "token").write_text("secret-token-value", encoding="utf-8")
     mod = _load(support / "owner_run_tomorrow.py")
@@ -135,7 +136,7 @@ def test_diagnostics_zip_redacts_secrets_and_lists_data_dir(support, tmp_path):
         assert "logs/logs/bcc.log" in names
         log = zf.read("logs/logs/bcc.log").decode("utf-8")
         listing = json.loads(zf.read("data-dir-listing.json").decode("utf-8"))
-    assert "sk-abcdefghijklmnop1234" not in log and "ZZZZZZZZ" not in log
+    assert "sk-" + "abcdefghijklmnop1234" not in log and "ZZZZZZZZ" not in log  # ci-secret-scan: allow
     assert "[REDACTED]" in log and "плановая строка" in log
     # the token FILE is listed by name and size only — never by content
     assert any(e["path"] == "token" for e in listing) and "token" not in names

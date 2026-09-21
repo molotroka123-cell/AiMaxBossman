@@ -75,3 +75,37 @@ Legend: W = Windows owner run; B = baseline 0c3e22ff Linux; C = current HEAD Lin
 
 Counts: HARNESS_CONFIG 45 (ffmpeg missing 32, Git-sh/test-defect 13) · PREEXISTING_SOFTWARE 4 (3 root causes, all fixed) ·
 UNSUPPORTED_PLATFORM 3 · UNRESOLVED 12 (#3,4,5,8,34,35,39,48,49,51,56–61 = 6 ids) · PREEXISTING test race 1 · REGRESSION 0.
+
+## Full run on the candidate line (Linux, ffmpeg + Chromium, HEAD before the last fixes)
+
+`8 failed, 3941 passed, 37 skipped` in 37 min (`/home/user/runs/cc-full-current.log`). The run overlapped
+concurrent edits and a parallel triage run; each failure was re-run alone afterwards:
+
+| test | class | outcome |
+|---|---|---|
+| test_browser_download_b4::test_b4_download_matrix_real_chromium | PREEXISTING_SOFTWARE (browser-mode dependent) | the container's full Chromium (141, new headless) renders a direct PDF inline: no download event, `goto` 200, no file. Fixed in `bcc/v2/browser_control.py`: a navigation whose response is a document type (PDF/archive/binary) and produced no download is fetched through the session request context and saved through the same policy/limit/.part/sha256 path. PASS after fix; the Windows bundle (headless shell) path is unchanged |
+| test_double_submit_real_buttons | load flake | PASS alone |
+| test_installed_product_paths::test_the_wheel_carries_the_interface | HARNESS_CONFIG | venv without `pip` (the CI runner has it) |
+| test_release_ux_torture ×3 | PREEXISTING test oracle race (see §Torture) | fixed (router marker) |
+| test_single_flight::test_no_module_went_back_to_asyncio_shield | REGRESSION (media worker) | `asyncio.shield` in the new sdcpp.py — replaced by `await_shared` (fcaf2ad) |
+| test_smoke_live_owner | HARNESS (port 8911 held by an orphan File Commander from a parallel run) | PASS alone after the orphan was removed |
+
+## §Torture
+
+Residual failure (≈1 in 3 runs on Linux, both baseline and HEAD): after `go_forward` the monkey captured the
+transient skeleton as the "previous node", so the settle check accepted the previous page's text and then read
+the router's skeleton. The product behaviour was correct; the test had no signal that the rendered content
+belongs to the target page. Fix: `ui/app.js` now sets `#view[data-page]` to the rendered page id (removed while
+the skeleton is up) and `_assert_page_settled` requires it; the back/forward branch settles after `go_forward`.
+
+## §Skips
+
+Windows owner run: 193 skipped, without ffmpeg and with the owner's browser profile. Linux candidate run with
+ffmpeg + Chromium present: 37 skipped. The difference (156) is the media/browser-conditional skips that become
+executed tests when the binaries are present; on the owner's machine they execute with `PATH=<app>\media;%PATH%`.
+The remaining Linux skips seen in verification runs are platform-conditional by contract (NTFS junctions need
+Windows; docker daemon absent; PostgreSQL DSN absent). The mandatory owner paths were measured executing, not
+skipped, on Linux: B4 download (real Chromium), AP-ALL approvals filter, TEL-001 model speed, Computer Use
+decision plane + owner STOP/Resume UI, sd.cpp provider contract (MOCK_ENGINE), Video Studio roundtrip and
+playback, golden missions, owner acceptance tool path. A per-reason table of all 37 skips is produced by the
+final `-rs` run recorded in CONTINUATION.md.

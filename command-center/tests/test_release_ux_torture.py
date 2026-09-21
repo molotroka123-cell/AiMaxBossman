@@ -65,6 +65,7 @@ def _assert_page_settled(page, page_id: str, previous=None):
           if (prev && prev.isConnected) return false;
           return location.hash.startsWith('#/' + id)
             && view
+            && view.dataset.page === id
             && !view.querySelector('.skeleton')
             && (view.innerText || '').trim().length > 0;
         }""",
@@ -176,6 +177,10 @@ def test_safe_random_navigation_monkey_is_reproducible(live, seed):
                     page.wait_for_selector("#shell:not([hidden])")
                     page.go_forward(wait_until="domcontentloaded")
                     page.wait_for_selector("#shell:not([hidden])")
+                    # Дождаться СТРАНИЦЫ после go_forward: иначе следующий клик
+                    # запоминает скелет, а не отрисованный узел, и проверка
+                    # «прежний узел исчез» проходит по чужому тексту.
+                    _assert_page_settled(page, target)
                     trace.append(("back_forward", target))
                 else:
                     old = page.locator("html").get_attribute("data-theme")

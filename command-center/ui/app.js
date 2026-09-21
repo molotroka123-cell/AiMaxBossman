@@ -253,7 +253,11 @@ async function renderPage() {
   if (token !== renderToken) return;
 
   /* Скелет — только при смене страницы. Обновления по WS не должны мигать. */
-  if (lastRendered !== currentPage || !el.view.firstChild) replace(el.view, loading(3));
+  if (lastRendered !== currentPage || !el.view.firstChild) {
+    replace(el.view, loading(3));
+    // Скелет — не страница: маркер снимается, пока render() не вернул узел.
+    delete el.view.dataset.page;
+  }
 
   try {
     const node = await page.render(ctx, currentParams);
@@ -262,6 +266,9 @@ async function renderPage() {
     // ws.open/reconnect refreshes launcher state without unloading a running
     // app. Otherwise its selected folder, preview and policy error disappear.
     if (!retainAppFrame(el.view, node)) replace(el.view, node);
+    // Явный маркер «в #view — страница currentPage»: проверки UI (и torture-
+    // gate) читают его, а не гадают по тексту предыдущей страницы.
+    el.view.dataset.page = currentPage;
     mark('bossman:first_page_rendered');
     schedulePreload();
     syncTopStats();

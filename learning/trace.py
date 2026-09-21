@@ -203,7 +203,8 @@ EVIDENCE_TTL_S = 30 * 24 * 3600     # запись учит долго; набл
 
 
 MAX_CLOCK_SKEW_S = 120.0
-_ROLE_PREFIXES = ("verifier:", "coder:", "model:", "agent:", "tool:", "reviewer:", "executor:")
+_ROLE_PREFIXES = ("verifier:", "coder:", "model:", "agent:", "tool:", "reviewer:", "executor:",
+                  "student:", "teacher:")
 
 
 def canonical_principal_id(pid: str) -> str:
@@ -241,6 +242,12 @@ def _identity_errors(case: dict) -> list[str]:
         vmodel = str(v.get("model_id") or "").strip().lower()
         if vmodel and me_model and vmodel == me_model.strip().lower():
             continue                                   # та же модель под любым классом
+        # Red team 2026-09-21 (RT-L6b): класс cross_model без названной модели —
+        # это не «другая модель», а неназванная: когда у записи модель есть,
+        # верификатор обязан назвать свою, иначе ученик подтверждает сам себя
+        # под чужим префиксом.
+        if cls == "cross_model" and me_model and not vmodel:
+            continue
         return []          # хотя бы один независимый верификатор
     return ["VERIFIED requires an independent verifier (different principal, run and model/tool/human)"]
 

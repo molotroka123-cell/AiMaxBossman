@@ -98,12 +98,56 @@ _STRUCTURAL_KEYS = re.compile(
     r"approval_required|require_approval|auto_approve|allowlist|denylist|owner_override)\b[\"']?\s*[:=]")
 
 
+# Red team 2026-09-21 (RT-L1/L2): the ASCII denylist was defeated by zero-width
+# joiners, RTL overrides, Cyrillic homoglyphs, full-width Latin and base64
+# wrapping. Every check below runs on a NORMALISED view of the body as well:
+# NFKC (full-width → ASCII), Unicode format characters (Cf) stripped, common
+# confusable Cyrillic/Greek letters mapped to Latin, HTML comments unwrapped,
+# and base64-looking tokens decoded and scanned too.
+_CONFUSABLES = str.maketrans({
+    "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y", "і": "i", "ј": "j",
+    "ѕ": "s", "һ": "h", "ԁ": "d", "ɡ": "g", "ν": "v", "ο": "o", "α": "a", "ε": "e",
+    "А": "A", "Е": "E", "О": "O", "Р": "P", "С": "C", "Х": "X", "У": "Y", "І": "I", "Ј": "J",
+    "Ѕ": "S", "Н": "H", "К": "K", "М": "M", "Т": "T", "В": "B",
+})
+_B64_TOKEN = re.compile(r"[A-Za-z0-9+/=_-]{24,}")
+
+
+def _normalised_views(text: str) -> list[str]:
+    import base64
+    import unicodedata
+    folded = unicodedata.normalize("NFKC", text)
+    folded = "".join(ch for ch in folded if unicodedata.category(ch) != "Cf")
+    folded = folded.translate(_CONFUSABLES)
+    folded = re.sub(r"<!--(.*?)-->", r" \1 ", folded, flags=re.S)
+    views = [folded]
+    for token in _B64_TOKEN.findall(folded):
+        try:
+            raw = base64.b64decode(token + "=" * (-len(token) % 4), validate=False)
+            decoded = raw.decode("utf-8")
+        except Exception:  # noqa: BLE001 — не base64 или не текст
+            try:
+                decoded = base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)).decode("utf-8")
+            except Exception:  # noqa: BLE001
+                continue
+        if decoded.isprintable() or "\n" in decoded:
+            views.append(decoded)
+    return views
+
+
 def poison_reasons(text: str) -> list[str]:
     """Why ``text`` must not become a lesson (empty list = acceptable advice text)."""
     reasons: list[str] = []
     if not isinstance(text, str):
         return ["lesson body must be a string"]
     body = text.strip()
+    for view in _normalised_views(body):
+        if view.strip() == body:
+            continue
+        for reason in poison_reasons(view):
+            tagged = f"normalised:{reason}"
+            if tagged not in reasons and reason not in reasons:
+                reasons.append(tagged)
     if len(body) < MIN_BODY_CHARS:
         reasons.append("lesson body too short to be advice")
     if len(body) > MAX_BODY_CHARS:

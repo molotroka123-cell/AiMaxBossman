@@ -408,9 +408,32 @@ async def context_denial(spec: ToolSpec, args: dict, ctx: ToolContext) -> str | 
         return f"context policy unavailable ({type(exc).__name__}); denied"
 
 
+def malformed_arguments(spec: ToolSpec, args: Any) -> str | None:
+    """Почему аргументы вызова нельзя ни оценивать политикой, ни исполнять.
+
+    None — аргументы пригодны. Иначе строка-причина: не объект, «сырой»
+    неразобранный JSON провайдера (`_raw`), обёрнутое не-объектное значение
+    (`value`), отсутствующее обязательное поле из `spec.required`.
+    """
+    if not isinstance(args, dict):
+        return f"аргументы должны быть JSON-объектом, получено {type(args).__name__}"
+    if "_raw" in args:
+        return "аргументы инструмента не разобраны (провайдер вернул повреждённый JSON)"
+    if set(args) == {"value"} and spec.input_schema and "value" not in spec.input_schema:
+        return "аргументы инструмента не являются объектом"
+    missing = [k for k in (spec.required or []) if k not in args]
+    if missing:
+        return "отсутствуют обязательные аргументы: " + ", ".join(missing)
+    return None
+
+
 async def execute_tool(spec: ToolSpec, args: dict, ctx: ToolContext) -> ToolResult:
     """Запуск с таймаутом. Отмена (Hard Cancel) пробрасывается наверх —
     её ловит движок и завершает run как stopped."""
+    malformed = malformed_arguments(spec, args)
+    if malformed:
+        return ToolResult(content=f"вызов {spec.name} отклонён: {malformed}",
+                          one_line=f"{spec.name}: аргументы отклонены", error=True)
     denied = await context_denial(spec, args, ctx)
     if denied:
         return ToolResult(content=denied, one_line=f"{spec.name}: context denied", error=True)
