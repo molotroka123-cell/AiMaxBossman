@@ -15,7 +15,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из push;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-21-pre-evo-owner-freeze-root-reachability",
+  "candidate_label": "rc-2026-09-21-pre-evo-owner-hardware-final-matrix",
   "declared_for": "release/bossman-owner",
-  "note": "Fresh exact-SHA candidate after repairing the missing root release-gate scheduling path without weakening any test or safety gate. The root workflow keeps the same required display name and test body, adds a manual recovery trigger, and its active workflow identity is registered so this candidate must produce fresh exact-SHA root evidence instead of inheriting an older green. All previous UX closure fixes remain in-tree. Intelligence Preservation remains fail-closed without real same-model evidence. This declaration requires the full mandatory exact-SHA matrix and a newly built Windows artifact; no result transfers from an older SHA."
+  "note": "Final pre-EVO owner-hardware candidate declaration after restoring and proving the dedicated root release gate on the canonical branch. This path intentionally schedules the complete mandatory exact-SHA owner/Windows matrix and a fresh Windows artifact. No result transfers from an older SHA. Intelligence Preservation remains fail-closed when real same-model evidence is unavailable; it is not converted into a release green. No new product scope is introduced by this declaration."
 }
