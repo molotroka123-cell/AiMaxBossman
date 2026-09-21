@@ -31,6 +31,15 @@ const KIND = {
   'cache.observation': ['кэш', 'idle'],
 };
 
+/* Локальную модель отличаем от облачной по имени: раннеры локальных моделей
+   (Ollama и подобные) называют модель тегом вида "llama3.1:70b-instruct-q4_K_M"
+   или явно помечают "(локально, …)" — у облачных провайдеров такого паттерна
+   нет. Эвристика, а не флаг с сервера: события уже сейчас несут просто строку. */
+const LOCAL_MODEL_RE = /(локальн)|(\blocal\b)|(:[\w.]*\d+b\b)|(\bq[2-8](_[a-z0-9]+)?\b)|(\bgguf\b)|(\bollama\b)/i;
+function isLocalModel(model) {
+  return !!model && LOCAL_MODEL_RE.test(String(model));
+}
+
 function describe(ev) {
   const kind = String(ev.kind || '');
   const [label, tone] = KIND[kind] || [kind, 'idle'];
@@ -97,18 +106,27 @@ export function mountThinking({ bus, api, button }) {
   function runCard(r) {
     const elapsed = r.finished_at ? fmtDuration(r.finished_at - r.started_at) : fmtDuration(Date.now() - r.started_at);
     const st = statusText(r.state);
-    return h('div.bx-think-card', { 'data-run': String(r.run_id), 'data-state': r.state },
+    const local = isLocalModel(r.model);
+    const pct = (r.max_steps && r.step != null) ? Math.max(0, Math.min(100, Math.round((r.step / r.max_steps) * 100))) : null;
+    return h('div.bx-think-card', { 'data-run': String(r.run_id), 'data-state': r.state, 'data-has-err': r.errors > 0 ? '1' : '' },
       h('div.bx-think-card-head',
         h('b', r.title || `Задача ${r.task_id}`),
         pill(st.word, { tone: st.tone, live: !!st.live })),
+      r.model ? h('div.bx-think-model', { 'data-local': local ? '1' : '' },
+        icon(local ? 'cpu' : 'cloud', 14),
+        h('span.bx-think-model-name', { title: r.model }, r.model),
+        h('span.bx-think-model-badge', local ? 'локально' : 'облако')) : null,
+      pct !== null ? h('div.bx-think-progress-row',
+        h('div.bx-think-progress', { role: 'progressbar', 'aria-valuenow': String(pct), 'aria-valuemin': '0', 'aria-valuemax': '100' },
+          h('div.bx-think-progress-fill', { style: { width: `${pct}%` } })),
+        h('span.bx-think-progress-label', `${r.step ?? 0} / ${r.max_steps}`)) : null,
       h('div.bx-think-grid',
         h('span', 'прошло'), h('b.bx-think-elapsed', { 'data-since': String(r.started_at), 'data-done': r.finished_at ? '1' : '' }, elapsed),
-        h('span', 'шаг'), h('b', r.max_steps ? `${r.step ?? 0} из ${r.max_steps}` : String(r.step ?? '—')),
-        h('span', 'модель'), h('b', r.model || '—'),
-        h('span', 'инструмент'), h('b', r.last_tool ? `${r.last_tool}${r.last_tool_ms != null ? ` · ${fmtDuration(r.last_tool_ms)}` : ''}` : '—'),
+        pct === null ? h('span', 'шаг') : null, pct === null ? h('b', String(r.step ?? '—')) : null,
+        h('span', 'инструмент'), h('b', { title: r.last_tool || '' }, r.last_tool ? `${r.last_tool}${r.last_tool_ms != null ? ` · ${fmtDuration(r.last_tool_ms)}` : ''}` : '—'),
         h('span', 'ожидание'), h('b', r.waiting ? (r.waiting_for ? `решение владельца (${r.waiting_for})` : 'решение владельца') : 'нет'),
         h('span', 'повторы'), h('b', String(r.retries)),
-        h('span', 'ошибки'), h('b', String(r.errors))),
+        h('span', 'ошибки'), h('b.bx-think-err-count', { 'data-has-err': r.errors > 0 ? '1' : '' }, String(r.errors))),
       r.note ? h('div.bx-think-note', r.note) : null);
   }
 
@@ -127,7 +145,7 @@ export function mountThinking({ bus, api, button }) {
       return h('div.bx-think-row', { 'data-kind': ev.kind },
         h('span.bx-think-time', fmtClock(parseTs(ev.ts) || new Date(), true)),
         pill(label, { tone }),
-        h('span.bx-think-text', text));
+        h('span.bx-think-text', { title: text }, text));
     }));
   }
 

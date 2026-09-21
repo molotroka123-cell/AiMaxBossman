@@ -6,7 +6,7 @@ from .service import JobService
 from .domain import TravelEngine
 from .bossman_bridge import emit_task
 from pathlib import Path
-from .ui import app_shell
+from .ui import app_shell, romantic_weekend_page
 APP_ID="travel-architect"
 class Trip(BaseModel): origin:list[str]; destination:str; start:str; end:str; travelers:int=1; budget:float|None=None; constraints:dict={}
 class Offer(BaseModel): kind:str; provider:str; base_price:float; currency:str="EUR"; fees:dict={}; quality_score:float=0; url:str|None=None; metadata:dict={}
@@ -16,7 +16,15 @@ class Watch(BaseModel): max_price:float
 def build_app():
     api=FastAPI(title="Travel Architect / Deal Hunter",version="0.7.0");jobs=JobService(APP_ID);eng=TravelEngine(jobs.store)
     @api.get("/")
-    def root(): return app_shell("Travel Architect / Deal Hunter",APP_ID,["Trip constraints","True total price","Offer ranking","Flexible date search space","Package vs DIY arbitrage","Smart score","Price watches","Constraint checks","Itinerary skeleton","Bossman browser-search handoff"])
+    def root(): return app_shell("Travel Architect / Deal Hunter",APP_ID,["Trip constraints","True total price","Offer ranking","Flexible date search space","Package vs DIY arbitrage","Smart score","Price watches","Constraint checks","Itinerary skeleton","Bossman browser-search handoff","Demo: /demo/romantic-weekend"])
+    @api.get("/demo/romantic-weekend")
+    def demo_romantic_weekend():
+        """Показ: готовый привлекательный план на выходные вдвоём — карточки мест
+        и таймлайн, без зависимости от внешних вызовов или состояния БД."""
+        return eng.romantic_weekend_demo()
+    @api.get("/demo/romantic-weekend/view")
+    def demo_romantic_weekend_view():
+        return romantic_weekend_page(eng.romantic_weekend_demo())
     @api.get("/health")
     def h():return {"status":"healthy","app":APP_ID,"version":"0.7.0","storage":"sqlite"}
     @api.get("/capabilities")

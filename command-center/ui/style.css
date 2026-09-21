@@ -74,6 +74,10 @@
 /* Классы ниже задают display, поэтому атрибут hidden нужно усилить явно. */
 [hidden] { display: none !important; }
 
+/* Демо-аудитория не должна видеть сырые внутренние id, pid'ы и техническую
+   служебную разметку — она отмечается атрибутом/классом ниже прямо в JS. */
+[data-debug], .debug, .raw-id { display: none !important; }
+
 html, body { height: 100%; }
 
 body {

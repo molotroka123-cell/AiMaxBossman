@@ -126,6 +126,8 @@ export const ICONS = {
   sun:       S('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5 5l1.4 1.4M17.6 17.6 19 19M19 5l-1.4 1.4M6.4 17.6 5 19"/>'),
   chevron:   S('<path d="m9 6 6 6-6 6"/>'),
   empty:     S('<path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5v-7z"/><path d="M4 8.5 12 13l8-4.5M12 13v7"/>'),
+  cpu:       S('<rect x="7" y="7" width="10" height="10" rx="1.6"/><rect x="10" y="10" width="4" height="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 5l-2 2M5 19l2-2M17 19l-2-2"/>'),
+  cloud:     S('<path d="M7 18h10a4 4 0 0 0 .5-8 5.5 5.5 0 0 0-10.7-1.4A4.5 4.5 0 0 0 7 18z"/>'),
 };
 
 export function icon(name, size = 17) {
