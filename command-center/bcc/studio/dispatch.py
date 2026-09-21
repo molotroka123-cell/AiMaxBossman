@@ -46,6 +46,12 @@ async def generate(svc,job,ext,model):
         if settings is None:raise StudioError('unauthorized','OWNER_REQUIRED: configure local ComfyUI checkpoint','OWNER_REQUIRED')
         provider=ComfyUIProvider(ComfyUIImageProvider(*settings),storage(svc).root)
         media=()
+    elif model['provider']=='sdcpp':
+        from bcc.studio.providers.sdcpp import SdCppProvider,configuration
+        cfg=configuration()
+        if cfg is None:raise StudioError('unauthorized','OWNER_REQUIRED: configure BOSSMAN_SDCPP_BIN and BOSSMAN_MEDIA_MODELS','OWNER_REQUIRED')
+        provider=SdCppProvider(cfg,storage(svc).root,model)
+        media=await inputs_for(svc,plane['media'])
     elif model['provider']=='openrouter':
         from bcc.v2.openrouter_identity import resolve
         from bcc.studio.providers.openrouter import OpenRouterProvider
@@ -84,16 +90,19 @@ async def generate(svc,job,ext,model):
                 suffix='.png' if model['surface']=='image' else '.mp4'
                 path=storage(svc).root/f"generated-{job['id']}-{index}-{n}{suffix}"
                 result=await provider.fetch(output,path)
-                cost=0 if model['provider']=='comfyui' else provider.costs.get(receipt.request_id,'NOT_CAPTURED:provider_did_not_report')
+                cost=0 if model['provider'] in ('comfyui','sdcpp') else provider.costs.get(receipt.request_id,'NOT_CAPTURED:provider_did_not_report')
                 external_id=provider.external_ids[receipt.request_id] if model['provider']=='openrouter' else receipt.request_id
-                try:rid=await persist(svc,job['id'],plane,model,result.path,request_id=external_id,cost=cost,effective_settings=settings)
+                # Local engine: the execution trace (argv, model hashes, time, peak memory,
+                # raw engine output hash) is part of immutable provenance — proof of generation.
+                effective={**settings,'engine_trace':provider.traces.get(receipt.request_id)} if model['provider']=='sdcpp' else settings
+                try:rid=await persist(svc,job['id'],plane,model,result.path,request_id=external_id,cost=cost,effective_settings=effective)
                 except BaseException:result.path.unlink(missing_ok=True);raise
                 if rid is None:result.path.unlink(missing_ok=True);return
                 if type(cost) in (int,float) and reservation and cost>reservation['policy']['prices'][model['id']]:
                     # Provider exceeded the owner's estimate: retain bytes but stop further calls.
                     p=await gov.policy(svc);p['enabled']=False;await gov.save_policy(svc,p)
                     raise StudioError('budget','Provider charge exceeded reserved upper bound; disabled','OWNER_REQUIRED')
-                live=(provider.provider.client.transport is None) if model['provider']=='comfyui' else provider._transport is None
+                live=(provider.provider.client.transport is None) if model['provider']=='comfyui' else (not getattr(provider,'fake',False)) if model['provider']=='sdcpp' else provider._transport is None
                 if live:
                     async with svc.db.session() as s:
                         proof={'configuration':await provider_fingerprint(svc,model['id']),'run_id':rid,'model':model['id'],'at':__import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()}

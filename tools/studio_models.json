@@ -258,6 +258,154 @@
       },
       "verified_capabilities": {},
       "status": "OWNER_REQUIRED: official REST contract not supplied"
+    },
+    {
+      "id": "sdcpp:wan2.2-ti2v-5b",
+      "provider": "sdcpp",
+      "surface": "video",
+      "label": "Wan2.2 TI2V-5B — локальная генерация видео (stable-diffusion.cpp, Vulkan)",
+      "settings": {
+        "width": {
+          "type": "range",
+          "min": 640,
+          "max": 1280,
+          "default": 832,
+          "integer": true,
+          "multiple_of": 32
+        },
+        "height": {
+          "type": "range",
+          "min": 352,
+          "max": 1280,
+          "default": 480,
+          "integer": true,
+          "multiple_of": 32
+        },
+        "frames": {
+          "type": "enum",
+          "values": [
+            17,
+            33,
+            49,
+            65,
+            81
+          ],
+          "default": 49
+        },
+        "fps": {
+          "type": "enum",
+          "values": [
+            16,
+            24
+          ],
+          "default": 16
+        },
+        "steps": {
+          "type": "range",
+          "min": 16,
+          "max": 50,
+          "default": 20,
+          "integer": true
+        },
+        "cfg_scale": {
+          "type": "enum",
+          "values": [
+            3.5,
+            5.0,
+            6.0
+          ],
+          "default": 5.0
+        },
+        "seed": {
+          "type": "range",
+          "min": 0,
+          "max": 2147483647,
+          "default": null,
+          "nullable": true,
+          "integer": true
+        }
+      },
+      "roles": {
+        "start": 1
+      },
+      "source": "command-center/bcc/studio/providers/sdcpp.py; QuantStack/Wan2.2-TI2V-5B-GGUF@57437632",
+      "deadline_seconds": 3600,
+      "license": "Apache-2.0 (Wan-AI/Wan2.2-TI2V-5B)",
+      "price": {
+        "kind": "local",
+        "usd": 0,
+        "source": "local engine, no provider charge"
+      },
+      "free": true,
+      "enabled": false,
+      "answers": {
+        "BUNDLED": false,
+        "CONFIGURED": "BOSSMAN_SDCPP_BIN + BOSSMAN_MEDIA_MODELS (MANIFEST.json)",
+        "MODEL_REQUIRED": true,
+        "EXTERNAL_SERVICE_REQUIRED": false,
+        "VERIFIED": false
+      },
+      "verified_capabilities": {},
+      "status": "UNVERIFIED"
+    },
+    {
+      "id": "sdcpp:z-image-turbo",
+      "provider": "sdcpp",
+      "surface": "image",
+      "label": "Z-Image-Turbo — локальная генерация изображений (stable-diffusion.cpp, Vulkan)",
+      "settings": {
+        "width": {
+          "type": "range",
+          "min": 256,
+          "max": 2048,
+          "default": 1024,
+          "integer": true,
+          "multiple_of": 16
+        },
+        "height": {
+          "type": "range",
+          "min": 256,
+          "max": 2048,
+          "default": 1024,
+          "integer": true,
+          "multiple_of": 16
+        },
+        "steps": {
+          "type": "range",
+          "min": 4,
+          "max": 20,
+          "default": 8,
+          "integer": true
+        },
+        "seed": {
+          "type": "range",
+          "min": 0,
+          "max": 2147483647,
+          "default": null,
+          "nullable": true,
+          "integer": true
+        }
+      },
+      "roles": {},
+      "source": "command-center/bcc/studio/providers/sdcpp.py; leejet/Z-Image-Turbo-GGUF@c61c0e42",
+      "deadline_seconds": 900,
+      "license": "Apache-2.0 (Tongyi-MAI/Z-Image-Turbo)",
+      "price": {
+        "kind": "local",
+        "usd": 0,
+        "source": "local engine, no provider charge"
+      },
+      "free": true,
+      "enabled": false,
+      "answers": {
+        "BUNDLED": false,
+        "CONFIGURED": "BOSSMAN_SDCPP_BIN + BOSSMAN_MEDIA_MODELS (MANIFEST.json)",
+        "MODEL_REQUIRED": true,
+        "EXTERNAL_SERVICE_REQUIRED": false,
+        "VERIFIED": false
+      },
+      "verified_capabilities": {},
+      "status": "UNVERIFIED"
     }
   ]
 }

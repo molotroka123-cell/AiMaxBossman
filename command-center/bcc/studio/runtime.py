@@ -66,6 +66,10 @@ async def provider_fingerprint(svc,model):
     elif model.startswith('comfyui:'):
         from bcc.oss.comfyui import image_configuration
         connection={'local':image_configuration()}
+    elif model.startswith('sdcpp:'):
+        from bcc.studio.providers.sdcpp import configuration
+        cfg=configuration()
+        connection={'local':None if cfg is None else {'bin':str(cfg['bin']),'manifest':cfg['manifest']}}
     else:connection={}
     return digest({'model':model,'connection':connection,'catalog':catalog.load()})
 
@@ -84,6 +88,11 @@ async def models(svc):
         if m['provider']=='comfyui':
             try:available=image_configuration() is not None
             except ValueError:available=False
+        if m['provider']=='sdcpp':
+            from bcc.studio.providers.sdcpp import configuration,engine_files
+            try:
+                cfg=configuration();available=cfg is not None and bool(engine_files(cfg,m['id']))
+            except (ValueError,OSError,KeyError):available=False
         if m['provider']=='openrouter':
             price=p['prices'].get(m['id'])
             available=bool(p['enabled'] and credential and credential.configured and not credential.conflicts and price is not None and (not p['free_only'] or (price==0 and catalog.declared_free(m['id']) is True)))
@@ -96,7 +105,7 @@ async def models(svc):
                 if proof['value'].get('configuration')==await provider_fingerprint(svc,m['id']) and 0<=age<=86400 and row and not row['deleted'] and not row['provenance']['mock'] and row['model']==m['id']:
                     await verified_handle(svc,row,close=True);verified=True
             except (ValueError,KeyError,OSError,RuntimeError):pass
-        out.append({**m,'configured':available,'available':verified or (available and m['provider'] in ('mock','local')),'verified':verified,'verification':'PASS' if verified else 'NOT_RUN','demo':m['provider']=='mock'})
+        out.append({**m,'configured':available,'available':verified or (available and m['provider'] in ('mock','local','sdcpp')),'verified':verified,'verification':'PASS' if verified else 'NOT_RUN','demo':m['provider']=='mock'})
     return out
 
 async def generation_status(svc):
