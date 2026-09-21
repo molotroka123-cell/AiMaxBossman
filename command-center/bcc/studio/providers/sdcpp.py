@@ -70,6 +70,7 @@ def engine_files(cfg: dict, model_id: str) -> dict[str, Path]:
             raise PermissionError(f"{role}: model path escapes the media model directory")
         if not path.is_file() or path.stat().st_size != int(spec["bytes"]):
             raise FileNotFoundError(f"{role}: {spec['path']} missing or size differs from manifest")
+        _verified_sha(path, str(spec["sha256"]))     # MEDIA-HASH: same-size corruption is caught here
         out[role] = path
     return out
 
@@ -137,12 +138,20 @@ class SdCppProvider:
         return Submitted(rid, cancel_ref=rid)
 
     async def _run(self, rid: str, job: dict) -> None:
+        if job.get("canceled"):
+            return                                    # MEDIA-CANCEL: cancel before spawn — do not start inference
         import psutil
         from bcc.video_studio.media import child_priority_kwargs
         proc = await asyncio.create_subprocess_exec(
             *job["argv"], stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT, cwd=str(self.work), **child_priority_kwargs())
         job["proc"] = proc
+        if job.get("canceled"):                       # MEDIA-CANCEL: cancel raced the spawn — kill at once
+            _kill_tree(proc.pid)
+            with contextlib.suppress(BaseException):
+                await proc.wait()
+            job["returncode"] = proc.returncode
+            return
         peak = 0
         try:
             ps = psutil.Process(proc.pid)
@@ -156,10 +165,21 @@ class SdCppProvider:
                     peak = max(peak, ps.memory_info().rss)
                 await asyncio.sleep(0.5)
 
+        deadline = job["started"] + int(self.model.get("deadline_seconds") or 3600)
         sampler = asyncio.create_task(sample())
         try:
             while True:
-                line = await proc.stdout.readline()
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    job["timed_out"] = True           # MEDIA-CANCEL: never wait forever
+                    _kill_tree(proc.pid)
+                    break
+                try:
+                    line = await asyncio.wait_for(proc.stdout.readline(), timeout=min(remaining, 30))
+                except asyncio.TimeoutError:
+                    if job.get("canceled"):
+                        break                          # cancel() already killed the tree
+                    continue
                 if not line:
                     break
                 text = line.decode("utf-8", "replace").rstrip()
@@ -196,10 +216,11 @@ class SdCppProvider:
         job["canceled"] = True
         proc = job.get("proc")
         if proc is not None and proc.returncode is None:
-            with contextlib.suppress(ProcessLookupError):
-                proc.kill()
-        with contextlib.suppress(BaseException):
-            await job["task"]
+            _kill_tree(proc.pid)                       # MEDIA-CANCEL: engine may spawn children
+        task = job.get("task")
+        if task is not None:
+            with contextlib.suppress(BaseException):
+                await task
         for p in (job["raw"], job["init"]):
             if p is not None:
                 Path(p).unlink(missing_ok=True)
@@ -230,8 +251,9 @@ class SdCppProvider:
             "engine_binary_sha256": await asyncio.to_thread(_sha256, Path(self.cfg["bin"])),
             "engine_release": self.cfg["manifest"].get("engine", {}).get("release"),
             "model_files": {k: {"name": v.name,
-                                "sha256": self.cfg["manifest"]["engines"][ENGINES[self.model["id"]]]
-                                ["files"][k]["sha256"]} for k, v in job["files"].items()},
+                                "expected_sha256": _mf_sha(self.cfg, self.model["id"], k),
+                                "observed_sha256": _verified_sha(v, _mf_sha(self.cfg, self.model["id"], k))}
+                            for k, v in job["files"].items()},
             "argv": [Path(job["argv"][0]).name] + [a if not os.path.isabs(a) else Path(a).name
                                                    for a in job["argv"][1:]],
             "elapsed_s": job.get("elapsed_s"), "peak_rss_bytes": job.get("peak_rss"),
@@ -245,6 +267,42 @@ class SdCppProvider:
                 Path(job["init"]).unlink(missing_ok=True)
         s = job["settings"]
         return Fetched(dest, dest.stat().st_size, mime, data_sha, s.get("width"), s.get("height"))
+
+
+_VERIFIED: dict[tuple, str] = {}
+
+
+def _mf_sha(cfg: dict, model_id: str, role: str) -> str:
+    return str(cfg["manifest"]["engines"][ENGINES[model_id]]["files"][role]["sha256"])
+
+
+def _verified_sha(path: Path, expected: str) -> str:
+    """Observed sha256 must equal the manifest sha256. Cached by (path,size,mtime)
+    so a health/submit call does not re-hash gigabytes once a file is verified."""
+    st = path.stat()
+    key = (str(path), st.st_size, st.st_mtime_ns)
+    cached = _VERIFIED.get(key)
+    if cached is not None:
+        if cached != expected:
+            raise ValueError(f"{path.name}: sha256 does not match manifest — corrupted or wrong revision")
+        return cached
+    observed = _sha256(path)
+    if observed != expected:
+        raise ValueError(f"{path.name}: sha256 {observed[:12]}… does not match manifest "
+                         f"{expected[:12]}… — corrupted or wrong revision")
+    _VERIFIED[key] = observed
+    return observed
+
+
+def _kill_tree(pid: int) -> None:
+    import psutil
+    with contextlib.suppress(psutil.Error, ProcessLookupError):
+        parent = psutil.Process(pid)
+        procs = parent.children(recursive=True) + [parent]
+        for pr in procs:
+            with contextlib.suppress(psutil.Error, ProcessLookupError):
+                pr.kill()
+        psutil.wait_procs(procs, timeout=5)
 
 
 def _sha256(path: Path) -> str:
