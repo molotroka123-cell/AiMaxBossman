@@ -6,6 +6,14 @@
   "blockers": [
     {"id":"CP-BLOCKER-20260921T1838Z", "severity":"P1", "finding":"pending approval id 3 disappeared after Bossman restart; health/models recovered"}
   ],
+  "scenarios": {
+    "total_new": 22,
+    "pass": 20,
+    "fail": 1,
+    "owner_required_count": 1,
+    "failures": ["restart_pending_approval_lost"],
+    "owner_required_items": ["computer_use_and_browser_ui_unavailable_in_environment"]
+  },
   "evidence": [
     {"kind":"endpoint", "url":"http://127.0.0.1:8081/health", "result":"ok"},
     {"kind":"endpoint", "url":"http://127.0.0.1:8082/health", "result":"ok"},
