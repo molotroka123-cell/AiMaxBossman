@@ -1011,7 +1011,13 @@ def _api_router() -> APIRouter:
 
     @router.get("/approvals")
     async def list_approvals(status: str | None = "pending", svc: Services = Depends(services)):
-        return await svc.approvals.list(status)
+        """status: pending (по умолчанию) | all | approved | rejected | revoked |
+        consumed | expired, или несколько через запятую. Неизвестное — 422 (AP-ALL)."""
+        from .approvals import UnknownApprovalStatus
+        try:
+            return await svc.approvals.list(status)
+        except UnknownApprovalStatus as exc:
+            raise ApiError(str(exc), status=422)
 
     @router.post("/approvals")
     async def create_approval(body: ApprovalCreate, svc: Services = Depends(services)):

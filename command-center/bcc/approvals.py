@@ -15,6 +15,32 @@ from .db import Database, approvals as approvals_t, fetch_one, rows_dicts, utcno
 from .events import EventBus
 
 
+# Все состояния строки approvals. AP-ALL (owner audit 2026-09-21, P2):
+# `?status=all` сравнивался как буквальный статус и возвращал [] при живых
+# pending-строках — оператор видел «подтверждения пропали». Теперь фильтр —
+# явный контракт: all/пусто = все состояния, список через запятую, неизвестное
+# значение — ошибка, а не молчаливый пустой ответ.
+APPROVAL_STATUSES = ("pending", "approved", "rejected", "revoked", "consumed", "expired")
+
+
+class UnknownApprovalStatus(ValueError):
+    pass
+
+
+def parse_status_filter(status: str | None) -> tuple[str, ...]:
+    """'' / None / 'all' → () (без фильтра); 'pending,approved' → оба; иначе ошибка."""
+    raw = str(status or "").strip().lower()
+    if raw in ("", "all", "*"):
+        return ()
+    parts = tuple(dict.fromkeys(p.strip() for p in raw.split(",") if p.strip()))
+    unknown = [p for p in parts if p not in APPROVAL_STATUSES]
+    if unknown or not parts:
+        raise UnknownApprovalStatus(
+            f"неизвестный статус подтверждения: {', '.join(unknown) or raw!r}; "
+            f"допустимо: all, {', '.join(APPROVAL_STATUSES)} (можно через запятую)")
+    return parts
+
+
 class Approvals:
     def __init__(self, db: Database, bus: EventBus):
         self.db = db
@@ -34,10 +60,11 @@ class Approvals:
         return row or {}
 
     async def list(self, status: str | None = "pending", limit: int = 100) -> list[dict]:
+        wanted = parse_status_filter(status)
         async with self.db.session() as s:
             stmt = sa.select(approvals_t).order_by(approvals_t.c.id.desc()).limit(limit)
-            if status:
-                stmt = stmt.where(approvals_t.c.status == status)
+            if wanted:
+                stmt = stmt.where(approvals_t.c.status.in_(wanted))
             res = await s.execute(stmt)
             return rows_dicts(res.fetchall())
 
