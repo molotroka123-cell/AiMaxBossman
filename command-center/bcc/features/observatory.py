@@ -179,8 +179,11 @@ async def get_snapshot(request: Request, task_id: int | None = Query(None, ge=1)
 @router.get("/observatory/routes")
 async def get_routes(request: Request):
     """Declared FastAPI contracts, not a claimed distributed trace or DB span."""
+    # Reuse the canonical traversal: recent FastAPI keeps included routers
+    # lazy rather than flattening app.routes. Do not maintain a second walker.
+    from .command_bar import _walk_routes
     routes = []
-    for route in request.app.routes:
+    for route in _walk_routes(request.app.routes):
         path = getattr(route, "path", "")
         if not path.startswith("/api/"):
             continue

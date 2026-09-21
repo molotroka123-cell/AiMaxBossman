@@ -57,7 +57,7 @@ jobs:
             'os':platform.system(), 'windows':'NOT_RUN', 'owner_gpu':'NOT_RUN',
             'live_model':'NOT_RUN','higgsfield_generation':'NOT_RUN'}, indent=2))
       - name: Pixel effects, canonical HTTP and real SQLite contracts
-        run: python -m pytest tools/feature_tests/test_viral_vfx_observatory.py -q -k 'not native_fifteen and not chromium' --timeout=60 --junitxml="$VFX_EVIDENCE_DIR/contracts.xml"
+        run: python -m pytest tools/feature_tests/test_viral_vfx_observatory.py tools/feature_tests/test_observatory_route_walk.py -q -k 'not native_fifteen and not chromium' --timeout=60 --junitxml="$VFX_EVIDENCE_DIR/contracts.xml"
       - name: Native 15-second render, 450 frames, audio and full decode
         run: python -m pytest tools/feature_tests/test_viral_vfx_observatory.py -q -k native_fifteen --timeout=240 --junitxml="$VFX_EVIDENCE_DIR/native.xml"
       - name: Actual Chromium DOM with explicit fixture API
@@ -71,7 +71,7 @@ jobs:
         run: |
           import os, pathlib, subprocess, xml.etree.ElementTree as ET
           out=pathlib.Path(os.environ['VFX_EVIDENCE_DIR'])
-          for name, minimum in [('contracts',48),('native',1),('dom',1),('browser',1)]:
+          for name, minimum in [('contracts',51),('native',1),('dom',1),('browser',1)]:
             suites=list(ET.parse(out/(name+'.xml')).getroot().iter('testsuite'))
             assert sum(int(s.get('tests','0')) for s in suites)>=minimum, name
             for key in ('failures','errors','skipped'):
