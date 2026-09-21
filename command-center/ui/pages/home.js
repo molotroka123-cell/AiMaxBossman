@@ -1,4 +1,5 @@
 import { routeVideoRequest, attachmentInput, attachedFiles } from '../video_chat.js';
+import { routeImageRequest } from '../image_chat.js';
 /* ============================================================
    home.js — посадочная страница BOSSMAN.
 
@@ -271,7 +272,8 @@ function buildCommandBar(ctx, agents) {
     start.disabled = true;
     try {
       if (await routeVideoRequest(text, attachedFiles(), ctx)) return;
-    } catch (e) { toastError(e, 'Не удалось открыть видеопроект'); return; }
+      if (!attachedFiles().length && await routeImageRequest(text, ctx)) return;
+    } catch (e) { toastError(e, 'Не удалось запустить медиа-задачу'); return; }
     finally { start.disabled = false; }
     const agent = state.agentId ?? (agents.length === 1 ? pick(agents[0], ['id']) : null);
     if (!agent) {
