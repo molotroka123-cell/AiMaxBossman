@@ -243,3 +243,25 @@ def test_every_owner_command_raises_the_interrupt(tmp_path, command):
     assert not mgr.interrupted(task.id)
     getattr(mgr, command)(task.id)
     assert mgr.interrupted(task.id), command
+
+
+# ------------------------------------------------------------------ live 2026-09-21
+
+async def test_latin_under_non_latin_layout_goes_through_clipboard(pyautogui, monkeypatch):
+    """Живой прогон: русская раскладка, «stop-test» доехал как «- - -».
+
+    Настоящий pyautogui (у модуля есть __file__) + раскладка окна, в которой
+    латиница не печатается → текст идёт через буфер обмена порциями, а не
+    молча теряет буквы."""
+    pyautogui.__file__ = "pyautogui/__init__.py"
+    monkeypatch.setattr(WindowsDesktop, "_typeable_in_foreground_layout",
+                        staticmethod(lambda text: False))
+    pasted = []
+    monkeypatch.setattr(WindowsDesktop, "_type_via_clipboard",
+                        lambda self, text, pg: pasted.append(text))
+    d = WindowsDesktop()
+    d.is_windows = True
+    text = "stop-test " * 20
+    await d._input(_type(text))
+    assert pyautogui.written == []
+    assert "".join(pasted) == text and len(pasted) > 1      # порциями — «Стоп» успевает сработать

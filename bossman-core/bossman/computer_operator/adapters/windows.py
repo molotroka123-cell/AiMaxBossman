@@ -175,6 +175,37 @@ class WindowsDesktop:
                 return True,""
             except Exception as e: return False,f"{type(e).__name__}: {e}"
         return await asyncio.to_thread(f)
+    # Коды виртуальных клавиш Windows. pyautogui строит карту символ→клавиша ОДИН
+    # раз при импорте по раскладке того момента; при русской раскладке буквы в
+    # ней пустые, и hotkey("ctrl","v") нажимал только Ctrl — вставка, Ctrl+A,
+    # Ctrl+S молча не работали (живой прогон 2026-09-21). VK-код от раскладки
+    # не зависит: 'V' — это физическая клавиша V в любой раскладке.
+    _VK={"ctrl":0x11,"control":0x11,"shift":0x10,"alt":0x12,"win":0x5B,"winleft":0x5B,
+         "enter":0x0D,"return":0x0D,"esc":0x1B,"escape":0x1B,"tab":0x09,"space":0x20,
+         "backspace":0x08,"delete":0x2E,"del":0x2E,"insert":0x2D,"home":0x24,"end":0x23,
+         "pageup":0x21,"pagedown":0x22,"up":0x26,"down":0x28,"left":0x25,"right":0x27,
+         **{f"f{i}":0x6F+i for i in range(1,13)}}
+
+    @staticmethod
+    def _vk(key):
+        k=str(key).lower()
+        if k in WindowsDesktop._VK: return WindowsDesktop._VK[k]
+        if len(k)==1 and ("a"<=k<="z" or "0"<=k<="9"): return ord(k.upper())
+        return None
+
+    @staticmethod
+    def _hotkey(pyautogui,*keys):
+        """Комбинация по VK-кодам на настоящем Windows; иначе — pyautogui."""
+        codes=[WindowsDesktop._vk(k) for k in keys]
+        if not getattr(pyautogui,"__file__",None) or any(c is None for c in codes):
+            pyautogui.hotkey(*keys); return
+        import ctypes,time
+        ev=ctypes.windll.user32.keybd_event
+        try:
+            for c in codes: ev(c,0,0,0); time.sleep(0.02)
+        finally:
+            for c in reversed(codes): ev(c,0,2,0); time.sleep(0.02)
+
     def set_interrupt(self,event):
         self._interrupt=event
 
@@ -210,7 +241,37 @@ class WindowsDesktop:
         if not isinstance(mapping,dict):
             # Не Windows-бэкенд (или другая версия): считаем печатаемым ASCII.
             return all(ord(ch)<128 for ch in text)
-        return all(mapping.get(ch) is not None for ch in text)
+        if not all(mapping.get(ch) is not None for ch in text):
+            return False
+        # Карта pyautogui построена ОДИН раз при импорте, а клавиши нажимаются в
+        # раскладке окна переднего плана. Живой прогон 2026-09-21: при активной
+        # русской раскладке «stop-test» доехал до Блокнота как «- - -» — буквы
+        # молча пропали. Проверяем каждый символ в РЕАЛЬНОЙ раскладке окна.
+        # Только для настоящего pyautogui: подменённый в тестах модуль клавиш не
+        # нажимает, и раскладка машины, где идут тесты, к нему не относится.
+        if not getattr(pyautogui, "__file__", None):
+            return True
+        return WindowsDesktop._typeable_in_foreground_layout(text)
+
+    @staticmethod
+    def _typeable_in_foreground_layout(text):
+        try:
+            import ctypes
+            u=ctypes.windll.user32
+            tid=u.GetWindowThreadProcessId(u.GetForegroundWindow(),None)
+            hkl=u.GetKeyboardLayout(tid)
+            scan=u.VkKeyScanExW
+            scan.restype=ctypes.c_short
+            for ch in set(text):
+                if ch in (chr(10), chr(13), chr(9)): continue
+                if scan(ctypes.c_wchar(ch),hkl)==-1: return False
+            # Латиница в нелатинской раскладке: VkKeyScanEx находит клавишу, но
+            # pyautogui жмёт её по своей карте — надёжна только латинская раскладка.
+            lang=int(hkl or 0)&0xFFFF
+            latin={0x0409,0x0809,0x0c09,0x1009,0x1409,0x0407,0x040c,0x0410,0x040a,0x0405,0x0415,0x0413}
+            return lang in latin or all(not ch.isalpha() for ch in text)
+        except Exception:
+            return False
 
     def _type_via_clipboard(self,text,pyautogui):
         """Вставить текст через буфер обмена, вернув буфер владельца на место.
@@ -237,7 +298,7 @@ class WindowsDesktop:
         try: saved=_get()
         except Exception: saved=None
         _set(text)
-        try: pyautogui.hotkey("ctrl","v")
+        try: WindowsDesktop._hotkey(pyautogui,"ctrl","v")
         finally:
             try: _set(saved)
             except Exception: pass
@@ -271,7 +332,16 @@ class WindowsDesktop:
                         self._stop_if_interrupted(min(start+_TYPE_CHUNK,len(text)),len(text))
                 else:
                     try:
-                        self._type_via_clipboard(text,pyautogui)
+                        # Порциями и через буфер: «Стоп» владельца действует и здесь.
+                        self._stop_if_interrupted(0,len(text))
+                        for start in range(0,len(text),_TYPE_CHUNK*4):
+                            self._type_via_clipboard(text[start:start+_TYPE_CHUNK*4],pyautogui)
+                            self._stop_if_interrupted(min(start+_TYPE_CHUNK*4,len(text)),len(text))
+                    except RuntimeError as e:
+                        if "owner interrupted typing" in str(e): raise
+                        raise RuntimeError(
+                            "text contains characters this keyboard layout cannot type and "
+                            f"the clipboard path failed: {type(e).__name__}: {e}") from e
                     except Exception as e:
                         # Отказ с названной причиной вместо молчаливой порчи:
                         # половина введённого текста хуже, чем ненажатая клавиша,
@@ -286,7 +356,7 @@ class WindowsDesktop:
                 # этом выглядел выполненным (A3-06).
                 if len(keys)>MAX_HOTKEY_KEYS: raise ValueError(
                     f"hotkey takes at most {MAX_HOTKEY_KEYS} keys, got {len(keys)}")
-                pyautogui.hotkey(*keys)
+                WindowsDesktop._hotkey(pyautogui,*keys)
             elif a.kind is ActionKind.SCROLL: pyautogui.scroll(int(a.args.get("clicks",0)))
             elif a.kind is ActionKind.DRAG: pyautogui.dragTo(*self._xy(a),duration=min(5,max(0,float(a.args.get("duration",.5)))))
             else: raise RuntimeError("unsupported input")

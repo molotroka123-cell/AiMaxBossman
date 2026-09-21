@@ -19,12 +19,16 @@ ALL_PERMISSIONS = (
     # Отправка вынесена в отдельное право, а не подведена под email.send:
     # это другой набор получателей и другой способ ошибиться.
     "channel.read", "channel.send",
+    # Computer Use (tools_computer): смотреть на экран владельца и действовать на
+    # нём — оба опасные: снимок экрана тоже выносит чужие данные в контекст модели.
+    "computer.observe", "computer.control",
 )
 
 DANGEROUS = frozenset({
     "filesystem.write", "terminal.run", "git.write", "browser.control",
     "model.unload", "email.send", "deploy.preview", "deploy.production",
     "invoice.create", "settings.write", "channel.send",
+    "computer.observe", "computer.control",
 })
 
 
