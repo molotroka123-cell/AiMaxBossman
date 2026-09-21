@@ -27,6 +27,10 @@ ENV_HINTS = (
     ("symlink|Windows|win", "права ФС / платформа"),
 )
 REVIEW = "пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет)"
+# Release-critical environment gaps are intentionally surfaced first in the
+# human registry.  This is presentation only: every row is still collected and
+# --check still requires byte-for-byte agreement with the generated registry.
+RELEASE_CRITICAL_SKIP_FILES = {"command-center/tests/test_release_ux_torture.py"}
 
 
 def _reason(call: ast.Call, src: str) -> str:
@@ -56,10 +60,17 @@ def _env(reason: str, cond: str) -> str:
     return "условие в коде теста"
 
 
+def _test_path_order(path: Path) -> tuple[int, str]:
+    rel = path.relative_to(ROOT).as_posix()
+    return (0 if rel in RELEASE_CRITICAL_SKIP_FILES else 1, rel)
+
+
 def collect() -> list[dict]:
     rows: list[dict] = []
     for suite, owner in SUITES.items():
-        for path in sorted((ROOT / suite).rglob("test_*.py")) + sorted((ROOT / suite).glob("conftest.py")):
+        test_paths = sorted((ROOT / suite).rglob("test_*.py"), key=_test_path_order)
+        conftest_paths = sorted((ROOT / suite).glob("conftest.py"), key=_test_path_order)
+        for path in test_paths + conftest_paths:
             src = path.read_text(encoding="utf-8-sig")            # BOM-файлы тоже разбираются
             try:
                 tree = ast.parse(src, filename=str(path))
