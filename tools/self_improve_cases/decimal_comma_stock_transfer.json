@@ -1,0 +1,37 @@
+{
+ "schema": "bossman.self-improve-case/1",
+ "case_id": "sample-decimal-comma-stock-transfer",
+ "project_id": "lab-synthetic",
+ "source_repo": {
+  "synthetic": "stockkit"
+ },
+ "baseline_commit": "HEAD",
+ "instruction": "Приёмка со склада падает: parse_weight_kg(\"1 250,75\") бросает ValueError, ожидается 1250750 граммов. В накладных между разрядами неразрывный пробел, десятичный разделитель — запятая. Почини stockkit/weight.py и добавь регрессионный тест в tests/.",
+ "allowed_paths": [
+  "stockkit",
+  "tests"
+ ],
+ "protected_paths": [
+  "README.md"
+ ],
+ "hidden_verifier": {
+  "command": [
+   "{python}",
+   "-m",
+   "unittest",
+   "discover",
+   "-s",
+   "{hidden}",
+   "-t",
+   "{hidden}",
+   "-p",
+   "hidden_*.py"
+  ],
+  "files": {
+   "hidden_test_weight.py": "import unittest\n\nfrom stockkit.weight import parse_weight_kg\n\n\nclass HiddenParseWeight(unittest.TestCase):\n    def test_decimal_comma(self):\n        self.assertEqual(parse_weight_kg(\"1,5\"), 1500)\n\n    def test_grouped_with_nbsp(self):\n        self.assertEqual(parse_weight_kg(\"1\\u00a0250,75\"), 1250750)\n\n    def test_grouped_with_space(self):\n        self.assertEqual(parse_weight_kg(\"1 250,75\"), 1250750)\n\n    def test_old_behaviour_kept(self):\n        self.assertEqual(parse_weight_kg(\"1.5\"), 1500)\n        self.assertEqual(parse_weight_kg(\"2\"), 2000)\n\n    def test_still_strict(self):\n        for bad in (\"\", \"кг\", \"1,2,3\", \"1,2345\"):\n            with self.subTest(bad=bad), self.assertRaises(ValueError):\n                parse_weight_kg(bad)\n"
+  },
+  "timeout_seconds": 300
+ },
+ "model": null,
+ "budget_minutes": 40.0
+}

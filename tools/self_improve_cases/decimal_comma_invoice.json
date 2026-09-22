@@ -1,0 +1,60 @@
+{
+ "schema": "bossman.self-improve-case/1",
+ "case_id": "sample-decimal-comma-invoice",
+ "project_id": "lab-synthetic",
+ "source_repo": {
+  "synthetic": "invoicekit"
+ },
+ "baseline_commit": "HEAD",
+ "instruction": "Импорт счёта из 1С падает: parse_amount(\"1 234,50\") бросает ValueError, а должно вернуться 123450 копеек. В выгрузке между разрядами стоят неразрывные пробелы, десятичный разделитель — запятая. Почини invoicekit/money.py и добавь регрессионный тест в tests/.",
+ "allowed_paths": [
+  "invoicekit",
+  "tests"
+ ],
+ "protected_paths": [
+  "README.md"
+ ],
+ "hidden_verifier": {
+  "command": [
+   "{python}",
+   "-m",
+   "unittest",
+   "discover",
+   "-s",
+   "{hidden}",
+   "-t",
+   "{hidden}",
+   "-p",
+   "hidden_*.py"
+  ],
+  "files": {
+   "hidden_test_money.py": "import unittest\n\nfrom invoicekit.money import parse_amount\n\n\nclass HiddenParseAmount(unittest.TestCase):\n    def test_decimal_comma(self):\n        self.assertEqual(parse_amount(\"12,50\"), 1250)\n\n    def test_grouped_with_space(self):\n        self.assertEqual(parse_amount(\"1 234,50\"), 123450)\n\n    def test_grouped_with_nbsp(self):\n        self.assertEqual(parse_amount(\"1\\u00a0234,50\"), 123450)\n\n    def test_grouped_with_narrow_nbsp(self):\n        self.assertEqual(parse_amount(\"1\\u202f234,5\"), 123450)\n\n    def test_old_behaviour_kept(self):\n        self.assertEqual(parse_amount(\"12.50\"), 1250)\n        self.assertEqual(parse_amount(\"7\"), 700)\n\n    def test_still_strict(self):\n        for bad in (\"\", \"abc\", \"1,2,3\", \"12,345\"):\n            with self.subTest(bad=bad), self.assertRaises(ValueError):\n                parse_amount(bad)\n"
+  },
+  "timeout_seconds": 300
+ },
+ "model": null,
+ "budget_minutes": 40.0,
+ "lesson_template": {
+  "id": "decimal-comma-nbsp-parse",
+  "title": "Разбор числа: запятая-разделитель и неразрывные пробелы",
+  "symptom": "Разбор числа из текста бросает ValueError на вводе вида \"1 234,50\": десятичный разделитель — запятая, между разрядами неразрывные пробелы",
+  "cause": "Парсер знает только точку как десятичный разделитель и удаляет лишь обычный пробел; неразрывные пробелы (U+00A0, U+202F) и запятая остаются",
+  "diagnosis": "Воспроизвести на падающем вводе; прочитать функцию разбора; проверить, какие пробельные символы и разделители она убирает",
+  "action": "Удалять все пробельные символы через \"\".join(text.split()), единственную запятую при отсутствии точки считать десятичным разделителем, остальную проверку формата оставить строгой; добавить регрессию на запятую и NBSP",
+  "applies_when": {
+   "task_class": "parsing",
+   "language": "python",
+   "keywords": [
+    "ValueError",
+    "десятичный разделитель",
+    "запятая",
+    "неразрывный пробел",
+    "разбор числа"
+   ]
+  },
+  "counterexample": "Не применять, если запятая — разделитель тысяч (формат 1,234.50): там её удаляют, а не превращают в точку",
+  "required_check_paths": [
+   "tests"
+  ]
+ }
+}
