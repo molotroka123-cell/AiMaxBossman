@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "checked_at_utc": "2026-09-22",
+  "status": "references_verified_adapters_pending",
+  "sources": [
+    {
+      "id": "cloudflare-security-audit",
+      "repository": "https://github.com/cloudflare/security-audit-skill",
+      "commit": "c1c8a8c1471069fb0e188eeaff69b8e8db6564a8",
+      "commit_date": "2026-09-14T19:28:54Z",
+      "purpose": "coverage ledger, adversarial validation, structured findings",
+      "integration": "review request emitted; upstream skill and validators not installed"
+    },
+    {
+      "id": "alibaba-open-code-review",
+      "repository": "https://github.com/alibaba/open-code-review",
+      "commit": "bccbc15f785269400735d5255540c231e6c02b6d",
+      "commit_date": "2026-09-22T10:54:32Z",
+      "purpose": "deterministic review scope and model review",
+      "integration": "review request emitted; ocr CLI not installed or executed"
+    },
+    {
+      "id": "hermes-patterns",
+      "repository": "https://github.com/NousResearch/hermes-agent",
+      "commit": "28aceb3451f5a5d2a27396b2adf29231be34c482",
+      "commit_date": "2026-09-22T22:36:39Z",
+      "purpose": "persistent scheduled work, memory, interruption patterns",
+      "integration": "architecture reference only; no second agent runtime"
+    }
+  ]
+}
