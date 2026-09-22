@@ -21,6 +21,8 @@ import tempfile
 from types import MappingProxyType
 from typing import Mapping, Sequence
 
+from .proc_tree import run_tree
+
 
 class OpenHandsError(RuntimeError):
     """Raised when the OpenHands sidecar cannot produce admissible evidence."""
@@ -35,6 +37,10 @@ class OpenHandsRequest:
     model: str | None = None
     timeout_seconds: int = 900
     metadata: Mapping[str, str] = field(default_factory=dict)
+    # Profile / recalled memory / verified recipes for the sidecar. Advisory
+    # input only: it widens no path, tool or authority — scope stays
+    # allowed_paths/protected_paths and evidence stays host-derived.
+    context: Mapping[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -486,9 +492,14 @@ class OpenHandsClient:
             raise OpenHandsError("OpenHands disabled: set BOSSMAN_OPENHANDS_COMMAND or pass command=")
         command = list(raw)
         self._command_identity: dict[Path, str] = {}
+        # Absolute, but NOT symlink-resolved: a venv's `bin/python` is a symlink
+        # to the base interpreter, and executing the target drops the venv —
+        # the sidecar then cannot import its own package (found by the local
+        # sidecar e2e through /api/coding-tasks). The identity digest below is
+        # still taken over the real file the link points to.
         executable = shutil.which(command[0])
         if executable:
-            command[0] = str(Path(executable).resolve())
+            command[0] = os.path.abspath(executable)
         for index, arg in enumerate(command):
             # Only actual command files are pinned; -c source and -m module
             # names are arguments, not filenames to resolve or execute.
@@ -500,11 +511,40 @@ class OpenHandsClient:
             except OSError:
                 is_file = False
             if is_file:
-                path = path.resolve()
-                self._command_identity[path] = _command_digest(path)
-                command[index] = str(path)
+                self._command_identity[path.resolve()] = _command_digest(path.resolve())
+                command[index] = os.path.abspath(path)
         self.command = tuple(command)
         self.env = {str(k): str(v) for k, v in dict(env or {}).items()}
+
+    def handshake(self, timeout_seconds: int = 60) -> dict:
+        """Ask the sidecar whether it can actually execute: protocol, tools,
+        model endpoint and one real tool call. A configured command string is
+        not readiness; a sidecar that cannot answer this is not ready."""
+        for path, expected_digest in self._command_identity.items():
+            if _command_digest(path) != expected_digest:
+                raise OpenHandsError("sidecar command identity changed before handshake")
+        env = _minimal_process_env()
+        env.update(self.env)
+        try:
+            proc = run_tree(list(self.command), input=json.dumps({"schema": "bossman.openhands.v1", "op": "handshake"}),
+                            text=True, encoding="utf-8", errors="replace", stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, env=env, timeout=timeout_seconds)
+        except FileNotFoundError as exc:
+            raise OpenHandsError("OpenHands sidecar command is not installed") from exc
+        if proc.timed_out:
+            raise OpenHandsError(f"sidecar handshake timed out after {timeout_seconds}s")
+        try:
+            response = json.loads((proc.stdout or "").strip().splitlines()[-1] if (proc.stdout or "").strip() else "{}")
+        except (json.JSONDecodeError, IndexError) as exc:
+            raise OpenHandsError("sidecar handshake returned invalid JSON") from exc
+        if not isinstance(response, dict) or response.get("schema") != "bossman.openhands.v1":
+            tail = (proc.stderr or "").strip().splitlines()[-1:] or [""]
+            raise OpenHandsError("sidecar does not speak bossman.openhands.v1"
+                                 + (f" (exit {proc.returncode}; stderr: {tail[0][-200:]})" if tail[0] else ""))
+        if response.get("status") != "ready":
+            raise OpenHandsError("sidecar is not ready: " + str(response.get("error") or response.get("error_type")
+                                                               or "no handshake support")[:300])
+        return response
 
     def run(self, request: OpenHandsRequest) -> OpenHandsResult:
         workspace = request.workspace.resolve()
@@ -533,29 +573,26 @@ class OpenHandsClient:
             "protected_paths": list(request.protected_paths),
             "model": request.model,
             "metadata": dict(request.metadata),
+            "timeout_seconds": int(request.timeout_seconds),
+            "context": json.loads(json.dumps(dict(request.context), ensure_ascii=False, default=str)),
         }
         env = _minimal_process_env()
         env.update(self.env)
         for path, expected_digest in self._command_identity.items():
             if _command_digest(path) != expected_digest:
                 raise OpenHandsError("sidecar command identity changed before dispatch")
+        # The whole process TREE dies on timeout: `subprocess.run(timeout=)`
+        # killed only the sidecar and left its test runs / servers orphaned,
+        # holding sandbox files open so cleanup failed on Windows.
         try:
-            proc = subprocess.run(
-                list(self.command),
-                input=json.dumps(payload, ensure_ascii=False),
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=env,
-                timeout=request.timeout_seconds,
-                check=False,
-            )
+            proc = run_tree(list(self.command), input=json.dumps(payload, ensure_ascii=False),
+                            text=True, encoding="utf-8", errors="replace",
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
+                            timeout=request.timeout_seconds)
         except FileNotFoundError as exc:
             raise OpenHandsError("OpenHands sidecar command is not installed") from exc
-        except subprocess.TimeoutExpired as exc:
-            raise OpenHandsError(f"OpenHands sidecar timed out after {request.timeout_seconds}s") from exc
+        if proc.timed_out:
+            raise OpenHandsError(f"OpenHands sidecar timed out after {request.timeout_seconds}s")
 
         try:
             response = json.loads(proc.stdout or "{}")

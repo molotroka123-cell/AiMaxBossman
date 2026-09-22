@@ -45,8 +45,25 @@ def repo(tmp_path):
     return src
 
 
+HANDSHAKE = ("(print(json.dumps({'schema':'bossman.openhands.v1','status':'ready','executor':'scripted',"
+             "'tools':['edit_file'],'tool_call_ok':True})), sys.exit(0)) if p.get('op')=='handshake' else None; ")
+
+
+@pytest.fixture(autouse=True)
+def _fresh_handshake():
+    ct._handshake_cache.clear()
+    yield
+    ct._handshake_cache.clear()
+
+
+def ready_noop() -> str:
+    """A sidecar that passes the handshake and does nothing else."""
+    code = "import json,sys; p=json.load(sys.stdin); " + HANDSHAKE
+    return " ".join(_q(x) for x in [sys.executable, "-c", code])
+
+
 def sidecar(body: str) -> str:
-    code = ("import json,sys,subprocess,pathlib,os; p=json.load(sys.stdin); "
+    code = ("import json,sys,subprocess,pathlib,os; p=json.load(sys.stdin); " + HANDSHAKE +
             "w=pathlib.Path(p['workspace']); os.chdir(w); " + body + "; "
             "print(json.dumps({'schema':'bossman.openhands.v1','status':'completed','summary':'done'}))")
     return json.dumps([sys.executable, "-c", code])[1:-1].replace('", "', '" "') if False else \
@@ -135,7 +152,7 @@ async def test_a_protected_file_edit_is_blocked_not_completed(env, repo, monkeyp
 
 
 async def test_a_sidecar_that_reports_failure_is_failed(env, repo, monkeypatch, tmp_path):
-    code = ("import json,sys; json.load(sys.stdin); "
+    code = ("import json,sys; p=json.load(sys.stdin); " + HANDSHAKE +
             "print(json.dumps({'schema':'bossman.openhands.v1','status':'failed'}))")
     monkeypatch.setenv(ct.COMMAND_ENV, " ".join(_q(x) for x in [sys.executable, "-c", code]))
     monkeypatch.setenv("TMPDIR", str(tmp_path))
@@ -148,7 +165,7 @@ async def test_a_sidecar_that_reports_failure_is_failed(env, repo, monkeypatch, 
 
 
 async def test_a_repository_outside_the_allowed_roots_is_refused(env, repo, monkeypatch, tmp_path):
-    monkeypatch.setenv(ct.COMMAND_ENV, "python -c pass")
+    monkeypatch.setenv(ct.COMMAND_ENV, ready_noop())
     other = tmp_path / "elsewhere"; other.mkdir()
     await _allow(env, other)
     res = await env.client.post("/api/coding-tasks", json={
@@ -157,7 +174,7 @@ async def test_a_repository_outside_the_allowed_roots_is_refused(env, repo, monk
 
 
 async def test_an_empty_allowlist_fails_closed(env, repo, monkeypatch):
-    monkeypatch.setenv(ct.COMMAND_ENV, "python -c pass")
+    monkeypatch.setenv(ct.COMMAND_ENV, ready_noop())
     await _allow(env, repo.parent)
     res = await env.client.post("/api/coding-tasks", json={
         "instruction": "x", "source_repo": str(repo), "allowed_paths": []})
@@ -167,3 +184,34 @@ async def test_an_empty_allowlist_fails_closed(env, repo, monkeypatch):
 def test_the_api_exposes_no_push_merge_or_deploy():
     paths = {r.path for r in ct.router.routes}
     assert not any(any(w in p for w in ("push", "merge", "deploy", "apply")) for p in paths), paths
+
+
+async def test_a_configured_command_without_a_handshake_is_not_ready(env, repo, monkeypatch):
+    """Negative control for the stricter readiness: a command string that runs
+    but does not answer the bossman.openhands.v1 handshake is NOT available,
+    and a task is refused with the handshake's reason — while a sidecar that
+    does answer (positive control) is available."""
+    monkeypatch.setenv(ct.COMMAND_ENV, " ".join(_q(x) for x in [sys.executable, "-c", "import sys; sys.stdin.read()"]))
+    await _allow(env, repo.parent)
+    r = (await env.client.get("/api/coding-tasks/readiness")).json()
+    assert r["available"] is False and r["sidecar_command"] is True
+    assert "готовности" in r["reason"] and r["handshake"]["ok"] is False
+    res = await env.client.post("/api/coding-tasks", json={
+        "instruction": "x", "source_repo": str(repo), "allowed_paths": ["app"]})
+    assert res.status_code == 503
+    ct._handshake_cache.clear()
+    monkeypatch.setenv(ct.COMMAND_ENV, ready_noop())
+    r = (await env.client.get("/api/coding-tasks/readiness")).json()
+    assert r["available"] is True and r["handshake"]["executor"] == "scripted"
+
+
+async def test_a_task_running_in_a_previous_server_process_is_not_shown_as_running(env, monkeypatch):
+    """Restart = unknown outcome: the record says so and is terminal."""
+    rec = {"id": "abcdef123456", "status": "running", "instruction": "x", "boot_id": "previous-boot",
+           "created_at": 1.0, "diff": ""}
+    ct._write(env.svc, rec)
+    got = (await env.client.get("/api/coding-tasks/abcdef123456")).json()
+    assert got["status"] == "failed" and got["outcome"] == "UNKNOWN_INTERRUPTED"
+    # a record from THIS process stays running (negative control)
+    ct._write(env.svc, {**rec, "id": "abcdef654321", "boot_id": ct.BOOT_ID})
+    assert (await env.client.get("/api/coding-tasks/abcdef654321")).json()["status"] == "running"
