@@ -438,9 +438,38 @@ def engine_files(cfg: dict, model_id: str) -> dict[str, Path]:
 
 # ----------------------------------------------------------------------------- argv / observation
 
+# Длительность ролика (`length`) — пресеты владельца поверх frames/fps. Wan2.2 TI2V-5B
+# даёт за один проход не больше ~5 с (81 кадр при 16 fps); длиннее — ЦЕПОЧКА сегментов:
+# каждый следующий сегмент — I2V от последнего кадра предыдущего, на стыке первый кадр
+# нового сегмента отбрасывается (он повторяет последний кадр прошлого). Склейка — это
+# транскод, не генерация: в trace у каждого сегмента свой хэш, у склейки — свой.
+# "test_1s" — быстрый пробный прогон: минимальные разрешение и шаги из каталога.
+DURATION_PRESETS = {
+    "test_1s": {"segments": 1, "frames": 17, "fps": 16, "width": 640, "height": 352, "steps": 16},
+    "5s": {"segments": 1, "frames": 81, "fps": 16},
+    "10s": {"segments": 2, "frames": 81, "fps": 16},
+    "15s": {"segments": 3, "frames": 81, "fps": 16},
+    "30s": {"segments": 6, "frames": 81, "fps": 16},
+}
+
+
+def segments_for(settings: dict) -> int:
+    preset = DURATION_PRESETS.get((settings or {}).get("length"))
+    return preset["segments"] if preset else 1
+
+
+def apply_length(settings: dict) -> dict:
+    """Resolved settings with the `length` preset applied (custom/absent = unchanged)."""
+    preset = DURATION_PRESETS.get(settings.get("length"))
+    if preset is None:
+        return settings
+    return {**settings, **{k: v for k, v in preset.items() if k != "segments"}}
+
+
 def declared_duration_s(settings: dict) -> float | None:
     if settings.get("frames") and settings.get("fps"):
-        return settings["frames"] / settings["fps"]
+        n = segments_for(settings)
+        return (settings["frames"] + (settings["frames"] - 1) * (n - 1)) / settings["fps"]
     return None
 
 
@@ -551,8 +580,11 @@ def _write_sidecar(path: Path, record: dict, *, exclusive: bool = False) -> None
 
 def _sidecar_files(record: dict, work: Path) -> list[Path]:
     out = []
-    for key in ("raw", "init"):
-        value = record.get(key)
+    values = [record.get("raw"), record.get("init")]
+    extra = record.get("segment_files")
+    if isinstance(extra, list):
+        values += extra
+    for value in values:
         if isinstance(value, str) and value:
             p = Path(value)
             if p.parent == work:  # never delete outside the work dir, whatever the sidecar says
@@ -707,8 +739,9 @@ class SdCppProvider:
             raise ValueError("model: unknown sdcpp engine")
         if not isinstance(plane.prompt, str) or not plane.prompt.strip():
             raise ValueError("prompt: required")
-        settings = validate_settings(self.model, plane.settings)
+        settings = apply_length(validate_settings(self.model, plane.settings))
         video = self.model["surface"] == "video"
+        segments = segments_for(settings) if video else 1
         init_data = None
         if plane.media:
             if not video:
@@ -728,7 +761,13 @@ class SdCppProvider:
         rid = _new_rid()
         if rid in self._jobs:
             raise ValueError("rid: duplicate request id")
-        raw = self.work / f"{rid}.{'webm' if video else 'png'}"
+        if segments == 1:
+            raws = [self.work / f"{rid}.{'webm' if video else 'png'}"]
+            frame_files: list[Path] = []
+        else:
+            raws = [self.work / f"{rid}-s{i}.webm" for i in range(segments)]
+            frame_files = [self.work / f"{rid}-s{i}-last.png" for i in range(segments - 1)]
+        raw = raws[0]
         init = self.work / f"{rid}-start{init_ext}" if init_data is not None else None
         argv = _argv(self.cfg, plane.model, plane, settings, files, raw, init)
         me = _proc_identity(os.getpid()) or {}
@@ -736,6 +775,8 @@ class SdCppProvider:
                   "exe": None, "raw": str(raw), "init": None if init is None else str(init),
                   "started": time.time(), "studio_job_id": self.studio_job_id, "model": plane.model,
                   "owner_pid": os.getpid(), "owner_create_time": me.get("create_time")}
+        if segments > 1:
+            record["segment_files"] = [str(p) for p in raws[1:] + frame_files]
         sidecar = _sidecar_path(self.work, rid)
         try:
             _write_sidecar(sidecar, record, exclusive=True)
@@ -747,7 +788,8 @@ class SdCppProvider:
                "argv": argv, "files": files, "verified": verified, "binary": binary, "started": record["started"],
                "log": [], "proc": None, "pid": None, "create_time": None, "returncode": None, "peak_rss": 0,
                "elapsed_s": None, "failure": None, "failure_detail": None, "raw_meta": None,
-               "sidecar": sidecar, "record": record, "state": "pending"}
+               "sidecar": sidecar, "record": record, "state": "pending",
+               "plane": plane, "raws": raws, "frame_files": frame_files, "segment_results": []}
         self._jobs[rid] = job
         job["task"] = asyncio.create_task(self._run(rid, job))
         return Submitted(rid, cancel_ref=rid)
@@ -782,6 +824,51 @@ class SdCppProvider:
                 self._cleanup_work(job)  # nothing to fetch: no stale raw/init/sidecar until restart
 
     async def _run_inner(self, job: dict) -> None:
+        """One engine run per segment; segment k>0 is I2V from the last frame of segment k-1."""
+        raws = job.get("raws") or [job["raw"]]
+        for i, raw in enumerate(raws):
+            if i:
+                last = job["frame_files"][i - 1]
+                try:
+                    await self._last_frame(raws[i - 1], last)
+                except (ValueError, OSError, RuntimeError) as exc:
+                    job["failure"] = "provider_down"
+                    job["failure_detail"] = f"segment {i}: last frame extraction failed: {exc}"[:500]
+                    return
+                seed = job["settings"].get("seed")
+                seg = {**job["settings"], "seed": None if seed is None else (seed + i) % 2**31}
+                job["argv"] = _argv(self.cfg, self.model["id"], job["plane"], seg, job["files"], raw, last)
+                job["raw"], job["raw_meta"], job["proc"], job["returncode"] = raw, None, None, None
+                job["record"].update({"argv": job["argv"], "pid": None, "create_time": None, "exe": None})
+                with contextlib.suppress(OSError):
+                    _write_sidecar(job["sidecar"], job["record"])
+            t0 = time.time()
+            await self._run_engine(job)
+            if job["failure"] is not None or job["canceled"] or job["raw_meta"] is None:
+                if job["canceled"] and job["failure"] is None:
+                    job["failure"] = "canceled"
+                if len(raws) > 1 and job.get("failure_detail"):
+                    job["failure_detail"] = f"segment {i + 1}/{len(raws)}: {job['failure_detail']}"[:500]
+                return
+            if len(raws) > 1:
+                job["segment_results"].append({
+                    "index": i, "name": raw.name, "sha256": await asyncio.to_thread(_sha256, raw),
+                    "bytes": raw.stat().st_size, "duration_ms": job["raw_meta"].get("duration_ms"),
+                    "image_to_video": i > 0 or job["init"] is not None,
+                    "start_frame_sha256": None if i == 0 else await asyncio.to_thread(_sha256, job["frame_files"][i - 1]),
+                    "returncode": job["returncode"], "elapsed_s": round(time.time() - t0, 2),
+                    "argv": [Path(job["argv"][0]).name] + [a if not os.path.isabs(a) else Path(a).name
+                                                           for a in job["argv"][1:]]})
+
+    async def _last_frame(self, raw: Path, out: Path) -> None:
+        from bcc.video_studio.media import binary, process
+        # -update 1 keeps overwriting one image: what remains is the last decoded frame.
+        await process([binary("ffmpeg"), "-v", "error", "-y", "-sseof", "-1", "-i", str(raw),
+                       "-update", "1", str(out)], timeout=300)
+        if not out.is_file() or out.stat().st_size == 0:
+            raise RuntimeError("no frame written")
+
+    async def _run_engine(self, job: dict) -> None:
         import psutil
         try:
             proc = await self._spawn(job)
@@ -942,7 +1029,8 @@ class SdCppProvider:
         self._cleanup_work(job)
 
     def _cleanup_work(self, job: dict) -> None:
-        for p in (job["raw"], job["init"], *self.work.glob(f"{job['rid']}*.part")):
+        for p in (job["raw"], job["init"], *job.get("raws", ()), *job.get("frame_files", ()),
+                  *self.work.glob(f"{job['rid']}*.part")):
             if p is not None:
                 with contextlib.suppress(OSError):
                     Path(p).unlink(missing_ok=True)
@@ -952,10 +1040,23 @@ class SdCppProvider:
     # -- fetch
     async def _transcode(self, raw: Path, tmp: Path, job: dict) -> list[str]:
         from bcc.video_studio.media import binary, process
-        # Container transcode of the model's own frames (VP8 .webm → H.264 .mp4).
-        argv = [binary("ffmpeg"), "-v", "error", "-y", "-i", str(raw), "-an",
-                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16",
-                "-movflags", "+faststart", "-f", "mp4", str(tmp)]
+        raws = job.get("raws") or [raw]
+        if len(raws) == 1:
+            # Container transcode of the model's own frames (VP8 .webm → H.264 .mp4).
+            argv = [binary("ffmpeg"), "-v", "error", "-y", "-i", str(raw), "-an",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16",
+                    "-movflags", "+faststart", "-f", "mp4", str(tmp)]
+        else:
+            # Segment chain: drop the first frame of every later segment (it repeats the
+            # previous segment's last frame, which was its I2V start), then concatenate.
+            inputs = [a for p in raws for a in ("-i", str(p))]
+            parts = ["[0:v]setpts=PTS-STARTPTS[v0]"] + [
+                f"[{i}:v]trim=start_frame=1,setpts=PTS-STARTPTS[v{i}]" for i in range(1, len(raws))]
+            chain = "".join(f"[v{i}]" for i in range(len(raws))) + f"concat=n={len(raws)}:v=1:a=0[out]"
+            argv = [binary("ffmpeg"), "-v", "error", "-y", *inputs,
+                    "-filter_complex", ";".join(parts + [chain]), "-map", "[out]", "-an",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16",
+                    "-movflags", "+faststart", "-f", "mp4", str(tmp)]
         await process(argv, timeout=600)
         return argv
 
@@ -975,6 +1076,9 @@ class SdCppProvider:
         tmp = dest.with_name(f".{dest.name}.{rid}.part")
         video = self.model["surface"] == "video"
         raw_sha = await asyncio.to_thread(_sha256, raw)
+        chain = job.get("segment_results") or []
+        if len(job.get("raws") or ()) > 1 and len(chain) != len(job["raws"]):
+            raise ValueError("output: segment chain incomplete")
         try:
             if video:
                 try:
@@ -983,7 +1087,9 @@ class SdCppProvider:
                     raise SdCppFailure("provider_down", f"transcode failed: {str(exc)[:300]}") from exc
                 transcode = {"tool": "ffmpeg", "argv": [Path(argv[0]).name] + [
                     a if not os.path.isabs(a) else Path(a).name for a in argv[1:]],
-                    "input_sha256": raw_sha}
+                    "input_sha256": [s["sha256"] for s in chain] if chain else raw_sha}
+                if chain:
+                    transcode["operation"] = "concat_segments_drop_repeated_start_frame"
                 mime = "video/mp4"
             else:
                 await asyncio.to_thread(shutil.copyfile, raw, tmp)
@@ -1007,7 +1113,8 @@ class SdCppProvider:
         s = job["settings"]
         raw_meta = job["raw_meta"]
         entry = self.cfg["manifest"]["engines"][ENGINES[self.model["id"]]]["files"]
-        observed_duration = None if raw_meta.get("duration_ms") is None else round(raw_meta["duration_ms"] / 1000, 3)
+        observed_ms = final_meta.get("duration_ms") if chain else raw_meta.get("duration_ms")
+        observed_duration = None if observed_ms is None else round(observed_ms / 1000, 3)
         self.traces[rid] = {
             "engine": "stable-diffusion.cpp",
             "engine_release_declared": self.cfg["manifest"].get("engine", {}).get("release"),
@@ -1026,7 +1133,8 @@ class SdCppProvider:
                 "raw_output": {"name": raw.name, "sha256": raw_sha, "bytes": raw.stat().st_size,
                                "container": "matroska" if video else "png",
                                "width": raw_meta.get("width"), "height": raw_meta.get("height")},
-                "frames": s.get("frames"), "fps": s.get("fps"),
+                "frames": s.get("frames"), "fps": s.get("fps"), "length": s.get("length"),
+                "segments": chain or None,
                 "duration_s_declared": declared_duration_s(s), "duration_s_observed": observed_duration,
                 "image_to_video": job["init"] is not None,
                 "log_tail": job["log"][-12:],

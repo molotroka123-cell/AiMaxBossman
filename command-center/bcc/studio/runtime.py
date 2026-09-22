@@ -250,7 +250,12 @@ async def process_claimed(svc,job):
     if not ext: return await fail(svc,job['id'],'malformed','studio metadata missing')
     task=asyncio.create_task(_generate(svc,job,ext))
     try:
-        deadline=time.monotonic()+next(m['deadline_seconds'] for m in model_specs() if m['id']==ext['plane']['model'])
+        budget=next(m['deadline_seconds'] for m in model_specs() if m['id']==ext['plane']['model'])
+        if ext['plane']['model'].startswith('sdcpp:'):
+            # A segment chain (length 10s/15s/30s) runs one engine pass per segment.
+            from bcc.studio.providers.sdcpp import segments_for
+            budget*=segments_for(ext['plane'].get('settings') or {})
+        deadline=time.monotonic()+budget
         while not task.done():
             await asyncio.wait({task},timeout=0.25)
             row=await one(svc,image_jobs,image_jobs.c.id,job['id'])
