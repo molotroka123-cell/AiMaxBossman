@@ -244,3 +244,12 @@ async def test_testrun_preset_with_default_size_completes_and_plane_matches_outp
     assert (plane["width"], plane["height"], plane["frames"], plane["steps"]) == (640, 352, 17, 16)
     run = (await env.client.get("/api/studio/runs")).json()["items"][0]
     assert (run["provenance"]["output"]["width"], run["provenance"]["output"]["height"]) == (640, 352)
+
+
+def test_deadline_scales_with_work_and_never_drops_below_the_catalog():
+    ref = {"width": 832, "height": 480, "frames": 49, "steps": 20}
+    assert sdcpp.workload_scale(ref) == 1.0
+    assert sdcpp.workload_scale({**ref, "width": 640, "height": 352, "frames": 17, "steps": 16}) == 1.0
+    hq = sdcpp.workload_scale({"width": 1280, "height": 704, "frames": 81, "steps": 50})
+    assert 9.0 < hq < 9.5, hq
+    assert sdcpp.workload_scale({"width": 1024, "height": 1024, "steps": 8}) == 1.0  # images: no frames

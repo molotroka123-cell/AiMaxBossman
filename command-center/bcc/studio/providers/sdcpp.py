@@ -466,6 +466,20 @@ def apply_length(settings: dict) -> dict:
     return {**settings, **{k: v for k, v in preset.items() if k != "segments"}}
 
 
+# Deadline scale: the catalog deadline covers the reference clip 832x480, 49 frames, 20 steps.
+# Bigger work (720p, 81 frames, 50 steps) gets a proportionally longer budget instead of being
+# killed mid-segment; smaller work keeps the catalog deadline (never below it).
+_REFERENCE_WORK = 832 * 480 * 49 * 20
+
+
+def workload_scale(settings: dict) -> float:
+    s = settings or {}
+    if not s.get("frames"):
+        return 1.0
+    work = s.get("width", 832) * s.get("height", 480) * s["frames"] * s.get("steps", 20)
+    return max(1.0, work / _REFERENCE_WORK)
+
+
 def declared_duration_s(settings: dict) -> float | None:
     if settings.get("frames") and settings.get("fps"):
         n = segments_for(settings)
@@ -722,6 +736,9 @@ class SdCppProvider:
             self.reconcile_report = {"error": type(exc).__name__}
         if self.hard_timeout_s is None:
             self.hard_timeout_s = float(model.get("deadline_seconds") or 3600) + 60
+        # The catalog default; any other value (class or instance override) is explicit
+        # and wins over the work-proportional budget.
+        self._catalog_timeout_s = float(model.get("deadline_seconds") or 3600) + 60
         if self.min_free_bytes is None:
             self.min_free_bytes = MIN_FREE_BYTES.get(model.get("surface"), MIN_FREE_BYTES["image"])
 
@@ -789,7 +806,9 @@ class SdCppProvider:
                "log": [], "proc": None, "pid": None, "create_time": None, "returncode": None, "peak_rss": 0,
                "elapsed_s": None, "failure": None, "failure_detail": None, "raw_meta": None,
                "sidecar": sidecar, "record": record, "state": "pending",
-               "plane": plane, "raws": raws, "frame_files": frame_files, "segment_results": []}
+               "plane": plane, "raws": raws, "frame_files": frame_files, "segment_results": [],
+               "hard_timeout_s": self.hard_timeout_s if self.hard_timeout_s != self._catalog_timeout_s else
+               float(self.model.get("deadline_seconds") or 3600) * workload_scale(settings) + 60}
         self._jobs[rid] = job
         job["task"] = asyncio.create_task(self._run(rid, job))
         return Submitted(rid, cancel_ref=rid)
@@ -904,11 +923,11 @@ class SdCppProvider:
 
         sampler = asyncio.create_task(sample())
         try:
-            async with asyncio.timeout(self.hard_timeout_s):
+            async with asyncio.timeout(job.get("hard_timeout_s") or self.hard_timeout_s):
                 await self._pump_log(proc, job)
                 await proc.wait()
         except TimeoutError:
-            job["failure"], job["failure_detail"] = "timeout", f"engine exceeded {self.hard_timeout_s}s"
+            job["failure"], job["failure_detail"] = "timeout", f"engine exceeded {job.get('hard_timeout_s') or self.hard_timeout_s}s"
             self._kill_job(job)
             with contextlib.suppress(Exception):
                 await asyncio.wait_for(proc.wait(), KILL_WAIT_S)
