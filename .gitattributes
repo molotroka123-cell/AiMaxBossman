@@ -13,3 +13,9 @@ docs/owner/evidence/** -text
 # Чекаут с autocrlf превращал LF в CRLF, и замок «ломался» на машине владельца.
 tools/windows_bundle_lock.txt -text
 tools/windows_bundle_build_tools.txt -text
+
+# Комплект владельческого прогона и вендоренные навыки сверяются по sha256/длине
+# побайтово (PREPARATION_FILE_CHECKS.json, voltagent-agent-skills.lock.json):
+# чекаут с autocrlf ломал их на машине владельца.
+docs/v8/owner-final-run/** -text
+.agents/skills/** -text
