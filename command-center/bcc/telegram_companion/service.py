@@ -363,6 +363,62 @@ class Companion(ConsoleMixin):
         chosen = self.store.get("img_model:" + person.key)
         return chosen if chosen in IMAGE_MODELS else self.settings.image_model
 
+    PARTIAL_WAIT_S = 20.0
+
+    async def send_partial_video(self, person, job_id, prompt, video: bool, why: str) -> bool:
+        """«Стоп обрывает на том, что уже есть»: отдать уже готовую часть ролика.
+
+        Возвращает True, если часть отправлена. Подпись всегда честная: это НЕ тот ролик,
+        который просили — сколько сегментов из скольких, сколько секунд вместо скольких.
+        Если готово ноль сегментов — прямо сказать, что сохранять нечего, и ничего не слать.
+        Ошибки здесь никогда не заменяют собой исходную причину остановки.
+        """
+        if not video:
+            return False
+        run = None
+        deadline = time.monotonic() + self.PARTIAL_WAIT_S
+        while time.monotonic() < deadline:          # склейка сегментов идёт уже после отмены
+            try:
+                runs = await self.core.studio_runs(job_id, "video")
+            except CompanionError:
+                runs = []
+            run = next((r for r in runs if isinstance(r.get("provenance"), dict)
+                        and r["provenance"].get("partial") is True
+                        and r["provenance"].get("complete") is False), None)
+            if run is not None:
+                break
+            await asyncio.sleep(self.image_poll_seconds)
+        if run is None:
+            with contextlib.suppress(CompanionError):
+                await self.telegram.send(person, "Сохранять нечего: ни один пятисекундный кусок "
+                                                 "не успел досняться. Движок записывает кусок "
+                                                 "только целиком, так что готовых кадров нет.")
+            return False
+        detail = run["provenance"].get("partial_detail") or {}
+        done, total = detail.get("segments_done"), detail.get("segments_total")
+        have, want = detail.get("duration_s"), detail.get("duration_s_if_complete")
+        if type(run.get("file_bytes")) is int and run["file_bytes"] > VIDEO_SEND_LIMIT:
+            with contextlib.suppress(CompanionError):
+                await self.telegram.send(person, f"Готовая часть ({done} из {total}) больше 48 МБ — "
+                                                 f"Telegram такой файл не примет. Она лежит в Bossman "
+                                                 f"Studio, помечена как неполная.")
+            return False
+        try:
+            data = await self.core.studio_file(run["id"], VIDEO_SEND_LIMIT)
+        except CompanionError:
+            return False
+        if hashlib.sha256(data).hexdigest() != run.get("sha256") or not is_mp4(data):
+            return False                            # непроверенные байты не отправляются
+        length = f"{have:g} с вместо {want:g} с" if type(have) in (int, float) and type(want) in (int, float) else ""
+        caption = (f"✂️ НЕПОЛНЫЙ ролик — {why}. Это не законченная съёмка.\n"
+                   f"{prompt[:250]}\nГотово {done} из {total} кусков"
+                   + (f" · {length}" if length else "")
+                   + "\nСнято только то, что движок успел досчитать: ни один кадр не повторён "
+                     "и не дорисован. Полная версия — запустить заново.")
+        with contextlib.suppress(CompanionError):
+            await self.telegram.send_video(person, data, caption, None)
+        return True
+
     async def generate(self, person: Person, prompt: str, surface: str = "image", length: str | None = None,
                        start_run: str | None = None, size: tuple[int, int] | None = None) -> str | None:
         """Local text->image / text->video (or photo->video with start_run) via Bossman Studio;
@@ -422,16 +478,20 @@ class Companion(ConsoleMixin):
                 if self.image_job["cancel"]:
                     with contextlib.suppress(CompanionError):
                         await self.core.studio_cancel(job_id)
+                    await self.send_partial_video(person, job_id, prompt, video, "остановлено вами")
                     raise CompanionError("IMAGE_GEN_CANCELLED")
                 if time.monotonic() - started > deadline:
                     with contextlib.suppress(CompanionError):
                         await self.core.studio_cancel(job_id)
+                    await self.send_partial_video(person, job_id, prompt, video, "вышло время")
                     raise CompanionError("IMAGE_GEN_TIMEOUT")
                 job = await self.core.studio_job(job_id)
                 status = job.get("status")
                 if status == "completed":
                     break
                 if status in {"failed", "cancelled"}:
+                    if status == "cancelled":
+                        await self.send_partial_video(person, job_id, prompt, video, "остановлено")
                     raise CompanionError("IMAGE_GEN_CANCELLED" if status == "cancelled" else "IMAGE_GEN_FAILED")
                 await asyncio.sleep(self.image_poll_seconds)
             runs = await self.core.studio_runs(job_id, surface)

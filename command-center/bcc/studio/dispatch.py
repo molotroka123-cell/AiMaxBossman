@@ -37,6 +37,37 @@ async def inputs_for(svc,inputs):
         result.append({**item,'data_uri':f"data:{row['mime']};base64,"+base64.b64encode(data).decode()})
     return tuple(result)
 
+async def salvage_partial(svc,job,plane,model,provider,request_id,reason):
+    """«Стоп обрывает на том, что уже есть»: сохранить сегменты, которые движок реально доделал.
+
+    Возвращает run_id или None. None означает «сохранять нечего» — ноль готовых сегментов,
+    провайдер без такой возможности, или байты не прошли верификацию. Пустой или битый файл
+    не выдаётся за результат никогда, и задание от этого не становится завершённым.
+    """
+    if getattr(provider,'partial_result',None) is None:return None
+    try:info=provider.partial_result(request_id)
+    except (ValueError,KeyError):return None
+    if not info or not info.get('segments_done'):return None
+    path=storage(svc).root/f"generated-{job['id']}-partial.mp4"
+    try:result=await provider.fetch_partial(request_id,path)
+    except asyncio.CancelledError:raise
+    except Exception:
+        try:path.unlink(missing_ok=True)
+        except OSError:pass
+        return None
+    detail={**info,'stopped_by':reason}
+    effective={**plane['settings'],'engine_trace':provider.traces.get(request_id)}
+    try:rid=await persist(svc,job['id'],plane,model,result.path,request_id=request_id,cost=0,effective_settings=effective,partial=detail)
+    except asyncio.CancelledError:raise
+    except Exception:rid=None            # верификация не прошла -> не сохраняем ничего
+    if rid is None:
+        try:result.path.unlink(missing_ok=True)
+        except OSError:pass
+        return None
+    await svc.bus.emit('studio.job.partial',job_id=job['id'],run_id=rid,reason=reason,
+                       segments_done=info['segments_done'],segments_total=info['segments_total'])
+    return rid
+
 async def generate(svc,job,ext,model):
     plane=ext['plane'];reservation=None
     if model['provider']=='comfyui':
@@ -82,9 +113,13 @@ async def generate(svc,job,ext,model):
                 await s.execute(sa.update(jobs).where(jobs.c.job_id==job['id']).values(request_id=receipt.request_id));await s.commit()
             while True:
                 status=await provider.status(receipt.request_id)
-                if status.reason:raise ProviderFailure(status)
+                if status.reason:
+                    if status.reason=='timeout':await salvage_partial(svc,job,plane,model,provider,receipt.request_id,'timeout')
+                    raise ProviderFailure(status)
                 if status.state=='completed':break
-                if status.state=='canceled':raise StudioError('canceled','Provider canceled')
+                if status.state=='canceled':
+                    await salvage_partial(svc,job,plane,model,provider,receipt.request_id,'canceled')
+                    raise StudioError('canceled','Provider canceled')
                 await asyncio.sleep(0.5)
             for n,output in enumerate(status.outputs):
                 suffix='.png' if model['surface']=='image' else '.mp4'
@@ -108,5 +143,8 @@ async def generate(svc,job,ext,model):
                         proof={'configuration':await provider_fingerprint(svc,model['id']),'run_id':rid,'model':model['id'],'at':__import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()}
                         await s.execute(insert(config).values(key='probe:'+model['id'],value=proof).on_conflict_do_update(index_elements=['key'],set_={'value':proof}));await s.commit()
     except asyncio.CancelledError:
-        if 'receipt' in locals():await provider.cancel(receipt.request_id)
+        if 'receipt' in locals():
+            await provider.cancel(receipt.request_id)
+            # Отмена владельцем: сначала сохранить готовую часть, потом уже уходить.
+            await salvage_partial(svc,job,ext['plane'],model,provider,receipt.request_id,'canceled')
         raise
