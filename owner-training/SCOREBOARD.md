@@ -9,7 +9,7 @@ CLAUDE_HINT_REQUIRED · CLAUDE_PATCH_REQUIRED · FAIL · HARNESS (attempt not sc
 |---|---|---|---|---|---|---|
 | DESK-EDGE-RELAUNCH (P1) | a1 06:28Z | MAIN 27B, ctx 32k | crashed at turn 4 | HARNESS | `request 38480 > 32768 ctx` — server started with 32k | none (not the model's fault); ctx raised |
 | DESK-EDGE-RELAUNCH (P1) | a2 06:36Z | MAIN 27B, 2×64k slots | crashed at turn 21, partial patch | HARNESS (not scored) | `request 66032 > 65536` per slot | observation only: partial patch detected the holder via `wmic` — `wmic` does not exist on this Windows 11 (verified), so it would silently fail-open. Kept as a candidate reviewer check, NOT a lesson (unverified attempt). |
-| DESK-EDGE-RELAUNCH (P1) | a3 07:14Z | MAIN 27B, ctx 128k/1 slot | running | pending | — | — |
+| DESK-EDGE-RELAUNCH (P1) | a3 07:14Z | MAIN 27B, ctx 128k/1 slot | STOPPED by owner shutdown at 07:49Z, 38 API steps, uncommitted +167 lines (desktop.py + test_ux2_desktop.py) | NOT_SCORED | diff saved: owner-training/runs/desk-edge-a3-partial.diff. Integrator pre-read (not shown to student): holder detection only in the timeout branch; exact string match on --user-data-dir without path normalisation; waits up to max(5,timeout) when no browser exists (req. 2 wants a quick exit) | resume: score a3 diff with hidden verifier, then GPT-OSS review level 1 |
 | MEDIA-RESTART (P1) | — | — | task frozen | pending | hidden verifier: base FAILS, teacher reference 2/2 (private) | — |
 
 ## Counters
