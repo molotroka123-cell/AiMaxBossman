@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 274. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 275. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -82,6 +82,7 @@
 | `command-center/tests/test_run_provenance_postgres.py:23` | skip | `—` | POSTGRES_LIVE_REQUIRED: set BCC_TEST_POSTGRES_URL or use postgres-contracts CI | Command Center | живой внешний сервис / owner-authorized live | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_secrem_f009_terminal.py:172` | skip | `—` | NOT_TESTED_ON_THIS_HOST: docker daemon unavailable — F-009 container mount proof deferred to RunPod/owner host | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_secrem_f009_terminal.py:270` | skip | `—` | NOT_TESTED_ON_THIS_HOST: docker daemon unavailable — the absolute-path containment proof belongs to the container mount and is deferred to the owner host | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_skill_catalog.py:135` | importorskip | `—` | нет пакета bossman.apprentice.local_sidecar | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_smoke_live_owner.py:43` | skipif | `_app_missing()` | f"приложения {APP} нет среди манифестов" | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_smoke_live_owner.py:44` | skipif | `_port_taken()` | порт приложения занят посторонним процессом | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_smoke_live_owner.py:23` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

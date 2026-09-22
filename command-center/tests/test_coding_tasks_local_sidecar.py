@@ -177,3 +177,44 @@ async def test_recipes_from_memory_reach_the_sidecar_and_their_check_is_enforced
     assert rec["memory"]["recipe_ids"] == ["R-calc-add"] and rec["memory"]["recalled"] is True
     assert rec["sidecar"]["recipes_applied"] == ["R-calc-add"] and rec["sidecar"]["memory_used"] is True
     assert ["finish", False] in [[c["tool"], c["ok"]] for c in rec["sidecar"]["tool_calls"]]
+
+
+async def test_catalog_skills_reach_the_sidecar_for_a_bug_fix_task(env, repo, monkeypatch, tmp_path):
+    """A bug-fix task gets the vetted methodology skills (debugging / TDD /
+    verification) in the sidecar context; the record names them."""
+    server = _use(monkeypatch, FIX, name="skills")
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    import tempfile; monkeypatch.setattr(tempfile, "tempdir", None)
+    try:
+        await _allow(env, repo.parent)
+        res = await env.client.post("/api/coding-tasks", json={
+            "instruction": "Fix the bug: add() returns a wrong result; reproduce it with a failing test first",
+            "source_repo": str(repo), "allowed_paths": ["calc.py"], "timeout_seconds": 120, "use_memory": False})
+        rec = await _wait(env, res.json()["id"])
+    finally:
+        server.shutdown()
+    assert rec["status"] == "completed", rec.get("error")
+    ids = rec["skills"]["ids"]
+    assert ids and any("debugging" in i for i in ids), rec["skills"]
+    assert rec["sidecar"]["skills_used"] == ids[:3]
+
+
+async def test_a_broken_skill_catalog_costs_guidance_not_the_task(env, repo, monkeypatch, tmp_path):
+    from bcc.features import skills as skills_mod
+
+    async def boom(*_a, **_k):
+        raise RuntimeError("catalog down")
+
+    monkeypatch.setattr(skills_mod, "skills_for_task", boom)
+    server = _use(monkeypatch, FIX, name="noskills")
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    import tempfile; monkeypatch.setattr(tempfile, "tempdir", None)
+    try:
+        await _allow(env, repo.parent)
+        res = await env.client.post("/api/coding-tasks", json={
+            "instruction": "Fix the bug in add()", "source_repo": str(repo), "allowed_paths": ["calc.py"],
+            "timeout_seconds": 120, "use_memory": False})
+        rec = await _wait(env, res.json()["id"])
+    finally:
+        server.shutdown()
+    assert rec["status"] == "completed" and rec["skills"]["ids"] == [] and rec["skills"]["error"] == "RuntimeError"

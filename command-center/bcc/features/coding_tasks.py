@@ -215,7 +215,7 @@ async def _confined_repo(svc, raw: str) -> Path:
 
 SIDECAR_FIELDS = ("schema", "status", "summary", "tests", "notes", "steps", "stop_reason", "tool_calls",
                   "recipes_applied", "executor", "model", "deterministic_test_model", "model_kind", "profile",
-                  "memory_used")
+                  "memory_used", "skills_used")
 
 
 def _verify_in_sandbox(root: Path, tests: list[str], timeout: int) -> dict:
@@ -348,6 +348,24 @@ async def _memory_context(svc, body: TaskIn, profile: dict | None) -> tuple[dict
     return ctx, info
 
 
+async def _skills_context(svc, body: TaskIn) -> tuple[list[dict], dict]:
+    """Methodology skills from the vetted catalog (features.skills). UNVERIFIED
+    guidance only: they grant no tool, no permission and change no success
+    criterion; the catalog itself strips policy-violating lines. Never raises."""
+    info: dict[str, Any] = {"ids": [], "error": ""}
+    try:
+        from .skills import skills_for_task  # noqa: WPS433
+        items = await skills_for_task(svc, body.instruction)
+    except Exception as exc:  # noqa: BLE001 — skills cost the task its guidance, never its run
+        info["error"] = f"{type(exc).__name__}"
+        return [], info
+    skills = [{"id": s.get("id"), "title": s.get("title"), "text": s.get("text"),
+               "status": s.get("status"), "unsupported_tools": s.get("unsupported_tools") or []}
+              for s in items or [] if s.get("text")]
+    info["ids"] = [s["id"] for s in skills]
+    return skills, info
+
+
 async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None = None) -> None:
     try:
         final = await asyncio.to_thread(_execute, record, repo, body, context)
@@ -387,11 +405,15 @@ async def create_task(body: TaskIn, request: Request):
     repo = await _confined_repo(svc, body.source_repo)
     profile = await _agent_profile(svc, body.agent_id)
     context, memory = await _memory_context(svc, body, profile)
+    skills, skills_info = await _skills_context(svc, body)
+    if skills:
+        context["skills"] = skills
     if profile:
         context["profile"] = {k: v for k, v in profile.items() if k != "use_memory" and v is not None}
     record = {"id": secrets.token_hex(6), "status": "running", "instruction": body.instruction,
               "boot_id": BOOT_ID, "agent": ({"id": profile["agent_id"], "name": profile["name"]} if profile else None),
-              "project_id": body.project_id, "memory": memory, "verify_tests": list(body.verify_tests),
+              "project_id": body.project_id, "memory": memory, "skills": skills_info,
+              "verify_tests": list(body.verify_tests),
               "source_repo": str(repo), "allowed_paths": list(body.allowed_paths),
               "protected_paths": list(body.protected_paths), "model": body.model,
               "created_at": time.time(), "finished_at": None, "changed_files": [], "diff": "",
