@@ -1,0 +1,94 @@
+{
+  "tag": "oss-120b",
+  "model": "C:\\Users\\asd\\Bossman\\models\\gpt-oss-120b\\openai_gpt-oss-120b-MXFP4_MOE\\openai_gpt-oss-120b-MXFP4_MOE-00001-of-00002.gguf",
+  "passed": 7,
+  "total": 7,
+  "seconds": 90.1,
+  "gen_tps_median": 49.003228878077,
+  "results": {
+    "A_bug": {
+      "pass": true,
+      "note": "ok\n",
+      "calls": [
+        {
+          "s": 9.4,
+          "gen_tps": 49.22485904027277,
+          "pp_tps": 98.45280738854603,
+          "out": 426
+        }
+      ]
+    },
+    "B_repo_nav": {
+      "pass": true,
+      "note": "command-center/bcc/registry.py",
+      "calls": [
+        {
+          "s": 6.2,
+          "gen_tps": 49.003228878077,
+          "pp_tps": 207.65996272880255,
+          "out": 249
+        }
+      ]
+    },
+    "C_patch_regression": {
+      "pass": true,
+      "note": "fixed_rc=0 buggy_rc=1 ok\n",
+      "calls": [
+        {
+          "s": 36.0,
+          "gen_tps": 48.51580611553301,
+          "pp_tps": 128.14633809275531,
+          "out": 1700
+        }
+      ]
+    },
+    "D_tool_select": {
+      "pass": true,
+      "note": "[{\"type\": \"function\", \"function\": {\"name\": \"run_tests\", \"arguments\": \"{\\n  \\\"path\\\": \\\"command-center/tests/test_health_model_components.py\\\"\\n}\"}, \"id\": \"htY9ty710u5CtZDxHM7GPZ3q7zzbGczS\"}]",
+      "calls": [
+        {
+          "s": 2.5,
+          "gen_tps": 49.472670801922305,
+          "pp_tps": 126.10276358274221,
+          "out": 51
+        }
+      ]
+    },
+    "E_json": {
+      "pass": true,
+      "note": "{\n  \"file\": \"utils.py\",\n  \"line\": 4,\n  \"severity\": \"high\",\n  \"fix\": \"Update the loop range to include the last window, e.g., replace the current range with `ran",
+      "calls": [
+        {
+          "s": 4.9,
+          "gen_tps": 49.11239828921033,
+          "pp_tps": 98.26985497751704,
+          "out": 200
+        }
+      ]
+    },
+    "F_tool_recovery": {
+      "pass": true,
+      "note": "[{\"type\": \"function\", \"function\": {\"name\": \"read_file\", \"arguments\": \"{\\\"path\\\":\\\"command-center/bcc/health.py\\\"}\"}, \"id\": \"qAn4YOfWh7Hida0mg0CSSxXh4GOl39Nk\"}]",
+      "calls": [
+        {
+          "s": 1.9,
+          "gen_tps": 47.98331460206904,
+          "pp_tps": 97.67023051512349,
+          "out": 46
+        }
+      ]
+    },
+    "G_context": {
+      "pass": true,
+      "note": "AMBER-4471",
+      "calls": [
+        {
+          "s": 29.2,
+          "gen_tps": 43.071763300560505,
+          "pp_tps": 441.015153061974,
+          "out": 91
+        }
+      ]
+    }
+  }
+}

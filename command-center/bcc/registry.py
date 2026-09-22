@@ -16,6 +16,7 @@ from .fable_cap import capped
 from .secrets import Vault, mask
 
 BENCH_PROMPT = "Ответь одним словом: работаешь?"
+REASONING_PROBE_TOKENS = 1024
 
 
 class Registry:
@@ -209,6 +210,13 @@ class Registry:
         try:
             result: ChatResult = await adapter.chat(
                 model["name"], [{"role": "user", "content": BENCH_PROMPT}], max_tokens=32)
+            if not (result.text or "").strip() and result.finish == "length":
+                # A reasoning model (GPT-OSS) spends a 32-token budget thinking and is cut
+                # off before it answers: that is a small budget, not a silent model. One
+                # retry with room; a real answer is still required.
+                result = await adapter.chat(
+                    model["name"], [{"role": "user", "content": BENCH_PROMPT}],
+                    max_tokens=REASONING_PROBE_TOKENS)
         except ProviderError as exc:
             status = "offline" if exc.kind == "network" else "error"
             await self._set_status(model_id, status, str(exc))

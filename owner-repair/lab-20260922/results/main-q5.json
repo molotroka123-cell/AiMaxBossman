@@ -1,0 +1,94 @@
+{
+  "tag": "main-q5",
+  "model": "C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf",
+  "passed": 6,
+  "total": 7,
+  "seconds": 315.8,
+  "gen_tps_median": 9.965417735589837,
+  "results": {
+    "A_bug": {
+      "pass": true,
+      "note": "ok\n",
+      "calls": [
+        {
+          "s": 10.0,
+          "gen_tps": 10.030613773256785,
+          "pp_tps": 34.59889786034649,
+          "out": 60
+        }
+      ]
+    },
+    "B_repo_nav": {
+      "pass": true,
+      "note": "command-center/bcc/registry.py",
+      "calls": [
+        {
+          "s": 5.9,
+          "gen_tps": 10.042306803949781,
+          "pp_tps": 45.91773825537302,
+          "out": 8
+        }
+      ]
+    },
+    "C_patch_regression": {
+      "pass": true,
+      "note": "fixed_rc=0 buggy_rc=1 ok\n",
+      "calls": [
+        {
+          "s": 36.3,
+          "gen_tps": 10.007439371774451,
+          "pp_tps": 44.16172180244491,
+          "out": 329
+        }
+      ]
+    },
+    "D_tool_select": {
+      "pass": true,
+      "note": "[{\"type\": \"function\", \"function\": {\"name\": \"run_tests\", \"arguments\": \"{\\\"path\\\":\\\"command-center/tests/test_health_model_components.py\\\"}\"}, \"id\": \"EwUv981VJuMqGgoOrQmPzamIajGS2QMc\"}]",
+      "calls": [
+        {
+          "s": 12.1,
+          "gen_tps": 9.909096426655964,
+          "pp_tps": 52.62207934530375,
+          "out": 33
+        }
+      ]
+    },
+    "E_json": {
+      "pass": true,
+      "note": "{\n  \"file\": \"utils.py\",\n  \"line\": 4,\n  \"severity\": \"high\",\n  \"fix\": \"Fix the range bound to include the last window\"\n}",
+      "calls": [
+        {
+          "s": 7.9,
+          "gen_tps": 9.965417735589837,
+          "pp_tps": 29.6964023854158,
+          "out": 45
+        }
+      ]
+    },
+    "F_tool_recovery": {
+      "pass": false,
+      "note": "[{\"type\": \"function\", \"function\": {\"name\": \"search_code\", \"arguments\": \"{\\\"pattern\\\":\\\"health\\\"}\"}, \"id\": \"0fPZKLBcpPHig5G5LQ6od6m4P1JU9TJY\"}]",
+      "calls": [
+        {
+          "s": 6.8,
+          "gen_tps": 9.81916244900909,
+          "pp_tps": 26.77426676540692,
+          "out": 26
+        }
+      ]
+    },
+    "G_context": {
+      "pass": true,
+      "note": "AMBER-4471",
+      "calls": [
+        {
+          "s": 236.8,
+          "gen_tps": 9.432932523538534,
+          "pp_tps": 66.7575728587049,
+          "out": 8
+        }
+      ]
+    }
+  }
+}

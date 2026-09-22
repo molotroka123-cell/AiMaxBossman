@@ -1,0 +1,37 @@
+# Bossman local model launcher (llama.cpp Vulkan, build b10964)
+# Every model runs with --jinja --reasoning off (otherwise Bossman's model test gets empty answers).
+# RAM (~120 GB): main+fast fit together; oss (~63 GB) fits with ONE of main/fast; nex/occamy ~21 GB each.
+param(
+    [ValidateSet('main','fast','oss','nex','occamy','both','stop')]
+    [string]$Target = 'both'
+)
+$rt  = "$env:USERPROFILE\Bossman\runtime\llama.cpp"
+$mdl = "$env:USERPROFILE\Bossman\models"
+$log = "$env:USERPROFILE\Bossman\tests"
+
+function Start-Model {
+    param([string]$Gguf, [string]$MmProj, [int]$Port, [string]$Tag)
+    $args = @('-m', "$mdl\$Gguf")
+    if ($MmProj) { $args += @('--mmproj', "$mdl\$MmProj") }
+    $args += @('-ngl','999', '-c','32768', '-t','16',
+               '--port',"$Port", '--host','127.0.0.1', '--jinja', '--reasoning','off')
+    $p = Start-Process -FilePath "$rt\llama-server.exe" -ArgumentList $args `
+        -RedirectStandardOutput "$log\$Tag-server.log" `
+        -RedirectStandardError  "$log\$Tag-server.err.log" `
+        -PassThru -WindowStyle Hidden
+    Write-Output "$Tag started on http://127.0.0.1:$Port (pid $($p.Id))"
+}
+
+$models = @{
+    main   = @('qwen38-27b\Qwen3.8-27B-UD-Q5_K_M.gguf', 'qwen38-27b\mmproj-F16.gguf', 8081)
+    fast   = @('qwen36-35b-a3b\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf', 'qwen36-35b-a3b\mmproj-F16.gguf', 8082)
+    oss    = @('gpt-oss-120b\openai_gpt-oss-120b-MXFP4_MOE\openai_gpt-oss-120b-MXFP4_MOE-00001-of-00002.gguf', '', 8083)
+    nex    = @('nex-n25-mini\nex-agi_Nex-N2.5-mini-Q4_K_M.gguf', 'nex-n25-mini\mmproj-nex-agi_Nex-N2.5-mini-f16.gguf', 8084)
+    occamy = @('occamy-1.0\occamy-1.0-Q4_K_M.gguf', 'occamy-1.0\mmproj-occamy-1.0-F16.gguf', 8085)
+}
+
+switch ($Target) {
+    'both' { foreach ($t in 'main','fast') { $m = $models[$t]; Start-Model $m[0] $m[1] $m[2] $t } }
+    'stop' { Stop-Process -Name llama-server -Force -ErrorAction SilentlyContinue; Write-Output 'llama-server stopped' }
+    default { $m = $models[$Target]; Start-Model $m[0] $m[1] $m[2] $Target }
+}
