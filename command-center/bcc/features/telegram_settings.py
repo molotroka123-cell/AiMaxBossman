@@ -384,6 +384,73 @@ async def test_bot():
         await telegram.close()
 
 
+# ---------------------------------------------------------------- токен: ротация и отзыв
+
+class TokenIn(BaseModel):
+    bot_token: str = Field(min_length=1, max_length=200)
+
+
+def _write_secrets(home: Path, secrets: dict) -> None:
+    from ..auth import _restrict_to_owner
+    from ..secrets import Vault
+    home.mkdir(parents=True, exist_ok=True, mode=0o700)
+    _restrict_to_owner(home)
+    vault = Vault(home)
+    _restrict_to_owner(vault.path)
+    _atomic_write(home / "credentials.enc", vault.encrypt(json.dumps(secrets)))
+
+
+@router.post("/telegram/token")
+async def rotate_token(body: TokenIn):
+    """Ротация токена бота — командой ВЛАДЕЛЬЦА в настройках Bossman, не в чате.
+
+    Старый токен перестаёт опрашивать Telegram до записи нового: мост
+    останавливается, потом переписывается секрет. В ответе — только маска;
+    сам токен не возвращается, не логируется и никуда не отправляется.
+    Отзыв старого токена на стороне Telegram делает @BotFather — это внешняя
+    система, и утверждать за неё я не могу.
+    """
+    path = config_path()
+    home = path.parent
+    token = body.bot_token.strip()
+    if not TOKEN_RE.match(token):
+        raise HTTPException(422, "Токен бота не похож на токен от @BotFather (цифры:буквы).")
+    secrets = _read_secrets(home)
+    if not secrets.get("bot_token"):
+        raise HTTPException(409, "Сначала сохраните настройки Telegram: ротировать нечего.")
+    if token == secrets["bot_token"]:
+        raise HTTPException(422, "Это тот же самый токен. Сначала выпустите новый в @BotFather.")
+    await asyncio.to_thread(_stop)              # старый токен больше не опрашивает Telegram
+    _write_secrets(home, {**secrets, "bot_token": token})
+    return {"rotated": True, "bot_token_masked": _mask(token), "status": _status(),
+            "next": "Старый токен отзовите в @BotFather (/revoke) — это делается вне Bossman. "
+                    "Затем запустите мост заново."}
+
+
+@router.delete("/telegram/token")
+async def revoke_token():
+    """Отзыв токена: мост останавливается, сохранённый токен стирается, Telegram
+    выключается. Разговоры и локальная память не трогаются — их удаляет /forget
+    или раздел людей."""
+    path = config_path()
+    home = path.parent
+    secrets = _read_secrets(home)
+    if not secrets.get("bot_token"):
+        return {"revoked": False, "reason": "NO_TOKEN_STORED", "status": _status()}
+    await asyncio.to_thread(_stop)
+    _write_secrets(home, {**secrets, "bot_token": ""})
+    try:
+        cfg = _read_config(path)
+    except (OSError, ValueError):
+        cfg = {}
+    if cfg:
+        cfg["enabled"] = False
+        _atomic_write(path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
+    return {"revoked": True, "bot_token_masked": "", "status": _status(),
+            "next": "Токен стёрт локально. Обязательно отзовите его и в @BotFather (/revoke): "
+                    "пока он там жив, им может пользоваться тот, кто его видел."}
+
+
 @router.post("/telegram/commands")
 async def set_commands():
     """Owner-pressed only: register the bot's command list (setMyCommands)."""
