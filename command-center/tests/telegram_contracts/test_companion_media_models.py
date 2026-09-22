@@ -20,7 +20,7 @@ class MultiStudio(FakeStudio):
         if url.path == '/api/studio/models':
             self.requests.append((request.method, url.path))
             return httpx.Response(200, json={'items': [{'id': m, 'available': True} for m in
-                                  ('sdcpp:z-image-turbo', 'sdcpp:flux1-schnell', 'sdcpp:sdxl-base', VIDEO_MODEL)]})
+                                  ('sdcpp:z-image-turbo', 'sdcpp:flux1-schnell', 'sdcpp:sdxl-base', 'sdcpp:flux2-klein-4b', VIDEO_MODEL)]})
         if url.path == '/api/studio/runs':
             self.surface = url.params['surface']
             mime = 'video/mp4' if self.surface == 'video' else 'image/png'
@@ -29,11 +29,12 @@ class MultiStudio(FakeStudio):
         return super().__call__(request)
 
 
-def test_imgmodel_menu_lists_three_image_models(tmp_path):
+def test_imgmodel_menu_lists_every_image_model_and_marks_the_current_one(tmp_path):
     reply, _, _ = run(tmp_path, MultiStudio(), text='/imgmodel')
     assert isinstance(reply, Reply)
     labels = [label for row in reply.keyboard for label, _ in row]
-    assert labels == ['✅ Z-Image-Turbo', 'FLUX.1-schnell', 'SDXL 1.0']
+    # Every image model in the catalogue, the video model never among them.
+    assert labels == ['✅ Z-Image-Turbo', 'FLUX.1-schnell', 'SDXL 1.0', 'FLUX.2-klein']
 
 
 def test_chosen_model_is_used_with_its_own_default_steps(tmp_path):
