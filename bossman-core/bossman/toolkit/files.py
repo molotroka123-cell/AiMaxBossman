@@ -44,7 +44,9 @@ async def fs_read(args: dict, ctx: ToolContext) -> ToolResult:
 async def fs_write(args: dict, ctx: ToolContext) -> ToolResult:
     path = _resolve(ctx, args["path"])
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(args["content"], encoding="utf-8")
+    # newline="": ровно байты агента. Текстовый режим Windows превращал \n в \r\n,
+    # и гейт завершения видел на диске не то, что было записано (OS-08).
+    path.write_text(args["content"], encoding="utf-8", newline="")
     line = f"записан {args['path']} ({len(args['content'])} байт)"
     return ToolResult(line, one_line=line)
 
@@ -52,12 +54,17 @@ async def fs_write(args: dict, ctx: ToolContext) -> ToolResult:
 async def fs_edit(args: dict, ctx: ToolContext) -> ToolResult:
     """Замена точного фрагмента (diff-подход: старое → новое, без переписывания файла)."""
     path = _resolve(ctx, args["path"])
-    text = path.read_text(encoding="utf-8", errors="replace")
+    # newline="" на чтении и записи: правка не переписывает окончания строк файла.
+    with path.open(encoding="utf-8", errors="replace", newline="") as stream:
+        text = stream.read()
     old = args["old"]
+    if text.count(old) != 1 and "\r\n" in text and "\n" in old and "\r\n" not in old:
+        # Модель пишет фрагмент с \n; в CRLF-файле ищем его с окончаниями файла.
+        old, args = old.replace("\n", "\r\n"), {**args, "new": str(args["new"]).replace("\n", "\r\n")}
     if text.count(old) != 1:
         return ToolResult(f"фрагмент найден {text.count(old)} раз — нужен уникальный",
                           one_line=f"edit {args['path']}: фрагмент не уникален", error=True)
-    path.write_text(text.replace(old, args["new"], 1), encoding="utf-8")
+    path.write_text(text.replace(old, args["new"], 1), encoding="utf-8", newline="")
     line = f"правка в {args['path']}"
     return ToolResult(line, one_line=line)
 
