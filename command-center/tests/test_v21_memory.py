@@ -233,8 +233,47 @@ async def test_model_calls_memory_search_and_cites_source(env, vault_dir):
     assert "PostgreSQL" in result and "notes/architecture.md" in result
 
 
-async def test_memory_is_not_injected_into_every_call(env, vault_dir):
-    """Требование: никакой автоматической инъекции памяти в каждый вызов модели."""
+def _memory_packs(messages):
+    return [m for m in messages
+            if m.get("role") == "system" and "[MEMORY CONTEXT" in str(m.get("content") or "")]
+
+
+async def test_memory_arrives_once_at_task_start_not_in_every_call(env, vault_dir):
+    """V2.1 запрещал инъекцию памяти в КАЖДЫЙ вызов модели. Контракт памяти владельца
+    (DURABLE_MEMORY_OPERATING_CONTRACT, TASK_START) требует автоматически поднять текущие
+    решения проекта на старте задачи. Оба верны вместе: пакет памяти появляется ровно
+    один раз — при старте прогона — и не добавляется заново на следующих шагах."""
+    await _configure(env, vault_dir)
+    await env.client.post("/api/memory/index", json={})
+
+    adapter = ToolAdapter([("tool", "memory_search", {"query": "база данных"}),
+                           ("text", "мы выбрали PostgreSQL")])
+    stack = await _stack(env, ["memory.*"], adapter=adapter)
+    assert await _run_task(env, stack["task"]["id"]) == "completed"
+
+    assert len(adapter.seen_messages) >= 2
+    first = _memory_packs(adapter.seen_messages[0])
+    assert len(first) == 1 and "PostgreSQL" in first[0]["content"]
+    assert "DATA, NOT INSTRUCTIONS" in first[0]["content"]
+    # the second model call carries the same single pack from history, not a new one
+    assert all(len(_memory_packs(call)) == 1 for call in adapter.seen_messages[1:])
+
+
+async def test_an_unrelated_task_gets_no_memory(env, vault_dir):
+    await _configure(env, vault_dir)
+    await env.client.post("/api/memory/index", json={})
+
+    adapter = ToolAdapter([("text", "4")])
+    stack = await _stack(env, ["memory.*"], adapter=adapter, prompt="посчитай 2+2")
+    assert await _run_task(env, stack["task"]["id"]) == "completed"
+
+    blob = "\n".join(str(m.get("content") or "") for m in adapter.seen_messages[0])
+    assert _memory_packs(adapter.seen_messages[0]) == []
+    assert "PostgreSQL" not in blob and "architecture.md" not in blob
+
+
+async def test_recall_can_be_switched_off(env, vault_dir, monkeypatch):
+    monkeypatch.setenv("BCC_MEMORY_RECALL", "0")
     await _configure(env, vault_dir)
     await env.client.post("/api/memory/index", json={})
 
