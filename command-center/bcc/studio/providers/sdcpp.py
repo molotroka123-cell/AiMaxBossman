@@ -12,6 +12,7 @@ Models (pinned files, see `MANIFEST.json`; schema in docs/media/SDCPP_ENGINE_RU.
   * `sdcpp:z-image-turbo`   — Z-Image-Turbo, text→image, Apache-2.0.
   * `sdcpp:flux1-schnell`   — FLUX.1-schnell, text→image, Apache-2.0.
   * `sdcpp:sdxl-base`       — Stable Diffusion XL 1.0, text→image, OpenRAIL++-M.
+  * `sdcpp:flux2-klein-4b`  — FLUX.2-klein-4B, text→image, Apache-2.0.
 
 Honesty boundary: the engine writes .webm/.png; the Studio persists only
 bytes that pass ffprobe + full decode (runtime.verify_file) — a zero exit code
@@ -77,6 +78,7 @@ ENGINES = {
     "sdcpp:z-image-turbo": "z-image-turbo",
     "sdcpp:flux1-schnell": "flux1-schnell",
     "sdcpp:sdxl-base": "sdxl-base",
+    "sdcpp:flux2-klein-4b": "flux2-klein-4b",
 }
 # Roles the argv needs per engine; every file listed in the manifest entry is hashed,
 # these must at least be present.
@@ -85,6 +87,7 @@ REQUIRED_ROLES = {
     "sdcpp:z-image-turbo": ("diffusion", "vae", "text_encoder"),
     "sdcpp:flux1-schnell": ("diffusion", "vae", "clip_l", "t5xxl"),
     "sdcpp:sdxl-base": ("model", "vae"),
+    "sdcpp:flux2-klein-4b": ("diffusion", "vae", "llm"),
 }
 ALLOWED_INPUT_ROLES = frozenset({"start"})
 ALLOWED_INPUT_FORMATS = frozenset({"PNG", "JPEG"})
@@ -508,6 +511,12 @@ def _argv(cfg: dict, model_id: str, plane: GenerationPlane, settings: dict,
         argv += ["--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),
                  "--clip_l", str(files["clip_l"]), "--t5xxl", str(files["t5xxl"]),
                  "--cfg-scale", "1.0", "--sampling-method", "euler"]
+    elif model_id == "sdcpp:flux2-klein-4b":
+        # Live on the owner machine 2026-09-22: 1024x1024, 4 steps, 69.8 s.
+        # --offload-to-cpu keeps the 4B weights out of the iGPU buffer limit.
+        argv += ["--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),
+                 "--llm", str(files["llm"]), "--cfg-scale", "1.0",
+                 "--offload-to-cpu", "--diffusion-fa"]
     elif model_id == "sdcpp:sdxl-base":
         argv += ["-m", str(files["model"]), "--vae", str(files["vae"]),
                  "--cfg-scale", "7.0", "--sampling-method", "dpm++2m"]

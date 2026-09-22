@@ -479,6 +479,65 @@
       "status": "UNVERIFIED"
     },
     {
+      "id": "sdcpp:flux2-klein-4b",
+      "provider": "sdcpp",
+      "surface": "image",
+      "label": "FLUX.2-klein-4B — локальная генерация изображений (stable-diffusion.cpp, Vulkan)",
+      "settings": {
+        "width": {
+          "type": "range",
+          "min": 256,
+          "max": 2048,
+          "default": 1024,
+          "integer": true,
+          "multiple_of": 16
+        },
+        "height": {
+          "type": "range",
+          "min": 256,
+          "max": 2048,
+          "default": 1024,
+          "integer": true,
+          "multiple_of": 16
+        },
+        "steps": {
+          "type": "range",
+          "min": 1,
+          "max": 8,
+          "default": 4,
+          "integer": true
+        },
+        "seed": {
+          "type": "range",
+          "min": 0,
+          "max": 2147483647,
+          "default": null,
+          "nullable": true,
+          "integer": true
+        }
+      },
+      "roles": {},
+      "source": "command-center/bcc/studio/providers/sdcpp.py; leejet/FLUX.2-klein-4B-GGUF@3b1f5a9d + black-forest-labs/FLUX.2-small-decoder@a3efc24f + unsloth/Qwen3-4B-GGUF@22c9fc8a",
+      "deadline_seconds": 900,
+      "license": "Apache-2.0 (black-forest-labs/FLUX.2-klein-4B, все компоненты)",
+      "price": {
+        "kind": "local",
+        "usd": 0,
+        "source": "local engine, no provider charge"
+      },
+      "free": true,
+      "enabled": false,
+      "answers": {
+        "BUNDLED": false,
+        "CONFIGURED": "BOSSMAN_SDCPP_BIN + BOSSMAN_MEDIA_MODELS (MANIFEST.json)",
+        "MODEL_REQUIRED": true,
+        "EXTERNAL_SERVICE_REQUIRED": false,
+        "VERIFIED": false
+      },
+      "verified_capabilities": {},
+      "status": "UNVERIFIED"
+    },
+    {
       "id": "sdcpp:sdxl-base",
       "provider": "sdcpp",
       "surface": "image",

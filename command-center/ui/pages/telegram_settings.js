@@ -87,7 +87,8 @@ export async function telegramPanel(ctx) {
   const imgEnabledEl = h('input', { type: 'checkbox', name: 'tg-img-enabled', checked: !!data.image_enabled });
   const imgModelSel = select([{ value: 'sdcpp:z-image-turbo', label: 'Z-Image-Turbo (sd.cpp, локально)' },
     { value: 'sdcpp:flux1-schnell', label: 'FLUX.1-schnell (sd.cpp, локально)' },
-    { value: 'sdcpp:sdxl-base', label: 'SDXL 1.0 (sd.cpp, локально)' }],
+    { value: 'sdcpp:sdxl-base', label: 'SDXL 1.0 (sd.cpp, локально)' },
+    { value: 'sdcpp:flux2-klein-4b', label: 'FLUX.2-klein-4B (sd.cpp, локально)' }],
     { name: 'tg-img-model', value: data.image_model || 'sdcpp:z-image-turbo' });
   const imgSizeSel = select([{ value: 512, label: '512×512 — быстро' }, { value: 768, label: '768×768' },
     { value: 1024, label: '1024×1024 — качество' }], { name: 'tg-img-size', value: data.image_size ?? 1024 });
