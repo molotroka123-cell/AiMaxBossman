@@ -259,9 +259,12 @@ async def process_claimed(svc,job):
         if ext['plane']['model'].startswith('sdcpp:'):
             # A segment chain (length 10s/15s/30s) runs one engine pass per segment, and each
             # pass gets a budget proportional to its work (720p/81 frames/50 steps ~ 9x reference).
-            from bcc.studio.providers.sdcpp import segments_for, workload_scale
+            # The same absolute ceiling the provider enforces applies here: this watchdog must
+            # not grant a job more wall clock than the provider itself would ever allow.
+            from bcc.studio.providers.sdcpp import job_budget_s, segments_for
+            model_spec=next(m for m in model_specs() if m['id']==ext['plane']['model'])
             plane_settings=ext['plane'].get('settings') or {}
-            budget*=segments_for(plane_settings)*workload_scale(plane_settings)
+            budget=job_budget_s(model_spec,plane_settings,segments_for(plane_settings))
         deadline=time.monotonic()+budget
         while not task.done():
             await asyncio.wait({task},timeout=0.25)

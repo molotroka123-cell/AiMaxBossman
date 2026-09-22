@@ -9,6 +9,7 @@ Pure functions only: no engine, no GPU, no subprocess.
 """
 from __future__ import annotations
 
+import inspect
 import itertools
 
 import pytest
@@ -114,3 +115,20 @@ def test_an_explicit_owner_limit_outranks_the_computed_budget(tmp_path):
     plain = sdcpp.SdCppProvider({"root": tmp_path, "bin": tmp_path / "bin", "manifest": {}},
                                 tmp_path, model)
     assert plain.hard_timeout_s == plain._catalog_timeout_s
+
+
+def test_the_studio_watchdog_uses_the_same_ceiling_as_the_provider():
+    """runtime.process_claimed computes its own budget for sdcpp jobs. It multiplied the catalog
+    deadline by segments x workload_scale with no ceiling at all, so the outer watchdog would have
+    waited days on a job the provider is willing to kill. Both must read the same limit."""
+    from bcc.studio import runtime
+
+    source = inspect.getsource(runtime.process_claimed)
+    assert "job_budget_s" in source, "the studio watchdog does not use the capped budget"
+    assert "workload_scale" not in source, "the studio watchdog still scales without a ceiling"
+
+    model = _model()
+    heavy = {"length": "30s", "width": 1280, "height": 1280, "frames": 81, "steps": 50}
+    assert sdcpp.job_budget_s(model, heavy, sdcpp.segments_for(heavy)) == sdcpp.max_job_deadline_s()
+    uncapped = model["deadline_seconds"] * sdcpp.segments_for(heavy) * sdcpp.workload_scale(heavy)
+    assert uncapped > 4 * 24 * 3600, uncapped        # over four days, which is what it used to grant
