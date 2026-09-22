@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 268. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 272. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -19,7 +19,9 @@
 | `command-center/tests/test_code_intel_and_scorecard.py:381` | skip | `—` | symlink resolution differs on this host | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_code_intel_and_scorecard.py:277` | skip | `—` | f"symlink not supported on this host: {exc}" | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_code_intel_and_scorecard.py:379` | skip | `—` | f"symlink not supported on this host: {exc}" | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_coding_path_owner_tool.py:13` | importorskip | `—` | bossman-core runtime not installed | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_coding_tasks.py:24` | importorskip | `—` | bossman-core runtime not installed next to Command Center | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_coding_tasks_local_sidecar.py:26` | importorskip | `—` | bossman-core runtime not installed | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_command_bar_ui.py:22` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_computer_use_tools.py:21` | importorskip | `—` | нет пакета bossman.computer_operator.models | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_continuity_desktop_ui.py:8` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -165,6 +167,7 @@
 | `command-center/tests/test_windows_desktop_onedrive.py:110` | skipif | `sys.platform == "win32"` | проверяет поведение проб ВНЕ Windows; на Windows они по замыслу отвечают | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_windows_secret_acl.py:70` | skipif | `sys.platform == "win32"` | POSIX-контракт (0600, без icacls); на Windows icacls вызывается по замыслу | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_windows_terminal_quoting.py:13` | skipif | `os.name != "nt"` | requires native Windows cmd.exe | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/apprentice/test_local_sidecar.py:164` | skip | `—` | pytest not installed in this runtime | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_evidence_independence.py:132` | skip | `—` | symlink creation needs privileges on Windows | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_evidence_independence.py:141` | skip | `—` | symlink creation needs privileges on Windows | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_live_sdk.py:61` | skipif | `SDK_PYTHON is None` | openhands-sdk runtime not installed (set BOSSMAN_OPENHANDS_PYTHON) | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -243,6 +246,7 @@
 | `tests/test_media_bootstrap.py:321` | importorskip | `—` | нет пакета bcc.studio.providers.sdcpp | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_media_bootstrap.py:143` | skip | `—` | no symlinks | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_media_bootstrap.py:151` | skip | `—` | symlink not permitted | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_model_fetch.py:672` | skipif | `os.name == "nt"` | shebang fake binary | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_mvcr_prepare.py:20` | importorskip | `—` | нет пакета pypdf | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_mvcr_prepare.py:21` | importorskip | `—` | нет пакета sqlalchemy | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_mvcr_prepare.py:22` | importorskip | `—` | нет пакета aiosqlite | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
