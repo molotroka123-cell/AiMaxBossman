@@ -10,9 +10,10 @@ import hashlib
 import math
 import sqlite3
 from collections import Counter, defaultdict
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator
 
 from .chunking_v22 import split_long_markdown
 from .local_index import DEFAULT_EXCLUDED_DIRS, MAX_SECTION_CHARS, Chunk, split_sections, tokenize
@@ -63,15 +64,25 @@ class SQLiteMemoryBackend:
     def available(self) -> bool:
         return True
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        """One transaction on one connection, always closed afterwards.
+
+        ``with sqlite3.connect()`` only commits or rolls back; left to the garbage
+        collector the index file stayed open (Windows: undeletable data dir).
+        """
         self.index_path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(self.index_path), timeout=30.0)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        conn.execute("PRAGMA foreign_keys=ON")
-        self._ensure_schema(conn)
-        return conn
+        try:
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.execute("PRAGMA foreign_keys=ON")
+            self._ensure_schema(conn)
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     @staticmethod
     def _ensure_schema(conn: sqlite3.Connection) -> None:
