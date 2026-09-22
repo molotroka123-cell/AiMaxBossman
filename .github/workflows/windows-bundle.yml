@@ -72,6 +72,14 @@ on:
       - 'tools/windows_bundle_lock.json'
       - 'tools/windows_bundle_lock.txt'
       - 'tools/windows_bundle_build_tools.txt'
+      # 1.0-RC: раннеры и пак, которые едут в app-support/, — их правка меняет архив.
+      - 'tools/owner_run_tomorrow.py'
+      - 'tools/media_bootstrap.py'
+      - 'tools/media_ab_preset.py'
+      - 'tools/coaching_runner.py'
+      - 'tests/coaching_pack/**'
+      - 'START_TOMORROW_RU.md'
+      - 'docs/owner/ROLLBACK_RU.md'
       # Коммит, меняющий ТОЛЬКО тесты, архив не меняет и очередь занимать не
       # должен. Под push эти исключения наконец работают: фильтр смотрит на
       # файлы самого пуша.

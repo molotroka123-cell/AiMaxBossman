@@ -1,0 +1,23 @@
+{
+  "task_id": "train-01-sum-inclusive",
+  "split": "train",
+  "task_class": "off-by-one",
+  "title": "Inclusive range sum",
+  "prompt": "Write sum_inclusive(a, b) that returns the sum of all integers from a to b, both ends INCLUSIVE. a <= b.",
+  "signature": "def sum_inclusive(a, b):",
+  "hidden_tests": [
+    "assert sum_inclusive(1, 5) == 15",
+    "assert sum_inclusive(3, 3) == 3",
+    "assert sum_inclusive(-2, 2) == 0",
+    "assert sum_inclusive(0, 10) == 55"
+  ],
+  "reference_solution": "def sum_inclusive(a, b):\n    return sum(range(a, b + 1))\n",
+  "teacher_lesson": "When the task says the end is inclusive, iterate range(a, b + 1); range() excludes the end.",
+  "mock": {
+    "label": "MOCK — scripted student, not a model",
+    "first_attempt": "def sum_inclusive(a, b):\n    return sum(range(a, b))\n",
+    "second_attempt": null,
+    "lesson_trigger": "b + 1",
+    "student_lesson": null
+  }
+}

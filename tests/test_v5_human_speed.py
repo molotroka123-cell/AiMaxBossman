@@ -69,7 +69,7 @@ from bossman_shared.objective_spec import ObjectiveSpec
 from bossman_shared.objective_store import CompareAndSwapError, ObjectiveStore
 from tools.human_speed_gate import (FAIL, PASS, INSUFFICIENT,
                                     latency_contract, latency_summary,
-                                    validate_ui_trace)
+                                    thread_cpu_ns, validate_ui_trace)
 from tools.objective_cas_profile import measure_cas
 
 
@@ -200,8 +200,12 @@ def test_objective_cas_under_10ms_and_stale_write_is_denied(tmp_path, record_pro
     # Each original 8x / 10ms / one-isolated-stall contract must pass. No clock
     # replaces another and no median/max/outlier is relabelled or discarded.
     assert result["status"] == PASS, why(result)
-    for clock in (result["wall"], result["thread_cpu"]):
-        assert clock["basis"] in ("absolute_p100", "host_floor", "isolated_stall"), why(result)
+    # CPU-время каждой операции — прежний строгий контракт, без новых оснований.
+    assert result["thread_cpu"]["basis"] in ("absolute_p100", "host_floor", "isolated_stall"),         why(result)
+    # Стена — те же три основания плюс `waiting_stalls` (срывы ОЖИДАНИЯ хоста в
+    # ≤ 5% операций при обычном CPU этих же операций; см. cas_wall_contract).
+    assert result["wall"]["basis"] in ("absolute_p100", "host_floor", "isolated_stall",
+                                       "waiting_stalls"), why(result)
 
 
 def test_observation_cycle_deterministic_without_sleep(tmp_path, monkeypatch, record_property):
@@ -332,8 +336,10 @@ def spin_ms(milliseconds):
     процессоре и попадает в замер целиком, как настоящая лишняя работа.
     """
     # Count real CPU work; scheduler pauses cannot consume the injected burden.
-    deadline = time.thread_time_ns() + int(milliseconds * 1e6)
-    while time.thread_time_ns() < deadline:
+    # Тот же поточный CPU-счётчик, что и в замере (на Windows — циклы, а не
+    # тики по 15.625 мс: иначе «4 мс» нагрузки превращались в 15.6).
+    deadline = thread_cpu_ns() + int(milliseconds * 1e6)
+    while thread_cpu_ns() < deadline:
         pass
 
 
@@ -468,7 +474,15 @@ def test_a_gross_regression_fails_on_every_basis(tmp_path, record_property):
     отношение к полу около 45. Ни absolute_p100, ни host_floor, ни
     isolated_stall — послабление для одиночного срыва здесь не спасает.
     """
-    store = BurdenedStore(tmp_path / "cas.db", burden_ms=12.0)
+    # 12 мс — «грубо» там, где пол процессора у самой дешёвой долговечной записи
+    # 0.3–0.65 мс (Linux). На Windows тот же пол с открытием/закрытием файла —
+    # около 2 мс CPU (измерено циклами потока, 22.09), и 12 мс там дают
+    # отношение ~7 при допуске 8: это уже не «грубая» регрессия, а
+    # регрессия в пределах объявленной кратности. Как и в CPU-тесте выше,
+    # величина берётся из замера ЭТОГО хоста, и только вверх.
+    burden = max(12.0, _regression_burden_for_this_host(tmp_path, record_property) + 10.0)
+    record_property("cas_gross_injected_burden_ms", burden)
+    store = BurdenedStore(tmp_path / "cas.db", burden_ms=burden)
     measured = measured_cas_run(tmp_path, store)
     result = measured["result"]
     record_cas("objective_cas_regression_gross", measured, record_property)
@@ -523,6 +537,49 @@ def test_one_injected_stall_on_a_healthy_run_is_not_called_a_db_defect(
     cpu = combined["thread_cpu"]
     assert cpu["max_ms"] >= 25.0 and cpu["over_limit"] >= 1, why(cpu)
     assert combined["status"] == (PASS if result["status"] == cpu["status"] == PASS else FAIL)
+
+
+class PeriodicBurdenStore(ObjectiveStore):
+    """Лишняя РАБОТА в каждой десятой записи (10% операций): периодическая
+    цена в коде — ровно тот случай, ради которого стена не прощает срывы,
+    потратившие собственный CPU."""
+
+    def __init__(self, path, *, burden_ms, every=10):
+        super().__init__(path)
+        self._burden_ms, self._every, self._calls = burden_ms, every, 0
+
+    def record_observation(self, *args, **kwargs):
+        self._calls += 1
+        if self._calls % self._every == 0:
+            spin_ms(self._burden_ms)
+        return super().record_observation(*args, **kwargs)
+
+
+def test_a_periodic_regression_is_not_excused_as_host_weather(tmp_path, record_property):
+    """Негативный контроль для основания `waiting_stalls` на НАСТОЯЩЕМ хранилище.
+
+    25 мс лишней работы в 10% операций: за порогом десять замеров, и каждый
+    потратил собственное CPU-время. Ни стена (это работа, не ожидание, и её
+    больше 5%), ни CPU (десять срывов при допуске в один) не имеют права это
+    простить — на быстром и на медленном диске одинаково: CPU-часы не видят
+    диска вовсе.
+    """
+    # Основание host_floor у CPU-часов прощает тело до 8 × тело пола CPU. На
+    # Windows пол с открытием файла стоит 2–3 мс CPU, и 25 мс уже близко к
+    # этой кратности: нагрузка берётся из спокойного прогона ЭТОГО хоста с
+    # запасом в полторы кратности — и только вверх от 25 мс.
+    quiet = measured_cas_run(tmp_path / "calibration", ObjectiveStore(
+        tmp_path / "calibration" / "cas.db"))["result"]["thread_cpu"]
+    burden = max(25.0, round(1.5 * DECLARED_FLOOR_MULTIPLE * quiet["floor_max_ms"], 3))
+    record_property("cas_periodic_injected_burden_ms", burden)
+    store = PeriodicBurdenStore(tmp_path / "cas.db", burden_ms=burden)
+    measured = measured_cas_run(tmp_path, store)
+    result = measured["result"]
+    record_cas("objective_cas_regression_periodic", measured, record_property)
+    assert result["status"] == FAIL, why(result)
+    cpu = result["thread_cpu"]
+    assert cpu["status"] == FAIL and cpu["over_limit"] >= 10, why(result)
+    assert result["wall"]["basis"] != "waiting_stalls", why(result)
 
 
 def test_the_gate_cannot_be_satisfied_without_an_interleaved_host_floor(tmp_path):

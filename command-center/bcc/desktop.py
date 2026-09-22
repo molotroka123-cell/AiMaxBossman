@@ -386,10 +386,256 @@ def _read_lock(data_dir: Path) -> dict | None:
 #: Код выхода: окно не пережило отведённое на старт время.
 STARTUP_FAILED_CODE = 124
 
+# ------------------------------------------------ самоперезапуск браузера (Edge)
+#
+# msedge.exe на машине владельца, запущенный с ``--app=... --user-data-dir=<профиль>``,
+# перезапускает сам себя: PID, который мы породили, выходит кодом 0 за 0.2–1.0 с,
+# а окно держит НОВЫЙ процесс msedge.exe с тем же ``--user-data-dir``. Единственный
+# признак, переживающий такую передачу, — каталог профиля: по нему и ищем
+# «наследника» (командная строка процесса + занятый Chromium'ом ``<профиль>/lockfile``).
+
+#: Порождённый процесс, проживший дольше этого, — настоящее окно, а не перезапуск.
+RELAUNCH_MAX_LIFETIME_S = 30.0
+#: Сколько после выхода порождённого процесса ищем наследника. Строго ограничено:
+#: браузер, который так и не появился, не должен подвешивать лаунчер.
+RELAUNCH_DISCOVERY_S = 2.5
+_RELAUNCH_POLL_S = 0.25
+_HOLDER_POLL_S = 0.5
+_PROFILE_FLAG = "--user-data-dir"
+_PROFILE_FLAG_RE = re.compile(r'--user-data-dir(?:=|\s+)(?:"([^"]*)"|(\S+))', re.IGNORECASE)
+
+
+def _norm_profile(path: str | os.PathLike) -> str:
+    """Каталог профиля для сравнения: без кавычек, абсолютный, регистр по правилам ОС."""
+    s = str(path).strip().strip('"').strip("'").strip()
+    if not s:
+        return ""
+    try:
+        s = os.path.realpath(s)          # 8.3-имена и ссылки -> один канонический вид
+    except (OSError, ValueError):
+        s = os.path.abspath(s)
+    s = os.path.normcase(os.path.normpath(s))
+    return s.rstrip("\\/") or s
+
+
+def _profile_args(cmdline: Sequence[str]) -> list[str]:
+    """Все значения ``--user-data-dir`` из argv: ``=X``, ``="X"``, ``"--user-data-dir=X"``, ``X`` отдельным аргументом."""
+    values: list[str] = []
+    for i, raw in enumerate(cmdline):
+        arg = str(raw).strip()
+        if arg.startswith('"') and arg.endswith('"') and len(arg) >= 2:
+            arg = arg[1:-1]
+        low = arg.lower()
+        if low.startswith(_PROFILE_FLAG + "="):
+            values.append(arg[len(_PROFILE_FLAG) + 1:])
+        elif low == _PROFILE_FLAG and i + 1 < len(cmdline):
+            values.append(str(cmdline[i + 1]))
+        elif _PROFILE_FLAG in low and " " in arg:
+            # Неразобранная строка целиком (так бывает у процессов с кривым argv).
+            values.extend(m.group(1) if m.group(1) is not None else m.group(2)
+                          for m in _PROFILE_FLAG_RE.finditer(arg))
+    return values
+
+
+class _ProfileScanner:
+    """Кто из живых процессов работает с этим профилем. Только чтение: никого не трогает.
+
+    Читать командную строку защищённых процессов (LsaIso.exe) Windows отказывает
+    не сразу, а за ~1 с; такие процессы запоминаем и больше не спрашиваем.
+    """
+
+    def __init__(self, profile_dir: Path, exclude: Sequence[int] = ()) -> None:
+        self.target = _norm_profile(profile_dir)
+        self.exclude = {os.getpid(), *exclude}
+        self._denied: set[tuple[int, float | None]] = set()
+        self._norm_cache: dict[str, str] = {}
+
+    def _matches(self, value: str) -> bool:
+        norm = self._norm_cache.get(value)
+        if norm is None:
+            norm = self._norm_cache[value] = _norm_profile(value)
+        return bool(norm) and norm == self.target
+
+    def scan(self, since: float | None = None) -> list:
+        """psutil.Process живых держателей профиля (новее ``since``, если задано)."""
+        try:
+            import psutil
+        except ImportError:
+            return []
+        found = []
+        try:
+            procs = list(psutil.process_iter(["pid", "create_time"]))
+        except (psutil.Error, OSError):
+            return []
+        for p in procs:
+            if p.pid in self.exclude or p.pid in (0, 4):
+                continue
+            ctime = p.info.get("create_time")
+            if since is not None and ctime is not None and ctime < since:
+                continue
+            key = (p.pid, ctime)
+            if key in self._denied:
+                continue
+            try:
+                cmdline = p.cmdline()
+            except psutil.AccessDenied:
+                self._denied.add(key)
+                continue
+            except (psutil.Error, OSError):
+                continue
+            if cmdline and any(self._matches(v) for v in _profile_args(cmdline)):
+                found.append(p)
+        return found
+
+
+def _profile_lock_held(profile_dir: Path) -> bool:
+    """Занят ли профиль живым Chromium по его собственному замку.
+
+    Windows: Chromium держит ``<профиль>/lockfile`` открытым без FILE_SHARE_DELETE
+    (и удаляет при выходе). Пробуем открыть его на DELETE с полным разделением и
+    сразу закрываем — файл не меняется; отказ по разделению = файл кем-то держится.
+    POSIX: ``SingletonLock`` — ссылка ``host-pid``; живой pid = профиль занят.
+    """
+    profile = Path(profile_dir)
+    if os.name == "nt":
+        lock = profile / "lockfile"
+        if not lock.exists():
+            return False
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            k32.CreateFileW.restype = wintypes.HANDLE
+            k32.CreateFileW.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                                        wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE)
+            k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+            delete, share_all, open_existing = 0x00010000, 0x7, 3
+            handle = k32.CreateFileW(str(lock), delete, share_all, None, open_existing, 0x80, None)
+            if handle in (None, ctypes.c_void_p(-1).value):
+                return ctypes.get_last_error() == 32      # ERROR_SHARING_VIOLATION
+            k32.CloseHandle(handle)
+            return False
+        except Exception:  # noqa: BLE001 — не смогли проверить: сигнал просто отсутствует
+            return False
+    try:
+        target = os.readlink(profile / "SingletonLock")
+        return _pid_alive(int(target.rsplit("-", 1)[-1]))
+    except (OSError, ValueError):
+        return False
+
+
+def _terminate_holders(holders: Sequence) -> None:
+    """Закрыть окно НАШЕГО профиля (только процессы, найденные по нашему --user-data-dir)."""
+    try:
+        import psutil
+    except ImportError:
+        return
+    for p in holders:
+        try:
+            p.terminate()
+        except (psutil.Error, OSError):
+            pass
+    try:
+        _, alive = psutil.wait_procs(list(holders), timeout=5)
+    except (psutil.Error, OSError):
+        return
+    for p in alive:
+        try:
+            p.kill()
+        except (psutil.Error, OSError):
+            pass
+
+
+class _RelaunchTakeover:
+    """Наследник окна после самоперезапуска браузера: найти (ограниченно) и дождаться."""
+
+    def __init__(self, profile_dir: Path, spawned_pid: int, spawned_wall: float,
+                 log: Callable[[str], None]) -> None:
+        self.profile_dir = Path(profile_dir)
+        self.scanner = _ProfileScanner(profile_dir, exclude=(spawned_pid,))
+        self.spawned_pid = spawned_pid
+        self.spawned_wall = spawned_wall
+        self.log = log
+        self.holders: list = []
+
+    def discover(self, code: int, lifetime: float) -> bool:
+        """Есть ли живой наследник. Ищем не дольше ``RELAUNCH_DISCOVERY_S``."""
+        deadline = time.monotonic() + RELAUNCH_DISCOVERY_S
+        since = self.spawned_wall - 2.0          # наследник моложе нашего запуска
+        lock = False
+        while True:
+            self.holders = self.scanner.scan(since=since)
+            lock = _profile_lock_held(self.profile_dir)
+            if self.holders or lock or time.monotonic() >= deadline:
+                break
+            time.sleep(_RELAUNCH_POLL_S)
+        if lock and not self.holders:
+            # Профиль держит браузер старше нашего запуска (передача окна уже
+            # открытому) — полный обход, чтобы знать его PID.
+            self.holders = self.scanner.scan()
+        if not self.holders and not lock:
+            self.log(f"browser-self-relaunch none spawned_pid={self.spawned_pid} code={code} "
+                     f"lifetime={lifetime:.1f}s — профиль {self.profile_dir} никем не занят")
+            return False
+        self.log(f"browser-self-relaunch takeover spawned_pid={self.spawned_pid} code={code} "
+                 f"lifetime={lifetime:.1f}s holders={[p.pid for p in self.holders]} "
+                 f"lockfile={'held' if lock else 'free'} profile={self.profile_dir} — "
+                 "окно держит перезапущенный браузер, ждём его закрытия")
+        return True
+
+    def alive(self) -> bool:
+        """Профиль всё ещё занят: отслеживаемые, новые держатели или замок Chromium."""
+        self.holders = [p for p in self.holders if _is_running(p)]
+        if self.holders:
+            return True
+        self.holders = self.scanner.scan(since=self.spawned_wall - 2.0)
+        return bool(self.holders) or _profile_lock_held(self.profile_dir)
+
+    def wait(self) -> None:
+        t0 = time.monotonic()
+        last_rescan = t0
+        while True:
+            self.holders = [p for p in self.holders if _is_running(p)]
+            if self.holders:
+                if time.monotonic() - last_rescan >= 5.0:
+                    # Браузер может пересоздать главный процесс — подхватываем новых.
+                    known = {p.pid for p in self.holders}
+                    self.holders += [p for p in self.scanner.scan(since=self.spawned_wall - 2.0)
+                                     if p.pid not in known]
+                    last_rescan = time.monotonic()
+                time.sleep(_HOLDER_POLL_S)
+                continue
+            if self.alive():
+                time.sleep(_HOLDER_POLL_S)
+                continue
+            break
+        self.log(f"browser-self-relaunch released after {time.monotonic() - t0:.1f}s "
+                 f"profile={self.profile_dir}")
+
+
+def _is_running(p) -> bool:
+    try:
+        return p.is_running() and p.status() != "zombie"
+    except Exception:  # noqa: BLE001 — исчез/нет доступа к статусу: судим по is_running
+        try:
+            return p.is_running()
+        except Exception:  # noqa: BLE001
+            return False
+
+
+def profile_holders(profile_dir: Path) -> list[int]:
+    """PID живых процессов с ``--user-data-dir`` = этот профиль (диагностика, только чтение)."""
+    return [p.pid for p in _ProfileScanner(profile_dir).scan()]
+
+
+_desktop_log = logging.getLogger(__name__)
+
 
 def launch_window(browser: str, url: str, profile_dir: Path, *, extra: Sequence[str] = (),
                   window_size: str = "1440,900", timeout: float | None = None,
-                  ready: Callable[[], bool] | None = None) -> int:
+                  ready: Callable[[], bool] | None = None,
+                  log: Callable[[str], None] | None = None) -> int:
     """Открывает окно и ждёт, пока владелец сам его закроет.
 
     Таймаут здесь — **только про старт**, а не про срок жизни окна. Раньше он
@@ -412,17 +658,56 @@ def launch_window(browser: str, url: str, profile_dir: Path, *, extra: Sequence[
     Граница честности: «окно живо, но пустое» одним таймаутом не отличить от
     «окно живо и работает». Без ``ready`` такой случай сюда не приходит вовсе —
     его разбирают диагностика пустого окна и сторож, а не убийство по времени.
+
+    Самоперезапуск браузера (Edge на машине владельца): порождённый PID вышел
+    кодом 0 быстро (до ``RELAUNCH_MAX_LIFETIME_S``), а окно держит новый процесс
+    с тем же ``--user-data-dir``. Тогда окно считается открытым, и мы ждём, пока
+    профиль не освободится. Наследника ищем не дольше ``RELAUNCH_DISCOVERY_S``;
+    не нашли — прежнее поведение (возвращаем код, вызывающий печатает диагноз).
+    Браузеры на других профилях не трогаются никогда. ``log`` получает строки
+    для desktop-run.log.
     """
+    emit = log or (lambda msg: _desktop_log.info("%s", msg))
+    spawned_wall = time.time()
+    spawned_at = time.monotonic()
     proc = open_window(browser, url, profile_dir, extra=extra, window_size=window_size)
+
+    def takeover_for(code: int) -> _RelaunchTakeover | None:
+        lifetime = time.monotonic() - spawned_at
+        if code != 0 or lifetime > RELAUNCH_MAX_LIFETIME_S:
+            return None
+        t = _RelaunchTakeover(profile_dir, proc.pid, spawned_wall, emit)
+        return t if t.discover(code, lifetime) else None
+
     if not timeout:
-        return proc.wait()
+        code = proc.wait()
+        t = takeover_for(code)
+        if t is not None:
+            t.wait()
+        return code
 
     deadline = time.monotonic() + timeout
     confirmed = ready is None
     while time.monotonic() < deadline:
         code = proc.poll()
         if code is not None:
-            return code                      # умерло само — это и есть «не открылось»
+            t = takeover_for(code)
+            if t is None:
+                return code                  # умерло само — это и есть «не открылось»
+            # Окно у наследника: готовность проверяем до того же дедлайна.
+            while not confirmed and time.monotonic() < deadline:
+                if ready is not None and ready():
+                    confirmed = True
+                    break
+                if not t.alive():
+                    return code              # наследник закрылся до подтверждения
+                time.sleep(0.2)
+            if not confirmed:
+                emit(f"browser-self-relaunch not-ready — закрываю окно профиля {profile_dir}")
+                _terminate_holders(t.holders)
+                return STARTUP_FAILED_CODE
+            t.wait()
+            return code
         if not confirmed and ready is not None and ready():
             confirmed = True
             break
@@ -436,7 +721,11 @@ def launch_window(browser: str, url: str, profile_dir: Path, *, extra: Sequence[
         except subprocess.TimeoutExpired:
             proc.kill()
         return STARTUP_FAILED_CODE
-    return proc.wait()                        # старт состоялся: дальше решает владелец
+    code = proc.wait()                        # старт состоялся: дальше решает владелец
+    t = takeover_for(code)
+    if t is not None:
+        t.wait()
+    return code
 
 
 class _StartupCause(logging.Handler):
@@ -574,6 +863,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-console", dest="console", action="store_false",
                    help="ярлык запускает приложение без окна консоли")
     return p
+
+
+def _accepts_kwarg(func: Callable, name: str) -> bool:
+    """Принимает ли вызываемое именованный аргумент ``name`` явно (не через ``**kw``)."""
+    import inspect
+
+    try:
+        param = inspect.signature(func).parameters.get(name)
+    except (TypeError, ValueError):
+        return False
+    return param is not None and param.kind in (param.KEYWORD_ONLY, param.POSITIONAL_OR_KEYWORD)
 
 
 def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = launch_window,
@@ -797,9 +1097,12 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
                     win_timeout = float(os.environ.get("BCC_APP_STARTUP_TIMEOUT", "") or 0) or None
                 except ValueError:
                     win_timeout = None
+            launch_kwargs: dict = {"timeout": win_timeout} if win_timeout else {}
+            if _accepts_kwarg(launcher, "log"):
+                # Перехват окна перезапустившимся браузером — отдельной строкой в журнал.
+                launch_kwargs["log"] = lambda msg: _append_run_log(data_dir, msg)
             code = launcher(browser, url, profile_dir, extra=tuple(args.browser_arg),
-                            window_size=args.window_size,
-                            **({"timeout": win_timeout} if win_timeout else {}))
+                            window_size=args.window_size, **launch_kwargs)
         except OSError as exc:
             # Раньше это улетало трейсбеком и консоль закрывалась вместе с ним:
             # владелец видел «открылась только командная строка» без причины.

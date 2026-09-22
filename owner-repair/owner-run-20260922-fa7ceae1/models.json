@@ -1,0 +1,44 @@
+[
+  {
+    "endpoint": "http://127.0.0.1:8081",
+    "reachable": true,
+    "models": [
+      "C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf"
+    ],
+    "completion": {
+      "status": 200,
+      "latency_s": 1.237,
+      "text": "Да",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 19,
+        "total_tokens": 21,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      }
+    },
+    "models_latency_s": 0.017
+  },
+  {
+    "endpoint": "http://127.0.0.1:8082",
+    "reachable": true,
+    "models": [
+      "C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b\\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf"
+    ],
+    "completion": {
+      "status": 200,
+      "latency_s": 3.207,
+      "text": "Да",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 19,
+        "total_tokens": 21,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      }
+    },
+    "models_latency_s": 0.014
+  }
+]

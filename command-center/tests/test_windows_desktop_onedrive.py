@@ -15,6 +15,7 @@ SHGetKnownFolderPath/PowerShell — их возвращаемое значени
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -106,6 +107,8 @@ def test_uninstall_uses_the_same_desktop_resolution(win_home):
     assert not (real / "BOSSMAN.lnk").exists()
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="проверяет поведение проб ВНЕ Windows; на Windows они по замыслу отвечают")
 def test_known_folder_probe_is_inert_off_windows():
     """Пробы должны быть безопасны на Linux: молчат, а не бросают."""
     assert desktop_install._desktop_via_known_folder() is None

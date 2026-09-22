@@ -1,0 +1,23 @@
+{
+  "task_id": "train-04-sort-names",
+  "split": "train",
+  "task_class": "case-insensitive-order",
+  "title": "Case-insensitive sort",
+  "prompt": "Write sort_names(names) returning a new list of the names sorted alphabetically ignoring case; keep the original spelling.",
+  "signature": "def sort_names(names):",
+  "hidden_tests": [
+    "assert sort_names(['apple', 'Banana']) == ['apple', 'Banana']",
+    "assert sort_names(['banana', 'Apple', 'cherry']) == ['Apple', 'banana', 'cherry']",
+    "assert sort_names(['b', 'A', 'a']) == ['A', 'a', 'b']",
+    "assert sort_names([]) == []"
+  ],
+  "reference_solution": "def sort_names(names):\n    return sorted(names, key=str.lower)\n",
+  "teacher_lesson": "Order strings with sorted(items, key=str.lower) so upper- and lower-case names interleave alphabetically.",
+  "mock": {
+    "label": "MOCK — scripted student, not a model",
+    "first_attempt": "def sort_names(names):\n    return sorted(names)\n",
+    "second_attempt": null,
+    "lesson_trigger": "key=str.lower",
+    "student_lesson": null
+  }
+}

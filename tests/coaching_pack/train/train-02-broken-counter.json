@@ -1,0 +1,23 @@
+{
+  "task_id": "train-02-broken-counter",
+  "split": "train",
+  "task_class": "broken-counter",
+  "title": "Broken counter reset",
+  "prompt": "Write class Counter with increment() adding 1, value() returning the count, and reset() returning the count to zero. Instances start at zero.",
+  "signature": "class Counter:",
+  "hidden_tests": [
+    "c = Counter(); c.increment(); c.increment(); assert c.value() == 2",
+    "c = Counter(); c.increment(); c.reset(); assert c.value() == 0",
+    "c = Counter(); c.increment(); c.reset(); c.increment(); assert c.value() == 1",
+    "a = Counter(); b = Counter(); a.increment(); assert b.value() == 0"
+  ],
+  "reference_solution": "class Counter:\n    def __init__(self):\n        self.count = 0\n    def increment(self):\n        self.count += 1\n    def value(self):\n        return self.count\n    def reset(self):\n        self.count = 0\n",
+  "teacher_lesson": "In reset(), assign zero to the same attribute that value() reads; a new attribute name leaves the old count untouched.",
+  "mock": {
+    "label": "MOCK — scripted student, not a model",
+    "first_attempt": "class Counter:\n    def __init__(self):\n        self.count = 0\n    def increment(self):\n        self.count += 1\n    def value(self):\n        return self.count\n    def reset(self):\n        self.counter = 0\n",
+    "second_attempt": null,
+    "lesson_trigger": "same attribute",
+    "student_lesson": null
+  }
+}

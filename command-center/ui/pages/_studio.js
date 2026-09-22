@@ -3,7 +3,9 @@ import {api} from '../api.js';
 import {h,toast,toastError,toastOk} from '../components.js';
 let draft={model:'mock:image',prompt:'',settings:{},media:[],count:1,collection_id:null};
 let scope='all',query='',offset=0,selected=new Set(),proof=null;
-const labels={width:'Ширина',height:'Высота',steps:'Шаги',seed:'Seed',aspect_ratio:'Формат',duration:'Длительность, с',resolution:'Разрешение',generate_audio:'Создать звук'};
+const labels={width:'Ширина',height:'Высота',steps:'Шаги',seed:'Seed',aspect_ratio:'Формат',duration:'Длительность, с',length:'Длительность ролика',resolution:'Разрешение',generate_audio:'Создать звук'};
+/* Подписи вариантов длительности (sd.cpp Wan): 10/15/30 с — цепочка 5-секундных сегментов. */
+const optionLabels={length:{custom:'Вручную (кадры × fps)',test_1s:'1 с — TestRun (быстро, 640×352)','5s':'5 с','10s':'10 с (2 сегмента)','15s':'15 с (3 сегмента)','30s':'30 с (6 сегментов)'}};
 const call=(path,body,method='POST')=>api.raw('/api/studio'+path,{method,...(body===undefined?{}:{body})});
 /* Проверка того, что владелец ввёл сам, — предупреждение и возврат, как во
    всём остальном продукте (см. createJob в images.js). Исключение здесь
@@ -35,7 +37,7 @@ export async function studioPanel(ctx){
   const settings=Object.entries(model.settings).map(([name,schema])=>{
     const current=draft.settings[name]??schema.default;
     let input;
-    if(schema.type==='enum') input=choose(h('select.input',{'aria-label':labels[name]||name,onChange:e=>{draft.settings[name]=schema.values[e.target.selectedIndex];}},schema.values.map(v=>h('option',{value:String(v)},String(v)))),current);
+    if(schema.type==='enum') input=choose(h('select.input',{'aria-label':labels[name]||name,onChange:e=>{draft.settings[name]=schema.values[e.target.selectedIndex];}},schema.values.map(v=>h('option',{value:String(v)},optionLabels[name]?.[v]??String(v)))),current);
     else if(schema.type==='boolean')input=h('input',{type:'checkbox',checked:current,onChange:e=>{draft.settings[name]=e.target.checked;}});
     else input=h('input.input',{type:'number',min:schema.min,max:schema.max,step:schema.multiple_of||1,value:current??'',placeholder:schema.nullable?'Случайный':'','aria-label':labels[name]||name,onInput:e=>{draft.settings[name]=e.target.value===''?null:Number(e.target.value);}});
     return h('label.studio-field',h('span.xsmall.dim',labels[name]||name),input);

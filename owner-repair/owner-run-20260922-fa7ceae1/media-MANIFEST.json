@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "engine": {
+    "release": "master-890-74988b2",
+    "binary_sha256": "ee6fb793824759f322202deec69d9b5526765bb3308930ff754cdf906cb9cfd1"
+  },
+  "engines": {
+    "wan2.2-ti2v-5b": {
+      "files": {
+        "diffusion": {
+          "path": "wan2.2-ti2v-5b/Wan2.2-TI2V-5B-Q8_0.gguf",
+          "bytes": 5400179040,
+          "sha256": "57bece983817ab2f957546683bb670f13be7d99022d45674840cd999a050ea8f"
+        },
+        "vae": {
+          "path": "wan2.2-ti2v-5b/wan2.2_vae.safetensors",
+          "bytes": 1409400960,
+          "sha256": "e40321bd36b9709991dae2530eb4ac303dd168276980d3e9bc4b6e2b75fed156"
+        },
+        "text_encoder": {
+          "path": "wan2.2-ti2v-5b/umt5-xxl-encoder-Q8_0.gguf",
+          "bytes": 6043068256,
+          "sha256": "2521d4de0bf9e1cc6549866463ceae85e4ec3239bc6063f7488810be39033bbc"
+        }
+      }
+    },
+    "z-image-turbo": {
+      "files": {
+        "diffusion": {
+          "path": "z-image-turbo/z_image_turbo-Q8_0.gguf",
+          "bytes": 6577440704,
+          "sha256": "df1c5baa86d1398c979495a6072dbcee79444fdb884a2445582ba0769c44e9a1"
+        },
+        "vae": {
+          "path": "z-image-turbo/ae.safetensors",
+          "bytes": 335304388,
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
+        },
+        "text_encoder": {
+          "path": "z-image-turbo/Qwen3-4B-Instruct-2507-Q8_0.gguf",
+          "bytes": 4280405600,
+          "sha256": "391c1e410fd9f4cf2de2b510273b56a84c19ce18f4fa3bfb3774031dac4ef068"
+        }
+      }
+    }
+  },
+  "written_at": "2026-09-22T14:48:13Z",
+  "tool": "tools/media_bootstrap.py"
+}

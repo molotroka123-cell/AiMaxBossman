@@ -217,7 +217,17 @@ async def web(rid:str,body:WebTransfer,request:Request):
     if row['deleted'] or row['surface']!='image' or row['mime']=='image/svg+xml' or row['file_bytes']>1024*1024:raise HTTPException(422,'Choose a raster image below 1 MiB for a self-contained website')
     try:handle=await rt.verified_handle(svc,row)
     except (ValueError,RuntimeError,OSError):raise HTTPException(409,'Output changed') from None
-    try:data=os.read(handle.descriptor,row['file_bytes']+1)
+    # Positional read from offset 0, never a plain os.read: after
+    # digest_descriptor the Windows pread fallback leaves the shared file
+    # pointer at EOF, and a sequential read returned zero bytes there — a
+    # 409 for a file that never changed.
+    from bcc.video_studio.media import pread
+    try:
+        data=b'';limit=row['file_bytes']+1
+        while len(data)<limit:
+            block=pread(handle.descriptor,limit-len(data),len(data))
+            if not block:break
+            data+=block
     finally:handle.close()
     import hashlib
     if hashlib.sha256(data).hexdigest()!=row['sha256']:raise HTTPException(409,'Output changed during read')

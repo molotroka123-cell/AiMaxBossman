@@ -10,10 +10,17 @@ import bcc.studio.providers.sdcpp as sdcpp
 
 
 def _cfg(root, sha):
-    return {"root": root, "bin": root / "bin",
-            "manifest": {"engines": {"z-image-turbo": {"files": {"diffusion":
-                {"path": "diffusion.gguf", "bytes": (root / "diffusion.gguf").stat().st_size,
-                 "sha256": sha}}}}}}
+    # the engine binary is verified too (unpinned here): it must exist as a file;
+    # every required role must be declared — only `diffusion` carries the sha under test.
+    (root / "bin").write_bytes(b"fake-engine-binary")
+    files = {"diffusion": {"path": "diffusion.gguf", "bytes": (root / "diffusion.gguf").stat().st_size,
+                           "sha256": sha}}
+    for role in ("vae", "text_encoder"):
+        f = root / f"{role}.gguf"
+        if not f.exists():
+            f.write_bytes(role.encode() * 50)
+        files[role] = {"path": f.name, "bytes": f.stat().st_size, "sha256": sdcpp._sha256(f)}
+    return {"root": root, "bin": root / "bin", "manifest": {"engines": {"z-image-turbo": {"files": files}}}}
 
 
 def test_engine_files_verifies_bytes_not_just_size(tmp_path):

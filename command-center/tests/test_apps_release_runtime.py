@@ -110,3 +110,31 @@ async def test_deny_while_start_waits_on_process_lock_is_rechecked_at_effect(env
             rec.proc.terminate()
             rec.proc.wait(timeout=5)
             ctl._forget(rec)
+
+
+def test_namespace_check_accepts_only_our_own_interpreter(monkeypatch, tmp_path):
+    """Windows venv (3.11+): ``Scripts\\python.exe`` is venvlauncher, the running
+    process is the BASE ``python.exe`` (``sys._base_executable``) while
+    ``sys.executable`` keeps the venv path. That is still our own process —
+    a restart must recover the owner's app there too. A process whose exe is
+    neither path is a foreign namespace and stays refused."""
+    import sys
+
+    base = tmp_path / "base" / "python.exe"
+    other = tmp_path / "elsewhere" / "python.exe"
+    monkeypatch.setattr(sys, "_base_executable", str(base), raising=False)
+
+    class _Proc:
+        def __init__(self, exe):
+            self._exe = exe
+
+        def exe(self):
+            return self._exe
+
+    monkeypatch.setattr(ctl.psutil, "Process", lambda pid: _Proc(str(base)))
+    assert ctl._process_namespace_verified() is True
+    monkeypatch.setattr(ctl.psutil, "Process", lambda pid: _Proc(sys.executable))
+    assert ctl._process_namespace_verified() is True
+    # negative control: a different interpreter is still a different namespace
+    monkeypatch.setattr(ctl.psutil, "Process", lambda pid: _Proc(str(other)))
+    assert ctl._process_namespace_verified() is False

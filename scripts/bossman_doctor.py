@@ -338,6 +338,72 @@ def check_model_endpoint() -> Check:
                      {"endpoint": url})
 
 
+OPENAI_ENDPOINTS_ENV = "BOSSMAN_MODEL_ENDPOINTS"
+DEFAULT_OPENAI_ENDPOINTS = "http://127.0.0.1:8081,http://127.0.0.1:8082"
+
+
+def check_openai_endpoints() -> Check:
+    """MAIN/FAST владельца — llama-server (OpenAI-совместимый), не Ollama.
+
+    Прежний check_model_endpoint спрашивал только Ollama на :11434 и на машине
+    владельца всегда давал WARN, хотя обе модели были подняты на :8081/:8082.
+    Здесь опрашивается список из BOSSMAN_MODEL_ENDPOINTS (по умолчанию оба
+    порта llama-server): /v1/models с таймаутом 3 с. Отсутствие — WARN, не
+    BLOCKED: облачный провайдер тоже вариант.
+    """
+    raw = os.environ.get(OPENAI_ENDPOINTS_ENV, "").strip() or DEFAULT_OPENAI_ENDPOINTS
+    endpoints = [e.strip().rstrip("/") for e in raw.split(",") if e.strip()]
+    live: dict[str, list[str]] = {}
+    errors: dict[str, str] = {}
+    for base in endpoints:
+        try:
+            import urllib.request
+            with urllib.request.urlopen(base + "/v1/models", timeout=3) as resp:  # noqa: S310
+                body = json.loads(resp.read().decode("utf-8", "replace"))
+            ids = [str(m.get("id")) for m in body.get("data", []) if isinstance(m, dict) and m.get("id")]
+            live[base] = ids
+        except Exception as exc:  # noqa: BLE001
+            errors[base] = type(exc).__name__
+    if not live:
+        return Check("model-endpoints", WARN,
+                     "ни один OpenAI-совместимый endpoint не отвечает: " + ", ".join(
+                         f"{b} ({e})" for b, e in errors.items()),
+                     f"Запустите llama-server MAIN/FAST или задайте {OPENAI_ENDPOINTS_ENV}",
+                     {"endpoints": endpoints, "errors": errors})
+    empty = [b for b, ids in live.items() if not ids]
+    return Check("model-endpoints", WARN if empty else PASS,
+                 "; ".join(f"{b}: {', '.join(ids[:2]) or 'нет моделей'}" for b, ids in live.items())
+                 + (f"; недоступны: {', '.join(errors)}" if errors else ""),
+                 "загрузите модель на endpoint без моделей" if empty else "",
+                 {"live": live, "errors": errors})
+
+
+def check_media_engine() -> Check:
+    """Локальный медиадвижок (stable-diffusion.cpp): настроен ли и цел ли манифест.
+
+    Отсутствие движка НИКОГДА не блокирует запуск Bossman — Studio честно
+    показывает модель как «не настроено». Поэтому здесь WARN, а BLOCKED
+    только при повреждённом манифесте/файлах (генерация дала бы мусор).
+    """
+    try:
+        from bcc.studio.providers.sdcpp import configuration  # type: ignore
+    except Exception as exc:  # noqa: BLE001
+        return Check("media-engine", WARN, f"модуль Studio недоступен ({type(exc).__name__})",
+                     "установка без command-center: медиагенерация неприменима")
+    try:
+        cfg = configuration()
+    except Exception as exc:  # noqa: BLE001
+        return Check("media-engine", BLOCKED, f"конфигурация медиадвижка повреждена: {type(exc).__name__}: {exc}",
+                     "Media-Setup.cmd → validate / configure")
+    if cfg is None:
+        return Check("media-engine", WARN, "локальный медиадвижок не настроен (нет BOSSMAN_SDCPP_BIN/"
+                     "BOSSMAN_MEDIA_MODELS и media/config.json)",
+                     "Media-Setup.cmd → configure; без него Studio генерацию не предлагает")
+    engines = sorted((cfg.get("manifest") or {}).get("engines", {}))
+    return Check("media-engine", PASS, f"движок {cfg['bin']}; модели: {', '.join(engines) or 'нет'}",
+                 facts={"bin": str(cfg["bin"]), "models_dir": str(cfg["root"]), "engines": engines})
+
+
 def check_openhands() -> Check:
     """OpenHands (Coding → задача агенту) — WARN, не BLOCKED: приёмка без него
     возможна, но страница Coding честно скажет, что агент недоступен.
@@ -567,7 +633,8 @@ CHECKS: list[Callable[[], Check]] = [
     check_build_identity,
     check_python, check_python_packages, check_bossman_packages, check_node, check_ffmpeg,
     check_state_dir, check_evidence_key, check_journal_anchor, check_browser_runtime,
-    check_model_endpoint, check_openhands, check_hardware, check_windows_specific, check_computer_operator_deps,
+    check_model_endpoint, check_openai_endpoints, check_media_engine, check_openhands, check_hardware,
+    check_windows_specific, check_computer_operator_deps,
     check_gateway_url, check_cloud_providers, check_telemetry_corpus,
 ]
 

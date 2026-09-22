@@ -262,8 +262,12 @@ def test_shell_metacharacters_in_a_filename_are_just_characters(tmp_path):
     root = tmp_path / "Downloads"
     root.mkdir()
     policy = ScopePolicy(authorized_roots=[root])
-    for name in ("; rm -rf ~", "$(whoami).txt", "`id`.pdf", "a|b.txt",
-                 "file&name.doc", "--not-a-flag.txt"):
+    names = ["; rm -rf ~", "$(whoami).txt", "`id`.pdf", "a|b.txt",
+             "file&name.doc", "--not-a-flag.txt"]
+    if sys.platform == "win32":
+        # NTFS запрещает `|` в имени: файл не создать, проверять нечего.
+        names = [n for n in names if "|" not in n]
+    for name in names:
         target = root / name
         target.write_text("harmless\n", encoding="utf-8")
         resolved = policy.check(str(target), mutating=True)
@@ -325,12 +329,15 @@ async def test_a_sidecar_that_never_answers_is_a_timeout_not_a_wait_forever(tmp_
     """
     from bcc.file_intelligence.service import _subprocess_runner
 
+    # Тот же интерпретатор вместо /bin/sh: предмет — поведение запускателя, и
+    # оно должно быть измерено и на Windows, где /bin/sh нет.
     with pytest.raises(Denied) as denied:
-        await _subprocess_runner(["/bin/sh", "-c", "sleep 30"], timeout=0.5)
+        await _subprocess_runner([sys.executable, "-c", "import time; time.sleep(30)"],
+                                 timeout=0.5)
     assert denied.value.refusal is Refusal.TIMEOUT
 
     # Негативный контроль: быстрый процесс проходит, а не «тоже таймаутит».
-    result = await _subprocess_runner(["/bin/sh", "-c", "echo ok"], timeout=10)
+    result = await _subprocess_runner([sys.executable, "-c", "print('ok')"], timeout=10)
     assert result["returncode"] == 0 and "ok" in result["stdout"]
 
 
@@ -343,9 +350,10 @@ async def test_the_process_is_not_left_running_after_a_timeout(tmp_path):
     from bcc.file_intelligence.service import _subprocess_runner
 
     marker = tmp_path / "still-alive.txt"
-    script = f"sleep 1.5; echo alive > {marker}"
+    script = ("import time, pathlib, sys; time.sleep(1.5); "
+              "pathlib.Path(sys.argv[1]).write_text('alive')")
     with pytest.raises(Denied):
-        await _subprocess_runner(["/bin/sh", "-c", script], timeout=0.3)
+        await _subprocess_runner([sys.executable, "-c", script, str(marker)], timeout=0.3)
     await __import__("asyncio").sleep(2.5)
     assert not marker.exists(), "процесс пережил таймаут и продолжил работать"
 

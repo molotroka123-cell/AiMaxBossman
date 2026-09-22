@@ -149,7 +149,8 @@ async def test_ap001_owner_configured_roots_still_take_priority(env):
         ))
         await s.commit()
     roots = await tt._roots(env.svc)
-    assert [str(r) for r in roots] == [configured]
+    # Path(...) с обеих сторон: на Windows тот же путь печатается с `\\`.
+    assert roots == [Path(configured)]
 
 
 def _docker_available():
@@ -313,8 +314,10 @@ async def test_ap001_the_canary_is_readable_when_it_is_legitimately_in_scope(
     ctx = _ctx(env, task_id=stack["task"]["id"], agent=stack["agent"])
     # Where "scratch" actually resolves is the terminal's business, not this
     # test's guess: ask it, then plant the canary in the directory it named.
-    located = await tt._tool_run({"command": "pwd", "cwd": "scratch",
-                                  "mode": "project_host", "timeout": 20}, ctx)
+    # Спрашиваем через интерпретатор, а не через `pwd`: под Git-sh на Windows
+    # `pwd` отвечает в MSYS-форме (/c/Users/...), которую Path не откроет.
+    located = await tt._tool_run({"command": "python -c \"import os; print(os.getcwd())\"",
+                                  "cwd": "scratch", "mode": "project_host", "timeout": 20}, ctx)
     assert located.error is False, located.content
     owned = Path(located.content.strip().splitlines()[-1].strip())
     assert owned.is_dir(), located.content

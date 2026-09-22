@@ -1,0 +1,22 @@
+{
+  "task_id": "holdout-04-dedupe-ci",
+  "split": "holdout",
+  "task_class": "case-insensitive-order",
+  "title": "Case-insensitive unique sort",
+  "prompt": "Write unique_sorted(words) returning the words sorted alphabetically ignoring case, keeping only the first spelling of each word that repeats when compared case-insensitively.",
+  "signature": "def unique_sorted(words):",
+  "hidden_tests": [
+    "assert unique_sorted(['b', 'B', 'a']) == ['a', 'b']",
+    "assert unique_sorted(['Cat', 'apple', 'cat']) == ['apple', 'Cat']",
+    "assert unique_sorted([]) == []"
+  ],
+  "reference_solution": "def unique_sorted(words):\n    seen = set()\n    out = []\n    for w in words:\n        if w.lower() not in seen:\n            seen.add(w.lower())\n            out.append(w)\n    return sorted(out, key=str.lower)\n",
+  "teacher_lesson": "Compare and sort with str.lower for case-insensitive order.",
+  "mock": {
+    "label": "MOCK — scripted student, not a model",
+    "first_attempt": "def unique_sorted(words):\n    return sorted(set(words))\n",
+    "second_attempt": null,
+    "lesson_trigger": "key=str.lower",
+    "student_lesson": null
+  }
+}

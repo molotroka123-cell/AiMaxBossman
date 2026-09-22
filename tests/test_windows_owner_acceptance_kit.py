@@ -20,6 +20,8 @@ REQUIRED = (
     "tests/owner_hardware/MODEL_STACK_2026-09-20.md",
     "tests/owner_hardware/CLOUD_STACK_2026-09-20.md",
     "tests/owner_scenarios/OWNER_HARDWARE_FIRST_RUN.md",
+    "START_TOMORROW_RU.md",
+    "docs/owner/ROLLBACK_RU.md",
 )
 
 
