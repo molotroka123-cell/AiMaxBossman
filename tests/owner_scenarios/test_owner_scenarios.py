@@ -45,7 +45,7 @@ EXPECTED_WHEN_CAPABLE = {
     "OS-07": sr.CI_PROVEN, "OS-08": sr.CI_PROVEN, "OS-09": sr.CI_PROVEN,
     "OS-10": sr.CI_PROVEN, "OS-11": sr.CI_PROVEN, "OS-12": sr.CI_PROVEN,
     "OS-13": sr.CI_PROVEN, "OS-14": sr.CI_PROVEN, "OS-15": sr.OWNER_REQUIRED,
-    "OS-16": sr.OWNER_REQUIRED, "OS-17": sr.CI_PROVEN,
+    "OS-16": sr.CREDENTIAL_REQUIRED, "OS-17": sr.CI_PROVEN,
     # OS-18 закрыт BL-097: объявленные эффекты дошли до восстановления, бронь
     # отпускается, и следующий допуск ПРОХОДИТ. Сценарий проверяет возобновление,
     # а не описывает дефект.

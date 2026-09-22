@@ -77,6 +77,7 @@ def os16_image_studio_saves_a_real_artifact(ctx) -> None:
     # нельзя.
     gap = image.get("provider_gap") or {}
     ctx.credential_required(
+        "реальная генерация изображения требует credential/provider; native editing CI_PROVEN — "
         "native editing/save/reopen/export доказаны, но генерация не настоящая: "
         f"провайдер={gap.get('provider')}, generation_is_real={gap.get('generation_is_real')}. "
         f"{gap.get('note', '')} Нужен ключ живого провайдера изображений владельца.")
