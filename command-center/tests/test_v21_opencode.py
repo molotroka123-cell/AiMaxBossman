@@ -335,7 +335,7 @@ async def test_session_and_diff_survive_restart(env, repo, fake, monkeypatch, tm
 async def test_health_online_against_fake_server(env, fake, monkeypatch):
     monkeypatch.setenv("OPENCODE_URL", fake.url)
     body = (await env.client.get("/api/opencode/health")).json()
-    assert body["status"] == "online" and body["probe"] == "/api/health"
+    assert body["status"] == "online" and body["api"] == "v1" and body["probe"] == "/session"
 
 
 async def test_health_unavailable_is_honest_not_500(env, monkeypatch):
