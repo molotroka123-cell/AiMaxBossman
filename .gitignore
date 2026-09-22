@@ -51,6 +51,17 @@ apps/*/data/
 secret.key
 *wallets_encrypted*.json
 
+# Telegram-компаньон и Computer Use: секреты, личная память и кадры экрана.
+# По умолчанию они и так лежат вне дерева (%LOCALAPPDATA%\Bossman и TEMP), но
+# случайная копия рядом с кодом не должна уехать в GitHub.
+credentials.enc
+companion.sqlite3
+companion.log
+cloud-budget.sqlite3
+cloud-billing-review.flag
+poller.lock
+screen-*.png
+
 # Рабочие копии репозитория, которые создаёт харнесс под изолированных агентов.
 # Это дубликаты того же дерева (сотни мегабайт), а не содержимое проекта.
 # Правило намеренно узкое: если в .claude/ появится настройка проекта или

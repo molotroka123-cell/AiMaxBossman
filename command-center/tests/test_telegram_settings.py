@@ -340,3 +340,72 @@ async def test_persona_learning_profiles_and_export(env, tg):
         for method, url in (("GET", "/api/telegram/people"), ("POST", "/api/telegram/export"),
                             ("DELETE", "/api/telegram/profile/22222")):
             assert (await anon.request(method, url)).status_code == 401
+
+
+# ---------------------------------------------------------------- отзыв и ротация токена
+
+NEW_TOKEN = "987654" + "321:" + "Qz" * 18          # fixture shape only, not a credential
+
+
+def _stored(home):
+    return json.loads(Vault(home).decrypt((home / "credentials.enc").read_text(encoding="utf-8")))
+
+
+async def test_token_rotation_is_an_owner_setting_not_a_chat_command(env, tg):
+    """Ротация живёт в настройках Bossman: в ответе только маска, в файлах — новый секрет."""
+    assert (await env.client.put("/api/telegram/settings", json=body())).status_code == 200
+    bad = await env.client.post("/api/telegram/token", json={"bot_token": "не-токен"})
+    assert bad.status_code == 422 and _stored(tg.parent)["bot_token"] == TOKEN
+    same = await env.client.post("/api/telegram/token", json={"bot_token": TOKEN})
+    assert same.status_code == 422                      # «ротация» в тот же токен — не ротация
+
+    r = await env.client.post("/api/telegram/token", json={"bot_token": NEW_TOKEN})
+    assert r.status_code == 200, r.text
+    assert NEW_TOKEN not in r.text and TOKEN not in r.text
+    assert r.json()["bot_token_masked"] == "…" + NEW_TOKEN[-4:]
+    assert _stored(tg.parent)["bot_token"] == NEW_TOKEN
+    assert NEW_TOKEN not in tg.read_text(encoding="utf-8")
+    assert NEW_TOKEN not in (tg.parent / "credentials.enc").read_text(encoding="utf-8")
+    # Остальные секреты не потеряны.
+    assert set(_stored(tg.parent)) >= {"bot_token", "core_token", "cloud_token", "local_token", "proxy"}
+    # Компаньон грузит уже новый токен.
+    from bcc.telegram_companion.config import load
+    assert load(tg).bot_token == NEW_TOKEN
+
+
+async def test_token_revocation_stops_the_bridge_and_erases_the_secret(env, tg):
+    assert (await env.client.put("/api/telegram/settings", json=body())).status_code == 200
+    r = await env.client.delete("/api/telegram/token")
+    assert r.status_code == 200 and r.json()["revoked"] is True
+    assert TOKEN not in r.text and "@BotFather" in r.json()["next"]
+    assert _stored(tg.parent)["bot_token"] == ""
+    assert json.loads(tg.read_bytes())["enabled"] is False
+    # Без токена мост не стартует и не притворяется работающим.
+    start = await env.client.post("/api/telegram/start")
+    assert start.status_code == 409
+    repeat = await env.client.delete("/api/telegram/token")
+    assert repeat.json() == {"revoked": False, "reason": "NO_TOKEN_STORED", "status": repeat.json()["status"]}
+
+
+async def test_token_endpoints_require_an_authenticated_owner(env, tg):
+    assert (await env.client.put("/api/telegram/settings", json=body())).status_code == 200
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=env.app), base_url="http://test") as anon:
+        assert (await anon.post("/api/telegram/token", json={"bot_token": NEW_TOKEN})).status_code == 401
+        assert (await anon.delete("/api/telegram/token")).status_code == 401
+    assert _stored(tg.parent)["bot_token"] == TOKEN
+
+
+async def test_local_state_never_lands_in_the_repository(env, tg):
+    """Скриншоты и память компаньона живут вне дерева репозитория."""
+    from pathlib import Path
+
+    import bcc
+    repo = Path(bcc.__file__).resolve().parents[2]
+    from bcc.telegram_companion.__main__ import default_config
+    assert repo not in default_config().resolve().parents
+    import tempfile
+    frames = Path(tempfile.gettempdir()) / "bossman-computer"
+    assert repo not in frames.resolve().parents
+    gitignore = (repo / ".gitignore").read_text(encoding="utf-8")
+    for pattern in ("*.sqlite3", "credentials.enc", "screen-*.png"):
+        assert pattern in gitignore, pattern
