@@ -94,9 +94,12 @@ async def models(svc):
             try:available=image_configuration() is not None
             except ValueError:available=False
         if m['provider']=='sdcpp':
-            from bcc.studio.providers.sdcpp import configuration,engine_files
+            from bcc.studio.providers import sdcpp
+            # The first health check hashes gigabytes of weights: off the event loop, or the
+            # whole server (UI, Telegram, task leases) freezes for a minute.
             try:
-                cfg=configuration();available=cfg is not None and bool(engine_files(cfg,m['id']))
+                cfg=await asyncio.to_thread(sdcpp.configuration)
+                available=cfg is not None and bool(await asyncio.to_thread(sdcpp.engine_files,cfg,m['id']))
             except (ValueError,OSError,KeyError):available=False
         if m['provider']=='openrouter':
             price=p['prices'].get(m['id'])

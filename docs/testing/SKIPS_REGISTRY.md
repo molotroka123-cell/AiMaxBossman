@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 263. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 265. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -47,6 +47,7 @@
 | `command-center/tests/test_live_openrouter_dry_run.py:40` | skipif | `not chromium_available() and not required()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_memory_lifecycle_wiring.py:99` | skipif | `available()` | the installed bossman-shared already has the lifecycle | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_memory_lifecycle_wiring.py:106` | skipif | `not available()` | installed bossman-shared predates learning.lifecycle (reinstall it from this checkout to run this) | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_memory_recall_engine.py:17` | skipif | `not available()` | bossman-shared without learning.lifecycle | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_missing_model_and_dead_service_are_human.py:23` | skipif | `not chromium_available() and not required()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_mission_console.py:42` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_openrouter_connect_ui.py:9` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -81,6 +82,7 @@
 | `command-center/tests/test_smoke_live_owner.py:43` | skipif | `_app_missing()` | f"приложения {APP} нет среди манифестов" | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_smoke_live_owner.py:44` | skipif | `_port_taken()` | порт приложения занят посторонним процессом | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_smoke_live_owner.py:23` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_studio_listing_does_not_block_loop.py:28` | skip | `—` | no sd.cpp model in the catalog | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_media_lifecycle.py:80` | skipif | `os.name != "nt"` | kernel-enforced job objects are a Windows mechanism | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_partial_job_layer.py:33` | skipif | `shutil.which("ffmpeg") is None` | ffmpeg required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_partial_segments.py:22` | skipif | `shutil.which("ffmpeg") is None` | ffmpeg required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

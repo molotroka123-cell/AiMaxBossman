@@ -349,7 +349,8 @@ class HashCache:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             live = {k: v for k, v in self.entries.items() if Path(k).exists()}
-            tmp = self.path.with_name(self.path.name + f".{os.getpid()}.tmp")
+            # pid AND thread: health checks run in worker threads, two listings may save at once
+            tmp = self.path.with_name(self.path.name + f".{os.getpid()}.{threading.get_ident()}.tmp")
             tmp.write_text(json.dumps({"version": self.VERSION, _HASH_CACHE_LOCK_TOKEN: self.token,
                                        "entries": live}, indent=0), encoding="utf-8")
             os.replace(tmp, self.path)
