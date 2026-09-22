@@ -8,10 +8,10 @@ import os
 import secrets
 import time
 
-from . import pc_control
 from .adapters import (CURRENT_PRIORITY, IMAGE_MAX_BYTES, IMAGE_MIMES, Core, Models, RateLimited, Telegram,
                        image_mime, scrub)
 from .config import CompanionError, Person, Settings
+from .console import CONSOLE_COMMANDS, CONSOLE_OFF, NO_DIRECT_SHELL, ConsoleMixin
 from .store import Store
 
 HELP = ("Я Bossman, ваш ИИ-помощник на локальных моделях. Можно просто написать мне.\n\n"
@@ -22,9 +22,12 @@ HELP = ("Я Bossman, ваш ИИ-помощник на локальных мод
         "/video описание — видео локально (Wan2.2): выберите длину 1 с TestRun / 5 / 10 / 15 / 30 с; "
         "сразу с длиной: /video 10 описание\n"
         "Фото с подписью /animate 5 (или «оживи 10») — оживить фото в клип 5–10 с; /cancel — отменить генерацию\n"
+        "/menu — пульт владельца кнопками (статус, очередь, подтверждения, СТОП)\n"
         "/status — связь с компьютером (владелец)\n"
         "/task описание — подготовить поручение агенту Bossman\n"
         "/confirm код — подтвердить ровно это поручение\n"
+        "/approvals — подтвердить или отклонить ожидающие действия Bossman (владелец)\n"
+        "/stop — остановить всё, что ещё можно остановить; /pause — пауза; /resume — продолжить\n"
         "/result ID — состояние и результат своей задачи\n"
         "/search запрос — поиск через настроенный SearXNG\n"
         "/cloud on|off — резерв Claude: только ваше текущее сообщение, без истории и файлов\n"
@@ -32,8 +35,9 @@ HELP = ("Я Bossman, ваш ИИ-помощник на локальных мод
         "/lock — запретить новые поручения (разблокировка локально)\n"
         "/forget — удалить мою историю и профиль (с подтверждением)\n"
         "/privacy — что обо мне хранится; /pause_learning, /resume_learning — пауза обучения\n\n"
-        "Я не нажимаю кнопки на компьютере сам. Поручения исполняют другие агенты "
-        "с их обычными правами и подтверждениями. Telegram — внешний сервис, не локальный секретный чат.")
+        "Я не нажимаю кнопки на компьютере сам и не выполняю команды из чата. Поручения исполняет "
+        "Bossman: задача → policy/подтверждение → исполнитель → проверка результата. "
+        "Telegram — внешний сервис, не локальный секретный чат.")
 
 
 def failure_text(code: str) -> str:
@@ -68,6 +72,20 @@ def failure_text(code: str) -> str:
         "ANIMATE_NO_SOURCE": "Пришлите фото с подписью /animate 5 или /animate 10 (можно добавить, как оно должно двигаться), или нажмите «Оживить» под картинкой.",
         "IMAGE_BYTES_UNVERIFIED":"Bossman отдал файл, который не прошёл проверку (хеш или формат не совпали). Картинку не отправляю.",
         "MODEL_REPLY_INVALID": "Модель вернула пустой или неполный ответ (часто: рассуждения съели лимит токенов). Попробуйте ещё раз или /fast.",
+        "APPROVAL_GATE_EXPIRED_OR_USED": "Эта кнопка подтверждения уже использована, истекла или принадлежит другому чату. Откройте /approvals заново — старое решение ничего не применит.",
+        "APPROVAL_CHANGED_REVIEW_AGAIN": "Цель, аргументы или контекст этого действия изменились после того, как вы его увидели. Решение аннулировано, ничего не выполнено. Откройте /approvals и прочитайте новое описание.",
+        "APPROVAL_ALREADY_DECIDED": "Это подтверждение уже решено (в Bossman или отсюда). Повторно я его не применяю.",
+        "APPROVAL_GONE": "Такого подтверждения в Bossman больше нет. Ничего не выполнено.",
+        "APPROVAL_ROW_INVALID": "Bossman вернул строку подтверждения, которую я не смог разобрать. Решать вслепую не буду.",
+        "APPROVAL_DECISION_UNKNOWN": "Ответ Bossman на решение не подтверждён. Автоповтора нет: сверьте состояние подтверждения в Bossman.",
+        "COMPUTER_STOPPED": "Сейчас включён СТОП: новые действия не разрешаю. Сначала /resume — он потребует свежего наблюдения экрана.",
+        "LAST_STEP_OUTCOME_UNKNOWN": "Исход прошлого шага на компьютере неизвестен. До свежего наблюдения новые эффекты запрещены.",
+        "SCREEN_NOT_OBSERVABLE": "Экран сейчас нельзя наблюдать (управление компьютером недоступно). Разрешать действие вслепую я не буду; отклонить можно.",
+        "OBSERVATION_STALE": "Наблюдение экрана устарело. Действие не разрешено: за это время экран мог измениться.",
+        "COMPUTER_STATUS_INVALID": "Bossman вернул непонятное состояние управления компьютером. Действие не разрешено.",
+        "COMPUTER_OBSERVATION_INVALID": "Наблюдение экрана пришло в неожидаемом виде. Действие не разрешено.",
+        "APPROVALS_RESPONSE_INVALID": "Очередь подтверждений пришла в неожидаемом виде. Пустым списком это не подменяю.",
+        "IDENTITY_REVOKED": "Доступ этого чата к Bossman отозван или изменён. Действие не выполнено.",
     }
     return known.get(code, f"Действие не подтверждено: {code}. /status и /help помогут продолжить.")
 
@@ -124,7 +142,12 @@ def frame_for_video(data: bytes) -> tuple[bytes, tuple[int, int]]:
 
 
 ROUTE_TITLE = {"main": "🧠 Лучшая", "fast": "⚡ Быстрая"}
-BOT_COMMANDS = [("menu", "Меню с кнопками"), ("best", "Отвечать лучшей моделью"), ("fast", "Отвечать самой быстрой"),
+BOT_COMMANDS = [("menu", "Пульт с кнопками"), ("status", "Состояние компьютера"), ("queue", "Очередь и подтверждения"),
+                ("task", "Новое поручение Bossman"), ("approvals", "Подтвердить или отклонить"),
+                ("stop", "СТОП: остановить отменяемое"), ("pause", "Пауза: не начинать новое"),
+                ("resume", "Продолжить (с новым наблюдением)"),
+                ("screen", "Снимок экрана"), ("diag", "Диагностика"), ("lessons", "Найденные уроки"),
+                ("best", "Отвечать лучшей моделью"), ("fast", "Отвечать самой быстрой"),
                 ("model", "Какая модель отвечает"), ("img", "Нарисовать картинку"), ("imgmodel", "Модель картинок"),
                 ("video", "Снять видео"), ("animate", "Оживить фото"), ("cancel", "Отменить генерацию"),
                 ("forget", "Очистить историю"), ("help", "Помощь")]
@@ -161,21 +184,13 @@ class Reply(str):
         obj = super().__new__(cls, text)
         obj.keyboard = keyboard
         return obj
-PC_COMMANDS = {"/pc", "/claude", "/claude_new", "/claude_stop", "/mode", "/sh", "/screen", "/bossman"}
-PC_OFF = ("Управление компьютером из Telegram выключено или доступно только владельцу. "
-          "Владелец включает его локально: pc_control в config.json компаньона.")
-PC_HELP = ("🖥 Управление компьютером (только владелец):\n"
-           "/claude задача — поручить Claude Code (работает на этом ПК, помнит прошлые поручения)\n"
-           "/mode claude — все обычные сообщения идут в Claude Code; /mode chat — снова локальные модели\n"
-           "/claude_new — начать новую сессию Claude; /claude_stop — остановить текущую работу\n"
-           "/sh команда — выполнить команду PowerShell и прислать вывод\n"
-           "/screen — снимок экрана\n"
-           "/bossman — состояние Bossman; /bossman start — запустить Bossman\n\n"
-           "⚠️ Claude и /sh действуют с правами вашей учётной записи Windows без дополнительных подтверждений.")
-PROCESSES_PS = ("Get-Process | Sort-Object WS -Descending | Select-Object -First 15 Name,Id,"
-                "@{n='MB';e={[int]($_.WS/1MB)}} | Format-Table -AutoSize | Out-String -Width 120")
-DELEGATION_OFF = ("Поручения из Telegram пока недоступны: Telegram сейчас только для беседы с локальными "
-                  "моделями. Управление компьютером, браузером и файлами отсюда не выполняется.")
+# Прямой путь исполнения удалён (раздел 5 ТЗ владельца): /sh, /claude, /mode и
+# перезапуск процессов из чата больше не существуют. Команды остаются только в
+# этом списке — чтобы старая кнопка или старый ярлык получили внятный отказ,
+# а не «неизвестную команду».
+REMOVED_DIRECT_COMMANDS = {"/sh", "/claude", "/claude_new", "/claude_stop", "/mode", "/pc"}
+DELEGATION_OFF = ("Поручения из Telegram пока недоступны: этому чату не назначен исполнитель Bossman. "
+                  "Владелец назначает его локально. Прямого доступа к shell, файлам и мыши из Telegram нет.")
 
 
 def model_name(model_id: str) -> str:
@@ -187,7 +202,7 @@ def model_name(model_id: str) -> str:
     return re.sub(r"-0*1-of-\d+$", "", name)[:80] or "модель"
 
 
-class Companion:
+class Companion(ConsoleMixin):
     def __init__(self, settings: Settings, store: Store, telegram: Telegram, core: Core, models: Models,
                  *, policy_provider=None):
         self.settings, self.store = settings, store
@@ -202,7 +217,6 @@ class Companion:
         self.profile_building = False
         self.monitor_state = None
         self.monitor_failures = 0
-        self.claude_job = None
         if self.telegram is not None:
             self.telegram.authorize_delivery = self.delivery_allowed
 
@@ -244,102 +258,18 @@ class Companion:
         return (label, "b:" + token)
 
     def main_menu(self, person: Person):
+        """Пульт владельца сверху, беседа и генерация — ниже. Один экран, русские кнопки."""
         b = lambda label, cmd: self.button(person, label, cmd)  # noqa: E731
+        if self.console_allowed(person):
+            # Ровно 8 рядов: Telegram-разметка компаньона больше не показывает.
+            return self.console_menu(person) + [
+                [b("🧠 Лучшая", "/best"), b("⚡ Самая быстрая", "/fast"), b("ℹ️ Помощь", "/help")]]
         return [[b("🧠 Лучшая", "/best"), b("⚡ Самая быстрая", "/fast")],
                 [b("👁 Модель для фото", "/photo"), b("🎨 Сгенерировать картинку", "/img")],
                 [b("🧩 Модель картинок", "/imgmodel"), b("🎬 Видео", "/video")],
                 [b("🎞 Оживить фото", "/animate")],
                 [b("❓ Какая модель?", "/model"), b("ℹ️ Помощь", "/help")],
-                [b("🧹 Очистить историю", "/forget")]] + (
-                [[b("🖥 Управление ПК", "/pc")]] if self.pc_allowed(person) else [])
-
-    # ---------------------------------------------------------------- computer control (owner only)
-    def pc_allowed(self, person: Person) -> bool:
-        return person.role == "owner" and self.settings.pc_control is True
-
-    def pc_menu(self, person: Person):
-        b = lambda label, cmd: self.button(person, label, cmd)  # noqa: E731
-        claude_mode = self.store.get("mode:" + person.key, "chat") == "claude"
-        return [[b("📸 Экран", "/screen"),
-                 b("💬 Режим чата", "/mode chat") if claude_mode else b("🤖 Режим Claude", "/mode claude")],
-                [b("🆕 Новая сессия Claude", "/claude_new"), b("✋ Стоп Claude", "/claude_stop")],
-                [b("📊 Bossman", "/bossman"), b("🔌 Процессы", "/sh " + PROCESSES_PS)]]
-
-    async def pc(self, person: Person, command: str, arg: str, text: str):
-        """Owner-only computer control; guests and a disabled switch get a refusal, never an effect."""
-        if not self.pc_allowed(person):
-            return PC_OFF
-        cwd = self.settings.claude_cwd or None
-        if command == "/pc":
-            mode = self.store.get("mode:" + person.key, "chat")
-            return Reply(PC_HELP + f"\n\nСейчас режим: {'Claude Code' if mode == 'claude' else 'чат с локальной моделью'}.",
-                         self.pc_menu(person))
-        if command == "/mode":
-            if arg not in {"claude", "chat"}:
-                return "/mode claude — сообщения идут в Claude Code; /mode chat — в локальную модель."
-            self.store.put("mode:" + person.key, arg)
-            return ("🤖 Режим Claude Code: обычные сообщения теперь задачи для Claude на этом ПК. /mode chat — вернуться."
-                    if arg == "claude" else "💬 Режим чата: отвечают локальные модели.")
-        if command == "/sh":
-            if not arg:
-                return "Напишите /sh и команду PowerShell, например: /sh Get-Date"
-            return await pc_control.shell(arg, cwd)
-        if command == "/screen":
-            try:
-                data = await pc_control.screenshot()
-            except RuntimeError:
-                return "Не удалось снять экран (экран заблокирован или нет активного сеанса)."
-            await self.telegram.send_photo(person, data, "🖥 Снимок экрана",
-                                           [[self.button(person, "🔄 Ещё раз", "/screen")]])
-            return None
-        if command == "/claude_new":
-            self.store.put("claude_session:" + person.key, None)
-            return "🆕 Следующее поручение Claude начнёт новую сессию."
-        if command == "/claude_stop":
-            job = self.claude_job
-            if job is None or job.done():
-                return "Claude сейчас ничего не делает."
-            job.cancel()
-            return "✋ Останавливаю Claude…"
-        if command == "/bossman":
-            if arg == "start":
-                if not self.settings.bossman_launch:
-                    return "Команда запуска Bossman не задана (bossman_launch в config.json компаньона)."
-                return await pc_control.shell(self.settings.bossman_launch, cwd)
-            try:
-                await self.core.status()
-                return "📊 Bossman запущен и отвечает (" + self.settings.core_url + ")."
-            except CompanionError:
-                return Reply("📊 Bossman сейчас не отвечает.", [[self.button(person, "▶️ Запустить Bossman", "/bossman start")]])
-        prompt = arg if command == "/claude" else text
-        if not prompt:
-            return "Напишите /claude и задачу, например: /claude проверь, запущены ли модели на 8081–8083"
-        if self.claude_job is not None and not self.claude_job.done():
-            return Reply("Claude ещё работает над прошлым поручением. Дождитесь ответа или остановите.",
-                         [[self.button(person, "✋ Стоп Claude", "/claude_stop")]])
-        self.claude_job = asyncio.create_task(self.claude_turn(person, prompt))
-        return Reply("🤖 Передал Claude Code, работаю… Ответ пришлю сюда.",
-                     [[self.button(person, "✋ Стоп", "/claude_stop")]])
-
-    async def claude_turn(self, person: Person, prompt: str):
-        indicator = asyncio.create_task(self.typing(person))
-        key = "claude_session:" + person.key
-        try:
-            text, session, cost = await pc_control.claude(
-                prompt, session=self.store.get(key), cwd=self.settings.claude_cwd or os.path.expanduser("~"),
-                permission_mode=self.settings.claude_permission_mode, timeout=self.settings.claude_timeout)
-            self.store.put(key, session)
-            footer = "\n\n— 🤖 Claude Code" + (f" · ${cost:.2f}" if isinstance(cost, (int, float)) else "")
-            reply = "🤖 " + text + footer
-        except asyncio.CancelledError:
-            reply = "✋ Claude остановлен."
-        except (RuntimeError, OSError) as exc:
-            reply = ("Claude Code не найден на этом ПК (команда claude)." if str(exc) == "CLAUDE_CLI_NOT_FOUND"
-                     else f"Claude: ошибка {type(exc).__name__}")
-        finally:
-            indicator.cancel()
-        with contextlib.suppress(CompanionError):
-            await self.telegram.send(person, reply, [[self.button(person, "🖥 Меню ПК", "/pc")]])
+                [b("🧹 Очистить историю", "/forget")]]
 
     async def ingest_callback(self, update: dict):
         cb = update.get("callback_query")
@@ -373,6 +303,12 @@ class Companion:
             return
         if "callback_query" in update:
             return await self.ingest_callback(update)
+        # An edited message is not a new instruction: acknowledging it advances
+        # the offset, but nothing is queued, so no operation runs a second time.
+        # Channel posts and their edits never belong to a private owner chat.
+        if any(k in update for k in ("edited_message", "channel_post", "edited_channel_post")):
+            self.store.ingest(update["update_id"], None, None)
+            return
         message = update.get("message")
         person = self.authorized(message)
         text = message.get("text") if isinstance(message, dict) else None
@@ -625,10 +561,13 @@ class Companion:
         command, _, arg = text.partition(" ")
         command, arg = command.lower(), arg.strip()
         if command in {"/start", "/help", "/menu"}:
-            return Reply(HELP if command != "/menu" else "Меню:", self.main_menu(person))
-        if command in PC_COMMANDS or (not command.startswith("/") and self.pc_allowed(person) and
-                                      self.store.get("mode:" + person.key, "chat") == "claude"):
-            return await self.pc(person, command, arg, text)
+            title = "Пульт Bossman. Все действия идут через задачи и подтверждения." if command == "/menu" else HELP
+            return Reply(title, self.main_menu(person))
+        if command in REMOVED_DIRECT_COMMANDS:
+            # Второй путь исполнения удалён: отказ даже владельцу и при включённом тумблере.
+            return NO_DIRECT_SHELL if self.console_allowed(person) else CONSOLE_OFF
+        if command in CONSOLE_COMMANDS:
+            return await self.console(person, command, arg, message)
         if command == "/photo":
             route = await self.models.vision_route()
             if route is None:
@@ -684,12 +623,14 @@ class Companion:
                     "Это проверка доступности, не полной готовности всех функций.\n"
                     f"Локальная модель: {'настроена, результат проверяется запросом' if self.settings.local_model else 'не настроена'}.\n"
                     f"Делегирование: {'заблокировано' if self.store.get('delegation_locked', False) else 'по подтверждению'}.")
+        if command in {"/task", "/confirm"} and self.store.get("delegation_locked", False):
+            # STOP/pause wins over everything below: no new work is prepared or
+            # dispatched while the owner holds the brake, executor or not.
+            return "Новые поручения заблокированы владельцем (СТОП или пауза). Снять — /resume."
         if command in {"/task", "/confirm"} and person.agent_id is None:
             # Chat-only mode (default): no executor, no Bossman call, no side effect.
             return DELEGATION_OFF
         if command == "/task":
-            if self.store.get("delegation_locked", False):
-                return "Новые поручения заблокированы владельцем."
             if not arg:
                 return "Напишите /task и точное поручение. Сначала покажу его для подтверждения."
             if len(arg) > 2500:
@@ -922,6 +863,12 @@ class Companion:
                 answer = failure_text(str(exc))
                 if message.get('text', '').startswith('/confirm '):
                     answer += "\nАвтоповтора нет: при потере ответа задача могла быть создана. Проверьте Bossman перед новым поручением."
+                elif message.get('text', '').startswith(('/approve ', '/reject ')):
+                    # The decision may or may not have reached Bossman. The
+                    # one-time nonce is already burnt, so nothing is replayed:
+                    # the owner verifies the approval's real state instead.
+                    answer += ("\nАвтоповтора нет: решение могло дойти до Bossman. Откройте /approvals "
+                               "и посмотрите текущее состояние этого подтверждения, прежде чем решать снова.")
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -1002,8 +949,15 @@ class Companion:
                 try:
                     if person not in self.policy_provider().people:
                         continue
-                    await self.telegram.send(person, f"Задача #{row['task_id']} ждёт подтверждения в приложении Bossman "
-                                                     "(раздел подтверждений). Из Telegram подтвердить нельзя — это намеренно.")
+                    text = (f"Задача #{row['task_id']} ждёт подтверждения (раздел подтверждений Bossman).")
+                    if self.console_allowed(person):
+                        await self.telegram.send(person, text + "\nМожно решить здесь: /approvals — "
+                                                 "кнопка действует несколько минут, один раз, и только "
+                                                 "пока цель и аргументы не изменились.",
+                                                 [[self.button(person, "✅ Подтвердить / ⛔ Отклонить", "/approvals")]])
+                    else:
+                        await self.telegram.send(person, text + " Из этого чата подтверждать нельзя: "
+                                                 "пульт владельца выключен.")
                 except CompanionError:
                     continue
                 self.store.put(wait_key, 'delivered')
