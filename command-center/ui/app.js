@@ -242,7 +242,7 @@ function onRoute() {
   renderPage();
 }
 
-async function renderPage() {
+async function renderPage({ auto = false } = {}) {
   const page = PAGE_BY_ID.get(currentPage);
   if (!page) return;
   const token = ++renderToken;
@@ -261,6 +261,12 @@ async function renderPage() {
   try {
     const node = await page.render(ctx, currentParams);
     if (token !== renderToken) return;
+    /* Автоматическая перерисовка проверяла ввод только на СТАРТЕ, а заменяла
+       страницу после сетевых запросов: владелец, начавший печатать в этом
+       окне, терял набранное (check-then-act, BL-074). Проверяем и в момент
+       замены; отложенную подхватит интервал ниже. Явные обновления (кнопка,
+       действие страницы, переход) не откладываются. */
+    if (auto && lastRendered === currentPage && isTypingInView()) { pendingRefresh = true; return; }
     lastRendered = currentPage;
     // ws.open/reconnect refreshes launcher state without unloading a running
     // app. Otherwise its selected folder, preview and policy error disappear.
@@ -314,7 +320,7 @@ function isTypingInView() {
 function renderPageWhenNotTyping() {
   if (isTypingInView()) { pendingRefresh = true; return false; }
   pendingRefresh = false;
-  renderPage();
+  renderPage({ auto: true });
   return true;
 }
 
@@ -324,7 +330,7 @@ function scheduleRefresh() { scheduleRefreshInner(); }
 
 /* Если пользователь печатал — довыполним отложенное обновление, когда освободится. */
 setInterval(() => {
-  if (pendingRefresh && !isTypingInView()) { pendingRefresh = false; renderPage(); }
+  if (pendingRefresh && !isTypingInView()) { pendingRefresh = false; renderPage({ auto: true }); }
 }, 2500);
 
 /* ---------------- Меню и навигация ---------------- */
