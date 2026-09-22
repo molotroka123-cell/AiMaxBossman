@@ -151,6 +151,7 @@ def os101_work_survives_process_death_and_continues(ctx) -> None:
 
     path = ctx.path("ферма", "работы.sqlite3")
     store = _open_store(path)
+    ctx.closing(store.conn)
     job = store.enqueue(account_id=OWNER_ACCOUNT, capability="media.publish",
                         idempotency_key="ночная-публикация",
                         payload={"подпись": "доброе утро"}, now=T0)
@@ -166,6 +167,7 @@ def os101_work_survives_process_death_and_continues(ctx) -> None:
 
     # --- смерть процесса
     store = _restart(store, path)
+    ctx.closing(store.conn)
     after = store.get(job.id)
     ctx.positive("после перезапуска работа НА МЕСТЕ, а не пропала",
                  after.id == taken.id and after.payload == {"подпись": "доброе утро"},
@@ -214,6 +216,7 @@ def os102_the_same_intent_is_one_job_by_the_database(ctx) -> None:
 
     path = ctx.path("ферма", "идемпотентность.sqlite3")
     store = _open_store(path, accounts=(OWNER_ACCOUNT, OTHER_ACCOUNT))
+    ctx.closing(store.conn)
     first = store.enqueue(account_id=OWNER_ACCOUNT, capability="media.publish",
                           idempotency_key="пост-1", payload={"текст": "первый"}, now=T0)
     second = store.enqueue(account_id=OWNER_ACCOUNT, capability="media.publish",
@@ -274,6 +277,7 @@ def os103_a_dead_workers_job_waits_for_reconciliation(ctx) -> None:
 
     path = ctx.path("ферма", "смерть-работника.sqlite3")
     store = _open_store(path)
+    ctx.closing(store.conn)
     job = store.enqueue(account_id=OWNER_ACCOUNT, capability="media.publish",
                         idempotency_key="ночной-пост", now=T0)
     store.acquire(worker="работник-A", lease_seconds=30, now=T0)
@@ -298,6 +302,7 @@ def os103_a_dead_workers_job_waits_for_reconciliation(ctx) -> None:
                 JobStoreError)
 
     store = _restart(store, path)
+    ctx.closing(store.conn)
     recovered = store.recover_stale(now=dead)
     ctx.positive("после срыва работа уходит на СВЕРКУ, а не на повтор и не в отказ",
                  [r.state for r in recovered] == [JobState.RECONCILING]
@@ -512,6 +517,7 @@ def os105_the_owners_account_never_mixes_with_another(ctx) -> None:
     # 1. Работы. Две учётные записи в одной базе не видят работ друг друга.
     path = ctx.path("ферма", "два-аккаунта.sqlite3")
     store = _open_store(path, accounts=(OWNER_ACCOUNT, OTHER_ACCOUNT))
+    ctx.closing(store.conn)
     mine = store.enqueue(account_id=OWNER_ACCOUNT, capability="media.publish",
                          idempotency_key="общий-ключ", now=T0)
     theirs = store.enqueue(account_id=OTHER_ACCOUNT, capability="media.publish",

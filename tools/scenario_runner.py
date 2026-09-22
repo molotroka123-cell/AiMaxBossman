@@ -168,6 +168,25 @@ class RunContext:
         self.ai = ai
         self.checks: list[Check] = []
         self.depth = scenario.depth
+        self._closers: list[Callable[[], Any]] = []
+
+    def closing(self, resource: Any) -> Any:
+        """Закрыть ресурс (``.close()``) до удаления рабочего каталога сценария.
+
+        На Windows открытый файл SQLite не даёт удалить каталог, и весь прогон
+        падал на уборке вместо вердикта. Закрытие — в обратном порядке.
+        """
+        self._closers.append(resource.close)
+        return resource
+
+    def _close_all(self) -> list[str]:
+        errors = []
+        while self._closers:
+            try:
+                self._closers.pop()()
+            except BaseException as exc:  # noqa: BLE001 — сбой закрытия тоже улика
+                errors.append(f"{type(exc).__name__}: {exc}")
+        return errors
 
     # --------------------------------------------------------- запись проверок
     def positive(self, name: str, ok: bool, detail: str = "") -> bool:
@@ -397,6 +416,9 @@ def run_scenario(scenario_: Scenario, ai: CIAIProvider,
                 gate, gate_reason, evidence = _level_from_model_step(ai.calls[before:])
                 if gate != CI_PROVEN:
                     level, reason = gate, gate_reason
+        finally_errors = ctx._close_all()
+        if finally_errors and level != FAIL:
+            level, reason = FAIL, redact("ресурс сценария не закрылся: " + "; ".join(finally_errors))
     result = ScenarioResult(scenario=scenario_, level=level, reason=reason, checks=list(ctx.checks),
                             depth=ctx.depth, ai_evidence=evidence,
                             model_evidence_class=_model_evidence_class(scenario_, ai, before),

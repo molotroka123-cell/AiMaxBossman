@@ -144,6 +144,7 @@ def os32_owner_zero_is_not_a_free_tariff(ctx) -> None:
                                     "prices": {paid: 0.1}})
         out["honest_price"] = await gov.reserve(svc, paid, 1, 1, [])
         out["after_honest"] = await gov.budget_status(svc)
+        await svc.db.close()  # Windows cannot remove the work dir under an open SQLite file
         return out
 
     got = asyncio.run(run())
@@ -229,6 +230,7 @@ def os33_budget_stops_before_the_external_call(ctx) -> None:
         out["revoked"] = await _refused(
             provider.submit(GenerationPlane(paid, "кот в окне", {}, ())), StudioError)
         out["requests_final"] = len(requests)
+        await svc.db.close()  # Windows cannot remove the work dir under an open SQLite file
         return out
 
     got = asyncio.run(run())
