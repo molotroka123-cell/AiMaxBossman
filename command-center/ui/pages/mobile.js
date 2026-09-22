@@ -442,7 +442,8 @@ function opencodeBody(state, ctx) {
   const health = state.health || {};
   const unavailable = state.healthError
     || (health && health.ok === false)
-    || (health && health.status && health.status !== 'ok');
+    /* бридж отвечает online|unauthorized|incompatible_version|unavailable (R12) */
+    || (health && health.status && !['ok', 'online'].includes(health.status));
   const reason = state.healthError
     || (health && (health.detail || health.error || health.message))
     || 'сервер opencode не отвечает';
