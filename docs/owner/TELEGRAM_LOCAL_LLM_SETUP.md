@@ -145,7 +145,7 @@ Telegram Companion (отдельный процесс, запускается и
 
 ## 6d. Управление компьютером (только владелец)
 
-Включается локально в `%LOCALAPPDATA%Bossman	elegram-companionnfig.json`
+Включается локально в `%LOCALAPPDATA%\Bossman\telegram-companion\config.json`
 (`"pc_control": true`, затем перезапуск компаньона). Гостям недоступно никогда.
 Своего агента не пишем: работу выполняет официальный Claude Code CLI в
 неинтерактивном режиме (`claude -p --output-format json --resume`), команды —
