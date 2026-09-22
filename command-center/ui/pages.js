@@ -13,6 +13,7 @@ import {
   fmtTokens, fmtContext, fmtCost,
 } from './components.js';
 import * as ui from './pages/_ui.js';
+import { telegramPanel } from './pages/telegram_settings.js';
 
 /* ============================================================
    Общие помощники
@@ -1897,8 +1898,13 @@ const SettingsPage = {
         h('div.xsmall.dim', 'BOSSMAN AI Command Center — локальный control plane: модели, агенты, задачи, расписания, метрики.'),
         h('div.xsmall.dim', 'Интерфейс работает офлайн: без CDN, без сборки, только Control API этого же сервера.')));
 
+    let telegram = null;
+    try { telegram = await telegramPanel(ctx); }
+    catch (e) { telegram = panel('Telegram', h('div.small.dim', e.message || 'Раздел Telegram недоступен')); }
+
     return h('div.stack.lg',
       h('div.grid.cols-2', appearance, access),
+      telegram,
       providersPanel,
       about);
   },

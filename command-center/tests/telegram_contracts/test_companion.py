@@ -292,7 +292,8 @@ def test_core_down_does_not_kill_status_or_conversation(tmp_path):
         app,store,core=app_for(tmp_path);core.online=False
         try:
             assert 'мост на связи' in await app.handle(OWNER,msg(text='/status'))
-            assert await app.handle(OWNER,msg()) == 'answer'
+            reply=await app.handle(OWNER,msg())
+            assert reply.endswith('\n\nanswer') and reply.startswith('🧠 Лучшая · local-test-fixture')
         finally:store.close()
     asyncio.run(run())
 

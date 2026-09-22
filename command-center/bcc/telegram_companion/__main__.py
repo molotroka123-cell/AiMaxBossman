@@ -90,6 +90,8 @@ async def diagnose(settings: Settings):
 
 async def serve(path: Path):
     settings = load(path)
+    if not settings.enabled:
+        raise CompanionError("COMPANION_DISABLED_IN_SETTINGS")
     from bcc.auth import _restrict_to_owner
     with single_instance(path.parent):
         store = Store(path.parent)

@@ -1,0 +1,183 @@
+/* ============================================================
+   telegram_settings.js — раздел «Telegram» в Настройках.
+   Endpoints (bcc/features/telegram_settings.py, под /api с обычной auth/CSRF):
+     GET/PUT /api/telegram/settings, POST /api/telegram/models,
+     POST /api/telegram/test, GET /api/telegram/status,
+     POST /api/telegram/start, POST /api/telegram/stop.
+
+   Telegram — только беседа с локальными моделями. Поручения (/task) и любое
+   управление компьютером отсюда недоступны.
+   Токен бота уходит на сервер один раз и обратно не приходит: показываются
+   только последние 4 символа. Модели выбираются из того, что реально отдают
+   локальные серверы (/v1/models), поэтому «точное имя» вводить не нужно.
+   ============================================================ */
+
+import { api } from '../api.js';
+import { h, field, input, select, actionButton, toastOk, toastError, badge } from '../components.js';
+
+export const SETTINGS_ENDPOINT = '/api/telegram/settings';
+
+const STATE_LABEL = { running: 'работает', stopped: 'остановлен', error: 'ошибка' };
+const STATE_TONE = { running: 'ok', stopped: '', error: 'err' };
+
+function statusLine(st) {
+  const s = st || {};
+  return h('div.row', { 'data-testid': 'tg-status' },
+    h('span.small', 'Компаньон: '),
+    badge(STATE_LABEL[s.state] || 'неизвестно', STATE_TONE[s.state] || ''),
+    s.last_error ? h('span.xsmall.dim.mono', ` · ${s.last_error}`) : null);
+}
+
+export function shortModel(id) {
+  const name = String(id || '').split(/[\\/]/).pop().replace(/\.gguf$/i, '').replace(/-0*1-of-\d+$/, '');
+  return name || String(id || '');
+}
+
+function port(url) { const m = /:(\d+)/.exec(String(url || '').replace(/^https?:\/\//, '')); return m ? m[1] : url; }
+
+/* Варианты — все пары «сервер · модель», которые реально отдаются сейчас,
+   плюс сохранённая пара (даже если сервер сейчас выключен). */
+function choices(endpoints, saved) {
+  const out = [];
+  for (const ep of endpoints || []) {
+    for (const model of ep.models || []) {
+      const speed = ep.measured_tok_s ? ` · ~${ep.measured_tok_s} ток/с` : '';
+      out.push({ url: ep.url, model, label: `${port(ep.url)} · ${shortModel(model)}${speed}` });
+    }
+  }
+  if (saved && saved.model && !out.some((c) => c.url === saved.url && c.model === saved.model)) {
+    out.push({ url: saved.url, model: saved.model, label: `${port(saved.url)} · ${shortModel(saved.model)} (сохранено, сервер не отвечает)` });
+  }
+  return out;
+}
+
+function fillSelect(sel, list, current, emptyLabel) {
+  sel.textContent = '';
+  if (emptyLabel !== null) sel.appendChild(h('option', { value: '' }, emptyLabel));
+  list.forEach((c, i) => sel.appendChild(h('option', { value: String(i) }, c.label)));
+  const idx = current ? list.findIndex((c) => c.url === current.url && c.model === current.model) : -1;
+  sel.value = idx >= 0 ? String(idx) : (emptyLabel !== null ? '' : (list.length ? '0' : ''));
+}
+
+export async function telegramPanel(ctx) {
+  let data = {};
+  let loadErr = null;
+  try { data = await api.raw(SETTINGS_ENDPOINT); } catch (e) { loadErr = e; }
+  if (loadErr) {
+    return h('section.panel', { id: 'telegram' }, h('div.panel-head', h('h2', 'Telegram')),
+      h('div.panel-body', h('div.small.dim', loadErr.message)));
+  }
+
+  let list = [];
+  const statusBox = h('div', statusLine(data.status));
+  const setStatus = (st) => { statusBox.textContent = ''; statusBox.appendChild(statusLine(st)); };
+
+  const tokenEl = input({ type: 'password', autocomplete: 'off', name: 'tg-token',
+    placeholder: data.token_set ? `сохранён ${data.token_last4} — оставьте пустым, чтобы не менять` : '1234567890:AA…' });
+  const ownerEl = input({ type: 'number', min: '1', step: '1', name: 'tg-owner', value: data.owner_id ?? '' });
+  const guestsEl = input({ name: 'tg-guests', placeholder: 'через запятую, до 7', value: (data.guest_ids || []).join(', ') });
+  const bestSel = select([], { name: 'tg-best' });
+  const fastestSel = select([], { name: 'tg-fastest' });
+  const routeSel = select([{ value: 'best', label: 'Лучшая (самая умная)' }, { value: 'fastest', label: 'Самая быстрая' }],
+    { name: 'tg-route', value: data.default_route || 'best' });
+  const fallbackEl = h('input', { type: 'checkbox', name: 'tg-fallback', checked: data.fast_fallback !== false });
+  const timeoutEl = input({ type: 'number', min: '1', max: '600', step: '1', name: 'tg-timeout', value: data.local_timeout ?? 180 });
+  const tokensEl = input({ type: 'number', min: '64', max: '2048', step: '64', name: 'tg-max-tokens', value: data.max_tokens ?? 1024 });
+  const enabledEl = h('input', { type: 'checkbox', name: 'tg-enabled', checked: data.enabled !== false });
+  const delegationEl = h('input', { type: 'checkbox', name: 'tg-delegation', checked: false, disabled: true });
+
+  const savedBest = { url: data.best_url, model: data.best_model };
+  const savedFastest = { url: data.fastest_url, model: data.fastest_model };
+  const redraw = (best, fastest) => {
+    fillSelect(bestSel, list, best, list.length ? null : '— нажмите «Проверить модели» —');
+    fillSelect(fastestSel, list, fastest, '— не использовать —');
+  };
+  list = choices([], savedBest);
+  redraw(savedBest, savedFastest);
+
+  const checkModels = async ({ quiet = false } = {}) => {
+    const res = await api.raw('/api/telegram/models', { method: 'POST', body: {} });
+    list = choices(res.endpoints, savedBest.model ? savedBest : null);
+    if (savedFastest.model && !list.some((c) => c.url === savedFastest.url && c.model === savedFastest.model)) {
+      list = list.concat(choices([], savedFastest));
+    }
+    const sug = res.suggested || {};
+    redraw(savedBest.model ? savedBest : sug.best, savedFastest.model ? savedFastest : sug.fastest);
+    if (!quiet) {
+      const up = (res.endpoints || []).filter((e) => (e.models || []).length).map((e) => port(e.url));
+      toastOk(up.length ? `Отвечают серверы: ${up.join(', ')}` : 'Ни один локальный сервер моделей не отвечает',
+        'Проверен только список моделей, не ответ модели.');
+    }
+  };
+
+  const chosen = (sel) => (sel.value === '' ? null : list[Number(sel.value)] || null);
+
+  const save = async () => {
+    const guests = guestsEl.value.split(/[\s,;]+/).filter(Boolean);
+    if (guests.some((g) => !/^\d+$/.test(g))) throw new Error('Telegram ID гостей — только цифры');
+    const best = chosen(bestSel);
+    if (!best) throw new Error('Выберите лучшую модель (нажмите «Проверить модели»)');
+    const fastest = chosen(fastestSel);
+    const body = {
+      bot_token: tokenEl.value.trim() || null,
+      owner_id: Number(ownerEl.value),
+      guest_ids: guests.map(Number),
+      best_url: best.url, best_model: best.model,
+      fastest_url: fastest ? fastest.url : '', fastest_model: fastest ? fastest.model : '',
+      default_route: routeSel.value, fast_fallback: fallbackEl.checked,
+      local_timeout: Number(timeoutEl.value || 180), max_tokens: Number(tokensEl.value || 1024),
+      delegation: false, enabled: enabledEl.checked,
+    };
+    const res = await api.raw(SETTINGS_ENDPOINT, { method: 'PUT', body });
+    tokenEl.value = '';
+    tokenEl.placeholder = res.token_set ? `сохранён ${res.token_last4} — оставьте пустым, чтобы не менять` : '';
+    Object.assign(savedBest, { url: res.best_url, model: res.best_model });
+    Object.assign(savedFastest, { url: res.fastest_url, model: res.fastest_model });
+    setStatus(res.status);
+    toastOk('Настройки Telegram сохранены', (res.warnings || []).join(' '));
+  };
+
+  const wrap = (fn, msg) => async () => { try { await fn(); } catch (e) { toastError(e, msg); } };
+
+  const buttons = h('div.row', { style: 'gap:8px;flex-wrap:wrap' },
+    actionButton('Сохранить', wrap(save, 'Настройки не сохранены'), { cls: 'btn btn-primary' }),
+    actionButton('Проверить модели', wrap(() => checkModels(), 'Модели не проверены')),
+    actionButton('Проверить бота', wrap(async () => {
+      const res = await api.raw('/api/telegram/test', { method: 'POST' });
+      if (res.ok) toastOk(`Бот @${res.username || '?'} отвечает`, 'Проверены только токен и отсутствие webhook; сообщений не отправлено.');
+      else toastError(new Error(`Проверка бота: ${res.status}`));
+    }, 'Бот не проверен')),
+    actionButton('Старт', wrap(async () => setStatus(await api.raw('/api/telegram/start', { method: 'POST' })), 'Компаньон не запущен')),
+    actionButton('Стоп', wrap(async () => setStatus(await api.raw('/api/telegram/stop', { method: 'POST' })), 'Компаньон не остановлен')),
+    actionButton('Обновить статус', wrap(async () => setStatus(await api.raw('/api/telegram/status')), 'Статус недоступен'), { cls: 'btn btn-sm' }));
+
+  const form = h('form.stack.sm', { 'data-testid': 'telegram-settings', autocomplete: 'off', onSubmit: (e) => e.preventDefault() },
+    h('div.xsmall.dim', 'Отдельный бот от @BotFather. Только беседа с локальными моделями, только с указанными Telegram ID в личном чате. ',
+      'Облако не используется. Компьютером, браузером и файлами из Telegram управлять нельзя.'),
+    h('label.check', enabledEl, h('span', 'Telegram включён')),
+    field('Токен бота', tokenEl, data.token_set ? `Сохранён (${data.token_last4}). Токен не показывается.` : 'Хранится зашифрованным на этом компьютере.'),
+    h('div.grid.cols-2',
+      field('Ваш Telegram ID (владелец)', ownerEl, 'Числовой ID, например от @userinfobot'),
+      field('Гости (Telegram ID)', guestsEl, 'Необязательно; только беседа, без /status')),
+    h('div.grid.cols-2',
+      field('Лучшая (самая умная)', bestSel, 'Отвечает по умолчанию и по /best'),
+      field('Самая быстрая', fastestSel, 'Отвечает по /fast и когда лучшая не успела')),
+    h('div.grid.cols-2',
+      field('Модель для чата по умолчанию', routeSel, 'В чате можно переключить: /best или /fast'),
+      field('Ожидание ответа лучшей модели, сек', timeoutEl, '1–600; рекомендуем 180')),
+    h('div.grid.cols-2',
+      field('Длина ответа, токенов', tokensEl, '64–2048; GPT-OSS тратит часть на рассуждения — рекомендуем 1024'),
+      h('div')),
+    h('label.check', fallbackEl, h('span', 'Если лучшая не ответила вовремя — отвечает самая быстрая (не облако)')),
+    h('label.check', { title: 'Пока недоступно' }, delegationEl,
+      h('span.dim', 'Поручения Bossman из Telegram (/task) — пока недоступно')),
+    buttons,
+    statusBox);
+
+  // Заполнить списки из живых серверов сразу (только /v1/models, без запросов к модели).
+  checkModels({ quiet: true }).catch(() => {});
+
+  return h('section.panel', { id: 'telegram' },
+    h('div.panel-head', h('h2', 'Telegram')),
+    h('div.panel-body', form));
+}

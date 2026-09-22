@@ -71,6 +71,11 @@ class Settings:
     fast_url: str = ""
     fast_model: str = ""
     fast_timeout: float = 60.0
+    # Which local route answers plain messages, and whether MAIN may fall back
+    # to FAST. `enabled=False` keeps the saved setup but refuses to serve.
+    default_route: str = "main"
+    fast_fallback: bool = True
+    enabled: bool = True
     max_tokens: int = 512
     monitor_seconds: int = 60
     bot_token: str = field(default="", repr=False)
@@ -102,6 +107,10 @@ class Settings:
                 raise ValueError("invalid model limits")
         if not 64 <= self.max_tokens <= 2048:
             raise ValueError("invalid model limits")
+        if self.default_route not in {"main", "fast"} or (self.default_route == "fast" and not self.fast_model):
+            raise ValueError("default route must be main, or fast with a configured fast model")
+        if type(self.fast_fallback) is not bool or type(self.enabled) is not bool:
+            raise ValueError("fast_fallback and enabled must be booleans")
         if type(self.monitor_seconds) is not int or not 30 <= self.monitor_seconds <= 3600:
             raise ValueError("monitor interval must be 30..3600 seconds")
         for n in (self.cloud_daily_usd, self.cloud_request_usd):

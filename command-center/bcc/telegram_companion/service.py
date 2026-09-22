@@ -9,10 +9,10 @@ from .adapters import Core, Models, RateLimited, Telegram, scrub
 from .config import CompanionError, Person, Settings
 from .store import Store
 
-HELP = ("Я Bossman, ваш ИИ-помощник. Можно просто написать мне.\n\n"
-        "Обычное сообщение отвечает основная локальная модель (MAIN).\n"
-        "/fast вопрос — быстрый ответ быстрой локальной моделью (FAST), если она настроена\n"
-        "/model — какие локальные модели подключены\n"
+HELP = ("Я Bossman, ваш ИИ-помощник на локальных моделях. Можно просто написать мне.\n\n"
+        "/best — отвечать лучшей (самой умной) моделью; /best вопрос — один ответ ею\n"
+        "/fast — отвечать самой быстрой моделью; /fast вопрос — один ответ ею\n"
+        "/model — какие модели подключены и какая отвечает сейчас\n"
         "/status — связь с компьютером (владелец)\n"
         "/task описание — подготовить поручение агенту Bossman\n"
         "/confirm код — подтвердить ровно это поручение\n"
@@ -38,8 +38,9 @@ def failure_text(code: str) -> str:
         "SECRET_IN_MESSAGE_CLOUD_REFUSED": "В сообщении обнаружен похожий на секрет фрагмент. Во внешнюю модель или поиск оно не отправлено.",
         "NETWORK_UNAVAILABLE": "Сервис не ответил в отведённое время. Это не доказательство выключенного компьютера; проверьте локальные сервисы и сеть.",
         "SEARCH_NOT_CONFIGURED": "Поиск ещё не подключён. Нужен существующий локальный SearXNG, отдельный поисковый движок я не устанавливаю.",
-        "FAST_MODEL_NOT_CONFIGURED": "Быстрая модель (FAST) не настроена. Обычные сообщения отвечает основная модель; FAST добавляется локально в config.json (fast_url, fast_model).",
-        "FAST_MODEL_UNAVAILABLE": "Быстрая модель (FAST) сейчас не отвечает (не загружена, занята или не та модель). Облако не использовано. Попробуйте обычным сообщением.",
+        "FAST_MODEL_NOT_CONFIGURED": "Самая быстрая модель не настроена. Её выбирают в Bossman: Настройки → Telegram.",
+        "FAST_MODEL_UNAVAILABLE": "Самая быстрая модель сейчас не отвечает (не загружена, занята или не та модель). Облако не использовано. Попробуйте /best.",
+        "MODEL_REPLY_INVALID": "Модель вернула пустой или неполный ответ (часто: рассуждения съели лимит токенов). Попробуйте ещё раз или /fast.",
     }
     return known.get(code, f"Действие не подтверждено: {code}. /status и /help помогут продолжить.")
 
@@ -50,6 +51,20 @@ REJECTED_TEXT = {
     "attachment": "Вложения (фото, файлы, голосовые) пока не поддерживаются: я их не скачиваю и не открываю. Напишите вопрос текстом.",
     "too_long": "Сообщение длиннее 4000 символов и не обработано. Сократите его или разбейте на части.",
 }
+
+
+ROUTE_TITLE = {"main": "🧠 Лучшая", "fast": "⚡ Быстрая"}
+DELEGATION_OFF = ("Поручения из Telegram пока недоступны: Telegram сейчас только для беседы с локальными "
+                  "моделями. Управление компьютером, браузером и файлами отсюда не выполняется.")
+
+
+def model_name(model_id: str) -> str:
+    """Short human label from a served id (llama-server reports the GGUF path)."""
+    name = model_id.replace("\\", "/").rsplit("/", 1)[-1]
+    if name.lower().endswith(".gguf"):
+        name = name[:-5]
+    import re
+    return re.sub(r"-0*1-of-\d+$", "", name)[:80] or "модель"
 
 
 class Companion:
@@ -161,6 +176,9 @@ class Companion:
                     "Это проверка доступности, не полной готовности всех функций.\n"
                     f"Локальная модель: {'настроена, результат проверяется запросом' if self.settings.local_model else 'не настроена'}.\n"
                     f"Делегирование: {'заблокировано' if self.store.get('delegation_locked', False) else 'по подтверждению'}.")
+        if command in {"/task", "/confirm"} and person.agent_id is None:
+            # Chat-only mode (default): no executor, no Bossman call, no side effect.
+            return DELEGATION_OFF
         if command == "/task":
             if self.store.get("delegation_locked", False):
                 return "Новые поручения заблокированы владельцем."
@@ -208,24 +226,47 @@ class Companion:
                 raise CompanionError("SECRET_IN_MESSAGE_CLOUD_REFUSED")
             return await self.models.search(arg)
         if command == "/model":
-            main = "подключена" if self.settings.local_model else "не настроена"
-            fast = "подключена (/fast вопрос)" if self.settings.fast_model else "не настроена"
-            return (f"Основная локальная модель (MAIN): {main}.\nБыстрая локальная модель (FAST): {fast}.\n"
-                    "Готовность проверяется только реальным ответом; облачный резерв по умолчанию выключен.")
-        if command == "/fast":
+            current = self.chat_route(person)
+            lines = []
+            for route, model in (("main", self.settings.local_model), ("fast", self.settings.fast_model)):
+                name = model_name(model) if model else "не настроена"
+                mark = " ← отвечает сейчас" if route == current else ""
+                lines.append(f"{ROUTE_TITLE[route]}: {name}{mark}")
+            return ("\n".join(lines) + "\nПереключить: /best или /fast. Готовность проверяется только "
+                    "реальным ответом; облако не используется.")
+        if command in {"/best", "/fast"}:
+            route = "main" if command == "/best" else "fast"
+            if route == "fast" and not self.settings.fast_model:
+                raise CompanionError("FAST_MODEL_NOT_CONFIGURED")
             if not arg:
-                return "Напишите /fast и вопрос — ответит быстрая локальная модель."
-            answer, _ = await self.models.answer(arg, self.store.history(person.key),
-                                                 cloud_consent=False, route="fast")
-            self.store.remember(person.key, arg, answer)
-            return "⚡ FAST\n" + answer
+                self.store.put("route:" + person.key, route)
+                model = self.settings.local_model if route == "main" else self.settings.fast_model
+                return f"Теперь в этом чате отвечает {ROUTE_TITLE[route]} · {model_name(model)}."
+            return await self.converse(person, message, arg, route)
         if command.startswith("/"):
             return "Неизвестная команда. /help — доступные действия."
-        answer, route = await self.models.answer(text, self.store.history(person.key),
-            cloud_consent=lambda: self.cloud_allowed(person, message))
+        return await self.converse(person, message, text, self.chat_route(person))
+
+    def chat_route(self, person: Person) -> str:
+        route = self.store.get("route:" + person.key, self.settings.default_route)
+        return "fast" if route == "fast" and self.settings.fast_model else "main"
+
+    async def converse(self, person: Person, message: dict, text: str, route: str) -> str:
+        """Text-only conversation with a local model; the model gets no tools."""
+        history = self.store.history(person.key)
+        if route == "fast":
+            # Explicit FAST: never silently the best model or cloud.
+            answer, used = await self.models.answer(text, history, cloud_consent=False, route="fast")
+        else:
+            answer, used = await self.models.answer(text, history,
+                                                    cloud_consent=lambda: self.cloud_allowed(person, message))
         self.store.remember(person.key, text, answer)
-        prefix = {"cloud": "☁️ Облачный резерв Claude\n", "fast": "⚡ FAST (основная модель не ответила вовремя)\n"}
-        return prefix.get(route, "") + answer
+        if used == "cloud":
+            return "☁️ Облачный резерв Claude\n" + answer
+        used = "fast" if used == "fast" else "main"
+        model = self.settings.local_model if used == "main" else self.settings.fast_model
+        note = " (лучшая не ответила вовремя)" if used == "fast" and route == "main" else ""
+        return f"{ROUTE_TITLE[used]} · {model_name(model or '')}{note}\n\n{answer}"
 
     async def typing(self, person: Person):
         """Cosmetic 'typing…' while a slow local model answers; never blocks or fails the reply."""
@@ -256,7 +297,8 @@ class Companion:
             pause = max(0.0, 0.75 - (time.monotonic() - self.last_message.get(person.key, 0)))
             await asyncio.sleep(pause)
             text = str(message.get("text", "")).strip()
-            slow = lane == "chat" and bool(text) and (not text.startswith("/") or text.lower().startswith("/fast "))
+            slow = lane == "chat" and bool(text) and (not text.startswith("/") or
+                                                      text.lower().startswith(("/fast ", "/best ")))
             indicator = asyncio.create_task(self.typing(person)) if slow and self.telegram is not None else None
             try:
                 answer = await self.handle(person, message)

@@ -77,6 +77,29 @@ async def json_request(client, method, url, *, payload=None, params=None, header
         raise CompanionError("NETWORK_UNAVAILABLE") from None
 
 
+def split_message(text: str, limit: int = 3500, max_parts: int = 5) -> list[str]:
+    """Split on paragraph, then line, then word boundaries; bounded part count."""
+    text = text.strip() or "…"
+    parts = []
+    while text and len(parts) < max_parts:
+        if len(text) <= limit:
+            parts.append(text)
+            text = ""
+            break
+        cut = max(text.rfind("\n\n", 0, limit), text.rfind("\n", 0, limit))
+        if cut < limit // 2:
+            cut = text.rfind(" ", 0, limit)
+        if cut < limit // 2:
+            cut = limit
+        parts.append(text[:cut].rstrip())
+        text = text[cut:].lstrip()
+    if text:
+        parts[-1] = parts[-1][:limit - 30].rstrip() + "\n[Ответ сокращён.]"
+    if len(parts) > 1:
+        parts = [f"{p}\n({i}/{len(parts)})" if len(p) <= limit - 10 else p for i, p in enumerate(parts, 1)]
+    return parts
+
+
 class Telegram:
     METHODS = frozenset({"getMe", "getWebhookInfo", "getUpdates", "sendMessage", "sendChatAction"})
 
@@ -124,22 +147,27 @@ class Telegram:
         async with lock:
             now = asyncio.get_running_loop().time()
             await asyncio.sleep(max(0, self._sent_at.get(person.chat_id, 0) + 1.05 - now))
-            payload = {"chat_id": person.chat_id, "text": clean[:3500], "disable_web_page_preview": True}
-            try:
-                if not self.authorize_delivery(person):
-                    raise CompanionError("IDENTITY_REVOKED")
-                body = await self.call("sendMessage", payload)
-            except RateLimited as exc:
-                # Only a definite 429 rejection is safe to retry, once.
-                await asyncio.sleep(exc.retry_after)
-                if not self.authorize_delivery(person):
-                    raise CompanionError("IDENTITY_REVOKED")
-                body = await self.call("sendMessage", payload)
-            finally:
-                self._sent_at[person.chat_id] = asyncio.get_running_loop().time()
-            if not isinstance(body, dict) or type(body.get("message_id")) is not int:
-                raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
-            return body["message_id"]
+            message_id = None
+            for index, part in enumerate(split_message(clean)):
+                if index:
+                    await asyncio.sleep(1.05)   # stay under Telegram's per-chat rate
+                payload = {"chat_id": person.chat_id, "text": part, "disable_web_page_preview": True}
+                try:
+                    if not self.authorize_delivery(person):
+                        raise CompanionError("IDENTITY_REVOKED")
+                    body = await self.call("sendMessage", payload)
+                except RateLimited as exc:
+                    # Only a definite 429 rejection is safe to retry, once.
+                    await asyncio.sleep(exc.retry_after)
+                    if not self.authorize_delivery(person):
+                        raise CompanionError("IDENTITY_REVOKED")
+                    body = await self.call("sendMessage", payload)
+                finally:
+                    self._sent_at[person.chat_id] = asyncio.get_running_loop().time()
+                if not isinstance(body, dict) or type(body.get("message_id")) is not int:
+                    raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
+                message_id = body["message_id"]
+            return message_id
 
 
 class Core:
@@ -218,7 +246,7 @@ def reply_text(body) -> str:
         if choice.get("finish_reason") not in ("stop", "length"):
             raise ValueError
         suffix = "\n[Ответ ограничен длиной.]" if choice.get("finish_reason") == "length" else ""
-        return text.strip()[:3150] + suffix
+        return text.strip()[:12000] + suffix
     except (KeyError, IndexError, TypeError, ValueError):
         raise CompanionError("MODEL_REPLY_INVALID") from None
 
@@ -276,7 +304,8 @@ class Models:
                     self.retry_local_at = 0.0
                     return answer, "local"
             # Second LOCAL route before any cloud consideration.
-            if self.settings.fast_model and asyncio.get_running_loop().time() >= self.retry_fast_at:
+            if (self.settings.fast_model and self.settings.fast_fallback and
+                    asyncio.get_running_loop().time() >= self.retry_fast_at):
                 try:
                     answer = await self._fast(text, history)
                 except CompanionError:

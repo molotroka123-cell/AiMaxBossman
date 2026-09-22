@@ -88,7 +88,11 @@ class Store:
     @staticmethod
     def lane(body: dict) -> str:
         command = str(body.get("text", "")).strip().partition(" ")[0].lower()
-        return "control" if command in {"/status", "/help", "/lock", "/watch", "/cloud", "/model"} else "chat"
+        if command in {"/status", "/help", "/lock", "/watch", "/cloud", "/model"}:
+            return "control"
+        # "/best" or "/fast" alone only switches the route; with a question it is chat.
+        bare = not str(body.get("text", "")).strip().partition(" ")[2].strip()
+        return "control" if command in {"/best", "/fast"} and bare else "chat"
 
     def claim(self, who: str, lane: str = "chat"):
         with self.tx():
