@@ -196,3 +196,42 @@ Zero real product regressions.
     `owner-repair/START_TOMORROW_RU.md` (theirs) cross-references it.
   - Their `docs/evo/*`, scorecard files, `test_computer_operator_ask_consequence.py` merged clean.
 - Candidate re-declared (5) so the merged SHA gets the full ten-lane matrix.
+
+---
+
+## 2026-09-22 — final integrator (owner machine, `integrate/owner-final-20260922`) — media, Telegram console, lifecycle
+
+Base: `feat/telegram-local-llm-20260922` @ fc266856 (= release/bossman-owner ⊂ RC candidate 6 ⊂ video presets ⊂
+Telegram line; one line, no back-merge needed). Lease taken from a session that no longer exists; the previous
+LEASE.json is preserved as `handoff/LEASE.prev-20260922.json`.
+
+### Product defects closed (reproduce → regression → fix → neighbours)
+| ID | What | Class | Evidence |
+|---|---|---|---|
+| MEDIA-LIFECYCLE | The engine outlived a dead backend (live case: sd-cli pid 1644 kept 38 GB for 40 min while its Studio job was already `failed`). Engines are now bound to the owner's Windows Job Object; hosts without job objects degrade honestly. | PRODUCT_CODE | `test_studio_media_lifecycle.py` |
+| CU-UNKNOWN-RESTART | `outcome_unknown` lived only in memory: after a backend restart the next action ran without re-reading the screen. Now persisted next to STOP and lifted only by a fresh observation. STOP itself already survived restart (negative control kept). | PRODUCT_CODE | `test_owner_stop_lifecycle.py` |
+| DEADLINE-CEILING | The work-proportional deadline (d059ac60) had no absolute ceiling: catalogue maxima gave ~17 h per segment and >4 days for a 30 s chain; invalid values raised `TypeError` and `inf` gave an infinite budget. Two configurable ceilings (12 h segment / 24 h job) above the owner's real heavy run; the Studio watchdog now reads the same budget. | PRODUCT_CODE | `test_studio_deadline_limits.py` (21 cases, 11 red before) |
+| MEDIA-PARTIAL | Cancel and timeout deleted every finished segment of a chain. A stop now keeps the verified segments, concatenated and marked partial (n of m, real duration, reason); nothing finished → nothing written, and a partial result is never reported as complete. | PRODUCT_CODE | `test_studio_partial_segments.py` |
+| FFMPEG-PATHEXT | Provenance named the binary from PATHEXT (`ffmpeg.EXE`) instead of the filesystem entry, so the same binary appeared under two names depending on the host registry. | PRODUCT_CODE | `test_ffmpeg_is_named_by_the_filesystem_not_by_pathext` |
+| SETUP-RESET | The local setup form refused a POST (bad Origin/token/Host) without draining the body; Windows reset the connection, so the owner's browser saw a broken connection instead of the 403. This was the cause of a 1-in-5 flake present on the certified RC too. | PRODUCT_CODE | `test_setup_ui_drain.py`; the old flaky test now 8/8 |
+
+### Telegram: one execution path (owner requirement)
+The direct path added earlier the same day (`/sh`, `/claude` via the Claude Code CLI in bypass mode, local
+screenshotter, `pc_control.py`) is **removed**, for the owner as well. The console is Telegram → owner identity →
+Bossman task → policy/approval → executor → verification: Russian button menu (status, queue, new task, approve /
+reject, allowed screenshot via `/api/computer/observe`, open app/folder, project files, photo, video/TestRun,
+diagnostics, lessons, propose a fix, pause, STOP, resume). A chat decision opens a one-shot gate bound to
+owner+chat+approval id+kind+argument digest, TTL 180 s, nonce; approval is re-read and re-checked against a fresh
+observation before the effect. Bot-token rotation and revocation live in Bossman settings, never in the chat.
+
+### Media models
+`sdcpp:flux2-klein-4b` added (Apache-2.0 in every component, ungated): live on this machine 1024×1024 / 4 steps /
+69.8 s, output matches the prompt. Files pinned by HF revision and verified against Hugging Face LFS ids
+(expected-from-source, not self-hashing). Baselines Wan2.2 TI2V-5B and Z-Image-Turbo untouched as the rollback path.
+Candidate matrix with licences, sizes and support status: `docs/media/MODEL_CANDIDATE_MATRIX.md`
+(LTX-2.5 = OWNER_REQUIRED_LICENSE; Qwen-Image-2.1 excluded from the commercial profile; MiniMax-H3 DO_NOT_DEPLOY).
+
+### Gates on this line
+`telegram_contracts` + `test_telegram_settings` + `test_studio_*` + `test_owner_stop_lifecycle`:
+**429 passed, 0 failed** with `app/BOSSMAN-Windows-x64-0c1cbe651f52/media` on PATH (ffmpeg/ffprobe).
+Without ffmpeg on PATH seven Studio tests fail for lack of a skip-guard: ENVIRONMENT/HARNESS, not a product defect.
