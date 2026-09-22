@@ -313,13 +313,24 @@ def test_second_window_refused_while_first_instance_alive(tmp_path, monkeypatch)
     from bcc.config import settings
 
     _use_temp_data_dir(monkeypatch, tmp_path)
-    (tmp_path / "desktop.lock").write_text(__import__("json").dumps({"pid": 1, "port": 18923}), encoding="utf-8")
-    monkeypatch.setattr(desktop, "identify_server",
-                        lambda url, timeout=2.0: {"app": "bossman-command-center"} if ":18923/" in url else None)
-    calls = []
-    out = io.StringIO()
-    code = desktop.run(["--port", "18924", "--browser", "/bin/true", "--profile", str(tmp_path / "prof")],
-                       launcher=lambda *a, **k: (calls.append(1), 0)[1], out=out)
+    # Владелец замка — настоящий живой процесс. pid=1 жив только на POSIX (init);
+    # на Windows такого процесса нет, замок считался мёртвым, и тест проверял не то.
+    first = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"],  # noqa: S603
+                             stdin=subprocess.DEVNULL)
+    try:
+        assert desktop._pid_alive(first.pid)
+        (tmp_path / "desktop.lock").write_text(json.dumps({"pid": first.pid, "port": 18923}),
+                                               encoding="utf-8")
+        monkeypatch.setattr(desktop, "identify_server",
+                            lambda url, timeout=2.0: {"app": "bossman-command-center"} if ":18923/" in url else None)
+        calls = []
+        out = io.StringIO()
+        code = desktop.run(["--port", "18924", "--browser", "/bin/true", "--profile", str(tmp_path / "prof")],
+                           launcher=lambda *a, **k: (calls.append(1), 0)[1], out=out)
+        assert first.poll() is None, "отказ во втором окне не трогает первый экземпляр"
+    finally:
+        first.kill()
+        first.wait()
     assert code == 0
     assert calls == []
     assert "BOSSMAN" in out.getvalue() and "18923" in out.getvalue()
