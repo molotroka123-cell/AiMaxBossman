@@ -52,6 +52,43 @@
         "MEDIA-RESTART (from 2026-09-21) not yet reproduced"
       ],
       "next_action": "CP01: Qwen-first repair of DESK-EDGE-RELAUNCH; reproduce MEDIA-RESTART."
+    },
+    {
+      "checkpoint_id": "CP01-prep",
+      "timestamp": "2026-09-22T07:45:00Z",
+      "actor": "integrator (Claude Opus 5)",
+      "student_model": "MAIN Qwen3.8-27B-UD-Q5_K_M (llama.cpp b10964 Vulkan, ctx 131072, -np 1, --jinja --reasoning off)",
+      "teacher_model": null,
+      "start_sha": "9e3aa192f513d98d212c53311bb078e5c349c410",
+      "end_sha": "9e3aa192f513d98d212c53311bb078e5c349c410",
+      "status": "IN_PROGRESS",
+      "task": "Resume after chat reset: models were down; restart MAIN(128k,1 slot)+GPT-OSS reviewer; DESK-EDGE a1/a2 were HARNESS failures (a2: 66032 > 65536 per-slot context), a3 started clean at 07:14Z. Reproduce MEDIA-RESTART and freeze its task + hidden verifier before the student sees it.",
+      "files_changed": [],
+      "tests_run": [
+        "owner-repair/pass2/repro/media_restart_repro.py",
+        "hidden MEDIA-RESTART verifier: negative control on 9e3aa192, positive control on a private teacher reference (never shown to the student)"
+      ],
+      "tests_passed": [
+        "repro: engine child alive after hard backend kill = True (defect reproduced)",
+        "hidden verifier positive control 2/2"
+      ],
+      "tests_failed": [
+        "hidden verifier on 9e3aa192: orphan case FAILS (expected), foreign-engine case passes"
+      ],
+      "qwen_result": null,
+      "claude_intervention": "none (no production edit; teacher reference kept private)",
+      "evidence": {
+        "finding": "MEDIA-RESTART narrowed: DB side already honest (runtime.setup marks running jobs interrupted_unknown/OWNER_REQUIRED, no resubmit). Real remaining defect: on hard backend death the sd.cpp engine process tree is orphaned on Windows, keeps GPU/unified memory up to the job deadline and still writes into engine-work; the new backend never sees or stops it.",
+        "task_sha256": "8c80a3fbdccd7a20d6733b21f733a12e535c9741561144b53e8275a1fc2f66a3",
+        "hidden_verifier_sha256": "aae21455b7d1d36d0f5455623023d67f21589a9f084b2990f07631521a71e819",
+        "gptoss_status": "READY (gpt-oss-120b MXFP4 @8083, ctx 65536)",
+        "fast_status": "unloaded (RAM: MAIN@128k + GPT-OSS@64k leaves ~20 GB)"
+      },
+      "open_blockers": [
+        "DESK-EDGE-RELAUNCH P1 (Qwen a3 running)",
+        "MEDIA-RESTART P1 (task frozen, student not started)"
+      ],
+      "next_action": "Score DESK-EDGE a3 with the hidden verifier -> GPT-OSS review -> then Qwen on MEDIA-RESTART."
     }
   ]
 }
