@@ -26,13 +26,37 @@ PIXEL_PNG = ("data:image/png;base64,"
              "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8"
              "BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
 
+# Столько же, сколько у Registry.test_model (d6e25fb4): reasoning-модель тратит
+# маленький бюджет пробы на рассуждение и обрезается до ответа.
+REASONING_PROBE_TOKENS = 1024
+
+
+async def _chat_raw_with_room(client: RawChatClient, model: str,
+                              messages: list[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
+    """chat_raw с одним повтором для модели, обрезанной на рассуждении.
+
+    Повтор только если ответ пуст (ни текста, ни tool_calls) И finish_reason
+    == "length": это маленький бюджет, а не неумение. Пустота с "stop" — честный
+    отказ, повтора нет; пустота и с запасом — тоже отказ (повтор один).
+    """
+    data = await client.chat_raw(model, messages, **kwargs)
+    choice = (data.get("choices") or [{}])[0] if isinstance(data, dict) else {}
+    message = choice.get("message") or {}
+    empty = not str(message.get("content") or "").strip() and not message.get("tool_calls")
+    budget = int(kwargs.get("max_tokens") or 0)
+    if empty and choice.get("finish_reason") == "length" and budget < REASONING_PROBE_TOKENS:
+        data = await client.chat_raw(model, messages,
+                                     **{**kwargs, "max_tokens": REASONING_PROBE_TOKENS})
+    return data
+
+
 def skipped(capability: str, reason: str = "not advertised") -> ProbeResult:
     return ProbeResult(capability, False, reason, skipped=True)
 
 async def probe_chat(client: RawChatClient, model: str) -> ProbeResult:
     try:
-        data = await client.chat_raw(
-            model, [{"role": "user", "content": "Reply exactly OK"}],
+        data = await _chat_raw_with_room(
+            client, model, [{"role": "user", "content": "Reply exactly OK"}],
             max_tokens=8, temperature=0
         )
         turn = parse_openai_chat_response(data)
@@ -54,8 +78,8 @@ async def probe_tools(client: RawChatClient, model: str) -> ProbeResult:
         },
     }
     try:
-        data = await client.chat_raw(
-            model,
+        data = await _chat_raw_with_room(
+            client, model,
             [{"role": "user", "content": "Call bossman_probe with value 7."}],
             tools=[tool], tool_choice="auto", max_tokens=64, temperature=0
         )
@@ -70,8 +94,8 @@ async def probe_tools(client: RawChatClient, model: str) -> ProbeResult:
 
 async def probe_structured_output(client: RawChatClient, model: str) -> ProbeResult:
     try:
-        data = await client.chat_raw(
-            model,
+        data = await _chat_raw_with_room(
+            client, model,
             [{"role": "user", "content": 'Return JSON with {"ok": true}'}],
             response_format={"type": "json_object"}, max_tokens=32, temperature=0
         )
@@ -92,7 +116,7 @@ async def probe_vision(client: RawChatClient, model: str) -> ProbeResult:
         ],
     }]
     try:
-        data = await client.chat_raw(model, messages, max_tokens=16, temperature=0)
+        data = await _chat_raw_with_room(client, model, messages, max_tokens=16, temperature=0)
         turn = parse_openai_chat_response(data)
         return ProbeResult("vision", bool(turn.text.strip()), turn.text[:200])
     except Exception as exc:
