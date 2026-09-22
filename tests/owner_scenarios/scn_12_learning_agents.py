@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -103,12 +104,22 @@ def _ports():
             if target in self.world.crash_on:
                 raise RuntimeError(f"инструмент упал на цели {target}")
             if target not in self.world.silent_on:
-                argv = shlex.split(str(action.args["command"]))
-                if argv and argv[0] == "python":
-                    argv[0] = sys.executable
+                command = str(action.args["command"])
+                env = {"PATH": "/usr/bin:/bin", "PYTHONIOENCODING": "utf-8"}
+                if os.name == "nt":
+                    # POSIX shlex would eat the backslashes of the repr()'d Windows
+                    # path the planner writes ('C:\\Users' -> 'C:\Users', a \U escape);
+                    # CreateProcess keeps them. python.exe also needs SYSTEMROOT.
+                    if command.startswith("python "):
+                        command = subprocess.list2cmdline([sys.executable]) + command[len("python"):]
+                    argv = command
+                    env["SYSTEMROOT"] = os.environ.get("SYSTEMROOT", r"C:\Windows")
+                else:
+                    argv = shlex.split(command)
+                    if argv and argv[0] == "python":
+                        argv[0] = sys.executable
                 subprocess.run(argv, cwd=str(action.args.get("cwd") or self.world.root),
-                               capture_output=True, text=True, timeout=60,
-                               env={"PATH": "/usr/bin:/bin", "PYTHONIOENCODING": "utf-8"})
+                               capture_output=True, text=True, timeout=60, env=env)
                 self.world.runs.append(target)
             return ExecutionReceipt(CAPABILITY, started, datetime.now(timezone.utc),
                                     effect_id=f"eff-{target}-{len(self.world.runs)}")
