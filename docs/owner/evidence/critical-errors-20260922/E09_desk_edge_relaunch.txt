@@ -1,0 +1,14 @@
+# DESK-EDGE-RELAUNCH (open P1)
+captured_utc: 2026-09-22T08:09:59Z
+captured_by: knowledge engineer (Claude Opus 5), read-only
+redaction: learning.trace.redact_text applied; no secrets present
+source: git:465c04eae73effed1776ae47820ded809d5edf4b:owner-repair/pass2/YESTERDAY_REMAINDER.md (branch evidence/owner-pass2-20260922) blob_sha256=97d51271e29740147b9688279f8410e87446ed76915c90666b0cbbda43c23190
+source: C:\Users\asd\AppData\Local\Bossman\CommandCenter\desktop-run.log sha256=3a1be45f503c6ad9d7412add11fd585f50ae5c180efe159d89c792c57717de96 mtime_utc=2026-09-22T06:16:04Z
+
+YESTERDAY_REMAINDER.md:10: | R3 | Installed product starts via owner launcher `Start-Bossman.cmd` | NEEDS_FIX | **DESK-EDGE-RELAUNCH (P1, new)**: on this machine `msedge.exe --app` re-spawns itself and the launched PID exits in 0.2–1.0 s with code 0; `launch_window()` waits on that PID, so the launcher stops the backend ~1 s after start. Reproduced 3×, incl. outside Bossman. Yesterday's `desktop-run.log` shows the same 1.0 s exit; yesterday's session silently switched to `--web`. CI never opens the window. |
+
+## desktop-run.log (launcher)
+desktop-run.log:6: 2026-09-21T11:26:12 browser-exit code=0 lifetime=1.0s url=http://127.0.0.1:8800/
+desktop-run.log:9: 2026-09-21T11:27:43 browser-exit code=0 lifetime=1.0s url=http://127.0.0.1:8800/
+desktop-run.log:22: 2026-09-21T23:16:04 browser-exit code=0 lifetime=1.0s url=http://127.0.0.1:8800/
+desktop-run.log:2: 2026-09-21T11:05:53 browser-argv C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe --app=http://127.0.0.1:8800/ --user-data-dir=C:\Users\asd\AppData\Local\Bossman\CommandCenter\desktop-profile --window-size=1440,900 --no-first-run --no-default-brows

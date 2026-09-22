@@ -1,0 +1,13 @@
+# mandatory CI timing test flaked; identical-SHA rerun green
+captured_utc: 2026-09-22T08:09:59Z
+captured_by: knowledge engineer (Claude Opus 5), read-only
+redaction: learning.trace.redact_text applied; no secrets present
+source: git:465c04eae73effed1776ae47820ded809d5edf4b:owner-repair/pass2/cert-0c1cbe65.json (branch evidence/owner-pass2-20260922) blob_sha256=87c48e0a5e3fe97058d2c230873f8945bb89745214c931a3589310a5d6e79c70
+source: git:465c04eae73effed1776ae47820ded809d5edf4b:owner-repair/pass2/YESTERDAY_REMAINDER.md (branch evidence/owner-pass2-20260922) blob_sha256=97d51271e29740147b9688279f8410e87446ed76915c90666b0cbbda43c23190
+
+cert verdict=CERTIFIED sha=0c1cbe651f5271bbd0bb2d30b467c1206c19f565
+root-ci: {"root-ci (shared contracts, learning layer, tools)": {"conclusion": "success", "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/35663990492", "result": "PASS", "run_attempt": 2, "run_id": 35663990492, "run_number": 2092, "status": "completed"}}
+
+YESTERDAY_REMAINDER.md:8: | R1 | Exact-SHA certification of declared candidate `0c1cbe65` | DONE | root-ci failed on one timing test (`test_v5_human_speed::test_objective_cas_under_10ms…`, wall p100 21.5 ms on a shared runner); identical code passed root-ci on 4 later SHAs; rerun (attempt 2) green → CERTIFIED 10/10 (`cert-0c1cbe65.json`) |
+YESTERDAY_REMAINDER.md:14: | R7 | Non-deterministic mandatory-CI tests | NEEDS_FIX (P2, reliability) | on identical code: `test_action_contract::test_code_action_not_satisfied_by_an_unrelated_terminal_call` (py3.11, `waiting_approval` vs `failed`), `test_refresh_during_typing_ui::test_a_late_connection_does_not_eat_what_the_owner_is_typing` (py3.14), root human-speed timing test |
+YESTERDAY_REMAINDER.md:20: | R13 | `test_ux2_desktop::test_second_window_refused_while_first_instance_alive` on Windows | HARNESS (P3) | test fakes a live process with `pid=1`, which does not exist on Windows |

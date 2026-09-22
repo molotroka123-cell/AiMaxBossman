@@ -1,0 +1,17 @@
+# POSIX PYTHONPATH silently imports another checkout (venv editable install)
+captured_utc: 2026-09-22T08:09:59Z
+captured_by: knowledge engineer (Claude Opus 5), read-only
+redaction: learning.trace.redact_text applied; no secrets present
+interpreter: C:\Users\asd\Bossman\wt-release\.venv\Scripts\python.exe
+
+## PYTHONPATH POSIX (as typed in PowerShell): /c/Users/asd/Bossman/wt-guides;/c/Users/asd/Bossman/wt-guides/bossman-core  (cwd C:\Users\asd)
+learning -> C:\Users\asd\Bossman\wt-release\learning\__init__.py
+bossman -> C:\Users\asd\Bossman\wt-release\bossman-core\bossman\__init__.py
+
+## PYTHONPATH Windows (cygpath -w): C:\Users\asd\Bossman\wt-guides;C:\Users\asd\Bossman\wt-guides\bossman-core  (cwd C:\Users\asd)
+learning -> C:\Users\asd\Bossman\wt-guides\learning\__init__.py
+bossman -> C:\Users\asd\Bossman\wt-guides\bossman-core\bossman\__init__.py
+
+## Windows PYTHONPATH but cwd = C:\Users\asd\Bossman\wt-release (sys.path[0]='' wins)
+learning -> C:\Users\asd\Bossman\wt-release\learning\__init__.py
+bossman -> C:\Users\asd\Bossman\wt-release\bossman-core\bossman\__init__.py

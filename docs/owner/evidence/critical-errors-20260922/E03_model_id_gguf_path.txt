@@ -1,0 +1,12 @@
+# llama.cpp /v1/models id and response model = full GGUF path (no --alias)
+captured_utc: 2026-09-22T08:09:59Z
+captured_by: knowledge engineer (Claude Opus 5), read-only
+redaction: learning.trace.redact_text applied; no secrets present
+source: C:\Users\asd\Bossman\qwen-work\runs\cp01-main-a1\run-meta.json sha256=595848d4754e0a9c4c399bae62de4db48823129b8cd347cc4435a04feb24b2e5 mtime_utc=2026-09-22T06:28:45Z
+source: C:\Users\asd\Bossman\qwen-work\runs\cp01-main-a1\qwen.json sha256=3d2b8ea182c4fddfa49f2ab44161fa4055ba878db5fe29e8e77a8a2ff043f604 mtime_utc=2026-09-22T06:32:13Z
+
+## run-meta.json model (taken from GET /v1/models data[0].id)
+run-meta.json:5:   "model": "C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf",
+
+## model field echoed in responses
+qwen.json: 5 responses carry model=C:\...\Qwen3.8-27B-UD-Q5_K_M.gguf

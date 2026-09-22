@@ -1,0 +1,12 @@
+# wmic.exe is absent on this Windows 11 build
+captured_utc: 2026-09-22T08:09:59Z
+captured_by: knowledge engineer (Claude Opus 5), read-only
+redaction: learning.trace.redact_text applied; no secrets present
+source: git:465c04eae73effed1776ae47820ded809d5edf4b:owner-training/SCOREBOARD.md (branch evidence/owner-pass2-20260922) blob_sha256=e4386866e76580461de3fa849e217d29ae781daabc5478ef5b9078a2786b842f
+
+$ cmd /c ver -> Microsoft Windows [Version 10.0.26200.9457]
+$ cmd /c where wmic -> exit=1 (not found)
+$ test -e C:\Windows\System32\wbem\WMIC.exe -> False
+
+## scoreboard note
+SCOREBOARD.md:11: | DESK-EDGE-RELAUNCH (P1) | a2 06:36Z | MAIN 27B, 2×64k slots | crashed at turn 21, partial patch | HARNESS (not scored) | `request 66032 > 65536` per slot | observation only: partial patch detected the holder via `wmic` — `wmic` does not exist on this Windows 11 (verified), so it would silently fail-open. Kept as a candidate reviewer check, NOT a lesson (unverified attempt). |

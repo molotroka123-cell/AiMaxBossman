@@ -1,0 +1,24 @@
+# stale start-models.ps1: ports 8080/8081, no --reasoning off
+captured_utc: 2026-09-22T08:09:59Z
+captured_by: knowledge engineer (Claude Opus 5), read-only
+redaction: learning.trace.redact_text applied; no secrets present
+source: C:\Users\asd\Bossman\start-models.ps1.bak-20260922 sha256=3fe4e558f15607a12a678855dc90458e2dadb9643a14d07cf791fa31c57f9501 mtime_utc=2026-09-21T18:00:53Z
+source: C:\Users\asd\Bossman\start-models.ps1 sha256=1c791abc0e8c96c22524bef262612dca8d89c1ea0faa8c5b909c4f6b2d123c8d mtime_utc=2026-09-22T06:20:58Z
+
+## before
+start-models.ps1.bak-20260922:14:                         '-ngl','999', '-c','32768', '-t','16',
+start-models.ps1.bak-20260922:15:                         '--port',"$Port", '--host','127.0.0.1', '--jinja') `
+start-models.ps1.bak-20260922:23:     'main' { Start-Model 'qwen38-27b'      'Qwen3.8-27B-UD-Q5_K_M.gguf'      8080 'main' }
+start-models.ps1.bak-20260922:24:     'fast' { Start-Model 'qwen36-35b-a3b'  'Qwen3.6-35B-A3B-UD-Q5_K_M.gguf'  8081 'fast' }
+start-models.ps1.bak-20260922:26:         Start-Model 'qwen38-27b'     'Qwen3.8-27B-UD-Q5_K_M.gguf'     8080 'main'
+start-models.ps1.bak-20260922:27:         Start-Model 'qwen36-35b-a3b' 'Qwen3.6-35B-A3B-UD-Q5_K_M.gguf' 8081 'fast'
+
+## after
+start-models.ps1:3:     [ValidateSet('main','fast','stop','both')]
+start-models.ps1:14:                         '-ngl','999', '-c','32768', '-t','16',
+start-models.ps1:15:                         '--port',"$Port", '--host','127.0.0.1', '--jinja', '--reasoning','off') `
+start-models.ps1:23:     'main' { Start-Model 'qwen38-27b'      'Qwen3.8-27B-UD-Q5_K_M.gguf'      8081 'main' }
+start-models.ps1:24:     'fast' { Start-Model 'qwen36-35b-a3b'  'Qwen3.6-35B-A3B-UD-Q5_K_M.gguf'  8082 'fast' }
+start-models.ps1:26:         Start-Model 'qwen38-27b'     'Qwen3.8-27B-UD-Q5_K_M.gguf'     8081 'main'
+start-models.ps1:27:         Start-Model 'qwen36-35b-a3b' 'Qwen3.6-35B-A3B-UD-Q5_K_M.gguf' 8082 'fast'
+start-models.ps1:29:     'stop' { Stop-Process -Name llama-server -Force; Write-Output 'llama-server stopped' }
