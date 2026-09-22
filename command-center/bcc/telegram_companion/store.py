@@ -35,6 +35,8 @@ class Store:
         CREATE TABLE IF NOT EXISTS proposals(id TEXT PRIMARY KEY, who TEXT NOT NULL,
           body TEXT NOT NULL, expires REAL NOT NULL, phase TEXT NOT NULL DEFAULT 'pending',
           task_id INTEGER);
+        CREATE TABLE IF NOT EXISTS gates(nonce TEXT PRIMARY KEY, who TEXT NOT NULL,
+          body TEXT NOT NULL, expires REAL NOT NULL, phase TEXT NOT NULL DEFAULT 'pending');
         ''')
         os.chmod(self.path, 0o600)
 
@@ -88,15 +90,24 @@ class Store:
         # Side effects/Telegram sends may already have happened. Do not replay them.
         self.db.execute("UPDATE inbox SET phase='interrupted_unknown' WHERE phase='processing'")
         self.db.execute("UPDATE proposals SET phase='dispatch_unknown' WHERE phase='dispatching'")
+        # A restart between "approve pressed" and "decision applied" leaves the
+        # outcome UNKNOWN: the nonce is burnt, so nothing is replayed blindly;
+        # the owner is told to re-read the approval instead.
+        self.db.execute("UPDATE gates SET phase='decide_unknown' WHERE phase='deciding'")
 
     @staticmethod
     def lane(body: dict) -> str:
         if body.get("_image"):
             return "chat"
         command = str(body.get("text", "")).strip().partition(" ")[0].lower()
+        # The control lane has its own worker per person: STOP, pause and the
+        # approval console stay answerable while the chat lane waits on a slow
+        # local model or a running generation.
         if command in {"/status", "/help", "/lock", "/watch", "/cloud", "/model", "/cancel", "/menu", "/start", "/photo",
                        "/privacy", "/forget", "/forget_confirm", "/pause_learning", "/resume_learning",
-                       "/imgmodel", "/pc", "/claude", "/claude_new", "/claude_stop", "/mode", "/sh", "/screen", "/bossman"}:
+                       "/imgmodel", "/stop", "/pause", "/resume", "/queue", "/approvals", "/approve", "/reject",
+                       "/screen", "/diag", "/lessons", "/bossman",
+                       "/pc", "/claude", "/claude_new", "/claude_stop", "/mode", "/sh"}:
             return "control"
         # "/best" or "/fast" alone only switches the route; with a question it is chat.
         bare = not str(body.get("text", "")).strip().partition(" ")[2].strip()
@@ -176,6 +187,7 @@ class Store:
             self.put("cloud:" + who, False)
             self.db.execute("UPDATE inbox SET body=? WHERE who=? AND phase NOT IN ('pending','processing')", (self.seal({}), who))
             self.db.execute("DELETE FROM proposals WHERE who=? AND phase='pending'", (who,))
+            self.db.execute("DELETE FROM gates WHERE who=? AND phase='pending'", (who,))
 
     def propose(self, who: str, payload: dict) -> str:
         self.db.execute("DELETE FROM proposals WHERE phase='pending' AND expires<?", (time.time(),))
@@ -216,12 +228,44 @@ class Store:
             raise CompanionError("TASK_IDENTITY_UNVERIFIED")
         return identity
 
+    # ---- one-time approval gates: owner+chat, one approval_id+kind, digest, TTL, nonce
+    def gate(self, who: str, payload: dict, ttl: float) -> str:
+        """Bind ONE decision to this person, this approval, this digest, for this long."""
+        self.db.execute("DELETE FROM gates WHERE phase='pending' AND expires<?", (time.time(),))
+        if self.db.execute("SELECT count(*) FROM gates WHERE who=? AND phase='pending'", (who,)).fetchone()[0] >= 64:
+            raise CompanionError("LOCAL_APPROVAL_GATE_LIMIT_REACHED")
+        nonce = secrets.token_hex(6)
+        self.db.execute("INSERT INTO gates(nonce,who,body,expires) VALUES(?,?,?,?)",
+                        (nonce, who, self.seal(payload), time.time() + float(ttl)))
+        return nonce
+
+    def open_gate(self, who: str, nonce: str) -> dict:
+        """Consume the nonce atomically: a replayed press finds nothing to consume."""
+        with self.tx():
+            row = self.db.execute("SELECT body FROM gates WHERE nonce=? AND who=? AND phase='pending' AND expires>?",
+                                  (nonce, who, time.time())).fetchone()
+            if not row:
+                raise CompanionError("APPROVAL_GATE_EXPIRED_OR_USED")
+            self.db.execute("UPDATE gates SET phase='deciding' WHERE nonce=?", (nonce,))
+        return self.open(row[0])
+
+    def close_gate(self, nonce: str, phase: str):
+        if phase not in {"decided", "decide_unknown", "refused"}:
+            raise ValueError("invalid approval gate terminal state")
+        self.db.execute("UPDATE gates SET phase=? WHERE nonce=? AND phase='deciding'", (phase, nonce))
+
+    def gate_phase(self, nonce: str) -> str | None:
+        row = self.db.execute("SELECT phase FROM gates WHERE nonce=?", (nonce,)).fetchone()
+        return row[0] if row else None
+
     def prune(self):
         cutoff = time.time() - 7 * 86400
         with self.tx():
             self.db.execute("DELETE FROM history WHERE created<?", (cutoff,))
             self.db.execute("DELETE FROM inbox WHERE phase NOT IN ('pending','processing') AND created<?", (cutoff,))
             self.db.execute("DELETE FROM proposals WHERE phase='pending' AND expires<?", (time.time(),))
+            self.db.execute("DELETE FROM gates WHERE phase='pending' AND expires<?", (time.time(),))
+            self.db.execute("DELETE FROM gates WHERE phase!='pending' AND expires<?", (cutoff,))
 
 
 @contextmanager

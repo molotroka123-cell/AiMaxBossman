@@ -110,6 +110,21 @@ def fingerprint(value) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
+# Fields that make an approval the approval it is: WHAT is asked (kind), the
+# rendered arguments (preview) and the context it belongs to (task/run/created).
+# Any change to target, arguments or context changes this digest and therefore
+# invalidates a decision prepared from the old text.
+APPROVAL_FIELDS = ("id", "kind", "preview", "task_id", "run_id", "created_at")
+
+
+def approval_digest(row) -> str:
+    """Digest of one approval's target+arguments+context; unusable rows fail closed."""
+    if (not isinstance(row, dict) or type(row.get("id")) is not int or row["id"] <= 0 or
+            not isinstance(row.get("kind"), str) or not row["kind"]):
+        raise CompanionError("APPROVAL_ROW_INVALID")
+    return fingerprint({k: row.get(k) for k in APPROVAL_FIELDS})
+
+
 async def json_request(client, method, url, *, payload=None, params=None, headers=None, timeout=20):
     """No exception strings/URLs are exposed; no automatic POST retries."""
     try:
@@ -400,6 +415,57 @@ class Core:
         except (httpx.HTTPError, OSError, TimeoutError):
             raise CompanionError("NETWORK_UNAVAILABLE") from None
         return bytes(data)
+
+    # ---- approvals, Computer Use and lessons: the ONLY route from Telegram to an effect
+    async def approvals(self, status: str = "pending") -> list:
+        """Bossman's own approval queue. Read-only; a decision is a separate call."""
+        body = await json_request(self.client, "GET", self.settings.core_url + "/api/approvals",
+                                  params={"status": status},
+                                  headers={"X-BCC-Token": self.settings.core_token}, timeout=10)
+        if not isinstance(body, list):
+            raise CompanionError("APPROVALS_RESPONSE_INVALID")
+        return [r for r in body if isinstance(r, dict) and type(r.get("id")) is int]
+
+    async def approval(self, approval_id: int) -> dict | None:
+        """Re-read ONE approval at effect time (no per-id endpoint exists upstream)."""
+        return next((r for r in await self.approvals("all") if r.get("id") == approval_id), None)
+
+    async def decide_approval(self, approval_id: int, approve: bool, by: str) -> dict:
+        body = await self._request("POST", f"/api/approvals/{int(approval_id)}",
+                                   {"approve": bool(approve), "by": by})
+        if not isinstance(body, dict) or body.get("id") != approval_id:
+            raise CompanionError("APPROVAL_DECISION_UNKNOWN")
+        return body
+
+    async def computer_status(self) -> dict:
+        body = await self._request("GET", "/api/computer/status")
+        if not isinstance(body, dict) or type(body.get("available")) is not bool:
+            raise CompanionError("COMPUTER_STATUS_INVALID")
+        return body
+
+    async def computer_observe(self) -> dict:
+        body = await self._request("POST", "/api/computer/observe", timeout=60)
+        if not isinstance(body, dict) or type(body.get("generation")) is not int:
+            raise CompanionError("COMPUTER_OBSERVATION_INVALID")
+        return body
+
+    async def computer_stop(self) -> dict:
+        body = await self._request("POST", "/api/computer/stop", {})
+        if not isinstance(body, dict) or body.get("stopped") is not True:
+            raise CompanionError("COMPUTER_STOP_UNCONFIRMED")
+        return body
+
+    async def computer_resume(self) -> dict:
+        body = await self._request("POST", "/api/computer/resume", {})
+        if not isinstance(body, dict) or body.get("stopped") is not False:
+            raise CompanionError("COMPUTER_RESUME_UNCONFIRMED")
+        return body
+
+    async def lessons(self) -> list:
+        body = await self._request("GET", "/api/learning")
+        if not isinstance(body, list):
+            raise CompanionError("LESSONS_RESPONSE_INVALID")
+        return [r for r in body if isinstance(r, dict)]
 
     async def status(self):
         data = await self._request("GET", "/health/live")
