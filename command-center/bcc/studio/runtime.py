@@ -121,6 +121,11 @@ async def validate_plane(svc,payload):
     model=next((m for m in model_specs() if m['id']==payload['model']),None)
     if model is None: raise ValueError('model: unknown id')
     settings=catalog.validate_settings(model,payload.get('settings',{}))
+    if model['provider']=='sdcpp':
+        # The length preset (1 s TestRun / 5-30 s) fixes frames/fps/size in the plane itself,
+        # so the stored plane, provenance and the verified output describe the same clip.
+        from bcc.studio.providers.sdcpp import apply_length
+        settings=apply_length(settings)
     if 'seed' in settings and settings['seed'] is None: settings['seed']=secrets.randbelow(2**31)
     media=payload.get('media',[])
     counts={}

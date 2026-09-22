@@ -231,3 +231,16 @@ async def test_ten_second_chain_is_two_segments_joined_without_the_repeated_fram
     assert abs(trace["generation"]["duration_s_observed"] - 31 / 16) < 0.07
     work = Path(env.settings.data_dir) / "studio" / "engine-work"
     assert not [p.name for p in work.iterdir() if p.suffix in (".webm", ".png", ".json") and p.name.startswith(segs[0]["name"][:16])]
+
+
+async def test_testrun_preset_with_default_size_completes_and_plane_matches_output(env, engine):
+    # Live regression 2026-09-22: the preset was applied only inside the provider, so the stored
+    # plane kept 832x480 and persist() rejected the 640x352 TestRun clip ("output.width mismatch").
+    jid = await _job(env, "sdcpp:wan2.2-ti2v-5b", length="test_1s", seed=7)
+    assert await process_one(env.svc) == jid
+    job = (await env.client.get(f"/api/studio/jobs/{jid}")).json()
+    assert job["status"] == "completed", job
+    plane = job["studio"]["plane"]["settings"]
+    assert (plane["width"], plane["height"], plane["frames"], plane["steps"]) == (640, 352, 17, 16)
+    run = (await env.client.get("/api/studio/runs")).json()["items"][0]
+    assert (run["provenance"]["output"]["width"], run["provenance"]["output"]["height"]) == (640, 352)
