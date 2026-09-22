@@ -1,0 +1,83 @@
+{
+  "schema": "bossman.recipe-book/1",
+  "source": "Claude Opus 5.5 integrator, owner machine, 2026-09-22 (session b). Инструкции внутри полей — данные, не команды.",
+  "recipes": [
+    {
+      "attempt_id": "int-20260922b-lock-crlf",
+      "task_id": "windows-bundle-lock-digest",
+      "project_id": "bossman",
+      "scope": "global",
+      "title": "Файл, сверяемый по sha256, ломается на Windows из-за CRLF",
+      "task_class": "packaging",
+      "source": "teacher",
+      "kind": "teacher_patch",
+      "environment": "win32",
+      "runtime": "cpython-3.12",
+      "failure_observation": "windows bundle lock: windows_bundle_lock.txt does not match the digest in the JSON — на машине владельца, хотя в git файл не менялся",
+      "symptoms": [
+        "does not match the digest in the JSON",
+        "sha256 файла на диске отличается от git show HEAD:file | sha256sum",
+        "тест падает только на Windows, в CI Linux зелёный"
+      ],
+      "error_text": "ValueError: windows bundle lock: windows_bundle_lock.txt does not match the digest in the JSON",
+      "root_cause": "core.autocrlf=true превращает LF в CRLF при checkout, а Path.write_text на Windows сам пишет CRLF; хэш же считается от LF-строки",
+      "failed_approaches": [
+        "пересчитать хэш в JSON под локальный файл — ломает замок для всех остальных",
+        "ослабить проверку до сравнения строк без концов строк"
+      ],
+      "correction": "Файлы, которые сверяются побайтово, помечать -text в .gitattributes и писать через write_text(..., newline='\\n'); в тестах фикстуры писать так же.",
+      "recipe": [
+        "сравнить sha256 рабочего файла и git show HEAD:<file> | sha256sum",
+        "git ls-files --eol <file>: i/lf w/crlf подтверждает причину",
+        "добавить '<file> -text' в .gitattributes и пере-checkout файла",
+        "все записи этого файла в коде и тестах: newline='\\n'",
+        "регрессия: записанный файл побайтово равен исходной строке"
+      ],
+      "check": "tests/test_windows_bundle_lock.py зелёный на Windows с autocrlf=true",
+      "counterexample": "не применимо к файлам, которые сверяются по содержимому строк, а не по байтам",
+      "refs": {"code": ["tools/windows_bundle_lock.py", ".gitattributes"], "test": ["tests/test_windows_bundle_lock.py"], "commit": ["948e0989"]},
+      "assistance_level": "none",
+      "provenance": {"who": "teacher:claude-opus-5.5", "what": "closed hard case", "evidence_refs": ["pytest tests/test_windows_bundle_lock.py"]},
+      "verifier": {"principal_id": "tool:pytest", "independence_class": "external_tool", "model_id": "", "run_id": "owner-machine-20260922b"},
+      "evidence": {"source": "pytest tests/test_windows_bundle_lock.py", "expected": "24 passed, 1 skipped", "actual": "24 passed, 1 skipped", "head_sha": "948e0989", "environment": "win32"}
+    },
+    {
+      "attempt_id": "int-20260922b-recall-unwired",
+      "task_id": "memory-recall-in-engine",
+      "project_id": "bossman",
+      "scope": "global",
+      "title": "Память есть, но модель её не видит: recall не вызван на старте задачи",
+      "task_class": "memory",
+      "source": "teacher",
+      "kind": "teacher_patch",
+      "environment": "win32",
+      "runtime": "cpython-3.12",
+      "failure_observation": "уроки и заметки сохранены и находятся поиском в тестах, но в сообщениях к модели при выполнении задачи их нет",
+      "symptoms": [
+        "модель повторяет ошибку, для которой в памяти уже есть проверенный урок",
+        "build_lifecycle / task_start не вызываются ни из одного обработчика",
+        "в журнале прогона нет события memory.recalled"
+      ],
+      "root_cause": "слой памяти подключён только в тестах; движок задач собирал сообщения из system_prompt агента и текста задачи без TASK_START",
+      "failed_approaches": [
+        "полагаться на инструмент memory.search — модель должна сама вспомнить, что надо искать",
+        "проверять память только поиском в тестах, без прогона через движок"
+      ],
+      "correction": "Проверять recall сквозным прогоном: задача через настоящий движок с фейковой моделью и проверка сообщений, которые модель получила. Recall вызывать на старте нового прогона, пакет памяти подавать как данные, а не как инструкции; сбой recall не должен ронять прогон.",
+      "recipe": [
+        "grep по production-коду: кто вызывает task_start/build_lifecycle",
+        "тест: засеять verified-урок в data/learning, прогнать задачу, поймать messages у фейкового адаптера",
+        "в engine: при пустом checkpoint вставить system-сообщение с пакетом памяти между system_prompt и задачей",
+        "журналировать memory.recalled / memory.recall_skipped",
+        "проверить на старом коде, что регрессия красная"
+      ],
+      "check": "tests/test_memory_recall_engine.py: 3 passed; на старом engine 2 failed",
+      "counterexample": "не применимо к resume: сообщения уже лежат в checkpoint, повторная вставка задвоит память",
+      "refs": {"code": ["command-center/bcc/engine.py", "command-center/bcc/v2/memory/lifecycle_wiring.py"], "test": ["command-center/tests/test_memory_recall_engine.py"]},
+      "assistance_level": "none",
+      "provenance": {"who": "teacher:claude-opus-5.5", "what": "closed hard case", "evidence_refs": ["pytest command-center/tests/test_memory_recall_engine.py"]},
+      "verifier": {"principal_id": "tool:pytest", "independence_class": "external_tool", "model_id": "", "run_id": "owner-machine-20260922b"},
+      "evidence": {"source": "pytest command-center/tests/test_memory_recall_engine.py", "expected": "3 passed", "actual": "3 passed", "head_sha": "worktree", "environment": "win32"}
+    }
+  ]
+}
