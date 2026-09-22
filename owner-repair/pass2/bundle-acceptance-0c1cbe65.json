@@ -1,0 +1,41 @@
+{
+  "status": "PASS",
+  "expected_sha": "0c1cbe651f5271bbd0bb2d30b467c1206c19f565",
+  "checked_at": "2026-09-21T22:58:54.512732+00:00",
+  "problems": [],
+  "details": {
+    "archive": "BOSSMAN-Windows-x64-0c1cbe651f52.zip",
+    "archive_bytes": 783345799,
+    "archive_sha256": "3f0f72d28a8d9940ef0bf5650df539928fcdab13927ca9307aa5281269b961dc",
+    "extracted_to": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\bossman bundle tdsw6in3\\Owner Downloads\\BOSSMAN-Windows-x64-0c1cbe651f52",
+    "build_inputs_locked": true,
+    "build_profile": "release",
+    "required_downloads": 0,
+    "media": {
+      "ffmpeg": "ffmpeg version n8.1-11-g75d37c499d-20260430 Copyright (c) 2000-2026 the FFmpeg developers",
+      "ffprobe": "ffprobe version n8.1-11-g75d37c499d-20260430 Copyright (c) 2007-2026 the FFmpeg developers",
+      "default_export": {
+        "status": "PASS",
+        "video_codec": "h264",
+        "audio_codec": "aac",
+        "fully_decoded": true,
+        "bytes": 38358
+      }
+    },
+    "browser": {
+      "chromium": "153.0.8010.12"
+    },
+    "evening_stdout": "==================================================================\nBOSSMAN — вечерняя приёмка владельца (этот загруженный билд)\n==================================================================\n  BUILD SHA:   0c1cbe651f5271bbd0bb2d30b467c1206c19f565\n  артефакт:    BOSSMAN-Windows-x64-0c1cbe651f52\n  запуск:      20260921T225824Z-eba826\n  источник:    downloaded archive (репозиторий не требуется)\n  платформа:   Windows-2025Server-10.0.26100-SP0\n  runtime:     3.12.10 (C:\\Users\\runneradmin\\AppData\\Local\\Temp\\bossman bundle tdsw6in3\\Owner Downloads\\BOSSMAN-Windows-x64-0c1cbe651f52\\runtime\\python.exe)\n  улики:       C:\\Users\\runneradmin\\AppData\\Local\\Bossman\\evening\\0c1cbe651f5271bbd0bb2d30b467c1206c19f565\\20260921T225824Z-eba826\n------------------------------------------------------------------\n  доктор:      OK\n  приёмка:     PASS\n------------------------------------------------------------------\nOWNER_EVENING_SHA=0c1cbe651f5271bbd0bb2d30b467c1206c19f565\nOWNER_EVENING_RUN_ID=20260921T225824Z-eba826\nOWNER_EVENING_EVIDENCE=C:\\Users\\runneradmin\\AppData\\Local\\Bossman\\evening\\0c1cbe651f5271bbd0bb2d30b467c1206c19f565\\20260921T225824Z-eba826\nOWNER_EVENING_RESULT=PASS\n",
+    "evening_returncode": 0,
+    "evening_verdict": "PASS",
+    "evening_run_id": "20260921T225824Z-eba826",
+    "evening_reasons": [],
+    "evening_negative_control": "PASS"
+  },
+  "binding": {
+    "source_sha": "0c1cbe651f5271bbd0bb2d30b467c1206c19f565",
+    "archive_sha256": "3f0f72d28a8d9940ef0bf5650df539928fcdab13927ca9307aa5281269b961dc",
+    "run_id": "35663985656",
+    "harness_sha": "0c1cbe651f5271bbd0bb2d30b467c1206c19f565"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "_": "Machine-readable live progress ledger for the 2026-09-22 owner session. Lives on evidence/owner-pass2-20260922 so canonical release/bossman-owner does not move during freeze.",
+  "canonical_branch": "release/bossman-owner",
+  "evidence_branch": "evidence/owner-pass2-20260922",
+  "checkpoints": [
+    {
+      "checkpoint_id": "CP00",
+      "timestamp": "2026-09-22T06:40:00Z",
+      "actor": "integrator (Claude Opus 5)",
+      "student_model": null,
+      "teacher_model": null,
+      "start_sha": "9e3aa192f513d98d212c53311bb078e5c349c410",
+      "end_sha": "9e3aa192f513d98d212c53311bb078e5c349c410",
+      "status": "PASS",
+      "task": "Resume yesterday and establish current truth: remote HEAD, exact-SHA CI, Windows artifact, install, models, remainder list.",
+      "files_changed": [],
+      "tests_run": [
+        "tools/exact_sha_certify.py on 0c1cbe65 (after re-running the flaky root-ci job) and 9e3aa192",
+        "bundled Evening-Test.cmd (doctor + acceptance) on the installed artifact",
+        "SHA256SUMS over all 22370 installed files",
+        "POST /api/models/{1,2}/test on the installed product"
+      ],
+      "tests_passed": [
+        "0c1cbe65 EXACT_SHA_CI=CERTIFIED 10/10 (root-ci rerun attempt 2 green)",
+        "Evening doctor OK / acceptance PASS on BUILD SHA 0c1cbe65",
+        "SHA256SUMS 22370/22370",
+        "MAIN qwen3.8-27b answer ok gen 9.91 tok/s; FAST qwen3.6-35b-a3b answer ok gen 42.59 tok/s (server_timings)"
+      ],
+      "tests_failed": [
+        "Start-Bossman.cmd: desktop launcher stops the backend ~1 s after start (DESK-EDGE-RELAUNCH, P1)"
+      ],
+      "qwen_result": null,
+      "claude_intervention": "none (no production edit)",
+      "evidence": {
+        "candidate_sha": "0c1cbe651f5271bbd0bb2d30b467c1206c19f565",
+        "certificate": "owner-repair/pass2/cert-0c1cbe65.json",
+        "ci_windows_artifact_zip_sha256": "085f432c41ac8088bfea517170058b6a074059a739b67301143a8ddc1b21ce6a",
+        "app_zip": "BOSSMAN-Windows-x64-0c1cbe651f52.zip",
+        "app_zip_sha256": "3f0f72d28a8d9940ef0bf5650df539928fcdab13927ca9307aa5281269b961dc",
+        "bundle_acceptance": "owner-repair/pass2/bundle-acceptance-0c1cbe65.json",
+        "install_dir": "C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-0c1cbe651f52 (outside source checkout)",
+        "manifest_source_sha": "0c1cbe651f5271bbd0bb2d30b467c1206c19f565",
+        "manifest_source_dirty": false,
+        "machine": "Windows 11 Pro 10.0.26100; AMD Ryzen AI MAX+ 395 (16C/32T); Radeon 8060S; 119.6 GB RAM; 1590 GB free",
+        "models": {
+          "MAIN": "Qwen3.8-27B-UD-Q5_K_M.gguf @127.0.0.1:8081, llama.cpp b10964-b29c606e2 Vulkan, ctx 32768, vision=true, --jinja --reasoning off",
+          "FAST": "Qwen3.6-35B-A3B-UD-Q5_K_M.gguf @127.0.0.1:8082, llama.cpp b10964-b29c606e2 Vulkan, ctx 32768, vision=true, --jinja --reasoning off"
+        }
+      },
+      "open_blockers": [
+        "DESK-EDGE-RELAUNCH P1",
+        "MEDIA-RESTART (from 2026-09-21) not yet reproduced"
+      ],
+      "next_action": "CP01: Qwen-first repair of DESK-EDGE-RELAUNCH; reproduce MEDIA-RESTART."
+    }
+  ]
+}
