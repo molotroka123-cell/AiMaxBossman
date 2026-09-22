@@ -66,6 +66,12 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["bcc*"]
 
+# Imported third-party skills are read-only DATA (text + provenance + licences),
+# discovered by bcc.v2.skill_catalog; they must ship inside the wheel.
+[tool.setuptools.package-data]
+bcc = ["skills_catalog/*/LICENSE", "skills_catalog/*/*/SKILL.md",
+       "skills_catalog/*/*/provenance.json", "skills_catalog/*/*/LICENSE.txt"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

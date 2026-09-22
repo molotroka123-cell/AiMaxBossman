@@ -1,0 +1,80 @@
+{
+  "schema": "bossman.skill_provenance.v1",
+  "id": "huggingface/huggingface-local-models",
+  "source": {
+    "repo": "huggingface/skills",
+    "url": "https://github.com/huggingface/skills",
+    "commit": "abc20ae526d8b4c0e4dff89f904adce28a4a0eb6",
+    "path": "skills/huggingface-local-models/SKILL.md",
+    "raw_url": "https://raw.githubusercontent.com/huggingface/skills/abc20ae526d8b4c0e4dff89f904adce28a4a0eb6/skills/huggingface-local-models/SKILL.md"
+  },
+  "license": {
+    "spdx": "Apache-2.0",
+    "upstream_path": "LICENSE",
+    "file": "../LICENSE",
+    "modified": false,
+    "note": "SKILL.md скопирован без изменений; фильтр политики применяется при загрузке, файл не правится"
+  },
+  "sha256": "814640db1d5f2f274aec09d66b3589ed5a0fdcfaf536afd508b1d757dcae1534",
+  "size_bytes": 3780,
+  "imported_at": "2026-09-22",
+  "import_mode": "text-only: SKILL.md verbatim; no scripts, hooks, examples or references; nothing executed; no telemetry; no auto-update",
+  "status": "UNVERIFIED",
+  "upstream_skill_files_excluded": [
+    {
+      "path": "skills/huggingface-local-models/references/hardware.md",
+      "kind": "reference",
+      "imported": false,
+      "reason": "доп. справочный текст: не импортирован, чтобы держать контекст ограниченным; при нужде — отдельный ревью"
+    },
+    {
+      "path": "skills/huggingface-local-models/references/hub-discovery.md",
+      "kind": "reference",
+      "imported": false,
+      "reason": "доп. справочный текст: не импортирован, чтобы держать контекст ограниченным; при нужде — отдельный ревью"
+    },
+    {
+      "path": "skills/huggingface-local-models/references/quantization.md",
+      "kind": "reference",
+      "imported": false,
+      "reason": "доп. справочный текст: не импортирован, чтобы держать контекст ограниченным; при нужде — отдельный ревью"
+    }
+  ],
+  "upstream_skill_files_imported": [],
+  "upstream_repo_hooks_excluded": [
+    {
+      "path": ".mcp.json",
+      "reason": "хук/плагин/автоматизация репозитория: не импортируется"
+    },
+    {
+      "path": "scripts/publish.sh",
+      "reason": "хук/плагин/автоматизация репозитория: не импортируется"
+    },
+    {
+      "path": "scripts/build_skill_distribution.py",
+      "reason": "хук/плагин/автоматизация репозитория: не импортируется"
+    }
+  ],
+  "grants": {
+    "tools": [],
+    "permissions": []
+  },
+  "selection": {
+    "priority": 50,
+    "triggers": [
+      "gguf",
+      "llama.cpp",
+      "llama-server",
+      "quant",
+      "local model",
+      "run locally",
+      "hugging face",
+      "huggingface",
+      "локальн",
+      "квантизац",
+      "квант",
+      "модел"
+    ],
+    "note": "триггеры отбора написаны в Bossman, не upstream"
+  }
+}

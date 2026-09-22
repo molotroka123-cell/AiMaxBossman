@@ -44,7 +44,9 @@ from ..db import (agents as agents_t, approvals as approvals_t, settings_kv,
                   task_runs as runs_t, tasks as tasks_t, utcnow)
 from ..permissions import agent_allowed
 from ..tools import REGISTRY as TOOLS
+from ..v2 import skill_catalog as catalog_mod
 from ..v2 import skill_evaluation as evaluation
+from ..v2.skill_catalog import SkillCatalog
 from ..v2.mcp_hub import MCPServerSpec, command_policy_refusal, namespaced_tool
 from ..v2.skill_library import (SkillLibrary, build_skill_prompt, default_skill_roots,
                                 skill_contract)
@@ -739,6 +741,166 @@ async def _kv_set(svc, key: str, data: dict) -> None:
         await s.execute(sa.delete(settings_kv).where(settings_kv.c.key == key))
         await s.execute(sa.insert(settings_kv).values(key=key, value_enc=enc))
         await s.commit()
+
+
+# ---------- Imported skill catalog (bcc/skills_catalog) ----------
+#
+# Третий слой той же библиотеки: сторонние скиллы, импортированные ТЕКСТОМ
+# (bcc.v2.skill_catalog — дискавери тот же SkillLibrary). Они приходят со
+# статусом UNVERIFIED, ничего не разрешают, и попадают к локальному ученику
+# только через skills_for_task — как цитируемый контекст, с ограничением размера.
+# Отзыв (revocation) хранится в БД продукта (settings_kv), поэтому переживает
+# перезапуск; нечитаемый список отзывов = ни одного импортного скилла (fail closed).
+
+CATALOG_REVOKE_KEY = "skills.catalog.revocations"
+
+
+class RevocationsUnreadable(RuntimeError):
+    pass
+
+
+def _catalog(svc) -> SkillCatalog:
+    cat = getattr(svc, "skill_catalog", None)
+    if cat is None:
+        cat = SkillCatalog()
+        try:
+            svc.skill_catalog = cat
+        except Exception:
+            pass
+    return cat
+
+
+async def catalog_revocations(svc) -> dict:
+    """{skill_id: [{"sha256": hex|"*", "reason", "at"}]}; raises if unreadable."""
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(settings_kv.c.value_enc)
+                               .where(settings_kv.c.key == CATALOG_REVOKE_KEY))).first()
+    if not row or not row[0]:
+        return {}
+    try:
+        data = json.loads(svc.vault.decrypt(row[0]))
+    except Exception as exc:
+        raise RevocationsUnreadable(str(exc)[:200]) from exc
+    if not isinstance(data, dict):
+        raise RevocationsUnreadable("revocation list is not an object")
+    return data
+
+
+async def revoke_catalog_skill(svc, skill_id: str, *, sha256: str | None = None,
+                               reason: str = "") -> dict:
+    """Отозвать версию (sha256) или весь скилл (sha256=None → "*")."""
+    entry = _catalog(svc).get(skill_id)
+    if entry is None:
+        raise KeyError(skill_id)
+    data = await catalog_revocations(svc)
+    rec = {"sha256": sha256 or "*", "reason": reason[:500], "at": utcnow().isoformat()}
+    data.setdefault(skill_id, []).append(rec)
+    await _kv_set(svc, CATALOG_REVOKE_KEY, data)
+    await svc.bus.emit("skill.catalog.revoked", slug=skill_id, sha256=rec["sha256"])
+    return rec
+
+
+async def restore_catalog_skill(svc, skill_id: str) -> int:
+    """Снять все отзывы с id. Возвращает число снятых записей."""
+    data = await catalog_revocations(svc)
+    removed = len(data.pop(skill_id, []) or [])
+    await _kv_set(svc, CATALOG_REVOKE_KEY, data)
+    await svc.bus.emit("skill.catalog.restored", slug=skill_id, removed=removed)
+    return removed
+
+
+async def skills_for_task(svc, instruction: str, *,
+                          available_tools: list[str] | tuple[str, ...] | None = None,
+                          max_skills: int = catalog_mod.DEFAULT_MAX_SKILLS,
+                          max_chars_per_skill: int = catalog_mod.DEFAULT_MAX_CHARS_PER_SKILL,
+                          max_total_chars: int = catalog_mod.DEFAULT_MAX_TOTAL_CHARS,
+                          ) -> list[dict]:
+    """Импортные скиллы, подходящие к тексту задачи, для ``context["skills"]``.
+
+    Возвращает [{id, title, text, provenance, status, unsupported_tools,
+    tool_compat, declared_tools_ignored, stripped_lines, grants, score, matched,
+    truncated}]. ``grants`` всегда пуст: скилл — цитата-методика, не право.
+    Ни одного исключения наружу: сбой каталога или нечитаемый список отзывов
+    дают [] (задача идёт без скиллов, а не с отозванным скиллом).
+    """
+    try:
+        revoked = await catalog_revocations(svc)
+    except RevocationsUnreadable as exc:
+        await _catalog_error(svc, "revocations_unreadable", exc)
+        return []
+    try:
+        return _catalog(svc).select(
+            instruction or "", revoked,
+            available_tools=tuple(available_tools) if available_tools is not None
+            else catalog_mod.STUDENT_TOOLS,
+            max_skills=max_skills, max_chars_per_skill=max_chars_per_skill,
+            max_total_chars=max_total_chars)
+    except Exception as exc:
+        await _catalog_error(svc, "catalog_failed", exc)
+        return []
+
+
+async def _catalog_error(svc, kind: str, exc: Exception) -> None:
+    """Пустой список скиллов из-за сбоя не должен выглядеть как «ничего не подошло»."""
+    try:
+        await svc.bus.emit("skill.catalog.error", kind=kind, error=str(exc)[:300])
+    except Exception:
+        pass
+
+
+@router.get("/skill-catalog")
+async def list_catalog(request: Request):
+    svc = request.app.state.svc
+    try:
+        revoked = await catalog_revocations(svc)
+    except RevocationsUnreadable as exc:
+        raise HTTPException(503, {"message": "список отзывов нечитаем", "hint": str(exc)})
+    return [e.summary() for e in _catalog(svc).entries(revoked)]
+
+
+@router.get("/skill-catalog/select")
+async def select_catalog(request: Request, q: str = ""):
+    return await skills_for_task(request.app.state.svc, q)
+
+
+@router.get("/skill-catalog/{source}/{skill}")
+async def get_catalog_skill(source: str, skill: str, request: Request):
+    svc = request.app.state.svc
+    try:
+        revoked = await catalog_revocations(svc)
+    except RevocationsUnreadable as exc:
+        raise HTTPException(503, {"message": "список отзывов нечитаем", "hint": str(exc)})
+    e = _catalog(svc).get(f"{source}/{skill}", revoked)
+    if e is None:
+        raise HTTPException(404, {"message": "скилл каталога не найден"})
+    d = e.summary()
+    d["provenance_full"] = e.provenance
+    d["text"] = e.text if e.status != catalog_mod.QUARANTINED else ""
+    return d
+
+
+@router.post("/skill-catalog/{source}/{skill}/revoke")
+async def revoke_catalog(source: str, skill: str, request: Request):
+    svc = request.app.state.svc
+    body = await request.json() if (await request.body()) else {}
+    try:
+        rec = await revoke_catalog_skill(svc, f"{source}/{skill}", sha256=body.get("sha256"),
+                                         reason=str(body.get("reason") or ""))
+    except KeyError:
+        raise HTTPException(404, {"message": "скилл каталога не найден"})
+    except RevocationsUnreadable as exc:
+        raise HTTPException(503, {"message": "список отзывов нечитаем", "hint": str(exc)})
+    return {"id": f"{source}/{skill}", "revoked": rec}
+
+
+@router.post("/skill-catalog/{source}/{skill}/restore")
+async def restore_catalog(source: str, skill: str, request: Request):
+    svc = request.app.state.svc
+    try:
+        removed = await restore_catalog_skill(svc, f"{source}/{skill}")
+    except RevocationsUnreadable as exc:
+        raise HTTPException(503, {"message": "список отзывов нечитаем", "hint": str(exc)})
+    return {"id": f"{source}/{skill}", "removed": removed}
 
 
 # ---------- MCP Hub API ----------
