@@ -1,0 +1,17 @@
+{
+  "schema": "bossman.mvcr.facts.v1",
+  "_comment": "SYNTHETIC PERSON. Every value is obviously fake. Never put real personal data in this repository.",
+  "as_of": "2026-09-22",
+  "person": {
+    "surname": {"value": "SYNTETICKÁ-TESTOVÁ", "confirmed": true, "source": "doc:pas_SYNTETICKY.txt"},
+    "given_names": {"value": "Fiktivní Osoba", "confirmed": true, "source": "doc:pas_SYNTETICKY.txt"},
+    "birth_date": {"value": "1990-01-01", "confirmed": true, "source": "doc:pas_SYNTETICKY.txt"},
+    "nationality": {"value": "Testland (fiktivní stát)", "confirmed": true, "source": "owner:potvrzeno v chatu 2026-09-20"},
+    "passport_number": {"value": "FAKE-000-TEST", "confirmed": true, "source": "doc:pas_SYNTETICKY.txt"},
+    "address_cz": {"value": "Fiktivní 1, 000 00 Testov", "confirmed": true, "source": "owner:potvrzeno v chatu 2026-09-20"}
+  },
+  "residence_periods": [
+    {"id": "P1", "from": "2019-03-01", "to": "2021-02-28", "basis": "dlouhodobé vízum (SYNTETICKÉ)", "confirmed": true, "source": "doc:povoleni_SYNTETICKE.txt"},
+    {"id": "P2", "from": "2021-03-01", "to": "ongoing", "basis": "dlouhodobý pobyt (SYNTETICKÝ)", "confirmed": true, "source": "doc:povoleni_SYNTETICKE.txt"}
+  ]
+}
