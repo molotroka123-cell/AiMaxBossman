@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "verified_date_utc": "2026-09-22",
+  "target": {
+    "cpu": "AMD Ryzen AI Max+ 395",
+    "gpu": "Radeon 8060S",
+    "unified_memory_bytes": 128000000000,
+    "model_runtime_cap_bytes": 88000000000,
+    "os_bossman_and_tools_reserve_bytes": 32000000000,
+    "max_loaded_models": 1
+  },
+  "status": "research_complete_hardware_admission_pending",
+  "claim": "Three primary role specialists; no worldwide number-one claim or measured AMD performance claim.",
+  "download_policy": {
+    "automatic_download": false,
+    "weights_downloaded_during_research": false,
+    "pin_revision": true,
+    "verify_sha256": true,
+    "download_selected_files_only": true,
+    "estimated_total_download_bytes": 114229511680
+  },
+  "review_policy": {
+    "reviewer_model_id": "meta-models/Muse-Glimmer-30B",
+    "reviewer_must_differ_from_builder": true,
+    "reviewer_must_not_edit_candidate": true,
+    "reviewer_input": "requirements, immutable diff, trusted test evidence; omit builder self-evaluation",
+    "reviewer_has_promotion_authority": false,
+    "promotion_requires_external_deterministic_gates": true
+  },
+  "models": [
+    {
+      "id": "qwen38_builder",
+      "model_id": "Qwen/Qwen3.8-27B",
+      "family": "qwen",
+      "role": "primary_reasoning_builder",
+      "is_fallback": false,
+      "artifact_status": "metadata_verified_weights_not_downloaded",
+      "local_acceptance_status": "pending_owner_hardware",
+      "official_model_card": "https://huggingface.co/Qwen/Qwen3.8-27B",
+      "artifact": {
+        "repo_id": "unsloth/Qwen3.8-27B-GGUF",
+        "revision": "4ca720788d1e01f1bff70c033e0d0028fd02e502",
+        "quantization": "Q8_0",
+        "publisher": "quantizer_unsloth",
+        "files": [
+          {
+            "path": "Qwen3.8-27B-Q8_0.gguf",
+            "size_bytes": 29047086048,
+            "sha256": "a680f44a06920e5d689774823782006aa3acc8db95750323373b24139b67e348"
+          }
+        ],
+        "total_size_bytes": 29047086048,
+        "metadata_source": "https://huggingface.co/api/models/unsloth/Qwen3.8-27B-GGUF?blobs=true"
+      },
+      "runtime": {
+        "engine": "llama.cpp",
+        "backend": "Vulkan",
+        "architecture": "qwen35",
+        "tested_on_owner_hardware": false,
+        "context_tokens": 32768,
+        "parallel_slots": 1,
+        "kv_type": "f16",
+        "initial_smoke_context_tokens": 8192,
+        "host": "127.0.0.1",
+        "port": 8088,
+        "alias": "Qwen/Qwen3.8-27B",
+        "primary_model_file": "Qwen3.8-27B-Q8_0.gguf",
+        "speculative_decoding": false,
+        "vision_projector": null,
+        "generation": {
+          "temperature": 1.0,
+          "top_p": 0.95,
+          "top_k": 20,
+          "max_output_tokens": 8192
+        }
+      },
+      "memory_plan": {
+        "unit": "bytes",
+        "kind": "conservative_planning_allowance_not_measured_peak",
+        "weights_bytes": 29047086048,
+        "kv_and_recurrent_state_allowance_bytes": 3000000000,
+        "runtime_buffers_allowance_bytes": 6000000000,
+        "additional_headroom_bytes": 4000000000,
+        "estimated_working_envelope_bytes": 42047086048,
+        "fits_planning_88gb": true
+      },
+      "download_enabled_by_default": false
+    },
+    {
+      "id": "qwen_coder_worker",
+      "model_id": "Qwen/Qwen3-Coder-Next",
+      "family": "qwen",
+      "role": "primary_code_and_test_worker",
+      "is_fallback": false,
+      "artifact_status": "metadata_verified_weights_not_downloaded",
+      "local_acceptance_status": "pending_owner_hardware",
+      "official_model_card": "https://huggingface.co/Qwen/Qwen3-Coder-Next",
+      "artifact": {
+        "repo_id": "Qwen/Qwen3-Coder-Next-GGUF",
+        "revision": "b82fb7382639d97b38fa7672e526c760c2fb358e",
+        "quantization": "Q6_K",
+        "publisher": "official_model_author",
+        "files": [
+          {
+            "path": "Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K-00001-of-00004.gguf",
+            "size_bytes": 20245400480,
+            "sha256": "96f5a82248f330b16f96b8764890807394a2c9ff15dd929739e84406a82f1c08"
+          },
+          {
+            "path": "Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K-00002-of-00004.gguf",
+            "size_bytes": 20249793440,
+            "sha256": "8aba362152a27d594b72de6116229a1cbacf10016ab032fcbeeabf3e496cf50e"
+          },
+          {
+            "path": "Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K-00003-of-00004.gguf",
+            "size_bytes": 20119727648,
+            "sha256": "3533e483d4a8f0c71d596b1a7f9b84a653c9034bdd04a7665d5cede7fcab48f6"
+          },
+          {
+            "path": "Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K-00004-of-00004.gguf",
+            "size_bytes": 4913543232,
+            "sha256": "cd44084ec6bb816667821ec2ceba024a10910c01f7d53b6c4b7fdb4c868f8c1d"
+          }
+        ],
+        "total_size_bytes": 65528464800,
+        "metadata_source": "https://huggingface.co/api/models/Qwen/Qwen3-Coder-Next-GGUF?blobs=true"
+      },
+      "runtime": {
+        "engine": "llama.cpp",
+        "backend": "Vulkan",
+        "architecture": "qwen3next",
+        "tested_on_owner_hardware": false,
+        "context_tokens": 32768,
+        "parallel_slots": 1,
+        "kv_type": "f16",
+        "initial_smoke_context_tokens": 8192,
+        "host": "127.0.0.1",
+        "port": 8088,
+        "alias": "Qwen/Qwen3-Coder-Next",
+        "primary_model_file": "Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K-00001-of-00004.gguf",
+        "speculative_decoding": false,
+        "vision_projector": null,
+        "generation": {
+          "temperature": 1.0,
+          "top_p": 0.95,
+          "top_k": 40,
+          "max_output_tokens": 8192
+        }
+      },
+      "memory_plan": {
+        "unit": "bytes",
+        "kind": "conservative_planning_allowance_not_measured_peak",
+        "weights_bytes": 65528464800,
+        "kv_and_recurrent_state_allowance_bytes": 2000000000,
+        "runtime_buffers_allowance_bytes": 6000000000,
+        "additional_headroom_bytes": 4000000000,
+        "estimated_working_envelope_bytes": 77528464800,
+        "fits_planning_88gb": true
+      },
+      "download_enabled_by_default": false
+    },
+    {
+      "id": "muse_reviewer",
+      "model_id": "meta-models/Muse-Glimmer-30B",
+      "family": "muse",
+      "role": "primary_independent_reviewer",
+      "is_fallback": false,
+      "artifact_status": "metadata_verified_weights_not_downloaded",
+      "local_acceptance_status": "pending_owner_hardware",
+      "official_model_card": "https://huggingface.co/meta-models/Muse-Glimmer-30B",
+      "artifact": {
+        "repo_id": "meta-models/Muse-Glimmer-30B-GGUF",
+        "revision": "70bf1b61ac09f91b24d39038091b41c582bc5d7a",
+        "quantization": "KQuant-Dynamic-Q4_K_XL",
+        "publisher": "official_model_author",
+        "files": [
+          {
+            "path": "Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf",
+            "size_bytes": 19653960832,
+            "sha256": "ac7023d6a4c704eb9af54ab53e476a66b7f5b6c0ef2fc4a8dde5253c291a6c38"
+          }
+        ],
+        "total_size_bytes": 19653960832,
+        "metadata_source": "https://huggingface.co/api/models/meta-models/Muse-Glimmer-30B-GGUF?blobs=true"
+      },
+      "runtime": {
+        "engine": "llama.cpp",
+        "backend": "Vulkan",
+        "architecture": "muse-glimmer",
+        "tested_on_owner_hardware": false,
+        "context_tokens": 32768,
+        "parallel_slots": 1,
+        "kv_type": "f16",
+        "initial_smoke_context_tokens": 8192,
+        "host": "127.0.0.1",
+        "port": 8088,
+        "alias": "meta-models/Muse-Glimmer-30B",
+        "primary_model_file": "Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf",
+        "speculative_decoding": false,
+        "vision_projector": null,
+        "generation": {
+          "temperature": 1.0,
+          "top_p": 0.95,
+          "top_k": 64,
+          "max_output_tokens": 8192
+        }
+      },
+      "memory_plan": {
+        "unit": "bytes",
+        "kind": "conservative_planning_allowance_not_measured_peak",
+        "weights_bytes": 19653960832,
+        "kv_and_recurrent_state_allowance_bytes": 2000000000,
+        "runtime_buffers_allowance_bytes": 6000000000,
+        "additional_headroom_bytes": 4000000000,
+        "estimated_working_envelope_bytes": 31653960832,
+        "fits_planning_88gb": true
+      },
+      "download_enabled_by_default": false
+    }
+  ],
+  "activation_gates": [
+    "Record OS, AMD driver, Vulkan device, actual GPU allocation budget and free unified RAM.",
+    "Pin official upstream llama.cpp build; Muse needs b10353 or newer.",
+    "Load only one model; 8192 context smoke, then 32768 context admission.",
+    "Verify file SHA256, readable model alias and correct content/reasoning separation.",
+    "Measure peak actual memory under representative prompt+generation; reject over 88000000000 bytes.",
+    "Require correct structured tool selection, exact argument schemas, multi-step retry and restart tests.",
+    "Compare trusted held-out task success and elapsed time with existing baseline; no claim from vendor leaderboard alone."
+  ]
+}

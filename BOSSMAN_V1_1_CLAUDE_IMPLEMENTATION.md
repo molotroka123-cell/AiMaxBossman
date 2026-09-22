@@ -1,5 +1,8 @@
 # Bossman 1.1 — инструкция Claude для интеграции
 
+Актуальное закрытие этой ветки: **[docs/evolution/V1_1_FINAL_HANDOFF.md](docs/evolution/V1_1_FINAL_HANDOFF.md)**.
+Три основные локальные модели: **[docs/evolution/LOCAL_CHAMPIONS_88GB.md](docs/evolution/LOCAL_CHAMPIONS_88GB.md)**.
+
 ## Главное: сначала закончить 1.0
 
 Владелец уточнил: **не вносить этот модуль в `release/bossman-owner`, пока там собирается 1.0**.
@@ -17,7 +20,10 @@ Ryzen AI Max+ 395 / Radeon 8060S / 128 GB. Не переписывать Bossman
 | Файл | Назначение |
 |---|---|
 | `bossman-core/bossman_v3/self_improvement/runner.py` | Выбор проваленного сценария, предложение точечной правки, отдельный worktree, сравнение тестов, повторная проверка, сохранение кандидата и опыта |
-| `tools/bossman_evolve.py` | Команды `assess`, `run`, `report`, `export` |
+| `bossman-core/bossman_v3/self_improvement/campaign.py` | Турнир кандидатов, повторные baseline, бюджет proposer/reviewer и checkpoint |
+| `bossman-core/bossman_v3/self_improvement/protocol.py` | Ранжирование, привязка независимого ревью к патчу, receipts доказательств |
+| `bossman-core/bossman_v3/self_improvement/validation.py` | Проверка целостности и однократный отдельный holdout |
+| `tools/bossman_evolve.py` | Команды `assess`, `run`, `report`, `verify`, `validate`, `export` |
 | `config/evolution/owner-v1.1.json` | Исполняемый набор: контекст/точные байты, честность кэша, восстановление задач, сохранность памяти и верификации |
 | `config/evolution/Dockerfile` | Отдельное окружение тестов; запуск без сети, без ключей владельца, с ограничениями ресурсов |
 | `config/evolution/sources.lock.json` | Три проверенных upstream-источника и точные SHA |
@@ -28,6 +34,10 @@ Ryzen AI Max+ 395 / Radeon 8060S / 128 GB. Не переписывать Bossman
 Цикл: baseline → проваленный train-сценарий → модель возвращает JSON с точечными
 заменами → разрешённые исходники изменяются в отдельной копии → весь фиксированный
 набор проверяется дважды → при строгом улучшении сохраняется ветка `evo/candidate-*`.
+До 5 альтернатив сравниваются с одним baseline. Победитель выбирается по числу
+исправленных проверок и минимальному размеру изменений, затем проходит отдельную
+модель ревью без объяснения builder и его test verdict. CLI по умолчанию требует
+явную отличающуюся модель reviewer; `--candidate-only` оставляет ревью незавершённым.
 Следующая итерация продолжает лучший экспериментальный кандидат. Производственная
 ветка автоматически не продвигается: её принятие остаётся в существующем LearningGuard.
 
@@ -44,11 +54,12 @@ Ryzen AI Max+ 395 / Radeon 8060S / 128 GB. Не переписывать Bossman
 
 ## Что проверено и что ещё требуется
 
-**106 тестов прошли на Linux / Python 3.12.** Есть одно прежнее предупреждение
+Предыдущая поставка: **106 тестов прошли на Linux / Python 3.12**.
+Итог текущей поставки указан в `docs/evolution/V1_1_FINAL_HANDOFF.md`. Есть одно прежнее предупреждение
 `SyntaxWarning` в анализируемом исходнике теста контекста. Команда:
 
 ```bash
-PYTHONPATH=.:bossman-core:command-center PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q tests/test_evolution_runner.py tests/test_evolution_metrics.py tests/test_context_bytes_checkpoint.py tests/test_context_slice.py tests/test_cache_observation.py tests/test_cache_intelligence.py tests/test_learning_store_authority.py tests/test_audit_p0_trace_identity.py bossman-core/tests/test_v3_compound_resume.py bossman-core/tests/test_v3_self_improvement.py
+PYTHONPATH=.:bossman-core:command-center PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q tests/test_evolution_runner.py tests/test_evolution_metrics.py tests/test_evolution_protocol.py tests/test_context_bytes_checkpoint.py tests/test_context_slice.py tests/test_cache_observation.py tests/test_cache_intelligence.py tests/test_learning_store_authority.py tests/test_audit_p0_trace_identity.py bossman-core/tests/test_v3_compound_resume.py bossman-core/tests/test_v3_self_improvement.py
 ```
 
 Проверены реальные временные Git-репозитории, падающий тест до исправления,
@@ -77,7 +88,9 @@ PYTHONPATH=.:bossman-core:command-center PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python
    В отдельном инженерном проходе превратить подтверждённые owner-дефекты в новые
    неизменяемые тесты. Зафиксировать тесты до эксперимента и начать новую кампанию.
    Не придумывать баги и не улучшать цифры удалением тестов.
-6. По каждому победителю выполнить ревью и независимую проверку ниже. Не называть
+6. По каждому победителю выполнить ревью и независимую проверку ниже. Для `validate` предоставить отдельный зафиксированный suite с role=`holdout`: пути
+   тестов не пересекаются с train/regression, editable пустой. Один запуск потребляет
+   holdout навсегда для этой кампании, включая ошибку; дальнейший run запрещён. Не называть
    два повторения одних тестов независимым holdout. Использовать существующие
    LearningGuard / AutonomyTrainer / evidence ledger для продвижения и rollback.
 7. После закрытия 1.0 перенести нужный проверенный commit в интеграционную копию,
@@ -91,17 +104,19 @@ PYTHONPATH=.:bossman-core:command-center PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python
 ```text
 docker build -t bossman-evolution:1.1 config/evolution
 python tools/bossman_evolve.py assess --executor docker
-python tools/bossman_evolve.py run --backend claude --allow-cloud --iterations 3 --max-usd 2 --proposal-usd 0.5 --max-seconds 1800
+python tools/bossman_evolve.py run --backend claude --model ACTUAL_CLAUDE_MODEL_ID --allow-cloud --review-backend local --review-model ACTUAL_REVIEWER_MODEL_ID --review-url http://127.0.0.1:8081/v1 --iterations 3 --candidates 3 --max-usd 2 --proposal-usd 0.5 --max-seconds 1800
 python tools/bossman_evolve.py report
 ```
 
 Для локальной модели, после её загрузки существующим runtime:
 
 ```text
-python tools/bossman_evolve.py run --backend local --local-url http://127.0.0.1:8080/v1 --model ACTUAL_LOADED_MODEL_ID --iterations 3 --max-seconds 1800
+python tools/bossman_evolve.py run --backend local --local-url http://127.0.0.1:8080/v1 --model ACTUAL_LOADED_MODEL_ID --review-model ACTUAL_REVIEWER_MODEL_ID --review-url http://127.0.0.1:8081/v1 --iterations 3 --candidates 3 --max-seconds 1800
 ```
 
-Заменить `ACTUAL_LOADED_MODEL_ID` и порт на фактические. Не скачивать каталог моделей
+Заменить все `ACTUAL_*_MODEL_ID` и порты на фактические. Builder/reviewer — разные
+модели; runtime должен возвращать именно запрошенную модель. Конфигурация ролей
+не доказывает независимость сервера, который игнорирует поле `model`. Не скачивать каталог моделей
 целиком и не обещать ROCm-ускорение по одному названию модели. Claude adapter использует
 официальные `--safe-mode`, `--tools ""`, `--json-schema`, `--max-budget-usd`:
 если установленный CLI их не поддерживает или запрещает вложенный запуск, честно
@@ -193,6 +208,8 @@ SwapMe. Измерять качество готового артефакта, �
 ## Дополнительные исследовательские опоры
 
 - GEPA: https://github.com/gepa-ai/gepa — оценка кандидатов и отражение ошибок в следующем предложении; зависимость пока не установлена.
+- Darwin Gödel Machine: https://sakana.ai/dgm/ — архив кандидатов и исследование альтернатив; опубликованные gains не переносятся на Bossman.
+- autoresearch: https://github.com/karpathy/autoresearch — фиксированный измеритель, ограниченный бюджет и журнал экспериментов.
 - Agent Lightning: https://github.com/microsoft/agent-lightning — разделение исполнения и обучения; RL не включён.
 - mini-SWE-agent: https://github.com/SWE-agent/mini-swe-agent — компактный исследовательский исполнитель; ядро Bossman не заменено.
 - Официальный Claude CLI: https://code.claude.com/docs/en/cli-reference

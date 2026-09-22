@@ -5,28 +5,49 @@
       "id": "context-exact-bytes",
       "role": "train",
       "goal": "Preserve exact source identity across Windows line endings, restarts and dirty worktrees; keep context slices correct.",
-      "tests": ["tests/test_context_bytes_checkpoint.py", "tests/test_context_slice.py"],
-      "editable": ["tools/context_slice.py"]
+      "tests": [
+        "tests/test_context_bytes_checkpoint.py",
+        "tests/test_context_slice.py"
+      ],
+      "editable": [
+        "tools/context_slice.py"
+      ]
     },
     {
       "id": "cache-truth",
       "role": "train",
       "goal": "Report measured provider cache usage honestly; never invent cost savings or reuse stale observations.",
-      "tests": ["tests/test_cache_observation.py", "tests/test_cache_intelligence.py"],
-      "editable": ["bossman_shared/cache_observation.py", "bossman_shared/cache_intelligence.py"]
+      "tests": [
+        "tests/test_cache_observation.py",
+        "tests/test_cache_intelligence.py"
+      ],
+      "editable": [
+        "bossman_shared/cache_observation.py",
+        "bossman_shared/cache_intelligence.py"
+      ]
     },
     {
       "id": "resume-without-duplicate-effects",
       "role": "train",
       "goal": "Resume compound tasks after restart while preserving checkpoints, required verification and exactly-once effects.",
-      "tests": ["bossman-core/tests/test_v3_compound_resume.py"],
-      "editable": ["bossman-core/bossman_v3/execution/compound.py"]
+      "tests": [
+        "bossman-core/tests/test_v3_compound_resume.py"
+      ],
+      "editable": [
+        "bossman-core/bossman_v3/execution/compound.py"
+      ]
     },
     {
       "id": "learning-authority",
       "role": "regression",
       "goal": "Preserve independent evidence, memory versions and truthful promotion gates.",
-      "tests": ["tests/test_learning_store_authority.py", "tests/test_audit_p0_trace_identity.py", "tests/test_evolution_runner.py", "tests/test_evolution_metrics.py"],
+      "tests": [
+        "tests/test_learning_store_authority.py",
+        "tests/test_audit_p0_trace_identity.py",
+        "tests/test_evolution_runner.py",
+        "tests/test_evolution_metrics.py",
+        "tests/test_evolution_protocol.py"
+      ],
       "editable": []
     }
   ]

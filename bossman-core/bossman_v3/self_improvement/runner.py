@@ -15,6 +15,8 @@ from pathlib import Path, PurePosixPath
 import signal
 import subprocess
 import sys
+import tempfile
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -68,25 +70,58 @@ def campaign_lock(work: Path):
 
 
 def command(argv: list[str], cwd: Path, *, timeout: float = 180,
-            input_text: str | None = None, env: dict | None = None) -> tuple[int, str]:
-    """No shell; timeout terminates the process group as well as its parent."""
-    proc = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            text=True, encoding="utf-8", errors="replace",
-                            start_new_session=os.name != "nt",
-                            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0)
-    try:
-        output, _ = proc.communicate(input_text, timeout=timeout)
-        return proc.returncode, output
-    except (subprocess.TimeoutExpired, KeyboardInterrupt):
-        if os.name == "nt":
-            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True)
-        else:
+            input_text: str | None = None, env: dict | None = None,
+            max_output: int = 2_000_000) -> tuple[int, str]:
+    """Bounded stdout and process-group lifetime, including inherited pipes."""
+    with tempfile.TemporaryFile() as incoming:
+        incoming.write((input_text or "").encode("utf-8"))
+        incoming.seek(0)
+        proc = subprocess.Popen(argv, cwd=cwd, env=env, stdin=incoming,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                start_new_session=os.name != "nt",
+                                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0)
+        chunks, overflow = [], threading.Event()
+
+        def kill_group():
+            if os.name == "nt":
+                with contextlib.suppress(OSError, subprocess.TimeoutExpired):
+                    subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                                   capture_output=True, timeout=10)
+            else:
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(proc.pid, signal.SIGKILL)
             with contextlib.suppress(ProcessLookupError):
-                os.killpg(proc.pid, signal.SIGKILL)
-        proc.kill()
-        proc.communicate()
-        raise
+                proc.kill()
+
+        def drain():
+            size = 0
+            while True:
+                chunk = proc.stdout.read(8192)
+                if not chunk:
+                    return
+                size += len(chunk)
+                if size > max_output:
+                    overflow.set()
+                    kill_group()
+                    return
+                chunks.append(chunk)
+
+        reader = threading.Thread(target=drain, daemon=True)
+        reader.start()
+        try:
+            proc.wait(timeout=timeout)
+            reader.join(timeout=1)
+            if reader.is_alive():
+                raise ValueError("Process left a live child/output stream")
+            if overflow.is_set():
+                raise ValueError("Process output limit exceeded")
+            return proc.returncode, b"".join(chunks).decode("utf-8", errors="replace")
+        finally:
+            if proc.poll() is None or reader.is_alive():
+                kill_group()
+            proc.wait(timeout=15)
+            reader.join(timeout=2)
+            proc.stdout.close()
 
 
 def git(repo: Path, *args: str) -> str:
@@ -113,7 +148,7 @@ def safe_file(root: Path, name: str) -> Path:
     return current
 
 
-def load_suite(repo: Path, path: Path) -> dict:
+def load_suite(repo: Path, path: Path, *, holdout: bool = False) -> dict:
     suite = json.loads(path.read_text(encoding="utf-8"))
     if suite.get("version") != 1 or not suite.get("cases"):
         raise ValueError("Suite version 1 and non-empty cases required")
@@ -122,7 +157,8 @@ def load_suite(repo: Path, path: Path) -> dict:
         if not case.get("id") or case["id"] in identities:
             raise ValueError("Unique case ids required")
         identities.add(case["id"])
-        if case.get("role") not in {"train", "regression"} or not case.get("tests"):
+        roles = {"holdout"} if holdout else {"train", "regression"}
+        if case.get("role") not in roles or not case.get("tests"):
             raise ValueError("Each case needs a role and tests")
         for name in case["tests"]:
             safe_file(repo, name)
@@ -134,12 +170,14 @@ def load_suite(repo: Path, path: Path) -> dict:
             if (not name.endswith(".py") or "tests" in PurePosixPath(name).parts
                     or PurePosixPath(name).name.startswith("test_")
                     or name.endswith("conftest.py") or "learning_guard/" in name
-                    or "/self_improvement/runner" in name or name.startswith("learning/")):
+                    or "/self_improvement/" in name or name.startswith("learning/")):
                 raise ValueError("Evaluator, memory authority and tests cannot be repair targets")
             targets.add(name)
-    if targets & tests or not any(c["role"] == "train" for c in suite["cases"]):
+    if holdout and targets:
+        raise ValueError("Holdout suite must not declare repair targets")
+    if not holdout and (targets & tests or not any(c["role"] == "train" for c in suite["cases"])):
         raise ValueError("Training cases and immutable test separation required")
-    if not any(c["role"] == "regression" for c in suite["cases"]):
+    if not holdout and not any(c["role"] == "regression" for c in suite["cases"]):
         raise ValueError("At least one regression case is required")
     suite["fingerprint"] = digest({"suite": suite, "tests": {
         name: hashlib.sha256(safe_file(repo, name).read_bytes()).hexdigest() for name in sorted(tests)}})
@@ -161,7 +199,7 @@ def test_environment(repo: Path) -> dict:
 
 def parse_junit(path: Path, returncode: int, output: str) -> dict:
     record = {"status": "BLOCKED", "tests": {}, "detail": redact_text(output[-6000:])}
-    if returncode not in (0, 1) or not path.is_file():
+    if returncode not in (0, 1) or path.is_symlink() or not path.is_file() or path.stat().st_size > 2_000_000:
         return record
     try:
         root = ET.parse(path).getroot()
@@ -183,7 +221,7 @@ def parse_junit(path: Path, returncode: int, output: str) -> dict:
 
 def docker_test_command(repo: Path, evidence: Path, tests: list[str], image: str, name: str) -> list[str]:
     """Pinned, prebuilt image only. No model keys, Docker socket or owner home."""
-    return ["docker", "run", "--rm", "--pull=never", "--name", name,
+    return ["docker", "run", "--rm", "--pull=never", "--log-driver=none", "--name", name,
             "--network=none", "--read-only", "--cap-drop=ALL",
             "--security-opt=no-new-privileges", "--pids-limit=128", "--cpus=2", "--memory=4g",
             "--user=65534:65534", "--tmpfs", "/tmp:rw,nosuid,size=1g,mode=1777",
@@ -219,7 +257,7 @@ def evaluate(repo: Path, suite: dict, evidence: Path, timeout: int, *,
                                      "--junitxml=" + str(junit), *case["tests"]],
                                     repo, timeout=remaining, env=test_environment(repo))
             results[case["id"]] = parse_junit(junit, code, out)
-        except (subprocess.TimeoutExpired, OSError) as exc:
+        except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
             results[case["id"]] = {"status": "BLOCKED", "tests": {}, "detail": type(exc).__name__}
         finally:
             if executor == "docker":
@@ -227,7 +265,7 @@ def evaluate(repo: Path, suite: dict, evidence: Path, timeout: int, *,
                 with contextlib.suppress(OSError, subprocess.TimeoutExpired):
                     command(["docker", "rm", "-f", container_name], repo, timeout=15)
         # Raw XML may contain source/log secrets. Persist only redacted evidence.
-        if junit.exists():
+        if junit.is_file() and not junit.is_symlink() and junit.stat().st_size <= 2_000_000:
             junit.write_text(redact_text(junit.read_text(encoding="utf-8")), encoding="utf-8")
     atomic_json(evidence / "results.json", results)
     return results
@@ -298,8 +336,8 @@ def prompt_for(repo: Path, case: dict, result: dict, memory: LearningStore) -> s
 
 
 class ClaudeProposer:
-    def __init__(self, model: str | None = None):
-        self.model = model
+    def __init__(self, model: str | None = None, schema: dict | None = None):
+        self.model, self.schema = model, schema or EDIT_SCHEMA
 
     def __call__(self, prompt: str, cwd: Path, budget: float, timeout: int) -> tuple[dict, float | None]:
         # No shell/editor/MCP tools; Claude returns a bounded JSON proposal only.
@@ -307,7 +345,7 @@ class ClaudeProposer:
                 "--disallowedTools", "mcp__*", "--strict-mcp-config",
                 "--mcp-config", '{"mcpServers":{}}', "--no-session-persistence",
                 "--max-turns", "2", "--max-budget-usd", str(budget),
-                "--json-schema", json.dumps(EDIT_SCHEMA)]
+                "--json-schema", json.dumps(self.schema)]
         if self.model:
             args += ["--model", self.model]
         code, output = command(args, cwd, input_text=prompt, timeout=timeout)
@@ -358,13 +396,14 @@ class LocalProposer:
 
 
 def remember(store: LearningStore, *, run_id: str, scenario: str, before: str, after: str,
-             summary: str, result: str, paths: list[str], evidence: Path, model: str) -> None:
+             summary: str, result: str, paths: list[str], evidence: Path, model: str,
+             detail: str = "") -> None:
     # These are test-bounded experiment observations, NOT trusted production skills.
     # Existing LearningGuard owns independent verification and promotion.
     case = {
         "task_id": "EVO-" + run_id, "model": model, "agent": "bossman-evolution",
         "start_sha": before, "end_sha": after, "task": scenario,
-        "symptom": result, "reproduction": "Frozen scenario: " + scenario,
+        "symptom": (result + ": " + detail)[:2000], "reproduction": "Frozen scenario: " + scenario,
         "evidence": [str(evidence)], "root_cause_hypotheses": [], "rejected_hypotheses": [],
         "root_cause": "See test evidence; model explanation is a hypothesis",
         "relevant_code_paths": paths, "fix_strategy": summary[:1000],
@@ -400,139 +439,7 @@ def export_verified(store: LearningStore, destination: Path, allowed_tasks: set[
     return len(examples)
 
 
-def run(repo: Path, suite: dict, work: Path, *, proposer=None, iterations: int = 3,
-        max_usd: float = 2.0, proposal_usd: float = 0.5, timeout: int = 180,
-        repeats: int = 2, local: bool = False, model: str = "unknown",
-        executor: str = "docker", image: str = "bossman-evolution:1.1", max_seconds: int = 1800) -> dict:
-    if (iterations < 1 or iterations > 20 or repeats < 2 or repeats > 5 or timeout < 1
-            or any(not math.isfinite(v) or v <= 0 for v in (max_usd, proposal_usd))
-            or executor not in {"host", "docker"} or max_seconds < 1):
-        raise ValueError("Invalid experiment limits")
-    repo, work = repo.resolve(), work.resolve()
-    if work == repo or repo in work.parents:
-        raise ValueError("Experiment workspace must be outside the source checkout")
-    base = git(repo, "rev-parse", "HEAD")
-    if git(repo, "status", "--porcelain", "--untracked-files=normal"):
-        raise ValueError("Commit or preserve source changes before running evolution")
-    if executor == "docker":
-        code, image_id = command(["docker", "image", "inspect", "--format", "{{.Id}}", image], repo, timeout=30)
-        if code or not image_id.strip().startswith("sha256:"):
-            raise ValueError("Prebuilt evaluation image unavailable; build config/evolution/Dockerfile")
-        image = image_id.strip()  # Bind the entire campaign to immutable local image bytes.
-    runtime = sys.version + "|" + sys.platform + "|" + executor + "|" + (image if executor == "docker" else sys.executable)
-    deadline = time.monotonic() + max_seconds
-    with campaign_lock(work):
-        state_path = work / "state.json"
-        if state_path.exists():
-            state = json.loads(state_path.read_text(encoding="utf-8"))
-            if state["base_sha"] != base or state["suite"] != suite["fingerprint"]:
-                raise ValueError("Base/suite changed: use a new campaign workspace")
-        else:
-            state = {"version": 1, "base_sha": base, "champion_sha": base,
-                     "suite": suite["fingerprint"], "reserved_usd": 0.0, "attempts": [],
-                     "status": "NEW", "environment": runtime}
-        if state["environment"] != runtime:
-            raise ValueError("Runtime changed: start a new campaign")
-        for attempt in state["attempts"]:
-            if attempt["status"] == "STARTED":
-                attempt["status"] = "INTERRUPTED"
-        state["max_usd"] = max_usd
-        memory = LearningStore(work / "learning", work / "learning-docs")
-        for _ in range(iterations if proposer else 1):
-            if (work / "STOP").exists() or time.monotonic() >= deadline:
-                state["status"] = "STOPPED"
-                break
-            run_id = uuid.uuid4().hex[:16]
-            evidence = work / "runs" / run_id
-            candidate = work / "worktrees" / run_id
-            candidate.parent.mkdir(parents=True, exist_ok=True)
-            before = state["champion_sha"]
-            git(repo, "worktree", "add", "--detach", str(candidate), before)
-            try:
-                baseline = evaluate(candidate, suite, evidence / "baseline", timeout,
-                                    executor=executor, image=image, deadline=deadline)
-                state["last_baseline"] = baseline
-                state["last_evidence"] = str(evidence)
-                if any(r["status"] == "BLOCKED" for r in baseline.values()):
-                    state["status"] = "BLOCKED_BASELINE"
-                    break
-                failing = [c for c in suite["cases"] if c["role"] == "train"
-                           and c.get("editable") and baseline[c["id"]]["status"] == "FAIL"]
-                if not proposer:
-                    state["status"] = "ASSESSED"
-                    break
-                if not failing:
-                    state["status"] = "NEEDS_NEW_SCENARIOS" if all(r["status"] == "PASS" for r in baseline.values()) else "BLOCKED_REGRESSION"
-                    break
-                if not local and state["reserved_usd"] + proposal_usd > max_usd + 1e-9:
-                    state["status"] = "BUDGET_EXHAUSTED"
-                    break
-                # Retry a different failure before revisiting the same scenario.
-                failing.sort(key=lambda c: sum(a.get("scenario") == c["id"] for a in state["attempts"]))
-                case = failing[0]
-                attempt = {"id": run_id, "scenario": case["id"], "status": "STARTED",
-                           "before": before, "evidence": str(evidence), "reserved_usd": 0.0 if local else proposal_usd}
-                state["reserved_usd"] += attempt["reserved_usd"]
-                state["attempts"].append(attempt)
-                # Charge reservation BEFORE provider call; crash/restart cannot reset spend.
-                atomic_json(state_path, state)
-                summary, paths, after = "Proposal incomplete", [], before
-                try:
-                    prompt = prompt_for(candidate, case, baseline[case["id"]], memory)
-                    provider_cwd = evidence / "provider"
-                    provider_cwd.mkdir(parents=True)
-                    remaining = min(timeout, deadline - time.monotonic())
-                    if remaining <= 0:
-                        raise ValueError("Campaign time limit reached")
-                    proposal, cost = proposer(prompt, provider_cwd, proposal_usd, remaining)
-                    attempt["reported_cost_usd"] = cost
-                    if cost is not None and cost > proposal_usd and not local:
-                        state["reserved_usd"] += cost - proposal_usd
-                        raise ValueError("Provider exceeded per-call budget")
-                    if not isinstance(proposal, dict):
-                        raise ValueError("Proposal must be a JSON object")
-                    summary = str(proposal.get("summary", ""))[:1000]
-                    paths = apply_edits(candidate, proposal, case["editable"])
-                    # Freeze patch before tests; any source mutation by tests rejects it.
-                    patch_hash = git(candidate, "diff", "--binary", "--no-ext-diff")
-                    observed = []
-                    for repeat in range(repeats):
-                        results = evaluate(candidate, suite, evidence / f"candidate-{repeat}", timeout,
-                                           executor=executor, image=image, deadline=deadline)
-                        ok, reason = improvement(baseline, results)
-                        observed.append({"ok": ok, "reason": reason})
-                        if not ok:
-                            raise ValueError(reason)
-                    if git(candidate, "diff", "--binary", "--no-ext-diff") != patch_hash:
-                        raise ValueError("Tests changed candidate source")
-                    changed = git(candidate, "diff", "--name-only").splitlines()
-                    if set(changed) != set(paths):
-                        raise ValueError("Unexpected candidate changes")
-                    git(candidate, "add", "--", *paths)
-                    git(candidate, "-c", "user.name=Bossman Evolution", "-c", "user.email=bossman@localhost",
-                        "commit", "-m", "evo: measured candidate for " + case["id"])
-                    after = git(candidate, "rev-parse", "HEAD")
-                    branch = "evo/candidate-" + run_id
-                    git(repo, "update-ref", "refs/heads/" + branch, after, "")
-                    state["champion_sha"] = after
-                    attempt.update(status="CANDIDATE_PASSES", candidate_sha=after, branch=branch, checks=observed)
-                    atomic_json(evidence / "review-request.json", {
-                        "base_sha": before, "candidate_sha": after, "files": paths,
-                        "required": ["alibaba-open-code-review", "cloudflare-security-audit", "independent-verifier"],
-                        "review_status": "PENDING", "production_promoted": False,
-                        "scope": "Changed files and their trust boundaries; no whole-project scan by default"})
-                except (ValueError, RuntimeError, OSError, KeyError, TypeError, SyntaxError, subprocess.TimeoutExpired) as exc:
-                    attempt.update(status="REJECTED", reason=redact_text(str(exc))[:2000])
-                remember(memory, run_id=run_id, scenario=case["id"], before=before, after=after,
-                         summary=summary, result=attempt["status"], paths=paths,
-                         evidence=evidence, model=model)
-                state["status"] = attempt["status"]
-                atomic_json(evidence / "experiment.json", attempt)
-                atomic_json(state_path, state)
-            finally:
-                # Only disposable worktrees created by this invocation are removed.
-                git(repo, "worktree", "remove", "--force", str(candidate))
-                atomic_json(state_path, state)
-        atomic_json(state_path, state)
-        atomic_json(work / "report.json", state)
-        return state
+def run(*args, **kwargs) -> dict:
+    """Run a bounded campaign; imported lazily to keep adapters independently usable."""
+    from .campaign import run as run_campaign
+    return run_campaign(*args, **kwargs)
