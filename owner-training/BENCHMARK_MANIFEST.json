@@ -1,0 +1,147 @@
+{
+ "frozen_utc": "2026-09-22T06:46:29.042645Z",
+ "note": "Phase A freeze. Task texts and hidden verifiers are withheld until scoring; their sha256 below binds them.",
+ "students": {
+  "MAIN": "Qwen3.8-27B-UD-Q5_K_M (llama.cpp b10964, --jinja --reasoning off, ctx 131072)",
+  "FAST": "Qwen3.6-35B-A3B-UD-Q5_K_M (llama.cpp b10964, ctx 32768)"
+ },
+ "local_reviewer": "gpt-oss-120b MXFP4 (HF rev 8d64014e, shard sha256 06a0fcd1…, b7bf9fba…) ctx 65536",
+ "student_harness": "Qwen Code CLI headless, local endpoint only, history-free case repos (git archive -> git init)",
+ "cases": [
+  {
+   "id": "T1-AP-ALL",
+   "kind": "historical",
+   "class": "filter-vocabulary",
+   "source_base_sha": "79a12276b3cf69a51dfc3ff1996b4b3cf57c6054",
+   "case_base_commit": "37506c85a2e0a800cd3bb29b7d39a412b1b34b81",
+   "injected": false,
+   "note": "",
+   "task_sha256": "54e88b6b48e9fa28b33297ed2d0f50a22b333c7f2018eda742374dd58d2d6438",
+   "hidden_sha256": "2c98f42f3bc64acfb78dc1e4daacbf845f98aaddd7f0b256ac392953c560f052"
+  },
+  {
+   "id": "T2-CU-VERIFY",
+   "kind": "historical",
+   "class": "fail-open-verification",
+   "source_base_sha": "cb7aefe77e50738f7692a5993cc7b872480db12a",
+   "case_base_commit": "01fb1e53f651ecd673ea429f5e8fdb9f8ed5c355",
+   "injected": false,
+   "note": "",
+   "task_sha256": "9af3b91fafed4263a14cc8e7668835bcd4b8a163f9f9c50b60adf5c5e7f01e47",
+   "hidden_sha256": "d04f3810416d73351a6d214c15ab70010301b9a1a08721d6e93e9288189b4db5"
+  },
+  {
+   "id": "T3-CU-APPROVAL",
+   "kind": "historical",
+   "class": "approval-from-untrusted-field",
+   "source_base_sha": "cb7aefe77e50738f7692a5993cc7b872480db12a",
+   "case_base_commit": "cecc960315b2aca016d4e7cc32647d83d4025a8b",
+   "injected": false,
+   "note": "",
+   "task_sha256": "a24ce9f7f6e11abeb9c619f9edb49e1e5924b5ba9862ddc8b6a5205d3f2fbf73",
+   "hidden_sha256": "d04f3810416d73351a6d214c15ab70010301b9a1a08721d6e93e9288189b4db5"
+  },
+  {
+   "id": "T4-MEDIA-HASH",
+   "kind": "historical",
+   "class": "integrity-bytes-not-shape",
+   "source_base_sha": "3566072e51389bff2d46c80889f17268c9dec4c7",
+   "case_base_commit": "4aab5bd3f8f48ba20c0f879d8df3b5aefce83af5",
+   "injected": false,
+   "note": "",
+   "task_sha256": "38af0868824c64ea8e0c70669703e8c9f70c5a26b63f428a856e50adc9ccb448",
+   "hidden_sha256": "59f5ec1d1b89af7e5a8adc05e4435e4cee2e171638775db5f614b49d29bdfab8"
+  },
+  {
+   "id": "T5-MEDIA-CANCEL",
+   "kind": "historical",
+   "class": "cancel-race",
+   "source_base_sha": "3566072e51389bff2d46c80889f17268c9dec4c7",
+   "case_base_commit": "3f15517051c6ffdca2ff1805d643b310ab507c8f",
+   "injected": false,
+   "note": "",
+   "task_sha256": "c7fad529a597e37959a533b71aed0816abc6bf106a1514e87b95c8a1685d7fbd",
+   "hidden_sha256": "59f5ec1d1b89af7e5a8adc05e4435e4cee2e171638775db5f614b49d29bdfab8"
+  },
+  {
+   "id": "T6-TEL-001",
+   "kind": "historical",
+   "class": "metric-honesty",
+   "source_base_sha": "84cbd788ace1298bc36513e706b2a6054a11b85c",
+   "case_base_commit": "ea78530ead91e8b8d7692f287bf3c7b936e95686",
+   "injected": false,
+   "note": "",
+   "task_sha256": "bdfbbf6e8a8309d3adfe5e42d1b8bc6742d119bb8977803f4533bab882b18377",
+   "hidden_sha256": "6831e8c1c6c349efff95cc6074ea1c21797e31e88a1815f4c1c85ac66f49b4f4"
+  },
+  {
+   "id": "HO1-COMFY-CANCEL",
+   "kind": "holdout",
+   "class": "cancel-race",
+   "source_base_sha": "9e3aa192f513d98d212c53311bb078e5c349c410",
+   "case_base_commit": "6d1ad327b5da8653f02cbec127f3a1b8f76d9437",
+   "injected": true,
+   "note": "",
+   "task_sha256": "16070e3a8499fca6b812fada559bc5047fbe2492cbfff1f5e2e15032fdb13857",
+   "hidden_sha256": "f598ab76cfd4f3c384e0d93f7e0701cffb9730472ec841f5e37b6804344ff186"
+  },
+  {
+   "id": "HO2-PNG-CRC",
+   "kind": "holdout",
+   "class": "integrity-bytes-not-shape",
+   "source_base_sha": "9e3aa192f513d98d212c53311bb078e5c349c410",
+   "case_base_commit": "991bc8c8f3e0f4005d503e3680b5ed26cb659459",
+   "injected": true,
+   "note": "",
+   "task_sha256": "3782c352155a5984a162d89047f88d1a95c4e394f9766993935570875dc3d98f",
+   "hidden_sha256": "f598ab76cfd4f3c384e0d93f7e0701cffb9730472ec841f5e37b6804344ff186"
+  },
+  {
+   "id": "HO3-TASKS-FILTER",
+   "kind": "holdout",
+   "class": "filter-vocabulary",
+   "source_base_sha": "9e3aa192f513d98d212c53311bb078e5c349c410",
+   "case_base_commit": "3df240d721fe18b8ede3e123564a3c523ec0bd70",
+   "injected": false,
+   "note": "real defect, no injection",
+   "task_sha256": "6c34503318184749950245dc41488ed346fe01282b2f06db375cdfbf11db924f",
+   "hidden_sha256": "f598ab76cfd4f3c384e0d93f7e0701cffb9730472ec841f5e37b6804344ff186"
+  },
+  {
+   "id": "HO4-SCHEDULE-UNVERIFIED",
+   "kind": "holdout",
+   "class": "fail-open-verification",
+   "source_base_sha": "9e3aa192f513d98d212c53311bb078e5c349c410",
+   "case_base_commit": "a43b1ed0062e6ca1b37d42904e92a303b986e199",
+   "injected": true,
+   "note": "",
+   "task_sha256": "aaf18d15dabe922b427554a9f0c7c8a2604b78ef48ff4b81cb7554b4a99ce0e2",
+   "hidden_sha256": "f598ab76cfd4f3c384e0d93f7e0701cffb9730472ec841f5e37b6804344ff186"
+  },
+  {
+   "id": "HO5-IDENTICAL-CALLS",
+   "kind": "holdout",
+   "class": "control-unrelated",
+   "source_base_sha": "9e3aa192f513d98d212c53311bb078e5c349c410",
+   "case_base_commit": "40dfc4d7f21f114839c2d4cd40230b0ac3c36b3b",
+   "injected": true,
+   "note": "",
+   "task_sha256": "dff80d19490fac5d0598ffc98239f2c44e978f3f06815a2afc96c740beec4824",
+   "hidden_sha256": "f598ab76cfd4f3c384e0d93f7e0701cffb9730472ec841f5e37b6804344ff186"
+  }
+ ],
+ "deferred": [
+  {
+   "id": "T7-B4",
+   "reason": "786-line multi-file fix needing real Chromium downloads; exceeds today's student wall-time budget"
+  },
+  {
+   "id": "T8-F-17",
+   "reason": "UI render-settle race verified only by the Playwright torture suite (~40 min per verification)"
+  }
+ ],
+ "controls": {
+  "negative": "every hidden verifier FAILS on its case base (11/11)",
+  "positive_holdouts": "HO1,HO2,HO4,HO5 verifiers PASS on unmodified 9e3aa192; HO3 is a real live defect (fails on current code by design)"
+ }
+}
