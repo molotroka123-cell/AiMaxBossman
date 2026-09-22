@@ -175,6 +175,74 @@ For future Bossman bugs:
 
 The goal is to reduce frontier consumption while increasing verified local autonomy. Cost savings are measured, not assumed.
 
+## Frontier economy protocol — Qwen writes, Claude audits
+
+Default rule for coding/repair tasks:
+
+`Qwen implements -> Qwen writes/updates tests -> Qwen runs tests -> Claude audits evidence -> Qwen corrects -> verifier decides`.
+
+Claude/frontier is not the default implementation engine. Its normal role is:
+- audit the student's diff and test evidence;
+- detect missing invariants, security/safety gaps and false success;
+- point Qwen toward the next highest-value correction;
+- verify that the generalized lesson is safe to store;
+- act as final architecture/security reviewer where local confidence is insufficient.
+
+### Context economy
+
+Before a frontier call, Bossman prepares a compact audit packet:
+- task and expected behavior;
+- relevant file list;
+- Qwen diff;
+- failing/passing test names and concise logs;
+- changed contracts/invariants;
+- model/runtime/config fingerprint;
+- open question.
+
+Do not send the whole repository, giant logs, repeated unchanged context or hidden reasoning unless the auditor explicitly needs a narrow additional file.
+
+Reuse hashes/references for unchanged evidence.
+
+### Escalation
+
+Claude must not edit production before at least one genuine MAIN attempt, except:
+- confirmed/credible P0 security or data-loss risk where allowing the student to continue would be unsafe;
+- the local model/runtime is unavailable;
+- the task is outside the student's permitted tool boundary.
+
+Normal sequence:
+1. Qwen produces patch + regression.
+2. Qwen self-tests.
+3. Claude returns ACCEPT or REJECT + the smallest actionable hint.
+4. Qwen revises and retests.
+5. Claude re-audits only the delta/evidence.
+6. After repeated verified failure, Claude may supply a patch.
+7. Qwen must then inspect/explain/test that patch before it can become a verified lesson.
+
+A Claude-authored patch is always TEACHER_PATCH. It is never counted as student success.
+
+### Frontier budget accounting
+
+For every frontier intervention record:
+- reason for escalation;
+- context bytes/tokens if available;
+- response tokens if available;
+- hint level;
+- whether Qwen succeeded after the hint;
+- whether a teacher patch was ultimately required.
+
+The optimization target is `frontier cost per verified result`, not minimum tokens at the expense of correctness.
+
+Do not spend frontier calls re-reading green unchanged subsystems. Prefer deterministic tests and local verification first.
+
+### Training consequence
+
+Every successful coached repair becomes a candidate lesson only after executable verification.
+
+The lesson must teach the strategy that allowed Qwen to solve the task, not copy Claude's final patch verbatim.
+
+On a later analogous task, Claude stays silent until Qwen has attempted it. A transferred skill is proven only when the local student succeeds without teacher help.
+
 ## Phase H — promotion boundary
 
 Memory/skill learning does not change model weights.

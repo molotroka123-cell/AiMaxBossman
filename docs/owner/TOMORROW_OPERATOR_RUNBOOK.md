@@ -197,6 +197,29 @@ Do not train around a software/security defect. Fix the product first.
 
 Report `WEIGHTS_UNCHANGED` unless actual isolated weight training occurs under a later explicit experiment.
 
+## 9A. Claude operating mode — auditor first
+
+During coding/repair and training, use the local Qwen as the primary implementer.
+
+Default:
+1. Qwen reads the scoped task.
+2. Qwen writes the code.
+3. Qwen writes/updates regression tests.
+4. Qwen runs the tests and inspects the result.
+5. Only then send a compact evidence packet to Claude/frontier.
+6. Claude audits the diff/tests and returns ACCEPT or a minimal directional correction.
+7. Qwen applies the correction and retests.
+8. Claude reviews only the changed delta/evidence.
+
+Claude should not repeatedly scan the whole repository or write the first patch. Preserve frontier capacity for architecture, security, difficult root causes and final review.
+
+Teacher patch is last resort and must be labeled TEACHER_PATCH. After such a patch, Qwen still has to inspect and test it, and the generalized verified lesson is stored for future local attempts.
+
+Exception: credible P0 security/data-loss risk, unavailable local runtime, or a task outside the local student's permitted tool boundary.
+
+Record frontier/local usage so tomorrow produces an actual answer to: what percentage can Bossman/Qwen repair locally, what improves after coaching, and where frontier intelligence is still necessary.
+
+
 ## 10. Evidence hygiene
 
 Every run must bind evidence to:
