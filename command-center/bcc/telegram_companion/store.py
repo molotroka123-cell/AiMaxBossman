@@ -90,7 +90,7 @@ class Store:
         if body.get("_image"):
             return "chat"
         command = str(body.get("text", "")).strip().partition(" ")[0].lower()
-        if command in {"/status", "/help", "/lock", "/watch", "/cloud", "/model"}:
+        if command in {"/status", "/help", "/lock", "/watch", "/cloud", "/model", "/cancel"}:
             return "control"
         # "/best" or "/fast" alone only switches the route; with a question it is chat.
         bare = not str(body.get("text", "")).strip().partition(" ")[2].strip()

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
+import secrets
 import time
 
 from .adapters import IMAGE_MAX_BYTES, IMAGE_MIMES, Core, Models, RateLimited, Telegram, image_mime, scrub
@@ -13,6 +15,7 @@ HELP = ("Я Bossman, ваш ИИ-помощник на локальных мод
         "/best — отвечать лучшей (самой умной) моделью; /best вопрос — один ответ ею\n"
         "/fast — отвечать самой быстрой моделью; /fast вопрос — один ответ ею\n"
         "/model — какие модели подключены и какая отвечает сейчас\n"
+        "/img описание — нарисовать картинку локальной моделью (если включено); /cancel — отменить\n"
         "/status — связь с компьютером (владелец)\n"
         "/task описание — подготовить поручение агенту Bossman\n"
         "/confirm код — подтвердить ровно это поручение\n"
@@ -45,6 +48,16 @@ def failure_text(code: str) -> str:
         "NO_VISION_MODEL": "Сейчас нет локальной модели, которая видит изображения. Запустите модель с --mmproj (например, самую быструю на 8082) и выберите её в Настройки → Telegram → «Модель для фото».",
         "VISION_MODEL_UNAVAILABLE": "Модель для фото не ответила вовремя или недоступна. Облако не использовано. Попробуйте ещё раз.",
         "TELEGRAM_FILE_UNAVAILABLE": "Не удалось получить файл из Telegram. Отправьте его ещё раз.",
+        "IMAGE_GEN_DISABLED": "Генерация картинок выключена. Её включают в Bossman: Настройки → Telegram → «Генерация картинок».",
+        "IMAGE_GEN_GUESTS_DISABLED": "Генерация картинок доступна только владельцу.",
+        "IMAGE_GEN_BUSY": "Уже рисую другую картинку — одна за раз. Подождите или /cancel.",
+        "IMAGE_GEN_LLM_BUSY": "Сейчас локальная модель отвечает на сообщение; вместе они не поместятся в память. Попробуйте через минуту.",
+        "IMAGE_GEN_LOW_MEMORY": "Мало свободной памяти для генерации (нужно больше, чем свободно сейчас). Закройте тяжёлые задачи или выгрузите модель и попробуйте снова.",
+        "IMAGE_ENGINE_NOT_CONFIGURED": "Генерация не настроена в Bossman: нет движка sd.cpp (BOSSMAN_SDCPP_BIN) или моделей с MANIFEST.json (BOSSMAN_MEDIA_MODELS). Картинку-заглушку я не присылаю.",
+        "IMAGE_GEN_FAILED": "Генерация не удалась в Bossman Studio. Подробности — в Студии, раздел «Картинки».",
+        "IMAGE_GEN_CANCELLED": "Генерация отменена.",
+        "IMAGE_GEN_TIMEOUT": "Генерация не уложилась в отведённое время и отменена.",
+        "IMAGE_BYTES_UNVERIFIED": "Bossman отдал файл, который не прошёл проверку (хеш или формат не совпали). Картинку не отправляю.",
         "MODEL_REPLY_INVALID": "Модель вернула пустой или неполный ответ (часто: рассуждения съели лимит токенов). Попробуйте ещё раз или /fast.",
     }
     return known.get(code, f"Действие не подтверждено: {code}. /status и /help помогут продолжить.")
@@ -83,6 +96,8 @@ class Companion:
         self.policy_provider = policy_provider or (lambda: self.settings)
         self.wake = {(p.key, lane): asyncio.Event() for p in settings.people for lane in ("chat", "control")}
         self.last_message = {}
+        self.image_job = None
+        self.image_poll_seconds = 2.0
         self.monitor_state = None
         self.monitor_failures = 0
         if self.telegram is not None:
@@ -165,6 +180,73 @@ class Companion:
                 return None, "image_too_large"
             return {"file_id": doc["file_id"], "kind": "document"}, None
         return None, None
+
+    async def generate(self, person: Person, prompt: str) -> str | None:
+        """Local text->image via Bossman Studio; the photo is sent only after byte verification."""
+        s = self.settings
+        if not s.image_enabled:
+            raise CompanionError("IMAGE_GEN_DISABLED")
+        if person.role != "owner" and not s.image_guests:
+            raise CompanionError("IMAGE_GEN_GUESTS_DISABLED")
+        if self.image_job is not None:
+            raise CompanionError("IMAGE_GEN_BUSY")
+        if self.models.lock.locked():
+            raise CompanionError("IMAGE_GEN_LLM_BUSY")
+        if self.free_memory_gb() < s.image_min_free_gb:
+            raise CompanionError("IMAGE_GEN_LOW_MEMORY")
+        self.image_job = {"id": None, "cancel": False, "who": person.key}
+        try:
+            model = await self.core.studio_model(s.image_model)
+            if not model or model.get("available") is not True:
+                raise CompanionError("IMAGE_ENGINE_NOT_CONFIGURED")
+            seed = secrets.randbelow(2**31 - 1)
+            started = time.monotonic()
+            job_id = await self.core.studio_create(s.image_model, prompt[:2000],
+                                                   {"width": s.image_size, "height": s.image_size,
+                                                    "steps": s.image_steps, "seed": seed})
+            self.image_job["id"] = job_id
+            with contextlib.suppress(CompanionError):
+                await self.telegram.send(person, f"Рисую локально ({s.image_model}, {s.image_size}×{s.image_size}, "
+                                                 f"{s.image_steps} шагов). Обычно 1–3 минуты. /cancel — отменить.")
+            while True:
+                if self.image_job["cancel"]:
+                    with contextlib.suppress(CompanionError):
+                        await self.core.studio_cancel(job_id)
+                    raise CompanionError("IMAGE_GEN_CANCELLED")
+                if time.monotonic() - started > s.image_deadline:
+                    with contextlib.suppress(CompanionError):
+                        await self.core.studio_cancel(job_id)
+                    raise CompanionError("IMAGE_GEN_TIMEOUT")
+                job = await self.core.studio_job(job_id)
+                status = job.get("status")
+                if status == "completed":
+                    break
+                if status in {"failed", "cancelled"}:
+                    raise CompanionError("IMAGE_GEN_CANCELLED" if status == "cancelled" else "IMAGE_GEN_FAILED")
+                await asyncio.sleep(self.image_poll_seconds)
+            runs = await self.core.studio_runs(job_id)
+            run = next((r for r in runs if str(r.get("mime", "")).startswith("image/")), None)
+            if run is None:
+                raise CompanionError("IMAGE_BYTES_UNVERIFIED")
+            data = await self.core.studio_file(run["id"])
+            if hashlib.sha256(data).hexdigest() != run.get("sha256") or image_mime(data) not in {"image/png", "image/jpeg"}:
+                raise CompanionError("IMAGE_BYTES_UNVERIFIED")
+            elapsed = round(time.monotonic() - started)
+            caption = (f"🎨 {prompt[:300]}\nМодель: {run.get('model', s.image_model)} · seed {seed} · {elapsed} с · "
+                       f"локально, Bossman Studio (проверено: sha256 совпал)")
+            await self.telegram.send_photo(person, data, caption)
+            self.store.remember(person.key, "[картинка] " + prompt[:500], f"Нарисовано локально, seed {seed}.")
+            return None   # the photo itself is the reply
+        finally:
+            self.image_job = None
+
+    @staticmethod
+    def free_memory_gb() -> float:
+        try:
+            import psutil
+            return psutil.virtual_memory().available / 2**30
+        except Exception:
+            return 0.0
 
     async def see(self, person: Person, message: dict) -> str:
         """Photo question: vision-capable local route only; bytes live in memory for this call."""
@@ -301,6 +383,16 @@ class Companion:
                 model = self.settings.local_model if route == "main" else self.settings.fast_model
                 return f"Теперь в этом чате отвечает {ROUTE_TITLE[route]} · {model_name(model)}."
             return await self.converse(person, message, arg, route)
+        if command == "/img":
+            if not arg:
+                return "Напишите /img и что нарисовать, например: /img кот-астронавт в стиле акварели."
+            return await self.generate(person, arg)
+        if command == "/cancel":
+            job = self.image_job
+            if job is None or job["who"] != person.key:
+                return "Сейчас нечего отменять."
+            job["cancel"] = True
+            return "Отменяю генерацию…"
         if command.startswith("/"):
             return "Неизвестная команда. /help — доступные действия."
         return await self.converse(person, message, text, self.chat_route(person))
@@ -356,7 +448,7 @@ class Companion:
             await asyncio.sleep(pause)
             text = str(message.get("text", "")).strip()
             slow = lane == "chat" and bool(message.get("_image")) or lane == "chat" and bool(text) and (not text.startswith("/") or
-                                                      text.lower().startswith(("/fast ", "/best ")))
+                                                      text.lower().startswith(("/fast ", "/best ", "/img ")))
             indicator = asyncio.create_task(self.typing(person)) if slow and self.telegram is not None else None
             try:
                 answer = await self.handle(person, message)
@@ -373,6 +465,10 @@ class Companion:
                     indicator.cancel()
                     with contextlib.suppress(asyncio.CancelledError):
                         await indicator
+            if answer is None:   # reply already delivered (e.g. a generated photo)
+                self.store.finish(update_id, "done")
+                self.last_message[person.key] = time.monotonic()
+                continue
             # Revocation also applies to the outgoing message.
             if self.authorized(message) != person:
                 self.store.finish(update_id, "failed")

@@ -79,6 +79,14 @@ class Settings:
     # Which local route sees photos: "auto" = first of main/fast whose server
     # advertises vision (llama.cpp /props modalities.vision).
     vision_route: str = "auto"
+    # Local image generation through Bossman Studio (owner only by default).
+    image_enabled: bool = False
+    image_model: str = "sdcpp:z-image-turbo"
+    image_size: int = 1024
+    image_steps: int = 8
+    image_guests: bool = False
+    image_deadline: int = 900
+    image_min_free_gb: float = 12.0
     max_tokens: int = 512
     monitor_seconds: int = 60
     bot_token: str = field(default="", repr=False)
@@ -114,6 +122,13 @@ class Settings:
             raise ValueError("default route must be main, or fast with a configured fast model")
         if self.vision_route not in {"auto", "main", "fast"} or (self.vision_route == "fast" and not self.fast_model):
             raise ValueError("vision route must be auto, main, or fast with a configured fast model")
+        if (type(self.image_enabled) is not bool or type(self.image_guests) is not bool or
+                not self.image_model.startswith("sdcpp:") or len(self.image_model) > 120 or
+                type(self.image_size) is not int or self.image_size not in {512, 768, 1024} or
+                type(self.image_steps) is not int or not 4 <= self.image_steps <= 20 or
+                type(self.image_deadline) is not int or not 60 <= self.image_deadline <= 3600 or
+                isinstance(self.image_min_free_gb, bool) or not 0 <= self.image_min_free_gb <= 128):
+            raise ValueError("invalid image generation settings (local sd.cpp models only)")
         if type(self.fast_fallback) is not bool or type(self.enabled) is not bool:
             raise ValueError("fast_fallback and enabled must be booleans")
         if type(self.monitor_seconds) is not int or not 30 <= self.monitor_seconds <= 3600:

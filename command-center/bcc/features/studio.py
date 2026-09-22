@@ -61,13 +61,14 @@ async def retry(jid:int,request:Request):
     plane=old['studio']['plane']
     return await guard(rt.create_job(request.app.state.svc,{**plane,'media':[{'run_id':m['run_id'],'role':m['role']} for m in plane['media']]}))
 @router.get('/runs')
-async def list_runs(request:Request,surface:str='',favorite:bool=False,deleted:bool=False,collection_id:int|None=None,q:str='',limit:int=100,offset:int=0):
+async def list_runs(request:Request,surface:str='',favorite:bool=False,deleted:bool=False,collection_id:int|None=None,q:str='',limit:int=100,offset:int=0,job_id:int|None=None):
     svc=request.app.state.svc
     await rt.migrate_legacy(svc)
     clause=[runs.c.deleted==deleted]
     if surface:clause.append(runs.c.surface==surface)
     if favorite:clause.append(runs.c.favorite.is_(True))
     if collection_id is not None:clause.append(runs.c.collection_id==collection_id)
+    if job_id is not None:clause.append(runs.c.job_id==job_id)
     if q:clause.append(sa.cast(runs.c.provenance,sa.Text).contains(q[:200],autoescape=True))
     async with svc.db.session() as s:
         total=(await s.execute(sa.select(sa.func.count()).select_from(runs).where(*clause))).scalar_one()

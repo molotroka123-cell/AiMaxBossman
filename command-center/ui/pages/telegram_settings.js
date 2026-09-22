@@ -84,6 +84,20 @@ export async function telegramPanel(ctx) {
     { value: 'best', label: 'Лучшая' }, { value: 'fastest', label: 'Самая быстрая' }],
     { name: 'tg-vision', value: data.vision_route || 'auto' });
   const visionNote = h('span.field-note', 'Нужна модель, запущенная с --mmproj');
+  const imgEnabledEl = h('input', { type: 'checkbox', name: 'tg-img-enabled', checked: !!data.image_enabled });
+  const imgModelSel = select([{ value: 'sdcpp:z-image-turbo', label: 'Z-Image-Turbo (sd.cpp, локально)' }],
+    { name: 'tg-img-model', value: data.image_model || 'sdcpp:z-image-turbo' });
+  const imgSizeSel = select([{ value: 512, label: '512×512 — быстро' }, { value: 768, label: '768×768' },
+    { value: 1024, label: '1024×1024 — качество' }], { name: 'tg-img-size', value: data.image_size ?? 1024 });
+  const imgStepsSel = select([{ value: 4, label: '4 шага — черновик' }, { value: 8, label: '8 шагов — обычно' },
+    { value: 12, label: '12 шагов — тщательно' }], { name: 'tg-img-steps', value: data.image_steps ?? 8 });
+  const imgGuestsEl = h('input', { type: 'checkbox', name: 'tg-img-guests', checked: !!data.image_guests });
+  const imgNote = h('span.field-note', 'Проверяю движок…');
+  api.raw('/api/studio/models').then((res) => {
+    const m = (res.items || []).find((x) => x.id === imgModelSel.value);
+    imgNote.textContent = m && m.available ? 'Движок sd.cpp и модель найдены в Bossman Studio'
+      : 'Не настроено: нужен sd.cpp (BOSSMAN_SDCPP_BIN) и модели с MANIFEST.json (BOSSMAN_MEDIA_MODELS)';
+  }).catch(() => { imgNote.textContent = 'Студия недоступна'; });
   const fallbackEl = h('input', { type: 'checkbox', name: 'tg-fallback', checked: data.fast_fallback !== false });
   const timeoutEl = input({ type: 'number', min: '1', max: '600', step: '1', name: 'tg-timeout', value: data.local_timeout ?? 180 });
   const tokensEl = input({ type: 'number', min: '64', max: '2048', step: '64', name: 'tg-max-tokens', value: data.max_tokens ?? 1024 });
@@ -133,6 +147,8 @@ export async function telegramPanel(ctx) {
       default_route: routeSel.value, fast_fallback: fallbackEl.checked,
       local_timeout: Number(timeoutEl.value || 180), max_tokens: Number(tokensEl.value || 1024),
       vision_route: visionSel.value, delegation: false, enabled: enabledEl.checked,
+      image_enabled: imgEnabledEl.checked, image_model: imgModelSel.value,
+      image_size: Number(imgSizeSel.value), image_steps: Number(imgStepsSel.value), image_guests: imgGuestsEl.checked,
     };
     const res = await api.raw(SETTINGS_ENDPOINT, { method: 'PUT', body });
     tokenEl.value = '';
@@ -177,6 +193,13 @@ export async function telegramPanel(ctx) {
     h('label.check', fallbackEl, h('span', 'Если лучшая не ответила вовремя — отвечает самая быстрая (не облако)')),
     h('label.check', { title: 'Пока недоступно' }, delegationEl,
       h('span.dim', 'Поручения Bossman из Telegram (/task) — пока недоступно')),
+    h('h3.small', 'Генерация картинок (/img)'),
+    h('label.check', imgEnabledEl, h('span', 'Разрешить /img — рисовать картинки локальной моделью через Bossman Studio')),
+    h('div.grid.cols-2',
+      h('div.field', h('span.field-label', 'Модель'), imgModelSel, imgNote),
+      field('Размер', imgSizeSel)),
+    h('div.grid.cols-2', field('Шаги', imgStepsSel, 'Больше шагов — дольше и детальнее'), h('div')),
+    h('label.check', imgGuestsEl, h('span', 'Разрешить гостям (по умолчанию только владелец)')),
     buttons,
     statusBox);
 

@@ -116,6 +116,32 @@ def split_message(text: str, limit: int = 3500, max_parts: int = 5) -> list[str]
 class Telegram:
     METHODS = frozenset({"getMe", "getWebhookInfo", "getUpdates", "sendMessage", "sendChatAction", "getFile"})
 
+    async def send_photo(self, person: Person, data: bytes, caption: str):
+        """Upload verified PNG/JPEG bytes as a photo; caption passes the same egress guard."""
+        from bossman.notifications.telegram_transport import _egress_guard_text
+        if not self.settings.bot_token:
+            raise CompanionError("TELEGRAM_NOT_CONFIGURED")
+        if not self.authorize_delivery(person):
+            raise CompanionError("IDENTITY_REVOKED")
+        mime = image_mime(data)
+        if mime not in {"image/png", "image/jpeg"}:
+            raise CompanionError("IMAGE_NOT_RECOGNISED")
+        clean = _egress_guard_text(scrub(caption, (self.settings.bot_token, self.settings.core_token)))[:1000]
+        name = "bossman.png" if mime == "image/png" else "bossman.jpg"
+        try:
+            async with asyncio.timeout(120):
+                response = await self.client.post(f"{TELEGRAM_API}/bot{self.settings.bot_token}/sendPhoto",
+                                                  data={"chat_id": str(person.chat_id), "caption": clean},
+                                                  files={"photo": (name, data, mime)})
+            body = response.json()
+        except (httpx.HTTPError, OSError, TimeoutError, ValueError):
+            raise CompanionError("NETWORK_UNAVAILABLE") from None
+        if response.status_code == 429:
+            raise RateLimited((body.get("parameters") or {}).get("retry_after", 1) if isinstance(body, dict) else 1)
+        if not isinstance(body, dict) or body.get("ok") is not True:
+            raise CompanionError("TELEGRAM_API_REJECTED")
+        return (body.get("result") or {}).get("message_id")
+
     def __init__(self, settings: Settings, *, transport=None):
         self.settings = settings
         self.authorize_delivery = lambda person: person in self.settings.people
@@ -223,6 +249,53 @@ class Core:
     async def _request(self, method, path, payload=None):
         return await json_request(self.client, method, self.settings.core_url + path, payload=payload,
                                   headers={"X-BCC-Token": self.settings.core_token}, timeout=10)
+
+    # ---- Bossman Studio (local generation; provenance and gallery stay in Bossman)
+    async def studio_model(self, model_id: str) -> dict | None:
+        body = await self._request("GET", "/api/studio/models")
+        rows = body.get("items") if isinstance(body, dict) else None
+        return next((r for r in rows or [] if isinstance(r, dict) and r.get("id") == model_id), None)
+
+    async def studio_create(self, model_id: str, prompt: str, settings: dict) -> int:
+        body = await self._request("POST", "/api/studio/jobs",
+                                   {"model": model_id, "prompt": prompt, "settings": settings, "count": 1})
+        if not isinstance(body, dict) or type(body.get("id")) is not int:
+            raise CompanionError("STUDIO_JOB_UNKNOWN")
+        return body["id"]
+
+    async def studio_job(self, job_id: int) -> dict:
+        body = await self._request("GET", f"/api/studio/jobs/{int(job_id)}")
+        if not isinstance(body, dict) or body.get("id") != job_id:
+            raise CompanionError("STUDIO_JOB_UNKNOWN")
+        return body
+
+    async def studio_cancel(self, job_id: int) -> None:
+        await self._request("POST", f"/api/studio/jobs/{int(job_id)}/cancel")
+
+    async def studio_runs(self, job_id: int) -> list:
+        body = await json_request(self.client, "GET", self.settings.core_url + "/api/studio/runs",
+                                  params={"job_id": int(job_id), "surface": "image"},
+                                  headers={"X-BCC-Token": self.settings.core_token}, timeout=10)
+        rows = body.get("items") if isinstance(body, dict) else None
+        return [r for r in rows or [] if isinstance(r, dict) and r.get("job_id") == job_id]
+
+    async def studio_file(self, run_id: str, max_bytes: int = 32 * 1024 * 1024) -> bytes:
+        if not isinstance(run_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", run_id):
+            raise CompanionError("STUDIO_RUN_UNKNOWN")
+        data = bytearray()
+        try:
+            async with asyncio.timeout(60):
+                async with self.client.stream("GET", self.settings.core_url + f"/api/studio/runs/{run_id}/file",
+                                              headers={"X-BCC-Token": self.settings.core_token}) as response:
+                    if response.status_code != 200:
+                        raise CompanionError("STUDIO_FILE_UNAVAILABLE")
+                    async for part in response.aiter_bytes():
+                        data.extend(part)
+                        if len(data) > max_bytes:
+                            raise CompanionError("STUDIO_FILE_UNAVAILABLE")
+        except (httpx.HTTPError, OSError, TimeoutError):
+            raise CompanionError("NETWORK_UNAVAILABLE") from None
+        return bytes(data)
 
     async def status(self):
         data = await self._request("GET", "/health/live")

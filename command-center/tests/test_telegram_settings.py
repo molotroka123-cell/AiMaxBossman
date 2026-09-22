@@ -256,3 +256,27 @@ async def test_photo_model_setting_roundtrip(env, tg):
     assert (await env.client.put("/api/telegram/settings", json=body(vision_route="cloud"))).status_code == 422
     bad = body(vision_route="fastest", fastest_model="", fastest_url="")
     assert (await env.client.put("/api/telegram/settings", json=bad)).status_code == 422
+
+
+async def test_image_generation_settings_and_studio_contract(env, tg):
+    r = await env.client.put("/api/telegram/settings", json=body())
+    home = tg.parent
+    read = lambda: json.loads(Vault(home).decrypt((home / "credentials.enc").read_text(encoding="utf-8")))
+    assert r.json()["image_enabled"] is False and read()["core_token"] == ""
+    r = await env.client.put("/api/telegram/settings", json=body(bot_token="", image_enabled=True,
+                                                               image_size=768, image_steps=12))
+    assert r.status_code == 200 and r.json()["image_size"] == 768
+    assert read()["core_token"] == env.svc.auth.token and env.svc.auth.token not in r.text
+    for bad in ({"image_size": 999}, {"image_steps": 50}, {"image_model": "openrouter:x"}):
+        assert (await env.client.put("/api/telegram/settings", json=body(bot_token="", **bad))).status_code == 422
+
+    # The companion's Studio client against the REAL Studio routes of this app.
+    from bcc.telegram_companion.adapters import Core
+    from bcc.telegram_companion.config import load
+    core = Core(load(tg), transport=httpx.ASGITransport(app=env.app))
+    try:
+        model = await core.studio_model("sdcpp:z-image-turbo")
+        assert model is not None and model["available"] is False      # no engine in CI: honest
+        assert await core.studio_runs(999) == []
+    finally:
+        await core.close()

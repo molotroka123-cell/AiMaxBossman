@@ -64,6 +64,9 @@ def test_owner_fills_and_saves_telegram_settings(live, mocked):  # noqa: F811
         assert page.input_value("[name=tg-vision]") == "auto"
         page.wait_for_selector("text=Видят изображения: 8082", timeout=15000)
         page.select_option("[name=tg-vision]", "fastest")
+        page.wait_for_selector("text=Не настроено: нужен sd.cpp", timeout=15000)   # honest: no engine in tests
+        page.check("[name=tg-img-enabled]")
+        page.select_option("[name=tg-img-size]", "512")
 
         page.fill("[name=tg-token]", TOKEN)
         page.fill("[name=tg-owner]", "11111")
@@ -83,4 +86,6 @@ def test_owner_fills_and_saves_telegram_settings(live, mocked):  # noqa: F811
 
     assert mocked.is_file() and TOKEN not in mocked.read_text(encoding="utf-8")
     assert '"vision_route": "fast"' in mocked.read_text(encoding="utf-8")
+    saved = mocked.read_text(encoding="utf-8")
+    assert '"image_enabled": true' in saved and '"image_size": 512' in saved
     assert not errors, errors

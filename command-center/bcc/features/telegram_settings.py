@@ -15,7 +15,8 @@ Endpoints (mounted under /api with the normal session/CSRF or token auth):
   POST /telegram/stop      — stop only the process this server started
 
 Scope (owner decision 2026-09-22): Telegram is for CONVERSATION with local
-models only. Delegation (/task) is not available yet: this API always saves
+models (plus photo analysis and, when enabled, local image generation through
+Bossman Studio) only. Delegation (/task) is not available yet: this API always saves
 the owner without an executor, so the companion refuses /task and /confirm
 without calling Bossman. No computer, browser or file action is reachable
 from Telegram through this section.
@@ -37,7 +38,7 @@ import time
 from pathlib import Path
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from . import Feature
@@ -126,6 +127,11 @@ def _public(cfg: dict, secrets: dict) -> dict:
         "local_timeout": cfg.get("local_timeout", DEFAULTS["local_timeout"]),
         "max_tokens": cfg.get("max_tokens", DEFAULTS["max_tokens"]),
         "vision_route": {"main": "best", "fast": "fastest"}.get(cfg.get("vision_route"), "auto"),
+        "image_enabled": bool(cfg.get("image_enabled", False)),
+        "image_model": cfg.get("image_model", "sdcpp:z-image-turbo"),
+        "image_size": cfg.get("image_size", 1024),
+        "image_steps": cfg.get("image_steps", 8),
+        "image_guests": bool(cfg.get("image_guests", False)),
         "delegation": False,
         "delegation_available": False,
         "token_set": bool(secrets.get("bot_token")),
@@ -217,6 +223,11 @@ class SettingsIn(BaseModel):
     local_timeout: float = Field(default=DEFAULTS["local_timeout"], ge=1, le=600, allow_inf_nan=False)
     max_tokens: int = Field(default=DEFAULTS["max_tokens"], ge=64, le=2048)
     vision_route: str = "auto"      # auto | best | fastest — "Модель для фото"
+    image_enabled: bool = False
+    image_model: str = Field(default="sdcpp:z-image-turbo", pattern=r"^sdcpp:[A-Za-z0-9_.-]{1,100}$")
+    image_size: int = 1024
+    image_steps: int = Field(default=8, ge=4, le=20)
+    image_guests: bool = False
     delegation: bool = False
     enabled: bool = True
 
@@ -232,7 +243,7 @@ async def get_settings():
 
 
 @router.put("/telegram/settings")
-async def put_settings(body: SettingsIn):
+async def put_settings(body: SettingsIn, request: Request):
     from ..telegram_companion.config import CompanionError, Person, Settings
     path = config_path()
     home = path.parent
@@ -257,6 +268,8 @@ async def put_settings(body: SettingsIn):
         raise HTTPException(422, "Telegram ID повторяются: владелец и гости должны быть разными.")
     if body.default_route not in {"best", "fastest"}:
         raise HTTPException(422, "Модель для чата: best или fastest.")
+    if body.image_size not in {512, 768, 1024}:
+        raise HTTPException(422, "Размер картинки: 512, 768 или 1024.")
     if body.vision_route not in {"auto", "best", "fastest"}:
         raise HTTPException(422, "Модель для фото: auto, best или fastest.")
 
@@ -294,6 +307,8 @@ async def put_settings(body: SettingsIn):
         "fast_fallback": body.fast_fallback,
         "local_timeout": float(body.local_timeout), "max_tokens": body.max_tokens,
         "vision_route": {"best": "main", "fastest": "fast"}.get(body.vision_route, "auto"),
+        "image_enabled": body.image_enabled, "image_model": body.image_model,
+        "image_size": body.image_size, "image_steps": body.image_steps, "image_guests": body.image_guests,
         "enabled": body.enabled,
         "core_url": existing.get("core_url", DEFAULTS["core_url"]),
         # Telegram never falls back to a cloud model from this section.
@@ -303,6 +318,9 @@ async def put_settings(body: SettingsIn):
     # public liveness probe) and no cloud key.
     new_secrets = {**{k: secrets.get(k, "") for k in SECRET_FIELDS},
                    "bot_token": token, "cloud_token": "", "core_token": ""}
+    if body.image_enabled:
+        # /img goes through this Command Center's Studio API (provenance, verification, gallery).
+        new_secrets["core_token"] = request.app.state.svc.auth.token
     try:
         Settings(**{**cfg, "people": tuple(people)}, **new_secrets)
     except (ValueError, TypeError) as exc:
