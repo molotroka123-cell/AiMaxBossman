@@ -22,5 +22,6 @@ def test_the_installed_coding_path_check_passes_with_its_negative_control(tmp_pa
     assert proc.returncode == 0 and report["verdict"] == "PASS", (report, proc.stderr[-2000:])
     assert report["checks"]["negative_control_liar_failed"] is True
     assert report["fix_record"]["sidecar"]["deterministic_test_model"] is True
+    assert report["fix_record"]["sidecar"]["model_kind"] == "MOCK_MODEL"
     assert report["leftover_model_processes"] == []
-    assert "BOSSMAN_CODING_PATH=PASS" in proc.stdout
+    assert "BOSSMAN_CODING_PATH=PASS (MOCK_MODEL" in proc.stdout

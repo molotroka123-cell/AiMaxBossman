@@ -111,7 +111,8 @@ def _handshake(command: str) -> dict:
         out = {"ok": True, "executor": resp.get("executor"), "model": resp.get("model"),
                "tools": resp.get("tools"), "tool_call_ok": resp.get("tool_call_ok"),
                "test_runners": resp.get("test_runners"), "isolation": resp.get("isolation"),
-               "deterministic_test_model": bool(resp.get("deterministic_test_model"))}
+               "deterministic_test_model": bool(resp.get("deterministic_test_model")),
+               "model_kind": resp.get("model_kind") or ("MOCK_MODEL" if resp.get("deterministic_test_model") else "")}
     except Exception as exc:  # noqa: BLE001 — shown to the owner
         out = {"ok": False, "reason": f"{type(exc).__name__}: {exc}"[:400]}
     _handshake_cache[command] = (now, out)
@@ -213,7 +214,8 @@ async def _confined_repo(svc, raw: str) -> Path:
 
 
 SIDECAR_FIELDS = ("schema", "status", "summary", "tests", "notes", "steps", "stop_reason", "tool_calls",
-                  "recipes_applied", "executor", "model", "deterministic_test_model", "profile", "memory_used")
+                  "recipes_applied", "executor", "model", "deterministic_test_model", "model_kind", "profile",
+                  "memory_used")
 
 
 def _verify_in_sandbox(root: Path, tests: list[str], timeout: int) -> dict:

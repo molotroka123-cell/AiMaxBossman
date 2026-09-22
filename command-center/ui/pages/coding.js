@@ -106,7 +106,7 @@ async function showTask(t, ctx) {
       d.duration_seconds != null ? h('span.badge', `${d.duration_seconds} с`) : null,
       h('span.badge', 'push/merge: нет'),
       d.agent ? h('span.badge', `агент: ${d.agent.name}`) : null,
-      d.sidecar && d.sidecar.deterministic_test_model ? h('span.badge.badge-warn', 'тестовая модель') : null,
+      d.sidecar && d.sidecar.deterministic_test_model ? h('span.badge.badge-warn', 'MOCK_MODEL') : null,
       d.verification ? h('span.badge' + (d.verification.passed ? '' : '.badge-warn'), d.verification.passed ? 'проверка Bossman: пройдена' : 'проверка Bossman: не пройдена') : null,
       d.outcome ? h('span.badge.badge-warn', d.outcome) : null),
     d.error ? h('div.small', { style: { color: 'var(--err)' } }, d.error) : null,
@@ -143,7 +143,7 @@ async function taskModal(ctx, ready) {
       h('div', h('div.section-title', 'Агент'), agentEl),
       h('div', h('div.section-title', 'Независимая проверка'), verifyEl),
       ready.handshake && ready.handshake.deterministic_test_model
-        ? h('div.small', { style: { color: 'var(--warn,#d99a2b)' } }, 'Подключена ДЕТЕРМИНИРОВАННАЯ ТЕСТОВАЯ МОДЕЛЬ: результат проверяет механику, а не качество модели.')
+        ? h('div.small', { style: { color: 'var(--warn,#d99a2b)' } }, 'Подключена MOCK_MODEL (детерминированная тестовая модель): результат проверяет механику, а не качество модели.')
         : null,
       h('div.small.dim', 'Агент получит одноразовую копию без remote. Итог — патч и доказательства; ничего не пушится и не вливается.')),
     footer: h('div'),

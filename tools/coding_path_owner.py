@@ -167,7 +167,7 @@ def main(argv=None) -> int:
     from bcc import owner_acceptance as owner  # the installed product's own launcher
 
     report: dict = {"check": "coding_path_installed", "python": sys.executable,
-                    "model": "DETERMINISTIC-TEST-MODEL", "verdict": "FAIL", "checks": {}}
+                    "model": "DETERMINISTIC-TEST-MODEL", "model_kind": "MOCK_MODEL", "verdict": "FAIL", "checks": {}}
     models = []
     try:
         with tempfile.TemporaryDirectory(prefix="bossman coding path ", ignore_cleanup_errors=True) as folder:
@@ -182,14 +182,15 @@ def main(argv=None) -> int:
             report["fix_record"] = {k: rec.get(k) for k in ("status", "error", "changed_files", "verification",
                                                              "sandbox_cleanup", "agent", "outcome")}
             report["fix_record"]["sidecar"] = {k: (rec.get("sidecar") or {}).get(k) for k in (
-                "executor", "model", "deterministic_test_model", "stop_reason", "steps", "tests", "profile")}
+                "executor", "model", "deterministic_test_model", "model_kind", "stop_reason", "steps", "tests", "profile")}
             c = report["checks"]
             c["completed"] = rec.get("status") == "completed"
             c["diff_fixes_defect"] = "+    return a + b" in (rec.get("diff") or "")
             c["host_verification_passed"] = bool((rec.get("verification") or {}).get("passed"))
             c["owner_repo_unchanged"] = (repo / "calc.py").read_bytes() == before
             c["sandbox_removed"] = bool((rec.get("sandbox_cleanup") or {}).get("removed"))
-            c["labelled_test_model"] = bool((rec.get("sidecar") or {}).get("deterministic_test_model"))
+            c["labelled_test_model"] = bool((rec.get("sidecar") or {}).get("deterministic_test_model")) and \
+                (rec.get("sidecar") or {}).get("model_kind") == "MOCK_MODEL"
             _stop(proc)
 
             proc, url, model = start_model(work, "liar", LIAR)
@@ -216,7 +217,7 @@ def main(argv=None) -> int:
     if args.output:
         Path(args.output).write_text(text, encoding="utf-8")
     print(text)
-    print(f"BOSSMAN_CODING_PATH={report['verdict']} (DETERMINISTIC TEST MODEL — plumbing, not model quality)")
+    print(f"BOSSMAN_CODING_PATH={report['verdict']} (MOCK_MODEL — plumbing, not model quality)")
     return 0 if report["verdict"] == "PASS" else 1
 
 

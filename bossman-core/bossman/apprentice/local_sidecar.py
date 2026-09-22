@@ -616,8 +616,9 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     api_key = os.environ.pop(args.api_key_env, None) if args.api_key_env else None
     model = Model(args.endpoint, args.model, api_key)
-    marker = {"executor": EXECUTOR, "model": args.model,
-              "deterministic_test_model": TEST_MODEL_MARKER in args.model}
+    mock = TEST_MODEL_MARKER in args.model
+    marker = {"executor": EXECUTOR, "model": args.model, "deterministic_test_model": mock,
+              "model_kind": "MOCK_MODEL" if mock else "REAL_MODEL"}
     with _stdout_reserved() as out:
         try:
             req = json.load(sys.stdin)
