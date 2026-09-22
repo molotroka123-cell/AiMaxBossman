@@ -721,6 +721,24 @@ def bind_to_owner_lifetime(pid: int, *, expected_create_time=None) -> bool:
         return False
 
 
+_CREATE_SUSPENDED = 0x00000004
+
+
+def _suspend_until_bound() -> bool:
+    """Spawn the engine suspended only where a job will actually take it (Windows with a live
+    owner job); elsewhere a suspended child would just be a stalled one."""
+    return os.name == "nt" and _create_owner_job() is not None
+
+
+def _resume_process(pid: int) -> None:
+    """Resume a child created with CREATE_SUSPENDED. Raises OSError when it cannot."""
+    import psutil
+    try:
+        psutil.Process(pid).resume()
+    except psutil.Error as exc:
+        raise OSError(f"could not resume engine pid {pid}: {type(exc).__name__}: {exc}") from exc
+
+
 def lifecycle_guard_state() -> str:
     """'active' | 'unknown' | 'unsupported_platform' | 'unavailable:<why>' — reported, never assumed."""
     return _JOB_STATE
@@ -1025,13 +1043,35 @@ class SdCppProvider:
             return None
         from bcc.video_studio.media import child_priority_kwargs, lower_child_priority
         job["state"] = "spawning"
+        kwargs = child_priority_kwargs()
+        # MEDIA-RESTART layer 1 (port of e2183fc3): the engine is born suspended and resumed only
+        # once it is inside the kill-on-close job, so there is no instant in which it runs — or
+        # starts a child — outside the job, and a backend dying right after the spawn cannot
+        # leave an unbound engine behind.
+        suspended = _suspend_until_bound()
+        if suspended:
+            kwargs["creationflags"] = kwargs.get("creationflags", 0) | _CREATE_SUSPENDED
         proc = await _create_subprocess(
             *job["argv"], stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT, cwd=str(self.work), limit=1 << 20, **child_priority_kwargs())
-        lower_child_priority(proc.pid)
-        # MEDIA-LIFECYCLE: the kernel, not a future restart, owns the engine's lifetime.
-        # Descendants the engine spawns inherit the job, so the whole tree goes with us.
-        job["lifecycle_bound"] = bind_to_owner_lifetime(proc.pid)
+            stderr=asyncio.subprocess.STDOUT, cwd=str(self.work), limit=1 << 20, **kwargs)
+        try:
+            lower_child_priority(proc.pid)
+            # MEDIA-LIFECYCLE: the kernel, not a future restart, owns the engine's lifetime.
+            # Descendants the engine spawns inherit the job, so the whole tree goes with us.
+            job["lifecycle_bound"] = bind_to_owner_lifetime(proc.pid)
+            if suspended:
+                # Unbound (a host that refuses the assignment) still runs: the sidecar/reconcile
+                # path is the second, independent line, and `lifecycle_bound` says which applies.
+                _resume_process(proc.pid)
+        except BaseException:
+            # Fail closed: never a suspended engine nobody will resume, never an untracked one.
+            with contextlib.suppress(Exception):
+                _kill_tree(proc.pid)
+            with contextlib.suppress(ProcessLookupError, OSError):
+                proc.kill()
+            with contextlib.suppress(Exception):
+                await asyncio.wait_for(proc.wait(), KILL_WAIT_S)
+            raise
         return proc
 
     async def _run(self, rid: str, job: dict) -> None:
