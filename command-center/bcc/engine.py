@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import os
 import time
 from datetime import timedelta
 from typing import Any
@@ -56,6 +57,9 @@ def normalize_gate_verdict(raw: Any) -> str | None:
     v = _LEGACY_VERDICTS.get(v.lower(), v.upper())
     return v if v in GATE_VERDICTS else None
 DEFAULT_HOOK_TIMEOUT_S = 60.0
+# TASK_START recall читает локальные хранилища; дольше — значит, что-то не так,
+# и задача идёт без памяти, а не ждёт её.
+MEMORY_RECALL_TIMEOUT_S = 15.0
 
 
 class FencedOut(RuntimeError):
@@ -987,6 +991,9 @@ class TaskEngine:
         if not messages:
             if agent.get("system_prompt"):
                 messages.append({"role": "system", "content": agent["system_prompt"]})
+            recalled = await self._recall_memory(run_id, task)
+            if recalled:
+                messages.append({"role": "system", "content": recalled})
             messages.append({"role": "user", "content": task["prompt"]})
         step = int(checkpoint.get("step") or 0)
         max_steps = max(1, int(agent.get("max_steps") or 1))
@@ -2461,6 +2468,32 @@ class TaskEngine:
             await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
                 status=status, updated_at=utcnow()))
             await s.commit()
+
+    async def _recall_memory(self, run_id: int, task: dict) -> str | None:
+        """TASK_START: проверенная память по тексту задачи — до первого вызова модели.
+
+        Память — свидетельство, не полномочия: она не расширяет инструменты, права и
+        бюджет. Сбой recall стоит задаче памяти, но не прогона: run идёт дальше без
+        неё, а в журнале остаётся memory.recall_skipped с причиной.
+        """
+        if self.services is None or os.environ.get("BCC_MEMORY_RECALL", "1") == "0":
+            return None
+        try:
+            from .v2.memory.lifecycle_wiring import recall_for_task
+            pack = await asyncio.wait_for(recall_for_task(self.services, task),
+                                          timeout=MEMORY_RECALL_TIMEOUT_S)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — recall никогда не роняет run
+            await self._log(run_id, "warn", "memory.recall_skipped",
+                            f"память не подключена к задаче: {type(exc).__name__}")
+            return None
+        if not pack:
+            return None
+        await self._log(run_id, "info", "memory.recalled",
+                        f"память: {len(pack['sources'])} записей",
+                        {"sources": pack["sources"][:20], "project_id": pack["project_id"]})
+        return pack["text"]
 
     async def _log(self, run_id: int, level: str, kind: str, message: str,
                    data: dict | None = None) -> None:

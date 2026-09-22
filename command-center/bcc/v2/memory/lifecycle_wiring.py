@@ -201,5 +201,34 @@ async def build_lifecycle(svc: Any, *, context_tokens: int | None = None) -> Any
     )
 
 
-__all__ = ["DEFAULT_FACTS_SNAPSHOT", "FactsSnapshot", "LifecycleUnavailable", "VaultNotes",
-           "available", "build_lifecycle", "facts_snapshot", "learning_dir", "state_dir"]
+#: Project a task belongs to when its meta names none: lessons scoped to "bossman"
+#: (and global ones) are what an ordinary owner task can use.
+DEFAULT_RECALL_PROJECT = "bossman"
+
+
+async def recall_for_task(svc: Any, task: dict) -> dict | None:
+    """TASK_START for an engine task: the automatic recall, before any model call.
+
+    Returns ``{"text", "sources", "project_id"}`` when memory has something relevant for
+    the task prompt, ``None`` when it has nothing. The engine hands ``text`` to the model
+    as quoted evidence; it never widens tools, permissions or budgets. Errors propagate:
+    the caller decides that a failed recall costs the task its memory, not its run.
+    """
+    import asyncio  # noqa: WPS433
+
+    meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
+    project = str(meta.get("project_id") or DEFAULT_RECALL_PROJECT)
+    goal = str(task.get("prompt") or "").strip()
+    if not goal:
+        return None
+    life = await build_lifecycle(svc)
+    ctx = await asyncio.to_thread(life.task_start, task_id=f"task-{task.get('id')}",
+                                  project_id=project, goal=goal, write_checkpoint=False)
+    if not ctx.memory.items:
+        return None
+    return {"text": ctx.text, "sources": ctx.sources(), "project_id": project}
+
+
+__all__ = ["DEFAULT_FACTS_SNAPSHOT", "DEFAULT_RECALL_PROJECT", "FactsSnapshot",
+           "LifecycleUnavailable", "VaultNotes", "available", "build_lifecycle",
+           "facts_snapshot", "learning_dir", "recall_for_task", "state_dir"]
