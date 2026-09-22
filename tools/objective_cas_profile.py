@@ -22,7 +22,8 @@ if str(ROOT) not in sys.path:
 
 from bossman_shared.objective_spec import ObjectiveSpec
 from bossman_shared.objective_store import CompareAndSwapError, ObjectiveStore
-from tools.human_speed_gate import FreshConnectionFloor, cas_latency_contract, PASS, FAIL
+from tools.human_speed_gate import (FreshConnectionFloor, cas_latency_contract, thread_cpu_ns,
+                                    PASS, FAIL)
 
 
 def measure_cas(store, state, directory: Path, *, n: int = 100):
@@ -42,10 +43,10 @@ def measure_cas(store, state, directory: Path, *, n: int = 100):
             if i % 2 == 0:
                 floor.tick()
             previous = state.version
-            start, cpu_start = time.perf_counter_ns(), time.thread_time_ns()
+            start, cpu_start = time.perf_counter_ns(), thread_cpu_ns()
             state = store.record_observation(state.objective_id, observed_at=float(i),
                                              count=1, expected_version=previous)
-            cpu_elapsed = (time.thread_time_ns() - cpu_start) / 1e6
+            cpu_elapsed = (thread_cpu_ns() - cpu_start) / 1e6
             elapsed = (time.perf_counter_ns() - start) / 1e6
             samples.append(elapsed)
             cpu_samples.append(cpu_elapsed)
@@ -80,8 +81,8 @@ def fixture_spec() -> ObjectiveSpec:
 
 class CpuBurdenStore(ObjectiveStore):
     def record_observation(self, *args, **kwargs):
-        deadline = time.thread_time_ns() + 4_000_000
-        while time.thread_time_ns() < deadline:
+        deadline = thread_cpu_ns() + 4_000_000
+        while thread_cpu_ns() < deadline:
             pass
         return super().record_observation(*args, **kwargs)
 

@@ -48,6 +48,11 @@ async def setup(svc):
             await s.execute(sa.update(image_jobs).where(image_jobs.c.id.in_(active)).values(status='failed',error='interrupted_unknown: inspect provider before retry',finished_at=utcnow()))
             await s.execute(sa.update(jobs).where(jobs.c.job_id.in_(active)).values(reason='interrupted_unknown',verdict='OWNER_REQUIRED'))
         await s.commit()
+    # Engine child processes recorded by sdcpp sidecars whose owner process died: kill by verified PID identity.
+    try:
+        from bcc.studio.providers.sdcpp import reconcile_orphans
+        await asyncio.to_thread(reconcile_orphans,svc.settings.data_dir/'studio'/'engine-work')
+    except Exception:pass
 
 
 def model_specs():
@@ -116,6 +121,11 @@ async def validate_plane(svc,payload):
     model=next((m for m in model_specs() if m['id']==payload['model']),None)
     if model is None: raise ValueError('model: unknown id')
     settings=catalog.validate_settings(model,payload.get('settings',{}))
+    if model['provider']=='sdcpp':
+        # The length preset (1 s TestRun / 5-30 s) fixes frames/fps/size in the plane itself,
+        # so the stored plane, provenance and the verified output describe the same clip.
+        from bcc.studio.providers.sdcpp import apply_length
+        settings=apply_length(settings)
     if 'seed' in settings and settings['seed'] is None: settings['seed']=secrets.randbelow(2**31)
     media=payload.get('media',[])
     counts={}
@@ -152,11 +162,24 @@ async def get_job(svc,jid):
     return {**row,'studio':ext}
 
 async def fail(svc,jid,reason,message,verdict='FAIL'):
+    partial=[]
     async with svc.db.session() as s:
         updated=await s.execute(sa.update(image_jobs).where(image_jobs.c.id==jid,image_jobs.c.status=='running').values(status='failed',error=message,finished_at=utcnow(),updated_at=utcnow()))
-        if updated.rowcount: await s.execute(sa.update(jobs).where(jobs.c.job_id==jid).values(reason=reason,verdict=verdict))
+        if updated.rowcount:
+            await s.execute(sa.update(jobs).where(jobs.c.job_id==jid).values(reason=reason,verdict=verdict))
+            # Red team 2026-09-21 (RT-S5): задание, упавшее на втором выходе, оставляло
+            # первый выход в галерее как обычный run. Незавершённое задание не
+            # даёт результатов: частичные выходы уходят в корзину, файлы удаляются.
+            # Исключение — перерасход бюджета: байты уже оплачены и проверены,
+            # выбрасывать их — второй ущерб (test_studio_cloud); они остаются.
+            partial=[] if reason=='budget' else [dict(r._mapping) for r in (await s.execute(sa.select(runs.c.id,runs.c.file_path).where(runs.c.job_id==jid,runs.c.deleted==False))).all()]  # noqa: E712
+            if partial:
+                await s.execute(sa.update(runs).where(runs.c.id.in_([r['id'] for r in partial])).values(deleted=True))
         await s.commit()
-    await svc.bus.emit('studio.job.failed',job_id=jid,reason=reason)
+    for r in partial:
+        try:Path(r['file_path']).unlink(missing_ok=True)
+        except OSError:pass
+    await svc.bus.emit('studio.job.failed',job_id=jid,reason=reason,partial_outputs_trashed=len(partial))
 
 def _magic(path):
     with path.open('rb') as stream:return stream.read(8)
@@ -232,7 +255,14 @@ async def process_claimed(svc,job):
     if not ext: return await fail(svc,job['id'],'malformed','studio metadata missing')
     task=asyncio.create_task(_generate(svc,job,ext))
     try:
-        deadline=time.monotonic()+next(m['deadline_seconds'] for m in model_specs() if m['id']==ext['plane']['model'])
+        budget=next(m['deadline_seconds'] for m in model_specs() if m['id']==ext['plane']['model'])
+        if ext['plane']['model'].startswith('sdcpp:'):
+            # A segment chain (length 10s/15s/30s) runs one engine pass per segment, and each
+            # pass gets a budget proportional to its work (720p/81 frames/50 steps ~ 9x reference).
+            from bcc.studio.providers.sdcpp import segments_for, workload_scale
+            plane_settings=ext['plane'].get('settings') or {}
+            budget*=segments_for(plane_settings)*workload_scale(plane_settings)
+        deadline=time.monotonic()+budget
         while not task.done():
             await asyncio.wait({task},timeout=0.25)
             row=await one(svc,image_jobs,image_jobs.c.id,job['id'])

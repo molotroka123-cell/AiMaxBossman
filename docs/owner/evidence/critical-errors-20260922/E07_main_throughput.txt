@@ -1,0 +1,19 @@
+# MAIN 27B generation ~8-10 tok/s: a 512-token answer needs > 60 s
+captured_utc: 2026-09-22T08:09:59Z
+captured_by: knowledge engineer (Claude Opus 5), read-only
+redaction: learning.trace.redact_text applied; no secrets present
+source: C:\Users\asd\Bossman\tests\main-server.err.log sha256=0c57be8c6989e81f5c34c1a7491ae890b7bc7f6b8f4239210451de44e03ca242 mtime_utc=2026-09-22T07:48:35Z (live log; may grow)
+source: C:\Users\asd\Bossman\tests\qwen38-server.err.log sha256=04653a9cfbb3b00b411546907b1d948eefbc2454894547cf00d462b435ddbd13 mtime_utc=2026-09-21T17:58:06Z
+
+main-server.err.log:47: 2.50.783.290 I slot print_timing: id  0 | task 0 | prompt eval time =  111765.57 ms / 20720 tokens (    5.39 ms per token,   185.39 tokens per second)
+main-server.err.log:48: 2.50.783.306 I slot print_timing: id  0 | task 0 |        eval time =    8106.09 ms /    81 tokens (  101.33 ms per token,     9.87 tokens per second)
+main-server.err.log:59: 3.46.512.920 I slot print_timing: id  0 | task 94 | prompt eval time =   49233.09 ms /  7022 tokens (    7.01 ms per token,   142.63 tokens per second)
+main-server.err.log:60: 3.46.512.926 I slot print_timing: id  0 | task 94 |        eval time =    6352.31 ms /    62 tokens (  104.14 ms per token,     9.60 tokens per second)
+main-server.err.log:69: 4.21.560.894 I slot print_timing: id  0 | task 162 | prompt eval time =   27750.26 ms /  3541 tokens (    7.84 ms per token,   127.60 tokens per second)
+main-server.err.log:70: 4.21.560.909 I slot print_timing: id  0 | task 162 |        eval time =    7192.79 ms /    69 tokens (  105.78 ms per token,     9.45 tokens per second)
+qwen38-server.err.log:37: 1.31.744.055 I slot print_timing: id  3 | task 0 | prompt eval time =    4383.06 ms /   183 tokens (   23.95 ms per token,    41.75 tokens per second)
+qwen38-server.err.log:38: 1.31.744.070 I slot print_timing: id  3 | task 0 |        eval time =    9222.09 ms /    92 tokens (  101.34 ms per token,     9.87 tokens per second)
+qwen38-server.err.log:49: 2.01.203.790 I slot print_timing: id  2 | task 94 | prompt eval time =    4535.61 ms /   245 tokens (   18.51 ms per token,    54.02 tokens per second)
+qwen38-server.err.log:50: 2.01.203.805 I slot print_timing: id  2 | task 94 |        eval time =   23868.11 ms /   248 tokens (   96.63 ms per token,    10.35 tokens per second)
+
+arithmetic: 512 tokens / 9.87 tok/s = 51.9 s generation, plus prompt eval (e.g. 7022 tokens at 142.63 tok/s = 49.2 s) -> exceeds a 60 s cap

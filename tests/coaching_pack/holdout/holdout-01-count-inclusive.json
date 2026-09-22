@@ -1,0 +1,22 @@
+{
+  "task_id": "holdout-01-count-inclusive",
+  "split": "holdout",
+  "task_class": "off-by-one",
+  "title": "Inclusive range list",
+  "prompt": "Write inclusive_range(a, b) returning the list of integers from a to b, both ends INCLUSIVE. a <= b.",
+  "signature": "def inclusive_range(a, b):",
+  "hidden_tests": [
+    "assert inclusive_range(1, 4) == [1, 2, 3, 4]",
+    "assert inclusive_range(2, 2) == [2]",
+    "assert inclusive_range(-1, 1) == [-1, 0, 1]"
+  ],
+  "reference_solution": "def inclusive_range(a, b):\n    return list(range(a, b + 1))\n",
+  "teacher_lesson": "When the end is inclusive, use range(a, b + 1).",
+  "mock": {
+    "label": "MOCK — scripted student, not a model",
+    "first_attempt": "def inclusive_range(a, b):\n    return list(range(a, b))\n",
+    "second_attempt": null,
+    "lesson_trigger": "b + 1",
+    "student_lesson": null
+  }
+}

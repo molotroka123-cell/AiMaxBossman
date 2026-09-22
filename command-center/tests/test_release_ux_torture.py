@@ -34,23 +34,42 @@ def _collect(page):
     return page_errors, bad_http
 
 
-def _assert_page_settled(page, page_id: str):
-    # A hash change is synchronous; the router/render path is async and passes
-    # through a textless skeleton whose "no skeleton + non-empty text" the
-    # PREVIOUS page still satisfies (that is why requiring non-empty text alone
-    # still raced).  Wait for the product's own end-of-render signal —
-    # #view[data-rendered] set to THIS page id only after the target content is
-    # in place — so the oracle can return only once the target really rendered.
+def _view_before_click(page):
+    """The element currently on screen in #view (a JSHandle, possibly null).
+
+    ``navigate()`` changes ``location.hash`` synchronously and only later
+    replaces the view with a skeleton and then the new page.  A settle check
+    that reads text while the PREVIOUS page is still on screen passes on the
+    old content, and the skeleton that follows makes the next read empty.
+    Remembering the old node lets the check wait for it to actually leave.
+    """
+    return page.evaluate_handle("document.querySelector('#view') && document.querySelector('#view').firstElementChild")
+
+
+def _click_nav(page, page_id: str):
+    previous = _view_before_click(page)
+    page.locator(f'#nav .nav-item[data-page="{page_id}"]').click()
+    return previous
+
+
+def _assert_page_settled(page, page_id: str, previous=None):
+    # A hash change is synchronous, while the router/render path is async.  Do
+    # not mistake the brief window between those two events (empty #view and no
+    # skeleton yet) for a dead page.  Requiring real visible text here keeps the
+    # gate fail-closed: a genuinely blank view still times out after 15 seconds.
+    # `previous` (the node shown before the click) must be gone as well: the old
+    # page's text is not the new page having rendered.
     page.wait_for_function(
-        """id => {
+        """([id, prev]) => {
           const view = document.querySelector('#view');
+          if (prev && prev.isConnected) return false;
           return location.hash.startsWith('#/' + id)
             && view
             && view.dataset.rendered === id
             && !view.querySelector('.skeleton')
             && (view.innerText || '').trim().length > 0;
         }""",
-        arg=page_id, timeout=15000)
+        arg=[page_id, previous], timeout=15000)
     text = page.locator("#view").inner_text().strip()
     assert text, f"{page_id}: visible view is empty"
     # Loading forever is a dead control even if there is no exception.
@@ -73,8 +92,8 @@ def test_every_visible_navigation_item_opens_without_js_or_contract_errors(live)
             assert len(ids) >= 10, f"navigation unexpectedly small: {ids}"
             visited = []
             for page_id in ids:
-                page.locator(f'#nav .nav-item[data-page="{page_id}"]').click()
-                _assert_page_settled(page, page_id)
+                previous = _click_nav(page, page_id)
+                _assert_page_settled(page, page_id, previous)
                 assert page.locator(f'#nav .nav-item[data-page="{page_id}"]').get_attribute("aria-current") == "page"
                 visited.append(page_id)
             assert visited == ids
@@ -140,8 +159,8 @@ def test_safe_random_navigation_monkey_is_reproducible(live, seed):
                 op = rng.choice(("navigate", "navigate", "reload", "back_forward", "theme"))
                 if op == "navigate":
                     target = rng.choice(ids)
-                    page.locator(f'#nav .nav-item[data-page="{target}"]').click()
-                    _assert_page_settled(page, target)
+                    previous = _click_nav(page, target)
+                    _assert_page_settled(page, target, previous)
                     trace.append(("navigate", target))
                 elif op == "reload":
                     expected = page.evaluate("location.hash.replace(/^#\\/?/, '').split('?')[0]")
@@ -152,12 +171,16 @@ def test_safe_random_navigation_monkey_is_reproducible(live, seed):
                     trace.append(("reload", expected))
                 elif op == "back_forward":
                     target = rng.choice(ids)
-                    page.locator(f'#nav .nav-item[data-page="{target}"]').click()
-                    _assert_page_settled(page, target)
+                    previous = _click_nav(page, target)
+                    _assert_page_settled(page, target, previous)
                     page.go_back(wait_until="domcontentloaded")
                     page.wait_for_selector("#shell:not([hidden])")
                     page.go_forward(wait_until="domcontentloaded")
                     page.wait_for_selector("#shell:not([hidden])")
+                    # Дождаться СТРАНИЦЫ после go_forward: иначе следующий клик
+                    # запоминает скелет, а не отрисованный узел, и проверка
+                    # «прежний узел исчез» проходит по чужому тексту.
+                    _assert_page_settled(page, target)
                     trace.append(("back_forward", target))
                 else:
                     old = page.locator("html").get_attribute("data-theme")

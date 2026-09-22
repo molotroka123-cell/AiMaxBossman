@@ -101,7 +101,13 @@ async def test_model_runs_real_command_and_reads_output(env, tmp_path):
     (work / "hello.txt").write_text("это файл проекта\n", encoding="utf-8")
     await _allow_root(env, work)
 
-    read_command = "type hello.txt" if os.name == "nt" else "cat hello.txt"
+    # Команда — под ту оболочку, которую выберет продукт: с Git-sh на Windows
+    # `type` — это builtin sh, а не cmd, и файл он не напечатает.
+    from pathlib import Path as _Path
+    from bcc.v2.terminal_control import host_shell
+    shell = host_shell()
+    uses_cmd = shell is not None and _Path(shell[0]).name.lower() in ("cmd", "cmd.exe")
+    read_command = "type hello.txt" if uses_cmd else "cat hello.txt"
     adapter = ToolAdapter([
         ("tool", "terminal_run", {"command": read_command, "mode": "project_host",
                                   "cwd": str(work)}),

@@ -89,7 +89,18 @@ SUPPORT_SCRIPTS = (
     (ROOT / "tools" / "installed_ui_sweep.py", "installed_ui_sweep.py"),
     (ROOT / "scripts" / "ui_acceptance_sweep.py", "ui_acceptance_sweep.py"),
     (ROOT / "tools" / "live_openrouter_owner.py", "live_openrouter_owner.py"),
+    # 1.0-RC (2026-09-21): владельческий прогон завтрашнего дня, настройка
+    # локального медиадвижка, coaching runner и A/B пресетов едут в архиве —
+    # владелец запускает прогон, а не собирает зависимости руками.
+    (ROOT / "tools" / "owner_run_tomorrow.py", "owner_run_tomorrow.py"),
+    (ROOT / "tools" / "media_bootstrap.py", "media_bootstrap.py"),
+    (ROOT / "tools" / "media_ab_preset.py", "media_ab_preset.py"),
+    (ROOT / "tools" / "coaching_runner.py", "coaching_runner.py"),
 )
+
+# Пак задач coaching (5 обучающих + 5 holdout) едет каталогом рядом с раннером.
+COACHING_PACK_SOURCE = ROOT / "tests" / "coaching_pack"
+COACHING_PACK_TARGET = "coaching-pack"
 
 # Комплект владельческого GUI-прогона. В README комплекта владельцу обещан
 # путь `app-support/owner-final-run/`; пока этого контракта не было, наличие
@@ -120,6 +131,7 @@ OWNER_RUN_FILES = (
 # are copied. These files enter the existing MANIFEST.json/SHA256SUMS inventory.
 OWNER_ACCEPTANCE_FILES = (
     "INSTALL.md", "OWNER_ACCEPTANCE.md", "KNOWN_LIMITATIONS.md", "owner-acceptance.ps1",
+    "START_TOMORROW_RU.md", "docs/owner/ROLLBACK_RU.md",
     "tests/owner_hardware/README.md", "tests/owner_hardware/manifest.json",
     "tests/owner_hardware/HOTSPOTS_AND_HOTFIX_PLAYBOOK.md",
     "tests/owner_hardware/MODEL_STACK_2026-09-20.md",
@@ -190,6 +202,53 @@ if errorlevel 1 exit /b 1
 exit /b %ERRORLEVEL%
 """
 
+OWNER_RUN_CMD = r"""@echo off
+setlocal
+rem Owner-suite runner: doctor -> MAIN/FAST discovery -> media manifest -> coaching -> diagnostics.
+rem Machine stages only; the owner scenarios are in START_TOMORROW_RU.md. Never claims certification.
+set "BOSSMAN_HOME=%~dp0"
+call "%BOSSMAN_HOME%app-support\_env.cmd"
+if errorlevel 1 exit /b 1
+"%BOSSMAN_HOME%runtime\python.exe" "%BOSSMAN_HOME%app-support\owner_run_tomorrow.py" %*
+exit /b %ERRORLEVEL%
+"""
+
+MEDIA_SETUP_CMD = r"""@echo off
+setlocal
+rem Local media engine (stable-diffusion.cpp) setup: validate | plan-download | download | configure.
+rem Downloads only with --allow-download; a missing engine never blocks Bossman itself.
+set "BOSSMAN_HOME=%~dp0"
+call "%BOSSMAN_HOME%app-support\_env.cmd"
+if errorlevel 1 exit /b 1
+"%BOSSMAN_HOME%runtime\python.exe" "%BOSSMAN_HOME%app-support\media_bootstrap.py" %*
+exit /b %ERRORLEVEL%
+"""
+
+COACHING_CMD = r"""@echo off
+setlocal
+rem Coaching runner: 5 training + 5 holdout coding tasks against the local endpoint.
+rem Prints WEIGHTS_UNCHANGED; without a reachable endpoint reports LOCAL_LEARNING_GAIN_NOT_MEASURED.
+set "BOSSMAN_HOME=%~dp0"
+call "%BOSSMAN_HOME%app-support\_env.cmd"
+if errorlevel 1 exit /b 1
+if "%~1"=="" (
+  "%BOSSMAN_HOME%runtime\python.exe" "%BOSSMAN_HOME%app-support\coaching_runner.py" --backend local --out "%LOCALAPPDATA%\Bossman\CommandCenter\owner-run\coaching"
+) else (
+  "%BOSSMAN_HOME%runtime\python.exe" "%BOSSMAN_HOME%app-support\coaching_runner.py" %*
+)
+exit /b %ERRORLEVEL%
+"""
+
+DIAGNOSTICS_CMD = r"""@echo off
+setlocal
+rem Redacted diagnostics ZIP for a defect report (doctor, manifests, log tails; secrets cut by pattern).
+set "BOSSMAN_HOME=%~dp0"
+call "%BOSSMAN_HOME%app-support\_env.cmd"
+if errorlevel 1 exit /b 1
+"%BOSSMAN_HOME%runtime\python.exe" "%BOSSMAN_HOME%app-support\owner_run_tomorrow.py" --stage doctor --stage diagnostics %*
+exit /b %ERRORLEVEL%
+"""
+
 # One place decides the environment, so the two launchers cannot drift apart.
 ENV_CMD = r"""@echo off
 rem Sourced by the launchers. Points the product at the BUNDLED prerequisites.
@@ -238,6 +297,10 @@ def launcher_files() -> dict[str, str]:
         "Start-Bossman.cmd": START_CMD,
         "Evening-Test.cmd": EVENING_CMD,
         "Machine-Report.cmd": MACHINE_CMD,
+        "Owner-Run.cmd": OWNER_RUN_CMD,
+        "Media-Setup.cmd": MEDIA_SETUP_CMD,
+        "Coaching.cmd": COACHING_CMD,
+        "Collect-Diagnostics.cmd": DIAGNOSTICS_CMD,
         "app-support/_env.cmd": ENV_CMD,
     }
 
@@ -672,7 +735,24 @@ def install_support(support: Path) -> dict:
         if not origin.exists():
             raise RuntimeError(f"support script missing: {origin}")
         shutil.copyfile(origin, support / name)
+    install_coaching_pack(support / COACHING_PACK_TARGET)
     return install_owner_run(support / "owner-final-run")
+
+
+def install_coaching_pack(target: Path) -> dict:
+    """Пак coaching (train/holdout JSON) — файл в файл, без чужих файлов."""
+    if not COACHING_PACK_SOURCE.is_dir():
+        raise RuntimeError(f"coaching pack missing: {COACHING_PACK_SOURCE}")
+    shipped: dict[str, str] = {}
+    for split in ("train", "holdout"):
+        files = sorted((COACHING_PACK_SOURCE / split).glob("*.json"))
+        if len(files) < 5:
+            raise RuntimeError(f"coaching pack {split}: expected at least 5 tasks, found {len(files)}")
+        (target / split).mkdir(parents=True, exist_ok=True)
+        for origin in files:
+            shutil.copyfile(origin, target / split / origin.name)
+            shipped[f"{split}/{origin.name}"] = sha256_file(origin)
+    return {"path": "app-support/coaching-pack", "files": shipped}
 
 
 def write_licenses(licenses: Path, contents: dict) -> None:

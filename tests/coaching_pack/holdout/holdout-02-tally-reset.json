@@ -1,0 +1,22 @@
+{
+  "task_id": "holdout-02-tally-reset",
+  "split": "holdout",
+  "task_class": "broken-counter",
+  "title": "Tally with reset",
+  "prompt": "Write class Tally with add(n) adding n to the total, total() returning it, and clear() setting it back to zero.",
+  "signature": "class Tally:",
+  "hidden_tests": [
+    "t = Tally(); t.add(3); t.add(4); assert t.total() == 7",
+    "t = Tally(); t.add(5); t.clear(); assert t.total() == 0",
+    "t = Tally(); t.add(2); t.clear(); t.add(1); assert t.total() == 1"
+  ],
+  "reference_solution": "class Tally:\n    def __init__(self):\n        self.sum = 0\n    def add(self, n):\n        self.sum += n\n    def total(self):\n        return self.sum\n    def clear(self):\n        self.sum = 0\n",
+  "teacher_lesson": "clear() must zero the same attribute total() reads.",
+  "mock": {
+    "label": "MOCK — scripted student, not a model",
+    "first_attempt": "class Tally:\n    def __init__(self):\n        self.sum = 0\n    def add(self, n):\n        self.sum += n\n    def total(self):\n        return self.sum\n    def clear(self):\n        self.total_value = 0\n",
+    "second_attempt": null,
+    "lesson_trigger": "same attribute",
+    "student_lesson": null
+  }
+}

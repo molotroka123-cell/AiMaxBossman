@@ -265,6 +265,18 @@
       "surface": "video",
       "label": "Wan2.2 TI2V-5B — локальная генерация видео (stable-diffusion.cpp, Vulkan)",
       "settings": {
+        "length": {
+          "type": "enum",
+          "values": [
+            "custom",
+            "test_1s",
+            "5s",
+            "10s",
+            "15s",
+            "30s"
+          ],
+          "default": "custom"
+        },
         "width": {
           "type": "range",
           "min": 640,

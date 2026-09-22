@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import psutil
+
 from .models import Denied, Refusal
 
 LOCK_FILENAME = "bossman-aifs-runtime.lock"
@@ -31,6 +33,16 @@ LOCK_FILENAME = "bossman-aifs-runtime.lock"
 def _process_is_running(pid: int) -> bool:
     if pid <= 0:
         return False
+    if os.name == "nt":
+        # Windows ``os.kill(pid, 0)`` is not an existence probe: it opens the
+        # process and calls TerminateProcess on it, and for a pid that does not
+        # exist it raises a plain OSError, which the fail-closed branch below
+        # reads as "alive" — the lock of a crashed sidecar would never be
+        # recoverable, and a living holder would be killed by the check itself.
+        try:
+            return bool(psutil.pid_exists(pid))
+        except (OSError, psutil.Error):
+            return True                  # неизвестно — считаем живым (fail-closed)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:

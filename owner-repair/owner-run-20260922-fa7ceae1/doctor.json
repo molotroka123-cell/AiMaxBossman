@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.10",
+  "checks": [
+    {
+      "name": "build-identity",
+      "status": "PASS",
+      "detail": "fa7ceae105c92c3eee718381efdd0333ddcb5e35 (установленная сборка)",
+      "remedy": "",
+      "facts": {
+        "build_sha": "fa7ceae105c92c3eee718381efdd0333ddcb5e35",
+        "build_sha_short": "fa7ceae105c9",
+        "source_identity": "PASS",
+        "source": "installed_build",
+        "detail": ""
+      }
+    },
+    {
+      "name": "python",
+      "status": "PASS",
+      "detail": "Python 3.12.10 (C:\\Bossman-Test\\fa7ceae1\\BOSSMAN-Windows-x64-fa7ceae105c9\\runtime\\python.exe)",
+      "remedy": "",
+      "facts": {
+        "version": "3.12.10",
+        "executable": "C:\\Bossman-Test\\fa7ceae1\\BOSSMAN-Windows-x64-fa7ceae105c9\\runtime\\python.exe"
+      }
+    },
+    {
+      "name": "python-packages",
+      "status": "PASS",
+      "detail": "все обязательные и необязательные пакеты импортируются",
+      "remedy": "",
+      "facts": {}
+    },
+    {
+      "name": "bossman-packages",
+      "status": "PASS",
+      "detail": "bossman_shared, bossman_v3 и bcc импортируются",
+      "remedy": "",
+      "facts": {}
+    },
+    {
+      "name": "node",
+      "status": "PASS",
+      "detail": "Node v20.18.1",
+      "remedy": "",
+      "facts": {
+        "path": "C:\\Program Files\\nodejs\\node.EXE"
+      }
+    },
+    {
+      "name": "ffmpeg",
+      "status": "PASS",
+      "detail": "ffmpeg version n8.1-11-g75d37c499d-20260430 Copyright (c) 2000-2026 the FFmpeg developers",
+      "remedy": "",
+      "facts": {
+        "ffmpeg": "C:\\Bossman-Test\\fa7ceae1\\BOSSMAN-Windows-x64-fa7ceae105c9\\media\\ffmpeg.EXE",
+        "ffprobe": "C:\\Bossman-Test\\fa7ceae1\\BOSSMAN-Windows-x64-fa7ceae105c9\\media\\ffprobe.EXE"
+      }
+    },
+    {
+      "name": "state-dir",
+      "status": "PASS",
+      "detail": "C:\\Bossman-Test\\fa7ceae1\\BOSSMAN-Windows-x64-fa7ceae105c9\\command-center\\data доступен на запись, свободно 1557.22 ГБ",
+      "remedy": "",
+      "facts": {
+        "path": "C:\\Bossman-Test\\fa7ceae1\\BOSSMAN-Windows-x64-fa7ceae105c9\\command-center\\data",
+        "free_gb": 1557.22
+      }
+    },
+    {
+      "name": "evidence-key",
+      "status": "PASS",
+      "detail": "ключ подписи улик рабочий (32 байт, C:\\Users\\asd\\.bossman\\keys\\evidence.key)",
+      "remedy": "",
+      "facts": {
+        "path": "C:\\Users\\asd\\.bossman\\keys\\evidence.key"
+      }
+    },
+    {
+      "name": "journal-anchor",
+      "status": "PASS",
+      "detail": "журнал пишется, читается и защищён от отката (anchor seq=2)",
+      "remedy": "",
+      "facts": {
+        "anchor_root_env": "BOSSMAN_JOURNAL_ANCHOR_ROOT"
+      }
+    },
+    {
+      "name": "browser",
+      "status": "PASS",
+      "detail": "Chromium запускается: Google Chrome for Testing 153.0.8010.12 (C:\\Bossman-Test\\fa7ceae1\\BOSSMAN-Windows-x64-fa7ceae105c9\\browser\\chromium_headless_shell-1243\\chrome-headless-shell-win64\\chrome-headless-shell.exe)",
+      "remedy": "",
+      "facts": {
+        "browser": "C:\\Bossman-Test\\fa7ceae1\\BOSSMAN-Windows-x64-fa7ceae105c9\\browser\\chromium_headless_shell-1243\\chrome-headless-shell-win64\\chrome-headless-shell.exe",
+        "playwright": true,
+        "live_launch_verified": true,
+        "version": "Google Chrome for Testing 153.0.8010.12"
+      }
+    },
+    {
+      "name": "model-endpoint",
+      "status": "WARN",
+      "detail": "http://127.0.0.1:11434 отвечает, но ни одной модели не загружено",
+      "remedy": "ollama pull <модель>",
+      "facts": {
+        "endpoint": "http://127.0.0.1:11434",
+        "models": []
+      }
+    },
+    {
+      "name": "model-endpoints",
+      "status": "PASS",
+      "detail": "http://127.0.0.1:8081: C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf; http://127.0.0.1:8082: C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b\\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf",
+      "remedy": "",
+      "facts": {
+        "live": {
+          "http://127.0.0.1:8081": [
+            "C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf"
+          ],
+          "http://127.0.0.1:8082": [
+            "C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b\\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf"
+          ]
+        },
+        "errors": {}
+      }
+    },
+    {
+      "name": "media-engine",
+      "status": "WARN",
+      "detail": "локальный медиадвижок не настроен (нет BOSSMAN_SDCPP_BIN/BOSSMAN_MEDIA_MODELS и media/config.json)",
+      "remedy": "Media-Setup.cmd → configure; без него Studio генерацию не предлагает",
+      "facts": {}
+    },
+    {
+      "name": "openhands",
+      "status": "WARN",
+      "detail": "команда сайдкара OpenHands не настроена — Coding покажет «агент недоступен»",
+      "remedy": "задайте BOSSMAN_OPENHANDS_COMMAND (путь к сайдкару) и перезапустите Bossman",
+      "facts": {
+        "runtime": true,
+        "command_env": "BOSSMAN_OPENHANDS_COMMAND",
+        "command_set": false
+      }
+    },
+    {
+      "name": "hardware",
+      "status": "PASS",
+      "detail": "32 CPU, 119.65 ГБ RAM",
+      "remedy": "",
+      "facts": {
+        "platform": "Windows-11-10.0.26200-SP0",
+        "machine": "AMD64",
+        "logical_cpus": 32,
+        "available_gb": 60.48,
+        "ram_gb": 119.65
+      }
+    },
+    {
+      "name": "windows",
+      "status": "PASS",
+      "detail": "Windows 11: базовые предпосылки на месте",
+      "remedy": "",
+      "facts": {}
+    },
+    {
+      "name": "computer-operator",
+      "status": "PASS",
+      "detail": "наблюдение и ввод на месте: pywinauto, pywin32, pyautogui, Pillow",
+      "remedy": "",
+      "facts": {
+        "missing": []
+      }
+    },
+    {
+      "name": "gateway-url",
+      "status": "PASS",
+      "detail": "BOSSMAN_GATEWAY_URL не задан; будет использован http://127.0.0.1:8765/v1",
+      "remedy": "",
+      "facts": {
+        "effective": "http://127.0.0.1:8765/v1",
+        "configured": ""
+      }
+    },
+    {
+      "name": "cloud-providers",
+      "status": "WARN",
+      "detail": "облачных ключей нет (OPENROUTER_API_KEY, ZAI_API_KEY пусты); работать можно только на локальных моделях",
+      "remedy": "Задайте OPENROUTER_API_KEY в bossman-core/.env и проверьте: bossman models list --provider openrouter",
+      "facts": {
+        "configured": [],
+        "glm_model": "glm-5.3",
+        "openrouter_base_url": "(по умолчанию)",
+        "disabled_in_config": [],
+        "credential_conflict": ""
+      }
+    },
+    {
+      "name": "telemetry",
+      "status": "PASS",
+      "detail": "выборки реальных нагрузок пишутся в C:\\Bossman-Test\\fa7ceae1\\BOSSMAN-Windows-x64-fa7ceae105c9\\.bossman-state\\benchmarks\\real_workloads.jsonl (сейчас записей: 0)",
+      "remedy": "",
+      "facts": {
+        "path": "C:\\Bossman-Test\\fa7ceae1\\BOSSMAN-Windows-x64-fa7ceae105c9\\.bossman-state\\benchmarks\\real_workloads.jsonl",
+        "records": 0,
+        "env": "BOSSMAN_REAL_WORKLOAD_ROOT"
+      }
+    },
+    {
+      "name": "port",
+      "status": "WARN",
+      "detail": "127.0.0.1:8800 уже занят — вероятно, Bossman уже запущен",
+      "remedy": "Закройте прежний экземпляр или задайте BCC_PORT=<другой порт>",
+      "facts": {
+        "host": "127.0.0.1",
+        "port": 8800,
+        "in_use": true
+      }
+    }
+  ],
+  "blocked": 0,
+  "warn": 5,
+  "pass": 16
+}

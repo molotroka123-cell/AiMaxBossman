@@ -16,7 +16,8 @@ from __future__ import annotations
 import pytest
 
 from tools.human_speed_gate import (FAIL, INSUFFICIENT, PASS, StorageFloor,
-                                    latency_contract)
+                                    cas_latency_contract, cas_wall_contract,
+                                    latency_contract, thread_cpu_ns)
 
 LIMIT = 10.0
 # Форма здорового прогона на тихом хосте: p50 около 1.15 мс, тело около 1.5 мс.
@@ -331,3 +332,100 @@ def test_a_stalling_floor_does_not_rescue_a_distribution_that_spread():
     assert result["floor_over_limit"] == 1 and result["over_limit"] == 2
     assert result["status"] == FAIL and result["basis"] is None
     assert result["reason"] == "excess_spread_across_the_distribution"
+
+
+
+# ------------------------------------------------ стена CAS: срыв ожидания хоста
+# Буквальная подпись красного ubuntu-latest (прогон 35662491969, код без
+# изменений был зелёным на соседних прогонах): p50 1.586 мс, пол p50 1.417 мс,
+# три замера за порогом, CPU каждой операции — около полумиллисекунды.
+CI_WAITING_STALLS_35662491969 = (44.44584, 22.727376, 22.011775)
+CAS_WALL = [1.45 + (i % 9) * 0.04 for i in range(100)]
+CAS_FLOOR = [1.30 + (i % 7) * 0.03 for i in range(100)]
+CAS_CPU = [0.48 + (i % 5) * 0.02 for i in range(100)]
+
+
+def wall_with(*values, cpu_for_stalls=None):
+    wall, cpu = list(CAS_WALL), list(CAS_CPU)
+    for i, value in enumerate(values):
+        wall[i] = value
+        if cpu_for_stalls is not None:
+            cpu[i] = cpu_for_stalls
+    return wall, cpu
+
+
+def cas_wall(wall, cpu, floor=CAS_FLOOR):
+    return cas_wall_contract(wall, cpu_samples_ms=cpu, floor_samples_ms=floor)
+
+
+def test_the_ci_waiting_stall_signature_is_host_weather_not_a_defect():
+    wall, cpu = wall_with(*CI_WAITING_STALLS_35662491969)
+    # Прежний контракт на этих числах — отказ (это и был красный CI).
+    assert latency_contract(wall, limit_ms=LIMIT, floor_samples_ms=CAS_FLOOR)["status"] == FAIL
+    result = cas_wall(wall, cpu)
+    assert result["status"] == PASS and result["basis"] == "waiting_stalls", result
+    # Сырые значения не переименованы и не выброшены.
+    assert result["max_ms"] == 44.44584 and result["over_limit"] == 3
+    assert result["stalls_ms"][:3] == sorted(CI_WAITING_STALLS_35662491969, reverse=True)
+    assert result["outliers_removed"] == 0 and result["p95_ms"] < LIMIT
+
+
+def test_a_stall_that_spent_its_own_cpu_is_work_not_waiting():
+    """Та же форма, но операции-срывы сами жгли процессор: это код."""
+    wall, cpu = wall_with(*CI_WAITING_STALLS_35662491969, cpu_for_stalls=4.0)
+    result = cas_wall(wall, cpu)
+    assert result["status"] == FAIL and result["basis"] is None
+    assert result["reason"] == "stall_spent_its_own_cpu"
+    # Граница — медиана CPU плюс четверть порога, а не «сколько угодно».
+    assert result["waiting_cpu_ceiling_ms"] == pytest.approx(0.52 + LIMIT / 4)
+
+
+def test_more_than_five_percent_of_waiting_stalls_is_a_distribution():
+    """Периодическое лишнее ОЖИДАНИЕ в 6% операций (sleep, лишний fsync)."""
+    wall, cpu = wall_with(*([12.0] * 6))
+    result = cas_wall(wall, cpu)
+    assert result["status"] == FAIL and result["reason"] == "too_many_waiting_stalls"
+    five, cpu5 = wall_with(*([12.0] * 5))
+    assert cas_wall(five, cpu5)["status"] == PASS
+
+
+def test_waiting_stalls_never_rescue_a_median_regression():
+    """Детектор регрессии (p50 против пола того же хоста) стоит РАНЬШЕ."""
+    slow = [x * 9 for x in CAS_WALL]
+    for i, value in enumerate(CI_WAITING_STALLS_35662491969):
+        slow[i] = value
+    result = cas_wall(slow, list(CAS_CPU))
+    assert result["status"] == FAIL
+    assert result["reason"] == "operation_disproportionate_to_its_own_host_floor"
+
+
+def test_the_combined_cas_verdict_still_holds_every_operation_to_cpu_p100():
+    """Стена прощает ожидание — CPU каждой операции по-прежнему p100 < 10 мс."""
+    wall, cpu = wall_with(*CI_WAITING_STALLS_35662491969)
+    floor_cpu = [0.30 + (i % 5) * 0.01 for i in range(100)]
+    ok = cas_latency_contract(wall, cpu_samples_ms=cpu, floor_samples_ms=CAS_FLOOR,
+                              floor_cpu_samples_ms=floor_cpu)
+    assert ok["status"] == PASS and ok["wall"]["basis"] == "waiting_stalls"
+    burning = list(cpu)
+    burning[50] = burning[51] = 11.0          # две операции по 11 мс CPU
+    bad = cas_latency_contract(wall, cpu_samples_ms=burning, floor_samples_ms=CAS_FLOOR,
+                               floor_cpu_samples_ms=floor_cpu)
+    assert bad["status"] == FAIL and bad["reason"] == "thread_cpu_contract_failed"
+
+
+def test_the_thread_cpu_clock_resolves_a_sub_millisecond_operation():
+    """На Windows `thread_time_ns` идёт тиками по 15.625 мс — медиана CAS
+    читалась нулём, и гейт отвечал degenerate_measurement на каждом прогоне.
+    Счётчик гейта обязан иметь субмиллисекундный шаг и не считать ожидание."""
+    import time
+    steps, prev = set(), thread_cpu_ns()
+    t0 = time.perf_counter_ns()
+    while time.perf_counter_ns() - t0 < 20_000_000:
+        now = thread_cpu_ns()
+        if now != prev:
+            steps.add(now - prev)
+            prev = now
+    assert steps and min(steps) < 1_000_000, sorted(steps)[:5]
+    c0 = thread_cpu_ns()
+    time.sleep(0.03)
+    assert (thread_cpu_ns() - c0) / 1e6 < 5.0, "ожидание не является CPU-временем"

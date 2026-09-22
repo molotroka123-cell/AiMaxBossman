@@ -1,3 +1,17 @@
+# Multi-agent convergence note — 2026-09-22
+
+Before the existing actions below, read `docs/agents/MULTI_AGENT_FULL_SURFACE_CONVERGENCE.md`.
+
+Parallel lanes now exist:
+- `audit/codex-full-surface-20260922` — bounded engineering/audit;
+- `audit/aster6-full-surface-20260922` — economical independent audit.
+
+Claude remains the final integrator. Do not share a worktree with them. Consume only committed deltas/checkpoints, preserve contradictory evidence, and integrate by meaning onto the current working tip. Canonical destination remains `release/bossman-owner` through PR #72 after re-verification.
+
+The objective is full-surface convergence: keep closing the originally planned Bossman functionality after the 1.0 baseline, not only the minimum release scenarios.
+
+---
+
 # BOSSMAN — ПОСЛЕДНИЙ ПРОХОД ПЕРЕД ТЕСТОМ ВЛАДЕЛЬЦА
 
 Репозиторий: `molotroka123-cell/AiMaxBossman`.

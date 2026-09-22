@@ -1,0 +1,22 @@
+==================================================================
+BOSSMAN — вечерняя приёмка владельца (этот загруженный билд)
+==================================================================
+  BUILD SHA:   fa7ceae105c92c3eee718381efdd0333ddcb5e35
+  артефакт:    BOSSMAN-Windows-x64-fa7ceae105c9
+  запуск:      20260922T151413Z-a3d371
+  источник:    downloaded archive (репозиторий не требуется)
+  платформа:   Windows-11-10.0.26200-SP0
+  runtime:     3.12.10 (C:\Bossman-Test\fa7ceae1\BOSSMAN-Windows-x64-fa7ceae105c9\runtime\python.exe)
+  улики:       C:\Users\asd\AppData\Local\Bossman\evening\fa7ceae105c92c3eee718381efdd0333ddcb5e35\20260922T151413Z-a3d371
+------------------------------------------------------------------
+  доктор:      OK
+  приёмка:     PASS
+  installed_ui_sweep: PASS
+  live_openrouter_owner: OWNER_REQUIRED
+------------------------------------------------------------------
+OWNER_EVENING_SHA=fa7ceae105c92c3eee718381efdd0333ddcb5e35
+OWNER_EVENING_RUN_ID=20260922T151413Z-a3d371
+OWNER_EVENING_EVIDENCE=C:\Users\asd\AppData\Local\Bossman\evening\fa7ceae105c92c3eee718381efdd0333ddcb5e35\20260922T151413Z-a3d371
+OWNER_EVENING_REASON=live-model_owner_required [owner]: Set BOSSMAN_OPENROUTER_API_KEY as an Actions secret.
+OWNER_EVENING_RESULT=OWNER_REQUIRED
+EXIT=2 

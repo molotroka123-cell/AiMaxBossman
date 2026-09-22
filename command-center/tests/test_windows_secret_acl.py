@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 
 import pytest
 
@@ -66,6 +67,8 @@ def test_acl_failure_warns_but_does_not_break_startup(tmp_path, kw):
             auth._restrict_to_owner(tmp_path / "token")
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="POSIX-контракт (0600, без icacls); на Windows icacls вызывается по замыслу")
 def test_posix_token_creation_spawns_nothing(tmp_path, monkeypatch):
     """POSIX не меняется: только 0600, никаких внешних процессов."""
     import stat
