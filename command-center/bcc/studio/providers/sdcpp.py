@@ -477,13 +477,73 @@ def apply_length(settings: dict) -> dict:
 # killed mid-segment; smaller work keeps the catalog deadline (never below it).
 _REFERENCE_WORK = 832 * 480 * 49 * 20
 
+# ...but proportional is not unbounded. Catalog limits alone allow 1280x1280x81x50 ~= 17x the
+# reference, i.e. ~17 h for ONE segment, and the 30 s preset chains six of them: over four days of
+# wall clock from a single request. The proportional budget may never cross these ceilings. They
+# sit deliberately above the owner's own heaviest real run (1280x704, 81 frames, 50 steps -> ~9.2 h
+# of budget), so the fix bounds runaway work without shortening work that is known to be legitimate.
+# Both are configurable; an explicit owner limit (hard_timeout_s) is sovereign and not capped here.
+MAX_SEGMENT_DEADLINE_ENV = "BOSSMAN_STUDIO_MAX_SEGMENT_DEADLINE_S"
+MAX_JOB_DEADLINE_ENV = "BOSSMAN_STUDIO_MAX_JOB_DEADLINE_S"
+DEFAULT_MAX_SEGMENT_DEADLINE_S = 12 * 3600
+DEFAULT_MAX_JOB_DEADLINE_S = 24 * 3600
+
+
+def _positive_float(value, default: float) -> float:
+    """A number only counts when it is finite and positive; 0, negatives, NaN, inf, booleans,
+    strings and None fall back to the reference value. A bogus setting must never buy wall clock."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return float(default)
+    v = float(value)
+    if v != v or v in (float("inf"), float("-inf")) or v <= 0:   # NaN / +-inf / non-positive
+        return float(default)
+    return v
+
+
+def _limit_s(env_name: str, default: float) -> float:
+    return _positive_float(_env_number(os.environ.get(env_name)), default)
+
+
+def _env_number(raw):
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def max_segment_deadline_s() -> float:
+    return _limit_s(MAX_SEGMENT_DEADLINE_ENV, DEFAULT_MAX_SEGMENT_DEADLINE_S)
+
+
+def max_job_deadline_s() -> float:
+    return _limit_s(MAX_JOB_DEADLINE_ENV, DEFAULT_MAX_JOB_DEADLINE_S)
+
 
 def workload_scale(settings: dict) -> float:
     s = settings or {}
     if not s.get("frames"):
         return 1.0
-    work = s.get("width", 832) * s.get("height", 480) * s["frames"] * s.get("steps", 20)
-    return max(1.0, work / _REFERENCE_WORK)
+    work = (_positive_float(s.get("width"), 832) * _positive_float(s.get("height"), 480)
+            * _positive_float(s.get("frames"), 49) * _positive_float(s.get("steps"), 20))
+    scale = work / _REFERENCE_WORK
+    if scale != scale:  # pragma: no cover - every factor is already finite and positive
+        return 1.0
+    return max(1.0, scale)
+
+
+def segment_deadline_s(model: dict, settings: dict) -> float:
+    """Work-proportional budget for ONE engine run, never above the absolute ceiling."""
+    catalog_s = _positive_float(model.get("deadline_seconds"), 3600)
+    return min(catalog_s * workload_scale(settings) + 60, max_segment_deadline_s())
+
+
+def job_budget_s(model: dict, settings: dict, segments: int) -> float:
+    """Wall clock the whole chain may consume, ceiling included. A chain of segments must not
+    multiply its way past the absolute limit any more than one oversized segment can."""
+    n = max(1, int(segments or 1))
+    return min(segment_deadline_s(model, settings) * n, max_job_deadline_s())
 
 
 def declared_duration_s(settings: dict) -> float | None:
@@ -801,9 +861,13 @@ class SdCppProvider:
         init = self.work / f"{rid}-start{init_ext}" if init_data is not None else None
         argv = _argv(self.cfg, plane.model, plane, settings, files, raw, init)
         me = _proc_identity(os.getpid()) or {}
+        explicit = self.hard_timeout_s != self._catalog_timeout_s
+        segment_s = float(self.hard_timeout_s) if explicit else segment_deadline_s(self.model, settings)
+        budget_s = segment_s * segments if explicit else job_budget_s(self.model, settings, segments)
+        started = time.time()
         record = {"version": 1, "rid": rid, "pid": None, "create_time": None, "argv": argv,
                   "exe": None, "raw": str(raw), "init": None if init is None else str(init),
-                  "started": time.time(), "studio_job_id": self.studio_job_id, "model": plane.model,
+                  "started": started, "studio_job_id": self.studio_job_id, "model": plane.model,
                   "owner_pid": os.getpid(), "owner_create_time": me.get("create_time")}
         if segments > 1:
             record["segment_files"] = [str(p) for p in raws[1:] + frame_files]
@@ -820,8 +884,7 @@ class SdCppProvider:
                "elapsed_s": None, "failure": None, "failure_detail": None, "raw_meta": None,
                "sidecar": sidecar, "record": record, "state": "pending",
                "plane": plane, "raws": raws, "frame_files": frame_files, "segment_results": [],
-               "hard_timeout_s": self.hard_timeout_s if self.hard_timeout_s != self._catalog_timeout_s else
-               float(self.model.get("deadline_seconds") or 3600) * workload_scale(settings) + 60}
+               "hard_timeout_s": segment_s, "budget_at": started + budget_s}
         self._jobs[rid] = job
         job["task"] = asyncio.create_task(self._run(rid, job))
         return Submitted(rid, cancel_ref=rid)
@@ -935,12 +998,18 @@ class SdCppProvider:
                 await asyncio.sleep(0.5)
 
         sampler = asyncio.create_task(sample())
+        # Two limits, whichever bites first: this segment's budget and what is left of the whole
+        # job's. A chain of segments cannot outlast the job ceiling by adding one more segment.
+        limit = float(job.get("hard_timeout_s") or self.hard_timeout_s)
+        budget_at, which = job.get("budget_at"), "segment deadline"
+        if budget_at is not None and budget_at - time.time() < limit:
+            limit, which = max(1.0, budget_at - time.time()), "job budget"
         try:
-            async with asyncio.timeout(job.get("hard_timeout_s") or self.hard_timeout_s):
+            async with asyncio.timeout(limit):
                 await self._pump_log(proc, job)
                 await proc.wait()
         except TimeoutError:
-            job["failure"], job["failure_detail"] = "timeout", f"engine exceeded {job.get('hard_timeout_s') or self.hard_timeout_s}s"
+            job["failure"], job["failure_detail"] = "timeout", f"engine exceeded {which} {limit:.0f}s"
             self._kill_job(job)
             with contextlib.suppress(Exception):
                 await asyncio.wait_for(proc.wait(), KILL_WAIT_S)
