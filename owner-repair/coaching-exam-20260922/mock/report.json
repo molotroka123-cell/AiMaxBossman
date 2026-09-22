@@ -1,0 +1,433 @@
+{
+  "schema": "bossman.coaching-exam/1",
+  "exam_id": "coaching-exam-20260922",
+  "run_id": "exam-20260922T181501Z",
+  "base_sha": "f30ed02c496f5ac622f216cfd376b353e1c0bd3b",
+  "created_at": "2026-09-22T18:15:01Z",
+  "python": "3.12.10",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "backend": {
+    "name": "mock",
+    "label": "MOCK scripted student (smart) — not a model, not a measurement",
+    "model": "mock:smart"
+  },
+  "students": [
+    {
+      "role": "MOCK",
+      "endpoint": null,
+      "reachable": true,
+      "model": "mock:smart",
+      "discovery": "mock backend needs no endpoint"
+    }
+  ],
+  "weights_unchanged": true,
+  "fine_tuning": "none",
+  "isolation": {
+    "sealed_dir": "C:\\Users\\asd\\Bossman\\exam-sealed-20260922",
+    "sealed_files_checked": 23,
+    "sealed_mismatches": 0,
+    "holdout_case_ids": [
+      "HOLDOUT-1",
+      "HOLDOUT-2"
+    ],
+    "lessons_refused": [
+      "LSN-TG-ENV-CONCAT"
+    ],
+    "holdout_lessons_written": 0
+  },
+  "run_status": "MOCK",
+  "metrics": {
+    "MOCK/no_lessons/train": {
+      "cases": 1,
+      "unassisted_solve_rate": 1.0,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 1.0,
+      "teacher_patch_rate": 0.0,
+      "fail_rate": 0.0,
+      "attempts": 1,
+      "hints_used": 0,
+      "repeated_failures": 0,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": null,
+      "wall_s": 9.7
+    },
+    "MOCK/no_lessons/holdout": {
+      "cases": 1,
+      "unassisted_solve_rate": 0.0,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.0,
+      "teacher_patch_rate": 0.0,
+      "fail_rate": 1.0,
+      "attempts": 4,
+      "hints_used": 0,
+      "repeated_failures": 3,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": null,
+      "wall_s": 1.69
+    },
+    "MOCK/no_lessons/all": {
+      "cases": 2,
+      "unassisted_solve_rate": 0.5,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.5,
+      "teacher_patch_rate": 0.0,
+      "fail_rate": 0.5,
+      "attempts": 5,
+      "hints_used": 0,
+      "repeated_failures": 3,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": null,
+      "wall_s": 11.39
+    },
+    "MOCK/with_lessons/train": {
+      "cases": 1,
+      "unassisted_solve_rate": 1.0,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 1.0,
+      "teacher_patch_rate": 0.0,
+      "fail_rate": 0.0,
+      "attempts": 1,
+      "hints_used": 0,
+      "repeated_failures": 0,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": 0.0,
+      "wall_s": 6.95
+    },
+    "MOCK/with_lessons/holdout": {
+      "cases": 1,
+      "unassisted_solve_rate": 0.0,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.0,
+      "teacher_patch_rate": 0.0,
+      "fail_rate": 1.0,
+      "attempts": 4,
+      "hints_used": 0,
+      "repeated_failures": 3,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": null,
+      "wall_s": 1.61
+    },
+    "MOCK/with_lessons/all": {
+      "cases": 2,
+      "unassisted_solve_rate": 0.5,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.5,
+      "teacher_patch_rate": 0.0,
+      "fail_rate": 0.5,
+      "attempts": 5,
+      "hints_used": 0,
+      "repeated_failures": 3,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": 0.0,
+      "wall_s": 8.56
+    }
+  },
+  "results": [
+    {
+      "case_id": "TRAIN-1",
+      "split": "train",
+      "profile": "no_lessons",
+      "status": "STUDENT_UNASSISTED_PASS",
+      "attempts": 1,
+      "hints_used": 0,
+      "hint_levels": [],
+      "teacher_patch_used": false,
+      "reproduced": true,
+      "lessons_injected": 0,
+      "lessons_injected_ids": [],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 0,
+      "tool_errors": 0,
+      "wall_s": 9.7,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 1.58,
+        "detail": "......                                                                   [100%]\n6 passed in 0.64s"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [],
+          "verifier_passed": true,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "3f871a3604a2",
+          "wall_s": 7.2,
+          "tool_error": false
+        }
+      ],
+      "note": "",
+      "student": "MOCK",
+      "model": "mock:smart"
+    },
+    {
+      "case_id": "HOLDOUT-1",
+      "split": "holdout",
+      "profile": "no_lessons",
+      "status": "FAIL",
+      "attempts": 4,
+      "hints_used": 0,
+      "hint_levels": [],
+      "teacher_patch_used": false,
+      "reproduced": true,
+      "lessons_injected": 0,
+      "lessons_injected_ids": [],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 3,
+      "tool_errors": 0,
+      "wall_s": 1.69,
+      "verifier": {
+        "ran": false
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": false,
+          "visible_passed": true,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "PROTOCOL: no FILE/SEARCH/REPLACE block found in the reply. Reply in EXACTLY this format and nothing else:\n\nMEMORY: <the numbers of the memory lessons above that you actually used, or NONE>\nCAUSE: <one line: the"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "999f47525cf0",
+          "wall_s": 0.33,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": false,
+          "visible_passed": true,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "PROTOCOL: no FILE/SEARCH/REPLACE block found in the reply. Reply in EXACTLY this format and nothing else:\n\nMEMORY: <the numbers of the memory lessons above that you actually used, or NONE>\nCAUSE: <one line: the"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "999f47525cf0",
+          "wall_s": 0.31,
+          "tool_error": false
+        },
+        {
+          "n": 3,
+          "by": "student",
+          "parse_ok": false,
+          "visible_passed": true,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "PROTOCOL: no FILE/SEARCH/REPLACE block found in the reply. Reply in EXACTLY this format and nothing else:\n\nMEMORY: <the numbers of the memory lessons above that you actually used, or NONE>\nCAUSE: <one line: the"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "999f47525cf0",
+          "wall_s": 0.31,
+          "tool_error": false
+        },
+        {
+          "n": 4,
+          "by": "student",
+          "parse_ok": false,
+          "visible_passed": true,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "PROTOCOL: no FILE/SEARCH/REPLACE block found in the reply. Reply in EXACTLY this format and nothing else:\n\nMEMORY: <the numbers of the memory lessons above that you actually used, or NONE>\nCAUSE: <one line: the"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "999f47525cf0",
+          "wall_s": 0.31,
+          "tool_error": false
+        }
+      ],
+      "note": "attempt budget exhausted",
+      "student": "MOCK",
+      "model": "mock:smart"
+    },
+    {
+      "case_id": "TRAIN-1",
+      "split": "train",
+      "profile": "with_lessons",
+      "status": "STUDENT_UNASSISTED_PASS",
+      "attempts": 1,
+      "hints_used": 0,
+      "hint_levels": [],
+      "teacher_patch_used": false,
+      "reproduced": true,
+      "lessons_injected": 1,
+      "lessons_injected_ids": [
+        "LSN-MEDIA-EN-ENCODER"
+      ],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": false,
+      "repeated_failures": 0,
+      "tool_errors": 0,
+      "wall_s": 6.95,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 1.5,
+        "detail": "......                                                                   [100%]\n6 passed in 0.63s"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [],
+          "verifier_passed": true,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "3f871a3604a2",
+          "wall_s": 5.05,
+          "tool_error": false
+        }
+      ],
+      "note": "",
+      "student": "MOCK",
+      "model": "mock:smart"
+    },
+    {
+      "case_id": "HOLDOUT-1",
+      "split": "holdout",
+      "profile": "with_lessons",
+      "status": "FAIL",
+      "attempts": 4,
+      "hints_used": 0,
+      "hint_levels": [],
+      "teacher_patch_used": false,
+      "reproduced": true,
+      "lessons_injected": 2,
+      "lessons_injected_ids": [
+        "LSN-STUDIO-FIRST-LIST-TIMEOUT",
+        "LSN-MEDIA-EN-ENCODER"
+      ],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 3,
+      "tool_errors": 0,
+      "wall_s": 1.61,
+      "verifier": {
+        "ran": false
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": false,
+          "visible_passed": true,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "PROTOCOL: no FILE/SEARCH/REPLACE block found in the reply. Reply in EXACTLY this format and nothing else:\n\nMEMORY: <the numbers of the memory lessons above that you actually used, or NONE>\nCAUSE: <one line: the"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "999f47525cf0",
+          "wall_s": 0.31,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": false,
+          "visible_passed": true,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "PROTOCOL: no FILE/SEARCH/REPLACE block found in the reply. Reply in EXACTLY this format and nothing else:\n\nMEMORY: <the numbers of the memory lessons above that you actually used, or NONE>\nCAUSE: <one line: the"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "999f47525cf0",
+          "wall_s": 0.31,
+          "tool_error": false
+        },
+        {
+          "n": 3,
+          "by": "student",
+          "parse_ok": false,
+          "visible_passed": true,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "PROTOCOL: no FILE/SEARCH/REPLACE block found in the reply. Reply in EXACTLY this format and nothing else:\n\nMEMORY: <the numbers of the memory lessons above that you actually used, or NONE>\nCAUSE: <one line: the"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "999f47525cf0",
+          "wall_s": 0.34,
+          "tool_error": false
+        },
+        {
+          "n": 4,
+          "by": "student",
+          "parse_ok": false,
+          "visible_passed": true,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "PROTOCOL: no FILE/SEARCH/REPLACE block found in the reply. Reply in EXACTLY this format and nothing else:\n\nMEMORY: <the numbers of the memory lessons above that you actually used, or NONE>\nCAUSE: <one line: the"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "999f47525cf0",
+          "wall_s": 0.31,
+          "tool_error": false
+        }
+      ],
+      "note": "attempt budget exhausted",
+      "student": "MOCK",
+      "model": "mock:smart"
+    }
+  ],
+  "lessons": {
+    "written": [
+      {
+        "id": "LSN-MEDIA-EN-ENCODER",
+        "lesson_id": "coach-lesson:71ca641af81b7213"
+      },
+      {
+        "id": "LSN-STUDIO-FIRST-LIST-TIMEOUT",
+        "lesson_id": "coach-lesson:421b1abf66c31d16"
+      }
+    ],
+    "rejected": [],
+    "refused_holdout_linked": [
+      "LSN-TG-ENV-CONCAT"
+    ]
+  },
+  "usage": {
+    "MOCK": {
+      "student_calls": 10,
+      "prompt_chars": 73658,
+      "reply_chars": 4122
+    }
+  },
+  "students_not_run": [],
+  "lessons_dir": "owner-repair\\coaching-exam-20260922\\mock\\lessons"
+}

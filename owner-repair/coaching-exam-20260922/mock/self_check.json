@@ -1,0 +1,45 @@
+{
+  "cases": [
+    {
+      "case_id": "TRAIN-1",
+      "split": "train",
+      "visible_on_broken": "red",
+      "visible_expected_on_broken": "red",
+      "hidden_on_broken": "red",
+      "visible_on_fixed": "green",
+      "hidden_on_fixed": "green",
+      "ok": true
+    },
+    {
+      "case_id": "TRAIN-2",
+      "split": "train",
+      "visible_on_broken": "green",
+      "visible_expected_on_broken": "green",
+      "hidden_on_broken": "red",
+      "visible_on_fixed": "green",
+      "hidden_on_fixed": "green",
+      "ok": true
+    },
+    {
+      "case_id": "HOLDOUT-1",
+      "split": "holdout",
+      "visible_on_broken": "green",
+      "visible_expected_on_broken": "green",
+      "hidden_on_broken": "red",
+      "visible_on_fixed": "green",
+      "hidden_on_fixed": "green",
+      "ok": true
+    },
+    {
+      "case_id": "HOLDOUT-2",
+      "split": "holdout",
+      "visible_on_broken": "green",
+      "visible_expected_on_broken": "green",
+      "hidden_on_broken": "red",
+      "visible_on_fixed": "green",
+      "hidden_on_fixed": "green",
+      "ok": true
+    }
+  ],
+  "ok": true
+}
