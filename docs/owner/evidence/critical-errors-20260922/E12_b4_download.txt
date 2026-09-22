@@ -1,0 +1,16 @@
+# B4 Playwright 'Download is starting' -> HTTP 500 (fixed 79a12276)
+captured_utc: 2026-09-22T08:09:59Z
+captured_by: knowledge engineer (Claude Opus 5), read-only
+redaction: learning.trace.redact_text applied; no secrets present
+source: C:\Users\asd\Bossman\startup-night4.log sha256=98c5f19bd9a12a6773a839506a1a8d089817fba412e2ef38796c593ea6b1ae26 mtime_utc=2026-09-21T18:43:42Z
+
+startup-night4.log:16: ERROR:    Exception in ASGI application
+startup-night4.log:24: playwright._impl._errors.Error: Download is starting
+startup-night4.log:26:   - navigating to "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", waiting until "domcontentloaded"
+startup-night4.log:108: playwright._impl._errors.Error: Page.goto: Download is starting
+startup-night4.log:110:   - navigating to "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", waiting until "domcontentloaded"
+startup-night4.log:112: ERROR:    Exception in ASGI application
+startup-night4.log:120: playwright._impl._errors.Error: Download is starting
+startup-night4.log:122:   - navigating to "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", waiting until "domcontentloaded"
+startup-night4.log:204: playwright._impl._errors.Error: Page.goto: Download is starting
+startup-night4.log:206:   - navigating to "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", waiting until "domcontentloaded"
