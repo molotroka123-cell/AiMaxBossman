@@ -25,7 +25,9 @@ async def model_components(svc) -> dict:
             return "degraded"
         if all(record.status == model_health.UNMEASURED for record in records):
             return "unknown"
-        if all(record.status == model_health.HEALTHY for record in records):
+        # "error" is shown to the owner as «Сбой»: only a model MEASURED broken earns it.
+        # Old successes mixed with never-probed models are stale, not failed.
+        if all(record.status in (model_health.HEALTHY, model_health.UNMEASURED) for record in records):
             return "stale"
         return "error"
 
