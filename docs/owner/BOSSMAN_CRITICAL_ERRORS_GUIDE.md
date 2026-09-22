@@ -39,6 +39,18 @@ llama.cpp b10964 Vulkan). Канонная ветка на момент набл
 10. **Строка лога непонятна?** `python tools/import_operational_lessons.py --match-line "<строка>"` — вернёт id записей,
     чей `symptom_regex` совпал.
 
+## Статус в кандидате 1.0-RC (6)
+
+Таблица ниже — снимок на `9e3aa192`. В кандидате 6 (ветка `claude/bossman-1-0-rc-owner-ready-cfesui`):
+
+* **DESK-EDGE-RELAUNCH**, **OPENCODE-V2-FALSE-HEALTHY**, **CI-FLAKY-TIMING-TESTS** — исправления внесены
+  (регрессии: `test_desktop_edge_relaunch.py`, `test_opencode_v2_bridge.py`, `test_approval_decided_before_park.py`,
+  `test_human_speed_gate.py`); подтверждение на железе владельца — прогон по `START_TOMORROW_RU.md`.
+* **MEDIA-RESTART-ORPHAN** — закрыт частично: новый backend находит сироту по sidecar и убивает её с проверкой
+  pid + create_time + argv (`reconcile_orphans`, регрессия `test_reconcile_kills_verified_orphan`). Открыто:
+  между смертью backend и его перезапуском движок ещё жив (Job Object — в `POST_FREEZE_BACKLOG.md`).
+* **TELEGRAM-TIMEOUT-SLOW-MAIN** — Telegram-компаньон не входит в 1.0 (после freeze).
+
 ## Сводная таблица
 
 | ID | Сер. | Статус | Состояние | Коротко |
