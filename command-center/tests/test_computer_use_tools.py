@@ -83,12 +83,17 @@ async def test_stale_generation_is_refused_nothing_executed(env, desk):
 
 async def test_owner_stop_blocks_until_resume(env, desk):
     await tc.observe(env.svc)
-    assert (await env.client.post("/api/computer/stop")).json() == {"stopped": True}
+    assert (await env.client.post("/api/computer/stop")).json()["stopped"] is True
     with pytest.raises(tc.ActRefused, match="Стоп"):
         await tc.act(env.svc, {"action": "type", "generation": 1, "text": "x"})
     assert desk.desktop.executed == []
     await env.client.post("/api/computer/resume")
-    res = await tc.act(env.svc, {"action": "type", "generation": 1, "text": "ok",
+    # R6: «Продолжить» не возвращает старое наблюдение — нужно свежее.
+    with pytest.raises(tc.ActRefused, match="устарело"):
+        await tc.act(env.svc, {"action": "type", "generation": 1, "text": "x"})
+    assert desk.desktop.executed == []
+    gen = (await tc.observe(env.svc))["generation"]
+    res = await tc.act(env.svc, {"action": "type", "generation": gen, "text": "ok",
                                  "expect": {"contains_text": "ok"}})
     assert res["verified"] is True
 

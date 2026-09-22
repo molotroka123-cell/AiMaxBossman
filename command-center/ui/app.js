@@ -14,6 +14,7 @@ import { FEATURE_PAGES, preloadFeaturePages } from './pages/index.js';
 import { mountThinking } from './thinking.js';
 import { mountTestingPeriod } from './testing.js';
 import { mountCommandBar } from './commandbar.js';
+import { mountComputerStop } from './computer_stop.js';
 import { desktopPages, preferredTheme } from './desktop.js';
 import { retainAppFrame } from './app_view.js';
 
@@ -748,6 +749,11 @@ async function boot() {
      читается с сервера, и до входа этот запрос получил бы 401 — панель молча
      осталась бы пустой. При выключенном флаге она сама себя прячет. */
   mountCommandBar();
+
+  /* R6: «СТОП»/«Продолжить» Computer Use. После входа — статус читается с
+     сервера; плашка сама видна, только пока модель управляет компьютером
+     или управление остановлено. */
+  window.__bxComputerStop = mountComputerStop({ bus });
 
   /* Какой код работает. Владелец обязан видеть это ДО первой задачи: брейкер
      по неизвестному SHA — улика, которую не к чему привязать. */
