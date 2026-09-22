@@ -19,7 +19,9 @@ HELP = ("Я Bossman, ваш ИИ-помощник на локальных мод
         "/fast — отвечать самой быстрой моделью; /fast вопрос — один ответ ею\n"
         "/model — какие модели подключены и какая отвечает сейчас\n"
         "/img описание — нарисовать картинку локально; /imgmodel — выбрать модель (Z-Image, FLUX, SDXL)\n"
-        "/video описание — короткое видео локально (Wan2.2); /cancel — отменить генерацию\n"
+        "/video описание — видео локально (Wan2.2): выберите длину 1 с TestRun / 5 / 10 / 15 / 30 с; "
+        "сразу с длиной: /video 10 описание\n"
+        "Фото с подписью /animate 5 (или «оживи 10») — оживить фото в клип 5–10 с; /cancel — отменить генерацию\n"
         "/status — связь с компьютером (владелец)\n"
         "/task описание — подготовить поручение агенту Bossman\n"
         "/confirm код — подтвердить ровно это поручение\n"
@@ -62,7 +64,9 @@ def failure_text(code: str) -> str:
         "IMAGE_GEN_FAILED": "Генерация не удалась в Bossman Studio. Подробности — в Студии, раздел «Картинки».",
         "IMAGE_GEN_CANCELLED": "Генерация отменена.",
         "IMAGE_GEN_TIMEOUT": "Генерация не уложилась в отведённое время и отменена.",
-        "IMAGE_BYTES_UNVERIFIED": "Bossman отдал файл, который не прошёл проверку (хеш или формат не совпали). Картинку не отправляю.",
+        "VIDEO_TOO_LARGE_FOR_TELEGRAM": "Клип готов и проверен, но он больше 48 МБ — Telegram такой не примет. Он лежит в Bossman Studio (раздел «Картинки» → видео).",
+        "ANIMATE_NO_SOURCE": "Пришлите фото с подписью /animate 5 или /animate 10 (можно добавить, как оно должно двигаться), или нажмите «Оживить» под картинкой.",
+        "IMAGE_BYTES_UNVERIFIED":"Bossman отдал файл, который не прошёл проверку (хеш или формат не совпали). Картинку не отправляю.",
         "MODEL_REPLY_INVALID": "Модель вернула пустой или неполный ответ (часто: рассуждения съели лимит токенов). Попробуйте ещё раз или /fast.",
     }
     return known.get(code, f"Действие не подтверждено: {code}. /status и /help помогут продолжить.")
@@ -89,16 +93,40 @@ TRANSLATE_INSTRUCTIONS = ("Translate the user's image description into a concise
                           "no quotes, no explanations.")
 VIDEO_SETTINGS = {"width": 832, "height": 480, "frames": 33, "fps": 16, "steps": 20}
 VIDEO_DEADLINE = 3600
+# /video N — длина ролика: пресеты Studio (`length`); 10/15/30 с — цепочка 5-секундных сегментов.
+VIDEO_LENGTHS = {"1": "test_1s", "5": "5s", "10": "10s", "15": "15s", "30": "30s"}
+VIDEO_LENGTH_LABEL = {"test_1s": "1 с TestRun", "5s": "5 с", "10s": "10 с", "15s": "15 с", "30s": "30 с"}
+# Замер на машине владельца (Radeon 8060S, LLM выгружены): TestRun 1 с — 77 с. Остальное — оценка, не замер.
+VIDEO_LENGTH_ETA = {"test_1s": "1–2 минуты", "5s": "ориентировочно 15–40 минут", "10s": "ориентировочно 30–80 минут",
+                    "15s": "ориентировочно 1–2 часа", "30s": "ориентировочно 2–4 часа"}
+ANIMATE_LENGTHS = {"5": "5s", "10": "10s"}
+ANIMATE_PROMPT = "оживи это фото: естественное плавное движение, лёгкое движение камеры, кинематографично"
+# Wan принимает ширину 640–1280: горизонтальное/квадратное фото -> 832x480, вертикальное -> 640x1120.
+ANIMATE_SIZES = {"landscape": (832, 480), "portrait": (640, 1120)}
+VIDEO_SEND_LIMIT = 48 * 1024 * 1024
 
 
 def is_mp4(data: bytes) -> bool:
     return len(data) > 12 and data[4:8] == b"ftyp"
 
 
+def frame_for_video(data: bytes) -> tuple[bytes, tuple[int, int]]:
+    """Center-crop a photo to Wan's frame (no stretching) and return PNG bytes + (width, height)."""
+    import io
+    from PIL import Image, ImageOps
+    with Image.open(io.BytesIO(data)) as img:
+        img = ImageOps.exif_transpose(img).convert("RGB")
+        w, h = ANIMATE_SIZES["portrait" if img.height > img.width else "landscape"]
+        framed = ImageOps.fit(img, (w, h), method=Image.LANCZOS, centering=(0.5, 0.5))
+        out = io.BytesIO()
+        framed.save(out, format="PNG")
+    return out.getvalue(), (w, h)
+
+
 ROUTE_TITLE = {"main": "🧠 Лучшая", "fast": "⚡ Быстрая"}
 BOT_COMMANDS = [("menu", "Меню с кнопками"), ("best", "Отвечать лучшей моделью"), ("fast", "Отвечать самой быстрой"),
                 ("model", "Какая модель отвечает"), ("img", "Нарисовать картинку"), ("imgmodel", "Модель картинок"),
-                ("video", "Снять видео"), ("cancel", "Отменить генерацию"),
+                ("video", "Снять видео"), ("animate", "Оживить фото"), ("cancel", "Отменить генерацию"),
                 ("forget", "Очистить историю"), ("help", "Помощь")]
 
 
@@ -220,6 +248,7 @@ class Companion:
         return [[b("🧠 Лучшая", "/best"), b("⚡ Самая быстрая", "/fast")],
                 [b("👁 Модель для фото", "/photo"), b("🎨 Сгенерировать картинку", "/img")],
                 [b("🧩 Модель картинок", "/imgmodel"), b("🎬 Видео", "/video")],
+                [b("🎞 Оживить фото", "/animate")],
                 [b("❓ Какая модель?", "/model"), b("ℹ️ Помощь", "/help")],
                 [b("🧹 Очистить историю", "/forget")]] + (
                 [[b("🖥 Управление ПК", "/pc")]] if self.pc_allowed(person) else [])
@@ -398,8 +427,10 @@ class Companion:
         chosen = self.store.get("img_model:" + person.key)
         return chosen if chosen in IMAGE_MODELS else self.settings.image_model
 
-    async def generate(self, person: Person, prompt: str, surface: str = "image") -> str | None:
-        """Local text->image / text->video via Bossman Studio; media is sent only after byte verification."""
+    async def generate(self, person: Person, prompt: str, surface: str = "image", length: str | None = None,
+                       start_run: str | None = None, size: tuple[int, int] | None = None) -> str | None:
+        """Local text->image / text->video (or photo->video with start_run) via Bossman Studio;
+        media is sent only after byte verification."""
         s = self.settings
         video = surface == "video"
         model_id = VIDEO_MODEL if video else self.image_model_for(person)
@@ -420,9 +451,22 @@ class Companion:
                 raise CompanionError("IMAGE_ENGINE_NOT_CONFIGURED")
             seed = secrets.randbelow(2**31 - 1)
             started = time.monotonic()
+            deadline = s.image_deadline
             if video:
-                params, what = dict(VIDEO_SETTINGS), "Снимаю видео"
-                size, eta = f"{params['width']}×{params['height']}, {params['frames']} кадров", "10–30 минут"
+                from bcc.studio.providers.sdcpp import (apply_length, declared_duration_s, segments_for,
+                                                        workload_scale)
+                params = dict(VIDEO_SETTINGS)
+                if size:
+                    params["width"], params["height"] = size
+                if length:
+                    params["length"] = length
+                eff = apply_length(params)
+                what = "Оживляю фото" if start_run else "Снимаю видео"
+                seconds = declared_duration_s(eff)
+                size = (f"{eff['width']}×{eff['height']}, ≈{seconds:.0f} с" if seconds and seconds >= 1.5 else
+                        f"{eff['width']}×{eff['height']}, {eff['frames']} кадров")
+                eta = VIDEO_LENGTH_ETA.get(length, "10–30 минут")
+                deadline = VIDEO_DEADLINE * segments_for(eff) * workload_scale(eff)
             else:
                 # Each model has its own valid step range; the owner's step setting applies to the default model only.
                 params = {"width": s.image_size, "height": s.image_size}
@@ -431,7 +475,8 @@ class Companion:
                 what, size, eta = "Рисую", f"{s.image_size}×{s.image_size}", "1–5 минут"
             params["seed"] = seed
             engine_prompt = await self.english_prompt(prompt) if model_id in ENGLISH_ONLY_MODELS else prompt
-            job_id = await self.core.studio_create(model_id, engine_prompt[:2000], params)
+            media = [{"run_id": start_run, "role": "start"}] if (video and start_run) else None
+            job_id = await self.core.studio_create(model_id, engine_prompt[:2000], params, media)
             self.image_job["id"] = job_id
             with contextlib.suppress(CompanionError):
                 await self.telegram.send(person, f"{what} локально ({IMAGE_MODELS.get(model_id, model_id)}, {size}). "
@@ -442,7 +487,7 @@ class Companion:
                     with contextlib.suppress(CompanionError):
                         await self.core.studio_cancel(job_id)
                     raise CompanionError("IMAGE_GEN_CANCELLED")
-                if time.monotonic() - started > (VIDEO_DEADLINE if video else s.image_deadline):
+                if time.monotonic() - started > deadline:
                     with contextlib.suppress(CompanionError):
                         await self.core.studio_cancel(job_id)
                     raise CompanionError("IMAGE_GEN_TIMEOUT")
@@ -457,7 +502,9 @@ class Companion:
             run = next((r for r in runs if str(r.get("mime", "")).startswith(surface + "/")), None)
             if run is None:
                 raise CompanionError("IMAGE_BYTES_UNVERIFIED")
-            data = await self.core.studio_file(run["id"], 48 * 1024 * 1024 if video else 32 * 1024 * 1024)
+            if video and type(run.get("file_bytes")) is int and run["file_bytes"] > VIDEO_SEND_LIMIT:
+                raise CompanionError("VIDEO_TOO_LARGE_FOR_TELEGRAM")
+            data = await self.core.studio_file(run["id"], VIDEO_SEND_LIMIT if video else 32 * 1024 * 1024)
             ok_type = is_mp4(data) if video else image_mime(data) in {"image/png", "image/jpeg"}
             if hashlib.sha256(data).hexdigest() != run.get("sha256") or not ok_type:
                 raise CompanionError("IMAGE_BYTES_UNVERIFIED")
@@ -466,11 +513,21 @@ class Companion:
             translated = f"\n(для модели по-английски: {engine_prompt[:300]})" if engine_prompt != prompt else ""
             caption = (f"{'🎬' if video else '🎨'} {prompt[:300]}{translated}\nМодель: {label} · seed {seed} · {elapsed} с · "
                        f"локально, Bossman Studio (проверено: sha256 совпал)")
-            again = [[self.button(person, "🔁 Ещё вариант", ("/video " if video else "/img ") + prompt[:2000])]]
+            if video and start_run:
+                caption += f"\nОживлено из фото · {VIDEO_LENGTH_LABEL.get(length, '')}"
+                repeat = f"/animate {next((k for k, v in ANIMATE_LENGTHS.items() if v == length), '5')} run:{start_run} {prompt}"
+            elif video:
+                n = next((k for k, v in VIDEO_LENGTHS.items() if v == length), None)
+                repeat = "/video " + (n + " " if n else "") + prompt
+            else:
+                repeat = "/img " + prompt
+            again = [[self.button(person, "🔁 Ещё вариант", repeat[:2000])]]
             if video:
                 await self.telegram.send_video(person, data, caption, again)
             else:
                 again[0].append(self.button(person, "🧩 Другая модель", "/imgmodel"))
+                again.append([self.button(person, "🎞 Оживить 5 с", f"/animate 5 run:{run['id']}"),
+                              self.button(person, "🎞 Оживить 10 с", f"/animate 10 run:{run['id']}")])
                 await self.telegram.send_photo(person, data, caption, again)
             self.store.remember(person.key, ("[видео] " if video else "[картинка] ") + prompt[:500],
                                 f"Сгенерировано локально ({label}), seed {seed}.")
@@ -496,6 +553,24 @@ class Companion:
             return psutil.virtual_memory().available / 2**30
         except Exception:
             return 0.0
+
+    async def animate(self, person: Person, n: str, source: str, prompt: str = "") -> str | None:
+        """Photo -> 5/10 s clip: the photo is cropped to Wan's frame, imported into Studio (byte-verified
+        there) and used as the I2V start frame. Source: `tg:<file_id>` (owner's photo) or `run:<id>` (Studio)."""
+        if self.image_job is not None:
+            raise CompanionError("IMAGE_GEN_BUSY")
+        if source.startswith("tg:"):
+            data = await self.telegram.fetch_file(source[3:], IMAGE_MAX_BYTES)
+        elif source.startswith("run:"):
+            data = await self.core.studio_file(source[4:], 32 * 1024 * 1024)
+        else:
+            raise CompanionError("ANIMATE_NO_SOURCE")
+        if image_mime(data) is None:
+            raise CompanionError("IMAGE_NOT_RECOGNISED")
+        framed, size = await asyncio.to_thread(frame_for_video, data)
+        start_run = await self.core.studio_reference("telegram-animate.png", framed)
+        return await self.generate(person, prompt.strip() or ANIMATE_PROMPT, "video",
+                                   length=ANIMATE_LENGTHS.get(n, "5s"), start_run=start_run, size=size)
 
     async def see(self, person: Person, message: dict) -> str:
         """Photo question: vision-capable local route only; bytes live in memory for this call."""
@@ -528,7 +603,22 @@ class Companion:
         if message.get("_rejected") in REJECTED_TEXT:
             return REJECTED_TEXT[message["_rejected"]]
         if isinstance(message.get("_image"), dict):
-            return await self.see(person, message)
+            caption = str(message.get("text") or "").strip()
+            first = caption.split(" ", 1)[0].lower()
+            file_id = message["_image"]["file_id"]
+            if first in {"/animate", "/оживи", "оживи", "оживить"}:
+                n, _, rest = caption.partition(" ")[2].strip().partition(" ")
+                if n not in ANIMATE_LENGTHS:
+                    n, rest = "5", caption.partition(" ")[2].strip()
+                return await self.animate(person, n, "tg:" + file_id, rest)
+            buttons = [[self.button(person, "🎞 Оживить 5 с", f"/animate 5 tg:{file_id}"),
+                        self.button(person, "🎞 Оживить 10 с", f"/animate 10 tg:{file_id}")]]
+            try:
+                return Reply(await self.see(person, message), buttons)
+            except CompanionError as exc:
+                if str(exc) not in {"NO_VISION_MODEL", "VISION_MODEL_UNAVAILABLE"}:
+                    raise
+                return Reply(failure_text(str(exc)) + "\n\nА оживить это фото в видео могу:", buttons)
         text = message['text'].strip()
         if not text:
             return HELP
@@ -671,8 +761,26 @@ class Companion:
                           for mid, label in IMAGE_MODELS.items() if mid != VIDEO_MODEL])
         if command == "/video":
             if not arg:
-                return "Напишите /video и что снять, например: /video волны разбиваются о скалы на закате."
-            return await self.generate(person, arg, "video")
+                return ("Напишите /video и что снять, например: /video волны разбиваются о скалы на закате.\n"
+                        "Длину можно указать сразу: /video 1 (TestRun), /video 5, /video 10, /video 15, /video 30.")
+            n, _, rest = arg.partition(" ")
+            if n in VIDEO_LENGTHS and rest.strip():
+                return await self.generate(person, rest.strip(), "video", length=VIDEO_LENGTHS[n])
+            # No length given: let the owner pick; 10/15/30 s are chains of 5 s segments.
+            return Reply("Какой длины снять?\n" + "\n".join(f"• {VIDEO_LENGTH_LABEL[v]} — {VIDEO_LENGTH_ETA[v]}"
+                                                            for v in VIDEO_LENGTHS.values()),
+                         [[self.button(person, "⚡ " + VIDEO_LENGTH_LABEL["test_1s"], "/video 1 " + arg),
+                           self.button(person, "5 с", "/video 5 " + arg)],
+                          [self.button(person, "10 с", "/video 10 " + arg), self.button(person, "15 с", "/video 15 " + arg),
+                           self.button(person, "30 с", "/video 30 " + arg)]])
+        if command == "/animate":
+            n, _, rest = arg.partition(" ")
+            if n not in ANIMATE_LENGTHS:
+                n, rest = "5", arg
+            source, _, prompt = rest.strip().partition(" ")
+            if not source.startswith(("tg:", "run:")):
+                return failure_text("ANIMATE_NO_SOURCE")
+            return await self.animate(person, n, source, prompt)
         if command == "/img":
             if not arg:
                 return "Напишите /img и что нарисовать, например: /img кот-астронавт в стиле акварели."

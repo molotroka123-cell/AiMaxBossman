@@ -60,17 +60,17 @@ def test_imgmodel_rejects_unknown_or_video_model(tmp_path):
 
 def test_video_is_sent_only_as_verified_mp4(tmp_path):
     studio = MultiStudio(file_bytes=MP4)
-    reply, history, tg = run(tmp_path, studio, text='/video волны')
+    reply, history, tg = run(tmp_path, studio, text='/video 5 волны')
     job = studio.created[0]
     assert reply is None and job['model'] == VIDEO_MODEL and studio.surface == 'video'
-    assert {k: job['settings'][k] for k in VIDEO_SETTINGS} == VIDEO_SETTINGS
+    assert {k: job['settings'][k] for k in VIDEO_SETTINGS} == VIDEO_SETTINGS and job['settings']['length'] == '5s'
     videos = [c for m, c in tg.calls if m == 'sendVideo']
     assert len(videos) == 1 and MP4 in videos[0]
     assert history[0]['content'] == '[видео] волны'
 
 
 def test_video_with_non_mp4_bytes_is_never_sent(tmp_path):
-    reply, _, tg = run(tmp_path, MultiStudio(file_bytes=PNG), text='/video волны')
+    reply, _, tg = run(tmp_path, MultiStudio(file_bytes=PNG), text='/video 5 волны')
     assert reply == 'ERR:IMAGE_BYTES_UNVERIFIED'
     assert not [m for m, _ in tg.calls if m == 'sendVideo']
 

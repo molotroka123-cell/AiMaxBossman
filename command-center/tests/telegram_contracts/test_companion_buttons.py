@@ -71,10 +71,10 @@ def test_start_and_menu_show_main_menu(tmp_path):
         assert isinstance(reply, Reply) and '/best' in reply
         labels = [l for row in reply.keyboard for l, _ in row]
         assert labels == ['🧠 Лучшая', '⚡ Самая быстрая', '👁 Модель для фото', '🎨 Сгенерировать картинку',
-                          '🧩 Модель картинок', '🎬 Видео', '❓ Какая модель?', 'ℹ️ Помощь', '🧹 Очистить историю']
+                          '🧩 Модель картинок', '🎬 Видео', '🎞 Оживить фото', '❓ Какая модель?', 'ℹ️ Помощь', '🧹 Очистить историю']
         assert all(len(d) == 18 and d.startswith('b:') for row in reply.keyboard for _, d in row)
         menu = await app.handle(OWNER, msg(OWNER.user_id, '/menu'))
-        assert len([1 for row in menu.keyboard for _ in row]) == 9
+        assert len([1 for row in menu.keyboard for _ in row]) == 10
         assert store.lane({'text': '/menu'}) == 'control'
     with_app(tmp_path, body)
 

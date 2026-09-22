@@ -83,6 +83,8 @@ ENGINES = {
 REQUIRED_ROLES = {
     "sdcpp:wan2.2-ti2v-5b": ("diffusion", "vae", "text_encoder"),
     "sdcpp:z-image-turbo": ("diffusion", "vae", "text_encoder"),
+    "sdcpp:flux1-schnell": ("diffusion", "vae", "clip_l", "t5xxl"),
+    "sdcpp:sdxl-base": ("model", "vae"),
 }
 ALLOWED_INPUT_ROLES = frozenset({"start"})
 ALLOWED_INPUT_FORMATS = frozenset({"PNG", "JPEG"})

@@ -348,12 +348,24 @@ class Core:
         rows = body.get("items") if isinstance(body, dict) else None
         return next((r for r in rows or [] if isinstance(r, dict) and r.get("id") == model_id), None)
 
-    async def studio_create(self, model_id: str, prompt: str, settings: dict) -> int:
-        body = await self._request("POST", "/api/studio/jobs",
-                                   {"model": model_id, "prompt": prompt, "settings": settings, "count": 1})
+    async def studio_create(self, model_id: str, prompt: str, settings: dict, media: list | None = None) -> int:
+        payload = {"model": model_id, "prompt": prompt, "settings": settings, "count": 1}
+        if media:
+            payload["media"] = media
+        body = await self._request("POST", "/api/studio/jobs", payload)
         if not isinstance(body, dict) or type(body.get("id")) is not int:
             raise CompanionError("STUDIO_JOB_UNKNOWN")
         return body["id"]
+
+    async def studio_reference(self, filename: str, data: bytes) -> str:
+        """Import owner-sent image bytes into Studio (byte-verified there); returns the run id."""
+        import base64
+        body = await self._request("POST", "/api/studio/references",
+                                   {"filename": filename, "data_base64": base64.b64encode(data).decode()})
+        rid = body.get("id") if isinstance(body, dict) else None
+        if not isinstance(rid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", rid):
+            raise CompanionError("STUDIO_RUN_UNKNOWN")
+        return rid
 
     async def studio_job(self, job_id: int) -> dict:
         body = await self._request("GET", f"/api/studio/jobs/{int(job_id)}")

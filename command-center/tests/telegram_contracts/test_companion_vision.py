@@ -14,7 +14,7 @@ import pytest
 
 from bcc.telegram_companion.adapters import IMAGE_MAX_BYTES, Models, Telegram, image_mime
 from bcc.telegram_companion.config import CompanionError, Person, Settings
-from bcc.telegram_companion.service import IMAGE_PROMPT, Companion
+from bcc.telegram_companion.service import IMAGE_PROMPT, Companion, failure_text
 from bcc.telegram_companion.store import Store
 
 OWNER = Person(11111, 11111, 'owner', None)
@@ -184,10 +184,11 @@ def test_vision_route_selection(tmp_path):
     world = World(main_vision=True, fast_vision=True)
     reply, _, _ = run_photo(tmp_path / 'a', world, photo_msg())
     assert reply.startswith('👁 🧠 Лучшая · gpt-oss-120b\n')
-    # nobody advertises vision -> clear refusal, image never downloaded
+    # nobody advertises vision -> clear refusal plus the "animate" offer; image never downloaded
     world = World(main_vision=False, fast_vision=False)
     reply, _, _ = run_photo(tmp_path / 'b', world, photo_msg())
-    assert reply == 'ERR:NO_VISION_MODEL' and world.urls('getFile') == []
+    assert reply.startswith(failure_text('NO_VISION_MODEL')) and world.urls('getFile') == []
+    assert [label for row in reply.keyboard for label, _ in row] == ['🎞 Оживить 5 с', '🎞 Оживить 10 с']
     # explicit owner setting wins without probing
     world = World(main_vision=False, fast_vision=False)
     reply, _, _ = run_photo(tmp_path / 'c', world, photo_msg(), settings=cfg(vision_route='fast'))
