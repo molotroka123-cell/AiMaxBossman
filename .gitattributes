@@ -5,3 +5,6 @@
 command-center/ui/icons/** binary
 command-center/ui/icon.svg -text
 bossman-core/ui/icon.svg -text
+
+# Доказательства для bossman_critical_errors.json: sha256 должен совпадать побайтово.
+docs/owner/evidence/** -text
