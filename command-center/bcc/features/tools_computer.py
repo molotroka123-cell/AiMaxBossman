@@ -32,6 +32,11 @@ wiring-дефект продукта, а не ограничение среды.
      блокирует новые действия до «Продолжить», переживает перезапуск backend
      (файл STOP в data_dir/computer) и после «Продолжить» обесценивает все
      прежние наблюдения — старая очередь по устаревшему экрану не исполняется.
+     «Стоп» выигрывает гонки (R6): каждое действие запоминает «эпоху стопа» при
+     входе и перепроверяет её под замком и перед КАЖДЫМ обращением к рабочему
+     столу. Действие, ждавшее замок, пока владелец жал «Стоп» (даже если он тут
+     же нажал «Продолжить»), не исполняется — это касается и launch/wait, у
+     которых нет generation.
   6. Разрешение на последствийное действие приходит ТОЛЬКО из доверенного
      контекста вызова (ToolContext.approval_id, строка approvals), привязано к
      ВИДУ последствия и перепроверяется по свежему экрану перед эффектом.
@@ -163,6 +168,9 @@ class ComputerState:
     # Исход последнего действия неизвестен (таймаут адаптера): до свежего
     # наблюдения действия запрещены.
     outcome_unknown: str = ""
+    # R6: растёт на каждом «Стоп» и «Продолжить». Действие, начатое в одной
+    # эпохе, не делает ни шага по рабочему столу в другой.
+    stop_epoch: int = 0
 
     @property
     def unknown_path(self) -> Path | None:
@@ -209,6 +217,7 @@ class ComputerState:
 
     def set_stop(self, by: str) -> None:
         self.stop.set()
+        self.stop_epoch += 1
         if self.stop_path is not None:
             try:
                 self.stop_path.parent.mkdir(parents=True, exist_ok=True)
@@ -217,6 +226,7 @@ class ComputerState:
                 pass
 
     def clear_stop(self) -> None:
+        self.stop_epoch += 1
         self.stop.clear()
         if self.stop_path is not None:
             try:
@@ -513,10 +523,14 @@ async def _focus(st: "ComputerState", handle: int) -> bool:
     return int(fg.get("handle") or 0) == int(handle)
 
 
-def _stop_check(st: ComputerState, phase: str) -> None:
+def _stop_check(st: ComputerState, phase: str, epoch: int | None = None) -> None:
     if st.stopped():
         raise ActRefused(f"владелец нажал «Стоп» ({phase}): действия на рабочем столе "
                          f"остановлены до «Продолжить»")
+    if epoch is not None and st.stop_epoch != epoch:
+        raise ActRefused(f"владелец нажимал «Стоп», пока действие ждало очереди или шло ({phase}) — "
+                         f"действие отменено; вызовите computer.observe и решите заново "
+                         f"по свежему экрану")
 
 
 def _policy_observation(core, obs: dict, generation: int):
@@ -551,13 +565,16 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
     kind = str(args.get("action") or "").strip().lower()
     if kind not in KINDS:
         raise ActRefused(f"action: одно из {', '.join(KINDS)}")
-    _stop_check(st, "до очереди")
+    # R6: эпоха стопа фиксируется при входе; любой «Стоп» (и «Продолжить») после
+    # этого момента отменяет оставшиеся шаги действия.
+    epoch = st.stop_epoch
+    _stop_check(st, "до очереди", epoch)
     target = str(args.get("target") or "").strip()
     started_at = time.time()
     async with st.lock:                            # один рабочий стол — одно действие за раз
         # «Стоп» мог прийти, пока действие ждало замок: очередь из двух действий,
         # STOP между ними — второе не исполняется.
-        _stop_check(st, "после ожидания очереди")
+        _stop_check(st, "после ожидания очереди", epoch)
         if st.outcome_unknown:
             raise ActRefused(f"исход прошлого действия неизвестен ({st.outcome_unknown}) — "
                              f"сначала computer.observe")
@@ -574,6 +591,7 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                                  f"перечитайте экран (computer.observe)")
         before = st.last
         if kind in INPUT_KINDS:
+            _stop_check(st, "проверка окна", epoch)
             fg_now = await _bounded(st, st.desktop.foreground(), "проверка окна")
             want = (before.get("window") or {}).get("handle")
             if want and int(fg_now.get("handle") or 0) != int(want):
@@ -634,6 +652,7 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
         if kind in ("click", "double_click") and coords:
             # Координатный запасной путь: ПЕРЕД кликом перечитываем экран и
             # требуем, чтобы точка лежала внутри названного элемента.
+            _stop_check(st, "перечитывание экрана", epoch)
             fresh = await _bounded(st, observe(svc, screenshot=False), "наблюдение")
             hits = [e for e in _find(fresh, target, index) if "left" in e
                     and e["left"] <= x <= e["right"] and e["top"] <= y <= e["bottom"]]
@@ -649,6 +668,7 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
             # ComboBox, и Edit внутри; фокус на обёртке, и вставка уходила в никуда.
             # Для ввода выбираем РЕДАКТИРУЕМЫЙ элемент и проверяем, что фокус на нём.
             handle = int((before.get("window") or {}).get("handle") or 0)
+            _stop_check(st, "фокус поля", epoch)
             if not await asyncio.to_thread(_focus_editable, handle, target):
                 raise ActRefused(f"поле «{target}» не найдено или не принимает ввод — ничего не введено")
         if kind in ("type", "hotkey") and not target:
@@ -659,6 +679,7 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
             editable = [e for e in (before or {}).get("elements") or []
                         if e.get("control_type") in ("Document", "Edit") and e.get("name")]
             if len(editable) == 1:
+                _stop_check(st, "фокус поля", epoch)
                 await _bounded(st, st.desktop.execute(
                     core["ComputerAction"].make(AK.FOCUS, target=editable[0]["name"]), None), "фокус поля")
             elif kind == "type" and len(editable) > 1:
@@ -670,6 +691,7 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
             # Одобрение привязано к экрану: перед эффектом политика
             # пересматривается по СВЕЖЕМУ окну. Если экран сменился так, что
             # последствие уже другое (или окно защищено) — отказ, не эффект.
+            _stop_check(st, "перечитывание экрана", epoch)
             fresh = await _bounded(st, observe(svc, screenshot=False), "наблюдение")
             d2 = policy.classify(a, mode=core["TaskMode"].CONTROL,
                                  observation=_policy_observation(core, fresh, st.generation))
@@ -685,7 +707,7 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                 raise ActRefused("окно сменилось после одобрения — одобрение не применено")
             before = fresh
         # Последняя проверка «Стоп» — непосредственно перед эффектом.
-        _stop_check(st, "перед эффектом")
+        _stop_check(st, "перед эффектом", epoch)
         if kind == "type" and args.get("replace"):
             await _bounded(st, st.desktop.execute(core["ComputerAction"].make(
                 AK.HOTKEY, args={"keys": ["ctrl", "a"]}), None), "выделение")
@@ -697,6 +719,7 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
             app = canonical_app(target)
             known = {h for h, _, _ in await asyncio.to_thread(_top_windows)}
             st.launched_pid = None
+            _stop_check(st, "запуск", epoch)
             await _bounded(st, st.launcher.execute(a, None), "запуск")
             # Windows не отдаёт передний план процессу, запущенному из фона:
             # находим окно ЗАПУЩЕННОГО приложения и переводим фокус на него явно.
@@ -715,6 +738,7 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                     f"«{target}» запущен, но окно запущенного приложения не появилось за "
                     f"{LAUNCH_WAIT_S:.0f} с"
                     + (f" (новые чужие окна: {foreign} — не трогаем)" if foreign else ""))
+            _stop_check(st, "фокус окна", epoch)
             if not await _focus(st, chosen[0]):
                 raise ActRefused(f"окно «{chosen[1]}» появилось, но фокус получить не удалось")
         elif kind == "focus_window":
@@ -725,9 +749,11 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
             if len(wins) != 1:
                 raise ActRefused(f"окон с «{target}» в заголовке: {len(wins)} — "
                                  + ("уточните заголовок" if wins else "такого окна нет"))
+            _stop_check(st, "фокус окна", epoch)
             if not await _focus(st, wins[0][0]):
                 raise ActRefused(f"не удалось вывести «{wins[0][1]}» на передний план")
         else:
+            _stop_check(st, "действие", epoch)
             await _bounded(st, st.desktop.execute(a, None), "действие")
         await asyncio.sleep(SETTLE_S)
         after = await _bounded(st, observe(svc), "наблюдение")
@@ -863,6 +889,8 @@ async def http_status(request: Request):
     return {"available": ok, "detail": why or "Windows UIA + pyautogui готовы",
             "stopped": stopped, "generation": st.generation if st else 0,
             "session": st.session if st else None,
+            # R6: занят ли рабочий стол (действие в полёте) и эпоха стопа — для панели.
+            "busy": bool(st and st.lock.locked()), "stop_epoch": st.stop_epoch if st else 0,
             "outcome_unknown": ((st.outcome_unknown if st else "") or None
                                 if st is not None else
                                 ("исход прошлого действия неизвестен" if unknown else None)),
