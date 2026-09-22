@@ -94,14 +94,37 @@ def make_server(path: Path):
                 return self.respond(404, b'{}')
             self.respond(200, HTML.replace('NONCE', nonce).encode(), 'text/html')
 
+        def drain(self, limit=65536):
+            """Read the request body before refusing it.
+
+            Answering with unread bytes still in the socket makes Windows reset
+            the connection, so the caller sees a broken connection instead of
+            the refusal. Bounded: an oversized body is refused, not swallowed.
+            """
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+            except ValueError:
+                size = 0
+            remaining = min(max(size, 0), limit)
+            while remaining > 0:
+                chunk = self.rfile.read(min(remaining, 8192))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+            if size > limit:
+                self.close_connection = True
+
         def do_POST(self):
-            if (self.path != '/setup' or self.headers.get('Host') != self.server.expected_host or
+            refused = (self.path != '/setup' or self.headers.get('Host') != self.server.expected_host or
                     self.headers.get('Origin') != 'http://' + self.server.expected_host or
-                    not hmac.compare_digest(self.headers.get('X-Setup-Token', ''), token) or self.server.saved):
+                    not hmac.compare_digest(self.headers.get('X-Setup-Token', ''), token) or self.server.saved)
+            if refused:
+                self.drain()
                 return self.respond(403, b'{}')
             try:
                 size = int(self.headers.get('Content-Length', '0'))
                 if not 0 < size <= 16384 or self.headers.get('Content-Type') != 'application/json':
+                    self.drain()
                     raise ValueError
                 save_form(path, json.loads(self.rfile.read(size)))
             except (CompanionError, OSError, ValueError, TypeError, UserWarning):
