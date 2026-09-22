@@ -95,7 +95,8 @@ class Store:
             return "chat"
         command = str(body.get("text", "")).strip().partition(" ")[0].lower()
         if command in {"/status", "/help", "/lock", "/watch", "/cloud", "/model", "/cancel", "/menu", "/start", "/photo",
-                       "/privacy", "/forget", "/forget_confirm", "/pause_learning", "/resume_learning"}:
+                       "/privacy", "/forget", "/forget_confirm", "/pause_learning", "/resume_learning",
+                       "/pc", "/claude", "/claude_new", "/claude_stop", "/mode", "/sh", "/screen", "/bossman"}:
             return "control"
         # "/best" or "/fast" alone only switches the route; with a question it is chat.
         bare = not str(body.get("text", "")).strip().partition(" ")[2].strip()

@@ -4,9 +4,11 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import hashlib
+import os
 import secrets
 import time
 
+from . import pc_control
 from .adapters import (CURRENT_PRIORITY, IMAGE_MAX_BYTES, IMAGE_MIMES, Core, Models, RateLimited, Telegram,
                        image_mime, scrub)
 from .config import CompanionError, Person, Settings
@@ -113,6 +115,19 @@ class Reply(str):
         obj = super().__new__(cls, text)
         obj.keyboard = keyboard
         return obj
+PC_COMMANDS = {"/pc", "/claude", "/claude_new", "/claude_stop", "/mode", "/sh", "/screen", "/bossman"}
+PC_OFF = ("Управление компьютером из Telegram выключено или доступно только владельцу. "
+          "Владелец включает его локально: pc_control в config.json компаньона.")
+PC_HELP = ("🖥 Управление компьютером (только владелец):\n"
+           "/claude задача — поручить Claude Code (работает на этом ПК, помнит прошлые поручения)\n"
+           "/mode claude — все обычные сообщения идут в Claude Code; /mode chat — снова локальные модели\n"
+           "/claude_new — начать новую сессию Claude; /claude_stop — остановить текущую работу\n"
+           "/sh команда — выполнить команду PowerShell и прислать вывод\n"
+           "/screen — снимок экрана\n"
+           "/bossman — состояние Bossman; /bossman start — запустить Bossman\n\n"
+           "⚠️ Claude и /sh действуют с правами вашей учётной записи Windows без дополнительных подтверждений.")
+PROCESSES_PS = ("Get-Process | Sort-Object WS -Descending | Select-Object -First 15 Name,Id,"
+                "@{n='MB';e={[int]($_.WS/1MB)}} | Format-Table -AutoSize | Out-String -Width 120")
 DELEGATION_OFF = ("Поручения из Telegram пока недоступны: Telegram сейчас только для беседы с локальными "
                   "моделями. Управление компьютером, браузером и файлами отсюда не выполняется.")
 
@@ -141,6 +156,7 @@ class Companion:
         self.profile_building = False
         self.monitor_state = None
         self.monitor_failures = 0
+        self.claude_job = None
         if self.telegram is not None:
             self.telegram.authorize_delivery = self.delivery_allowed
 
@@ -186,7 +202,96 @@ class Companion:
         return [[b("🧠 Лучшая", "/best"), b("⚡ Самая быстрая", "/fast")],
                 [b("👁 Модель для фото", "/photo"), b("🎨 Сгенерировать картинку", "/img")],
                 [b("❓ Какая модель?", "/model"), b("ℹ️ Помощь", "/help")],
-                [b("🧹 Очистить историю", "/forget")]]
+                [b("🧹 Очистить историю", "/forget")]] + (
+                [[b("🖥 Управление ПК", "/pc")]] if self.pc_allowed(person) else [])
+
+    # ---------------------------------------------------------------- computer control (owner only)
+    def pc_allowed(self, person: Person) -> bool:
+        return person.role == "owner" and self.settings.pc_control is True
+
+    def pc_menu(self, person: Person):
+        b = lambda label, cmd: self.button(person, label, cmd)  # noqa: E731
+        claude_mode = self.store.get("mode:" + person.key, "chat") == "claude"
+        return [[b("📸 Экран", "/screen"),
+                 b("💬 Режим чата", "/mode chat") if claude_mode else b("🤖 Режим Claude", "/mode claude")],
+                [b("🆕 Новая сессия Claude", "/claude_new"), b("✋ Стоп Claude", "/claude_stop")],
+                [b("📊 Bossman", "/bossman"), b("🔌 Процессы", "/sh " + PROCESSES_PS)]]
+
+    async def pc(self, person: Person, command: str, arg: str, text: str):
+        """Owner-only computer control; guests and a disabled switch get a refusal, never an effect."""
+        if not self.pc_allowed(person):
+            return PC_OFF
+        cwd = self.settings.claude_cwd or None
+        if command == "/pc":
+            mode = self.store.get("mode:" + person.key, "chat")
+            return Reply(PC_HELP + f"\n\nСейчас режим: {'Claude Code' if mode == 'claude' else 'чат с локальной моделью'}.",
+                         self.pc_menu(person))
+        if command == "/mode":
+            if arg not in {"claude", "chat"}:
+                return "/mode claude — сообщения идут в Claude Code; /mode chat — в локальную модель."
+            self.store.put("mode:" + person.key, arg)
+            return ("🤖 Режим Claude Code: обычные сообщения теперь задачи для Claude на этом ПК. /mode chat — вернуться."
+                    if arg == "claude" else "💬 Режим чата: отвечают локальные модели.")
+        if command == "/sh":
+            if not arg:
+                return "Напишите /sh и команду PowerShell, например: /sh Get-Date"
+            return await pc_control.shell(arg, cwd)
+        if command == "/screen":
+            try:
+                data = await pc_control.screenshot()
+            except RuntimeError:
+                return "Не удалось снять экран (экран заблокирован или нет активного сеанса)."
+            await self.telegram.send_photo(person, data, "🖥 Снимок экрана",
+                                           [[self.button(person, "🔄 Ещё раз", "/screen")]])
+            return None
+        if command == "/claude_new":
+            self.store.put("claude_session:" + person.key, None)
+            return "🆕 Следующее поручение Claude начнёт новую сессию."
+        if command == "/claude_stop":
+            job = self.claude_job
+            if job is None or job.done():
+                return "Claude сейчас ничего не делает."
+            job.cancel()
+            return "✋ Останавливаю Claude…"
+        if command == "/bossman":
+            if arg == "start":
+                if not self.settings.bossman_launch:
+                    return "Команда запуска Bossman не задана (bossman_launch в config.json компаньона)."
+                return await pc_control.shell(self.settings.bossman_launch, cwd)
+            try:
+                await self.core.status()
+                return "📊 Bossman запущен и отвечает (" + self.settings.core_url + ")."
+            except CompanionError:
+                return Reply("📊 Bossman сейчас не отвечает.", [[self.button(person, "▶️ Запустить Bossman", "/bossman start")]])
+        prompt = arg if command == "/claude" else text
+        if not prompt:
+            return "Напишите /claude и задачу, например: /claude проверь, запущены ли модели на 8081–8083"
+        if self.claude_job is not None and not self.claude_job.done():
+            return Reply("Claude ещё работает над прошлым поручением. Дождитесь ответа или остановите.",
+                         [[self.button(person, "✋ Стоп Claude", "/claude_stop")]])
+        self.claude_job = asyncio.create_task(self.claude_turn(person, prompt))
+        return Reply("🤖 Передал Claude Code, работаю… Ответ пришлю сюда.",
+                     [[self.button(person, "✋ Стоп", "/claude_stop")]])
+
+    async def claude_turn(self, person: Person, prompt: str):
+        indicator = asyncio.create_task(self.typing(person))
+        key = "claude_session:" + person.key
+        try:
+            text, session, cost = await pc_control.claude(
+                prompt, session=self.store.get(key), cwd=self.settings.claude_cwd or os.path.expanduser("~"),
+                permission_mode=self.settings.claude_permission_mode, timeout=self.settings.claude_timeout)
+            self.store.put(key, session)
+            footer = "\n\n— 🤖 Claude Code" + (f" · ${cost:.2f}" if isinstance(cost, (int, float)) else "")
+            reply = "🤖 " + text + footer
+        except asyncio.CancelledError:
+            reply = "✋ Claude остановлен."
+        except (RuntimeError, OSError) as exc:
+            reply = ("Claude Code не найден на этом ПК (команда claude)." if str(exc) == "CLAUDE_CLI_NOT_FOUND"
+                     else f"Claude: ошибка {type(exc).__name__}")
+        finally:
+            indicator.cancel()
+        with contextlib.suppress(CompanionError):
+            await self.telegram.send(person, reply, [[self.button(person, "🖥 Меню ПК", "/pc")]])
 
     async def ingest_callback(self, update: dict):
         cb = update.get("callback_query")
@@ -378,6 +483,9 @@ class Companion:
         command, arg = command.lower(), arg.strip()
         if command in {"/start", "/help", "/menu"}:
             return Reply(HELP if command != "/menu" else "Меню:", self.main_menu(person))
+        if command in PC_COMMANDS or (not command.startswith("/") and self.pc_allowed(person) and
+                                      self.store.get("mode:" + person.key, "chat") == "claude"):
+            return await self.pc(person, command, arg, text)
         if command == "/photo":
             route = await self.models.vision_route()
             if route is None:

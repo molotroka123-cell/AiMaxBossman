@@ -101,6 +101,12 @@ class Settings:
     retention_days: int = 90
     profile_every: int = 10
     owner_priority: bool = True
+    # Owner-only computer control (Claude Code CLI, PowerShell, screenshot). Off by default.
+    pc_control: bool = False
+    claude_cwd: str = ""
+    claude_permission_mode: str = "bypassPermissions"
+    claude_timeout: int = 1800
+    bossman_launch: str = ""   # PowerShell command run by "/bossman start"
     max_tokens: int = 512
     monitor_seconds: int = 60
     bot_token: str = field(default="", repr=False)
@@ -154,6 +160,11 @@ class Settings:
             raise ValueError("invalid learning cadence / priority")
         if type(self.fast_fallback) is not bool or type(self.enabled) is not bool:
             raise ValueError("fast_fallback and enabled must be booleans")
+        if (type(self.pc_control) is not bool or not isinstance(self.claude_cwd, str) or
+                not isinstance(self.bossman_launch, str) or len(self.bossman_launch) > 1000 or
+                self.claude_permission_mode not in {"default", "acceptEdits", "plan", "bypassPermissions"} or
+                type(self.claude_timeout) is not int or not 60 <= self.claude_timeout <= 7200):
+            raise ValueError("invalid computer control settings")
         if type(self.monitor_seconds) is not int or not 30 <= self.monitor_seconds <= 3600:
             raise ValueError("monitor interval must be 30..3600 seconds")
         for n in (self.cloud_daily_usd, self.cloud_request_usd):
