@@ -3,6 +3,13 @@
 Ветка: `claude/bossman-cloud-closure-owner-a6s1ki` → PR #74 → `integrate/owner-final-20260922` (PR #73) → `release/bossman-owner`.
 Статус этапа: **IN_PROGRESS**. Компьютер владельца не запускался. OWNER_HARDWARE_CERTIFIED не заявляется.
 
+## Решение владельца 2026-09-23: эта линия — рабочая 1.0
+Новые коммиты в `release/bossman-owner` — работа Aster над **1.1**; она переезжает в отдельную ветку.
+В линию 1.0 они больше **не вливаются**. Уже влитое из release — только документы (OCR-подборка,
+TOMORROW_* runbook, `docs/JEV_*.md`), кода 1.1 в линии нет. Не влит: `df30cf26` (weekly P0 upstream candidates, 1.1).
+Jev готовится по отдельной команде владельца, но только выключенным по умолчанию (shadow) — поведение 1.0 не меняет.
+Целевая ветка для слияния 1.0 после переезда 1.1 — подтверждает владелец (PR #74 → integrate/owner-final → PR #73).
+
 ## Путь в main (исправлено)
 Ранний вывод «у main и release нет общей истории» был ОШИБКОЙ: локальный клон был shallow (`.git/shallow`).
 После `git fetch --unshallow` измерено: `main` (799fc3dd) и `night/v7` (10653d91) — предки release и нашей линии;
