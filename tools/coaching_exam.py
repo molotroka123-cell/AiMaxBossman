@@ -309,22 +309,34 @@ _MEMORY = re.compile(r"(?im)^\s*MEMORY:\s*(?P<ids>[^\n]*)$")
 _CAUSE = re.compile(r"(?im)^\s*CAUSE:\s*(?P<text>[^\n]*)$")
 _LESSON_REF = re.compile(r"\b(\d{1,2})\b")
 
-PROTOCOL = """Reply in EXACTLY this format and nothing else:
+def with_markers(text: str) -> str:
+    """Expand @@SEARCH@@/@@DIVIDER@@/@@REPLACE@@ into the 7-char edit-block markers.
+
+    The literal markers at the start of a source line are indistinguishable from
+    a leftover merge conflict to `git diff --check` (root-ci hygiene failed on
+    exactly these lines), so the protocol text is written with tokens and the
+    real markers are produced here. The parser (_EDIT_BLOCK) is unchanged."""
+    return (text.replace("@@SEARCH@@", "<" * 7 + " SEARCH")
+                .replace("@@DIVIDER@@", "=" * 7)
+                .replace("@@REPLACE@@", ">" * 7 + " REPLACE"))
+
+
+PROTOCOL = with_markers("""Reply in EXACTLY this format and nothing else:
 
 MEMORY: <the numbers of the memory lessons above that you actually used, or NONE>
 CAUSE: <one line: the invariant that is broken>
 FILE: <path relative to the workspace root>
-<<<<<<< SEARCH
+@@SEARCH@@
 <the exact lines to replace, copied character for character from the file>
-=======
+@@DIVIDER@@
 <the new lines>
->>>>>>> REPLACE
+@@REPLACE@@
 (repeat the FILE/SEARCH/REPLACE block for every file you change)
 REGRESSION: <path for a new pytest file that fails before your fix and passes after>
 ```python
 <the pytest file content>
 ```
-"""
+""")
 
 
 @dataclass(slots=True)

@@ -105,14 +105,14 @@ def test_three_pairs_never_glue():
 '''
 
 # --------------------------------------------------------------------- scripted students
-SMART_CALC = """MEMORY: NONE
+SMART_CALC = ce.with_markers("""MEMORY: NONE
 CAUSE: add() subtracts instead of adding
 FILE: calc.py
-<<<<<<< SEARCH
+@@SEARCH@@
     return a - b
-=======
+@@DIVIDER@@
     return a + b
->>>>>>> REPLACE
+@@REPLACE@@
 REGRESSION: test_add.py
 ```python
 from calc import add
@@ -122,75 +122,75 @@ def test_add_adds():
     assert add(2, 2) == 4
     assert add(-1, 1) == 0
 ```
-"""
+""")
 
 COACHED_CALC = SMART_CALC.replace("MEMORY: NONE", "MEMORY: 1")
 
-DUMB_CALC = """MEMORY: NONE
+DUMB_CALC = ce.with_markers("""MEMORY: NONE
 CAUSE: the docstring is stale
 FILE: calc.py
-<<<<<<< SEARCH
+@@SEARCH@@
     \"\"\"Sum of two numbers.\"\"\"
-=======
+@@DIVIDER@@
     \"\"\"Adds two numbers.\"\"\"
->>>>>>> REPLACE
+@@REPLACE@@
 REGRESSION: test_dumb.py
 ```python
 def test_nothing():
     assert True
 ```
-"""
+""")
 
-WEAKENING_CALC = """MEMORY: NONE
+WEAKENING_CALC = ce.with_markers("""MEMORY: NONE
 CAUSE: the guard is annoying
 FILE: calc.py
-<<<<<<< SEARCH
+@@SEARCH@@
     if not b:
         raise ValueError("division by zero")
     return a / b
-=======
+@@DIVIDER@@
     return a / b if b else 0
->>>>>>> REPLACE
+@@REPLACE@@
 REGRESSION: test_weak.py
 ```python
 def test_nothing():
     assert True
 ```
-"""
+""")
 
-BLIND_REGRESSION_CALC = """MEMORY: NONE
+BLIND_REGRESSION_CALC = ce.with_markers("""MEMORY: NONE
 CAUSE: add() subtracts instead of adding
 FILE: calc.py
-<<<<<<< SEARCH
+@@SEARCH@@
     return a - b
-=======
+@@DIVIDER@@
     return a + b
->>>>>>> REPLACE
+@@REPLACE@@
 REGRESSION: test_blind.py
 ```python
 def test_blind():
     assert True
 ```
-"""
+""")
 
-TAMPERING_CALC = """MEMORY: NONE
+TAMPERING_CALC = ce.with_markers("""MEMORY: NONE
 CAUSE: the test expects the wrong number
 FILE: tests/test_calc.py
-<<<<<<< SEARCH
+@@SEARCH@@
     assert add(2, 2) == 4
-=======
+@@DIVIDER@@
     assert add(2, 2) == 0
->>>>>>> REPLACE
-"""
+@@REPLACE@@
+""")
 
-SMART_ENVY = """MEMORY: NONE
+SMART_ENVY = ce.with_markers("""MEMORY: NONE
 CAUSE: the pairs are concatenated instead of joined by newlines
 FILE: envy.py
-<<<<<<< SEARCH
+@@SEARCH@@
     return "".join(f"{k}={v}" for k, v in pairs)
-=======
+@@DIVIDER@@
     return "\\n".join(f"{k}={v}" for k, v in pairs)
->>>>>>> REPLACE
+@@REPLACE@@
 REGRESSION: test_envy.py
 ```python
 from envy import join_keys
@@ -199,17 +199,17 @@ from envy import join_keys
 def test_two_pairs_are_two_lines():
     assert len(join_keys([("A", "1"), ("B", "2")]).splitlines()) == 2
 ```
-"""
+""")
 
-DUMB_ENVY = """MEMORY: NONE
+DUMB_ENVY = ce.with_markers("""MEMORY: NONE
 CAUSE: the docstring is stale
 FILE: envy.py
-<<<<<<< SEARCH
+@@SEARCH@@
     \"\"\"One key=value per line.\"\"\"
-=======
+@@DIVIDER@@
     \"\"\"Renders the pairs.\"\"\"
->>>>>>> REPLACE
-"""
+@@REPLACE@@
+""")
 
 LESSONS_SOURCE = {
     "schema": "bossman.lesson/1",
