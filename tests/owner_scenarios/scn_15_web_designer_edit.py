@@ -679,10 +679,17 @@ def os64_aborted_edit_leaves_the_project_whole(ctx) -> None:
     ctx.positive("правка принята прямо перед убийством процесса",
                  killed_edit.status_code == 200, f"HTTP {killed_edit.status_code}")
     saved_version = int(killed_edit.json()["meta"]["version"])
-    os.kill(product.process.pid, signal.SIGKILL)
+    if os.name == "nt":
+        # Windows has no SIGKILL; TerminateProcess is its uncatchable hard kill
+        # (Popen.kill passes exit code 1, and the process gets no chance to react).
+        product.process.kill()
+        hard_kill_codes = (1,)
+    else:
+        os.kill(product.process.pid, signal.SIGKILL)
+        hard_kill_codes = (-signal.SIGKILL, 137)
     product.process.wait(timeout=15)
-    ctx.positive("процесс продукта убит по-настоящему (SIGKILL), а не остановлен мягко",
-                 product.process.returncode in (-signal.SIGKILL, 137),
+    ctx.positive("процесс продукта убит по-настоящему (SIGKILL/TerminateProcess), а не остановлен мягко",
+                 product.process.returncode in hard_kill_codes,
                  f"код возврата={product.process.returncode}")
 
     leftovers = [str(p.name) for p in pdir.rglob("*.tmp")]
