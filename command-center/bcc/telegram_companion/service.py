@@ -5,7 +5,7 @@ import asyncio
 import contextlib
 import time
 
-from .adapters import Core, Models, RateLimited, Telegram, scrub
+from .adapters import IMAGE_MAX_BYTES, IMAGE_MIMES, Core, Models, RateLimited, Telegram, image_mime, scrub
 from .config import CompanionError, Person, Settings
 from .store import Store
 
@@ -40,6 +40,11 @@ def failure_text(code: str) -> str:
         "SEARCH_NOT_CONFIGURED": "Поиск ещё не подключён. Нужен существующий локальный SearXNG, отдельный поисковый движок я не устанавливаю.",
         "FAST_MODEL_NOT_CONFIGURED": "Самая быстрая модель не настроена. Её выбирают в Bossman: Настройки → Telegram.",
         "FAST_MODEL_UNAVAILABLE": "Самая быстрая модель сейчас не отвечает (не загружена, занята или не та модель). Облако не использовано. Попробуйте /best.",
+        "IMAGE_TOO_LARGE": "Картинка больше 10 МБ — я её не скачивал. Отправьте поменьше или сжатую.",
+        "IMAGE_NOT_RECOGNISED": "Это не похоже на изображение JPEG, PNG или WebP. Такие файлы я не открываю.",
+        "NO_VISION_MODEL": "Сейчас нет локальной модели, которая видит изображения. Запустите модель с --mmproj (например, самую быструю на 8082) и выберите её в Настройки → Telegram → «Модель для фото».",
+        "VISION_MODEL_UNAVAILABLE": "Модель для фото не ответила вовремя или недоступна. Облако не использовано. Попробуйте ещё раз.",
+        "TELEGRAM_FILE_UNAVAILABLE": "Не удалось получить файл из Telegram. Отправьте его ещё раз.",
         "MODEL_REPLY_INVALID": "Модель вернула пустой или неполный ответ (часто: рассуждения съели лимит токенов). Попробуйте ещё раз или /fast.",
     }
     return known.get(code, f"Действие не подтверждено: {code}. /status и /help помогут продолжить.")
@@ -47,8 +52,11 @@ def failure_text(code: str) -> str:
 
 ATTACHMENT_KINDS = ("photo", "document", "voice", "audio", "video", "video_note", "sticker",
                     "animation", "contact", "location", "venue", "poll")
+IMAGE_PROMPT = "Опиши и проанализируй это изображение по-русски: что на нём, важные детали, текст, если есть."
 REJECTED_TEXT = {
-    "attachment": "Вложения (фото, файлы, голосовые) пока не поддерживаются: я их не скачиваю и не открываю. Напишите вопрос текстом.",
+    "attachment": "Такие вложения (файлы, голосовые, видео) пока не поддерживаются: я их не скачиваю и не открываю. Фото — можно, напишите вопрос в подписи.",
+    "image_too_large": "Картинка больше 10 МБ — я её не скачивал. Отправьте поменьше или сжатую.",
+    "image_type": "Этот файл не картинка JPEG, PNG или WebP. Такие файлы я не открываю.",
     "too_long": "Сообщение длиннее 4000 символов и не обработано. Сократите его или разбейте на части.",
 }
 
@@ -116,7 +124,15 @@ class Companion:
         valid = person and (person.key, "chat") in self.wake and isinstance(text, str) and 0 < len(text) <= 4000
         body = {**message, "_update_id": update["update_id"]} if valid else None
         rejected = None
-        if person and (person.key, "chat") in self.wake and not valid:
+        if person and (person.key, "chat") in self.wake and not valid and text is None:
+            image, rejected = self.image_ref(message)
+            if image is not None:
+                # Only the Telegram file reference is queued; bytes are fetched at answer time.
+                caption = message.get("caption") if isinstance(message.get("caption"), str) else ""
+                valid = True
+                body = {"from": message["from"], "chat": message["chat"], "text": caption[:1000],
+                        "_image": image, "_update_id": update["update_id"]}
+        if person and (person.key, "chat") in self.wake and not valid and not rejected:
             if isinstance(text, str) and len(text) > 4000:
                 rejected = "too_long"
             elif text is None and any(k in message for k in ATTACHMENT_KINDS):
@@ -130,6 +146,46 @@ class Companion:
         if accepted:
             self.wake[(person.key, self.store.lane(body))].set()
 
+    @staticmethod
+    def image_ref(message: dict):
+        """(image reference, rejection) for photo / image document, sizes checked before any download."""
+        photo = message.get("photo")
+        if isinstance(photo, list) and photo:
+            sizes = [p for p in photo if isinstance(p, dict) and isinstance(p.get("file_id"), str)]
+            fitting = [p for p in sizes if not (type(p.get("file_size")) is int and p["file_size"] > IMAGE_MAX_BYTES)]
+            if not fitting:
+                return None, "image_too_large"
+            best = max(fitting, key=lambda p: (p.get("width", 0) or 0) * (p.get("height", 0) or 0))
+            return {"file_id": best["file_id"], "kind": "photo"}, None
+        doc = message.get("document")
+        if isinstance(doc, dict) and isinstance(doc.get("file_id"), str):
+            if doc.get("mime_type") not in IMAGE_MIMES:
+                return None, ("image_type" if str(doc.get("mime_type", "")).startswith("image/") else None)
+            if type(doc.get("file_size")) is int and doc["file_size"] > IMAGE_MAX_BYTES:
+                return None, "image_too_large"
+            return {"file_id": doc["file_id"], "kind": "document"}, None
+        return None, None
+
+    async def see(self, person: Person, message: dict) -> str:
+        """Photo question: vision-capable local route only; bytes live in memory for this call."""
+        route = await self.models.vision_route()
+        if route is None:
+            raise CompanionError("NO_VISION_MODEL")
+        data = await self.telegram.fetch_file(message["_image"]["file_id"], IMAGE_MAX_BYTES)
+        mime = image_mime(data)
+        if mime is None:
+            raise CompanionError("IMAGE_NOT_RECOGNISED")
+        caption = message.get("text", "").strip()
+        try:
+            answer = await self.models.answer_image(route, caption or IMAGE_PROMPT, mime, data,
+                                                    self.store.history(person.key))
+        finally:
+            del data
+        self.store.remember(person.key, "[фото]" + (" " + caption if caption else ""), answer)
+        model = self.settings.local_model if route == "main" else self.settings.fast_model
+        note = " (лучшая модель не видит изображения)" if route != self.chat_route(person) and route == "fast" else ""
+        return f"👁 {ROUTE_TITLE[route]} · {model_name(model or '')}{note}\n\n{answer}"
+
     async def handle(self, person: Person, message: dict) -> str:
         # Authorization is checked again at the effect boundary, not inferred
         # from a model's claimed role, forwarded name or chat title.
@@ -139,6 +195,8 @@ class Companion:
         person = current
         if message.get("_rejected") in REJECTED_TEXT:
             return REJECTED_TEXT[message["_rejected"]]
+        if isinstance(message.get("_image"), dict):
+            return await self.see(person, message)
         text = message['text'].strip()
         if not text:
             return HELP
@@ -297,7 +355,7 @@ class Companion:
             pause = max(0.0, 0.75 - (time.monotonic() - self.last_message.get(person.key, 0)))
             await asyncio.sleep(pause)
             text = str(message.get("text", "")).strip()
-            slow = lane == "chat" and bool(text) and (not text.startswith("/") or
+            slow = lane == "chat" and bool(message.get("_image")) or lane == "chat" and bool(text) and (not text.startswith("/") or
                                                       text.lower().startswith(("/fast ", "/best ")))
             indicator = asyncio.create_task(self.typing(person)) if slow and self.telegram is not None else None
             try:

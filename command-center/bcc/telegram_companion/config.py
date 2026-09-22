@@ -76,6 +76,9 @@ class Settings:
     default_route: str = "main"
     fast_fallback: bool = True
     enabled: bool = True
+    # Which local route sees photos: "auto" = first of main/fast whose server
+    # advertises vision (llama.cpp /props modalities.vision).
+    vision_route: str = "auto"
     max_tokens: int = 512
     monitor_seconds: int = 60
     bot_token: str = field(default="", repr=False)
@@ -109,6 +112,8 @@ class Settings:
             raise ValueError("invalid model limits")
         if self.default_route not in {"main", "fast"} or (self.default_route == "fast" and not self.fast_model):
             raise ValueError("default route must be main, or fast with a configured fast model")
+        if self.vision_route not in {"auto", "main", "fast"} or (self.vision_route == "fast" and not self.fast_model):
+            raise ValueError("vision route must be auto, main, or fast with a configured fast model")
         if type(self.fast_fallback) is not bool or type(self.enabled) is not bool:
             raise ValueError("fast_fallback and enabled must be booleans")
         if type(self.monitor_seconds) is not int or not 30 <= self.monitor_seconds <= 3600:

@@ -30,6 +30,8 @@ def mocked(tmp_path, monkeypatch):
     monkeypatch.setenv("BOSSMAN_TELEGRAM_CONFIG", str(path))
 
     def catalog(request):
+        if str(request.url).endswith("/props"):
+            return httpx.Response(200, json={"modalities": {"vision": str(request.url).startswith(FAST[:-3])}})
         for base, model in IDS.items():
             if str(request.url).startswith(base):
                 return httpx.Response(200, json={"data": [{"id": model}]})
@@ -59,6 +61,9 @@ def test_owner_fills_and_saves_telegram_settings(live, mocked):  # noqa: F811
         assert "8083" in page.eval_on_selector("[name=tg-best]", "s => s.options[s.selectedIndex].text")
         assert "8082" in page.eval_on_selector("[name=tg-fastest]", "s => s.options[s.selectedIndex].text")
         assert page.is_disabled("[name=tg-delegation]")
+        assert page.input_value("[name=tg-vision]") == "auto"
+        page.wait_for_selector("text=Видят изображения: 8082", timeout=15000)
+        page.select_option("[name=tg-vision]", "fastest")
 
         page.fill("[name=tg-token]", TOKEN)
         page.fill("[name=tg-owner]", "11111")
@@ -77,4 +82,5 @@ def test_owner_fills_and_saves_telegram_settings(live, mocked):  # noqa: F811
         browser.close()
 
     assert mocked.is_file() and TOKEN not in mocked.read_text(encoding="utf-8")
+    assert '"vision_route": "fast"' in mocked.read_text(encoding="utf-8")
     assert not errors, errors

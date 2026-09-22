@@ -18,6 +18,19 @@ class RateLimited(CompanionError):
 
 
 MAX_JSON_BYTES = 4 * 1024 * 1024
+IMAGE_MAX_BYTES = 10 * 1024 * 1024
+IMAGE_MIMES = ("image/jpeg", "image/png", "image/webp")
+
+
+def image_mime(data: bytes) -> str | None:
+    """Real type from magic bytes, never from the sender's claim."""
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 TELEGRAM_API = "https://api.telegram.org"
 OPENROUTER_API = "https://openrouter.ai/api/v1"
 
@@ -101,7 +114,7 @@ def split_message(text: str, limit: int = 3500, max_parts: int = 5) -> list[str]
 
 
 class Telegram:
-    METHODS = frozenset({"getMe", "getWebhookInfo", "getUpdates", "sendMessage", "sendChatAction"})
+    METHODS = frozenset({"getMe", "getWebhookInfo", "getUpdates", "sendMessage", "sendChatAction", "getFile"})
 
     def __init__(self, settings: Settings, *, transport=None):
         self.settings = settings
@@ -125,6 +138,34 @@ class Telegram:
         if not isinstance(body, dict) or body.get("ok") is not True or "result" not in body:
             raise CompanionError("TELEGRAM_API_REJECTED")
         return body["result"]
+
+    async def fetch_file(self, file_id: str, max_bytes: int = IMAGE_MAX_BYTES) -> bytes:
+        """getFile + download into memory only, capped; the URL (with token) is never exposed."""
+        if not isinstance(file_id, str) or not 0 < len(file_id) <= 256:
+            raise CompanionError("TELEGRAM_FILE_UNAVAILABLE")
+        info = await self.call("getFile", {"file_id": file_id})
+        path = info.get("file_path") if isinstance(info, dict) else None
+        if not isinstance(path, str) or not re.fullmatch(r"[A-Za-z0-9_./-]{1,256}", path) or ".." in path:
+            raise CompanionError("TELEGRAM_FILE_UNAVAILABLE")
+        size = info.get("file_size")
+        if type(size) is int and size > max_bytes:
+            raise CompanionError("IMAGE_TOO_LARGE")
+        data = bytearray()
+        try:
+            async with asyncio.timeout(60):
+                async with self.client.stream("GET", f"{TELEGRAM_API}/file/bot{self.settings.bot_token}/{path}") as response:
+                    if response.status_code != 200:
+                        raise CompanionError("TELEGRAM_FILE_UNAVAILABLE")
+                    declared = response.headers.get("content-length", "")
+                    if declared.isdigit() and int(declared) > max_bytes:
+                        raise CompanionError("IMAGE_TOO_LARGE")
+                    async for part in response.aiter_bytes():
+                        data.extend(part)
+                        if len(data) > max_bytes:
+                            raise CompanionError("IMAGE_TOO_LARGE")
+        except (httpx.HTTPError, OSError, TimeoutError):
+            raise CompanionError("NETWORK_UNAVAILABLE") from None
+        return bytes(data)
 
     async def preflight(self):
         me = await self.call("getMe", {})
@@ -261,13 +302,14 @@ class Models:
         self.lock = asyncio.Semaphore(1)
         self.retry_local_at = 0.0
         self.retry_fast_at = 0.0
+        self.vision_cache = {}
         self.cloud_locked = (home / "cloud-billing-review.flag").exists()
 
     async def close(self):
         await self.local.aclose()
         await self.remote.aclose()
 
-    async def _local(self, url: str, model: str, timeout: float, text: str, history: list) -> str:
+    async def _local(self, url: str, model: str, timeout: float, text, history: list) -> str:
         """One loopback OpenAI-compatible call; the served model must be exactly the configured one."""
         body = await json_request(self.local, "POST", url + "/chat/completions",
             payload={"model": model, "stream": False, "max_tokens": self.settings.max_tokens,
@@ -282,6 +324,53 @@ class Models:
     async def _fast(self, text: str, history: list) -> str:
         s = self.settings
         return await self._local(s.fast_url, s.fast_model, s.fast_timeout, text, history)
+
+    def route_endpoint(self, route: str):
+        s = self.settings
+        return (s.local_url, s.local_model, s.local_timeout) if route == "main" else (s.fast_url, s.fast_model, s.fast_timeout)
+
+    async def has_vision(self, route: str) -> bool:
+        """llama.cpp /props advertises modalities.vision when started with --mmproj."""
+        url, model, _ = self.route_endpoint(route)
+        if not model:
+            return False
+        now = asyncio.get_running_loop().time()
+        cached = self.vision_cache.get(route)
+        if cached and cached[1] > now:
+            return cached[0]
+        base = url[:-3] if url.endswith("/v1") else url
+        try:
+            body = await json_request(self.local, "GET", base + "/props", timeout=5)
+            modalities = body.get("modalities") if isinstance(body, dict) else None
+            vision = isinstance(modalities, dict) and modalities.get("vision") is True
+            ttl = 300
+        except CompanionError:
+            vision, ttl = False, 30
+        self.vision_cache[route] = (vision, now + ttl)
+        return vision
+
+    async def vision_route(self) -> str | None:
+        choice = self.settings.vision_route
+        if choice in {"main", "fast"}:
+            return choice if self.route_endpoint(choice)[1] else None
+        for route in ("main", "fast"):
+            if await self.has_vision(route):
+                return route
+        return None
+
+    async def answer_image(self, route: str, prompt: str, mime: str, data: bytes, history: list) -> str:
+        """Local vision call; image travels only in this request, as a data URI."""
+        import base64
+        url, model, timeout = self.route_endpoint(route)
+        content = [{"type": "text", "text": prompt},
+                   {"type": "image_url", "image_url": {"url": f"data:{mime};base64," + base64.b64encode(data).decode("ascii")}}]
+        async with self.lock:
+            try:
+                return await self._local(url, model, timeout, content, history)
+            except CompanionError as exc:
+                if str(exc) == "MODEL_REPLY_INVALID":
+                    raise
+                raise CompanionError("VISION_MODEL_UNAVAILABLE") from None
 
     async def answer(self, text: str, history: list, *, cloud_consent, route: str = "main"):
         async with self.lock:

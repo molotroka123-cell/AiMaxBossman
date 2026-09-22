@@ -80,6 +80,10 @@ export async function telegramPanel(ctx) {
   const fastestSel = select([], { name: 'tg-fastest' });
   const routeSel = select([{ value: 'best', label: 'Лучшая (самая умная)' }, { value: 'fastest', label: 'Самая быстрая' }],
     { name: 'tg-route', value: data.default_route || 'best' });
+  const visionSel = select([{ value: 'auto', label: 'Автоматически (модель, которая видит изображения)' },
+    { value: 'best', label: 'Лучшая' }, { value: 'fastest', label: 'Самая быстрая' }],
+    { name: 'tg-vision', value: data.vision_route || 'auto' });
+  const visionNote = h('span.field-note', 'Нужна модель, запущенная с --mmproj');
   const fallbackEl = h('input', { type: 'checkbox', name: 'tg-fallback', checked: data.fast_fallback !== false });
   const timeoutEl = input({ type: 'number', min: '1', max: '600', step: '1', name: 'tg-timeout', value: data.local_timeout ?? 180 });
   const tokensEl = input({ type: 'number', min: '64', max: '2048', step: '64', name: 'tg-max-tokens', value: data.max_tokens ?? 1024 });
@@ -101,6 +105,8 @@ export async function telegramPanel(ctx) {
     if (savedFastest.model && !list.some((c) => c.url === savedFastest.url && c.model === savedFastest.model)) {
       list = list.concat(choices([], savedFastest));
     }
+    const seeing = (res.endpoints || []).filter((e) => e.vision === true).map((e) => port(e.url));
+    visionNote.textContent = seeing.length ? `Видят изображения: ${seeing.join(', ')}` : 'Ни один запущенный сервер не видит изображения (нужен --mmproj)';
     const sug = res.suggested || {};
     redraw(savedBest.model ? savedBest : sug.best, savedFastest.model ? savedFastest : sug.fastest);
     if (!quiet) {
@@ -126,7 +132,7 @@ export async function telegramPanel(ctx) {
       fastest_url: fastest ? fastest.url : '', fastest_model: fastest ? fastest.model : '',
       default_route: routeSel.value, fast_fallback: fallbackEl.checked,
       local_timeout: Number(timeoutEl.value || 180), max_tokens: Number(tokensEl.value || 1024),
-      delegation: false, enabled: enabledEl.checked,
+      vision_route: visionSel.value, delegation: false, enabled: enabledEl.checked,
     };
     const res = await api.raw(SETTINGS_ENDPOINT, { method: 'PUT', body });
     tokenEl.value = '';
@@ -167,7 +173,7 @@ export async function telegramPanel(ctx) {
       field('Ожидание ответа лучшей модели, сек', timeoutEl, '1–600; рекомендуем 180')),
     h('div.grid.cols-2',
       field('Длина ответа, токенов', tokensEl, '64–2048; GPT-OSS тратит часть на рассуждения — рекомендуем 1024'),
-      h('div')),
+      h('div.field', h('span.field-label', 'Модель для фото'), visionSel, visionNote)),
     h('label.check', fallbackEl, h('span', 'Если лучшая не ответила вовремя — отвечает самая быстрая (не облако)')),
     h('label.check', { title: 'Пока недоступно' }, delegationEl,
       h('span.dim', 'Поручения Bossman из Telegram (/task) — пока недоступно')),

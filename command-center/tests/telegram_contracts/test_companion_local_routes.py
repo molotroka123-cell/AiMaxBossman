@@ -204,12 +204,12 @@ def test_owner_attachment_gets_explicit_reply_and_is_not_stored(tmp_path):
     async def run():
         app, store, models, _ = companion(tmp_path)
         try:
-            photo = msg(text=None, photo=[{'file_id': 'FILE-ID-FIXTURE', 'file_size': 10}], caption='смотри')
-            await app.ingest({'update_id': 5, 'message': photo})
+            voice = msg(text=None, voice={'file_id': 'FILE-ID-FIXTURE', 'file_size': 10}, caption='слушай')
+            await app.ingest({'update_id': 5, 'message': voice})
             item = store.claim(OWNER.key, 'chat')
             assert item is not None
             _, body = item
-            assert body['_rejected'] == 'attachment' and 'photo' not in body and 'caption' not in body
+            assert body['_rejected'] == 'attachment' and 'voice' not in body and 'caption' not in body
             assert 'не поддерживаются' in await app.handle(OWNER, body)
             await app.ingest({'update_id': 6, 'message': msg(text='x' * 4001)})
             _, body = store.claim(OWNER.key, 'chat')

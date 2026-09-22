@@ -125,6 +125,7 @@ def _public(cfg: dict, secrets: dict) -> dict:
         "fast_fallback": cfg.get("fast_fallback", True),
         "local_timeout": cfg.get("local_timeout", DEFAULTS["local_timeout"]),
         "max_tokens": cfg.get("max_tokens", DEFAULTS["max_tokens"]),
+        "vision_route": {"main": "best", "fast": "fastest"}.get(cfg.get("vision_route"), "auto"),
         "delegation": False,
         "delegation_available": False,
         "token_set": bool(secrets.get("bot_token")),
@@ -143,6 +144,21 @@ async def _served_ids(url: str) -> list[str]:
         body = await json_request(client, "GET", url.rstrip("/") + "/models", timeout=5)
     rows = body.get("data") if isinstance(body, dict) else None
     return [r["id"] for r in rows if isinstance(r, dict) and isinstance(r.get("id"), str)] if isinstance(rows, list) else []
+
+
+async def _has_vision(url: str) -> bool | None:
+    """llama.cpp /props modalities.vision (server started with --mmproj); None = unknown."""
+    from ..telegram_companion.adapters import json_request
+    from ..telegram_companion.config import CompanionError
+    base = url[:-3] if url.endswith("/v1") else url
+    try:
+        async with httpx.AsyncClient(timeout=5, trust_env=False, follow_redirects=False,
+                                     transport=MODELS_TRANSPORT) as client:
+            body = await json_request(client, "GET", base + "/props", timeout=5)
+    except CompanionError:
+        return None
+    modalities = body.get("modalities") if isinstance(body, dict) else None
+    return bool(isinstance(modalities, dict) and modalities.get("vision") is True)
 
 
 def _loopback(url: str, label: str) -> str:
@@ -178,10 +194,11 @@ async def check_models(body: ModelsIn | None = None):
         try:
             ids = await _served_ids(url)
             endpoints.append({"url": url, "status": "OK" if ids else "NO_MODELS", "models": ids,
-                              "measured_tok_s": MEASURED_TOK_S.get(url)})
+                              "measured_tok_s": MEASURED_TOK_S.get(url),
+                              "vision": await _has_vision(url) if ids else None})
         except CompanionError as exc:
             endpoints.append({"url": url, "status": str(exc), "models": [],
-                              "measured_tok_s": MEASURED_TOK_S.get(url)})
+                              "measured_tok_s": MEASURED_TOK_S.get(url), "vision": None})
     return {"endpoints": endpoints, "suggested": suggest(endpoints), "scope": "CATALOG_ONLY_NOT_INFERENCE"}
 
 
@@ -199,6 +216,7 @@ class SettingsIn(BaseModel):
     fast_fallback: bool = True
     local_timeout: float = Field(default=DEFAULTS["local_timeout"], ge=1, le=600, allow_inf_nan=False)
     max_tokens: int = Field(default=DEFAULTS["max_tokens"], ge=64, le=2048)
+    vision_route: str = "auto"      # auto | best | fastest — "Модель для фото"
     delegation: bool = False
     enabled: bool = True
 
@@ -239,12 +257,16 @@ async def put_settings(body: SettingsIn):
         raise HTTPException(422, "Telegram ID повторяются: владелец и гости должны быть разными.")
     if body.default_route not in {"best", "fastest"}:
         raise HTTPException(422, "Модель для чата: best или fastest.")
+    if body.vision_route not in {"auto", "best", "fastest"}:
+        raise HTTPException(422, "Модель для фото: auto, best или fastest.")
 
     best_url = _loopback(body.best_url, "Лучшая модель")
     fastest_model = body.fastest_model.strip()
     fastest_url = _loopback(body.fastest_url, "Самая быстрая модель") if fastest_model else ""
     if body.default_route == "fastest" and not fastest_model:
         raise HTTPException(422, "Чтобы чат отвечал самой быстрой моделью, выберите её.")
+    if body.vision_route == "fastest" and not fastest_model:
+        raise HTTPException(422, "Чтобы фото смотрела самая быстрая модель, выберите её.")
 
     # The exact served id must be used (llama-server answers with its own id).
     warnings = []
@@ -271,6 +293,7 @@ async def put_settings(body: SettingsIn):
         "default_route": "fast" if body.default_route == "fastest" else "main",
         "fast_fallback": body.fast_fallback,
         "local_timeout": float(body.local_timeout), "max_tokens": body.max_tokens,
+        "vision_route": {"best": "main", "fastest": "fast"}.get(body.vision_route, "auto"),
         "enabled": body.enabled,
         "core_url": existing.get("core_url", DEFAULTS["core_url"]),
         # Telegram never falls back to a cloud model from this section.

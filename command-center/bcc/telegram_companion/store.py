@@ -87,6 +87,8 @@ class Store:
 
     @staticmethod
     def lane(body: dict) -> str:
+        if body.get("_image"):
+            return "chat"
         command = str(body.get("text", "")).strip().partition(" ")[0].lower()
         if command in {"/status", "/help", "/lock", "/watch", "/cloud", "/model"}:
             return "control"

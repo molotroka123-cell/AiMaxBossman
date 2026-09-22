@@ -27,6 +27,8 @@ TOKEN = "123456" + "789:" + "Fx" * 18          # fixture shape only, not a crede
 def models_transport(calls=None, main=(MAIN_ID,), fast=(FAST_ID,), oss=(OSS_ID,)):
     def handler(request):
         url = str(request.url)
+        if url.endswith("/props"):
+            return httpx.Response(404, json={})      # vision unknown
         if calls is not None:
             calls.append(url)
         for base, ids in ((MAIN, main), (FAST, fast), (OSS, oss)):
@@ -35,6 +37,16 @@ def models_transport(calls=None, main=(MAIN_ID,), fast=(FAST_ID,), oss=(OSS_ID,)
                     raise httpx.ConnectError("not loaded")
                 return httpx.Response(200, json={"data": [{"id": i} for i in ids]})
         raise AssertionError("unexpected network target " + url)
+    return httpx.MockTransport(handler)
+
+
+def props_aware(calls=None, vision=(FAST,), **kw):
+    inner = models_transport(calls, **kw)
+    def handler(request):
+        url = str(request.url)
+        if url.endswith("/props"):
+            return httpx.Response(200, json={"modalities": {"vision": any(url.startswith(v[:-3]) for v in vision)}})
+        return inner.handler(request)
     return httpx.MockTransport(handler)
 
 
@@ -140,13 +152,14 @@ async def test_non_loopback_model_url_rejected(env, tg, url):
 
 async def test_model_dropdown_comes_from_served_ids(env, tg, monkeypatch):
     calls = []
-    monkeypatch.setattr(ts, "MODELS_TRANSPORT", models_transport(calls, main=(MAIN_ID, "other")))
+    monkeypatch.setattr(ts, "MODELS_TRANSPORT", props_aware(calls, main=(MAIN_ID, "other")))
     r = await env.client.post("/api/telegram/models", json={})
     data = r.json()
     by_url = {e["url"]: e["models"] for e in data["endpoints"]}
     assert by_url == {OSS: [OSS_ID], MAIN: [MAIN_ID, "other"], FAST: [FAST_ID]}
     assert data["scope"] == "CATALOG_ONLY_NOT_INFERENCE"
     assert sorted(calls) == sorted([OSS + "/models", MAIN + "/models", FAST + "/models"])  # catalog GET only
+    assert {e["url"]: e["vision"] for e in data["endpoints"]} == {OSS: False, MAIN: False, FAST: True}
     # Defaults: best = GPT-OSS 8083, fastest = FAST 8082.
     assert data["suggested"] == {"best": {"url": OSS, "model": OSS_ID}, "fastest": {"url": FAST, "model": FAST_ID}}
 
@@ -232,3 +245,14 @@ def test_companion_command_runs_this_servers_code(tmp_path):
     import bcc
     from pathlib import Path
     assert str(Path(bcc.__file__).resolve().parents[1]) in cmd
+
+
+async def test_photo_model_setting_roundtrip(env, tg):
+    r = await env.client.put("/api/telegram/settings", json=body(vision_route="fastest"))
+    assert r.status_code == 200 and r.json()["vision_route"] == "fastest"
+    from bcc.telegram_companion.config import load
+    assert load(tg).vision_route == "fast"
+    assert (await env.client.get("/api/telegram/settings")).json()["vision_route"] == "fastest"
+    assert (await env.client.put("/api/telegram/settings", json=body(vision_route="cloud"))).status_code == 422
+    bad = body(vision_route="fastest", fastest_model="", fastest_url="")
+    assert (await env.client.put("/api/telegram/settings", json=bad)).status_code == 422
