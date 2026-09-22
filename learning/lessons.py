@@ -26,6 +26,7 @@ What this module adds (thin, additive):
 """
 from __future__ import annotations
 
+import calendar
 import hashlib
 import json
 import re
@@ -34,17 +35,21 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
+from . import lesson_format as _fmt
 from . import trace as _trace
 
 SOURCES = ("teacher", "student")
 KINDS = ("student_fix", "teacher_patch")
+#: Statuses a CoachingEpisode may be born with. The retirement statuses
+#: (quarantined/superseded/expired/degraded) are reached through LessonBook methods,
+#: never by writing them on a fresh episode — see learning.lesson_format.
 STATUSES = ("candidate", "verified", "withdrawn")
 SCOPES = ("project", "global")
 LESSON_TASK_PREFIX = "coach-lesson:"
 MIN_BODY_CHARS = 8
 MAX_BODY_CHARS = 2000
 
-_STATUS_TO_LEARNING = {"candidate": "UNVERIFIED", "verified": "VERIFIED", "withdrawn": "REJECTED"}
+_STATUS_TO_LEARNING = _fmt.STATUS_TO_LEARNING
 
 
 def lesson_schema_path() -> Path:
@@ -218,6 +223,22 @@ class CoachingEpisode:
     agent: str = "bossman-student"
     model: str = ""
     title: str = ""
+    # --- v2 field set (learning.lesson_format). All optional: an episode recorded
+    # without them still produces a valid lesson, it is simply a poorer one.
+    symptoms: list[str] = field(default_factory=list)
+    error_text: str = ""
+    root_cause: str = ""
+    failed_approaches: list[str] = field(default_factory=list)
+    recipe: list[str] = field(default_factory=list)
+    check: str = ""
+    counterexample: str = ""
+    refs: dict = field(default_factory=dict)          # {code|test|commit|evidence: [...]}
+    assistance_level: str = ""
+    runtime: str = ""
+    app: str = ""
+    app_version: str = ""
+    expires_at: str = ""
+    supersedes: list[str] = field(default_factory=list)
 
     def validate(self) -> list[str]:
         errs = []
@@ -258,9 +279,16 @@ def lesson_record(ep: CoachingEpisode) -> dict:
     if errs:
         raise LessonError("; ".join(errs))
     assert_not_poisoned(ep.correction)
+    for _text in (ep.root_cause, ep.check, ep.counterexample, *ep.symptoms,
+                  *ep.failed_approaches, *ep.recipe):
+        # Every free-text field reaches a model exactly like the body does, so every
+        # one of them goes through the same filter. A poisoned "root cause" would
+        # otherwise be a way in.
+        if _text and not all("too short" in r for r in poison_reasons(str(_text))):
+            assert_not_poisoned(str(_text))
     prov = ep.provenance.as_dict()
     prov["when"] = prov["when"] or _now_iso()
-    return {
+    rec = {
         "task_id": ep.lesson_id, "record_type": "lesson",
         "learning_status": _STATUS_TO_LEARNING[ep.status],
         "title": ep.title or f"lesson[{ep.task_class}]: {ep.correction[:72]}",
@@ -270,30 +298,53 @@ def lesson_record(ep: CoachingEpisode) -> dict:
         "principal_id": prov["who"], "run_id": prov.get("run_id") or "",
         "start_sha": "", "end_sha": "",               # dedup identity must not depend on HEAD
         "lessons": [ep.correction],
-        "lesson": {
+        "lesson": _fmt.normalize({
+            "lesson_id": ep.lesson_id,
             "dedup_key": ep.dedup_key, "project_id": ep.project_id, "scope": ep.scope,
             "task_class": ep.task_class, "status": ep.status, "source": ep.source, "kind": ep.kind,
             "student_success": False if ep.kind == "teacher_patch" else None,
             "failure_observation": ep.failure_observation[:2000], "correction": ep.correction,
             "attempt_ids": [ep.attempt_id], "source_task_ids": [ep.task_id],
             "occurrences": 1, "provenance": [prov], "verification": None, "withdrawal": None,
-        },
+            "symptoms": ep.symptoms, "error_text": ep.error_text, "root_cause": ep.root_cause,
+            "failed_approaches": ep.failed_approaches, "recipe": ep.recipe,
+            "check": ep.check, "counterexample": ep.counterexample, "refs": ep.refs,
+            "assistance_level": ep.assistance_level, "runtime": ep.runtime,
+            "model": ep.model or prov.get("model") or "",
+            "applies_when": {"task_class": ep.task_class, "environment": ep.environment,
+                             "app": ep.app, "app_version": ep.app_version, "runtime": ep.runtime},
+            "expires_at": ep.expires_at, "supersedes": ep.supersedes,
+        }),
         "source_episode_ids": [ep.task_id],
         "outcome": "TEACHER_PATCH" if ep.kind == "teacher_patch" else "STUDENT_CORRECTION",
         "tags": {"domain": ep.task_class, "risk": "low"},
     }
+    _fmt.assert_valid(rec["lesson"])
+    return rec
 
 
 def compact_lesson(rec: dict) -> dict:
     """Retrieval shape: what a student prompt gets (never the raw store record)."""
-    l = rec.get("lesson") or {}
+    l = _fmt.normalize(rec.get("lesson") or {})
     return {"lesson_id": rec.get("task_id"), "version": rec.get("version"),
             "status": l.get("status"), "learning_status": rec.get("learning_status"),
             "source": l.get("source"), "kind": l.get("kind"), "student_success": l.get("student_success"),
             "project_id": l.get("project_id"), "scope": l.get("scope"), "task_class": l.get("task_class"),
             "failure_observation": l.get("failure_observation", ""), "correction": l.get("correction", ""),
             "occurrences": l.get("occurrences", 1), "provenance": list(l.get("provenance") or []),
-            "verification": l.get("verification"), "verified_by": list(rec.get("verified_by") or [])}
+            "verification": l.get("verification"), "verified_by": list(rec.get("verified_by") or []),
+            # v2 field set — advice and provenance only; never permissions or raw evidence
+            "format_version": l.get("format_version"),
+            "symptoms": list(l.get("symptoms") or []), "error_text": l.get("error_text", ""),
+            "root_cause": l.get("root_cause", ""),
+            "failed_approaches": list(l.get("failed_approaches") or []),
+            "recipe": list(l.get("recipe") or []), "check": l.get("check", ""),
+            "counterexample": l.get("counterexample", ""),
+            "refs": dict(l.get("refs") or {}), "applies_when": dict(l.get("applies_when") or {}),
+            "assistance_level": l.get("assistance_level"), "model": l.get("model", ""),
+            "runtime": l.get("runtime", ""), "valid_from": l.get("valid_from", ""),
+            "expires_at": l.get("expires_at", ""), "supersedes": list(l.get("supersedes") or []),
+            "superseded_by": l.get("superseded_by", "")}
 
 
 # ---------------------------------------------------------------- the book
@@ -389,30 +440,108 @@ class LessonBook:
 
     # ------------------------------------------------------------ read
     def retrieve(self, *, project_id: str, task_class: str | None = None, text: str | None = None,
-                 limit: int = 8, max_age_s: float | None = None) -> list[dict]:
-        """Verified lessons for ``project_id`` (own project, or global+verified).
+                 limit: int = 8, max_age_s: float | None = None,
+                 environment: str | None = None, app_version: str | None = None,
+                 runtime: str | None = None, now: float | None = None) -> list[dict]:
+        """Verified, currently applicable lessons for ``project_id``.
+
         Goes through ``LearningStore.retrieve`` (VERIFIED only, tombstones never), then
-        applies project isolation, staleness and the read-time poison filter."""
+        applies the v2 applicability rules (status, expiry, supersession, scope/project,
+        recorded conditions, freshness) and the read-time poison filter."""
         pool = self.store.retrieve(domain=task_class, text=text, limit=10_000)
         out: list[dict] = []
-        now = time.time()
+        now = time.time() if now is None else now
         for rec in pool:
             if rec.get("record_type") != "lesson":
                 continue
-            l = rec.get("lesson") or {}
-            if l.get("status") != "verified" or rec.get("learning_status") != "VERIFIED":
+            if rec.get("learning_status") != "VERIFIED":
                 continue
-            if not (l.get("project_id") == project_id or l.get("scope") == "global"):
-                continue
-            if max_age_s is not None and _too_old(rec, l, now, max_age_s):
+            l = _fmt.normalize(rec.get("lesson") or {})
+            ok, why = _fmt.applicability(l, project_id=project_id, now=now, task_class=task_class,
+                                         environment=environment, app_version=app_version,
+                                         runtime=runtime, max_age_s=max_age_s)
+            if not ok:
                 continue
             body = str(l.get("correction") or "")
-            if poison_reasons(body) or any(poison_reasons(x) for x in (rec.get("lessons") or []) if x != body):
+            texts = [body, *(l.get("symptoms") or []), *(l.get("recipe") or []),
+                     str(l.get("root_cause") or ""), str(l.get("check") or ""),
+                     str(l.get("counterexample") or "")]
+            texts += [x for x in (rec.get("lessons") or []) if x != body]
+            if any(_poisoned(x) for x in texts if x):
                 self.filtered_at_read += 1
                 continue
-            out.append(compact_lesson(rec))
+            compact = compact_lesson(rec)
+            compact["applicability"] = why
+            out.append(compact)
         out.sort(key=lambda c: (-int(c.get("occurrences") or 1), str(c.get("lesson_id"))))
         return out[:max(1, limit)]
+
+    def conflicts(self, lessons: list[dict]) -> list[dict]:
+        """Contradictions among already-retrieved lessons, surfaced not resolved."""
+        return _fmt.conflicts([dict(l, lesson_id=l.get("lesson_id")) for l in lessons])
+
+    # ------------------------------------------------------------ retirement
+    def retire(self, lesson_id: str, *, status: str, by: str, reason: str,
+               superseded_by: str = "") -> dict:
+        """Move a lesson to a non-retrievable status: quarantined | superseded |
+        expired | degraded | withdrawn. Nothing is deleted — the record becomes a new
+        version, the previous one stays in history, and retrieval stops serving it."""
+        if status not in ("quarantined", "superseded", "expired", "degraded", "withdrawn"):
+            raise LessonError(f"{status} is not a retirement status")
+        rec = self._require(lesson_id)
+        merged = json.loads(json.dumps(rec))
+        merged["learning_status"] = _fmt.STATUS_TO_LEARNING[status]
+        merged["verified"] = False
+        if status == "degraded":
+            merged["degraded_reason"] = reason[:500]
+        body = _fmt.normalize(merged.get("lesson") or {})
+        body["status"] = status
+        body["retired_reason"] = reason[:500]
+        if superseded_by:
+            body["superseded_by"] = superseded_by
+        if status == "expired" and not body.get("expires_at"):
+            body["expires_at"] = _now_iso()
+        body["withdrawal"] = {"by": by, "reason": reason, "at": _now_iso(),
+                              "previous_status": (rec.get("lesson") or {}).get("status")}
+        merged["lesson"] = body
+        for k in ("case_id", "version", "supersedes_version", "created_at"):
+            merged.pop(k, None)
+        return self.store.add(merged, write_markdown=False)
+
+    def quarantine(self, lesson_id: str, *, by: str, reason: str) -> dict:
+        return self.retire(lesson_id, status="quarantined", by=by, reason=reason)
+
+    def expire(self, lesson_id: str, *, by: str, reason: str = "expired") -> dict:
+        return self.retire(lesson_id, status="expired", by=by, reason=reason)
+
+    def degrade(self, lesson_id: str, *, by: str, reason: str) -> dict:
+        return self.retire(lesson_id, status="degraded", by=by, reason=reason)
+
+    def supersede(self, old_id: str, *, by_lesson_id: str, by: str, reason: str = "") -> dict:
+        """The old lesson stops guiding plans and points at its replacement. The old
+        text stays readable: supersession is not deletion."""
+        return self.retire(old_id, status="superseded", by=by,
+                           reason=reason or f"superseded by {by_lesson_id}",
+                           superseded_by=by_lesson_id)
+
+    # ------------------------------------------------------------ migration
+    def migrate(self) -> dict:
+        """Bring every stored lesson up to the v2 field set.
+
+        Each migrated record is written back through the store, so it becomes a new
+        VERSION with the previous one tombstoned in history — no file is edited in
+        place and nothing is lost. Idempotent: a second run migrates 0 records."""
+        migrated, skipped = [], 0
+        for rec in self.store.retrieve(include_failed=True, limit=10_000):
+            if rec.get("record_type") != "lesson":
+                continue
+            updated = _fmt.migrate_record(rec)
+            if updated is None:
+                skipped += 1
+                continue
+            self.store.add(updated, write_markdown=False)
+            migrated.append(rec.get("task_id"))
+        return {"migrated": len(migrated), "already_current": skipped, "lesson_ids": migrated}
 
     def all_lessons(self, *, include_candidates: bool = True, include_withdrawn: bool = False) -> list[dict]:
         rows = self.store.retrieve(include_failed=True, limit=10_000)
@@ -444,11 +573,27 @@ class LessonBook:
         return rec
 
 
+def _poisoned(text: str) -> bool:
+    """Read-time filter. A field that is merely short ("ImportError") is not poison;
+    only the lesson BODY has a minimum length, and that is enforced at write time."""
+    reasons = poison_reasons(str(text))
+    return bool(reasons) and not all("too short" in r for r in reasons)
+
+
 def _too_old(rec: dict, l: dict, now: float, max_age_s: float) -> bool:
+    """Возраст урока по его UTC-отметке.
+
+    `time.mktime(struct) - time.timezone` — НЕ обратная функция к gmtime: mktime
+    трактует struct как локальное время и сама применяет летний сдвиг (tm_isdst=-1),
+    а вычитается при этом зимний `time.timezone`. На хосте с переходом на летнее
+    время (замерено здесь: tz=28800, altzone=25200) отметка уезжает ровно на час
+    в прошлое, и ТОЛЬКО ЧТО проверенный урок оказывается «старым»: retrieve с
+    max_age_s молча возвращает пустой список. Обратная к gmtime — calendar.timegm.
+    """
     ver = l.get("verification") or {}
     stamp = ver.get("at") or rec.get("created_at") or ""
     try:
-        t = time.mktime(time.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ")) - time.timezone
+        t = calendar.timegm(time.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ"))
     except (ValueError, TypeError):
         return False
     return (now - t) > max_age_s
