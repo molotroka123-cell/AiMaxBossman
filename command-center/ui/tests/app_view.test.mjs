@@ -9,7 +9,7 @@ import { replace } from '../components.js';
 // Execute the actual shell refresh path. This is a deterministic DOM contract
 // test, not a replacement for the real Playwright owner workflow in CI.
 const shell = await readFile(new URL('../app.js', import.meta.url), 'utf8');
-const renderPage = shell.slice(shell.indexOf('async function renderPage()'),
+const renderPage = shell.slice(shell.indexOf('async function renderPage('),
   shell.indexOf('\nfunction refresh()'));
 
 class Element {

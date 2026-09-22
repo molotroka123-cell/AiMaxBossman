@@ -79,8 +79,21 @@ window.addEventListener('message', (ev) => {
       frame.contentWindow.postMessage({ source: 'bd-host', type: 'flash', bd_id: state.selected.bd_id }, '*');
     }
   } else if (d.type === 'select') {
-    state.selected = d.el || null;
-    if (inspectorBox) renderInspector(inspectorBox);
+    const prev = state.selected;
+    const next = d.el || null;
+    /* Кадр может сообщить о ТОМ ЖЕ элементе повторно, пока владелец печатает
+       в инспекторе: 'reselect' после перезагрузки кадра (автосохранение кода,
+       правка), повторный клик. Пересборка инспектора заменяла поле ввода
+       новым — набранное стиралось, фокус уходил на body, и следующая же
+       перерисовка по подключению считала, что никто не печатает (BL-074,
+       красный pytest на загруженном раннере). Черновик владельца в поле, где
+       стоит фокус, важнее свежего описания: переносим значение и фокус. */
+    const draft = prev && next && prev.bd_id && prev.bd_id === next.bd_id ? inspectorDraft() : null;
+    state.selected = next;
+    if (inspectorBox) {
+      renderInspector(inspectorBox);
+      if (draft) restoreInspectorDraft(draft);
+    }
   } else if (d.type === 'lost') {
     /* элемент исчез из кода (удалён/заменён) — выделение больше ничему не соответствует */
     if (state.selected && state.selected.bd_id === d.bd_id) {
@@ -415,6 +428,35 @@ async function runGenerate(prompt, tpl, pal) {
 }
 
 /* ---------------- инспектор выбранного элемента ---------------- */
+
+/* Поле инспектора, в котором владелец сейчас печатает, — по подписи строки и
+   порядку поля в ней (сами узлы при пересборке новые). null — никто не печатает. */
+function inspectorDraft() {
+  const active = document.activeElement;
+  if (!inspectorBox || !active || !inspectorBox.contains(active)) return null;
+  if (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA') return null;
+  const row = active.closest('div.bd-row');
+  const label = row && row.querySelector('label');
+  if (!row || !label) return null;
+  const index = Array.from(row.querySelectorAll('input, textarea')).indexOf(active);
+  let start = null;
+  let end = null;
+  try { start = active.selectionStart; end = active.selectionEnd; } catch { /* type=number/color */ }
+  return { label: label.textContent, index, value: active.value, start, end };
+}
+
+function restoreInspectorDraft(draft) {
+  if (!inspectorBox || !draft || draft.index < 0) return;
+  const row = Array.from(inspectorBox.querySelectorAll('div.bd-row')).find((r) => {
+    const label = r.querySelector('label');
+    return label && label.textContent === draft.label;
+  });
+  const field = row && row.querySelectorAll('input, textarea')[draft.index];
+  if (!field) return;
+  field.value = draft.value;
+  field.focus();
+  try { if (draft.start !== null) field.setSelectionRange(draft.start, draft.end); } catch { /* type=number/color */ }
+}
 
 function renderInspector(box) {
   const sel = state.selected;
