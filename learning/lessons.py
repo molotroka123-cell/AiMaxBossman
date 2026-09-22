@@ -26,6 +26,7 @@ What this module adds (thin, additive):
 """
 from __future__ import annotations
 
+import calendar
 import hashlib
 import json
 import re
@@ -445,10 +446,19 @@ class LessonBook:
 
 
 def _too_old(rec: dict, l: dict, now: float, max_age_s: float) -> bool:
+    """Возраст урока по его UTC-отметке.
+
+    `time.mktime(struct) - time.timezone` — НЕ обратная функция к gmtime: mktime
+    трактует struct как локальное время и сама применяет летний сдвиг (tm_isdst=-1),
+    а вычитается при этом зимний `time.timezone`. На хосте с переходом на летнее
+    время (замерено здесь: tz=28800, altzone=25200) отметка уезжает ровно на час
+    в прошлое, и ТОЛЬКО ЧТО проверенный урок оказывается «старым»: retrieve с
+    max_age_s молча возвращает пустой список. Обратная к gmtime — calendar.timegm.
+    """
     ver = l.get("verification") or {}
     stamp = ver.get("at") or rec.get("created_at") or ""
     try:
-        t = time.mktime(time.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ")) - time.timezone
+        t = calendar.timegm(time.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ"))
     except (ValueError, TypeError):
         return False
     return (now - t) > max_age_s

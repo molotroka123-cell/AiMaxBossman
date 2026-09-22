@@ -304,3 +304,25 @@ def test_retrieval_shape_is_advice_not_permissions(tmp_path):
     assert set(c) >= {"lesson_id", "status", "source", "kind", "project_id", "scope", "correction",
                       "failure_observation", "provenance", "verification"}
     assert "evidence_records" not in c and "verifiers" not in c
+
+
+# ------------------------------------------------------------------ freshness (UTC)
+def test_lesson_age_is_measured_in_utc_not_host_local_time():
+    """`_too_old` must read the stamp as UTC on ANY host.
+
+    Regression: the age used `time.mktime(strptime(stamp)) - time.timezone`, which
+    is not the inverse of gmtime — mktime re-applies the host's DST offset. On a
+    DST host the stamp drifted a full hour into the past, so `retrieve(max_age_s=…)`
+    silently dropped a lesson verified seconds ago. The property below holds for
+    every timezone: a stamp aged `age` seconds is stale exactly when `age > max_age`.
+    """
+    from learning.lessons import _too_old
+
+    t0 = 1_700_000_000
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0))
+    rec, lesson = {"created_at": stamp}, {"verification": {"at": stamp}}
+    for age, max_age, stale in ((0, 3600, False), (3599, 3600, False),
+                                (3601, 3600, True), (86_400, 3600, True)):
+        assert _too_old(rec, lesson, t0 + age, max_age) is stale, (age, max_age)
+    # unparsable stamp is never treated as stale (no silent loss of memory)
+    assert _too_old({}, {"verification": {"at": "not-a-date"}}, t0, 1) is False
