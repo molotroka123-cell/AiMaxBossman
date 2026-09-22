@@ -274,17 +274,37 @@ def _unique_path(folder: Path, name: str) -> Path:
     return path
 
 
+_HTML_HEADS = (b"<!doctype html", b"<html", b"<head", b"<body", b"<?xml", b"<!--")
+
+
 def _sniff_mime(path: Path) -> str:
+    """Type from the BYTES. The extension is used only for types that have no
+    signature (text, csv, json…); a name that promises a signed type (pdf, zip,
+    png…) without its signature is NOT given that type — an HTML error page
+    saved as `form.pdf` must not be recorded as a PDF (HW-10 MVČR risk)."""
     import mimetypes
     try:
         with path.open("rb") as fh:
-            head = fh.read(16)
+            head = fh.read(512)
     except OSError:
         head = b""
     for magic, mime in _MAGIC:
         if head.startswith(magic):
             return mime
-    return mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    lowered = head.lstrip(b"\xef\xbb\xbf \t\r\n").lower()
+    if lowered.startswith(_HTML_HEADS):
+        return "text/html"
+    guessed = mimetypes.guess_type(path.name)[0]
+    if guessed and guessed in {m for _magic, m in _MAGIC}:
+        return "application/octet-stream"
+    return guessed or "application/octet-stream"
+
+
+def _mime_mismatch(path: Path) -> bool:
+    """True when the name promises a different type than the bytes carry."""
+    import mimetypes
+    guessed = mimetypes.guess_type(path.name)[0]
+    return bool(guessed) and guessed != _sniff_mime(path)
 
 
 def _sha256(path: Path) -> str:
@@ -875,6 +895,7 @@ class BrowserManager:
                 raise BrowserDownloadFailed(f"файл «{name}» не подтвердился на диске после записи")
             record.update(status="saved", path=str(path), filename=path.name, bytes=size,
                           size_human=human_size(size), sha256=digest, mime=_sniff_mime(path),
+                          mime_mismatch=_mime_mismatch(path),
                           quarantined=executable, finished_at=time.time())
             return record
         except BrowserDownloadFailed as exc:
