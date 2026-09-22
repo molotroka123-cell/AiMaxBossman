@@ -26,6 +26,9 @@
 <a id="quick-start"></a>
 ## Завтра начинаем отсюда
 
+**Единая карта завтрашнего прогона:** [Tomorrow Operator Runbook](docs/owner/TOMORROW_OPERATOR_RUNBOOK.md) · [короткий checklist](docs/owner/TOMORROW_CHECKLIST.md). Если старые handoff-документы расходятся по порядку действий, используйте runbook как sequencing-layer, а фактический remote HEAD/certifier/artifact — как источник технической истины.
+
+
 1. Получить от интегратора **один TESTED_SHA, один Windows-архив, его SHA-256 и результаты обязательных проверок**. Нет этих данных — сборка ещё не передана на приёмку.
 2. Скачать именно этот архив по [инструкции установки](INSTALL.md). Не выбирать просто последний зелёный прогон и не использовать архив другой ветки.
 3. Распаковать в отдельную тестовую папку рядом со старой (копия данных — по [ROLLBACK_RU](docs/owner/ROLLBACK_RU.md)), запустить `Start-Bossman.cmd`, настроить одну проверенную локальную модель. Рабочие данные и внешние действия пока не подключать.
@@ -99,6 +102,11 @@
 | Что делать завтра по шагам | [START_TOMORROW_RU](START_TOMORROW_RU.md), [откат](docs/owner/ROLLBACK_RU.md) |
 | Что сделано 21.09 и что осталось | [CONTINUATION](owner-repair/CONTINUATION.md), [ledger](owner-repair/repair-ledger.md), [триаж полного прогона](owner-repair/full-suite-triage.md), [red team](owner-repair/redteam-rc-20260921.md) |
 | Локальный медиадвижок | [SDCPP_ENGINE_RU](docs/media/SDCPP_ENGINE_RU.md) |
+| Как frontier-модели будут проверять и обучать Bossman | [Frontier Council и тренинг — спецификация](docs/evo/FRONTIER_COUNCIL_AND_TRAINING.md) |
+| Как проверить, чему Qwen реально научился на ремонтах | [Local Qwen Apprentice Benchmark](docs/evo/LOCAL_QWEN_APPRENTICE_BENCHMARK.md) |
+| Как завтра пройти всё в правильном порядке | [Tomorrow Operator Runbook](docs/owner/TOMORROW_OPERATOR_RUNBOOK.md) |
+| Как Claude должен экономно работать поверх Qwen | [Qwen-first master prompt](docs/owner/TOMORROW_MASTER_PROMPT_QWEN_FIRST.md) |
+| Как Bossman должен помнить опыт между сессиями | [Durable Memory / Always-Remember Contract](docs/evo/DURABLE_MEMORY_OPERATING_CONTRACT.md) |
 
 <a id="vision"></a>
 ## После первой стабильной сборки — EVO 1.0
@@ -164,11 +172,11 @@ PASS для текущего TESTED_SHA. Источник не переписы�
 
 - **Current bottleneck:** The repair pass is materially ahead of the 2026-09-07 scorecard, but the final repaired exact-SHA Windows artifact still needs mandatory CI, clean-install owner re-run, Video Studio product-path acceptance, coaching/holdout and an independent red-team.
 - **Next highest-value fix:** Finish mandatory exact-SHA CI, build one clean Windows 1.0-RC artifact, then run the full owner acceptance and independent red-team on those exact bytes.
-- **Last evidence SHA:** `a2790632feed52b6b6ec21f017d85fb5151ca4f3` · **Current HEAD SHA:** `a9d8d325d5c2` · **Evidence freshness:** PARTIALLY_STALE
+- **Last evidence SHA:** `0c1cbe651f5271bbd0bb2d30b467c1206c19f565` · **Current HEAD SHA:** `f774daa5985f` · **Evidence freshness:** PARTIALLY_STALE
 - **Last scorecard update:** 2026-09-22
 - **Benchmark hard failures:** none observed
 - **Live hardware attestation:** PENDING
-- **Exact-SHA CI:** UNPROVEN
+- **Exact-SHA CI:** PASS
 
 _Среднее (вторично, не авторитетно): 8.0/10. 10.0 = ATTESTED; ни одна ось не ATTESTED без живой аттестации железа._
 <!-- BOSSMAN_LIVE_SCORECARD_END -->
