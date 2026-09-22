@@ -480,6 +480,23 @@ def _validate_scope(changed: Sequence[str], allowed: Sequence[str], protected: S
         raise OpenHandsError("OpenHands changed protected/out-of-scope paths: " + ", ".join(violations))
 
 
+def split_command(configured: str, *, windows: bool | None = None) -> tuple[str, ...]:
+    """Split BOSSMAN_OPENHANDS_COMMAND. On Windows `shlex(posix=False)` keeps
+    the quotes INSIDE the token, so `"C:\\Owner files\\runtime\\python.exe" -m x`
+    became an executable name with literal quotes that no lookup finds — every
+    install under a path with spaces had no working sidecar. Quotes that wrap
+    a whole token are removed; backslashes stay literal."""
+    windows = os.name == "nt" if windows is None else windows
+    if not windows:
+        return tuple(shlex.split(configured))
+    out = []
+    for token in shlex.split(configured, posix=False):
+        if len(token) >= 2 and token[0] == token[-1] and token[0] in "\"'":
+            token = token[1:-1]
+        out.append(token)
+    return tuple(out)
+
+
 class OpenHandsClient:
     """Run a JSON-over-stdio OpenHands sidecar without granting repository authority."""
 
@@ -487,7 +504,7 @@ class OpenHandsClient:
         configured = os.environ.get("BOSSMAN_OPENHANDS_COMMAND", "")
         raw = tuple(command or ())
         if not raw and configured.strip():
-            raw = tuple(shlex.split(configured, posix=os.name != "nt"))
+            raw = split_command(configured)
         if not raw:
             raise OpenHandsError("OpenHands disabled: set BOSSMAN_OPENHANDS_COMMAND or pass command=")
         command = list(raw)

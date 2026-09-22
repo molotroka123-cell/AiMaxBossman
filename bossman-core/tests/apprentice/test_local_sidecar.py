@@ -269,3 +269,14 @@ def test_the_sidecar_stdout_carries_exactly_one_json_line(repo):
         server.shutdown()
     lines = [x for x in proc.stdout.splitlines() if x.strip()]
     assert len(lines) == 1 and json.loads(lines[0])["status"] == "completed", proc.stdout + proc.stderr
+
+
+def test_a_windows_command_with_a_quoted_path_with_spaces_splits_into_a_usable_executable():
+    from bossman.apprentice.openhands_client import split_command
+    cmd = r'"C:\Owner acceptance with spaces\BOSSMAN\runtime\python.exe" -I -m bossman.apprentice.local_sidecar --model m'
+    parts = split_command(cmd, windows=True)
+    assert parts[0] == r"C:\Owner acceptance with spaces\BOSSMAN\runtime\python.exe"
+    assert parts[1:] == ("-I", "-m", "bossman.apprentice.local_sidecar", "--model", "m")
+    # unquoted tokens and backslashes are untouched; POSIX splitting unchanged
+    assert split_command(r"C:\py\python.exe -m x", windows=True) == (r"C:\py\python.exe", "-m", "x")
+    assert split_command("'/opt/my py/python' -m x", windows=False) == ("/opt/my py/python", "-m", "x")

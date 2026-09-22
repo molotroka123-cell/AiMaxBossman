@@ -54,6 +54,7 @@ on:
       # уезжает в архив непроверенной (BL-088 для metrics_smoke; обход всех
       # исполняемых скриптов нашёл вторым evening_owner_run).
       - 'tools/metrics_smoke.py'
+      - 'tools/coding_path_owner.py'
       - 'scripts/evening_owner_run.py'
       - 'command-center/**'
       - 'bossman-core/**'
@@ -429,6 +430,21 @@ jobs:
             exit 0
           }
           exit $code
+      # Coding path из распакованного архива: установленный backend, локальный
+      # сайдкар bossman.openhands.v1, ДЕТЕРМИНИРОВАННАЯ ТЕСТОВАЯ МОДЕЛЬ (помечена
+      # в каждой записи), настоящий git-репозиторий с посеянным дефектом,
+      # независимая проверка тестами самим Bossman и отрицательный контроль
+      # («сайдкар сказал готово, но не исправил» обязан стать failed).
+      # Доказывает механику, а не качество модели.
+      - name: Coding path from the archive (local sidecar + deterministic test model)
+        if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
+        run: |
+          & "$env:BCC_ACCEPTANCE_PYTHON" -I "$env:BOSSMAN_INSTALLED_HOME/app-support/coding_path_owner.py" `
+            --output "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/coding-path.json"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host '::error::BOSSMAN_CODING_PATH=FAIL — путь Coding из архива не работает. Смотрите coding-path.json.'
+            exit 1
+          }
       - name: Genuine free-model human task smoke
         if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
         env:
