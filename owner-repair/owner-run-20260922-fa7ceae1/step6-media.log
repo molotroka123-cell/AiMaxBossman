@@ -1,0 +1,11 @@
+07:52:56 ===  image
+07:52:56 submitted sdcpp:z-image-turbo 1 {'width': 1024, 'height': 1024, 'seed': 7}
+07:55:49 image -> {"job": {"id": 1, "status": "completed", "error": "", "_elapsed_s": 170.9}, "file": {"path": "C:\\Bossman-Test\\fa7ceae1\\step6-out\\image.png", "bytes": 1824431, "sha256": "0f3d49b6e3001a94d8ea19f77672448f1942187e57c57524707074ffc662159d", "ffprobe_rc": 0, "ffprobe": {"programs": [], "stream_groups": [], "streams": [{"codec_name": "png", "width": 1024, "height": 1024, "avg_frame_rate": "25/1"}], "format": {}}, "full_decode_rc": 0, "decode_errors": "", "provenance_keys": ["cost_usd", "finished_at", "harness", "inputs", "mock", "model", "output", "plane", "provider", "provider_request_id", "settings_resolved"], "engine_trace": null}, "run_id": "82ac9d5fe9a24126b809e4001fe71cc6"}
+07:55:49 ===  t2v
+07:55:49 submitted sdcpp:wan2.2-ti2v-5b 2 {'width': 832, 'height': 480, 'frames': 49, 'fps': 16, 'steps': 20, 'seed': 7}
+08:13:50 --- driver replaced: no timeouts, resume (image=1, t2v=2), + restart probe
+08:13:50 ===  image
+08:13:50 resuming image job 1
+08:13:50 image -> {"job": {"id": 1, "status": "completed", "error": "", "_elapsed_s": 0.0}, "file": {"path": "C:\\Bossman-Test\\fa7ceae1\\step6-out\\image.png", "bytes": 1824431, "sha256": "0f3d49b6e3001a94d8ea19f77672448f1942187e57c57524707074ffc662159d", "ffprobe_rc": 0, "ffprobe": {"programs": [], "stream_groups": [], "streams": [{"codec_name": "png", "width": 1024, "height": 1024, "avg_frame_rate": "25/1"}], "format": {}}, "full_decode_rc": 0, "decode_errors": "", "provenance_keys": ["cost_usd", "finished_at", "harness", "inputs", "mock", "model", "output", "plane", "provider", "provider_request_id", "settings_resolved"], "engine_trace": null}, "run_id": "82ac9d5fe9a24126b809e4001fe71cc6"}
+08:13:50 ===  t2v
+08:13:50 resuming t2v job 2
