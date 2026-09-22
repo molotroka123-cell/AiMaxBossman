@@ -104,7 +104,7 @@ def test_generated_image_is_sent_only_after_byte_verification(tmp_path):
     reply, history, tg = run(tmp_path, studio)
     assert reply is None
     [photo] = tg.photos()
-    assert PNG in photo and b'sdcpp:z-image-turbo' in photo and b'seed' in photo
+    assert PNG in photo and 'Z-Image-Turbo'.encode() in photo and b'seed' in photo
     job = studio.created[0]
     assert job['model'] == 'sdcpp:z-image-turbo' and job['prompt'] == 'кот-астронавт'
     assert job['settings']['width'] == 1024 and job['settings']['steps'] == 8 and isinstance(job['settings']['seed'], int)

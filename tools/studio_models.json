@@ -406,6 +406,124 @@
       },
       "verified_capabilities": {},
       "status": "UNVERIFIED"
+    },
+    {
+      "id": "sdcpp:flux1-schnell",
+      "provider": "sdcpp",
+      "surface": "image",
+      "label": "FLUX.1-schnell — локальная генерация изображений (stable-diffusion.cpp, Vulkan)",
+      "settings": {
+        "width": {
+          "type": "range",
+          "min": 256,
+          "max": 2048,
+          "default": 1024,
+          "integer": true,
+          "multiple_of": 16
+        },
+        "height": {
+          "type": "range",
+          "min": 256,
+          "max": 2048,
+          "default": 1024,
+          "integer": true,
+          "multiple_of": 16
+        },
+        "steps": {
+          "type": "range",
+          "min": 1,
+          "max": 8,
+          "default": 4,
+          "integer": true
+        },
+        "seed": {
+          "type": "range",
+          "min": 0,
+          "max": 2147483647,
+          "default": null,
+          "nullable": true,
+          "integer": true
+        }
+      },
+      "roles": {},
+      "source": "command-center/bcc/studio/providers/sdcpp.py; city96/FLUX.1-schnell-gguf@f495746e",
+      "deadline_seconds": 900,
+      "license": "Apache-2.0 (black-forest-labs/FLUX.1-schnell)",
+      "price": {
+        "kind": "local",
+        "usd": 0,
+        "source": "local engine, no provider charge"
+      },
+      "free": true,
+      "enabled": false,
+      "answers": {
+        "BUNDLED": false,
+        "CONFIGURED": "BOSSMAN_SDCPP_BIN + BOSSMAN_MEDIA_MODELS (MANIFEST.json)",
+        "MODEL_REQUIRED": true,
+        "EXTERNAL_SERVICE_REQUIRED": false,
+        "VERIFIED": false
+      },
+      "verified_capabilities": {},
+      "status": "UNVERIFIED"
+    },
+    {
+      "id": "sdcpp:sdxl-base",
+      "provider": "sdcpp",
+      "surface": "image",
+      "label": "Stable Diffusion XL 1.0 — локальная генерация изображений (stable-diffusion.cpp, Vulkan)",
+      "settings": {
+        "width": {
+          "type": "range",
+          "min": 512,
+          "max": 1536,
+          "default": 1024,
+          "integer": true,
+          "multiple_of": 16
+        },
+        "height": {
+          "type": "range",
+          "min": 512,
+          "max": 1536,
+          "default": 1024,
+          "integer": true,
+          "multiple_of": 16
+        },
+        "steps": {
+          "type": "range",
+          "min": 10,
+          "max": 50,
+          "default": 25,
+          "integer": true
+        },
+        "seed": {
+          "type": "range",
+          "min": 0,
+          "max": 2147483647,
+          "default": null,
+          "nullable": true,
+          "integer": true
+        }
+      },
+      "roles": {},
+      "source": "command-center/bcc/studio/providers/sdcpp.py; stabilityai/stable-diffusion-xl-base-1.0@46216598",
+      "deadline_seconds": 900,
+      "license": "CreativeML OpenRAIL++-M (stabilityai/stable-diffusion-xl-base-1.0)",
+      "price": {
+        "kind": "local",
+        "usd": 0,
+        "source": "local engine, no provider charge"
+      },
+      "free": true,
+      "enabled": false,
+      "answers": {
+        "BUNDLED": false,
+        "CONFIGURED": "BOSSMAN_SDCPP_BIN + BOSSMAN_MEDIA_MODELS (MANIFEST.json)",
+        "MODEL_REQUIRED": true,
+        "EXTERNAL_SERVICE_REQUIRED": false,
+        "VERIFIED": false
+      },
+      "verified_capabilities": {},
+      "status": "UNVERIFIED"
     }
   ]
 }

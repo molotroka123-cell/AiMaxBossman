@@ -10,6 +10,8 @@ Models (pinned files, see `models/media/MANIFEST.json`):
   * `sdcpp:wan2.2-ti2v-5b`  — Wan2.2 TI2V-5B, text→video and image→video
     (`start` role), Apache-2.0.
   * `sdcpp:z-image-turbo`   — Z-Image-Turbo, text→image, Apache-2.0.
+  * `sdcpp:flux1-schnell`   — FLUX.1-schnell, text→image, Apache-2.0.
+  * `sdcpp:sdxl-base`       — Stable Diffusion XL 1.0, text→image, OpenRAIL++-M.
 
 Honesty boundary: the engine writes .webm/.png; the Studio persists only
 bytes that pass ffprobe + full decode (runtime.verify_file). The MP4 made from
@@ -44,6 +46,8 @@ MODELS_ENV = "BOSSMAN_MEDIA_MODELS"
 ENGINES = {
     "sdcpp:wan2.2-ti2v-5b": "wan2.2-ti2v-5b",
     "sdcpp:z-image-turbo": "z-image-turbo",
+    "sdcpp:flux1-schnell": "flux1-schnell",
+    "sdcpp:sdxl-base": "sdxl-base",
 }
 
 
@@ -86,6 +90,13 @@ def _argv(cfg: dict, model_id: str, plane: GenerationPlane, settings: dict,
                  "--sampling-method", "euler"]
         if init is not None:
             argv += ["-i", str(init)]
+    elif model_id == "sdcpp:flux1-schnell":
+        argv += ["--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),
+                 "--clip_l", str(files["clip_l"]), "--t5xxl", str(files["t5xxl"]),
+                 "--cfg-scale", "1.0", "--sampling-method", "euler"]
+    elif model_id == "sdcpp:sdxl-base":
+        argv += ["-m", str(files["model"]), "--vae", str(files["vae"]),
+                 "--cfg-scale", "7.0", "--sampling-method", "dpm++2m"]
     else:
         argv += ["--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),
                  "--llm", str(files["text_encoder"]), "--cfg-scale", "1.0"]

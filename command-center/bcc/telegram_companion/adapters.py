@@ -179,6 +179,30 @@ class Telegram:
     METHODS = frozenset({"getMe", "getWebhookInfo", "getUpdates", "sendMessage", "sendChatAction", "getFile",
                          "answerCallbackQuery", "setMyCommands"})
 
+    async def send_video(self, person: Person, data: bytes, caption: str, keyboard=None):
+        """Upload a verified MP4; same identity check and caption egress guard as photos."""
+        from bossman.notifications.telegram_transport import _egress_guard_text
+        if not self.settings.bot_token:
+            raise CompanionError("TELEGRAM_NOT_CONFIGURED")
+        if not self.authorize_delivery(person):
+            raise CompanionError("IDENTITY_REVOKED")
+        if not (len(data) > 12 and data[4:8] == b"ftyp") or len(data) > 49 * 1024 * 1024:
+            raise CompanionError("IMAGE_BYTES_UNVERIFIED")
+        clean = _egress_guard_text(scrub(caption, (self.settings.bot_token, self.settings.core_token)))[:1000]
+        try:
+            async with asyncio.timeout(300):
+                response = await self.client.post(f"{TELEGRAM_API}/bot{self.settings.bot_token}/sendVideo",
+                                                  data={"chat_id": str(person.chat_id), "caption": clean,
+                                                        "supports_streaming": "true",
+                                                        **({"reply_markup": json.dumps(markup(keyboard))} if keyboard else {})},
+                                                  files={"video": ("bossman.mp4", data, "video/mp4")})
+            body = response.json()
+        except (httpx.HTTPError, OSError, TimeoutError, ValueError):
+            raise CompanionError("NETWORK_UNAVAILABLE") from None
+        if not isinstance(body, dict) or body.get("ok") is not True:
+            raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
+        return (body.get("result") or {}).get("message_id")
+
     async def send_photo(self, person: Person, data: bytes, caption: str, keyboard=None):
         """Upload verified PNG/JPEG bytes as a photo; caption passes the same egress guard."""
         from bossman.notifications.telegram_transport import _egress_guard_text
@@ -313,13 +337,14 @@ class Core:
     async def close(self):
         await self.client.aclose()
 
-    async def _request(self, method, path, payload=None):
+    async def _request(self, method, path, payload=None, timeout=10):
         return await json_request(self.client, method, self.settings.core_url + path, payload=payload,
-                                  headers={"X-BCC-Token": self.settings.core_token}, timeout=10)
+                                  headers={"X-BCC-Token": self.settings.core_token}, timeout=timeout)
 
     # ---- Bossman Studio (local generation; provenance and gallery stay in Bossman)
     async def studio_model(self, model_id: str) -> dict | None:
-        body = await self._request("GET", "/api/studio/models")
+        # The first listing after a Bossman start re-hashes every model file against MANIFEST.json.
+        body = await self._request("GET", "/api/studio/models", timeout=180)
         rows = body.get("items") if isinstance(body, dict) else None
         return next((r for r in rows or [] if isinstance(r, dict) and r.get("id") == model_id), None)
 
@@ -339,9 +364,9 @@ class Core:
     async def studio_cancel(self, job_id: int) -> None:
         await self._request("POST", f"/api/studio/jobs/{int(job_id)}/cancel")
 
-    async def studio_runs(self, job_id: int) -> list:
+    async def studio_runs(self, job_id: int, surface: str = "image") -> list:
         body = await json_request(self.client, "GET", self.settings.core_url + "/api/studio/runs",
-                                  params={"job_id": int(job_id), "surface": "image"},
+                                  params={"job_id": int(job_id), "surface": surface},
                                   headers={"X-BCC-Token": self.settings.core_token}, timeout=10)
         rows = body.get("items") if isinstance(body, dict) else None
         return [r for r in rows or [] if isinstance(r, dict) and r.get("job_id") == job_id]
