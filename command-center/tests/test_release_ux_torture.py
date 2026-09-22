@@ -65,7 +65,7 @@ def _assert_page_settled(page, page_id: str, previous=None):
           if (prev && prev.isConnected) return false;
           return location.hash.startsWith('#/' + id)
             && view
-            && view.dataset.page === id
+            && view.dataset.rendered === id
             && !view.querySelector('.skeleton')
             && (view.innerText || '').trim().length > 0;
         }""",

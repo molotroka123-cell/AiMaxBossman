@@ -375,10 +375,23 @@ async def test_model_claim_is_not_approval(env, desk):
         res = await spec.handler({**base, **claim}, _ctx(env, approval_id=None))
         assert res.error and "не выполнено" in res.content, claim
         assert desk.desktop.executed == [], claim
-    # для «noop»/пустого semantic движок дал бы AUTO — и именно здесь раньше
-    # выставлялось _approved_consequence=True: теперь без approval_id — отказ
+    # Названная цель «Удалить» сама поднимает ASK у движка (ask_consequence: semantic
+    # ИЛИ подпись цели) — «noop» её не понижает.
     assert decide_effect(spec, {**base, "semantic": "noop"},
-                         {"permissions": {"computer.control": True}})[0] == "auto"
+                         {"permissions": {"computer.control": True}})[0] == "ask"
+    # Последствие, видимое ТОЛЬКО по переднему окну (подпись «OK» безобидна, окно —
+    # банк): движок даёт AUTO, и именно здесь раньше выставлялось
+    # _approved_consequence=True. Без approval_id — отказ обработчика, fail closed.
+    desk.desktop.title, desk.desktop.app = "Сбербанк Онлайн — перевод", "Sberbank"
+    desk.desktop.extra = [{"name": "OK", "control_type": "Button",
+                           "left": 200, "top": 0, "right": 260, "bottom": 30, "x": 230, "y": 15}]
+    await tc.observe(env.svc)
+    bank = {"action": "click", "target": "OK", "generation": desk.generation, "semantic": "noop",
+            "_approved_consequence": True, "_approval_id": 7}
+    assert decide_effect(spec, bank, {"permissions": {"computer.control": True}})[0] == "auto"
+    res = await spec.handler(bank, _ctx(env, approval_id=None))
+    assert res.error and "не выполнено" in res.content
+    assert desk.desktop.executed == []
 
 
 async def test_owner_approval_from_context_executes_bound_kind(env, desk):

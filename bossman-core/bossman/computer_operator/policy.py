@@ -168,6 +168,20 @@ class ComputerPolicy:
         for kind,rx in _LEXICON_RX:
             if rx.search(s):return kind
         return None
+    @classmethod
+    def ask_consequence(cls,args:dict)->str|None:
+        """Последствие, которое effect-hook МОЖЕТ вынести владельцу на
+        подтверждение из одного заявленного действия: объявленный semantic ЛИБО
+        подпись названной цели/текста. Последствие, видимое лишь по переднему
+        окну, сюда НЕ входит — оно ловится на границе эффекта (classify +
+        переобзор), fail closed."""
+        c=cls.declared_consequence(args)
+        if c:return c
+        blob=" ".join(str((args or {}).get(k) or "") for k in ("target","text")).lower().strip()
+        if blob:
+            for kind,rx in _LEXICON_RX:
+                if rx.search(blob):return kind
+        return None
     @staticmethod
     def _coordinate_guess(a:ComputerAction)->bool:
         """Тычок в координату, порог уверенности к которому обязан применяться.

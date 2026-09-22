@@ -1,172 +1,222 @@
 {
   "schema": "bossman.live-scorecard/1",
-  "last_update": "2026-09-07",
-  "last_evidence_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
+  "last_update": "2026-09-22",
+  "last_evidence_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
   "exact_sha_ci": "UNPROVEN",
   "live_hardware_attestation": "PENDING",
   "benchmark_hard_failures": [],
-  "current_bottleneck": "V6 phase 0/1 is repository-complete pending external validation: Core/ASTRA/Solana/Windows/security evidence is green on the current code candidate, but an uninterrupted full Command Center exact-SHA matrix plus owner Windows/local-model/Video/Web Designer/long-session acceptance is still missing.",
-  "next_highest_value_fix": "Finish one uninterrupted exact-SHA CI certification, then run the second owner Dashboard acceptance on Windows with the configured model/provider and close only reproduced Video Studio, Web Designer and long-session findings.",
+  "current_bottleneck": "The repair pass is materially ahead of the 2026-09-07 scorecard, but the final repaired exact-SHA Windows artifact still needs mandatory CI, clean-install owner re-run, Video Studio product-path acceptance, coaching/holdout and an independent red-team.",
+  "next_highest_value_fix": "Finish mandatory exact-SHA CI, build one clean Windows 1.0-RC artifact, then run the full owner acceptance and independent red-team on those exact bytes.",
   "categories": [
     {
       "category": "Execution Truth",
-      "score": 8.8,
+      "score": 9.1,
       "status": "VERIFIED",
       "confidence": "HIGH",
       "evidence": [
-        "AT-01 effect obligations and fresh post-state verification are closed with regression coverage",
-        "Fencing, anti-replay and recovery invariants remain in force; V6 performance work did not weaken effect-boundary semantics"
+        "Browser download B4 now persists and verifies real artifacts instead of returning false success",
+        "Approval restart matrix is durable and task-bound effects remain exactly-once across hard restart"
       ],
-      "blockers": ["Owner-host VERIFIED_ACTION end-to-end is still NOT_RUN"],
-      "tests": ["bossman-core/tests/test_operator_at01_at03_regression.py", "command-center/tests/test_golden_missions.py"],
-      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
-      "last_verified_at": "2026-09-07",
-      "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.0
+      "blockers": [
+        "Final repaired Windows artifact has not yet completed the full owner re-run"
+      ],
+      "tests": [
+        "bossman-core/tests/test_operator_at01_at03_regression.py",
+        "command-center/tests/test_golden_missions.py"
+      ],
+      "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
+      "last_verified_at": "2026-09-22",
+      "live_attestation": "PENDING",
+      "regression_delta": 0
     },
     {
       "category": "Security",
-      "score": 8.5,
+      "score": 9,
       "status": "VERIFIED",
       "confidence": "HIGH",
       "evidence": [
-        "Secret scan and blocking SAST/SCA completed successfully on the V6 code candidate",
-        "Approvals, authorization, privacy routing, freshness and fail-closed behavior were explicitly preserved through V6"
+        "CU-APPROVAL no longer trusts a model-supplied semantic field as proof of approval",
+        "CU-VERIFY fails closed on unknown or mistyped expectations; approval and anti-replay boundaries remain enforced"
       ],
-      "blockers": ["Owner credential/provider runtime and Windows host attestation remain external validation"],
-      "tests": ["tests/test_ci_secret_scan.py", "command-center/tests/test_policy_algebra.py"],
-      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
-      "last_verified_at": "2026-09-07",
-      "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.0
+      "blockers": [
+        "Independent post-repair red-team on the final installed artifact is still pending"
+      ],
+      "tests": [
+        "tests/test_ci_secret_scan.py",
+        "command-center/tests/test_policy_algebra.py"
+      ],
+      "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
+      "last_verified_at": "2026-09-22",
+      "live_attestation": "PENDING",
+      "regression_delta": 0
     },
     {
       "category": "Tooling / OS Integration",
-      "score": 7.5,
+      "score": 8.6,
       "status": "INTEGRATED",
-      "confidence": "MEDIUM",
+      "confidence": "HIGH",
       "evidence": [
-        "Windows-path CI is green on the current V6 code candidate",
-        "Owner-session reconnect, app restart recovery, provider UX and Trading Lab crash paths have repository fixes"
+        "Owner hardware live run exercised Computer Use on Windows with 12/12 checks including focus, Cyrillic typing, STOP/resume and coordinate fallback",
+        "Local MAIN/FAST models, Chromium, FFmpeg and browser download were exercised on the Ryzen AI Max+ 395 target system"
       ],
-      "blockers": ["Real visible-window owner Windows acceptance and configured local-model/provider acceptance are still pending"],
-      "tests": ["command-center/tests/test_apps_control.py", "command-center/tests/test_testing_period.py"],
-      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
-      "last_verified_at": "2026-09-07",
+      "blockers": [
+        "Current repaired exact-SHA Windows package still needs clean-install owner acceptance"
+      ],
+      "tests": [
+        "command-center/tests/test_apps_control.py",
+        "command-center/tests/test_testing_period.py"
+      ],
+      "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
+      "last_verified_at": "2026-09-22",
       "live_attestation": "PENDING",
-      "regression_delta": 0.0
+      "regression_delta": 0
     },
     {
       "category": "Organization Layer",
-      "score": 7.3,
+      "score": 7.6,
       "status": "INTEGRATED",
       "confidence": "MEDIUM",
       "evidence": [
-        "Mission/task orchestration remains durable and blocked-only missions now terminate honestly instead of appearing to run forever",
-        "Organization/Fleet execution contracts and verified-child completion rules remain covered"
+        "Mission/task orchestration and durable task state remain integrated",
+        "Planner/worker/verifier owner scenario still needs the final installed 1.0-RC re-run"
       ],
-      "blockers": ["Owner live N4/N5/N6/N8 acceptance is not fully evidenced on the current host"],
-      "tests": ["command-center/tests/test_feat_missions.py", "bossman-core/tests/test_v3_organization_e2e.py"],
-      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
-      "last_verified_at": "2026-09-07",
+      "blockers": [
+        "Final installed multi-agent owner scenario is pending"
+      ],
+      "tests": [
+        "command-center/tests/test_feat_missions.py",
+        "bossman-core/tests/test_v3_organization_e2e.py"
+      ],
+      "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
+      "last_verified_at": "2026-09-22",
       "live_attestation": "PENDING",
-      "regression_delta": 0.0
+      "regression_delta": 0
     },
     {
       "category": "Fleet & Resources",
-      "score": 7.0,
+      "score": 7.2,
       "status": "INTEGRATED",
       "confidence": "MEDIUM",
       "evidence": [
-        "Lease/fence/queue safety contracts remain covered and V6 does not bypass the canonical execution path",
-        "Interactive work is protected from background FFmpeg contention by lowered child-process priority"
+        "Lease/fence/resource controls remain in place and owner repair used explicit desktop/backend/GPU leases",
+        "Media workers are bounded child processes rather than permanently resident generation daemons"
       ],
-      "blockers": ["Remote production transport and owner-host rollback/resource acceptance remain external"],
-      "tests": ["bossman-core/tests/test_v3_fleet_e2e.py", "command-center/tests/test_fence_fl01.py"],
-      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
-      "last_verified_at": "2026-09-07",
+      "blockers": [
+        "Final owner restart/resource/rollback acceptance remains pending"
+      ],
+      "tests": [
+        "bossman-core/tests/test_v3_fleet_e2e.py",
+        "command-center/tests/test_fence_fl01.py"
+      ],
+      "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
+      "last_verified_at": "2026-09-22",
       "live_attestation": "PENDING",
-      "regression_delta": 0.0
+      "regression_delta": 0
     },
     {
       "category": "Memory / Context",
-      "score": 6.5,
-      "status": "IMPLEMENTED",
+      "score": 7.2,
+      "status": "INTEGRATED",
       "confidence": "MEDIUM",
       "evidence": [
-        "Durable task/recovery memory and scoped context contracts remain intact",
-        "Long-session testing now explicitly watches stale context, zombie runs, duplicate subscribers and memory growth"
+        "Controlled audit disproved a general memory-loss P1; unique memory writes and restart continuity passed",
+        "Coaching/frontier learning design is documented, but holdout transfer is not yet measured"
       ],
-      "blockers": ["Same-model intelligence-retention artifact is still INSUFFICIENT_EVIDENCE; owner long-session re-test pending"],
-      "tests": ["bossman-core/tests/test_v3_memory_kernel.py", "tests/test_context_slice.py"],
-      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
-      "last_verified_at": "2026-09-07",
+      "blockers": [
+        "Coaching holdout transfer and long-session re-test are pending"
+      ],
+      "tests": [
+        "bossman-core/tests/test_v3_memory_kernel.py",
+        "tests/test_context_slice.py"
+      ],
+      "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
+      "last_verified_at": "2026-09-22",
       "live_attestation": "PENDING",
-      "regression_delta": 0.0
+      "regression_delta": 0
     },
     {
       "category": "Testing / CI",
-      "score": 8.0,
+      "score": 8.6,
       "status": "VERIFIED",
       "confidence": "MEDIUM",
       "evidence": [
-        "Bossman Core full coverage/rest/security/gateway/stage8-14 jobs are green on 413a97a1",
-        "ASTRA acceptance, Solana safety, Windows paths and secret/SAST gates are green; Python 3.14 is a hard Command Center lane"
+        "Repair pass added targeted regressions for B4, AP-ALL, TEL-001, Computer Use safety, media hashing/cancel and UX settle",
+        "Full-suite triage found no confirmed product regression after harness/environment fixes; current exact-SHA mandatory CI is still pending"
       ],
-      "blockers": ["Full Command Center 3.11/3.12/3.14 exact-SHA run was cancelled by later documentation pushes, so exact_sha_ci remains UNPROVEN"],
-      "tests": [".github/workflows/bossman-core-ci.yml", ".github/workflows/command-center-ci.yml"],
-      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
-      "last_verified_at": "2026-09-07",
-      "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.0
+      "blockers": [
+        "Mandatory exact-SHA workflows for the current tip are queued/pending"
+      ],
+      "tests": [
+        ".github/workflows/bossman-core-ci.yml",
+        ".github/workflows/command-center-ci.yml"
+      ],
+      "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
+      "last_verified_at": "2026-09-22",
+      "live_attestation": "PENDING",
+      "regression_delta": 0
     },
     {
       "category": "Observability / CEO Control",
-      "score": 7.0,
-      "status": "PARTIAL",
-      "confidence": "MEDIUM",
+      "score": 7.9,
+      "status": "INTEGRATED",
+      "confidence": "HIGH",
       "evidence": [
-        "V6 adds Services.start phase tracing, UI_READY/first-page timing and Computer Use phase_timing",
-        "Testing-period evidence from owner session 6cbb17ce84db is retained with corrected dead-click classification"
+        "Flight Recorder and installed-product telemetry were live on owner hardware",
+        "TEL-001 now reports model generation throughput from native/upstream timing rather than short-prompt wall time"
       ],
-      "blockers": ["Owner-host FIRST_USEFUL_RESPONSE and VERIFIED_ACTION distributions are still NOT_MEASURED"],
-      "tests": ["tests/test_operator_step_profile.py", "command-center/tests/test_testing_period.py"],
-      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
-      "last_verified_at": "2026-09-07",
+      "blockers": [
+        "Final owner-level latency distributions on the repaired artifact are incomplete"
+      ],
+      "tests": [
+        "tests/test_operator_step_profile.py",
+        "command-center/tests/test_testing_period.py"
+      ],
+      "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
+      "last_verified_at": "2026-09-22",
       "live_attestation": "PENDING",
-      "regression_delta": 0.0
+      "regression_delta": 0
     },
     {
       "category": "Treasury / Cost",
-      "score": 6.8,
+      "score": 6.9,
       "status": "IMPLEMENTED",
       "confidence": "MEDIUM",
       "evidence": [
-        "Budget/cost gates remain unchanged and fail-closed during V6 performance work",
-        "Unknown pricing is not treated as free and Fable hard-cap accounting remains isolated from tests"
+        "Budget/cost gates remain fail-closed and unknown pricing is not treated as free",
+        "Frontier-audit/training and media cost-per-verified-result is not yet measured"
       ],
-      "blockers": ["Real configured provider/local-model cost-per-verified-result acceptance is pending"],
-      "tests": ["tests/test_fable_budget_pricing.py", "command-center/tests/conftest.py"],
-      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
-      "last_verified_at": "2026-09-07",
+      "blockers": [
+        "Real cost-per-verified-result for future frontier auditing/training is unavailable"
+      ],
+      "tests": [
+        "tests/test_fable_budget_pricing.py",
+        "command-center/tests/conftest.py"
+      ],
+      "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
+      "last_verified_at": "2026-09-22",
       "live_attestation": "PENDING",
-      "regression_delta": 0.0
+      "regression_delta": 0
     },
     {
       "category": "Mission UX / Command Center",
-      "score": 6.8,
-      "status": "IMPLEMENTED",
+      "score": 7.8,
+      "status": "INTEGRATED",
       "confidence": "MEDIUM",
       "evidence": [
-        "V6 lazy pages reduced first-render modules from 42/788 KiB to 14/290 KiB in the measured harness",
-        "Owner-session reconnect, blocked mission, app restart and provider/trading error paths received targeted fixes"
+        "Computer Use is wired into the owner product and real Windows interaction has owner evidence",
+        "F-17 page-settle race was fixed with a product-owned rendered-page signal"
       ],
-      "blockers": ["Real Video Studio, Web Designer AI-edit and 4–5 task long-session owner acceptance must be re-run"],
-      "tests": ["command-center/tests/test_v6_lazy_pages.py", "command-center/tests/test_ux2_pages_sweep.py"],
-      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
-      "last_verified_at": "2026-09-07",
+      "blockers": [
+        "Video Studio product-path generation, Web Designer and long-session final acceptance remain pending"
+      ],
+      "tests": [
+        "command-center/tests/test_v6_lazy_pages.py",
+        "command-center/tests/test_ux2_pages_sweep.py"
+      ],
+      "last_verified_sha": "a2790632feed52b6b6ec21f017d85fb5151ca4f3",
+      "last_verified_at": "2026-09-22",
       "live_attestation": "PENDING",
-      "regression_delta": 0.0
+      "regression_delta": 0
     }
   ]
 }

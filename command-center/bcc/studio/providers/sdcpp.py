@@ -281,6 +281,10 @@ def _stat_key(path: Path) -> dict:
     return {"size": st.st_size, "mtime_ns": st.st_mtime_ns, "ctime_ns": st.st_ctime_ns, "inode": st.st_ino}
 
 
+_VERIFIED: dict[str, dict] = {}            # in-process verified (path → observation) memo, see HashCache
+_VERIFIED_TOKEN = secrets.token_hex(16)     # process-unique: a memo never outlives the process
+
+
 class HashCache:
     """Persisted (path, stat keys, expected sha) → observed sha. Never authoritative on its own:
     an entry is only reused when its `installation_token` matches the token this cache file was
@@ -290,8 +294,10 @@ class HashCache:
 
     def __init__(self, directory: Path | None):
         self.path = None if directory is None else Path(directory) / HASH_CACHE_NAME
-        self.entries: dict[str, dict] = {}
-        self.token: str | None = None
+        # No cache directory → process-local memo (`_VERIFIED`) shared by every call in this
+        # process, so a repeated health view does not re-hash 25 GB; tests clear it explicitly.
+        self.entries: dict[str, dict] = _VERIFIED if directory is None else {}
+        self.token: str | None = _VERIFIED_TOKEN if directory is None else None
         self.dirty = False
         self._load()
 
@@ -763,7 +769,7 @@ class SdCppProvider:
         try:
             await self._run_inner(job)
         except asyncio.CancelledError:
-            job["failure"] = job["failure"] or "canceled"
+            job["failure"] = job.get("failure") or "canceled"
             self._kill_job(job)
             raise
         except Exception as exc:  # never let the task explode: status() reports the named failure
@@ -771,8 +777,8 @@ class SdCppProvider:
             self._kill_job(job)
         finally:
             job["elapsed_s"] = round(time.time() - job["started"], 2)
-            job["state"] = "done" if job["state"] != "canceled" else "canceled"
-            if job["failure"] is not None and not job["canceled"]:
+            job["state"] = "done" if job.get("state") != "canceled" else "canceled"
+            if job.get("failure") is not None and not job.get("canceled"):
                 self._cleanup_work(job)  # nothing to fetch: no stale raw/init/sidecar until restart
 
     async def _run_inner(self, job: dict) -> None:

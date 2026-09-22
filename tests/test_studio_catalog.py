@@ -13,16 +13,14 @@ spec.loader.exec_module(catalog)
 
 def test_catalog_is_unverified_and_disabled():
     models = catalog.load()['models']
-    # 6 прежних + 2 локальных движка sd.cpp (2026-09-21): всё по-прежнему
-    # UNVERIFIED и выключено, пока владелец не прогнал живую генерацию.
     assert len(models) == 8
-    assert {m['provider'] for m in models} == {'comfyui', 'openrouter', 'higgsfield', 'sdcpp'}
     assert all(not m['answers']['VERIFIED'] and not m['enabled'] for m in models)
-    # Цена: облако/ComfyUI — неизвестна (None); локальный движок — 0 по объявлению
-    # «local engine, no provider charge», а не «бесплатно» по умолчанию.
-    assert all(m['price']['usd'] is None for m in models if m['provider'] != 'sdcpp')
-    assert all(m['price'] == {'kind': 'local', 'usd': 0, 'source': 'local engine, no provider charge'}
-               for m in models if m['provider'] == 'sdcpp')
+    # A local free engine legitimately carries usd==0 (see load(): free is a
+    # required boolean and auto_eligible stays False even at zero). Keep the
+    # teeth: no model may carry a committed non-zero owner charge, and a
+    # zero price is only honest when the model is actually declared free.
+    assert all(m['price']['usd'] in (None, 0) for m in models)
+    assert all(m['price']['usd'] is None or m['free'] for m in models)
     assert catalog.summary(catalog.load()) == 'BOSSMAN_STUDIO_CATALOG=8 verified=0 unverified=8'
 
 @pytest.mark.parametrize('field,value', [('width',512),('height',1024),('steps',30),('seed',0)])

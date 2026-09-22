@@ -254,9 +254,9 @@ async function renderPage() {
 
   /* Скелет — только при смене страницы. Обновления по WS не должны мигать. */
   if (lastRendered !== currentPage || !el.view.firstChild) {
-    replace(el.view, loading(3));
     // Скелет — не страница: маркер снимается, пока render() не вернул узел.
-    delete el.view.dataset.page;
+    el.view.removeAttribute('data-rendered');
+    replace(el.view, loading(3));
   }
 
   try {
@@ -268,7 +268,7 @@ async function renderPage() {
     if (!retainAppFrame(el.view, node)) replace(el.view, node);
     // Явный маркер «в #view — страница currentPage»: проверки UI (и torture-
     // gate) читают его, а не гадают по тексту предыдущей страницы.
-    el.view.dataset.page = currentPage;
+    el.view.dataset.rendered = currentPage;   // конец отрисовки ЭТОЙ страницы
     mark('bossman:first_page_rendered');
     schedulePreload();
     syncTopStats();
@@ -282,6 +282,7 @@ async function renderPage() {
       hint: (e && e.hint) || 'Проверьте, что сервер Command Center работает, и повторите.',
       action: h('button.btn.btn-primary', { type: 'button', onClick: () => refresh() }, 'Повторить'),
     })));
+    el.view.dataset.rendered = currentPage;   // страница «устоялась» на ошибке (текст есть)
   }
 }
 

@@ -728,7 +728,9 @@ def approved_consequence(args: dict, ctx) -> tuple[str | None, int | None]:
     approval_id = getattr(ctx, "approval_id", None)
     if approval_id is None:
         return None, None
-    declared = ComputerPolicy.declared_consequence(args or {})
+    # CU-APPROVAL (canonical line): одобренное последствие = то, что effect-hook
+    # МОГ показать владельцу — заявленный semantic ЛИБО подпись цели/текста.
+    declared = ComputerPolicy.ask_consequence(args or {})
     return declared, int(approval_id)
 
 
@@ -755,7 +757,8 @@ async def _t_act(args, ctx):
 
 def _act_effect(args: dict):
     from bossman.computer_operator.policy import ComputerPolicy
-    declared = ComputerPolicy.declared_consequence(args or {})
+    # semantic ЛИБО подпись цели/текста: «click» на «Delete account» тоже ASK.
+    declared = ComputerPolicy.ask_consequence(args or {})
     if declared:
         return ("ask", f"последствийное действие на рабочем столе: {declared}")
     return None
