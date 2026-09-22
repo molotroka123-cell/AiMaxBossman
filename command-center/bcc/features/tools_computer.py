@@ -81,6 +81,10 @@ MIN_EXPECT_CHARS = 2
 # Служебные аргументы, которые модель писать не может: приходят только из кода.
 RESERVED_ARGS = frozenset({"_approved_consequence", "_approval_id", "_approved_kind"})
 STOP_FILE = "STOP"
+# «Исход неизвестен» переживает перезапуск ровно так же, как «Стоп»: backend чаще
+# всего и погибает именно на зависшем действии, и вернуться с чистой памятью —
+# значит поверить, что рабочий стол в известном состоянии, ничего не проверив.
+UNKNOWN_FILE = "OUTCOME_UNKNOWN"
 
 
 def _core():
@@ -160,8 +164,48 @@ class ComputerState:
     # наблюдения действия запрещены.
     outcome_unknown: str = ""
 
+    @property
+    def unknown_path(self) -> Path | None:
+        """Lives next to STOP: one owner directory, one lifetime."""
+        return None if self.stop_path is None else self.stop_path.with_name(UNKNOWN_FILE)
+
     def stopped(self) -> bool:
         return self.stop.is_set()
+
+    def mark_outcome_unknown(self, text: str) -> None:
+        self.outcome_unknown = text
+        self.last = {}
+        path = self.unknown_path
+        if path is not None:
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text, encoding="utf-8")
+            except OSError:
+                pass
+
+    def clear_outcome_unknown(self) -> None:
+        """Only a fresh observation may do this: the screen has been re-read."""
+        self.outcome_unknown = ""
+        path = self.unknown_path
+        if path is not None:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+    def restore(self) -> None:
+        """Adopt what the previous life left on disk. «Стоп» and «исход неизвестен» both
+        stand until the owner resumes / the screen is re-read — never because we restarted."""
+        if self.stop_path is not None and self.stop_path.is_file():
+            self.stop.set()
+        path = self.unknown_path
+        if path is not None:
+            try:
+                if path.is_file():
+                    self.outcome_unknown = (path.read_text(encoding="utf-8").strip()[:500]
+                                            or "исход прошлого действия неизвестен")
+            except OSError:
+                pass
 
     def set_stop(self, by: str) -> None:
         self.stop.set()
@@ -191,9 +235,9 @@ def _state(svc) -> ComputerState:
         st = ComputerState()
         st.stop_path = Path(svc.settings.data_dir) / "computer" / STOP_FILE
         # Безопасное поведение после перезапуска: «Стоп», нажатый до падения
-        # backend, остаётся в силе, пока владелец сам не нажмёт «Продолжить».
-        if st.stop_path.is_file():
-            st.stop.set()
+        # backend, остаётся в силе, пока владелец сам не нажмёт «Продолжить»;
+        # неизвестный исход — пока экран не перечитают.
+        st.restore()
         svc._computer_state = st
     if st.desktop is None:
         core = _core()
@@ -226,7 +270,7 @@ async def observe(svc, *, screenshot: bool = True) -> dict[str, Any]:
     if screenshot:
         shot, _ = await st.shots.capture()
     st.generation += 1
-    st.outcome_unknown = ""
+    st.clear_outcome_unknown()
     elements = list((tree or {}).get("elements") or [])[:MAX_ELEMENTS]
     for i, el in enumerate(elements):
         el["i"] = i
@@ -485,8 +529,7 @@ async def _bounded(st: ComputerState, coro, what: str):
     try:
         return await asyncio.wait_for(coro, timeout=ACT_TIMEOUT_S)
     except asyncio.TimeoutError:
-        st.outcome_unknown = f"{what} не ответил за {ACT_TIMEOUT_S:.0f} с — исход неизвестен"
-        st.last = {}
+        st.mark_outcome_unknown(f"{what} не ответил за {ACT_TIMEOUT_S:.0f} с — исход неизвестен")
         raise ActRefused(f"{st.outcome_unknown}; перечитайте экран (computer.observe) "
                          f"прежде чем действовать дальше")
 
@@ -814,12 +857,15 @@ async def http_status(request: Request):
         # Состояние ещё не создано, но файл STOP с прошлой жизни — уже факт.
         stop_path = Path(svc.settings.data_dir) / "computer" / STOP_FILE
         stopped = stop_path.is_file()
+        unknown = stop_path.with_name(UNKNOWN_FILE).is_file()
     else:
-        stopped = st.stopped()
+        stopped, unknown = st.stopped(), bool(st.outcome_unknown)
     return {"available": ok, "detail": why or "Windows UIA + pyautogui готовы",
             "stopped": stopped, "generation": st.generation if st else 0,
             "session": st.session if st else None,
-            "outcome_unknown": (st.outcome_unknown if st else "") or None,
+            "outcome_unknown": ((st.outcome_unknown if st else "") or None
+                                if st is not None else
+                                ("исход прошлого действия неизвестен" if unknown else None)),
             "tools": [s.name for s in SPECS]}
 
 
@@ -828,8 +874,7 @@ def _owner_state(svc) -> ComputerState:
     if st is None:
         st = ComputerState()
         st.stop_path = Path(svc.settings.data_dir) / "computer" / STOP_FILE
-        if st.stop_path.is_file():
-            st.stop.set()
+        st.restore()
         svc._computer_state = st
     return st
 

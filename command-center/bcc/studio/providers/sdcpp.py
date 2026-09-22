@@ -59,6 +59,7 @@ import os
 import re
 import secrets
 import shutil
+import threading
 import time
 import uuid
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -480,13 +481,73 @@ def apply_length(settings: dict) -> dict:
 # killed mid-segment; smaller work keeps the catalog deadline (never below it).
 _REFERENCE_WORK = 832 * 480 * 49 * 20
 
+# ...but proportional is not unbounded. Catalog limits alone allow 1280x1280x81x50 ~= 17x the
+# reference, i.e. ~17 h for ONE segment, and the 30 s preset chains six of them: over four days of
+# wall clock from a single request. The proportional budget may never cross these ceilings. They
+# sit deliberately above the owner's own heaviest real run (1280x704, 81 frames, 50 steps -> ~9.2 h
+# of budget), so the fix bounds runaway work without shortening work that is known to be legitimate.
+# Both are configurable; an explicit owner limit (hard_timeout_s) is sovereign and not capped here.
+MAX_SEGMENT_DEADLINE_ENV = "BOSSMAN_STUDIO_MAX_SEGMENT_DEADLINE_S"
+MAX_JOB_DEADLINE_ENV = "BOSSMAN_STUDIO_MAX_JOB_DEADLINE_S"
+DEFAULT_MAX_SEGMENT_DEADLINE_S = 12 * 3600
+DEFAULT_MAX_JOB_DEADLINE_S = 24 * 3600
+
+
+def _positive_float(value, default: float) -> float:
+    """A number only counts when it is finite and positive; 0, negatives, NaN, inf, booleans,
+    strings and None fall back to the reference value. A bogus setting must never buy wall clock."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return float(default)
+    v = float(value)
+    if v != v or v in (float("inf"), float("-inf")) or v <= 0:   # NaN / +-inf / non-positive
+        return float(default)
+    return v
+
+
+def _limit_s(env_name: str, default: float) -> float:
+    return _positive_float(_env_number(os.environ.get(env_name)), default)
+
+
+def _env_number(raw):
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def max_segment_deadline_s() -> float:
+    return _limit_s(MAX_SEGMENT_DEADLINE_ENV, DEFAULT_MAX_SEGMENT_DEADLINE_S)
+
+
+def max_job_deadline_s() -> float:
+    return _limit_s(MAX_JOB_DEADLINE_ENV, DEFAULT_MAX_JOB_DEADLINE_S)
+
 
 def workload_scale(settings: dict) -> float:
     s = settings or {}
     if not s.get("frames"):
         return 1.0
-    work = s.get("width", 832) * s.get("height", 480) * s["frames"] * s.get("steps", 20)
-    return max(1.0, work / _REFERENCE_WORK)
+    work = (_positive_float(s.get("width"), 832) * _positive_float(s.get("height"), 480)
+            * _positive_float(s.get("frames"), 49) * _positive_float(s.get("steps"), 20))
+    scale = work / _REFERENCE_WORK
+    if scale != scale:  # pragma: no cover - every factor is already finite and positive
+        return 1.0
+    return max(1.0, scale)
+
+
+def segment_deadline_s(model: dict, settings: dict) -> float:
+    """Work-proportional budget for ONE engine run, never above the absolute ceiling."""
+    catalog_s = _positive_float(model.get("deadline_seconds"), 3600)
+    return min(catalog_s * workload_scale(settings) + 60, max_segment_deadline_s())
+
+
+def job_budget_s(model: dict, settings: dict, segments: int) -> float:
+    """Wall clock the whole chain may consume, ceiling included. A chain of segments must not
+    multiply its way past the absolute limit any more than one oversized segment can."""
+    n = max(1, int(segments or 1))
+    return min(segment_deadline_s(model, settings) * n, max_job_deadline_s())
 
 
 def declared_duration_s(settings: dict) -> float | None:
@@ -555,6 +616,114 @@ async def _create_subprocess(*argv, **kwargs):
 
 
 # ----------------------------------------------------------------------------- process control
+
+# MEDIA-LIFECYCLE. `reconcile_orphans` below cleans up at the NEXT start; that leaves a window
+# (backend dead, engine alive) in which nothing bounds the engine — it holds RAM and the GPU for
+# as long as it likes. The window is closed by the kernel, not by a resident service: every engine
+# child is assigned to a Windows Job Object owned by THIS process with KILL_ON_JOB_CLOSE. When the
+# owner disappears — clean exit, crash or TerminateProcess alike — the last handle closes and the
+# kernel terminates the job. Nothing outside this job is ever touched, so a foreign engine (another
+# Bossman, the owner's own run) is unaffected. On POSIX there is no equivalent primitive we are
+# willing to take (PR_SET_PDEATHSIG needs a fork hook in a threaded process), so the guard reports
+# itself unavailable and the sidecar/reconcile path stays the only mechanism there.
+_JOB_HANDLE = None
+_JOB_STATE = "unknown"
+_JOB_LOCK = threading.Lock()
+
+_JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
+_JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
+_PROCESS_SET_QUOTA = 0x0100
+_PROCESS_TERMINATE = 0x0001
+
+
+def _create_owner_job():
+    """Create (once) the kill-on-close job object that owns every engine child."""
+    global _JOB_HANDLE, _JOB_STATE
+    if os.name != "nt":
+        _JOB_STATE = "unsupported_platform"
+        return None
+    with _JOB_LOCK:
+        if _JOB_HANDLE is not None or _JOB_STATE.startswith("unavailable"):
+            return _JOB_HANDLE
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class _IO_COUNTERS(ctypes.Structure):
+                _fields_ = [(n, ctypes.c_ulonglong) for n in
+                            ("ReadOperationCount", "WriteOperationCount", "OtherOperationCount",
+                             "ReadTransferCount", "WriteTransferCount", "OtherTransferCount")]
+
+            class _BASIC_LIMIT(ctypes.Structure):
+                _fields_ = [("PerProcessUserTimeLimit", ctypes.c_longlong),
+                            ("PerJobUserTimeLimit", ctypes.c_longlong),
+                            ("LimitFlags", wintypes.DWORD),
+                            ("MinimumWorkingSetSize", ctypes.c_size_t),
+                            ("MaximumWorkingSetSize", ctypes.c_size_t),
+                            ("ActiveProcessLimit", wintypes.DWORD),
+                            ("Affinity", ctypes.POINTER(ctypes.c_ulong)),
+                            ("PriorityClass", wintypes.DWORD),
+                            ("SchedulingClass", wintypes.DWORD)]
+
+            class _EXTENDED_LIMIT(ctypes.Structure):
+                _fields_ = [("BasicLimitInformation", _BASIC_LIMIT), ("IoInfo", _IO_COUNTERS),
+                            ("ProcessMemoryLimit", ctypes.c_size_t),
+                            ("JobMemoryLimit", ctypes.c_size_t),
+                            ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                            ("PeakJobMemoryUsed", ctypes.c_size_t)]
+
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            k32.CreateJobObjectW.restype = wintypes.HANDLE
+            handle = k32.CreateJobObjectW(None, None)   # unnamed + non-inheritable: only we hold it
+            if not handle:
+                _JOB_STATE = "unavailable:CreateJobObject"
+                return None
+            info = _EXTENDED_LIMIT()
+            info.BasicLimitInformation.LimitFlags = _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+            if not k32.SetInformationJobObject(handle, _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+                                               ctypes.byref(info), ctypes.sizeof(info)):
+                k32.CloseHandle(handle)
+                _JOB_STATE = "unavailable:SetInformationJobObject"
+                return None
+            _JOB_HANDLE, _JOB_STATE = handle, "active"
+            return handle
+        except (OSError, AttributeError, ValueError) as exc:  # pragma: no cover - hostile host
+            _JOB_STATE = f"unavailable:{type(exc).__name__}"
+            return None
+
+
+def bind_to_owner_lifetime(pid: int, *, expected_create_time=None) -> bool:
+    """Tie one engine process to this process's lifetime. Returns True when the kernel now
+    guarantees it dies with us. Never raises: a host that refuses job objects degrades to the
+    sidecar/reconcile path, it does not lose the job."""
+    handle = _create_owner_job()
+    if handle is None:
+        return False
+    # Identity check before we take any power over the pid: a pid that is no longer the process we
+    # spawned must never be adopted (and therefore never killed) by us.
+    if expected_create_time is not None and not _same_process(_proc_identity(pid), pid, expected_create_time):
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.OpenProcess.restype = wintypes.HANDLE
+        target = k32.OpenProcess(_PROCESS_SET_QUOTA | _PROCESS_TERMINATE, False, int(pid))
+        if not target:
+            return False
+        try:
+            return bool(k32.AssignProcessToJobObject(handle, target))
+        finally:
+            k32.CloseHandle(target)
+    except (OSError, AttributeError, ValueError):  # pragma: no cover - hostile host
+        return False
+
+
+def lifecycle_guard_state() -> str:
+    """'active' | 'unknown' | 'unsupported_platform' | 'unavailable:<why>' — reported, never assumed."""
+    return _JOB_STATE
+
 
 def _proc_identity(pid: int) -> dict | None:
     import psutil
@@ -638,7 +807,8 @@ def reconcile_orphans(work_dir, *, kill: bool = True) -> dict:
     import psutil
     work = Path(work_dir)
     report = {"work_dir": str(work), "scanned": 0, "killed": [], "would_kill": [], "pid_reused": [],
-              "already_gone": [], "skipped_live_owner": [], "removed_files": [], "errors": []}
+              "already_gone": [], "skipped_live_owner": [], "removed_files": [], "errors": [],
+              "overdue": [], "guard": lifecycle_guard_state()}
     if not work.is_dir():
         return report
     me = _proc_identity(os.getpid())
@@ -660,6 +830,11 @@ def reconcile_orphans(work_dir, *, kill: bool = True) -> dict:
             # Our own live job (two workers in one process) or another live Bossman instance.
             report["skipped_live_owner"].append(rid)
             continue
+        # Evidence first: an orphan that blew its own recorded budget is named as such, whether or
+        # not its pid is still around. Silence about a blown budget is not a clean restart.
+        limit = record.get("budget_at") or record.get("deadline_at")
+        if isinstance(limit, (int, float)) and not isinstance(limit, bool) and limit < time.time():
+            report["overdue"].append(rid)
         pid, ct = record.get("pid"), record.get("create_time")
         ident = _proc_identity(pid) if isinstance(pid, int) and pid > 0 else None
         if ident is not None and ident.get("status") == psutil.STATUS_ZOMBIE:
@@ -810,10 +985,18 @@ class SdCppProvider:
         init = self.work / f"{rid}-start{init_ext}" if init_data is not None else None
         argv = _argv(self.cfg, plane.model, plane, settings, files, raw, init)
         me = _proc_identity(os.getpid()) or {}
+        explicit = self.hard_timeout_s != self._catalog_timeout_s
+        segment_s = float(self.hard_timeout_s) if explicit else segment_deadline_s(self.model, settings)
+        budget_s = segment_s * segments if explicit else job_budget_s(self.model, settings, segments)
+        started = time.time()
         record = {"version": 1, "rid": rid, "pid": None, "create_time": None, "argv": argv,
                   "exe": None, "raw": str(raw), "init": None if init is None else str(init),
-                  "started": time.time(), "studio_job_id": self.studio_job_id, "model": plane.model,
-                  "owner_pid": os.getpid(), "owner_create_time": me.get("create_time")}
+                  "started": started, "studio_job_id": self.studio_job_id, "model": plane.model,
+                  "owner_pid": os.getpid(), "owner_create_time": me.get("create_time"),
+                  # The budget travels WITH the job: a later process reading this sidecar can tell
+                  # an orphan that is still inside its budget from one that blew straight past it.
+                  "segments": segments, "deadline_s": segment_s, "budget_s": budget_s,
+                  "deadline_at": started + segment_s, "budget_at": started + budget_s}
         if segments > 1:
             record["segment_files"] = [str(p) for p in raws[1:] + frame_files]
         sidecar = _sidecar_path(self.work, rid)
@@ -829,8 +1012,7 @@ class SdCppProvider:
                "elapsed_s": None, "failure": None, "failure_detail": None, "raw_meta": None,
                "sidecar": sidecar, "record": record, "state": "pending",
                "plane": plane, "raws": raws, "frame_files": frame_files, "segment_results": [],
-               "hard_timeout_s": self.hard_timeout_s if self.hard_timeout_s != self._catalog_timeout_s else
-               float(self.model.get("deadline_seconds") or 3600) * workload_scale(settings) + 60}
+               "hard_timeout_s": segment_s, "budget_at": record["budget_at"]}
         self._jobs[rid] = job
         job["task"] = asyncio.create_task(self._run(rid, job))
         return Submitted(rid, cancel_ref=rid)
@@ -846,6 +1028,9 @@ class SdCppProvider:
             *job["argv"], stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT, cwd=str(self.work), limit=1 << 20, **child_priority_kwargs())
         lower_child_priority(proc.pid)
+        # MEDIA-LIFECYCLE: the kernel, not a future restart, owns the engine's lifetime.
+        # Descendants the engine spawns inherit the job, so the whole tree goes with us.
+        job["lifecycle_bound"] = bind_to_owner_lifetime(proc.pid)
         return proc
 
     async def _run(self, rid: str, job: dict) -> None:
@@ -862,7 +1047,10 @@ class SdCppProvider:
             job["elapsed_s"] = round(time.time() - job["started"], 2)
             job["state"] = "done" if job.get("state") != "canceled" else "canceled"
             if job.get("failure") is not None and not job.get("canceled"):
-                self._cleanup_work(job)  # nothing to fetch: no stale raw/init/sidecar until restart
+                # A stop or a blown deadline keeps the segments the engine actually finished
+                # ("стоп обрывает на том, что уже есть"); any other failure leaves nothing
+                # behind, exactly as before — no stale raw/init/sidecar until a restart.
+                self._cleanup_work(job, keep_partial=bool(self._done_segment_files(job)))
 
     async def _run_inner(self, job: dict) -> None:
         """One engine run per segment; segment k>0 is I2V from the last frame of segment k-1."""
@@ -880,7 +1068,9 @@ class SdCppProvider:
                 seg = {**job["settings"], "seed": None if seed is None else (seed + i) % 2**31}
                 job["argv"] = _argv(self.cfg, self.model["id"], job["plane"], seg, job["files"], raw, last)
                 job["raw"], job["raw_meta"], job["proc"], job["returncode"] = raw, None, None, None
-                job["record"].update({"argv": job["argv"], "pid": None, "create_time": None, "exe": None})
+                job["record"].update({"argv": job["argv"], "pid": None, "create_time": None,
+                                      "exe": None, "segment_index": i,
+                                      "deadline_at": time.time() + job["hard_timeout_s"]})
                 with contextlib.suppress(OSError):
                     _write_sidecar(job["sidecar"], job["record"])
             t0 = time.time()
@@ -944,12 +1134,18 @@ class SdCppProvider:
                 await asyncio.sleep(0.5)
 
         sampler = asyncio.create_task(sample())
+        # Two limits, whichever bites first: this segment's budget and what is left of the whole
+        # job's. A chain of segments cannot outlast the job ceiling by adding one more segment.
+        limit = float(job.get("hard_timeout_s") or self.hard_timeout_s)
+        budget_at, which = job.get("budget_at"), "segment deadline"
+        if budget_at is not None and budget_at - time.time() < limit:
+            limit, which = max(1.0, budget_at - time.time()), "job budget"
         try:
-            async with asyncio.timeout(job.get("hard_timeout_s") or self.hard_timeout_s):
+            async with asyncio.timeout(limit):
                 await self._pump_log(proc, job)
                 await proc.wait()
         except TimeoutError:
-            job["failure"], job["failure_detail"] = "timeout", f"engine exceeded {job.get('hard_timeout_s') or self.hard_timeout_s}s"
+            job["failure"], job["failure_detail"] = "timeout", f"engine exceeded {which} {limit:.0f}s"
             self._kill_job(job)
             with contextlib.suppress(Exception):
                 await asyncio.wait_for(proc.wait(), KILL_WAIT_S)
@@ -1067,21 +1263,157 @@ class SdCppProvider:
         if proc is not None and proc.returncode is None:
             with contextlib.suppress(Exception):
                 await asyncio.wait_for(proc.wait(), KILL_WAIT_S)
-        self._cleanup_work(job)
+        self._cleanup_work(job, keep_partial=bool(self._done_segment_files(job)))
 
-    def _cleanup_work(self, job: dict) -> None:
+    def _cleanup_work(self, job: dict, *, keep_partial: bool = False) -> None:
+        # "Стоп обрывает на том, что уже есть": the segments the engine actually finished are
+        # work that was really done. They survive a stop/timeout until they are fetched or the
+        # job is discarded; everything else (half-written raws, start frames, .part files) goes.
+        spared = set()
+        if keep_partial:
+            spared = {Path(p) for p in self._done_segment_files(job)}
         for p in (job["raw"], job["init"], *job.get("raws", ()), *job.get("frame_files", ()),
                   *self.work.glob(f"{job['rid']}*.part")):
-            if p is not None:
+            if p is not None and Path(p) not in spared:
                 with contextlib.suppress(OSError):
                     Path(p).unlink(missing_ok=True)
+        if spared:
+            return                                     # the sidecar still owns the kept segments
         with contextlib.suppress(OSError):
             Path(job["sidecar"]).unlink(missing_ok=True)
 
+    # -- partial results ("стоп обрывает на том, что уже есть")
+    @staticmethod
+    def _done_segment_files(job: dict) -> list[Path]:
+        """Segment files the engine finished AND that passed verification, in chain order.
+
+        sd.cpp writes a segment's container only when that segment ends, so a segment that was
+        interrupted has no salvageable bytes at all — there is no half clip to rescue, and we
+        never pretend otherwise by padding, repeating a frame or interpolating.
+        """
+        raws = job.get("raws") or []
+        if len(raws) < 2:
+            return []                                  # single pass: nothing finished before the end
+        done = len(job.get("segment_results") or [])
+        return [Path(p) for p in raws[:done] if Path(p).is_file() and Path(p).stat().st_size > 0]
+
+    def partial_result(self, request_id: str) -> dict | None:
+        """What can honestly be salvaged from a stopped or timed-out chain, or None.
+
+        None means there is nothing to save — not that saving failed. `detail` says which.
+        """
+        job = self._jobs.get(request_id)
+        if job is None:
+            raise ValueError("request_id: unknown to this adapter")
+        if job.get("fetched"):
+            return None
+        stopped = bool(job.get("canceled")) or job.get("failure") in ("canceled", "timeout")
+        if not stopped:
+            return None
+        total = len(job.get("raws") or [job["raw"]])
+        files = self._done_segment_files(job)
+        results = (job.get("segment_results") or [])[:len(files)]
+        fps = job["settings"].get("fps") or 0
+        frames = job["settings"].get("frames") or 0
+        # The joined clip drops the repeated start frame of every later segment.
+        joined = frames + (frames - 1) * (len(files) - 1) if files and frames else 0
+        reason = "timeout" if job.get("failure") == "timeout" and not job.get("canceled") else "canceled"
+        return {"request_id": request_id, "partial": True, "complete": False, "reason": reason,
+                "segments_done": len(files), "segments_total": total,
+                "duration_s": round(joined / fps, 3) if fps and joined else None,
+                "duration_s_if_complete": declared_duration_s(job["settings"]),
+                "segments": [dict(r) for r in results],
+                "detail": f"{len(files)} of {total} segments finished" if files else
+                          "no segment finished: the engine writes a segment only when it ends, "
+                          "so there are no bytes to save"}
+
+    async def fetch_partial(self, request_id: str, dest: Path) -> Fetched:
+        """Join the finished segments into one file, marked partial in the trace.
+
+        Refuses when nothing finished: an empty or broken file is never handed over as a result.
+        """
+        job = self._jobs.get(request_id)
+        if job is None:
+            raise ValueError("request_id: unknown to this adapter")
+        if job.get("fetched"):
+            raise ValueError("output: already fetched")
+        info = self.partial_result(request_id)
+        if info is None:
+            raise ValueError("output: the job was not stopped; there is no partial result")
+        files = self._done_segment_files(job)
+        if not files:
+            raise SdCppFailure("malformed", info["detail"])
+        if self.model["surface"] != "video":
+            raise ValueError("output: partial results exist only for segment chains")
+        dest = Path(dest).resolve()
+        if self.root not in dest.parents:
+            raise PermissionError("output path escapes media root")
+        tmp = dest.with_name(f".{dest.name}.{request_id}.part")
+        try:
+            try:
+                argv = await self._transcode(files[0], tmp, job, raws=files)
+            except ValueError as exc:
+                raise SdCppFailure("provider_down", f"transcode failed: {str(exc)[:300]}") from exc
+            from bcc.studio.runtime import verify_file
+            try:
+                final_meta = await verify_file(tmp, self.model["surface"])
+            except (ValueError, OSError, KeyError) as exc:
+                raise SdCppFailure("malformed",
+                                   f"partial output failed verification: {type(exc).__name__}") from exc
+            os.replace(tmp, dest)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                tmp.unlink(missing_ok=True)
+            raise
+        job["fetched"] = True
+        chain = info["segments"]
+        observed_ms = final_meta.get("duration_ms")
+        self.traces[request_id] = {
+            "engine": "stable-diffusion.cpp",
+            "engine_release_declared": self.cfg["manifest"].get("engine", {}).get("release"),
+            "backend": observe_backend(job["log"]),
+            # The loudest field first: this is NOT the clip that was asked for.
+            "partial": True, "complete": False, "stopped_by": info["reason"],
+            "segments_done": info["segments_done"], "segments_total": info["segments_total"],
+            "generation": {
+                "source": "engine_process_interrupted",
+                "engine_binary": {k: v for k, v in job["binary"].items() if k != "path"},
+                "argv": [Path(job["argv"][0]).name] + [a if not os.path.isabs(a) else Path(a).name
+                                                       for a in job["argv"][1:]],
+                "frames": job["settings"].get("frames"), "fps": job["settings"].get("fps"),
+                "length": job["settings"].get("length"), "segments": chain,
+                "duration_s_declared": info["duration_s"],
+                "duration_s_requested": info["duration_s_if_complete"],
+                "duration_s_observed": None if observed_ms is None else round(observed_ms / 1000, 3),
+                "image_to_video": job["init"] is not None,
+                "synthesis": "none: only segments the engine itself finished; no frame was "
+                             "repeated, padded or interpolated to reach the requested length",
+                "log_tail": job["log"][-12:],
+            },
+            "transcode": {"tool": "ffmpeg", "operation": "concat_finished_segments_only",
+                          "argv": [Path(argv[0]).name] + [a if not os.path.isabs(a) else Path(a).name
+                                                          for a in argv[1:]],
+                          "input_sha256": [s["sha256"] for s in chain],
+                          "output_sha256": final_meta["sha256"], "output_bytes": final_meta["bytes"]},
+            "import": {"dest_name": dest.name, "sha256": final_meta["sha256"],
+                       "bytes": final_meta["bytes"], "mime": "video/mp4", "atomic": True},
+        }
+        self._cleanup_work(job)
+        s = job["settings"]
+        return Fetched(dest, final_meta["bytes"], "video/mp4", final_meta["sha256"],
+                       s.get("width"), s.get("height"),
+                       None if final_meta.get("duration_ms") is None else int(final_meta["duration_ms"]))
+
+    def discard_partial(self, request_id: str) -> None:
+        """The owner does not want the stump: drop the kept segments and the sidecar."""
+        job = self._jobs.get(request_id)
+        if job is not None:
+            self._cleanup_work(job)
+
     # -- fetch
-    async def _transcode(self, raw: Path, tmp: Path, job: dict) -> list[str]:
+    async def _transcode(self, raw: Path, tmp: Path, job: dict, raws=None) -> list[str]:
         from bcc.video_studio.media import binary, process
-        raws = job.get("raws") or [raw]
+        raws = list(raws) if raws else (job.get("raws") or [raw])
         if len(raws) == 1:
             # Container transcode of the model's own frames (VP8 .webm → H.264 .mp4).
             argv = [binary("ffmpeg"), "-v", "error", "-y", "-i", str(raw), "-an",

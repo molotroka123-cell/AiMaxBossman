@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
+import functools
 import hashlib
 import json
 import math
@@ -34,11 +35,34 @@ async def blocking(function, *args):
         raise
 
 
+@functools.lru_cache(maxsize=16)
+def _as_stored(value: str) -> str:
+    """The executable's name as the filesystem stores it.
+
+    shutil.which() builds the extension from PATHEXT — a registry value spelled ".EXE" on a
+    stock Windows install — not from the directory entry, which is "ffmpeg.exe". Provenance
+    quotes argv, so without this the identical binary is recorded under two different names
+    depending on the host's registry, and provenance stops comparing across machines.
+    Symlinks are deliberately NOT resolved: the path the owner configured is the path we run;
+    only the spelling of the final component is taken from the filesystem.
+    """
+    path = Path(value)
+    try:
+        for entry in path.parent.iterdir():
+            if entry.name == path.name:
+                return value                     # already the stored spelling
+            if entry.name.casefold() == path.name.casefold():
+                return str(path.with_name(entry.name))
+    except OSError:
+        pass
+    return value
+
+
 def binary(name: str) -> str:
     value = shutil.which(name)
     if not value:
         raise ValueError(f"{name} is unavailable; install a local FFmpeg build")
-    return value
+    return _as_stored(value)
 
 
 # V6 §G: owner-interactive work outranks media work. Every FFmpeg child runs

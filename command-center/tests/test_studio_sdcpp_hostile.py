@@ -892,7 +892,13 @@ async def test_provenance_separates_generation_transcode_import(harness):
     gen, tr, imp = t["generation"], t["transcode"], t["import"]
     assert len(gen["raw_output"]["sha256"]) == 64 and gen["raw_output"]["container"] == "matroska"
     assert tr["tool"] == "ffmpeg" and tr["input_sha256"] == gen["raw_output"]["sha256"]
-    assert tr["argv"][0] == "ffmpeg" and "libx264" in tr["argv"] and len(tr["output_sha256"]) == 64
+    # argv[0] is the transcoder, quoted by name and never by absolute path. The executable
+    # suffix is the host's business ("ffmpeg" on POSIX, "ffmpeg.exe" on Windows); the tool
+    # identity and its exact case are not. `.EXE` here would mean the name came from PATHEXT
+    # rather than from the file, and the same binary would be recorded differently per host.
+    assert not os.path.isabs(tr["argv"][0]) and Path(tr["argv"][0]).stem == "ffmpeg", tr["argv"][0]
+    assert Path(tr["argv"][0]).suffix in ("", ".exe"), tr["argv"][0]
+    assert "libx264" in tr["argv"] and len(tr["output_sha256"]) == 64
     assert tr["output_sha256"] != gen["raw_output"]["sha256"]
     assert imp["sha256"] == fetched.sha256 == tr["output_sha256"] and imp["atomic"] is True
     assert gen["duration_s_declared"] == 49 / 16 and gen["frames"] == 49 and gen["fps"] == 16
@@ -1001,3 +1007,19 @@ def test_ab_run_refuses_without_engine_and_records_only_measurements(ab_tool, ha
     assert all(r["quality"].startswith("NOT_ASSESSED") for r in results["results"])
     assert all(r["backend"]["status"] == "OBSERVED" for r in results["results"])
     assert "no quality claim" in results["verdict"]
+
+
+def test_ffmpeg_is_named_by_the_filesystem_not_by_pathext():
+    """Provenance quotes argv, so the tool's name must be a fact about the file.
+
+    shutil.which() composes the extension from PATHEXT, a registry value spelled ".EXE" on a
+    stock Windows install, while the bundled binary on disk is "ffmpeg.exe". Without this the
+    identical binary is recorded under two different names depending on the host's registry,
+    and every provenance comparison across machines turns into noise.
+    """
+    from bcc.video_studio import media
+
+    found = Path(media.binary("ffmpeg"))
+    on_disk = [e.name for e in found.parent.iterdir() if e.name.casefold() == found.name.casefold()]
+    assert on_disk, f"{found} is not a directory entry of {found.parent}"
+    assert found.name == on_disk[0], f"named {found.name!r}, the filesystem says {on_disk[0]!r}"
