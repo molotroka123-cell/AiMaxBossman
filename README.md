@@ -31,6 +31,9 @@ Bossman уже прошёл первый реальный owner-hardware цик�
 <a id="quick-start"></a>
 ## Завтра начинаем отсюда
 
+**Единая карта завтрашнего прогона:** [Tomorrow Operator Runbook](docs/owner/TOMORROW_OPERATOR_RUNBOOK.md) · [короткий checklist](docs/owner/TOMORROW_CHECKLIST.md). Если старые handoff-документы расходятся по порядку действий, используйте runbook как sequencing-layer, а фактический remote HEAD/certifier/artifact — как источник технической истины.
+
+
 1. Получить от интегратора **один TESTED_SHA, один Windows-архив, его SHA-256 и результаты обязательных проверок**. Нет этих данных — сборка ещё не передана на приёмку.
 2. Скачать именно этот архив по [инструкции установки](INSTALL.md). Не выбирать просто последний зелёный прогон и не использовать архив другой ветки.
 3. Распаковать в отдельную тестовую папку, запустить `Start-Bossman.cmd`, настроить одну проверенную локальную модель. Рабочие данные и внешние действия пока не подключать.
@@ -100,6 +103,7 @@ Bossman уже прошёл первый реальный owner-hardware цик�
 | Как разбирать поломку первого прогона | [Hotfix playbook](tests/owner_hardware/HOTSPOTS_AND_HOTFIX_PLAYBOOK.md) |
 | Как frontier-модели будут проверять и обучать Bossman | [Frontier Council и тренинг — спецификация](docs/evo/FRONTIER_COUNCIL_AND_TRAINING.md) |
 | Как проверить, чему Qwen реально научился на ремонтах | [Local Qwen Apprentice Benchmark](docs/evo/LOCAL_QWEN_APPRENTICE_BENCHMARK.md) |
+| Как завтра пройти всё в правильном порядке | [Tomorrow Operator Runbook](docs/owner/TOMORROW_OPERATOR_RUNBOOK.md) |
 
 <a id="vision"></a>
 ## После первой стабильной сборки — EVO 1.0
