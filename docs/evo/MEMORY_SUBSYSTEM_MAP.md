@@ -193,17 +193,42 @@ notes+facts+verified lessons.
 
 ## 10. What this branch adds **[added in this branch]**
 
-* `command-center/bcc/v2/memory/lifecycle.py` — `MemoryLifecycle` with `boot()`,
-  `task_start()`, `resume()`, `after_verified_result()`, `checkpoint()`.
-* `command-center/bcc/v2/memory/unified_retrieval.py` — one retrieval over notes +
-  facts + verified lessons (exact match, then BM25, optional semantic),
-  candidates → dedup/rank → expand → bounded context pack with sources, applicability
-  and conflicts; `probe_embedder()`.
-* `command-center/bcc/v2/memory/backup.py` — consistent backup/restore of the canonical
-  layers with a hashed manifest; indexes are rebuilt, never restored.
-* `learning/lesson_format.py` — the validated lesson field set, the extended status set
-  and the migration of existing records.
+The lifecycle lives in the repo-root `learning/` package (the `bossman-shared`
+distribution) rather than in `bcc`, for one hard reason: `tests/test_root_suite_stays_within_its_environment.py`
+forbids the root suite from importing `bcc`, and the restart proof has to run there. So
+`learning/` holds the dependency-free orchestration and narrow ports, and `bcc` holds the
+adapters that put the real stores behind those ports.
+
+| File | What it adds |
+|---|---|
+| `learning/lesson_format.py` | the validated lesson field set, `candidate/verified/quarantined/superseded/expired/degraded/withdrawn`, applicability with a stated reason, conflict detection, `migrate_record` |
+| `learning/retrieval.py` | `UnifiedRetriever` — exact signals + BM25 (+ optional semantic) over notes/facts/lessons, dedup → rank → expand → bounded pack; `probe_embedder`; `DirectoryNotes` |
+| `learning/lifecycle.py` | `MemoryLifecycle.boot / task_start (= before_plan) / resume / checkpoint / after_verified_result` |
+| `learning/backup.py` | hashed-manifest backup, `clean` and `merge` restore; derived indexes excluded |
+| `command-center/bcc/v2/memory/lifecycle_wiring.py` | `VaultNotes` (real `ObsidianVault` + real SQLite BM25 index), `FactsSnapshot` (one read per boundary from the async `FactStore`), `build_lifecycle` |
+| `tests/test_memory_lifecycle.py` | 39 proofs incl. recall after a genuine process restart |
+| `tests/test_learning_lesson_format.py` | 19 proofs for the field set, the statuses and migration |
+| `command-center/tests/test_memory_lifecycle_wiring.py` | 8 proofs for the adapters over the real stores |
 
 Nothing above introduces a new memory database: every write still lands in an existing
 store (vault Markdown, facts table, `LearningStore` journal), and the only new persisted
 file is the task checkpoint, which is task state, not knowledge.
+
+### Environment note (measured, matters for wiring)
+
+Under `pytest` from `command-center/` the name `learning` resolves to THIS checkout
+(`wt-mem/learning`), because pytest puts the repo root on `sys.path` and setuptools'
+editable finder is appended to `sys.meta_path` rather than prepended. Under a bare
+`python -c` from `command-center/` the same name resolves to
+`C:\Users\asd\Bossman\wt-release\learning` (the installed `bossman-shared`). That is why
+`lifecycle_wiring` imports `learning` lazily and raises `LifecycleUnavailable` with the
+`pip install -e .` fix, instead of failing at import time in a shipped runtime.
+
+### Still open after this branch
+
+* D3 (`ApprenticeMemory` has no production call site) and D6/D7 (duplicated BM25, two
+  parallel memory stacks) are untouched — consolidating them is not a lifecycle change.
+* Semantic retrieval is off because no embedder is installed (D5). `Qwen3-Embedding-0.6B`
+  is recorded as the candidate to evaluate; nothing in this branch downloads it.
+* `build_lifecycle` is not yet called from any BCC request path: the hooks exist and are
+  proven, but no production handler invokes TASK_START yet.
