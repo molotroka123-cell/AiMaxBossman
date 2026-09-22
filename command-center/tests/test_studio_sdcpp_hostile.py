@@ -41,8 +41,11 @@ w = sys.argv[sys.argv.index("-W") + 1]; h = sys.argv[sys.argv.index("-H") + 1]
 ffmpeg = shutil.which("ffmpeg")
 def render():
     if out.endswith(".webm"):
-        subprocess.run([ffmpeg, "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc=size={w}x{h}:rate=16",
-                        "-t", "1", "-c:v", "libvpx", out], check=True)
+        # the frames that were asked for, like the real engine (a wrong length is refused)
+        fps = sys.argv[sys.argv.index("--fps") + 1] if "--fps" in sys.argv else "16"
+        frames = sys.argv[sys.argv.index("--video-frames") + 1] if "--video-frames" in sys.argv else "16"
+        subprocess.run([ffmpeg, "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc=size={w}x{h}:rate={fps}",
+                        "-frames:v", frames, "-c:v", "libvpx", out], check=True)
     else:
         subprocess.run([ffmpeg, "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc=size={w}x{h}",
                         "-frames:v", "1", out], check=True)

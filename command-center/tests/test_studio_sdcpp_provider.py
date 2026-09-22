@@ -32,8 +32,13 @@ if mode == "corrupt":
 w = sys.argv[sys.argv.index("-W") + 1]; h = sys.argv[sys.argv.index("-H") + 1]
 ffmpeg = shutil.which("ffmpeg")
 if out.endswith(".webm"):
-    subprocess.run([ffmpeg, "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc=size={w}x{h}:rate=16",
-                    "-t", "1", "-c:v", "libvpx", out], check=True)
+    # Renders the frames it was asked for, like the real engine; "short"/"long" are the
+    # wrong-length outputs the provider must refuse (Aster6: 16 frames for an 81-frame request).
+    fps = sys.argv[sys.argv.index("--fps") + 1] if "--fps" in sys.argv else "16"
+    frames = int(sys.argv[sys.argv.index("--video-frames") + 1]) if "--video-frames" in sys.argv else 16
+    frames = {"short": 16, "long": frames * 2}.get(mode, frames)
+    subprocess.run([ffmpeg, "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc=size={w}x{h}:rate={fps}",
+                    "-frames:v", str(frames), "-c:v", "libvpx", out], check=True)
 else:
     subprocess.run([ffmpeg, "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc=size={w}x{h}",
                     "-frames:v", "1", out], check=True)
@@ -227,8 +232,10 @@ async def test_ten_second_chain_is_two_segments_joined_without_the_repeated_fram
     assert trace["transcode"]["operation"] == "concat_segments_drop_repeated_start_frame"
     assert trace["transcode"]["input_sha256"] == [s["sha256"] for s in segs]
     assert trace["generation"]["duration_s_declared"] == 161 / 16
-    # the fake engine writes 1 s (16 frames) per segment: 16 + 15 frames = 1.9375 s after the join
-    assert abs(trace["generation"]["duration_s_observed"] - 31 / 16) < 0.07
+    # The fake engine renders the 81 frames asked for per segment: 81 + 80 frames after the join.
+    # (It used to write 1 s per segment and this line accepted 31/16 s for a 10 s request — the
+    # false PASS Aster6 reproduced; a short output now fails, see test_studio_sdcpp_output_contract.)
+    assert abs(trace["generation"]["duration_s_observed"] - 161 / 16) < 0.07
     work = Path(env.settings.data_dir) / "studio" / "engine-work"
     assert not [p.name for p in work.iterdir() if p.suffix in (".webm", ".png", ".json") and p.name.startswith(segs[0]["name"][:16])]
 

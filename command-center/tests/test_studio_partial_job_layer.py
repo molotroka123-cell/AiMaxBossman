@@ -45,12 +45,18 @@ m = re.search(r"-s(\d+)\.webm$", out)
 index = int(m.group(1)) if m else 0
 if index >= hang_at:
     print("MOCK_ENGINE hanging on segment", index, flush=True)
+    marker = os.environ.get("MOCK_HANG_MARKER")
+    if marker:
+        open(marker, "w").write(str(index))
     time.sleep(600)
 w = sys.argv[sys.argv.index("-W") + 1]; h = sys.argv[sys.argv.index("-H") + 1]
 ffmpeg = shutil.which("ffmpeg")
 if out.endswith(".webm"):
-    subprocess.run([ffmpeg, "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc=size={w}x{h}:rate=16",
-                    "-t", "1", "-c:v", "libvpx", out], check=True)
+    # the frames that were asked for, like the real engine (a wrong length is refused)
+    fps = sys.argv[sys.argv.index("--fps") + 1] if "--fps" in sys.argv else "16"
+    frames = sys.argv[sys.argv.index("--video-frames") + 1] if "--video-frames" in sys.argv else "16"
+    subprocess.run([ffmpeg, "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc=size={w}x{h}:rate={fps}",
+                    "-frames:v", frames, "-c:v", "libvpx", out], check=True)
 else:
     subprocess.run([ffmpeg, "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc=size={w}x{h}",
                     "-frames:v", "1", out], check=True)
@@ -116,8 +122,18 @@ async def _wait_for_run(env, timeout=60):
 async def _cancel_after_segment(env, engine, jid, hang_at):
     """Run the job with the chain hanging at `hang_at`, then cancel it as the owner would."""
     engine.setenv("MOCK_HANG_AT", str(hang_at))
+    # Cancel once the engine is actually hanging on segment `hang_at` (so every earlier segment
+    # has finished), not after a fixed sleep: the mock now renders the 81 frames it is asked for,
+    # which on a slow host took longer than the old fixed 6 s.
+    marker = Path(env.settings.data_dir) / "mock-hang.marker"
+    engine.setenv("MOCK_HANG_MARKER", str(marker))
     worker = asyncio.create_task(process_one(env.svc))
-    await asyncio.sleep(6 if hang_at else 1.5)
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + 120
+    while not marker.is_file() and loop.time() < deadline and not worker.done():
+        await asyncio.sleep(0.1)
+    assert marker.is_file(), "the mock engine never reached the hanging segment"
+    await asyncio.sleep(0.5)                           # the provider has recorded the spawn
     assert (await env.client.post(f"/api/studio/jobs/{jid}/cancel")).status_code == 200
     await asyncio.wait_for(worker, 60)
 
