@@ -22,9 +22,10 @@ Owner-Run.cmd self-improve-mvcr plan
 Owner-Run.cmd self-improve-mvcr preflight
 Owner-Run.cmd self-improve-mvcr bootstrap
 Owner-Run.cmd self-improve-mvcr bootstrap --allow-download --profile <ID из plan>
+Owner-Run.cmd self-improve-mvcr skills
 Owner-Run.cmd self-improve-mvcr compare
 Owner-Run.cmd self-improve-mvcr mvcr --owner-folder "D:\MVCR\документы" --facts "D:\MVCR\facts.json"
-Owner-Run.cmd self-improve-mvcr self-improve --budget-minutes 40
+Owner-Run.cmd self-improve-mvcr self-improve --budget-minutes 40 --lab-work-dir "<папка внутри разрешённых корней coding>"
 Owner-Run.cmd self-improve-mvcr report
 ```
 
@@ -46,7 +47,10 @@ Owner-Run.cmd resume
 | `--reuse-dir D:\old-models` | где уже лежат скачанные GGUF — их переиспользуют, а не качают |
 | `--endpoints http://127.0.0.1:8081,http://127.0.0.1:8083` | какие llama-server проверять и сравнивать |
 | `--compare-endpoint URL` | сравнивать только этот эндпоинт (можно несколько раз) |
-| `--case <файл>` | кейс для self-improve (иначе первый `app-support\self_improve_cases\*.json`) |
+| `--case <файл>` | кейс compare/lesson (иначе встроенный `sample` лаборатории) |
+| `--transfer-case <файл>` | НОВЫЙ аналогичный кейс для transfer (иначе встроенный `sample-transfer`) |
+| `--lab-work-dir <папка>` | где лаборатория делает чистые копии; **обязана** лежать внутри разрешённых корней coding (Настройки → терминал/код), иначе стадия OWNER_REQUIRED |
+| `--explore-repo <репозиторий>` | свободная разведка (необязательно; без него `explore` = NOT_RUN и сравнение идёт дальше) |
 | `--telegram start` | запустить Telegram-поллер, если он ещё не работает |
 | `--run-dir <папка>` | своя папка прогона (по умолчанию `%LOCALAPPDATA%\Bossman\CommandCenter\owner-run\self-improve-mvcr`) |
 | `--redo <шаг>` | осознанно повторить шаг (в том числе UNKNOWN_OUTCOME) |
@@ -71,23 +75,29 @@ OWNER_REQUIRED / NOT_RUN / BLOCKED (и UNKNOWN_OUTCOME — см. раздел 5)
    статусом «отсутствует/битый» и **только** те, что вы назвали `--profile`, и
    только с `--allow-download`. Здоровые (REUSED) модели не перекачиваются. После
    скачивания — `model_fetch.py verify`. Не хватает места — BLOCKED до скачивания.
-4. **compare** — `model_bakeoff.py` на каждом живом эндпоинте: те же 7 задач A–G,
+4. **skills** — только чтение: `GET /api/skill-catalog` в запущенном Bossman
+   (каталог не пуст), выбор навыков для типовой задачи-багфикса (хотя бы один) и
+   проверка, что ни один навык не выдаёт инструментов и прав. Навыки — UNVERIFIED
+   методика (superpowers, anthropics, huggingface), см. `docs/owner/SKILLS.md`.
+5. **compare** — `model_bakeoff.py` на каждом живом эндпоинте: те же 7 задач A–G,
    что в лаборатории 22.09 (баг, навигация, патч с регрессией, выбор инструмента,
    JSON, восстановление после ошибки инструмента, длинный контекст); проверка
    исполнением кода модели во временной папке. Итог — `compare\summary.json`.
    Модель для продукта автоматически не выбирается.
-5. **mvcr** — `mvcr_prepare.py --owner-folder … --facts … --out … --json`.
+6. **mvcr** — `mvcr_prepare.py --owner-folder … --facts … --out … --json`.
    Ожидаемый итог: `WAIT_APPROVAL` (пакет готов — проверить и подать **вручную**),
    `PARTIAL_MISSING_DATA` (дополнить данные и повторить mvcr) или `BLOCKED`.
    Если скрипт когда-нибудь сообщит о подаче — это FAIL: раннер не подаёт никогда.
-6. **self-improve** — `self_improve_lab.py`: `explore` → `compare` → `lesson`,
+7. **self-improve** — `self_improve_lab.py` (с `--data-dir` Bossman для токена и
+   `--work-dir` внутри корней coding): `explore` (только с `--explore-repo`) →
+   `compare` → `lesson`,
    затем **полный перезапуск Bossman** (процесс из `desktop.lock` останавливается,
    запускается заново, успех доказывается сменой `started_at` в `/api/identity`),
    затем `transfer`. Каждая фаза — не больше `--budget-minutes` (по умолчанию 40).
    Если процесс Bossman не найден, раннер сам не перезапускает: OWNER_REQUIRED —
    закройте Bossman, запустите `Start-Bossman.cmd`, затем `Owner-Run.cmd resume`
    (перезапуск засчитается по `started_at`).
-7. **report** — `report.md` (по-русски) и `report.json` в папке прогона, со
+8. **report** — `report.md` (по-русски) и `report.json` в папке прогона, со
    следующей командой.
 
 Скрипта-соседа нет (`model_fetch.py`, `mvcr_prepare.py`, `self_improve_lab.py`)

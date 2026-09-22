@@ -200,16 +200,27 @@ class _Bossman(http.server.BaseHTTPRequestHandler):
         if self.path == "/api/identity":
             return self._json(200, {"app": "bossman-command-center", "started_at": type(self).started_at})
         if self.path == "/api/coding-tasks/readiness":
-            body = {"available": True, "runtime": True, "sidecar_command": True, "reason": ""}
+            # Real readiness names the allowed coding roots; the lab work dir must be inside one.
+            body = {"available": True, "runtime": True, "sidecar_command": True, "reason": "",
+                    "roots": list(type(self).roots)}
             if type(self).handshake is not None:
                 body["handshake"] = type(self).handshake
             return self._json(200, body)
+        if self.path == "/api/skill-catalog":
+            return self._json(200, list(type(self).catalog))
+        if self.path.startswith("/api/skill-catalog/select"):
+            return self._json(200, [c for c in type(self).catalog if "debug" in c["id"]])
         return self._json(404, {})
 
 
 @pytest.fixture
 def bossman():
-    handler = type("Bossman", (_Bossman,), {"started_at": 1000.0, "handshake": {"ok": True}})
+    import tempfile as _tf
+    handler = type("Bossman", (_Bossman,), {"started_at": 1000.0, "handshake": {"ok": True},
+                                            "roots": [str(Path(_tf.gettempdir()).resolve())],
+                                            "catalog": [{"id": "obra-superpowers/systematic-debugging",
+                                                         "status": "UNVERIFIED",
+                                                         "grants": {"tools": [], "permissions": []}}]})
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     yield handler, f"http://127.0.0.1:{server.server_address[1]}"
@@ -282,9 +293,9 @@ def _model_server(good: bool):
 
 def test_profile_stage_order_is_fixed_and_run_follows_it(home, env, tmp_path, bossman):
     mod = _load(RUNNER)
-    assert mod.SI_STAGES == ("plan", "preflight", "bootstrap", "compare", "mvcr", "self-improve", "report")
+    assert mod.SI_STAGES == ("plan", "preflight", "bootstrap", "skills", "compare", "mvcr", "self-improve", "report")
     assert mod.SI_PHASES == ("explore", "compare", "lesson", "restart", "transfer")
-    assert mod.step_keys() == ["preflight", "bootstrap", "compare", "mvcr", "self-improve:explore",
+    assert mod.step_keys() == ["preflight", "bootstrap", "skills", "compare", "mvcr", "self-improve:explore",
                                "self-improve:compare", "self-improve:lesson", "self-improve:restart",
                                "self-improve:transfer", "report"]
     _full(home)
@@ -293,7 +304,7 @@ def test_profile_stage_order_is_fixed_and_run_follows_it(home, env, tmp_path, bo
     (tmp_path / "facts.json").write_text("{}", encoding="utf-8")
     run_dir = tmp_path / "run"
     _, base = bossman
-    done = _cli(home, env, "self-improve-mvcr", "run", "--run-dir", str(run_dir), "--base-url", base,
+    done = _cli(home, env, "self-improve-mvcr", "run", "--run-dir", str(run_dir), "--base-url", base, "--explore-repo", str(tmp_path),
                 "--owner-folder", str(folder), "--facts", str(tmp_path / "facts.json"))
     state = _state(run_dir)
     started = [h["step"] for h in state["history"] if h["event"] == "started"]
@@ -364,7 +375,7 @@ def test_resume_skips_completed_and_never_repeats_external_actions(home, env, tm
     env["FAKE_PLAN"] = str(tmp_path / "plan.json")
     (tmp_path / "plan.json").write_text(json.dumps({"profiles": [{"id": "m", "status": "REUSED"}]}), encoding="utf-8")
     _cli(home, env, "self-improve-mvcr", "bootstrap", "--run-dir", str(run_dir))
-    _cli(home, env, "self-improve-mvcr", "self-improve", "--run-dir", str(run_dir), "--base-url", base)
+    _cli(home, env, "self-improve-mvcr", "self-improve", "--run-dir", str(run_dir), "--base-url", base, "--explore-repo", str(tmp_path))
     st = _state(run_dir)["steps"]
     assert [st[f"self-improve:{p}"]["status"] for p in ("explore", "compare", "lesson")] == ["PASS"] * 3
     assert st["self-improve:restart"]["status"] == "OWNER_REQUIRED"
@@ -432,7 +443,7 @@ def test_interrupted_external_action_becomes_unknown_outcome_not_a_repeat(home, 
     _, base = bossman
     env["FAKE_LAB_SLEEP"] = "explore"
     run_dir = tmp_path / "run"
-    runner = _popen(home, env, "self-improve-mvcr", "self-improve", "--run-dir", str(run_dir), "--base-url", base)
+    runner = _popen(home, env, "self-improve-mvcr", "self-improve", "--run-dir", str(run_dir), "--base-url", base, "--explore-repo", str(tmp_path))
     try:
         assert _wait((Path(env["FAKE_LOG"]) / "tree.pids").is_file, 30)
         assert _cli(home, env, "stop", "--run-dir", str(run_dir)).returncode == 0
@@ -441,14 +452,14 @@ def test_interrupted_external_action_becomes_unknown_outcome_not_a_repeat(home, 
         if runner.poll() is None:
             runner.kill()
     env.pop("FAKE_LAB_SLEEP")
-    _cli(home, env, "self-improve-mvcr", "self-improve", "--run-dir", str(run_dir), "--base-url", base)
+    _cli(home, env, "self-improve-mvcr", "self-improve", "--run-dir", str(run_dir), "--base-url", base, "--explore-repo", str(tmp_path))
     st = _state(run_dir)["steps"]
     assert st["self-improve:explore"]["status"] == "UNKNOWN_OUTCOME"
     assert st["self-improve:compare"]["status"] == "BLOCKED"
     assert _count(env, "explore") == 1                                   # not repeated by itself
     assert "--redo self-improve:explore" in json.loads((run_dir / "report.json").read_text(encoding="utf-8"))["next_command"]
     # Negative control: the owner's explicit --redo does repeat it.
-    _cli(home, env, "self-improve-mvcr", "self-improve", "--run-dir", str(run_dir), "--base-url", base,
+    _cli(home, env, "self-improve-mvcr", "self-improve", "--run-dir", str(run_dir), "--base-url", base, "--explore-repo", str(tmp_path),
          "--redo", "self-improve:explore")
     assert _count(env, "explore") == 2
     assert _state(run_dir)["steps"]["self-improve:compare"]["status"] == "PASS"
@@ -536,13 +547,14 @@ def test_missing_sibling_scripts_are_not_run_never_pass(home, env, tmp_path, bos
     folder.mkdir()
     (tmp_path / "facts.json").write_text("{}", encoding="utf-8")
     run_dir = tmp_path / "run"
-    done = _cli(home, env, "self-improve-mvcr", "run", "--run-dir", str(run_dir), "--base-url", base,
+    done = _cli(home, env, "self-improve-mvcr", "run", "--run-dir", str(run_dir), "--base-url", base, "--explore-repo", str(tmp_path),
                 "--owner-folder", str(folder), "--facts", str(tmp_path / "facts.json"))
     st = _state(run_dir)["steps"]
     for key in ("bootstrap", "compare", "mvcr", "self-improve:explore"):
         assert st[key]["status"] == "NOT_RUN", (key, st[key])
         assert "не найден" in st[key]["detail"]
-    assert all(st[k]["status"] != "PASS" for k in st if k != "report")
+    # `skills` reads the catalog from Bossman itself (no sibling script), so it may pass here.
+    assert all(st[k]["status"] != "PASS" for k in st if k not in ("report", "skills"))
     assert done.returncode != 0
     assert json.loads((run_dir / "report.json").read_text(encoding="utf-8"))["overall"] != "PASS"
 
@@ -687,3 +699,116 @@ def test_owner_run_next_names_the_exact_commands_and_the_honest_scope():
                  "Owner-Run.cmd stop", "Owner-Run.cmd resume", "--redo"):
         assert line in text, line
     assert "не запускался ни разу" in text and "OWNER_HARDWARE_CERTIFIED" in text
+
+
+def test_summary_reads_the_real_model_fetch_plan_output(tmp_path):
+    """Contract across the seam: the REAL tools/model_fetch.py plan output (not a
+    guessed shape) is classified per file: a present file is REUSED and never
+    downloaded, a missing pinned file is a download, an absent unpinned file is
+    unknown (needs pin)."""
+    import hashlib, json as _json, subprocess as _sp, sys as _sys
+    repo = Path(__file__).resolve().parents[1]
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ort_contract", repo / "tools" / "owner_run_tomorrow.py")
+    ort = importlib.util.module_from_spec(spec); spec.loader.exec_module(ort)
+    data = b"GGUF-present"
+    models = tmp_path / "models"; (models / "m").mkdir(parents=True)
+    (models / "m" / "present.gguf").write_bytes(data)
+    rt = {"engine": "llama.cpp", "version": "b10964", "version_match": "10964", "status": "UNPINNED",
+          "status_reason": "t", "compatibility_notes": "t", "license": {"id": "MIT"},
+          "version_regex": r"version:\s*b?(\d+)", "binary_candidates": []}
+    def prof(pid, files, status):
+        return {"id": pid, "kind": "model", "category": "llm_coding_agents", "role": "t", "runtime": {"ref": "rt"},
+                "source": {"hf_repo": None, "revision": None}, "files": files, "optional": True, "status": status,
+                "license": {"id": "MIT", "url": "https://example.invalid", "acceptance_required": False},
+                "min_free_disk": {"bytes": 0 if status == "PINNED" else None, "basis": "t"},
+                **({} if status == "PINNED" else {"status_reason": "t"})}
+    manifest = {"schema_version": 1, "kind": "bossman.model_profiles", "runtimes": {"rt": rt}, "profiles": [
+        prof("have", [{"id": "p", "dest_dir": "m", "name": "present.gguf", "size_bytes": len(data),
+                       "sha256": hashlib.sha256(data).hexdigest(), "status": "PINNED", "url": "http://x.invalid/p"}], "PINNED"),
+        prof("need", [{"id": "n", "dest_dir": "m", "name": "absent.gguf", "size_bytes": 10,
+                       "sha256": "0" * 64, "status": "PINNED", "url": "http://x.invalid/n"}], "PINNED"),
+        prof("unk", [{"id": "u", "dest_dir": "m", "name": "unk.gguf", "size_bytes": None, "sha256": None,
+                      "status": "UNPINNED", "unpinned_reason": "t"}], "UNPINNED")]}
+    mpath = tmp_path / "profiles.json"; mpath.write_text(_json.dumps(manifest))
+    out = _sp.run([_sys.executable, str(repo / "tools" / "model_fetch.py"), "plan", "--manifest", str(mpath),
+                   "--models-dir", str(models), "--margin-bytes", "0", "--json",
+                   "--profile", "have", "--profile", "need", "--profile", "unk"],
+                  capture_output=True, text=True, timeout=120)
+    payload = _json.loads(out.stdout)
+    assert payload.get("action") == "plan" and "profiles" in payload, out.stdout[:500]
+    summary = ort.summarize_fetch_plan(payload)
+    assert [r["id"] for r in summary["reuse"]] == ["have"]
+    assert [r["id"] for r in summary["download"]] == ["need"] and summary["download_bytes"] == 10
+    assert [r["id"] for r in summary["unknown"]] == ["unk"]
+
+
+@pytest.mark.parametrize("variant,expected", [("happy", "WAIT_APPROVAL")])
+def test_owner_run_understands_the_real_mvcr_prepare_output(tmp_path, variant, expected):
+    """Contract across the seam: the REAL mvcr_prepare CLI (--json, synthetic
+    offline fixtures) prints a status the owner-run maps, and nothing in it
+    reads as a submission."""
+    pytest.importorskip("pypdf", reason="mvcr_prepare needs pypdf")
+    import importlib.util, json as _json, subprocess as _sp, sys as _sys
+    repo = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location("ort_mvcr", repo / "tools" / "owner_run_tomorrow.py")
+    ort = importlib.util.module_from_spec(spec); spec.loader.exec_module(ort)
+    fspec = importlib.util.spec_from_file_location("mvcr_fx", repo / "tests" / "fixtures" / "mvcr" / "make_fixtures.py")
+    fx = importlib.util.module_from_spec(fspec); _sys.modules["mvcr_fx"] = fx; fspec.loader.exec_module(fx)
+    fixtures = fx.build(tmp_path / "fx", variant)
+    owner = fx.build_owner_folder(tmp_path / "owner")
+    facts = tmp_path / "facts.json"
+    facts.write_text((repo / "tests" / "fixtures" / "mvcr" / "facts_synthetic.json").read_text(encoding="utf-8"),
+                     encoding="utf-8")
+    proc = _sp.run([_sys.executable, str(repo / "tools" / "mvcr_prepare.py"), "--owner-folder", str(owner),
+                    "--facts", str(facts), "--out", str(tmp_path / "out"), "--offline-fixtures", str(fixtures),
+                    "--json"], capture_output=True, text=True, encoding="utf-8", timeout=300)
+    payload = ort._json_from(proc.stdout)
+    assert isinstance(payload, dict), proc.stdout[-500:] + proc.stderr[-500:]
+    raw = str(payload.get("status") or payload.get("final_status") or payload.get("verdict") or "").upper()
+    assert raw == expected and raw in ort.MVCR_FINAL
+    assert not ort._claims_submission(payload)
+
+
+
+def test_lab_work_dir_outside_the_coding_roots_is_owner_required_not_a_401(home, env, tmp_path, bossman):
+    """Negative control: the lab would get 403 from the product for a work dir
+    outside the allowed coding roots; the runner says so up front."""
+    handler, base = bossman
+    handler.roots = ["/nonexistent-root-for-test"]
+    _full(home)
+    env["FAKE_PLAN"] = str(tmp_path / "plan.json")
+    (tmp_path / "plan.json").write_text(json.dumps({"profiles": [{"id": "m", "status": "REUSED"}]}), encoding="utf-8")
+    run_dir = tmp_path / "run-roots"
+    _cli(home, env, "self-improve-mvcr", "bootstrap", "--run-dir", str(run_dir))
+    _cli(home, env, "self-improve-mvcr", "self-improve", "--run-dir", str(run_dir), "--base-url", base,
+         "--explore-repo", str(tmp_path))
+    st = _state(run_dir)["steps"]
+    assert st["self-improve:explore"]["status"] == "OWNER_REQUIRED"
+    assert "вне разрешённых корней" in st["self-improve:explore"]["detail"]
+
+
+def test_explore_without_a_repo_is_not_run_and_does_not_block_the_comparison(home, env, tmp_path, bossman):
+    handler, base = bossman
+    _full(home)
+    env["FAKE_PLAN"] = str(tmp_path / "plan.json")
+    (tmp_path / "plan.json").write_text(json.dumps({"profiles": [{"id": "m", "status": "REUSED"}]}), encoding="utf-8")
+    run_dir = tmp_path / "run-noexplore"
+    _cli(home, env, "self-improve-mvcr", "bootstrap", "--run-dir", str(run_dir))
+    _cli(home, env, "self-improve-mvcr", "self-improve", "--run-dir", str(run_dir), "--base-url", base)
+    st = _state(run_dir)["steps"]
+    assert st["self-improve:explore"]["status"] == "NOT_RUN"
+    assert st["self-improve:compare"]["status"] == "PASS"
+
+
+
+def test_skills_stage_passes_on_a_real_catalog_and_fails_on_an_empty_one(home, env, tmp_path, bossman):
+    handler, base = bossman
+    run_dir = tmp_path / "run-skills"
+    _cli(home, env, "self-improve-mvcr", "skills", "--run-dir", str(run_dir), "--base-url", base)
+    st = _state(run_dir)["steps"]["skills"]
+    assert st["status"] == "PASS" and "systematic-debugging" in st["detail"]
+    handler.catalog = []                                   # negative control: nothing shipped
+    run2 = tmp_path / "run-skills-empty"
+    _cli(home, env, "self-improve-mvcr", "skills", "--run-dir", str(run2), "--base-url", base)
+    assert _state(run2)["steps"]["skills"]["status"] == "FAIL"
