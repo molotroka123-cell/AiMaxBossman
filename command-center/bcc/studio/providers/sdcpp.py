@@ -58,6 +58,7 @@ import os
 import re
 import secrets
 import shutil
+import threading
 import time
 import uuid
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -607,6 +608,114 @@ async def _create_subprocess(*argv, **kwargs):
 
 # ----------------------------------------------------------------------------- process control
 
+# MEDIA-LIFECYCLE. `reconcile_orphans` below cleans up at the NEXT start; that leaves a window
+# (backend dead, engine alive) in which nothing bounds the engine — it holds RAM and the GPU for
+# as long as it likes. The window is closed by the kernel, not by a resident service: every engine
+# child is assigned to a Windows Job Object owned by THIS process with KILL_ON_JOB_CLOSE. When the
+# owner disappears — clean exit, crash or TerminateProcess alike — the last handle closes and the
+# kernel terminates the job. Nothing outside this job is ever touched, so a foreign engine (another
+# Bossman, the owner's own run) is unaffected. On POSIX there is no equivalent primitive we are
+# willing to take (PR_SET_PDEATHSIG needs a fork hook in a threaded process), so the guard reports
+# itself unavailable and the sidecar/reconcile path stays the only mechanism there.
+_JOB_HANDLE = None
+_JOB_STATE = "unknown"
+_JOB_LOCK = threading.Lock()
+
+_JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
+_JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
+_PROCESS_SET_QUOTA = 0x0100
+_PROCESS_TERMINATE = 0x0001
+
+
+def _create_owner_job():
+    """Create (once) the kill-on-close job object that owns every engine child."""
+    global _JOB_HANDLE, _JOB_STATE
+    if os.name != "nt":
+        _JOB_STATE = "unsupported_platform"
+        return None
+    with _JOB_LOCK:
+        if _JOB_HANDLE is not None or _JOB_STATE.startswith("unavailable"):
+            return _JOB_HANDLE
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class _IO_COUNTERS(ctypes.Structure):
+                _fields_ = [(n, ctypes.c_ulonglong) for n in
+                            ("ReadOperationCount", "WriteOperationCount", "OtherOperationCount",
+                             "ReadTransferCount", "WriteTransferCount", "OtherTransferCount")]
+
+            class _BASIC_LIMIT(ctypes.Structure):
+                _fields_ = [("PerProcessUserTimeLimit", ctypes.c_longlong),
+                            ("PerJobUserTimeLimit", ctypes.c_longlong),
+                            ("LimitFlags", wintypes.DWORD),
+                            ("MinimumWorkingSetSize", ctypes.c_size_t),
+                            ("MaximumWorkingSetSize", ctypes.c_size_t),
+                            ("ActiveProcessLimit", wintypes.DWORD),
+                            ("Affinity", ctypes.POINTER(ctypes.c_ulong)),
+                            ("PriorityClass", wintypes.DWORD),
+                            ("SchedulingClass", wintypes.DWORD)]
+
+            class _EXTENDED_LIMIT(ctypes.Structure):
+                _fields_ = [("BasicLimitInformation", _BASIC_LIMIT), ("IoInfo", _IO_COUNTERS),
+                            ("ProcessMemoryLimit", ctypes.c_size_t),
+                            ("JobMemoryLimit", ctypes.c_size_t),
+                            ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                            ("PeakJobMemoryUsed", ctypes.c_size_t)]
+
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            k32.CreateJobObjectW.restype = wintypes.HANDLE
+            handle = k32.CreateJobObjectW(None, None)   # unnamed + non-inheritable: only we hold it
+            if not handle:
+                _JOB_STATE = "unavailable:CreateJobObject"
+                return None
+            info = _EXTENDED_LIMIT()
+            info.BasicLimitInformation.LimitFlags = _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+            if not k32.SetInformationJobObject(handle, _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+                                               ctypes.byref(info), ctypes.sizeof(info)):
+                k32.CloseHandle(handle)
+                _JOB_STATE = "unavailable:SetInformationJobObject"
+                return None
+            _JOB_HANDLE, _JOB_STATE = handle, "active"
+            return handle
+        except (OSError, AttributeError, ValueError) as exc:  # pragma: no cover - hostile host
+            _JOB_STATE = f"unavailable:{type(exc).__name__}"
+            return None
+
+
+def bind_to_owner_lifetime(pid: int, *, expected_create_time=None) -> bool:
+    """Tie one engine process to this process's lifetime. Returns True when the kernel now
+    guarantees it dies with us. Never raises: a host that refuses job objects degrades to the
+    sidecar/reconcile path, it does not lose the job."""
+    handle = _create_owner_job()
+    if handle is None:
+        return False
+    # Identity check before we take any power over the pid: a pid that is no longer the process we
+    # spawned must never be adopted (and therefore never killed) by us.
+    if expected_create_time is not None and not _same_process(_proc_identity(pid), pid, expected_create_time):
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.OpenProcess.restype = wintypes.HANDLE
+        target = k32.OpenProcess(_PROCESS_SET_QUOTA | _PROCESS_TERMINATE, False, int(pid))
+        if not target:
+            return False
+        try:
+            return bool(k32.AssignProcessToJobObject(handle, target))
+        finally:
+            k32.CloseHandle(target)
+    except (OSError, AttributeError, ValueError):  # pragma: no cover - hostile host
+        return False
+
+
+def lifecycle_guard_state() -> str:
+    """'active' | 'unknown' | 'unsupported_platform' | 'unavailable:<why>' — reported, never assumed."""
+    return _JOB_STATE
+
+
 def _proc_identity(pid: int) -> dict | None:
     import psutil
     try:
@@ -689,7 +798,8 @@ def reconcile_orphans(work_dir, *, kill: bool = True) -> dict:
     import psutil
     work = Path(work_dir)
     report = {"work_dir": str(work), "scanned": 0, "killed": [], "would_kill": [], "pid_reused": [],
-              "already_gone": [], "skipped_live_owner": [], "removed_files": [], "errors": []}
+              "already_gone": [], "skipped_live_owner": [], "removed_files": [], "errors": [],
+              "overdue": [], "guard": lifecycle_guard_state()}
     if not work.is_dir():
         return report
     me = _proc_identity(os.getpid())
@@ -711,6 +821,11 @@ def reconcile_orphans(work_dir, *, kill: bool = True) -> dict:
             # Our own live job (two workers in one process) or another live Bossman instance.
             report["skipped_live_owner"].append(rid)
             continue
+        # Evidence first: an orphan that blew its own recorded budget is named as such, whether or
+        # not its pid is still around. Silence about a blown budget is not a clean restart.
+        limit = record.get("budget_at") or record.get("deadline_at")
+        if isinstance(limit, (int, float)) and not isinstance(limit, bool) and limit < time.time():
+            report["overdue"].append(rid)
         pid, ct = record.get("pid"), record.get("create_time")
         ident = _proc_identity(pid) if isinstance(pid, int) and pid > 0 else None
         if ident is not None and ident.get("status") == psutil.STATUS_ZOMBIE:
@@ -868,7 +983,11 @@ class SdCppProvider:
         record = {"version": 1, "rid": rid, "pid": None, "create_time": None, "argv": argv,
                   "exe": None, "raw": str(raw), "init": None if init is None else str(init),
                   "started": started, "studio_job_id": self.studio_job_id, "model": plane.model,
-                  "owner_pid": os.getpid(), "owner_create_time": me.get("create_time")}
+                  "owner_pid": os.getpid(), "owner_create_time": me.get("create_time"),
+                  # The budget travels WITH the job: a later process reading this sidecar can tell
+                  # an orphan that is still inside its budget from one that blew straight past it.
+                  "segments": segments, "deadline_s": segment_s, "budget_s": budget_s,
+                  "deadline_at": started + segment_s, "budget_at": started + budget_s}
         if segments > 1:
             record["segment_files"] = [str(p) for p in raws[1:] + frame_files]
         sidecar = _sidecar_path(self.work, rid)
@@ -884,7 +1003,7 @@ class SdCppProvider:
                "elapsed_s": None, "failure": None, "failure_detail": None, "raw_meta": None,
                "sidecar": sidecar, "record": record, "state": "pending",
                "plane": plane, "raws": raws, "frame_files": frame_files, "segment_results": [],
-               "hard_timeout_s": segment_s, "budget_at": started + budget_s}
+               "hard_timeout_s": segment_s, "budget_at": record["budget_at"]}
         self._jobs[rid] = job
         job["task"] = asyncio.create_task(self._run(rid, job))
         return Submitted(rid, cancel_ref=rid)
@@ -900,6 +1019,9 @@ class SdCppProvider:
             *job["argv"], stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT, cwd=str(self.work), limit=1 << 20, **child_priority_kwargs())
         lower_child_priority(proc.pid)
+        # MEDIA-LIFECYCLE: the kernel, not a future restart, owns the engine's lifetime.
+        # Descendants the engine spawns inherit the job, so the whole tree goes with us.
+        job["lifecycle_bound"] = bind_to_owner_lifetime(proc.pid)
         return proc
 
     async def _run(self, rid: str, job: dict) -> None:
@@ -934,7 +1056,9 @@ class SdCppProvider:
                 seg = {**job["settings"], "seed": None if seed is None else (seed + i) % 2**31}
                 job["argv"] = _argv(self.cfg, self.model["id"], job["plane"], seg, job["files"], raw, last)
                 job["raw"], job["raw_meta"], job["proc"], job["returncode"] = raw, None, None, None
-                job["record"].update({"argv": job["argv"], "pid": None, "create_time": None, "exe": None})
+                job["record"].update({"argv": job["argv"], "pid": None, "create_time": None,
+                                      "exe": None, "segment_index": i,
+                                      "deadline_at": time.time() + job["hard_timeout_s"]})
                 with contextlib.suppress(OSError):
                     _write_sidecar(job["sidecar"], job["record"])
             t0 = time.time()
