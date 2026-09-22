@@ -31,7 +31,7 @@ watchdog), MEDIA-PARTIAL (стоп сохраняет готовые сегме�
 ## Прогон тестов на линии
 
 `telegram_contracts` + `test_telegram_settings` + `test_studio_*` + `test_owner_stop_lifecycle`:
-**429 passed, 0 failed** при `app/BOSSMAN-Windows-x64-0c1cbe651f52/media` в PATH.
+**447 passed, 0 failed** при `app/BOSSMAN-Windows-x64-0c1cbe651f52/media` в PATH.
 Без ffmpeg в PATH 7 тестов Studio падают из-за отсутствия skip-guard — ENVIRONMENT/HARNESS, не дефект продукта.
 
 ## Что проверено вживую на этой машине
@@ -51,7 +51,7 @@ watchdog), MEDIA-PARTIAL (стоп сохраняет готовые сегме�
 2. **LTX-2.5 — OWNER_REQUIRED_LICENSE.** Нужно согласие владельца на https://huggingface.co/Lightricks/LTX-2.5.
    Ничего не скачано, условия не приняты.
 3. **Длинные видео 5/10/15/30 с и I2V — NOT_RUN.** Проверен только TestRun 1 с.
-4. **Частичный результат в слое заданий Studio** (проводка partial до Telegram) — инженер медиа получил решение
+4. ~~Частичный результат в слое заданий Studio~~ — **ЗАКРЫТО** веткой `fix/partial-video-rts5-20260922`, слита в линию: стоп и лимит времени отдают готовые сегменты (только прошедшие верификацию, помеченные неполными, никогда не «completed»), в Telegram приходит часть с честной подписью или сообщение «сохранять нечего». Проверено на MOCK_ENGINE, живой генерацией — NOT_RUN.
    владельца и дорабатывал; в `integrate/owner-final-20260922` на момент чекпоинта есть только уровень провайдера.
 5. **Память/recall** (`feat/memory-lifecycle-20260922`) — не слито, отчёт инженера не получен.
 6. **Реальная доставка Telegram и живой Computer Use нового пульта — NOT_RUN** (только mock-контракты).
