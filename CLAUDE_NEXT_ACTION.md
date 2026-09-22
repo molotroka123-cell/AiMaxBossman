@@ -1,3 +1,19 @@
+# MANDATORY NORTH STAR — READ FIRST
+
+Before any implementation or release decision, read:
+`docs/evo/BOSSMAN_1_1_NORTH_STAR.md`.
+
+**NORTH STAR: Bossman 1.1 = verified continuous self-improvement; 4–7 day learning experiment aims at measurable transfer and owner-approved revenue-capable work, without bypassing stable/review/approval boundaries.**
+
+After release-critical safety/correctness blockers, this is the highest product priority.
+
+Every major handoff must report the current achieved level:
+`SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT / SELF_REPAIR_SINGLE_CYCLE_PASS / SELF_REPAIR_3_CYCLE_PASS / TRANSFER_MEASURED_GAIN / 24H_SOAK_PASS / 48H_SOAK_PASS / WEEK_MODE_READY / REVENUE_CAPABLE_PILOT`.
+
+Do not demote this goal into an indefinite backlog. Do not fake progress: memory hit != learning; Claude patch != student success; generated business idea != revenue capability.
+
+---
+
 # BOSSMAN — ПОСЛЕДНИЙ ПРОХОД ПЕРЕД ТЕСТОМ ВЛАДЕЛЬЦА
 
 Репозиторий: `molotroka123-cell/AiMaxBossman`.
