@@ -45,3 +45,35 @@ OVERLAP:
 - Codex already covers: checkpoint at 833a6a2a is an empty ledger; no substantive PASS/FAIL to contradict.
 
 RECOMMENDATION: Claude should enforce duration/frame/fps validation before publish, preserve explicit timeout priority, and turn these reproducers into passing regressions.
+
+## 2026-09-22 11:39 -07:00
+
+BASE_SHA: f09c6065584da71b0f0e779874cd578d5b3dc3ce (previous audit commit)
+HEAD_SHA: 8f8d06073a71517bd1eca2a2106eef8e3326c07e (remote integration, reference only)
+
+CHANGED_SCOPE: Owner-requested 10-minute live coding assessment with a 5-minute solution budget; not a repeated code audit.
+
+VERDICT: PARTIAL — Bossman API login verified; UI and model assessment NOT_RUN.
+
+NEW_FINDINGS:
+P0: none established.
+P1: none newly established.
+P2: none newly established.
+
+MODEL_PERFORMANCE: NOT_RUN, no response/TTFT/generation-speed/intelligence score.
+
+BLOCKERS:
+- Browser automation exposed no browser; opening IAB failed.
+- Both running Bossman model registries returned zero models; no listeners on 8081/8082/8083.
+- Claude actively renewed exclusive GPU/desktop/model-server lease at 18:34:29 UTC. Transfer was requested from owner and remained unresolved; no takeover attempted.
+
+EVIDENCE:
+- `docs/agents/checkpoints/ASTER6_20260922_TIMED_CODING.md` — timings, API login/logout, source identity and environmental evidence.
+- `docs/agents/puzzles/ASTER6_CIRCULAR_20260922.md` and `aster6_circular_verify.py` — prepared challenge and independent 11,658-case verifier, not a submitted/evaluated model answer. Five oracle example checks and syntax check passed.
+- Runtime identity differs from integration: 8810 = d059ac60 checkout; 8800 = fc266856 checkout. Packaged interpreter is not evidence of an isolated installed build.
+
+OVERLAP:
+- Claude already covers: exclusive live machine resources; no interference.
+- Codex already covers: no model result claimed or contradicted.
+
+RECOMMENDATION: Arrange a free GPU/model lease and a usable UI session, then execute a fresh 5-minute attempt without treating this blocked session as an intelligence failure.
