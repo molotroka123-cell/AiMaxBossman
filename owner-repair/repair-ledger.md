@@ -235,3 +235,14 @@ Candidate matrix with licences, sizes and support status: `docs/media/MODEL_CAND
 `telegram_contracts` + `test_telegram_settings` + `test_studio_*` + `test_owner_stop_lifecycle`:
 **429 passed, 0 failed** with `app/BOSSMAN-Windows-x64-0c1cbe651f52/media` on PATH (ffmpeg/ffprobe).
 Without ffmpeg on PATH seven Studio tests fail for lack of a skip-guard: ENVIRONMENT/HARNESS, not a product defect.
+
+---
+
+## 2026-09-22 — teacher (CLOUD_PREPARE, Linux; Windows simulated) — residual defects a–f on d6e25fb4
+
+Windows paths below are reproduced on Linux by substituting the Windows seam (platform flag, command runner,
+code page); **Windows itself is unverified** until Windows CI / the owner's machine reruns them.
+
+| Item | What | Status | Evidence |
+|---|---|---|---|
+| a / OS-105 | Social Farm account-context directories on Windows: `prepare()` only called `os.chmod` (NTFS: toggles read-only, ACL untouched → session dir stays open to whatever the inherited ACL allows, e.g. `BUILTIN\Users:(RX)`), and `assert_private()` compared `st_mode` bits that NTFS always reports as 0o777 → the owner's own correctly-closed directory was refused, an open one could not be detected. Now on `nt`: owner-only inheritable DACL via icacls (`/inheritance:r /grant:r DOMAIN\user:(OI)(CI)F`, same argv family as `bossman_shared/evidence.py::restrict_to_owner`, twinned because social-farm has `dependencies = []`), applied to the root and the account dir BEFORE the marker is written; `assert_private` reads `icacls <dir>` (decoded with the OEM code page) and refuses any allow-ACE for another principal, an unreadable ACL, a failed/missing icacls, or an unknown owner. POSIX path unchanged. | FIXED (Windows unverified) | `apps/social-farm/tests/unit/test_browser_isolation_windows_acl.py` 7 tests: red before (owner-only dir refused with "права 0o777", open ACL `DID NOT RAISE`, no icacls call, no warning), green after; negative controls: other-user ACE, never-narrowed inherited ACL, failed icacls, missing icacls, unknown owner. Neighbours: social-farm `440 passed, 13 skipped`; `tests/owner_scenarios` `31 passed`. Residual: `scn_23` OS-105 still asserts `S_IMODE == 0o700`, which is meaningless on NTFS — harness-only, left untouched. |
