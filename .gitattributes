@@ -8,3 +8,8 @@ bossman-core/ui/icon.svg -text
 
 # Доказательства для bossman_critical_errors.json: sha256 должен совпадать побайтово.
 docs/owner/evidence/** -text
+
+# Замок сборки Windows сверяется по sha256 побайтово (windows_bundle_lock.json).
+# Чекаут с autocrlf превращал LF в CRLF, и замок «ломался» на машине владельца.
+tools/windows_bundle_lock.txt -text
+tools/windows_bundle_build_tools.txt -text

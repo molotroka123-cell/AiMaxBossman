@@ -69,6 +69,12 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def write_lf(path: Path, text: str) -> None:
+    """Write exactly these bytes: the lock is compared by sha256, so a Windows
+    text-mode write (LF -> CRLF) would make a fresh lock fail its own check."""
+    path.write_text(text, encoding="utf-8", newline="\n")
+
+
 def normalize(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
@@ -241,7 +247,7 @@ def record(wheels: Path, dist: Path | None, out: Path) -> dict:
                    check=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
     rows = requirements_from_report(json.loads(report_path.read_text(encoding="utf-8")))
     txt = requirements_text(rows, recorded_at=recorded_at, platform_tag=platform_tag)
-    (out / LOCK_TXT.name).write_text(txt, encoding="utf-8")
+    write_lf(out / LOCK_TXT.name, txt)
 
     embed = _fetch(EMBED_URL.format(v=version), out / f"python-{version}-embed-amd64.zip")
     python_lock = {"version": version, "embeddable_url": EMBED_URL.format(v=version),
@@ -277,7 +283,7 @@ def record(wheels: Path, dist: Path | None, out: Path) -> dict:
         "requirements": {"file": LOCK_TXT.name, "sha256": hashlib.sha256(txt.encode("utf-8")).hexdigest(),
                          "count": len(rows)},
     }
-    (out / LOCK_JSON.name).write_text(json.dumps(lock, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_lf(out / LOCK_JSON.name, json.dumps(lock, indent=2, ensure_ascii=False) + "\n")
     print("BOSSMAN_LOCK_JSON_BEGIN")
     print(json.dumps(lock, indent=2, ensure_ascii=False))
     print("BOSSMAN_LOCK_JSON_END")

@@ -38,7 +38,7 @@ def lock(tmp_path) -> dict:
            "alpha==1.0 \\\n    --hash=sha256:" + "1" * 64 + "\n"
            "beta-lib==2.5.1 \\\n    --hash=sha256:" + "2" * 64 + "\n")
     txt_path = tmp_path / "windows_bundle_lock.txt"
-    txt_path.write_text(txt, encoding="utf-8")
+    txt_path.write_text(txt, encoding="utf-8", newline="\n")
     data = {
         "schema_version": 1, "recorded_at": "2026-09-17T00:00:00+00:00",
         "platform": {"os": "windows", "arch": "amd64", "python_tag": "cp312"},
@@ -68,7 +68,7 @@ def test_the_lock_is_read_with_its_pins(lock):
 def test_build_tools_must_match_their_digest_and_pins(tmp_path, lock):
     json_path, txt_path = tmp_path / "windows_bundle_lock.json", tmp_path / "windows_bundle_lock.txt"
     tools_txt = "setuptools==80.0.0 \\\n    --hash=sha256:" + "4" * 64 + "\n"
-    (tmp_path / "windows_bundle_build_tools.txt").write_text(tools_txt, encoding="utf-8")
+    (tmp_path / "windows_bundle_build_tools.txt").write_text(tools_txt, encoding="utf-8", newline="\n")
     data = json.loads(json_path.read_text(encoding="utf-8"))
     data["build_tools"] = {"file": "windows_bundle_build_tools.txt", "sha256": sha256(tools_txt.encode("utf-8")),
                            "pins": {"setuptools": "80.0.0"}}
@@ -90,7 +90,7 @@ def test_a_lock_that_does_not_match_itself_is_refused(tmp_path, lock, damage):
     json_path, txt_path = tmp_path / "windows_bundle_lock.json", tmp_path / "windows_bundle_lock.txt"
     data = json.loads(json_path.read_text(encoding="utf-8"))
     if damage == "txt_edited":
-        txt_path.write_text(txt_path.read_text(encoding="utf-8").replace("1.0", "1.1"), encoding="utf-8")
+        txt_path.write_text(txt_path.read_text(encoding="utf-8").replace("1.0", "1.1"), encoding="utf-8", newline="\n")
     elif damage == "count":
         data["requirements"]["count"] = 3
     elif damage == "digest":
@@ -99,11 +99,11 @@ def test_a_lock_that_does_not_match_itself_is_refused(tmp_path, lock, damage):
         data["schema_version"] = 2
     elif damage == "unpinned_line":
         txt = txt_path.read_text(encoding="utf-8") + "gamma>=1\n"
-        txt_path.write_text(txt, encoding="utf-8")
+        txt_path.write_text(txt, encoding="utf-8", newline="\n")
         data["requirements"]["sha256"] = sha256(txt.encode("utf-8"))
     else:
         txt = txt_path.read_text(encoding="utf-8") + "alpha==1.0 \\\n    --hash=sha256:" + "3" * 64 + "\n"
-        txt_path.write_text(txt, encoding="utf-8")
+        txt_path.write_text(txt, encoding="utf-8", newline="\n")
         data["requirements"]["sha256"] = sha256(txt.encode("utf-8"))
         data["requirements"]["count"] = 3
     json_path.write_text(json.dumps(data), encoding="utf-8")
@@ -370,3 +370,13 @@ def test_the_release_profile_is_the_default_and_names_its_rule():
     workflow = (REPO / ".github" / "workflows" / "windows-bundle.yml").read_text(encoding="utf-8")
     assert "--profile release" in workflow
     assert "windows_bundle_lock.py record" in workflow
+
+
+def test_a_lock_the_recorder_writes_passes_its_own_digest_check(tmp_path):
+    """Regression: on Windows a text-mode write turned LF into CRLF, so a lock the
+    recorder had just written failed ``load`` with 'does not match the digest'."""
+    txt = "# recorded\nalpha==1.0 \\\n    --hash=sha256:" + "1" * 64 + "\n"
+    target = tmp_path / "windows_bundle_lock.txt"
+    lockmod.write_lf(target, txt)
+    assert target.read_bytes() == txt.encode("utf-8")
+    assert lockmod.sha256_file(target) == sha256(txt.encode("utf-8"))
