@@ -218,6 +218,35 @@ class Telegram:
             raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
         return (body.get("result") or {}).get("message_id")
 
+    async def send_document(self, person: Person, name: str, data: bytes, caption: str = ""):
+        """Upload a text report (UTF-8 Markdown/JSON); the bytes pass the same egress guard
+        as captions, so a token that slipped into a report is scrubbed before it leaves."""
+        from bossman.notifications.telegram_transport import _egress_guard_text
+        if not self.settings.bot_token:
+            raise CompanionError("TELEGRAM_NOT_CONFIGURED")
+        if not self.authorize_delivery(person):
+            raise CompanionError("IDENTITY_REVOKED")
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            raise CompanionError("DOCUMENT_NOT_TEXT") from None
+        secrets = (self.settings.bot_token, self.settings.core_token)
+        body_bytes = _egress_guard_text(scrub(text, secrets)).encode("utf-8")
+        if len(body_bytes) > 20 * 1024 * 1024:
+            raise CompanionError("DOCUMENT_TOO_LARGE")
+        clean = _egress_guard_text(scrub(caption, secrets))[:1000]
+        try:
+            async with asyncio.timeout(120):
+                response = await self.client.post(f"{TELEGRAM_API}/bot{self.settings.bot_token}/sendDocument",
+                                                  data={"chat_id": str(person.chat_id), "caption": clean},
+                                                  files={"document": (name[:120], body_bytes, "text/plain")})
+            body = response.json()
+        except (httpx.HTTPError, OSError, TimeoutError, ValueError):
+            raise CompanionError("NETWORK_UNAVAILABLE") from None
+        if not isinstance(body, dict) or body.get("ok") is not True:
+            raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
+        return (body.get("result") or {}).get("message_id")
+
     async def send_photo(self, person: Person, data: bytes, caption: str, keyboard=None):
         """Upload verified PNG/JPEG bytes as a photo; caption passes the same egress guard."""
         from bossman.notifications.telegram_transport import _egress_guard_text

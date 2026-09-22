@@ -11,6 +11,7 @@ import time
 from .adapters import (CURRENT_PRIORITY, IMAGE_MAX_BYTES, IMAGE_MIMES, Core, Models, RateLimited, Telegram,
                        image_mime, scrub)
 from .config import CompanionError, Person, Settings
+from .agent_bridge import AGENT_COMMANDS, AgentBridgeMixin
 from .console import CONSOLE_COMMANDS, CONSOLE_OFF, NO_DIRECT_SHELL, ConsoleMixin
 from .store import Store
 
@@ -22,6 +23,7 @@ HELP = ("Я Bossman, ваш ИИ-помощник на локальных мод
         "/video описание — видео локально (Wan2.2): выберите длину 1 с TestRun / 5 / 10 / 15 / 30 с; "
         "сразу с длиной: /video 10 описание\n"
         "Фото с подписью /animate 5 (или «оживи 10») — оживить фото в клип 5–10 с; /cancel — отменить генерацию\n"
+        "/claude задание · /codex задание — Claude Code и Codex на компьютере (только владелец); /agents; /audits — отчёты\n"
         "/menu — пульт владельца кнопками (статус, очередь, подтверждения, СТОП)\n"
         "/status — связь с компьютером (владелец)\n"
         "/task описание — подготовить поручение агенту Bossman\n"
@@ -188,7 +190,8 @@ class Reply(str):
 # перезапуск процессов из чата больше не существуют. Команды остаются только в
 # этом списке — чтобы старая кнопка или старый ярлык получили внятный отказ,
 # а не «неизвестную команду».
-REMOVED_DIRECT_COMMANDS = {"/sh", "/claude", "/claude_new", "/claude_stop", "/mode", "/pc"}
+# /claude came back as an owner-only bridge (agent_bridge.py); a raw shell did not.
+REMOVED_DIRECT_COMMANDS = {"/sh", "/mode", "/pc"}
 DELEGATION_OFF = ("Поручения из Telegram пока недоступны: этому чату не назначен исполнитель Bossman. "
                   "Владелец назначает его локально. Прямого доступа к shell, файлам и мыши из Telegram нет.")
 
@@ -202,7 +205,7 @@ def model_name(model_id: str) -> str:
     return re.sub(r"-0*1-of-\d+$", "", name)[:80] or "модель"
 
 
-class Companion(ConsoleMixin):
+class Companion(AgentBridgeMixin, ConsoleMixin):
     def __init__(self, settings: Settings, store: Store, telegram: Telegram, core: Core, models: Models,
                  *, policy_provider=None):
         self.settings, self.store = settings, store
@@ -211,6 +214,7 @@ class Companion(ConsoleMixin):
         self.wake = {(p.key, lane): asyncio.Event() for p in settings.people for lane in ("chat", "control")}
         self.last_message = {}
         self.image_job = None
+        self.agent_jobs = {}
         self.image_poll_seconds = 2.0
         # Button tokens live only in memory: after a restart every old button is stale.
         self.buttons = {}
@@ -623,6 +627,8 @@ class Companion(ConsoleMixin):
         if command in {"/start", "/help", "/menu"}:
             title = "Пульт Bossman. Все действия идут через задачи и подтверждения." if command == "/menu" else HELP
             return Reply(title, self.main_menu(person))
+        if command in AGENT_COMMANDS:
+            return await self.agent_command(person, command, arg, message)
         if command in REMOVED_DIRECT_COMMANDS:
             # Второй путь исполнения удалён: отказ даже владельцу и при включённом тумблере.
             return NO_DIRECT_SHELL if self.console_allowed(person) else CONSOLE_OFF

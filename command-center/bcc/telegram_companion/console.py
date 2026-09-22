@@ -54,7 +54,7 @@ OWNER_CONSOLE = {"/queue", "/approvals", "/approve", "/reject", "/stop", "/pause
 CONSOLE_OFF = ("Пульт управления компьютером из Telegram выключен или доступен только владельцу. "
                "Владелец включает его локально: pc_control в config.json компаньона. "
                "Прямого доступа к PowerShell и мыши из Telegram нет ни у кого.")
-NO_DIRECT_SHELL = ("Прямого выполнения команд из Telegram больше нет: /sh и /claude удалены. "
+NO_DIRECT_SHELL = ("Прямого shell из Telegram нет: /sh удалён. Владельцу доступны /claude и /codex. "
                    "Всё, что нужно сделать на компьютере, оформляется как задача Bossman "
                    "(/task или «Новая задача») и проходит подтверждение. /menu — пульт.")
 STOPPED_NOTE = ("Уже совершённые внешние действия этим не отменяются: остановлено только то, "
@@ -324,6 +324,8 @@ class ConsoleMixin:
             if job is not None:
                 job["cancel"] = True
                 cancelled = True
+            if self.cancel_agents():
+                lines.append("• Claude/Codex остановлены, их процессы завершены.")
         try:
             await self.core.computer_stop()
             lines.append("• Управление компьютером остановлено: набор текста прерван, новые действия "
