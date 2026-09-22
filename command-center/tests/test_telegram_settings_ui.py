@@ -74,6 +74,8 @@ def test_owner_fills_and_saves_telegram_settings(live, mocked):  # noqa: F811
         page.click("text=Сохранить")
         page.wait_for_function("() => document.querySelector('[name=tg-token]').value === ''", timeout=15000)
 
+        page.wait_for_selector("text=Владелец 11111", timeout=15000)     # people list after save
+        assert "Bossman" in page.input_value("[name=tg-persona]")
         page.click("text=Проверить бота")
         page.wait_for_selector("text=ui_fixture_bot", timeout=15000)
 

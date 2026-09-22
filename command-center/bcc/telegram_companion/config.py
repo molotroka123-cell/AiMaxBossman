@@ -10,6 +10,14 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
+DEFAULT_PERSONA = (
+    "Ты — Bossman, локальный ИИ-помощник владельца этого компьютера. Тёплый, но прямой. "
+    "Отвечай кратко и по делу, без воды и дежурных фраз. Честно говори, когда не уверен или не знаешь. "
+    "Если вопрос неоднозначен — задай один уточняющий вопрос. Отвечай на языке собеседника. "
+    "Форматируй для Telegram: короткие абзацы, простые списки, без таблиц и длинной разметки. "
+    "Ты не Claude, не Anthropic и не реальный человек — ты Bossman.")
+
+
 class CompanionError(RuntimeError):
     """Only stable, secret-free codes are allowed in diagnostic output."""
 
@@ -87,6 +95,12 @@ class Settings:
     image_guests: bool = False
     image_deadline: int = 900
     image_min_free_gb: float = 12.0
+    # Conversation style and local per-user learning.
+    persona: str = DEFAULT_PERSONA
+    learning: dict = field(default_factory=dict)      # {"<user_id>": bool}; missing = on
+    retention_days: int = 90
+    profile_every: int = 10
+    owner_priority: bool = True
     max_tokens: int = 512
     monitor_seconds: int = 60
     bot_token: str = field(default="", repr=False)
@@ -129,6 +143,15 @@ class Settings:
                 type(self.image_deadline) is not int or not 60 <= self.image_deadline <= 3600 or
                 isinstance(self.image_min_free_gb, bool) or not 0 <= self.image_min_free_gb <= 128):
             raise ValueError("invalid image generation settings (local sd.cpp models only)")
+        if not isinstance(self.persona, str) or not 20 <= len(self.persona.strip()) <= 3000:
+            raise ValueError("persona must be 20..3000 characters")
+        if (not isinstance(self.learning, dict) or
+                any(not isinstance(k, str) or not k.isdigit() or type(v) is not bool for k, v in self.learning.items())):
+            raise ValueError("learning must map Telegram user ids to booleans")
+        if type(self.retention_days) is not int or not 1 <= self.retention_days <= 3650:
+            raise ValueError("retention must be 1..3650 days")
+        if type(self.profile_every) is not int or not 3 <= self.profile_every <= 200 or type(self.owner_priority) is not bool:
+            raise ValueError("invalid learning cadence / priority")
         if type(self.fast_fallback) is not bool or type(self.enabled) is not bool:
             raise ValueError("fast_fallback and enabled must be booleans")
         if type(self.monitor_seconds) is not int or not 30 <= self.monitor_seconds <= 3600:

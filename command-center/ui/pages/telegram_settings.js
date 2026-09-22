@@ -13,7 +13,7 @@
    ============================================================ */
 
 import { api } from '../api.js';
-import { h, field, input, select, actionButton, toastOk, toastError, badge } from '../components.js';
+import { h, field, input, select, textarea, actionButton, toastOk, toastError, badge } from '../components.js';
 
 export const SETTINGS_ENDPOINT = '/api/telegram/settings';
 
@@ -98,6 +98,44 @@ export async function telegramPanel(ctx) {
     imgNote.textContent = m && m.available ? 'Движок sd.cpp и модель найдены в Bossman Studio'
       : 'Не настроено: нужен sd.cpp (BOSSMAN_SDCPP_BIN) и модели с MANIFEST.json (BOSSMAN_MEDIA_MODELS)';
   }).catch(() => { imgNote.textContent = 'Студия недоступна'; });
+  const personaEl = textarea({ name: 'tg-persona', rows: 5, maxlength: 3000, value: data.persona || '' });
+  const retentionEl = input({ type: 'number', min: '1', max: '3650', step: '1', name: 'tg-retention', value: data.retention_days ?? 90 });
+  const priorityEl = h('input', { type: 'checkbox', name: 'tg-priority', checked: data.owner_priority !== false });
+  const learnBoxes = {};
+  const peopleBox = h('div.stack.sm', { 'data-testid': 'tg-people' }, h('div.xsmall.dim', 'Загрузка…'));
+
+  const renderPeople = async () => {
+    let items = [];
+    try { items = (await api.raw('/api/telegram/people')).items || []; } catch (e) { items = []; }
+    peopleBox.textContent = '';
+    if (!items.length) { peopleBox.appendChild(h('div.xsmall.dim', 'Сохраните настройки — здесь появятся владелец и гости.')); return; }
+    for (const person of items) {
+      const uid = String(person.user_id);
+      const box = h('input', { type: 'checkbox', name: `tg-learn-${uid}`, checked: (data.learning || {})[uid] !== false });
+      learnBoxes[uid] = box;
+      const profileEl = textarea({ name: `tg-profile-${uid}`, rows: 4, maxlength: 2000,
+        value: person.profile ? person.profile.text : '', placeholder: 'Профиль ещё не построен' });
+      const meta = person.profile
+        ? `версия ${person.profile.version} · ${new Date(person.profile.updated * 1000).toLocaleString()}${person.profile.edited_by_owner ? ' · правлено вами' : ''}`
+        : 'профиля нет';
+      peopleBox.appendChild(h('div.panel-body', { style: 'border:1px solid var(--line, #3334);border-radius:8px' },
+        h('div.row', h('b', `${person.role === 'owner' ? 'Владелец' : 'Гость'} ${uid}`),
+          h('span.xsmall.dim', ` · записей: ${person.entries}${person.paused ? ' · пауза (/pause_learning)' : ''}${person.role === 'guest' && !person.notice_seen ? ' · уведомление ещё не показано' : ''}`)),
+        h('label.check', box, h('span', 'Учиться на этом пользователе')),
+        field('Цифровой профиль', profileEl, meta),
+        h('div.row', { style: 'gap:8px' },
+          actionButton('Сохранить профиль', async () => {
+            try { await api.raw(`/api/telegram/profile/${uid}`, { method: 'PUT', body: { text: profileEl.value } }); toastOk('Профиль сохранён'); }
+            catch (e) { toastError(e, 'Профиль не сохранён'); }
+          }, { cls: 'btn btn-sm' }),
+          actionButton('Удалить профиль', async () => {
+            try { await api.raw(`/api/telegram/profile/${uid}`, { method: 'DELETE' }); profileEl.value = ''; toastOk('Профиль удалён'); }
+            catch (e) { toastError(e, 'Профиль не удалён'); }
+          }, { cls: 'btn btn-sm btn-danger' }))));
+    }
+  };
+  renderPeople();
+
   const fallbackEl = h('input', { type: 'checkbox', name: 'tg-fallback', checked: data.fast_fallback !== false });
   const timeoutEl = input({ type: 'number', min: '1', max: '600', step: '1', name: 'tg-timeout', value: data.local_timeout ?? 180 });
   const tokensEl = input({ type: 'number', min: '64', max: '2048', step: '64', name: 'tg-max-tokens', value: data.max_tokens ?? 1024 });
@@ -149,6 +187,8 @@ export async function telegramPanel(ctx) {
       vision_route: visionSel.value, delegation: false, enabled: enabledEl.checked,
       image_enabled: imgEnabledEl.checked, image_model: imgModelSel.value,
       image_size: Number(imgSizeSel.value), image_steps: Number(imgStepsSel.value), image_guests: imgGuestsEl.checked,
+      persona: personaEl.value, retention_days: Number(retentionEl.value || 90), owner_priority: priorityEl.checked,
+      learning: Object.fromEntries(Object.entries(learnBoxes).map(([uid, box]) => [uid, box.checked])),
     };
     const res = await api.raw(SETTINGS_ENDPOINT, { method: 'PUT', body });
     tokenEl.value = '';
@@ -156,6 +196,7 @@ export async function telegramPanel(ctx) {
     Object.assign(savedBest, { url: res.best_url, model: res.best_model });
     Object.assign(savedFastest, { url: res.fastest_url, model: res.fastest_model });
     setStatus(res.status);
+    renderPeople();
     toastOk('Настройки Telegram сохранены', (res.warnings || []).join(' '));
   };
 
@@ -198,6 +239,21 @@ export async function telegramPanel(ctx) {
     h('label.check', fallbackEl, h('span', 'Если лучшая не ответила вовремя — отвечает самая быстрая (не облако)')),
     h('label.check', { title: 'Пока недоступно' }, delegationEl,
       h('span.dim', 'Поручения Bossman из Telegram (/task) — пока недоступно')),
+    field('Манера общения', personaEl, 'Как Bossman разговаривает. Правила безопасности добавляются всегда и не отключаются.'),
+    h('h3.small', 'Обучение на собеседниках (только локально)'),
+    h('div.xsmall.dim', 'Переписка разрешённых людей хранится зашифрованной на этом компьютере; локальная модель ',
+      'строит по ней краткий профиль каждого — он подставляется только в разговоры этого же человека. ',
+      'Гости сначала получают уведомление; у них есть /privacy, /pause_learning, /forget.'),
+    h('div.grid.cols-2',
+      field('Хранить журнал, дней', retentionEl),
+      h('label.check', priorityEl, h('span', 'Владелец отвечается первым, если модель занята'))),
+    peopleBox,
+    h('div.row', actionButton('Экспорт для обучения (JSONL)', async () => {
+      try {
+        const res = await api.raw('/api/telegram/export', { method: 'POST' });
+        toastOk(`Экспортировано записей: ${res.records}`, res.dir ? `Папка: ${res.dir} (секреты, почта, телефоны вычищены)` : '');
+      } catch (e) { toastError(e, 'Экспорт не выполнен'); }
+    }, { cls: 'btn btn-sm' })),
     h('h3.small', 'Генерация картинок (/img)'),
     h('label.check', imgEnabledEl, h('span', 'Разрешить /img — рисовать картинки локальной моделью через Bossman Studio')),
     h('div.grid.cols-2',

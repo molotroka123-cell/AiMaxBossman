@@ -28,6 +28,10 @@ class Store:
           body TEXT NOT NULL, lane TEXT NOT NULL DEFAULT 'chat', phase TEXT NOT NULL DEFAULT 'pending', created REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS history(id INTEGER PRIMARY KEY, who TEXT NOT NULL,
           body TEXT NOT NULL, created REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS learning_log(id INTEGER PRIMARY KEY, who TEXT NOT NULL,
+          body TEXT NOT NULL, created REAL NOT NULL);
+        CREATE INDEX IF NOT EXISTS learning_log_who ON learning_log(who, id);
+        CREATE TABLE IF NOT EXISTS profiles(who TEXT PRIMARY KEY, body TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS proposals(id TEXT PRIMARY KEY, who TEXT NOT NULL,
           body TEXT NOT NULL, expires REAL NOT NULL, phase TEXT NOT NULL DEFAULT 'pending',
           task_id INTEGER);
@@ -90,7 +94,8 @@ class Store:
         if body.get("_image"):
             return "chat"
         command = str(body.get("text", "")).strip().partition(" ")[0].lower()
-        if command in {"/status", "/help", "/lock", "/watch", "/cloud", "/model", "/cancel", "/menu", "/start", "/photo"}:
+        if command in {"/status", "/help", "/lock", "/watch", "/cloud", "/model", "/cancel", "/menu", "/start", "/photo",
+                       "/privacy", "/forget", "/forget_confirm", "/pause_learning", "/resume_learning"}:
             return "control"
         # "/best" or "/fast" alone only switches the route; with a question it is chat.
         bare = not str(body.get("text", "")).strip().partition(" ")[2].strip()
@@ -127,8 +132,45 @@ class Store:
             remaining -= len(user) + len(assistant)
         return messages
 
+    # ---- local per-user learning: every query is keyed by exactly one principal
+    def log(self, who: str, user: str, assistant: str) -> int:
+        cur = self.db.execute("INSERT INTO learning_log(who,body,created) VALUES(?,?,?)",
+                              (who, self.seal({"user": user[:4000], "assistant": assistant[:8000]}), time.time()))
+        return cur.lastrowid
+
+    def log_entries(self, who: str, *, after_id: int = 0, limit: int = 1000) -> list:
+        rows = self.db.execute("SELECT id, body, created FROM learning_log WHERE who=? AND id>? ORDER BY id DESC LIMIT ?",
+                               (who, after_id, limit)).fetchall()
+        return [{"id": r[0], "ts": r[2], **self.open(r[1])} for r in reversed(rows)]
+
+    def log_count(self, who: str, after_id: int = 0) -> int:
+        return self.db.execute("SELECT count(*) FROM learning_log WHERE who=? AND id>?", (who, after_id)).fetchone()[0]
+
+    def learners(self) -> list:
+        return [r[0] for r in self.db.execute("SELECT DISTINCT who FROM learning_log").fetchall()]
+
+    def profile(self, who: str):
+        row = self.db.execute("SELECT body FROM profiles WHERE who=?", (who,)).fetchone()
+        return self.open(row[0]) if row else None
+
+    def put_profile(self, who: str, text: str, last_log_id: int, *, edited_by_owner: bool = False) -> dict:
+        old = self.profile(who) or {}
+        value = {"text": text[:2000], "version": int(old.get("version", 0)) + 1, "updated": time.time(),
+                 "last_log_id": last_log_id, "edited_by_owner": edited_by_owner}
+        self.db.execute("INSERT INTO profiles VALUES (?,?) ON CONFLICT(who) DO UPDATE SET body=excluded.body",
+                        (who, self.seal(value)))
+        return value
+
+    def delete_profile(self, who: str):
+        self.db.execute("DELETE FROM profiles WHERE who=?", (who,))
+
+    def prune_learning(self, retention_days: int):
+        self.db.execute("DELETE FROM learning_log WHERE created<?", (time.time() - retention_days * 86400,))
+
     def forget(self, who: str):
         with self.tx():
+            self.db.execute("DELETE FROM learning_log WHERE who=?", (who,))
+            self.db.execute("DELETE FROM profiles WHERE who=?", (who,))
             self.db.execute("DELETE FROM history WHERE who=?", (who,))
             self.put("cloud:" + who, False)
             self.db.execute("UPDATE inbox SET body=? WHERE who=? AND phase NOT IN ('pending','processing')", (self.seal({}), who))

@@ -294,3 +294,49 @@ async def test_set_bot_commands_only_on_request(env, tg, monkeypatch):
     assert r["ok"] and "menu" in r["commands"] and "img" in r["commands"]
     [(method, payload)] = seen
     assert method == "setMyCommands" and {"command": "best", "description": "Отвечать лучшей моделью"} in payload["commands"]
+
+
+async def test_persona_learning_profiles_and_export(env, tg):
+    r = await env.client.put("/api/telegram/settings", json=body(persona="", learning={"22222": False, "999": True},
+                                                               retention_days=30, owner_priority=False))
+    data = r.json()
+    assert "Bossman" in data["persona"] and data["learning"] == {"11111": True, "22222": False}
+    assert data["retention_days"] == 30 and data["owner_priority"] is False
+    r = await env.client.put("/api/telegram/settings", json=body(bot_token="", persona="Ты Bossman, отвечай строго и кратко."))
+    assert r.json()["persona"] == "Ты Bossman, отвечай строго и кратко."
+    assert (await env.client.put("/api/telegram/settings", json=body(bot_token="", persona="x" * 3001))).status_code == 422
+
+    # The companion's own encrypted store, filled like the companion would.
+    from bcc.telegram_companion.store import Store
+    store = Store(tg.parent)
+    try:
+        store.log("11111:11111", "моя почта owner@example.com, тел +7 915 123-45-67, ключ " + "123456789:" + "B" * 35, "ок")
+        store.log("22222:22222", "гостевой вопрос", "гостевой ответ")
+        store.put_profile("22222:22222", "- любит шахматы", 2)
+    finally:
+        store.close()
+
+    people = (await env.client.get("/api/telegram/people")).json()["items"]
+    by_id = {p["user_id"]: p for p in people}
+    assert by_id[11111]["entries"] == 1 and by_id[22222]["profile"]["text"] == "- любит шахматы"
+    assert by_id[22222]["learning"] is True
+
+    edited = (await env.client.put("/api/telegram/profile/22222", json={"text": "- любит шахматы и джаз"})).json()
+    assert edited["version"] == 2 and edited["edited_by_owner"] is True
+    assert (await env.client.put("/api/telegram/profile/424242", json={"text": "x"})).status_code == 404
+    assert (await env.client.delete("/api/telegram/profile/22222")).json() == {"ok": True}
+    assert (await env.client.get("/api/telegram/people")).json()["items"][1]["profile"] is None
+
+    exported = (await env.client.post("/api/telegram/export")).json()
+    assert exported["records"] == 2 and len(exported["files"]) == 3
+    combined = (tg.parent / "exports" / "all-users.jsonl").read_text(encoding="utf-8")
+    assert "owner@example.com" not in combined and "915 123" not in combined and "B" * 35 not in combined
+    rows = [json.loads(line) for line in combined.splitlines()]
+    assert {r["user_id"] for r in rows} == {11111, 22222} and all("reasoning" not in json.dumps(r) for r in rows)
+    guest_only = (tg.parent / "exports" / "user-22222.jsonl").read_text(encoding="utf-8")
+    assert "гостевой" in guest_only and "owner" not in guest_only
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=env.app), base_url="http://test") as anon:
+        for method, url in (("GET", "/api/telegram/people"), ("POST", "/api/telegram/export"),
+                            ("DELETE", "/api/telegram/profile/22222")):
+            assert (await anon.request(method, url)).status_code == 401

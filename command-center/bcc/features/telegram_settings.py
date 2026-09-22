@@ -107,6 +107,11 @@ def _atomic_write(target: Path, text: str) -> None:
     os.replace(tmp, target)
 
 
+def _default_persona() -> str:
+    from ..telegram_companion.config import DEFAULT_PERSONA
+    return DEFAULT_PERSONA
+
+
 def _mask(token: str) -> str:
     return ("…" + token[-4:]) if token else ""
 
@@ -133,6 +138,11 @@ def _public(cfg: dict, secrets: dict) -> dict:
         "image_size": cfg.get("image_size", 1024),
         "image_steps": cfg.get("image_steps", 8),
         "image_guests": bool(cfg.get("image_guests", False)),
+        "persona": cfg.get("persona") or _default_persona(),
+        "learning": {str(p.get("user_id")): bool((cfg.get("learning") or {}).get(str(p.get("user_id")), True))
+                     for p in people},
+        "retention_days": cfg.get("retention_days", 90),
+        "owner_priority": cfg.get("owner_priority", True),
         "delegation": False,
         "delegation_available": False,
         "token_set": bool(secrets.get("bot_token")),
@@ -229,6 +239,10 @@ class SettingsIn(BaseModel):
     image_size: int = 1024
     image_steps: int = Field(default=8, ge=4, le=20)
     image_guests: bool = False
+    persona: str = Field(default="", max_length=3000)            # empty = default «Манера общения»
+    learning: dict[str, bool] = Field(default_factory=dict)       # {"<user_id>": learn on this person}
+    retention_days: int = Field(default=90, ge=1, le=3650)
+    owner_priority: bool = True
     delegation: bool = False
     enabled: bool = True
 
@@ -310,6 +324,10 @@ async def put_settings(body: SettingsIn, request: Request):
         "vision_route": {"best": "main", "fastest": "fast"}.get(body.vision_route, "auto"),
         "image_enabled": body.image_enabled, "image_model": body.image_model,
         "image_size": body.image_size, "image_steps": body.image_steps, "image_guests": body.image_guests,
+        "persona": body.persona.strip() or _default_persona(),
+        "learning": {k: v for k, v in body.learning.items()
+                     if k.isdigit() and int(k) in {body.owner_id, *body.guest_ids}},
+        "retention_days": body.retention_days, "owner_priority": body.owner_priority,
         "enabled": body.enabled,
         "core_url": existing.get("core_url", DEFAULTS["core_url"]),
         # Telegram never falls back to a cloud model from this section.
@@ -384,6 +402,122 @@ async def set_commands():
         return {"ok": False, "status": str(exc)}
     finally:
         await telegram.close()
+
+
+# ---------------------------------------------------------------- per-user learning (local)
+
+def _store():
+    """The companion's own encrypted store (same files the companion uses)."""
+    from ..telegram_companion.store import Store
+    home = config_path().parent
+    if not (home / "companion.sqlite3").exists():
+        return None
+    return Store(home)
+
+
+def _people() -> list[dict]:
+    try:
+        cfg = _read_config(config_path())
+    except (OSError, ValueError):
+        cfg = {}
+    return [p for p in cfg.get("people") or [] if isinstance(p, dict) and isinstance(p.get("user_id"), int)]
+
+
+def _key(uid: int) -> str:
+    if uid not in {p["user_id"] for p in _people()}:
+        raise HTTPException(404, "Такого пользователя нет в списке Telegram.")
+    return f"{uid}:{uid}"
+
+
+@router.get("/telegram/people")
+async def people():
+    store = _store()
+    cfg = _read_config(config_path()) if config_path().is_file() else {}
+    learning = cfg.get("learning") or {}
+    out = []
+    try:
+        for p in _people():
+            key = f"{p['user_id']}:{p['user_id']}"
+            profile = store.profile(key) if store else None
+            out.append({"user_id": p["user_id"], "role": p.get("role"),
+                        "learning": bool(learning.get(str(p["user_id"]), True)),
+                        "paused": bool(store.get("learn_paused:" + key, False)) if store else False,
+                        "notice_seen": bool(store.get("notice:" + key, False)) if store else False,
+                        "entries": store.log_count(key) if store else 0,
+                        "profile": profile})
+    finally:
+        if store:
+            store.close()
+    return {"items": out}
+
+
+class ProfileIn(BaseModel):
+    text: str = Field(max_length=2000)
+
+
+@router.put("/telegram/profile/{uid}")
+async def edit_profile(uid: int, body: ProfileIn):
+    key = _key(uid)
+    store = _store()
+    if store is None:
+        raise HTTPException(409, "Компаньон ещё не создавал хранилище: сначала запустите его.")
+    try:
+        from ..telegram_companion.service import clean_profile
+        last = store.log_entries(key, limit=1)
+        return store.put_profile(key, clean_profile(body.text), last[-1]["id"] if last else 0, edited_by_owner=True)
+    finally:
+        store.close()
+
+
+@router.delete("/telegram/profile/{uid}")
+async def delete_profile(uid: int):
+    key = _key(uid)
+    store = _store()
+    if store is not None:
+        try:
+            store.delete_profile(key)
+        finally:
+            store.close()
+    return {"ok": True}
+
+
+@router.post("/telegram/export")
+async def export():
+    """Sanitised JSONL (per user + combined) under the companion data dir; nothing leaves the machine."""
+    from bossman.ai_lab.sanitizer import SANITIZER_VERSION, sanitize_obj
+    from ..auth import _restrict_to_owner
+    import datetime as _dt
+    store = _store()
+    if store is None:
+        return {"ok": True, "files": [], "records": 0}
+    out_dir = config_path().parent / "exports"
+    out_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    _restrict_to_owner(out_dir)
+    files, total, combined = [], 0, []
+    try:
+        for p in _people():
+            key = f"{p['user_id']}:{p['user_id']}"
+            lines = []
+            for e in store.log_entries(key, limit=100000):
+                record = sanitize_obj({"user_id": p["user_id"], "role": p.get("role"),
+                                       "ts": _dt.datetime.fromtimestamp(e["ts"], _dt.timezone.utc).isoformat(),
+                                       "messages": [{"role": "user", "content": e["user"]},
+                                                    {"role": "assistant", "content": e["assistant"]}],
+                                       "sanitizer": SANITIZER_VERSION})
+                lines.append(json.dumps(record, ensure_ascii=False))
+            if lines:
+                target = out_dir / f"user-{p['user_id']}.jsonl"
+                _atomic_write(target, "\n".join(lines) + "\n")
+                files.append({"path": str(target), "records": len(lines), "user_id": p["user_id"]})
+                combined += lines
+                total += len(lines)
+        if combined:
+            target = out_dir / "all-users.jsonl"
+            _atomic_write(target, "\n".join(combined) + "\n")
+            files.append({"path": str(target), "records": len(combined), "user_id": None})
+    finally:
+        store.close()
+    return {"ok": True, "files": files, "records": total, "dir": str(out_dir)}
 
 
 # ---------------------------------------------------------------- process
