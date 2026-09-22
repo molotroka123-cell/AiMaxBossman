@@ -1,0 +1,266 @@
+{
+  "schema_version": 1,
+  "kind": "bossman.model_profiles",
+  "written_at": "2026-09-22",
+  "tool": "tools/model_fetch.py",
+  "pinning_attempt": {
+    "when": "2026-09-22T22:28Z",
+    "where": "cloud session (CLOUD_PREPARE), not the owner's PC",
+    "method": "curl https://huggingface.co/api/models/<repo> and /tree/main?recursive=1",
+    "result": "BLOCKED: egress proxy answered 403 to CONNECT huggingface.co:443 (organisation policy of the cloud session). api.github.com also 403. No hash, size or revision could be read, so none is written: every downloadable file below is UNPINNED with sha256 null.",
+    "owner_side_fix": "on the owner's PC run `model_fetch.py pin --profile <id> --out <models>/model_profiles.pinned.json` — it reads the same HF API and writes commit revision + LFS sha256 + size per file; then plan/fetch/verify with --manifest pointing at the pinned copy.",
+    "github_metadata_read": "via the GitHub search API (repository metadata only, not file contents): SnowLLM/SnowLLM, llama.cpp qwen4exp forks, julianmb/halo-glm53flash — see the profiles' evidence fields"
+  },
+  "runtimes": {
+    "llama.cpp-b10964-vulkan": {
+      "engine": "llama.cpp (llama-server)",
+      "version": "b10964",
+      "version_match": "10964",
+      "backend": "Vulkan",
+      "binary_env": "BOSSMAN_LLAMA_SERVER",
+      "binary_candidates": [
+        "${USERPROFILE}/Bossman/runtime/llama.cpp/llama-server.exe",
+        "${BOSSMAN_LLAMA_CPP_DIR}/llama-server.exe",
+        "${BOSSMAN_LLAMA_CPP_DIR}/llama-server"
+      ],
+      "version_args": ["--version"],
+      "version_regex": "version:\\s*b?(\\d+)",
+      "binary_sha256": null,
+      "status": "UNPINNED",
+      "status_reason": "build number is pinned (b10964, observed on the owner's PC in owner-repair/lab-20260922), the binary sha256 is not: the release asset could not be read from the cloud session (api.github.com 403). runtime-check compares the version string; record the sha256 on the owner's PC.",
+      "source": {"github_repo": "ggml-org/llama.cpp", "release_tag": "b10964", "asset": "Windows x64 Vulkan zip (exact asset name not read)"},
+      "license": {"id": "MIT", "url": "https://github.com/ggml-org/llama.cpp/blob/master/LICENSE", "acceptance_required": false},
+      "compatibility_notes": "Installed and working on the owner's Strix Halo (Radeon 8060S, gfx1151) with Vulkan. Launch flags as in start-models.ps1: -ngl 999 -c 32768 -t 16 --jinja --reasoning off. GPT-OSS reasons regardless of --reasoning off. Upstream b10964 has no qwen4exp architecture (Qwen3.8-Flash-Next) support per the checkpoint."
+    },
+    "llama.cpp-qwen4exp-fork": {
+      "engine": "llama.cpp fork with the qwen4exp architecture (Qwen3.8-Flash-Next)",
+      "version": null,
+      "backend": "Vulkan (to be confirmed for gfx1151)",
+      "binary_sha256": null,
+      "status": "UNPINNED",
+      "status_reason": "CHECKPOINT-LAB.md: Qwen3.8-Flash-Next needs its own llama.cpp fork -> not qualified. No fork is chosen or pinned yet.",
+      "candidates_from_github_metadata": [
+        {"repo": "lendome/llama.cpp-qwen4exp", "claim": "llama.cpp with PR #27742 (qwen4exp) applied + Ubuntu x64 binaries (no Windows binaries claimed)"},
+        {"repo": "chishiki37/qwen38-flash-next-aimax", "claim": "UD-Q4_K_XL on AIMAX Strix Halo, llama.cpp Vulkan recipe"},
+        {"repo": "aic0d3r/qwen38-strix-halo-harness", "claim": "llama.cpp (Vulkan) configs for Flash-Next on Strix Halo"},
+        {"repo": "JohnTDI-cpu/llama.cpp-flash-next-rdna4", "claim": "PR #28243 + HIP kernels, RDNA4 (not gfx1151)"}
+      ],
+      "license": {"id": "MIT (upstream llama.cpp; each fork must be checked)", "url": "https://github.com/ggml-org/llama.cpp/blob/master/LICENSE", "acceptance_required": false},
+      "compatibility_notes": "Separate binary in a separate folder; never replaces the b10964 runtime used by MAIN/FAST/OSS. Claims above are repository descriptions, not measurements."
+    },
+    "snowllm-0.3.2": {
+      "engine": "SnowLLM",
+      "version": "0.3.2",
+      "backend": "ROCm/HIP (repository topic amd-rocm)",
+      "binary_sha256": null,
+      "status": "UNPINNED",
+      "status_reason": "Version 0.3.2 could not be confirmed (no release/tag data readable from the cloud session); kernel requirements not readable (repository contents blocked). Conditions to check on the owner's PC are listed in kernel_conditions.",
+      "source": {"github_repo": "SnowLLM/SnowLLM", "homepage": "https://snowllm.dev/", "release_tag": null},
+      "evidence": {"github_repo_metadata_2026-09-22": {"created_at": "2026-08-03", "pushed_at": "2026-09-22", "language": "Python", "stars": 2, "forks": 1, "topics": ["amd-rocm", "llm", "llm-inference", "qwen36"], "license_spdx": "Apache-2.0", "description": "claims up to 9x prefill / 2x decode vs llama.cpp on the same GGUF on Ryzen AI Max; Qwen3.6-35B-A3B, Qwen3.8-Flash-Next, DeepSeek-V4-Flash"}},
+      "kernel_conditions": [
+        "GPU target gfx1151 must be in its compiled kernel list (not only gfx1100 via HSA_OVERRIDE_GFX_VERSION=11.0.0)",
+        "ROCm/HIP runtime version it was built against, and whether that ROCm supports gfx1151 on Windows (HIP SDK) — the owner runs Windows; a Linux-only ROCm build is NOT_SUITABLE here",
+        "whether prebuilt kernels / code objects are shipped as binaries and under which licence (the Apache-2.0 repo licence does not automatically cover third-party kernel blobs)",
+        "must not require a GPU driver, BIOS or system Python change: model_fetch never installs any of these",
+        "same GGUF files as llama.cpp (claim) — must be reproduced with bakeoff.py on the same prompts before any use"
+      ],
+      "license": {"id": "Apache-2.0 (repository, per GitHub metadata; kernel blobs unverified)", "url": "https://github.com/SnowLLM/SnowLLM", "acceptance_required": false},
+      "compatibility_notes": "Young project (created 2026-08-03, 2 stars). Optional experiment only; never the production runtime."
+    },
+    "glm-5.3-strix-runtime": {
+      "engine": "GLM-5.3-Flash compatible runtime for Strix Halo",
+      "version": null,
+      "backend": "unknown (llama.cpp-based script set per repository description)",
+      "binary_sha256": null,
+      "status": "UNPINNED",
+      "status_reason": "No runtime chosen/pinned. Candidate from GitHub metadata only: julianmb/halo-glm53flash ('glm-5.3-flash (320b-a18b) setup for amd strix halo — 9.31 tok/s receipts').",
+      "license": {"id": "UNVERIFIED", "url": "https://github.com/julianmb/halo-glm53flash", "acceptance_required": "check before use"},
+      "compatibility_notes": "320B-A18B MoE per the description: near the 128 GB unified-memory limit. Must prove it loads without destructive memory pressure (MODEL_STACK_2026-09-20 wave 3)."
+    },
+    "fp8-safetensors-runtime": {
+      "engine": "vLLM / SGLang (ROCm) or another FP8-safetensors runtime",
+      "version": null,
+      "backend": "ROCm",
+      "binary_sha256": null,
+      "status": "UNPINNED",
+      "status_reason": "FP8 safetensors are not loaded by llama.cpp b10964. No FP8 runtime is installed or chosen for the owner's Windows PC.",
+      "license": {"id": "Apache-2.0 (vLLM); per runtime", "url": "https://github.com/vllm-project/vllm", "acceptance_required": false},
+      "compatibility_notes": "RDNA 3.5 (gfx1151) has no native FP8 matrix path as far as known here (UNVERIFIED): expect upcast/emulation. Linux ROCm first; Windows support unconfirmed."
+    },
+    "studio-sdcpp": {
+      "engine": "stable-diffusion.cpp (sd-cli)",
+      "version": "see media MANIFEST.json engine.release",
+      "status": "UNPINNED",
+      "status_reason": "Pinned by the media MANIFEST.json (engine.release, binary_sha256) and validated by tools/media_bootstrap.py; not duplicated here.",
+      "binary_sha256": null,
+      "license": {"id": "MIT", "url": "https://github.com/leejet/stable-diffusion.cpp", "acceptance_required": false},
+      "compatibility_notes": "Vulkan on the owner's PC; owner-run REPORT_RU 2026-09-22: media manifest 6 files sha256-verified, z-image-turbo generated."
+    }
+  },
+  "profiles": [
+    {
+      "id": "baseline-installed",
+      "kind": "model",
+      "category": "llm_coding_agents",
+      "role": "Installed baseline: MAIN Qwen3.8-27B (:8081), FAST Qwen3.6-35B-A3B (:8082), VERIFIER/REVIEW GPT-OSS-120B (:8083). GPT-OSS = PRELIMINARY LAB_PRIMARY (bake-off A–G 7/7 in 90 s vs 6/7 for Qwen; short bake-off, FAST/Nex/Occamy NOT_RUN — not a final winner). Production model unchanged.",
+      "runtime": {"ref": "llama.cpp-b10964-vulkan", "flags": "-ngl 999 -c 32768 -t 16 --jinja --reasoning off"},
+      "source": {"hf_repo": null, "revision": null, "installed_from": "owner's PC, %USERPROFILE%\\Bossman\\models (start-models.ps1)", "note": "upstream repos not recorded at install time; see per-file hf_repo_guess"},
+      "reuse_only": true,
+      "optional": false,
+      "status": "UNPINNED",
+      "status_reason": "Installed on the owner's PC; no full sha256 was ever recorded and HF was unreachable from the cloud. Reuse only: never re-downloaded when present. verify records a local TOFU hash and reports UNVERIFIED_TOFU until pinned.",
+      "lab_status": {"gpt-oss-120b": "PRELIMINARY_LAB_PRIMARY", "qwen3.8-27b-q5": "MAIN (production)", "qwen3.6-35b-a3b-q5": "FAST (production), not measured in the bake-off"},
+      "license": {"id": "Qwen: UNVERIFIED (Qwen3.x usually Apache-2.0 — check model card); GPT-OSS: Apache-2.0 + OpenAI gpt-oss usage policy", "url": "https://huggingface.co/openai/gpt-oss-120b", "acceptance_required": false},
+      "min_free_disk": {"bytes": 0, "basis": "reuse_only: already installed, nothing is downloaded"},
+      "files": [
+        {"id": "main-qwen3.8-27b-ud-q5_k_m", "role": "MAIN", "dest_dir": "qwen38-27b", "name": "Qwen3.8-27B-UD-Q5_K_M.gguf", "size_bytes": null, "size_approx": "19.8 GB (CHECKPOINT-LAB)", "sha256": null, "status": "UNPINNED", "unpinned_reason": "installed file, full sha256 never recorded; HF 403 from the cloud", "hf_repo_guess": "unsloth/Qwen3.8-27B-GGUF (UD- prefix = Unsloth Dynamic naming; not confirmed)"},
+        {"id": "main-qwen3.8-27b-mmproj-f16", "role": "MAIN vision projector", "dest_dir": "qwen38-27b", "name": "mmproj-F16.gguf", "size_bytes": null, "sha256": null, "status": "UNPINNED", "unpinned_reason": "installed file, sha256 never recorded"},
+        {"id": "fast-qwen3.6-35b-a3b-ud-q5_k_m", "role": "FAST", "dest_dir": "qwen36-35b-a3b", "name": "Qwen3.6-35B-A3B-UD-Q5_K_M.gguf", "size_bytes": null, "sha256": null, "status": "UNPINNED", "unpinned_reason": "installed file, sha256 never recorded", "hf_repo_guess": "unsloth/Qwen3.6-35B-A3B-GGUF (not confirmed)"},
+        {"id": "fast-qwen3.6-35b-a3b-mmproj-f16", "role": "FAST vision projector", "dest_dir": "qwen36-35b-a3b", "name": "mmproj-F16.gguf", "size_bytes": null, "sha256": null, "status": "UNPINNED", "unpinned_reason": "installed file, sha256 never recorded"},
+        {"id": "oss-gpt-oss-120b-mxfp4-part1", "role": "VERIFIER/REVIEW part 1/2", "dest_dir": "gpt-oss-120b/openai_gpt-oss-120b-MXFP4_MOE", "name": "openai_gpt-oss-120b-MXFP4_MOE-00001-of-00002.gguf", "size_bytes": null, "size_approx": "~63 GB both parts (CHECKPOINT-LAB)", "sha256": null, "status": "UNPINNED", "unpinned_reason": "installed file, sha256 never recorded", "hf_repo_guess": "bartowski/openai_gpt-oss-120b-GGUF (file naming matches bartowski; not confirmed)"},
+        {"id": "oss-gpt-oss-120b-mxfp4-part2", "role": "VERIFIER/REVIEW part 2/2", "dest_dir": "gpt-oss-120b/openai_gpt-oss-120b-MXFP4_MOE", "name": "openai_gpt-oss-120b-MXFP4_MOE-00002-of-00002.gguf", "size_bytes": null, "sha256": null, "status": "UNPINNED", "unpinned_reason": "installed file; name derived from part 1 '-00001-of-00002' split naming, sha256 never recorded"}
+      ]
+    },
+    {
+      "id": "qwen3.8-27b-ud-q4_k_m-installed",
+      "kind": "model",
+      "category": "llm_coding_agents",
+      "role": "MAIN-candidate: Qwen3.8-27B UD-Q4_K_M, downloaded 2026-09-22 (bake-off 6/7, 239 s, 11.8 t/s vs 10.0 t/s for Q5). Does not replace Q5. NOT the same file as Q4_K_XL.",
+      "runtime": {"ref": "llama.cpp-b10964-vulkan", "flags": "same as MAIN, port 8081"},
+      "source": {"hf_repo": null, "revision": null, "installed_from": "owner's PC", "hf_repo_guess": "unsloth/Qwen3.8-27B-GGUF (not confirmed)"},
+      "reuse_only": true,
+      "optional": true,
+      "status": "UNPINNED",
+      "status_reason": "Only the sha256 prefix 322e194f is recorded (CHECKPOINT-LAB: 'sha256 322e194f… сверен с HF'); the full hash and exact file name were not written down. The prefix is enforced: a local file whose sha256 does not start with it is FAILED_HASH.",
+      "license": {"id": "UNVERIFIED (Qwen3.x usually Apache-2.0 — check model card)", "url": "https://huggingface.co/Qwen", "acceptance_required": false},
+      "min_free_disk": {"bytes": 0, "basis": "reuse_only: already installed"},
+      "files": [
+        {"id": "qwen3.8-27b-ud-q4_k_m", "role": "MAIN-candidate", "dest_dir": "qwen38-27b", "name": null, "name_glob": "Qwen3.8-27B-UD-Q4_K_M*.gguf", "size_bytes": null, "size_approx": "16.5 GB (CHECKPOINT-LAB)", "sha256": null, "sha256_prefix": "322e194f", "status": "UNPINNED", "unpinned_reason": "only the 8-hex prefix was recorded on the owner's PC; exact name not recorded"}
+      ]
+    },
+    {
+      "id": "qwen3.8-27b-q4_k_xl",
+      "kind": "model",
+      "category": "llm_coding_agents",
+      "role": "MAIN-candidate B: Qwen3.8-27B UD-Q4_K_XL — a different quant from the installed UD-Q4_K_M; separate file, separate bake-off row, never mixed.",
+      "runtime": {"ref": "llama.cpp-b10964-vulkan"},
+      "source": {"hf_repo": "unsloth/Qwen3.8-27B-GGUF", "revision": null, "repo_confirmed": false},
+      "optional": true,
+      "status": "UNPINNED",
+      "status_reason": "HF API unreachable from the cloud session (403); repo name follows Unsloth naming and is unconfirmed. Run `pin` on the owner's PC.",
+      "license": {"id": "UNVERIFIED (Qwen3.x usually Apache-2.0 — check model card)", "url": "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF", "acceptance_required": false},
+      "min_free_disk": {"bytes": null, "basis": "size unknown until pinned; expected ~17–19 GB by analogy with Q4_K_M/Q5_K_M (not measured)"},
+      "files": [
+        {"id": "qwen3.8-27b-ud-q4_k_xl", "role": "MAIN-candidate B", "dest_dir": "qwen38-27b", "name": null, "name_glob": "Qwen3.8-27B-UD-Q4_K_XL*.gguf", "size_bytes": null, "sha256": null, "status": "UNPINNED", "unpinned_reason": "HF API 403 from the cloud session"}
+      ]
+    },
+    {
+      "id": "qwen3.6-35b-a3b-fp8",
+      "kind": "model",
+      "category": "llm_coding_agents",
+      "role": "FAST-candidate in FP8 (safetensors). Not loadable by the installed llama.cpp b10964.",
+      "runtime": {"ref": "fp8-safetensors-runtime"},
+      "source": {"hf_repo": "Qwen/Qwen3.6-35B-A3B-FP8", "revision": null, "repo_confirmed": false},
+      "optional": true,
+      "status": "UNPINNED",
+      "status_reason": "HF API 403 from the cloud session; repo name follows the Qwen FP8 naming convention and is unconfirmed; no FP8 runtime exists on the owner's PC.",
+      "license": {"id": "UNVERIFIED (Qwen3.x usually Apache-2.0)", "url": "https://huggingface.co/Qwen", "acceptance_required": false},
+      "min_free_disk": {"bytes": null, "basis": "unknown until pinned (35B params in FP8 ≈ 35+ GB, not measured)"},
+      "files": [
+        {"id": "qwen3.6-35b-a3b-fp8-shards", "role": "FP8 safetensors shards", "dest_dir": "qwen36-35b-a3b-fp8", "name": null, "name_glob": "*.safetensors", "size_bytes": null, "sha256": null, "status": "UNPINNED", "unpinned_reason": "HF API 403; shard list unknown"},
+        {"id": "qwen3.6-35b-a3b-fp8-config", "role": "config/tokenizer", "dest_dir": "qwen36-35b-a3b-fp8", "name": null, "name_glob": "*.json", "size_bytes": null, "sha256": null, "status": "UNPINNED", "unpinned_reason": "HF API 403; small non-LFS files have no sha256 in the HF tree API"}
+      ]
+    },
+    {
+      "id": "qwen3.8-flash-next-q3_k_xl",
+      "kind": "model",
+      "category": "llm_coding_agents",
+      "role": "Heavy local brain candidate (Qwen3.8-Flash-Next MoE) in UD-Q3_K_XL. Needs its own llama.cpp fork (qwen4exp) per CHECKPOINT-LAB — not qualified yet.",
+      "runtime": {"ref": "llama.cpp-qwen4exp-fork", "requires_fork": true},
+      "source": {"hf_repo": "unsloth/Qwen3.8-Flash-Next-GGUF", "revision": null, "repo_confirmed": false},
+      "optional": true,
+      "status": "UNPINNED",
+      "status_reason": "HF API 403 from the cloud; repo unconfirmed; the runtime fork is not chosen (see runtimes.llama.cpp-qwen4exp-fork).",
+      "license": {"id": "UNVERIFIED", "url": "https://huggingface.co/Qwen", "acceptance_required": "check model card"},
+      "min_free_disk": {"bytes": null, "basis": "unknown until pinned; GitHub descriptions quote 104–111 GB for other quants — Q3_K_XL must still fit 128 GB unified memory with headroom (not measured)"},
+      "files": [
+        {"id": "qwen3.8-flash-next-ud-q3_k_xl-parts", "role": "split GGUF parts", "dest_dir": "qwen38-flash-next", "name": null, "name_glob": "Qwen3.8-Flash-Next-UD-Q3_K_XL*.gguf", "size_bytes": null, "sha256": null, "status": "UNPINNED", "unpinned_reason": "HF API 403; part count unknown"}
+      ]
+    },
+    {
+      "id": "glm-5.3-flash-strix-balanced",
+      "kind": "model",
+      "category": "llm_coding_agents",
+      "role": "Additional heavy stage (wave 3): GLM-5.3-Flash in a Strix-Halo 'balanced' quant. Discovery only, never default routing.",
+      "runtime": {"ref": "glm-5.3-strix-runtime"},
+      "source": {"hf_repo": null, "revision": null, "note": "no HF repo identified for a 'strix-balanced' quant; candidate setup julianmb/halo-glm53flash (GitHub metadata)"},
+      "optional": true,
+      "status": "UNPINNED",
+      "status_reason": "No source repository identified for the 'strix-balanced' quant; HF unreachable; runtime not chosen.",
+      "license": {"id": "UNVERIFIED (GLM releases have used MIT; check the card)", "url": "https://huggingface.co/zai-org", "acceptance_required": "check model card"},
+      "min_free_disk": {"bytes": null, "basis": "unknown; 320B-A18B model near the 128 GB limit (repository description)"},
+      "files": [
+        {"id": "glm-5.3-flash-strix-balanced-parts", "role": "split GGUF parts", "dest_dir": "glm-5.3-flash", "name": null, "name_glob": "GLM-5.3-Flash*.gguf", "size_bytes": null, "sha256": null, "status": "UNPINNED", "unpinned_reason": "source repo unknown"}
+      ]
+    },
+    {
+      "id": "snowllm-0.3.2",
+      "kind": "runtime",
+      "category": "llm_coding_agents",
+      "role": "Alternative inference runtime (claims faster prefill/decode on Ryzen AI Max for the same GGUF). Optional experiment; weights reused from the llama.cpp profiles.",
+      "runtime": {"ref": "snowllm-0.3.2"},
+      "source": {"github_repo": "SnowLLM/SnowLLM", "revision": null, "release_tag": "0.3.2 (unconfirmed)"},
+      "optional": true,
+      "status": "UNPINNED",
+      "status_reason": "Runtime not downloadable by model_fetch (no pinned release asset); see runtimes.snowllm-0.3.2.kernel_conditions for what the owner run must check.",
+      "license": {"id": "Apache-2.0 (repository; kernels unverified)", "url": "https://github.com/SnowLLM/SnowLLM", "acceptance_required": false},
+      "min_free_disk": {"bytes": null, "basis": "runtime size unknown"},
+      "files": []
+    },
+    {
+      "id": "studio-photo",
+      "kind": "reference",
+      "category": "photo",
+      "role": "Local image generation: refers to tools/studio_models.json entries; weights are pinned in the media MANIFEST.json (tools/media_bootstrap.py), not duplicated here.",
+      "runtime": {"ref": "studio-sdcpp"},
+      "source": {"catalog": "tools/studio_models.json", "revision": null, "files_manifest": "<media models>/MANIFEST.json"},
+      "studio_refs": ["sdcpp:z-image-turbo", "sdcpp:flux1-schnell", "sdcpp:flux2-klein-4b", "sdcpp:sdxl-base"],
+      "optional": true,
+      "status": "REFERENCE",
+      "status_reason": "Files and hashes live in the media MANIFEST.json; validate with `media_bootstrap.py validate <media models>`.",
+      "license": {"id": "per studio model (Apache-2.0; SDXL CreativeML OpenRAIL++-M)", "url": "tools/studio_models.json", "acceptance_required": "SDXL: OpenRAIL++-M use restrictions"},
+      "min_free_disk": {"bytes": null, "basis": "see media_bootstrap.py plan-download"},
+      "files": []
+    },
+    {
+      "id": "studio-video",
+      "kind": "reference",
+      "category": "video",
+      "role": "Local video generation: refers to tools/studio_models.json; weights pinned in the media MANIFEST.json.",
+      "runtime": {"ref": "studio-sdcpp"},
+      "source": {"catalog": "tools/studio_models.json", "revision": null, "files_manifest": "<media models>/MANIFEST.json"},
+      "studio_refs": ["sdcpp:wan2.2-ti2v-5b"],
+      "optional": true,
+      "status": "REFERENCE",
+      "status_reason": "Files and hashes live in the media MANIFEST.json.",
+      "license": {"id": "Apache-2.0 (Wan-AI/Wan2.2-TI2V-5B)", "url": "tools/studio_models.json", "acceptance_required": false},
+      "min_free_disk": {"bytes": null, "basis": "see media_bootstrap.py plan-download"},
+      "files": []
+    },
+    {
+      "id": "tools-structured-outputs",
+      "kind": "reference",
+      "category": "tools_structured",
+      "role": "Tool calling + JSON-schema output: llama-server with --jinja (model chat template -> OpenAI tools / tool_calls) and grammar-constrained decoding (response_format json_schema / --json-schema / GBNF). The runtime enforces the schema; the model chooses tool and arguments. Primary: MAIN Qwen3.8-27B Q5; reviewer: GPT-OSS-120B; fast tool steps: FAST.",
+      "runtime": {"ref": "llama.cpp-b10964-vulkan", "flags": "--jinja (required for tools); per request response_format={type:json_schema} or grammar"},
+      "source": {"hf_repo": null, "revision": null, "note": "uses files of baseline-installed"},
+      "model_refs": ["main-qwen3.8-27b-ud-q5_k_m", "oss-gpt-oss-120b-mxfp4-part1", "fast-qwen3.6-35b-a3b-ud-q5_k_m"],
+      "optional": false,
+      "status": "REFERENCE",
+      "status_reason": "No own weights. Bake-off F (tool-error recovery) failed for both Qwen quants (went to search_code instead of the corrected path); GPT-OSS passed 7/7. Schema-compliance suite from MODEL_STACK_2026-09-20 not yet run.",
+      "license": {"id": "see referenced files", "url": "tools/model_profiles.json#baseline-installed", "acceptance_required": false},
+      "min_free_disk": {"bytes": 0, "basis": "no own files"},
+      "files": []
+    }
+  ]
+}
