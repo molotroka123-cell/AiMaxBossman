@@ -149,7 +149,18 @@ def run_case(owner, data: Path, repo: Path, url: str, model: str, *, verify: boo
             owner.stop(server)
 
 
+def utf8_console() -> None:
+    """`-I` ignores PYTHONUTF8/PYTHONIOENCODING: on a cp1252 Windows console the
+    first Cyrillic reason would crash the runner (the run-132 class of defect)."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 def main(argv=None) -> int:
+    utf8_console()
     ap = argparse.ArgumentParser()
     ap.add_argument("--output", default="")
     args = ap.parse_args(argv)

@@ -96,6 +96,14 @@ SUPPORT_SCRIPTS = (
     (ROOT / "tools" / "media_bootstrap.py", "media_bootstrap.py"),
     (ROOT / "tools" / "media_ab_preset.py", "media_ab_preset.py"),
     (ROOT / "tools" / "coaching_runner.py", "coaching_runner.py"),
+    # 2026-09-23: проверка Coding path из архива (локальный сайдкар +
+    # детерминированная тестовая модель) и загрузчик модельных профилей.
+    (ROOT / "tools" / "coding_path_owner.py", "coding_path_owner.py"),
+    (ROOT / "tools" / "model_fetch.py", "model_fetch.py"),
+)
+# Данные, которые раннеры читают рядом с собой (не исполняемые скрипты).
+SUPPORT_DATA = (
+    (ROOT / "tools" / "model_profiles.json", "model_profiles.json"),
 )
 
 # Пак задач coaching (5 обучающих + 5 holdout) едет каталогом рядом с раннером.
@@ -734,6 +742,10 @@ def install_support(support: Path) -> dict:
     for origin, name in SUPPORT_SCRIPTS:
         if not origin.exists():
             raise RuntimeError(f"support script missing: {origin}")
+        shutil.copyfile(origin, support / name)
+    for origin, name in SUPPORT_DATA:
+        if not origin.exists():
+            raise RuntimeError(f"support data missing: {origin}")
         shutil.copyfile(origin, support / name)
     install_coaching_pack(support / COACHING_PACK_TARGET)
     return install_owner_run(support / "owner-final-run")
