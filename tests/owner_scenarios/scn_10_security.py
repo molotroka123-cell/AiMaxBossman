@@ -110,6 +110,7 @@ def os36_secret_never_reaches_journal_event_or_artifact(ctx) -> None:
         history = list(reversed(rows_dicts(rows)))
         # Архив собирается тем же вызовом, что и ручка POST /diag/bundle.
         bundle = diag_bundle._build(data_dir, "127.0.0.1", 8765, history, {FAKE_OWNER_TOKEN})
+        await database.close()  # Windows cannot remove the work dir under an open SQLite file
         return live, history, bundle
 
     live, history, bundle = asyncio.run(run())

@@ -221,10 +221,9 @@ def test_failing_test_slice_is_depth_bounded_and_hashed(tmp_path):
     assert "pkg/a.py" in paths and "pkg/b.py" in paths          # depth 1 и 2
     assert "pkg/c.py" not in paths and "unrelated.py" not in paths  # depth 3 и несвязанное — нет
     for f in sl["files"]:
-        # контракт sha256: каноническое (LF) содержимое, как в repo_map —
-        # манифест одинаков для CRLF и LF чекатов одного файла
-        canonical = (root / f["path"]).read_text(encoding="utf-8", errors="replace").encode("utf-8")
-        assert f["sha256"] == hashlib.sha256(canonical).hexdigest()[:16]
+        # контракт sha256 (BUG-003, 927a3537): сырые байты файла, как в repo_map;
+        # нормализуется только текст для анализа (test_context_bytes_checkpoint.py)
+        assert f["sha256"] == hashlib.sha256((root / f["path"]).read_bytes()).hexdigest()[:16]
     deeper = failing_test_slice(root, root / "test_a.py", depth=3)
     assert "pkg/c.py" in [f["path"] for f in deeper["files"]]
     assert sl == failing_test_slice(root, root / "test_a.py", depth=2)     # детерминизм

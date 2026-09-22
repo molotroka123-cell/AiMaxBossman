@@ -167,7 +167,8 @@ def run_child(script: Path, store_path: Path, mission_path: Path, *, now: float,
     }
     done = subprocess.run([sys.executable, str(script), str(store_path), str(HERE),
                            str(mission_path), repr(now)],
-                          capture_output=True, text=True, timeout=180, env=env)
+                          capture_output=True, text=True, timeout=180, env=env,
+                          encoding="utf-8")  # the child writes UTF-8 (PYTHONIOENCODING)
     if done.returncode != 0:
         raise AssertionError(f"новый процесс не поднял контекст: {done.stderr[-500:]}")
     return json.loads(done.stdout.strip().splitlines()[-1])

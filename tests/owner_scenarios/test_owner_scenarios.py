@@ -45,7 +45,7 @@ EXPECTED_WHEN_CAPABLE = {
     "OS-07": sr.CI_PROVEN, "OS-08": sr.CI_PROVEN, "OS-09": sr.CI_PROVEN,
     "OS-10": sr.CI_PROVEN, "OS-11": sr.CI_PROVEN, "OS-12": sr.CI_PROVEN,
     "OS-13": sr.CI_PROVEN, "OS-14": sr.CI_PROVEN, "OS-15": sr.OWNER_REQUIRED,
-    "OS-16": sr.OWNER_REQUIRED, "OS-17": sr.CI_PROVEN,
+    "OS-16": sr.CREDENTIAL_REQUIRED, "OS-17": sr.CI_PROVEN,
     # OS-18 закрыт BL-097: объявленные эффекты дошли до восстановления, бронь
     # отпускается, и следующий допуск ПРОХОДИТ. Сценарий проверяет возобновление,
     # а не описывает дефект.
@@ -100,10 +100,10 @@ EXPECTED_WHEN_CAPABLE = {
     "OS-54": sr.CI_PROVEN, "OS-55": sr.CI_PROVEN, "OS-56": sr.CI_PROVEN,
     "OS-57": sr.CI_PROVEN, "OS-58": sr.CI_PROVEN, "OS-59": sr.CI_PROVEN,
     "OS-60": sr.CI_PROVEN,
-    # 61–70: браузер и Веб-дизайнер. OS-64 — объявленный пробел: одно
-    # подтверждённое нажатие «Удалить элемент» на корне документа стирает сайт.
+    # 61–70: браузер и Веб-дизайнер. OS-64 закрыт в продукте (cea58fce): удаление
+    # корня документа требует отдельного согласия и восстановимой версии, иначе 409.
     "OS-61": sr.CI_PROVEN, "OS-62": sr.CI_PROVEN, "OS-63": sr.CI_PROVEN,
-    "OS-64": sr.INSUFFICIENT_EVIDENCE, "OS-65": sr.CI_PROVEN,
+    "OS-64": sr.CI_PROVEN, "OS-65": sr.CI_PROVEN,
     "OS-66": sr.CI_PROVEN, "OS-67": sr.CI_PROVEN, "OS-68": sr.CI_PROVEN,
     "OS-69": sr.CI_PROVEN, "OS-70": sr.CI_PROVEN,
 }

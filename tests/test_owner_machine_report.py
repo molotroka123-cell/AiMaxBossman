@@ -262,7 +262,8 @@ def test_the_report_finds_its_neighbour_in_the_flat_archive_layout(tmp_path):
     # Изолированный режим и ЧУЖОЙ текущий каталог: -I убирает каталог скрипта
     # из пути поиска, а владелец запускает launcher откуда угодно.
     proc = subprocess.run([sys.executable, "-I", str(support / "owner_machine_report.py")],
-                          cwd=str(tmp_path), capture_output=True, text=True, timeout=120)
+                          cwd=str(tmp_path), capture_output=True, text=True, timeout=120,
+                          encoding="utf-8")  # the report reconfigures its stdout to UTF-8
     assert proc.returncode == 0, proc.stderr[-2000:]
     assert "BOSSMAN_OWNER_MACHINE=" in proc.stdout
     assert "определитель железа недоступен" not in proc.stdout, (

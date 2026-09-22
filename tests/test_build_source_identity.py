@@ -31,9 +31,12 @@ def git(root, *args):
 @pytest.fixture
 def repository(tmp_path):
     git(tmp_path, "init")
+    # Byte-exact checkout, as every release workflow configures it: a host-global
+    # core.autocrlf=true (the owner's Windows default) must not leak into the fixture.
+    git(tmp_path, "config", "core.autocrlf", "false")
     (tmp_path / "bossman_shared").mkdir()
-    (tmp_path / "bossman_shared/runtime.py").write_text("VALUE = 1\n")
-    (tmp_path / ".gitignore").write_text("build/\n__pycache__/\n")
+    (tmp_path / "bossman_shared/runtime.py").write_bytes(b"VALUE = 1\n")
+    (tmp_path / ".gitignore").write_bytes(b"build/\n__pycache__/\n")
     git(tmp_path, "add", ".")
     git(tmp_path, "-c", "user.name=Build regression", "-c", "user.email=build@example.invalid",
         "commit", "-m", "fixture source")
@@ -50,7 +53,7 @@ def test_hidden_same_size_restored_mtime_edit_is_dirty(repository, flag):
     path = repository / "bossman_shared/runtime.py"
     stamp = path.stat()
     git(repository, "update-index", flag, "bossman_shared/runtime.py")
-    path.write_text("VALUE = 2\n")
+    path.write_bytes(b"VALUE = 2\n")
     os.utime(path, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
     assert git(repository, "status", "--porcelain") == ""
     assert identity.source_identity(repository)["source_dirty"] is True
@@ -73,7 +76,7 @@ def test_generated_bytecode_does_not_change_source_identity(repository):
 def test_fresh_snapshot_excludes_hidden_edits_and_stale_build_output(repository, monkeypatch):
     sha = git(repository, "rev-parse", "HEAD")
     git(repository, "update-index", "--skip-worktree", "bossman_shared/runtime.py")
-    (repository / "bossman_shared/runtime.py").write_text("VALUE = 2\n")
+    (repository / "bossman_shared/runtime.py").write_bytes(b"VALUE = 2\n")
     stale = repository / "build/lib/bossman_shared/injected.py"
     stale.parent.mkdir(parents=True)
     stale.write_text("unreviewed = True\n")

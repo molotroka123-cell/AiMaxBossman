@@ -271,10 +271,22 @@ def test_the_harness_prints_on_a_legacy_windows_console(script):
 # --------------------------------------------------------------------------
 
 
-def _fake_browser(tmp_path, script: str):
+def _fake_browser(tmp_path, *, prints: str | None = None, exit_code: int = 0):
+    """A runnable stand-in on this host: a shell script on POSIX, a .cmd on Windows.
+
+    A ``#!/bin/sh`` file cannot be started on Windows at all, so there the
+    positive control failed to launch and the negative one passed for the
+    wrong reason.
+    """
     import stat
+    if os.name == "nt":
+        exe = tmp_path / "chromium.cmd"
+        lines = ["@echo off"] + ([f"echo {prints}"] if prints else []) + [f"exit /b {exit_code}"]
+        exe.write_text("\r\n".join(lines) + "\r\n", encoding="utf-8")
+        return exe
     exe = tmp_path / "chromium"
-    exe.write_text(script, encoding="utf-8")
+    lines = ["#!/bin/sh"] + ([f"echo '{prints}'"] if prints else []) + [f"exit {exit_code}"]
+    exe.write_text("\n".join(lines) + "\n", encoding="utf-8")
     exe.chmod(exe.stat().st_mode | stat.S_IEXEC)
     return exe
 
@@ -305,7 +317,7 @@ def test_a_file_that_is_not_a_browser_is_not_reported_as_a_working_one(tmp_path,
 
     Воспроизведено исполняемым файлом, который браузером не является.
     """
-    exe = _fake_browser(tmp_path, "#!/bin/sh\nexit 127\n")
+    exe = _fake_browser(tmp_path, exit_code=127)
     check = _browser_check_with(monkeypatch, exe)
     assert check.status != "PASS", f"подставной файл засчитан рабочим браузером: {check}"
     assert check.facts.get("live_launch_verified") is False
@@ -319,7 +331,7 @@ def test_a_browser_that_answers_is_reported_with_its_real_version(tmp_path, monk
     бесполезной в другую сторону — владелец с рабочим браузером получал бы
     предупреждение на ровном месте.
     """
-    exe = _fake_browser(tmp_path, "#!/bin/sh\necho 'Chromium 141.0.0.0'\n")
+    exe = _fake_browser(tmp_path, prints="Chromium 141.0.0.0")
     check = _browser_check_with(monkeypatch, exe)
     assert check.status == "PASS", check
     assert check.facts.get("live_launch_verified") is True

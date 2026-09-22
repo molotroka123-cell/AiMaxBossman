@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 256. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 263. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -45,6 +45,8 @@
 | `command-center/tests/test_images_library_ui.py:8` | skipif | `not chromium_available() and not required()` | reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_invalid_input_is_human.py:29` | skipif | `not chromium_available() and not required()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_live_openrouter_dry_run.py:40` | skipif | `not chromium_available() and not required()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_memory_lifecycle_wiring.py:99` | skipif | `available()` | the installed bossman-shared already has the lifecycle | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_memory_lifecycle_wiring.py:106` | skipif | `not available()` | installed bossman-shared predates learning.lifecycle (reinstall it from this checkout to run this) | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_missing_model_and_dead_service_are_human.py:23` | skipif | `not chromium_available() and not required()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_mission_console.py:42` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_openrouter_connect_ui.py:9` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -65,6 +67,7 @@
 | `command-center/tests/test_owner_control_ui.py:15` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_owner_path_latency.py:80` | skip | `—` | first.reason | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_owner_path_latency.py:97` | skip | `—` | first.reason | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_owner_stop_lifecycle.py:24` | importorskip | `—` | нет пакета bossman.computer_operator.models | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_plugins_adapter.py:208` | skip | `—` | f"SKIP_HOST: symlink privilege unavailable on this host: {exc}" | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_redteam_rc_20260921.py:41` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_redteam_rc_20260921.py:510` | importorskip | `—` | нет пакета bossman.computer_operator.models | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -78,12 +81,16 @@
 | `command-center/tests/test_smoke_live_owner.py:43` | skipif | `_app_missing()` | f"приложения {APP} нет среди манифестов" | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_smoke_live_owner.py:44` | skipif | `_port_taken()` | порт приложения занят посторонним процессом | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_smoke_live_owner.py:23` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_studio_media_lifecycle.py:80` | skipif | `os.name != "nt"` | kernel-enforced job objects are a Windows mechanism | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_studio_partial_job_layer.py:33` | skipif | `shutil.which("ffmpeg") is None` | ffmpeg required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_studio_partial_segments.py:22` | skipif | `shutil.which("ffmpeg") is None` | ffmpeg required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_sdcpp_hostile.py:33` | skipif | `shutil.which("ffmpeg") is None` | ffmpeg required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_sdcpp_hostile.py:408` | skip | `—` | no symlinks | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_sdcpp_hostile.py:425` | skip | `—` | no symlinks | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_sdcpp_hostile.py:418` | skip | `—` | symlink not permitted | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_sdcpp_hostile.py:433` | skip | `—` | symlink not permitted | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_sdcpp_provider.py:43` | skipif | `shutil.which("ffmpeg") is None` | ffmpeg required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_telegram_settings_ui.py:17` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_testing_period.py:27` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_testing_period.py:586` | skip | `—` | f"{tp.FLAG.split('_')[0]}: браузерное покрытие не требуется "
                     f"в этом окружении (нет BCC_REQUIRE_BROWSER)" | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

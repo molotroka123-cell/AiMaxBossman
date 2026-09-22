@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import shlex
 import sys
 import time
@@ -497,9 +498,13 @@ def os30_protected_paths_stay_immutable(ctx) -> None:
                  политика.check(репозиторий / "модуль.py", mutating=False).is_file(),
                  "именно поэтому следующий отказ не является тотальным запретом")
 
+    # Настоящий системный файл ЭТОЙ платформы: на Windows /etc/passwd — это C:\etc\passwd,
+    # обычный путь вне корней, а не системный каталог.
+    системный = (Path(os.environ.get("SYSTEMROOT", r"C:\Windows")) / "System32" / "drivers" / "etc" / "hosts"
+                 if os.name == "nt" else Path("/etc/passwd"))
     защищённые = [
         ("состояние Bossman", состояние / "ключи.json", Refusal.PROTECTED_BOSSMAN_STATE),
-        ("системный каталог", Path("/etc/passwd"), Refusal.PROTECTED_SYSTEM_PATH),
+        ("системный каталог", системный, Refusal.PROTECTED_SYSTEM_PATH),
         ("каталог секретов", Path.home() / ".ssh" / "id_rsa", Refusal.PROTECTED_SECRETS_PATH),
         ("репозиторий исходников", репозиторий / "модуль.py", Refusal.PROTECTED_REPOSITORY),
     ]
@@ -512,7 +517,7 @@ def os30_protected_paths_stay_immutable(ctx) -> None:
                          getattr(exc, "refusal", None) is ожидаемый,
                          f"{getattr(exc, 'refusal', '?')}: {exc}")
     ctx.negative("байты защищённого системного файла не тронуты",
-                 Path("/etc/passwd").exists() and Path("/etc/passwd").stat().st_size > 0)
+                 системный.exists() and системный.stat().st_size > 0)
 
     # Третья граница: текст пути внутри области, а ЦЕЛЬ — снаружи.
     снаружи = ctx.path("снаружи")

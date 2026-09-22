@@ -55,6 +55,7 @@ def os12_risky_action_waits_for_approval(ctx) -> None:
         row = await approvals.create(RISKY, PREVIEW)
         pending = await approvals.list("pending")
         consumed = await approvals.consume(row["id"], kind=RISKY, preview=PREVIEW)
+        await db.close()  # Windows cannot delete the temp dir under an open SQLite file
         return db, effect, row, pending, consumed
 
     db, effect, row, pending, consumed = asyncio.run(run())
@@ -86,6 +87,7 @@ def os13_rejection_prevents_the_effect(ctx) -> None:
         allowed_again = await approvals.consume(row["id"], kind=RISKY, preview=PREVIEW)
         if allowed_again:
             effect.apply()
+        await db.close()  # Windows cannot delete the temp dir under an open SQLite file
         return db, effect, decided, allowed, second, allowed_again
 
     db, effect, decided, allowed, second, allowed_again = asyncio.run(run())
@@ -123,6 +125,7 @@ def os14_approval_resumes_the_task_exactly_once(ctx) -> None:
         if other:
             effect.apply()
         final = await approvals.list(None)
+        await db.close()  # Windows cannot delete the temp dir under an open SQLite file
         return db, effect, first, replay, other, final
 
     db, effect, first, replay, other, final = asyncio.run(run())

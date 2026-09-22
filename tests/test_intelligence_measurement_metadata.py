@@ -129,7 +129,7 @@ def test_corrected_corpus_keeps_count_and_has_explicit_distinct_lookup():
     assert "Правило 23: резервный сервис архив-023 слушает порт 9151." in b.context
     assert b.expect == {"kind": "equals", "value": "9151"}
     assert runner.score(b, "9151") and not runner.score(b, "8023")
-    assert json.loads(path.read_text())["dataset_id"] == "bossman-retention-v2"
+    assert json.loads(path.read_text(encoding="utf-8"))["dataset_id"] == "bossman-retention-v2"
 
 
 def test_inadequate_corpus_refused_before_model_or_core_setup(tmp_path, monkeypatch, capsys):

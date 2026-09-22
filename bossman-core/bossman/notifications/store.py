@@ -1,5 +1,6 @@
 from __future__ import annotations
 import hashlib,json,secrets,sqlite3,threading,time
+from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
 from .models import ActionKind,Notification,NotificationAction,QueueStatus,Severity
@@ -11,11 +12,16 @@ class SQLiteNotificationStore:
         self.path=Path(path);self.path.parent.mkdir(parents=True,exist_ok=True)
         self._lock=threading.RLock();self._init()
 
+    @contextmanager
     def _connect(self):
+        # `with sqlite3.connect()` only commits/rolls back, it never closes: a kept
+        # exception traceback then held the file open (Windows: undeletable data dir).
         c=sqlite3.connect(self.path,timeout=30,isolation_level=None)
-        c.row_factory=sqlite3.Row;c.execute("PRAGMA journal_mode=WAL")
-        c.execute("PRAGMA synchronous=FULL");c.execute("PRAGMA busy_timeout=30000")
-        return c
+        try:
+            c.row_factory=sqlite3.Row;c.execute("PRAGMA journal_mode=WAL")
+            c.execute("PRAGMA synchronous=FULL");c.execute("PRAGMA busy_timeout=30000")
+            with c:yield c
+        finally:c.close()
 
     def _init(self):
         with self._connect() as c:c.executescript("""

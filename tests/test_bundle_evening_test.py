@@ -49,7 +49,9 @@ def _write_owner_run(support: Path, bodies: dict[str, str]) -> dict[str, str]:
     target.mkdir(parents=True, exist_ok=True)
     digests = {}
     for name, body in bodies.items():
-        (target / name).write_text(body, encoding="utf-8")
+        # Bytes, not text mode: on Windows write_text turns LF into CRLF and the
+        # file would no longer be the one whose digest the manifest records.
+        (target / name).write_bytes(body.encode("utf-8"))
         digests[name] = hashlib.sha256(body.encode("utf-8")).hexdigest()
     return digests
 
