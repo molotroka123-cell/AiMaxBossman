@@ -100,10 +100,10 @@ EXPECTED_WHEN_CAPABLE = {
     "OS-54": sr.CI_PROVEN, "OS-55": sr.CI_PROVEN, "OS-56": sr.CI_PROVEN,
     "OS-57": sr.CI_PROVEN, "OS-58": sr.CI_PROVEN, "OS-59": sr.CI_PROVEN,
     "OS-60": sr.CI_PROVEN,
-    # 61–70: браузер и Веб-дизайнер. OS-64 — объявленный пробел: одно
-    # подтверждённое нажатие «Удалить элемент» на корне документа стирает сайт.
+    # 61–70: браузер и Веб-дизайнер. OS-64 закрыт в продукте (cea58fce): удаление
+    # корня документа требует отдельного согласия и восстановимой версии, иначе 409.
     "OS-61": sr.CI_PROVEN, "OS-62": sr.CI_PROVEN, "OS-63": sr.CI_PROVEN,
-    "OS-64": sr.INSUFFICIENT_EVIDENCE, "OS-65": sr.CI_PROVEN,
+    "OS-64": sr.CI_PROVEN, "OS-65": sr.CI_PROVEN,
     "OS-66": sr.CI_PROVEN, "OS-67": sr.CI_PROVEN, "OS-68": sr.CI_PROVEN,
     "OS-69": sr.CI_PROVEN, "OS-70": sr.CI_PROVEN,
 }
