@@ -500,7 +500,11 @@ def split_command(configured: str, *, windows: bool | None = None) -> tuple[str,
 class OpenHandsClient:
     """Run a JSON-over-stdio OpenHands sidecar without granting repository authority."""
 
-    def __init__(self, command: Sequence[str] | None = None, env: Mapping[str, str] | None = None):
+    def __init__(self, command: Sequence[str] | None = None, env: Mapping[str, str] | None = None,
+                 on_process=None):
+        # on_process(tree): called with the running sidecar's process tree so the
+        # owner can cancel it (the whole tree dies, not only the sidecar).
+        self.on_process = on_process
         configured = os.environ.get("BOSSMAN_OPENHANDS_COMMAND", "")
         raw = tuple(command or ())
         if not raw and configured.strip():
@@ -605,7 +609,7 @@ class OpenHandsClient:
             proc = run_tree(list(self.command), input=json.dumps(payload, ensure_ascii=False),
                             text=True, encoding="utf-8", errors="replace",
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
-                            timeout=request.timeout_seconds)
+                            timeout=request.timeout_seconds, on_start=self.on_process)
         except FileNotFoundError as exc:
             raise OpenHandsError("OpenHands sidecar command is not installed") from exc
         if proc.timed_out:

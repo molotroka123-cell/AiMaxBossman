@@ -130,11 +130,14 @@ class TreeResult:
 
 
 def run_tree(cmd: Sequence[str], *, input: Any = None, timeout: float | None = None,  # noqa: A002
-             **popen_kw: Any) -> TreeResult:
-    """``subprocess.run`` whose timeout (and normal exit) reaps the whole tree."""
+             on_start: Any = None, **popen_kw: Any) -> TreeResult:
+    """``subprocess.run`` whose timeout (and normal exit) reaps the whole tree.
+    ``on_start(tree)`` lets a caller keep the handle to cancel it (owner STOP)."""
     if input is not None:
         popen_kw.setdefault("stdin", subprocess.PIPE)
     tree = ProcessTree(cmd, **popen_kw)
+    if on_start is not None:
+        on_start(tree)
     timed_out = False
     try:
         try:

@@ -71,6 +71,9 @@ BOOT_ID = secrets.token_hex(8)
 HANDSHAKE_TTL_S = 60.0
 HANDSHAKE_TIMEOUT_S = 150
 _handshake_cache: dict[str, tuple[float, dict]] = {}
+#: task id -> running sidecar process tree (this process only) / cancel requests.
+_ACTIVE: dict[str, Any] = {}
+_CANCELLED: set[str] = set()
 
 
 class TaskIn(BaseModel):
@@ -237,6 +240,10 @@ def _verify_in_sandbox(root: Path, tests: list[str], timeout: int) -> dict:
     return {"ran": True, **res}
 
 
+class _Cancelled(Exception):
+    """The owner cancelled the task (STOP)."""
+
+
 def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None) -> dict:
     """Blocking: runs in a worker thread. Returns the terminal record."""
     oc, wt, reason = _runtime()
@@ -250,14 +257,22 @@ def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None
         return {**record, "status": "failed",
                 "error": f"песочница не создана: {type(exc).__name__}: {exc}"[:500]}
     result_fields: dict[str, Any] = {}
+    task_id = record["id"]
     try:
-        client = oc.OpenHandsClient()
+        if task_id in _CANCELLED:
+            raise _Cancelled()
+        client = oc.OpenHandsClient(on_process=lambda tree: _ACTIVE.__setitem__(task_id, tree))
         extra = {"context": context} if context else {}
         request = oc.OpenHandsRequest(body.instruction, root, tuple(body.allowed_paths),
                                       tuple(body.protected_paths), model=body.model,
                                       timeout_seconds=int(body.timeout_seconds),
                                       metadata={"coding_task_id": record["id"]}, **extra)
-        result = client.run(request)
+        try:
+            result = client.run(request)
+        finally:
+            _ACTIVE.pop(task_id, None)
+        if task_id in _CANCELLED:
+            raise _Cancelled()
         sidecar = {k: v for k, v in dict(result.sidecar).items() if k in SIDECAR_FIELDS}
         ok = result.status == "completed"
         result_fields = {"status": "completed" if ok else "failed",
@@ -273,14 +288,22 @@ def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None
                 result_fields["status"] = "failed"
                 result_fields["error"] = "независимая проверка Bossman не прошла: " + (
                     verification.get("error") or f"exit={verification.get('exit_code')}")
+    except _Cancelled:
+        result_fields = {"status": "failed", "outcome": "CANCELLED", "changed_files": [], "diff": "",
+                         "error": "задача отменена владельцем; процессы сайдкара остановлены"}
     except oc.OpenHandsError as exc:
-        # The evidence boundary refused the result: out-of-scope/protected
-        # change, tampering with HEAD/config/remotes/index, invalid contract.
-        result_fields = {"status": "blocked", "error": str(exc)[:800], "changed_files": [], "diff": ""}
+        if task_id in _CANCELLED:     # the killed sidecar left no valid answer: that is the cancel
+            result_fields = {"status": "failed", "outcome": "CANCELLED", "changed_files": [], "diff": "",
+                             "error": "задача отменена владельцем; процессы сайдкара остановлены"}
+        else:
+            # The evidence boundary refused the result: out-of-scope/protected
+            # change, tampering with HEAD/config/remotes/index, invalid contract.
+            result_fields = {"status": "blocked", "error": str(exc)[:800], "changed_files": [], "diff": ""}
     except Exception as exc:  # noqa: BLE001
         result_fields = {"status": "failed", "error": f"{type(exc).__name__}: {exc}"[:800],
                          "changed_files": [], "diff": ""}
     finally:
+        _CANCELLED.discard(task_id)
         try:
             evidence = sandbox.derive_evidence()
         except Exception as exc:  # noqa: BLE001
@@ -338,7 +361,9 @@ async def _memory_context(svc, body: TaskIn, profile: dict | None) -> tuple[dict
         recipes_mod = None
     if recipes_mod is not None:
         try:
-            recipes = await recipes_mod.executable_recipes(svc, body.instruction, project)
+            fn = recipes_mod.executable_recipes
+            recipes = (await fn(svc, body.instruction, project) if asyncio.iscoroutinefunction(fn)
+                       else await asyncio.to_thread(fn, svc, body.instruction, project))
             if recipes:
                 ctx["recipes"] = recipes
                 info["recipe_ids"] = [str(r.get("id")) for r in recipes]
@@ -393,6 +418,22 @@ async def get_task(task_id: str, request: Request):
     return _read(request.app.state.svc, task_id)
 
 
+@router.post("/coding-tasks/{task_id}/cancel")
+async def cancel_task(task_id: str, request: Request):
+    """Owner STOP for one coding task: the sidecar's whole process tree is
+    killed; the record ends failed/CANCELLED (never completed) once the worker
+    returns. Cancelling a finished task changes nothing."""
+    rec = _read(request.app.state.svc, task_id)
+    if rec.get("status") in TERMINAL:
+        return {"id": task_id, "status": rec["status"], "cancelled": False}
+    _CANCELLED.add(task_id)
+    tree = _ACTIVE.get(task_id)
+    if tree is not None:
+        await asyncio.to_thread(tree.kill)
+    await request.app.state.svc.bus.emit("coding.task.cancel_requested", task_id=task_id)
+    return {"id": task_id, "status": "cancelling", "cancelled": True, "process_killed": tree is not None}
+
+
 @router.post("/coding-tasks")
 async def create_task(body: TaskIn, request: Request):
     svc = request.app.state.svc
@@ -411,7 +452,8 @@ async def create_task(body: TaskIn, request: Request):
     if profile:
         context["profile"] = {k: v for k, v in profile.items() if k != "use_memory" and v is not None}
     record = {"id": secrets.token_hex(6), "status": "running", "instruction": body.instruction,
-              "boot_id": BOOT_ID, "agent": ({"id": profile["agent_id"], "name": profile["name"]} if profile else None),
+              "boot_id": BOOT_ID, "agent_id": body.agent_id,
+              "agent": ({"id": profile["agent_id"], "name": profile["name"]} if profile else None),
               "project_id": body.project_id, "memory": memory, "skills": skills_info,
               "verify_tests": list(body.verify_tests),
               "source_repo": str(repo), "allowed_paths": list(body.allowed_paths),

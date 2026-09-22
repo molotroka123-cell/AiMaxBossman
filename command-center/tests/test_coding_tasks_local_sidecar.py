@@ -218,3 +218,49 @@ async def test_a_broken_skill_catalog_costs_guidance_not_the_task(env, repo, mon
     finally:
         server.shutdown()
     assert rec["status"] == "completed" and rec["skills"]["ids"] == [] and rec["skills"]["error"] == "RuntimeError"
+
+
+async def test_owner_cancel_kills_the_sidecar_tree_and_ends_cancelled(env, repo, monkeypatch, tmp_path):
+    """STOP for a coding task: the student's hanging test run is killed with the
+    sidecar (no orphan), the record ends failed/CANCELLED — never completed."""
+    import time as _time
+    marker = f"bossman-cancel-{_time.time_ns()}"
+    (repo / "test_hang.py").write_text(
+        f"import time, unittest\n# {marker}\nclass T(unittest.TestCase):\n"
+        "    def test_hang(self):\n        time.sleep(300)\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "hang")
+    server = _use(monkeypatch, [{"tool": "run_tests", "args": {"paths": ["test_hang.py"], "runner": "unittest"}},
+                                {"tool": "finish", "args": {"summary": "x"}}], name="hang")
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    import tempfile; monkeypatch.setattr(tempfile, "tempdir", None)
+    try:
+        await _allow(env, repo.parent)
+        res = await env.client.post("/api/coding-tasks", json={
+            "instruction": "run the tests", "source_repo": str(repo), "allowed_paths": ["calc.py"],
+            "timeout_seconds": 600, "use_memory": False})
+        task_id = res.json()["id"]
+        import psutil
+        def hanging():
+            return [p for p in psutil.process_iter(["cmdline"])
+                    if any("test_hang" in (a or "") for a in (p.info["cmdline"] or []))]
+        # Waiting for the START only (slow under a loaded runner); the property
+        # measured below — how fast a cancel ends the task — keeps its 30 s bound.
+        for _ in range(1200):                                  # wait until the student's test is running
+            if hanging():
+                break
+            await asyncio.sleep(0.1)
+        assert hanging(), "the hanging test never started"
+        t0 = _time.monotonic()
+        c = (await env.client.post(f"/api/coding-tasks/{task_id}/cancel")).json()
+        assert c["cancelled"] is True
+        rec = await _wait(env, task_id, timeout=60)
+        assert _time.monotonic() - t0 < 30
+    finally:
+        server.shutdown()
+    assert rec["status"] == "failed" and rec["outcome"] == "CANCELLED", rec
+    await asyncio.sleep(0.5)
+    assert not hanging(), "the student's test process survived the cancel (orphan)"
+    # negative control: cancelling a finished task changes nothing
+    again = (await env.client.post(f"/api/coding-tasks/{task_id}/cancel")).json()
+    assert again["cancelled"] is False and again["status"] == "failed"
