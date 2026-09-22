@@ -11,6 +11,20 @@
 
 [Открыть каноническую ветку](https://github.com/molotroka123-cell/AiMaxBossman/tree/release/bossman-owner) · [Установка](INSTALL.md) · [Первый прогон](OWNER_ACCEPTANCE.md) · [Задание интегратору](CLAUDE_NEXT_ACTION.md)
 
+## Bossman 1.1 — главный North Star
+
+**После release-critical безопасности и корректности главный продуктовый приоритет — проверяемое непрерывное самоулучшение Bossman.**
+
+Цель следующего этапа: локальный Bossman сам находит ограниченную полезную проблему, исправляет её в изолированной среде, доказывает результат тестами, получает независимую проверку, сохраняет обобщённый урок, переживает перезапуск и применяет опыт к новой аналогичной задаче.
+
+После первого принятого self-repair запуска начинается **4–7-дневный измеряемый learning experiment**. Цель — доказать перенос опыта на новые задачи и способность всё более самостоятельно создавать owner-approved результаты с измеримой бизнес-ценностью. Это целевой эксперимент, **не обещание гарантированной прибыли** и не разрешение на автономные платежи, торговлю, массовые рассылки или внешние отправки без обычных approval-gates.
+
+Лестница доказательств:
+
+`SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT → SELF_REPAIR_SINGLE_CYCLE_PASS → SELF_REPAIR_3_CYCLE_PASS → TRANSFER_MEASURED_GAIN → 24H_SOAK_PASS → 48H_SOAK_PASS → WEEK_MODE_READY → REVENUE_CAPABLE_PILOT`
+
+[Полный обязательный контракт Bossman 1.1](docs/evo/BOSSMAN_1_1_NORTH_STAR.md).
+
 ## Текущее состояние 1.0 RC
 
 Bossman уже прошёл первый реальный owner-hardware цикл на **Ryzen AI Max+ 395 / Radeon 8060S / 128 GB**. После живого аудита и repair-pass в канонической линии появились исправления browser download, approvals, честной телеметрии локальных моделей и Computer Use. Локальный MAIN/FAST стек и управление Windows были проверены на реальном железе; media-generation путь на sd.cpp/Wan/Z-Image интегрируется и ещё требует финальной установленной приёмки.
