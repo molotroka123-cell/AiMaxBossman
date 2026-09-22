@@ -310,3 +310,21 @@ Create under an owner-training evidence directory:
 - `TRAINING_SUMMARY.md`.
 
 Large/private raw artifacts remain local; Git receives sanitized manifests, summaries, hashes and safe fixtures only.
+
+## Phase A execution 2026-09-22 — frozen exam on four closed defects
+
+Phase A is executed for four cases taken from defects the teacher closed on the owner
+machine in this session: TRAIN-1 (English-only text encoders), TRAIN-2 (first Studio
+listing timeout), HOLDOUT-1 (env-file line concatenation) and HOLDOUT-2 (video
+container bytes).
+
+- manifest: `owner-repair/coaching-exam-20260922/manifest.json`
+- runner: `tools/coaching_exam.py` (reuses `learning.lessons.LessonBook` and the
+  backends of `tools/coaching_runner.py`; no second learning engine)
+- harness proof on a MOCK student: `command-center/tests/test_coaching_exam.py`
+- isolation, metrics and the single live-run command:
+  `owner-repair/coaching-exam-20260922/README.md`
+
+Answers, break/fix edits, hint ladders and hidden verifier tests live OUTSIDE every git
+worktree in a sealed directory; the repository holds only their sha256. The live run on
+the local students is NOT_RUN until the owner starts the models.

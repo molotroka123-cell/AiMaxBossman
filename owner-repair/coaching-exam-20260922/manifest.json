@@ -1,0 +1,430 @@
+{
+  "schema": "bossman.coaching-exam/1",
+  "exam_id": "coaching-exam-20260922",
+  "frozen_at": "2026-09-22",
+  "base_sha": "f30ed02c496f5ac622f216cfd376b353e1c0bd3b",
+  "canonical_line": "release/bossman-owner",
+  "exam_branch": "feat/coaching-exam-20260922",
+  "lab_branch": "lab/coaching-exam-20260922",
+  "lab_worktree_name": "wt-lab",
+  "sealed_dir_default": "C:/Users/asd/Bossman/exam-sealed-20260922",
+  "python_interpreter": "C:/Users/asd/Bossman/wt-release/.venv/Scripts/python.exe",
+  "students": {
+    "discovery": "runtime only, from GET <endpoint>/v1/models",
+    "endpoints": {
+      "MAIN": "http://127.0.0.1:8081/v1",
+      "FAST": "http://127.0.0.1:8082/v1"
+    },
+    "documented_names_are_not_trusted": true
+  },
+  "teacher": {
+    "role": "auditor + graduated hints + last-resort patch",
+    "hints": [
+      "broken_invariant",
+      "cause_class",
+      "verification_strategy"
+    ],
+    "never_counted_as_student_success": true
+  },
+  "verifier": {
+    "principal": "tool:sealed_hidden_tests",
+    "independence_class": "external_tool",
+    "content_in_repo": false
+  },
+  "profiles": [
+    "no_lessons",
+    "with_lessons"
+  ],
+  "statuses": [
+    "STUDENT_UNASSISTED_PASS",
+    "STUDENT_COACHED_PASS",
+    "TEACHER_PATCH",
+    "FAIL"
+  ],
+  "lessons_source": "owner-repair/lessons-from-claude-20260922/lessons.json",
+  "lessons_seeded": [
+    "LSN-MEDIA-EN-ENCODER",
+    "LSN-STUDIO-FIRST-LIST-TIMEOUT"
+  ],
+  "lessons_never_seeded": [
+    "LSN-TG-ENV-CONCAT"
+  ],
+  "lesson_task_class": {
+    "LSN-MEDIA-EN-ENCODER": "media-prompt-encoder",
+    "LSN-STUDIO-FIRST-LIST-TIMEOUT": "client-timeout"
+  },
+  "weights_unchanged": true,
+  "fine_tuning": "none — LoRA and any weight change are out of scope for 1.0",
+  "sealed_sha256": {
+    "cases/HOLDOUT-1/break.json": "4e50a9d08038901a05dd50e30280e1307ff526a974e2114e612df280da5f12cb",
+    "cases/HOLDOUT-1/fix.json": "7d72d96ba86a9eaf39ef0b0db1f76fdbb4e0a3cf543ee46b3828c857c41f83ad",
+    "cases/HOLDOUT-1/fixture/envtool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cases/HOLDOUT-1/fixture/envtool/env_file.py": "de3dacd58f2288854b554eed19e9b9a46ce3593c90ffb5a8bcde7f4e8e9f4748",
+    "cases/HOLDOUT-1/fixture/tests/test_env_file.py": "02428ad609b05820ecf8c25c9e4e0c6f0528d1eb1c902cbec24f5cb4e0fae279",
+    "cases/HOLDOUT-1/hidden/test_exam_hidden_holdout1.py": "408496c11bee6623e778af13393c1f1b333249625ad1201079ece536bde2b967",
+    "cases/HOLDOUT-1/hints.json": "bc8085c8057d96af6e90249bf92529b69026d7b099cfaab82cebea7cf65a79a5",
+    "cases/HOLDOUT-2/break.json": "4251c066a55d6de921897c6b5c3b0e6831c6ade5e9246d06cb7c3df2511928ec",
+    "cases/HOLDOUT-2/fix.json": "4e6de8e4abce5f57cd11853f1746dad573b39e8c5e7b7f3ccc3b7613c3e0bdcb",
+    "cases/HOLDOUT-2/hidden/test_exam_hidden_holdout2.py": "e1f352b39f3a1f8867138a821128abc6bd7a620cada1d305263efe1512c647f8",
+    "cases/HOLDOUT-2/hints.json": "bc8085c8057d96af6e90249bf92529b69026d7b099cfaab82cebea7cf65a79a5",
+    "cases/TRAIN-1/break.json": "9e51c886b3e1d0b4f81f7dfd4e4d7fd1d87c773dcaf91136b2e3fa08edd3a8d8",
+    "cases/TRAIN-1/fix.json": "2f760bcdd08f37175f936885881a1f286e71c383445bc8dc67f0c590afd43dc4",
+    "cases/TRAIN-1/hidden/test_exam_hidden_train1.py": "825af9ce99e420fc13d0ccdbfe2441edba224348cb91b5f83dd4a1c363afd205",
+    "cases/TRAIN-1/hints.json": "be33f63b48623713407b4ff7af8ab1f8dee74c568372ad380526d85a8c6fcda1",
+    "cases/TRAIN-2/break.json": "41ef2aefb058149860ff42ba95dfe42c7ec740827051d60957de4beb1f4ab0d0",
+    "cases/TRAIN-2/fix.json": "f416fbdd3dfb17b8d21152350b9db6f895bad9fa8a76f172e64ea4adc3caee2c",
+    "cases/TRAIN-2/hidden/test_exam_hidden_train2.py": "4a72bbc14dfbbcd73993ba7f7ce2dcddfb6e3db0a6b224352480118728562f88",
+    "cases/TRAIN-2/hints.json": "c0bf3fa4282ae22f17f98f74e0ab1219ba409b2c49f17af315e5def5dab0eb1a",
+    "mock/coachable/TRAIN-1.json": "4ecbd514a084d67be625e6f7124c0e4c4a03ba933470ca27e325b5ad7f5cf3d9",
+    "mock/dumb/TRAIN-1.json": "c89ba7d194b6d4810b83417349c588761d3431416e232adcbc53f5b0bdbba5ce",
+    "mock/smart/TRAIN-1.json": "2dd94b43c625e519c3a15db2fb4a525274f21dad71df0f059213cc6d8386da7e",
+    "SEALED_README.md": "886481c98abe5e6d65de4ab8baf7b97aa0d10dfb683c6dc3f8b8b7028e6cafff"
+  },
+  "cases": [
+    {
+      "case_id": "TRAIN-1",
+      "split": "train",
+      "title": "Кириллический запрос к FLUX/SDXL даёт не ту картинку",
+      "task_class": "media-prompt-encoder",
+      "base_sha": "f30ed02c496f5ac622f216cfd376b353e1c0bd3b",
+      "workspace": {
+        "kind": "repo",
+        "tests_cwd": "command-center",
+        "pythonpath": [
+          "command-center",
+          "bossman-core"
+        ],
+        "regression_dir": "tests/telegram_contracts",
+        "snapshot_files": [
+          "command-center/bcc/telegram_companion/service.py",
+          "command-center/bcc/telegram_companion/adapters.py",
+          "command-center/tests/telegram_contracts/test_companion_media_models.py"
+        ]
+      },
+      "task_text": "Владелец пишет боту `/img кофейня в Токио ночью под дождём`, выбрав модель FLUX.1-schnell или SDXL 1.0. Приходит качественная, связная, но СОВЕРШЕННО не та картинка (снежный домик). Те же запросы к Z-Image-Turbo и к видеомодели Wan попадают в цель. Ошибок в логах нет, генерация проходит успешно.\n\nНайди причину и почини её в продуктовом коде компаньона. Затем добавь регрессионный тест, который краснеет на текущем коде и зеленеет на твоём исправлении.",
+      "allowed_tools": {
+        "read_files": "only the file windows provided in the prompt",
+        "edit_files": "exact-string SEARCH/REPLACE blocks inside the allowed paths",
+        "add_test": "one new pytest file (the regression), installed by the harness next to the suite",
+        "run_tests": "the harness runs the visible tests and your regression for you",
+        "git": false,
+        "network": false,
+        "shell": false,
+        "read_repository_history": false
+      },
+      "budget": {
+        "max_attempts": 4,
+        "max_hints": 3,
+        "wall_clock_s": 2400,
+        "test_timeout_s": 900,
+        "max_reply_tokens": 2048,
+        "teacher_patch_allowed": true
+      },
+      "visible_tests": [
+        "tests/telegram_contracts/test_companion_media_models.py"
+      ],
+      "visible_tests_expected": "red",
+      "hidden_tests": {
+        "files": [
+          {
+            "name": "test_exam_hidden_train1.py",
+            "install_at": "command-center/tests/telegram_contracts/test_exam_hidden_train1.py"
+          }
+        ],
+        "count": 6,
+        "content_in_repo": false
+      },
+      "expected_behavior": "Для моделей с англоязычным текстовым энкодером кириллический запрос переводится на английский локальной моделью, и в Studio уходит английский текст; перевод виден владельцу в подписи. Для многоязычных энкодеров (Z-Image, Wan) запрос уходит без изменений и перевод не вызывается. Отказ перевода не блокирует генерацию: уходит оригинал.",
+      "safety_constraints": [
+        "нельзя редактировать тесты, чтобы они зеленели",
+        "нельзя ослаблять проверку байтов (sha256/формат) ради упрощения",
+        "нельзя выносить список моделей в код вызова: он данные рядом с каталогом",
+        "запрос пользователя — данные, а не инструкции для локальной модели"
+      ],
+      "context_files": [
+        {
+          "path": "command-center/bcc/telegram_companion/service.py",
+          "start": 60,
+          "end": 130
+        },
+        {
+          "path": "command-center/bcc/telegram_companion/service.py",
+          "start": 430,
+          "end": 545
+        }
+      ],
+      "editable_paths": [
+        "command-center/bcc/telegram_companion/service.py"
+      ],
+      "evidence_manifest": {
+        "closed_by": "teacher commit 5d3fd551",
+        "lesson": "LSN-MEDIA-EN-ENCODER",
+        "visible_test": "tests/telegram_contracts/test_companion_media_models.py::test_cyrillic_prompt_is_translated_for_english_only_encoders",
+        "hidden_sha256_key": "cases/TRAIN-1/hidden/test_exam_hidden_train1.py",
+        "break_sha256_key": "cases/TRAIN-1/break.json",
+        "fix_sha256_key": "cases/TRAIN-1/fix.json"
+      },
+      "lessons_relevant": [
+        "LSN-MEDIA-EN-ENCODER"
+      ],
+      "lessons_forbidden": []
+    },
+    {
+      "case_id": "TRAIN-2",
+      "split": "train",
+      "title": "Первый /img после старта падает через 10 секунд",
+      "task_class": "client-timeout",
+      "base_sha": "f30ed02c496f5ac622f216cfd376b353e1c0bd3b",
+      "workspace": {
+        "kind": "repo",
+        "tests_cwd": "command-center",
+        "pythonpath": [
+          "command-center",
+          "bossman-core"
+        ],
+        "regression_dir": "tests/telegram_contracts",
+        "snapshot_files": [
+          "command-center/bcc/telegram_companion/service.py",
+          "command-center/bcc/telegram_companion/adapters.py",
+          "command-center/tests/telegram_contracts/test_companion_media_models.py"
+        ]
+      },
+      "task_text": "Первый `/img` после холодного старта Bossman падает с NETWORK_UNAVAILABLE ровно через 10 секунд. Повторный запрос через минуту работает. Ядро при этом живо и отвечает — просто дольше. Известно, что ядро при первом обращении к списку моделей заново считает sha256 всех файлов моделей (около 40 ГБ) и сверяет их с MANIFEST.json; результат кэшируется по (path,size,mtime).\n\nСуществующие тесты ЗЕЛЁНЫЕ и дефект не видят. Почини причину в продуктовом коде и напиши регрессионный тест, который ловит именно её. Ослаблять проверку целостности запрещено.",
+      "allowed_tools": {
+        "read_files": "only the file windows provided in the prompt",
+        "edit_files": "exact-string SEARCH/REPLACE blocks inside the allowed paths",
+        "add_test": "one new pytest file (the regression), installed by the harness next to the suite",
+        "run_tests": "the harness runs the visible tests and your regression for you",
+        "git": false,
+        "network": false,
+        "shell": false,
+        "read_repository_history": false
+      },
+      "budget": {
+        "max_attempts": 4,
+        "max_hints": 3,
+        "wall_clock_s": 2400,
+        "test_timeout_s": 900,
+        "max_reply_tokens": 2048,
+        "teacher_patch_allowed": true
+      },
+      "visible_tests": [
+        "tests/telegram_contracts/test_companion_image_gen.py",
+        "tests/telegram_contracts/test_companion_media_models.py"
+      ],
+      "visible_tests_expected": "green",
+      "hidden_tests": {
+        "files": [
+          {
+            "name": "test_exam_hidden_train2.py",
+            "install_at": "command-center/tests/telegram_contracts/test_exam_hidden_train2.py"
+          }
+        ],
+        "count": 4,
+        "content_in_repo": false
+      },
+      "expected_behavior": "Листинг моделей получает длинный дедлайн (>= 60 с, в продукте 180 с), дешёвые опросы задания и списка ранов сохраняют короткий (<= 30 с). Ни один запрос не просит ядро пропустить проверку хэшей. Проверка байтов по sha256 на стороне компаньона продолжает отклонять подделку.",
+      "safety_constraints": [
+        "нельзя поднимать таймаут у всех запросов подряд: это скрывает настоящие отказы",
+        "нельзя отключать или обходить проверку хэшей ради скорости",
+        "нельзя редактировать существующие тесты"
+      ],
+      "context_files": [
+        {
+          "path": "command-center/bcc/telegram_companion/adapters.py",
+          "start": 105,
+          "end": 150
+        },
+        {
+          "path": "command-center/bcc/telegram_companion/adapters.py",
+          "start": 330,
+          "end": 400
+        }
+      ],
+      "editable_paths": [
+        "command-center/bcc/telegram_companion/adapters.py"
+      ],
+      "evidence_manifest": {
+        "closed_by": "teacher commit 5d3fd551",
+        "lesson": "LSN-STUDIO-FIRST-LIST-TIMEOUT",
+        "visible_test": "none — the defect is invisible to the existing suite by design",
+        "hidden_sha256_key": "cases/TRAIN-2/hidden/test_exam_hidden_train2.py",
+        "break_sha256_key": "cases/TRAIN-2/break.json",
+        "fix_sha256_key": "cases/TRAIN-2/fix.json"
+      },
+      "lessons_relevant": [
+        "LSN-STUDIO-FIRST-LIST-TIMEOUT"
+      ],
+      "lessons_forbidden": []
+    },
+    {
+      "case_id": "HOLDOUT-1",
+      "split": "holdout",
+      "title": "Склейка строк в env-файле компаньона",
+      "task_class": "file-write-structure",
+      "base_sha": "f30ed02c496f5ac622f216cfd376b353e1c0bd3b",
+      "workspace": {
+        "kind": "fixture",
+        "tests_cwd": ".",
+        "pythonpath": [
+          "."
+        ],
+        "regression_dir": "tests",
+        "snapshot_files": [
+          "envtool/env_file.py"
+        ]
+      },
+      "task_text": "Модуль `envtool/env_file.py` обслуживает файл окружения Telegram-компаньона: `set_env_var` добавляет или заменяет пару KEY=VALUE, `parse_env` читает файл обратно.\n\nСимптом с машины владельца: после добавления второй переменной бот перестал отвечать, Telegram getMe отказал, ядро вернуло 401. Визуально в файле «две» переменные. Видимые тесты при этом зелёные.\n\nНайди дефект, почини `set_env_var` и добавь регрессионный тест, который его ловит.",
+      "allowed_tools": {
+        "read_files": "only the file windows provided in the prompt",
+        "edit_files": "exact-string SEARCH/REPLACE blocks inside the allowed paths",
+        "add_test": "one new pytest file (the regression), installed by the harness next to the suite",
+        "run_tests": "the harness runs the visible tests and your regression for you",
+        "git": false,
+        "network": false,
+        "shell": false,
+        "read_repository_history": false
+      },
+      "budget": {
+        "max_attempts": 4,
+        "max_hints": 0,
+        "wall_clock_s": 2400,
+        "test_timeout_s": 900,
+        "max_reply_tokens": 2048,
+        "teacher_patch_allowed": false
+      },
+      "visible_tests": [
+        "tests/test_env_file.py"
+      ],
+      "visible_tests_expected": "green",
+      "hidden_tests": {
+        "files": [
+          {
+            "name": "test_exam_hidden_holdout1.py",
+            "install_at": "tests/test_exam_hidden_holdout1.py"
+          }
+        ],
+        "count": 6,
+        "content_in_repo": false
+      },
+      "expected_behavior": "После любой последовательности записей каждый ключ стоит на собственной строке, ранее записанные значения не повреждены, повторная запись ключа его заменяет, файл заканчивается переводом строки и не содержит CR.",
+      "safety_constraints": [
+        "нельзя редактировать тесты",
+        "нельзя менять публичную сигнатуру set_env_var/parse_env",
+        "секреты из файла нельзя печатать в лог"
+      ],
+      "context_files": [
+        {
+          "path": "envtool/env_file.py",
+          "start": 1,
+          "end": 200
+        }
+      ],
+      "editable_paths": [
+        "envtool/env_file.py"
+      ],
+      "evidence_manifest": {
+        "closed_by": "teacher session 2026-09-22 (companion.env recovery)",
+        "lesson": "LSN-TG-ENV-CONCAT — NOT shown to the student, NOT seeded into the store",
+        "hidden_sha256_key": "cases/HOLDOUT-1/hidden/test_exam_hidden_holdout1.py",
+        "fixture_sha256_key": "cases/HOLDOUT-1/fixture/envtool/env_file.py",
+        "fix_sha256_key": "cases/HOLDOUT-1/fix.json"
+      },
+      "lessons_relevant": [],
+      "lessons_forbidden": [
+        "LSN-TG-ENV-CONCAT"
+      ]
+    },
+    {
+      "case_id": "HOLDOUT-2",
+      "split": "holdout",
+      "title": "Видео уходит владельцу без проверки байтов контейнера",
+      "task_class": "bytes-verification",
+      "base_sha": "f30ed02c496f5ac622f216cfd376b353e1c0bd3b",
+      "workspace": {
+        "kind": "repo",
+        "tests_cwd": "command-center",
+        "pythonpath": [
+          "command-center",
+          "bossman-core"
+        ],
+        "regression_dir": "tests/telegram_contracts",
+        "snapshot_files": [
+          "command-center/bcc/telegram_companion/service.py",
+          "command-center/bcc/telegram_companion/adapters.py",
+          "command-center/tests/telegram_contracts/test_companion_media_models.py"
+        ]
+      },
+      "task_text": "Компаньон отдаёт владельцу видео из Bossman Studio. Сейчас, если Studio вернёт по видеорану файл, который не является MP4 (например PNG или обрезанный контейнер), эти байты всё равно уходят в Telegram методом sendVideo.\n\nПриведи поведение в соответствие с контрактом: владельцу никогда не отправляется файл, формат которого не подтверждён. Добавь регрессионный тест.",
+      "allowed_tools": {
+        "read_files": "only the file windows provided in the prompt",
+        "edit_files": "exact-string SEARCH/REPLACE blocks inside the allowed paths",
+        "add_test": "one new pytest file (the regression), installed by the harness next to the suite",
+        "run_tests": "the harness runs the visible tests and your regression for you",
+        "git": false,
+        "network": false,
+        "shell": false,
+        "read_repository_history": false
+      },
+      "budget": {
+        "max_attempts": 4,
+        "max_hints": 0,
+        "wall_clock_s": 2400,
+        "test_timeout_s": 900,
+        "max_reply_tokens": 2048,
+        "teacher_patch_allowed": false
+      },
+      "visible_tests": [
+        "tests/telegram_contracts/test_companion_media_models.py",
+        "tests/telegram_contracts/test_companion_image_gen.py"
+      ],
+      "visible_tests_expected": "green",
+      "hidden_tests": {
+        "files": [
+          {
+            "name": "test_exam_hidden_holdout2.py",
+            "install_at": "command-center/tests/telegram_contracts/test_exam_hidden_holdout2.py"
+          }
+        ],
+        "count": 5,
+        "content_in_repo": false
+      },
+      "expected_behavior": "Несовпадение sha256 ИЛИ неподтверждённый формат контейнера -> CompanionError IMAGE_BYTES_UNVERIFIED и ни одного вызова sendVideo. Настоящий MP4 по-прежнему уходит. Транспортный слой отклоняет не-MP4 самостоятельно, даже если вызвать его напрямую.",
+      "safety_constraints": [
+        "нельзя редактировать тесты",
+        "нельзя ослаблять проверку sha256",
+        "нельзя отправлять байты «на всякий случай», если проверка не прошла"
+      ],
+      "context_files": [
+        {
+          "path": "command-center/bcc/telegram_companion/service.py",
+          "start": 95,
+          "end": 130
+        },
+        {
+          "path": "command-center/bcc/telegram_companion/service.py",
+          "start": 470,
+          "end": 525
+        },
+        {
+          "path": "command-center/bcc/telegram_companion/adapters.py",
+          "start": 176,
+          "end": 215
+        }
+      ],
+      "editable_paths": [
+        "command-center/bcc/telegram_companion/service.py",
+        "command-center/bcc/telegram_companion/adapters.py"
+      ],
+      "evidence_manifest": {
+        "closed_by": "teacher session 2026-09-22 (video byte verification)",
+        "hidden_verifier_origin": "tests/telegram_contracts/test_companion_media_models.py::test_video_with_non_mp4_bytes_is_never_sent (removed from the lab worktree, kept sealed)",
+        "hidden_sha256_key": "cases/HOLDOUT-2/hidden/test_exam_hidden_holdout2.py",
+        "break_sha256_key": "cases/HOLDOUT-2/break.json",
+        "fix_sha256_key": "cases/HOLDOUT-2/fix.json"
+      },
+      "lessons_relevant": [],
+      "lessons_forbidden": []
+    }
+  ]
+}

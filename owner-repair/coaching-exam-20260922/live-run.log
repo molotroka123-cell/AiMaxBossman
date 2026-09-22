@@ -1,0 +1,21 @@
+WEIGHTS_UNCHANGED: no fine-tuning, no weight update anywhere in this runner
+STATUS LOCAL_EXAM_MEASURED
+  MAIN   TRAIN-1      no_lessons    TEACHER_PATCH            attempts=4 hints=3
+  MAIN   TRAIN-2      no_lessons    TEACHER_PATCH            attempts=4 hints=3
+  MAIN   HOLDOUT-1    no_lessons    STUDENT_UNASSISTED_PASS  attempts=1 hints=0
+  MAIN   HOLDOUT-2    no_lessons    FAIL                     attempts=4 hints=0
+  MAIN   TRAIN-1      with_lessons  TEACHER_PATCH            attempts=4 hints=3
+  MAIN   TRAIN-2      with_lessons  TEACHER_PATCH            attempts=4 hints=3
+  MAIN   HOLDOUT-1    with_lessons  STUDENT_UNASSISTED_PASS  attempts=1 hints=0
+  MAIN   HOLDOUT-2    with_lessons  FAIL                     attempts=4 hints=0
+  FAST   TRAIN-1      no_lessons    TEACHER_PATCH            attempts=4 hints=3
+  FAST   TRAIN-2      no_lessons    TEACHER_PATCH            attempts=4 hints=3
+  FAST   HOLDOUT-1    no_lessons    STUDENT_UNASSISTED_PASS  attempts=2 hints=0
+  FAST   HOLDOUT-2    no_lessons    FAIL                     attempts=4 hints=0
+  FAST   TRAIN-1      with_lessons  TEACHER_PATCH            attempts=4 hints=3
+  FAST   TRAIN-2      with_lessons  TEACHER_PATCH            attempts=4 hints=3
+  FAST   HOLDOUT-1    with_lessons  STUDENT_UNASSISTED_PASS  attempts=1 hints=0
+  FAST   HOLDOUT-2    with_lessons  FAIL                     attempts=4 hints=0
+report -> owner-repair\coaching-exam-20260922\report.json / owner-repair\coaching-exam-20260922\report.md
+WEIGHTS_UNCHANGED: no fine-tuning, no weight update anywhere in this runner
+EXIT 0

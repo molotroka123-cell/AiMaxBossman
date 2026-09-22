@@ -1,0 +1,1859 @@
+{
+  "schema": "bossman.coaching-exam/1",
+  "exam_id": "coaching-exam-20260922",
+  "run_id": "exam-20260922T190223Z",
+  "base_sha": "f30ed02c496f5ac622f216cfd376b353e1c0bd3b",
+  "created_at": "2026-09-22T19:02:23Z",
+  "python": "3.12.10",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "backend": {
+    "name": "local",
+    "label": "local OpenAI-compatible http://127.0.0.1:8081 model=C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf (discovered: C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf)",
+    "model": "C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf"
+  },
+  "students": [
+    {
+      "role": "MAIN",
+      "endpoint": "http://127.0.0.1:8081/v1",
+      "reachable": true,
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf",
+      "discovery": "discovered 1 model id(s): C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf"
+    },
+    {
+      "role": "FAST",
+      "endpoint": "http://127.0.0.1:8082/v1",
+      "reachable": true,
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b\\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf",
+      "discovery": "discovered 1 model id(s): C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b\\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf"
+    }
+  ],
+  "weights_unchanged": true,
+  "fine_tuning": "none",
+  "isolation": {
+    "sealed_dir": "C:\\Users\\asd\\Bossman\\exam-sealed-20260922",
+    "sealed_files_checked": 23,
+    "sealed_mismatches": 0,
+    "holdout_case_ids": [
+      "HOLDOUT-1",
+      "HOLDOUT-2"
+    ],
+    "lessons_refused": [
+      "LSN-TG-ENV-CONCAT"
+    ],
+    "holdout_lessons_written": 0
+  },
+  "run_status": "LOCAL_EXAM_MEASURED",
+  "metrics": {
+    "FAST/no_lessons/train": {
+      "cases": 2,
+      "unassisted_solve_rate": 0.0,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.0,
+      "teacher_patch_rate": 1.0,
+      "fail_rate": 0.0,
+      "attempts": 8,
+      "hints_used": 6,
+      "repeated_failures": 4,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": null,
+      "wall_s": 292.16
+    },
+    "FAST/no_lessons/holdout": {
+      "cases": 2,
+      "unassisted_solve_rate": 0.5,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.5,
+      "teacher_patch_rate": 0.0,
+      "fail_rate": 0.5,
+      "attempts": 6,
+      "hints_used": 0,
+      "repeated_failures": 2,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": null,
+      "wall_s": 187.95
+    },
+    "FAST/no_lessons/all": {
+      "cases": 4,
+      "unassisted_solve_rate": 0.25,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.25,
+      "teacher_patch_rate": 0.5,
+      "fail_rate": 0.25,
+      "attempts": 14,
+      "hints_used": 6,
+      "repeated_failures": 6,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": null,
+      "wall_s": 480.11
+    },
+    "FAST/with_lessons/train": {
+      "cases": 2,
+      "unassisted_solve_rate": 0.0,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.0,
+      "teacher_patch_rate": 1.0,
+      "fail_rate": 0.0,
+      "attempts": 8,
+      "hints_used": 6,
+      "repeated_failures": 4,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": 1.0,
+      "wall_s": 308.97
+    },
+    "FAST/with_lessons/holdout": {
+      "cases": 2,
+      "unassisted_solve_rate": 0.5,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.5,
+      "teacher_patch_rate": 0.0,
+      "fail_rate": 0.5,
+      "attempts": 5,
+      "hints_used": 0,
+      "repeated_failures": 0,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": null,
+      "wall_s": 161.96
+    },
+    "FAST/with_lessons/all": {
+      "cases": 4,
+      "unassisted_solve_rate": 0.25,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.25,
+      "teacher_patch_rate": 0.5,
+      "fail_rate": 0.25,
+      "attempts": 13,
+      "hints_used": 6,
+      "repeated_failures": 4,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": 1.0,
+      "wall_s": 470.93
+    },
+    "MAIN/no_lessons/train": {
+      "cases": 2,
+      "unassisted_solve_rate": 0.0,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.0,
+      "teacher_patch_rate": 1.0,
+      "fail_rate": 0.0,
+      "attempts": 8,
+      "hints_used": 6,
+      "repeated_failures": 4,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": null,
+      "wall_s": 995.89
+    },
+    "MAIN/no_lessons/holdout": {
+      "cases": 2,
+      "unassisted_solve_rate": 0.5,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.5,
+      "teacher_patch_rate": 0.0,
+      "fail_rate": 0.5,
+      "attempts": 5,
+      "hints_used": 0,
+      "repeated_failures": 0,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": null,
+      "wall_s": 706.28
+    },
+    "MAIN/no_lessons/all": {
+      "cases": 4,
+      "unassisted_solve_rate": 0.25,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.25,
+      "teacher_patch_rate": 0.5,
+      "fail_rate": 0.25,
+      "attempts": 13,
+      "hints_used": 6,
+      "repeated_failures": 4,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": null,
+      "wall_s": 1702.17
+    },
+    "MAIN/with_lessons/train": {
+      "cases": 2,
+      "unassisted_solve_rate": 0.0,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.0,
+      "teacher_patch_rate": 1.0,
+      "fail_rate": 0.0,
+      "attempts": 8,
+      "hints_used": 6,
+      "repeated_failures": 5,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": 1.0,
+      "wall_s": 1228.28
+    },
+    "MAIN/with_lessons/holdout": {
+      "cases": 2,
+      "unassisted_solve_rate": 0.5,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.5,
+      "teacher_patch_rate": 0.0,
+      "fail_rate": 0.5,
+      "attempts": 5,
+      "hints_used": 0,
+      "repeated_failures": 1,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": null,
+      "wall_s": 603.88
+    },
+    "MAIN/with_lessons/all": {
+      "cases": 4,
+      "unassisted_solve_rate": 0.25,
+      "coached_solve_rate": 0.0,
+      "solve_rate_any_student": 0.25,
+      "teacher_patch_rate": 0.5,
+      "fail_rate": 0.25,
+      "attempts": 13,
+      "hints_used": 6,
+      "repeated_failures": 6,
+      "tool_errors": 0,
+      "memory_lookup_correct_rate": 1.0,
+      "wall_s": 1832.16
+    }
+  },
+  "results": [
+    {
+      "case_id": "TRAIN-1",
+      "split": "train",
+      "profile": "no_lessons",
+      "status": "TEACHER_PATCH",
+      "attempts": 4,
+      "hints_used": 3,
+      "hint_levels": [
+        1,
+        2,
+        3
+      ],
+      "teacher_patch_used": true,
+      "reproduced": true,
+      "lessons_injected": 0,
+      "lessons_injected_ids": [],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 1,
+      "tool_errors": 0,
+      "wall_s": 590.28,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 1.69,
+        "detail": "......                                                                   [100%]\n6 passed in 0.72s",
+        "by": "teacher"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n    \n        ok = FakeModels('\"cozy Tokyo coffee shop at night\"')\n>       assert translate(ok, 'кофейня в Токио') == 'cozy Tokyo coffee shop at night'\n               ^",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_cyrillic"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "bdaf20c62fcf",
+          "wall_s": 185.01,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n    \n        ok = FakeModels('\"cozy Tokyo coffee shop at night\"')\n>       assert translate(ok, 'кофейня в Токио') == 'cozy Tokyo coffee shop at night'\n               ^",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests\\telegram_contracts\\test_exam_reg_exam_reg_cyrillic_prompt_translation.py:6"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 1,
+          "memory_ids": [],
+          "failure_signature": "bdaf20c62fcf",
+          "wall_s": 119.72,
+          "tool_error": false
+        },
+        {
+          "n": 3,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n            app = Companion.__new__(Companion)\n            app.models = models\n            return asyncio.run(app.english_prompt(text))\n    \n        ok = FakeModels('\""
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 2,
+          "memory_ids": [],
+          "failure_signature": "186b593bcf10",
+          "wall_s": 151.67,
+          "tool_error": false
+        },
+        {
+          "n": 4,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n            app = Companion.__new__(Companion)\n            app.models = models\n            return asyncio.run(app.english_prompt(text))\n    \n        ok = FakeModels('\""
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 3,
+          "memory_ids": [],
+          "failure_signature": "653a090114af",
+          "wall_s": 130.42,
+          "tool_error": false
+        },
+        {
+          "n": 5,
+          "by": "teacher",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "TEACHER_PATCH applied after the student budget was spent"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 3,
+          "memory_ids": [],
+          "failure_signature": "teacher",
+          "wall_s": 1.69,
+          "tool_error": false
+        }
+      ],
+      "note": "attempt budget exhausted",
+      "student": "MAIN",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "TRAIN-2",
+      "split": "train",
+      "profile": "no_lessons",
+      "status": "TEACHER_PATCH",
+      "attempts": 4,
+      "hints_used": 3,
+      "hint_levels": [
+        1,
+        2,
+        3
+      ],
+      "teacher_patch_used": true,
+      "reproduced": true,
+      "lessons_injected": 0,
+      "lessons_injected_ids": [],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 3,
+      "tool_errors": 0,
+      "wall_s": 405.61,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 1.2,
+        "detail": "....                                                                     [100%]\n4 passed in 0.30s",
+        "by": "teacher"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._boot"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 117.62,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_exam_reg"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 1,
+          "memory_ids": [],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 73.31,
+          "tool_error": false
+        },
+        {
+          "n": 3,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_exam_reg"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 2,
+          "memory_ids": [],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 91.69,
+          "tool_error": false
+        },
+        {
+          "n": 4,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_cold_sta"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 3,
+          "memory_ids": [],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 118.75,
+          "tool_error": false
+        },
+        {
+          "n": 5,
+          "by": "teacher",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "TEACHER_PATCH applied after the student budget was spent"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 3,
+          "memory_ids": [],
+          "failure_signature": "teacher",
+          "wall_s": 1.2,
+          "tool_error": false
+        }
+      ],
+      "note": "attempt budget exhausted",
+      "student": "MAIN",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "HOLDOUT-1",
+      "split": "holdout",
+      "profile": "no_lessons",
+      "status": "STUDENT_UNASSISTED_PASS",
+      "attempts": 1,
+      "hints_used": 0,
+      "hint_levels": [],
+      "teacher_patch_used": false,
+      "reproduced": true,
+      "lessons_injected": 0,
+      "lessons_injected_ids": [],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 0,
+      "tool_errors": 0,
+      "wall_s": 93.31,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 0.34,
+        "detail": "[REDACTED holdout verifier output; green, markers=1]"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [],
+          "verifier_passed": true,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "75223359950d",
+          "wall_s": 92.94,
+          "tool_error": false
+        }
+      ],
+      "note": "",
+      "student": "MAIN",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "HOLDOUT-2",
+      "split": "holdout",
+      "profile": "no_lessons",
+      "status": "FAIL",
+      "attempts": 4,
+      "hints_used": 0,
+      "hint_levels": [],
+      "teacher_patch_used": false,
+      "reproduced": true,
+      "lessons_injected": 0,
+      "lessons_injected_ids": [],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 0,
+      "tool_errors": 0,
+      "wall_s": 612.97,
+      "verifier": {
+        "ran": true,
+        "passed": false,
+        "wall_s": 1.58,
+        "detail": "[REDACTED holdout verifier output; red, markers=1]"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n                        await self.core.studio_cancel(job_id)\n                    raise CompanionError(\"IMAGE_GEN_TIMEOUT\")\n                job = await self.core.studi",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_video_co"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "cf20f1051a6d",
+          "wall_s": 202.45,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": false,
+          "visible_passed": true,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "PROTOCOL: no FILE/SEARCH/REPLACE block found in the reply. Reply in EXACTLY this format and nothing else:\n\nMEMORY: <the numbers of the memory lessons above that you actually used, or NONE>\nCAUSE: <one line: the"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "739f413ae7f5",
+          "wall_s": 212.7,
+          "tool_error": false
+        },
+        {
+          "n": 3,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_video_co"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "a7b66e47d1cf",
+          "wall_s": 124.62,
+          "tool_error": false
+        },
+        {
+          "n": 4,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n...F.........                                                            [100%]\n================================== FAILURES ===================================\n_______",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_exam_reg"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "f95b0f5b4fff",
+          "wall_s": 70.7,
+          "tool_error": false
+        }
+      ],
+      "note": "attempt budget exhausted",
+      "student": "MAIN",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "TRAIN-1",
+      "split": "train",
+      "profile": "with_lessons",
+      "status": "TEACHER_PATCH",
+      "attempts": 4,
+      "hints_used": 3,
+      "hint_levels": [
+        1,
+        2,
+        3
+      ],
+      "teacher_patch_used": true,
+      "reproduced": true,
+      "lessons_injected": 1,
+      "lessons_injected_ids": [
+        "LSN-MEDIA-EN-ENCODER"
+      ],
+      "memory_ids_cited": [
+        "LSN-MEDIA-EN-ENCODER"
+      ],
+      "memory_lookup_correct": true,
+      "repeated_failures": 2,
+      "tool_errors": 0,
+      "wall_s": 679.33,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 1.64,
+        "detail": "......                                                                   [100%]\n6 passed in 0.65s",
+        "by": "teacher"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n    \n        ok = FakeModels('\"cozy Tokyo coffee shop at night\"')\n>       assert translate(ok, 'кофейня в Токио') == 'cozy Tokyo coffee shop at night'\n               ^",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests\\telegram_contracts\\test_exam_reg_companion_media_mode"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [
+            "LSN-MEDIA-EN-ENCODER"
+          ],
+          "failure_signature": "bdaf20c62fcf",
+          "wall_s": 142.3,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n            app = Companion.__new__(Companion)\n            app.models = models\n            return asyncio.run(app.english_prompt(text))\n    \n        ok = FakeModels('\"",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n>       result = _translate(ok, \"горное озеро на рассвете\", model_id=\"sdcpp:sdxl-base\")\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 1,
+          "memory_ids": [
+            "LSN-MEDIA-EN-ENCODER"
+          ],
+          "failure_signature": "e56f809f8ab2",
+          "wall_s": 171.39,
+          "tool_error": false
+        },
+        {
+          "n": 3,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n            app = Companion.__new__(Companion)\n            app.models = models\n            return asyncio.run(app.english_prompt(text))\n    \n        ok = FakeModels('\"",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n        app = _make_app(FailingModels())\n>       result = asyncio.run(app.english_prompt(\"кофейня в Токио ночью\", \"sdcpp:flux1-schnell\"))\n        "
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 2,
+          "memory_ids": [
+            "LSN-MEDIA-EN-ENCODER"
+          ],
+          "failure_signature": "e56f809f8ab2",
+          "wall_s": 165.47,
+          "tool_error": false
+        },
+        {
+          "n": 4,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n            app = Companion.__new__(Companion)\n            app.models = models\n            return asyncio.run(app.english_prompt(text))\n    \n        ok = FakeModels('\"",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n                             ^^^^^^^^^^^^^^^^^^\nE       AttributeError: 'Companion' object has no attribute 'english_prompt'\n\ntests\\telegram_contr"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 3,
+          "memory_ids": [
+            "LSN-MEDIA-EN-ENCODER"
+          ],
+          "failure_signature": "e56f809f8ab2",
+          "wall_s": 196.51,
+          "tool_error": false
+        },
+        {
+          "n": 5,
+          "by": "teacher",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "TEACHER_PATCH applied after the student budget was spent"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 3,
+          "memory_ids": [],
+          "failure_signature": "teacher",
+          "wall_s": 1.64,
+          "tool_error": false
+        }
+      ],
+      "note": "attempt budget exhausted",
+      "student": "MAIN",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "TRAIN-2",
+      "split": "train",
+      "profile": "with_lessons",
+      "status": "TEACHER_PATCH",
+      "attempts": 4,
+      "hints_used": 3,
+      "hint_levels": [
+        1,
+        2,
+        3
+      ],
+      "teacher_patch_used": true,
+      "reproduced": true,
+      "lessons_injected": 1,
+      "lessons_injected_ids": [
+        "LSN-STUDIO-FIRST-LIST-TIMEOUT"
+      ],
+      "memory_ids_cited": [
+        "LSN-STUDIO-FIRST-LIST-TIMEOUT"
+      ],
+      "memory_lookup_correct": true,
+      "repeated_failures": 3,
+      "tool_errors": 0,
+      "wall_s": 548.95,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 1.08,
+        "detail": "....                                                                     [100%]\n4 passed in 0.25s",
+        "by": "teacher"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n    @pytest.mark.asyncio\n    async def test_studio_runs_keeps_short_timeout():\n        \"\"\"Runs listing must keep a short deadline (<= 30 s).\"\"\"\n  "
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 0,
+          "memory_ids": [
+            "LSN-STUDIO-FIRST-LIST-TIMEOUT"
+          ],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 207.5,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n               ^^^^^^^^^^^^^^^^^^^^^\n\ntests\\telegram_contracts\\test_exam_reg_exam_reg_studio_model_timeout.py:85: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 1,
+          "memory_ids": [
+            "LSN-STUDIO-FIRST-LIST-TIMEOUT"
+          ],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 123.34,
+          "tool_error": false
+        },
+        {
+          "n": 3,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n        transport = SlowTransport(delay=35)\n>       core = _make_core(transport)\n               ^^^^^^^^^^^^^^^^^^^^^\n\ntests\\telegram_contracts\\te"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 2,
+          "memory_ids": [
+            "LSN-STUDIO-FIRST-LIST-TIMEOUT"
+          ],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 112.24,
+          "tool_error": false
+        },
+        {
+          "n": 4,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._boot"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 3,
+          "memory_ids": [
+            "LSN-STUDIO-FIRST-LIST-TIMEOUT"
+          ],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 101.92,
+          "tool_error": false
+        },
+        {
+          "n": 5,
+          "by": "teacher",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "TEACHER_PATCH applied after the student budget was spent"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 3,
+          "memory_ids": [],
+          "failure_signature": "teacher",
+          "wall_s": 1.08,
+          "tool_error": false
+        }
+      ],
+      "note": "attempt budget exhausted",
+      "student": "MAIN",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "HOLDOUT-1",
+      "split": "holdout",
+      "profile": "with_lessons",
+      "status": "STUDENT_UNASSISTED_PASS",
+      "attempts": 1,
+      "hints_used": 0,
+      "hint_levels": [],
+      "teacher_patch_used": false,
+      "reproduced": true,
+      "lessons_injected": 2,
+      "lessons_injected_ids": [
+        "LSN-STUDIO-FIRST-LIST-TIMEOUT",
+        "LSN-MEDIA-EN-ENCODER"
+      ],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 0,
+      "tool_errors": 0,
+      "wall_s": 72.26,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 0.34,
+        "detail": "[REDACTED holdout verifier output; green, markers=1]"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [],
+          "verifier_passed": true,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "75223359950d",
+          "wall_s": 71.91,
+          "tool_error": false
+        }
+      ],
+      "note": "",
+      "student": "MAIN",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "HOLDOUT-2",
+      "split": "holdout",
+      "profile": "with_lessons",
+      "status": "FAIL",
+      "attempts": 4,
+      "hints_used": 0,
+      "hint_levels": [],
+      "teacher_patch_used": false,
+      "reproduced": true,
+      "lessons_injected": 2,
+      "lessons_injected_ids": [
+        "LSN-STUDIO-FIRST-LIST-TIMEOUT",
+        "LSN-MEDIA-EN-ENCODER"
+      ],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 1,
+      "tool_errors": 0,
+      "wall_s": 531.62,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 1.3,
+        "detail": "[REDACTED holdout verifier output; green, markers=1]"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n                    with contextlib.suppress(CompanionError):\n                        await self.core.studio_cancel(job_id)\n                    raise CompanionError(\"I",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_video_co"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "46b9769f9d5e",
+          "wall_s": 140.8,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "PATCH_DID_NOT_APPLY: HOLDOUT-2/student: command-center/bcc/telegram_companion/adapters.py: search block found 0x, expected exactly 1"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "fc685de62abe",
+          "wall_s": 148.05,
+          "tool_error": false
+        },
+        {
+          "n": 3,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n    \n        original = DEFAULT\n        local = False\n    \n        try:\n            original = target.__dict__[name]\n        except (AttributeErro"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "a7b66e47d1cf",
+          "wall_s": 79.23,
+          "tool_error": false
+        },
+        {
+          "n": 4,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_exam_reg"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "a7b66e47d1cf",
+          "wall_s": 160.97,
+          "tool_error": false
+        }
+      ],
+      "note": "attempt budget exhausted",
+      "student": "MAIN",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "TRAIN-1",
+      "split": "train",
+      "profile": "no_lessons",
+      "status": "TEACHER_PATCH",
+      "attempts": 4,
+      "hints_used": 3,
+      "hint_levels": [
+        1,
+        2,
+        3
+      ],
+      "teacher_patch_used": true,
+      "reproduced": true,
+      "lessons_injected": 0,
+      "lessons_injected_ids": [],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 1,
+      "tool_errors": 0,
+      "wall_s": 163.02,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 1.41,
+        "detail": "......                                                                   [100%]\n6 passed in 0.62s",
+        "by": "teacher"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests\\telegram_contracts\\test_companion_media_models.py:99: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_companio"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "634575cc0458",
+          "wall_s": 36.66,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n    \n        ok = FakeModels('\"cozy Tokyo coffee shop at night\"')\n>       assert translate(ok, 'кофейня в Токио') == 'cozy Tokyo coffee shop at night'\n               ^",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_exam_reg"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 1,
+          "memory_ids": [],
+          "failure_signature": "bdaf20c62fcf",
+          "wall_s": 32.62,
+          "tool_error": false
+        },
+        {
+          "n": 3,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n    return self._loop.run_until_complete(task)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n..\\..\\..\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\asyncio\\base_events.",
+            "NO_REGRESSION: Add a regression test that fails on the broken code and passes on the fixed code."
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 2,
+          "memory_ids": [],
+          "failure_signature": "3a8734480aef",
+          "wall_s": 48.08,
+          "tool_error": false
+        },
+        {
+          "n": 4,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n    \n        ok = FakeModels('\"cozy Tokyo coffee shop at night\"')\n>       assert translate(ok, 'кофейня в Токио') == 'cozy Tokyo coffee shop at night'\n               ^",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_companio"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 3,
+          "memory_ids": [],
+          "failure_signature": "bdaf20c62fcf",
+          "wall_s": 42.61,
+          "tool_error": false
+        },
+        {
+          "n": 5,
+          "by": "teacher",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "TEACHER_PATCH applied after the student budget was spent"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 3,
+          "memory_ids": [],
+          "failure_signature": "teacher",
+          "wall_s": 1.41,
+          "tool_error": false
+        }
+      ],
+      "note": "attempt budget exhausted",
+      "student": "FAST",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b\\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "TRAIN-2",
+      "split": "train",
+      "profile": "no_lessons",
+      "status": "TEACHER_PATCH",
+      "attempts": 4,
+      "hints_used": 3,
+      "hint_levels": [
+        1,
+        2,
+        3
+      ],
+      "teacher_patch_used": true,
+      "reproduced": true,
+      "lessons_injected": 0,
+      "lessons_injected_ids": [],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 3,
+      "tool_errors": 0,
+      "wall_s": 129.14,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 1.06,
+        "detail": "....                                                                     [100%]\n4 passed in 0.26s",
+        "by": "teacher"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_adapters"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 31.11,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_exam_reg"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 1,
+          "memory_ids": [],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 27.25,
+          "tool_error": false
+        },
+        {
+          "n": 3,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._boot"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 2,
+          "memory_ids": [],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 38.7,
+          "tool_error": false
+        },
+        {
+          "n": 4,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_exam_reg"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 3,
+          "memory_ids": [],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 28.44,
+          "tool_error": false
+        },
+        {
+          "n": 5,
+          "by": "teacher",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "TEACHER_PATCH applied after the student budget was spent"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 3,
+          "memory_ids": [],
+          "failure_signature": "teacher",
+          "wall_s": 1.06,
+          "tool_error": false
+        }
+      ],
+      "note": "attempt budget exhausted",
+      "student": "FAST",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b\\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "HOLDOUT-1",
+      "split": "holdout",
+      "profile": "no_lessons",
+      "status": "STUDENT_UNASSISTED_PASS",
+      "attempts": 2,
+      "hints_used": 0,
+      "hint_levels": [],
+      "teacher_patch_used": false,
+      "reproduced": true,
+      "lessons_injected": 0,
+      "lessons_injected_ids": [],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 0,
+      "tool_errors": 0,
+      "wall_s": 52.34,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 0.34,
+        "detail": "[REDACTED holdout verifier output; green, markers=1]"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n___________________ test_set_env_var_replaces_existing_key ____________________\n\n    def test_set_env_var_replaces_existing_key():\n        \"\"\"Ensu"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "d26ba52c9427",
+          "wall_s": 25.58,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [],
+          "verifier_passed": true,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "75223359950d",
+          "wall_s": 26.42,
+          "tool_error": false
+        }
+      ],
+      "note": "",
+      "student": "FAST",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b\\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "HOLDOUT-2",
+      "split": "holdout",
+      "profile": "no_lessons",
+      "status": "FAIL",
+      "attempts": 4,
+      "hints_used": 0,
+      "hint_levels": [],
+      "teacher_patch_used": false,
+      "reproduced": true,
+      "lessons_injected": 0,
+      "lessons_injected_ids": [],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 2,
+      "tool_errors": 0,
+      "wall_s": 135.61,
+      "verifier": {
+        "ran": true,
+        "passed": false,
+        "wall_s": 1.34,
+        "detail": "[REDACTED holdout verifier output; red, markers=1]"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n...F.........                                                            [100%]\n================================== FAILURES ===================================\n_______",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_video_mi"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "f95b0f5b4fff",
+          "wall_s": 40.94,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\nF                                                                        [100%]\n================================== FAILURES ======================"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "a7b66e47d1cf",
+          "wall_s": 34.69,
+          "tool_error": false
+        },
+        {
+          "n": 3,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_exam_reg"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "a7b66e47d1cf",
+          "wall_s": 28.38,
+          "tool_error": false
+        },
+        {
+          "n": 4,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_video_mi"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "a7b66e47d1cf",
+          "wall_s": 29.06,
+          "tool_error": false
+        }
+      ],
+      "note": "attempt budget exhausted",
+      "student": "FAST",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b\\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "TRAIN-1",
+      "split": "train",
+      "profile": "with_lessons",
+      "status": "TEACHER_PATCH",
+      "attempts": 4,
+      "hints_used": 3,
+      "hint_levels": [
+        1,
+        2,
+        3
+      ],
+      "teacher_patch_used": true,
+      "reproduced": true,
+      "lessons_injected": 1,
+      "lessons_injected_ids": [
+        "LSN-MEDIA-EN-ENCODER"
+      ],
+      "memory_ids_cited": [
+        "LSN-MEDIA-EN-ENCODER"
+      ],
+      "memory_lookup_correct": true,
+      "repeated_failures": 1,
+      "tool_errors": 0,
+      "wall_s": 184.47,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 1.41,
+        "detail": "......                                                                   [100%]\n6 passed in 0.62s",
+        "by": "teacher"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "PATCH_DID_NOT_APPLY: TRAIN-1/student: command-center/bcc/telegram_companion/service.py: search block found 0x, expected exactly 1"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [
+            "LSN-MEDIA-EN-ENCODER"
+          ],
+          "failure_signature": "fc685de62abe",
+          "wall_s": 50.11,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n            app = Companion.__new__(Companion)\n            app.models = models\n            return asyncio.run(app.english_prompt(text))\n    \n        ok = FakeModels('\"",
+            "NO_REGRESSION: Add a regression test that fails on the broken code and passes on the fixed code."
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 1,
+          "memory_ids": [
+            "LSN-MEDIA-EN-ENCODER"
+          ],
+          "failure_signature": "a0f562e21db7",
+          "wall_s": 46.91,
+          "tool_error": false
+        },
+        {
+          "n": 3,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "PATCH_DID_NOT_APPLY: TRAIN-1/student: command-center/bcc/telegram_companion/service.py: search block found 0x, expected exactly 1"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 2,
+          "memory_ids": [
+            "LSN-MEDIA-EN-ENCODER"
+          ],
+          "failure_signature": "fc685de62abe",
+          "wall_s": 44.02,
+          "tool_error": false
+        },
+        {
+          "n": 4,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n            def __init__(self, reply=None, fail=False):\n                self.reply, self.fail, self.calls = reply, fail, []\n    \n            async def summarize(self, ",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_companio"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 3,
+          "memory_ids": [
+            "LSN-MEDIA-EN-ENCODER"
+          ],
+          "failure_signature": "df6e28aa2846",
+          "wall_s": 40.41,
+          "tool_error": false
+        },
+        {
+          "n": 5,
+          "by": "teacher",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "TEACHER_PATCH applied after the student budget was spent"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 3,
+          "memory_ids": [],
+          "failure_signature": "teacher",
+          "wall_s": 1.41,
+          "tool_error": false
+        }
+      ],
+      "note": "attempt budget exhausted",
+      "student": "FAST",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b\\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "TRAIN-2",
+      "split": "train",
+      "profile": "with_lessons",
+      "status": "TEACHER_PATCH",
+      "attempts": 4,
+      "hints_used": 3,
+      "hint_levels": [
+        1,
+        2,
+        3
+      ],
+      "teacher_patch_used": true,
+      "reproduced": true,
+      "lessons_injected": 1,
+      "lessons_injected_ids": [
+        "LSN-STUDIO-FIRST-LIST-TIMEOUT"
+      ],
+      "memory_ids_cited": [
+        "LSN-STUDIO-FIRST-LIST-TIMEOUT"
+      ],
+      "memory_lookup_correct": true,
+      "repeated_failures": 3,
+      "tool_errors": 0,
+      "wall_s": 124.5,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 1.05,
+        "detail": "....                                                                     [100%]\n4 passed in 0.27s",
+        "by": "teacher"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_adapters"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 0,
+          "memory_ids": [
+            "LSN-STUDIO-FIRST-LIST-TIMEOUT"
+          ],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 34.62,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_exam_reg"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 1,
+          "memory_ids": [
+            "LSN-STUDIO-FIRST-LIST-TIMEOUT"
+          ],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 26.56,
+          "tool_error": false
+        },
+        {
+          "n": 3,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_exam_reg"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 2,
+          "memory_ids": [
+            "LSN-STUDIO-FIRST-LIST-TIMEOUT"
+          ],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 28.94,
+          "tool_error": false
+        },
+        {
+          "n": 4,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_exam_reg"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 3,
+          "memory_ids": [
+            "LSN-STUDIO-FIRST-LIST-TIMEOUT"
+          ],
+          "failure_signature": "8a8f65ba1b93",
+          "wall_s": 30.75,
+          "tool_error": false
+        },
+        {
+          "n": 5,
+          "by": "teacher",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "TEACHER_PATCH applied after the student budget was spent"
+          ],
+          "verifier_passed": true,
+          "hint_level_before": 3,
+          "memory_ids": [],
+          "failure_signature": "teacher",
+          "wall_s": 1.05,
+          "tool_error": false
+        }
+      ],
+      "note": "attempt budget exhausted",
+      "student": "FAST",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b\\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "HOLDOUT-1",
+      "split": "holdout",
+      "profile": "with_lessons",
+      "status": "STUDENT_UNASSISTED_PASS",
+      "attempts": 1,
+      "hints_used": 0,
+      "hint_levels": [],
+      "teacher_patch_used": false,
+      "reproduced": true,
+      "lessons_injected": 2,
+      "lessons_injected_ids": [
+        "LSN-STUDIO-FIRST-LIST-TIMEOUT",
+        "LSN-MEDIA-EN-ENCODER"
+      ],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 0,
+      "tool_errors": 0,
+      "wall_s": 25.77,
+      "verifier": {
+        "ran": true,
+        "passed": true,
+        "wall_s": 0.34,
+        "detail": "[REDACTED holdout verifier output; green, markers=1]"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [],
+          "verifier_passed": true,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "75223359950d",
+          "wall_s": 25.44,
+          "tool_error": false
+        }
+      ],
+      "note": "",
+      "student": "FAST",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b\\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf"
+    },
+    {
+      "case_id": "HOLDOUT-2",
+      "split": "holdout",
+      "profile": "with_lessons",
+      "status": "FAIL",
+      "attempts": 4,
+      "hints_used": 0,
+      "hint_levels": [],
+      "teacher_patch_used": false,
+      "reproduced": true,
+      "lessons_injected": 2,
+      "lessons_injected_ids": [
+        "LSN-STUDIO-FIRST-LIST-TIMEOUT",
+        "LSN-MEDIA-EN-ENCODER"
+      ],
+      "memory_ids_cited": [],
+      "memory_lookup_correct": null,
+      "repeated_failures": 0,
+      "tool_errors": 0,
+      "wall_s": 136.19,
+      "verifier": {
+        "ran": true,
+        "passed": false,
+        "wall_s": 1.42,
+        "detail": "[REDACTED holdout verifier output; red, markers=1]"
+      },
+      "attempt_log": [
+        {
+          "n": 1,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": true,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n\nself = <bcc.telegram_companion.adapters.Telegram object at 0x0000014416F8EC00>\nperson = Person(user_id=11111, chat_id=11111, role='owner', agent_id=None)\ndata = b'\\x0",
+            "REGRESSION_RED: Your own regression test does not pass on your patch:\n=================================== ERRORS ====================================\n_ ERROR collecting tests/telegram_contracts/test_exam_reg_video_ve"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "53ca6a55785c",
+          "wall_s": 51.28,
+          "tool_error": false
+        },
+        {
+          "n": 2,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": true,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "PATCH_DID_NOT_APPLY: HOLDOUT-2/student: command-center/bcc/telegram_companion/adapters.py: search block found 0x, expected exactly 1"
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "fc685de62abe",
+          "wall_s": 24.75,
+          "tool_error": false
+        },
+        {
+          "n": 3,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": false,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "VISIBLE_RED: The visible tests are still red:\n...F.........                                                            [100%]\n================================== FAILURES ===================================\n_______",
+            "NO_REGRESSION: Add a regression test that fails on the broken code and passes on the fixed code."
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "5286d46b6b63",
+          "wall_s": 46.76,
+          "tool_error": false
+        },
+        {
+          "n": 4,
+          "by": "student",
+          "parse_ok": true,
+          "visible_passed": true,
+          "regression_present": false,
+          "regression_catches_bug": null,
+          "review_notes": [
+            "NO_REGRESSION: Add a regression test that fails on the broken code and passes on the fixed code."
+          ],
+          "verifier_passed": false,
+          "hint_level_before": 0,
+          "memory_ids": [],
+          "failure_signature": "cd10854b53fe",
+          "wall_s": 10.92,
+          "tool_error": false
+        }
+      ],
+      "note": "attempt budget exhausted",
+      "student": "FAST",
+      "model": "C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b\\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf"
+    }
+  ],
+  "lessons": {
+    "written": [
+      {
+        "id": "LSN-MEDIA-EN-ENCODER",
+        "lesson_id": "coach-lesson:71ca641af81b7213"
+      },
+      {
+        "id": "LSN-STUDIO-FIRST-LIST-TIMEOUT",
+        "lesson_id": "coach-lesson:421b1abf66c31d16"
+      }
+    ],
+    "rejected": [],
+    "refused_holdout_linked": [
+      "LSN-TG-ENV-CONCAT"
+    ]
+  },
+  "usage": {
+    "MAIN": {
+      "student_calls": 26,
+      "prompt_chars": 363676,
+      "reply_chars": 111238
+    },
+    "FAST": {
+      "student_calls": 27,
+      "prompt_chars": 358076,
+      "reply_chars": 146035
+    }
+  },
+  "students_not_run": [],
+  "lessons_dir": "owner-repair\\coaching-exam-20260922\\lessons"
+}
