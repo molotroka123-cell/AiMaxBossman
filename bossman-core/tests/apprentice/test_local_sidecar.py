@@ -280,3 +280,32 @@ def test_a_windows_command_with_a_quoted_path_with_spaces_splits_into_a_usable_e
     # unquoted tokens and backslashes are untouched; POSIX splitting unchanged
     assert split_command(r"C:\py\python.exe -m x", windows=True) == (r"C:\py\python.exe", "-m", "x")
     assert split_command("'/opt/my py/python' -m x", windows=False) == ("/opt/my py/python", "-m", "x")
+
+
+def test_tool_choice_is_required_and_falls_back_to_auto_on_a_400():
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    seen = []
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *_a):
+            return
+
+        def do_POST(self):  # noqa: N802
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            seen.append(body["tool_choice"])
+            if body["tool_choice"] == "required":
+                self.send_response(400); self.end_headers(); return
+            data = json.dumps({"choices": [{"message": {"role": "assistant", "content": "x"}}]}).encode()
+            self.send_response(200); self.send_header("Content-Length", str(len(data))); self.end_headers()
+            self.wfile.write(data)
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        m = ls.Model(f"http://127.0.0.1:{srv.server_address[1]}", "m", None)
+        m.chat([{"role": "user", "content": "hi"}], tools=ls.TOOL_SPECS[:1], timeout=10)
+        m.chat([{"role": "user", "content": "hi"}], tools=ls.TOOL_SPECS[:1], timeout=10)
+    finally:
+        srv.shutdown()
+    assert seen == ["required", "auto", "auto"]   # tried required once, then remembered auto

@@ -367,11 +367,24 @@ class Model:
         body = _http(self.base + "/models", None, api_key=self.api_key, timeout=timeout)
         return [str(m.get("id")) for m in body.get("data") or [] if isinstance(m, dict)]
 
+    #: Inside the loop every turn must be a tool call (finish is a tool), so
+    #: "required" makes llama.cpp's tool grammar mandatory instead of lazy.
+    #: A server that rejects it (HTTP 400) is retried once with "auto" and
+    #: remembered, so an older runtime still works.
+    tool_choice = "required"
+
     def chat(self, messages: list[dict], *, tools: list[dict], timeout: float) -> dict:
-        body = _http(self.base + "/chat/completions", {
-            "model": self.model, "messages": messages, "temperature": 0, "max_tokens": 4096,
-            "tools": [{"type": "function", "function": t} for t in tools], "tool_choice": "auto",
-        }, api_key=self.api_key, timeout=timeout)
+        payload = {"model": self.model, "messages": messages, "temperature": 0, "max_tokens": 4096,
+                   "tools": [{"type": "function", "function": t} for t in tools],
+                   "tool_choice": self.tool_choice}
+        try:
+            body = _http(self.base + "/chat/completions", payload, api_key=self.api_key, timeout=timeout)
+        except urllib.error.HTTPError as exc:
+            if exc.code != 400 or self.tool_choice == "auto":
+                raise
+            self.tool_choice = "auto"
+            body = _http(self.base + "/chat/completions", {**payload, "tool_choice": "auto"},
+                         api_key=self.api_key, timeout=timeout)
         choice = (body.get("choices") or [{}])[0]
         return choice.get("message") or {}
 
