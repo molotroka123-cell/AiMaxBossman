@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import hashlib
 import importlib.metadata
 import json
@@ -66,7 +67,10 @@ def configured_model(data_dir: Path, agent_id: int | None) -> dict:
     database = data_dir / 'bcc.db'
     if not database.is_file():
         raise OwnerRequired('Configure a real model and enabled agent in Bossman first.')
-    with sqlite3.connect(database.resolve().as_uri() + '?mode=ro', uri=True, timeout=5) as conn:
+    # closing(): `with sqlite3.connect()` only commits/rolls back and never closes;
+    # a kept OwnerRequired traceback would pin the owner's bcc.db open.
+    with contextlib.closing(sqlite3.connect(database.resolve().as_uri() + '?mode=ro',
+                                            uri=True, timeout=5)) as conn:
         conn.row_factory = sqlite3.Row
         agents = [dict(row) for row in conn.execute('SELECT * FROM agents WHERE enabled = 1 ORDER BY id')]
         models = {row['id']: dict(row) for row in conn.execute('SELECT * FROM models')}
@@ -211,7 +215,22 @@ def launch(data_dir: Path, port: int, log) -> subprocess.Popen:
                             stdout=log, stderr=log)
 
 
-def stop(process: subprocess.Popen) -> None:
+def stop(process: subprocess.Popen, *, descendants_grace_s: float = 10.0) -> None:
+    """Остановить сервер и дождаться ВСЕГО его дерева, а не одного pid.
+
+    `launch()` запускает `sys.executable`; в Windows venv это venvlauncher, а
+    сервер — его дочерний python.exe. terminate() убивает лаунчер, wait()
+    возвращается, а сервер ещё жив и держит bcc.db (job object лаунчера добьёт
+    его позже, асинхронно): уборка каталога данных падает с WinError 32,
+    перезапуск на том же порту может попасть в старый процесс. Поэтому потомки
+    снимаются снимком ДО terminate, получают срок выйти сами и добиваются.
+    """
+    import psutil  # noqa: PLC0415
+
+    try:
+        tree = psutil.Process(process.pid).children(recursive=True)
+    except psutil.Error:
+        tree = []
     if process.poll() is None:
         process.terminate()
         try:
@@ -219,6 +238,23 @@ def stop(process: subprocess.Popen) -> None:
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=10)
+    if not tree:
+        return
+    for child in tree:
+        try:
+            child.terminate()
+        except psutil.Error:
+            pass
+    _gone, alive = psutil.wait_procs(tree, timeout=descendants_grace_s)
+    for leftover in alive:
+        try:
+            leftover.kill()
+        except psutil.Error:
+            pass
+    _gone, alive = psutil.wait_procs(alive, timeout=10)
+    if alive:
+        raise RuntimeError('после остановки сервера живы потомки: '
+                           + ', '.join(str(p.pid) for p in alive))
 
 
 def connect(process, data_dir: Path, port: int) -> tuple[httpx.Client, dict]:
