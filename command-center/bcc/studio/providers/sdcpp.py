@@ -1038,7 +1038,10 @@ class SdCppProvider:
             job["elapsed_s"] = round(time.time() - job["started"], 2)
             job["state"] = "done" if job.get("state") != "canceled" else "canceled"
             if job.get("failure") is not None and not job.get("canceled"):
-                self._cleanup_work(job)  # nothing to fetch: no stale raw/init/sidecar until restart
+                # A stop or a blown deadline keeps the segments the engine actually finished
+                # ("стоп обрывает на том, что уже есть"); any other failure leaves nothing
+                # behind, exactly as before — no stale raw/init/sidecar until a restart.
+                self._cleanup_work(job, keep_partial=bool(self._done_segment_files(job)))
 
     async def _run_inner(self, job: dict) -> None:
         """One engine run per segment; segment k>0 is I2V from the last frame of segment k-1."""
@@ -1251,21 +1254,157 @@ class SdCppProvider:
         if proc is not None and proc.returncode is None:
             with contextlib.suppress(Exception):
                 await asyncio.wait_for(proc.wait(), KILL_WAIT_S)
-        self._cleanup_work(job)
+        self._cleanup_work(job, keep_partial=bool(self._done_segment_files(job)))
 
-    def _cleanup_work(self, job: dict) -> None:
+    def _cleanup_work(self, job: dict, *, keep_partial: bool = False) -> None:
+        # "Стоп обрывает на том, что уже есть": the segments the engine actually finished are
+        # work that was really done. They survive a stop/timeout until they are fetched or the
+        # job is discarded; everything else (half-written raws, start frames, .part files) goes.
+        spared = set()
+        if keep_partial:
+            spared = {Path(p) for p in self._done_segment_files(job)}
         for p in (job["raw"], job["init"], *job.get("raws", ()), *job.get("frame_files", ()),
                   *self.work.glob(f"{job['rid']}*.part")):
-            if p is not None:
+            if p is not None and Path(p) not in spared:
                 with contextlib.suppress(OSError):
                     Path(p).unlink(missing_ok=True)
+        if spared:
+            return                                     # the sidecar still owns the kept segments
         with contextlib.suppress(OSError):
             Path(job["sidecar"]).unlink(missing_ok=True)
 
+    # -- partial results ("стоп обрывает на том, что уже есть")
+    @staticmethod
+    def _done_segment_files(job: dict) -> list[Path]:
+        """Segment files the engine finished AND that passed verification, in chain order.
+
+        sd.cpp writes a segment's container only when that segment ends, so a segment that was
+        interrupted has no salvageable bytes at all — there is no half clip to rescue, and we
+        never pretend otherwise by padding, repeating a frame or interpolating.
+        """
+        raws = job.get("raws") or []
+        if len(raws) < 2:
+            return []                                  # single pass: nothing finished before the end
+        done = len(job.get("segment_results") or [])
+        return [Path(p) for p in raws[:done] if Path(p).is_file() and Path(p).stat().st_size > 0]
+
+    def partial_result(self, request_id: str) -> dict | None:
+        """What can honestly be salvaged from a stopped or timed-out chain, or None.
+
+        None means there is nothing to save — not that saving failed. `detail` says which.
+        """
+        job = self._jobs.get(request_id)
+        if job is None:
+            raise ValueError("request_id: unknown to this adapter")
+        if job.get("fetched"):
+            return None
+        stopped = bool(job.get("canceled")) or job.get("failure") in ("canceled", "timeout")
+        if not stopped:
+            return None
+        total = len(job.get("raws") or [job["raw"]])
+        files = self._done_segment_files(job)
+        results = (job.get("segment_results") or [])[:len(files)]
+        fps = job["settings"].get("fps") or 0
+        frames = job["settings"].get("frames") or 0
+        # The joined clip drops the repeated start frame of every later segment.
+        joined = frames + (frames - 1) * (len(files) - 1) if files and frames else 0
+        reason = "timeout" if job.get("failure") == "timeout" and not job.get("canceled") else "canceled"
+        return {"request_id": request_id, "partial": True, "complete": False, "reason": reason,
+                "segments_done": len(files), "segments_total": total,
+                "duration_s": round(joined / fps, 3) if fps and joined else None,
+                "duration_s_if_complete": declared_duration_s(job["settings"]),
+                "segments": [dict(r) for r in results],
+                "detail": f"{len(files)} of {total} segments finished" if files else
+                          "no segment finished: the engine writes a segment only when it ends, "
+                          "so there are no bytes to save"}
+
+    async def fetch_partial(self, request_id: str, dest: Path) -> Fetched:
+        """Join the finished segments into one file, marked partial in the trace.
+
+        Refuses when nothing finished: an empty or broken file is never handed over as a result.
+        """
+        job = self._jobs.get(request_id)
+        if job is None:
+            raise ValueError("request_id: unknown to this adapter")
+        if job.get("fetched"):
+            raise ValueError("output: already fetched")
+        info = self.partial_result(request_id)
+        if info is None:
+            raise ValueError("output: the job was not stopped; there is no partial result")
+        files = self._done_segment_files(job)
+        if not files:
+            raise SdCppFailure("malformed", info["detail"])
+        if self.model["surface"] != "video":
+            raise ValueError("output: partial results exist only for segment chains")
+        dest = Path(dest).resolve()
+        if self.root not in dest.parents:
+            raise PermissionError("output path escapes media root")
+        tmp = dest.with_name(f".{dest.name}.{request_id}.part")
+        try:
+            try:
+                argv = await self._transcode(files[0], tmp, job, raws=files)
+            except ValueError as exc:
+                raise SdCppFailure("provider_down", f"transcode failed: {str(exc)[:300]}") from exc
+            from bcc.studio.runtime import verify_file
+            try:
+                final_meta = await verify_file(tmp, self.model["surface"])
+            except (ValueError, OSError, KeyError) as exc:
+                raise SdCppFailure("malformed",
+                                   f"partial output failed verification: {type(exc).__name__}") from exc
+            os.replace(tmp, dest)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                tmp.unlink(missing_ok=True)
+            raise
+        job["fetched"] = True
+        chain = info["segments"]
+        observed_ms = final_meta.get("duration_ms")
+        self.traces[request_id] = {
+            "engine": "stable-diffusion.cpp",
+            "engine_release_declared": self.cfg["manifest"].get("engine", {}).get("release"),
+            "backend": observe_backend(job["log"]),
+            # The loudest field first: this is NOT the clip that was asked for.
+            "partial": True, "complete": False, "stopped_by": info["reason"],
+            "segments_done": info["segments_done"], "segments_total": info["segments_total"],
+            "generation": {
+                "source": "engine_process_interrupted",
+                "engine_binary": {k: v for k, v in job["binary"].items() if k != "path"},
+                "argv": [Path(job["argv"][0]).name] + [a if not os.path.isabs(a) else Path(a).name
+                                                       for a in job["argv"][1:]],
+                "frames": job["settings"].get("frames"), "fps": job["settings"].get("fps"),
+                "length": job["settings"].get("length"), "segments": chain,
+                "duration_s_declared": info["duration_s"],
+                "duration_s_requested": info["duration_s_if_complete"],
+                "duration_s_observed": None if observed_ms is None else round(observed_ms / 1000, 3),
+                "image_to_video": job["init"] is not None,
+                "synthesis": "none: only segments the engine itself finished; no frame was "
+                             "repeated, padded or interpolated to reach the requested length",
+                "log_tail": job["log"][-12:],
+            },
+            "transcode": {"tool": "ffmpeg", "operation": "concat_finished_segments_only",
+                          "argv": [Path(argv[0]).name] + [a if not os.path.isabs(a) else Path(a).name
+                                                          for a in argv[1:]],
+                          "input_sha256": [s["sha256"] for s in chain],
+                          "output_sha256": final_meta["sha256"], "output_bytes": final_meta["bytes"]},
+            "import": {"dest_name": dest.name, "sha256": final_meta["sha256"],
+                       "bytes": final_meta["bytes"], "mime": "video/mp4", "atomic": True},
+        }
+        self._cleanup_work(job)
+        s = job["settings"]
+        return Fetched(dest, final_meta["bytes"], "video/mp4", final_meta["sha256"],
+                       s.get("width"), s.get("height"),
+                       None if final_meta.get("duration_ms") is None else int(final_meta["duration_ms"]))
+
+    def discard_partial(self, request_id: str) -> None:
+        """The owner does not want the stump: drop the kept segments and the sidecar."""
+        job = self._jobs.get(request_id)
+        if job is not None:
+            self._cleanup_work(job)
+
     # -- fetch
-    async def _transcode(self, raw: Path, tmp: Path, job: dict) -> list[str]:
+    async def _transcode(self, raw: Path, tmp: Path, job: dict, raws=None) -> list[str]:
         from bcc.video_studio.media import binary, process
-        raws = job.get("raws") or [raw]
+        raws = list(raws) if raws else (job.get("raws") or [raw])
         if len(raws) == 1:
             # Container transcode of the model's own frames (VP8 .webm → H.264 .mp4).
             argv = [binary("ffmpeg"), "-v", "error", "-y", "-i", str(raw), "-an",
