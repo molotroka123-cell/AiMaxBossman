@@ -100,6 +100,8 @@ SUPPORT_SCRIPTS = (
     # детерминированная тестовая модель) и загрузчик модельных профилей.
     (ROOT / "tools" / "coding_path_owner.py", "coding_path_owner.py"),
     (ROOT / "tools" / "model_fetch.py", "model_fetch.py"),
+    # HW-10 MVČR: пакет до WAIT_APPROVAL, без отправки/подписи/оплаты.
+    (ROOT / "tools" / "mvcr_prepare.py", "mvcr_prepare.py"),
 )
 # Данные, которые раннеры читают рядом с собой (не исполняемые скрипты).
 SUPPORT_DATA = (

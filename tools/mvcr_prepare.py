@@ -1367,7 +1367,18 @@ def decide_only(pipe: Pipeline, args: argparse.Namespace) -> tuple[str, str]:
     return status, reason
 
 
+def utf8_console() -> None:
+    """Shipped runners start with -I (PYTHONUTF8 ignored): the Russian report
+    would crash a cp1252 Windows console without this."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    utf8_console()
     args = build_parser().parse_args(argv)
     summary = run_pipeline(args)
     if args.json:
