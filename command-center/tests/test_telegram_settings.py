@@ -321,6 +321,13 @@ async def test_persona_learning_profiles_and_export(env, tg):
     assert by_id[11111]["entries"] == 1 and by_id[22222]["profile"]["text"] == "- любит шахматы"
     assert by_id[22222]["learning"] is True
 
+    import importlib.util
+    if importlib.util.find_spec("bossman") is None:
+        # Command Center installed without bossman-core: the sanitizer is
+        # missing, so the owner edit is refused (503) and nothing is written.
+        r = await env.client.put("/api/telegram/profile/22222", json={"text": "- любит шахматы и джаз"})
+        assert r.status_code == 503 and "bossman-core" in r.text
+        return
     edited = (await env.client.put("/api/telegram/profile/22222", json={"text": "- любит шахматы и джаз"})).json()
     assert edited["version"] == 2 and edited["edited_by_owner"] is True
     assert (await env.client.put("/api/telegram/profile/424242", json={"text": "x"})).status_code == 404
@@ -409,3 +416,23 @@ async def test_local_state_never_lands_in_the_repository(env, tg):
     gitignore = (repo / ".gitignore").read_text(encoding="utf-8")
     for pattern in ("*.sqlite3", "credentials.enc", "screen-*.png"):
         assert pattern in gitignore, pattern
+
+
+async def test_profile_edit_without_the_sanitizer_is_refused_and_not_stored(env, tg, monkeypatch):
+    """Fail closed: without the canonical sanitizer (bossman-core) an owner edit
+    must not store unredacted text; it answers a typed 503, never a 500."""
+    import sys
+    from bcc.telegram_companion.store import Store
+    assert (await env.client.put("/api/telegram/settings", json=body())).status_code == 200   # 22222 is a known guest
+    store = Store(tg.parent)
+    try:
+        store.log("22222:22222", "вопрос", "ответ")
+        store.put_profile("22222:22222", "- любит шахматы", 1)
+    finally:
+        store.close()
+    monkeypatch.setitem(sys.modules, "bossman.ai_lab.sanitizer", None)
+    r = await env.client.put("/api/telegram/profile/22222", json={"text": "ключ sk-or-v1-" + "a" * 40})
+    assert r.status_code == 503 and "не сохранён" in r.text
+    people = (await env.client.get("/api/telegram/people")).json()["items"]
+    prof = {p["user_id"]: p for p in people}[22222]["profile"]
+    assert prof["text"] == "- любит шахматы"          # unchanged: nothing unredacted was written
