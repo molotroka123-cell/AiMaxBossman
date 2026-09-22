@@ -271,6 +271,9 @@ def test_worker_roundtrip_owner_gets_main_reply_stranger_gets_nothing(tmp_path):
             await tg.close(); await models.close(); store.close()
     asyncio.run(run())
     messages = [b for m, b in sent if m == 'sendMessage']
+    buttons = messages[0].pop('reply_markup')['inline_keyboard'][0]
+    assert [b['text'] for b in buttons] == ['🔁 Ещё раз', '⚡ Ответить быстрой']
+    assert all(len(b['callback_data']) == 18 and 'Как дела' not in b['callback_data'] for b in buttons)
     assert messages == [{'chat_id': OWNER.chat_id, 'text': '🧠 Лучшая · main-fixture\n\nMAIN ответ', 'disable_web_page_preview': True}]
     assert all(b.get('chat_id') == OWNER.chat_id for _, b in sent)
     assert {m for m, _ in sent} <= {'sendMessage', 'sendChatAction'}

@@ -75,6 +75,19 @@ REJECTED_TEXT = {
 
 
 ROUTE_TITLE = {"main": "🧠 Лучшая", "fast": "⚡ Быстрая"}
+BOT_COMMANDS = [("menu", "Меню с кнопками"), ("best", "Отвечать лучшей моделью"), ("fast", "Отвечать самой быстрой"),
+                ("model", "Какая модель отвечает"), ("img", "Нарисовать картинку"), ("cancel", "Отменить генерацию"),
+                ("forget", "Очистить историю"), ("help", "Помощь")]
+
+
+class Reply(str):
+    """A reply text that may carry inline buttons; still a plain str for callers."""
+    keyboard = None
+
+    def __new__(cls, text, keyboard=None):
+        obj = super().__new__(cls, text)
+        obj.keyboard = keyboard
+        return obj
 DELEGATION_OFF = ("Поручения из Telegram пока недоступны: Telegram сейчас только для беседы с локальными "
                   "моделями. Управление компьютером, браузером и файлами отсюда не выполняется.")
 
@@ -98,6 +111,8 @@ class Companion:
         self.last_message = {}
         self.image_job = None
         self.image_poll_seconds = 2.0
+        # Button tokens live only in memory: after a restart every old button is stale.
+        self.buttons = {}
         self.monitor_state = None
         self.monitor_failures = 0
         if self.telegram is not None:
@@ -130,9 +145,55 @@ class Companion:
         except (OSError, ValueError, TypeError):
             return False
 
+    # ---------------------------------------------------------------- buttons
+    def button(self, person: Person, label: str, command: str):
+        """Opaque single-person token; the command text never travels in callback data."""
+        if len(self.buttons) >= 1000:
+            for key in sorted(self.buttons, key=lambda k: self.buttons[k][2])[:200]:
+                self.buttons.pop(key, None)
+        token = secrets.token_hex(8)
+        self.buttons[token] = (person.key, command[:2100], time.time())
+        return (label, "b:" + token)
+
+    def main_menu(self, person: Person):
+        b = lambda label, cmd: self.button(person, label, cmd)  # noqa: E731
+        return [[b("🧠 Лучшая", "/best"), b("⚡ Самая быстрая", "/fast")],
+                [b("👁 Модель для фото", "/photo"), b("🎨 Сгенерировать картинку", "/img")],
+                [b("❓ Какая модель?", "/model"), b("ℹ️ Помощь", "/help")],
+                [b("🧹 Очистить историю", "/forget")]]
+
+    async def ingest_callback(self, update: dict):
+        cb = update.get("callback_query")
+        if not isinstance(cb, dict) or not isinstance(cb.get("id"), str):
+            return
+        message = cb.get("message") if isinstance(cb.get("message"), dict) else {}
+        # Identity = the person who PRESSED, in the private chat the button lives in.
+        synthetic = {"from": cb.get("from"), "chat": message.get("chat")}
+        person = self.authorized(synthetic)
+        if person is None:
+            self.store.ingest(update["update_id"], None, None)   # acknowledge, ignore, never answer
+            return
+        data = cb.get("data")
+        entry = None
+        if isinstance(data, str) and len(data) == 18 and data.startswith("b:"):
+            entry = self.buttons.get(data[2:])
+        if entry is None or entry[0] != person.key or time.time() - entry[2] > 86400:
+            self.store.ingest(update["update_id"], None, None)
+            with contextlib.suppress(CompanionError):
+                await self.telegram.call("answerCallbackQuery", {"callback_query_id": cb["id"],
+                                         "text": "Кнопка устарела. Откройте /menu."})
+            return
+        with contextlib.suppress(CompanionError):
+            await self.telegram.call("answerCallbackQuery", {"callback_query_id": cb["id"]})
+        body = {**synthetic, "text": entry[1], "_callback": True, "_update_id": update["update_id"]}
+        if self.store.ingest(update["update_id"], person.key, body):
+            self.wake[(person.key, self.store.lane(body))].set()
+
     async def ingest(self, update: dict):
         if not isinstance(update, dict) or type(update.get("update_id")) is not int or update['update_id'] < 0:
             return
+        if "callback_query" in update:
+            return await self.ingest_callback(update)
         message = update.get("message")
         person = self.authorized(message)
         text = message.get("text") if isinstance(message, dict) else None
@@ -207,7 +268,8 @@ class Companion:
             self.image_job["id"] = job_id
             with contextlib.suppress(CompanionError):
                 await self.telegram.send(person, f"Рисую локально ({s.image_model}, {s.image_size}×{s.image_size}, "
-                                                 f"{s.image_steps} шагов). Обычно 1–3 минуты. /cancel — отменить.")
+                                                 f"{s.image_steps} шагов). Обычно 1–3 минуты. /cancel — отменить.",
+                                         [[self.button(person, "✖️ Отмена", "/cancel")]])
             while True:
                 if self.image_job["cancel"]:
                     with contextlib.suppress(CompanionError):
@@ -234,7 +296,8 @@ class Companion:
             elapsed = round(time.monotonic() - started)
             caption = (f"🎨 {prompt[:300]}\nМодель: {run.get('model', s.image_model)} · seed {seed} · {elapsed} с · "
                        f"локально, Bossman Studio (проверено: sha256 совпал)")
-            await self.telegram.send_photo(person, data, caption)
+            await self.telegram.send_photo(person, data, caption,
+                                           [[self.button(person, "🎨 Ещё вариант", "/img " + prompt[:2000])]])
             self.store.remember(person.key, "[картинка] " + prompt[:500], f"Нарисовано локально, seed {seed}.")
             return None   # the photo itself is the reply
         finally:
@@ -284,8 +347,14 @@ class Companion:
             return HELP
         command, _, arg = text.partition(" ")
         command, arg = command.lower(), arg.strip()
-        if command in {"/start", "/help"}:
-            return HELP
+        if command in {"/start", "/help", "/menu"}:
+            return Reply(HELP if command != "/menu" else "Меню:", self.main_menu(person))
+        if command == "/photo":
+            route = await self.models.vision_route()
+            if route is None:
+                return failure_text("NO_VISION_MODEL")
+            model = self.settings.local_model if route == "main" else self.settings.fast_model
+            return f"Фото смотрит {ROUTE_TITLE[route]} · {model_name(model)}. Просто пришлите фото, вопрос — в подписи."
         if command == "/forget":
             self.store.forget(person.key)
             return "Локальная память беседы очищена; облачный резерв выключен. Историю самого Telegram удаляйте в Telegram. Выполненные задачи Bossman не удалены."
@@ -416,7 +485,12 @@ class Companion:
         used = "fast" if used == "fast" else "main"
         model = self.settings.local_model if used == "main" else self.settings.fast_model
         note = " (лучшая не ответила вовремя)" if used == "fast" and route == "main" else ""
-        return f"{ROUTE_TITLE[used]} · {model_name(model or '')}{note}\n\n{answer}"
+        again = ("/best " if route == "main" else "/fast ") + text
+        other = ("⚡ Ответить быстрой", "/fast " + text) if used == "main" else ("🧠 Ответить лучшей", "/best " + text)
+        keyboard = [[self.button(person, "🔁 Ещё раз", again)]]
+        if self.settings.fast_model:
+            keyboard[0].append(self.button(person, *other))
+        return Reply(f"{ROUTE_TITLE[used]} · {model_name(model or '')}{note}\n\n{answer}", keyboard)
 
     async def typing(self, person: Person):
         """Cosmetic 'typing…' while a slow local model answers; never blocks or fails the reply."""
@@ -474,7 +548,7 @@ class Companion:
                 self.store.finish(update_id, "failed")
                 continue
             try:
-                await self.telegram.send(person, answer)
+                await self.telegram.send(person, answer, getattr(answer, "keyboard", None))
             except CompanionError:
                 self.store.finish(update_id, "delivery_unknown")
             else:
@@ -487,7 +561,7 @@ class Companion:
         while True:
             try:
                 updates = await self.telegram.call("getUpdates", {"offset": self.store.get("offset", 0),
-                    "timeout": 25, "limit": 20, "allowed_updates": ["message"]})
+                    "timeout": 25, "limit": 20, "allowed_updates": ["message", "callback_query"]})
                 if not isinstance(updates, list):
                     raise CompanionError("TELEGRAM_UPDATES_INVALID")
                 for update in updates:

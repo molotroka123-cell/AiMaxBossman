@@ -10,6 +10,7 @@ Endpoints (mounted under /api with the normal session/CSRF or token auth):
   PUT  /telegram/settings  — validate server-side, write atomically, encrypt token
   POST /telegram/models    — list served model ids on loopback endpoints (no Telegram)
   POST /telegram/test      — Telegram getMe, ONLY when the owner presses the button
+  POST /telegram/commands  — setMyCommands, ONLY when the owner presses the button
   GET  /telegram/status    — running / stopped / error + last stable error code
   POST /telegram/start     — start the companion process started by this server
   POST /telegram/stop      — stop only the process this server started
@@ -359,6 +360,26 @@ async def test_bot():
     try:
         result = await telegram.preflight()
         return {"ok": True, "status": result["status"], "username": result.get("username", "")}
+    except CompanionError as exc:
+        return {"ok": False, "status": str(exc)}
+    finally:
+        await telegram.close()
+
+
+@router.post("/telegram/commands")
+async def set_commands():
+    """Owner-pressed only: register the bot's command list (setMyCommands)."""
+    from ..telegram_companion.adapters import Telegram
+    from ..telegram_companion.config import CompanionError, load
+    from ..telegram_companion.service import BOT_COMMANDS
+    try:
+        settings = load(config_path())
+    except (OSError, ValueError, TypeError):
+        raise HTTPException(409, "Сначала сохраните настройки Telegram.") from None
+    telegram = Telegram(settings, transport=TELEGRAM_TRANSPORT)
+    try:
+        await telegram.call("setMyCommands", {"commands": [{"command": c, "description": d} for c, d in BOT_COMMANDS]})
+        return {"ok": True, "commands": [c for c, _ in BOT_COMMANDS]}
     except CompanionError as exc:
         return {"ok": False, "status": str(exc)}
     finally:

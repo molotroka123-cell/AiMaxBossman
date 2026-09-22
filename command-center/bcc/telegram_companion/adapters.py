@@ -113,10 +113,22 @@ def split_message(text: str, limit: int = 3500, max_parts: int = 5) -> list[str]
     return parts
 
 
-class Telegram:
-    METHODS = frozenset({"getMe", "getWebhookInfo", "getUpdates", "sendMessage", "sendChatAction", "getFile"})
+def markup(keyboard) -> dict:
+    """[[(label, callback_data), ...], ...] -> InlineKeyboardMarkup (data <= 64 bytes)."""
+    rows = []
+    for row in keyboard[:8]:
+        buttons = [{"text": str(label)[:40], "callback_data": data} for label, data in row[:4]
+                   if isinstance(data, str) and 0 < len(data.encode()) <= 64]
+        if buttons:
+            rows.append(buttons)
+    return {"inline_keyboard": rows}
 
-    async def send_photo(self, person: Person, data: bytes, caption: str):
+
+class Telegram:
+    METHODS = frozenset({"getMe", "getWebhookInfo", "getUpdates", "sendMessage", "sendChatAction", "getFile",
+                         "answerCallbackQuery", "setMyCommands"})
+
+    async def send_photo(self, person: Person, data: bytes, caption: str, keyboard=None):
         """Upload verified PNG/JPEG bytes as a photo; caption passes the same egress guard."""
         from bossman.notifications.telegram_transport import _egress_guard_text
         if not self.settings.bot_token:
@@ -131,7 +143,8 @@ class Telegram:
         try:
             async with asyncio.timeout(120):
                 response = await self.client.post(f"{TELEGRAM_API}/bot{self.settings.bot_token}/sendPhoto",
-                                                  data={"chat_id": str(person.chat_id), "caption": clean},
+                                                  data={"chat_id": str(person.chat_id), "caption": clean,
+                                                        **({"reply_markup": json.dumps(markup(keyboard))} if keyboard else {})},
                                                   files={"photo": (name, data, mime)})
             body = response.json()
         except (httpx.HTTPError, OSError, TimeoutError, ValueError):
@@ -205,7 +218,7 @@ class Telegram:
             raise CompanionError("WEBHOOK_CONFLICT_USE_SEPARATE_COMPANION_BOT")
         return {"status": "AUTH_AND_POLLING_CONFIG_OK_NOT_E2E", "username": me.get("username", "")}
 
-    async def send(self, person: Person, text: str):
+    async def send(self, person: Person, text: str, keyboard=None):
         clean = scrub(text, (self.settings.bot_token, self.settings.core_token,
                             self.settings.cloud_token, self.settings.local_token))
         from bossman.notifications.telegram_transport import _egress_guard_text
@@ -215,10 +228,13 @@ class Telegram:
             now = asyncio.get_running_loop().time()
             await asyncio.sleep(max(0, self._sent_at.get(person.chat_id, 0) + 1.05 - now))
             message_id = None
-            for index, part in enumerate(split_message(clean)):
+            parts = split_message(clean)
+            for index, part in enumerate(parts):
                 if index:
                     await asyncio.sleep(1.05)   # stay under Telegram's per-chat rate
                 payload = {"chat_id": person.chat_id, "text": part, "disable_web_page_preview": True}
+                if keyboard and index == len(parts) - 1:
+                    payload["reply_markup"] = markup(keyboard)
                 try:
                     if not self.authorize_delivery(person):
                         raise CompanionError("IDENTITY_REVOKED")

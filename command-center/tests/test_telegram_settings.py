@@ -280,3 +280,17 @@ async def test_image_generation_settings_and_studio_contract(env, tg):
         assert await core.studio_runs(999) == []
     finally:
         await core.close()
+
+
+async def test_set_bot_commands_only_on_request(env, tg, monkeypatch):
+    assert (await env.client.post("/api/telegram/commands")).status_code == 409
+    await env.client.put("/api/telegram/settings", json=body())
+    seen = []
+    def handler(request):
+        seen.append((request.url.path.rsplit("/", 1)[-1], json.loads(request.content)))
+        return httpx.Response(200, json={"ok": True, "result": True})
+    monkeypatch.setattr(ts, "TELEGRAM_TRANSPORT", httpx.MockTransport(handler))
+    r = (await env.client.post("/api/telegram/commands")).json()
+    assert r["ok"] and "menu" in r["commands"] and "img" in r["commands"]
+    [(method, payload)] = seen
+    assert method == "setMyCommands" and {"command": "best", "description": "Отвечать лучшей моделью"} in payload["commands"]

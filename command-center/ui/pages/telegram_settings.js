@@ -169,6 +169,11 @@ export async function telegramPanel(ctx) {
       if (res.ok) toastOk(`Бот @${res.username || '?'} отвечает`, 'Проверены только токен и отсутствие webhook; сообщений не отправлено.');
       else toastError(new Error(`Проверка бота: ${res.status}`));
     }, 'Бот не проверен')),
+    actionButton('Команды бота в меню Telegram', wrap(async () => {
+      const res = await api.raw('/api/telegram/commands', { method: 'POST' });
+      if (res.ok) toastOk('Команды бота обновлены', (res.commands || []).map((c) => '/' + c).join(' '));
+      else toastError(new Error(`Команды не обновлены: ${res.status}`));
+    }, 'Команды не обновлены')),
     actionButton('Старт', wrap(async () => setStatus(await api.raw('/api/telegram/start', { method: 'POST' })), 'Компаньон не запущен')),
     actionButton('Стоп', wrap(async () => setStatus(await api.raw('/api/telegram/stop', { method: 'POST' })), 'Компаньон не остановлен')),
     actionButton('Обновить статус', wrap(async () => setStatus(await api.raw('/api/telegram/status')), 'Статус недоступен'), { cls: 'btn btn-sm' }));
