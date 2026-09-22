@@ -64,14 +64,22 @@ async def diagnose(settings: Settings):
                 results[label] = await function()
             except CompanionError as exc:
                 results[label] = {"status": str(exc)}
-        try:
-            body = await json_request(core.client, "GET", settings.local_url + "/models",
-                headers={"Authorization": "Bearer " + settings.local_token} if settings.local_token else {}, timeout=5)
-            rows = body.get("data") if isinstance(body, dict) else None
-            found = isinstance(rows, list) and any(isinstance(r, dict) and r.get('id') == settings.local_model for r in rows)
-            results['local_model'] = {"status": "CATALOG_ENTRY_ONLY_NOT_INFERENCE" if found else "MODEL_NOT_LISTED"}
-        except CompanionError as exc:
-            results['local_model'] = {"status": str(exc)}
+        routes = [("local_model", settings.local_url, settings.local_model)]
+        if settings.fast_model:
+            routes.append(("fast_model", settings.fast_url, settings.fast_model))
+        for label, url, model in routes:
+            try:
+                body = await json_request(core.client, "GET", url + "/models",
+                    headers={"Authorization": "Bearer " + settings.local_token} if settings.local_token else {}, timeout=5)
+                rows = body.get("data") if isinstance(body, dict) else None
+                ids = [r.get("id") for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+                found = model in ids
+                results[label] = {"status": "CATALOG_ENTRY_ONLY_NOT_INFERENCE" if found else "MODEL_NOT_LISTED"}
+                if not found:
+                    # Local console only: the exact id to copy into config.json.
+                    results[label]["served_ids"] = [i for i in ids if isinstance(i, str)][:5]
+            except CompanionError as exc:
+                results[label] = {"status": str(exc)}
         results['cloud'] = {"status": "CONFIGURED_NOT_TESTED" if settings.cloud_daily_usd > 0 else "DISABLED"}
         results['end_to_end'] = "NOT_RUN: send /start, chat, /task, /confirm, /result and test restart on the owner's PC"
         return results

@@ -10,6 +10,9 @@ from .config import CompanionError, Person, Settings
 from .store import Store
 
 HELP = ("Я Bossman, ваш ИИ-помощник. Можно просто написать мне.\n\n"
+        "Обычное сообщение отвечает основная локальная модель (MAIN).\n"
+        "/fast вопрос — быстрый ответ быстрой локальной моделью (FAST), если она настроена\n"
+        "/model — какие локальные модели подключены\n"
         "/status — связь с компьютером (владелец)\n"
         "/task описание — подготовить поручение агенту Bossman\n"
         "/confirm код — подтвердить ровно это поручение\n"
@@ -35,8 +38,18 @@ def failure_text(code: str) -> str:
         "SECRET_IN_MESSAGE_CLOUD_REFUSED": "В сообщении обнаружен похожий на секрет фрагмент. Во внешнюю модель или поиск оно не отправлено.",
         "NETWORK_UNAVAILABLE": "Сервис не ответил в отведённое время. Это не доказательство выключенного компьютера; проверьте локальные сервисы и сеть.",
         "SEARCH_NOT_CONFIGURED": "Поиск ещё не подключён. Нужен существующий локальный SearXNG, отдельный поисковый движок я не устанавливаю.",
+        "FAST_MODEL_NOT_CONFIGURED": "Быстрая модель (FAST) не настроена. Обычные сообщения отвечает основная модель; FAST добавляется локально в config.json (fast_url, fast_model).",
+        "FAST_MODEL_UNAVAILABLE": "Быстрая модель (FAST) сейчас не отвечает (не загружена, занята или не та модель). Облако не использовано. Попробуйте обычным сообщением.",
     }
     return known.get(code, f"Действие не подтверждено: {code}. /status и /help помогут продолжить.")
+
+
+ATTACHMENT_KINDS = ("photo", "document", "voice", "audio", "video", "video_note", "sticker",
+                    "animation", "contact", "location", "venue", "poll")
+REJECTED_TEXT = {
+    "attachment": "Вложения (фото, файлы, голосовые) пока не поддерживаются: я их не скачиваю и не открываю. Напишите вопрос текстом.",
+    "too_long": "Сообщение длиннее 4000 символов и не обработано. Сократите его или разбейте на части.",
+}
 
 
 class Companion:
@@ -86,9 +99,21 @@ class Companion:
         person = self.authorized(message)
         text = message.get("text") if isinstance(message, dict) else None
         valid = person and (person.key, "chat") in self.wake and isinstance(text, str) and 0 < len(text) <= 4000
-        accepted = self.store.ingest(update['update_id'], person.key if valid else None, {**message, "_update_id": update["update_id"]} if valid else None)
+        body = {**message, "_update_id": update["update_id"]} if valid else None
+        rejected = None
+        if person and (person.key, "chat") in self.wake and not valid:
+            if isinstance(text, str) and len(text) > 4000:
+                rejected = "too_long"
+            elif text is None and any(k in message for k in ATTACHMENT_KINDS):
+                rejected = "attachment"
+        if rejected:
+            # Only identity fields are kept; attachment metadata is never stored or fetched.
+            valid = True
+            body = {"from": message["from"], "chat": message["chat"], "text": "",
+                    "_rejected": rejected, "_update_id": update["update_id"]}
+        accepted = self.store.ingest(update['update_id'], person.key if valid else None, body)
         if accepted:
-            self.wake[(person.key, self.store.lane(message))].set()
+            self.wake[(person.key, self.store.lane(body))].set()
 
     async def handle(self, person: Person, message: dict) -> str:
         # Authorization is checked again at the effect boundary, not inferred
@@ -97,6 +122,8 @@ class Companion:
         if current is None or current.key != person.key:
             raise CompanionError("IDENTITY_REVOKED")
         person = current
+        if message.get("_rejected") in REJECTED_TEXT:
+            return REJECTED_TEXT[message["_rejected"]]
         text = message['text'].strip()
         if not text:
             return HELP
@@ -180,12 +207,37 @@ class Companion:
             if scrub(arg, (self.settings.bot_token, self.settings.core_token, self.settings.cloud_token, self.settings.local_token)) != arg:
                 raise CompanionError("SECRET_IN_MESSAGE_CLOUD_REFUSED")
             return await self.models.search(arg)
+        if command == "/model":
+            main = "подключена" if self.settings.local_model else "не настроена"
+            fast = "подключена (/fast вопрос)" if self.settings.fast_model else "не настроена"
+            return (f"Основная локальная модель (MAIN): {main}.\nБыстрая локальная модель (FAST): {fast}.\n"
+                    "Готовность проверяется только реальным ответом; облачный резерв по умолчанию выключен.")
+        if command == "/fast":
+            if not arg:
+                return "Напишите /fast и вопрос — ответит быстрая локальная модель."
+            answer, _ = await self.models.answer(arg, self.store.history(person.key),
+                                                 cloud_consent=False, route="fast")
+            self.store.remember(person.key, arg, answer)
+            return "⚡ FAST\n" + answer
         if command.startswith("/"):
             return "Неизвестная команда. /help — доступные действия."
         answer, route = await self.models.answer(text, self.store.history(person.key),
             cloud_consent=lambda: self.cloud_allowed(person, message))
         self.store.remember(person.key, text, answer)
-        return ("☁️ Облачный резерв Claude\n" if route == "cloud" else "") + answer
+        prefix = {"cloud": "☁️ Облачный резерв Claude\n", "fast": "⚡ FAST (основная модель не ответила вовремя)\n"}
+        return prefix.get(route, "") + answer
+
+    async def typing(self, person: Person):
+        """Cosmetic 'typing…' while a slow local model answers; never blocks or fails the reply."""
+        while True:
+            try:
+                if self.delivery_allowed(person):
+                    await self.telegram.call("sendChatAction", {"chat_id": person.chat_id, "action": "typing"})
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
+            await asyncio.sleep(4.5)
 
     async def worker(self, original_person: Person, lane: str = "chat"):
         event = self.wake[(original_person.key, lane)]
@@ -203,6 +255,9 @@ class Companion:
             # Per-chat anti-flood; persisted inbox remains bounded.
             pause = max(0.0, 0.75 - (time.monotonic() - self.last_message.get(person.key, 0)))
             await asyncio.sleep(pause)
+            text = str(message.get("text", "")).strip()
+            slow = lane == "chat" and bool(text) and (not text.startswith("/") or text.lower().startswith("/fast "))
+            indicator = asyncio.create_task(self.typing(person)) if slow and self.telegram is not None else None
             try:
                 answer = await self.handle(person, message)
             except CompanionError as exc:
@@ -213,6 +268,11 @@ class Companion:
                 raise
             except Exception:
                 answer = "Не удалось подтвердить результат. Подробности доступны локально; повтор опасного действия автоматически не выполняется."
+            finally:
+                if indicator is not None:
+                    indicator.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await indicator
             # Revocation also applies to the outgoing message.
             if self.authorized(message) != person:
                 self.store.finish(update_id, "failed")
@@ -267,6 +327,21 @@ class Companion:
             except CompanionError:
                 continue
             status = data['task'].get('status')
+            if status == 'waiting_approval':
+                # Tell the owner where to act; the approval itself stays in the Bossman app.
+                wait_key = "notified_wait:" + row['id']
+                if self.store.get(wait_key) is not None:
+                    continue
+                self.store.put(wait_key, 'delivery_pending_or_unknown')
+                try:
+                    if person not in self.policy_provider().people:
+                        continue
+                    await self.telegram.send(person, f"Задача #{row['task_id']} ждёт подтверждения в приложении Bossman "
+                                                     "(раздел подтверждений). Из Telegram подтвердить нельзя — это намеренно.")
+                except CompanionError:
+                    continue
+                self.store.put(wait_key, 'delivered')
+                continue
             if status not in {'completed', 'failed', 'stopped', 'blocked'}:
                 continue
             content = f"Задача #{row['task_id']}: {status}."

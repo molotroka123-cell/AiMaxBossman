@@ -88,7 +88,7 @@ class Store:
     @staticmethod
     def lane(body: dict) -> str:
         command = str(body.get("text", "")).strip().partition(" ")[0].lower()
-        return "control" if command in {"/status", "/help", "/lock", "/watch", "/cloud"} else "chat"
+        return "control" if command in {"/status", "/help", "/lock", "/watch", "/cloud", "/model"} else "chat"
 
     def claim(self, who: str, lane: str = "chat"):
         with self.tx():

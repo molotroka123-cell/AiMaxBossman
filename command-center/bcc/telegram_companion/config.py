@@ -65,6 +65,12 @@ class Settings:
     cloud_daily_usd: float = 0.0
     cloud_request_usd: float = 0.05
     local_timeout: float = 15.0
+    # Optional second local route (e.g. a fast MoE model on another loopback
+    # port). Used by /fast and as a LOCAL fallback when MAIN times out, before
+    # any cloud consideration. Empty = disabled.
+    fast_url: str = ""
+    fast_model: str = ""
+    fast_timeout: float = 60.0
     max_tokens: int = 512
     monitor_seconds: int = 60
     bot_token: str = field(default="", repr=False)
@@ -85,7 +91,16 @@ class Settings:
             local_url(url)
         if self.search_url:
             local_url(self.search_url)
-        if not 1 <= self.local_timeout <= 60 or not 64 <= self.max_tokens <= 2048:
+        if bool(self.fast_url) != bool(self.fast_model):
+            raise ValueError("fast route needs both fast_url and fast_model")
+        if self.fast_url:
+            local_url(self.fast_url)
+        # Large dense local models (e.g. 27B on an iGPU) need minutes, not
+        # seconds, for a 512-token answer; 600 s is still a bounded wait.
+        for timeout in (self.local_timeout, self.fast_timeout):
+            if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 1 <= timeout <= 600:
+                raise ValueError("invalid model limits")
+        if not 64 <= self.max_tokens <= 2048:
             raise ValueError("invalid model limits")
         if type(self.monitor_seconds) is not int or not 30 <= self.monitor_seconds <= 3600:
             raise ValueError("monitor interval must be 30..3600 seconds")

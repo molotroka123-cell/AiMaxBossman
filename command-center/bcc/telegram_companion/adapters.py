@@ -226,38 +226,64 @@ def reply_text(body) -> str:
 class Models:
     def __init__(self, settings: Settings, home, *, transport=None):
         self.settings, self.home = settings, home
-        self.local = httpx.AsyncClient(timeout=settings.local_timeout, trust_env=False,
+        self.local = httpx.AsyncClient(timeout=max(settings.local_timeout, settings.fast_timeout), trust_env=False,
                                        follow_redirects=False, transport=transport)
         self.remote = httpx.AsyncClient(timeout=25, trust_env=False, follow_redirects=False,
                                         proxy=settings.proxy or None, transport=transport)
         self.lock = asyncio.Semaphore(1)
         self.retry_local_at = 0.0
+        self.retry_fast_at = 0.0
         self.cloud_locked = (home / "cloud-billing-review.flag").exists()
 
     async def close(self):
         await self.local.aclose()
         await self.remote.aclose()
 
-    async def answer(self, text: str, history: list, *, cloud_consent: bool):
+    async def _local(self, url: str, model: str, timeout: float, text: str, history: list) -> str:
+        """One loopback OpenAI-compatible call; the served model must be exactly the configured one."""
+        body = await json_request(self.local, "POST", url + "/chat/completions",
+            payload={"model": model, "stream": False, "max_tokens": self.settings.max_tokens,
+                     "messages": [{"role": "system", "content": SYSTEM}, *history,
+                                  {"role": "user", "content": text}]},
+            headers={"Authorization": "Bearer " + self.settings.local_token} if self.settings.local_token else {},
+            timeout=timeout)
+        if not isinstance(body, dict) or body.get("model") != model:
+            raise CompanionError("LOCAL_MODEL_IDENTITY_MISMATCH")
+        return reply_text(body)
+
+    async def _fast(self, text: str, history: list) -> str:
+        s = self.settings
+        return await self._local(s.fast_url, s.fast_model, s.fast_timeout, text, history)
+
+    async def answer(self, text: str, history: list, *, cloud_consent, route: str = "main"):
         async with self.lock:
+            if route == "fast":
+                # Explicit owner choice: FAST only, never silently MAIN or cloud.
+                if not self.settings.fast_model:
+                    raise CompanionError("FAST_MODEL_NOT_CONFIGURED")
+                try:
+                    return await self._fast(text, history), "fast"
+                except CompanionError:
+                    raise CompanionError("FAST_MODEL_UNAVAILABLE") from None
             now = asyncio.get_running_loop().time()
             if now >= self.retry_local_at and self.settings.local_model:
                 try:
-                    body = await json_request(self.local, "POST", self.settings.local_url + "/chat/completions",
-                        payload={"model": self.settings.local_model, "stream": False,
-                                 "max_tokens": self.settings.max_tokens,
-                                 "messages": [{"role": "system", "content": SYSTEM}, *history,
-                                              {"role": "user", "content": text}]},
-                        headers={"Authorization": "Bearer " + self.settings.local_token} if self.settings.local_token else {},
-                        timeout=self.settings.local_timeout)
-                    if not isinstance(body, dict) or body.get("model") != self.settings.local_model:
-                        raise CompanionError("LOCAL_MODEL_IDENTITY_MISMATCH")
-                    answer = reply_text(body)
+                    answer = await self._local(self.settings.local_url, self.settings.local_model,
+                                               self.settings.local_timeout, text, history)
                 except CompanionError:
                     self.retry_local_at = asyncio.get_running_loop().time() + 45
                 else:
                     self.retry_local_at = 0.0
                     return answer, "local"
+            # Second LOCAL route before any cloud consideration.
+            if self.settings.fast_model and asyncio.get_running_loop().time() >= self.retry_fast_at:
+                try:
+                    answer = await self._fast(text, history)
+                except CompanionError:
+                    self.retry_fast_at = asyncio.get_running_loop().time() + 45
+                else:
+                    self.retry_fast_at = 0.0
+                    return answer, "fast"
             consent = cloud_consent() if callable(cloud_consent) else cloud_consent
             if not consent or self.cloud_locked:
                 raise CompanionError("LOCAL_MODEL_UNAVAILABLE_CLOUD_NOT_AUTHORIZED")
