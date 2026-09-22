@@ -162,6 +162,29 @@ CLAUDE STAYS SILENT until Qwen attempts it.
 
 A lesson has transferred only if Qwen applies it successfully on unseen work without teacher help.
 
+## Durable memory / always-remember requirement
+
+Read `docs/evo/DURABLE_MEMORY_OPERATING_CONTRACT.md`.
+
+Current truth:
+- canonical human-readable memory is Bossman-owned Markdown;
+- search indexes are derived/rebuildable;
+- temporal facts are a separate structured store;
+- verified apprentice episodes/lessons/skills use the existing LearningStore;
+- current memory tooling does not automatically inject the vault into every call;
+- autonomy/cognitive-reuse remains flag-gated.
+
+For tomorrow's coaching, use the REAL existing LearningStore. Prove:
+lesson stored -> full Bossman restart -> lesson retrieved -> new analogous task uses it.
+
+Do not claim ALWAYS_REMEMBER from a manual memory.search alone.
+
+Do not create a new memory database and do not dump the entire vault into prompts.
+
+If automatic lifecycle recall is not implemented in the candidate, record that honestly and keep it as the post-1.0 M1-M5 implementation path. Product memory must eventually recall relevant verified context automatically at TASK_START/RESUME/BEFORE_PLAN while preserving project scope, provenance, conflict handling and token budgets.
+
+Memory can never grant approval, permissions, budget or cloud access.
+
 ## Frontier economy
 
 Use deterministic tools/tests before frontier reasoning where possible.
