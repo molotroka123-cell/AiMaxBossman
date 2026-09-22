@@ -28,6 +28,18 @@ wiring-дефект продукта, а не ограничение среды.
      наблюдению → verified true/false. Без `expect` — verified=null, а не «ок».
   5. «Стоп» владельца (POST /api/computer/stop) обрывает набор между порциями
      и блокирует новые действия до «Продолжить».
+
+«Стоп» выигрывает гонки (R6, 2026-09-22):
+  * каждое действие запоминает «эпоху стопа» при входе и перепроверяет её под
+    замком и перед КАЖДЫМ обращением к рабочему столу. Действие, стоявшее в
+    очереди за замком, пока владелец жал «Стоп» (даже если он тут же нажал
+    «Продолжить»), не выполняется;
+  * «Стоп» и «Продолжить» сбрасывают наблюдение: после «Продолжить» модель
+    обязана заново вызвать computer.observe — старое generation не годится;
+  * «Стоп» переживает перезапуск Command Center: флаг лежит файлом в
+    data_dir/computer/STOP и снимается только «Продолжить» владельца.
+Кнопки живут в интерфейсе владельца (ui/computer_stop.js); инструмента для
+модели у них нет.
 """
 from __future__ import annotations
 
@@ -126,13 +138,54 @@ class ComputerState:
     desktop: Any = None
     shots: Any = None
     launcher: Any = None
+    # Растёт на каждом «Стоп» и «Продолжить». Действие, начатое в одной эпохе,
+    # не выполняется в другой — так «Стоп» выигрывает у очереди.
+    stop_epoch: int = 0
+    stopped_at: float | None = None
+    last_activity_at: float | None = None
+    busy: int = 0
 
 
-def _state(svc) -> ComputerState:
+ACTIVE_WINDOW_S = 180.0
+
+
+def _stop_marker(svc) -> Path | None:
+    try:
+        return Path(svc.settings.data_dir) / "computer" / "STOP"
+    except Exception:  # noqa: BLE001 — без data_dir флаг живёт только в памяти
+        return None
+
+
+def _base_state(svc) -> ComputerState:
+    """Состояние без адаптеров: нужно кнопкам владельца даже там, где UIA нет.
+
+    Созданное впервые (в том числе после перезапуска) поднимает «Стоп» из файла:
+    перезапуск Command Center не снимает остановку, нажатую владельцем."""
     st = getattr(svc, "_computer_state", None)
     if st is None:
         st = ComputerState()
+        marker = _stop_marker(svc)
+        try:
+            if marker is not None and marker.exists():
+                st.stop.set()
+                st.stopped_at = marker.stat().st_mtime
+        except OSError:
+            pass
         svc._computer_state = st
+    return st
+
+
+def _refuse_if_stopped(st: ComputerState, epoch: int) -> None:
+    """Отказ, если «Стоп» нажат сейчас или был нажат после начала действия."""
+    if st.stop.is_set():
+        raise ActRefused("владелец нажал «Стоп»: действия на рабочем столе остановлены до «Продолжить»")
+    if st.stop_epoch != epoch:
+        raise ActRefused("владелец нажимал «Стоп», пока действие ждало очереди — действие отменено; "
+                         "вызовите computer.observe и решите заново по свежему экрану")
+
+
+def _state(svc) -> ComputerState:
+    st = _base_state(svc)
     if st.desktop is None:
         core = _core()
 
@@ -164,6 +217,7 @@ async def observe(svc, *, screenshot: bool = True) -> dict[str, Any]:
            "window": {k: fg.get(k) for k in ("title", "app", "handle", "error") if k in fg},
            "elements": elements, "screenshot": shot, "stopped": st.stop.is_set()}
     st.last = obs
+    st.last_activity_at = time.time()
     await svc.bus.emit("computer.observe", generation=st.generation,
                        window=str(fg.get("title") or "")[:200], elements=len(elements),
                        screenshot=shot)
@@ -308,10 +362,23 @@ async def act(svc, args: dict, *, approved: bool = False) -> dict[str, Any]:
     kind = str(args.get("action") or "").strip().lower()
     if kind not in KINDS:
         raise ActRefused(f"action: одно из {', '.join(KINDS)}")
-    if st.stop.is_set():
-        raise ActRefused("владелец нажал «Стоп»: действия на рабочем столе остановлены до «Продолжить»")
+    epoch = st.stop_epoch
+    _refuse_if_stopped(st, epoch)
     target = str(args.get("target") or "").strip()
+    st.busy += 1
+    try:
+        return await _act_locked(svc, st, core, AK, kind, target, args, epoch, approved)
+    finally:
+        st.busy -= 1
+        st.last_activity_at = time.time()
+
+
+async def _act_locked(svc, st, core, AK, kind, target, args, epoch, approved) -> dict[str, Any]:
+    def guard() -> None:
+        _refuse_if_stopped(st, epoch)
+
     async with st.lock:                            # один рабочий стол — одно действие за раз
+        guard()                                    # «Стоп», нажатый пока ждали замок
         if kind not in ("launch", "wait"):
             gen = args.get("generation")
             if not st.last or not isinstance(gen, int) or gen != st.generation:
@@ -362,6 +429,7 @@ async def act(svc, args: dict, *, approved: bool = False) -> dict[str, Any]:
             # Координатный запасной путь: ПЕРЕД кликом перечитываем экран и
             # требуем, чтобы точка лежала внутри названного элемента.
             fresh = await observe(svc, screenshot=False)
+            guard()
             hits = [e for e in _find(fresh, target) if "left" in e
                     and e["left"] <= x <= e["right"] and e["top"] <= y <= e["bottom"]]
             if not hits:
@@ -372,6 +440,7 @@ async def act(svc, args: dict, *, approved: bool = False) -> dict[str, Any]:
             # ComboBox, и Edit внутри; фокус на обёртке, и вставка уходила в никуда.
             # Для ввода выбираем РЕДАКТИРУЕМЫЙ элемент и проверяем, что фокус на нём.
             handle = int((before.get("window") or {}).get("handle") or 0)
+            guard()
             if not await asyncio.to_thread(_focus_editable, handle, target):
                 raise ActRefused(f"поле «{target}» не найдено или не принимает ввод — ничего не введено")
         if kind in ("type", "hotkey") and not target:
@@ -382,6 +451,7 @@ async def act(svc, args: dict, *, approved: bool = False) -> dict[str, Any]:
             editable = [e for e in (before or {}).get("elements") or []
                         if e.get("control_type") in ("Document", "Edit") and e.get("name")]
             if len(editable) == 1:
+                guard()
                 await st.desktop.execute(
                     core["ComputerAction"].make(AK.FOCUS, target=editable[0]["name"]), None)
             elif kind == "type" and len(editable) > 1:
@@ -390,13 +460,16 @@ async def act(svc, args: dict, *, approved: bool = False) -> dict[str, Any]:
                                  + " — укажите target")
 
         if kind == "type" and args.get("replace"):
+            guard()
             await st.desktop.execute(core["ComputerAction"].make(
                 AK.HOTKEY, args={"keys": ["ctrl", "a"]}), None)
+        guard()                                    # последний рубеж перед вводом
         t0 = time.perf_counter()
         if kind == "wait":
             await asyncio.sleep(min(10.0, max(0.0, float(args.get("seconds") or 1))))
         elif kind == "launch":
             known = {h for h, _ in await asyncio.to_thread(_top_windows)}
+            guard()
             await st.launcher.execute(a, None)
             # Windows не отдаёт передний план процессу, запущенному из фона:
             # находим НОВОЕ окно и переводим фокус на него явно.
@@ -408,6 +481,7 @@ async def act(svc, args: dict, *, approved: bool = False) -> dict[str, Any]:
                     break
             if not new:
                 raise ActRefused(f"«{target}» запущен, но новое окно не появилось за 5 с")
+            guard()
             if not await _focus(st, new[0][0]):
                 raise ActRefused(f"окно «{new[0][1]}» появилось, но фокус получить не удалось")
         elif kind == "focus_window":
@@ -418,6 +492,7 @@ async def act(svc, args: dict, *, approved: bool = False) -> dict[str, Any]:
             if len(wins) != 1:
                 raise ActRefused(f"окон с «{target}» в заголовке: {len(wins)} — "
                                  + ("уточните заголовок" if wins else "такого окна нет"))
+            guard()
             if not await _focus(st, wins[0][0]):
                 raise ActRefused(f"не удалось вывести «{wins[0][1]}» на передний план")
         else:
@@ -515,13 +590,22 @@ SPECS = [
 
 # ------------------------------------------------------------------ HTTP (панель владельца)
 
+def _status(svc, ok: bool, why: str) -> dict[str, Any]:
+    st = _base_state(svc)
+    now = time.time()
+    busy = st.busy > 0 or st.lock.locked()
+    recent = st.last_activity_at is not None and now - st.last_activity_at < ACTIVE_WINDOW_S
+    return {"available": ok, "detail": why or "Windows UIA + pyautogui готовы",
+            "stopped": st.stop.is_set(), "stopped_at": st.stopped_at,
+            "busy": busy, "active": bool(busy or recent),
+            "last_activity_at": st.last_activity_at, "generation": st.generation,
+            "stop_epoch": st.stop_epoch, "tools": [s.name for s in SPECS]}
+
+
 @router.get("/computer/status")
 async def http_status(request: Request):
     ok, why = availability()
-    st = getattr(request.app.state.svc, "_computer_state", None)
-    return {"available": ok, "detail": why or "Windows UIA + pyautogui готовы",
-            "stopped": bool(st and st.stop.is_set()), "generation": st.generation if st else 0,
-            "tools": [s.name for s in SPECS]}
+    return _status(request.app.state.svc, ok, why)
 
 
 @router.post("/computer/observe")
@@ -534,28 +618,58 @@ async def http_observe(request: Request):
 
 @router.post("/computer/stop")
 async def http_stop(request: Request):
-    """«Стоп» владельца: обрывает набор текста и блокирует новые действия."""
+    """«Стоп» владельца: обрывает набор текста и блокирует новые действия.
+
+    Порядок важен: сначала флаг и эпоха (их видят действие в полёте и очередь),
+    потом файл (переживёт перезапуск), и только потом — событие в шину."""
     svc = request.app.state.svc
-    st = getattr(svc, "_computer_state", None) or ComputerState()
-    svc._computer_state = st
+    st = _base_state(svc)
     st.stop.set()
-    await svc.bus.emit("computer.stop", by="owner")
-    return {"stopped": True}
+    st.stop_epoch += 1
+    st.stopped_at = time.time()
+    st.last = {}                                  # старое наблюдение больше не годится
+    persisted = False
+    marker = _stop_marker(svc)
+    if marker is not None:
+        try:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text(f"stopped_by=owner at={st.stopped_at}\n", encoding="utf-8")
+            persisted = True
+        except OSError:
+            persisted = False
+    await svc.bus.emit("computer.stop", by="owner", persisted=persisted)
+    return {"stopped": True, "persisted": persisted, "busy": st.busy > 0 or st.lock.locked()}
 
 
 @router.post("/computer/resume")
 async def http_resume(request: Request):
+    """«Продолжить»: снимает стоп, но НЕ возвращает старое наблюдение —
+    следующее действие возможно только после свежего computer.observe."""
     svc = request.app.state.svc
-    st = getattr(svc, "_computer_state", None) or ComputerState()
-    svc._computer_state = st
+    st = _base_state(svc)
+    marker = _stop_marker(svc)
+    if marker is not None:
+        try:
+            marker.unlink(missing_ok=True)
+        except OSError as exc:
+            # Файл не снялся — после перезапуска стоп вернётся. Честнее не
+            # продолжать, чем обещать то, что перезапуск отменит.
+            raise HTTPException(500, {"message": f"не удалось снять флаг «Стоп»: {exc}"})
+    st.stop_epoch += 1
+    st.last = {}
+    st.stopped_at = None
     st.stop.clear()
     await svc.bus.emit("computer.resume", by="owner")
-    return {"stopped": False}
+    return {"stopped": False, "needs_observe": True}
 
 
 async def _setup(svc) -> None:
     for spec in SPECS:
         REGISTRY.register(spec)
+    try:
+        _base_state(svc)                           # «Стоп» из прошлого запуска — сразу в силе
+    except Exception:  # noqa: BLE001 — лениво поднимется при первом обращении
+        pass
 
 
 FEATURE = Feature(name="tools_computer", router=router, setup=_setup)
