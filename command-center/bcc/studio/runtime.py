@@ -161,6 +161,15 @@ async def get_job(svc,jid):
     if not row or not ext: raise KeyError('studio job not found')
     return {**row,'studio':ext}
 
+# Причины, при которых явно помеченный неполный выход остаётся: перерасход бюджета
+# (байты оплачены и проверены), остановка владельцем и исчерпанный лимит времени.
+KEEP_PARTIAL_REASONS=frozenset({'budget','canceled','timeout'})
+
+def is_partial_run(provenance)->bool:
+    """Помечен ли выход неполным. Только явная пара partial=true + complete=false;
+    ничего не выводится по умолчанию, и полный выход так не пометится случайно."""
+    return isinstance(provenance,dict) and provenance.get('partial') is True and provenance.get('complete') is False
+
 async def fail(svc,jid,reason,message,verdict='FAIL'):
     partial=[]
     async with svc.db.session() as s:
@@ -172,7 +181,16 @@ async def fail(svc,jid,reason,message,verdict='FAIL'):
             # даёт результатов: частичные выходы уходят в корзину, файлы удаляются.
             # Исключение — перерасход бюджета: байты уже оплачены и проверены,
             # выбрасывать их — второй ущерб (test_studio_cloud); они остаются.
-            partial=[] if reason=='budget' else [dict(r._mapping) for r in (await s.execute(sa.select(runs.c.id,runs.c.file_path).where(runs.c.job_id==jid,runs.c.deleted==False))).all()]  # noqa: E712
+            # Владелец, 2026-09-22: «стоп должен обрывать на том, что уже есть». Остановка
+            # владельцем и срабатывание лимита времени теперь тоже щадят выход — но ТОЛЬКО
+            # тот, что явно помечен неполным (partial=true/complete=false) и уже прошёл
+            # верификацию байтов в persist(). Всё остальное правило RT-S5 не ослаблено:
+            # сбой движка, непрошедшая верификация, повреждённые байты и обычный (не
+            # помеченный) выход незавершённого задания по-прежнему уходят в корзину.
+            rows=[dict(r._mapping) for r in (await s.execute(sa.select(runs.c.id,runs.c.file_path,runs.c.provenance).where(runs.c.job_id==jid,runs.c.deleted==False))).all()]  # noqa: E712
+            if reason=='budget': partial=[]
+            elif reason in KEEP_PARTIAL_REASONS: partial=[r for r in rows if not is_partial_run(r['provenance'])]
+            else: partial=rows
             if partial:
                 await s.execute(sa.update(runs).where(runs.c.id.in_([r['id'] for r in partial])).values(deleted=True))
         await s.commit()
@@ -213,15 +231,24 @@ async def verify_file(path,surface,*,mock=False):
         meta={'width':info['width'],'height':info['height'],'duration_ms':info['duration_ticks']/1000,'mime':{'.jpg':'image/jpeg','.mp4':'video/mp4','.mkv':'video/x-matroska','.avi':'video/x-msvideo','.mp3':'audio/mpeg','.wav':'audio/wav','.flac':'audio/flac','.ogg':'audio/ogg'}[extension]}
     return {**meta,'path':str(path),'sha256':await asyncio.to_thread(digest_file,path),'bytes':path.stat().st_size}
 
-async def persist(svc,jid,plane,model,path,*,mock=False,request_id=None,cost='NOT_CAPTURED:provider_did_not_report',legacy=None,effective_settings=None):
+async def persist(svc,jid,plane,model,path,*,mock=False,request_id=None,cost='NOT_CAPTURED:provider_did_not_report',legacy=None,effective_settings=None,partial=None):
+    # Байты проходят ту же проверку, что и полный выход: без верификации нет выхода,
+    # неполный он или нет. Повреждённые байты не сохраняются никогда.
     output=await verify_file(path,model['surface'],mock=mock)
     if plane['settings'].get('width') and output['width']!=plane['settings']['width']: raise ValueError('output.width mismatch')
     if plane['settings'].get('height') and output['height']!=plane['settings']['height']: raise ValueError('output.height mismatch')
     rid=uuid4().hex
     provenance={'plane':plane,'settings_resolved':effective_settings or plane['settings'],'provider':model['provider'],'model':model['id'],'mock':mock,'output':output,'inputs':plane['media'],'provider_request_id':request_id,'cost_usd':cost,'finished_at':utcnow().isoformat(),'harness':{'repository_sha':os.environ.get('BCC_ACCEPTANCE_SOURCE_SHA','NOT_CAPTURED:development'),'catalog_sha256':digest(catalog.load())}}
+    if partial is not None:
+        # Громче всего — то, что это НЕ тот ролик, который просили.
+        provenance.update({'partial':True,'complete':False,'partial_detail':dict(partial)})
     async with svc.db.session() as s:
         if jid is not None:
-            claim=await s.execute(sa.update(image_jobs).where(image_jobs.c.id==jid,image_jobs.c.status=='running').values(updated_at=utcnow()))
+            # Неполный выход существует именно потому, что задание ОСТАНОВЛЕНО: требовать
+            # здесь status=='running' значило бы выбросить ровно те байты, которые владелец
+            # велел сохранить. Полный выход по-прежнему принимается только у живого задания.
+            allowed=['running'] if partial is None else ['running','cancelled','failed']
+            claim=await s.execute(sa.update(image_jobs).where(image_jobs.c.id==jid,image_jobs.c.status.in_(allowed)).values(updated_at=utcnow()))
             if not claim.rowcount: return None
         await s.execute(sa.insert(runs).values(id=rid,job_id=jid,legacy_asset_id=legacy,surface=model['surface'],model=model['id'],provenance=provenance,file_path=str(path),sha256=output['sha256'],file_bytes=output['bytes'],mime=output['mime'],collection_id=plane.get('collection_id')))
         await s.commit()
