@@ -131,6 +131,34 @@ Record for MAIN/FAST:
 
 Expected current roles are Qwen3.8-27B MAIN and Qwen3.6-35B-A3B FAST, but actual endpoint identity wins.
 
+### Additional owner-run candidates
+
+Add these as separate, explicitly labeled variants when they are already available
+or can be prepared without changing the frozen Bossman build:
+
+- **Xing4.0-29B-A4B** — candidate for general coding/agent/tool-use comparison
+  through the same safe Bossman UX scenario as MAIN/FAST. The model page reports
+  29B total parameters, about 4B active and roughly 62 GB of weights. Treat these
+  as publisher claims until the exact local revision, hashes, quantization,
+  backend, context and memory use are recorded. AMD compatibility is unproven.
+- **baidu/Unlimited-OCR** — specialist OCR/document-parsing candidate, not a
+  general MAIN/FAST replacement. The linked model page lists 3.3B parameters,
+  about 6.7 GB and MIT; its documented inference setup is NVIDIA/CUDA, so
+  Ryzen/ROCm support must be proven on the actual machine. Pin revision and
+  verify file hashes/license; inspect any `trust_remote_code` before running it.
+  Use only sanitized synthetic image/PDF fixtures with known ground truth.
+
+Run each available candidate as its own Bossman UX variant, at most 40 minutes.
+Record the UX alias, live model ID, revision/hash, quantization, runtime/backend,
+start/end time, latency, peak unified RAM and exact evidence. Keep weights and
+the Bossman build unchanged during the comparison. For Xing4, score task
+completion, tool choice/arguments, approvals and result quality against MAIN/FAST.
+For Unlimited-OCR, score character/field accuracy and page order against the
+fixture ground truth, and verify the saved output. If a model is absent,
+incompatible, unpinned or fails integrity/code review, record BLOCKED/NOT_RUN
+with the reason; that is not a model-quality failure. Never treat model-card
+benchmarks as local test results.
+
 Do not change model weights during the benchmark.
 
 ## 7. Owner-run order
