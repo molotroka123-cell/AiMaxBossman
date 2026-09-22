@@ -45,7 +45,10 @@ SCHEMA_VERSION = 1
 KIND = "bossman.model_profiles"
 CATEGORIES = ("llm_coding_agents", "photo", "video", "tools_structured")
 PROFILE_KINDS = ("model", "runtime", "reference")
-PROFILE_STATUSES = ("PINNED", "UNPINNED", "PARTIALLY_PINNED", "REFERENCE")
+# VERIFY_SOURCE_FIRST: the name came from conversation; repo id, revision,
+# base model or licence are not confirmed. Never fetched, not even with
+# --allow-unpinned, until `pin` confirms the source and rewrites the profile.
+PROFILE_STATUSES = ("PINNED", "UNPINNED", "PARTIALLY_PINNED", "REFERENCE", "VERIFY_SOURCE_FIRST")
 FILE_STATUSES = ("PINNED", "UNPINNED")
 REQUIRED_PROFILE_FIELDS = ("id", "category", "role", "runtime", "source", "files", "license", "min_free_disk",
                            "optional", "status")
@@ -250,15 +253,15 @@ def validate_manifest(data, studio_catalog: dict | None = None) -> dict:
         if not isinstance(mfd, dict) or "bytes" not in mfd or not isinstance(mfd.get("basis"), str):
             err(f"{label}: min_free_disk needs bytes and basis")
         elif mfd["bytes"] is None:
-            if status not in ("UNPINNED", "REFERENCE"):
-                err(f"{label}: min_free_disk.bytes may be null only for UNPINNED/REFERENCE profiles")
+            if status not in ("UNPINNED", "REFERENCE", "VERIFY_SOURCE_FIRST"):
+                err(f"{label}: min_free_disk.bytes may be null only for UNPINNED/REFERENCE/VERIFY_SOURCE_FIRST profiles")
         elif not _is_int(mfd["bytes"]):
             err(f"{label}: min_free_disk.bytes must be a non-negative integer or null")
         files = prof["files"]
         if not isinstance(files, list):
             err(f"{label}: files must be a list")
             continue
-        if status in ("UNPINNED", "PARTIALLY_PINNED", "REFERENCE") and not prof.get("status_reason"):
+        if status in ("UNPINNED", "PARTIALLY_PINNED", "REFERENCE", "VERIFY_SOURCE_FIRST") and not prof.get("status_reason"):
             err(f"{label}: status {status} needs status_reason")
         if status == "REFERENCE":
             if files:
@@ -330,6 +333,8 @@ def validate_manifest(data, studio_catalog: dict | None = None) -> dict:
                 globs.append((fid, spec["name_glob"], spec.get("dest_dir")))
         if status == "PINNED" and (not files or file_statuses != {"PINNED"}):
             err(f"{label}: PINNED needs every file PINNED")
+        if status == "VERIFY_SOURCE_FIRST" and "PINNED" in file_statuses:
+            err(f"{label}: VERIFY_SOURCE_FIRST cannot carry pinned files (the source itself is unconfirmed)")
         if status == "UNPINNED" and files and "UNPINNED" not in file_statuses:
             err(f"{label}: UNPINNED but every file is PINNED (status should be PINNED)")
         if status == "PARTIALLY_PINNED" and file_statuses != {"PINNED", "UNPINNED"}:
@@ -774,6 +779,9 @@ class Runner:
                 return {**row, **checked, "state": UNVERIFIED_TOFU, "mode": "reference-glob",
                         "reuse_from": str(candidate)}
             row["reuse_rejected"] = {"path": str(candidate), "state": checked["state"]}
+        if prof.get("status") == "VERIFY_SOURCE_FIRST":
+            return {**row, "state": UNPINNED_REFUSED,
+                    "detail": "VERIFY_SOURCE_FIRST: repo/revision/licence not confirmed — run `pin` first"}
         if not pinned:
             if not self.allow_unpinned:
                 return {**row, "state": UNPINNED_REFUSED,

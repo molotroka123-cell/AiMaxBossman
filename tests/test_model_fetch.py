@@ -727,3 +727,35 @@ def test_ctrl_c_mid_download_leaves_resumable_part(tmp_path, server, monkeypatch
     code, report = run(tmp_path, data, "fetch")
     assert code == 0 and states(report, "base") == [mf.RESUMED]
     assert (tmp_path / "models/m/a.gguf").read_bytes() == PAYLOAD
+
+
+def test_verify_source_first_is_never_fetched_even_with_allow_unpinned(tmp_path, server):
+    """A model named only in conversation is not downloaded on a guess: the
+    same file that an UNPINNED profile fetches as TOFU with the flag is refused
+    for a VERIFY_SOURCE_FIRST profile (negative control in the same test)."""
+    server.files["/f/v"] = PAYLOAD
+    spec = unpinned_file("v", name="v.gguf", url=server.url + "/f/v")
+    code, report = run(tmp_path, manifest(profile("cand", [spec], status="VERIFY_SOURCE_FIRST")),
+                       "fetch", "--allow-unpinned", "--profile", "cand")
+    assert code == mf.EXIT_REFUSED and states(report, "cand") == [mf.UNPINNED_REFUSED]
+    assert server.file_requests() == []
+    code, report = run(tmp_path, manifest(profile("cand", [dict(spec)])), "fetch", "--allow-unpinned",
+                       "--profile", "cand")
+    assert states(report, "cand") == [mf.UNVERIFIED_TOFU]
+
+
+def test_verify_source_first_cannot_carry_a_pinned_hash():
+    prof = profile("cand", [pinned_file("p", "http://x.invalid/p")], status="VERIFY_SOURCE_FIRST")
+    prof["min_free_disk"]["bytes"] = None
+    with pytest.raises(ValueError, match="VERIFY_SOURCE_FIRST cannot carry pinned files"):
+        mf.validate_manifest(manifest(prof), studio_catalog={"models": []})
+
+
+def test_repo_candidates_from_conversation_are_verify_source_first_and_ordered():
+    data = json.loads((ROOT / "tools" / "model_profiles.json").read_text(encoding="utf-8"))
+    by_id = {p["id"]: p for p in data["profiles"]}
+    for pid in ("signal-3.8-27b-ap-q6_k", "swift-qwen3.8-27b-q6_k", "tinfield-1-compact", "snowllm-0.3.2"):
+        assert by_id[pid]["status"] == "VERIFY_SOURCE_FIRST", pid
+    steps = data["download_order"]["steps"]
+    assert steps[0]["action"].startswith("verify/reuse") and "baseline-installed" in steps[0]["profiles"]
+    assert len(steps[1]["choose_one_of"]) >= 2 and len(steps[2]["choose_one_of"]) >= 2
