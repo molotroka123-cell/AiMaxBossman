@@ -360,6 +360,28 @@ def agent_policy_rules(agent: dict) -> list[dict]:
     return []
 
 
+#: Флаг в `tasks.meta`: `allowed_tools` записан автоматическим роутингом по
+#: тексту задачи (action_router / action_contract), а не скиллом/миссией/
+#: владельцем. Такой грант ДОБАВЛЯЕТСЯ к инструментам агента, а не заменяет их.
+#: APP-CONTRACT-OVERRIDES-AGENT-TOOLS (owner HW-02, 2026-09-23): агенту выданы
+#: computer.observe/computer.act, «Открой Блокнот …» распознан как APPS_ACTION,
+#: и семейство apps в meta молча вытеснило computer.* — Computer Use через
+#: агента стал невозможен. Инструменты агента читаются ЖИВЫМИ (не копия в meta),
+#: поэтому снятие инструмента владельцем видно сразу, в т.ч. проверке
+#: tool_withdrawn в момент эффекта (engine._authorization_at_effect_time).
+ROUTED_TOOLS_EXTEND_AGENT = "allowed_tools_extend_agent"
+
+
+def _agent_tool_names(agent: dict) -> list[str]:
+    tools = agent.get("tools")
+    if isinstance(tools, list) and tools:
+        return [str(x) if not isinstance(x, dict) else str(x.get("name") or "")
+                for x in tools if x]
+    if isinstance(tools, dict) and tools:
+        return [k for k, v in tools.items() if v]
+    return []
+
+
 def allowed_tools_for(task: dict, agent: dict) -> list[str]:
     """Какие инструменты видит модель в этом run'е.
 
@@ -369,19 +391,21 @@ def allowed_tools_for(task: dict, agent: dict) -> list[str]:
 
     ПУСТОЙ список в meta — это осознанное «никаких инструментов», а не
     «ключа нет»: скилл без объявленных инструментов не должен наследовать
-    инструменты агента."""
+    инструменты агента.
+
+    Исключение — грант роутинга (флаг ROUTED_TOOLS_EXTEND_AGENT): он
+    объединяется с инструментами агента. Расширения прав это не даёт: агент
+    получает только своё + то семейство, которое роутер и раньше выдавал на
+    эту задачу; каждый вызов по-прежнему идёт через decide_effect."""
     meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
     if "allowed_tools" in meta:
         explicit = meta.get("allowed_tools")
         if isinstance(explicit, list):
-            return [str(x) for x in explicit]
-    tools = agent.get("tools")
-    if isinstance(tools, list) and tools:
-        return [str(x) if not isinstance(x, dict) else str(x.get("name") or "")
-                for x in tools if x]
-    if isinstance(tools, dict) and tools:
-        return [k for k, v in tools.items() if v]
-    return []
+            names = [str(x) for x in explicit]
+            if meta.get(ROUTED_TOOLS_EXTEND_AGENT) is True:
+                names += [n for n in _agent_tool_names(agent) if n not in names]
+            return names
+    return _agent_tool_names(agent)
 
 
 # ---------------------------------------------------------------- исполнение

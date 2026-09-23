@@ -72,7 +72,7 @@ import sqlalchemy as sa
 
 from ..conversation_context import current_request
 from ..db import agents as agents_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow
-from ..tools import REGISTRY, allowed_tools_for
+from ..tools import REGISTRY, ROUTED_TOOLS_EXTEND_AGENT, allowed_tools_for
 from ..v2.verification import ExpectedState
 from . import Feature
 
@@ -527,6 +527,10 @@ async def _before_run(svc):
                     family.append(name)
         if family and "allowed_tools" not in meta:
             new_meta["allowed_tools"] = family
+            # Грант семейства ДОБАВЛЯЕТСЯ к инструментам агента, а не заменяет
+            # их (APP-CONTRACT-OVERRIDES-AGENT-TOOLS: «Открой Блокнот …» у
+            # агента с computer.* оставлял модели только apps.start/apps.stop).
+            new_meta[ROUTED_TOOLS_EXTEND_AGENT] = True
             changed = True
 
         if "review" not in meta:

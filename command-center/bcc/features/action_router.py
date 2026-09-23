@@ -51,6 +51,7 @@ import sqlalchemy as sa
 
 from ..conversation_context import current_request
 from ..db import tasks as tasks_t, utcnow
+from ..tools import ROUTED_TOOLS_EXTEND_AGENT
 from . import Feature
 
 # Явные глаголы действия (EN + RU), как того требует спецификация п.1 —
@@ -180,6 +181,10 @@ async def _before_run(svc):
             # в bcc.tools.allowed_tools_for — здесь только используем канал,
             # ничего в нём не меняем.
             new_meta["allowed_tools"] = list(BROWSER_TOOLS)
+            # Разовый грант на задачу ДОБАВЛЯЕТСЯ к инструментам агента, а не
+            # вытесняет их (APP-CONTRACT-OVERRIDES-AGENT-TOOLS: «… на
+            # компьютере» у агента с computer.* иначе оставлял только browser.*).
+            new_meta[ROUTED_TOOLS_EXTEND_AGENT] = True
             changed = True
 
         domain = target_domain(task.get("prompt") or "")
