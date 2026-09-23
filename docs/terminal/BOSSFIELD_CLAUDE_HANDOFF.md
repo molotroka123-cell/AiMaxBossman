@@ -1,0 +1,5 @@
+# Bossfield → Claude Code / Terminal Run 1.2
+
+**Части Bossfield перенесены в ветку cloud convergence** `claude/bossman-cloud-closure-owner-a6s1ki`, в коммитах `981f61ef` и `dcdae279`: выключенный кандидат Seedance 2.5, маршрут Studio `/videos`, сценарий монтажа в Windows app-support, [инструкция](../bossfield/BOSSFIELD_CLAUDE_MERGE_AND_OWNER_RUN_RU.md) и [концепт](../bossfield/assets/bossfield-concept.jpg). Исходная [`codex/bossfield-amd-30s`](https://github.com/molotroka123-cell/AiMaxBossman/tree/codex/bossfield-amd-30s) остаётся референсом; не вливайте её целиком поверх нового каталога моделей.
+
+Claude: сначала `git fetch origin` и сохрани все новые коммиты cloud и release. Изучай `AGENTS.md` и `docs/terminal/TERMINAL_RUN_1_2_MASTER.md`; этот проект — тот же Bossman и его backend. Проверяй каталог, маршрутизацию видео, installed ZIP и terminal suite. Реальный прогон на AMD и Seedance 2.5 ждёт историю/фото/ключ владельца, разрешения egress и бюджет; не объявляй качество и самообучение доказанными по синтетическому FFmpeg smoke. Skill-кандидат принимай через независимый evaluator и existing promotion gate.
