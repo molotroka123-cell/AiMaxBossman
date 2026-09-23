@@ -530,6 +530,30 @@ def _err_code(message: str) -> str:
     return "error"
 
 
+OBSERVE_TOOLS = ("list_dir", "read_file", "search")
+MAX_NO_PROGRESS = 8   # fixed before the 2026-09-23 comparison; do not tune on its outcome
+
+
+def _repeat_without_progress(seen: dict, name: str, sig: str, result: str, edits: int) -> int:
+    """How many times this exact observation already returned this exact result with no
+    file change since (0 = new). Owner run 2026-09-23: a local student repeated the
+    same 4-5 searches up to 23 times and burned its whole step budget. Useful polling
+    is untouched: a changed result or any edit in between makes the call new again."""
+    if name not in OBSERVE_TOOLS:
+        return 0
+    import hashlib
+    key = (sig, hashlib.sha256(result.encode("utf-8", "replace")).hexdigest(), edits)
+    seen[key] = seen.get(key, 0) + 1
+    return seen[key] - 1
+
+
+def _repeat_note(repeats: int) -> str:
+    return (f"[ПОВТОР БЕЗ ПРОГРЕССА ×{repeats}: этот же вызов уже вернул этот же результат, файлы с тех пор "
+            "не менялись. Не повторяй его: используй полученное выше — прочитай нужное место диапазоном "
+            f"строк, внеси правку или напиши тест. После {MAX_NO_PROGRESS} таких повторов попытка будет "
+            "остановлена.]\n")
+
+
 def _for_model(result: str) -> str:
     """A tool result as the model sees it. A cut result SAYS it was cut and how to
     read the rest: silently cut 55 KB reads sent a local student round in circles
@@ -585,6 +609,9 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
     last_edit_step = -1
     last_green_step = -1
     passed_checks: set[str] = set()
+    seen: dict[tuple[str, str, int], int] = {}
+    edits = 0
+    no_progress = 0
     summary = ""
     stop = "max_steps"
     started = time.monotonic()
@@ -655,6 +682,7 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
                         if name in ("edit_file", "write_file"):
                             last_edit_step = step
                             passed_checks.clear()
+                            edits += 1
                 except ToolError as exc:
                     ok, result = False, f"ERROR: {exc}"
                     entry["err"] = _err_code(str(exc))
@@ -662,18 +690,29 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
                     ok, result = False, f"ERROR: {type(exc).__name__}: {exc}"
                     entry["err"] = _err_code(f"{type(exc).__name__}: {exc}")
                 entry["ok"] = ok
+                repeats = _repeat_without_progress(seen, name, entry["sig"], result, edits)
+                if repeats:
+                    no_progress += 1
+                    entry["repeat_no_progress"] = repeats
+                    result = _repeat_note(repeats) + result
                 log.append(entry)
                 messages.append({"role": "tool", "tool_call_id": call_id, "name": name, "content": _for_model(result)})
-                if finished:
+                if finished or no_progress >= MAX_NO_PROGRESS:
                     break
             if finished:
                 stop = "finished"
+                break
+            if no_progress >= MAX_NO_PROGRESS:
+                stop = "no_progress_loop"
+                summary = (f"stopped: {no_progress} observation calls repeated with the same result and no "
+                           "file change in between")
                 break
     applied = sorted(c["id"] for c in checks if c["id"] in passed_checks and c["id"] != "profile")
     return {"status": "completed" if stop == "finished" else "failed", "summary": summary,
             "tests": {k: tests.get(k) for k in ("ran", "runner", "paths", "exit_code", "passed", "timed_out")},
             "notes": f"stop_reason={stop}", "steps": len({e['step'] for e in log}), "stop_reason": stop,
             "tool_calls": log[-200:], "tool_calls_total": len(log),
+            "repeats_without_progress": no_progress,
             "elapsed_seconds": round(time.monotonic() - started, 3),
             "recipes_applied": applied, "profile": profile.get("name") or "",
             "memory_used": bool(ctx.get("memory_text") or ctx.get("recipes")),

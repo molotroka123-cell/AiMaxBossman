@@ -468,3 +468,42 @@ def test_a_cut_tool_result_says_it_was_cut_and_how_to_read_the_rest(repo):
     big, small = seen[0], seen[-1]
     assert len(big) < 7000 and "ОБРЕЗАНО" in big and "start_line" in big
     assert "ОБРЕЗАНО" not in small and "return a - b" in small
+
+
+class _Script:
+    def __init__(self, turns, seen):
+        self.turns, self.seen = iter(turns), seen
+
+    def chat(self, messages, *, tools, timeout):
+        self.seen.extend(m["content"] for m in messages[-1:] if m.get("role") == "tool")
+        t = next(self.turns)
+        return {"content": "", "tool_calls": [{"id": f"c{len(self.seen)}", "type": "function", "function": {
+            "name": t["tool"], "arguments": json.dumps(t["args"])}}]}
+
+
+def test_the_same_observation_with_the_same_result_is_flagged_then_stopped(repo):
+    """Owner run 2026-09-23: the student repeated one cycle of searches up to 23 times and
+    burned all 40 steps. A repeat of the SAME call with the SAME result and no file change
+    in between is flagged from its first repeat; MAX_NO_PROGRESS repeats stop the attempt."""
+    seen: list[str] = []
+    turns = [{"tool": "search", "args": {"pattern": "def add"}}] * 20
+    res = ls.run_task({"workspace": str(repo), "instruction": "x", "allowed_paths": ["calc.py"],
+                       "protected_paths": []}, _Script(turns, seen), max_steps=30, test_timeout=30)
+    assert res["stop_reason"] == "no_progress_loop" and res["status"] == "failed"
+    assert res["repeats_without_progress"] == ls.MAX_NO_PROGRESS
+    assert res["tool_calls_total"] == ls.MAX_NO_PROGRESS + 1
+    assert "ПОВТОР БЕЗ ПРОГРЕССА" not in seen[0] and "ПОВТОР БЕЗ ПРОГРЕССА ×1" in seen[1]
+
+
+def test_an_edit_in_between_or_a_changed_result_is_not_a_repeat(repo):
+    seen: list[str] = []
+    turns = [{"tool": "read_file", "args": {"path": "calc.py"}},
+             {"tool": "edit_file", "args": {"path": "calc.py", "old": "return a - b", "new": "return a + b"}},
+             {"tool": "read_file", "args": {"path": "calc.py"}},          # changed file -> new result
+             {"tool": "edit_file", "args": {"path": "calc.py", "old": "return a + b", "new": "return a - b"}},
+             {"tool": "read_file", "args": {"path": "calc.py"}},          # same text as call 1, but edits since
+             {"tool": "finish", "args": {"summary": "x"}}]
+    res = ls.run_task({"workspace": str(repo), "instruction": "x", "allowed_paths": ["calc.py"],
+                       "protected_paths": []}, _Script(turns, seen), max_steps=10, test_timeout=30)
+    assert res["repeats_without_progress"] == 0 and res["stop_reason"] == "finished"
+    assert not any("ПОВТОР" in s for s in seen)
