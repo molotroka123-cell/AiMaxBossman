@@ -1,0 +1,1 @@
+{"v": 1, "type": "result", "ok": true, "task_state": "PASS", "status": "completed", "task_id": 2, "run_id": 2, "title": "t002", "result": "391", "usage": {"tokens_in": 46, "tokens_out": 4}, "model": "qwen-fast-nt", "exit_code": 0}

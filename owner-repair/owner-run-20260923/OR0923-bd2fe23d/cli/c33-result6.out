@@ -1,0 +1,1 @@
+{"v": 1, "type": "result", "ok": true, "task_state": "PASS", "status": "completed", "task_id": 6, "run_id": 6, "title": "UI-задача: сколько будет 12*12? Ответь только числом.", "result": "144", "usage": {"tokens_in": 49, "tokens_out": 4}, "model": "qwen-fast-nt", "exit_code": 0}

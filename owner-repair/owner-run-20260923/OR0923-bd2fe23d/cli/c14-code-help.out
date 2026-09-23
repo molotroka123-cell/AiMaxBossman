@@ -1,0 +1,23 @@
+usage: bossman code [-h] [--url URL] [--data-dir DATA_DIR] [--allow ALLOW]
+                    [--protect PROTECT] [--verify VERIFY] [--repo REPO]
+                    [--agent AGENT] [--timeout TIMEOUT] [--no-memory]
+                    [--output-format {text,json,stream-json}] [--json]
+                    instruction
+
+positional arguments:
+  instruction
+
+options:
+  -h, --help            show this help message and exit
+  --url URL             адрес Bossman (по умолчанию: desktop.lock / BCC_PORT /
+                        8800)
+  --data-dir DATA_DIR   каталог данных Bossman (по умолчанию BCC_DATA_DIR)
+  --allow ALLOW         разрешённый путь (обязателен)
+  --protect PROTECT
+  --verify VERIFY       тест для независимой проверки
+  --repo REPO           git-репозиторий (по умолчанию текущая папка)
+  --agent AGENT
+  --timeout TIMEOUT
+  --no-memory
+  --output-format {text,json,stream-json}
+  --json                машинный вывод (JSON)

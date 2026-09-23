@@ -1,0 +1,6 @@
+{"v": 1, "type": "task", "subtype": "status", "task_id": 5, "status": "draft", "seq": 87, "ts": "2026-09-23T14:09:59.932612"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 5, "run_id": 5, "status": "queued", "seq": 88, "ts": "2026-09-23T14:10:00.007563"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 5, "run_id": 5, "status": "running", "seq": 89, "ts": "2026-09-23T14:10:00.158787"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 5, "status": "stopped", "seq": 90, "ts": "2026-09-23T14:10:06.661714"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 5, "run_id": 5, "status": "stopped", "seq": 91, "ts": "2026-09-23T14:10:06.679752"}
+{"v": 1, "type": "cursor", "task_id": 5, "cursor": 91, "status": "stopped", "task_state": "STOPPED"}

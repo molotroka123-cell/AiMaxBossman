@@ -1,0 +1,11 @@
+usage: bossman [-h] {serve,task,project,models} ...
+
+positional arguments:
+  {serve,task,project,models}
+
+options:
+  -h, --help            show this help message and exit
+
+Терминал Bossman 1.2: bossman [chat] | exec | -p "…" | status | events |
+result | approve | deny | stop | keys | code … — `bossman chat --help`,
+docs/owner/TERMINAL.md

@@ -1,0 +1,15 @@
+usage: bossman chat [-h] [--url URL] [--data-dir DATA_DIR] [--agent AGENT]
+                    [--cwd CWD] [--plain] [--verbose] [--no-history]
+                    [--session SESSION]
+
+options:
+  -h, --help           show this help message and exit
+  --url URL            адрес Bossman (по умолчанию: desktop.lock / BCC_PORT /
+                       8800)
+  --data-dir DATA_DIR  каталог данных Bossman (по умолчанию BCC_DATA_DIR)
+  --agent AGENT
+  --cwd CWD
+  --plain
+  --verbose
+  --no-history         не сохранять историю ввода
+  --session SESSION    продолжить сессию (id)

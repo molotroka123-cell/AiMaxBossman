@@ -1,0 +1,3 @@
+{"t": 1790173528.4639227, "step": "s25-probestub", "kind": "http", "status": 502, "url": "http://127.0.0.1:8810/api/models/6/test"}
+{"t": 1790173528.4639227, "step": "s25-probestub", "kind": "console.error", "text": "Failed to load resource: the server responded with a status of 502 (Bad Gateway)"}
+{"t": 1790173528.4639227, "step": "s25-probestub", "kind": "console.error", "text": "ApiError: unknown cloud pricing; refresh catalog before inference\n    at rawRequest (http://127.0.0.1:8810/api.js:166:11)\n    at async ui.tile.actions.ui.btn.size (http://127.0.0.1:8810/pages.js:431:21)\n    at async HTMLButtonElement.<anonymous> (http://127.0.0.1:8810/pages/_ui.js:208:15)"}

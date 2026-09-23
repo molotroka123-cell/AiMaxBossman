@@ -1,0 +1,1 @@
+{"v": 1, "type": "result", "ok": true, "task_state": "STOPPED", "status": "stopped", "task_id": 5, "run_id": 5, "title": "t005", "usage": {"tokens_in": 0, "tokens_out": 0}, "exit_code": 6}

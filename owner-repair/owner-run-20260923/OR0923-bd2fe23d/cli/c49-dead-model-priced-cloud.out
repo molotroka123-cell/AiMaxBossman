@@ -1,0 +1,33 @@
+{"v": 1, "type": "system", "subtype": "init", "schema": "bossman.events.v1", "client": {"name": "bossman-terminal", "version": "1.2.0"}, "bossman": {"url": "http://127.0.0.1:8810", "app": "bossman-command-center", "version": "0.1.0", "build_sha": "bd2fe23dab55704d60ed468bcbb4664475e49879", "source_identity": "PASS", "started_at": "2026-09-23T14:23:22.792759", "data_dir": "C:\\Users\\asd\\Bossman Test 0923\\data"}, "cwd": "C:\\Users\\asd\\Bossman Test 0923", "request_id": "or0923-t022-a", "agent": {"id": 3, "name": "Мёртвый"}, "model": {"id": 5, "alias": "dead-model", "name": "dead-model", "provider_kind": "openai_compat", "locality": "local", "context_window": 8192, "model_kind": "REAL_MODEL"}}
+{"v": 1, "type": "task", "subtype": "submitted", "task_id": 17, "status": "draft", "request_id": "or0923-t022-a"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 17, "status": "draft", "seq": 358, "ts": "2026-09-23T14:26:24.669733"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 17, "run_id": 17, "status": "queued", "source": "poll"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 17, "run_id": 17, "status": "queued", "seq": 359, "ts": "2026-09-23T14:26:24.826582"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 17, "run_id": 17, "status": "running", "seq": 360, "ts": "2026-09-23T14:26:25.595749"}
+{"v": 1, "type": "log", "level": "error", "kind": "run.error", "message": "нет связи с http://127.0.0.1:9: ConnectError", "run_id": 17, "ts": "2026-09-23T14:26:27.806516"}
+{"v": 1, "type": "log", "level": "warn", "kind": "run.retry", "message": "попытка 1/2 через 2 с", "run_id": 17, "ts": "2026-09-23T14:26:27.839516"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 17, "run_id": 17, "status": "queued", "seq": 364, "ts": "2026-09-23T14:26:27.839516"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 17, "run_id": 17, "status": "running", "seq": 365, "ts": "2026-09-23T14:26:30.709601"}
+{"v": 1, "type": "log", "level": "error", "kind": "run.error", "message": "нет связи с http://127.0.0.1:9: ConnectError", "run_id": 17, "ts": "2026-09-23T14:26:32.915698"}
+{"v": 1, "type": "log", "level": "warn", "kind": "run.retry", "message": "попытка 2/2 через 4 с", "run_id": 17, "ts": "2026-09-23T14:26:32.978768"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 17, "run_id": 17, "status": "queued", "seq": 369, "ts": "2026-09-23T14:26:32.978768"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 17, "run_id": 17, "status": "running", "seq": 370, "ts": "2026-09-23T14:26:37.750287"}
+{"v": 1, "type": "log", "level": "error", "kind": "run.error", "message": "нет связи с http://127.0.0.1:9: ConnectError", "run_id": 17, "ts": "2026-09-23T14:26:39.937052"}
+{"v": 1, "type": "log", "level": "warn", "kind": "run.recovery", "message": "transient: ступень alternate_model — другая модель (3): текущая не справилась с transient", "run_id": 17, "ts": "2026-09-23T14:26:39.968969"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 17, "run_id": 17, "status": "queued", "seq": 374, "ts": "2026-09-23T14:26:39.968969"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 17, "run_id": 17, "status": "running", "seq": 375, "ts": "2026-09-23T14:26:40.805870"}
+{"v": 1, "type": "usage", "step": 1, "model": "qwen-main-nt", "reported": true, "step_tokens_in": 43, "step_tokens_out": 5, "tokens_in": 43, "tokens_out": 5, "cost_known": false, "context_window": 65536, "max_tokens_total": 400000, "max_cost_usd": 2.0, "run_id": 17, "seq": 376, "ts": "2026-09-23T14:26:41.893607"}
+{"v": 1, "type": "assistant_message", "text": "Привет!", "step": 1, "model": "qwen-main-nt", "run_id": 17, "seq": 378, "ts": "2026-09-23T14:26:41.904888"}
+{"v": 1, "type": "step", "task_id": 17, "run_id": 17, "step": 1, "max_steps": 2, "model": "qwen-main-nt", "seq": 379, "ts": "2026-09-23T14:26:41.904888"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 17, "seq": 381, "ts": "2026-09-23T14:26:41.923822"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 17, "seq": 382, "ts": "2026-09-23T14:26:41.937695"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 17, "seq": 383, "ts": "2026-09-23T14:26:41.937695"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 17, "seq": 384, "ts": "2026-09-23T14:26:41.937695"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 17, "seq": 385, "ts": "2026-09-23T14:26:41.974576"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 17, "seq": 386, "ts": "2026-09-23T14:26:41.974576"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 17, "seq": 387, "ts": "2026-09-23T14:26:41.974576"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 17, "seq": 388, "ts": "2026-09-23T14:26:41.974576"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 17, "seq": 389, "ts": "2026-09-23T14:26:41.988225"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 17, "seq": 390, "ts": "2026-09-23T14:26:41.989779"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 17, "run_id": 17, "status": "completed", "seq": 391, "ts": "2026-09-23T14:26:42.004512"}
+{"v": 1, "type": "result", "ok": true, "task_state": "PASS", "status": "completed", "task_id": 17, "run_id": 17, "duration_ms": 17342, "result": "Привет!", "error": "нет связи с http://127.0.0.1:9: ConnectError", "usage": {"tokens_in": 43, "tokens_out": 5, "cost_usd": null}, "model": "qwen-main-nt", "model_kind": "REAL_MODEL", "cursor": 391, "exit_code": 0}

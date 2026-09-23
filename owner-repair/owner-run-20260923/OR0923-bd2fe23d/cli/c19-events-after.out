@@ -1,0 +1,18 @@
+{"v": 1, "type": "task", "subtype": "status", "task_id": 2, "status": "draft", "seq": 27, "ts": "2026-09-23T14:08:38.088307"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 2, "run_id": 2, "status": "queued", "seq": 28, "ts": "2026-09-23T14:08:38.101331"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 2, "run_id": 2, "status": "running", "seq": 29, "ts": "2026-09-23T14:08:38.607514"}
+{"v": 1, "type": "usage", "step": 1, "model": "qwen-fast-nt", "reported": true, "step_tokens_in": 46, "step_tokens_out": 4, "tokens_in": 46, "tokens_out": 4, "cost_known": false, "context_window": 32768, "max_tokens_total": 400000, "max_cost_usd": 2.0, "run_id": 2, "seq": 30, "ts": "2026-09-23T14:08:39.110545"}
+{"v": 1, "type": "assistant_message", "text": "391", "step": 1, "model": "qwen-fast-nt", "run_id": 2, "seq": 32, "ts": "2026-09-23T14:08:39.117244"}
+{"v": 1, "type": "step", "task_id": 2, "run_id": 2, "step": 1, "max_steps": 6, "model": "qwen-fast-nt", "seq": 33, "ts": "2026-09-23T14:08:39.125267"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 2, "seq": 35, "ts": "2026-09-23T14:08:39.141364"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 2, "seq": 36, "ts": "2026-09-23T14:08:39.141364"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 2, "seq": 37, "ts": "2026-09-23T14:08:39.141364"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 2, "seq": 38, "ts": "2026-09-23T14:08:39.141364"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 2, "seq": 39, "ts": "2026-09-23T14:08:39.157394"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 2, "seq": 40, "ts": "2026-09-23T14:08:39.157394"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 2, "seq": 41, "ts": "2026-09-23T14:08:39.157394"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 2, "seq": 42, "ts": "2026-09-23T14:08:39.171328"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 2, "seq": 43, "ts": "2026-09-23T14:08:39.173074"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 2, "seq": 44, "ts": "2026-09-23T14:08:39.173074"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 2, "run_id": 2, "status": "completed", "seq": 45, "ts": "2026-09-23T14:08:39.188747"}
+{"v": 1, "type": "cursor", "task_id": 2, "cursor": 46, "status": "completed", "task_state": "PASS"}

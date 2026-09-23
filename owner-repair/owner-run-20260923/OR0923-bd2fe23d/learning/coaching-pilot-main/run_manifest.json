@@ -1,0 +1,77 @@
+{
+  "run_id": "OR0923-coach-main",
+  "created_at": "2026-09-23T14:27:13Z",
+  "git_head": "unknown",
+  "python": "3.12.10",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "backend": {
+    "name": "local",
+    "label": "local OpenAI-compatible endpoint http://127.0.0.1:11500 model=bossman-main-qwen38-27b-q5:latest",
+    "endpoint": "http://127.0.0.1:11500",
+    "model": "bossman-main-qwen38-27b-q5:latest",
+    "temperature": 0.0,
+    "seed": 7
+  },
+  "runtime": {
+    "max_attempts": 2,
+    "test_timeout_s": 10,
+    "tool_permissions": {
+      "python_subprocess": "isolated (-I), tmp dir, no network use by the runner",
+      "filesystem": "task file in a temp dir only",
+      "network": "model endpoint only",
+      "shell": false,
+      "browser": false
+    },
+    "project_id": "coaching-pack",
+    "lessons_dir": "C:\\Users\\asd\\Bossman\\wt-run0923\\owner-repair\\owner-run-20260923\\OR0923-bd2fe23d\\learning\\coaching-pilot-main\\lessons"
+  },
+  "pack": {
+    "dir": "C:\\Users\\asd\\Bossman Test 0923\\BOSSMAN-Windows-x64-bd2fe23dab55\\app-support\\coaching-pack",
+    "train": [
+      {
+        "task_id": "train-01-sum-inclusive",
+        "fingerprint": "0cfab7d43acb47ca"
+      },
+      {
+        "task_id": "train-02-broken-counter",
+        "fingerprint": "42a1ab83522972b0"
+      },
+      {
+        "task_id": "train-03-safe-max",
+        "fingerprint": "1afd7859f4ca9d43"
+      },
+      {
+        "task_id": "train-04-sort-names",
+        "fingerprint": "a00f98fd6abc61b4"
+      },
+      {
+        "task_id": "train-05-split-evenly",
+        "fingerprint": "47fd58145d179b71"
+      }
+    ],
+    "holdout": [
+      {
+        "task_id": "holdout-01-count-inclusive",
+        "fingerprint": "ea67870d1f85b0da"
+      },
+      {
+        "task_id": "holdout-02-tally-reset",
+        "fingerprint": "d72ec25761f92616"
+      },
+      {
+        "task_id": "holdout-03-average",
+        "fingerprint": "5c8bf233014bdfe0"
+      },
+      {
+        "task_id": "holdout-04-dedupe-ci",
+        "fingerprint": "6a2f642ac60bcb6c"
+      },
+      {
+        "task_id": "holdout-05-pages-needed",
+        "fingerprint": "0c4e7fb3a097d4ce"
+      }
+    ]
+  },
+  "weights_unchanged": true,
+  "fine_tuning": "none"
+}

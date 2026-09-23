@@ -1,0 +1,30 @@
+usage: bossman exec [-h] [--url URL] [--data-dir DATA_DIR]
+                    [--input-file INPUT_FILE] [--text]
+                    [--output-format {text,json,stream-json}] [--json]
+                    [--detach] [--wait] [--agent AGENT] [--model MODEL]
+                    [--title TITLE] [--request-id REQUEST_ID]
+                    [--max-seconds MAX_SECONDS] [--approval-mode {wait,fail}]
+                    [--on-timeout {stop,detach}] [--cwd CWD] [--verbose]
+
+options:
+  -h, --help            show this help message and exit
+  --url URL             адрес Bossman (по умолчанию: desktop.lock / BCC_PORT /
+                        8800)
+  --data-dir DATA_DIR   каталог данных Bossman (по умолчанию BCC_DATA_DIR)
+  --input-file INPUT_FILE
+                        UTF-8 файл схемы bossman.exec.v1 ('-' = stdin)
+  --text                вход — это просто текст запроса
+  --output-format {text,json,stream-json}
+  --json
+  --detach              поставить задачу и сразу вернуть task_id
+  --wait                ждать результат (по умолчанию)
+  --agent AGENT
+  --model MODEL
+  --title TITLE
+  --request-id REQUEST_ID
+                        ключ идемпотентности (повтор = та же задача)
+  --max-seconds MAX_SECONDS
+  --approval-mode {wait,fail}
+  --on-timeout {stop,detach}
+  --cwd CWD
+  --verbose

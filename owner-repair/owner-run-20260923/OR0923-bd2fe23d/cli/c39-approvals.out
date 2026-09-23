@@ -1,0 +1,1 @@
+{"v": 1, "type": "list", "ok": true, "what": "approvals", "items": [{"id": 1, "task_id": 8, "kind": "tool", "preview": "Агент «Помощник» хочет выполнить browser.download причина политики: право browser.control не выдано агенту approval_digest: 561ab0a0f92e268e… аргументы: {  \"url"}], "exit_code": 0}

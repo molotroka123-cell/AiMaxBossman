@@ -1,0 +1,13 @@
+usage: bossman models [-h]
+                      [--provider {anthropic,google,groq,mistral,ollama,openai,openrouter,together,zai}]
+                      [--all] [--json]
+                      {list}
+
+positional arguments:
+  {list}
+
+options:
+  -h, --help            show this help message and exit
+  --provider {anthropic,google,groq,mistral,ollama,openai,openrouter,together,zai}
+  --all                 опросить всех провайдеров, у которых есть ключ
+  --json

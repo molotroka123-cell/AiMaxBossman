@@ -1,0 +1,1 @@
+{"v": 1, "type": "result", "ok": true, "task_state": "STOPPED", "status": "stopped", "task_id": 8, "run_id": 8, "title": "t008", "usage": {"tokens_in": 2540, "tokens_out": 88}, "model": "qwen-main-nt", "exit_code": 6}

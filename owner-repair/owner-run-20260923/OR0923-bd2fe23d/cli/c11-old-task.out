@@ -1,0 +1,9 @@
+usage: bossman task [-h] [--agent AGENT] [--source SOURCE] text
+
+positional arguments:
+  text
+
+options:
+  -h, --help       show this help message and exit
+  --agent AGENT
+  --source SOURCE

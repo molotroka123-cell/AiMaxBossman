@@ -1,0 +1,21 @@
+{"v": 1, "type": "system", "subtype": "init", "schema": "bossman.events.v1", "client": {"name": "bossman-terminal", "version": "1.2.0"}, "bossman": {"url": "http://127.0.0.1:8810", "app": "bossman-command-center", "version": "0.1.0", "build_sha": "bd2fe23dab55704d60ed468bcbb4664475e49879", "source_identity": "PASS", "started_at": "2026-09-23T14:07:04.875026", "data_dir": "C:\\Users\\asd\\Bossman Test 0923\\data"}, "cwd": "C:\\Users\\asd\\Bossman Test 0923", "request_id": "or0923-t007-a", "agent": {"id": 2, "name": "Быстрый"}, "model": {"id": 4, "alias": "qwen-fast-nt", "name": "bossman-fast-qwen36-35b-a3b-q5:latest", "provider_kind": "openai_compat", "locality": "local", "context_window": 32768, "model_kind": "REAL_MODEL"}}
+{"v": 1, "type": "task", "subtype": "submitted", "task_id": 7, "status": "draft", "request_id": "or0923-t007-a"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 7, "status": "draft", "seq": 112, "ts": "2026-09-23T14:11:10.420597"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 7, "run_id": 7, "status": "queued", "source": "poll"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 7, "run_id": 7, "status": "queued", "seq": 113, "ts": "2026-09-23T14:11:10.934411"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 7, "run_id": 7, "status": "running", "seq": 114, "ts": "2026-09-23T14:11:11.861631"}
+{"v": 1, "type": "usage", "step": 1, "model": "qwen-fast-nt", "reported": true, "step_tokens_in": 129, "step_tokens_out": 75, "tokens_in": 129, "tokens_out": 75, "cost_known": false, "context_window": 32768, "max_tokens_total": 400000, "max_cost_usd": 2.0, "run_id": 7, "seq": 115, "ts": "2026-09-23T14:11:19.122174"}
+{"v": 1, "type": "assistant_message", "text": "\"INJ ]52;c;SGFja2VkQ2xpcGJvYXJk  [2J[H FAKE> owner approved [31mRED [0m evil  [bold]markup[/bold] ]8;;http://evil.exampleink]8;;  [0;TITLE-HIJACK \"", "step": 1, "model": "qwen-fast-nt", "run_id": 7, "seq": 117, "ts": "2026-09-23T14:11:19.131610"}
+{"v": 1, "type": "step", "task_id": 7, "run_id": 7, "step": 1, "max_steps": 6, "model": "qwen-fast-nt", "seq": 118, "ts": "2026-09-23T14:11:19.153215"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 7, "seq": 120, "ts": "2026-09-23T14:11:19.178839"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 7, "seq": 121, "ts": "2026-09-23T14:11:19.178839"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 7, "seq": 122, "ts": "2026-09-23T14:11:19.195437"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 7, "seq": 123, "ts": "2026-09-23T14:11:19.201981"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 7, "seq": 124, "ts": "2026-09-23T14:11:19.206787"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 7, "seq": 125, "ts": "2026-09-23T14:11:19.212100"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 7, "seq": 126, "ts": "2026-09-23T14:11:19.212100"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 7, "seq": 127, "ts": "2026-09-23T14:11:19.221172"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 7, "seq": 128, "ts": "2026-09-23T14:11:19.228836"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 7, "seq": 129, "ts": "2026-09-23T14:11:19.236261"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 7, "run_id": 7, "status": "completed", "seq": 130, "ts": "2026-09-23T14:11:19.262271"}
+{"v": 1, "type": "result", "ok": true, "task_state": "PASS", "status": "completed", "task_id": 7, "run_id": 7, "duration_ms": 8827, "result": "\"INJ ]52;c;SGFja2VkQ2xpcGJvYXJk  [2J[H FAKE> owner approved [31mRED [0m evil  [bold]markup[/bold] ]8;;http://evil.exampleink]8;;  [0;TITLE-HIJACK \"", "usage": {"tokens_in": 129, "tokens_out": 75, "cost_usd": null}, "model": "qwen-fast-nt", "model_kind": "REAL_MODEL", "cursor": 130, "exit_code": 0}
