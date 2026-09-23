@@ -15,7 +15,7 @@
 
 - **Current bottleneck:** The repair pass is materially ahead of the 2026-09-07 scorecard, but the final repaired exact-SHA Windows artifact still needs mandatory CI, clean-install owner re-run, Video Studio product-path acceptance, coaching/holdout and an independent red-team.
 - **Next highest-value fix:** Finish mandatory exact-SHA CI, build one clean Windows 1.0-RC artifact, then run the full owner acceptance and independent red-team on those exact bytes.
-- **Last evidence SHA:** `0c1cbe651f5271bbd0bb2d30b467c1206c19f565` · **Current HEAD SHA:** `f774daa5985f` · **Evidence freshness:** PARTIALLY_STALE
+- **Last evidence SHA:** `0c1cbe651f5271bbd0bb2d30b467c1206c19f565` · **Current HEAD SHA:** `737a31b1c172` · **Evidence freshness:** PARTIALLY_STALE
 - **Last scorecard update:** 2026-09-22
 - **Benchmark hard failures:** none observed
 - **Live hardware attestation:** PENDING
