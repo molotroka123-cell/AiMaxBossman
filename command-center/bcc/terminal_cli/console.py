@@ -25,7 +25,7 @@ _C1 = re.compile(r"[\x80-\x9f]")
 # C0 controls except TAB and LF (CR is handled first, see below).
 _C0 = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 # Bidi embeddings/overrides/isolates: a line must read as it is stored.
-_BIDI = re.compile("[‪-‮⁦-⁩‎‏؜]")
+_BIDI = re.compile("[\u202a-\u202e\u2066-\u2069\u200e\u200f\u061c]")
 
 
 def sanitize(text: object, *, keep_newlines: bool = True) -> str:
