@@ -349,6 +349,25 @@ def _evidence_errors(evidence: Any) -> list[str]:
     return errs
 
 
+def _refs(prov: dict, check_paths: list[str], evidence: dict) -> dict:
+    """The lesson's ``refs`` ({code|test|evidence}) from the recipe provenance the lab
+    writes (code_refs / test_refs / evidence_refs) plus the required check and the
+    independent evidence. Strings only, de-duplicated, order kept."""
+    def strings(*groups) -> list[str]:
+        out: list[str] = []
+        for group in groups:
+            for item in group if isinstance(group, list) else []:
+                if isinstance(item, str) and item.strip() and item not in out:
+                    out.append(item)
+        return out[:MAX_PATHS]
+    refs = {"test": strings(list(check_paths), prov.get("test_refs")),
+            "evidence": strings([str(evidence["source"])], prov.get("evidence_refs"))}
+    code = strings(prov.get("code_refs"))
+    if code:
+        refs["code"] = code
+    return refs
+
+
 def save_verified_recipe(target: Any, recipe: dict, *, evidence: dict, verifier: dict,
                          project_id: str | None = None, scope: str | None = None) -> dict:
     """Store ``recipe`` as a VERIFIED lesson, or refuse.
@@ -403,9 +422,9 @@ def save_verified_recipe(target: Any, recipe: dict, *, evidence: dict, verifier:
         recipe=[f"diagnosis: {clean['diagnosis']}"] + [describe_step(s) for s in clean["steps"]],
         check="run_tests " + " ".join(paths) + " passes",
         counterexample=clean["counterexample"],
-        refs={"test": list(paths), "evidence": [str(evidence["source"])]},
+        refs=_refs(prov, paths, evidence),
         assistance_level=level if level in ASSISTANCE_LEVELS else "unknown",
-        model=str(prov.get("model") or ""))
+        model=str(prov.get("model") or ""), runtime=str(prov.get("runtime") or ""))
     book = _book(target)
     try:
         book.save(ep)
