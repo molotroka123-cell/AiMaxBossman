@@ -50,7 +50,8 @@
     ".github/workflows/installed-product.yml",
     ".github/workflows/owner-scenarios.yml",
     ".github/workflows/bossman-v2-repair.yml",
-    ".github/workflows/fable-media-fleet.yml"
+    ".github/workflows/fable-media-fleet.yml",
+    ".github/workflows/windows-stress-100.yml"
   ],
   "windows_pair": [
     ".github/workflows/windows-bundle.yml",
