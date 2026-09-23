@@ -546,10 +546,14 @@ async def cancel_job(job_id: int, request: Request):
     if row["status"] in ("completed", "failed", "cancelled"):
         return _job_public(row)
     async with svc.db.session() as s:
-        await s.execute(sa.update(jobs_t).where(jobs_t.c.id == job_id).values(
-            status="cancelled", finished_at=utcnow(), updated_at=utcnow()))
+        # Conditional: a job that finished between the read above and this write
+        # stays finished (never "cancelled" with an artifact it already delivered).
+        res = await s.execute(sa.update(jobs_t).where(
+            jobs_t.c.id == job_id, jobs_t.c.status.in_(("queued", "running"))
+        ).values(status="cancelled", finished_at=utcnow(), updated_at=utcnow()))
         await s.commit()
-    await svc.bus.emit("image.job.cancelled", job_id=job_id)
+    if res.rowcount:
+        await svc.bus.emit("image.job.cancelled", job_id=job_id)
     return _job_public((await _find_one(svc, jobs_t, job_id)) or {})
 
 
@@ -771,23 +775,22 @@ async def process_one(svc) -> int | None:
                     created_at=utcnow(),
                 ))
                 asset_id = int(res.inserted_primary_key[0])
-                progress = 0.10 + (0.85 * ((index + 1) / count))
-                await s.execute(sa.update(jobs_t).where(jobs_t.c.id == job_id).values(
-                    progress=progress, updated_at=utcnow()))
+                created.append(asset_id)
+                if index + 1 == count:
+                    # The last asset and "completed" land in ONE transaction: a cancel
+                    # either comes first (the claim above fails, no asset) or finds
+                    # the job finished — never "cancelled" holding a delivered artifact.
+                    await s.execute(sa.update(jobs_t).where(jobs_t.c.id == job_id).values(
+                        status="completed", progress=1.0, finished_at=utcnow(), updated_at=utcnow(),
+                        options={**dict(job.get("options") or {}), "asset_ids": created}))
+                else:
+                    progress = 0.10 + (0.85 * ((index + 1) / count))
+                    await s.execute(sa.update(jobs_t).where(jobs_t.c.id == job_id).values(
+                        progress=progress, updated_at=utcnow()))
                 await s.commit()
-            created.append(asset_id)
             await svc.bus.emit("image.asset.created", asset_id=asset_id, job_id=job_id)
 
-        async with svc.db.session() as s:
-            completed = await s.execute(sa.update(jobs_t).where(
-                jobs_t.c.id == job_id, jobs_t.c.status == "running"
-            ).values(
-                status="completed", progress=1.0, finished_at=utcnow(), updated_at=utcnow(),
-                options={**dict(job.get("options") or {}), "asset_ids": created},
-            ))
-            await s.commit()
-        if completed.rowcount:
-            await svc.bus.emit("image.job.completed", job_id=job_id, asset_ids=created)
+        await svc.bus.emit("image.job.completed", job_id=job_id, asset_ids=created)
     except Exception as exc:
         await _fail_job(svc, job_id, _human_failure(job, exc))
     return job_id
