@@ -289,7 +289,18 @@ def anchor(project: Path, after: str) -> dict:
             "source_sha256": digest_file(src), "continuity_verified": False}
 
 
+def utf8_console() -> None:
+    # Shipped runners start with `-I`, which ignores PYTHONUTF8/PYTHONIOENCODING:
+    # without this the first Cyrillic line dies with cp1252 on Windows.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv=None) -> int:
+    utf8_console()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("init", "preflight", "anchor", "assemble", "verify"))
     parser.add_argument("--project", type=Path, required=True)

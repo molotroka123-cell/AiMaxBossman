@@ -16,7 +16,18 @@ from bossman_v3.self_improvement.protocol import REVIEW_SCHEMA
 from bossman_v3.self_improvement.validation import validate, verify_campaign
 
 
+def utf8_console() -> None:
+    # Shipped runners start with `-I`, which ignores PYTHONUTF8/PYTHONIOENCODING:
+    # without this the first Cyrillic line dies with cp1252 on Windows.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv=None):
+    utf8_console()
     # Keep the established CLI and the bounded loop on one entry point.  The
     # loop owns its parser and campaign state; it must not inherit the legacy
     # runner's checkout-relative defaults when launched from a Windows ZIP.
