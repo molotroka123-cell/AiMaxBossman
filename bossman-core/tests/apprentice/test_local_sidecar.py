@@ -8,6 +8,7 @@ cannot prove: that a real local model picks good edits — that is the owner-run
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
@@ -158,6 +159,43 @@ def test_scope_protected_and_git_are_refused_inside_the_loop(repo):
     assert result.changed_files == ()
 
 
+def test_the_record_carries_what_the_lab_observers_count(repo):
+    """Per call: elapsed time, a content-free call identity, the path/pattern, search
+    hits, test verdicts and an error CLASS — enough for the lab's UX observer and
+    auditor to count wrong tools, search misses, stale observations and loops from
+    the record alone. Nothing of the file contents is stored."""
+    turns = [{"tool": "search", "args": {"pattern": "no_such_symbol_xyz"}},
+             {"tool": "search", "args": {"pattern": "def add"}},
+             {"tool": "read_file", "args": {"path": "missing.py"}},
+             {"tool": "edit_file", "args": {"path": "calc.py", "old": "return a * b", "new": "return a + b"}},
+             {"tool": "write_file", "args": {"path": "SECRET.txt", "content": "x"}},
+             {"tool": "delete_everything", "args": {}},
+             FIX[1], FIX[1], FIX[2], FIX[3]]
+    server, url, model = serve(turns)
+    try:
+        result = client_for(url, model).run(OpenHandsRequest(
+            "fix add", repo, ("calc.py",), ("SECRET.txt",), timeout_seconds=120))
+    finally:
+        server.shutdown()
+    calls = result.sidecar["tool_calls"]
+    assert [c["tool"] for c in calls] == [t["tool"] for t in turns]
+    assert calls[0]["hits"] == 0 and calls[1]["hits"] >= 1 and calls[0]["pattern"] == "no_such_symbol_xyz"
+    assert calls[2]["err"] == "not_found" and calls[2]["path"] == "missing.py"
+    assert calls[3]["err"] == "stale_old_text"
+    assert calls[4]["err"] == "scope"
+    assert calls[5]["err"] == "tool_not_allowed"
+    assert "err" not in calls[6] and calls[6]["ok"] is True
+    assert calls[7]["err"] == "stale_old_text"                 # the same edit again: text is gone
+    assert calls[6]["sig"] == calls[7]["sig"] != calls[3]["sig"]
+    assert calls[8]["passed"] is True and calls[8]["paths"] == ["test_calc.py"]
+    ts = [c["t"] for c in calls]
+    assert ts == sorted(ts) and all(isinstance(t, float) for t in ts)
+    assert result.sidecar["tool_calls_total"] == len(turns)
+    assert result.sidecar["elapsed_seconds"] >= ts[-1]
+    assert result.sidecar["endpoint"].startswith("http://127.0.0.1:")
+    assert all("content" not in c and "old" not in c and "new" not in c for c in calls)
+
+
 @pytest.mark.parametrize("runner", ["unittest", "pytest"])
 def test_the_test_guard_refuses_reading_owner_files_outside_the_workspace(repo, tmp_path, runner):
     if runner == "pytest" and not ls._pytest_available():
@@ -288,6 +326,40 @@ def test_timeout_kills_the_grandchild_too(tmp_path):
             break
         time.sleep(0.1)
     assert not _alive(grandchild), "grandchild survived the timeout (orphan)"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX sessions; on Windows the nested Job Object covers this")
+def test_kill_reaches_a_descendant_that_started_its_own_session(tmp_path):
+    """The owner's STOP kills the sidecar's tree while its test runner is going:
+    that runner was started by the sidecar's own run_tree, i.e. in a NEW session,
+    so killpg of the sidecar's group does not reach it. Negative control in the
+    same test: before kill() the grandchild is alive (the fixture really runs)."""
+    from bossman.apprentice.proc_tree import ProcessTree
+    pidfile = tmp_path / "escaped.pid"
+    code = textwrap.dedent(f"""
+        import subprocess, sys, time, pathlib
+        p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"], start_new_session=True)
+        pathlib.Path({str(pidfile)!r}).write_text(str(p.pid))
+        time.sleep(120)
+        """)
+    tree = ProcessTree([sys.executable, "-c", code], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        for _ in range(100):
+            if pidfile.is_file() and pidfile.read_text().strip():
+                break
+            time.sleep(0.05)
+        grandchild = int(pidfile.read_text())
+        assert _alive(grandchild)
+        tree.kill()
+        for _ in range(50):
+            if not _alive(grandchild):
+                break
+            time.sleep(0.1)
+        assert not _alive(grandchild), "a descendant in its own session survived kill() (orphan)"
+    finally:
+        tree.close()
+        with contextlib.suppress(Exception):
+            os.kill(int(pidfile.read_text()), 9)
 
 
 def test_a_normally_finished_child_does_not_leave_its_grandchild_running(tmp_path):

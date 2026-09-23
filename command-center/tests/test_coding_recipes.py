@@ -198,6 +198,38 @@ def test_the_lab_tool_builds_recipes_this_grammar_accepts(tmp_path):
     assert [h["lesson_id"] for h in hits] == [saved["lesson_id"]]
 
 
+def test_a_hard_case_lesson_keeps_refs_runtime_and_failed_approaches(tmp_path):
+    """The lab's lesson provenance (observed diagnostic sequence, code/test/evidence
+    refs, model/runtime, teacher level) is accepted by the grammar and lands in the
+    SAME LessonBook record: refs.code/test/evidence and runtime are filled, recall
+    still serves it. Failed approaches are observations from other variants."""
+    from learning.lessons import LessonBook
+    prov = {"who": "student:LAB · MEMORY", "source": "student", "assistance_level": "hint",
+            "teacher_level": "LEVEL_2", "run_id": "task-abc",
+            "evidence_refs": ["lab:cmp-1:MEMORY", "hidden_verifier:PASSED"],
+            "code_refs": ["invoicekit/money.py"], "test_refs": ["tests", "tests/test_regression_comma.py"],
+            "diagnostic_sequence": ["read_file invoicekit/money.py -> ok", "run_tests tests -> red",
+                                    "edit_file invoicekit/money.py -> ok", "run_tests tests -> green"],
+            "model": "Qwen3.8-27B-UD-Q5_K_M.gguf", "quant": "UD-Q5_K_M",
+            "runtime": "bossman-local-sidecar · http://127.0.0.1:8081/v1 · REAL_MODEL"}
+    recipe = _mut(provenance=prov, failed_approaches=[
+        "вариант RAW: изменены invoicekit/money.py; скрытая проверка не прошла (VERIFIER_FAILED)"])
+    assert cr.validate_recipe(recipe) == []
+    saved = cr.save_verified_recipe(tmp_path, recipe, evidence=EVIDENCE, verifier=VERIFIER)
+    [row] = LessonBook(tmp_path / "learning").retrieve(project_id="bossman", task_class=cr.TASK_CLASS)
+    assert row["lesson_id"] == saved["lesson_id"]
+    assert row["refs"]["code"] == ["invoicekit/money.py"]
+    assert row["refs"]["test"] == ["tests/test_money.py", "tests", "tests/test_regression_comma.py"]
+    assert row["refs"]["evidence"][0] == EVIDENCE["source"] and "lab:cmp-1:MEMORY" in row["refs"]["evidence"]
+    assert row["assistance_level"] == "hint" and row["model"] == prov["model"]
+    assert row["failed_approaches"] == recipe["failed_approaches"]
+    got = cr.executable_recipes(_Svc(tmp_path), INSTRUCTION, "bossman")
+    assert got[0]["provenance"]["diagnostic_sequence"] == prov["diagnostic_sequence"]
+    # negative control: a non-string ref is refused by the grammar, not silently dropped
+    bad = _mut(provenance={**prov, "code_refs": [{"path": "x"}]})
+    assert any("provenance.code_refs" in e for e in cr.validate_recipe(bad))
+
+
 # ------------------------------------------------------------------ HTTP + restart through the engine
 async def test_routes_and_recall_through_the_engine_after_a_full_restart(tmp_path):
     settings = make_settings(tmp_path)

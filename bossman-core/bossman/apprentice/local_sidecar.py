@@ -501,6 +501,51 @@ def _required_checks(req: dict, profile: dict) -> list[dict]:
     return checks
 
 
+def _err_code(message: str) -> str:
+    """A short, stable class for a refused/failed tool call — what the lab's UX
+    observer and auditor count (wrong tool, stale observation, scope attempt …).
+    The message itself stays with the model; the record keeps only the class."""
+    m = message.lower()
+    if "tool not allowed" in m:
+        return "tool_not_allowed"
+    if "finish refused" in m:
+        return "finish_refused"
+    if "found 0 times" in m:
+        return "stale_old_text"
+    if "old snippet found" in m:
+        return "ambiguous_old_text"
+    if any(k in m for k in ("outside allowed", "is protected", ".git is not", "escapes the workspace",
+                            "absolute paths", "'..' is not allowed")):
+        return "scope"
+    if "no such file" in m or "not a directory" in m:
+        return "not_found"
+    if any(k in m for k in ("bad regex", "is required", "must be", "typeerror", "keyerror", "valueerror",
+                            "runner must be")):
+        return "bad_args"
+    return "error"
+
+
+def _call_sig(name: str, args: dict) -> str:
+    """Identity of a call (tool + canonical arguments): repeated identical calls
+    are visible in the record without storing file contents."""
+    import hashlib
+    try:
+        raw = json.dumps([name, args], sort_keys=True, ensure_ascii=False, default=str)
+    except (TypeError, ValueError):
+        raw = f"{name}:{args!r}"
+    return hashlib.sha1(raw.encode("utf-8", "replace")).hexdigest()[:12]
+
+
+def _call_facts(name: str, args: dict) -> dict:
+    """Small, content-free facts about a call's arguments for the record."""
+    facts: dict[str, Any] = {}
+    if isinstance(args.get("path"), str):
+        facts["path"] = _norm_rel(args["path"])[:200]
+    if name == "search" and isinstance(args.get("pattern"), str):
+        facts["pattern"] = args["pattern"][:120]
+    return facts
+
+
 def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> dict:
     workspace = Path(str(req.get("workspace") or ""))
     if not workspace.is_dir() or not (workspace / ".git").exists():
@@ -526,6 +571,7 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
     passed_checks: set[str] = set()
     summary = ""
     stop = "max_steps"
+    started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix="bossman-sidecar-") as scratch_dir:
         scratch = Path(scratch_dir)
         step = 0
@@ -545,11 +591,17 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
                              **({"tool_calls": msg["tool_calls"]} if msg.get("tool_calls") else {})})
             if not calls:
                 messages.append({"role": "user", "content": "Use a tool. When done and tests pass, call finish."})
-                log.append({"step": step, "tool": None, "ok": False})
+                log.append({"step": step, "tool": None, "ok": False, "t": round(time.monotonic() - started, 3),
+                            "err": "no_tool_call"})
                 continue
             finished = False
             for call_id, name, args in calls:
                 ok, result = True, ""
+                entry: dict[str, Any] = {"step": step, "tool": name, "ok": True,
+                                         "t": round(time.monotonic() - started, 3), "sig": _call_sig(name, args),
+                                         **_call_facts(name, args)}
+                if "__unparsed__" in args:
+                    entry["err"] = "bad_args"
                 try:
                     if name not in allowed_tools:
                         raise ToolError(f"tool not allowed for this agent: {name}")
@@ -574,20 +626,27 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
                         else:
                             passed_checks.clear()
                         ok = res["passed"]
+                        entry.update(paths=list(res["paths"])[:20], passed=bool(res["passed"]),
+                                     timed_out=bool(res["timed_out"]))
                         result = json.dumps({k: res[k] for k in ("runner", "exit_code", "passed", "timed_out")}) \
                             + "\n" + res["output_tail"]
                     else:
                         fn = {"list_dir": tool_list_dir, "read_file": tool_read_file, "search": tool_search,
                               "edit_file": tool_edit_file, "write_file": tool_write_file}[name]
                         result = fn(ws, args)
+                        if name == "search":
+                            entry["hits"] = 0 if result == "(no matches)" else result.count("\n") + 1
                         if name in ("edit_file", "write_file"):
                             last_edit_step = step
                             passed_checks.clear()
                 except ToolError as exc:
                     ok, result = False, f"ERROR: {exc}"
+                    entry["err"] = _err_code(str(exc))
                 except (OSError, ValueError, TypeError, KeyError) as exc:
                     ok, result = False, f"ERROR: {type(exc).__name__}: {exc}"
-                log.append({"step": step, "tool": name, "ok": ok})
+                    entry["err"] = _err_code(f"{type(exc).__name__}: {exc}")
+                entry["ok"] = ok
+                log.append(entry)
                 messages.append({"role": "tool", "tool_call_id": call_id, "name": name, "content": result[:MAX_OUTPUT_TAIL]})
                 if finished:
                     break
@@ -598,7 +657,9 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
     return {"status": "completed" if stop == "finished" else "failed", "summary": summary,
             "tests": {k: tests.get(k) for k in ("ran", "runner", "paths", "exit_code", "passed", "timed_out")},
             "notes": f"stop_reason={stop}", "steps": len({e['step'] for e in log}), "stop_reason": stop,
-            "tool_calls": log[-200:], "recipes_applied": applied, "profile": profile.get("name") or "",
+            "tool_calls": log[-200:], "tool_calls_total": len(log),
+            "elapsed_seconds": round(time.monotonic() - started, 3),
+            "recipes_applied": applied, "profile": profile.get("name") or "",
             "memory_used": bool(ctx.get("memory_text") or ctx.get("recipes")),
             "skills_used": [str(sk.get("id")) for sk in (ctx.get("skills") or [])[:3]]}
 
@@ -666,8 +727,9 @@ def main(argv: list[str] | None = None) -> int:
     api_key = os.environ.pop(args.api_key_env, None) if args.api_key_env else None
     model = Model(args.endpoint, args.model, api_key)
     mock = TEST_MODEL_MARKER in args.model
+    # endpoint: the loopback runtime URL (no key) — the lab's fairness check compares it
     marker = {"executor": EXECUTOR, "model": args.model, "deterministic_test_model": mock,
-              "model_kind": "MOCK_MODEL" if mock else "REAL_MODEL"}
+              "model_kind": "MOCK_MODEL" if mock else "REAL_MODEL", "endpoint": model.base}
     with _stdout_reserved() as out:
         try:
             req = json.load(sys.stdin)

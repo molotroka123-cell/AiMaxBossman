@@ -77,6 +77,66 @@ class _WinJob:
             self.handle = None
 
 
+def _posix_parent_map() -> dict[int, list[int]]:
+    """ppid -> [pid] for every visible process (Linux /proc; ``ps`` elsewhere)."""
+    children: dict[int, list[int]] = {}
+    proc = "/proc"
+    if os.path.isdir(proc):
+        for name in os.listdir(proc):
+            if not name.isdigit():
+                continue
+            try:
+                with open(f"{proc}/{name}/stat", "rb") as fh:
+                    stat = fh.read().decode("ascii", "replace")
+                # "pid (comm) state ppid …" — comm may contain spaces/parens
+                ppid = int(stat[stat.rindex(")") + 2:].split()[1])
+            except (OSError, ValueError, IndexError):
+                continue
+            children.setdefault(ppid, []).append(int(name))
+        return children
+    with contextlib.suppress(OSError, subprocess.SubprocessError, ValueError):
+        out = subprocess.run(["ps", "-A", "-o", "pid=", "-o", "ppid="], capture_output=True,
+                             text=True, timeout=10).stdout
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) == 2:
+                children.setdefault(int(parts[1]), []).append(int(parts[0]))
+    return children
+
+
+def _posix_descendants(root: int) -> list[int]:
+    found: list[int] = []
+    tree = _posix_parent_map()
+    stack = list(tree.get(root, []))
+    while stack:
+        pid = stack.pop()
+        if pid in found or pid == root:
+            continue
+        found.append(pid)
+        stack.extend(tree.get(pid, []))
+    return found
+
+
+def _posix_kill_descendants(root: int) -> None:
+    """A descendant that started its OWN session (the sidecar's test runner is
+    started by run_tree, i.e. ``start_new_session``) is out of reach of
+    ``killpg(root)``. Walk the ppid chain instead: freeze what is found
+    (SIGSTOP — a stopped process cannot fork a new escapee), walk again until
+    nothing new appears, then SIGKILL the lot."""
+    frozen: list[int] = []
+    for _ in range(4):
+        new = [p for p in _posix_descendants(root) if p not in frozen]
+        if not new:
+            break
+        for pid in new:
+            with contextlib.suppress(OSError):
+                os.kill(pid, signal.SIGSTOP)
+        frozen.extend(new)
+    for pid in frozen:
+        with contextlib.suppress(OSError):
+            os.kill(pid, signal.SIGKILL)
+
+
 class ProcessTree:
     """A started child plus the means to kill everything it spawned."""
 
@@ -107,6 +167,9 @@ class ProcessTree:
                     subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.proc.pid)],
                                    capture_output=True, timeout=30)
         else:
+            if self.proc.poll() is None:          # a live child: its descendants still hang off it
+                with contextlib.suppress(Exception):
+                    _posix_kill_descendants(self.proc.pid)
             with contextlib.suppress(OSError):
                 os.killpg(self.proc.pid, signal.SIGKILL)
         with contextlib.suppress(OSError):

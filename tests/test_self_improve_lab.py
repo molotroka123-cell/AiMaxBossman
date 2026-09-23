@@ -79,6 +79,11 @@ class Stub:
         self.recipes: list[dict] = []
         self.polls: dict[str, int] = {}
         self.stop_on_first_poll: tuple[str, Path] | None = None    # (behaviour key, STOP path)
+        self.on_poll = None                                       # callable(task) run on each poll
+        self.sidecar_default: dict = {}                           # merged into every final sidecar
+        self.sidecar_extra: dict[str, dict] = {}                  # per behaviour key
+        self.handshake: dict | None = None                        # readiness handshake, if any
+        self.agent_fairness: dict[str, dict] = {}                 # per variant fairness fingerprint
         self.lock = threading.Lock()
 
     def key(self, agent_id, use_memory) -> str:
@@ -114,7 +119,8 @@ class Stub:
                  "changed_files": [l[6:] for l in diff.splitlines() if l.startswith("+++ b/")],
                  "duration_seconds": 0.1,
                  "sidecar": {"status": "completed", "summary": "stub", "tests": [], "notes": "",
-                             "steps": 3, "stop_reason": "finished", "recipes_applied": []},
+                             "steps": 3, "stop_reason": "finished", "recipes_applied": [],
+                             **self.sidecar_default, **self.sidecar_extra.get(key, {})},
                  "memory": {"recalled": recalled,
                             "recipe_ids": [r["id"] for r in self.recipes] if recalled else []}}
         self.tasks[tid] = {"behaviour": behaviour, "record": record, "final": final, "key": key}
@@ -124,6 +130,8 @@ class Stub:
     def poll(self, tid: str) -> dict:
         task = self.tasks[tid]
         self.polls[tid] = self.polls.get(tid, 0) + 1
+        if self.on_poll is not None:
+            self.on_poll(task)
         if self.stop_on_first_poll and task["key"] == self.stop_on_first_poll[0]:
             self.stop_on_first_poll[1].write_text("stop", encoding="utf-8")
             self.stop_on_first_poll = None
@@ -163,7 +171,8 @@ def _handler(stub: Stub):
             if path == "/api/identity":
                 return self._send(200, {"app": "stub", "version": "0", "started_at": stub.started_at})
             if path == "/api/coding-tasks/readiness":
-                return self._send(200, {"available": True})
+                return self._send(200, {"available": True, **({"handshake": stub.handshake}
+                                                              if stub.handshake else {})})
             if path == "/api/coding-recipes":
                 return self._send(200, {"items": stub.recipes})
             if path.startswith("/api/coding-tasks/"):
@@ -179,8 +188,12 @@ def _handler(stub: Stub):
             path, body = self.path, self._body()
             if path == "/api/lab-agents/ensure":
                 return self._send(200, {"agents": [
-                    {"id": i, "name": f"LAB · {v}", "variant": v, "use_memory": v == "MEMORY"}
-                    for v, i in VARIANT_IDS.items()]})
+                    {"id": i, "name": f"LAB · {v}", "variant": v, "use_memory": v == "MEMORY",
+                     **({"fairness": stub.agent_fairness[v]} if v in stub.agent_fairness else {})}
+                    for v, i in VARIANT_IDS.items()],
+                    # the real product lists observers separately; the lab must never map them
+                    "observers": [{"id": 100 + n, "name": f"LAB · {o}", "observer": o, "variant": None}
+                                  for n, o in enumerate(lab.OBSERVER_PROFILES)]})
             if path == "/api/coding-tasks":
                 return self._send(200, stub.submit(body))
             if path.endswith("/cancel"):
@@ -424,6 +437,60 @@ def test_verifier_on_baseline_fails_and_on_fix_passes(tmp_path):
     assert scoped["passed"] is False and scoped["reason"] == "SCOPE_VIOLATION"
 
 
+# The Windows archive runs an *embeddable* Python: its ._pth file makes the interpreter
+# ignore PYTHONPATH (and every PYTHON* variable) and keeps the cwd off sys.path.
+# `python -I` reproduces that isolation on any OS. The hidden tests import the student's
+# repository, so under that interpreter the verifier must put the repo on sys.path
+# itself — otherwise every verification fails for the wrong reason.
+EMBEDDED_LIKE = [__import__("sys").executable, "-I"]
+
+
+def test_hidden_verifier_works_under_an_embedded_like_interpreter(tmp_path, monkeypatch):
+    monkeypatch.setattr(lab, "_interpreter", lambda: list(EMBEDDED_LIKE))
+    src = tmp_path / "src"
+    sha = lab.make_synthetic_repo("invoicekit", src)
+    work = tmp_path / "w"
+    lab.clone_clean(src, sha, work)
+    _fix(work, "e")
+    _git(work, "add", "--all")
+    good = lab.run_hidden_verifier(case=lab.BUILTIN_CASES["sample"], case_path=None, src=src, baseline=sha,
+                                   diff=_git(work, "diff", "--cached"), vdir=tmp_path / "v1", student_dir=None)
+    assert good["passed"] is True, good.get("output_tail")
+    # negative control under the same interpreter: an unfixed repo still fails, and
+    # for the RIGHT reason (the seeded defect's ValueError), not an import failure
+    lab.clone_clean(src, sha, work)
+    _wrong(work, "f")
+    _git(work, "add", "--all")
+    bad = lab.run_hidden_verifier(case=lab.BUILTIN_CASES["sample"], case_path=None, src=src, baseline=sha,
+                                  diff=_git(work, "diff", "--cached"), vdir=tmp_path / "v2", student_dir=None)
+    assert bad["passed"] is False and bad["reason"] == "VERIFIER_FAILED"
+    tail = bad["output_tail"]
+    assert "ModuleNotFoundError" not in tail and "ImportError" not in tail, tail
+    assert "ValueError" in tail and "Ran 6 tests" in tail, tail
+
+
+def test_a_hint_logged_from_another_terminal_during_compare_is_not_lost(tmp_path, served):
+    """Claude Code logs `intervene` from a second process while `compare` is polling.
+    The running compare must not overwrite it: the pass is COACHED, not UNASSISTED."""
+    stub = Stub({"RAW": "slow"})
+    out = tmp_path / "out"
+    base = served(stub)
+    logged = {}
+
+    def on_poll(task):
+        if not logged:
+            logged["rc"] = lab.main(["intervene", "--variant", "RAW", "--kind", "hint",
+                                     "--note", "посмотри на разделитель", "--out", str(out)])
+            task["release"] = True
+
+    stub.on_poll = on_poll
+    rc = lab.main(["compare", "--case", "sample", "--variants", "RAW", *_args(base, out)])
+    assert rc == lab.EXIT_OK and logged["rc"] == lab.EXIT_OK
+    raw = _state(out)["compare"]["results"]["RAW"]
+    assert [i["note"] for i in raw["interventions"]] == ["посмотри на разделитель"]
+    assert raw["outcome"] == lab.STUDENT_COACHED_PASS
+
+
 # ------------------------------------------------------------------ lesson / transfer
 def test_teacher_patch_does_not_become_a_student_lesson(tmp_path, served):
     stub = Stub({"RAW": "fix"})
@@ -533,3 +600,197 @@ def test_synthetic_repo_is_deterministic(tmp_path):
     b = lab.make_synthetic_repo("stockkit", tmp_path / "b")
     assert a == b
     assert lab.make_synthetic_repo("stockkit", tmp_path / "a") == a       # reused, not rebuilt
+
+
+# ------------------------------------------------------------------ observers through the product path
+REAL_MODEL = "Qwen3.8-27B-UD-Q5_K_M.gguf"
+SIDECAR_REAL = {"model": REAL_MODEL, "executor": "bossman-local-sidecar", "endpoint": "http://127.0.0.1:8081/v1",
+                "model_kind": "REAL_MODEL"}
+TRANSCRIPT = [
+    {"step": 1, "tool": "read_file", "ok": True, "t": 1.0, "sig": "r1", "path": "invoicekit/money.py"},
+    {"step": 2, "tool": "write_file", "ok": True, "t": 2.0, "sig": "w1", "path": "tests/test_regression_comma.py"},
+    {"step": 3, "tool": "run_tests", "ok": False, "t": 3.0, "sig": "t1", "paths": ["tests"], "passed": False},
+    {"step": 4, "tool": "edit_file", "ok": True, "t": 4.0, "sig": "e1", "path": "invoicekit/money.py"},
+    {"step": 5, "tool": "run_tests", "ok": True, "t": 5.0, "sig": "t2", "paths": ["tests"], "passed": True},
+    {"step": 6, "tool": "finish", "ok": True, "t": 6.0, "sig": "f1"}]
+
+
+def test_compare_attaches_auditor_ux_reproducer_and_fairness(tmp_path, served):
+    stub = Stub({"RAW": "fix", "TOOL_FIRST": "wrong"})
+    stub.sidecar_default = dict(SIDECAR_REAL, tool_calls=TRANSCRIPT, tool_calls_total=len(TRANSCRIPT),
+                                summary="parse_amount в invoicekit/money.py понимает запятую")
+    stub.handshake = {"ok": True, "model": REAL_MODEL, "executor": "bossman-local-sidecar",
+                      "endpoint": "http://127.0.0.1:8081/v1", "model_kind": "REAL_MODEL"}
+    out = tmp_path / "out"
+    rc = lab.main(["compare", "--case", "sample", "--variants", "RAW,TOOL_FIRST", "--context-tokens", "32768",
+                   *_args(served(stub), out)])
+    assert rc == lab.EXIT_OK
+    st = _state(out)["compare"]
+    raw = st["results"]["RAW"]
+    # the stub's regression test is `assertTrue(True)`: it checks nothing and passes on the baseline
+    found = {f["detector"] for f in raw["audit"]["findings"]}
+    assert {"TEST_CHECKS_NOTHING", "FAKE_REPRODUCER"} <= found
+    assert raw["reproducer"]["verdict"] == "PASSES_ON_BASELINE"
+    assert raw["outcome"] == lab.STUDENT_UNASSISTED_PASS          # observers never change the outcome
+    assert raw["ux"]["evidence"] == "SIDECAR_RECORD" and raw["ux"]["time_to_reproducer_s"] == 3.0
+    assert raw["ux"]["time_to_verified_result_s"] is not None
+    assert st["results"]["TOOL_FIRST"]["ux"]["time_to_verified_result_s"] is None
+    assert raw["fairness"]["model"] == REAL_MODEL and raw["fairness"]["quant"] == "UD-Q5_K_M"
+    assert st["fairness"]["verdict"] == lab.VALID_COMPARISON and st["fairness"]["context_tokens"] == 32768
+    report = json.loads((out / "compare-report.json").read_text(encoding="utf-8"))
+    assert report["metrics"]["main"]["student_passes"] == 1
+    assert report["metrics"]["main"]["verified_useful_work_per_hour"] > 0
+    assert "status" not in report                                 # a valid comparison is not an error
+    md = (out / "compare-report.md").read_text(encoding="utf-8")
+    assert "UX_OBSERVER" in md and "CLAUDE_AUDITOR" in md and "VALID_COMPARISON" in md
+
+
+def test_a_timeout_is_observed_as_unknown_and_the_cycle_goes_on(tmp_path, served):
+    stub = Stub({"RAW": "hang", "TOOL_FIRST": "fix", "MEMORY": "fix"})
+    stub.sidecar_default = dict(SIDECAR_REAL)
+    out = tmp_path / "out"
+    rc = lab.main(["compare", "--case", "sample", "--variants", "RAW,TOOL_FIRST,MEMORY",
+                   "--budget-minutes", "0.02", *_args(served(stub), out)])
+    assert rc == lab.EXIT_OK
+    st = _state(out)["compare"]
+    assert [st["results"][v]["outcome"] for v in ("RAW", "TOOL_FIRST", "MEMORY")] == \
+        [lab.TIMEOUT, lab.STUDENT_UNASSISTED_PASS, lab.STUDENT_UNASSISTED_PASS]
+    raw = st["results"]["RAW"]
+    assert raw["ux"]["evidence"] == lab.INSUFFICIENT_EVIDENCE and raw["ux"]["tool_calls"] is None
+    assert raw["reproducer"] is None and raw["fairness"]["model"] is None
+    assert st["fairness"]["verdict"] == lab.VALID_COMPARISON
+    assert st["fairness"]["variants_without_model_evidence"] == ["RAW"]
+
+
+def test_observer_profiles_are_refused_as_variants(tmp_path, served):
+    stub = Stub({})
+    out = tmp_path / "out"
+    for name in lab.OBSERVER_PROFILES:
+        rc = lab.main(["compare", "--case", "sample", "--variants", f"RAW,{name}", *_args(served(stub), out)])
+        assert rc == lab.EXIT_USAGE
+    assert stub.submissions == []
+    ok = lab.ensure_agents(lab.Api(served(stub), TOKEN))
+    assert set(ok) == set(lab.VARIANTS) and not set(ok) & set(lab.OBSERVER_PROFILES)
+
+
+def test_a_different_model_in_one_variant_invalidates_the_comparison(tmp_path, served):
+    stub = Stub({"RAW": "fix", "TOOL_FIRST": "fix", "MEMORY": "fix"})
+    stub.sidecar_default = dict(SIDECAR_REAL)
+    stub.sidecar_extra = {"TOOL_FIRST": {"model": "openai_gpt-oss-120b-MXFP4_MOE-00001-of-00002.gguf",
+                                         "endpoint": "http://127.0.0.1:8083/v1"}}
+    out = tmp_path / "out"
+    base = served(stub)
+    rc = lab.main(["compare", "--case", "sample", "--variants", "RAW,TOOL_FIRST,MEMORY", *_args(base, out)])
+    assert rc == lab.EXIT_INVALID_COMPARISON
+    st = _state(out)["compare"]
+    assert len(stub.submissions) == 3                               # the cycle still finished every variant
+    assert st["fairness"]["verdict"] == lab.INVALID_COMPARISON
+    assert {"model", "endpoint", "quant"} <= {m["field"] for m in st["fairness"]["mismatches"]}
+    report = json.loads((out / "compare-report.json").read_text(encoding="utf-8"))
+    assert report["status"] == lab.INVALID_COMPARISON
+    assert lab.main(["lesson", "--case", "sample", *_args(base, out)]) == lab.EXIT_INVALID_COMPARISON
+    assert stub.recipes == []
+
+
+def test_student_rows_with_different_budgets_are_refused_before_any_run(tmp_path, served):
+    stub = Stub({"RAW": "fix", "MEMORY": "fix"})
+    same = {"tools": ["read_file", "edit_file", "run_tests"], "max_steps": 40, "max_tokens": 4096, "model_id": 3}
+    stub.agent_fairness = {"RAW": same, "MEMORY": {**same, "max_steps": 80}}
+    out = tmp_path / "out"
+    rc = lab.main(["compare", "--case", "sample", "--variants", "RAW,MEMORY", *_args(served(stub), out)])
+    assert rc == lab.EXIT_INVALID_COMPARISON and stub.submissions == []
+    # negative control: identical rows run
+    stub.agent_fairness = {"RAW": same, "MEMORY": same}
+    rc = lab.main(["compare", "--case", "sample", "--variants", "RAW,MEMORY", "--fresh",
+                   *_args(served(stub), tmp_path / "out2")])
+    assert rc == lab.EXIT_OK and len(stub.submissions) == 2
+
+
+def test_intervene_levels_from_the_terminal(tmp_path, served):
+    stub = Stub({"RAW": "fix", "TOOL_FIRST": "fix", "MEMORY": "fix", "RED_TEAM": "wrong"})
+    out = tmp_path / "out"
+    base = served(stub)
+    assert lab.main(["compare", "--case", "sample", "--variants", "RAW,TOOL_FIRST,MEMORY,RED_TEAM",
+                     *_args(base, out)]) == 0
+    st = _state(out)["compare"]
+    raw_task = st["results"]["RAW"]["task_id"]
+
+    def iv(*extra):
+        return lab.main(["intervene", "--out", str(out), "--json", *extra])
+    assert iv("--agent", "RAW", "--level", "2", "--hint", "посмотри на десятичный разделитель",
+              "--task", raw_task, "--student-response", "прочитал money.py и поправил разбор") == 0
+    assert iv("--agent", "TOOL_FIRST", "--level", "5", "--hint", "учитель сам написал патч") == 0
+    assert iv("--agent", "MEMORY", "--level", "0", "--note", "наблюдал") == 0
+    assert iv("--agent", "RED_TEAM", "--level", "3", "--hint", "введи '1 234,50'") == 0
+    # refusals: wrong task, no hint for coaching, an observer, a contradictory kind/level
+    assert iv("--agent", "RAW", "--level", "2", "--hint", "x", "--task", "t999") == lab.EXIT_USAGE
+    assert iv("--agent", "RAW", "--level", "3") == lab.EXIT_USAGE
+    assert iv("--agent", "CLAUDE_AUDITOR", "--level", "1", "--hint", "x") == lab.EXIT_USAGE
+    assert iv("--agent", "RAW", "--level", "2", "--kind", "teacher_patch", "--hint", "x") == lab.EXIT_USAGE
+    assert iv("--agent", "RAW") == lab.EXIT_USAGE
+    st = _state(out)["compare"]
+    res = st["results"]
+    assert res["RAW"]["outcome"] == lab.STUDENT_COACHED_PASS
+    assert res["TOOL_FIRST"]["outcome"] == lab.TEACHER_PATCH
+    assert res["MEMORY"]["outcome"] == lab.STUDENT_UNASSISTED_PASS          # level 0 is not help
+    assert res["RED_TEAM"]["outcome"] == lab.FAIL
+    entry = res["RAW"]["interventions"][0]
+    assert entry["level"] == 2 and entry["task_id"] == raw_task and entry["agent"] == "LAB · RAW"
+    assert entry["student_response"].startswith("прочитал") and entry["logged_after_finish"] is True
+    assert entry["verified_effect"] == "VERIFIED_PASS_AFTER_INTERVENTION"
+    assert res["TOOL_FIRST"]["interventions"][0]["verified_effect"] == "TEACHER_PATCH_NOT_STUDENT_SUCCESS"
+    assert res["RED_TEAM"]["interventions"][0]["verified_effect"] == "NO_VERIFIED_EFFECT"
+    summary = st["summary"]
+    assert summary["student_unassisted_passes"] == 1 and summary["student_coached_passes"] == 1
+    assert summary["teacher_patches"] == 1 and summary["teacher_interventions"] == 3
+    journal = (out / "interventions.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(journal) == 4                                      # refused calls wrote nothing
+    # the lesson takes the unassisted pass; the teacher patch never becomes a student lesson
+    assert lab.main(["lesson", "--case", "sample", *_args(base, out)]) == 0
+    assert stub.recipes[-1]["provenance"]["variant"] == "MEMORY"
+
+
+def test_lesson_records_the_observed_path_and_failed_approaches(tmp_path, served):
+    stub = Stub({"RAW": "wrong", "MEMORY": "fix"})
+    stub.sidecar_default = dict(SIDECAR_REAL, tool_calls=TRANSCRIPT, tool_calls_total=len(TRANSCRIPT))
+    out = tmp_path / "out"
+    base = served(stub)
+    assert lab.main(["compare", "--case", "sample", "--variants", "RAW,MEMORY", *_args(base, out)]) == 0
+    assert lab.main(["intervene", "--agent", "MEMORY", "--level", "1", "--hint", "что проверяет тест?",
+                     "--out", str(out)]) == 0
+    assert lab.main(["lesson", "--case", "sample", *_args(base, out)]) == 0
+    recipe = stub.recipes[-1]
+    prov = recipe["provenance"]
+    assert prov["assistance_level"] == "hint" and prov["teacher_level"] == "LEVEL_1"
+    assert prov["model"] == REAL_MODEL and prov["quant"] == "UD-Q5_K_M"
+    assert "bossman-local-sidecar" in prov["runtime"] and "http://127.0.0.1:8081/v1" in prov["runtime"]
+    assert prov["code_refs"] == ["invoicekit/money.py"]
+    assert "tests/test_regression_comma.py" in prov["test_refs"] and "tests" in prov["test_refs"]
+    assert prov["diagnostic_sequence"][:3] == ["read_file invoicekit/money.py -> ok",
+                                               "write_file tests/test_regression_comma.py -> ok",
+                                               "run_tests tests -> red"]
+    assert any(f.startswith("вариант RAW:") and "VERIFIER_FAILED" in f for f in recipe["failed_approaches"])
+    assert all(isinstance(v, (str, int, float, list)) for v in prov.values())
+    report = json.loads((out / "lesson-report.json").read_text(encoding="utf-8"))
+    fields = report["lesson_fields"]
+    assert set(fields) >= {"symptom", "root_cause", "failed_approaches", "diagnostic_sequence",
+                           "successful_strategy", "required_test", "applicability", "counterexample",
+                           "code_refs", "test_refs", "evidence_refs", "model", "runtime", "teacher_assistance"}
+    assert report["weights"] == "WEIGHTS_UNCHANGED"
+
+
+def test_transfer_reports_whether_the_lesson_was_applied(tmp_path, served):
+    rid = lab.BUILTIN_CASES["sample"]["lesson_template"]["id"]
+    stub = Stub({"MEMORY": "fix", "MEMORY:off": "fix", "MEMORY:on": "fix"})
+    stub.sidecar_extra = {"MEMORY:on": {"recipes_applied": [rid]}}
+    out = tmp_path / "out"
+    base = served(stub)
+    assert lab.main(["compare", "--case", "sample", "--variants", "MEMORY", *_args(base, out)]) == 0
+    assert lab.main(["lesson", "--case", "sample", *_args(base, out)]) == 0
+    stub.started_at = "after-restart"
+    assert lab.main(["transfer", "--case", "sample-transfer", *_args(base, out)]) == 0
+    tr = _state(out)["transfer"]
+    assert tr["memory_hit"]["expected_recipe_hit"] is True
+    assert tr["lesson_applied"]["verdict"] == "APPLIED_CORRECTLY"
+    assert tr["changes"]["solve"] == {"control": True, "memory": True} and tr["changes"]["evidence"] == "n=1"
+    assert tr["verdict"] == lab.NO_MEASURED_GAIN and tr["weights"] == "WEIGHTS_UNCHANGED"
