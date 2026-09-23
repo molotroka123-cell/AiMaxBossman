@@ -391,6 +391,11 @@ def _worktree_delta(workspace: Path, *, exclude_before: bytes | None = None) -> 
             digest = filtered.get(rel) if not full.is_symlink() else None
             if digest is None:
                 digest = _blob_digest(entry.data)
+            elif digest != sha and _blob_digest(entry.data) == sha:
+                # Bytes identical to the committed blob are unchanged. Under
+                # `core.autocrlf=true` git never normalises a path whose blob
+                # already holds CRLF, but `hash-object` (no index) would.
+                digest = sha
             if digest != sha or not modes_agree:
                 modified.append(rel)
         except OSError:

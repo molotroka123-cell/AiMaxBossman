@@ -250,3 +250,33 @@ def test_a_crlf_checkout_under_autocrlf_is_not_a_change(tmp_path):
     # and a real change through the same normalisation is still seen
     (tmp_path / "protected.txt").write_bytes(b"owner\r\nchanged\r\n")
     assert oc._worktree_delta(tmp_path).changed == ("protected.txt",)
+
+
+def test_a_blob_committed_with_crlf_is_not_a_change_under_autocrlf(tmp_path):
+    """Owner run 2026-09-23 (P1 CODING-CRLF-EVIDENCE): Bossman's own repository
+    holds CSVs whose BLOBS contain CRLF (committed without autocrlf). Git for
+    Windows ships `core.autocrlf=true`; on checkout the bytes are the blob's
+    bytes, git leaves such files alone (it never normalises a path whose index
+    copy already has CRLF), but `git hash-object` - which does not look at the
+    index - converted them to LF and the scan saw every such file as modified.
+    The coding path then refused an UNTOUCHED Bossman checkout with "evidence
+    mismatch: git hides changes". Bytes identical to the committed blob are
+    unchanged, whatever the clean filter would make of them."""
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "config", "user.email", "a@b")
+    git(tmp_path, "config", "user.name", "n")
+    git(tmp_path, "config", "core.autocrlf", "false")
+    (tmp_path / "allowed").mkdir()
+    (tmp_path / "allowed" / "keep.txt").write_bytes(b"keep\n")
+    (tmp_path / "numbers.csv").write_bytes(b"a;b\r\n1;2\r\n")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-qm", "crlf blob")
+    assert "i/crlf" in git(tmp_path, "ls-files", "--eol", "numbers.csv")      # blob holds CRLF
+    git(tmp_path, "config", "core.autocrlf", "true")                           # the owner's default
+    assert git(tmp_path, "status", "--porcelain") == ""                        # git: clean
+    assert oc._worktree_delta(tmp_path).changed == ()                          # so must we
+    result = run(tmp_path, "pass")
+    assert result.status == "completed" and result.changed_files == ()
+    # a real edit of that file is still a change
+    (tmp_path / "numbers.csv").write_bytes(b"a;b\r\n1;3\r\n")
+    assert oc._worktree_delta(tmp_path).changed == ("numbers.csv",)
