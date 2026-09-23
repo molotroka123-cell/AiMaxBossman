@@ -583,7 +583,9 @@ def _static_review(cand: Path, changes: list[dict], task: dict, holdout: tuple[s
             invalid.append(f"{path}: existing test deleted/renamed")
             continue
         if path in task_tests:
-            invalid.append(f"{path}: the task's own test was modified")
+            removed, _added = _hunks(git(cand, "diff", "--cached", "-U0", "--", path, home=home)[1])
+            invalid.append(f"{path}: the task's own test was modified"
+                           + (f" ({_describe_removal(removed)})" if removed else ""))
             continue
         if test and status == "A":
             if not _in_prefix(path, prefixes):
