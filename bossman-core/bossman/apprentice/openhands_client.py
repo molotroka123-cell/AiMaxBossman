@@ -7,6 +7,7 @@ allowed/protected paths after execution.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 import hashlib
 import json
@@ -60,12 +61,33 @@ class FileEvidence:
     permissions: int = 0
 
 
-_MAX_FILE_BYTES = 8 * 1024 * 1024
-_MAX_SNAPSHOT_BYTES = 32 * 1024 * 1024
+@dataclass(frozen=True)
+class EntryDigest:
+    """Streaming host observation of one workspace entry: type/mode, size and
+    digests of the bytes read through the hardened open path — never the bytes.
+    `sha256` binds evidence bytes to the observation; `blob` is git's blob id."""
+    mode: str
+    permissions: int
+    size: int
+    sha256: str
+    blob: str
+
+
+# CODING-SNAPSHOT-32MB: the whole-workspace snapshot is digests (memory O(file
+# count)); host-read BYTES are held only for the reviewed change set, and the
+# 32 MB budget applies to those changed bytes (both sides of the diff).
+_MAX_FILE_BYTES = 8 * 1024 * 1024        # per CHANGED file; unchanged files are only hashed
+_MAX_CHANGED_BYTES = 32 * 1024 * 1024
+# Owner's Bossman repo (2026-09-23): 3,523 tracked files, 74.1 MB — well inside.
 _MAX_SNAPSHOT_FILES = 10000
 
 
-def _read_entry(workspace: Path, path: Path) -> FileEvidence:
+@contextmanager
+def _opened_entry(workspace: Path, path: Path, limit: int | None):
+    """Yield (mode, permissions, size, chunks) for one entry. Every host read of
+    workspace bytes goes through here: no-follow open, opened-handle identity
+    (and on Windows, handle-resolved location) checks, and change-during-read
+    detection once `chunks` is exhausted. `limit` bounds the bytes read."""
     relative = path.relative_to(workspace)
     directory_fd = None
     descriptor = None
@@ -80,14 +102,18 @@ def _read_entry(workspace: Path, path: Path) -> FileEvidence:
             name = relative.name
             before = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
             if stat.S_ISLNK(before.st_mode):
-                return FileEvidence("120000", os.readlink(name, dir_fd=directory_fd).encode("utf-8", "surrogateescape"), stat.S_IMODE(before.st_mode))
+                target = os.readlink(name, dir_fd=directory_fd).encode("utf-8", "surrogateescape")
+                yield "120000", stat.S_IMODE(before.st_mode), len(target), iter((target,))
+                return
             if not stat.S_ISREG(before.st_mode):
                 raise OpenHandsError(f"non-regular workspace entry: {relative}")
             descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd)
         else:
             before = path.lstat()
             if stat.S_ISLNK(before.st_mode):
-                return FileEvidence("120000", os.readlink(path).encode("utf-8", "surrogateescape"), stat.S_IMODE(before.st_mode))
+                target = os.readlink(path).encode("utf-8", "surrogateescape")
+                yield "120000", stat.S_IMODE(before.st_mode), len(target), iter((target,))
+                return
             if not stat.S_ISREG(before.st_mode):
                 raise OpenHandsError(f"non-regular workspace entry: {relative}")
             descriptor = os.open(path, os.O_RDONLY | os.O_BINARY)
@@ -113,21 +139,29 @@ def _read_entry(workspace: Path, path: Path) -> FileEvidence:
         opened = os.fstat(descriptor)
         if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
             raise OpenHandsError(f"workspace entry changed during observation: {relative}")
-        if opened.st_size > _MAX_FILE_BYTES:
+        if limit is not None and opened.st_size > limit:
             raise OpenHandsError(f"workspace evidence file exceeds bounded read: {relative}")
-        data = bytearray()
-        while len(data) <= _MAX_FILE_BYTES:
-            chunk = os.read(descriptor, min(256 * 1024, _MAX_FILE_BYTES + 1 - len(data)))
-            if not chunk:
-                break
-            data.extend(chunk)
+        read = 0
+
+        def chunks():
+            nonlocal read
+            while True:
+                want = 256 * 1024 if limit is None else min(256 * 1024, limit + 1 - read)
+                chunk = os.read(descriptor, want)
+                if not chunk:
+                    return
+                read += len(chunk)
+                if limit is not None and read > limit:
+                    raise OpenHandsError(f"workspace evidence changed or exceeded limit: {relative}")
+                yield chunk
+
+        mode = "100755" if os.name != "nt" and opened.st_mode & 0o111 else "100644"
+        yield mode, stat.S_IMODE(opened.st_mode), opened.st_size, chunks()
         after = os.fstat(descriptor)
         identity = lambda item: (item.st_dev, item.st_ino, item.st_mode, item.st_size,
                                  item.st_mtime_ns, item.st_ctime_ns)
-        if len(data) > _MAX_FILE_BYTES or identity(opened) != identity(after):
+        if read != opened.st_size or identity(opened) != identity(after):
             raise OpenHandsError(f"workspace evidence changed or exceeded limit: {relative}")
-        mode = "100755" if os.name != "nt" and opened.st_mode & 0o111 else "100644"
-        return FileEvidence(mode, bytes(data), stat.S_IMODE(opened.st_mode))
     except OSError as exc:
         raise OpenHandsError(f"cannot independently read workspace entry: {relative}") from exc
     finally:
@@ -137,16 +171,86 @@ def _read_entry(workspace: Path, path: Path) -> FileEvidence:
             os.close(directory_fd)
 
 
-def _snapshot(workspace: Path) -> dict[str, FileEvidence]:
-    output = {}
-    total = 0
-    for name, path in _worktree_files(workspace).items():
-        entry = _read_entry(workspace, path)
-        total += len(entry.data)
-        if total > _MAX_SNAPSHOT_BYTES:
-            raise OpenHandsError("workspace evidence exceeds bounded snapshot size")
-        output[name] = entry
-    return output
+def _read_entry(workspace: Path, path: Path) -> FileEvidence:
+    """Host-read bytes of one entry, bounded by `_MAX_FILE_BYTES`."""
+    with _opened_entry(workspace, path, _MAX_FILE_BYTES) as (mode, permissions, _size, chunks):
+        data = b"".join(chunks)
+    return FileEvidence(mode, data, permissions)
+
+
+def _digest(mode: str, permissions: int, size: int, chunks) -> EntryDigest:
+    content = hashlib.sha256()
+    blob = hashlib.sha1(b"blob %d\0" % size, usedforsecurity=False)  # git blob id
+    for chunk in chunks:
+        content.update(chunk)
+        blob.update(chunk)
+    return EntryDigest(mode, permissions, size, content.hexdigest(), blob.hexdigest())
+
+
+def _digest_entry(workspace: Path, path: Path) -> EntryDigest:
+    """Streaming digest of one entry: memory O(1), no size refusal."""
+    with _opened_entry(workspace, path, None) as (mode, permissions, size, chunks):
+        return _digest(mode, permissions, size, chunks)
+
+
+def _evidence_digest(entry: FileEvidence) -> EntryDigest:
+    return _digest(entry.mode, entry.permissions, len(entry.data), (entry.data,))
+
+
+def _snapshot(workspace: Path) -> dict[str, EntryDigest]:
+    return {name: _digest_entry(workspace, path) for name, path in _worktree_files(workspace).items()}
+
+
+def _committed_bytes(workspace: Path, commit: str, name: str, filters: bool) -> bytes | None:
+    """`commit:name` as checkout writes it (`filters`) or as the raw blob; None
+    if absent. Replace refs are ignored; the read is bounded."""
+    args = ["git", "--no-replace-objects", "-C", str(workspace), "cat-file",
+            "--filters" if filters else "blob", f"{commit}:{name}"]
+    with subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                          stderr=subprocess.DEVNULL) as proc:
+        data = proc.stdout.read(_MAX_FILE_BYTES + 1)
+        if len(data) > _MAX_FILE_BYTES:
+            proc.kill()
+            raise OpenHandsError(f"workspace evidence file exceeds bounded read: {name}")
+        proc.stdout.read()
+    return data if proc.returncode == 0 else None
+
+
+def _pre_run_entry(workspace: Path, commit: str, name: str, observed: EntryDigest) -> FileEvidence:
+    """The pre-run bytes of a file the run changed. The workspace was verified
+    clean against `commit` before dispatch, so they are reproduced from it and
+    accepted ONLY if they hash to what the host itself observed pre-run."""
+    for filters in ((True, False) if observed.mode != "120000" else (False,)):
+        data = _committed_bytes(workspace, commit, name, filters)
+        if data is not None:
+            entry = FileEvidence(observed.mode, data, observed.permissions)
+            if _evidence_digest(entry) == observed:
+                return entry
+    raise OpenHandsError(f"cannot reproduce host-verified pre-run bytes: {name}")
+
+
+def _changed_evidence(workspace: Path, commit: str, before: Mapping[str, EntryDigest],
+                      after: Mapping[str, EntryDigest], changed: Sequence[str]
+                      ) -> tuple[dict[str, FileEvidence], dict[str, FileEvidence]]:
+    """Host-read bytes for the reviewed change set only, each side verified
+    against its digest. Over budget is a refusal, never truncation."""
+    held = (sum(after[name].size for name in changed if name in after)
+            + sum(before[name].size for name in changed
+                  if name in before and before[name] != after.get(name)))
+    if held > _MAX_CHANGED_BYTES:
+        raise OpenHandsError(f"changed workspace evidence exceeds bounded size ({held} bytes)")
+    old: dict[str, FileEvidence] = {}
+    new: dict[str, FileEvidence] = {}
+    for name in changed:
+        if name in after:
+            entry = _read_entry(workspace, workspace.joinpath(*name.split("/")))
+            if _evidence_digest(entry) != after[name]:
+                raise OpenHandsError(f"workspace changed between digest and evidence read: {name}")
+            new[name] = entry
+        if name in before:
+            old[name] = new[name] if before[name] == after.get(name) else \
+                _pre_run_entry(workspace, commit, name, before[name])
+    return old, new
 
 
 def _snapshot_diff(before: Mapping[str, FileEvidence], after: Mapping[str, FileEvidence], changed: Sequence[str]) -> str:
@@ -245,16 +349,9 @@ def _untracked_files(workspace: Path) -> tuple[str, ...]:
 # the git-derived view is only allowed to ADD paths, never to hide one.
 # ----------------------------------------------------------------------------
 
-def _blob_digest(data: bytes) -> str:
-    h = hashlib.sha1(usedforsecurity=False)  # git blob id, not a security hash
-    h.update(b"blob %d\0" % len(data))
-    h.update(data)
-    return h.hexdigest()
-
-
 def _blob_sha(path: Path, *, workspace: Path | None = None) -> str:
     """Git's blob id for a working-tree path (symlinks hash their target)."""
-    return _blob_digest(_read_entry(workspace or path.parent, path).data)
+    return _digest_entry(workspace or path.parent, path).blob
 
 
 def _head_tree(workspace: Path) -> dict[str, tuple[str, str]]:
@@ -380,7 +477,7 @@ def _worktree_delta(workspace: Path, *, exclude_before: bytes | None = None) -> 
             untracked.append(rel)
             continue
         try:
-            entry = _read_entry(workspace, full)
+            entry = _digest_entry(workspace, full)
             actual_mode = entry.mode
             expected_mode, sha = baseline
             # Windows has no POSIX executable bit; type still must agree.
@@ -390,8 +487,8 @@ def _worktree_delta(workspace: Path, *, exclude_before: bytes | None = None) -> 
             # git's clean filter so line-ending conversion is not a "change".
             digest = filtered.get(rel) if not full.is_symlink() else None
             if digest is None:
-                digest = _blob_digest(entry.data)
-            elif digest != sha and _blob_digest(entry.data) == sha:
+                digest = entry.blob
+            elif digest != sha and entry.blob == sha:
                 # Bytes identical to the committed blob are unchanged. Under
                 # `core.autocrlf=true` git never normalises a path whose blob
                 # already holds CRLF, but `hash-object` (no index) would.
@@ -646,14 +743,18 @@ class OpenHandsClient:
             _validate_scope(permission_changes, request.allowed_paths, request.protected_paths)
             raise OpenHandsError("non-Git permission mutation is not representable in the reviewed patch: "
                                  + ", ".join(sorted(permission_changes)))
+        # Bytes only for the reviewed change set, verified against the digests
+        # (post-run: `captured`; pre-run: `before_files`, reproduced from HEAD).
+        before_evidence, after_evidence = _changed_evidence(workspace, head_before, before_files,
+                                                            captured, changed)
         untracked = _worktree_delta(workspace, exclude_before=exclude_before).untracked
         _evidence_diff(workspace, untracked)
         if _snapshot(workspace) != captured or _changed_files(workspace, exclude_before=exclude_before) != changed:
             raise OpenHandsError("workspace changed while deriving independent evidence")
         if _git(workspace, "rev-parse", "HEAD").strip() != head_before or (workspace / ".git" / "config").read_bytes() != config_before:
             raise OpenHandsError("repository identity changed while deriving independent evidence")
-        diff = _snapshot_diff(before_files, captured, changed)
+        diff = _snapshot_diff(before_evidence, after_evidence, changed)
         if proc.returncode and response.get("status") != "failed":
             raise OpenHandsError(f"OpenHands sidecar exited {proc.returncode} without failed status")
         return OpenHandsResult(str(response["status"]), changed, diff, response,
-                               MappingProxyType({name: captured[name] for name in changed if name in captured}))
+                               MappingProxyType(after_evidence))
