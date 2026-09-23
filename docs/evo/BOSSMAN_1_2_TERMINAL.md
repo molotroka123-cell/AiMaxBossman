@@ -84,6 +84,54 @@ Slash-команды:
 | `/stop` | отмена текущего запуска | Stop run |
 | `/clear`, `/exit` | очистить экран / выйти | — |
 
+### 3.1a Целевой вид `bossman chat` — референс владельца «CLI Operator»
+
+Референс: [10_terminal_cli_operator.jpg](references/1_2/10_terminal_cli_operator.jpg) (Windows Terminal).
+Это **целевая раскладка к owner-run**:
+
+```text
+Bossman 1.x — CLI Operator                                   Your AI pair programmer, on your terms.
+┌──────────────┬───────────────┬────────────────────────┬──────────────────────┬──────────────────────────┐
+│ Mode: chat   │ Model: <real> │ Approvals: on-demand   │ Memory: 42% (862/2048)│ Computer Control: enabled│
+└──────────────┴───────────────┴────────────────────────┴──────────────────────┴──────────────────────────┘
+┌────────────────────────────┐ │ You ›      I want you to improve yourself…
+│ › Workspace                │ │
+│   C:\Projects\Bossman      │ │ Bossman ›  Great — here's a concise, practical plan:
+│ › Active Task              │ │            1. Evaluate current performance – …
+│   Self-improvement plan    │ │            2. Set improvement goals – …
+│ › Tools Enabled            │ │            ▬ Analyzing session history…                     12s
+│   read, write, edit, …     │ │              ☑ Load recent conversations (last 50)
+│ › Memory (summary)         │ │              ☐ Identify recurring issues
+│   12 notes • 4 tasks • 3 … │ │              ☐ Summarize key improvement opportunities  Working…
+│ › Budget (session)         │ │            ─────────────────────────────────────────────
+│   $0.12 / $1.00 (12%)      │ │            Next: compile a short report with findings…
+└────────────────────────────┘ │
+C:\Bossman> bossman chat ▌
+```
+
+Откуда берутся данные (только реальные, иначе поле скрыто или «—»):
+
+| Элемент | Источник |
+|---|---|
+| версия в заголовке | build identity установленной сборки, не константа |
+| Mode | режим терминала: chat / code / computer / evolve |
+| Model | фактическая модель из маршрутизатора/выбора агента (у владельца — локальная Qwen/GPT-OSS и т.п.) |
+| Approvals | текущая политика never / ask / allowed в человеческом виде (on-demand = ask) |
+| Memory N% (used/limit) | заполненность контекстного окна текущего запуска, если backend её знает; иначе блок скрыт |
+| Computer Control | состояние инструментов управления компьютером (enabled / disabled / stopped) |
+| Workspace | рабочая папка задачи (`--cwd` или проект) |
+| Active Task | заголовок текущей задачи/запуска |
+| Tools Enabled | инструменты выбранного агента по его профилю и политике, а не список «всё» |
+| Memory (summary) | счётчики из API памяти (заметки / задачи / решения или факты / уроки) |
+| Budget (session) | расход и лимит бюджета миссии/сессии из spend meter; неизвестная стоимость — «—», не $0 |
+| чек-лист с ☑/☐ и «Working…» | только шаги, которые пришли событиями (план/прогресс задачи); таймер — реальное время шага |
+| Next: | следующий шаг из плана модели, если модель его выдала |
+
+Поведение: при ширине окна меньше ~110 колонок левая панель сворачивается в одну строку над
+диалогом; без TTY/`NO_COLOR` — обычный текст без рамок. Цвета (сняты с референса, приблизительно):
+фон `#0C0D0E`, заголовки и подписи `#27BBDE`, «You ›» и статусы «enabled/on-demand» `#15C44C`/`#3FEC87`,
+пункты плана `#208CAE`, приглушённый текст `#8B95A5`, рамки — тонкие светло-синие линии.
+
 ### 3.2 Headless для Claude Code и скриптов
 
 ```text
@@ -222,8 +270,8 @@ Approvals, Budgets (токены, вызовы инструментов), Comput
 
 | Этап | Что | Статус на 2026-09-23 |
 |---|---|---|
-| 1.2.0 | `bossman`: интерактивный режим + headless `stream-json`, slash-команды, approvals, STOP, лаунчеры в Windows-архиве | в работе (к owner-run) |
-| 1.2.1 | тема по терминальным референсам владельца (пришлёт отдельно), полноэкранная раскладка: диалог / Run context / Action log | после референсов |
+| 1.2.0 | `bossman chat` в раскладке «CLI Operator» (3.1a) + headless `stream-json`, slash-команды, approvals, STOP, лаунчеры в Windows-архиве | в работе (к owner-run) |
+| 1.2.1 | остальные терминальные референсы владельца: вкладки лаборатории, управления компьютером и навыков в терминале | по мере референсов |
 | 1.2.2 | Claude Code ведёт лабораторию 1.1 через терминал: учитель LEVEL 0–5, аудитор, отчёт за прогон | готовится вместе с 1.1 |
 | 1.2.3 | веб-интерфейс по референсам 4.1–4.5 на том же потоке событий | после 1.2.1 |
 
