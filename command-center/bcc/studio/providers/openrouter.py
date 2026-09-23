@@ -70,7 +70,8 @@ class OpenRouterProvider:
 
     async def submit(self,plane):
         model=plane.model.removeprefix('openrouter:')
-        video=model in ('minimax/hailuo-3-max','bytedance/seedance-2.0-mini')
+        video=model in ('minimax/hailuo-3-max','bytedance/seedance-2.0-mini',
+                        'bytedance/seedance-2.0','bytedance/seedance-2.5')
         payload={'model':model,'prompt':plane.prompt,**plane.settings}
         if plane.media:
             refs=[];frames=[]
