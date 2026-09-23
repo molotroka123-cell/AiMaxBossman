@@ -21,12 +21,14 @@ Jev готовится по отдельной команде владельца
 | Цикл 1.1: RESULT_VERIFIER + ограниченный loop (STOP/PAUSE/RESUME, lease, бюджеты, UNKNOWN_OUTCOME без слепого повтора) | 3d9fb3d8, f55fd9a1 | 177 тестов (MOCK_MODEL — только связность) |
 | Лаборатория: промпты владельца RAW…USER_UX, CLAUDE_AUDITOR/RESULT_VERIFIER/UX_OBSERVER, учитель 0–5, UX-метрики, честное сравнение, tournament-report | 4a1c7f24…1450bd71 | 90+51 тестов |
 | subprocess без таймаута (6 мест) — дерево процессов убивается | 25f82654 | 20 новых тестов, красное→зелёное |
-| CI: core-runtime (ubuntu+windows) гоняет coding/evolution/lab/timeouts/MVČR | d383e574, 3f1a534f | — |
+| 1.2 терминал: `bossman chat`/`exec`/`-p` JSONL/`status`/`events` (replay)/`result`/`approve`/`stop`/`keys` поверх того же API; события run.* в движке | 1e6b2bb7 (слияние 3625d5d5) | 31 новых + 322 соседних теста (MOCK_MODEL) |
+| Терминал в ZIP: Bossman-CLI.cmd, bossman.cmd + CI-смоук из архива | 1d4283e0 | 204 теста поставки |
+| CI: core-runtime (ubuntu+windows) гоняет coding/evolution/lab/timeouts/MVČR/терминал | d383e574, 3f1a534f, c469f917 | — |
 
 ## Не сделано к этому часу (честно)
 * 1.1: CLI `bossman_evolve.py loop/gate/soak`, `/api/evolution/*`, Telegram `/evolution_*`, EVOLUTION_LOOP.md; сквозной mock-gate (gate.py не запущен, не влит).
 * Лаборатория: три закреплённые модели из local-champions.json в model_profiles.json, TTFT/prefill/RAM в bake-off, навык community-evals.
-* 1.2 терминал: см. отчёт агента терминала (вливается, только если тесты зелёные).
+* 1.2 терминал: интерактивный чат не прогонялся руками в реальной консоли Windows; prompt_toolkit не в lock (чат работает на обычном вводе); `repair --self`/`/evolve` ждут `/api/evolution/*` (код 10 «недоступно в этой сборке»); экраны automation/lab упрощены; Browser/Studio/Web Designer/Telegram/Fleet — unavailable в PARITY_MATRIX.
 * Windows ZIP на финальном SHA и слияние #74 → #73 → release — после зелёного CI на этом SHA.
 
 ## Исправлено в линии 1.0 (воспроизведение → регрессия красная до фикса → зелёная)
