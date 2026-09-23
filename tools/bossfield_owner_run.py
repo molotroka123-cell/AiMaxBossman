@@ -18,7 +18,10 @@ import sys
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "bossman-core"))
+# Checkout convenience only. In the Windows ZIP this script lives in
+# app-support/ and `bossman` is installed in the embedded runtime's site-packages.
+if (ROOT / "bossman-core" / "bossman" / "video_factory" / "ffmpeg.py").is_file():
+    sys.path.insert(0, str(ROOT / "bossman-core"))
 from bossman.video_factory.ffmpeg import ffmpeg_bin, ffprobe_bin
 
 FRAME_RATE = 24
