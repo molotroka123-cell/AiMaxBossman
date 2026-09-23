@@ -146,7 +146,12 @@ async def test_the_whole_owner_path_completes_with_real_evidence(env, repo, monk
     assert not (repo / "app" / "new.py").exists()
     listing = (await env.client.get("/api/coding-tasks")).json()["items"]
     assert listing[0]["id"] == created["id"] and "diff" not in listing[0] and listing[0]["diff_bytes"] > 0
-    kinds = [e["kind"] for e in await env.svc.bus.recent(50)]
+    # the record is written before its event is emitted: give the emit a moment
+    for _ in range(50):
+        kinds = [e["kind"] for e in await env.svc.bus.recent(50)]
+        if "coding.task.completed" in kinds:
+            break
+        await asyncio.sleep(0.1)
     assert "coding.task.created" in kinds and "coding.task.completed" in kinds
 
 
