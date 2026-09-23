@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -576,7 +577,22 @@ def cmd_result(args) -> int:
     return _simple(args, run, what="result")
 
 
+RUN_ID = re.compile(r"[A-Za-z0-9_-]{1,40}")
+
+
+def _bad_run_id(args) -> int | None:
+    """A run id goes into a URL path: anything but an id (`../x`, `a/b`, `x?y`) is refused locally."""
+    if args.run_id is not None and not RUN_ID.fullmatch(args.run_id):
+        return fail(Out(getattr(args, "output_format", "text") or "text"),
+                    UsageError("run id — это id прогона Studio (буквы, цифры, _ и -), не путь"), what=args.cmd)
+    return None
+
+
 def cmd_review(args) -> int:
+    bad = _bad_run_id(args)
+    if bad is not None:
+        return bad
+
     def run(client: Client, out: Out) -> int:
         if args.stats:
             data = client.get("/api/studio/review/stats")
@@ -607,16 +623,22 @@ def cmd_review(args) -> int:
             out.json(rec)
         else:
             out.say(f"run {args.run_id} · Bossman Vision: {verdict}"
-                    + (f" {rec['score']}/10" if rec["score"] else "") + (f" · {rec['summary']}" if rec["summary"] else ""))
-            for d in rec["defects"]:
+                    + (f" {rec['score']}/10" if rec.get("score") else "")
+                    + (f" · {rec['summary']}" if rec.get("summary") else ""))
+            # record() drops empty fields, so every optional one is read with .get()
+            for d in rec.get("defects") or []:
                 out.say("  - " + sanitize(d))
-            if rec["owner"]:
-                out.say(f"владелец: {rec['owner']}" + (f" — {rec['owner_reason']}" if rec["owner_reason"] else ""))
+            if rec.get("owner"):
+                out.say(f"владелец: {rec['owner']}" + (f" — {rec['owner_reason']}" if rec.get("owner_reason") else ""))
         return rec["exit_code"]
     return _simple(args, run, what="review")
 
 
 def cmd_rate(args) -> int:
+    bad = _bad_run_id(args)
+    if bad is not None:
+        return bad
+
     def run(client: Client, out: Out) -> int:
         reason = " ".join(args.reason).strip()
         data = client.post(f"/api/studio/runs/{args.run_id}/feedback", {"verdict": args.verdict, "reason": reason})
@@ -627,10 +649,11 @@ def cmd_rate(args) -> int:
         if out.machine:
             out.json(rec)
         else:
-            out.say(f"записано: {rec['verdict']}" + (f" — правило «{rec['reason']}» теперь применяется к каждому новому видео"
-                                                     if rec["learned_rule"] else ""))
-            if rec["agreed_with_vision"] is False:
-                out.say(f"Bossman Vision думал иначе ({rec['vision_verdict']}) — это расхождение учтено в статистике")
+            out.say(f"записано: {rec.get('verdict')}"
+                    + (f" — правило «{rec.get('reason')}» теперь применяется к каждому новому видео"
+                       if rec.get("learned_rule") else ""))
+            if rec.get("agreed_with_vision") is False:
+                out.say(f"Bossman Vision думал иначе ({rec.get('vision_verdict')}) — это расхождение учтено в статистике")
         return EXIT_OK
     return _simple(args, run, what="rate")
 

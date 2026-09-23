@@ -327,10 +327,14 @@ async def migrate_legacy(svc):
         except (ValueError,RuntimeError,FileNotFoundError,PermissionError,sa.exc.IntegrityError):
             continue
 
+def run_path(svc,row):
+    """The one place that knows where a run's bytes live (legacy Images assets vs Studio outputs)."""
+    root=svc.settings.data_dir/('images' if row['legacy_asset_id'] is not None else 'studio')
+    return ImageStorage(root).resolve_existing(row['file_path'])
+
 async def verified_handle(svc,row,*,close=False):
     from bcc.video_studio.read_verification import open_verified
-    root=svc.settings.data_dir/('images' if row['legacy_asset_id'] is not None else 'studio')
-    path=ImageStorage(root).resolve_existing(row['file_path'])
+    path=run_path(svc,row)
     handle=await open_verified(path,row['sha256'],'Studio bytes changed',size=row['file_bytes'])
     if close: handle.close()
     return handle

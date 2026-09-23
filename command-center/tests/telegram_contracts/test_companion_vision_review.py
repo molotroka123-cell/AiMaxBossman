@@ -138,3 +138,33 @@ def test_rate_usage_and_bad_run_id(tmp_path):
     replies, _, _ = talk(tmp_path, studio, ['/rate run-abc maybe', '/rate ../../x bad'])
     assert '/rate <run> good|bad' in replies[0]
     assert replies[1] == 'ERR:STUDIO_RUN_UNKNOWN' and studio.feedback == []
+
+
+def test_a_guest_never_sees_local_paths_or_endpoints_from_a_failed_review(tmp_path):
+    """Review P2 (a): the reviewer's failure reason carries local paths and URLs; a guest gets none of it."""
+    reason = 'frames unavailable: C:/Users/asd/Bossman Test 0923/data/studio/x.mp4 via http://127.0.0.1:11435'
+    studio = ReviewStudio(review={'verdict': 'INSUFFICIENT_EVIDENCE', 'reason': reason})
+    rec = TelegramRecorder()
+
+    async def go():
+        s = cfg(image_guests=True)
+        store = Store(tmp_path)
+        tg = Telegram(s, transport=httpx.MockTransport(rec))
+        core = Core(s, transport=httpx.MockTransport(studio))
+        models = Models(s, tmp_path, transport=httpx.MockTransport(lambda r: httpx.Response(500)))
+        app = Companion(s, store, tg, core, models)
+        app.image_poll_seconds = 0.01
+        app.free_memory_gb = lambda: 64.0
+        msg = {'from': {'id': GUEST.user_id, 'is_bot': False}, 'chat': {'id': GUEST.chat_id, 'type': 'private'},
+               'text': '/video 5 лиса'}
+        try:
+            await app.handle(GUEST, msg)
+            await asyncio.gather(*app.vision_tasks)
+        finally:
+            await tg.close(); await core.close(); await models.close(); store.close()
+    asyncio.run(go())
+    [verdict] = [t for t in sent_texts(rec) if 'Bossman Vision' in t]
+    assert 'не смог проверить' in verdict
+    for leak in ('C:/Users', 'Bossman Test', '127.0.0.1', '11435', 'http'):
+        assert leak not in verdict, verdict
+    assert video_buttons(rec) == ['🔁 Ещё вариант']      # and a guest gets no rating buttons

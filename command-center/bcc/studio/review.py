@@ -253,12 +253,11 @@ async def review_run(svc, rid, *, client=None):
         base = {'run_sha256': run['sha256'], 'model_reviewed': run['model'], 'frames_at': times,
                 'owner_rules_applied': [r['id'] for r in bad + good], 'reviewed_at': utcnow().isoformat()}
         try:
-            from bcc.studio.runtime import verified_handle
-            from bcc.v2.images_runtime import ImageStorage
-            # the bytes on disk must still be the bytes that were verified at generation time
+            from bcc.studio.runtime import run_path, verified_handle
+            # the bytes on disk must still be the bytes that were verified at generation time,
+            # and the frames come from that same file (one resolver for both)
             await verified_handle(svc, run, close=True)
-            path = ImageStorage(svc.settings.data_dir / 'studio').resolve_existing(run['file_path'])
-            frames, thumbs = await sample(path, times)
+            frames, thumbs = await sample(run_path(svc, run), times)
         except (ValueError, RuntimeError, OSError) as e:
             review = {**base, 'verdict': 'INSUFFICIENT_EVIDENCE', 'reason': f'frames unavailable: {str(e)[:200]}'}
         else:

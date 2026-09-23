@@ -940,7 +940,13 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
             text = f"👁 Bossman Vision: ❌ брак {review.get('score') or '?'}/10. {review.get('summary') or ''}" + (
                 f"\nДефекты: {defects}" if defects else "")
         else:
-            text = f"👁 Bossman Vision: не смог проверить ({str(review.get('reason') or 'нет данных')[:200]}). Оцени сам: 👍/👎."
+            # The reason is local diagnostics (paths, endpoint URLs): only the owner gets its short
+            # category, and only if nothing path- or address-like is left in it.
+            why = str(review.get("reason") or "нет данных").split(":", 1)[0].split("(", 1)[0].strip()[:60]
+            if person.role != "owner" or any(c in why for c in "/\\@") or "http" in why or any(ch.isdigit() for ch in why):
+                why = ""
+            text = (f"👁 Bossman Vision: не смог проверить{f' ({why})' if why else ''}."
+                    + (" Оцени сам: 👍/👎." if person.role == "owner" else ""))
         if review and review.get("owner_rules_applied"):
             text += f"\nУчтено твоих правил: {len(review['owner_rules_applied'])}."
         with contextlib.suppress(CompanionError):
