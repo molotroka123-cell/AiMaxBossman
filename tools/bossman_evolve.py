@@ -17,6 +17,13 @@ from bossman_v3.self_improvement.validation import validate, verify_campaign
 
 
 def main(argv=None):
+    # Keep the established CLI and the bounded loop on one entry point.  The
+    # loop owns its parser and campaign state; it must not inherit the legacy
+    # runner's checkout-relative defaults when launched from a Windows ZIP.
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] in ("loop", "status", "pause", "resume", "stop"):
+        from bossman_v3.self_improvement.loop import main as loop_main
+        return loop_main(argv)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("assess", "run", "report", "export", "verify", "validate"))
     parser.add_argument("--suite", type=Path, default=ROOT / "config/evolution/owner-v1.1.json")

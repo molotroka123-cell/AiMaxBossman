@@ -114,10 +114,14 @@ SUPPORT_SCRIPTS = (
     # Jev (browser fast path + decision provider) — только shadow и выключен по
     # умолчанию; раннер без флагов проверяет лишь ключ и конфиг (exit 3).
     (ROOT / "tools" / "jev_shadow_owner.py", "jev_shadow_owner.py"),
+    # Same bounded evolution engine used by the product API; no second daemon.
+    (ROOT / "tools" / "bossman_evolve.py", "bossman_evolve.py"),
 )
 # Данные, которые раннеры читают рядом с собой (не исполняемые скрипты).
 SUPPORT_DATA = (
     (ROOT / "tools" / "model_profiles.json", "model_profiles.json"),
+    (ROOT / "config" / "evolution" / "owner-v1.1.json", "config/evolution/owner-v1.1.json"),
+    (ROOT / "config" / "evolution" / "local-champions.json", "config/evolution/local-champions.json"),
 )
 
 # Профиль `Owner-Run.cmd self-improve-mvcr` вызывает эти файлы рядом с раннером.
@@ -781,6 +785,7 @@ def install_support(support: Path) -> dict:
     for origin, name in SUPPORT_DATA:
         if not origin.exists():
             raise RuntimeError(f"support data missing: {origin}")
+        (support / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(origin, support / name)
     install_coaching_pack(support / COACHING_PACK_TARGET)
     return install_owner_run(support / "owner-final-run")
