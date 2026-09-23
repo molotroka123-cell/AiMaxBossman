@@ -336,7 +336,10 @@ def tool_run_tests(ws: Workspace, args: dict, *, scratch: Path, deadline: float,
     if runner == "pytest":
         if not _pytest_available():
             raise ToolError("pytest is not installed in this runtime; use runner=unittest")
-        cmd = _runner_cmd("pytest", "-q", "--no-header", "-p", "no:cacheprovider", *paths)
+        # no:logging — pytest's logging plugin died in pytest_configure under the
+        # guard on Windows (INTERNALERROR, core-runtime windows-latest); a
+        # PASS/FAIL verdict does not need log capture.
+        cmd = _runner_cmd("pytest", "-q", "--no-header", "-p", "no:cacheprovider", "-p", "no:logging", *paths)
     elif runner == "unittest":
         # unittest wants dotted module names or a discovery start dir
         if paths and all(p.endswith(".py") for p in paths):

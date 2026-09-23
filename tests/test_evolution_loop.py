@@ -134,7 +134,18 @@ def test_stop_and_pause_files_are_honoured_before_new_work(campaign):
 def test_stop_during_an_attempt_cancels_it_quickly_and_resume_finishes_the_cycle(campaign):
     _repo, make = campaign
     cfg, work = make({"money": [{**GOOD_MONEY, "sleep_seconds": 60}]}, max_cycles=1)
-    threading.Timer(1.5, lambda: L.request_stop(work, "test")).start()
+    def stop_once_the_attempt_runs():
+        # STOP must land DURING the attempt; a fixed 1.5 s timer raced the
+        # baseline on slow CI runners (KeyError 'attempt' on root-ci py3.11).
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            state = L._read_json(work / L.STATE_FILE) or {}
+            cycles = state.get("cycles") or []
+            if cycles and "attempt" in cycles[-1]:
+                break
+            time.sleep(0.1)
+        L.request_stop(work, "test")
+    threading.Thread(target=stop_once_the_attempt_runs, daemon=True).start()
     started = time.monotonic()
     state = L.EvolutionLoop(work, cfg).run()
     assert time.monotonic() - started < 30
