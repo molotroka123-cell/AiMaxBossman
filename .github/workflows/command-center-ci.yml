@@ -155,7 +155,15 @@ jobs:
           python -m pytest -q --timeout=300
           tests/test_coding_tasks.py tests/test_coding_tasks_local_sidecar.py tests/test_coding_path_owner_tool.py
           tests/test_coding_recipes.py tests/test_lab_agents.py tests/test_skill_catalog.py
-          tests/test_feat_organization.py tests/test_telegram_settings.py
+          tests/test_feat_organization.py tests/test_telegram_settings.py tests/test_cc_subprocess_timeouts.py
+      - name: Subprocess timeouts kill the whole tree (bossman-core)
+        working-directory: bossman-core
+        run: python -m pytest -q --timeout=300 tests/test_core_subprocess_timeouts.py tests/apprentice/test_local_sidecar.py
+      - name: 1.1 evolution loop, verifier, lab (root tests; embedded-Python emulation)
+        run: >-
+          python -m pytest -q --timeout=600
+          tests/test_evolution_embedded_python.py tests/test_evolution_verifier.py tests/test_evolution_loop.py
+          tests/test_self_improve_lab.py tests/test_self_improve_lab_observers.py
       - name: HW-10 MVČR prepare pipeline (root test, needs bcc.approvals + pypdf)
         run: |
           python -m pip install "pypdf==6.19.0"
