@@ -44,7 +44,10 @@ capability/action-contract слой (эта пара хуков), а не по �
 плодить лишнее):
   * не трогает bcc/features/action_router.py и bcc/features/action_gate.py —
     браузер (MODULE 1) уже полностью реализован своим собственным, отдельно
-    протестированным механизмом, повторно не классифицируется здесь;
+    протестированным механизмом, повторно не классифицируется здесь.
+    Единственное исключение — DOWNLOAD_ACTION (скачивание файла по ссылке,
+    P1 DOWNLOAD-FALSE-SUCCESS): его роутер по теме «браузер/сайт» не видит,
+    а эффект у него есть, см. блок «download» ниже;
   * не строит новый исполнитель — использует УЖЕ существующие
     tools_terminal.py, tools_memory.py, tools_openclaw.py, tools_opencode.py,
     tools_mcp.py (динамическая регистрация с source="mcp"), plugins.py
@@ -75,6 +78,7 @@ from ..db import agents as agents_t, tasks as tasks_t, tool_calls as tool_calls_
 from ..tools import REGISTRY, ROUTED_TOOLS_EXTEND_AGENT, allowed_tools_for
 from ..v2.verification import ExpectedState
 from . import Feature
+from .action_router import BROWSER_TOOLS
 
 META_KEY = "action_contract_attempts"
 RULE = "no_verified_action"
@@ -95,6 +99,11 @@ class Capability:
     # проверяет args УЖЕ найденной строки tool_calls — не просто «инструмент
     # семейства был вызван», а «именно ЭТОТ вызов относится к этой capability».
     call_filter: Callable[[dict], bool] | None = None
+    # Какие инструменты ВЫДАТЬ run'у, если это не «все неЧИТАЮЩИЕ инструменты
+    # семейства» (по умолчанию). Нужен DOWNLOAD_ACTION: browser.open/read_dom —
+    # category="read", и без явного списка задача «скачай файл со страницы»
+    # получила бы download/click, но не возможность эту страницу открыть.
+    attach: tuple[str, ...] = ()
 
 
 def _clause_re(verb_pat: str, topic_pat: str) -> "re.Pattern[str]":
@@ -229,6 +238,61 @@ def _urlish_spans(text: str) -> list[tuple[int, int]]:
     return [m.span() for m in _URLISH_RE.finditer(text or "")]
 
 
+# ------------------------------------------------------------------- download
+#
+# Owner run 2026-09-23 (P1 DOWNLOAD-FALSE-SUCCESS): «Скачай PDF-файл
+# https://www.w3.org/…/dummy.pdf» не распознал НИКТО. action_router ищет тему
+# «браузер/сайт», а его окно «глагол…тема» `[^.!?\n]` обрывается на точке
+# внутри `www.` раньше, чем доходит до `w3.org`; здесь же глагола «скачай» не
+# было ни в одном семействе. Итог: ни одного инструмента, ни одного гейта —
+# модель ответила «у меня нет инструментов», задача completed.
+#
+# Скачивание по ссылке — эффект с ЕДИНСТВЕННЫМ исполнителем, browser.download
+# (tools_browser.py, B4: файл проверяется на диске — размер, sha256, тип). Его
+# распознаём по ТЕКСТУ задачи, как любую другую capability этого слоя, и гейт
+# требует именно исполненного browser.download — независимо от того, что
+# ответила модель и прикрепил ли кто-то инструменты (вето action_gate.py
+# держится на формулировке отказа модели, её «нет инструментов» он не узнал).
+#
+# Обязателен сам URL (схема или www.): «скачай» без ссылки — это ещё не
+# скачивание конкретного файла. Русские глаголы — только повелительные формы:
+# «как скачать pdf?» — вопрос, а не поручение. «save/сохрани» — только с
+# объектом-файлом или прямо перед ссылкой: «сохрани в памяти …» — это память.
+# Вопрос «как/how …» до глагола в той же фразе поручение снимает.
+_DL_URL = r"https?://\S+|\bwww\.\S+"
+_DL_VERB = (r"\bdownload\b|скачай\w*|загрузи(?:те)?\b|"
+            r"\bsave\s+(?:(?:this|that|the|a)\s+)?(?:file|pdf|document|attachment)s?\b|"
+            r"сохрани(?:те)?\s+(?:(?:этот|эту|это)\s+)?(?:файл\w*|pdf\w*|документ\w*)|"
+            r"\bsave\s+(?=https?://|www\.)|сохрани(?:те)?\s+(?=https?://|www\.)")
+_DL_NOT_QUESTION = r"(?!\bhow\b|\bкак\b)"
+_DOWNLOAD_RE = re.compile(
+    rf"(?:^|(?<=[.!?\n]))(?:{_DL_NOT_QUESTION}[^.!?\n])*?"
+    rf"(?P<fwd>(?:{_DL_VERB})[^.!?\n]{{0,80}}?(?:{_DL_URL}))|"
+    rf"(?P<back>(?:{_DL_URL})(?:{_DL_NOT_QUESTION}[^.!?\n]){{0,80}}?(?:{_DL_VERB}))",
+    re.I | re.U)
+
+
+def _without_download_clauses(text: str) -> str:
+    """Текст без распознанных «скачай … <url>»: эту клаузу уже обслуживает
+    DOWNLOAD_ACTION. Иначе «сохрани файл https://…» ВДОБАВОК требовал бы
+    terminal.run (TERMINAL_FILE_ACTION: «сохрани» + «файл»), и честно
+    скачанный файл всё равно не закрывал бы задачу. Вырезается только
+    глагол…ссылка, не вся фраза: «скачай … и создай файл notes.txt» свою
+    файловую часть сохраняет."""
+    spans = [m.span("fwd") if m.group("fwd") else m.span("back")
+             for m in _DOWNLOAD_RE.finditer(text)]
+    for start, end in reversed(spans):
+        text = text[:start] + " " + text[end:]
+    return text
+
+
+def _is_download_call(row: dict) -> bool:
+    """browser.* делит source="browser" с click/type/submit — эффект «файл на
+    диске» даёт только browser.download (browser.open/click на файл загрузку
+    намеренно НЕ сохраняют, B4)."""
+    return row.get("tool") == "browser.download"
+
+
 def _terminal_evidence(prompt: str) -> ExpectedState | None:
     """Явное имя файла в тексте задачи (закрытый, детерминированный вывод —
     как action_router.target_domain: не нашли — не изобретаем)."""
@@ -346,7 +410,12 @@ def _is_code_mutation_call(row: dict) -> bool:
 
 
 # Порядок — приоритет из задания (1..12), browser (MODULE 1) исключён намеренно.
+# Исключение — DOWNLOAD_ACTION (см. блок «download» выше): он первым, потому что
+# classify_all вырезает его клаузу до проверки остальных. Инструменты выдаются
+# тем же набором, что action_router.BROWSER_TOOLS, — второго списка не заводим.
 CAPABILITIES: tuple[Capability, ...] = (
+    Capability("DOWNLOAD_ACTION", _DOWNLOAD_RE, frozenset({"browser"}),
+              call_filter=_is_download_call, attach=BROWSER_TOOLS),
     Capability("TERMINAL_FILE_ACTION", _TERMINAL_FILE_RE, frozenset({"terminal"}),
               evidence=_terminal_evidence),
     Capability("APPS_ACTION", _clause_re(_OPEN_VERB, _APP_TOPIC), frozenset({"apps"})),
@@ -384,7 +453,13 @@ def classify_all(prompt: str) -> list[Capability]:
     завершал «Измени тестовый файл в репозитории, запусти тест и закоммить»,
     когда модель дёрнула ЛЮБОЙ terminal.run и заявила текстом, что запушила."""
     text = positive_request_text(prompt or "")
-    return [cap for cap in CAPABILITIES if cap.pattern.search(text)]
+    found = []
+    for cap in CAPABILITIES:
+        if cap.pattern.search(text):
+            found.append(cap)
+            if cap.pattern is _DOWNLOAD_RE:
+                text = _without_download_clauses(text)
+    return found
 
 
 def classify(prompt: str) -> Capability | None:
@@ -520,8 +595,11 @@ async def _before_run(svc):
         # первой (см. докстринг classify_all).
         family: list[str] = []
         seen_tools: set[str] = set()
+        registered = set(REGISTRY.names())
         for cap in caps:
-            for name in _family_tool_names(cap.tool_sources):
+            grant = ([n for n in cap.attach if n in registered] if cap.attach
+                     else _family_tool_names(cap.tool_sources))
+            for name in grant:
                 if name not in seen_tools:
                     seen_tools.add(name)
                     family.append(name)
