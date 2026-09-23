@@ -29,6 +29,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -205,6 +206,71 @@ def make_chat(url: str, model: str, stats: list[dict], *, timeout: float, max_to
     return chat
 
 
+def latency_probe(url: str, model: str, *, timeout: float, server_pid: int | None = None) -> dict:
+    """One extra streamed request. Refusals are visible; no inferred TTFT/RAM."""
+    body = {"model": model, "messages": [{"role": "user", "content": "Reply with one word: ready"}],
+            "stream": True, "stream_options": {"include_usage": True}, "max_tokens": 16, "temperature": 0}
+    started = time.monotonic()
+    request = urllib.request.Request(url + "/chat/completions", data=json.dumps(body).encode("utf-8"),
+                                     headers={"Content-Type": "application/json", "Accept": "text/event-stream"})
+    memory: dict[str, Any] = {"server_pid": server_pid, "peak_process_rss_bytes": None,
+                              "note": "process RSS, not AMD GPU allocation or system peak"}
+    stopped = threading.Event()
+    sampler = None
+    if server_pid is not None:
+        try:
+            import psutil  # noqa: PLC0415 — optional; explicit UNMEASURED if unavailable
+            proc = psutil.Process(server_pid)
+            def sample() -> None:
+                while True:
+                    try:
+                        rss = proc.memory_info().rss
+                        memory["peak_process_rss_bytes"] = max(memory["peak_process_rss_bytes"] or 0, rss)
+                    except psutil.Error:
+                        break
+                    if stopped.wait(0.05):
+                        break
+            sampler = threading.Thread(target=sample, daemon=True)
+            sampler.start()
+        except Exception as exc:  # noqa: BLE001 — optional measurement must not fail the bake-off
+            memory["unmeasured_reason"] = type(exc).__name__
+    try:
+        first_ms = None
+        tokens = 0
+        prompt_tps = None
+        received = 0
+        with _opener().open(request, timeout=timeout) as response:
+            if "text/event-stream" not in response.headers.get("Content-Type", ""):
+                raise ValueError("model did not return an SSE stream")
+            for line in response:
+                received += len(line)
+                if received > 1_048_576:
+                    raise ValueError("stream exceeded 1 MiB")
+                if not line.startswith(b"data:"):
+                    continue
+                payload = line[5:].strip()
+                if payload == b"[DONE]":
+                    break
+                obj = json.loads(payload)
+                if isinstance(obj.get("timings"), dict):
+                    prompt_tps = obj["timings"].get("prompt_per_second") or prompt_tps
+                delta = (((obj.get("choices") or [{}])[0]).get("delta") or {})
+                if first_ms is None and any(delta.get(k) for k in ("content", "reasoning", "tool_calls")):
+                    first_ms = round((time.monotonic() - started) * 1000, 1)
+                tokens += int((obj.get("usage") or {}).get("completion_tokens") or 0)
+        return {"status": "MEASURED" if first_ms is not None else "NO_TOKEN_EVENT", "ttft_ms": first_ms,
+                "prefill_tps_reported": prompt_tps, "prefill_note": "provider timings only; null if omitted",
+                "stream_elapsed_ms": round((time.monotonic() - started) * 1000, 1),
+                "usage_completion_tokens_reported": tokens or None, "memory": memory}
+    except (OSError, ValueError, KeyError, IndexError, urllib.error.URLError) as exc:
+        return {"status": "UNMEASURED", "reason": f"{type(exc).__name__}: {str(exc)[:180]}",
+                "ttft_ms": None, "prefill_tps_reported": None, "memory": memory}
+    finally:
+        stopped.set()
+        if sampler is not None:
+            sampler.join(timeout=1)
+
+
 def run_tasks(chat: Chat, stats: list[dict], *, tag: str = "", log: Callable[[str], None] = print) -> dict:
     results: dict[str, dict] = {}
     for name, fn in TASKS.items():
@@ -238,6 +304,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--timeout", type=float, default=900.0, help="seconds per request")
     ap.add_argument("--max-tokens", type=int, default=3000)
     ap.add_argument("--json", action="store_true", help="print the summary as one JSON line on stdout")
+    ap.add_argument("--latency-probe", action="store_true", help="one extra streaming request for measured TTFT")
+    ap.add_argument("--server-pid", type=int, help="optional server PID for process RSS sampling during the probe")
     a = ap.parse_args(argv)
     url = a.url.rstrip("/")
     log = (lambda line: print(line, file=sys.stderr, flush=True)) if a.json else (lambda line: print(line, flush=True))
@@ -256,6 +324,8 @@ def main(argv: list[str] | None = None) -> int:
     results = run_tasks(make_chat(url, model, stats, timeout=a.timeout, max_tokens=a.max_tokens), stats,
                         tag=a.tag, log=log)
     summary = summarize(a.tag, model, url, results, stats)
+    if a.latency_probe:
+        summary["latency_probe"] = latency_probe(url, model, timeout=min(a.timeout, 120), server_pid=a.server_pid)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     (out / f"{a.tag}.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
