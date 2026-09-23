@@ -25,8 +25,21 @@ def main():
         output=out/f"{name}.json"
         output.unlink(missing_ok=True)
         try:
-            with (out/f"{name}.log").open("w",encoding="utf-8") as log:
-                run=subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, timeout=300, check=False)
+            # pip-audit queries PyPI/OSV over the network. A run that dies before
+            # writing ANY report is retried (at most 3 attempts); a written report
+            # (findings or not) is never retried, and 3 crashes still fail closed.
+            attempts = 3 if name == "pip-audit" else 1
+            for attempt in range(1, attempts + 1):
+                with (out/f"{name}.log").open("w",encoding="utf-8") as log:
+                    run=subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, timeout=300, check=False)
+                if output.is_file() or attempt == attempts:
+                    break
+                tail=(out/f"{name}.log").read_text(encoding="utf-8", errors="replace")[-1500:]
+                print(f"{name}: no report on attempt {attempt} (exit {run.returncode}); retrying. Log tail:\n{tail}",
+                      file=sys.stderr)
+            if not output.is_file():
+                tail=(out/f"{name}.log").read_text(encoding="utf-8", errors="replace")[-3000:]
+                print(f"{name}: no report after {attempts} attempt(s). Log tail:\n{tail}", file=sys.stderr)
             body=json.loads(output.read_text(encoding="utf-8"))
             if name == "bandit":
                 errors=body.get("errors", [])
