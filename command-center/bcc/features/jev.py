@@ -87,7 +87,7 @@ async def _shadow_job(svc, state: _State, task: dict, agent: dict, waiter: async
     task_id = task.get("id")
     try:
         try:
-            model_id, source = await asyncio.wait_for(asyncio.shield(waiter), ROUTE_WAIT_S), "router"
+            model_id, source = await asyncio.wait_for(waiter, ROUTE_WAIT_S), "router"
         except asyncio.TimeoutError:
             model_id, source = agent.get("model_id"), "agent_model"
         finally:
