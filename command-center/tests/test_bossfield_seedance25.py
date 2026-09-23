@@ -17,7 +17,10 @@ async def test_seedance25_uses_video_endpoint_and_first_frame():
     assert result.request_id == "vid-25"
     assert seen[0][0] == "/api/v1/videos"
     assert '"first_frame"' in seen[0][1]
-    assert '"duration": 15' in seen[0][1]
+    import json
+    body = json.loads(seen[0][1])
+    assert body["duration"] == 15 and body["model"] == "bytedance/seedance-2.5"
+    assert body["frame_images"][0]["frame_type"] == "first_frame"
 
 
 def test_seedance25_catalog_is_not_verified_or_free():

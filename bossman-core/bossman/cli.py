@@ -54,7 +54,18 @@ def _terminal(argv: list[str]) -> int:
     return int(terminal_main(argv) or 0)
 
 
+def _utf8_console() -> None:
+    # The Windows console defaults to cp1252: the Russian epilog of `bossman
+    # --help` crashed the installed entry point (local bundle, windows-latest).
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> None:
+    _utf8_console()
     argv = list(sys.argv[1:] if argv is None else argv)
     if is_terminal_call(argv):
         sys.exit(_terminal(argv))
