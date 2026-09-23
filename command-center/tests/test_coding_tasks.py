@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -66,8 +67,13 @@ def sidecar(body: str) -> str:
     code = ("import json,sys,subprocess,pathlib,os; p=json.load(sys.stdin); " + HANDSHAKE +
             "w=pathlib.Path(p['workspace']); os.chdir(w); " + body + "; "
             "print(json.dumps({'schema':'bossman.openhands.v1','status':'completed','summary':'done'}))")
-    return json.dumps([sys.executable, "-c", code])[1:-1].replace('", "', '" "') if False else \
-        " ".join(_q(x) for x in [sys.executable, "-c", code])
+    # The script goes to a file: code with embedded double quotes does not
+    # survive Windows command-line quoting, and a file path needs no escaping.
+    import tempfile
+    fd, path = tempfile.mkstemp(prefix="fake-sidecar-", suffix=".py")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(code)
+    return " ".join(_q(x) for x in [sys.executable, path])
 
 
 def _q(x: str) -> str:
