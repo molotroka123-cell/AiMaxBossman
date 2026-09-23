@@ -1,12 +1,12 @@
 # CONTINUE — Bossman 1.0 (start here, do NOT re-audit)
 
-State at end of 23.09: candidate `1a29d85a4a471b549f274d18922e4c5485ed409f` (C2/C3 fixed in the evening) on `fix/owner-run-20260923-p1` (pushed). Truth table: `FINAL-1.0/EOD/20MIN_CLOSURE.md`. Audit: `EOD/EOD_FINAL_AUDIT.md`. release/bossman-owner untouched (`e0bf948d`, ancestor → fast-forward later).
+State at end of 23.09: ONE line `fix/owner-run-20260923-p1` = `f7ff326a` (evening: + media fixes 6a2b5907/99970958, Studio vision review d7824c9d/b43c7b92/f7ff326a (session e2), Telegram web search bed3dbb4, /jev 05ca8d22, SKIPS_REGISTRY regen 5ca2ce35, retention fix 9c4afd08; independent verifier PASS on d7824c9d; ZIP 05ca8d22 acceptance PASS sha256 4ba2b809…; ZIP f7ff326a building) on `fix/owner-run-20260923-p1` (pushed). Truth table: `FINAL-1.0/EOD/20MIN_CLOSURE.md`. Audit: `EOD/EOD_FINAL_AUDIT.md`. release/bossman-owner untouched (`e0bf948d`, ancestor → fast-forward later).
 
 ## FIRST COMMAND TOMORROW
 ```
 cd C:\Users\asd\Bossman\wt-fix-crlf0923 && git fetch --all --prune && git status -sb && git log -1 --format=%H
 ```
-Expect `1a29d85a…` and a clean tree, then do step 1 directly.
+Expect `f7ff326a…` (or newer if the ZIP/evidence pass added commits) and a clean tree, then do step 1 directly.
 
 ## Order (max 5 steps, no new features, no new final branch)
 1. (DONE 6f9d1497/1a29d85a) C2 + C3 (reproducers in EOD/SECURITY notes of 20MIN_CLOSURE): opencode — compute target and check roots BEFORE `git worktree add`, validate name; terminal roots — require list of existing absolute dirs, refuse drive/filesystem root without approval. Failing test → fix → neighbours (test_*opencode*, test_*terminal*) → push.
@@ -24,3 +24,9 @@ new final branches · architecture rewrites · repeating proven tests · feature
 
 ## Learning (tomorrow's benchmark, not before steps 1–5 are green)
 exam3 cases in `C:\Users\asd\Bossman\exam-sealed-0923\exam3\` are INCOMPLETE — finish per `EOD/LEARNING_EOD.md`, self-check, freeze, then ≥3 repeats per profile.
+
+## Evening additions (23.09)
+- Windows-100: taken by session bossman-e2 on feat/windows-stress-100-20260923 (not started today) — merge into the line when its run on the installed product is green.
+- CI on f7ff326a: root-ci expected green now (SKIPS_REGISTRY regenerated); 5 required workflows cannot start on fix/* (branch filters) → exact-SHA needs a claude/** trigger ref or release push after final audit.
+- Open from triage: Windows coarse clock makes v3 receipts 'stale' (bossman_shared/action_receipt.py, test_v3_cross_layer_e2e / test_v3_fence_receipts) — PRODUCT, OPEN; 3 cc tests cause not read (openrouter_agent_flow env_configured, video_cancel_button, video_descriptor_boundary).
+- 1.5: NOT started — master prompt requires frozen 1.0 first (EOD/V1_5_BASELINE.md).
