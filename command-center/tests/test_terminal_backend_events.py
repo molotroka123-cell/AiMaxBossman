@@ -52,7 +52,12 @@ async def test_engine_emits_step_events_and_history_replays_them(tmp_path):
 
             async def done():
                 t = (await c.get(f"/api/tasks/{tid}")).json()["task"]
-                return t["status"] in ("completed", "failed")
+                if t["status"] not in ("completed", "failed"):
+                    return False
+                # task.finalized is emitted just after the status flips; the cursor
+                # checks below need the stream to be complete, not merely the status.
+                evs = (await c.get(f"/api/tasks/{tid}/events")).json()["events"]
+                return any(e["kind"] == "task.finalized" for e in evs)
             await wait_for(done, timeout=20)
             assert (await c.get(f"/api/tasks/{tid}")).json()["task"]["status"] == "completed"
             page = (await c.get(f"/api/tasks/{tid}/events")).json()
