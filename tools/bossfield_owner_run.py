@@ -164,14 +164,18 @@ def audit_shots(project: Path, state: dict) -> list[dict]:
     return shots
 
 
-def extract_edge(video: Path, out: Path, *, at_end: bool) -> None:
+def extract_edge(video: Path, out: Path, *, at_end: bool, used_seconds: int | None = None) -> None:
     binary = ffmpeg_bin()
     if not binary:
         raise ValueError("ffmpeg is required")
-    run_command([binary, "-v", "error", "-nostdin", "-y",
-                 "-sseof", "-0.07", "-i", str(video), "-frames:v", "1", str(out)]
-                if at_end else [binary, "-v", "error", "-nostdin", "-y", "-i", str(video),
-                                "-frames:v", "1", str(out)], timeout=60)
+    # The source can be longer than the accepted slot; use the last frame of
+    # the segment actually included in the 30-second movie.
+    argv = [binary, "-v", "error", "-nostdin", "-y", "-i", str(video)]
+    if at_end:
+        if used_seconds is None:
+            raise ValueError("Trimmed duration required for a last-frame anchor")
+        argv += ["-ss", str(used_seconds - 1 / FRAME_RATE)]
+    run_command(argv + ["-frames:v", "1", str(out)], timeout=60)
 
 
 def assemble(project: Path, music: Path | None = None) -> dict:
@@ -226,7 +230,7 @@ def assemble(project: Path, music: Path | None = None) -> dict:
     for i in range(3):
         left = project / "audit" / f"seam-{i + 1}-last.png"
         right = project / "audit" / f"seam-{i + 1}-first.png"
-        extract_edge(srcs[i], left, at_end=True)
+        extract_edge(srcs[i], left, at_end=True, used_seconds=SLOTS[i][1])
         extract_edge(srcs[i + 1], right, at_end=False)
         seams.append({"left": str(left.relative_to(project)), "left_sha256": digest_file(left),
                       "right": str(right.relative_to(project)), "right_sha256": digest_file(right),
@@ -276,7 +280,7 @@ def anchor(project: Path, after: str) -> dict:
     dest = project / "references" / ("anchor-after-" + after + ".png")
     if dest.exists():
         raise ValueError("Anchor exists; retain the frozen attempt and use a new project")
-    extract_edge(src, dest, at_end=True)
+    extract_edge(src, dest, at_end=True, used_seconds=expected)
     return {"status": "ANCHOR_READY", "for_shot": eligible[after],
             "path": str(dest), "sha256": digest_file(dest),
             "source_sha256": digest_file(src), "continuity_verified": False}
