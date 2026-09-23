@@ -187,7 +187,13 @@ def test_approval_required_with_fail_mode_exits_4_and_approves_nothing(backend):
     approvals = api.get("/api/approvals", params={"status": "all"}).json()
     mine = [a for a in approvals if a.get("task_id") == res["task_id"]]
     assert mine and all(a["status"] == "pending" for a in mine), "nothing may be approved"
-    assert api.get(f"/api/tasks/{res['task_id']}").json()["task"]["status"] == "waiting_approval"
+    # the approval row is created a moment before the task flips its status
+    for _ in range(50):
+        status = api.get(f"/api/tasks/{res['task_id']}").json()["task"]["status"]
+        if status != "running":
+            break
+        time.sleep(0.1)
+    assert status == "waiting_approval"
     # without a TTY, approving needs an explicit --yes (never a silent auto-approve)
     refused = _cli(backend, "approve", str(mine[0]["id"]), "--json")
     assert refused.returncode == 2
