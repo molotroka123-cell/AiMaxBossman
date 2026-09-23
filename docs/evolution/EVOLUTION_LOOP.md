@@ -1,6 +1,6 @@
 # Bossman 1.1 — цикл улучшения и завтрашний прогон
 
-Статус на `98667ada`: **инфраструктура есть; owner-run не пройден**. Отдельный CLI
+Статус: **инфраструктура есть; owner-run не пройден**. Отдельный CLI
 `bossman_evolve.py` теперь входит в Windows ZIP как `app-support/bossman_evolve.py`
 вместе с конфигурацией. Он вызывает тот же `bossman_v3.self_improvement.loop`,
 которым должен управлять будущий `/api/evolution/*`: второго движка нет.
@@ -52,10 +52,12 @@ Command Center работает с проверенным coding sidecar.
 - Черновик сквозного `gate.py` не влит: в этом Linux окружении mock gate
   остановился на запуске Command Center (`uvicorn` отсутствует), `psutil`
   тоже отсутствует. Нельзя выдавать этот запуск за PASS.
-- `/api/evolution/*` и Telegram `/evolution_*` ещё не подключены. Терминал
-  `bossman repair --self` пока честно сообщает, что API недоступно; прямой
-  `bossman_evolve.py loop` является ограниченным инженерным входом, а не
-  доказательством parity между CLI, UI и Telegram.
+- `/api/evolution/status|start|pause|resume|stop|report` добавлены к тому же
+  Command Center, с `proc_tree`, разрешёнными code roots и общей data dir.
+  Их bootstrap проверен с настоящим loop под `python -I`, но live запросы
+  через FastAPI в этом облаке **NOT_RUN** (нет FastAPI, SQLAlchemy, uvicorn).
+  Telegram `/evolution_*` ещё не подключены; прямой CLI и наличие маршрутов
+  не доказывают parity между CLI, UI и Telegram.
 - Плохой patch + три самостоятельных цикла с настоящей локальной моделью,
   перезапуск, перенос навыка на невиданный кейс, 24/48 часов и реальная
   коммерческая задача ждут живого owner-run и отдельного evidence.
