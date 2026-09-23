@@ -132,6 +132,43 @@ C:\Bossman> bossman chat ▌
 фон `#0C0D0E`, заголовки и подписи `#27BBDE`, «You ›» и статусы «enabled/on-demand» `#15C44C`/`#3FEC87`,
 пункты плана `#208CAE`, приглушённый текст `#8B95A5`, рамки — тонкие светло-синие линии.
 
+### 3.1b Остальные экраны терминала (референсы владельца)
+
+Общая рамка у всех экранов одна (3.1a): заголовок «Bossman 1.x — <экран>», строка статуса,
+левая панель контекста, справа диалог, внизу строка ввода. Меняются режим и содержимое правой части.
+
+**Self-Improve Lab** — [11_terminal_self_improve_lab.jpg](references/1_2/11_terminal_self_improve_lab.jpg),
+команда `bossman evolve --lab [--local-model]`.
+
+* Статус: `Mode: self-improve`, `Models: local (<модели турнира>)`.
+* Слева добавляется «Models (local)»: активная / challenger / доступна — из реального списка моделей и профилей турнира.
+* «Memory (summary)»: заметки • уроки • эвристики.
+* Справа «Thinking process» — план лаборатории шагами «шаг → деталь»: выбор моделей, варианты, найденные уроки, ограниченные прогоны, сравнение, сохранение урока.
+* Варианты идут рядом, в две колонки: цель, подход, результат N/M, среднее время, заметки. Это реальный отчёт `compare` одной и той же модели или турнира моделей, с исходами STUDENT_* / TIMEOUT.
+* Блок **Verifier**: вердикт PASS / FAIL / PARTIAL / INVALID_TEST / UNSAFE и что проверено.
+* Блок **Lesson saved**: куда записан урок, краткое содержание, теги, следующая задача.
+* Справа галочки «lesson written / memory updated / next task queued» ставятся только по факту записи.
+
+**Computer Control CLI** — [12_terminal_computer_control.jpg](references/1_2/12_terminal_computer_control.jpg),
+команда `bossman run automation [--local] "<задача>"`.
+
+* Статус: `Mode: computer-control`.
+* Слева блок «Computer Control: ENABLED (on-demand)».
+* Справа план, затем **Action queue** с ☑/☐, статусом Completed / In progress / Pending и временем шага.
+* Затем **Live status** — лента с временем и тегами справа: thinking… / screen observed / window focused / action executed. Всё это берётся из событий инструментов компьютера.
+* Подсказка внизу: «Ctrl+C — безопасная остановка, `bossman stop` — пауза после текущего шага».
+* Действия с последствиями проходят approval как обычно.
+
+**Code / self-repair** — [13_terminal_code_repair.jpg](references/1_2/13_terminal_code_repair.jpg),
+команда `bossman repair --self [--model <id>]`.
+
+* Статус: `Mode: code`.
+* Слева блок «Model»: модель, устройство (CPU/GPU, если известно) и размер контекста.
+* Справа план, затем «Thinking process (local model)» — фазы цикла 1.1 с ●/◐/○: done / in progress / pending.
+* Затем «Live task: <задача>» — реальные вызовы инструментов coding path: чтение, правка, тесты, diff, проверка, с временем.
+* Внизу «Current step: …».
+* Это ОДИН цикл цикла 1.1 (`bossman_coding`), со STOP и проверкой verifier.
+
 ### 3.2 Headless для Claude Code и скриптов
 
 ```text
