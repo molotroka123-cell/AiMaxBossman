@@ -1620,7 +1620,7 @@ def print_plan(plan: dict) -> None:
     print("Скрипты рядом с раннером:")
     for name, path in plan["siblings"].items():
         print(f"  {name:<22} {'есть' if path else 'НЕТ → стадия будет NOT_RUN'}")
-    print(f"Кейс self-improve: {plan['case'] or 'нет (нужен --case)'}")
+    print(f"Кейс self-improve: {plan['case'] or 'встроенный sample (transfer: sample-transfer)'}")
     print(f"Telegram-поллер сейчас: {'работает (второй не будет запущен)' if plan['telegram_poller_running'] else 'не запущен'}")
     print("Требует разрешения владельца:")
     for a in plan["approvals"]:

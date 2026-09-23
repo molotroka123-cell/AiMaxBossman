@@ -237,7 +237,7 @@ OWNER_RUN_CMD = r"""@echo off
 setlocal
 rem Owner-suite runner: doctor -> MAIN/FAST discovery -> media manifest -> coaching -> diagnostics.
 rem Machine stages only; the owner scenarios are in START_TOMORROW_RU.md. Never claims certification.
-rem Profile: Owner-Run.cmd self-improve-mvcr STAGE, where STAGE is plan, preflight, bootstrap, compare, mvcr, self-improve, report, run, resume or status.
+rem Profile: Owner-Run.cmd self-improve-mvcr STAGE, where STAGE is plan, preflight, bootstrap, skills, compare, mvcr, self-improve, report, run, resume or status.
 rem Short forms: Owner-Run.cmd plan / resume / stop. See docs\owner\OWNER_RUN_NEXT.md.
 set "BOSSMAN_HOME=%~dp0"
 call "%BOSSMAN_HOME%app-support\_env.cmd"
