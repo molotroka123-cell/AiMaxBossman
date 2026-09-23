@@ -62,8 +62,18 @@ async def test_benchmark_failed_endpoint(env):
     assert b["status"] == "failed" and b["error"]      # честная ошибка, фон не завис
 
 
+class _PacedAdapter(FakeAdapter):
+    """Generation takes time proportional to the tokens asked for. An instant fake
+    made the differential speed window (N-token minus 1-token latency) pure timer
+    noise: sometimes <= 0, the run became "unavailable" and based_on was 0."""
+
+    async def chat(self, model, messages, **kw):
+        await asyncio.sleep(0.002 * int(kw.get("max_tokens") or 1))
+        return await super().chat(model, messages, **kw)
+
+
 async def test_recommendations_from_stored(env):
-    env.svc.registry.adapter_factory = lambda m, p: FakeAdapter("ок", tokens=(20, 40))
+    env.svc.registry.adapter_factory = lambda m, p: _PacedAdapter("ок", tokens=(20, 40))
     stack = await make_stack(env.client)
     r = (await env.client.post("/api/benchmarks", json={"model_id": stack["model"]["id"]})).json()
 
