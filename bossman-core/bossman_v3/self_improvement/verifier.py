@@ -90,8 +90,13 @@ def git(cwd: Path, *args: str, home: Path, timeout: float = GIT_TIMEOUT, input_t
     argv = ["git", "-c", "core.autocrlf=false", "-c", "core.fsmonitor=false",
             "-c", "user.name=Bossman Evolution", "-c", "user.email=bossman-evolution@localhost", *args]
     kw = {} if input_text is not None else {"stdin": subprocess.DEVNULL}
-    res = run_tree(argv, cwd=str(cwd), env=env, input=input_text, text=True, encoding="utf-8",
-                   errors="replace", stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, **kw)
+    # Bytes, not text=True: on Windows a text-mode stdin rewrites every "\n" of
+    # the patch to "\r\n", and `git apply` then rejects a clean LF diff.
+    res = run_tree(argv, cwd=str(cwd), env=env,
+                   input=None if input_text is None else input_text.encode("utf-8"),
+                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, **kw)
+    res.stdout = (res.stdout or b"").decode("utf-8", "replace")
+    res.stderr = (res.stderr or b"").decode("utf-8", "replace")
     if res.timed_out:
         raise VerifierError(f"git {args[0]} timed out after {timeout}s")
     if check and res.returncode:

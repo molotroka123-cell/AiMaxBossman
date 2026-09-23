@@ -330,9 +330,14 @@ def _git_env() -> dict:
 def git(*args: str, cwd: Path | None = None, input_text: str | None = None,
         env: dict | None = None, check: bool = True) -> subprocess.CompletedProcess:
     cmd = ["git", "-c", "core.autocrlf=false", "-c", "core.safecrlf=false", *args]
-    proc = subprocess.run(cmd, cwd=str(cwd) if cwd else None, input=input_text, text=True,
-                          encoding="utf-8", errors="replace", capture_output=True,
-                          env=env or _git_env())
+    # Bytes in, text out: a text-mode stdin on Windows turns the patch's "\n"
+    # into "\r\n" and `git apply` rejects it.
+    raw = subprocess.run(cmd, cwd=str(cwd) if cwd else None,
+                         input=None if input_text is None else input_text.encode("utf-8"),
+                         capture_output=True, env=env or _git_env())
+    proc = subprocess.CompletedProcess(raw.args, raw.returncode,
+                                       raw.stdout.decode("utf-8", "replace"),
+                                       raw.stderr.decode("utf-8", "replace"))
     if check and proc.returncode != 0:
         raise LabError(f"git {' '.join(args[:3])} failed: {proc.stderr.strip()[:400]}")
     return proc

@@ -96,10 +96,11 @@ class LiveWorkspace:
         for path in paths:
             rel = self._relative(path)
             if rel.as_posix() in self.protected_paths: raise WorkspaceRefused(f"protected path is immutable: {path}")
-        run = subprocess.run(["git", "apply", "--whitespace=nowarn", "-"], input=patch, text=True,
+        # bytes: a text-mode stdin on Windows rewrites "\n" to "\r\n" and breaks the patch
+        run = subprocess.run(["git", "apply", "--whitespace=nowarn", "-"], input=patch.encode("utf-8"),
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.root, timeout=self.timeout_s,
                              shell=False, check=False)
-        if run.returncode: raise WorkspaceRefused(f"unified diff rejected: {run.stderr[-500:]}")
+        if run.returncode: raise WorkspaceRefused(f"unified diff rejected: {run.stderr.decode('utf-8', 'replace')[-500:]}")
 
     def run_tests(self, ids: tuple[str, ...]) -> tuple[bool, list[str], str]:
         if not ids: return False, ["no test ids"], "independent verification needs test ids"
