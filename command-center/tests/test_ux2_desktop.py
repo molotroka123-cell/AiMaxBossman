@@ -137,6 +137,36 @@ def _devtools_endpoint(profile_dir, proc, timeout: float = 60.0):
         f"DevToolsActivePort не появился за {timeout} с (rc={proc.poll()}, содержимое={seen!r})")
 
 
+def _cdp_diagnostics(profile_dir, port: int, proc, live_url: str) -> str:
+    """Улики для зависшего CDP-подключения (CI: «ws connected», затем тишина
+    180 с при живом браузере — 3 раза за сутки на разных интерпретаторах, ни
+    разу локально). Собирается ТОЛЬКО при отказе и только читает: список
+    целей отладки по HTTP, версию браузера, хвост chrome_debug.log профиля,
+    состояние процесса окна и живость сервера. Проверка не ослабляется —
+    отказ остаётся отказом, но с названной причиной вместо голого таймаута."""
+    import urllib.request
+
+    def http(url: str, limit: int = 4000) -> str:
+        try:
+            with urllib.request.urlopen(url, timeout=5) as r:   # noqa: S310 — loopback only
+                return r.read(limit).decode("utf-8", "replace")
+        except Exception as exc:  # noqa: BLE001 — улика, не проверка
+            return f"<{type(exc).__name__}: {exc}>"
+
+    log = Path(profile_dir) / "chrome_debug.log"
+    try:
+        tail = log.read_text(encoding="utf-8", errors="replace")[-4000:] if log.is_file() else "<нет файла>"
+    except OSError as exc:
+        tail = f"<{exc}>"
+    return "\n".join([
+        f"window rc={proc.poll()}",
+        f"server GET /: {http(live_url + '/', 200)[:200]!r}",
+        f"/json/version: {http(f'http://127.0.0.1:{port}/json/version')}",
+        f"/json/list: {http(f'http://127.0.0.1:{port}/json/list')}",
+        f"chrome_debug.log tail: {tail}",
+    ])
+
+
 # Запас, а не ослабление проверки: тест поднимает НАСТОЯЩЕЕ окно Chromium,
 # ждёт DevTools и рендер. Типичная длительность на раннере — 37–48 с, но на
 # загруженной ноде py3.12 (после ~1400 других тестов, часть из которых тоже
@@ -165,7 +195,12 @@ def test_real_chromium_app_window_renders_command_center(live, tmp_path):  # noq
         # Регрессия к сбою CI: порт получен из DevToolsActivePort, а не угадан.
         assert port > 0 and ws_path.startswith("/devtools/browser/"), (port, ws_path)
         with sync_playwright() as pw:
-            b = pw.chromium.connect_over_cdp(f"ws://127.0.0.1:{port}{ws_path}")
+            try:
+                b = pw.chromium.connect_over_cdp(f"ws://127.0.0.1:{port}{ws_path}")
+            except Exception as exc:  # noqa: BLE001 — тот же отказ, но с уликами
+                raise AssertionError(
+                    f"CDP-подключение к окну не состоялось: {type(exc).__name__}: {exc}\n"
+                    + _cdp_diagnostics(profile, port, proc, live.url)) from exc
             info = b.new_browser_cdp_session().send("Browser.getVersion")
             assert "Chrome" in info.get("product", ""), info
             pages = [p for c in b.contexts for p in c.pages]
