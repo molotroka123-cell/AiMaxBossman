@@ -10,6 +10,8 @@
 | [VOICE_AND_PHONE.md](VOICE_AND_PHONE.md) | Собственный голос, запись, STT/TTS, телефония, живой тест |
 | [SHOPPING_AND_IDENTITY.md](SHOPPING_AND_IDENTITY.md) | Покупка кроссовок, адрес, финальная цена, платёж, receipt и доставка |
 | [INTERNET_MEDIA_AND_MODELS.md](INTERNET_MEDIA_AND_MODELS.md) | Интернет/Computer Use/Jev, hybrid video, модельные профили |
+| [GAME_STUDIO.md](GAME_STUDIO.md) | Unreal/Game Studio: автономная разработка и проверка оригинального 15-минутного AAA-FPS vertical slice |
+| [MODEL_STACK_REFRESH_2026-09-23.md](MODEL_STACK_REFRESH_2026-09-23.md) | Свежая ревизия локального стека, Xing4 challenger, маршрутизация и owner-hardware A/B |
 | [ACCEPTANCE_AND_LEARNING.md](ACCEPTANCE_AND_LEARNING.md) | 20 классов неизвестных задач, safety-гейты, измерение обучения |
 | [MERGE_TODAY.md](MERGE_TODAY.md) | Пошаговое безопасное сведение сегодняшних delta и exact-SHA |
 | [CLAUDE_MERGE_MASTER.md](CLAUDE_MERGE_MASTER.md) | Исполняемый handoff локальному Claude, 5 агентов |
