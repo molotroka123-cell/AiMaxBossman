@@ -530,6 +530,17 @@ def _err_code(message: str) -> str:
     return "error"
 
 
+def _for_model(result: str) -> str:
+    """A tool result as the model sees it. A cut result SAYS it was cut and how to
+    read the rest: silently cut 55 KB reads sent a local student round in circles
+    (owner run 2026-09-23)."""
+    if len(result) <= MAX_OUTPUT_TAIL:
+        return result
+    note = (f"\n… [ОБРЕЗАНО: показаны первые {MAX_OUTPUT_TAIL - 400} из {len(result)} символов. "
+            "Файл читай частями: read_file с start_line/end_line; для поиска — более узкий pattern или path.]")
+    return result[:MAX_OUTPUT_TAIL - 400] + note
+
+
 def _call_sig(name: str, args: dict) -> str:
     """Identity of a call (tool + canonical arguments): repeated identical calls
     are visible in the record without storing file contents."""
@@ -652,7 +663,7 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
                     entry["err"] = _err_code(f"{type(exc).__name__}: {exc}")
                 entry["ok"] = ok
                 log.append(entry)
-                messages.append({"role": "tool", "tool_call_id": call_id, "name": name, "content": result[:MAX_OUTPUT_TAIL]})
+                messages.append({"role": "tool", "tool_call_id": call_id, "name": name, "content": _for_model(result)})
                 if finished:
                     break
             if finished:

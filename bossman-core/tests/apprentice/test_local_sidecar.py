@@ -442,3 +442,29 @@ def test_guard_source_allows_the_windows_nul_device_spelled_with_backslashes():
     ns: dict = {}
     exec(line, {"os": __import__("os")}, ns)  # noqa: S102 — the guard's own literal
     assert "\\\\.\\nul" in ns["devnull"]
+
+
+def test_a_cut_tool_result_says_it_was_cut_and_how_to_read_the_rest(repo):
+    """Owner run 2026-09-23: a read_file of a 55 KB file reached the model as its first
+    6000 characters with NO sign of the cut. The local student re-read the same file
+    again and again, never saw the line it needed, and burned 40 steps (4 attempts).
+    A cut result must say so and name the way to the rest; a short one is untouched."""
+    (repo / "big.py").write_text("".join(f"line_{i} = {i}\n" for i in range(3000)), encoding="utf-8")
+    seen: list[str] = []
+
+    class Fake:
+        turns = iter([{"tool": "read_file", "args": {"path": "big.py"}},
+                      {"tool": "read_file", "args": {"path": "calc.py"}},
+                      {"tool": "finish", "args": {"summary": "x"}}])
+
+        def chat(self, messages, *, tools, timeout):
+            seen.extend(m["content"] for m in messages if m.get("role") == "tool")
+            t = next(self.turns)
+            return {"content": "", "tool_calls": [{"id": f"c{len(seen)}", "type": "function", "function": {
+                "name": t["tool"], "arguments": json.dumps(t["args"])}}]}
+
+    ls.run_task({"workspace": str(repo), "instruction": "read", "allowed_paths": ["calc.py"],
+                 "protected_paths": []}, Fake(), max_steps=5, test_timeout=30)
+    big, small = seen[0], seen[-1]
+    assert len(big) < 7000 and "ОБРЕЗАНО" in big and "start_line" in big
+    assert "ОБРЕЗАНО" not in small and "return a - b" in small
