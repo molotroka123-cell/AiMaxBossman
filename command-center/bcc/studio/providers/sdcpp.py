@@ -558,6 +558,31 @@ def declared_duration_s(settings: dict) -> float | None:
     return None
 
 
+def duration_mismatch(observed_ms, settings: dict, *, segments: int = 1) -> str | None:
+    """Why a decoded video is NOT the clip that was requested, or None when it is.
+
+    Aster6 2026-09-22: a 10 s request whose output decoded to 1.94 s (16 frames per segment instead
+    of 81) ended completed/PASS. Decoding proves the bytes are a video, not that they are THIS
+    video. The requested length is `frames` per segment at `fps`, joins dropping the repeated
+    start frame. Tolerance: two frames or 5 %, whichever is larger — container rounding and a
+    dropped edge frame pass; a clip a fraction (or a multiple) of the request does not.
+    Nothing requested (no frames/fps) -> nothing to hold the output to -> None.
+    """
+    frames, fps = settings.get("frames"), settings.get("fps")
+    if not frames or not fps:
+        return None
+    n = max(1, int(segments))
+    expected_s = (frames + (frames - 1) * (n - 1)) / fps
+    if observed_ms is None:
+        return f"no decodable duration; requested {expected_s:.3f}s"
+    observed_s = float(observed_ms) / 1000
+    tolerance = max(2 / fps, 0.05 * expected_s)
+    if abs(observed_s - expected_s) > tolerance:
+        return (f"duration {observed_s:.3f}s does not match the requested {expected_s:.3f}s "
+                f"({frames} frames x {n} segment(s) @ {fps} fps, tolerance {tolerance:.3f}s)")
+    return None
+
+
 def _argv(cfg: dict, model_id: str, plane: GenerationPlane, settings: dict,
           files: dict[str, Path], out: Path, init: Path | None) -> list[str]:
     argv = [str(cfg["bin"])]
@@ -719,6 +744,24 @@ def bind_to_owner_lifetime(pid: int, *, expected_create_time=None) -> bool:
             k32.CloseHandle(target)
     except (OSError, AttributeError, ValueError):  # pragma: no cover - hostile host
         return False
+
+
+_CREATE_SUSPENDED = 0x00000004
+
+
+def _suspend_until_bound() -> bool:
+    """Spawn the engine suspended only where a job will actually take it (Windows with a live
+    owner job); elsewhere a suspended child would just be a stalled one."""
+    return os.name == "nt" and _create_owner_job() is not None
+
+
+def _resume_process(pid: int) -> None:
+    """Resume a child created with CREATE_SUSPENDED. Raises OSError when it cannot."""
+    import psutil
+    try:
+        psutil.Process(pid).resume()
+    except psutil.Error as exc:
+        raise OSError(f"could not resume engine pid {pid}: {type(exc).__name__}: {exc}") from exc
 
 
 def lifecycle_guard_state() -> str:
@@ -919,6 +962,13 @@ class SdCppProvider:
     hard_timeout_s: float | None = None   # default: catalog deadline_seconds + 60
     min_free_bytes: int | None = None     # default: MIN_FREE_BYTES[surface]
 
+    def __setattr__(self, name, value):
+        # Aster6: whether the owner SET a limit is a fact about the assignment, not about the
+        # value — an explicit 3660.0 equal to the catalog default (3600 + 60) is still explicit.
+        if name == "hard_timeout_s":
+            object.__setattr__(self, "_timeout_explicit", True)
+        object.__setattr__(self, name, value)
+
     def __init__(self, cfg: dict, storage_root: Path, model: dict, *, studio_job_id=None):
         self.cfg = cfg
         self.root = Path(storage_root).resolve()
@@ -932,11 +982,13 @@ class SdCppProvider:
             self.reconcile_report = reconcile_orphans(self.work)
         except Exception as exc:  # pragma: no cover - reconciliation must never block a job
             self.reconcile_report = {"error": type(exc).__name__}
-        if self.hard_timeout_s is None:
-            self.hard_timeout_s = float(model.get("deadline_seconds") or 3600) + 60
-        # The catalog default; any other value (class or instance override) is explicit
-        # and wins over the work-proportional budget.
+        # The catalog default. A class-level value (subclass) or any later assignment to
+        # hard_timeout_s (instance, monkeypatch) is explicit and wins over the proportional budget.
         self._catalog_timeout_s = float(model.get("deadline_seconds") or 3600) + 60
+        explicit = type(self).hard_timeout_s is not None
+        if not explicit:
+            object.__setattr__(self, "hard_timeout_s", self._catalog_timeout_s)
+        object.__setattr__(self, "_timeout_explicit", explicit)
         if self.min_free_bytes is None:
             self.min_free_bytes = MIN_FREE_BYTES.get(model.get("surface"), MIN_FREE_BYTES["image"])
 
@@ -986,7 +1038,7 @@ class SdCppProvider:
         init = self.work / f"{rid}-start{init_ext}" if init_data is not None else None
         argv = _argv(self.cfg, plane.model, plane, settings, files, raw, init)
         me = _proc_identity(os.getpid()) or {}
-        explicit = self.hard_timeout_s != self._catalog_timeout_s
+        explicit = self._timeout_explicit
         segment_s = float(self.hard_timeout_s) if explicit else segment_deadline_s(self.model, settings)
         budget_s = segment_s * segments if explicit else job_budget_s(self.model, settings, segments)
         started = time.time()
@@ -1025,13 +1077,35 @@ class SdCppProvider:
             return None
         from bcc.video_studio.media import child_priority_kwargs, lower_child_priority
         job["state"] = "spawning"
+        kwargs = child_priority_kwargs()
+        # MEDIA-RESTART layer 1 (port of e2183fc3): the engine is born suspended and resumed only
+        # once it is inside the kill-on-close job, so there is no instant in which it runs — or
+        # starts a child — outside the job, and a backend dying right after the spawn cannot
+        # leave an unbound engine behind.
+        suspended = _suspend_until_bound()
+        if suspended:
+            kwargs["creationflags"] = kwargs.get("creationflags", 0) | _CREATE_SUSPENDED
         proc = await _create_subprocess(
             *job["argv"], stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT, cwd=str(self.work), limit=1 << 20, **child_priority_kwargs())
-        lower_child_priority(proc.pid)
-        # MEDIA-LIFECYCLE: the kernel, not a future restart, owns the engine's lifetime.
-        # Descendants the engine spawns inherit the job, so the whole tree goes with us.
-        job["lifecycle_bound"] = bind_to_owner_lifetime(proc.pid)
+            stderr=asyncio.subprocess.STDOUT, cwd=str(self.work), limit=1 << 20, **kwargs)
+        try:
+            lower_child_priority(proc.pid)
+            # MEDIA-LIFECYCLE: the kernel, not a future restart, owns the engine's lifetime.
+            # Descendants the engine spawns inherit the job, so the whole tree goes with us.
+            job["lifecycle_bound"] = bind_to_owner_lifetime(proc.pid)
+            if suspended:
+                # Unbound (a host that refuses the assignment) still runs: the sidecar/reconcile
+                # path is the second, independent line, and `lifecycle_bound` says which applies.
+                _resume_process(proc.pid)
+        except BaseException:
+            # Fail closed: never a suspended engine nobody will resume, never an untracked one.
+            with contextlib.suppress(Exception):
+                _kill_tree(proc.pid)
+            with contextlib.suppress(ProcessLookupError, OSError):
+                proc.kill()
+            with contextlib.suppress(Exception):
+                await asyncio.wait_for(proc.wait(), KILL_WAIT_S)
+            raise
         return proc
 
     async def _run(self, rid: str, job: dict) -> None:
@@ -1170,6 +1244,12 @@ class SdCppProvider:
             job["failure"] = "malformed"
             job["failure_detail"] = f"engine output failed verification: {type(exc).__name__}: {exc}"[:500]
             return
+        if self.model["surface"] == "video":
+            # Aster6: decodable is not enough — the segment must be the length that was asked for.
+            problem = duration_mismatch(meta.get("duration_ms"), job["settings"])
+            if problem:
+                job["failure"], job["failure_detail"] = "malformed", f"engine output: {problem}"[:500]
+                return
         job["raw_meta"] = meta
 
     async def _pump_log(self, proc, job: dict) -> None:
@@ -1476,6 +1556,12 @@ class SdCppProvider:
                 final_meta = await verify_file(tmp, self.model["surface"])
             except (ValueError, OSError, KeyError) as exc:
                 raise SdCppFailure("malformed", f"transcoded output failed verification: {type(exc).__name__}") from exc
+            if video:
+                # The joined/transcoded clip is held to the request too, not just each segment.
+                problem = duration_mismatch(final_meta.get("duration_ms"), job["settings"],
+                                            segments=len(job.get("raws") or [raw]))
+                if problem:
+                    raise SdCppFailure("malformed", f"transcoded output: {problem}"[:500])
             os.replace(tmp, dest)
         except BaseException:
             with contextlib.suppress(OSError):

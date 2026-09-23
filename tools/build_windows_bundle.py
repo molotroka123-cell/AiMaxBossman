@@ -53,6 +53,9 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from terminal_launchers import TERMINAL_LAUNCHERS  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import windows_bundle_lock as lockmod  # noqa: E402
@@ -96,7 +99,47 @@ SUPPORT_SCRIPTS = (
     (ROOT / "tools" / "media_bootstrap.py", "media_bootstrap.py"),
     (ROOT / "tools" / "media_ab_preset.py", "media_ab_preset.py"),
     (ROOT / "tools" / "coaching_runner.py", "coaching_runner.py"),
+    # 2026-09-23: проверка Coding path из архива (локальный сайдкар +
+    # детерминированная тестовая модель) и загрузчик модельных профилей.
+    (ROOT / "tools" / "coding_path_owner.py", "coding_path_owner.py"),
+    (ROOT / "tools" / "model_fetch.py", "model_fetch.py"),
+    # HW-10 MVČR: пакет до WAIT_APPROVAL, без отправки/подписи/оплаты.
+    (ROOT / "tools" / "mvcr_prepare.py", "mvcr_prepare.py"),
+    # Профиль `Owner-Run.cmd self-improve-mvcr compare`: бейк-офф A–G лаборатории
+    # 2026-09-22, перенесённый в поставку (только stdlib, проверка исполнением).
+    (ROOT / "tools" / "model_bakeoff.py", "model_bakeoff.py"),
+    # Лаборатория самоулучшения (фазы compare/lesson/transfer) — тоже раннер,
+    # поэтому под общей проверкой UTF-8 консоли.
+    (ROOT / "tools" / "self_improve_lab.py", "self_improve_lab.py"),
+    # Jev (browser fast path + decision provider) — только shadow и выключен по
+    # умолчанию; раннер без флагов проверяет лишь ключ и конфиг (exit 3).
+    (ROOT / "tools" / "jev_shadow_owner.py", "jev_shadow_owner.py"),
+    # Same bounded evolution engine used by the product API; no second daemon.
+    (ROOT / "tools" / "bossman_evolve.py", "bossman_evolve.py"),
+    # Four-clip Bossfield preflight/editor; generation remains governed by Studio.
+    (ROOT / "tools" / "bossfield_owner_run.py", "bossfield_owner_run.py"),
 )
+# Данные, которые раннеры читают рядом с собой (не исполняемые скрипты).
+SUPPORT_DATA = (
+    (ROOT / "tools" / "model_profiles.json", "model_profiles.json"),
+    (ROOT / "config" / "evolution" / "owner-v1.1.json", "config/evolution/owner-v1.1.json"),
+    (ROOT / "config" / "evolution" / "local-champions.json", "config/evolution/local-champions.json"),
+)
+
+# Профиль `Owner-Run.cmd self-improve-mvcr` вызывает эти файлы рядом с раннером.
+# Они ОБЯЗАТЕЛЬНЫ: пропавший роняет сборку громко и списком, а не превращается в
+# архив, где стадия молча стала бы NOT_RUN у владельца. Каталог кейсов копируется
+# целиком и тоже обязан быть непустым.
+SELF_IMPROVE_REQUIRED = (
+    (ROOT / "tools" / "model_fetch.py", "model_fetch.py"),
+    (ROOT / "tools" / "model_profiles.json", "model_profiles.json"),
+    (ROOT / "tools" / "mvcr_prepare.py", "mvcr_prepare.py"),
+    (ROOT / "tools" / "self_improve_lab.py", "self_improve_lab.py"),
+)
+SELF_IMPROVE_CASES_SOURCE = ROOT / "tools" / "self_improve_cases"
+SELF_IMPROVE_CASES_TARGET = "self_improve_cases"
+# Документы профиля — по тем же относительным путям, что и в репозитории.
+SELF_IMPROVE_DOCS = ("docs/owner/OWNER_RUN_NEXT.md",)
 
 # Пак задач coaching (5 обучающих + 5 holdout) едет каталогом рядом с раннером.
 COACHING_PACK_SOURCE = ROOT / "tests" / "coaching_pack"
@@ -131,7 +174,7 @@ OWNER_RUN_FILES = (
 # are copied. These files enter the existing MANIFEST.json/SHA256SUMS inventory.
 OWNER_ACCEPTANCE_FILES = (
     "INSTALL.md", "OWNER_ACCEPTANCE.md", "KNOWN_LIMITATIONS.md", "owner-acceptance.ps1",
-    "START_TOMORROW_RU.md", "docs/owner/ROLLBACK_RU.md",
+    "START_TOMORROW_RU.md", "docs/owner/ROLLBACK_RU.md", "docs/owner/JEV_TOMORROW.md",
     "tests/owner_hardware/README.md", "tests/owner_hardware/manifest.json",
     "tests/owner_hardware/HOTSPOTS_AND_HOTFIX_PLAYBOOK.md",
     "tests/owner_hardware/MODEL_STACK_2026-09-20.md",
@@ -206,6 +249,8 @@ OWNER_RUN_CMD = r"""@echo off
 setlocal
 rem Owner-suite runner: doctor -> MAIN/FAST discovery -> media manifest -> coaching -> diagnostics.
 rem Machine stages only; the owner scenarios are in START_TOMORROW_RU.md. Never claims certification.
+rem Profile: Owner-Run.cmd self-improve-mvcr STAGE, where STAGE is plan, preflight, bootstrap, skills, compare, mvcr, self-improve, report, run, resume or status.
+rem Short forms: Owner-Run.cmd plan / resume / stop. See docs\owner\OWNER_RUN_NEXT.md.
 set "BOSSMAN_HOME=%~dp0"
 call "%BOSSMAN_HOME%app-support\_env.cmd"
 if errorlevel 1 exit /b 1
@@ -302,6 +347,10 @@ def launcher_files() -> dict[str, str]:
         "Coaching.cmd": COACHING_CMD,
         "Collect-Diagnostics.cmd": DIAGNOSTICS_CMD,
         "app-support/_env.cmd": ENV_CMD,
+        # Bossman 1.2 terminal: Bossman-CLI.cmd (bossman chat) and bossman.cmd
+        # (headless, for Claude Code). They start the installed `bossman`
+        # entry point (bossman.cli), not an app-support script.
+        **TERMINAL_LAUNCHERS,
     }
 
 
@@ -735,8 +784,53 @@ def install_support(support: Path) -> dict:
         if not origin.exists():
             raise RuntimeError(f"support script missing: {origin}")
         shutil.copyfile(origin, support / name)
+    for origin, name in SUPPORT_DATA:
+        if not origin.exists():
+            raise RuntimeError(f"support data missing: {origin}")
+        (support / name).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(origin, support / name)
     install_coaching_pack(support / COACHING_PACK_TARGET)
     return install_owner_run(support / "owner-final-run")
+
+
+def self_improve_inputs() -> list[str]:
+    """Каждый обязательный вход профиля self-improve-mvcr, как путь в checkout."""
+    names = [str(origin.relative_to(ROOT)).replace("\\", "/") for origin, _ in SELF_IMPROVE_REQUIRED]
+    names.append(str(SELF_IMPROVE_CASES_SOURCE.relative_to(ROOT)).replace("\\", "/") + "/**")
+    return names + list(SELF_IMPROVE_DOCS)
+
+
+def install_self_improve(home: Path) -> dict:
+    """Скрипты, профили моделей, кейсы и OWNER_RUN_NEXT.md профиля self-improve-mvcr.
+
+    Все входы обязательны; недостающие перечисляются разом, и сборка падает.
+    """
+    missing = [str(origin) for origin, _ in SELF_IMPROVE_REQUIRED if not origin.is_file()]
+    cases = sorted(p for p in SELF_IMPROVE_CASES_SOURCE.rglob("*") if p.is_file()) \
+        if SELF_IMPROVE_CASES_SOURCE.is_dir() else []
+    if not cases:
+        missing.append(f"{SELF_IMPROVE_CASES_SOURCE} (нет ни одного кейса)")
+    missing += [str(ROOT / name) for name in SELF_IMPROVE_DOCS if not (ROOT / name).is_file()]
+    if missing:
+        raise RuntimeError("профиль self-improve-mvcr неполон, архив собирать нельзя: " + ", ".join(missing))
+    support = home / "app-support"
+    support.mkdir(parents=True, exist_ok=True)
+    shipped: dict[str, str] = {}
+    for origin, name in SELF_IMPROVE_REQUIRED:
+        shutil.copyfile(origin, support / name)
+        shipped[f"app-support/{name}"] = sha256_file(origin)
+    for origin in cases:
+        rel = origin.relative_to(SELF_IMPROVE_CASES_SOURCE).as_posix()
+        target = support / SELF_IMPROVE_CASES_TARGET / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(origin, target)
+        shipped[f"app-support/{SELF_IMPROVE_CASES_TARGET}/{rel}"] = sha256_file(origin)
+    for name in SELF_IMPROVE_DOCS:
+        target = home / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / name, target)
+        shipped[name] = sha256_file(ROOT / name)
+    return {"profile": "self-improve-mvcr", "files": shipped}
 
 
 def install_coaching_pack(target: Path) -> dict:
@@ -788,6 +882,7 @@ def assemble(out: Path, sha: str, *, wheels: Path, work: Path,
     contents["media"] = media
     contents["icons"] = install_icons(out / "icons")
     contents["owner_run"] = install_support(out / "app-support")
+    contents["self_improve"] = install_self_improve(out)
     for name, body in launcher_files().items():
         target = out / name
         target.parent.mkdir(parents=True, exist_ok=True)

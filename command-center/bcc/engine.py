@@ -1064,6 +1064,8 @@ class TaskEngine:
             tokens_in += result.tokens_in
             tokens_out += result.tokens_out
             cost += _cost(model, result)
+            await self._emit_model_step(task, run_id, step, model, result, limits=limits,
+                                        tokens_in=tokens_in, tokens_out=tokens_out, cost=cost)
             breach = _budget.check_spend(limits, tokens_in=tokens_in,
                                          tokens_out=tokens_out, cost_usd=cost)
             if breach is not None:
@@ -1128,6 +1130,12 @@ class TaskEngine:
             await self._save_checkpoint(run_id, messages, step, note="answer",
                                         tokens_in=tokens_in, tokens_out=tokens_out,
                                         cost_usd=round(cost, 6), model_alias=alias)
+            # 1.2: the model's final (non-tool) answer of this step, after it is
+            # durable in the checkpoint. It is NOT "task completed": the gates
+            # and finalize below still decide that (task.completed / failed).
+            await self._emit_stream("run.assistant_message", task_id=task["id"], run_id=run_id,
+                                    step=step, model=alias, text=_clip_stream(answer),
+                                    chars=len(answer or ""))
             await self._log(run_id, "info", "run.step",
                             f"шаг {step}/{max_steps}: ответ модели {alias} "
                             f"({result.tokens_out} токенов)")
@@ -1635,6 +1643,13 @@ class TaskEngine:
                 effect="auto" if approval_id is None else "ask", status="started",
                 approval_id=approval_id, approved_by=approved_by, lease_id=lease_id,
                 preview="dispatched; outcome not yet journaled")
+        # 1.2: what is about to run, with its (redacted) arguments — the terminal
+        # shows "● tool(args…)" before the result arrives. Only here, i.e. only
+        # for a call the policy already let through: denied/parked calls have
+        # their own events (tool.denied / approval.created).
+        await self._emit_stream("run.tool_use", task_id=task["id"], run_id=run_id, step=step,
+                                call_id=str(call.id), tool=spec.name, source=spec.source,
+                                args=_ps_redact(dict(call.arguments or {}), scrub_text=True))
         started = time.monotonic()
         result = await execute_tool(spec, call.arguments, ctx)
         duration = int((time.monotonic() - started) * 1000)
@@ -1653,6 +1668,12 @@ class TaskEngine:
         await self.bus.emit("tool.called", task_id=task["id"], run_id=run_id,
                             tool=spec.name, source=spec.source, ok=not result.error,
                             duration_ms=duration)
+        content = result.content or ""
+        await self._emit_stream("run.tool_result", task_id=task["id"], run_id=run_id, step=step,
+                                call_id=str(call.id), tool=spec.name, ok=not result.error,
+                                duration_ms=duration, summary=_ps_redact_text(result.one_line[:300]),
+                                preview=_ps_redact_text(content[:STREAM_PREVIEW_CHARS]),
+                                truncated=bool(result.truncated) or len(content) > STREAM_PREVIEW_CHARS)
         if result.error:
             # ошибка инструмента — сигнал Governor'у/Self-Healing, но не провал run'а
             await self._call_hooks_soft("on_failure", task, run_id,
@@ -2495,6 +2516,56 @@ class TaskEngine:
                         {"sources": pack["sources"][:20], "project_id": pack["project_id"]})
         return pack["text"]
 
+    async def _emit_stream(self, kind: str, /, **data: Any) -> None:
+        """Bossman 1.2 terminal visibility: observation only, never control flow.
+
+        A failure to publish must not change the run (budgets, approvals, tool
+        policy and checkpoints are decided elsewhere), so everything except
+        cancellation is swallowed here. The bus redacts `data` before anyone
+        sees it."""
+        try:
+            await self.bus.emit(kind, **data)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 — наблюдение не роняет прогон
+            pass
+
+    async def _emit_model_step(self, task: dict, run_id: int, step: int, model: dict,
+                               result: ChatResult, *, limits: Any, tokens_in: int,
+                               tokens_out: int, cost: float) -> None:
+        """What ONE model step returned, as the provider returned it.
+
+        * `run.reasoning_delta` — only when the provider sent reasoning
+          (`reasoning_content` / `reasoning` / thinking blocks). Nothing is
+          synthesised: no field, no event, and the terminal shows a spinner.
+          Transient: the model's reasoning is not written to the database.
+        * `run.assistant_delta` — text that accompanied tool calls in this step
+          (the final answer is `run.assistant_message`, emitted after it is
+          durable in the checkpoint).
+        * `run.usage` — measured tokens (0 = the provider reported none), the
+          run totals, whether pricing is known, the model's context window and
+          the run's own ceilings from task.meta."""
+        from .streaming import message_reasoning
+        alias = model.get("alias") or model.get("name") or ""
+        base = {"task_id": task["id"], "run_id": run_id, "step": step, "model": alias}
+        reasoning = message_reasoning(result.raw_message)
+        if reasoning:
+            await self._emit_stream("run.reasoning_delta", **base, text=_clip_stream(reasoning),
+                                    chars=len(reasoning), source="provider_message")
+        if result.has_tool_calls and (result.text or "").strip():
+            await self._emit_stream("run.assistant_delta", **base, text=_clip_stream(result.text),
+                                    chars=len(result.text))
+        context_window = model.get("context_window")
+        await self._emit_stream(
+            "run.usage", **base,
+            usage_reported=bool(result.tokens_in or result.tokens_out),
+            step_tokens_in=int(result.tokens_in or 0), step_tokens_out=int(result.tokens_out or 0),
+            tokens_in=int(tokens_in), tokens_out=int(tokens_out), cost_usd=round(float(cost), 6),
+            pricing_known=bool(model.get("pricing_known")),
+            context_window=int(context_window) if isinstance(context_window, int) and context_window > 0 else None,
+            max_tokens_total=int(getattr(limits, "max_tokens", 0) or 0) or None,
+            max_cost_usd=float(getattr(limits, "max_cost_usd", 0.0) or 0.0) or None)
+
     async def _log(self, run_id: int, level: str, kind: str, message: str,
                    data: dict | None = None) -> None:
         """Строка лога run'а: в run_events и в живую ленту.
@@ -2511,6 +2582,21 @@ class TaskEngine:
                 run_id=run_id, ts=utcnow(), level=level, kind=kind, message=message, data=data))
             await s.commit()
         await self.bus.emit("run.log", run_id=run_id, level=level, log_kind=kind, message=message)
+
+
+#: Upper bound for model text carried by one terminal-stream event. The full
+#: answer stays in the checkpoint/result; the event is a view of it.
+STREAM_TEXT_CHARS = 16_000
+#: How much of a tool's output the terminal may show (it already went through
+#: the tool's own truncation and is redacted here and again by the bus).
+STREAM_PREVIEW_CHARS = 2_000
+
+
+def _clip_stream(text: str | None) -> str:
+    text = text or ""
+    if len(text) <= STREAM_TEXT_CHARS:
+        return text
+    return text[:STREAM_TEXT_CHARS] + f"\n…[обрезано: {len(text) - STREAM_TEXT_CHARS} симв.]"
 
 
 def _assistant_tool_message(result: ChatResult) -> dict:

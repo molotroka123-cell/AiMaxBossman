@@ -11,7 +11,10 @@ atexit, no finally).  No GPU, no model, no foreign process is ever touched.
 """
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
+import signal
 import os
 import subprocess
 import sys
@@ -119,3 +122,109 @@ def test_sidecar_records_the_deadline_and_the_task_it_belongs_to(tmp_path):
     # reported as overdue, not silently dropped: the owner must see the budget was blown.
     report = sdcpp.reconcile_orphans(work, kill=False)
     assert record["rid"] in report["overdue"], report
+
+
+# ----------------------------------------------------------------------------- MEDIA-RESTART layer 1
+# Port of e2183fc3: binding AFTER the engine starts leaves a window in which the engine runs
+# outside the job — a backend that dies inside it leaves an unbound engine, and anything the
+# engine spawns in it is born outside the job. The engine must be created suspended, bound,
+# and only then resumed. CREATE_SUSPENDED is Windows-only; here it is simulated with SIGSTOP by a
+# fake `_create_subprocess`, so the ORDER is checked on every platform with a real process.
+
+_CREATE_SUSPENDED = 0x00000004
+
+
+def _suspending_spawner(spawned: list):
+    async def fake(*argv, **kwargs):
+        flags = kwargs.pop("creationflags", 0)
+        proc = await asyncio.create_subprocess_exec(*argv, **kwargs)
+        spawned.append(proc)
+        if flags & _CREATE_SUSPENDED:                 # what the Windows kernel does for us
+            os.kill(proc.pid, signal.SIGSTOP)
+            # CREATE_SUSPENDED is synchronous; SIGSTOP delivery is not — wait until it took.
+            ps, end = psutil.Process(proc.pid), time.monotonic() + 5
+            while ps.status() != psutil.STATUS_STOPPED and time.monotonic() < end:
+                await asyncio.sleep(0.005)
+        return proc
+    return fake
+
+
+def _engine_job():
+    return {"canceled": False, "argv": [sys.executable, "-c", "import time; time.sleep(60)"]}
+
+
+async def _reap(spawned):
+    for p in spawned:
+        with contextlib.suppress(ProcessLookupError):
+            p.kill()
+        await p.wait()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="SIGSTOP stands in for CREATE_SUSPENDED off Windows")
+async def test_engine_is_bound_before_it_runs_a_single_step(tmp_path, monkeypatch):
+    spawned, at_bind = [], []
+    monkeypatch.setattr(sdcpp, "_create_subprocess", _suspending_spawner(spawned))
+    # Pretend the owner job exists (it is Windows-only); raising=False so that the red run on the
+    # pre-port code (no such hook) still reaches the ordering assertion below.
+    monkeypatch.setattr(sdcpp, "_suspend_until_bound", lambda: True, raising=False)
+
+    def bind(pid, **_):
+        at_bind.append(psutil.Process(pid).status())
+        return True
+    monkeypatch.setattr(sdcpp, "bind_to_owner_lifetime", bind)
+
+    prov = sdcpp.SdCppProvider({"root": tmp_path, "bin": tmp_path / "bin", "manifest": {}}, tmp_path, MODEL)
+    job = _engine_job()
+    try:
+        proc = await prov._spawn(job)
+        assert at_bind == [psutil.STATUS_STOPPED], (
+            f"engine was already running when it was bound to the owner job: {at_bind}")
+        assert job["lifecycle_bound"] is True
+        assert psutil.Process(proc.pid).status() != psutil.STATUS_STOPPED, "engine never resumed"
+    finally:
+        await _reap(spawned)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="SIGSTOP stands in for CREATE_SUSPENDED off Windows")
+async def test_engine_that_cannot_be_resumed_is_killed_not_left_suspended(tmp_path, monkeypatch):
+    spawned = []
+    monkeypatch.setattr(sdcpp, "_create_subprocess", _suspending_spawner(spawned))
+    monkeypatch.setattr(sdcpp, "_suspend_until_bound", lambda: True, raising=False)
+    monkeypatch.setattr(sdcpp, "bind_to_owner_lifetime", lambda pid, **_: True)
+
+    def broken_resume(pid):
+        raise OSError("resume refused")
+    monkeypatch.setattr(sdcpp, "_resume_process", broken_resume, raising=False)
+
+    prov = sdcpp.SdCppProvider({"root": tmp_path, "bin": tmp_path / "bin", "manifest": {}}, tmp_path, MODEL)
+    try:
+        with pytest.raises(OSError):
+            await prov._spawn(_engine_job())
+        assert len(spawned) == 1
+        assert spawned[0].returncode is not None, "a suspended engine was left behind"
+        assert not psutil.pid_exists(spawned[0].pid) or _gone(psutil.Process(spawned[0].pid), 10)
+    finally:
+        await _reap(spawned)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="kernel-enforced job objects are a Windows mechanism")
+def test_child_the_engine_spawns_at_once_also_dies_with_the_owner(tmp_path):
+    """On the real kernel: the engine starts a grandchild immediately; with the suspended spawn
+    it is born inside the job and must die with the owner."""
+    grand = tmp_path / "grand.pid"
+    engine_code = ("import subprocess, sys, time, pathlib; "
+                   "p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(900)']); "
+                   f"pathlib.Path({str(grand)!r}).write_text(str(p.pid)); time.sleep(900)")
+    script = tmp_path / "owner.py"
+    script.write_text((OWNER_SCRIPT % {"cc": CC, "core": CORE}).replace(
+        '"import time; time.sleep(900)"', repr(engine_code)), encoding="utf-8")
+    owner = subprocess.Popen([sys.executable, str(script), str(tmp_path)],
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline and not grand.is_file():
+        time.sleep(0.05)
+    assert grand.is_file(), "the engine never started its child"
+    child = psutil.Process(int(grand.read_text(encoding="utf-8")))
+    owner.kill()
+    assert _gone(psutil.Process(owner.pid), 15)
+    assert _gone(child, 20), f"engine grandchild pid {child.pid} outlived its dead owner"

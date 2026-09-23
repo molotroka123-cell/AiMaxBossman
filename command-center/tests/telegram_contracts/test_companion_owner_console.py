@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 import json
 import time
 
@@ -58,6 +59,12 @@ class Bossman:
             raise httpx.ConnectError('bossman unreachable')
         if path == '/health/live':
             return httpx.Response(200, json={'app': 'bossman-command-center', 'alive': True})
+        if path.startswith('/api/evolution/'):
+            action = path.rsplit('/', 1)[-1]
+            if action == 'report':
+                return httpx.Response(200, json={'cycles': []})
+            return httpx.Response(200, json={'status': 'PAUSED' if action == 'pause' else 'READY',
+                                             'loop_running': False})
         if path == '/api/learning':
             return httpx.Response(200, json=[{'agent_id': 1, 'capability': 'browser', 'lesson': 'не кликать вслепую'}])
         if path == '/api/approvals' and request.method == 'GET':
@@ -159,6 +166,32 @@ def test_main_menu_is_russian_console_for_owner_only(tmp_path):
     guest_labels = [label for row in app.main_menu(GUEST) for label, _ in row]
     assert not any('СТОП' in label or 'Подтвердить' in label for label in guest_labels)
     run(app, lambda: asyncio.sleep(0))
+
+
+def test_evolution_controls_are_owner_only_and_use_core_control_lane(tmp_path):
+    bossman = Bossman()
+    app = build(tmp_path, bossman)
+
+    async def scenario():
+        actions = {'status': 'GET', 'report': 'GET', 'start': 'POST',
+                   'pause': 'POST', 'resume': 'POST', 'stop': 'POST'}
+        for action, method in actions.items():
+            command = '/evolution_' + action
+            assert app.store.lane({'text': command}) == 'control'
+            before = len(bossman.calls)
+            assert await app.handle(GUEST, msg(GUEST, command)) == CONSOLE_OFF
+            assert len(bossman.calls) == before
+            answer = await app.handle(OWNER, msg(OWNER, command))
+            assert 'Evolution' in answer
+            assert bossman.calls[-1] == (method, '/api/evolution/' + action)
+        before = len(bossman.calls)
+        assert 'не принимают аргументов' in await app.handle(OWNER, msg(OWNER, '/evolution_start --repo /tmp'))
+        assert len(bossman.calls) == before
+        app.settings = replace(app.settings, pc_control=False)
+        assert await app.handle(OWNER, msg(OWNER, '/evolution_start')) == CONSOLE_OFF
+        assert len(bossman.calls) == before
+
+    run(app, scenario)
 
 
 # --------------------------------------------- 2. привязка подтверждения

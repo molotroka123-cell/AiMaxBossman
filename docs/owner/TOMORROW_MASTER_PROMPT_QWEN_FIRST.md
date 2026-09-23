@@ -255,7 +255,12 @@ No pip/PYTHONPATH/source-copy hotfix to the installed candidate.
 
 Use the exact installed candidate and actual MAIN/FAST endpoints.
 
-Run the sequence in TOMORROW_OPERATOR_RUNBOOK.md.
+Run the sequence in TOMORROW_OPERATOR_RUNBOOK.md. Include Xing4.0-29B-A4B and
+baidu/Unlimited-OCR only under its additional-candidate gates: separate UX
+variants, maximum 40 minutes each, pinned/verified model identity, real AMD
+runtime evidence, and honest BLOCKED/NOT_RUN outcomes when unavailable.
+Unlimited-OCR is an OCR/document-parsing specialist; test it on sanitized
+synthetic fixtures against known ground truth, not as a substitute for MAIN/FAST.
 
 For AI video, require actual model execution + new artifact + ffprobe + full decode + visual sanity. FFmpeg render is not AI generation.
 

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -155,8 +156,10 @@ async def test_publish_commits_to_the_current_branch_without_force(env, tmp_path
     assert push["code"] == 0, push
     assert body["published"] is True and len(body["sha"]) == 12
 
+    # git пишет UTF-8; без явной кодировки Windows прочла бы тему коммита в
+    # cp1251, и проверка ниже падала бы на правильном коммите (триаж №48).
     log = subprocess.run(["git", "log", "--oneline", "-1"], cwd=repo,
-                         capture_output=True, text=True).stdout
+                         capture_output=True, text=True, encoding="utf-8").stdout
     assert "журнал тестового периода" in log
 
 
@@ -628,3 +631,97 @@ async def test_a_malformed_body_is_a_bad_request_not_a_server_error(env):
         "/api/testing/log", content=b"{not json at all",
         headers={"content-type": "application/json"})
     assert res.status_code == 400, res.text
+
+
+# ------------------------------------------- publish: 500 из журнала владельца
+# Журнал тестового периода 2026-09-21 (docs/testing/sessions/2026-09-22_202945…):
+# шесть нажатий «Отправить в GitHub» подряд дали 500
+# «FileNotFoundError: [WinError 2] Не удается найти указанный файл» за 31 мс —
+# git не нашёлся, исключение вышло из ручки как голый 500, кнопка не объяснила
+# ничего, и владелец жал её снова (ui.rage_click в том же журнале).
+
+async def test_publish_without_git_on_path_is_a_typed_refusal_not_a_500(
+        env, tmp_path, monkeypatch):
+    await env.client.post("/api/testing/log", json={"events": [
+        {"kind": "ui.click", "data": {"element": "кнопка"}}]})
+    repo = tmp_path / "repo"
+    _make_repo(repo)
+    monkeypatch.setattr(tp, "_repo_root", lambda _start: repo)
+    empty = tmp_path / "no-git-here"
+    empty.mkdir()
+    monkeypatch.setenv("PATH", str(empty))
+
+    res = await env.client.post("/api/testing/publish")
+
+    assert res.status_code == 503, res.text
+    assert "git" in res.text.lower()
+
+
+async def test_repo_lookup_without_git_is_the_same_typed_refusal(env, tmp_path, monkeypatch):
+    await env.client.post("/api/testing/log", json={"events": [
+        {"kind": "ui.click", "data": {"element": "кнопка"}}]})
+    empty = tmp_path / "no-git-here"
+    empty.mkdir()
+    monkeypatch.setenv("PATH", str(empty))
+    res = await env.client.post("/api/testing/publish")
+    assert res.status_code == 503, res.text
+
+
+async def test_a_git_step_that_hangs_is_reported_as_a_timeout_not_a_500(
+        env, tmp_path, monkeypatch):
+    import shutil
+    import stat
+    import sys
+
+    real_git = shutil.which("git")
+    assert real_git
+    await env.client.post("/api/testing/log", json={"events": [
+        {"kind": "ui.click", "data": {"element": "кнопка"}}]})
+    repo = tmp_path / "repo"
+    _make_repo(repo)
+    monkeypatch.setattr(tp, "_repo_root", lambda _start: repo)
+    # «git», у которого push висит: остальное — настоящий git.
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    fake = bindir / "git"
+    fake.write_text(
+        f"#!{sys.executable}\n"
+        "import os, sys, time\n"
+        "if 'push' in sys.argv[1:]:\n"
+        "    time.sleep(5)\n"
+        f"os.execv({real_git!r}, [{real_git!r}, *sys.argv[1:]])\n", encoding="utf-8")
+    fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setattr(tp, "GIT_TIMEOUT_S", 1.0, raising=False)
+
+    res = await env.client.post("/api/testing/publish")
+
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["published"] is False and body.get("committed") is True
+    push = next(s for s in body["steps"] if s["step"] == "push")
+    assert push["code"] != 0 and "не ответил" in push["err"], push
+
+
+def test_git_output_is_utf8_even_when_the_process_code_page_is_not(tmp_path):
+    """Windows читает вывод дочернего процесса в ANSI-кодировке (cp1251), а git
+    пишет UTF-8. Байт 0x98 из «И» в cp1251 не определён — UnicodeDecodeError,
+    остальное превращается в кракозябры. На Linux та же механика воспроизводится
+    процессом с не-UTF-8 локалью (C без принудительного UTF-8)."""
+    import sys
+
+    repo = tmp_path / "repo"
+    _make_repo(repo)
+    subject = "Исправление журнала тестового периода"
+    subprocess.run(["git", "commit", "-q", "--allow-empty", "-m", subject], cwd=repo,
+                   capture_output=True, check=True)
+    code = ("import sys; from pathlib import Path; "
+            "from bcc.features import testing_period as tp; "
+            "out = tp._git(['log', '-1', '--format=%s'], Path(sys.argv[1])).stdout; "
+            "sys.stdout.buffer.write(out.strip().encode('utf-8'))")
+    env = {k: v for k, v in os.environ.items() if k not in ("LANG", "LC_CTYPE")}
+    env.update(PYTHONUTF8="0", PYTHONCOERCECLOCALE="0", LC_ALL="C")
+    proc = subprocess.run([sys.executable, "-c", code, str(repo)], env=env,
+                          capture_output=True, timeout=60)
+    assert proc.returncode == 0, proc.stderr.decode("utf-8", "replace")[-600:]
+    assert proc.stdout.decode("utf-8") == subject

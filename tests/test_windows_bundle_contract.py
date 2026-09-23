@@ -83,7 +83,8 @@ def test_a_launcher_only_starts_a_script_the_archive_actually_ships(name: str) -
     body = bundle.launcher_files()[name]
     shipped = {shipped_name for _, shipped_name in bundle.SUPPORT_SCRIPTS}
     referenced = set(re.findall(r"app-support\\([A-Za-z0-9_.-]+\.py)", body))
-    assert referenced or name == "Start-Bossman.cmd", (
+    # Terminal launchers (1.2) start the installed `bossman` entry point.
+    assert referenced or name == "Start-Bossman.cmd" or "-m bossman.cli" in body, (
         f"{name}: разбор не нашёл ни одного .py — проверка стала пустой")
     assert referenced <= shipped, f"{name} запускает то, чего нет в архиве: {referenced - shipped}"
 
@@ -207,6 +208,29 @@ def test_bundle_media_rejects_missing_binaries(tmp_path) -> None:
     assert details == {"ffmpeg": "NOT_BUNDLED", "ffprobe": "NOT_BUNDLED"}
 
 
+def test_installed_bossfield_cli_is_an_archive_gate(tmp_path, monkeypatch) -> None:
+    """Acceptance must fail if the embedded runtime cannot import the shipped CLI."""
+    import subprocess
+    import verify_windows_bundle as verify
+
+    missing, detail = verify.check_bossfield_installed(tmp_path, {})
+    assert missing and detail["status"] == "MISSING"
+    script = tmp_path / "app-support" / "bossfield_owner_run.py"
+    script.parent.mkdir()
+    script.write_text("# fixture\n", encoding="utf-8")
+    calls = []
+
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return subprocess.CompletedProcess(argv, 1, "", "ModuleNotFoundError: bossman")
+
+    monkeypatch.setattr(verify, "_run", run)
+    problems, detail = verify.check_bossfield_installed(tmp_path, {})
+    assert problems and detail["status"] == "FAIL"
+    assert calls[0][0][1:] == ["-I", str(script), "--help"]
+    assert calls[0][1]["cwd"] == tmp_path
+
+
 @pytest.mark.parametrize("failure", ["encoder", "probe", "decode", None])
 def test_bundle_media_requires_export_probe_and_full_decode(tmp_path, monkeypatch, failure) -> None:
     """Printing a valid version is insufficient (the old LGPL false green)."""
@@ -305,6 +329,7 @@ def test_the_archive_verdict_needs_a_consistent_evening_result_and_its_negative_
     monkeypatch.setattr(verify, "evening_negative_control", lambda home, env: control)
     monkeypatch.setattr(verify, "check_icons", lambda home: [])
     monkeypatch.setattr(verify, "check_no_repo_dependency", lambda home, env: [])
+    monkeypatch.setattr(verify, "check_bossfield_installed", lambda home, env: ([], {"status": "synthetic"}))
     monkeypatch.setattr(verify, "check_media", lambda home, env: ([], {"ffmpeg": "synthetic"}))
     monkeypatch.setattr(verify, "check_browser", lambda home, env: ([], {"chromium": "synthetic"}))
     monkeypatch.setattr(verify, "_harness_sha", lambda: "a" * 40)

@@ -22,6 +22,7 @@ REQUIRED = (
     "tests/owner_scenarios/OWNER_HARDWARE_FIRST_RUN.md",
     "START_TOMORROW_RU.md",
     "docs/owner/ROLLBACK_RU.md",
+    "docs/owner/JEV_TOMORROW.md",
 )
 
 

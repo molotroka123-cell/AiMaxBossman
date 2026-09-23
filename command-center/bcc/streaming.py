@@ -144,6 +144,34 @@ def _delta_text(delta: dict[str, Any]) -> str:
     return ""
 
 
+#: Where a WHOLE (non-streamed) provider message carries the model's own
+#: reasoning. Same field names as the stream deltas above; Anthropic puts it in
+#: typed content blocks (`{"type": "thinking", "thinking": "..."}`).
+_REASONING_KEYS = ("reasoning_content", "reasoning")
+
+
+def message_reasoning(message: Any) -> str:
+    """Reasoning the provider actually returned in one message, or "".
+
+    Used by the engine to show the model's thinking in the terminal. It never
+    synthesises anything: a provider that sends no reasoning field yields "",
+    and the terminal then shows a spinner instead of invented "thoughts"."""
+    if not isinstance(message, dict):
+        return ""
+    for key in _REASONING_KEYS:
+        text = _content_text(message.get(key))
+        if text.strip():
+            return text.strip()
+    blocks = message.get("content")
+    if isinstance(blocks, list):
+        parts = [str(b.get("thinking") or "") for b in blocks
+                 if isinstance(b, dict) and b.get("type") == "thinking"]
+        text = "\n".join(p for p in parts if p.strip())
+        if text.strip():
+            return text.strip()
+    return ""
+
+
 def frame_error(chunk: dict[str, Any]) -> str:
     """A provider error delivered inside the stream body rather than as a
     status code. Returns "" when the frame is not an error."""

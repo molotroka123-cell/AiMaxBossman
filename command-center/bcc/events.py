@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from typing import Any
 
 import sqlalchemy as sa
@@ -15,8 +16,69 @@ from .db import Database, events as events_t, rows_dicts, run_events as run_even
 from .plugin_security import redact
 from .trace import get_trace_id
 
+#: Bossman 1.2 (terminal): what ONE model step and ONE tool call actually
+#: produced — the provider's reasoning (only when it sent any), the step's text,
+#: its usage, and a tool call's arguments/result preview. Observation only.
+#: They are NOT pushed to the web UI's /api/events feed nor listed in
+#: /api/activity (those panels do not render them); they reach the per-task
+#: history (/api/tasks/{id}/events) and stream (/api/events/stream) that the
+#: terminal client and Claude Code read. Redaction applies to all of them:
+#: every emit goes through `redact(..., scrub_text=True)` below.
+STREAM_ONLY = frozenset({
+    "run.reasoning_delta", "run.assistant_delta", "run.assistant_message",
+    "run.usage", "run.tool_use", "run.tool_result",
+})
+#: The model's reasoning is shown live and never stored: no durable copy of a
+#: chain of thought, so a replayed task history has none (honestly absent).
+NOT_PERSISTED_STREAM = frozenset({"run.reasoning_delta"})
+
 # эти виды не пишем в историю: у них есть свои таблицы и своя частота
-TRANSIENT = {"system.metrics", "run.log"}
+TRANSIENT = {"system.metrics", "run.log", *NOT_PERSISTED_STREAM}
+
+
+def _as_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+class TaskStreamFilter:
+    """Which bus events belong to ONE task (or run) — for /api/events/stream.
+
+    Many events name only the run (`run.log`, `checkpoint.created`) or only the
+    approval (`approval.decided`). The filter learns the task's run ids and
+    approval ids from events that carry both, so everything about this task
+    reaches its stream and nothing about another task does. Pure: no I/O."""
+
+    def __init__(self, task_id: int | None = None, run_id: int | None = None):
+        self.task_id = task_id
+        self.run_ids: set[int] = {run_id} if run_id is not None else set()
+        self.approval_ids: set[int] = set()
+
+    def accept(self, msg: dict) -> bool:
+        kind = str(msg.get("kind") or "")
+        if kind in ("system.metrics", "hello"):
+            return False
+        tid = _as_int(msg.get("task_id"))
+        rid = _as_int(msg.get("run_id"))
+        mine = False
+        if self.task_id is not None and tid is not None:
+            # task_id названа явно: она решает, даже если run_id совпал бы случайно
+            mine = tid == self.task_id
+        elif rid is not None:
+            mine = rid in self.run_ids
+        elif kind.startswith("approval.") and _as_int(msg.get("id")) is not None:
+            mine = _as_int(msg.get("id")) in self.approval_ids
+        if not mine:
+            return False
+        if rid is not None:
+            self.run_ids.add(rid)
+        if kind == "approval.created" and _as_int(msg.get("id")) is not None:
+            self.approval_ids.add(_as_int(msg.get("id")))
+        return True
 
 
 class EventBus:
@@ -31,6 +93,11 @@ class EventBus:
 
     def unsubscribe(self, q: asyncio.Queue) -> None:
         self._subscribers.discard(q)
+
+    def is_subscribed(self, q: asyncio.Queue) -> bool:
+        """False once `publish` dropped a lagging queue: its reader must say so
+        (and reconnect) instead of waiting forever on a queue nobody fills."""
+        return q in self._subscribers
 
     async def emit(self, kind: str, /, **data: Any) -> dict:
         # kind — только позиционный: в data встречаются свои поля с именем kind
@@ -57,8 +124,13 @@ class EventBus:
         if self.db is not None and kind not in TRANSIENT:
             try:
                 async with self.db.session() as s:
-                    await s.execute(sa.insert(events_t).values(kind=kind, ts=now, data=data))
+                    res = await s.execute(sa.insert(events_t).values(kind=kind, ts=now, data=data))
                     await s.commit()
+                # 1.2: the durable id is the event's sequence number. A client
+                # that lost its stream resumes from it (replay without gaps or
+                # duplicates); `seq` is only ever the id of a stored row.
+                with contextlib.suppress(Exception):
+                    msg["seq"] = int(res.inserted_primary_key[0])
             except asyncio.CancelledError:
                 # Fenced-out worker diagnostics happen after authority has already
                 # moved to another worker. On Windows/aiosqlite the cancelled old
@@ -133,6 +205,50 @@ class EventBus:
         if self.db is None:
             return []
         async with self.db.session() as s:
+            # Лента активности — для людей: построчный вывод модели и
+            # инструментов (STREAM_ONLY) живёт в истории задачи, а не здесь.
             res = await s.execute(
-                sa.select(events_t).order_by(events_t.c.id.desc()).limit(limit))
+                sa.select(events_t).where(events_t.c.kind.notin_(sorted(STREAM_ONLY)))
+                .order_by(events_t.c.id.desc()).limit(limit))
             return rows_dicts(res.fetchall())
+
+    async def task_history(self, task_id: int, *, after: int = 0,
+                           limit: int = 500) -> list[dict]:
+        """Durable, ordered events of ONE task after a cursor (1.2 replay).
+
+        The cursor is the `events.id` sequence (`seq` on live messages), so a
+        client that lost its stream asks for "after N" and gets every stored
+        event it missed exactly once. An event belongs to the task when it
+        names the task, one of the task's runs, or one of its approvals.
+        Transient kinds (metrics, run.log lines, reasoning) are not here by
+        construction; run.log has its own table (/api/runs/{id}/events)."""
+        if self.db is None:
+            return []
+        from .db import approvals as approvals_t, task_runs as runs_t
+        limit = max(1, min(int(limit), 2000))
+        async with self.db.session() as s:
+            run_ids = [int(r[0]) for r in (await s.execute(
+                sa.select(runs_t.c.id).where(runs_t.c.task_id == task_id))).fetchall()]
+            approval_ids = [int(r[0]) for r in (await s.execute(
+                sa.select(approvals_t.c.id).where(approvals_t.c.task_id == task_id))).fetchall()]
+            # Сравнение ТЕКСТОМ: у coding.task.* task_id — hex-строка, и
+            # CAST(... AS INTEGER) уронил бы запрос на Postgres.
+            def text(key: str):
+                return sa.cast(events_t.c.data[key].as_string(), sa.String)
+            belongs = [text("task_id") == str(int(task_id))]
+            if run_ids:
+                belongs.append(text("run_id").in_([str(i) for i in run_ids]))
+            if approval_ids:
+                belongs.append(sa.and_(events_t.c.kind.like("approval.%"),
+                                       text("id").in_([str(i) for i in approval_ids])))
+            res = await s.execute(sa.select(events_t).where(
+                events_t.c.id > int(after), sa.or_(*belongs))
+                .order_by(events_t.c.id).limit(limit))
+            rows = rows_dicts(res.fetchall())
+        out = []
+        for row in rows:
+            data = row.get("data") if isinstance(row.get("data"), dict) else {}
+            ts = row.get("ts")
+            out.append({**data, "kind": row.get("kind"), "seq": int(row["id"]),
+                        "ts": ts.isoformat() if hasattr(ts, "isoformat") else ts})
+        return out

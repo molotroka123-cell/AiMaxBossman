@@ -107,6 +107,8 @@ class Store:
                        "/privacy", "/forget", "/forget_confirm", "/pause_learning", "/resume_learning",
                        "/imgmodel", "/stop", "/pause", "/resume", "/queue", "/approvals", "/approve", "/reject",
                        "/screen", "/diag", "/lessons", "/bossman",
+                       "/evolution_status", "/evolution_start", "/evolution_pause",
+                       "/evolution_resume", "/evolution_stop", "/evolution_report",
                        "/pc", "/claude", "/claude_new", "/claude_stop", "/mode", "/sh"}:
             return "control"
         # "/best" or "/fast" alone only switches the route; with a question it is chat.

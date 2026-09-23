@@ -14,12 +14,21 @@ class GitAuthorityError(PermissionError):
     """Репозиторий, на который смотрит git, — не тот, что разрешён агенту."""
 
 
+#: git здесь только локальный (status/diff/commit/…), но хук или запрос подписи
+#: мог держать шаг агента вечно: таймаута не было вовсе.
+GIT_TIMEOUT_S = 120.0
+
+
 async def _exec(*argv: str, cwd: Path) -> tuple[int, str]:
+    from ._proc import TIMEOUT_CODE, communicate_bounded, timeout_message
     proc = await asyncio.create_subprocess_exec(
         *argv, cwd=str(cwd),
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
-    out, _ = await proc.communicate()
-    return proc.returncode or 0, out.decode(errors="replace")
+    done = await communicate_bounded(proc, GIT_TIMEOUT_S, argv[0])
+    if done is None:
+        return TIMEOUT_CODE, timeout_message(" ".join(argv[:2]), GIT_TIMEOUT_S)
+    code, out = done
+    return code, out.decode(errors="replace")
 
 
 async def _authorized_root(ctx: ToolContext) -> Path:

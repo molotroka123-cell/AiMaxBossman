@@ -204,6 +204,24 @@ def check_no_repo_dependency(home: Path, env: dict) -> list[str]:
     return [f"repository on the bundle's sys.path: {leaked}"] if leaked else []
 
 
+def check_bossfield_installed(home: Path, env: dict) -> tuple[list[str], dict]:
+    """Exercise the shipped CLI with embedded Python, isolated from the checkout.
+
+    Importing `bossman.video_factory.ffmpeg` from app-support previously relied
+    on a sibling bossman-core checkout. A successful source-tree test cannot
+    establish that this import works after the owner unpacks the ZIP.
+    """
+    script = home / "app-support" / "bossfield_owner_run.py"
+    if not script.is_file():
+        return ["Bossfield CLI is absent from app-support"], {"status": "MISSING"}
+    result = _run([str(_bundle_python(home)), "-I", str(script), "--help"],
+                  env=env, cwd=home, timeout=120)
+    if result.returncode or not all(x in (result.stdout or "") for x in ("init", "preflight", "assemble", "verify")):
+        return ["installed Bossfield CLI failed under embedded python -I: " +
+                (result.stderr or result.stdout or "no output")[-400:]], {"status": "FAIL"}
+    return [], {"status": "PASS", "isolated": True, "entry": "app-support/bossfield_owner_run.py"}
+
+
 def _bundle_python(home: Path) -> Path:
     return home / "runtime" / ("python.exe" if os.name == "nt" else "bin/python")
 
@@ -298,6 +316,8 @@ def main(argv: list[str] | None = None) -> int:
         details["required_downloads"] = len(manifest.get("required_downloads") or [])
         problems += check_icons(home)
         problems += check_no_repo_dependency(home, env)
+        bossfield_problems, details["bossfield"] = check_bossfield_installed(home, env)
+        problems += bossfield_problems
         media_problems, details["media"] = check_media(home, env)
         problems += media_problems
         browser_problems, details["browser"] = check_browser(home, env)

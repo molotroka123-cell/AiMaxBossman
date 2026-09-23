@@ -313,9 +313,35 @@ def scrub(text: str, secrets: set[str]) -> tuple[str, int]:
     return cleaned, count
 
 
-def _git(args: list[str], cwd: Path, timeout: float = 60.0) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", *args], cwd=str(cwd), capture_output=True,  # noqa: S603
-                          text=True, timeout=timeout)
+GIT_TIMEOUT_S = 60.0
+
+
+class GitUnavailable(RuntimeError):
+    """git не запускается: нет в PATH, урезанный образ, запрет запуска."""
+
+
+def _git(args: list[str], cwd: Path, timeout: float | None = None) -> subprocess.CompletedProcess:
+    """Запустить git; наружу — только CompletedProcess или GitUnavailable.
+
+    * Вывод git — UTF-8. Без явной кодировки `text=True` декодирует его
+      кодировкой процесса: на Windows это ANSI (cp1251), кириллица становится
+      кракозябрами, а байт 0x98 («И») — UnicodeDecodeError и голым 500.
+    * Нет git (журнал владельца: `FileNotFoundError: [WinError 2]`, шесть 500
+      подряд) — типизированный отказ, а не исключение из ручки.
+    * Зависший шаг (push ждёт сеть или учётные данные) — код 124 и понятная
+      причина в шаге, а не TimeoutExpired → 500.
+    """
+    limit = GIT_TIMEOUT_S if timeout is None else timeout
+    try:
+        return subprocess.run(["git", *args], cwd=str(cwd), capture_output=True,  # noqa: S603
+                              text=True, encoding="utf-8", errors="replace",
+                              timeout=limit)
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(
+            ["git", *args], 124, stdout="",
+            stderr=f"git {args[0] if args else ''} не ответил за {limit:g} с — остановлен")
+    except OSError as exc:
+        raise GitUnavailable(f"git не запускается: {exc}") from exc
 
 
 def _summary(events: list[dict]) -> dict:
@@ -471,7 +497,13 @@ async def publish(request: Request):
         raise HTTPException(409, {"message": "режим тестового периода выключен"})
     log = _log_of(request)
     svc = request.app.state.svc
-    return await asyncio.to_thread(_publish_sync, log, svc)
+    try:
+        return await asyncio.to_thread(_publish_sync, log, svc)
+    except GitUnavailable as exc:
+        raise HTTPException(503, {
+            "message": "публикация невозможна: git не установлен или не найден в PATH. "
+                       "Журнал остаётся на этой машине; поставьте Git и нажмите ещё раз",
+            "detail": str(exc)[:300]}) from exc
 
 
 def _publish_sync(log: SessionLog, svc) -> dict:

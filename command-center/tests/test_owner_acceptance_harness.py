@@ -1,4 +1,5 @@
 """Harness safety/integrity; these tests never substitute for a live model run."""
+import contextlib
 import json
 import os
 import sqlite3
@@ -157,3 +158,95 @@ def test_clean_installed_identity_reports_exact_source(tmp_path, monkeypatch):
     assert result['source_sha'] == 'b' * 40
     assert result['source_dirty'] is False
     assert len(result['build_manifest_sha256']) == 64
+
+
+# ------------------------------------------------ stop(): всё дерево, не один pid
+# test_live_openrouter_dry_run на Windows падал при уборке temp: WinError 32 на
+# bcc.db. Popen(sys.executable) в Windows venv запускает venvlauncher, а сервер —
+# это ЕГО дочерний python.exe. terminate() убивал лаунчер, wait() возвращался, а
+# настоящий сервер ещё держал bcc.db (его добивает job object лаунчера — позже,
+# асинхронно). Модель здесь: «лаунчер», чей ребёнок держит bcc.db открытым.
+
+_LAUNCHER = r'''
+import subprocess, sys, time
+from pathlib import Path
+data = Path(sys.argv[1])
+child = subprocess.Popen([sys.executable, "-c",
+    "import sys, time; f = open(sys.argv[1], 'ab'); open(sys.argv[2], 'w').write('ok'); time.sleep(120)",
+    str(data / "bcc.db"), str(data / "child.ready")])
+(data / "child.pid").write_text(str(child.pid))
+child.wait()
+'''
+
+
+def test_stop_waits_for_the_whole_tree_that_holds_the_database(tmp_path):
+    import subprocess
+    import sys
+    import time
+
+    import psutil
+
+    data = tmp_path / 'data'
+    data.mkdir()
+    process = subprocess.Popen([sys.executable, '-c', _LAUNCHER, str(data)])
+    deadline = time.monotonic() + 30
+    while not (data / 'child.ready').exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert (data / 'child.ready').exists(), 'дочерний процесс не поднялся'
+    child = psutil.Process(int((data / 'child.pid').read_text()))
+    try:
+        owner.stop(process)
+        assert process.poll() is not None
+        # Живой потомок с открытым bcc.db — ровно то, что на Windows даёт WinError 32.
+        alive = child.is_running() and child.status() != psutil.STATUS_ZOMBIE
+        assert not alive, f'потомок {child.pid} пережил stop() и держит bcc.db'
+        (data / 'bcc.db').unlink()  # на Windows провалилось бы при живом держателе
+    finally:
+        with contextlib.suppress(psutil.Error):
+            child.kill()
+
+
+def test_stop_negative_control_leaves_unrelated_processes_alone(tmp_path):
+    """Дерево снимается с pid сервера, а не «всё, что держит файлы рядом»."""
+    import subprocess
+    import sys
+
+    import psutil
+
+    bystander = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])
+    server = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])
+    try:
+        owner.stop(server)
+        assert server.poll() is not None
+        assert psutil.Process(bystander.pid).is_running() and bystander.poll() is None
+    finally:
+        bystander.kill()
+        bystander.wait(timeout=10)
+
+
+@pytest.mark.skipif(not os.path.isdir('/proc/self/fd'), reason='NOT RUN: счёт дескрипторов через /proc')
+def test_configured_model_closes_the_owner_database_even_when_it_refuses(tmp_path):
+    """Семейство утечек notifications/memory index: `with sqlite3.connect()` не
+    закрывает соединение. Отказ OwnerRequired держит кадр в traceback, а кадр —
+    открытый bcc.db владельца; на Windows это блокирует файл."""
+    database = tmp_path / 'bcc.db'
+    with contextlib.closing(sqlite3.connect(database)) as conn:
+        conn.execute('CREATE TABLE agents (id INTEGER, enabled INTEGER, model_id INTEGER)')
+        conn.execute('CREATE TABLE models (id INTEGER, provider_id INTEGER, health TEXT)')
+        conn.execute('CREATE TABLE providers (id INTEGER, api_key_enc TEXT)')
+        conn.commit()
+
+    def holders() -> int:
+        count = 0
+        for fd in os.listdir('/proc/self/fd'):
+            try:
+                if os.readlink(f'/proc/self/fd/{fd}') == str(database.resolve()):
+                    count += 1
+            except OSError:
+                pass
+        return count
+
+    with pytest.raises(owner.OwnerRequired) as kept:
+        owner.configured_model(tmp_path, None)
+    assert kept.value is not None
+    assert holders() == 0, 'отказ держит bcc.db владельца открытым'

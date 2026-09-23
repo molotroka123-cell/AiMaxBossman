@@ -101,6 +101,16 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001 — тип наружу, детали в stderr
             _emit(out, "failed", error_type=type(exc).__name__)
             return 1
+        if isinstance(req, dict) and req.get("op") == "handshake":
+            # Readiness is a probe, not a configured string: the SDK must import
+            # and a provider key must be present, or this sidecar cannot run.
+            import importlib.util
+            sdk = importlib.util.find_spec("openhands") is not None
+            key = bool(os.environ.get("OPENROUTER_API_KEY") or os.environ.get("LLM_API_KEY"))
+            ready = sdk and key
+            _emit(out, "ready" if ready else "failed", executor="openhands-sdk", tools=["terminal", "file_editor"],
+                  error="" if ready else ("openhands-sdk not installed" if not sdk else "OpenRouter API key required"))
+            return 0 if ready else 1
         try:
             return _run(req, out)
         except Exception as exc:  # noqa: BLE001 — сообщение может нести путь/секрет

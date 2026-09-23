@@ -84,11 +84,17 @@ def _path_contained(ctx: ToolContext, rel: str) -> bool:
 
 async def _run(argv: list[str], timeout: int = 900, cwd=None) -> tuple[int, str]:
     # argv-only, без шелла: аргументы из плана агента не интерпретируются.
+    # Таймаут — исход (124), а не исключение из инструмента; процесс добивается,
+    # иначе ffmpeg продолжал писать выход после объявленного таймаута.
+    from ._proc import TIMEOUT_CODE, communicate_bounded, timeout_message
     proc = await asyncio.create_subprocess_exec(
         *argv, cwd=cwd,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
-    out, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    return proc.returncode or 0, out.decode(errors="replace")
+    done = await communicate_bounded(proc, timeout, argv[0])
+    if done is None:
+        return TIMEOUT_CODE, timeout_message(argv[0], timeout)
+    code, out = done
+    return code, out.decode(errors="replace")
 
 
 async def probe(args: dict, ctx: ToolContext) -> ToolResult:

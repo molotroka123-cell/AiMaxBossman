@@ -20,7 +20,10 @@ async def test_org_feature_off_by_default(env, monkeypatch):
 
 @pytest.fixture
 async def org_env(tmp_path, monkeypatch):
-    pytest.importorskip("bossman_v3", reason="bossman-core не установлен рядом с Command Center")
+    # The product imports bossman_v3.organization (which needs bossman-core's
+    # `bossman` package); checking only `bossman_v3` let the fixture run where
+    # the feature cannot start, and the test crashed on `svc.organization=None`.
+    pytest.importorskip("bossman_v3.organization", reason="bossman-core не установлен рядом с Command Center")
     monkeypatch.setenv("BOSSMAN_V3_ENABLED", "1")
     monkeypatch.setenv("BOSSMAN_V3_ORGANIZATION", "1")
     monkeypatch.setenv("BOSSMAN_EVIDENCE_KEY_FILE", str(tmp_path / "keys" / "evidence.key"))
@@ -71,7 +74,7 @@ async def test_org_routes_when_enabled_and_snapshot_matches_store(org_env, tmp_p
 
 @pytest.fixture
 async def fleet_env(tmp_path, monkeypatch):
-    pytest.importorskip("bossman_v3", reason="bossman-core не установлен рядом с Command Center")
+    pytest.importorskip("bossman_v3.organization", reason="bossman-core не установлен рядом с Command Center")
     for k in ("BOSSMAN_V3_ENABLED", "BOSSMAN_V3_ORGANIZATION", "BOSSMAN_V3_FLEET"):
         monkeypatch.setenv(k, "1")
     monkeypatch.setenv("BOSSMAN_EVIDENCE_KEY_FILE", str(tmp_path / "keys" / "evidence.key"))

@@ -274,17 +274,37 @@ def _unique_path(folder: Path, name: str) -> Path:
     return path
 
 
+_HTML_HEADS = (b"<!doctype html", b"<html", b"<head", b"<body", b"<?xml", b"<!--")
+
+
 def _sniff_mime(path: Path) -> str:
+    """Type from the BYTES. The extension is used only for types that have no
+    signature (text, csv, json…); a name that promises a signed type (pdf, zip,
+    png…) without its signature is NOT given that type — an HTML error page
+    saved as `form.pdf` must not be recorded as a PDF (HW-10 MVČR risk)."""
     import mimetypes
     try:
         with path.open("rb") as fh:
-            head = fh.read(16)
+            head = fh.read(512)
     except OSError:
         head = b""
     for magic, mime in _MAGIC:
         if head.startswith(magic):
             return mime
-    return mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    lowered = head.lstrip(b"\xef\xbb\xbf \t\r\n").lower()
+    if lowered.startswith(_HTML_HEADS):
+        return "text/html"
+    guessed = mimetypes.guess_type(path.name)[0]
+    if guessed and guessed in {m for _magic, m in _MAGIC}:
+        return "application/octet-stream"
+    return guessed or "application/octet-stream"
+
+
+def _mime_mismatch(path: Path) -> bool:
+    """True when the name promises a different type than the bytes carry."""
+    import mimetypes
+    guessed = mimetypes.guess_type(path.name)[0]
+    return bool(guessed) and guessed != _sniff_mime(path)
 
 
 def _sha256(path: Path) -> str:
@@ -875,6 +895,7 @@ class BrowserManager:
                 raise BrowserDownloadFailed(f"файл «{name}» не подтвердился на диске после записи")
             record.update(status="saved", path=str(path), filename=path.name, bytes=size,
                           size_human=human_size(size), sha256=digest, mime=_sniff_mime(path),
+                          mime_mismatch=_mime_mismatch(path),
                           quarantined=executable, finished_at=time.time())
             return record
         except BrowserDownloadFailed as exc:
@@ -1333,3 +1354,85 @@ class BrowserManager:
             "mode": sess.policy.mode,
             "captcha": captcha,
         }, sess.secrets)
+
+    # ------------------------------------------------ Jev fast path (read-only)
+    #
+    # Two READ actions for bcc.jev.browser_fastpath. They never click, type or
+    # navigate, and go through the same _guard as every read. The probe only
+    # annotates elements the regular snapshot already indexed (data-bcc-ref) and
+    # counts page features the fast path must NOT handle (frames, shadow roots,
+    # canvas, uploads, nested scroll, popups) — those escalate.
+
+    _JEV_PROBE = """() => {
+      const isSecret = __IS_SECRET__;
+      const vis = (el) => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
+        return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
+      const big = (el) => { const r = el.getBoundingClientRect(); return r.width >= 50 && r.height >= 50; };
+      const items = {};
+      document.querySelectorAll('[data-bcc-ref]').forEach((el) => {
+        const ref = el.getAttribute('data-bcc-ref');
+        const tag = el.tagName.toLowerCase();
+        const it = { visible: vis(el) };
+        if (tag === 'select') {
+          it.options = Array.from(el.options).slice(0, 100).map((o) => ({
+            value: o.value, label: (o.label || o.text || '').replace(/\\s+/g, ' ').trim().slice(0, 120),
+            selected: !!o.selected }));
+          it.value = el.value;
+        } else if ((tag === 'input' || tag === 'textarea') && !isSecret(el)) {
+          it.value = (el.value || '').slice(0, 200);
+          it.checked = !!el.checked;
+          it.editable = !el.readOnly && !el.disabled;
+        }
+        items[ref] = it;
+      });
+      const all = Array.from(document.querySelectorAll('body *')).slice(0, 5000);
+      let shadow = 0, nested = 0;
+      for (const el of all) {
+        if (el.shadowRoot) shadow++;
+        const s = getComputedStyle(el);
+        if ((s.overflowY === 'auto' || s.overflowY === 'scroll') && el.clientHeight > 50
+            && el.scrollHeight > el.clientHeight + 20) nested++;
+      }
+      return { items, features: {
+        iframes: Array.from(document.querySelectorAll('iframe,frame')).filter((e) => vis(e) && big(e)).length,
+        shadow_roots: shadow,
+        canvas: Array.from(document.querySelectorAll('canvas')).filter((e) => vis(e) && big(e)).length,
+        file_inputs: document.querySelectorAll('input[type=file]').length,
+        nested_scroll: nested,
+      } };
+    }"""
+
+    async def _jev_probe(self, sess: BrowserRuntimeSession) -> dict[str, Any]:
+        data = await sess.page.evaluate(_js(self._JEV_PROBE))
+        data = data if isinstance(data, dict) else {}
+        features = dict(data.get("features") or {})
+        try:
+            features["popups"] = max(0, len(sess.context.pages) - 1)
+        except Exception:  # noqa: BLE001 — unknown → the adapter treats it as unsupported
+            features["popups"] = -1
+        return {"items": data.get("items") or {}, "features": features}
+
+    async def jev_observe(self, session_id: int, *, actor: str = "agent",
+                          approved: bool = False) -> dict[str, Any]:
+        """Regular DOM snapshot + per-ref values/options + unsupported-feature counts."""
+        snap = await self.snapshot(session_id, actor=actor, approved=approved)
+        sess = self._session(session_id)
+        probe = await self._jev_probe(sess)
+        items = probe["items"]
+        for item in snap.get("interactive") or []:
+            extra = items.get(str(item.get("ref"))) or {}
+            for key in ("visible", "options", "value", "checked", "editable"):
+                if key in extra:
+                    item[key] = extra[key]
+        snap["features"] = probe["features"]
+        return redact_secrets(snap, sess.secrets)
+
+    async def jev_current(self, session_id: int, *, actor: str = "agent",
+                          approved: bool = False) -> dict[str, Any]:
+        """Freshness read WITHOUT a new generation: url, generation and per-ref state."""
+        sess = self._session(session_id)
+        self._guard(sess, "read_dom", actor=actor, approved=approved)
+        probe = await self._jev_probe(sess)
+        return redact_secrets({"url": sess.page.url, "generation": sess.generation,
+                               "refs": sorted(sess.refs), "items": probe["items"],
+                               "features": probe["features"]}, sess.secrets)

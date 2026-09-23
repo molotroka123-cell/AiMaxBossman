@@ -219,7 +219,21 @@ jobs:
           BOSSMAN_RUN_REAL_SANDBOX: "0"
         run: >-
           python -m pytest tests -q --timeout=300 --timeout-method=signal
-          --cov=bossman_v3 --cov-report=term:skip-covered --cov-fail-under=85
+          --cov=bossman_v3 --cov-report=
+      - name: bossman_v3 self-improvement suites (root tests) + coverage gate
+        # The 1.1 loop/verifier/campaign live in bossman_v3 but are tested from the
+        # root tests/ (real git + subprocess fixtures). A separate session appends
+        # to the same coverage data (one session would clash on the `tests`
+        # package name); the 85 % floor is unchanged and measured over both.
+        working-directory: bossman-core
+        env:
+          BOSSMAN_RUN_REAL_SANDBOX: "0"
+        run: >-
+          python -m pytest ../tests/test_evolution_runner.py ../tests/test_evolution_metrics.py
+          ../tests/test_evolution_protocol.py ../tests/test_evolution_loop.py
+          ../tests/test_evolution_verifier.py ../tests/test_evolution_embedded_python.py
+          -q --timeout=300 --timeout-method=signal
+          --cov=bossman_v3 --cov-append --cov-report=term:skip-covered --cov-fail-under=85
 
   compile:
     name: compile + секреты

@@ -104,18 +104,31 @@ async function showTask(t, ctx) {
       statusBadge(d.status, { label: TASK_LABEL[d.status] || d.status }),
       h('span.badge', `файлов: ${(d.changed_files || []).length}`),
       d.duration_seconds != null ? h('span.badge', `${d.duration_seconds} с`) : null,
-      h('span.badge', 'push/merge: нет')),
+      h('span.badge', 'push/merge: нет'),
+      d.agent ? h('span.badge', `агент: ${d.agent.name}`) : null,
+      d.sidecar && d.sidecar.deterministic_test_model ? h('span.badge.badge-warn', 'MOCK_MODEL') : null,
+      d.verification ? h('span.badge' + (d.verification.passed ? '' : '.badge-warn'), d.verification.passed ? 'проверка Bossman: пройдена' : 'проверка Bossman: не пройдена') : null,
+      d.outcome ? h('span.badge.badge-warn', d.outcome) : null),
     d.error ? h('div.small', { style: { color: 'var(--err)' } }, d.error) : null,
     (d.changed_files || []).length ? h('pre.block', d.changed_files.join('\n')) : null,
     d.diff ? h('pre.block', { style: { maxHeight: '45vh', overflow: 'auto' } }, d.diff) : h('div.small.dim', 'Патча нет.'),
     h('div.section-title', 'Доказательства'),
     h('pre.block', JSON.stringify({ head_before: ev.head_before, head_after: ev.head_after,
-      untracked: ev.untracked_files, sidecar: d.sidecar, sandbox_cleanup: d.sandbox_cleanup }, null, 1)),
+      untracked: ev.untracked_files, sidecar: d.sidecar, verification: d.verification, memory: d.memory,
+      sandbox_cleanup: d.sandbox_cleanup }, null, 1)),
     h('div.small.dim', 'Патч — доказательство работы агента. Применение к репозиторию — отдельное решение владельца через worktree-сессию.')));
   modal.footer.appendChild(h('button.btn', { type: 'button', onClick: () => modal.close() }, 'Закрыть'));
 }
 
-function taskModal(ctx, ready) {
+async function taskModal(ctx, ready) {
+  /* Сохранённые агенты продукта (RAW, TOOL_FIRST, MEMORY…) — профиль сайдкара:
+     промпт, инструменты, лимит шагов, «тесты перед finish». */
+  let agents = [];
+  try { agents = listOf(await api.raw('/api/agents'), 'items'); } catch (e) { agents = []; }
+  const agentEl = h('select.input', { 'aria-label': 'Агент' },
+    h('option', { value: '' }, 'без профиля (по умолчанию)'),
+    ...agents.filter((a) => a.enabled !== false).map((a) => h('option', { value: String(a.id) }, `${a.name}${a.role ? ' — ' + a.role : ''}`)));
+  const verifyEl = input({ placeholder: 'тесты, которые Bossman сам прогонит после агента, например tests/test_x.py' });
   const repoEl = input({ placeholder: 'путь к git-репозиторию из разрешённых корней', value: (ready.roots || [])[0] || '' });
   const instrEl = textarea({ rows: '4', placeholder: 'Что сделать: например, добавить тест на парсер дат и починить падение' });
   const allowEl = input({ placeholder: 'разрешённые пути через запятую, например src, tests' });
@@ -127,6 +140,11 @@ function taskModal(ctx, ready) {
       h('div', h('div.section-title', 'Задача'), instrEl),
       h('div', h('div.section-title', 'Область правок'), allowEl),
       h('div', h('div.section-title', 'Защищённые пути'), protectEl),
+      h('div', h('div.section-title', 'Агент'), agentEl),
+      h('div', h('div.section-title', 'Независимая проверка'), verifyEl),
+      ready.handshake && ready.handshake.deterministic_test_model
+        ? h('div.small', { style: { color: 'var(--warn,#d99a2b)' } }, 'Подключена MOCK_MODEL (детерминированная тестовая модель): результат проверяет механику, а не качество модели.')
+        : null,
       h('div.small.dim', 'Агент получит одноразовую копию без remote. Итог — патч и доказательства; ничего не пушится и не вливается.')),
     footer: h('div'),
   });
@@ -135,7 +153,8 @@ function taskModal(ctx, ready) {
     try {
       await api.raw('/api/coding-tasks', { method: 'POST', body: {
         instruction: instrEl.value.trim(), source_repo: repoEl.value.trim(),
-        allowed_paths: split(allowEl.value), protected_paths: split(protectEl.value) } });
+        allowed_paths: split(allowEl.value), protected_paths: split(protectEl.value),
+        agent_id: agentEl.value ? Number(agentEl.value) : null, verify_tests: split(verifyEl.value) } });
       toastOk('Задача передана агенту');
       modal.close();
       ctx.refresh();

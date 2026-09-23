@@ -6,6 +6,11 @@
   bossman project run <slug>
   bossman project state <slug>
   bossman models list --provider <имя> | --all [--json]  — каталог провайдера
+
+Bossman 1.2 (терминал): `bossman`, `bossman chat`, `bossman exec`, `bossman -p`,
+status / events / result / approve / deny / stop / keys / code / … — тонкий
+клиент Command Center API (bcc.terminal_cli). Смысл старых команд выше не
+изменён: они по-прежнему работают с Core.
 """
 from __future__ import annotations
 
@@ -15,9 +20,59 @@ import json
 import sys
 from pathlib import Path
 
+#: Commands of the 1.2 terminal client. Dispatched before the Core parser so
+#: the Core commands keep their exact syntax, help and exit codes.
+TERMINAL_COMMANDS = frozenset({
+    "chat", "exec", "status", "events", "result", "resume", "approve", "deny", "pause", "stop",
+    "continue", "list", "keys", "code", "evolution", "repair", "run", "evolve", "start",
+    "version", "approvals", "tasks",
+})
+TERMINAL_FLAGS = ("-p", "--print", "--version", "--url", "--data-dir", "--plain", "--agent",
+                  "--cwd", "--verbose", "--output-format", "--model", "--max-seconds",
+                  "--approval-mode", "--on-timeout")
 
-def main() -> None:
-    p = argparse.ArgumentParser(prog="bossman")
+
+def is_terminal_call(argv: list[str]) -> bool:
+    """`bossman` without arguments opens the chat; a terminal command or a
+    headless flag goes to the terminal client; everything else is Core."""
+    if not argv:
+        return True
+    first = argv[0]
+    if first in TERMINAL_COMMANDS:
+        return True
+    return any(a == f or a.startswith(f + "=") for a in argv for f in TERMINAL_FLAGS) \
+        and not (argv and argv[0] in ("serve", "task", "project", "models"))
+
+
+def _terminal(argv: list[str]) -> int:
+    try:
+        from bcc.terminal_cli import main as terminal_main
+    except ImportError as exc:
+        print("bossman: терминальный клиент входит в Command Center (bcc), а он не установлен "
+              f"рядом с Core ({type(exc).__name__}). Установите bossman-command-center.", file=sys.stderr)
+        return 3
+    return int(terminal_main(argv) or 0)
+
+
+def _utf8_console() -> None:
+    # The Windows console defaults to cp1252: the Russian epilog of `bossman
+    # --help` crashed the installed entry point (local bundle, windows-latest).
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
+def main(argv: list[str] | None = None) -> None:
+    _utf8_console()
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if is_terminal_call(argv):
+        sys.exit(_terminal(argv))
+    p = argparse.ArgumentParser(
+        prog="bossman",
+        epilog="Терминал Bossman 1.2: bossman [chat] | exec | -p \"…\" | status | events | result | "
+               "approve | deny | stop | keys | code … — `bossman chat --help`, docs/owner/TERMINAL.md")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("serve")
@@ -42,7 +97,7 @@ def main() -> None:
                     help="опросить всех провайдеров, у которых есть ключ")
     pm.add_argument("--json", action="store_true", dest="as_json")
 
-    args = p.parse_args()
+    args = p.parse_args(argv)
     if args.cmd == "serve":
         from .api import main as serve
         serve()

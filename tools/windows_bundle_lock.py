@@ -137,6 +137,48 @@ def requirement_pins(text: str) -> dict[str, str]:
     return pins
 
 
+def add_terminal_pins(json_path: Path = LOCK_JSON, txt_path: Path = LOCK_TXT) -> dict:
+    """Amend the Windows lock with the two universal PyPI wheels, preserving
+    every previously recorded Windows wheel hash. The Windows builder still
+    verifies each downloaded byte and the installed distribution set.
+    """
+    current = load(json_path, txt_path)
+    if current is None:
+        raise ValueError("record the Windows bundle lock before adding terminal wheels")
+    expected = {"prompt-toolkit": ("3.0.52", "9aac639a3bbd33284347de5ad8d68ecc044b91a762dc39b7c21095fcd6a19955"),
+                "wcwidth": ("0.8.4", "2097bb1d28a0ba8fe177c2eb607317f9b1627b03f33ebebfd3da670b337a65ba")}
+    pins = current["_pins"]
+    for name, (version, _digest) in expected.items():
+        if name in pins:
+            raise ValueError(f"{name} already in the lock; re-record on Windows before changing its version")
+    # These are wheel SHA256 values published on the *official* PyPI version
+    # pages (not source tarballs). Both wheels are py3-none-any on Windows.
+    lines = []
+    for name, (version, digest) in expected.items():
+        lines.extend((f"# https://pypi.org/project/{name}/{version}/ (py3-none-any wheel)",
+                      f"{name}=={version} \\", f"    --hash=sha256:{digest}"))
+    updated = txt_path.read_text(encoding="utf-8") + "\n".join(lines) + "\n"
+    if requirement_pins(updated) != {**pins, **{name: version for name, (version, _) in expected.items()}}:
+        raise ValueError("terminal lock pin mismatch")
+    data = json.loads(json_path.read_text(encoding="utf-8"))
+    data["requirements"].update(sha256=hashlib.sha256(updated.encode("utf-8")).hexdigest(),
+                                count=len(requirement_pins(updated)))
+    data["terminal_amendment"] = {"wheels": {k: v[0] for k, v in expected.items()},
+                                  "source": "official PyPI release pages, wheel SHA256",
+                                  "verification": "Windows hash-checking build still required"}
+    next_txt, next_json = txt_path.with_suffix(".txt.next"), json_path.with_suffix(".json.next")
+    try:
+        write_lf(next_txt, updated)
+        write_lf(next_json, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        load(next_json, next_txt)
+        os.replace(next_txt, txt_path)
+        os.replace(next_json, json_path)
+    finally:
+        next_txt.unlink(missing_ok=True)
+        next_json.unlink(missing_ok=True)
+    return data
+
+
 # ---------------------------------------------------------------- recording
 
 def requirements_from_report(report: dict) -> list[dict]:
@@ -303,9 +345,14 @@ def main(argv: list[str] | None = None) -> int:
     rec.add_argument("--dist", type=Path, default=None, help="the --out of build_windows_bundle.py (for the Chromium directory)")
     rec.add_argument("--out", type=Path, required=True)
     sub.add_parser("show", help="print what the committed lock pins")
+    sub.add_parser("add-terminal", help="add official PyPI universal terminal wheels with SHA256")
     args = parser.parse_args(argv)
     if args.command == "record":
         record(args.wheels, args.dist, args.out)
+        return 0
+    if args.command == "add-terminal":
+        updated = add_terminal_pins()
+        print(json.dumps({"requirements": updated["requirements"], "terminal_amendment": updated["terminal_amendment"]}))
         return 0
     lock = load()
     if lock is None:

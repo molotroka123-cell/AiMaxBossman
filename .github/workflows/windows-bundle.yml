@@ -38,6 +38,9 @@ on:
       - 'release/**'
     paths:
       - 'tools/build_windows_bundle.py'
+      - 'tools/terminal_launchers.py'
+      - 'command-center/bcc/terminal_cli/**'
+      - 'bossman-core/bossman/cli.py'
       - 'tools/verify_windows_bundle.py'
       - 'tools/bundle_evening_test.py'
       - 'tools/build_local_bundle.py'
@@ -54,6 +57,12 @@ on:
       # уезжает в архив непроверенной (BL-088 для metrics_smoke; обход всех
       # исполняемых скриптов нашёл вторым evening_owner_run).
       - 'tools/metrics_smoke.py'
+      - 'tools/coding_path_owner.py'
+      - 'tools/model_profiles.json'
+      - 'tools/model_fetch.py'
+      - 'tools/mvcr_prepare.py'
+      - 'tools/self_improve_lab.py'
+      - 'tools/model_bakeoff.py'
       - 'scripts/evening_owner_run.py'
       - 'command-center/**'
       - 'bossman-core/**'
@@ -429,6 +438,66 @@ jobs:
             exit 0
           }
           exit $code
+      # Coding path из распакованного архива: установленный backend, локальный
+      # сайдкар bossman.openhands.v1, ДЕТЕРМИНИРОВАННАЯ ТЕСТОВАЯ МОДЕЛЬ (помечена
+      # в каждой записи), настоящий git-репозиторий с посеянным дефектом,
+      # независимая проверка тестами самим Bossman и отрицательный контроль
+      # («сайдкар сказал готово, но не исправил» обязан стать failed).
+      # Доказывает механику, а не качество модели.
+      - name: Coding path from the archive (local sidecar + deterministic test model)
+        if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
+        run: |
+          & "$env:BCC_ACCEPTANCE_PYTHON" -I "$env:BOSSMAN_INSTALLED_HOME/app-support/coding_path_owner.py" `
+            --output "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/coding-path.json"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host '::error::BOSSMAN_CODING_PATH=FAIL — путь Coding из архива не работает. Смотрите coding-path.json.'
+            exit 1
+          }
+      # Owner-Run из архива: профиль следующего прогона владельца. `plan` ничего
+      # не меняет (папку прогона не создаёт) и проверяет, что лаунчер, раннер и
+      # все его соседи (model_fetch, model_profiles, model_bakeoff, mvcr_prepare,
+      # self_improve_lab) действительно лежат в app-support, а инструкция
+      # OWNER_RUN_NEXT.md — в архиве.
+      - name: Owner-Run self-improve-mvcr plan from the archive
+        if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
+        run: |
+          $next = Join-Path $env:BOSSMAN_INSTALLED_HOME 'docs\owner\OWNER_RUN_NEXT.md'
+          if (-not (Test-Path $next)) { Write-Host '::error::OWNER_RUN_NEXT.md отсутствует в архиве'; exit 1 }
+          # UTF-8: the runner prints Russian; a mis-decoded capture would make the
+          # «НЕТ → …» check below silently miss a missing sibling.
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $plan = & "$env:BOSSMAN_INSTALLED_HOME\Owner-Run.cmd" self-improve-mvcr plan `
+            --run-dir "$env:RUNNER_TEMP\owner-run-plan" --models-dir "$env:RUNNER_TEMP\owner-run-models" 2>&1
+          $code = $LASTEXITCODE
+          $plan | Out-File -Encoding utf8 "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/owner-run-plan.txt"
+          $plan | Write-Host
+          if ($code -ne 0) { Write-Host "::error::Owner-Run plan завершился кодом $code"; exit 1 }
+          $missing = $plan | Select-String 'НЕТ → стадия будет NOT_RUN'
+          if ($missing) { Write-Host '::error::в архиве не хватает соседних скриптов Owner-Run'; exit 1 }
+          $present = @($plan | Select-String '^\s+(model_fetch\.py|model_profiles\.json|model_bakeoff\.py|mvcr_prepare\.py|self_improve_lab\.py)\s+есть').Count
+          if ($present -ne 5) { Write-Host "::error::ожидалось 5 соседей Owner-Run со статусом «есть», найдено $present (кодировка вывода?)"; exit 1 }
+          if (Test-Path "$env:RUNNER_TEMP\owner-run-plan") { Write-Host '::error::plan создал папку прогона — у него есть побочные эффекты'; exit 1 }
+      - name: Terminal 1.2 (bossman.cmd) from the archive
+        if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $cli = Join-Path $env:BOSSMAN_INSTALLED_HOME 'bossman.cmd'
+          if (-not (Test-Path (Join-Path $env:BOSSMAN_INSTALLED_HOME 'Bossman-CLI.cmd'))) { Write-Host '::error::Bossman-CLI.cmd отсутствует в архиве'; exit 1 }
+          $ver = & $cli version 2>$null
+          if ($LASTEXITCODE -ne 0 -or -not ($ver -match 'bossman-terminal')) { Write-Host "::error::bossman.cmd version: код $LASTEXITCODE, вывод $ver"; exit 1 }
+          # No backend on this port: the machine contract must answer DISCONNECTED (3)
+          # with JSON only on stdout — never a banner, ANSI or a fake PASS.
+          $out = & $cli --url http://127.0.0.1:9 status --json 2>$null
+          $code = $LASTEXITCODE
+          $out | Out-File -Encoding utf8 "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/terminal-status.jsonl"
+          if ($code -ne 3) { Write-Host "::error::status без backend: ожидался код 3 (DISCONNECTED), получен $code"; exit 1 }
+          foreach ($line in @($out)) {
+            if ($line -match [char]27) { Write-Host '::error::ANSI в машинном stdout'; exit 1 }
+            try { $null = $line | ConvertFrom-Json } catch { Write-Host "::error::не JSON в stdout: $line"; exit 1 }
+          }
+          Write-Host "BOSSMAN_TERMINAL_SMOKE=PASS ($ver; DISCONNECTED contract)"
+          # The expected DISCONNECTED code 3 stays in $LASTEXITCODE; pwsh would end the step with it.
+          exit 0
       - name: Genuine free-model human task smoke
         if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
         env:

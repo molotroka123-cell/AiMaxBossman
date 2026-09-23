@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import platform
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -23,6 +24,11 @@ from typing import Callable, Sequence
 
 APP_NAME = "BOSSMAN"
 APP_COMMENT = "BOSSMAN AI Command Center — локальный центр управления"
+
+#: PowerShell, создающий .lnk, запускался без таймаута: застрявший COM-вызов или
+#: запрос политики вешал `bcc-desktop --install-shortcut` навсегда. Здоровый
+#: запуск — секунды (холодный старт PowerShell), граница с большим запасом.
+POWERSHELL_TIMEOUT_S = 300.0
 ENTRY_FILE = "bossman"  # имя файла ярлыка без расширения
 
 ICON_DIR = Path(__file__).resolve().parent.parent / "ui" / "icons"
@@ -256,6 +262,44 @@ def macos_targets(home: Path) -> list[Path]:
 
 # ---------------------------------------------------------------- установка
 
+def _kill_group(proc: subprocess.Popen) -> None:
+    """Добить ребёнка вместе с потомками (он лидер своей группы) и дождаться."""
+    if os.name == "nt":
+        try:
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)],  # noqa: S603, S607
+                           capture_output=True, timeout=30, check=False)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except OSError:
+            pass
+    proc.kill()
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def _run_bounded(argv: list[str]) -> int:
+    """Запуск по умолчанию для install(): код выхода, но не дольше
+    POWERSHELL_TIMEOUT_S. По таймауту дерево процесса добивается (Windows:
+    taskkill /T; POSIX: вся группа) и владелец получает понятную ошибку."""
+    group = ({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt"
+             else {"start_new_session": True})
+    proc = subprocess.Popen(argv, **group)  # noqa: S603 — argv, без строки для оболочки
+    try:
+        return proc.wait(timeout=POWERSHELL_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        _kill_group(proc)
+        raise RuntimeError(f"не удалось создать ярлык: {argv[0]} не ответил за "
+                           f"{POWERSHELL_TIMEOUT_S:g} с и остановлен") from None
+    except BaseException:
+        _kill_group(proc)   # Ctrl+C и т.п.: как subprocess.run, ребёнка не бросаем
+        raise
+
+
 def _write(path: Path, text: str, *, executable: bool = False) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
@@ -287,7 +331,7 @@ def install(spec: LauncherSpec | None = None, *, home: Path | None = None,
                 UserWarning, stacklevel=2)
             targets = [start_lnk]
         script = powershell_shortcut_script(spec, targets)
-        run = runner or (lambda argv: subprocess.run(argv, check=False).returncode)  # noqa: S603
+        run = runner or _run_bounded
         code = run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script])
         if code != 0:
             raise RuntimeError(f"не удалось создать ярлык (powershell код {code})")

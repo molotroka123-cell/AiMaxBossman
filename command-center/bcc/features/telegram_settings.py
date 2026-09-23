@@ -530,8 +530,15 @@ async def edit_profile(uid: int, body: ProfileIn):
         raise HTTPException(409, "Компаньон ещё не создавал хранилище: сначала запустите его.")
     try:
         from ..telegram_companion.service import clean_profile
+        try:
+            cleaned = clean_profile(body.text)
+        except ImportError:
+            # The canonical sanitizer lives in bossman-core. Without it the text
+            # cannot be redacted, and an unredacted profile must not be stored:
+            # a typed 503 with the reason, not a 500 and not a silent write.
+            raise HTTPException(503, "Санитайзер профилей (bossman-core) не установлен: профиль не сохранён.")
         last = store.log_entries(key, limit=1)
-        return store.put_profile(key, clean_profile(body.text), last[-1]["id"] if last else 0, edited_by_owner=True)
+        return store.put_profile(key, cleaned, last[-1]["id"] if last else 0, edited_by_owner=True)
     finally:
         store.close()
 
