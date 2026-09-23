@@ -31,3 +31,18 @@ def test_seedance25_catalog_is_not_verified_or_free():
     assert model["surface"] == "video" and model["settings"]["duration"]["default"] == 15
     assert model["enabled"] is False and model["answers"]["VERIFIED"] is False
     assert model["free"] is False and model["price"]["kind"] == "unknown"
+
+
+def test_seedance25_accepts_short_shots_the_provider_supports():
+    """SwapMe hybrid run 23.09: the catalog pinned duration to [15] while OpenRouter serves 4–30 s.
+    A 5 s cloud shot inside a cloud+local edit was impossible through Bossman. 4–15 s are
+    offered (the old 15 s default stays); anything the provider rejects stays rejected here."""
+    import pytest
+    from bcc.studio.catalog import load, validate_settings
+    model = next(m for m in load()["models"] if m["id"] == "openrouter:bytedance/seedance-2.5")
+    for seconds in (4, 5, 10, 15):
+        assert validate_settings(model, {"duration": seconds})["duration"] == seconds
+    assert validate_settings(model, {})["duration"] == 15
+    for seconds in (3, 16, 0):
+        with pytest.raises(ValueError):
+            validate_settings(model, {"duration": seconds})
