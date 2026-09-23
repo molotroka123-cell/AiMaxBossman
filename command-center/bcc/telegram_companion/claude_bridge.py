@@ -14,6 +14,7 @@ import contextlib
 import json
 import os
 import shutil
+import signal
 import subprocess
 
 PERMISSION_MODES = frozenset({"default", "acceptEdits", "plan", "bypassPermissions"})
@@ -30,9 +31,31 @@ def _child_env() -> dict:
     return env
 
 
+_WINDOWS = os.name == "nt"
+# taskkill ran with no timeout, synchronously inside the event loop: a hung taskkill
+# froze the whole companion exactly when it was stopping a runaway agent.
+TASKKILL_TIMEOUT_S = 30.0
+
+
 def _kill_tree(pid: int):
-    with open(os.devnull, "wb") as null:
-        subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], stdout=null, stderr=null, check=False)
+    """Kill the agent and its descendants. Windows: taskkill /T (bounded); elsewhere
+    the agent leads its own session (see _run), so its whole group goes."""
+    if not _WINDOWS:
+        with contextlib.suppress(OSError):
+            os.killpg(pid, signal.SIGKILL)
+        return
+    with open(os.devnull, "wb") as null, contextlib.suppress(OSError, subprocess.SubprocessError):
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], stdout=null, stderr=null, check=False,
+                       timeout=TASKKILL_TIMEOUT_S)
+
+
+async def _reap(proc) -> None:
+    """Kill the tree, then make sure the direct child is gone and reaped."""
+    _kill_tree(proc.pid)
+    with contextlib.suppress(ProcessLookupError):
+        proc.kill()
+    with contextlib.suppress(asyncio.TimeoutError, ProcessLookupError):
+        await asyncio.wait_for(proc.wait(), 10)
 
 
 async def _run(args: list[str], *, stdin: bytes, cwd: str, timeout: float) -> tuple[int | None, bytes, bytes]:
@@ -40,15 +63,16 @@ async def _run(args: list[str], *, stdin: bytes, cwd: str, timeout: float) -> tu
     proc = await asyncio.create_subprocess_exec(
         *args, cwd=cwd or None, env=_child_env(),
         stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        **({} if _WINDOWS else {"start_new_session": True}))
     try:
         out, err = await asyncio.wait_for(proc.communicate(stdin), timeout)
         return proc.returncode, out, err
     except asyncio.TimeoutError:
-        _kill_tree(proc.pid)
+        await _reap(proc)
         return None, b"", b""
     except asyncio.CancelledError:
-        _kill_tree(proc.pid)   # /claude_stop, STOP or shutdown: never leave an orphaned agent
+        await _reap(proc)   # /claude_stop, STOP or shutdown: never leave an orphaned agent
         raise
 
 
