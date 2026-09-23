@@ -1,15 +1,15 @@
 # CONTINUE — Bossman 1.0 (start here, do NOT re-audit)
 
-State at end of 23.09: candidate `cb13c2fdc9ef7c2555d5359c217908f920cbd321` on `fix/owner-run-20260923-p1` (pushed). Truth table: `FINAL-1.0/EOD/20MIN_CLOSURE.md`. Audit: `EOD/EOD_FINAL_AUDIT.md`. release/bossman-owner untouched (`e0bf948d`, ancestor → fast-forward later).
+State at end of 23.09: candidate `1a29d85a4a471b549f274d18922e4c5485ed409f` (C2/C3 fixed in the evening) on `fix/owner-run-20260923-p1` (pushed). Truth table: `FINAL-1.0/EOD/20MIN_CLOSURE.md`. Audit: `EOD/EOD_FINAL_AUDIT.md`. release/bossman-owner untouched (`e0bf948d`, ancestor → fast-forward later).
 
 ## FIRST COMMAND TOMORROW
 ```
 cd C:\Users\asd\Bossman\wt-fix-crlf0923 && git fetch --all --prune && git status -sb && git log -1 --format=%H
 ```
-Expect `cb13c2fd…` and a clean tree, then do step 1 directly.
+Expect `1a29d85a…` and a clean tree, then do step 1 directly.
 
 ## Order (max 5 steps, no new features, no new final branch)
-1. Close C2 + C3 (reproducers in EOD/SECURITY notes of 20MIN_CLOSURE): opencode — compute target and check roots BEFORE `git worktree add`, validate name; terminal roots — require list of existing absolute dirs, refuse drive/filesystem root without approval. Failing test → fix → neighbours (test_*opencode*, test_*terminal*) → push.
+1. (DONE 6f9d1497/1a29d85a) C2 + C3 (reproducers in EOD/SECURITY notes of 20MIN_CLOSURE): opencode — compute target and check roots BEFORE `git worktree add`, validate name; terminal roots — require list of existing absolute dirs, refuse drive/filesystem root without approval. Failing test → fix → neighbours (test_*opencode*, test_*terminal*) → push.
 2. Independent re-attack on the head (not by the fix authors): containment (../, sibling prefix, junction), Computer Use semantic/approval, sandbox destructive, approval replay/STOP. Then full regression with `build-0923\regress\run_full.sh <src> <label>` (root/core without command-center on PYTHONPATH) and classify the SHA4 failures listed in `FINAL-1.0/regress/`.
 3. Windows-100: `scripts/windows_stress_100.py` (plan: health 8, auth 16, memory 10, tasks 14, approvals 15, containment 18, CU STOP 4, browser 4, concurrency 5, restart 5, 1 NOT_RUN), workflow with a NEW display name, add to `tools/exact_sha_certify.DEFAULT_REQUIRED`; install from `git clone`, not `git archive`.
 4. Declare RC in `tools/release_candidate.json` → push the exact SHA to a `claude/**` CI-trigger ref (4 required workflows only run on claude/night/release pushes) → `python tools/exact_sha_certify.py --sha <SHA> --fetch --repo molotroka123-cell/AiMaxBossman` → build ZIP from that SHA (`tools/build_windows_bundle.py --zip --profile release`), verify embedded SHA, SHA-256; live retest on the unpacked ZIP: HW-02, PDF download, coding full repo + apply, TR smoke, standard-user, Jev shadow.
