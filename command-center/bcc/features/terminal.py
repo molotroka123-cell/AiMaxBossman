@@ -71,6 +71,44 @@ async def _retire_finished(svc, mgr: TerminalManager) -> None:
         mgr.sessions.pop(st["id"], None)
 
 
+def _bad_roots(message: str) -> HTTPException:
+    return HTTPException(400, {"message": message,
+                               "hint": "roots — список абсолютных путей к существующим папкам проекта"})
+
+
+def _validate_roots(raw, *, has_body: bool = True) -> list[str]:
+    """C3: корни — список абсолютных путей к существующим папкам, не корень диска.
+
+    Ошибка в любом элементе отклоняет весь список (400), сохранённые корни не
+    меняются. Пустой список/отсутствие поля — сброс к каталогу данных.
+    """
+    if not has_body:
+        raise _bad_roots("тело запроса должно быть JSON-объектом с полем roots")
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise _bad_roots("roots должен быть списком путей, а не строкой или другим значением")
+    out: list[str] = []
+    for item in raw:
+        if not isinstance(item, str) or not item.strip():
+            raise _bad_roots(f"каждый корень должен быть непустой строкой-путём: {item!r}")
+        p = Path(item.strip()).expanduser()
+        if not p.is_absolute():
+            raise _bad_roots(f"путь должен быть абсолютным: {item}")
+        try:
+            resolved = p.resolve()
+        except (OSError, RuntimeError):
+            raise _bad_roots(f"не удалось разобрать путь: {item}")
+        if resolved.parent == resolved:
+            raise _bad_roots(f"корень диска/файловой системы запрещён как разрешённая папка: "
+                             f"{resolved} — укажите конкретную папку проекта")
+        if not resolved.is_dir():
+            raise _bad_roots(f"папка не существует или это не папка: {item}")
+        if str(resolved) not in out:
+            out.append(str(resolved))
+    return out
+
+
 @router.get("/terminal/roots")
 async def get_roots(request: Request):
     svc = request.app.state.svc
@@ -82,7 +120,8 @@ async def set_roots(request: Request):
     """Настройка разрешённых корней для project_host — осознанное расширение доступа."""
     svc = request.app.state.svc
     body = await request.json()
-    roots = body.get("roots") or []
+    roots = _validate_roots(body.get("roots") if isinstance(body, dict) else None,
+                            has_body=isinstance(body, dict))
     enc = svc.vault.encrypt(json.dumps(roots))
     async with svc.db.session() as s:
         await s.execute(sa.delete(settings_kv).where(settings_kv.c.key == ROOTS_KEY))

@@ -259,6 +259,7 @@ class BossmanCodingBackend:
             if not self.add_root:
                 raise ApiError(f"the campaign folder {students} is outside the allowed code roots; add it in "
                                "Settings -> code roots or pass --add-root (an explicit owner decision)")
+            students.mkdir(parents=True, exist_ok=True)   # C3: server accepts only existing dirs
             status, body = self.api.post("/api/terminal/roots", {"roots": [str(r) for r in roots] + [str(students)]})
             if status != 200:
                 raise ApiError(f"adding the campaign root failed ({status})")
