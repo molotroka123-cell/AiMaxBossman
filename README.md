@@ -1,5 +1,7 @@
 # Bossman (AiMaxBossman)
 
+> **24.09 owner handoff:** today's implementation package is in [BOSSMAN_TOMORROW_2026-09-24_START_HERE.md](BOSSMAN_TOMORROW_2026-09-24_START_HERE.md). It covers Model Fleet GREEN, Bossman WebDesigner, 8xH200 fine-tuning, evaluation/holdout, OSS/data sources and the next Game Studio reuse target. **Important:** this main-branch package is documentation; do not overwrite the newer `release/bossman-owner` runtime with the historical main runtime.
+
 ## Актуальный чекпоинт: Video Studio — 6 сентября 2026
 
 **Основной видеоредактор — единый Video Studio (`#/video-studio`).**
