@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import queue
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -25,6 +26,7 @@ import httpx
 APP_IDENTITY = "bossman-command-center"
 HEADER = "X-BCC-Token"
 CSRF_HEADER = "X-BCC-CSRF"
+_APPROVAL_DECISION = re.compile(r"^/api/approvals/\d+/?$")
 
 
 class BossmanError(RuntimeError):
@@ -214,6 +216,13 @@ class Client:
         return self.request("GET", path, **kw)
 
     def post(self, path: str, body: Any = None, **kw: Any) -> Any:
+        # BOSSMAN_TERMINAL_NO_APPROVE (окно учителя/автоматики): проверка была только
+        # в `bossman approve`, а /approve в чате и ask-режим follow слали решение
+        # напрямую. Одна точка для всех путей терминала — через этот клиент.
+        if (isinstance(body, dict) and body.get("approve") and _APPROVAL_DECISION.match(path)
+                and os.environ.get("BOSSMAN_TERMINAL_NO_APPROVE", "").strip() in ("1", "true", "yes")):
+            raise BossmanError("одобрение из этого окна запрещено (BOSSMAN_TERMINAL_NO_APPROVE=1): решение "
+                               "принимает владелец в вебе, Telegram или своём терминале", kind="blocked")
         return self.request("POST", path, json=body if body is not None else {}, **kw)
 
     def patch(self, path: str, body: Any = None, **kw: Any) -> Any:

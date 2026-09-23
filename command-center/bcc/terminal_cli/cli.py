@@ -220,9 +220,14 @@ def build_parser() -> argparse.ArgumentParser:
     k.add_argument("--no-models", action="store_true", help="не регистрировать модели провайдера")
     _fmt(k)
 
-    cd = sub.add_parser("code", help="coding task через coding path (diff + проверка)")
+    cd = sub.add_parser("code", help="coding task через coding path (diff + проверка); "
+                                     "`code apply <id>` — применить проверенного кандидата")
     _common(cd)
     cd.add_argument("instruction")
+    # `bossman code apply <task_id> [--approval-id N]`: второй позиционный
+    # аргумент есть только у apply; одобряет владелец (bossman approve / веб / Telegram).
+    cd.add_argument("task_id", nargs="?", help=argparse.SUPPRESS)
+    cd.add_argument("--approval-id", type=int, help="apply: одобренное владельцем разрешение")
     cd.add_argument("--allow", action="append", default=[], help="разрешённый путь (обязателен)")
     cd.add_argument("--protect", action="append", default=[])
     cd.add_argument("--verify", action="append", default=[], help="тест для независимой проверки")
@@ -786,6 +791,11 @@ def list_items(client: Client, what: str, *, limit: int = 20) -> list[dict]:
 
 def cmd_code(args) -> int:
     def run(client: Client, out: Out) -> int:
+        if args.instruction == "apply" and args.task_id:
+            from .screens import apply_coding_task
+            return apply_coding_task(client, out, args.task_id, args.approval_id)
+        if args.task_id:
+            raise UsageError("лишний аргумент: инструкцию берите в кавычки; применить — `code apply <id>`")
         from .screens import run_coding_task
         return run_coding_task(client, out, instruction=args.instruction, allow=args.allow,
                                protect=args.protect, verify=args.verify,

@@ -129,8 +129,21 @@ class IsolatedWorktree:
         worktree_path = Path(temp_dir) / 'worktree'
 
         try:
+            # Owner run 2026-09-23: the clone took its end-of-line rules from the
+            # global/system config (Git for Windows: core.autocrlf=true) instead of
+            # the source repository's own. The sandbox then held CRLF where the
+            # owner's checkout had LF (or back), and the verified diff did not
+            # `git apply` to the project it was made for. The clone now checks out
+            # with the source's EFFECTIVE core.autocrlf / core.eol.
+            eol_config: List[str] = []
+            for key in ('core.autocrlf', 'core.eol'):
+                probe = subprocess.run(['git', 'config', '--get', key], cwd=str(self.source_repo),
+                                       capture_output=True, text=True, timeout=30)
+                value = probe.stdout.strip() if probe.returncode == 0 else ''
+                if value:
+                    eol_config += ['-c', f'{key}={value}']
             result = subprocess.run(
-                ['git', 'clone', '--local', str(self.source_repo), str(worktree_path)],
+                ['git', 'clone', '--local', *eol_config, str(self.source_repo), str(worktree_path)],
                 capture_output=True, text=True, timeout=300)
             if result.returncode != 0:
                 raise RuntimeError(f"Failed to clone sandbox: {result.stderr}")

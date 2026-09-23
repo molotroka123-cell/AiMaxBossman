@@ -199,8 +199,11 @@ async def test_an_empty_allowlist_fails_closed(env, repo, monkeypatch):
 
 
 def test_the_api_exposes_no_push_merge_or_deploy():
+    """The only write into the canonical project is the owner-approved apply of a
+    verified candidate (working tree, no commit; tests/test_coding_apply.py)."""
     paths = {r.path for r in ct.router.routes}
-    assert not any(any(w in p for w in ("push", "merge", "deploy", "apply")) for p in paths), paths
+    assert not any(any(w in p for w in ("push", "merge", "deploy", "commit")) for p in paths), paths
+    assert [p for p in paths if "apply" in p] == ["/coding-tasks/{task_id}/apply"], paths
 
 
 async def test_a_configured_command_without_a_handshake_is_not_ready(env, repo, monkeypatch):

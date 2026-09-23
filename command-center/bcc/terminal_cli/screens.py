@@ -22,8 +22,8 @@ from rich.text import Text
 from .api_client import BossmanError, Client
 from .console import make_console, sanitize
 from .human import View, human_duration, render_status_bar, render_title, status_cells
-from .records import (EXIT_BLOCKED, EXIT_FAIL, EXIT_INTERRUPTED, EXIT_NOT_SUPPORTED, EXIT_OK,
-                      model_kind, record)
+from .records import (EXIT_BLOCKED, EXIT_CONFLICT, EXIT_FAIL, EXIT_INTERRUPTED, EXIT_NOT_SUPPORTED,
+                      EXIT_OK, EXIT_WAIT_APPROVAL, model_kind, record)
 from .theme import glyphs
 
 NOT_IN_BUILD = "недоступно в этой сборке"
@@ -124,6 +124,53 @@ def run_coding_task(client: Client, out, *, instruction: str, allow: list[str], 
         (out.json(res) if out.machine else out.say(f"coding task {ctid}: {status} ({rec.get('outcome')})"))
         return EXIT_INTERRUPTED
     return report_coding(out, view, rec)
+
+
+#: refusal codes of POST /api/coding-tasks/{id}/apply (bcc.features.coding_tasks)
+APPLY_REFUSALS = ("NOT_ELIGIBLE", "STALE_BASE", "DIRTY_TARGET", "PROTECTED_PATH", "APPLY_CHECK_FAILED",
+                  "APPLY_FAILED", "AFTER_STATE_MISMATCH", "APPROVAL_INVALID", "RUNTIME_UNAVAILABLE")
+
+
+def apply_coding_task(client: Client, out, task_id: str, approval_id: int | None) -> int:
+    """`bossman code apply <id>`: ask for / use the owner's approval to bring a
+    verified candidate into the canonical project. This command never approves:
+    without an approved id it ends WAIT_APPROVAL (4) and names the approval."""
+    body = {} if approval_id is None else {"approval_id": int(approval_id)}
+    try:
+        res = client.post(f"/api/coding-tasks/{task_id}/apply", body) or {}
+    except BossmanError as exc:
+        if exc.code == "ALREADY_APPLIED":
+            state, exit_code = "CONFLICT", EXIT_CONFLICT
+        elif exc.code in APPLY_REFUSALS:
+            state, exit_code = "BLOCKED", EXIT_BLOCKED
+        else:
+            raise
+        rec = record("coding_apply", ok=False, coding_task_id=task_id, task_state=state, code=exc.code,
+                     error=sanitize(exc.message), exit_code=exit_code)
+        (out.json(rec) if out.machine else out.say(f"coding apply {task_id}: {exc.code} — {sanitize(exc.message)}"))
+        return exit_code
+    if res.get("state") == "WAIT_APPROVAL":
+        rec = record("coding_apply", ok=True, coding_task_id=task_id, task_state="WAIT_APPROVAL",
+                     approval_id=res.get("approval_id"), preview=sanitize(res.get("preview")),
+                     note="нужно решение владельца; затем повторите с --approval-id",
+                     exit_code=EXIT_WAIT_APPROVAL)
+        if out.machine:
+            out.json(rec)
+        else:
+            out.say(sanitize(res.get("preview") or ""))
+            out.say(f"ждёт одобрения владельца: разрешение #{res.get('approval_id')}; после одобрения — "
+                    f"bossman code apply {task_id} --approval-id {res.get('approval_id')}")
+        return EXIT_WAIT_APPROVAL
+    ok = res.get("state") == "APPLIED"
+    rec = record("coding_apply", ok=ok, coding_task_id=task_id, task_state="PASS" if ok else "FAIL",
+                 applied_digest=res.get("applied_digest"), files=res.get("files"),
+                 committed=res.get("committed"), exit_code=EXIT_OK if ok else EXIT_FAIL)
+    if out.machine:
+        out.json(rec)
+    else:
+        out.say(f"coding apply {task_id}: {'применено в рабочее дерево (без commit)' if ok else res.get('state')}"
+                + (": " + ", ".join(sanitize(f) for f in (res.get("files") or {})) if ok else ""))
+    return rec["exit_code"]
 
 
 def coding_result_record(rec: dict) -> dict:
