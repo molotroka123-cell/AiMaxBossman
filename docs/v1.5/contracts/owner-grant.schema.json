@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bossman 1.5 proposed owner campaign grant",
+  "description": "SPECIFICATION ONLY. A valid JSON document is not authority. Only the authenticated owner writer may activate, and the executor must verify expiry/revocation/policy and atomically reserve resources.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "grant_id", "status", "owner_session_ref", "campaign_id", "goal_sha256", "policy_revision", "expires_at", "allowed_actions", "root_refs", "allowed_destinations", "egress_data_classes", "limits"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "grant_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["DRAFT", "ACTIVE", "REVOKED", "EXPIRED"]},
+    "owner_session_ref": {"type": "string", "minLength": 1},
+    "campaign_id": {"type": "string", "minLength": 1},
+    "goal_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "policy_revision": {"type": "string", "minLength": 1},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "allowed_actions": {"$ref": "#/$defs/stringSet"},
+    "root_refs": {"$ref": "#/$defs/stringSet"},
+    "allowed_destinations": {"$ref": "#/$defs/stringSet"},
+    "egress_data_classes": {"$ref": "#/$defs/stringSet"},
+    "limits": {
+      "type": "object", "additionalProperties": false,
+      "required": ["max_seconds", "max_steps", "max_network_requests", "max_calls", "max_orders", "max_paid_video_seconds", "money"],
+      "properties": {
+        "max_seconds": {"type": "integer", "minimum": 1},
+        "max_steps": {"type": "integer", "minimum": 1},
+        "max_network_requests": {"type": "integer", "minimum": 0},
+        "max_calls": {"type": "integer", "minimum": 0},
+        "max_orders": {"type": "integer", "minimum": 0},
+        "max_paid_video_seconds": {"type": "number", "minimum": 0},
+        "money": {
+          "oneOf": [
+            {"type": "null", "description": "No monetary spending authorized."},
+            {
+              "type": "object", "additionalProperties": false,
+              "required": ["currency", "minor_units_total", "minor_units_per_operation"],
+              "properties": {
+                "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+                "minor_units_total": {"type": "integer", "minimum": 0},
+                "minor_units_per_operation": {"type": "integer", "minimum": 0}
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "stringSet": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "kind": "read_only_source_snapshot",
+  "observed_date": "2026-09-23",
+  "repository": "molotroka123-cell/AiMaxBossman",
+  "target_branch": "release/bossman-owner",
+  "refresh_before_merge": true,
+  "runtime_tests_executed_by_documentation_session": false,
+  "notes": "Target SHA below is BEFORE this documentation commit. Branch heads can move. No ancestry or release certification is inferred solely from this map.",
+  "refs": {
+    "release/bossman-owner": "e0bf948dea18a02a5fc577a0c2de98fedbfdb8b6",
+    "fix/owner-run-20260923-p1": "1a29d85a4a471b549f274d18922e4c5485ed409f",
+    "evidence/owner-run-20260923": "010d19076951d2911dc1bade449bbdb509b4a31c",
+    "integrate/owner-final-20260922": "bd2fe23dab55704d60ed468bcbb4664475e49879",
+    "claude/bossman-cloud-closure-owner-a6s1ki": "3707d6ab7a16256871097dfa35f17b6ace644329",
+    "codex/bossman-v1.1-evolution": "3bc81aee999c79cf914ed40cc1822d8c0cb7e24d",
+    "claude/self-learning-orchestrator": "32f69d63700868b9e9bd50d75708b4e9f9416dec",
+    "fix/studio-seedance-durations-20260923": "99970958c6f1b880c28e8595b452b92974a52b93",
+    "feature/ai-streamer-higgsfield-browser-20260908": "128324713c140c908a7ad502ed5621e5ea22a6a6",
+    "main": "799fc3dd8e4327811be9d8f3e33cc43ce8168977"
+  },
+  "historical_owner_claims_not_new_certification": {
+    "self_repair": "SELF_REPAIR_SINGLE_CYCLE_PASS_COACHED",
+    "transfer": "NO_MEASURED_GAIN",
+    "current_candidate_exact_sha_ci": "NOT_RUN_IN_LATEST_READ_EVIDENCE",
+    "current_candidate_live_retests": "PENDING"
+  }
+}
