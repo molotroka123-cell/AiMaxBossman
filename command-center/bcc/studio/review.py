@@ -234,6 +234,32 @@ async def get(svc, rid):
 
 
 _lock = asyncio.Lock()
+GPU_WAIT_S, GPU_POLL_S = 1800, 10.0
+
+
+def local_media_busy():
+    """True while a local image/video engine (sd-cli) is rendering on this machine, from any
+    Bossman instance. Measured 23.09 on the Radeon 8060S: with sd-cli running, a vision request
+    carrying one 512 px frame hung for more than 300 s with the vision runner idle, while a text
+    request to the same model answered in 0.2 s. Frames must wait for the engine to finish."""
+    import psutil
+    for p in psutil.process_iter(['name']):
+        if (p.info.get('name') or '').lower() in ('sd-cli.exe', 'sd-cli'):
+            return True
+    return False
+
+
+async def gpu_free(base):
+    """Wait (bounded) until no local media engine is rendering; records the wait in base."""
+    waited = 0.0
+    while local_media_busy():
+        if waited >= GPU_WAIT_S:
+            base['gpu_wait_s'] = round(waited)
+            return False
+        await asyncio.sleep(GPU_POLL_S)
+        waited += GPU_POLL_S
+    base['gpu_wait_s'] = round(waited)
+    return True
 
 
 async def review_run(svc, rid, *, client=None):
@@ -265,6 +291,9 @@ async def review_run(svc, rid, *, client=None):
             base['motion'] = motion
             if not frames:
                 review = {**base, 'verdict': 'INSUFFICIENT_EVIDENCE', 'reason': 'no decodable frames'}
+            elif not await gpu_free(base):
+                review = {**base, 'verdict': 'INSUFFICIENT_EVIDENCE',
+                          'reason': f'gpu busy: a local video engine kept rendering for {base["gpu_wait_s"]} s'}
             else:
                 client = client or VisionClient()
                 try:

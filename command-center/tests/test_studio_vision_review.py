@@ -7,6 +7,8 @@ import sqlalchemy as sa
 from bcc.studio import review as rv
 from bcc.studio import runtime as rt
 
+REAL_BUSY = rv.local_media_busy
+
 FFMPEG = shutil.which('ffmpeg')
 needs_ffmpeg = pytest.mark.skipif(not FFMPEG, reason='bundled FFmpeg not on PATH')
 BAD_JSON = '```json\n{"verdict": "BAD", "score": 2, "defects": ["colour noise"], "owner_rules_violated": [], "summary": "шум"}\n```'
@@ -95,6 +97,12 @@ async def make_video(env, name='clip', source='testsrc2=size=160x96:rate=12:dura
             await s.commit()
     rid = await rt.persist(env.svc, jid, plane, model, path)
     return (rid, jid) if job else rid
+
+
+@pytest.fixture(autouse=True)
+def idle_gpu(monkeypatch):
+    # this machine may really be rendering (sd-cli) while the tests run; tests choose the GPU state
+    monkeypatch.setattr(rv, 'local_media_busy', lambda: False)
 
 
 @pytest.fixture
@@ -276,3 +284,37 @@ async def test_review_reads_the_same_file_the_verification_opened(env, quiet):
     fake = FakeVision(GOOD_JSON)
     out = await rv.review_run(env.svc, rid, client=fake)
     assert out['verdict'] == 'GOOD' and len(fake.images[0]) == rv.FRAMES
+
+
+@needs_ffmpeg
+async def test_frames_wait_for_a_rendering_engine_then_go(env, quiet, monkeypatch):
+    """Measured on the owner machine: while sd-cli renders, a vision request hangs. Wait, then look."""
+    states = iter([True, True, False])
+    monkeypatch.setattr(rv, 'local_media_busy', lambda: next(states))
+    monkeypatch.setattr(rv, 'GPU_POLL_S', 0.01)
+    rid = await make_video(env)
+    fake = FakeVision(GOOD_JSON)
+    out = await rv.review_run(env.svc, rid, client=fake)
+    assert out['verdict'] == 'GOOD' and len(fake.prompts) == 1 and out['gpu_wait_s'] == 0
+
+
+@needs_ffmpeg
+async def test_a_gpu_that_never_frees_is_insufficient_evidence_and_no_call(env, quiet, monkeypatch):
+    monkeypatch.setattr(rv, 'local_media_busy', lambda: True)
+    monkeypatch.setattr(rv, 'GPU_POLL_S', 0.01)
+    monkeypatch.setattr(rv, 'GPU_WAIT_S', 0.05)
+    rid = await make_video(env)
+    fake = FakeVision(GOOD_JSON)
+    out = await rv.review_run(env.svc, rid, client=fake)
+    assert out['verdict'] == 'INSUFFICIENT_EVIDENCE' and out['reason'].startswith('gpu busy') and not fake.prompts
+
+
+def test_local_media_busy_sees_only_the_media_engine(monkeypatch):
+    import psutil
+
+    class P:
+        def __init__(self, name): self.info = {'name': name}
+    monkeypatch.setattr(psutil, 'process_iter', lambda attrs: [P('python.exe'), P('SD-CLI.EXE')])
+    assert REAL_BUSY() is True
+    monkeypatch.setattr(psutil, 'process_iter', lambda attrs: [P('python.exe'), P('ollama.exe'), P(None)])
+    assert REAL_BUSY() is False
