@@ -106,6 +106,10 @@ class Settings:
     # effect is a Bossman task or a decision on Bossman's own approval queue.
     # Off by default; guests never get it.
     pc_control: bool = False
+    # Owner-only /jev: Jev (TypeSafe System-1) proposes ONE action from a closed list
+    # and the existing handler executes it with every gate. Endpoint/model/key come
+    # from the existing BOSSMAN_JEV_* settings. Off by default.
+    jev_enabled: bool = False
     # Owner-only Claude Code bridge (/claude), restored by the owner's decision on
     # 2026-09-22. Off by default; there is still no raw shell from Telegram.
     claude_bridge: bool = False
@@ -167,7 +171,7 @@ class Settings:
             raise ValueError("invalid learning cadence / priority")
         if type(self.fast_fallback) is not bool or type(self.enabled) is not bool:
             raise ValueError("fast_fallback and enabled must be booleans")
-        if type(self.pc_control) is not bool:
+        if type(self.pc_control) is not bool or type(self.jev_enabled) is not bool:
             raise ValueError("invalid computer console settings")
         from .claude_bridge import CODEX_SANDBOXES, PERMISSION_MODES
         if (type(self.claude_bridge) is not bool or not isinstance(self.claude_cwd, str)

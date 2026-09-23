@@ -14,6 +14,7 @@ from .adapters import (CURRENT_PRIORITY, IMAGE_MAX_BYTES, IMAGE_MIMES, Core, Mod
 from .config import CompanionError, Person, Settings
 from .agent_bridge import AGENT_COMMANDS, AgentBridgeMixin
 from .console import CONSOLE_COMMANDS, CONSOLE_OFF, NO_DIRECT_SHELL, ConsoleMixin
+from .jev_bridge import JevBridgeMixin
 from .store import Store
 
 HELP = ("Я Bossman, ваш ИИ-помощник на локальных моделях. Можно просто написать мне.\n\n"
@@ -237,7 +238,7 @@ def model_name(model_id: str) -> str:
     return re.sub(r"-0*1-of-\d+$", "", name)[:80] or "модель"
 
 
-class Companion(AgentBridgeMixin, ConsoleMixin):
+class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
     def __init__(self, settings: Settings, store: Store, telegram: Telegram, core: Core, models: Models,
                  *, policy_provider=None):
         self.settings, self.store = settings, store
@@ -671,6 +672,8 @@ class Companion(AgentBridgeMixin, ConsoleMixin):
         if command in {"/start", "/help", "/menu"}:
             title = "Пульт Bossman. Все действия идут через задачи и подтверждения." if command == "/menu" else HELP
             return Reply(title, self.main_menu(person))
+        if command == "/jev":
+            return await self.jev_command(person, arg, message)
         if command in AGENT_COMMANDS:
             return await self.agent_command(person, command, arg, message)
         if command in REMOVED_DIRECT_COMMANDS:
@@ -1054,7 +1057,7 @@ class Companion(AgentBridgeMixin, ConsoleMixin):
             await asyncio.sleep(pause)
             text = str(message.get("text", "")).strip()
             slow = lane == "chat" and bool(message.get("_image")) or lane == "chat" and bool(text) and (not text.startswith("/") or
-                                                      text.lower().startswith(("/fast ", "/best ", "/img ", "/video ")))
+                                                      text.lower().startswith(("/fast ", "/best ", "/img ", "/video ", "/jev ")))
             indicator = asyncio.create_task(self.typing(person)) if slow and self.telegram is not None else None
             model_lock = getattr(self.models, "lock", None)
             if slow and model_lock is not None and model_lock.locked():
