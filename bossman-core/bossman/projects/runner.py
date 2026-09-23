@@ -21,10 +21,16 @@ from ..agents import AgentSpec
 from ..config import settings
 from ..llm import chat
 from ..toolkit import REGISTRY, ToolContext
+from ..toolkit._proc import communicate_within, timeout_message, tree_spawn_kwargs
 from .plan import Plan, PlanTask, State, journal_append, journal_tail, load_plan, project_dir
 from .router import Route, choose, load_registry
 
 MAX_RETRIES = 2  # провал проверки → перегенерация с уточнённым промптом, максимум две попытки
+
+# Инструмент `kind: cmd` без таймаута держал проект вечно, а по отмене его дерево
+# (`sh -c 'echo | piper'`, python → воркеры) оставалось сиротой. Самый долгий
+# из registry.yaml — wan22_local, «~27 мин на клип (замер AMD)»: граница с запасом.
+CMD_TIMEOUT_S = 2 * 3600.0
 
 # F-005: шаблоны cmd в registry.yaml пишет владелец, но ПАРАМЕТРЫ в них подставляет
 # план, сочинённый моделью. Поэтому: (1) плейсхолдеры — только из известного набора,
@@ -186,12 +192,17 @@ async def _execute(slug: str, t: PlanTask, route: Route, state: State) -> tuple[
             # tests/test_stage13_hostexec_redteam.py::KNOWN_SHELL_EXCEPTIONS.
             proc = await asyncio.create_subprocess_shell(
                 argv[2], cwd=d,
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+                **tree_spawn_kwargs())
         else:
             proc = await asyncio.create_subprocess_exec(
                 *argv, cwd=d,
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
-        out, _ = await proc.communicate()
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+                **tree_spawn_kwargs())
+        done = await communicate_within(proc, CMD_TIMEOUT_S, own_group=True)
+        if done is None:
+            raise RuntimeError(f"{route.tool}: {timeout_message('процесс инструмента', CMD_TIMEOUT_S)}")
+        out = done[0] or b""
         if proc.returncode:
             raise RuntimeError(f"{route.tool}: код {proc.returncode}: {out.decode(errors='replace')[-500:]}")
     elif kind == "api":

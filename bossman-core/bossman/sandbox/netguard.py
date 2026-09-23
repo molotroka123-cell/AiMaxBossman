@@ -38,9 +38,28 @@ def _table_name(sandbox_id: str) -> str:
     return "bossman_sbx_" + _SAFE_NAME.sub("", sandbox_id.lower())[:24]
 
 
+#: nft без таймаута (занятый netlink, повисший ruleset) держал создание и снос
+#: песочницы вечно. Здоровый вызов — миллисекунды.
+NFT_TIMEOUT_S = 30.0
+NFT_TIMEOUT_CODE = 124
+
+
 def _nft(*args: str, check: bool = True) -> subprocess.CompletedProcess:
-    """Вызов nft строго массивом аргументов — без shell."""
-    return subprocess.run(["nft", *args], capture_output=True, text=True, check=check)
+    """Вызов nft строго массивом аргументов — без shell.
+
+    Таймаут — это неудачный вызов (код 124), а не новое исключение: available()
+    остаётся fail-closed, apply() падает как при отказе nft, remove() — тих."""
+    from ..apprentice.proc_tree import run_tree
+
+    argv = ["nft", *args]
+    res = run_tree(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                   timeout=NFT_TIMEOUT_S)
+    code = NFT_TIMEOUT_CODE if res.timed_out else res.returncode
+    err = (res.stderr or "") + (f"\nnft timeout {NFT_TIMEOUT_S:g}s: stopped" if res.timed_out else "")
+    done = subprocess.CompletedProcess(argv, code, res.stdout or "", err)
+    if check:
+        done.check_returncode()
+    return done
 
 
 def sandbox_uid(sandbox_id: str) -> int:

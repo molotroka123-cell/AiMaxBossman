@@ -20,11 +20,20 @@ import shutil
 from pathlib import Path
 
 from .. import errors
+from ..toolkit._proc import communicate_within, tree_spawn_kwargs
 
 # Размер/частота синтетического кадра: маленький и быстрый — тестам хватает,
 # а бокс не грузим. Прод-провайдеры переопределяют это в своих argv.
 _SYNTH_SIZE = "320x240"
 _SYNTH_RATE = "15"
+
+# Повисший ffmpeg/ffprobe (застрявший вход, дедлок фильтра) держал сцену и аренду
+# Resource Brain вечно: таймаута не было. По таймауту дерево процесса добивается.
+#: Рендер синтетического клипа 320x240@15 занимает секунды; граница — как у
+#: инструмента агента toolkit.media._run (900 с).
+RENDER_TIMEOUT_S = 900.0
+#: ffprobe / `ffmpeg -i` читают только заголовок контейнера.
+PROBE_TIMEOUT_S = 60.0
 
 _RE_DURATION = re.compile(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)")
 
@@ -110,8 +119,12 @@ async def run_testsrc(out_path: Path, duration_s: float) -> str:
         *argv,
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.PIPE,
+        **tree_spawn_kwargs(),
     )
-    _, err = await proc.communicate()
+    if await communicate_within(proc, RENDER_TIMEOUT_S, own_group=True) is None:
+        raise errors.VideoProviderFailed(
+            f"ffmpeg timeout {RENDER_TIMEOUT_S:g}s: process tree stopped", extra={"out": out_path.name}
+        )
     if proc.returncode != 0:
         # stderr не содержит секретов (только диагностика кодека) — но на всякий
         # случай отдаём короткий безопасный код, а не сырой вывод.
@@ -137,9 +150,13 @@ async def probe_media(path: str | Path) -> tuple[float, bool]:
             "-show_format", "-show_streams", str(p),
         ]
         proc = await asyncio.create_subprocess_exec(
-            *argv, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            *argv, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            **tree_spawn_kwargs(),
         )
-        out, _ = await proc.communicate()
+        done = await communicate_within(proc, PROBE_TIMEOUT_S, own_group=True)
+        if done is None:
+            return (0.0, False)  # как нечитаемый файл: validate_video_output → VideoInvalidOutput
+        out, _ = done
         if proc.returncode == 0:
             try:
                 data = json.loads(out or b"{}")
@@ -156,9 +173,13 @@ async def probe_media(path: str | Path) -> tuple[float, bool]:
         return (0.0, False)
     argv = [ffmpeg, "-nostdin", "-i", str(p)]
     proc = await asyncio.create_subprocess_exec(
-        *argv, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
+        *argv, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+        **tree_spawn_kwargs(),
     )
-    _, err = await proc.communicate()
+    done = await communicate_within(proc, PROBE_TIMEOUT_S, own_group=True)
+    if done is None:
+        return (0.0, False)
+    _, err = done
     text = (err or b"").decode("utf-8", "replace")
     dur = 0.0
     m = _RE_DURATION.search(text)

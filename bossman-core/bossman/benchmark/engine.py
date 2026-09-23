@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ..apprentice.proc_tree import run_tree
+
 BASELINE_SHA = "00686399b1c0b0bf9215bbbadd237925e3194c83"
 TIERS = ("smoke", "pr", "nightly", "release")
 MODES = ("MOCK", "SIMULATED", "REAL_SANDBOX", "LIVE")
@@ -34,11 +36,36 @@ class ShaMismatch(RuntimeError):
     """--sha names a commit that is not the code actually executing."""
 
 
+# git ran with no timeout: a hook, a credential/signing prompt or a lock held the
+# benchmark forever. It runs as a tree (run_tree: POSIX session + killpg, Windows
+# Job Object), because Git\cmd\git.exe on Windows is a launcher of the real git.
+GIT_TIMEOUT_S = 60.0              # rev-parse / status: milliseconds when healthy
+GIT_WORKTREE_TIMEOUT_S = 300.0    # checkout / removal of a whole worktree
+
+
 def _git(*args: str, cwd: Path | None = None) -> str:
     try:
-        return subprocess.check_output(["git", *args], cwd=cwd or _root(), text=True, stderr=subprocess.DEVNULL).strip()
+        res = run_tree(["git", *args], cwd=cwd or _root(), text=True, stdout=subprocess.PIPE,
+                       stderr=subprocess.DEVNULL, timeout=GIT_TIMEOUT_S)
     except Exception:  # benchmark remains usable from sdists without git
         return "unknown"
+    if res.timed_out or res.returncode:
+        return "unknown"
+    return (res.stdout or "").strip()
+
+
+def _git_worktree(args: list[str], cwd: Path, *, check: bool) -> None:
+    """`git worktree ...` bounded by GIT_WORKTREE_TIMEOUT_S; check=True keeps the
+    subprocess.run(check=True) contract and raises TimeoutExpired on a hang."""
+    cmd = ["git", "worktree", *args]
+    res = run_tree(cmd, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                   timeout=GIT_WORKTREE_TIMEOUT_S)
+    if not check:
+        return
+    if res.timed_out:
+        raise subprocess.TimeoutExpired(cmd, GIT_WORKTREE_TIMEOUT_S, output=res.stdout, stderr=res.stderr)
+    if res.returncode:
+        raise subprocess.CalledProcessError(res.returncode, cmd, output=res.stdout, stderr=res.stderr)
 
 
 def _hash_files(*paths: Path) -> str:
@@ -595,7 +622,11 @@ def run_isolated(sha: str, tier: str, output_root: Path, *, allow_live: bool = F
     output_root = Path(output_root).resolve()
     tmp = Path(tempfile.mkdtemp(prefix="bossman-bench-wt-"))
     wt = tmp / "wt"
-    subprocess.run(["git", "worktree", "add", "--detach", "-q", str(wt), full], cwd=root, check=True, capture_output=True, text=True)
+    try:
+        _git_worktree(["add", "--detach", "-q", str(wt), full], root, check=True)
+    except BaseException:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
     try:
         head = _git("rev-parse", "HEAD", cwd=wt)
         if head != full:
@@ -629,7 +660,7 @@ def run_isolated(sha: str, tier: str, output_root: Path, *, allow_live: bool = F
         return envelope
     finally:
         if not keep_worktree:
-            subprocess.run(["git", "worktree", "remove", "--force", str(wt)], cwd=root, check=False, capture_output=True)
+            _git_worktree(["remove", "--force", str(wt)], root, check=False)
             shutil.rmtree(tmp, ignore_errors=True)
 
 
