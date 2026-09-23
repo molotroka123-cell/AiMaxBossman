@@ -1,0 +1,701 @@
+{
+  "pages": [
+    {
+      "url": "https://www.mvcr.cz/",
+      "final_url": "https://mv.gov.cz/",
+      "retrieved_at": "2026-09-23T14:42:21+00:00",
+      "http_status": 200,
+      "sha256": "d5a1051194a1a3830a2fb41c6ac0542fd2643b8221eb01562e9a6e6891da30af",
+      "title": "Ministerstvo vnitra - Ministerstvo vnitra České republiky",
+      "official": "OFFICIAL:mv.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/",
+      "final_url": "https://ipc.gov.cz/",
+      "retrieved_at": "2026-09-23T14:42:21+00:00",
+      "http_status": 200,
+      "sha256": "b6cfc867e10027a48de66345e58991367e04387994d0ed58bcd6f69cedca0f59",
+      "title": "Úvodní stránka - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://mv.gov.cz/",
+      "final_url": "https://mv.gov.cz/",
+      "retrieved_at": "2026-09-23T14:42:21+00:00",
+      "http_status": 200,
+      "sha256": "d5a1051194a1a3830a2fb41c6ac0542fd2643b8221eb01562e9a6e6891da30af",
+      "title": "Ministerstvo vnitra - Ministerstvo vnitra České republiky",
+      "official": "OFFICIAL:mv.gov.cz"
+    },
+    {
+      "url": "https://mv.gov.cz/pro-cizince",
+      "final_url": "https://mv.gov.cz/pro-cizince",
+      "retrieved_at": "2026-09-23T14:42:21+00:00",
+      "http_status": 200,
+      "sha256": "8e50f1684653a20ed4012c4e021bc49620ec510da68402fd2869d11ca04c64d5",
+      "title": "Pro cizince - Ministerstvo vnitra České republiky",
+      "official": "OFFICIAL:mv.gov.cz"
+    },
+    {
+      "url": "https://mv.gov.cz/formulare-a-podani",
+      "final_url": "https://mv.gov.cz/formulare-a-podani-2",
+      "retrieved_at": "2026-09-23T14:42:22+00:00",
+      "http_status": 200,
+      "sha256": "4c150ef9212c07c0743f4e57402307b3268b717ea4f39e0f8e435711d7445cb6",
+      "title": "Formuláře a podání - Ministerstvo vnitra České republiky",
+      "official": "OFFICIAL:mv.gov.cz"
+    },
+    {
+      "url": "https://mv.gov.cz/snemovna-schvalila-novy-zakon-o-pobytu-cizincu-posili-bezpecnost-a-zlepsi-evidenci",
+      "final_url": "https://mv.gov.cz/snemovna-schvalila-novy-zakon-o-pobytu-cizincu-posili-bezpecnost-a-zlepsi-evidenci",
+      "retrieved_at": "2026-09-23T14:42:22+00:00",
+      "http_status": 200,
+      "sha256": "e35823178e2e14497e450303f4b8aa97e6b359781216002f3adcb982a7a8e442",
+      "title": "Sněmovna schválila nový zákon o pobytu cizinců. Posílí bezpečnost a zlepší evidenci - Ministerstvo vnitra České republiky",
+      "official": "OFFICIAL:mv.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/formulare-a-dokumenty/",
+      "final_url": "https://ipc.gov.cz/formulare-a-dokumenty/",
+      "retrieved_at": "2026-09-23T14:42:22+00:00",
+      "http_status": 200,
+      "sha256": "c033936266df87c237d511e24a932da9c28056fba8aae656a7d3683a430353e1",
+      "title": "Formuláře a dokumenty - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/typy-viz-a-pobytu/",
+      "final_url": "https://ipc.gov.cz/typy-viz-a-pobytu/",
+      "retrieved_at": "2026-09-23T14:42:22+00:00",
+      "http_status": 200,
+      "sha256": "429c50ae7b7f46879e44492033442d913b32e32be90377743583d95d909f172b",
+      "title": "Typy víz a pobytů - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/",
+      "retrieved_at": "2026-09-23T14:42:22+00:00",
+      "http_status": 200,
+      "sha256": "8ee7ecada5a3746f6734906809ed2d44e714c9e3c855a404a7f3c767964670b1",
+      "title": "Povinnosti cizinců - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/spravni-poplatky/",
+      "final_url": "https://ipc.gov.cz/spravni-poplatky/",
+      "retrieved_at": "2026-09-23T14:42:23+00:00",
+      "http_status": 200,
+      "sha256": "c93e9b44f19427d90ac59d669c31d5eaa284149fa8172f3cb2e51b64d20c3bf2",
+      "title": "Správní poplatky - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "retrieved_at": "2026-09-23T14:42:23+00:00",
+      "http_status": 200,
+      "sha256": "05e7ccfa0c4886ae8eba8297d70bf5ee61a8b09dba76f5b719d946ff789231b7",
+      "title": "Změny u občanů EU a jejich rodinných příslušníků - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-tretich-zemi/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-tretich-zemi/",
+      "retrieved_at": "2026-09-23T14:42:23+00:00",
+      "http_status": 200,
+      "sha256": "c545c3361045dd41e00cd06fe4f0fbae6d9f4e9b608c170ee49f181b699f30b5",
+      "title": "Změny u občanů třetích zemí - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/pruvodci-zadosti/",
+      "final_url": "https://ipc.gov.cz/pruvodci-zadosti/",
+      "retrieved_at": "2026-09-23T14:42:23+00:00",
+      "http_status": 200,
+      "sha256": "775853ad7a2c1fb0595587cff96bf50beb7664837551b0b4fefc66767aec6a66",
+      "title": "Průvodci žádostí - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/zvlastni-dlouhodoby-pobyt/",
+      "final_url": "https://ipc.gov.cz/zvlastni-dlouhodoby-pobyt/",
+      "retrieved_at": "2026-09-23T14:42:23+00:00",
+      "http_status": 200,
+      "sha256": "98cc75b68946a0428b56d042221ca1dae7e16ff08d0c3cda935dcbd80fba2804",
+      "title": "Zvláštní dlouhodobý pobyt - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/blizi-se-spusteni-registrace-ke-zvlastnimu-dlouhodobemu-pobytu-2/",
+      "final_url": "https://ipc.gov.cz/blizi-se-spusteni-registrace-ke-zvlastnimu-dlouhodobemu-pobytu-2/",
+      "retrieved_at": "2026-09-23T14:42:23+00:00",
+      "http_status": 200,
+      "sha256": "a38beb3216a94ad0890aee167e82a8ce564857da893c33bf54d7dc23f774b715",
+      "title": "Blíží se spuštění registrace ke zvláštnímu dlouhodobému pobytu - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/zapis-udaju-do-systemu-vstupu-vystupu-ees-v-souvislosti-s-cerpanim-pobytu-na-zaklade-bilateralni-dohody/",
+      "final_url": "https://ipc.gov.cz/zapis-udaju-do-systemu-vstupu-vystupu-ees-v-souvislosti-s-cerpanim-pobytu-na-zaklade-bilateralni-dohody/",
+      "retrieved_at": "2026-09-23T14:42:23+00:00",
+      "http_status": 200,
+      "sha256": "d6535bc929b8412ab977cd291fca2bc7b7829d4f86f34fdb157d9ad33829221c",
+      "title": "Zápis údajů do systému Vstupu/Výstupu (EES) v souvislosti s čerpáním pobytu na základě bilaterální dohody - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/zmena-kodu-dlouhodobych-viz-a-dlouhodobych-pobytu/",
+      "final_url": "https://ipc.gov.cz/zmena-kodu-dlouhodobych-viz-a-dlouhodobych-pobytu/",
+      "retrieved_at": "2026-09-23T14:42:24+00:00",
+      "http_status": 200,
+      "sha256": "e527e6db32d3cea11e11a3d2aa85654f333a3d31477f810a515d334b185eccd0",
+      "title": "Změna kódů dlouhodobých víz a dlouhodobých pobytů - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/zmena-spadovych-pracovist-pro-cizince-s-hlasenou-adresou-v-okrese-tabor/",
+      "final_url": "https://ipc.gov.cz/zmena-spadovych-pracovist-pro-cizince-s-hlasenou-adresou-v-okrese-tabor/",
+      "retrieved_at": "2026-09-23T14:42:24+00:00",
+      "http_status": 200,
+      "sha256": "526fb8d31609b67ea632ffd87a8eaa0f6c953bd4b0fb18aaabf2642b5f0d4816",
+      "title": "Změna spádových pracovišť pro cizince s hlášenou adresou v okrese Tábor - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/pravidla-pro-objednavani-prostrednictvim-informacniho-portalu-pro-cizince/",
+      "final_url": "https://ipc.gov.cz/pravidla-vyuzivani-informacniho-portalu-pro-cizince-a-internetoveho-objednavani/",
+      "retrieved_at": "2026-09-23T14:42:24+00:00",
+      "http_status": 200,
+      "sha256": "30890645087377a022a88009cda30158bb5f00ab6f3224cea840bc070835b9d7",
+      "title": "Pravidla využívání uživatelského účtu na Informačním portálu pro cizince - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://mv.gov.cz/migrace/vstup-cizincu-do-cr",
+      "final_url": "https://mv.gov.cz/migrace/vstup-cizincu-do-cr",
+      "retrieved_at": "2026-09-23T14:42:24+00:00",
+      "http_status": 200,
+      "sha256": "94c8b1e91a4d15b3a16a0c985b035e8a5654e70c6423cdaf029073e080fd5991",
+      "title": "Vstup cizinců do ČR - Ministerstvo vnitra České republiky",
+      "official": "OFFICIAL:mv.gov.cz"
+    },
+    {
+      "url": "https://mv.gov.cz/formulare-a-podani-2",
+      "final_url": "https://mv.gov.cz/formulare-a-podani-2",
+      "retrieved_at": "2026-09-23T14:42:24+00:00",
+      "http_status": 200,
+      "sha256": "4c150ef9212c07c0743f4e57402307b3268b717ea4f39e0f8e435711d7445cb6",
+      "title": "Formuláře a podání - Ministerstvo vnitra České republiky",
+      "official": "OFFICIAL:mv.gov.cz"
+    },
+    {
+      "url": "https://mv.gov.cz/formulare",
+      "final_url": "https://mv.gov.cz/formulare",
+      "retrieved_at": "2026-09-23T14:42:24+00:00",
+      "http_status": 200,
+      "sha256": "e0f30a5dfac3a6436a6daaea8780ca160a8a0a88c3094a7a6d438c1ff90f3650",
+      "title": "Formuláře - Ministerstvo vnitra České republiky",
+      "official": "OFFICIAL:mv.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/formulare-a-dokumenty/formulare-a-dokumenty-2-2/",
+      "final_url": "https://ipc.gov.cz/formulare-a-dokumenty/formulare-a-dokumenty-2-2/",
+      "retrieved_at": "2026-09-23T14:42:25+00:00",
+      "http_status": 200,
+      "sha256": "debca3c56559d0ad8dd9a859ba03183540797d9a0ca26038b090a41208987b75",
+      "title": "Formuláře ke stažení - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/formulare-a-dokumenty/nalezitosti-dokumenty/",
+      "final_url": "https://ipc.gov.cz/formulare-a-dokumenty/nalezitosti-dokumenty/",
+      "retrieved_at": "2026-09-23T14:42:25+00:00",
+      "http_status": 200,
+      "sha256": "0d6378777bb1206c57557031398a435363942a323f92c7fc9cdca4d8508145d3",
+      "title": "Náležitosti (dokumenty) - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/formulare-a-dokumenty/historie-pobytu/",
+      "final_url": "https://ipc.gov.cz/formulare-a-dokumenty/historie-pobytu/",
+      "retrieved_at": "2026-09-23T14:42:25+00:00",
+      "http_status": 200,
+      "sha256": "6ccd78d18af8384ad4e151ad412dcddd3a97625dc48c42b08b328ade7c73334d",
+      "title": "Historie pobytu - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/formulare-a-dokumenty/potvrzeni-o-pobytu/",
+      "final_url": "https://ipc.gov.cz/formulare-a-dokumenty/potvrzeni-o-pobytu/",
+      "retrieved_at": "2026-09-23T14:42:25+00:00",
+      "http_status": 200,
+      "sha256": "b67c8644de34cc0fe2ddc3d10eb8f4ade3ecc6080d998ff526f8a6b4f4620e1d",
+      "title": "Potvrzení o pobytu - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/typy-viz-a-pobytu/obcane-tretich-zemi/",
+      "final_url": "https://ipc.gov.cz/typy-viz-a-pobytu/obcane-tretich-zemi/",
+      "retrieved_at": "2026-09-23T14:42:25+00:00",
+      "http_status": 200,
+      "sha256": "4d9918dbac3536249a3eb70946e014e2704dc74fe0fd1c9d21d2f1debf03cdc3",
+      "title": "Občané třetích zemí - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/typy-viz-a-pobytu/obcane-evropske-unie/",
+      "final_url": "https://ipc.gov.cz/typy-viz-a-pobytu/obcane-evropske-unie/",
+      "retrieved_at": "2026-09-23T14:42:25+00:00",
+      "http_status": 200,
+      "sha256": "47ff3fc31acca65d1d72d2bfcdf0ce8f62e36a0dd10d599de3ab4cf53c1963ee",
+      "title": "Občané Evropské unie a jejich rodinní příslušníci - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/typy-viz-a-pobytu/obcane-spojeneho-kralovstvi-velke-britanie-a-severniho-irska/",
+      "final_url": "https://ipc.gov.cz/typy-viz-a-pobytu/obcane-spojeneho-kralovstvi-velke-britanie-a-severniho-irska/",
+      "retrieved_at": "2026-09-23T14:42:26+00:00",
+      "http_status": 200,
+      "sha256": "6bbf71ad7bd83835ed9d7ee5c9894dab38d3f852892ca72c93eefd3c6d0b8e51",
+      "title": "Občané Spojeného království Velké Británie a Severního Irska - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/povinnosti-obcanu-tretich-zemi-obecne/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/povinnosti-obcanu-tretich-zemi-obecne/",
+      "retrieved_at": "2026-09-23T14:42:26+00:00",
+      "http_status": 200,
+      "sha256": "577e58d956c2f6472017a71c1030477434980979918f4d87251e9942431e5ee3",
+      "title": "Povinnosti občanů třetích zemí - obecně - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/prijezd-do-ceske-republiky/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/prijezd-do-ceske-republiky/",
+      "retrieved_at": "2026-09-23T14:42:26+00:00",
+      "http_status": 200,
+      "sha256": "958ba804d4fa08240c13eb8db6ac824ff382b2c849ce27f4abc7dbc4d91f6f4b",
+      "title": "Příjezd občanů třetích zemí do České republiky - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/registrace-po-prijezdu/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/registrace-po-prijezdu/",
+      "retrieved_at": "2026-09-23T14:42:26+00:00",
+      "http_status": 200,
+      "sha256": "8b818c4b01694a546a5a27d9e43e882f0673db86aec80ca0c2919f1c6590070c",
+      "title": "Registrace po příjezdu - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-tretich-zemi",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-tretich-zemi/",
+      "retrieved_at": "2026-09-23T14:42:26+00:00",
+      "http_status": 200,
+      "sha256": "c545c3361045dd41e00cd06fe4f0fbae6d9f4e9b608c170ee49f181b699f30b5",
+      "title": "Změny u občanů třetích zemí - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/ztrata-odcizeni-nebo-poskozeni-dokladu/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/ztrata-odcizeni-nebo-poskozeni-dokladu/",
+      "retrieved_at": "2026-09-23T14:42:26+00:00",
+      "http_status": 200,
+      "sha256": "2a1a8897fea9aeeb59f8687b883a79c8c7f46786977b57eb895d731b9d0d218f",
+      "title": "Ztráta, odcizení nebo poškození dokladu - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/ukonceni-a-zruseni-pobytu-obcanu-tretich-zemi/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/ukonceni-a-zruseni-pobytu-obcanu-tretich-zemi/",
+      "retrieved_at": "2026-09-23T14:42:27+00:00",
+      "http_status": 200,
+      "sha256": "62daa42ee3bd3a2b618da49fa928a5f6c70fa6a92f33e8bff9a9eeecc69a2295",
+      "title": "Ukončení a zrušení pobytu občanů třetích zemí - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/povinnosti-obcanu-evropske-unie-a-jejich-rodinnych-prislusniku/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/povinnosti-obcanu-evropske-unie-a-jejich-rodinnych-prislusniku/",
+      "retrieved_at": "2026-09-23T14:42:27+00:00",
+      "http_status": 200,
+      "sha256": "457013a676e5de7d79c01ecd80f00bb351ff6a4370e52cec8a51debc07dc7e85",
+      "title": "Povinnosti občanů Evropské unie a jejich rodinných příslušníků - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/prijezd-do-ceske-republiky-eu/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/prijezd-do-ceske-republiky-eu/",
+      "retrieved_at": "2026-09-23T14:42:27+00:00",
+      "http_status": 200,
+      "sha256": "6be2da217b3d4b4e4dea5a2a01faa2a24deccc7202089ab09b66fc915bccaf98",
+      "title": "Příjezd občanů EU a jejich rodinných příslušníků do České republiky - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/registrace-po-prijezdu-do-ceske-republiky-eu/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/registrace-po-prijezdu-do-ceske-republiky-eu/",
+      "retrieved_at": "2026-09-23T14:42:27+00:00",
+      "http_status": 200,
+      "sha256": "06c4225f1ffb7b83b47222173332221fefc45005304b472396bdadae2b87adf0",
+      "title": "Registrace po příjezdu do České republiky - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/ztrata-odcizeni-nebo-poskozeni-dokladu-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/ztrata-odcizeni-nebo-poskozeni-dokladu-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "retrieved_at": "2026-09-23T14:42:27+00:00",
+      "http_status": 200,
+      "sha256": "a8704f0197088f048d2026f3f2838a40ffcbbd5a342b82369324c49f0f573489",
+      "title": "Ztráta, odcizení nebo poškození dokladu občanů EU a jejich rodinných příslušníků - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/ukonceni-a-zruseni-povoleni-k-pobytu-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/ukonceni-a-zruseni-povoleni-k-pobytu-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "retrieved_at": "2026-09-23T14:42:28+00:00",
+      "http_status": 200,
+      "sha256": "92a3d08bacb31378ec4b6d68471e68c73d81df91cf6ccddf29ab958c552742e1",
+      "title": "Ukončení a zrušení povolení k pobytu občanů EU a jejich rodinných příslušníků - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/spravni-rizeni/poplatky-obcane-tretich-zemi/",
+      "final_url": "https://ipc.gov.cz/spravni-rizeni/poplatky-obcane-tretich-zemi/",
+      "retrieved_at": "2026-09-23T14:42:28+00:00",
+      "http_status": 200,
+      "sha256": "1c86ce69458b3cbcff1b142ec643bbe4abea49d88965855a8821538ec2df9af3",
+      "title": "Poplatky – občané třetích zemí - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/spravni-rizeni/poplatky-obcane-eu-a-jejich-rodinni-prislusnici/",
+      "final_url": "https://ipc.gov.cz/spravni-rizeni/poplatky-obcane-eu-a-jejich-rodinni-prislusnici/",
+      "retrieved_at": "2026-09-23T14:42:28+00:00",
+      "http_status": 200,
+      "sha256": "60b55e87e32eb91f2c0b81cb62afe348a2dbd7dc2a16b323c6cffc6cd4fc2736",
+      "title": "Poplatky – občané EU a jejich rodinní příslušníci - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/pravidla-pouziti-generatoru-platebnich-udaju-pro-uhrazeni-spravniho-poplatku-odboru-azylove-a-migracni-politiky-ministerstva-vnitra/",
+      "final_url": "https://ipc.gov.cz/spravni-poplatky/pravidla-pouziti-generatoru-platebnich-udaju-pro-uhrazeni-spravniho-poplatku-odboru-azylove-a-migracni-politiky-ministerstva-vnitra/",
+      "retrieved_at": "2026-09-23T14:42:28+00:00",
+      "http_status": 200,
+      "sha256": "222bcb26df645a41d636c7839317337512afc895ae595b629b0fc15fd8c78e26",
+      "title": "Pravidla použití generátoru platebních údajů pro uhrazení správního poplatku odboru azylové a migrační politiky Ministerstva vnitra - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/zmena-adresy-u-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/zmena-adresy-u-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "retrieved_at": "2026-09-23T14:42:28+00:00",
+      "http_status": 200,
+      "sha256": "b537268c647f878548cc061b29f880a92eb925465a27921d1fa33e6f0138fe99",
+      "title": "Změna adresy u občanů EU a jejich rodinných příslušníků - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/zmena-cestovniho-dokladu-u-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/zmena-cestovniho-dokladu-u-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "retrieved_at": "2026-09-23T14:42:29+00:00",
+      "http_status": 200,
+      "sha256": "cae6e01b9cdc4de12521c94d35e82fb380843a15760214d74bd8385d020b922a",
+      "title": "Změna cestovního dokladu u občanů EU a jejich rodinných příslušníků - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/zmena-jmena-u-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/zmena-jmena-u-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "retrieved_at": "2026-09-23T14:42:29+00:00",
+      "http_status": 200,
+      "sha256": "38b675c2334d0014ce8e2f434a965ac8886233b573a50d3f8fbbc2048d1a3d4f",
+      "title": "Změna jména u občanů EU a jejich rodinných příslušníků - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/zmena-osobniho-stavu-u-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/zmena-osobniho-stavu-u-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "retrieved_at": "2026-09-23T14:42:29+00:00",
+      "http_status": 200,
+      "sha256": "213830a18a726287086ea558d80421b6242ad285c536de3c68fdcfde1519cbaf",
+      "title": "Změna osobního stavu u občanů EU a jejich rodinných příslušníků - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/ostatni-zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/ostatni-zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/",
+      "retrieved_at": "2026-09-23T14:42:29+00:00",
+      "http_status": 200,
+      "sha256": "02d3c8d5479ab584dbbeb92ceb347a3f55d1dc72178d2bffc08e6c187e89fc30",
+      "title": "Ostatní změny u občanů EU a jejich rodinných příslušníků - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/vymena-prukazu-o-povoleni-k-trvalemu-pobytu-obcana-eu/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-eu-a-jejich-rodinnych-prislusniku/vymena-prukazu-o-povoleni-k-trvalemu-pobytu-obcana-eu/",
+      "retrieved_at": "2026-09-23T14:42:29+00:00",
+      "http_status": 200,
+      "sha256": "1be03f29c01bd9dfc009c1a4617e8afa45a4474725153887e3c31cb5bf03304b",
+      "title": "Výměna průkazu o povolení k trvalému pobytu občana EU - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-tretich-zemi/zmena-adresy-u-obcanu-tretich-zemi/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-tretich-zemi/zmena-adresy-u-obcanu-tretich-zemi/",
+      "retrieved_at": "2026-09-23T14:42:30+00:00",
+      "http_status": 200,
+      "sha256": "4b107e7dbfcf6525c92d15c8bbb91ddb05723750b86c4b9f1fb498d1a7b5e966",
+      "title": "Změna adresy u občanů třetích zemí - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-tretich-zemi/zmena-cestovniho-dokladu-u-obcanu-tretich-zemi/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-tretich-zemi/zmena-cestovniho-dokladu-u-obcanu-tretich-zemi/",
+      "retrieved_at": "2026-09-23T14:42:30+00:00",
+      "http_status": 200,
+      "sha256": "f2b52e041e510553aabed0e71a42b04b0768678fabe3a483772f128a6d0774d8",
+      "title": "Změna cestovního dokladu u občanů třetích zemí - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-tretich-zemi/zmena-jmena-u-obcanu-tretich-zemi/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-tretich-zemi/zmena-jmena-u-obcanu-tretich-zemi/",
+      "retrieved_at": "2026-09-23T14:42:30+00:00",
+      "http_status": 200,
+      "sha256": "c78d18d925d58912fb81b86ec155cc2264a7a10f87ce27c764f802b51cd326a0",
+      "title": "Změna jména u občanů třetích zemí - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-tretich-zemi/zmena-osobniho-stavu-u-obcanu-tretich-zemi/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-tretich-zemi/zmena-osobniho-stavu-u-obcanu-tretich-zemi/",
+      "retrieved_at": "2026-09-23T14:42:30+00:00",
+      "http_status": 200,
+      "sha256": "c40b78625c0e04da14a0fcb66c81d2717c0c9b988383e6dbd29086eea8e92b27",
+      "title": "Změna osobního stavu u občanů třetích zemí - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-tretich-zemi/ostatni-zmeny-u-obcanu-tretich-zemi/",
+      "final_url": "https://ipc.gov.cz/povinnosti-cizincu/zmeny-u-obcanu-tretich-zemi/ostatni-zmeny-u-obcanu-tretich-zemi/",
+      "retrieved_at": "2026-09-23T14:42:30+00:00",
+      "http_status": 200,
+      "sha256": "8e8f52c03ab254e4a526d3b52e82e91cf91a4dbfa7572970588d46b8e620fa2f",
+      "title": "Ostatní změny u občanů třetích zemí - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/typy-viz-a-pobytu/obcane-tretich-zemi/dlouhodobe-pobyty/modra-karta/",
+      "final_url": "https://ipc.gov.cz/typy-viz-a-pobytu/obcane-tretich-zemi/dlouhodobe-pobyty/modra-karta/",
+      "retrieved_at": "2026-09-23T14:42:31+00:00",
+      "http_status": 200,
+      "sha256": "96ef5c1d39c9dda16a8e56d46da69a0b0e9bf98807eeff5979667122bcefa938",
+      "title": "Modrá karta - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/typy-viz-a-pobytu/obcane-tretich-zemi/dlouhodobe-pobyty/zamestnanecka-karta/zamestnanecka-karta-zmena-zamestnani/",
+      "final_url": "https://ipc.gov.cz/typy-viz-a-pobytu/obcane-tretich-zemi/dlouhodobe-pobyty/zamestnanecka-karta/zamestnanecka-karta-zmena-zamestnani/",
+      "retrieved_at": "2026-09-23T14:42:31+00:00",
+      "http_status": 200,
+      "sha256": "123a90d1f6c63ec768a7a4d2ddfb3e96b0887a50f3d330907f2b8948cc7fdf70",
+      "title": "Zaměstnanecká karta – změna zaměstnání - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/pruvodce-vyberem-zadosti/",
+      "final_url": "https://ipc.gov.cz/pruvodci-zadosti/pruvodce-vyberem-zadosti/",
+      "retrieved_at": "2026-09-23T14:42:31+00:00",
+      "http_status": 200,
+      "sha256": "8e73676dae7fff409498ba603d2a934a2d126d16c429b547404ec280b75ef0cd",
+      "title": "Průvodce výběrem žádosti - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/pruvodce-vyberem-zadosti-prodlouzeni/",
+      "final_url": "https://ipc.gov.cz/pruvodci-zadosti/pruvodce-vyberem-zadosti-prodlouzeni/",
+      "retrieved_at": "2026-09-23T14:42:31+00:00",
+      "http_status": 200,
+      "sha256": "00c91cee94872a128f03211206955a5dbf102ca41d252e057eb3e21f0dceaad0",
+      "title": "Průvodce výběrem žádosti – prodloužení - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/obecne-informace-ke-zvlastnimu-dlouhodobemu-pobytu/",
+      "final_url": "https://ipc.gov.cz/zvlastni-dlouhodoby-pobyt/obecne-informace-ke-zvlastnimu-dlouhodobemu-pobytu/",
+      "retrieved_at": "2026-09-23T14:42:32+00:00",
+      "http_status": 200,
+      "sha256": "258a9b833142e857623ba1e67211148b6446339ec6099dfe7f05e1824facb409",
+      "title": "Obecné informace ke zvláštnímu dlouhodobému pobytu - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    },
+    {
+      "url": "https://ipc.gov.cz/kdo-muze-ziskat-zvlastni-dlouhodoby-pobyt/",
+      "final_url": "https://ipc.gov.cz/zvlastni-dlouhodoby-pobyt/kdo-muze-ziskat-zvlastni-dlouhodoby-pobyt/",
+      "retrieved_at": "2026-09-23T14:42:32+00:00",
+      "http_status": 200,
+      "sha256": "c75462e0913e1a58480ec73dc22527973017921e57e0def5f7e6e99a94f6ac8a",
+      "title": "Kdo může získat zvláštní dlouhodobý pobyt? - ipc.gov.cz",
+      "official": "OFFICIAL:ipc.gov.cz"
+    }
+  ],
+  "rejected": [],
+  "external_ignored": [
+    {
+      "url": "https://dfmv-p.gov.cz/",
+      "text": "Interaktivní formulářeOdkaz na Podací portál Ministerstva vnitra ČR",
+      "page": "https://mv.gov.cz/formulare-a-podani-2",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://www.zakonyprolidi.cz/cs/1999-326?text=%C2%A7%20103",
+      "text": "zákon o pobytu cizinců",
+      "page": "https://ipc.gov.cz/povinnosti-cizincu/povinnosti-obcanu-evropske-unie-a-jejich-rodinnych-prislusniku/",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://policie.gov.cz/clanek/oddeleni-pobytovych-agend.aspx",
+      "text": "odbor cizinecké policie",
+      "page": "https://ipc.gov.cz/zapis-udaju-do-systemu-vstupu-vystupu-ees-v-souvislosti-s-cerpanim-pobytu-na-zaklade-bilateralni-dohody/",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://mzv.gov.cz/jnp/cz/informace_pro_cizince/kratkodobe_vizum/seznam_statu_jejichz_obcane_nepodlehaji/index.html",
+      "text": "Přehled států, jejichž občané pro krátkodobé cesty do schengenského prostoru vízum nepotřebují",
+      "page": "https://mv.gov.cz/migrace/vstup-cizincu-do-cr",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://mzv.gov.cz/jnp/cz/informace_pro_cizince/kratkodobe_vizum/seznam_statu_jejichz_obcane_podlehaji/index.html",
+      "text": "Přehled států, jejichž občané potřebují vízum pro cesty do schengenského prostoru",
+      "page": "https://mv.gov.cz/migrace/vstup-cizincu-do-cr",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://mzv.gov.cz/jnp/cz/informace_pro_cizince/index.html",
+      "text": "aktuálních informacích Ministerstva zahraničních věcí",
+      "page": "https://mv.gov.cz/migrace/vstup-cizincu-do-cr",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://mzv.gov.cz/jnp/cz/informace_pro_cizince/kratkodobe_vizum/index.html",
+      "text": "Podrobné informace k typům víz, náležitostem žádosti a podání žádosti zveřejňuje Ministerstvo zahraničních věcí",
+      "page": "https://mv.gov.cz/migrace/vstup-cizincu-do-cr",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://mzv.gov.cz/jnp/cz/informace_pro_cizince/pobytova_opravneni_k_pobytu_nad_90_dnu/mistni_prislusnost_zu_v_rizeni_o_vizum_a/index.html",
+      "text": "pravidel místní konzulární příslušnosti",
+      "page": "https://mv.gov.cz/migrace/vstup-cizincu-do-cr",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://mzv.gov.cz/jnp/cz/informace_pro_cizince/prehled_nalezitosti/doklad_o_financich.html",
+      "text": "Finanční prostředky pro krátkodobé vízum",
+      "page": "https://mv.gov.cz/migrace/vstup-cizincu-do-cr",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://mzv.gov.cz/jnp/cz/informace_pro_cizince/prehled_nalezitosti/cestovni_zdravotni_pojisteni.html",
+      "text": "Cestovní zdravotní pojištění pro Schengenská víza",
+      "page": "https://mv.gov.cz/migrace/vstup-cizincu-do-cr",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://www.zakonyprolidi.cz/cs/1999-326?text=%C2%A7%20182",
+      "text": "§ 182 odst. 2 zákona o pobytu cizinců",
+      "page": "https://ipc.gov.cz/formulare-a-dokumenty/formulare-a-dokumenty-2-2/",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://policie.gov.cz/reditelstvi-sluzby-cizinecke-policie/oddeleni-pobytovych-agend",
+      "text": "příslušnému odboru cizinecké policie",
+      "page": "https://ipc.gov.cz/povinnosti-cizincu/registrace-po-prijezdu-do-ceske-republiky-eu/",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://policie.gov.cz/reditelstvi-sluzby-cizinecke-policie/hlaseni-pobytu-cizincu",
+      "text": "podrobnější informace k registraci pobytu u odboru cizinecké policie",
+      "page": "https://ipc.gov.cz/povinnosti-cizincu/registrace-po-prijezdu-do-ceske-republiky-eu/",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://www.policie.cz/clanek/hlaseni-pobytu-cizincu.aspx",
+      "text": "splnili u ubytovatele",
+      "page": "https://ipc.gov.cz/povinnosti-cizincu/registrace-po-prijezdu-do-ceske-republiky-eu/",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://www.mzv.cz/jnp/cz/informace_pro_cizince/prehled_vizovych_poplatku/index.html",
+      "text": "konzulární poplatek",
+      "page": "https://ipc.gov.cz/typy-viz-a-pobytu/obcane-tretich-zemi/dlouhodobe-pobyty/modra-karta/",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    },
+    {
+      "url": "https://www.zakonyprolidi.cz/cs/2004-634",
+      "text": "Správní poplatky vybírané Odborem azylové a migrační politiky Ministerstva vnitra ČR podle položek 2 písm. d), 3 písm. a), 115 písm. d) a h), 116, 117A sazebníku správních poplatků, která je přílohou ",
+      "page": "https://ipc.gov.cz/spravni-poplatky/pravidla-pouziti-generatoru-platebnich-udaju-pro-uhrazeni-spravniho-poplatku-odboru-azylove-a-migracni-politiky-ministerstva-vnitra/",
+      "reason": "NOT_OFFICIAL_DOMAIN"
+    }
+  ],
+  "documents": [
+    {
+      "kind": "form",
+      "source_url": "https://ipc.gov.cz/wp-content/uploads/2022/12/Tiskopis_zadosti_o_vydani_povoleni_k_trvalemu_pobytu_-_obcane_3_zemi-4.pdf",
+      "page": "https://ipc.gov.cz/formulare-a-dokumenty/formulare-a-dokumenty-2-2/",
+      "link_text": "Tiskopis žádosti o povolení k trvalému pobytu občana třetí země",
+      "final_url": "https://ipc.gov.cz/wp-content/uploads/2022/12/Tiskopis_zadosti_o_vydani_povoleni_k_trvalemu_pobytu_-_obcane_3_zemi-4.pdf",
+      "retrieved_at": "2026-09-23T14:42:32+00:00",
+      "http_status": 200,
+      "content_type_header": "application/pdf",
+      "size": 834151,
+      "sha256": "4385a5b5668fa8670c88c4886ec2e59ec2d2cdcce5c702153224ccb7e3720f19",
+      "sniffed_type": "application/pdf",
+      "valid": true,
+      "path": "downloads/original/4385a5b5668f_Tiskopis_zadosti_o_vydani_povoleni_k_trvalemu_pobytu_-_obcane_3_zemi-4.pdf",
+      "pages": 5,
+      "form_fields": 0,
+      "version_date": null,
+      "fees": []
+    },
+    {
+      "kind": "instructions",
+      "source_url": "https://ipc.gov.cz/wp-content/uploads/2024/11/Zadost-o-vraceni-spravniho-poplatku-nebo-jeho-preplatku.pdf",
+      "page": "https://ipc.gov.cz/spravni-rizeni/poplatky-obcane-eu-a-jejich-rodinni-prislusnici/",
+      "link_text": "zde",
+      "final_url": "https://ipc.gov.cz/wp-content/uploads/2024/11/Zadost-o-vraceni-spravniho-poplatku-nebo-jeho-preplatku.pdf",
+      "retrieved_at": "2026-09-23T14:42:33+00:00",
+      "http_status": 200,
+      "content_type_header": "application/pdf",
+      "size": 135871,
+      "sha256": "58ca0f3de6587d9518b5e2bd5a9aad28bb5d708f9a8568b06608c9b859706df4",
+      "sniffed_type": "application/pdf",
+      "valid": true,
+      "path": "downloads/original/58ca0f3de658_Zadost-o-vraceni-spravniho-poplatku-nebo-jeho-preplatku.pdf",
+      "pages": 1,
+      "form_fields": 0,
+      "version_date": null,
+      "fees": []
+    }
+  ],
+  "stale": [],
+  "rejected_downloads": [
+    {
+      "kind": "form",
+      "source_url": "https://ipc.gov.cz/wp-content/uploads/2025/01/Tiskopis-zadosti-o-TP-vyplnovaci_12122024_ZAM.pdf",
+      "page": "https://ipc.gov.cz/formulare-a-dokumenty/formulare-a-dokumenty-2-2/",
+      "link_text": "Tiskopis žádosti o povolení k trvalému pobytu pro občany EU a jejich rodinné příslušníky",
+      "final_url": "https://ipc.gov.cz/wp-content/uploads/2025/01/Tiskopis-zadosti-o-TP-vyplnovaci_12122024_ZAM.pdf",
+      "retrieved_at": "2026-09-23T14:42:33+00:00",
+      "http_status": 200,
+      "content_type_header": "application/pdf",
+      "size": 1584995,
+      "sha256": "1204eb7be6e5fb7e52aec3327b0b0bb55ceca187ac04956e29d7aca0336df194",
+      "sniffed_type": "application/pdf",
+      "valid": false,
+      "reason": "UNREADABLE_PDF:ENCRYPTED_PDF"
+    }
+  ]
+}

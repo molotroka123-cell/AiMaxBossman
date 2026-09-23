@@ -1,0 +1,858 @@
+{
+  "run_id": "OR0923-coach-main",
+  "status": "LOCAL_LEARNING_GAIN_MEASURED",
+  "manifest": {
+    "run_id": "OR0923-coach-main",
+    "created_at": "2026-09-23T14:27:13Z",
+    "git_head": "unknown",
+    "python": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "backend": {
+      "name": "local",
+      "label": "local OpenAI-compatible endpoint http://127.0.0.1:11500 model=bossman-main-qwen38-27b-q5:latest",
+      "endpoint": "http://127.0.0.1:11500",
+      "model": "bossman-main-qwen38-27b-q5:latest",
+      "temperature": 0.0,
+      "seed": 7
+    },
+    "runtime": {
+      "max_attempts": 2,
+      "test_timeout_s": 10,
+      "tool_permissions": {
+        "python_subprocess": "isolated (-I), tmp dir, no network use by the runner",
+        "filesystem": "task file in a temp dir only",
+        "network": "model endpoint only",
+        "shell": false,
+        "browser": false
+      },
+      "project_id": "coaching-pack",
+      "lessons_dir": "C:\\Users\\asd\\Bossman\\wt-run0923\\owner-repair\\owner-run-20260923\\OR0923-bd2fe23d\\learning\\coaching-pilot-main\\lessons"
+    },
+    "pack": {
+      "dir": "C:\\Users\\asd\\Bossman Test 0923\\BOSSMAN-Windows-x64-bd2fe23dab55\\app-support\\coaching-pack",
+      "train": [
+        {
+          "task_id": "train-01-sum-inclusive",
+          "fingerprint": "0cfab7d43acb47ca"
+        },
+        {
+          "task_id": "train-02-broken-counter",
+          "fingerprint": "42a1ab83522972b0"
+        },
+        {
+          "task_id": "train-03-safe-max",
+          "fingerprint": "1afd7859f4ca9d43"
+        },
+        {
+          "task_id": "train-04-sort-names",
+          "fingerprint": "a00f98fd6abc61b4"
+        },
+        {
+          "task_id": "train-05-split-evenly",
+          "fingerprint": "47fd58145d179b71"
+        }
+      ],
+      "holdout": [
+        {
+          "task_id": "holdout-01-count-inclusive",
+          "fingerprint": "ea67870d1f85b0da"
+        },
+        {
+          "task_id": "holdout-02-tally-reset",
+          "fingerprint": "d72ec25761f92616"
+        },
+        {
+          "task_id": "holdout-03-average",
+          "fingerprint": "5c8bf233014bdfe0"
+        },
+        {
+          "task_id": "holdout-04-dedupe-ci",
+          "fingerprint": "6a2f642ac60bcb6c"
+        },
+        {
+          "task_id": "holdout-05-pages-needed",
+          "fingerprint": "0c4e7fb3a097d4ce"
+        }
+      ]
+    },
+    "weights_unchanged": true,
+    "fine_tuning": "none"
+  },
+  "metrics": {
+    "unassisted/train": {
+      "tasks": 5,
+      "pass_at_1": 1.0,
+      "student_pass_any_attempt": 1.0,
+      "teacher_patch_passes_not_student": 0,
+      "attempts": 5,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 21.11
+    },
+    "unassisted/holdout": {
+      "tasks": 5,
+      "pass_at_1": 1.0,
+      "student_pass_any_attempt": 1.0,
+      "teacher_patch_passes_not_student": 0,
+      "attempts": 5,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 25.687
+    },
+    "unassisted/all": {
+      "tasks": 10,
+      "pass_at_1": 1.0,
+      "student_pass_any_attempt": 1.0,
+      "teacher_patch_passes_not_student": 0,
+      "attempts": 10,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 46.797
+    },
+    "teacher_patch/train": {
+      "tasks": 5,
+      "pass_at_1": 1.0,
+      "student_pass_any_attempt": 1.0,
+      "teacher_patch_passes_not_student": 0,
+      "attempts": 5,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 20.188
+    },
+    "teacher_patch/all": {
+      "tasks": 5,
+      "pass_at_1": 1.0,
+      "student_pass_any_attempt": 1.0,
+      "teacher_patch_passes_not_student": 0,
+      "attempts": 5,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 20.188
+    },
+    "coached/train": {
+      "tasks": 5,
+      "pass_at_1": 1.0,
+      "student_pass_any_attempt": 1.0,
+      "teacher_patch_passes_not_student": 0,
+      "attempts": 5,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 20.0
+    },
+    "coached/holdout": {
+      "tasks": 5,
+      "pass_at_1": 1.0,
+      "student_pass_any_attempt": 1.0,
+      "teacher_patch_passes_not_student": 0,
+      "attempts": 5,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 24.656
+    },
+    "coached/all": {
+      "tasks": 10,
+      "pass_at_1": 1.0,
+      "student_pass_any_attempt": 1.0,
+      "teacher_patch_passes_not_student": 0,
+      "attempts": 10,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 44.656
+    }
+  },
+  "learning_gain": {
+    "holdout_pass_at_1_unassisted": 1.0,
+    "holdout_pass_at_1_coached": 1.0,
+    "delta": 0.0,
+    "label": "measured on the configured local endpoint"
+  },
+  "results": [
+    {
+      "task_id": "train-01-sum-inclusive",
+      "split": "train",
+      "task_class": "off-by-one",
+      "profile": "unassisted",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 3.204,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:unassisted:train-01-sum-inclusive:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "train-02-broken-counter",
+      "split": "train",
+      "task_class": "broken-counter",
+      "profile": "unassisted",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 6.859,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:unassisted:train-02-broken-counter:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "train-03-safe-max",
+      "split": "train",
+      "task_class": "empty-input",
+      "profile": "unassisted",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 3.094,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:unassisted:train-03-safe-max:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "train-04-sort-names",
+      "split": "train",
+      "task_class": "case-insensitive-order",
+      "profile": "unassisted",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 2.562,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:unassisted:train-04-sort-names:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "train-05-split-evenly",
+      "split": "train",
+      "task_class": "integer-division",
+      "profile": "unassisted",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 5.391,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:unassisted:train-05-split-evenly:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-01-count-inclusive",
+      "split": "holdout",
+      "task_class": "off-by-one",
+      "profile": "unassisted",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 2.969,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:unassisted:holdout-01-count-inclusive:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "3 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-02-tally-reset",
+      "split": "holdout",
+      "task_class": "broken-counter",
+      "profile": "unassisted",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 7.125,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:unassisted:holdout-02-tally-reset:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "3 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-03-average",
+      "split": "holdout",
+      "task_class": "empty-input",
+      "profile": "unassisted",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 3.734,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:unassisted:holdout-03-average:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "3 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-04-dedupe-ci",
+      "split": "holdout",
+      "task_class": "case-insensitive-order",
+      "profile": "unassisted",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 7.125,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:unassisted:holdout-04-dedupe-ci:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "3 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-05-pages-needed",
+      "split": "holdout",
+      "task_class": "integer-division",
+      "profile": "unassisted",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 4.734,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:unassisted:holdout-05-pages-needed:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "train-01-sum-inclusive",
+      "split": "train",
+      "task_class": "off-by-one",
+      "profile": "teacher_patch",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 2.938,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:teacher_patch:train-01-sum-inclusive:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "train-02-broken-counter",
+      "split": "train",
+      "task_class": "broken-counter",
+      "profile": "teacher_patch",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 6.781,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:teacher_patch:train-02-broken-counter:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "train-03-safe-max",
+      "split": "train",
+      "task_class": "empty-input",
+      "profile": "teacher_patch",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 2.938,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:teacher_patch:train-03-safe-max:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "train-04-sort-names",
+      "split": "train",
+      "task_class": "case-insensitive-order",
+      "profile": "teacher_patch",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 2.328,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:teacher_patch:train-04-sort-names:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "train-05-split-evenly",
+      "split": "train",
+      "task_class": "integer-division",
+      "profile": "teacher_patch",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 5.203,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:teacher_patch:train-05-split-evenly:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "train-01-sum-inclusive",
+      "split": "train",
+      "task_class": "off-by-one",
+      "profile": "coached",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 2.875,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:coached:train-01-sum-inclusive:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "train-02-broken-counter",
+      "split": "train",
+      "task_class": "broken-counter",
+      "profile": "coached",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 6.719,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:coached:train-02-broken-counter:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "train-03-safe-max",
+      "split": "train",
+      "task_class": "empty-input",
+      "profile": "coached",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 2.937,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:coached:train-03-safe-max:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "train-04-sort-names",
+      "split": "train",
+      "task_class": "case-insensitive-order",
+      "profile": "coached",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 2.313,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:coached:train-04-sort-names:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "train-05-split-evenly",
+      "split": "train",
+      "task_class": "integer-division",
+      "profile": "coached",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 5.156,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:coached:train-05-split-evenly:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-01-count-inclusive",
+      "split": "holdout",
+      "task_class": "off-by-one",
+      "profile": "coached",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 2.75,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:coached:holdout-01-count-inclusive:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "3 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-02-tally-reset",
+      "split": "holdout",
+      "task_class": "broken-counter",
+      "profile": "coached",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 6.984,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:coached:holdout-02-tally-reset:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "3 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-03-average",
+      "split": "holdout",
+      "task_class": "empty-input",
+      "profile": "coached",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 3.563,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:coached:holdout-03-average:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "3 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-04-dedupe-ci",
+      "split": "holdout",
+      "task_class": "case-insensitive-order",
+      "profile": "coached",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 6.89,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:coached:holdout-04-dedupe-ci:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "3 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-05-pages-needed",
+      "split": "holdout",
+      "task_class": "integer-division",
+      "profile": "coached",
+      "student_pass_at_1": true,
+      "student_passed": true,
+      "teacher_patch_passed": false,
+      "attempts": 1,
+      "tool_errors": 0,
+      "interventions": 0,
+      "lessons_injected": 0,
+      "lessons_written": 0,
+      "lessons_rejected": 0,
+      "wall_time_s": 4.469,
+      "attempt_log": [
+        {
+          "attempt_id": "OR0923-coach-main:coached:holdout-05-pages-needed:a1",
+          "n": 1,
+          "passed": true,
+          "observation": "4 hidden tests passed",
+          "tool_error": false,
+          "by": "student"
+        }
+      ]
+    }
+  ],
+  "lessons_at_startup": 0,
+  "lessons_after_run": 0,
+  "verified_after_run": 0,
+  "lessons_rejected_at_write": 0,
+  "lessons_filtered_at_read": 0,
+  "holdout_task_ids": [
+    "holdout-01-count-inclusive",
+    "holdout-02-tally-reset",
+    "holdout-03-average",
+    "holdout-04-dedupe-ci",
+    "holdout-05-pages-needed"
+  ],
+  "weights_unchanged": true
+}

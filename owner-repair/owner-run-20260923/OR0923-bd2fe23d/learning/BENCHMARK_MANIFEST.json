@@ -1,0 +1,77 @@
+{
+ "frozen_at": "2026-09-23T14:40Z (before any student attempt)",
+ "tested_sha": "bd2fe23dab55704d60ed468bcbb4664475e49879",
+ "student": {
+  "executor": "bossman-local-sidecar via /api/coding-tasks (bossman code)",
+  "model": "Qwen3.8-27B UD-Q5_K_M (Ollama no-think shim)",
+  "tools": [
+   "list_dir",
+   "read_file",
+   "search",
+   "edit_file",
+   "write_file",
+   "run_tests(unittest)",
+   "finish"
+  ]
+ },
+ "budget": {
+  "per_attempt_minutes": 40,
+  "campaign_minutes": 180,
+  "cloud_usd": 0
+ },
+ "hint_ladder": [
+  "L1 violated requirement",
+  "L2 cause class",
+  "L3 diagnostic check",
+  "L4 approach",
+  "L5 teacher patch"
+ ],
+ "cases": [
+  {
+   "id": "D1-TRAIN",
+   "kind": "real Bossman defect found in this run",
+   "repo": "projects/bossman-tools-lab (tools/ @ bd2fe23d)",
+   "symptom": "every .cmd launcher in the built Windows archive has CR CR LF line ends",
+   "criteria": [
+    "student regression (unittest) fails on baseline, passes on candidate",
+    "hidden verifier hv_d1 PASS on candidate",
+    "hv_d1 FAIL on baseline (confirmed)",
+    "diff limited to tools/ and tests/",
+    "no other test weakened"
+   ],
+   "hidden_verifier_sha256": "d8edecbd2de9db43fb134ba8c7d71145b206ee3a56243ec81b0f89ba73427773"
+  },
+  {
+   "id": "D2-TRANSFER-UNSEEN",
+   "kind": "sealed analogous fixture (different code path: open(...,'w') + '\r\n'.join, CSV export)",
+   "template_sha256": "e4e7c6e929fa148d66e9d43fe12b2f77e99f9a055b8bca65bda428b22d87ad8f",
+   "symptom": "accountant sees empty rows between lines when opening exported CSV in Excel on Windows",
+   "criteria": [
+    "no teacher hints (L0 only)",
+    "hidden verifier hv_d2 PASS",
+    "existing tests stay green",
+    "student regression fails on baseline"
+   ],
+   "hidden_verifier_sha256": "7855d5af3bbe086bd27c6467ff980b26441365c618cd7d6b26c40e651cf34452",
+   "visibility": "not shown to student or to lessons before the transfer attempt"
+  }
+ ],
+ "negative_control": "intentionally wrong patch for D1 must be rejected by hv_d1 and the student regression; stable install untouched",
+ "honest_outcomes": [
+  "STUDENT_UNASSISTED_PASS",
+  "STUDENT_COACHED_PASS",
+  "TEACHER_PATCH",
+  "FAIL",
+  "TIMEOUT",
+  "BLOCKED",
+  "NO_MEASURED_GAIN"
+ ],
+ "deviations": [
+  {
+   "at": "14:35Z, before any student action",
+   "what": "D1 repo scope reduced to projects/bossman-tools-lab (git archive of tools/ @ bd2fe23d + empty tests/)",
+   "why": "coding path refused the full Bossman repo twice before the student acted: (1) evidence mismatch from system core.autocrlf=true on CRLF-committed CSVs [P1 product defect; env workaround GIT_CONFIG core.autocrlf=false]; (2) workspace 80 MB > _MAX_SNAPSHOT_BYTES 32 MB [P1 functional gap for self-repair on Bossman]",
+   "criteria_changed": false
+  }
+ ]
+}

@@ -1,0 +1,19 @@
+{
+  "kind": "instructions",
+  "source_url": "https://ipc.gov.cz/wp-content/uploads/2024/11/Zadost-o-vraceni-spravniho-poplatku-nebo-jeho-preplatku.pdf",
+  "page": "https://ipc.gov.cz/spravni-rizeni/poplatky-obcane-eu-a-jejich-rodinni-prislusnici/",
+  "link_text": "zde",
+  "final_url": "https://ipc.gov.cz/wp-content/uploads/2024/11/Zadost-o-vraceni-spravniho-poplatku-nebo-jeho-preplatku.pdf",
+  "retrieved_at": "2026-09-23T14:42:33+00:00",
+  "http_status": 200,
+  "content_type_header": "application/pdf",
+  "size": 135871,
+  "sha256": "58ca0f3de6587d9518b5e2bd5a9aad28bb5d708f9a8568b06608c9b859706df4",
+  "sniffed_type": "application/pdf",
+  "valid": true,
+  "path": "downloads/original/58ca0f3de658_Zadost-o-vraceni-spravniho-poplatku-nebo-jeho-preplatku.pdf",
+  "pages": 1,
+  "form_fields": 0,
+  "version_date": null,
+  "fees": []
+}

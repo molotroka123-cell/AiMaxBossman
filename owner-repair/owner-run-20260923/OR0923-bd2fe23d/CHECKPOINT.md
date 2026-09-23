@@ -37,3 +37,24 @@ North Star: SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT (выше — не дока�
 
 ## Дальше
 Coaching-пилот 5 train + 5 holdout на MAIN идёт; затем coding self-repair через CLI, рестарт + transfer, GUI-vs-CLI пары, MVČR (синтетика), медиа.
+
+---
+# Чекпоинт 2 (~14:50Z)
+
+## Coding path / самоулучшение — блокеры продукта
+- **P1 CODING-CRLF-EVIDENCE (продукт):** на Windows с `core.autocrlf=true` (умолчание Git for Windows) coding path отказывает нетронутому репозиторию Bossman: «evidence mismatch: git hides changes» (CSV с CRLF в блобе). Регрессия падает до / проходит после; fix `fix/coding-path-crlf-blob-20260923` @7439917f (bossman-core/tests/apprentice: 132 passed, 18 skipped). В TESTED_SHA НЕ влит; на прогоне — обход окружения `GIT_CONFIG core.autocrlf=false`.
+- **P1 функциональный пробел:** репозиторий Bossman 80 МБ > `_MAX_SNAPSHOT_BYTES` 32 МБ → «workspace evidence exceeds bounded snapshot size». «Bossman улучшает Bossman» на полном репо невозможно; для эксперимента — ограниченная lab-копия `tools/` того же SHA (отклонение записано в BENCHMARK_MANIFEST до действий ученика).
+- P2: `bossman code` не принимает инструкцию из файла; перевод строки в аргументе обрезает вызов через bossman.cmd.
+
+## Обучение
+- Coaching-пакет 5+5 на MAIN: 10/10 без помощи, coached = unassisted = 1.0 → пакет насыщен, **NO_MEASURED_GAIN** (потолок), WEIGHTS_UNCHANGED.
+- D1 (реальный дефект CR CR LF в .cmd архива), экзамен заморожен до попыток (hv_d1, D2 unseen запечатаны вне корней ученика).
+  - попытка 1 L0: FAIL (max_steps 40, 7 мин) — цикл одинаковых поисков;
+  - попытка 2 L1: FAIL (max_steps, 5.5 мин) — нашёл строку причины поиском, не воспользовался; 23 одинаковых вызова;
+  - наблюдение: в local_sidecar нет детектора повторов.
+
+## MVČR (HW-10) — синтетика + живые официальные источники
+- Owner-Run.cmd self-improve-mvcr mvcr: GET только mv.gov.cz / ipc.gov.cz; форма «Tiskopis žádosti o vydání povolení k trvalému pobytu – občané 3. zemí» с provenance/sha256; хронология только из подтверждённых фактов (7 л. 6 мес.); разные суммы пошлины → вопрос владельцу, не выбор; итог PARTIAL_MISSING_DATA; ничего не подано/не подписано/не оплачено.
+
+## Web Designer (UX в окне)
+- заготовка → проект v1 → правка кода (маркер) → Ctrl+S/автосохранение → перезагрузка → маркер на месте, v2/v3 → «Вернуть v1» с подтверждением → v4 = v1, сохраняется после перезагрузки. P2: панель истории не обновляется до перезагрузки.

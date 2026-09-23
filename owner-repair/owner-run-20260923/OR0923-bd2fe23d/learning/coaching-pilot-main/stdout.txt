@@ -1,0 +1,5 @@
+WEIGHTS_UNCHANGED: no fine-tuning, no weight update anywhere in this runner
+STATUS LOCAL_LEARNING_GAIN_MEASURED
+holdout pass@1 unassisted=1.0 coached=1.0 delta=0.0 [measured on the configured local endpoint]
+lessons: startup=0 after=0 verified=0 -> C:\Users\asd\Bossman\wt-run0923\owner-repair\owner-run-20260923\OR0923-bd2fe23d\learning\coaching-pilot-main\results.json
+WEIGHTS_UNCHANGED: no fine-tuning, no weight update anywhere in this runner

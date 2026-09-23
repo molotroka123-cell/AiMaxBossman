@@ -1,0 +1,197 @@
+{
+  "schema": "bossman.mvcr_prepare.v1",
+  "status": "PARTIAL_MISSING_DATA",
+  "files": [
+    {
+      "path": "package/zadost_VYPLNENO_NEPODEPSANO.pdf",
+      "sha256": "3dd1c7cdf1fd91ce32722219031246d4a86183ba1d1e886dad6fa7632e8fcf27",
+      "would_leave_computer": true
+    },
+    {
+      "path": "package/zadost_ORIGINAL.pdf",
+      "sha256": "4385a5b5668fa8670c88c4886ec2e59ec2d2cdcce5c702153224ccb7e3720f19",
+      "would_leave_computer": false
+    },
+    {
+      "path": "package/pokyny/58ca0f3de658_Zadost-o-vraceni-spravniho-poplatku-nebo-jeho-preplatku.pdf",
+      "sha256": "58ca0f3de6587d9518b5e2bd5a9aad28bb5d708f9a8568b06608c9b859706df4",
+      "would_leave_computer": false
+    },
+    {
+      "path": "package/previews/filled_v1_p1.png",
+      "sha256": "cd8fd40d5430fe1705038c32f21b4261def93bb60588fefc49b04ce664c52554",
+      "would_leave_computer": false
+    },
+    {
+      "path": "package/previews/filled_v1_p2.png",
+      "sha256": "0acc6fbf7f0d72847ec0776458bed5a8027e7fd86d463f68b00c4b47415375e3",
+      "would_leave_computer": false
+    },
+    {
+      "path": "package/previews/filled_v1_p3.png",
+      "sha256": "e5b911ed0441b40e7f578f3476f1690d4971311d1ec12d5f1e5735fea1284e05",
+      "would_leave_computer": false
+    },
+    {
+      "path": "package/previews/filled_v1_p4.png",
+      "sha256": "ef9c4bef9f332137e2c36b24fe2534d0c908f033f8696789a755daac6c8d71df",
+      "would_leave_computer": false
+    },
+    {
+      "path": "package/previews/filled_v1_p5.png",
+      "sha256": "95010ae46be7d84ec83a9c328827134c1784be64a49c8eb8ced200554718f4f5",
+      "would_leave_computer": false
+    },
+    {
+      "path": "package/questions.json",
+      "sha256": "deb6bb22f3e3b96183bccea9c42d61cc5c0e0c6e4a2ed0bd31490b6eb07de9af",
+      "would_leave_computer": false
+    },
+    {
+      "path": "package/residence_timeline.json",
+      "sha256": "7b8d62e03a3ff51656e7a62236c5151444d213be06380e98968280d103f2f80e",
+      "would_leave_computer": false
+    },
+    {
+      "path": "package/field_review.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "would_leave_computer": false
+    },
+    {
+      "path": "package/sources.json",
+      "sha256": "1308aba561d1ecc6e69ffc708793c951c7d9709413ebca98860deca981c73871",
+      "would_leave_computer": false
+    },
+    {
+      "path": "package/review.md",
+      "sha256": "13688353877e9d0c16f0d2e225d10da62abaf4fe8f0a732400b47554157bc144",
+      "would_leave_computer": false
+    }
+  ],
+  "owner_documents_to_bring": [
+    {
+      "document": "povoleni_SYNTETICKE.txt",
+      "sha256": "da4b4edce237bc37b450aea7ba3c305cf0176a7e24abdb4fd6037804f94e19a8"
+    },
+    {
+      "document": "pas_SYNTETICKY.txt",
+      "sha256": "e7f9677e8247fa9cb501c63fe7cafc8075fa6a61b0ab0217df75776c7d736338"
+    }
+  ],
+  "recipient": [
+    "Žádost se podává osobně na zastupitelském úřadě České republiky podle pravidel místní konzulární příslušnosti.",
+    "Žádost o historii o pobytu můžete podat na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Žádost o potvrzení o pobytu můžete podat na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Ztrátu nebo odcizení můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Ztrátu nebo odcizení musíte oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce, případně na zastupitelském úřadu.",
+    "Ztrátu nebo odcizení můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Ztrátu, odcizení nebo poškození můžete oznámit na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce, případně na zastupitelském úřadu.",
+    "Ztrátu, odcizení nebo poškození dokladu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Ztrátu, odcizení nebo poškození můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce, případně na zastupitelském úřadu.",
+    "Ztrátu, odcizení nebo poškození můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Platný cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Ztrátu, odcizení nebo poškození můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce, případně na zastupitelském úřadu.",
+    "Ztrátu, odcizení nebo poškození můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Platný cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Ztrátu, odcizení nebo poškození můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce, případně na zastupitelském úřadu.",
+    "Ztrátu, odcizení nebo poškození můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Platný cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Ztrátu, odcizení nebo poškození můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce, případně na zastupitelském úřadu.",
+    "Ztrátu, odcizení nebo poškození můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Platný cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Ztrátu, odcizení nebo poškození můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce, případně na zastupitelském úřadu.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte při převzetí osvědčení o registraci",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud chcete žádost podat osobně, rezervujte si termín předem online nebo telefonicky.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud chcete žádost podat osobně, rezervujte si termín předem online nebo telefonicky.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud chcete žádost podat osobně, rezervujte si termín předem online nebo telefonicky.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud chcete žádost podat osobně, rezervujte si termín předem online nebo telefonicky.",
+    "Změnu cestovního dokladu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Nový cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud je nabízený termín pro vaši rezervaci již po lhůtě, kterou máte pro oznámení změny, pošlete žádost poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo navštivte pracoviště Ministerstva vnitra v úředních hodinách bez předchozího objednání.",
+    "Změnu cestovního dokladu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Nový cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Změnu cestovního dokladu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud chcete žádost podat osobně, rezervujte si termín předem online nebo telefonicky.",
+    "Změnu cestovního dokladu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Nový cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud je nabízený termín pro vaši rezervaci již po lhůtě, kterou máte pro oznámení změny, pošlete žádost poštou, datovou schránkou, e-mailem se uznávaným elektronickým podpisem nebo navštivte pracoviště Ministerstva vnitra v úředních hodinách bez předchozího objednání.",
+    "Změnu cestovního dokladu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Nový cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud je nabízený termín pro vaši rezervaci již po lhůtě, kterou máte pro oznámení změny, pošlete žádost poštou, datovou schránkou, e-mailem se uznávaným elektronickým podpisem nebo navštivte pracoviště Ministerstva vnitra v úředních hodinách bez předchozího objednání.",
+    "Změnu cestovního dokladu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Nový cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud je nabízený termín pro vaši rezervaci již po lhůtě, kterou máte pro oznámení změny, pošlete žádost poštou, datovou schránkou, e-mailem se uznávaným elektronickým podpisem nebo navštivte pracoviště Ministerstva vnitra v úředních hodinách bez předchozího objednání.",
+    "Změnu jména můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Cestovní doklad s novým jménem – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Změnu jména můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud je nabízený termín pro vaši rezervaci již po lhůtě, kterou máte pro oznámení změny (15 dnů), pošlete žádost poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo navštivte pracoviště Ministerstva vnitra v úředních hodinách bez předchozího objednání.",
+    "Změnu jména můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Cestovní doklad s novým jménem – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Změnu jména můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud je nabízený termín pro vaši rezervaci již po lhůtě, kterou máte pro oznámení změny (15 dnů), pošlete žádost poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo navštivte pracoviště Ministerstva vnitra v úředních hodinách bez předchozího objednání.",
+    "Změnu jména můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Cestovní doklad s novým jménem – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Změnu jména můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu jména můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Cestovní doklad s novým jménem – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Změnu jména můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu jména můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Cestovní doklad s novým jménem – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte na pracovišti",
+    "Změnu jména můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud je nabízený termín pro vaši rezervaci již po lhůtě, kterou máte pro oznámení změny, pošlete žádost poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo navštivte pracoviště Ministerstva vnitra v úředních hodinách bez předchozího objednání.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud je nabízený termín pro vaši rezervaci již po lhůtě, kterou máte pro oznámení změny, pošlete žádost poštou, datovou schránkou, e-mailem se uznávaným elektronickým podpisem nebo navštivte pracoviště Ministerstva vnitra v úředních hodinách bez předchozího objednání.",
+    "Žádost o výměnu průkazu o povolení k trvalému pobytu občana Evropské unie můžete podat osobně na pracovišti Ministerstva vnitra.",
+    "Žádost můžete také poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Cestovní doklad – pokud žádost pošlete poštou, stačí prostá kopie, originál předložíte při převzetí průkazu o povolení k trvalému pobytu",
+    "Žádost můžete podat na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud chcete žádost podat osobně, rezervujte si termín předem online nebo telefonicky.",
+    "Pokud žádost nebudete vyřizovat osobně, vyčkejte na zpracování žádosti ministerstvem a na výzvu se dostavte na vydání nového průkazu.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud je nabízený termín pro vaši rezervaci již po lhůtě, kterou máte pro oznámení změny, pošlete žádost poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo navštivte pracoviště Ministerstva vnitra v úředních hodinách bez předchozího objednání.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu jména můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu jména můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Pokud je nabízený termín pro vaši rezervaci již po lhůtě, kterou máte pro oznámení změny, pošlete žádost poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo navštivte pracoviště Ministerstva vnitra v úředních hodinách bez předchozího objednání.",
+    "Změnu jména můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Změnu můžete oznámit osobně na pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem s uznávaným elektronickým podpisem nebo podat prostřednictvím zmocněného zástupce.",
+    "Žádost o vydání modré karty musíte podat osobně na pracovišti Ministerstva vnitra.",
+    "Žádost musíte podat osobně.",
+    "Žádost můžete podat na spádovém pracovišti Ministerstva vnitra, poslat poštou, datovou schránkou, e-mailem se zaručeným elektronickým podpisem nebo prostřednictvím zmocněného zástupce.",
+    "Pokud chcete žádost podat osobně, rezervujte si termín předem online nebo telefonicky.",
+    "Pokud je nabízený termín pro vaši rezervaci již po lhůtě, kterou máte pro podání žádosti, pošlete žádost poštou, datovou schránkou, e-mailem se zaručeným elektronickým podpisem nebo navštivte spádové pracoviště Ministerstva vnitra v úředních hodinách bez předchozího objednání – bez předchozího objed",
+    "Pokud žádost nebudete podávat osobně, je pro zachování lhůty důležité datum jejího podání do poštovní přepravy nebo datum odeslání datovou schránkou či e-mailem.",
+    "Pokud žádost nebudete podávat osobně, sdělí vám číslo jednací pracovníci informační linky."
+  ],
+  "submitted": false,
+  "signed": false,
+  "paid": false
+}

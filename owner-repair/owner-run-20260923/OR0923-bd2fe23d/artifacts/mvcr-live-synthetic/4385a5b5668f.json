@@ -1,0 +1,19 @@
+{
+  "kind": "form",
+  "source_url": "https://ipc.gov.cz/wp-content/uploads/2022/12/Tiskopis_zadosti_o_vydani_povoleni_k_trvalemu_pobytu_-_obcane_3_zemi-4.pdf",
+  "page": "https://ipc.gov.cz/formulare-a-dokumenty/formulare-a-dokumenty-2-2/",
+  "link_text": "Tiskopis žádosti o povolení k trvalému pobytu občana třetí země",
+  "final_url": "https://ipc.gov.cz/wp-content/uploads/2022/12/Tiskopis_zadosti_o_vydani_povoleni_k_trvalemu_pobytu_-_obcane_3_zemi-4.pdf",
+  "retrieved_at": "2026-09-23T14:42:32+00:00",
+  "http_status": 200,
+  "content_type_header": "application/pdf",
+  "size": 834151,
+  "sha256": "4385a5b5668fa8670c88c4886ec2e59ec2d2cdcce5c702153224ccb7e3720f19",
+  "sniffed_type": "application/pdf",
+  "valid": true,
+  "path": "downloads/original/4385a5b5668f_Tiskopis_zadosti_o_vydani_povoleni_k_trvalemu_pobytu_-_obcane_3_zemi-4.pdf",
+  "pages": 5,
+  "form_fields": 0,
+  "version_date": null,
+  "fees": []
+}

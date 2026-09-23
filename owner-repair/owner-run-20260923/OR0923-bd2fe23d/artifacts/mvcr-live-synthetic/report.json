@@ -1,0 +1,93 @@
+{
+  "schema": "bossman.owner_run.self_improve_report.v1",
+  "profile": "self-improve-mvcr",
+  "generated_at": "2026-09-23T14:42:37+00:00",
+  "run_dir": "C:\\Users\\asd\\Bossman Test 0923\\owner-run-mvcr",
+  "overall": "OWNER_REQUIRED",
+  "rows": [
+    {
+      "step": "preflight",
+      "status": "NOT_RUN",
+      "detail": "ещё не запускался",
+      "route": "",
+      "finished_at": null
+    },
+    {
+      "step": "bootstrap",
+      "status": "NOT_RUN",
+      "detail": "ещё не запускался",
+      "route": "",
+      "finished_at": null
+    },
+    {
+      "step": "skills",
+      "status": "NOT_RUN",
+      "detail": "ещё не запускался",
+      "route": "",
+      "finished_at": null
+    },
+    {
+      "step": "compare",
+      "status": "NOT_RUN",
+      "detail": "ещё не запускался",
+      "route": "",
+      "finished_at": null
+    },
+    {
+      "step": "mvcr",
+      "status": "OWNER_REQUIRED",
+      "detail": "MVCR: PARTIAL_MISSING_DATA",
+      "route": "дополнить facts.json/папку недостающим и повторить mvcr",
+      "finished_at": "2026-09-23T14:42:37+00:00"
+    },
+    {
+      "step": "self-improve:explore",
+      "status": "NOT_RUN",
+      "detail": "ещё не запускался",
+      "route": "",
+      "finished_at": null
+    },
+    {
+      "step": "self-improve:compare",
+      "status": "NOT_RUN",
+      "detail": "ещё не запускался",
+      "route": "",
+      "finished_at": null
+    },
+    {
+      "step": "self-improve:lesson",
+      "status": "NOT_RUN",
+      "detail": "ещё не запускался",
+      "route": "",
+      "finished_at": null
+    },
+    {
+      "step": "self-improve:restart",
+      "status": "NOT_RUN",
+      "detail": "ещё не запускался",
+      "route": "",
+      "finished_at": null
+    },
+    {
+      "step": "self-improve:transfer",
+      "status": "NOT_RUN",
+      "detail": "ещё не запускался",
+      "route": "",
+      "finished_at": null
+    },
+    {
+      "step": "report",
+      "status": "NOT_RUN",
+      "detail": "ещё не запускался",
+      "route": "",
+      "finished_at": null
+    }
+  ],
+  "stopped": null,
+  "services": [],
+  "next_command": "Owner-Run.cmd self-improve-mvcr preflight",
+  "weights_unchanged": true,
+  "submitted_anything": false,
+  "owner_hardware_certified": false,
+  "verified_on": "автотесты с детерминированной тестовой моделью; не на железе владельца"
+}

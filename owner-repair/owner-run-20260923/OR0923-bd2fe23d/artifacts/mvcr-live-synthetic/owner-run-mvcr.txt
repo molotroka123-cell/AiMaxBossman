@@ -1,0 +1,4 @@
+[self-improve-mvcr] mvcr …
+[self-improve-mvcr] mvcr: OWNER_REQUIRED — MVCR: PARTIAL_MISSING_DATA → дополнить facts.json/папку недостающим и повторить mvcr
+[self-improve-mvcr] итог: OWNER_REQUIRED (весь прогон: OWNER_REQUIRED); отчёт: C:\Users\asd\Bossman Test 0923\owner-run-mvcr\report.md
+[self-improve-mvcr] следующая команда: Owner-Run.cmd self-improve-mvcr preflight

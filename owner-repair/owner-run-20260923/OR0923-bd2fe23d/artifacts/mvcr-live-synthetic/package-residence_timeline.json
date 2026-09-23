@@ -1,0 +1,59 @@
+{
+  "as_of": "2026-09-22",
+  "periods": [
+    {
+      "id": "P1",
+      "from": "2019-03-01",
+      "to": "2021-02-28",
+      "ongoing": false,
+      "days": 731
+    },
+    {
+      "id": "P2",
+      "from": "2021-03-01",
+      "to": "2026-09-22",
+      "ongoing": true,
+      "days": 2032
+    }
+  ],
+  "gaps": [],
+  "chain": {
+    "from": "2019-03-01",
+    "to": "2026-09-22",
+    "days": 2763,
+    "years": 7,
+    "months": 6,
+    "days_rest": 22
+  },
+  "calculation": [
+    "P1: 2019-03-01 → 2021-02-28 = 731 дн.",
+    "P2: 2021-03-01 → 2026-09-22 (по 2026-09-22, период продолжается) = 2032 дн.",
+    "Непрерывная цепочка: 2019-03-01 → 2026-09-22 = 2763 дн. = 7 г. 6 мес. 22 дн. (календарно, включая обе даты)."
+  ],
+  "evidence": [
+    {
+      "fact": "период P1",
+      "from": "2019-03-01",
+      "to": "2021-02-28",
+      "basis": "dlouhodobé vízum (SYNTETICKÉ)",
+      "source": "doc:povoleni_SYNTETICKE.txt",
+      "confirmed": true,
+      "status": "USED",
+      "document": "povoleni_SYNTETICKE.txt",
+      "sha256": "da4b4edce237bc37b450aea7ba3c305cf0176a7e24abdb4fd6037804f94e19a8"
+    },
+    {
+      "fact": "период P2",
+      "from": "2021-03-01",
+      "to": "ongoing",
+      "basis": "dlouhodobý pobyt (SYNTETICKÝ)",
+      "source": "doc:povoleni_SYNTETICKE.txt",
+      "confirmed": true,
+      "status": "USED",
+      "document": "povoleni_SYNTETICKE.txt",
+      "sha256": "da4b4edce237bc37b450aea7ba3c305cf0176a7e24abdb4fd6037804f94e19a8"
+    }
+  ],
+  "questions": [],
+  "complete": true
+}
