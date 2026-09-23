@@ -1,5 +1,15 @@
 # Bossman 1.2 — MOVE TO TERMINAL
 
+> **Приоритет документов.** Директива владельца
+> [`docs/terminal/TERMINAL_RUN_1_2_MASTER.md`](../terminal/TERMINAL_RUN_1_2_MASTER.md) (0a7a9aef) и её
+> [22 проверки](../terminal/ACCEPTANCE_AND_OWNER_RUN.md) главнее этого файла. Здесь — разбор референсов
+> и соответствие данных. Из директивы следуют уточнения: основной вид — **одна прокручиваемая колонка**
+> (заголовок и строка статуса как на референсе, затем диалог); левая панель контекста — только по
+> запросу (`/panel`), не постоянная и не полноэкранная; сначала машинный контракт `bossman exec --json`,
+> `status` / `events` / `result`, затем чат; точка входа — существующий `bossman` (argparse в
+> `bossman-core/bossman/cli.py`), лаунчер архива — `Bossman-CLI.cmd`. Значения на картинках — концепты,
+> а не требования.
+
 **Цель 1.2:** владелец и Claude Code работают с Bossman из командной строки так же быстро и
 удобно, как с Claude Code CLI и Codex CLI. Весь Bossman — модели, агенты, навыки, память,
 coding path, управление компьютером, approvals, цикл самоулучшения 1.1 — доступен из
@@ -45,7 +55,7 @@ backend: те же задачи, та же память и LearningStore, те �
 
 ## 3. Что владелец получает в терминале
 
-### 3.1 Интерактивный режим (`Bossman-Terminal.cmd` / `bossman`)
+### 3.1 Интерактивный режим (`Bossman-CLI.cmd` / `bossman`)
 
 ```text
  ❯ Bossman 1.2  ·  build 1a2b3c4  ·  model qwen3.8-27b (local)  ·  agent Default  ·  LOCAL_ONLY     ● ONLINE
@@ -87,7 +97,7 @@ Slash-команды:
 ### 3.1a Целевой вид `bossman chat` — референс владельца «CLI Operator»
 
 Референс: [10_terminal_cli_operator.jpg](references/1_2/10_terminal_cli_operator.jpg) (Windows Terminal).
-Это **целевая раскладка к owner-run**:
+Это **целевой вид к owner-run**, с уточнением директивы: постоянная левая панель ниже — только по запросу (`/panel`), основной поток — одна колонка:
 
 ```text
 Bossman 1.x — CLI Operator                                   Your AI pair programmer, on your terms.
@@ -332,7 +342,7 @@ Approvals, Budgets (токены, вызовы инструментов), Comput
 
 ## 6. Критерии приёмки 1.2 (на машине владельца)
 
-1. Из `Bossman-Terminal.cmd` владелец без веба выполняет: вопрос модели, задачу с инструментом,
+1. Из `Bossman-CLI.cmd` владелец без веба выполняет: вопрос модели, задачу с инструментом,
    coding task с diff и проверкой, действие на компьютере с approval, поиск по памяти, запуск и
    STOP цикла 1.1.
 2. Claude Code через `bossman -p … --output-format stream-json` проводит один вариант лаборатории
