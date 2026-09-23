@@ -424,6 +424,38 @@ def test_verifier_on_baseline_fails_and_on_fix_passes(tmp_path):
     assert scoped["passed"] is False and scoped["reason"] == "SCOPE_VIOLATION"
 
 
+# The Windows archive runs an *embeddable* Python: its ._pth file makes the interpreter
+# ignore PYTHONPATH (and every PYTHON* variable) and keeps the cwd off sys.path.
+# `python -I` reproduces that isolation on any OS. The hidden tests import the student's
+# repository, so under that interpreter the verifier must put the repo on sys.path
+# itself — otherwise every verification fails for the wrong reason.
+EMBEDDED_LIKE = [__import__("sys").executable, "-I"]
+
+
+def test_hidden_verifier_works_under_an_embedded_like_interpreter(tmp_path, monkeypatch):
+    monkeypatch.setattr(lab, "_interpreter", lambda: list(EMBEDDED_LIKE))
+    src = tmp_path / "src"
+    sha = lab.make_synthetic_repo("invoicekit", src)
+    work = tmp_path / "w"
+    lab.clone_clean(src, sha, work)
+    _fix(work, "e")
+    _git(work, "add", "--all")
+    good = lab.run_hidden_verifier(case=lab.BUILTIN_CASES["sample"], case_path=None, src=src, baseline=sha,
+                                   diff=_git(work, "diff", "--cached"), vdir=tmp_path / "v1", student_dir=None)
+    assert good["passed"] is True, good.get("output_tail")
+    # negative control under the same interpreter: an unfixed repo still fails, and
+    # for the RIGHT reason (the seeded defect's ValueError), not an import failure
+    lab.clone_clean(src, sha, work)
+    _wrong(work, "f")
+    _git(work, "add", "--all")
+    bad = lab.run_hidden_verifier(case=lab.BUILTIN_CASES["sample"], case_path=None, src=src, baseline=sha,
+                                  diff=_git(work, "diff", "--cached"), vdir=tmp_path / "v2", student_dir=None)
+    assert bad["passed"] is False and bad["reason"] == "VERIFIER_FAILED"
+    tail = bad["output_tail"]
+    assert "ModuleNotFoundError" not in tail and "ImportError" not in tail, tail
+    assert "ValueError" in tail and "Ran 6 tests" in tail, tail
+
+
 # ------------------------------------------------------------------ lesson / transfer
 def test_teacher_patch_does_not_become_a_student_lesson(tmp_path, served):
     stub = Stub({"RAW": "fix"})

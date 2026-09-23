@@ -572,6 +572,38 @@ def _hidden_files(case: dict, case_path: Path | None) -> dict[str, str]:
 
 
 # ============================================================== hidden verifier
+def _interpreter() -> list[str]:
+    """The Python that runs hidden checks (injectable: tests emulate the Windows
+    archive's embeddable runtime with ``[sys.executable, "-I"]``)."""
+    return [sys.executable]
+
+
+# The Windows archive's embeddable Python ignores PYTHONPATH and every PYTHON* variable
+# (its ._pth file) and keeps the cwd off sys.path, so nothing may rely on them: the repo
+# goes onto sys.path through this bootstrap, and -B/-s/-X utf8 replace the env switches.
+# argv after -c: <repo> -m <module> [args…]  |  <repo> <script.py> [args…]
+_BOOT = r'''
+import runpy, sys
+_repo = sys.argv[1]
+if _repo not in sys.path:
+    sys.path.insert(0, _repo)
+if sys.argv[2] == "-m":
+    _mod = sys.argv[3]
+    sys.argv = [_mod] + sys.argv[4:]
+    runpy.run_module(_mod, run_name="__main__", alter_sys=True)
+else:
+    _script = sys.argv[2]
+    sys.argv = [_script] + sys.argv[3:]
+    runpy.run_path(_script, run_name="__main__")
+'''
+
+
+def python_argv(repo: Path, rest: list[str]) -> list[str]:
+    """``python <rest…>`` with ``repo`` importable under ANY interpreter, including
+    the embeddable one. ``rest`` is ``["-m", module, …]`` or ``[script, …]``."""
+    return [*_interpreter(), "-B", "-s", "-X", "utf8", "-c", _BOOT, str(repo), *rest]
+
+
 def build_verifier_env(repo: Path, scratch: Path) -> dict:
     """A minimal environment: no tokens, no Bossman settings, no inherited PYTHONPATH."""
     env = {"PATH": os.environ.get("PATH", ""), "PYTHONPATH": str(repo),
@@ -632,8 +664,15 @@ def run_hidden_verifier(*, case: dict, case_path: Path | None, src: Path, baseli
         out.update(reason="VERIFIER_VISIBLE_TO_STUDENT", visible=visible[:5])
         return out
     hv = case["hidden_verifier"]
-    mapping = {"{python}": sys.executable, "{hidden}": str(hidden), "{repo}": str(repo)}
+    mapping = {"{hidden}": str(hidden), "{repo}": str(repo)}
     argv = [mapping.get(a, a) for a in hv["command"]]
+    if argv and argv[0] == "{python}":
+        # the student's repo is put on sys.path explicitly; the hidden dir is added by
+        # unittest discovery itself and stays outside the student's copy
+        argv = python_argv(repo, argv[1:])
+    elif "{python}" in argv:
+        out.update(reason="VERIFIER_NOT_RUNNABLE: {python} is allowed only as the first argument")
+        return out
     env = build_verifier_env(repo, scratch)
     out["env_keys"] = sorted(env)
     try:
