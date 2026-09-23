@@ -258,7 +258,7 @@
 | `tests/test_evolution_loop.py:290` | skip | `—` | bcc not installed here (root CI); the product grammar is checked in command-center tests | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evolution_protocol.py:128` | skip | `—` | Symlink privilege unavailable | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evolution_runner.py:124` | skip | `—` | Symlinks unavailable in this Windows environment | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `tests/test_evolution_verifier.py:87` | importorskip | `—` | нет пакета pytest | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_evolution_verifier.py:90` | importorskip | `—` | нет пакета pytest | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_fable_budget_pricing.py:97` | skip | `—` | canonical_budget not exposed | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_installed_ui_sweep.py:72` | skip | `—` | Managed execution remaps Popen PIDs; native process-tree test required | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_intelligence_preservation_runner.py:106` | skip | `—` | f"bossman-core (production-петля) недоступен, необязательный "
