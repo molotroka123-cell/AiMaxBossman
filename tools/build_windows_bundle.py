@@ -116,6 +116,8 @@ SUPPORT_SCRIPTS = (
     (ROOT / "tools" / "jev_shadow_owner.py", "jev_shadow_owner.py"),
     # Same bounded evolution engine used by the product API; no second daemon.
     (ROOT / "tools" / "bossman_evolve.py", "bossman_evolve.py"),
+    # Four-clip Bossfield preflight/editor; generation remains governed by Studio.
+    (ROOT / "tools" / "bossfield_owner_run.py", "bossfield_owner_run.py"),
 )
 # Данные, которые раннеры читают рядом с собой (не исполняемые скрипты).
 SUPPORT_DATA = (

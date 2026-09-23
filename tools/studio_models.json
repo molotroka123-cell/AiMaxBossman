@@ -233,6 +233,64 @@
       "status": "UNVERIFIED"
     },
     {
+      "id": "openrouter:bytedance/seedance-2.5",
+      "provider": "openrouter",
+      "surface": "video",
+      "label": "Seedance 2.5 — 15s Bossfield candidate",
+      "settings": {
+        "duration": {
+          "type": "enum",
+          "values": [
+            15
+          ],
+          "default": 15
+        },
+        "resolution": {
+          "type": "enum",
+          "values": [
+            "720p"
+          ],
+          "default": "720p"
+        },
+        "aspect_ratio": {
+          "type": "enum",
+          "values": [
+            "9:16",
+            "16:9"
+          ],
+          "default": "9:16"
+        },
+        "generate_audio": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "roles": {
+        "start": 1,
+        "end": 1,
+        "reference": 12
+      },
+      "source": "https://openrouter.ai/bytedance/seedance-2.5; runtime/provider validation required",
+      "price": {
+        "kind": "unknown",
+        "usd": null,
+        "source": "dynamic provider price; owner budget required"
+      },
+      "free": false,
+      "enabled": false,
+      "deadline_seconds": 900,
+      "license": "provider-terms",
+      "answers": {
+        "BUNDLED": false,
+        "CONFIGURED": "OPENROUTER_API_KEY",
+        "MODEL_REQUIRED": false,
+        "EXTERNAL_SERVICE_REQUIRED": "openrouter",
+        "VERIFIED": false
+      },
+      "verified_capabilities": {},
+      "status": "UNVERIFIED"
+    },
+    {
       "id": "higgsfield:owner-required",
       "provider": "higgsfield",
       "surface": "image",
