@@ -37,7 +37,7 @@ semantic-memory = ["qdrant-client==1.15.1"]
 apps = ["numpy>=1.26"]
 # The owner installation ships the existing integrations. Individual extras
 # remain available for small server-only/development installations.
-runtime = ["bossman-command-center[browser,mcp,openclaw,video-interchange,documents,speech,semantic-memory,apps]==0.1.0"]
+runtime = ["bossman-command-center[browser,mcp,openclaw,video-interchange,documents,speech,semantic-memory,apps,terminal]==0.1.0"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "greenlet>=3.0", "pytest-timeout>=2.2", "pytest-cov>=5.0"]
 # Браузерные тесты. Отдельной группой, а не в dev: Playwright тянет за собой
 # браузер, и требовать его от всех, кто просто хочет прогнать юнит-тесты,
@@ -56,10 +56,8 @@ openclaw = ["websockets>=13"]
 # Optional local interchange; no model runtime is installed into the server.
 video-interchange = ["opentimelineio>=0.18,<0.19"]
 # Bossman 1.2 terminal input (Tab completion, history, one-message multi-line
-# paste). Without it `bossman chat` falls back to plain line input. NOT yet in
-# `runtime`: the Windows lock must be re-recorded with it first
-# (prompt_toolkit==3.0.52 sha256 9aac639a3bbd33284347de5ad8d68ecc044b91a762dc39b7c21095fcd6a19955,
-#  wcwidth==0.8.4 sha256 2097bb1d28a0ba8fe177c2eb607317f9b1627b03f33ebebfd3da670b337a65ba).
+# paste). Both universal wheels are pinned by SHA256 in the Windows bundle lock;
+# the Windows hash-checking install and actual archive smoke remain release gates.
 terminal = ["prompt_toolkit==3.0.52"]
 
 [project.scripts]

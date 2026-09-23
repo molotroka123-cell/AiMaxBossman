@@ -43,8 +43,8 @@
   },
   "requirements": {
     "file": "windows_bundle_lock.txt",
-    "sha256": "a5fbfb8e339f1d8420ca1b3789bca7306074855aed69fefd00f9fe9624120df4",
-    "count": 116
+    "sha256": "7ee93197a2adb4aae40e0db08998277387ff90f5cf911562d12f5d94716a6714",
+    "count": 118
   },
   "build_tools": {
     "file": "windows_bundle_build_tools.txt",
@@ -62,5 +62,13 @@
       "pyscreeze",
       "pytweening"
     ]
+  },
+  "terminal_amendment": {
+    "wheels": {
+      "prompt-toolkit": "3.0.52",
+      "wcwidth": "0.8.4"
+    },
+    "source": "official PyPI release pages, wheel SHA256",
+    "verification": "Windows hash-checking build still required"
   }
 }

@@ -134,6 +134,18 @@ def test_the_committed_lock_if_present_is_consistent():
     assert "--require-hashes --requirement tools/windows_bundle_build_tools.txt" in workflow
 
 
+def test_terminal_runtime_extra_has_both_hash_checked_universal_wheels():
+    lock = lockmod.load()
+    assert lock is not None
+    assert lock["_pins"]["prompt-toolkit"] == "3.0.52"
+    assert lock["_pins"]["wcwidth"] == "0.8.4"
+    text = (REPO / "tools/windows_bundle_lock.txt").read_text(encoding="utf-8")
+    assert "9aac639a3bbd33284347de5ad8d68ecc044b91a762dc39b7c21095fcd6a19955" in text
+    assert "2097bb1d28a0ba8fe177c2eb607317f9b1627b03f33ebebfd3da670b337a65ba" in text
+    pyproject = (REPO / "command-center/pyproject.toml").read_text(encoding="utf-8")
+    assert "apps,terminal]==0.1.0" in pyproject
+
+
 # ---------------------------------------------------------------- recording
 
 def test_requirements_come_from_pip_s_report_without_the_local_wheels():
