@@ -320,7 +320,7 @@ def apply_edits(repo: Path, proposal: dict, editable: list[str]) -> list[str]:
         pending[name] = changed
     # Validate the complete proposal before writing any file.
     for name, content in pending.items():
-        safe_file(repo, name).write_text(content, encoding="utf-8")
+        safe_file(repo, name).write_text(content, encoding="utf-8", newline="\n")
     return sorted(pending)
 
 
