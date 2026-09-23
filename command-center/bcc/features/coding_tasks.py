@@ -115,7 +115,8 @@ def _handshake(command: str) -> dict:
                "tools": resp.get("tools"), "tool_call_ok": resp.get("tool_call_ok"),
                "test_runners": resp.get("test_runners"), "isolation": resp.get("isolation"),
                "deterministic_test_model": bool(resp.get("deterministic_test_model")),
-               "model_kind": resp.get("model_kind") or ("MOCK_MODEL" if resp.get("deterministic_test_model") else "")}
+               "model_kind": resp.get("model_kind") or ("MOCK_MODEL" if resp.get("deterministic_test_model") else ""),
+               "endpoint": resp.get("endpoint")}
     except Exception as exc:  # noqa: BLE001 — shown to the owner
         out = {"ok": False, "reason": f"{type(exc).__name__}: {exc}"[:400]}
     _handshake_cache[command] = (now, out)
@@ -218,7 +219,7 @@ async def _confined_repo(svc, raw: str) -> Path:
 
 SIDECAR_FIELDS = ("schema", "status", "summary", "tests", "notes", "steps", "stop_reason", "tool_calls",
                   "recipes_applied", "executor", "model", "deterministic_test_model", "model_kind", "profile",
-                  "memory_used", "skills_used")
+                  "memory_used", "skills_used", "endpoint", "elapsed_seconds", "tool_calls_total")
 
 
 def _verify_in_sandbox(root: Path, tests: list[str], timeout: int) -> dict:
@@ -327,6 +328,13 @@ async def _agent_profile(svc, agent_id: int | None) -> dict | None:
     if row.get("enabled") is False:
         raise HTTPException(409, {"message": f"агент {row['name']} выключен"})
     perms = row.get("permissions") if isinstance(row.get("permissions"), dict) else {}
+    # A lab observer (auditor / result verifier / UX observer) is not a student: its
+    # read-only tool list would otherwise reach the sidecar as "no tools" and fall
+    # back to the FULL sidecar set, edit tools included.
+    if row.get("role") == "lab:observer" or perms.get("lab_observer"):
+        raise HTTPException(409, {"code": "LAB_OBSERVER_NOT_A_STUDENT",
+                                  "message": f"агент {row['name']} — наблюдатель лаборатории; "
+                                             "coding-задачи он не выполняет и инструментов правки не получает"})
     tools = row.get("tools") if isinstance(row.get("tools"), list) else []
     return {"agent_id": int(row["id"]), "name": row["name"], "system_prompt": row.get("system_prompt") or "",
             "max_steps": int(row.get("max_steps") or 0) or None,
