@@ -1,0 +1,61 @@
+name: Windows 100 real checks
+
+on:
+  push:
+    branches:
+      - 'claude/**'
+      - 'night/**'
+      - 'release/**'
+    paths:
+      - 'tools/windows_100_real.py'
+      - '.github/workflows/windows-stress-100.yml'
+      - 'tools/release_candidate.json'
+      - 'bossman-core/**'
+      - 'command-center/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-100-real-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows-100:
+    name: Execute 100 actual pytest cases on Windows
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUTF8: '1'
+      BOSSMAN_ACCEPTANCE_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout exact source without CRLF rewriting
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install declared test dependencies
+        shell: pwsh
+        run: |
+          python -m pip install -e .
+          python -m pip install -e "./bossman-core[dev]"
+          python -m pip install -e "./command-center[dev,browser]"
+      - name: Run exactly 100 real product checks
+        shell: pwsh
+        run: python tools/windows_100_real.py
+      - name: Upload exact selection and results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-100-real-${{ github.sha }}
+          path: windows-100-results/
+          if-no-files-found: error
+          retention-days: 14
