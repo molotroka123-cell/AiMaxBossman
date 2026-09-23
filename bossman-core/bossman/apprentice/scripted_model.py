@@ -18,6 +18,11 @@ Turn N answers the request that already holds N assistant messages, so the
 replay is stateless and a restarted server continues correctly. The handshake
 probe (system prompt starting "Handshake probe") always gets a list_dir call.
 
+Several tasks on ONE server (the evolution loop's deterministic gate): optional
+``routes`` pick the turns by a marker in the first user message; the first
+route whose ``match`` occurs there wins, otherwise the top-level ``turns``:
+  {"name": "gate", "routes": [{"match": "Task id: money", "turns": [...]}], "turns": []}
+
   python -m bossman.apprentice.scripted_model --script s.json --port 0 --port-file p.txt
 """
 from __future__ import annotations
@@ -35,6 +40,16 @@ def model_id(script: dict) -> str:
     return f"{MARKER}-{script.get('name') or 'script'}"
 
 
+def turns_for(script: dict, messages: list[dict]) -> list:
+    """The script's turns for this conversation (``routes`` by a marker, else ``turns``)."""
+    first_user = next((str(m.get("content") or "") for m in messages if m.get("role") == "user"), "")
+    for route in script.get("routes") or []:
+        marker = str((route or {}).get("match") or "")
+        if marker and marker in first_user:
+            return list(route.get("turns") or [])
+    return list(script.get("turns") or [])
+
+
 def reply_for(script: dict, messages: list[dict]) -> dict:
     system = next((m.get("content") or "" for m in messages if m.get("role") == "system"), "")
     if str(system).startswith("Handshake probe"):
@@ -42,7 +57,7 @@ def reply_for(script: dict, messages: list[dict]) -> dict:
         index = 0
     else:
         index = sum(1 for m in messages if m.get("role") == "assistant")
-        turns = script.get("turns") or []
+        turns = turns_for(script, messages)
         turn = turns[index] if index < len(turns) else {"content": "(script exhausted)"}
     if "tool" in turn:
         return {"role": "assistant", "content": "",

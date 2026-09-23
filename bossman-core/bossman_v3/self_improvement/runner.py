@@ -190,8 +190,10 @@ def test_environment(repo: Path) -> dict:
     allowed = {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "TMPDIR", "HOME",
                "USERPROFILE", "APPDATA", "LOCALAPPDATA", "LANG", "VIRTUAL_ENV"}
     env = {k: v for k, v in os.environ.items() if k.upper() in allowed}
-    env.update(PYTHONPATH=os.pathsep.join(str(p) for p in
-               (repo, repo / "bossman-core", repo / "command-center")),
+    roots = os.pathsep.join(str(p) for p in (repo, repo / "bossman-core", repo / "command-center"))
+    # BOSSMAN_EVOLUTION_PATHS is read by our own bootstrap (verifier.module_command),
+    # so the roots reach sys.path even where the interpreter ignores PYTHONPATH.
+    env.update(PYTHONPATH=roots, BOSSMAN_EVOLUTION_PATHS=roots,
                PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1", PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
                LOCAL_ONLY="1")
     return env
@@ -252,9 +254,13 @@ def evaluate(repo: Path, suite: dict, evidence: Path, timeout: int, *,
                 argv = docker_test_command(repo, case_evidence, case["tests"], image, container_name)
                 code, out = command(argv, repo, timeout=remaining)
             else:
-                code, out = command([sys.executable, "-m", "pytest", "-q", "--tb=short",
-                                     "-o", "addopts=", "-p", "no:cacheprovider",
-                                     "--junitxml=" + str(junit), *case["tests"]],
+                # Not `python -m pytest` + PYTHONPATH: the Windows archive's embeddable
+                # Python ignores PYTHONPATH and keeps the cwd off sys.path, so the
+                # command line itself puts the checkout roots on sys.path.
+                from .verifier import module_command
+                code, out = command(module_command("pytest", "-q", "--tb=short",
+                                                   "-o", "addopts=", "-p", "no:cacheprovider",
+                                                   "--junitxml=" + str(junit), *case["tests"], guard=False),
                                     repo, timeout=remaining, env=test_environment(repo))
             results[case["id"]] = parse_junit(junit, code, out)
         except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
