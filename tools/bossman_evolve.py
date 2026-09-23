@@ -21,7 +21,10 @@ def main(argv=None):
     # loop owns its parser and campaign state; it must not inherit the legacy
     # runner's checkout-relative defaults when launched from a Windows ZIP.
     argv = list(sys.argv[1:] if argv is None else argv)
-    if argv and argv[0] in ("loop", "status", "pause", "resume", "stop"):
+    is_loop_report = (argv and argv[0] == "report" and "--work" in argv
+                      and argv.index("--work") + 1 < len(argv)
+                      and (Path(argv[argv.index("--work") + 1]) / "loop-state.json").is_file())
+    if argv and (argv[0] in ("loop", "status", "pause", "resume", "stop") or is_loop_report):
         from bossman_v3.self_improvement.loop import main as loop_main
         return loop_main(argv)
     parser = argparse.ArgumentParser(description=__doc__)

@@ -32,6 +32,13 @@ def test_owner_cli_uses_same_loop_and_controls_under_isolated_python(tmp_path):
     resumed = invoke("resume", "--no-start")
     assert resumed.returncode == 0, resumed.stderr
     assert json.loads(invoke("status").stdout)["stop_requested"] is None
+    # Existing campaign report uses the loop's checkpoint, while the older
+    # tournament command still accepts the same legacy action name.
+    (tmp_path / "campaign" / "loop-state.json").write_text(json.dumps({"schema": "bossman.evolution.loop/1",
+        "status": "PAUSED", "cycles": [], "base_sha": "fixture", "champion_sha": "fixture"}), encoding="utf-8")
+    reported = invoke("report")
+    assert reported.returncode == 0, reported.stderr
+    assert json.loads(reported.stdout)["schema"] == "bossman.evolution.loop-report/1"
 
 
 def test_bundle_installs_evolution_cli_and_suite(tmp_path):
