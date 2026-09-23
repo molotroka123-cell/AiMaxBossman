@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from pathlib import Path
 
 import httpx
@@ -119,23 +120,43 @@ async def _git(cwd: Path, *args: str, timeout: float = 60) -> tuple[int, str]:
     return int(proc.returncode or 0), (out or b"").decode("utf-8", "replace")
 
 
-async def make_worktree(project: Path, name: str) -> tuple[Path | None, str]:
+_WORKTREE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")
+
+
+def _valid_worktree_name(name: str) -> bool:
+    """Простой slug: без разделителей пути, `..` и хвостов, запрещённых git."""
+    return (bool(_WORKTREE_NAME.fullmatch(name)) and ".." not in name
+            and not name.endswith((".", ".lock")))
+
+
+async def make_worktree(project: Path, name: str,
+                        roots: list[Path]) -> tuple[Path | None, str, int]:
     """Отдельный git worktree под задачу: правки агента не трогают основную ветку.
+
+    Возвращает (путь, ошибка, код): 400 — плохое имя/не git/git упал,
+    403 — целевой путь вне одобренных корней. Имя и корни проверяются ДО
+    `git worktree add` (C2): иначе отказ оставлял бы checkout и ветку вне корней.
 
     Если проект не git-репозиторий — честная ошибка, а не тихий откат на сам
     проект: иначе автономный агент писал бы прямо в рабочее дерево человека.
     """
+    if not _valid_worktree_name(name):
+        return None, (f"недопустимое имя worktree {name!r}: только латиница, цифры, "
+                      f"'.', '_', '-', без разделителей пути"), 400
     code, out = await _git(project, "rev-parse", "--show-toplevel")
     if code != 0:
-        return None, f"{project} не git-репозиторий, worktree не создать: {out.strip()}"
+        return None, f"{project} не git-репозиторий, worktree не создать: {out.strip()}", 400
     top = Path(out.strip() or str(project))
     target = top.parent / f"{top.name}-{name}"
+    if not _within(target, roots):
+        return None, (f"worktree {target} вне одобренных корней "
+                      f"({', '.join(str(r) for r in roots)})"), 403
     if target.exists():
-        return target, ""
+        return target, "", 0
     code, out = await _git(top, "worktree", "add", "-b", f"bossman/{name}", str(target))
     if code != 0:
-        return None, f"git worktree add не удался: {out.strip()}"
-    return target, ""
+        return None, f"git worktree add не удался: {out.strip()}", 400
+    return target, "", 0
 
 
 # --------------------------------------------------------------- хранилище
@@ -260,7 +281,8 @@ async def _tool_start(args: dict, ctx) -> ToolResult:
     worktree = project
     if args.get("worktree"):
         name = f"run{ctx.run_id or 0}"
-        made, err = await make_worktree(project, name)
+        made, err, _code = await make_worktree(project, name,
+                                               await allowed_roots(ctx.svc))
         if made is None:
             return ToolResult(content=f"отказ: {err}",
                               one_line="opencode.session.start: worktree не создан",

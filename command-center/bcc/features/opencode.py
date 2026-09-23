@@ -20,8 +20,9 @@ from fastapi import APIRouter, HTTPException, Request
 from ..v2.opencode_bridge import assistant_text, diff_summary
 from ..v2.tables import opencode_sessions as oc_t
 from . import Feature
-from .tools_opencode import (approved_dir, bridge_for, find_session, load_diff,
-                             make_worktree, persist_diff, record_session, set_status)
+from .tools_opencode import (allowed_roots, approved_dir, bridge_for, find_session,
+                             load_diff, make_worktree, persist_diff, record_session,
+                             set_status)
 
 router = APIRouter()
 
@@ -70,9 +71,9 @@ async def start_session(request: Request):
     worktree = project
     if body.get("worktree"):
         name = str(body.get("worktree_name") or f"task{body.get('task_id') or 0}")
-        made, err = await make_worktree(project, name)
+        made, err, code = await make_worktree(project, name, await allowed_roots(svc))
         if made is None:
-            raise HTTPException(400, {"message": err})
+            raise HTTPException(code or 400, {"message": err})
         checked, refusal = await approved_dir(svc, str(made))
         if checked is None:
             raise HTTPException(403, {"message": refusal})
