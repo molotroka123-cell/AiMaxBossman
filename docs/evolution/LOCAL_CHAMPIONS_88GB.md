@@ -14,7 +14,7 @@ Use three **primary role specialists**, one loaded at a time. This is a research
 
 These are assignments to evaluate, not a hidden fallback chain. Do not replace an unavailable reviewer with the builder and call that independent verification. The two Qwen models may share blind spots; Muse performs the independent review. Deterministic tests, evidence and promotion policy remain outside all model verdicts.
 
-The machine-readable manifest is [`config/evolution/local-champions.json`](../../config/evolution/local-champions.json). It is **declarative planning data**, not a currently wired model downloader or proof that the application automatically routes these roles.
+The operational manifest for the three candidates is [`tools/model_profiles.json`](../../tools/model_profiles.json), consumed by the shipped `model_fetch.py`. The original [`config/evolution/local-champions.json`](../../config/evolution/local-champions.json) remains the dated research snapshot; a test requires matching revisions, paths, sizes, SHA256 and memory plans. All three entries are optional, with `PENDING_OWNER_HARDWARE` activation. The downloader does not route a model to an agent or establish AMD support. Its 88 GB check is a planning gate; the owner still measures actual peak before admission. The catalog marks the model-card licence as unverified until read for commercial use.
 
 ## Why these three
 

@@ -235,6 +235,17 @@ def validate_manifest(data, studio_catalog: dict | None = None) -> dict:
         status = prof["status"]
         if status not in PROFILE_STATUSES:
             err(f"{label}: status must be one of {PROFILE_STATUSES}")
+        # A pinned GGUF size alone is not a usable 88 GB admission decision:
+        # include the profile's KV state, buffers and owner headroom.  This is
+        # still a planning limit; actual peak is measured on the owner's GPU.
+        if "hardware_limit_bytes" in prof or "memory_plan" in prof:
+            plan = prof.get("memory_plan")
+            limit = prof.get("hardware_limit_bytes")
+            envelope = plan.get("estimated_working_envelope_bytes") if isinstance(plan, dict) else None
+            if not _is_int(limit) or limit == 0 or not _is_int(envelope) or envelope > limit:
+                err(f"{label}: memory envelope must fit its positive hardware_limit_bytes")
+            if prof.get("activation") not in ("PENDING_OWNER_HARDWARE", "OWNER_HARDWARE_VERIFIED"):
+                err(f"{label}: an 88 GB hardware profile requires an explicit activation status")
         rt = prof["runtime"]
         if not isinstance(rt, dict) or not isinstance(rt.get("ref"), str):
             err(f"{label}: runtime.ref required")

@@ -718,6 +718,210 @@
      "unpinned_reason": "source unconfirmed (HF blocked from the cloud)"
     }
    ]
+  },
+  {
+   "id": "qwen38_builder",
+   "kind": "model",
+   "category": "llm_coding_agents",
+   "role": "primary_reasoning_builder; candidate, pending owner AMD acceptance",
+   "runtime": {
+    "ref": "llama.cpp-b10964-vulkan",
+    "architecture": "qwen35",
+    "context_tokens": 32768,
+    "initial_smoke_context_tokens": 8192,
+    "alias": "Qwen/Qwen3.8-27B",
+    "owner_hardware_tested": false
+   },
+   "source": {
+    "hf_repo": "unsloth/Qwen3.8-27B-GGUF",
+    "revision": "4ca720788d1e01f1bff70c033e0d0028fd02e502",
+    "official_model_card": "https://huggingface.co/Qwen/Qwen3.8-27B",
+    "metadata_source": "https://huggingface.co/api/models/unsloth/Qwen3.8-27B-GGUF?blobs=true",
+    "metadata_recorded_at": "2026-09-22"
+   },
+   "optional": true,
+   "status": "PINNED",
+   "activation": "PENDING_OWNER_HARDWARE",
+   "memory_plan": {
+    "unit": "bytes",
+    "kind": "conservative_planning_allowance_not_measured_peak",
+    "weights_bytes": 29047086048,
+    "kv_and_recurrent_state_allowance_bytes": 3000000000,
+    "runtime_buffers_allowance_bytes": 6000000000,
+    "additional_headroom_bytes": 4000000000,
+    "estimated_working_envelope_bytes": 42047086048,
+    "fits_planning_88gb": true
+   },
+   "hardware_limit_bytes": 88000000000,
+   "license": {
+    "id": "UNVERIFIED",
+    "url": "https://huggingface.co/Qwen/Qwen3.8-27B",
+    "acceptance_required": "read model card before commercial use"
+   },
+   "min_free_disk": {
+    "bytes": 29047086048,
+    "basis": "exact pinned GGUF bytes; model_fetch adds its global free-disk margin"
+   },
+   "files": [
+    {
+     "id": "qwen38_builder-1",
+     "role": "primary_reasoning_builder",
+     "dest_dir": "evolution/qwen38_builder",
+     "name": "Qwen3.8-27B-Q8_0.gguf",
+     "hf_path": "Qwen3.8-27B-Q8_0.gguf",
+     "size_bytes": 29047086048,
+     "sha256": "a680f44a06920e5d689774823782006aa3acc8db95750323373b24139b67e348",
+     "status": "PINNED",
+     "pinned_via": "config/evolution/local-champions.json research snapshot (HF metadata 2026-09-22; bytes not yet downloaded or verified on owner hardware)"
+    }
+   ]
+  },
+  {
+   "id": "qwen_coder_worker",
+   "kind": "model",
+   "category": "llm_coding_agents",
+   "role": "primary_code_and_test_worker; candidate, pending owner AMD acceptance",
+   "runtime": {
+    "ref": "llama.cpp-b10964-vulkan",
+    "architecture": "qwen3next",
+    "context_tokens": 32768,
+    "initial_smoke_context_tokens": 8192,
+    "alias": "Qwen/Qwen3-Coder-Next",
+    "owner_hardware_tested": false
+   },
+   "source": {
+    "hf_repo": "Qwen/Qwen3-Coder-Next-GGUF",
+    "revision": "b82fb7382639d97b38fa7672e526c760c2fb358e",
+    "official_model_card": "https://huggingface.co/Qwen/Qwen3-Coder-Next",
+    "metadata_source": "https://huggingface.co/api/models/Qwen/Qwen3-Coder-Next-GGUF?blobs=true",
+    "metadata_recorded_at": "2026-09-22"
+   },
+   "optional": true,
+   "status": "PINNED",
+   "activation": "PENDING_OWNER_HARDWARE",
+   "memory_plan": {
+    "unit": "bytes",
+    "kind": "conservative_planning_allowance_not_measured_peak",
+    "weights_bytes": 65528464800,
+    "kv_and_recurrent_state_allowance_bytes": 2000000000,
+    "runtime_buffers_allowance_bytes": 6000000000,
+    "additional_headroom_bytes": 4000000000,
+    "estimated_working_envelope_bytes": 77528464800,
+    "fits_planning_88gb": true
+   },
+   "hardware_limit_bytes": 88000000000,
+   "license": {
+    "id": "UNVERIFIED",
+    "url": "https://huggingface.co/Qwen/Qwen3-Coder-Next",
+    "acceptance_required": "read model card before commercial use"
+   },
+   "min_free_disk": {
+    "bytes": 65528464800,
+    "basis": "exact pinned GGUF bytes; model_fetch adds its global free-disk margin"
+   },
+   "files": [
+    {
+     "id": "qwen_coder_worker-1",
+     "role": "primary_code_and_test_worker",
+     "dest_dir": "evolution/qwen_coder_worker/Qwen3-Coder-Next-Q6_K",
+     "name": "Qwen3-Coder-Next-Q6_K-00001-of-00004.gguf",
+     "hf_path": "Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K-00001-of-00004.gguf",
+     "size_bytes": 20245400480,
+     "sha256": "96f5a82248f330b16f96b8764890807394a2c9ff15dd929739e84406a82f1c08",
+     "status": "PINNED",
+     "pinned_via": "config/evolution/local-champions.json research snapshot (HF metadata 2026-09-22; bytes not yet downloaded or verified on owner hardware)"
+    },
+    {
+     "id": "qwen_coder_worker-2",
+     "role": "primary_code_and_test_worker",
+     "dest_dir": "evolution/qwen_coder_worker/Qwen3-Coder-Next-Q6_K",
+     "name": "Qwen3-Coder-Next-Q6_K-00002-of-00004.gguf",
+     "hf_path": "Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K-00002-of-00004.gguf",
+     "size_bytes": 20249793440,
+     "sha256": "8aba362152a27d594b72de6116229a1cbacf10016ab032fcbeeabf3e496cf50e",
+     "status": "PINNED",
+     "pinned_via": "config/evolution/local-champions.json research snapshot (HF metadata 2026-09-22; bytes not yet downloaded or verified on owner hardware)"
+    },
+    {
+     "id": "qwen_coder_worker-3",
+     "role": "primary_code_and_test_worker",
+     "dest_dir": "evolution/qwen_coder_worker/Qwen3-Coder-Next-Q6_K",
+     "name": "Qwen3-Coder-Next-Q6_K-00003-of-00004.gguf",
+     "hf_path": "Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K-00003-of-00004.gguf",
+     "size_bytes": 20119727648,
+     "sha256": "3533e483d4a8f0c71d596b1a7f9b84a653c9034bdd04a7665d5cede7fcab48f6",
+     "status": "PINNED",
+     "pinned_via": "config/evolution/local-champions.json research snapshot (HF metadata 2026-09-22; bytes not yet downloaded or verified on owner hardware)"
+    },
+    {
+     "id": "qwen_coder_worker-4",
+     "role": "primary_code_and_test_worker",
+     "dest_dir": "evolution/qwen_coder_worker/Qwen3-Coder-Next-Q6_K",
+     "name": "Qwen3-Coder-Next-Q6_K-00004-of-00004.gguf",
+     "hf_path": "Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K-00004-of-00004.gguf",
+     "size_bytes": 4913543232,
+     "sha256": "cd44084ec6bb816667821ec2ceba024a10910c01f7d53b6c4b7fdb4c868f8c1d",
+     "status": "PINNED",
+     "pinned_via": "config/evolution/local-champions.json research snapshot (HF metadata 2026-09-22; bytes not yet downloaded or verified on owner hardware)"
+    }
+   ]
+  },
+  {
+   "id": "muse_reviewer",
+   "kind": "model",
+   "category": "llm_coding_agents",
+   "role": "primary_independent_reviewer; candidate, pending owner AMD acceptance",
+   "runtime": {
+    "ref": "llama.cpp-b10964-vulkan",
+    "architecture": "muse-glimmer",
+    "context_tokens": 32768,
+    "initial_smoke_context_tokens": 8192,
+    "alias": "meta-models/Muse-Glimmer-30B",
+    "owner_hardware_tested": false
+   },
+   "source": {
+    "hf_repo": "meta-models/Muse-Glimmer-30B-GGUF",
+    "revision": "70bf1b61ac09f91b24d39038091b41c582bc5d7a",
+    "official_model_card": "https://huggingface.co/meta-models/Muse-Glimmer-30B",
+    "metadata_source": "https://huggingface.co/api/models/meta-models/Muse-Glimmer-30B-GGUF?blobs=true",
+    "metadata_recorded_at": "2026-09-22"
+   },
+   "optional": true,
+   "status": "PINNED",
+   "activation": "PENDING_OWNER_HARDWARE",
+   "memory_plan": {
+    "unit": "bytes",
+    "kind": "conservative_planning_allowance_not_measured_peak",
+    "weights_bytes": 19653960832,
+    "kv_and_recurrent_state_allowance_bytes": 2000000000,
+    "runtime_buffers_allowance_bytes": 6000000000,
+    "additional_headroom_bytes": 4000000000,
+    "estimated_working_envelope_bytes": 31653960832,
+    "fits_planning_88gb": true
+   },
+   "hardware_limit_bytes": 88000000000,
+   "license": {
+    "id": "UNVERIFIED",
+    "url": "https://huggingface.co/meta-models/Muse-Glimmer-30B",
+    "acceptance_required": "read model card before commercial use"
+   },
+   "min_free_disk": {
+    "bytes": 19653960832,
+    "basis": "exact pinned GGUF bytes; model_fetch adds its global free-disk margin"
+   },
+   "files": [
+    {
+     "id": "muse_reviewer-1",
+     "role": "primary_independent_reviewer",
+     "dest_dir": "evolution/muse_reviewer",
+     "name": "Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf",
+     "hf_path": "Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf",
+     "size_bytes": 19653960832,
+     "sha256": "ac7023d6a4c704eb9af54ab53e476a66b7f5b6c0ef2fc4a8dde5253c291a6c38",
+     "status": "PINNED",
+     "pinned_via": "config/evolution/local-champions.json research snapshot (HF metadata 2026-09-22; bytes not yet downloaded or verified on owner hardware)"
+    }
+   ]
   }
  ],
  "download_order": {
@@ -756,6 +960,15 @@
      "qwen3.6-35b-a3b-fp8"
     ],
     "action": "late, by budget, separate runtime/environment"
+   },
+   {
+    "step": 5,
+    "profiles": [
+     "qwen38_builder",
+     "qwen_coder_worker",
+     "muse_reviewer"
+    ],
+    "action": "owner-approved experimental tournament only: verify artifact and licence, download one selected model at a time, check runtime/AMD support, 8K then 32K smoke and measured peak under 88 GB; never auto-activate"
    }
   ]
  }
