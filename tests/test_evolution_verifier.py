@@ -186,7 +186,8 @@ def test_holdout_file_is_protected(repo, tmp_path):
                      writes={"tests/test_regress_money.py": fx.REGRESS_MONEY,
                              "evolution-suite.json": "{}\n"})
     rec = check(src, sha, tmp_path, diff, holdout=("evolution-suite.json",))
-    assert rec["verdict"] == "UNSAFE" and "evaluator" in " ".join(rec["reasons"])
+    assert rec["verdict"] == "UNSAFE" and "evaluator" in " ".join(rec["reasons"]), \
+        (rec["reasons"], rec.get("checks"))
 
 
 def test_explanation_keys_are_stripped_recursively():
