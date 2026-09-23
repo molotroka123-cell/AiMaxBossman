@@ -1,0 +1,988 @@
+From 3fa3d33f890a2f9af8c743538115d45bd366af50 Mon Sep 17 00:00:00 2001
+From: molotroka123-cell <timurdarwaish228@gmail.com>
+Date: Wed, 23 Sep 2026 12:30:00 -0700
+Subject: [PATCH] =?UTF-8?q?wip(coding):=20controlled=20apply=20=E2=80=94?=
+ =?UTF-8?q?=20UNVERIFIED,=20incomplete:=20apply=20route=20+=20CLI=20+=20sa?=
+ =?UTF-8?q?ndbox=20EOL=20fix=20pass=20tests/test=5Fcoding=5Fapply.py=20(17?=
+ =?UTF-8?q?/17);=20neighbouring=20suites=20not=20yet=20run,=20UI=20button?=
+ =?UTF-8?q?=20not=20added?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+POST /api/coding-tasks/{id}/apply: eligibility (completed + verify_tests passed +
+evidence digest) -> preflight (STALE_BASE / DIRTY_TARGET / PROTECTED_PATH /
+APPLY_CHECK_FAILED on exact diff bytes) -> single-use approval (kind=coding_apply,
+preview bound to task id + base + evidence digest, approvals.consume) -> locked
+re-check, git apply to working tree only, after-state compare, rollback on failure.
+`bossman code apply <id> [--approval-id N]` (0 / 4 / 5 / 11). NO_APPROVE guard
+moved into the terminal client. IsolatedWorktree clones with the source's
+effective core.autocrlf/core.eol.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+---
+ .../bossman/apprentice/isolated_worktree.py   |  15 +-
+ command-center/bcc/features/coding_tasks.py   | 319 +++++++++++++-
+ command-center/bcc/terminal_cli/api_client.py |   9 +
+ command-center/bcc/terminal_cli/cli.py        |  12 +-
+ command-center/bcc/terminal_cli/screens.py    |  51 ++-
+ command-center/tests/test_coding_apply.py     | 398 ++++++++++++++++++
+ command-center/tests/test_coding_tasks.py     |   5 +-
+ 7 files changed, 797 insertions(+), 12 deletions(-)
+ create mode 100644 command-center/tests/test_coding_apply.py
+
+diff --git a/bossman-core/bossman/apprentice/isolated_worktree.py b/bossman-core/bossman/apprentice/isolated_worktree.py
+index a66c2289..dc3dea10 100644
+--- a/bossman-core/bossman/apprentice/isolated_worktree.py
++++ b/bossman-core/bossman/apprentice/isolated_worktree.py
+@@ -129,8 +129,21 @@ class IsolatedWorktree:
+         worktree_path = Path(temp_dir) / 'worktree'
+ 
+         try:
++            # Owner run 2026-09-23: the clone took its end-of-line rules from the
++            # global/system config (Git for Windows: core.autocrlf=true) instead of
++            # the source repository's own. The sandbox then held CRLF where the
++            # owner's checkout had LF (or back), and the verified diff did not
++            # `git apply` to the project it was made for. The clone now checks out
++            # with the source's EFFECTIVE core.autocrlf / core.eol.
++            eol_config: List[str] = []
++            for key in ('core.autocrlf', 'core.eol'):
++                probe = subprocess.run(['git', 'config', '--get', key], cwd=str(self.source_repo),
++                                       capture_output=True, text=True, timeout=30)
++                value = probe.stdout.strip() if probe.returncode == 0 else ''
++                if value:
++                    eol_config += ['-c', f'{key}={value}']
+             result = subprocess.run(
+-                ['git', 'clone', '--local', str(self.source_repo), str(worktree_path)],
++                ['git', 'clone', '--local', *eol_config, str(self.source_repo), str(worktree_path)],
+                 capture_output=True, text=True, timeout=300)
+             if result.returncode != 0:
+                 raise RuntimeError(f"Failed to clone sandbox: {result.stderr}")
+diff --git a/command-center/bcc/features/coding_tasks.py b/command-center/bcc/features/coding_tasks.py
+index 17c1e036..da5c25e8 100644
+--- a/command-center/bcc/features/coding_tasks.py
++++ b/command-center/bcc/features/coding_tasks.py
+@@ -13,13 +13,20 @@ agent is built here:
+     roots) → instruction + allowed/protected paths → OpenHands status →
+     diff / changed files / evidence / sandbox cleanup state.
+ 
+-What it deliberately does NOT do: push, merge, deploy, widen the sidecar's
+-permissions, or mark anything "complete" on the sidecar's word. The sidecar
+-runs in a disposable clone with no remote (IsolatedWorktree); its result is
+-admitted only through OpenHandsClient's independent evidence derivation; the
+-patch is returned as EVIDENCE for the owner, and applying it to the source
+-repository stays a separate owner decision made with the existing coding
+-session tooling.
++What it deliberately does NOT do: push, merge, deploy, commit, widen the
++sidecar's permissions, or mark anything "complete" on the sidecar's word. The
++sidecar runs in a disposable clone with no remote (IsolatedWorktree); its
++result is admitted only through OpenHandsClient's independent evidence
++derivation; the patch is returned as EVIDENCE for the owner.
++
++Bringing a verified candidate into the canonical project is a separate, explicit
++owner decision (owner run 2026-09-23, P1 — раньше «отдельное решение» не имело
++никакого управляемого пути, патч переносили руками): ``POST
++/api/coding-tasks/{id}/apply`` — see ``apply_task`` below for the state machine.
++The worktree sessions' merge (coding_session) is NOT reused for this: it commits
++and moves the owner's branch, while here the candidate is a reviewed patch and
++the owner keeps the commit decision — the result is left as working-tree
++modifications.
+ 
+ Readiness is reported honestly: without the bossman-core runtime importable
+ or without `BOSSMAN_OPENHANDS_COMMAND` configured, the page says so and why,
+@@ -44,16 +51,20 @@ real tool call — or the page shows the handshake's reason.
+ from __future__ import annotations
+ 
+ import asyncio
++import hashlib
+ import importlib
+ import json
+ import os
+ import re
+ import secrets
++import subprocess
++import threading
+ import time
+ from pathlib import Path
+ from typing import Any
+ 
+ from fastapi import APIRouter, HTTPException, Request
++from fastapi.responses import JSONResponse
+ from pydantic import BaseModel, Field
+ 
+ from . import Feature
+@@ -281,6 +292,10 @@ def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None
+                          "changed_files": list(result.changed_files), "diff": result.diff,
+                          "sidecar": sidecar,
+                          "error": "" if ok else "сайдкар сообщил о неудаче"}
++        if result.diff:
++            # What a later owner-approved apply is bound to: the digest of the
++            # exact reviewed diff and the host-read after-state of every file.
++            result_fields.update(_candidate(result))
+         if ok and body.verify_tests:
+             verification = _verify_in_sandbox(Path(root), list(body.verify_tests),
+                                               max(30, min(600, int(body.timeout_seconds))))
+@@ -311,7 +326,11 @@ def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None
+             evidence = {"error": f"{type(exc).__name__}: {exc}"}
+         sandbox.cleanup()
+         cleanup = sandbox.cleanup_state()
++    # The sandbox is a clone of the canonical branch tip: its HEAD before the
++    # run is the base the candidate diff applies to (STALE_BASE otherwise).
++    base = evidence.get("head_before") if isinstance(evidence, dict) else None
+     return {**record, **result_fields, "evidence": evidence, "sandbox_cleanup": cleanup,
++            **({"base_commit": base} if base else {}),
+             "duration_seconds": round(time.time() - started, 2), "finished_at": time.time()}
+ 
+ 
+@@ -411,6 +430,292 @@ async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None
+                        error=str(final.get("error") or "")[:300])
+ 
+ 
++# ---------------------------------------------------------------------------
++# Apply a verified candidate to the canonical project (owner decision).
++#
++#   request (no approval_id) ─ eligibility ─ preflight ─▶ 202 WAIT_APPROVAL
++#                                                          (approvals row, kind=coding_apply,
++#                                                           preview = task + repo + base + digest)
++#   request (approval_id)    ─ eligibility ─ preflight ─ consume(approval) ─▶
++#        [lock] re-read record ─ preflight again ─ backup ─ git apply ─ after-state check
++#            ├─ ok       ─▶ 200 APPLIED   (applied_at / applied_digest on the task; no commit)
++#            └─ failure  ─▶ tree restored, 409 APPLY_FAILED | AFTER_STATE_MISMATCH
++#
++# Refusals (nothing touched, no approval consumed): 409 NOT_ELIGIBLE (reason_code
++# NOT_COMPLETED | NOT_VERIFIED | EMPTY_DIFF | NO_EVIDENCE_DIGEST | EVIDENCE_DIGEST_MISMATCH
++# | EVIDENCE_PATHS_MISMATCH), ALREADY_APPLIED, STALE_BASE, DIRTY_TARGET, PROTECTED_PATH,
++# APPLY_CHECK_FAILED; 403 APPROVAL_INVALID (not approved / spent / other task or digest).
++#
++# Почему байты, а не текст: владелец получил отказ `git apply` на репозитории с
++# core.autocrlf=true — diff с CRLF-контекстом, переданный как ТЕКСТ, на Windows
++# превращается в CR CR LF (write_text / text=True stdin). Здесь в git уходит ровно
++# тот набор байт, чей sha256 записан как evidence_digest, и только в рабочее дерево
++# (без --index: `--index` с CRLF-контекстом против LF-индекса тоже падает); git сам
++# применяет правила EOL канонического репозитория.
++# ---------------------------------------------------------------------------
++
++APPLY_KIND = "coding_apply"
++#: One apply at a time in this process: two approved requests cannot interleave
++#: their check → apply → verify on the same tree.
++_APPLY_LOCK = threading.Lock()
++
++
++class ApplyIn(BaseModel):
++    approval_id: int | None = None
++
++
++class _Refusal(Exception):
++    def __init__(self, status: int, code: str, message: str, **extra: Any):
++        super().__init__(message)
++        self.status, self.detail = status, {"code": code, "message": message, **extra}
++
++
++def _sha(data: bytes) -> str:
++    return hashlib.sha256(data).hexdigest()
++
++
++def _eol(data: bytes) -> bytes:
++    return data.replace(b"\r\n", b"\n")
++
++
++def _diff_digest(diff: str) -> str:
++    return "sha256:" + _sha(diff.encode("utf-8"))
++
++
++def _candidate(result: Any) -> dict:
++    files = getattr(result, "files", None) or {}
++    after: dict[str, dict] = {}
++    for name in result.changed_files:
++        entry = files.get(name)
++        if entry is None:
++            after[name] = {"deleted": True}
++        else:
++            after[name] = {"deleted": False, "sha256": _sha(entry.data), "sha256_eol": _sha(_eol(entry.data))}
++    return {"evidence_digest": _diff_digest(result.diff), "candidate_files": after}
++
++
++def apply_preview(rec: dict) -> str:
++    """The exact text the owner approves; approvals.consume() compares it
++    byte for byte, so the approval is bound to THIS task and THIS digest."""
++    return (f"coding apply: задача {rec.get('id')} → канонический проект (без commit/push)\n"
++            f"repo: {rec.get('source_repo')}\nbase: {rec.get('base_commit')}\n"
++            f"evidence: {rec.get('evidence_digest')}\n"
++            f"files: {', '.join(sorted(rec.get('candidate_files') or {}))}")
++
++
++def _eligibility(rec: dict) -> None:
++    def no(reason: str, message: str):
++        raise _Refusal(409, "NOT_ELIGIBLE", message, reason_code=reason)
++    if rec.get("applied_at"):
++        raise _Refusal(409, "ALREADY_APPLIED", "кандидат уже применён к проекту",
++                       applied_at=rec.get("applied_at"), applied_digest=rec.get("applied_digest"))
++    if rec.get("status") != "completed" or rec.get("outcome"):
++        no("NOT_COMPLETED", f"задача не завершена успешно (status={rec.get('status')})")
++    verification = rec.get("verification")
++    if not rec.get("verify_tests") or not isinstance(verification, dict) or not (
++            verification.get("ran") and verification.get("passed") is True):
++        no("NOT_VERIFIED", "нет пройденной независимой проверки Bossman (verify_tests)")
++    diff = rec.get("diff") or ""
++    if not diff:
++        no("EMPTY_DIFF", "у задачи нет патча")
++    if not rec.get("evidence_digest"):
++        no("NO_EVIDENCE_DIGEST", "у задачи нет записанного digest доказательств (задача старше этой версии)")
++    if _diff_digest(diff) != rec.get("evidence_digest"):
++        no("EVIDENCE_DIGEST_MISMATCH", "патч не совпадает с записанным digest доказательств")
++    if not rec.get("base_commit") or not rec.get("candidate_files"):
++        no("NO_EVIDENCE_DIGEST", "у задачи нет базового коммита или состояния файлов кандидата")
++
++
++def _git_b(repo: Path, *args: str, data: bytes | None = None) -> subprocess.CompletedProcess:
++    # bytes in, bytes out: no newline translation anywhere on the way to git.
++    return subprocess.run(["git", "-C", str(repo), "--literal-pathspecs", *args], input=data,
++                          capture_output=True, timeout=120, check=False)
++
++
++def _err(proc: subprocess.CompletedProcess) -> str:
++    return proc.stderr.decode("utf-8", "replace").strip()[:600]
++
++
++def _touched(repo: Path, patch: bytes) -> list[str]:
++    proc = _git_b(repo, "apply", "--numstat", "-z", "-", data=patch)
++    if proc.returncode:
++        raise _Refusal(409, "APPLY_CHECK_FAILED", "патч не читается git apply: " + _err(proc))
++    parts, out, i = proc.stdout.split(b"\0"), [], 0
++    while i < len(parts):
++        fields = parts[i].split(b"\t", 2)
++        if len(fields) == 3 and fields[2]:
++            out.append(fields[2]); i += 1
++        elif len(fields) == 3:                       # rename/copy: src and dst follow
++            out += parts[i + 1:i + 3]; i += 3
++        else:
++            i += 1
++    return sorted({p.decode("utf-8", "surrogateescape") for p in out if p})
++
++
++def _preflight(rec: dict, repo: Path) -> tuple[bytes, list[str]]:
++    """Checks on the canonical repo, immediately before applying. Raises _Refusal."""
++    patch = rec["diff"].encode("utf-8")
++    head = _git_b(repo, "rev-parse", "--verify", "HEAD")
++    if head.returncode or head.stdout.decode().strip() != rec["base_commit"]:
++        raise _Refusal(409, "STALE_BASE", "HEAD проекта не совпадает с базой задачи: кандидат проверялся "
++                       "на другом коммите", base=rec["base_commit"],
++                       head=head.stdout.decode(errors="replace").strip() or None)
++    paths = _touched(repo, patch)
++    if set(paths) != set(rec["candidate_files"]):
++        raise _Refusal(409, "NOT_ELIGIBLE", "пути патча не совпадают с проверенным состоянием кандидата",
++                       reason_code="EVIDENCE_PATHS_MISMATCH", paths=paths)
++    oc, _wt, reason = _runtime()
++    if oc is None:
++        raise _Refusal(503, "RUNTIME_UNAVAILABLE", reason)
++    try:    # the same boundary that admitted the candidate, against the record's scope
++        oc._validate_scope(paths, rec.get("allowed_paths") or [], rec.get("protected_paths") or [])
++    except oc.OpenHandsError as exc:
++        raise _Refusal(409, "PROTECTED_PATH", str(exc)[:600], paths=paths)
++    status = _git_b(repo, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignored=matching",
++                    "--", *paths)
++    if status.returncode:
++        raise _Refusal(409, "DIRTY_TARGET", "состояние проекта не читается: " + _err(status))
++    dirty = sorted({e[3:].decode("utf-8", "replace") for e in status.stdout.split(b"\0") if len(e) > 3})
++    if dirty:
++        raise _Refusal(409, "DIRTY_TARGET", "в проекте есть локальные изменения затрагиваемых файлов",
++                       paths=dirty)
++    check = _git_b(repo, "apply", "--check", "--whitespace=nowarn", "-", data=patch)
++    if check.returncode:
++        raise _Refusal(409, "APPLY_CHECK_FAILED", "git apply --check: " + _err(check))
++    return patch, paths
++
++
++def _read_state(p: Path) -> bytes | None:
++    if p.is_symlink():
++        return os.readlink(p).encode("utf-8", "surrogateescape")
++    return p.read_bytes() if p.is_file() else None
++
++
++def _restore(repo: Path, backup: dict[str, tuple[bytes, int] | None], created: list[Path]) -> list[str]:
++    """Put every touched path back as it was; returns paths that could not be restored."""
++    failed = []
++    for rel, saved in backup.items():
++        p = repo / rel
++        try:
++            if saved is None:
++                if p.is_symlink() or p.is_file():
++                    p.unlink()
++            else:
++                if p.is_symlink():
++                    p.unlink()
++                p.parent.mkdir(parents=True, exist_ok=True)
++                p.write_bytes(saved[0])
++                os.chmod(p, saved[1])
++            if _read_state(p) != (saved[0] if saved else None):
++                failed.append(rel)
++        except OSError:
++            failed.append(rel)
++    for d in sorted(created, key=lambda x: len(x.parts), reverse=True):
++        try:
++            d.rmdir()
++        except OSError:
++            pass
++    return failed
++
++
++def _apply_locked(svc, task_id: str, repo: Path, approval_id: int) -> dict:
++    """Blocking. Under the process lock: re-read, re-check, apply, verify, record."""
++    with _APPLY_LOCK:
++        rec = _read(svc, task_id)
++        _eligibility(rec)                 # ALREADY_APPLIED by a concurrent request lands here
++        patch, paths = _preflight(rec, repo)
++        backup: dict[str, tuple[bytes, int] | None] = {}
++        created: list[Path] = []
++        for rel in paths:
++            p = repo / rel
++            if p.is_symlink():            # symlinks are not restorable byte-for-byte everywhere
++                raise _Refusal(409, "APPLY_CHECK_FAILED", f"символическая ссылка в затрагиваемых путях: {rel}")
++            backup[rel] = (p.read_bytes(), p.stat().st_mode & 0o777) if p.is_file() else None
++            for parent in p.parents:      # directories git apply will create for new files
++                if parent == repo or parent.exists():
++                    break
++                if parent not in created:
++                    created.append(parent)
++        proc = _git_b(repo, "apply", "--whitespace=nowarn", "-", data=patch)
++        files: dict[str, dict] = {}
++        mismatch: list[str] = []
++        if not proc.returncode:
++            for rel, want in rec["candidate_files"].items():
++                data = _read_state(repo / rel)
++                if want.get("deleted"):
++                    ok, match = data is None, "deleted"
++                elif data is None:
++                    ok, match = False, "missing"
++                elif _sha(data) == want.get("sha256"):
++                    ok, match = True, "exact"
++                elif _sha(_eol(data)) == want.get("sha256_eol"):
++                    # the canonical repo's own EOL rules (core.autocrlf) wrote CRLF
++                    # where the sandbox had LF, or back: same content for git.
++                    ok, match = True, "eol"
++                else:
++                    ok, match = False, "different"
++                files[rel] = {"match": match, "sha256": _sha(data) if data is not None else None}
++                if not ok:
++                    mismatch.append(rel)
++        if proc.returncode or mismatch:
++            failed = _restore(repo, backup, created)
++            code = "APPLY_FAILED" if proc.returncode else "AFTER_STATE_MISMATCH"
++            message = ("git apply: " + _err(proc)) if proc.returncode else \
++                "результат не совпал с проверенным состоянием кандидата: " + ", ".join(mismatch)
++            raise _Refusal(409, code, message + ("; дерево проекта восстановлено" if not failed else
++                                                 "; ВНИМАНИЕ: не восстановлены: " + ", ".join(failed)),
++                           restored=not failed, not_restored=failed or None, approval_id=approval_id)
++        applied_digest = "sha256:" + _sha(json.dumps(sorted((k, v["sha256"]) for k, v in files.items()),
++                                                     ensure_ascii=False).encode("utf-8"))
++        applied = {"applied_at": time.time(), "applied_digest": applied_digest,
++                   "apply": {"approval_id": approval_id, "base_commit": rec["base_commit"],
++                             "evidence_digest": rec["evidence_digest"], "files": files,
++                             "committed": False, "repo": str(repo)}}
++        _write(svc, {**rec, **applied})
++        return applied
++
++
++async def apply_task(svc, task_id: str, approval_id: int | None) -> tuple[int, dict]:
++    rec = _read(svc, task_id)
++    _eligibility(rec)
++    repo = await _confined_repo(svc, rec.get("source_repo") or "")
++    await asyncio.to_thread(_preflight, rec, repo)
++    preview = apply_preview(rec)
++    if approval_id is None:
++        # Одна ожидающая заявка на одно и то же действие: повторный запрос не
++        # плодит подтверждения, а возвращает ту же.
++        pending = [a for a in await svc.approvals.list("pending")
++                   if a.get("kind") == APPLY_KIND and a.get("preview") == preview]
++        appr = pending[0] if pending else await svc.approvals.create(APPLY_KIND, preview)
++        return 202, {"state": "WAIT_APPROVAL", "id": task_id, "approval_id": appr.get("id"),
++                     "preview": preview, "evidence_digest": rec["evidence_digest"]}
++    # F-015: подтверждение — одобренная запись с ТЕМ ЖЕ kind и preview, одноразовая.
++    if not await svc.approvals.consume(approval_id, kind=APPLY_KIND, preview=preview):
++        raise _Refusal(403, "APPROVAL_INVALID", "подтверждение не одобрено, уже использовано или выдано "
++                       "на другую задачу/другие доказательства; запросите новое")
++    try:
++        applied = await asyncio.to_thread(_apply_locked, svc, task_id, repo, int(approval_id))
++    except _Refusal as exc:
++        await svc.bus.emit("coding.task.apply_refused", task_id=task_id, code=exc.detail["code"],
++                           approval_id=approval_id)
++        raise
++    await svc.bus.emit("coding.task.applied", task_id=task_id, repo=str(repo), approval_id=approval_id,
++                       applied_digest=applied["applied_digest"], files=len(applied["apply"]["files"]))
++    return 200, {"state": "APPLIED", "id": task_id, "applied_at": applied["applied_at"],
++                 "applied_digest": applied["applied_digest"], **applied["apply"]}
++
++
++@router.post("/coding-tasks/{task_id}/apply")
++async def apply_candidate(task_id: str, body: ApplyIn, request: Request):
++    """Owner decision: bring a VERIFIED candidate into the canonical project as
++    working-tree modifications. Needs an approval each time; never commits."""
++    try:
++        status, payload = await apply_task(request.app.state.svc, task_id, body.approval_id)
++    except _Refusal as exc:
++        raise HTTPException(exc.status, exc.detail)
++    return JSONResponse(payload, status_code=status)
++
++
+ @router.get("/coding-tasks/readiness")
+ async def get_readiness(request: Request):
+     return await readiness(request.app.state.svc)
+diff --git a/command-center/bcc/terminal_cli/api_client.py b/command-center/bcc/terminal_cli/api_client.py
+index cd9b782a..3eea242c 100644
+--- a/command-center/bcc/terminal_cli/api_client.py
++++ b/command-center/bcc/terminal_cli/api_client.py
+@@ -14,6 +14,7 @@ from __future__ import annotations
+ import json
+ import os
+ import queue
++import re
+ import threading
+ import time
+ from dataclasses import dataclass, field
+@@ -25,6 +26,7 @@ import httpx
+ APP_IDENTITY = "bossman-command-center"
+ HEADER = "X-BCC-Token"
+ CSRF_HEADER = "X-BCC-CSRF"
++_APPROVAL_DECISION = re.compile(r"^/api/approvals/\d+/?$")
+ 
+ 
+ class BossmanError(RuntimeError):
+@@ -214,6 +216,13 @@ class Client:
+         return self.request("GET", path, **kw)
+ 
+     def post(self, path: str, body: Any = None, **kw: Any) -> Any:
++        # BOSSMAN_TERMINAL_NO_APPROVE (окно учителя/автоматики): проверка была только
++        # в `bossman approve`, а /approve в чате и ask-режим follow слали решение
++        # напрямую. Одна точка для всех путей терминала — через этот клиент.
++        if (isinstance(body, dict) and body.get("approve") and _APPROVAL_DECISION.match(path)
++                and os.environ.get("BOSSMAN_TERMINAL_NO_APPROVE", "").strip() in ("1", "true", "yes")):
++            raise BossmanError("одобрение из этого окна запрещено (BOSSMAN_TERMINAL_NO_APPROVE=1): решение "
++                               "принимает владелец в вебе, Telegram или своём терминале", kind="blocked")
+         return self.request("POST", path, json=body if body is not None else {}, **kw)
+ 
+     def patch(self, path: str, body: Any = None, **kw: Any) -> Any:
+diff --git a/command-center/bcc/terminal_cli/cli.py b/command-center/bcc/terminal_cli/cli.py
+index 72014e41..d0be83ab 100644
+--- a/command-center/bcc/terminal_cli/cli.py
++++ b/command-center/bcc/terminal_cli/cli.py
+@@ -220,9 +220,14 @@ def build_parser() -> argparse.ArgumentParser:
+     k.add_argument("--no-models", action="store_true", help="не регистрировать модели провайдера")
+     _fmt(k)
+ 
+-    cd = sub.add_parser("code", help="coding task через coding path (diff + проверка)")
++    cd = sub.add_parser("code", help="coding task через coding path (diff + проверка); "
++                                     "`code apply <id>` — применить проверенного кандидата")
+     _common(cd)
+     cd.add_argument("instruction")
++    # `bossman code apply <task_id> [--approval-id N]`: второй позиционный
++    # аргумент есть только у apply; одобряет владелец (bossman approve / веб / Telegram).
++    cd.add_argument("task_id", nargs="?", help=argparse.SUPPRESS)
++    cd.add_argument("--approval-id", type=int, help="apply: одобренное владельцем разрешение")
+     cd.add_argument("--allow", action="append", default=[], help="разрешённый путь (обязателен)")
+     cd.add_argument("--protect", action="append", default=[])
+     cd.add_argument("--verify", action="append", default=[], help="тест для независимой проверки")
+@@ -786,6 +791,11 @@ def list_items(client: Client, what: str, *, limit: int = 20) -> list[dict]:
+ 
+ def cmd_code(args) -> int:
+     def run(client: Client, out: Out) -> int:
++        if args.instruction == "apply" and args.task_id:
++            from .screens import apply_coding_task
++            return apply_coding_task(client, out, args.task_id, args.approval_id)
++        if args.task_id:
++            raise UsageError("лишний аргумент: инструкцию берите в кавычки; применить — `code apply <id>`")
+         from .screens import run_coding_task
+         return run_coding_task(client, out, instruction=args.instruction, allow=args.allow,
+                                protect=args.protect, verify=args.verify,
+diff --git a/command-center/bcc/terminal_cli/screens.py b/command-center/bcc/terminal_cli/screens.py
+index bcd5348b..c4048164 100644
+--- a/command-center/bcc/terminal_cli/screens.py
++++ b/command-center/bcc/terminal_cli/screens.py
+@@ -22,8 +22,8 @@ from rich.text import Text
+ from .api_client import BossmanError, Client
+ from .console import make_console, sanitize
+ from .human import View, human_duration, render_status_bar, render_title, status_cells
+-from .records import (EXIT_BLOCKED, EXIT_FAIL, EXIT_INTERRUPTED, EXIT_NOT_SUPPORTED, EXIT_OK,
+-                      model_kind, record)
++from .records import (EXIT_BLOCKED, EXIT_CONFLICT, EXIT_FAIL, EXIT_INTERRUPTED, EXIT_NOT_SUPPORTED,
++                      EXIT_OK, EXIT_WAIT_APPROVAL, model_kind, record)
+ from .theme import glyphs
+ 
+ NOT_IN_BUILD = "недоступно в этой сборке"
+@@ -126,6 +126,53 @@ def run_coding_task(client: Client, out, *, instruction: str, allow: list[str],
+     return report_coding(out, view, rec)
+ 
+ 
++#: refusal codes of POST /api/coding-tasks/{id}/apply (bcc.features.coding_tasks)
++APPLY_REFUSALS = ("NOT_ELIGIBLE", "STALE_BASE", "DIRTY_TARGET", "PROTECTED_PATH", "APPLY_CHECK_FAILED",
++                  "APPLY_FAILED", "AFTER_STATE_MISMATCH", "APPROVAL_INVALID", "RUNTIME_UNAVAILABLE")
++
++
++def apply_coding_task(client: Client, out, task_id: str, approval_id: int | None) -> int:
++    """`bossman code apply <id>`: ask for / use the owner's approval to bring a
++    verified candidate into the canonical project. This command never approves:
++    without an approved id it ends WAIT_APPROVAL (4) and names the approval."""
++    body = {} if approval_id is None else {"approval_id": int(approval_id)}
++    try:
++        res = client.post(f"/api/coding-tasks/{task_id}/apply", body) or {}
++    except BossmanError as exc:
++        if exc.code == "ALREADY_APPLIED":
++            state, exit_code = "CONFLICT", EXIT_CONFLICT
++        elif exc.code in APPLY_REFUSALS:
++            state, exit_code = "BLOCKED", EXIT_BLOCKED
++        else:
++            raise
++        rec = record("coding_apply", ok=False, coding_task_id=task_id, task_state=state, code=exc.code,
++                     error=sanitize(exc.message), exit_code=exit_code)
++        (out.json(rec) if out.machine else out.say(f"coding apply {task_id}: {exc.code} — {sanitize(exc.message)}"))
++        return exit_code
++    if res.get("state") == "WAIT_APPROVAL":
++        rec = record("coding_apply", ok=True, coding_task_id=task_id, task_state="WAIT_APPROVAL",
++                     approval_id=res.get("approval_id"), preview=sanitize(res.get("preview")),
++                     note="нужно решение владельца; затем повторите с --approval-id",
++                     exit_code=EXIT_WAIT_APPROVAL)
++        if out.machine:
++            out.json(rec)
++        else:
++            out.say(sanitize(res.get("preview") or ""))
++            out.say(f"ждёт одобрения владельца: разрешение #{res.get('approval_id')}; после одобрения — "
++                    f"bossman code apply {task_id} --approval-id {res.get('approval_id')}")
++        return EXIT_WAIT_APPROVAL
++    ok = res.get("state") == "APPLIED"
++    rec = record("coding_apply", ok=ok, coding_task_id=task_id, task_state="PASS" if ok else "FAIL",
++                 applied_digest=res.get("applied_digest"), files=res.get("files"),
++                 committed=res.get("committed"), exit_code=EXIT_OK if ok else EXIT_FAIL)
++    if out.machine:
++        out.json(rec)
++    else:
++        out.say(f"coding apply {task_id}: {'применено в рабочее дерево (без commit)' if ok else res.get('state')}"
++                + (": " + ", ".join(sanitize(f) for f in (res.get("files") or {})) if ok else ""))
++    return rec["exit_code"]
++
++
+ def coding_result_record(rec: dict) -> dict:
+     status = rec.get("status")
+     sidecar = rec.get("sidecar") or {}
+diff --git a/command-center/tests/test_coding_apply.py b/command-center/tests/test_coding_apply.py
+new file mode 100644
+index 00000000..6102bbba
+--- /dev/null
++++ b/command-center/tests/test_coding_apply.py
+@@ -0,0 +1,398 @@
++"""Owner run 2026-09-23, P1: a VERIFIED coding candidate had no controlled way
++into the canonical project. The coding path (IsolatedWorktree → OpenHandsClient
++→ independent evidence → Bossman's own verify_tests) ended with a patch shown
++as evidence; the owner then copied it by hand, and a diff with CRLF context
++failed `git apply` on a repository with core.autocrlf=true.
++
++`POST /api/coding-tasks/{id}/apply` (and `bossman code apply <id>`) closes that:
++  * only completed + verified tasks with a recorded evidence digest qualify;
++  * an explicit, single-use owner approval bound to task id + evidence digest
++    (the existing approvals queue, F-015 consume) is required every time;
++  * immediately before applying: HEAD == base commit, touched paths clean,
++    protected paths untouched, `git apply --check` on the exact reviewed bytes;
++  * the result is compared with the candidate's after-state; on any failure the
++    canonical tree is restored; nothing is committed, pushed or merged.
++
++The sidecar is the scripted one from test_coding_tasks (same contract as the
++real sidecar); sandbox, evidence, verification and git are the real ones.
++"""
++from __future__ import annotations
++
++import asyncio
++import hashlib
++import json
++import subprocess
++from pathlib import Path
++
++import pytest
++
++from bcc.features import coding_tasks as ct
++
++from .test_coding_tasks import _allow, _wait_terminal, sidecar
++
++pytest.importorskip("bossman.apprentice.local_sidecar", reason="bossman-core runtime not installed")
++
++TEST_CALC = ("import unittest\n"
++             "from calc import add\n\n\n"
++             "class T(unittest.TestCase):\n"
++             "    def test_add(self):\n"
++             "        self.assertEqual(add(2, 3), 5)\n")
++FIX = ("pathlib.Path('calc.py').write_bytes("
++       "pathlib.Path('calc.py').read_bytes().replace(b'a - b', b'a + b'))")
++
++
++def git(root, *args, check=True):
++    return subprocess.run(["git", "-C", str(root), *args], check=check,
++                          capture_output=True, text=True).stdout
++
++
++def _crlf(text: str) -> bytes:
++    return text.replace("\n", "\r\n").encode()
++
++
++@pytest.fixture(autouse=True)
++def _fresh_handshake():
++    ct._handshake_cache.clear()
++    yield
++    ct._handshake_cache.clear()
++
++
++def make_repo(root: Path, eol: str = "lf") -> Path:
++    """eol: lf — plain repo; crlf_autocrlf — core.autocrlf=true, LF in the index,
++    CRLF in the working tree (Windows default); crlf_index — CRLF committed into
++    the index, then core.autocrlf=true (an old Windows repo)."""
++    src = root / f"owner-repo-{eol}"
++    src.mkdir()
++    git(src, "init", "-q")
++    git(src, "config", "user.email", "o@o")
++    git(src, "config", "user.name", "owner")
++    git(src, "config", "core.autocrlf", "true" if eol == "crlf_autocrlf" else "false")
++    calc = "def add(a, b):\n    return a - b\n"
++    enc = (lambda t: t.encode()) if eol == "lf" else _crlf
++    (src / "calc.py").write_bytes(enc(calc))
++    (src / "test_calc.py").write_bytes(enc(TEST_CALC))
++    (src / "SECRETS.md").write_bytes(enc("owner only\n"))
++    git(src, "add", "-A")
++    git(src, "commit", "-qm", "init")
++    if eol == "crlf_index":
++        git(src, "config", "core.autocrlf", "true")
++    return src
++
++
++async def complete_task(env, repo, monkeypatch, tmp_path, *, verify=True, body=FIX,
++                        protected=("SECRETS.md",)):
++    monkeypatch.setenv(ct.COMMAND_ENV, sidecar(body))
++    monkeypatch.setenv("TMPDIR", str(tmp_path))
++    import tempfile; monkeypatch.setattr(tempfile, "tempdir", None)   # restored on teardown
++    await _allow(env, repo.parent)
++    res = await env.client.post("/api/coding-tasks", json={
++        "instruction": "add() is wrong; fix it", "source_repo": str(repo),
++        "allowed_paths": ["calc.py"], "protected_paths": list(protected),
++        "verify_tests": ["test_calc.py"] if verify else [], "timeout_seconds": 120, "use_memory": False})
++    assert res.status_code == 200, res.text
++    rec = await _wait_terminal(env, res.json()["id"], timeout=120)
++    return rec
++
++
++async def request_apply(env, task_id, approval_id=None):
++    body = {} if approval_id is None else {"approval_id": approval_id}
++    return await env.client.post(f"/api/coding-tasks/{task_id}/apply", json=body)
++
++
++async def approve(env, approval_id):
++    res = await env.client.post(f"/api/approvals/{approval_id}", json={"approve": True, "by": "owner"})
++    assert res.status_code == 200 and res.json()["status"] == "approved", res.text
++
++
++async def approved_apply(env, task_id):
++    wait = await request_apply(env, task_id)
++    assert wait.status_code == 202, wait.text
++    assert wait.json()["state"] == "WAIT_APPROVAL"
++    aid = wait.json()["approval_id"]
++    await approve(env, aid)
++    return aid, await request_apply(env, task_id, aid)
++
++
++def tree_state(repo: Path) -> dict:
++    return {p.name: p.read_bytes() for p in repo.iterdir() if p.is_file()} | {
++        "HEAD": git(repo, "rev-parse", "HEAD"), "status": git(repo, "status", "--porcelain")}
++
++
++def code(res) -> str:
++    return res.json()["error"]["code"]
++
++
++# ------------------------------------------------------------------ happy path
++
++
++async def test_a_verified_candidate_is_applied_only_after_a_single_use_owner_approval(env, monkeypatch, tmp_path):
++    repo = make_repo(tmp_path)
++    rec = await complete_task(env, repo, monkeypatch, tmp_path)
++    assert rec["status"] == "completed" and rec["verification"]["passed"] is True, rec.get("error")
++    # the verified candidate carries what the apply is bound to
++    assert rec["evidence_digest"] == "sha256:" + hashlib.sha256(rec["diff"].encode("utf-8")).hexdigest()
++    assert rec["base_commit"] == git(repo, "rev-parse", "HEAD").strip()
++    head = rec["base_commit"]
++
++    wait = await request_apply(env, rec["id"])
++    assert wait.status_code == 202 and wait.json()["state"] == "WAIT_APPROVAL", wait.text
++    aid = wait.json()["approval_id"]
++    preview = wait.json()["preview"]
++    assert rec["id"] in preview and rec["evidence_digest"] in preview and head in preview
++    # nothing happened yet; asking again reuses the pending approval (no spam)
++    assert (repo / "calc.py").read_text() == "def add(a, b):\n    return a - b\n"
++    again = await request_apply(env, rec["id"])
++    assert again.status_code == 202 and again.json()["approval_id"] == aid
++    # a pending (not yet approved) approval does not apply
++    pending = await request_apply(env, rec["id"], aid)
++    assert pending.status_code == 403 and code(pending) == "APPROVAL_INVALID"
++    assert (repo / "calc.py").read_text() == "def add(a, b):\n    return a - b\n"
++
++    await approve(env, aid)
++    done = await request_apply(env, rec["id"], aid)
++    assert done.status_code == 200, done.text
++    out = done.json()
++    assert out["state"] == "APPLIED" and out["committed"] is False
++    assert (repo / "calc.py").read_text() == "def add(a, b):\n    return a + b\n"
++    # a working-tree modification only: not committed, not staged, HEAD unchanged
++    assert git(repo, "rev-parse", "HEAD").strip() == head
++    assert git(repo, "status", "--porcelain").strip() == "M calc.py"
++    assert git(repo, "diff", "--cached", "--name-only").strip() == ""
++    stored = (await env.client.get(f"/api/coding-tasks/{rec['id']}")).json()
++    assert stored["applied_at"] and stored["applied_digest"] == out["applied_digest"]
++    assert stored["apply"]["approval_id"] == aid and stored["apply"]["files"]["calc.py"]["match"] == "exact"
++
++    # no double apply: refused, even with a fresh approval; the approval is spent
++    twice = await request_apply(env, rec["id"], aid)
++    assert twice.status_code == 409 and code(twice) == "ALREADY_APPLIED"
++    assert (await request_apply(env, rec["id"])).status_code == 409
++    rows = (await env.client.get("/api/approvals", params={"status": "all"})).json()
++    assert next(r for r in rows if r["id"] == aid)["status"] == "consumed"
++    assert (repo / "calc.py").read_text() == "def add(a, b):\n    return a + b\n"
++
++
++# ------------------------------------------------------------------ CRLF
++
++
++@pytest.mark.parametrize("eol", ["crlf_autocrlf", "crlf_index", "lf"])
++@pytest.mark.parametrize("global_autocrlf", ["true", "false"])
++async def test_crlf_candidates_apply_on_an_autocrlf_repository(env, monkeypatch, tmp_path, eol, global_autocrlf):
++    """REPRO: the reviewed diff has CRLF context. Carried as text it became
++    CR CR LF on Windows and `git apply` refused it; and the sandbox clone took
++    its EOL rules from the global config (Git for Windows: autocrlf=true), so an
++    LF project got a CRLF-context diff that did not apply to it at all. The exact
++    reviewed bytes must apply, keep the project's EOL, change only one line."""
++    gcfg = tmp_path / "global.gitconfig"
++    gcfg.write_text(f"[core]\n\tautocrlf = {global_autocrlf}\n", encoding="utf-8")
++    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(gcfg))
++    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
++    repo = make_repo(tmp_path, eol)
++    rec = await complete_task(env, repo, monkeypatch, tmp_path)
++    assert rec["status"] == "completed", rec.get("error")
++    # the sandbox follows the PROJECT's EOL rules, whatever the global config says
++    assert ("\r\n" in rec["diff"]) == (eol != "lf")
++    _aid, done = await approved_apply(env, rec["id"])
++    assert done.status_code == 200, done.text
++    fixed = "def add(a, b):\n    return a + b\n"
++    assert (repo / "calc.py").read_bytes() == (fixed.encode() if eol == "lf" else _crlf(fixed))
++    stat = git(repo, "diff", "--numstat").split()
++    assert stat[:3] == ["1", "1", "calc.py"], stat       # one line, no whole-file EOL churn
++    assert git(repo, "status", "--porcelain").strip() == "M calc.py"
++
++
++# ------------------------------------------------------------------ refusals
++
++
++async def test_an_unverified_task_is_not_eligible(env, monkeypatch, tmp_path):
++    repo = make_repo(tmp_path)
++    rec = await complete_task(env, repo, monkeypatch, tmp_path, verify=False)
++    assert rec["status"] == "completed"
++    res = await request_apply(env, rec["id"])
++    assert res.status_code == 409 and code(res) == "NOT_ELIGIBLE"
++    assert res.json()["error"]["reason_code"] == "NOT_VERIFIED"
++    assert (await env.client.get("/api/approvals")).json() == []     # no approval minted
++
++
++async def test_failed_and_digestless_tasks_are_not_eligible(env):
++    base = {"instruction": "x", "boot_id": ct.BOOT_ID, "created_at": 1.0, "diff": "d", "source_repo": "/x",
++            "verify_tests": ["t.py"], "verification": {"ran": True, "passed": True}}
++    ct._write(env.svc, {**base, "id": "aaaaaaaaaaa1", "status": "failed"})
++    ct._write(env.svc, {**base, "id": "aaaaaaaaaaa2", "status": "completed"})            # no digest
++    ct._write(env.svc, {**base, "id": "aaaaaaaaaaa3", "status": "completed", "base_commit": "b" * 40,
++                        "evidence_digest": "sha256:" + "0" * 64, "candidate_files": {}})  # digest ≠ diff
++    ct._write(env.svc, {**base, "id": "aaaaaaaaaaa4", "status": "running"})
++    for tid, reason in (("aaaaaaaaaaa1", "NOT_COMPLETED"), ("aaaaaaaaaaa2", "NO_EVIDENCE_DIGEST"),
++                        ("aaaaaaaaaaa3", "EVIDENCE_DIGEST_MISMATCH"), ("aaaaaaaaaaa4", "NOT_COMPLETED")):
++        res = await request_apply(env, tid)
++        assert res.status_code == 409 and code(res) == "NOT_ELIGIBLE", (tid, res.text)
++        assert res.json()["error"]["reason_code"] == reason, (tid, res.text)
++    assert (await env.client.get("/api/approvals")).json() == []
++
++
++async def test_stale_base_and_dirty_target_are_refused_and_the_tree_is_untouched(env, monkeypatch, tmp_path):
++    repo = make_repo(tmp_path)
++    rec = await complete_task(env, repo, monkeypatch, tmp_path)
++    assert rec["status"] == "completed"
++    # dirty: the owner edited a touched file locally
++    (repo / "calc.py").write_text("def add(a, b):\n    return b + a  # mine\n")
++    before = tree_state(repo)
++    res = await request_apply(env, rec["id"])
++    assert res.status_code == 409 and code(res) == "DIRTY_TARGET" and "calc.py" in res.json()["error"]["paths"]
++    assert tree_state(repo) == before
++    git(repo, "checkout", "--", "calc.py")
++    # an untracked unrelated file is not "dirty target"
++    (repo / "notes.txt").write_text("scratch\n")
++    # stale: the canonical project moved on after the task started
++    (repo / "README.md").write_text("new\n")
++    git(repo, "add", "README.md")
++    git(repo, "commit", "-qm", "moved on")
++    before = tree_state(repo)
++    res = await request_apply(env, rec["id"])
++    assert res.status_code == 409 and code(res) == "STALE_BASE"
++    assert tree_state(repo) == before
++    assert (await env.client.get("/api/approvals")).json() == []
++
++
++async def test_a_base_change_after_approval_is_still_caught_at_apply_time(env, monkeypatch, tmp_path):
++    """Preconditions are re-checked immediately before applying, not only when
++    the approval is requested: the tree changes AFTER the request's first check
++    and the approval's consumption (the narrowest window there is)."""
++    repo = make_repo(tmp_path)
++    rec = await complete_task(env, repo, monkeypatch, tmp_path)
++    wait = await request_apply(env, rec["id"])
++    aid = wait.json()["approval_id"]
++    await approve(env, aid)
++    real_consume = env.svc.approvals.consume
++
++    async def consume_then_owner_edits(*a, **kw):
++        ok = await real_consume(*a, **kw)
++        (repo / "calc.py").write_text("changed meanwhile\n")
++        return ok
++    monkeypatch.setattr(env.svc.approvals, "consume", consume_then_owner_edits)
++    res = await request_apply(env, rec["id"], aid)
++    assert res.status_code == 409 and code(res) == "DIRTY_TARGET", res.text
++    assert (repo / "calc.py").read_text() == "changed meanwhile\n"
++    stored = (await env.client.get(f"/api/coding-tasks/{rec['id']}")).json()
++    assert not stored.get("applied_at")
++
++
++async def test_protected_paths_and_tampered_evidence_are_refused(env, monkeypatch, tmp_path):
++    repo = make_repo(tmp_path)
++    rec = await complete_task(env, repo, monkeypatch, tmp_path)
++    path = ct._path(env.svc, rec["id"])
++    original = json.loads(path.read_text(encoding="utf-8"))
++    # the record now names calc.py protected (e.g. policy tightened after the run)
++    ct._write(env.svc, {**original, "protected_paths": ["SECRETS.md", "calc.py"]})
++    res = await request_apply(env, rec["id"])
++    assert res.status_code == 409 and code(res) == "PROTECTED_PATH"
++    # the diff was edited after review: digest no longer matches → not eligible
++    ct._write(env.svc, {**original, "diff": original["diff"].replace("a + b", "a * b")})
++    res = await request_apply(env, rec["id"])
++    assert res.status_code == 409 and res.json()["error"]["reason_code"] == "EVIDENCE_DIGEST_MISMATCH"
++    assert (repo / "calc.py").read_text() == "def add(a, b):\n    return a - b\n"
++
++
++async def test_an_approval_for_another_task_or_a_spent_one_is_refused(env, monkeypatch, tmp_path):
++    repo = make_repo(tmp_path)
++    rec = await complete_task(env, repo, monkeypatch, tmp_path)
++    # an approved row of another kind/preview (e.g. a terminal command) is not authority here
++    other = await env.svc.approvals.create("terminal", "[sandbox] ls\ncwd: /")
++    await approve(env, other["id"])
++    res = await request_apply(env, rec["id"], other["id"])
++    assert res.status_code == 403 and code(res) == "APPROVAL_INVALID"
++    # an approval for the same task but a different evidence digest is not authority either
++    forged = await env.svc.approvals.create(
++        "coding_apply", ct.apply_preview({**rec, "evidence_digest": "sha256:" + "f" * 64}))
++    await approve(env, forged["id"])
++    res = await request_apply(env, rec["id"], forged["id"])
++    assert res.status_code == 403 and code(res) == "APPROVAL_INVALID"
++    # a rejected approval stays rejected
++    wait = await request_apply(env, rec["id"])
++    aid = wait.json()["approval_id"]
++    await env.client.post(f"/api/approvals/{aid}", json={"approve": False})
++    res = await request_apply(env, rec["id"], aid)
++    assert res.status_code == 403 and code(res) == "APPROVAL_INVALID"
++    assert (repo / "calc.py").read_text() == "def add(a, b):\n    return a - b\n"
++    # the approval flag in the body is not an approval
++    res = await env.client.post(f"/api/coding-tasks/{rec['id']}/apply", json={"approved": True})
++    assert res.status_code == 202 and (repo / "calc.py").read_text() == "def add(a, b):\n    return a - b\n"
++
++
++async def test_an_after_state_mismatch_rolls_the_canonical_tree_back(env, monkeypatch, tmp_path):
++    """Atomic from the owner's view: the applied bytes must equal the verified
++    candidate's after-state; otherwise the canonical tree is restored."""
++    repo = make_repo(tmp_path)
++    rec = await complete_task(env, repo, monkeypatch, tmp_path)
++    path = ct._path(env.svc, rec["id"])
++    original = json.loads(path.read_text(encoding="utf-8"))
++    files = {k: {**v, "sha256": "0" * 64, "sha256_eol": "0" * 64} for k, v in original["candidate_files"].items()}
++    ct._write(env.svc, {**original, "candidate_files": files})
++    before = tree_state(repo)
++    aid, res = await approved_apply(env, rec["id"])
++    assert res.status_code == 409 and code(res) == "AFTER_STATE_MISMATCH", res.text
++    assert tree_state(repo) == before
++    stored = (await env.client.get(f"/api/coding-tasks/{rec['id']}")).json()
++    assert not stored.get("applied_at")
++
++
++async def test_concurrent_applies_apply_once(env, monkeypatch, tmp_path):
++    repo = make_repo(tmp_path)
++    rec = await complete_task(env, repo, monkeypatch, tmp_path)
++    wait = await request_apply(env, rec["id"])
++    aid = wait.json()["approval_id"]
++    await approve(env, aid)
++    results = await asyncio.gather(*(request_apply(env, rec["id"], aid) for _ in range(4)))
++    assert sorted(r.status_code for r in results).count(200) == 1, [r.text for r in results]
++    assert (repo / "calc.py").read_text() == "def add(a, b):\n    return a + b\n"
++
++
++# ------------------------------------------------------------------ CLI
++
++
++class _FakeClient:
++    def __init__(self, responses):
++        self.responses = list(responses)
++        self.calls = []
++
++    def post(self, path, body=None, **_kw):
++        self.calls.append((path, body))
++        item = self.responses.pop(0)
++        if isinstance(item, Exception):
++            raise item
++        return item
++
++
++def test_cli_code_apply_exit_codes():
++    pytest.importorskip("rich")
++    from bcc.terminal_cli import cli, screens
++    from bcc.terminal_cli.api_client import BossmanError
++    args = cli.build_parser().parse_args(["code", "apply", "abcdef123456", "--approval-id", "7", "--json"])
++    assert args.instruction == "apply" and args.task_id == "abcdef123456" and args.approval_id == 7
++    out = cli.Out("json")
++    fake = _FakeClient([{"state": "WAIT_APPROVAL", "approval_id": 7, "preview": "p"}])
++    assert screens.apply_coding_task(fake, out, "abcdef123456", None) == 4
++    assert fake.calls == [("/api/coding-tasks/abcdef123456/apply", {})]
++    fake = _FakeClient([{"state": "APPLIED", "applied_digest": "sha256:x", "files": {}}])
++    assert screens.apply_coding_task(fake, out, "abcdef123456", 7) == 0
++    assert fake.calls == [("/api/coding-tasks/abcdef123456/apply", {"approval_id": 7})]
++    fake = _FakeClient([BossmanError("stale", status=409, code="STALE_BASE", kind="conflict")])
++    assert screens.apply_coding_task(fake, out, "abcdef123456", 7) == 5
++    fake = _FakeClient([BossmanError("twice", status=409, code="ALREADY_APPLIED", kind="conflict")])
++    assert screens.apply_coding_task(fake, out, "abcdef123456", 7) == 11
++    # the CLI has no approve switch on this path: only --approval-id of an owner-approved row
++    with pytest.raises(SystemExit):
++        cli.build_parser().parse_args(["code", "apply", "abcdef123456", "--yes"])
++
++
++def test_no_approve_window_cannot_approve_through_any_terminal_path(tmp_path, monkeypatch):
++    """BOSSMAN_TERMINAL_NO_APPROVE covered only `bossman approve`; chat /approve
++    and the follower's ask-mode posted the decision directly. The guard now sits
++    in the one client all of them use — a coding apply approval included."""
++    from bcc.terminal_cli.api_client import BossmanError, Client, Target
++    (tmp_path / "token").write_text("t", encoding="utf-8")
++    client = Client(Target(url="http://127.0.0.1:9", data_dir=tmp_path))
++    monkeypatch.setenv("BOSSMAN_TERMINAL_NO_APPROVE", "1")
++    with pytest.raises(BossmanError) as exc:
++        client.post("/api/approvals/5", {"approve": True, "by": "owner:terminal"})
++    assert exc.value.kind == "blocked"
++    client.close()
+diff --git a/command-center/tests/test_coding_tasks.py b/command-center/tests/test_coding_tasks.py
+index d0698a7d..8d16586e 100644
+--- a/command-center/tests/test_coding_tasks.py
++++ b/command-center/tests/test_coding_tasks.py
+@@ -199,8 +199,11 @@ async def test_an_empty_allowlist_fails_closed(env, repo, monkeypatch):
+ 
+ 
+ def test_the_api_exposes_no_push_merge_or_deploy():
++    """The only write into the canonical project is the owner-approved apply of a
++    verified candidate (working tree, no commit; tests/test_coding_apply.py)."""
+     paths = {r.path for r in ct.router.routes}
+-    assert not any(any(w in p for w in ("push", "merge", "deploy", "apply")) for p in paths), paths
++    assert not any(any(w in p for w in ("push", "merge", "deploy", "commit")) for p in paths), paths
++    assert [p for p in paths if "apply" in p] == ["/coding-tasks/{task_id}/apply"], paths
+ 
+ 
+ async def test_a_configured_command_without_a_handshake_is_not_ready(env, repo, monkeypatch):
+-- 
+2.55.0.windows.3
+

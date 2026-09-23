@@ -1,0 +1,12 @@
+sha=12612c8184a19dd477e09c60bdaa9a0d2eea21cd start=2026-09-23T12:22:21-07:00
+root rc=2
+core rc=2
+core2 rc=1
+root2 rc=1
+FAILED tests/owner_scenarios/test_owner_scenarios.py::test_уровни_совпадают_с_замороженной_таблицей
+FAILED tests/owner_scenarios/test_owner_scenarios.py::test_объявленные_пробелы_не_пусты_и_совпадают_с_незелёными
+FAILED tests/owner_scenarios/test_owner_scenarios.py::test_каждое_исполненное_утверждение_имеет_отрицательный_контроль
+FAILED tests/test_owner_run_self_improve.py::test_stop_kills_the_child_and_grandchild_and_records_what_ran
+FAILED tests/test_skips_registry.py::test_registry_is_current_and_every_skip_has_a_reason
+FAILED tests/test_target_hardware_acceptance.py::test_the_real_probe_on_this_machine_does_not_claim_target_hardware
+6 failed, 2616 passed, 10 skipped in 626.99s (0:10:26)
