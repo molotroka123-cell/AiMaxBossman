@@ -262,7 +262,31 @@ def _install():
             if isinstance(host, str) and host not in ("127.0.0.1", "::1", "localhost"):
                 raise PermissionError(f"bossman sidecar guard: network to {host} refused")
     sys.addaudithook(hook)
-_install()
+if not getattr(sys, "_bossman_sidecar_guard", False):
+    _install()
+    sys._bossman_sidecar_guard = True
+'''
+
+# The test process is started through this bootstrap instead of `-m <runner>`.
+# The Windows archive ships an *embeddable* Python whose ._pth file makes the
+# interpreter ignore PYTHONPATH (and every PYTHON* variable) and keep the
+# current directory off sys.path. There the guard above — a sitecustomize
+# found via PYTHONPATH — was never loaded, and `-m unittest test_calc` could
+# not import the workspace's own tests (owner-experience, Windows CI). The
+# bootstrap loads the guard and puts the workspace on sys.path itself, so
+# neither depends on how the interpreter was built; PYTHONPATH stays in the
+# env for child interpreters of a regular build.
+_BOOT = r'''
+import os, runpy, sys
+with open(os.path.join(os.environ["BOSSMAN_SIDECAR_SCRATCH"], "guard", "sitecustomize.py"),
+          encoding="utf-8") as _f:
+    exec(compile(_f.read(), "bossman-sidecar-guard", "exec"), {"__name__": "bossman_sidecar_guard"})
+_ws = os.environ["BOSSMAN_SIDECAR_WORKSPACE"]
+if _ws not in sys.path:
+    sys.path.insert(0, _ws)
+_mod = sys.argv[1]
+sys.argv = [_mod] + sys.argv[2:]
+runpy.run_module(_mod, run_name="__main__", alter_sys=True)
 '''
 
 
@@ -284,6 +308,16 @@ def _scratch_env(scratch: Path, workspace: Path) -> dict[str, str]:
     return env
 
 
+def _interpreter() -> list[str]:
+    return [sys.executable]
+
+
+def _runner_cmd(module: str, *args: str) -> list[str]:
+    # -B/-s/-X utf8 instead of PYTHONDONTWRITEBYTECODE/PYTHONNOUSERSITE/PYTHONUTF8:
+    # command-line options still work where the ._pth file makes env ignored.
+    return [*_interpreter(), "-B", "-s", "-X", "utf8", "-c", _BOOT, module, *args]
+
+
 def _pytest_available() -> bool:
     import importlib.util
     return importlib.util.find_spec("pytest") is not None
@@ -300,14 +334,14 @@ def tool_run_tests(ws: Workspace, args: dict, *, scratch: Path, deadline: float,
     if runner == "pytest":
         if not _pytest_available():
             raise ToolError("pytest is not installed in this runtime; use runner=unittest")
-        cmd = [sys.executable, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider", *paths]
+        cmd = _runner_cmd("pytest", "-q", "--no-header", "-p", "no:cacheprovider", *paths)
     elif runner == "unittest":
         # unittest wants dotted module names or a discovery start dir
         if paths and all(p.endswith(".py") for p in paths):
-            cmd = [sys.executable, "-m", "unittest", "-v", *[p[:-3].replace("/", ".") for p in paths]]
+            cmd = _runner_cmd("unittest", "-v", *[p[:-3].replace("/", ".") for p in paths])
         else:
             start = paths[0] if paths else "."
-            cmd = [sys.executable, "-m", "unittest", "discover", "-v", "-s", start, "-t", "."]
+            cmd = _runner_cmd("unittest", "discover", "-v", "-s", start, "-t", ".")
     else:
         raise ToolError("runner must be auto, unittest or pytest")
     budget = max(5, min(test_timeout, int(deadline - time.monotonic()) - 5))

@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 283. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 287. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -48,6 +48,7 @@
 | `command-center/tests/test_images_cancel_button.py:42` | skipif | `not chromium_available() and not required()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_images_library_ui.py:8` | skipif | `not chromium_available() and not required()` | reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_invalid_input_is_human.py:29` | skipif | `not chromium_available() and not required()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_jev_browser_fastpath.py:305` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_live_openrouter_dry_run.py:40` | skipif | `not chromium_available() and not required()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_memory_lifecycle_wiring.py:99` | skipif | `available()` | the installed bossman-shared already has the lifecycle | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_memory_lifecycle_wiring.py:106` | skipif | `not available()` | installed bossman-shared predates learning.lifecycle (reinstall it from this checkout to run this) | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -175,6 +176,8 @@
 | `command-center/tests/test_windows_secret_acl.py:70` | skipif | `sys.platform == "win32"` | POSIX-контракт (0600, без icacls); на Windows icacls вызывается по замыслу | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_windows_terminal_quoting.py:13` | skipif | `os.name != "nt"` | requires native Windows cmd.exe | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_local_sidecar.py:164` | skip | `—` | pytest not installed in this runtime | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/apprentice/test_local_sidecar.py:206` | skip | `—` | pytest not installed in this runtime | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/apprentice/test_local_sidecar.py:225` | skip | `—` | pytest not installed in this runtime | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_evidence_independence.py:132` | skip | `—` | symlink creation needs privileges on Windows | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_evidence_independence.py:141` | skip | `—` | symlink creation needs privileges on Windows | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_live_sdk.py:61` | skipif | `SDK_PYTHON is None` | openhands-sdk runtime not installed (set BOSSMAN_OPENHANDS_PYTHON) | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -250,6 +253,7 @@
 | `tests/test_installed_ui_sweep.py:72` | skip | `—` | Managed execution remaps Popen PIDs; native process-tree test required | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_intelligence_preservation_runner.py:106` | skip | `—` | f"bossman-core (production-петля) недоступен, необязательный "
                     f"пакет не установлен: {exc}" | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_jev_shadow_owner.py:146` | skipif | `not _chromium()` | Chromium/Playwright недоступен для BrowserManager | root (shared/tools) | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_learning_trace.py:304` | skipif | `sys.platform.startswith("win")` | POSIX flock/fcntl отсутствует на Windows | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_local_bundle_safety.py:36` | skip | `—` | f"host cannot create symlinks: {exc}" | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_media_bootstrap.py:294` | importorskip | `—` | нет пакета bcc.studio.providers.sdcpp | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

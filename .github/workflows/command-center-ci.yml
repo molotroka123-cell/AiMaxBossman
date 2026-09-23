@@ -156,6 +156,10 @@ jobs:
           tests/test_coding_tasks.py tests/test_coding_tasks_local_sidecar.py tests/test_coding_path_owner_tool.py
           tests/test_coding_recipes.py tests/test_lab_agents.py tests/test_skill_catalog.py
           tests/test_feat_organization.py tests/test_telegram_settings.py
+      - name: HW-10 MVČR prepare pipeline (root test, needs bcc.approvals + pypdf)
+        run: |
+          python -m pip install "pypdf==6.19.0"
+          python -m pytest -q --timeout=300 tests/test_mvcr_prepare.py
 
   checks:
     name: секреты, JS, запрещённые файлы

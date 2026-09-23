@@ -38,9 +38,10 @@ jobs:
           # а тот читает YAML-настройку. Ставится ровно этот пакет, а не весь
           # bossman-core: задание намеренно остаётся без сервисов и секретов.
           python -m pip install --quiet pytest pytest-timeout psutil httpx pyyaml
-          # HW-10 MVČR (tests/test_mvcr_prepare.py): pypdf — та же версия, что в
-          # windows_bundle_lock.txt; sqlalchemy+aiosqlite — очередь bcc.approvals.
-          python -m pip install --quiet "pypdf==6.19.0" "sqlalchemy[asyncio]>=2.0" "aiosqlite>=0.20"
+          # HW-10 MVČR (tests/test_mvcr_prepare.py) здесь честно SKIP: ему нужна
+          # очередь bcc.approvals (sqlalchemy+aiosqlite), а с ними tests/owner_scenarios
+          # начинает частично импортировать bcc без fastapi и уходит в ложный FAIL.
+          # MVČR выполняется в command-center-ci → core-runtime, где стоит всё.
       - name: Root suite (learning layer, shared cache contracts, context slicer, tools)
         run: python -m pytest tests -q --durations=10 --timeout=120 --timeout-method=signal
       - name: README Live Scorecard is current (README_SCORECARD_CURRENT)

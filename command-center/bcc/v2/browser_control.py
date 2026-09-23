@@ -1354,3 +1354,85 @@ class BrowserManager:
             "mode": sess.policy.mode,
             "captcha": captcha,
         }, sess.secrets)
+
+    # ------------------------------------------------ Jev fast path (read-only)
+    #
+    # Two READ actions for bcc.jev.browser_fastpath. They never click, type or
+    # navigate, and go through the same _guard as every read. The probe only
+    # annotates elements the regular snapshot already indexed (data-bcc-ref) and
+    # counts page features the fast path must NOT handle (frames, shadow roots,
+    # canvas, uploads, nested scroll, popups) — those escalate.
+
+    _JEV_PROBE = """() => {
+      const isSecret = __IS_SECRET__;
+      const vis = (el) => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
+        return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
+      const big = (el) => { const r = el.getBoundingClientRect(); return r.width >= 50 && r.height >= 50; };
+      const items = {};
+      document.querySelectorAll('[data-bcc-ref]').forEach((el) => {
+        const ref = el.getAttribute('data-bcc-ref');
+        const tag = el.tagName.toLowerCase();
+        const it = { visible: vis(el) };
+        if (tag === 'select') {
+          it.options = Array.from(el.options).slice(0, 100).map((o) => ({
+            value: o.value, label: (o.label || o.text || '').replace(/\\s+/g, ' ').trim().slice(0, 120),
+            selected: !!o.selected }));
+          it.value = el.value;
+        } else if ((tag === 'input' || tag === 'textarea') && !isSecret(el)) {
+          it.value = (el.value || '').slice(0, 200);
+          it.checked = !!el.checked;
+          it.editable = !el.readOnly && !el.disabled;
+        }
+        items[ref] = it;
+      });
+      const all = Array.from(document.querySelectorAll('body *')).slice(0, 5000);
+      let shadow = 0, nested = 0;
+      for (const el of all) {
+        if (el.shadowRoot) shadow++;
+        const s = getComputedStyle(el);
+        if ((s.overflowY === 'auto' || s.overflowY === 'scroll') && el.clientHeight > 50
+            && el.scrollHeight > el.clientHeight + 20) nested++;
+      }
+      return { items, features: {
+        iframes: Array.from(document.querySelectorAll('iframe,frame')).filter((e) => vis(e) && big(e)).length,
+        shadow_roots: shadow,
+        canvas: Array.from(document.querySelectorAll('canvas')).filter((e) => vis(e) && big(e)).length,
+        file_inputs: document.querySelectorAll('input[type=file]').length,
+        nested_scroll: nested,
+      } };
+    }"""
+
+    async def _jev_probe(self, sess: BrowserRuntimeSession) -> dict[str, Any]:
+        data = await sess.page.evaluate(_js(self._JEV_PROBE))
+        data = data if isinstance(data, dict) else {}
+        features = dict(data.get("features") or {})
+        try:
+            features["popups"] = max(0, len(sess.context.pages) - 1)
+        except Exception:  # noqa: BLE001 — unknown → the adapter treats it as unsupported
+            features["popups"] = -1
+        return {"items": data.get("items") or {}, "features": features}
+
+    async def jev_observe(self, session_id: int, *, actor: str = "agent",
+                          approved: bool = False) -> dict[str, Any]:
+        """Regular DOM snapshot + per-ref values/options + unsupported-feature counts."""
+        snap = await self.snapshot(session_id, actor=actor, approved=approved)
+        sess = self._session(session_id)
+        probe = await self._jev_probe(sess)
+        items = probe["items"]
+        for item in snap.get("interactive") or []:
+            extra = items.get(str(item.get("ref"))) or {}
+            for key in ("visible", "options", "value", "checked", "editable"):
+                if key in extra:
+                    item[key] = extra[key]
+        snap["features"] = probe["features"]
+        return redact_secrets(snap, sess.secrets)
+
+    async def jev_current(self, session_id: int, *, actor: str = "agent",
+                          approved: bool = False) -> dict[str, Any]:
+        """Freshness read WITHOUT a new generation: url, generation and per-ref state."""
+        sess = self._session(session_id)
+        self._guard(sess, "read_dom", actor=actor, approved=approved)
+        probe = await self._jev_probe(sess)
+        return redact_secrets({"url": sess.page.url, "generation": sess.generation,
+                               "refs": sorted(sess.refs), "items": probe["items"],
+                               "features": probe["features"]}, sess.secrets)
