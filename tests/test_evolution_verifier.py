@@ -22,8 +22,10 @@ FIXED = ["tests/test_money.py", "tests/test_units.py"]
 
 
 def sh(repo: Path, *args: str) -> str:
+    # bytes, decoded without newline translation: text mode turns a diff's "\r\n"
+    # context into "\n" on Windows and the patch no longer applies
     return subprocess.run(["git", "-c", "core.autocrlf=false", "-c", "user.name=t", "-c", "user.email=t@l",
-                           *args], cwd=repo, check=True, capture_output=True, text=True, encoding="utf-8").stdout
+                           *args], cwd=repo, check=True, capture_output=True).stdout.decode("utf-8")
 
 
 @pytest.fixture(scope="module")
@@ -43,7 +45,8 @@ def tree_hash(repo: Path) -> str:
 
 def make_diff(repo: Path, sha: str, tmp_path: Path, *, edits=(), writes=None, deletes=()) -> str:
     work = tmp_path / "author"
-    subprocess.run(["git", "clone", "-q", str(repo), str(work)], check=True, capture_output=True)
+    subprocess.run(["git", "-c", "core.autocrlf=false", "clone", "-q", str(repo), str(work)],
+                   check=True, capture_output=True)
     sh(work, "checkout", "-q", sha)
     for e in edits:
         path = work / e["path"]
