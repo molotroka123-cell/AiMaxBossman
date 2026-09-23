@@ -185,12 +185,15 @@ async def test_terminal_runs_in_project_host(env):
     await env.client.post(f"/api/approvals/{aid}", json={"approve": True, "by": "тест"})
     r = (await env.client.post("/api/terminal/run", json={**body, "approval_id": aid})).json()
     sid = r["session_id"]
-    for _ in range(50):
+    # 2.5 s was not enough for cmd.exe on a loaded Windows runner: poll up to 30 s.
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + 30
+    while True:
         st = (await env.client.get(f"/api/terminal/sessions/{sid}")).json()
-        if st["finished"]:
+        if st["finished"] or loop.time() > deadline:
             break
         await asyncio.sleep(0.05)
-    assert st["finished"] and st["exit_code"] == 0
+    assert st["finished"] and st["exit_code"] == 0, st
     assert any(marker in line for line in st["output_tail"])
 
 
