@@ -26,6 +26,7 @@ from typing import Any
 
 from rich.text import Text
 
+from .. import conversation_context
 from . import CLIENT_VERSION, slash
 from .api_client import BossmanError, Client, discover
 from .console import color_allowed, make_console, sanitize, utf8_console
@@ -121,10 +122,7 @@ def context_preamble(client: Client, session: Session) -> str:
             continue
         answer = sanitize(data.get("result") or data.get("error") or "")[:CONTEXT_CHARS]
         parts.append(f"Владелец: {sanitize(turn.get('text'))[:CONTEXT_CHARS]}\nBossman: {answer or '—'}")
-    if not parts:
-        return ""
-    return ("Контекст беседы (предыдущие ходы этой сессии терминала):\n" + "\n\n".join(parts)
-            + "\n\nНовое сообщение владельца:\n")
+    return conversation_context.compose(parts)
 
 
 # ----------------------------------------------------------------- policy view

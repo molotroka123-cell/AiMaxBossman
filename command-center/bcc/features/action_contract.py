@@ -70,6 +70,7 @@ from typing import Callable
 
 import sqlalchemy as sa
 
+from ..conversation_context import current_request
 from ..db import agents as agents_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow
 from ..tools import REGISTRY, allowed_tools_for
 from ..v2.verification import ExpectedState
@@ -199,7 +200,7 @@ def positive_request_text(prompt: str) -> str:
     only from a negation marker to the end of its clause/contrast, so a request
     that shares a sentence with a prohibition survives ("do not use the
     terminal, but create result.txt" → "but create result.txt")."""
-    text = _NEGATION_KEEP_RE.sub(" ", prompt or "")
+    text = _NEGATION_KEEP_RE.sub(" ", current_request(prompt))
     return _NEGATION_SPAN_RE.sub(" ", text)
 
 _FILENAME_RE = re.compile(r"\b[\w][\w./-]{0,80}\.[a-zA-Z0-9]{1,8}\b")
@@ -239,7 +240,7 @@ def _terminal_evidence(prompt: str) -> ExpectedState | None:
     tool_names = set(REGISTRY.names()) | {
         "terminal.run", "terminal.stdin", "terminal.kill",
     }
-    text = prompt or ""
+    text = current_request(prompt)
     urlish = _urlish_spans(text)
     for match in _FILENAME_RE.finditer(text):
         target = match.group(0)
