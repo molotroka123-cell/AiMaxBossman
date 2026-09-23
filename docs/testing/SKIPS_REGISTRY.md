@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 296. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 299. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -252,6 +252,7 @@
 | `tests/test_evening_acceptance_harness.py:241` | skip | `—` | PowerShell недоступен — синтаксис start-bossman.ps1 проверяется на Windows/CI | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evidence_signing_shared.py:39` | skip | `—` | POSIX-семантика режима файла 0o600; на Windows права задаёт icacls (см. W8) | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evidence_signing_shared.py:128` | skip | `—` | на Windows сужение прав честно выполняется через icacls (см. W8) | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_evolution_api_bootstrap.py:14` | importorskip | `—` | bcc.features.evolution needs pydantic (root-ci installs no Command Center deps) | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evolution_embedded_python.py:58` | importorskip | `—` | нет пакета pytest | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evolution_embedded_python.py:35` | importorskip | `—` | нет пакета pytest | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evolution_loop.py:279` | skip | `—` | bcc not installed here (root CI); the product grammar is checked in command-center tests | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -274,6 +275,8 @@
 | `tests/test_mvcr_prepare.py:21` | importorskip | `—` | нет пакета sqlalchemy | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_mvcr_prepare.py:22` | importorskip | `—` | нет пакета aiosqlite | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_owner_run_self_improve.py:751` | importorskip | `—` | mvcr_prepare needs pypdf | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_owner_run_self_improve.py:752` | importorskip | `—` | mvcr_prepare approvals need sqlalchemy (not in root-ci; runs in core-runtime) | root (shared/tools) | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_owner_run_self_improve.py:753` | importorskip | `—` | mvcr_prepare approvals need aiosqlite | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:84` | importorskip | `—` | нет пакета fastapi | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:87` | importorskip | `—` | Solana SDK (solders) не установлен — панель безопасности не импортируется | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:109` | importorskip | `—` | нет пакета fastapi | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

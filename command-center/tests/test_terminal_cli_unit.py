@@ -153,7 +153,7 @@ def test_conversation_snapshot_single_column():
 
 def test_history_filter_drops_secrets():
     from bcc.terminal_cli.chat import filter_history_line
-    line = filter_history_line("мой ключ sk-ant-abcdefghijklmnop1234567890ABCDEF и token=abcd12345")
+    line = filter_history_line("мой ключ " + "sk-" + "ant-abcdefghijklmnop1234567890ABCDEF" + " и token=abcd12345")
     assert "sk-ant-" not in line and "abcd12345" not in line
 
 

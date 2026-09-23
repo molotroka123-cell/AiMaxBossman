@@ -749,6 +749,8 @@ def test_owner_run_understands_the_real_mvcr_prepare_output(tmp_path, variant, e
     offline fixtures) prints a status the owner-run maps, and nothing in it
     reads as a submission."""
     pytest.importorskip("pypdf", reason="mvcr_prepare needs pypdf")
+    pytest.importorskip("sqlalchemy", reason="mvcr_prepare approvals need sqlalchemy (not in root-ci; runs in core-runtime)")
+    pytest.importorskip("aiosqlite", reason="mvcr_prepare approvals need aiosqlite")
     import importlib.util, json as _json, subprocess as _sp, sys as _sys
     repo = Path(__file__).resolve().parents[1]
     spec = importlib.util.spec_from_file_location("ort_mvcr", repo / "tools" / "owner_run_tomorrow.py")

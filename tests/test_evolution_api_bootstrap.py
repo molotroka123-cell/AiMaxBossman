@@ -1,6 +1,7 @@
 """Evolution API worker must import the one loop with embedded Python rules."""
 from __future__ import annotations
 
+import pytest
 import json
 from pathlib import Path
 import subprocess
@@ -10,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_worker_command_imports_real_loop_in_isolated_python(tmp_path):
+    pytest.importorskip("pydantic", reason="bcc.features.evolution needs pydantic (root-ci installs no Command Center deps)")
     # This cloud image has no FastAPI installation; stub only the route
     # registration layer while exercising the real API's bootstrap function
     # and the real bossman_v3 loop inside an independent -I child.
