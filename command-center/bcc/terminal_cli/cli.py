@@ -595,7 +595,7 @@ def cmd_review(args) -> int:
             out.say("нужен run: bossman review <run_id> [--run] или bossman review --stats")
             return EXIT_FAIL
         path = f"/api/studio/runs/{args.run_id}/review"
-        data = client.post(path, timeout=600) if args.run else client.get(path)   # a local vision pass takes minutes
+        data = client.post(path, timeout=960) if args.run else client.get(path)   # a local vision pass takes minutes
         review, feedback = data.get("review") or {}, data.get("feedback") or {}
         verdict = review.get("verdict") or "NOT_REVIEWED"
         rec = record("review", ok=verdict in ("GOOD", "BAD"), run_id=args.run_id, verdict=verdict,
