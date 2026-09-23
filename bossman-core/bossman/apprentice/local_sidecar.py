@@ -535,7 +535,7 @@ def _call_sig(name: str, args: dict) -> str:
         raw = json.dumps([name, args], sort_keys=True, ensure_ascii=False, default=str)
     except (TypeError, ValueError):
         raw = f"{name}:{args!r}"
-    return hashlib.sha1(raw.encode("utf-8", "replace")).hexdigest()[:12]
+    return hashlib.sha1(raw.encode("utf-8", "replace"), usedforsecurity=False).hexdigest()[:12]
 
 
 def _call_facts(name: str, args: dict) -> dict:
