@@ -23,11 +23,14 @@ Jev готовится по отдельной команде владельца
 | capability-пробы помечали reasoning-модель неспособной | 925263da |
 | ffmpeg/git в инструментах агента без таймаута / сироты | b2130032 |
 | Command Center CI: правка профиля Telegram без bossman-core → 500; фикстуры Fleet проверяли не тот импорт | 51f0b68a |
+| Studio: видео не той длины считалось PASS; явный hard_timeout_s терялся (находки Aster6) | eee89e6f |
+| MEDIA-RESTART слой 1: sd.cpp рождается приостановленным и возобновляется только внутри Job Object | 44c6bff3 |
+| R6: действие computer-use, вставшее в очередь за замком, выполнялось после STOP | 908ccd15 |
+| Owner STOP для coding-задачи не убивал дерево сайдкара | 45e0f671 |
+| Owner-Run self-improve-mvcr говорил не на контрактах своих соседей (статус манифеста вместо файлов, нет --data-dir/--work-dir/transfer) | bb2ef028 |
 
 ## Открыто (точный список)
-* Studio: ложный PASS по длительности/кадрам видео; потеря явного hard_timeout — чинится агентом.
-* MEDIA-RESTART (Job Object для sd.cpp) и R6 stop-epoch — переносятся агентом.
-* Без таймаута остаются: video_factory/ffmpeg.py:114/142/161, projects/runner.py:194, benchmark/engine.py:39/598/632,
+* Без таймаута остаются (чинится агентом, воспроизведение → регрессия → фикс): video_factory/ffmpeg.py:114/142/161, projects/runner.py:194, benchmark/engine.py:39/598/632,
   sandbox/netguard.py:43, bcc/desktop_install.py:290, telegram_companion/claude_bridge.py:35.
 * /healthz: readiness не зеленеет после рестарта, если последний тест модели старше 30 мин (контракт MF-032) — решение владельца.
 * scn_23 (OS-105) проверяет S_IMODE==0o700 — бессмысленно на Windows (harness).
@@ -64,10 +67,13 @@ Coding path (локальный sidecar, handshake, профили, recall/ре�
 MVČR HW-10 до WAIT_APPROVAL; фикс MIME загрузок; фикс гигиены root-ci (маркеры SEARCH/REPLACE); реестр пропусков;
 исследование R1–R8; release (OCR, Jev docs) и README из PR #72; аудиторские документы Aster6/Codex.
 
+## Слито позже (ленты агентов)
+навыки (11 шт., реестр Bossman, UNVERIFIED, прав не дают) · Windows-дефекты · самоулучшение/память (агенты RAW…USER_UX,
+рецепты через LearningStore) · MEDIA-RESTART/R6 + Studio · Owner-Run `self-improve-mvcr` (стадия skills) ·
+CI: job `core-runtime` (ubuntu+windows, coding path с bossman-core) и шаг Windows «Owner-Run plan из архива» (d383e574).
+
 ## В работе (агенты)
-навыки (реестр Bossman) · Windows-дефекты (OS-105, publish 500, SQLite) · самоулучшение/память (агенты RAW…USER_UX) ·
-перенос MEDIA-RESTART/R6 + два дефекта Studio от Aster6 (ложный PASS по длительности видео, потеря явного таймаута) ·
-Owner-Run `self-improve-mvcr` готов, вливается вместе с лентой самоулучшения.
+subprocess без таймаута (список выше) · Jev browser fast-path — только shadow, выключен по умолчанию.
 
 ## CI
 * root-ci: красный на базе d6e25fb4 (маркеры) и на f25d6fd4 (реестр) — оба исправлены; ждём прогон на голове.
