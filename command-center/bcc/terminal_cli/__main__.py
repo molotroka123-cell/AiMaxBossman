@@ -1,0 +1,9 @@
+"""`python -m bcc.terminal_cli …` — the same as `bossman …` (terminal commands)."""
+from __future__ import annotations
+
+import sys
+
+from . import main
+
+if __name__ == "__main__":
+    sys.exit(main())

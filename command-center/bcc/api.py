@@ -30,6 +30,9 @@ from . import __version__
 
 # Метка приложения для настольного лаунчера (GET /api/identity)
 APP_IDENTITY = "bossman-command-center"
+# /api/events/stream: комментарий-пульс, чтобы прокси и клиент отличали тишину
+# задачи от оборванного соединения.
+STREAM_KEEPALIVE_S = 15.0
 from .approvals import Approvals
 from .features import load_features
 from .auth import HEADER, TokenAuth
@@ -400,6 +403,15 @@ class TaskIn(BaseModel):
     priority: int = 5
     max_retries: int = 2
     schedule: ScheduleIn | None = None
+    # 1.2: idempotency key of the CLIENT's submit (terminal `exec`, retries
+    # after a lost connection). The same key returns the SAME task instead of
+    # creating a second one; absent = behaviour exactly as before.
+    client_request_id: str | None = Field(default=None, min_length=8, max_length=128,
+                                          pattern=r"^[A-Za-z0-9._:-]+$")
+
+
+class ProviderKeyIn(BaseModel):
+    api_key: str = Field(min_length=1, max_length=4096)
 
 
 class LeaseIn(BaseModel):
@@ -617,10 +629,15 @@ def _public_router() -> APIRouter:
             return
         await ws.accept()
         queue = svc.bus.subscribe()
+        from .events import STREAM_ONLY
         try:
             await ws.send_json({"kind": "hello", "ts": utcnow().isoformat()})
             while True:
                 msg = await queue.get()
+                if msg.get("kind") in STREAM_ONLY:
+                    # Построчный вывод модели/инструментов — для терминала
+                    # (/api/events/stream); панели веба его не рисуют.
+                    continue
                 await ws.send_json(msg)
         except (WebSocketDisconnect, RuntimeError, asyncio.CancelledError):
             pass
@@ -725,6 +742,72 @@ def _api_router() -> APIRouter:
         if not await svc.registry.delete_provider(provider_id):
             raise ApiError("провайдер не найден", status=404)
         return {"ok": True}
+
+    @router.patch("/providers/{provider_id}/key")
+    async def set_provider_key(provider_id: int, body: ProviderKeyIn,
+                               svc: Services = Depends(services)):
+        """Set/replace ONE provider's key (terminal `bossman keys set`).
+
+        Same semantics as the OpenRouter key endpoint: the key is encrypted in
+        the vault, the event carries only the fact of the update, the response
+        only the mask. OpenRouter's canonical row keeps its own identity-guarded
+        endpoint, so a key cannot be written into the wrong OpenRouter row here."""
+        from .db import providers as providers_t
+        from .v2 import openrouter_identity
+        key = body.api_key.strip()
+        if not key:
+            raise ApiError("api_key пустой", status=422)
+        canonical = await openrouter_identity.provider_row(svc.db, svc.vault)
+        if canonical is not None and int(canonical["id"]) == int(provider_id):
+            raise ApiError("ключ OpenRouter меняется своей ручкой", status=409,
+                           hint="POST /api/openrouter/connect или PATCH /api/openrouter/{id}/key")
+        async with svc.db.session() as s:
+            row = await fetch_one(s, providers_t, provider_id)
+            if row is None:
+                raise ApiError("провайдер не найден", status=404)
+            await s.execute(sa.update(providers_t).where(providers_t.c.id == provider_id)
+                            .values(api_key_enc=svc.vault.encrypt(key)))
+            await s.commit()
+            row = await fetch_one(s, providers_t, provider_id)
+        await svc.bus.emit("provider.key_updated", provider_id=provider_id,
+                           provider_kind=row.get("kind"))
+        return svc.registry.provider_public(row)
+
+    @router.delete("/providers/{provider_id}/key")
+    async def remove_provider_key(provider_id: int, svc: Services = Depends(services)):
+        """Forget ONE provider's key (the provider and its models stay)."""
+        from .db import providers as providers_t
+        async with svc.db.session() as s:
+            row = await fetch_one(s, providers_t, provider_id)
+            if row is None:
+                raise ApiError("провайдер не найден", status=404)
+            await s.execute(sa.update(providers_t).where(providers_t.c.id == provider_id)
+                            .values(api_key_enc=None))
+            await s.commit()
+            row = await fetch_one(s, providers_t, provider_id)
+        await svc.bus.emit("provider.key_removed", provider_id=provider_id,
+                           provider_kind=row.get("kind"))
+        return svc.registry.provider_public(row)
+
+    @router.get("/providers/{provider_id}/catalog")
+    async def provider_catalog(provider_id: int, svc: Services = Depends(services)):
+        """The provider's OWN model catalog (GET /models) with its stored key.
+
+        Read-only: nothing is registered or loaded, no inference is made. The
+        caller registers the models it wants through POST /api/models."""
+        from .db import providers as providers_t
+        from .providers import build_adapter
+        async with svc.db.session() as s:
+            row = await fetch_one(s, providers_t, provider_id)
+        if row is None:
+            raise ApiError("провайдер не найден", status=404)
+        adapter = build_adapter(row["kind"], row.get("base_url") or "",
+                                svc.vault.decrypt(row.get("api_key_enc")))
+        ids = await adapter.list_models()
+        registered = {m.get("name") for m in await svc.registry.list_models()
+                      if m.get("provider_id") == provider_id}
+        return {"provider_id": provider_id, "kind": row["kind"],
+                "models": [{"id": i, "registered": i in registered} for i in ids]}
 
     @router.get("/models")
     async def list_models(svc: Services = Depends(services)):
@@ -890,11 +973,23 @@ def _api_router() -> APIRouter:
             if not isinstance(template.get("prompt"), str) or (
                     agent_id is not None and type(agent_id) is not int):
                 raise ApiError("неверный шаблон расписания: нужны текст prompt и числовой agent_id", status=422)
+        request_id = body.client_request_id
         async with svc.db.session() as s:
+            if request_id is not None:
+                # 1.2 idempotent submit: lookup and insert in ONE write snapshot,
+                # so two retries of one request cannot both create a task.
+                if svc.db.url.startswith("sqlite"):
+                    await s.execute(sa.text("BEGIN IMMEDIATE"))
+                existing = (await s.execute(sa.select(tasks_t).where(
+                    sa.cast(tasks_t.c.meta["client_request_id"].as_string(), sa.String)
+                    == request_id).order_by(tasks_t.c.id).limit(1))).first()
+                if existing is not None:
+                    await s.rollback()
+                    return {"task": dbm.row_dict(existing), "schedule": None, "replayed": True}
             if body.run_now or body.schedule is not None:
                 # Keep selection and task insertion in the same write snapshot.
                 # Runtime admission still re-reads the agent before dispatch.
-                if svc.db.url.startswith("sqlite"):
+                if svc.db.url.startswith("sqlite") and request_id is None:
                     await s.execute(sa.text("BEGIN IMMEDIATE"))
                 try:
                     chosen = await select_executor(s, prompt=template["prompt"], agent_id=agent_id)
@@ -903,10 +998,11 @@ def _api_router() -> APIRouter:
                                    hint=exc.hint) from None
                 agent_id = chosen["id"]
                 template["agent_id"] = agent_id
+            extra = {"meta": {"client_request_id": request_id}} if request_id is not None else {}
             res = await s.execute(sa.insert(tasks_t).values(
                 title=body.title or body.prompt[:80], prompt=body.prompt, agent_id=agent_id,
                 priority=body.priority, max_retries=body.max_retries, status="draft",
-                created_at=utcnow(), updated_at=utcnow()))
+                created_at=utcnow(), updated_at=utcnow(), **extra))
             task_id = int(res.inserted_primary_key[0])
             await s.commit()
         await svc.bus.emit("task.created", task_id=task_id, title=body.title, agent_id=agent_id)
@@ -925,7 +1021,10 @@ def _api_router() -> APIRouter:
 
         async with svc.db.session() as s:
             task = await fetch_one(s, tasks_t, task_id)
-        return {"task": task, "schedule": schedule}
+        out = {"task": task, "schedule": schedule}
+        if request_id is not None:
+            out["replayed"] = False
+        return out
 
     @router.get("/tasks/{task_id}")
     async def get_task(task_id: int, svc: Services = Depends(services)):
@@ -979,6 +1078,86 @@ def _api_router() -> APIRouter:
                 run_events_t.c.run_id == run_id,
                 run_events_t.c.id > after).order_by(run_events_t.c.id).limit(min(limit, 1000)))
             return rows_dicts(res.fetchall())
+
+    # ---------- 1.2: история и поток событий одной задачи ----------
+
+    @router.get("/tasks/{task_id}/events")
+    async def task_events(task_id: int, after: int = 0, limit: int = 500,
+                          svc: Services = Depends(services)):
+        """Durable events of one task after a cursor (`seq`). Replay for a
+        client that lost its stream: every stored event exactly once, in order.
+        `cursor` is what to pass as `after` next time."""
+        async with svc.db.session() as s:
+            task = await fetch_one(s, tasks_t, task_id)
+        if task is None:
+            raise ApiError("задача не найдена", status=404)
+        events = await svc.bus.task_history(task_id, after=max(0, int(after)), limit=limit)
+        return {"task_id": task_id, "status": task["status"], "events": events,
+                "cursor": events[-1]["seq"] if events else max(0, int(after)),
+                "more": len(events) >= max(1, min(int(limit), 2000))}
+
+    @router.get("/events/stream")
+    async def events_stream(request: Request, task_id: int | None = None,
+                            run_id: int | None = None, after: int | None = None,
+                            svc: Services = Depends(services)):
+        """Server-Sent Events of ONE task (or run) for the terminal client.
+
+        Subscribes BEFORE replaying, so nothing emitted in between is lost;
+        with `after` it first replays the stored history after that cursor,
+        then continues live and drops live copies of what was replayed (`seq`).
+        A client that fell behind gets `stream.lagged` with its cursor and
+        reconnects with `after=<cursor>` — it never silently misses events."""
+        from starlette.responses import StreamingResponse
+        from .events import TaskStreamFilter
+        if task_id is None and run_id is None:
+            raise ApiError("нужен task_id или run_id", status=422)
+        queue = svc.bus.subscribe()
+        flt = TaskStreamFilter(task_id=task_id, run_id=run_id)
+
+        def frame(msg: dict) -> str:
+            import json as _json
+            head = f"id: {msg['seq']}\n" if isinstance(msg.get("seq"), int) else ""
+            return head + "data: " + _json.dumps(msg, ensure_ascii=False, default=str) + "\n\n"
+
+        async def frames():
+            last_seq = max(0, int(after or 0))
+            try:
+                yield frame({"kind": "stream.open", "task_id": task_id, "run_id": run_id,
+                             "after": last_seq, "ts": utcnow().isoformat()})
+                if task_id is not None and after is not None:
+                    while True:
+                        batch = await svc.bus.task_history(task_id, after=last_seq, limit=500)
+                        for ev in batch:
+                            flt.accept(ev)             # запомнить run/approval ids задачи
+                            last_seq = ev["seq"]
+                            yield frame(ev)
+                        if len(batch) < 500:
+                            break
+                    yield frame({"kind": "stream.replayed", "cursor": last_seq})
+                while True:
+                    if not svc.bus.is_subscribed(queue):
+                        yield frame({"kind": "stream.lagged", "cursor": last_seq})
+                        return
+                    try:
+                        msg = await asyncio.wait_for(queue.get(), timeout=STREAM_KEEPALIVE_S)
+                    except TimeoutError:
+                        if await request.is_disconnected():
+                            return
+                        yield ": keepalive\n\n"
+                        continue
+                    seq = msg.get("seq")
+                    if isinstance(seq, int) and seq <= last_seq:
+                        continue                      # уже отдано повтором истории
+                    if not flt.accept(msg):
+                        continue
+                    if isinstance(seq, int):
+                        last_seq = seq
+                    yield frame(msg)
+            finally:
+                svc.bus.unsubscribe(queue)
+
+        return StreamingResponse(frames(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     # ---------- расписания ----------
 

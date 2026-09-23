@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 285. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 289. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -103,6 +103,10 @@
 | `command-center/tests/test_studio_sdcpp_hostile.py:436` | skip | `—` | symlink not permitted | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_sdcpp_provider.py:48` | skipif | `shutil.which("ffmpeg") is None` | ffmpeg required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_telegram_settings_ui.py:17` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_terminal_cli_e2e.py:22` | importorskip | `—` | bossman-core (scripted test model) not installed | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_terminal_cli_e2e.py:24` | importorskip | `—` | rich is a runtime dependency of the terminal client | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_terminal_cli_unit.py:10` | importorskip | `—` | rich is a runtime dependency of the terminal client | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_terminal_cli_unit.py:164` | importorskip | `—` | нет пакета bossman.cli | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_testing_period.py:28` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_testing_period.py:589` | skip | `—` | f"{tp.FLAG.split('_')[0]}: браузерное покрытие не требуется "
                     f"в этом окружении (нет BCC_REQUIRE_BROWSER)" | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
