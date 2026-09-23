@@ -62,17 +62,45 @@ async def test_benchmark_failed_endpoint(env):
     assert b["status"] == "failed" and b["error"]      # честная ошибка, фон не завис
 
 
-async def test_recommendations_from_stored(env):
-    env.svc.registry.adapter_factory = lambda m, p: FakeAdapter("ок", tokens=(20, 40))
-    stack = await make_stack(env.client)
-    r = (await env.client.post("/api/benchmarks", json={"model_id": stack["model"]["id"]})).json()
+class _PerTokenFake(FakeAdapter):
+    """Отвечает со временем, пропорциональным max_tokens: дифференциальный замер
+    (полный ответ минус 1-токенный зонд) получает СТРОГО положительное окно."""
+
+    async def chat(self, model, messages, **kw):
+        await asyncio.sleep(0.002 * int(kw.get("max_tokens") or 1))
+        return await super().chat(model, messages, **kw)
+
+
+async def _completed_benchmark(env, model_id: int) -> dict:
+    r = (await env.client.post("/api/benchmarks", json={"model_id": model_id})).json()
 
     async def done():
         b = (await env.client.get(f"/api/benchmarks/{r['benchmark_id']}")).json()
-        return b["status"] == "completed"
-    await wait_for(done, timeout=10)
+        return b if b["status"] in ("completed", "failed") else None
+    return await wait_for(done, timeout=10)
+
+
+async def test_recommendations_from_stored(env):
+    # Без серверных timings скорость считается дифференциально; фейк с нулевой
+    # задержкой давал окно ≤ 0 и честный «unavailable» (гонка CI, py3.11).
+    env.svc.registry.adapter_factory = lambda m, p: _PerTokenFake("ок", tokens=(20, 40))
+    stack = await make_stack(env.client)
+    b = await _completed_benchmark(env, stack["model"]["id"])
+    assert b["status"] == "completed" and b["results"]["speed_method"] == "differential", b
     rec = (await env.client.get("/api/benchmarks/recommendations")).json()
     assert rec["based_on"] >= 1 and rec["for_speed"]["model_id"] == stack["model"]["id"]
+
+
+async def test_recommendations_exclude_unmeasurable_speed(env):
+    """Негативный контроль: ответ короче MIN_GEN_TOKENS не даёт честной скорости —
+    метод unavailable, gen_tps None, и рекомендация НЕ строится на нём."""
+    env.svc.registry.adapter_factory = lambda m, p: _PerTokenFake("ок", tokens=(20, 2))
+    stack = await make_stack(env.client)
+    b = await _completed_benchmark(env, stack["model"]["id"])
+    assert b["status"] == "completed", b
+    assert b["results"]["speed_method"] == "unavailable" and b["results"]["gen_tps"] is None
+    rec = (await env.client.get("/api/benchmarks/recommendations")).json()
+    assert rec["based_on"] == 0 and rec["for_speed"] is None
 
 
 # ---------- OpenCode ----------

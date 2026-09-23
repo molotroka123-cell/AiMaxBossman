@@ -1,0 +1,23 @@
+{
+  "task_id": "train-05-split-evenly",
+  "split": "train",
+  "task_class": "integer-division",
+  "title": "Split items evenly",
+  "prompt": "Write split_evenly(n, k) returning a list of k non-negative integers summing to n, as even as possible, larger parts first. k >= 1.",
+  "signature": "def split_evenly(n, k):",
+  "hidden_tests": [
+    "assert split_evenly(10, 3) == [4, 3, 3]",
+    "assert split_evenly(7, 7) == [1] * 7",
+    "assert split_evenly(0, 2) == [0, 0]",
+    "assert split_evenly(5, 1) == [5]"
+  ],
+  "reference_solution": "def split_evenly(n, k):\n    base, rem = divmod(n, k)\n    return [base + (1 if i < rem else 0) for i in range(k)]\n",
+  "teacher_lesson": "Use integer arithmetic (divmod or //) for counts; a float quotient is never an integer count and loses the remainder.",
+  "mock": {
+    "label": "MOCK — scripted student, not a model",
+    "first_attempt": "def split_evenly(n, k):\n    return [n / k] * k\n",
+    "second_attempt": "def split_evenly(n, k):\n    base, rem = divmod(n, k)\n    return [base + (1 if i < rem else 0) for i in range(k)]\n",
+    "lesson_trigger": "divmod",
+    "student_lesson": "Use integer arithmetic (divmod or //) for counts; a float quotient is never an integer count and loses the remainder."
+  }
+}

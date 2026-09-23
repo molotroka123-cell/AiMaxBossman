@@ -67,6 +67,11 @@ from bcc.v2.tables import mcp_servers as mcp_servers_t, terminal_sessions as ter
 from bcc.v2.verification import observe_pid
 
 from .browser_support import chromium_available, reason as browser_reason
+
+# Интерпретатор для команд хостовой оболочки. shlex.quote на Linux оставляет
+# путь как есть; на Windows под Git-sh неэкранированные `\` в
+# `C:\...\python.exe` съедаются оболочкой, и команда «не найдена».
+_PY = __import__("shlex").quote(sys.executable)
 from .conftest import wait_for
 from .test_v21_tool_loop import ToolAdapter, _stack_with_tools
 
@@ -446,7 +451,7 @@ async def test_mission_02_real_file_edit(env, project):
     prompt = "Исправь файл config.ini: замени значение mode на NEW-MODE."
     assert "TERMINAL_FILE_ACTION" in {c.name for c in classify_all(prompt)}
 
-    command = (f"{sys.executable} - <<'PY'\n"
+    command = (f"{_PY} - <<'PY'\n"
                "from pathlib import Path\n"
                "p = Path('config.ini')\n"
                "p.write_text(p.read_text(encoding='utf-8').replace('OLD-MODE', 'NEW-MODE'),"
@@ -487,7 +492,7 @@ async def test_mission_03_terminal_command(env, project):
     prompt = "Запусти в терминале команду, которая сохранит отчёт о процессе."
     assert "TERMINAL_FILE_ACTION" in {c.name for c in classify_all(prompt)}
 
-    command = (f"{sys.executable} - <<'PY'\n"
+    command = (f"{_PY} - <<'PY'\n"
                "import json, os\n"
                "json.dump({'pid': os.getpid(), 'ppid': os.getppid(), 'cwd': os.getcwd()},\n"
                "          open('proc.json', 'w'))\n"
@@ -856,7 +861,7 @@ async def test_mission_09_video_export(env, project):
     prompt = "Экспортируй видео: создай файл take-001.mp4 длительностью 1 секунда."
     assert "TERMINAL_FILE_ACTION" in {c.name for c in classify_all(prompt)}
 
-    command = (f"{sys.executable} - <<'PY'\n"
+    command = (f"{_PY} - <<'PY'\n"
                "import asyncio\n"
                "from bossman.video_factory.ffmpeg import run_testsrc\n"
                "asyncio.run(run_testsrc('take-001.mp4', 1.0))\n"
@@ -1007,11 +1012,11 @@ async def test_mission_12_multi_step_mixed_mission(env, calc_repo, vault):
     caps = {c.name for c in classify_all(prompt)}
     assert {"TERMINAL_FILE_ACTION", "CODE_ACTION", "GITHUB_ACTION"} <= caps, caps
 
-    fix = (f"{sys.executable} - <<'PY'\n"
+    fix = (f"{_PY} - <<'PY'\n"
            "from pathlib import Path\n"
            "Path('calc.py').write_text('def add(a, b):\\n    return a + b\\n')\n"
            "PY")
-    tests = f"{sys.executable} -m pytest -q -p no:cacheprovider"
+    tests = f"{_PY} -m pytest -q -p no:cacheprovider"
     commit = "git add -A && git commit -m 'fix: add складывает'"
     adapter = ToolAdapter([
         ("tool", "memory_search", {"query": "соглашения проекта add складывает"}),

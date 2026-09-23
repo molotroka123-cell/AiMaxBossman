@@ -1,0 +1,10 @@
+# RAM budget: MAIN@128k + GPT-OSS@64k leaves ~20 GB; FAST unloaded
+captured_utc: 2026-09-22T08:09:59Z
+captured_by: knowledge engineer (Claude Opus 5), read-only
+redaction: learning.trace.redact_text applied; no secrets present
+source: git:465c04eae73effed1776ae47820ded809d5edf4b:owner-repair/LIVE_CHECKPOINTS.json (branch evidence/owner-pass2-20260922) blob_sha256=407c752c497d8b5d0e5440bf9611c64af21b584df8b9953cf7a9c77c3fcda64a
+source: git:465c04eae73effed1776ae47820ded809d5edf4b:owner-repair/pass2/HANDOFF_STOP_0750Z.md (branch evidence/owner-pass2-20260922) blob_sha256=2467a50b5436bf157a0bc548feff89918f032e32e1780607cd2338f650e2468f
+
+LIVE_CHECKPOINTS.json:84:         "gptoss_status": "READY (gpt-oss-120b MXFP4 @8083, ctx 65536)",
+LIVE_CHECKPOINTS.json:85:         "fast_status": "unloaded (RAM: MAIN@128k + GPT-OSS@64k leaves ~20 GB)"
+HANDOFF_STOP_0750Z.md:7: 1. Start models: MAIN `-c 131072 -np 1 --jinja --reasoning off` @8081; GPT-OSS-120B `-c 65536 -np 1` @8083 (see qwen-work/ commands; FAST stays off while both are loaded).

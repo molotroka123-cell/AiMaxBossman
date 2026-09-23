@@ -86,7 +86,10 @@ def descriptors() -> int:
     if os.path.isdir("/proc/self/fd"):
         return len(os.listdir("/proc/self/fd"))
     import psutil
-    return psutil.Process().num_fds()
+    process = psutil.Process()
+    if os.name == "nt":
+        return process.num_handles()   # num_fds() существует только на UNIX
+    return process.num_fds()
 
 
 # --------------------------------------------------------------------------

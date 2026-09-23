@@ -1,0 +1,810 @@
+{
+  "schema": "bossman.critical_errors.v1",
+  "title": "Bossman: критические ошибки и инциденты владельческой машины (2026-09-21/22)",
+  "captured_utc": "2026-09-22T08:09:59Z",
+  "observed_head_sha": "9e3aa192f513d98d212c53311bb078e5c349c410",
+  "environment": "owner-machine Windows 11 Pro 10.0.26200, Ryzen AI MAX+ 395, Radeon 8060S, ~120 GB unified RAM, llama.cpp b10964 Vulkan",
+  "recorded_by": {
+    "principal_id": "agent:claude-opus-5-knowledge-engineer",
+    "model": "claude-opus-5",
+    "agent": "knowledge-engineer",
+    "run_id": "oplessons-20260922"
+  },
+  "privacy_class": "internal-owner-ops",
+  "scope": "owner-machine/windows-11",
+  "notes": [
+    "Только факты с путями к доказательствам. Нет секретов, нет хода рассуждений.",
+    "sha256 доказательств считается по содержимому с нормализацией CRLF->LF (git autocrlf на Windows).",
+    "state=VERIFIED только при исполняемом/логовом доказательстве сбоя И проверенной коррекции (или проверенного факта окружения); иначе CANDIDATE."
+  ],
+  "entries": [
+    {
+      "id": "LLM-REASONING-OFF",
+      "class": "local-llm-config",
+      "title": "llama-server без --reasoning off: пустые ответы локальной модели",
+      "severity": "CRITICAL",
+      "status": "ENV",
+      "component": "llama.cpp / start-models.ps1",
+      "symptom": "Проверка модели в Bossman (POST /api/models/{id}/test) и Telegram получают пустой ответ; в UI Telegram: «Модель вернула пустой или неполный ответ».",
+      "symptom_examples": [
+        "Модель вернула пустой или неполный ответ",
+        "\"content\": \"\"",
+        "finish_reason: length, content empty"
+      ],
+      "symptom_regex": [
+        "(?i)пуст\\w*\\s+(или\\s+неполн\\w*\\s+)?ответ",
+        "\"content\"\\s*:\\s*\"\"",
+        "(?i)empty (answer|response|content)"
+      ],
+      "keywords": [
+        "empty answer",
+        "empty response",
+        "local model returns empty answer",
+        "пустой ответ",
+        "reasoning",
+        "reasoning_content",
+        "--reasoning off",
+        "Qwen",
+        "llama-server"
+      ],
+      "detection": "GET http://127.0.0.1:8081/props и /8082/props: проверить chat_template/флаги; в ответе /v1/chat/completions поле reasoning_content заполнено, content пуст. Командная строка llama-server (Get-CimInstance Win32_Process -Filter \"Name='llama-server.exe'\" | select CommandLine) не содержит --reasoning off.",
+      "root_cause": "Qwen3.x с включённым reasoning тратит весь max_tokens на рассуждения; content остаётся пустым. Старый start-models.ps1 запускал сервер только с --jinja.",
+      "fix": "Запускать llama-server с --jinja --reasoning off (MAIN 8081, FAST 8082, GPT-OSS 8083). После исправления проверка модели: MAIN answer ok 9.91 tok/s, FAST answer ok 42.59 tok/s.",
+      "prevention": "Перед любым прогоном сверять живые /props и командную строку процесса, а не документацию; при пустом ответе сначала проверять флаг reasoning и max_tokens, потом код.",
+      "evidence": [
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E01_reasoning_off.txt",
+          "sha256": "9a0e6dd7a4e98ac74a86933b62bdff3f640d38de78b7b9c6b10358615da30205",
+          "kind": "log_excerpt"
+        }
+      ],
+      "sources": [
+        "evidence/owner-pass2-20260922:owner-repair/pass2/YESTERDAY_REMAINDER.md#R11",
+        "evidence/owner-pass2-20260922:owner-repair/LIVE_CHECKPOINTS.json#CP00",
+        "C:\\Users\\asd\\Bossman\\start-models.ps1(.bak-20260922)"
+      ],
+      "verification": {
+        "state": "VERIFIED",
+        "observed_at": "2026-09-22T06:40:00Z",
+        "verifier": {
+          "principal_id": "tool:bossman-model-test-endpoint",
+          "model_id": "llama.cpp-b10964",
+          "role": "verifier",
+          "independence_class": "external_tool"
+        },
+        "expected": "после --jinja --reasoning off проверка модели возвращает непустой ответ",
+        "actual": "CP00: MAIN qwen3.8-27b answer ok 9.91 tok/s; FAST qwen3.6-35b-a3b answer ok 42.59 tok/s (server_timings)",
+        "external_verification": "POST /api/models/{1,2}/test на установленном продукте 0c1cbe65 после исправления start-models.ps1",
+        "limitations": [
+          "в том же исправлении менялись и порты (8080/8081 -> 8081/8082); вклад флага отдельно не изолирован"
+        ]
+      }
+    },
+    {
+      "id": "LLM-CTX-OVERFLOW",
+      "class": "local-llm-context",
+      "title": "request N exceeds the available context size: переполнение контекста и деление -c на слоты -np",
+      "severity": "CRITICAL",
+      "status": "ENV",
+      "component": "llama.cpp / Qwen Code",
+      "symptom": "[API Error: 400 request (66032 tokens) exceeds the available context size (65536 tokens), try increasing it]",
+      "symptom_examples": [
+        "[API Error: 400 request (38480 tokens) exceeds the available context size (32768 tokens), try increasing it]",
+        "[API Error: 400 request (66032 tokens) exceeds the available context size (65536 tokens), try increasing it]"
+      ],
+      "symptom_regex": [
+        "request \\((\\d+) tokens\\) exceeds the available context size \\((\\d+) tokens\\)",
+        "n_slots = (\\d+), n_ctx_slot = (\\d+)"
+      ],
+      "keywords": [
+        "context overflow",
+        "exceeds the available context size",
+        "n_ctx_slot",
+        "-np",
+        "slots",
+        "переполнение контекста",
+        "Qwen Code crash"
+      ],
+      "detection": "В qwen-work\\runs\\<run>\\qwen.json искать \"exceeds the available context size\". В *-server.err.log строка load_model: \"n_slots = N, n_ctx_slot = M\": окно одного запроса = M, а не -c.",
+      "root_cause": "llama-server делит -c на -np слотов (2×64k при -c 131072 -np 2; 4×32k в старых запусках). Агентная сессия Qwen Code растёт до 40–66k токенов и упирается в окно слота. a1: сервер с 32k; a2: слот 65536.",
+      "fix": "MAIN для агентного кодинга: -c 131072 -np 1 (в логе n_slots = 1, n_ctx_slot = 131072). После этого a3 прошёл 38 API-шагов без ошибки контекста (остановлен владельцем, exit=-1).",
+      "prevention": "Перед агентным прогоном читать n_ctx_slot из лога сервера; держать -np 1 для длинных сессий; сбой контекста классифицировать как HARNESS, а не как ошибку модели.",
+      "evidence": [
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E02_context_overflow.txt",
+          "sha256": "3d757d03364c8f0d85619278485cb832ed8c1c4409dac590819b635912c73902",
+          "kind": "log_excerpt"
+        }
+      ],
+      "sources": [
+        "C:\\Users\\asd\\Bossman\\qwen-work\\runs\\cp01-main-a1\\qwen.json",
+        "C:\\Users\\asd\\Bossman\\qwen-work\\runs\\cp01-main-a2\\qwen.json",
+        "C:\\Users\\asd\\Bossman\\tests\\main-server.err.log",
+        "evidence/owner-pass2-20260922:owner-training/SCOREBOARD.md"
+      ],
+      "verification": {
+        "state": "VERIFIED",
+        "observed_at": "2026-09-22T07:48:39Z",
+        "verifier": {
+          "principal_id": "tool:llama-server-b10964-log",
+          "model_id": "llama.cpp-b10964",
+          "role": "verifier",
+          "independence_class": "external_tool"
+        },
+        "expected": "при -c 131072 -np 1 окно слота 131072 и нет ошибки контекста",
+        "actual": "a1/a2 упали с exceeds the available context size (32768 / 65536); a3 с n_ctx_slot = 131072 прошёл 38 шагов без ошибки контекста",
+        "external_verification": "логи llama-server (n_slots/n_ctx_slot) и результаты Qwen Code qwen.json/exit.txt трёх прогонов",
+        "limitations": [
+          "a3 не завершён (остановка владельцем) — длина сессии >131k не проверялась"
+        ]
+      }
+    },
+    {
+      "id": "QWEN-CODE-CTX-WINDOW",
+      "class": "local-llm-context",
+      "title": "Qwen Code не сжимает историю: нужен contextWindowSize",
+      "severity": "HIGH",
+      "status": "ENV",
+      "component": "Qwen Code CLI (~/.qwen/settings.json)",
+      "symptom": "Сессия Qwen Code растёт без сжатия и падает с тем же «exceeds the available context size», хотя сервер поднят с большим -c.",
+      "symptom_examples": [
+        "[API Error: 400 request (66032 tokens) exceeds the available context size (65536 tokens), try increasing it]"
+      ],
+      "symptom_regex": [
+        "request \\((\\d+) tokens\\) exceeds the available context size"
+      ],
+      "keywords": [
+        "Qwen Code",
+        "contextWindowSize",
+        "compression",
+        "settings.json",
+        "сжатие контекста"
+      ],
+      "detection": "Проверить %USERPROFILE%\\.qwen\\settings.json: model.generationConfig.contextWindowSize должен быть задан (сейчас 122880).",
+      "root_cause": "Без явного contextWindowSize Qwen Code считает окно модели 256k+ и не запускает сжатие до реального предела сервера.",
+      "fix": "model.generationConfig.contextWindowSize ≈ 122880 (чуть меньше n_ctx_slot 131072).",
+      "prevention": "При смене -c/-np пересчитывать contextWindowSize = n_ctx_slot минус запас ~6–8%.",
+      "evidence": [
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E02_context_overflow.txt",
+          "sha256": "3d757d03364c8f0d85619278485cb832ed8c1c4409dac590819b635912c73902",
+          "kind": "log_excerpt"
+        }
+      ],
+      "sources": [
+        "C:\\Users\\asd\\.claude\\projects\\C--Users-asd\\memory\\bossman-owner-machine-setup.md",
+        "%USERPROFILE%\\.qwen\\settings.json (contextWindowSize: 122880)"
+      ],
+      "verification": {
+        "state": "CANDIDATE",
+        "reason": "нет прогона, который отдельно показал бы сжатие до/после настройки"
+      }
+    },
+    {
+      "id": "RAM-BUDGET-THREE-MODELS",
+      "class": "resource-limit",
+      "title": "MAIN + GPT-OSS + FAST одновременно не помещаются в память",
+      "severity": "HIGH",
+      "status": "ENV",
+      "component": "llama.cpp / unified RAM",
+      "symptom": "Загрузка третьей модели приводит к свопу/отказу; FAST выгружен, пока загружены MAIN@128k и GPT-OSS@64k.",
+      "symptom_examples": [
+        "failed to allocate",
+        "out of memory"
+      ],
+      "symptom_regex": [
+        "(?i)(failed to allocate|out of memory|ErrorOutOfDeviceMemory)"
+      ],
+      "keywords": [
+        "RAM",
+        "memory",
+        "GPT-OSS",
+        "FAST",
+        "три модели",
+        "нехватка памяти"
+      ],
+      "detection": "tasklist /FI \"IMAGENAME eq llama-server.exe\" (рабочий набор каждого сервера); свободная память в Диспетчере задач; в логе сервера ошибки выделения памяти.",
+      "root_cause": "MAIN 27B при 128k контекста + GPT-OSS-120B MXFP4 при 64k оставляют ~20 GB; FAST 35B-A3B туда не входит вместе с ОС и Bossman.",
+      "fix": "Для ревью-циклов: MAIN (-c 131072 -np 1) + GPT-OSS (-c 65536 -np 1), FAST выключен. Для Telegram хватит одной «лучшей» модели и, при запасе RAM, FAST.",
+      "prevention": "Не запускать бенчмарки LLM и генерацию видео одновременно; перед загрузкой записывать RAM до/после.",
+      "evidence": [
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E13_ram_budget.txt",
+          "sha256": "527461a7ffb79ffa83cbf1c0c93a40cf938a8b9b4d06d30083b41af823a996cb",
+          "kind": "doc_excerpt"
+        }
+      ],
+      "sources": [
+        "evidence/owner-pass2-20260922:owner-repair/LIVE_CHECKPOINTS.json#CP01-prep",
+        "evidence/owner-pass2-20260922:owner-repair/pass2/HANDOFF_STOP_0750Z.md"
+      ],
+      "verification": {
+        "state": "CANDIDATE",
+        "reason": "одновременная загрузка всех трёх не проверялась; есть только замер остатка ~20 GB"
+      }
+    },
+    {
+      "id": "DESK-EDGE-RELAUNCH",
+      "class": "desktop-launcher",
+      "title": "Edge перезапускает сам себя, лаунчер ждёт мёртвый PID и гасит backend",
+      "severity": "CRITICAL",
+      "status": "OPEN",
+      "component": "command-center/bcc/desktop.py launch_window() / Start-Bossman.cmd",
+      "symptom": "desktop-run.log: «browser-exit code=0 lifetime=1.0s»; Start-Bossman.cmd останавливает backend ~1 с после старта (msedge.exe --app выходит за 0.2–1.0 с с кодом 0).",
+      "symptom_examples": [
+        "2026-09-21T23:16:04 browser-exit code=0 lifetime=1.0s url=http://127.0.0.1:8800/"
+      ],
+      "symptom_regex": [
+        "browser-exit code=0 lifetime=(0\\.\\d|1\\.\\d)s"
+      ],
+      "keywords": [
+        "Edge",
+        "msedge",
+        "desktop launcher",
+        "Start-Bossman.cmd",
+        "backend stops",
+        "окно закрылось",
+        "лаунчер"
+      ],
+      "detection": "%LOCALAPPDATA%\\Bossman\\CommandCenter\\desktop-run.log: время жизни процесса окна ~1 с; воспроизводится вне Bossman: msedge.exe --app=<url> возвращается сразу.",
+      "root_cause": "msedge.exe --app на этой машине передаёт окно уже работающему/новому экземпляру и сам выходит; launch_window() считает выход запущенного PID закрытием окна.",
+      "fix": "Обход: запускать сервер без окна (python -m bcc из установки или режим --web) и открывать UI в браузере. Исправление кода открыто (Qwen a3 частичный diff, не оценён).",
+      "prevention": "Не ждать PID запущенного браузера: отслеживать окно/профиль --user-data-dir (с нормализацией пути) или держать backend независимо от окна; CI этот путь не открывает — нужен тест на Windows.",
+      "evidence": [
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E09_desk_edge_relaunch.txt",
+          "sha256": "4fec6d6db0442c2e1a8c8c5b410e9256344dcb2f46939e06d0ba26871463e4c8",
+          "kind": "doc_excerpt"
+        }
+      ],
+      "sources": [
+        "evidence/owner-pass2-20260922:owner-repair/pass2/YESTERDAY_REMAINDER.md#R3",
+        "evidence/owner-pass2-20260922:owner-training/SCOREBOARD.md",
+        "%LOCALAPPDATA%\\Bossman\\CommandCenter\\desktop-run.log"
+      ],
+      "verification": {
+        "state": "CANDIDATE",
+        "reason": "дефект воспроизведён 3 раза, но исправление не проверено; обход не подтверждён исполняемым доказательством"
+      }
+    },
+    {
+      "id": "WMIC-MISSING-WIN11",
+      "class": "windows-environment",
+      "title": "wmic.exe отсутствует на Windows 11 — код на wmic молча проваливается",
+      "severity": "HIGH",
+      "status": "ENV",
+      "component": "любой код определения процессов/железа",
+      "symptom": "«where wmic» не находит файл; subprocess с wmic даёт FileNotFoundError или пустой вывод, а проверка считает «ничего не найдено» (fail-open).",
+      "symptom_examples": [
+        "FileNotFoundError: [WinError 2] wmic",
+        "'wmic' is not recognized as an internal or external command"
+      ],
+      "symptom_regex": [
+        "(?i)wmic[^\\n]{0,60}(not recognized|not found|WinError 2|не является)",
+        "(?i)FileNotFoundError[^\\n]{0,80}wmic"
+      ],
+      "keywords": [
+        "wmic",
+        "WMIC",
+        "Windows 11",
+        "CIM",
+        "Get-CimInstance",
+        "psutil",
+        "fail-open"
+      ],
+      "detection": "cmd /c where wmic (код 1); наличие C:\\Windows\\System32\\wbem\\WMIC.exe.",
+      "root_cause": "WMIC удалён в Windows 11 24H2+ (эта машина 10.0.26200).",
+      "fix": "Использовать Get-CimInstance Win32_Process / psutil; при недоступности источника возвращать «не определено» (fail-closed), не «нет процесса».",
+      "prevention": "В ревью отклонять новый код с wmic; в репозитории уже есть цепочка CIM -> wmic -> psutil для определения железа.",
+      "evidence": [
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E04_wmic_missing.txt",
+          "sha256": "f6cfc0e06f1e8614a8deae20a8234c50f1175e89d9ce8c5c5d0845f5e74fb242",
+          "kind": "command_output"
+        }
+      ],
+      "sources": [
+        "evidence/owner-pass2-20260922:owner-training/SCOREBOARD.md (a2)",
+        "docs/final/KNOWN_GOOD_SHAS.json (WMIC-free hardware detection)"
+      ],
+      "verification": {
+        "state": "VERIFIED",
+        "observed_at": "2026-09-22T08:09:59Z",
+        "verifier": {
+          "principal_id": "tool:cmd-where",
+          "model_id": "windows-cmd",
+          "role": "verifier",
+          "independence_class": "external_tool"
+        },
+        "expected": "wmic отсутствует на этой машине",
+        "actual": "where wmic: exit=1; C:\\Windows\\System32\\wbem\\WMIC.exe не существует; ver 10.0.26200.9457",
+        "external_verification": "исполнение cmd /c where wmic и проверка файла на машине владельца",
+        "limitations": [
+          "проверен факт окружения; частичный патч Qwen a2 с wmic уроком не является"
+        ]
+      }
+    },
+    {
+      "id": "MEDIA-RESTART-ORPHAN",
+      "class": "process-lifecycle",
+      "title": "MEDIA-RESTART: после жёсткой смерти backend дерево процесса sd.cpp остаётся сиротой",
+      "severity": "HIGH",
+      "status": "OPEN",
+      "component": "Studio sd.cpp provider",
+      "symptom": "После падения/убийства backend процесс движка sd.cpp жив, держит GPU/unified memory до дедлайна задачи и пишет в engine-work; новый backend его не видит.",
+      "symptom_examples": [
+        "engine child alive after hard backend kill = True"
+      ],
+      "symptom_regex": [
+        "(?i)engine child alive after hard backend kill\\s*=\\s*True",
+        "(?i)interrupted_unknown"
+      ],
+      "keywords": [
+        "MEDIA-RESTART",
+        "sd.cpp",
+        "orphan",
+        "сирота",
+        "engine-work",
+        "GPU memory",
+        "restart"
+      ],
+      "detection": "После рестарта backend: tasklist | findstr sd (или Get-CimInstance Win32_Process) — процесс движка без родителя; repro: owner-repair/pass2/repro/media_restart_repro.py на ветке evidence.",
+      "root_cause": "На Windows дочерние процессы не завершаются вместе с родителем; нет Job Object / учёта PID движка между рестартами. Сторона БД уже честная (interrupted_unknown/OWNER_REQUIRED, без повторной отправки).",
+      "fix": "Открыто. Направление: Job Object с KILL_ON_JOB_CLOSE или сохранение PID/времени старта движка и остановка сироты при старте нового backend.",
+      "prevention": "Любой долгоживущий дочерний процесс на Windows запускать в Job Object; после рестарта сверять реальные процессы, а не только БД.",
+      "evidence": [
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E10_media_restart.txt",
+          "sha256": "50602c2c33b5247fef2a8a446b609b9f6a64e2dd465a7abed95830e2f81c1a1b",
+          "kind": "doc_excerpt"
+        }
+      ],
+      "sources": [
+        "evidence/owner-pass2-20260922:owner-repair/LIVE_CHECKPOINTS.json#CP01-prep",
+        "owner-repair/CONTINUATION.md (open item 1)"
+      ],
+      "verification": {
+        "state": "CANDIDATE",
+        "reason": "дефект воспроизведён, исправление не сделано"
+      }
+    },
+    {
+      "id": "LLM-MODEL-ID-GGUF-PATH",
+      "class": "local-llm-config",
+      "title": "llama.cpp отдаёт в качестве model id полный путь к GGUF",
+      "severity": "MEDIUM",
+      "status": "ENV",
+      "component": "llama.cpp /v1/models, Bossman/Telegram конфиг моделей",
+      "symptom": "Сохранение настроек: «сервер отдаёт другую модель» / MODEL_NOT_LISTED; в ответах поле model = C:\\Users\\asd\\Bossman\\models\\...\\*.gguf вместо запрошенного имени.",
+      "symptom_examples": [
+        "\"model\":\"C:\\\\Users\\\\asd\\\\Bossman\\\\models\\\\qwen38-27b\\\\Qwen3.8-27B-UD-Q5_K_M.gguf\"",
+        "MODEL_NOT_LISTED"
+      ],
+      "symptom_regex": [
+        "\"model\"\\s*:\\s*\"[A-Za-z]:\\\\\\\\[^\"]+\\.gguf\"",
+        "MODEL_NOT_LISTED"
+      ],
+      "keywords": [
+        "model id",
+        "GGUF path",
+        "MODEL_NOT_LISTED",
+        "/v1/models",
+        "--alias",
+        "имя модели"
+      ],
+      "detection": "GET http://127.0.0.1:<порт>/v1/models -> data[0].id; сравнить с именем в конфиге Bossman/Telegram.",
+      "root_cause": "Без --alias llama-server использует путь к файлу модели как id и возвращает его в ответах, а не имя из запроса.",
+      "fix": "Брать id ровно из /v1/models (в JSON обратные слэши удваиваются) или запускать сервер с --alias <имя>.",
+      "prevention": "Сравнивать модели по живому id с сервера, не по ярлыку документации; не показывать путь пользователю в чате.",
+      "evidence": [
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E03_model_id_gguf_path.txt",
+          "sha256": "fc0c6c1e97c28947bff2445b815b2527a7d6bcd48a9d5bd22e1acf0f4958a6e5",
+          "kind": "log_excerpt"
+        }
+      ],
+      "sources": [
+        "C:\\Users\\asd\\Bossman\\qwen-work\\runs\\cp01-main-a1\\run-meta.json",
+        "feat/telegram-local-llm-20260922:docs/owner/TELEGRAM_LOCAL_LLM_SETUP.md §10, §12"
+      ],
+      "verification": {
+        "state": "VERIFIED",
+        "observed_at": "2026-09-22T06:28:45Z",
+        "verifier": {
+          "principal_id": "tool:llama-server-b10964-api",
+          "model_id": "llama.cpp-b10964",
+          "role": "verifier",
+          "independence_class": "external_tool"
+        },
+        "expected": "id из /v1/models используется как имя модели в запросах",
+        "actual": "run-meta.json model = путь к GGUF из /v1/models; 5 ответов в qwen.json несут тот же путь",
+        "external_verification": "ответы llama-server /v1/models и /v1/chat/completions, записанные run-qwen.ps1",
+        "limitations": [
+          "точный id FAST в тот день не проверялся (модель не была загружена)"
+        ]
+      }
+    },
+    {
+      "id": "TELEGRAM-TIMEOUT-SLOW-MAIN",
+      "class": "integration-timeout",
+      "title": "Таймаут Telegram-компаньона меньше, чем нужно MAIN 27B (~9 ток/с)",
+      "severity": "HIGH",
+      "status": "OPEN",
+      "component": "bcc.telegram_companion (local_timeout)",
+      "symptom": "Бот отвечает «локальная модель сейчас не отвечает» или молчит, хотя модель работает; ответ на 512 токенов не укладывается в 60 с.",
+      "symptom_examples": [
+        "локальная модель сейчас не отвечает",
+        "ReadTimeout",
+        "httpx.ReadTimeout"
+      ],
+      "symptom_regex": [
+        "(?i)локальная модель сейчас не отвечает",
+        "(?i)(httpx\\.)?ReadTimeout"
+      ],
+      "keywords": [
+        "Telegram",
+        "timeout",
+        "local_timeout",
+        "tok/s",
+        "slow model",
+        "таймаут",
+        "бот не отвечает"
+      ],
+      "detection": "main-server.err.log: строки «eval time = ... tokens per second» (MAIN 9.4–9.9 ток/с) и «prompt eval time» (140–185 ток/с); сравнить (max_tokens / ток/с + prefill) с local_timeout.",
+      "root_cause": "Старый верхний предел local_timeout 60 с; 512 токенов / 9.87 ток/с ≈ 52 с генерации плюс prefill (7022 токена ≈ 49 с).",
+      "fix": "Ветка feat/telegram-local-llm-20260922 (не слита): предел local_timeout поднят до 600 с, рекомендация 180 с для 27B/120B, FAST-фолбэк при таймауте MAIN, индикатор набора текста.",
+      "prevention": "Таймауты считать от измеренной скорости сервера (server_timings), а не задавать константой; держать FAST-маршрут. Реальная доставка в Telegram — OWNER_REQUIRED; тестовый бот получил 0 сообщений за 1 мин — разобрать. Тестовый ключ бота, попавший в чат, отозвать через @BotFather.",
+      "evidence": [
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E07_main_throughput.txt",
+          "sha256": "d83be59c92af8369dfebb08087fc484185f0d81b4deb2f067225623d8f661e84",
+          "kind": "log_excerpt"
+        }
+      ],
+      "sources": [
+        "origin/feat/telegram-local-llm-20260922 @ 61e290d4 (commit 5537ac9f)",
+        "evidence/owner-pass2-20260922:owner-repair/pass2/HANDOFF_STOP_0750Z.md §5"
+      ],
+      "verification": {
+        "state": "CANDIDATE",
+        "reason": "скорость подтверждена логом, но исправление на неслитой ветке и не проверено живой доставкой"
+      }
+    },
+    {
+      "id": "OPENCODE-V2-FALSE-HEALTHY",
+      "class": "integration-api-version",
+      "title": "opencode v2 отвечает на пути v1 HTML-страницей SPA с кодом 200 — ложное «доступен»",
+      "severity": "MEDIUM",
+      "status": "OPEN",
+      "component": "Bossman opencode bridge",
+      "symptom": "Проверка здоровья моста (/config) показывает «available», но каждый вызов /session падает: вместо JSON приходит <!doctype html> с HTTP 200.",
+      "symptom_examples": [
+        "<!doctype html>",
+        "JSONDecodeError: Expecting value: line 1 column 1"
+      ],
+      "symptom_regex": [
+        "(?i)^\\s*<!doctype html",
+        "(?i)JSONDecodeError: Expecting value: line 1 column 1"
+      ],
+      "keywords": [
+        "opencode",
+        "v2",
+        "/api/session",
+        "/session",
+        "SPA",
+        "health check",
+        "false healthy"
+      ],
+      "detection": "opencode --version (установлен 2.0.12); GET /api/session отдаёт JSON, GET /session — HTML; Content-Type text/html на пути API.",
+      "root_cause": "Мост говорит на v1 (/session); v2 перенёс API под /api/ и отдаёт SPA на неизвестные пути с 200; проба здоровья не проверяет Content-Type/схему.",
+      "fix": "Открыто (P2): определять версию opencode, говорить на /api/*, пробу здоровья делать по JSON-схеме и Content-Type.",
+      "prevention": "Любая проба здоровья должна проверять тип и схему ответа, а не только HTTP 200.",
+      "evidence": [
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E11_opencode_v2.txt",
+          "sha256": "71473f10b4cf9551fd45dc2622c11968b52f4b268cb34a99f28a2b94da30f6ee",
+          "kind": "doc_excerpt"
+        }
+      ],
+      "sources": [
+        "evidence/owner-pass2-20260922:owner-repair/pass2/YESTERDAY_REMAINDER.md#R12"
+      ],
+      "verification": {
+        "state": "CANDIDATE",
+        "reason": "наблюдение в документе; исполняемого захвата ответа нет"
+      }
+    },
+    {
+      "id": "PYTHONPATH-POSIX-WRONG-CHECKOUT",
+      "class": "dev-environment",
+      "title": "PYTHONPATH в POSIX-виде молча импортирует другой checkout",
+      "severity": "HIGH",
+      "status": "ENV",
+      "component": "venv wt-release (editable install), Git Bash / PowerShell",
+      "symptom": "Тесты «проходят», но проверяют не тот код: learning.__file__ указывает на C:\\Users\\asd\\Bossman\\wt-release, а не на ваш worktree; в sys.path видны несуществующие C:\\c\\Users\\... .",
+      "symptom_examples": [
+        "learning -> C:\\Users\\asd\\Bossman\\wt-release\\learning\\__init__.py",
+        "C:\\c\\Users\\asd\\Bossman\\wt-guides"
+      ],
+      "symptom_regex": [
+        "(?i)[A-Z]:\\\\c\\\\Users\\\\",
+        "(?i)wt-release\\\\(learning|bossman-core)"
+      ],
+      "keywords": [
+        "PYTHONPATH",
+        "cygpath",
+        "wrong checkout",
+        "editable install",
+        "sys.path",
+        "другой checkout"
+      ],
+      "detection": "python -c \"import learning,bossman;print(learning.__file__, bossman.__file__)\" из нейтрального каталога; путь должен вести в ваш worktree.",
+      "root_cause": "Путь /c/Users/... из PowerShell превращается в C:\\c\\Users\\... (не существует) и отбрасывается; venv содержит editable-установку wt-release, которая и импортируется. Кроме того, sys.path[0] = текущий каталог: запуск из wt-release перекрывает PYTHONPATH.",
+      "fix": "PYTHONPATH только в Windows-виде (в Git Bash: cygpath -w), разделитель «;», запуск из нейтрального каталога; проверять __file__ перед тестами.",
+      "prevention": "Установленный кандидат не чинить через pip/PYTHONPATH/копирование исходников — это дефект упаковки и новый артефакт.",
+      "evidence": [
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E05_pythonpath_posix.txt",
+          "sha256": "8f92ad8e15ee358b383cf8a32127c496212c7d8fcb89f1e762f88861dc9478ad",
+          "kind": "command_output"
+        }
+      ],
+      "sources": [
+        "docs/owner/TOMORROW_OPERATOR_RUNBOOK.md §5"
+      ],
+      "verification": {
+        "state": "VERIFIED",
+        "observed_at": "2026-09-22T08:09:59Z",
+        "verifier": {
+          "principal_id": "tool:python-interpreter-probe",
+          "model_id": "cpython-venv-wt-release",
+          "role": "verifier",
+          "independence_class": "external_tool"
+        },
+        "expected": "Windows-путь в PYTHONPATH из нейтрального каталога импортирует код worktree",
+        "actual": "POSIX-путь -> wt-release (тихо); Windows-путь -> wt-guides; Windows-путь при cwd=wt-release -> снова wt-release",
+        "external_verification": "три запуска интерпретатора venv с разными PYTHONPATH/cwd на машине владельца",
+        "limitations": []
+      }
+    },
+    {
+      "id": "CI-FLAKY-TIMING-TESTS",
+      "class": "ci-reliability",
+      "title": "Недетерминированные обязательные CI-тесты (тайминг, гонки состояний)",
+      "severity": "MEDIUM",
+      "status": "OPEN",
+      "component": "root-ci, Command Center CI",
+      "symptom": "root-ci красный на одном тайминговом тесте (test_v5_human_speed::test_objective_cas_under_10ms…, p100 21.5 ms на общем раннере) при идентичном коде, который зелёный на других SHA.",
+      "symptom_examples": [
+        "test_objective_cas_under_10ms",
+        "waiting_approval != failed",
+        "test_a_late_connection_does_not_eat_what_the_owner_is_typing"
+      ],
+      "symptom_regex": [
+        "test_objective_cas_under_10ms",
+        "test_code_action_not_satisfied_by_an_unrelated_terminal_call",
+        "test_a_late_connection_does_not_eat_what_the_owner_is_typing",
+        "test_second_window_refused_while_first_instance_alive"
+      ],
+      "keywords": [
+        "flaky",
+        "CI",
+        "timing",
+        "rerun",
+        "exact-SHA",
+        "нестабильный тест"
+      ],
+      "detection": "tools/exact_sha_certify.py: провал одного job; сравнить тот же тест на соседних SHA с идентичным кодом; run_attempt в сертификате.",
+      "root_cause": "Жёсткие пороги по времени на общих раннерах (Windows квант таймера 15.625 мс) и гонки ожидания состояния; test_ux2_desktop подделывает живой процесс pid=1, которого нет на Windows.",
+      "fix": "Триаж: один повтор job на том же SHA; если зелёный и код идентичен прошедшим SHA — флейк, не регрессия (0c1cbe65: root-ci attempt 2 -> CERTIFIED 10/10). Сами тесты ещё не исправлены (P2).",
+      "prevention": "Не переписывать продукт ради флейка; тайминги мерить устойчивой статистикой; не использовать pid=1 как «живой» процесс на Windows.",
+      "evidence": [
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E06_flaky_ci_timing.txt",
+          "sha256": "d23d90c330f5b6597b83765e9552febe0b0d823574357e4cad7444681bdbb60f",
+          "kind": "ci_record"
+        }
+      ],
+      "sources": [
+        "evidence/owner-pass2-20260922:owner-repair/pass2/cert-0c1cbe65.json",
+        "evidence/owner-pass2-20260922:owner-repair/pass2/YESTERDAY_REMAINDER.md#R1,R7,R13"
+      ],
+      "verification": {
+        "state": "VERIFIED",
+        "observed_at": "2026-09-22T06:40:00Z",
+        "verifier": {
+          "principal_id": "tool:github-actions-exact-sha-certifier",
+          "model_id": "github-actions",
+          "role": "verifier",
+          "independence_class": "external_tool"
+        },
+        "expected": "повтор на том же SHA зелёный -> флейк, не регрессия",
+        "actual": "root-ci run 35663990492 run_attempt=2 success; вердикт CERTIFIED для 0c1cbe65",
+        "external_verification": "сертификат exact-SHA с run_attempt из GitHub Actions",
+        "limitations": [
+          "урок про процедуру триажа; сами флейковые тесты не исправлены"
+        ]
+      }
+    },
+    {
+      "id": "START-MODELS-STALE",
+      "class": "local-llm-config",
+      "title": "Устаревший start-models.ps1: порты 8080/8081, нет --reasoning off, stop гасит все llama-server",
+      "severity": "HIGH",
+      "status": "ENV",
+      "component": "C:\\Users\\asd\\Bossman\\start-models.ps1 (не в репозитории)",
+      "symptom": "Bossman ищет MAIN на 8081, а там FAST (или ничего); проверка модели даёт пустые ответы; «-Target stop» останавливает и чужие прогоны.",
+      "symptom_examples": [
+        "main started on http://127.0.0.1:8080",
+        "llama-server stopped"
+      ],
+      "symptom_regex": [
+        "main started on http://127\\.0\\.0\\.1:8080",
+        "Stop-Process -Name llama-server"
+      ],
+      "keywords": [
+        "start-models.ps1",
+        "ports",
+        "8080",
+        "8081",
+        "8082",
+        "stale script",
+        "устаревший скрипт"
+      ],
+      "detection": "Сравнить скрипт с аудированной конфигурацией: MAIN 8081, FAST 8082, GPT-OSS 8083, --jinja --reasoning off; GET /v1/models на каждом порту.",
+      "root_cause": "Скрипт писался до смены раскладки портов и флагов; не версионируется в репозитории. Текущая версия всё ещё с -c 32768 (мало для Qwen Code) и stop через Stop-Process -Name.",
+      "fix": "Исправлен 2026-09-22 (резерв .bak-20260922): 8081/8082 и --reasoning off. Для агентного кодинга MAIN поднимать вручную с -c 131072 -np 1.",
+      "prevention": "Останавливать только проверенные PID своего прогона; добавить в скрипт режим agent (-c 131072 -np 1) и GPT-OSS; сверять с /props после старта.",
+      "evidence": [
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E08_start_models_stale.txt",
+          "sha256": "cc47bcc4a26bae788565fbd24507e11b1fdf32daa7b3b84c294e37e68476fa8b",
+          "kind": "file_diff"
+        },
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E01_reasoning_off.txt",
+          "sha256": "9a0e6dd7a4e98ac74a86933b62bdff3f640d38de78b7b9c6b10358615da30205",
+          "kind": "log_excerpt"
+        }
+      ],
+      "sources": [
+        "evidence/owner-pass2-20260922:owner-repair/pass2/YESTERDAY_REMAINDER.md#R11"
+      ],
+      "verification": {
+        "state": "VERIFIED",
+        "observed_at": "2026-09-22T06:40:00Z",
+        "verifier": {
+          "principal_id": "tool:bossman-model-test-endpoint",
+          "model_id": "llama.cpp-b10964",
+          "role": "verifier",
+          "independence_class": "external_tool"
+        },
+        "expected": "исправленный скрипт поднимает MAIN/FAST на 8081/8082 с --reasoning off и проверка модели проходит",
+        "actual": "diff .bak -> текущий: 8080/8081 -> 8081/8082, добавлен --reasoning off; CP00 answer ok для MAIN и FAST",
+        "external_verification": "сравнение файлов (sha256 обоих) и проверка моделей в продукте после исправления",
+        "limitations": [
+          "риск «stop гасит все» и -c 32768 в скрипте остаются"
+        ]
+      }
+    },
+    {
+      "id": "FREEZE-MOVING-CANDIDATE",
+      "class": "release-process",
+      "title": "Движущийся кандидат: пуши во время exact-SHA матрицы обесценивают сертификацию",
+      "severity": "HIGH",
+      "status": "ENV",
+      "component": "release/bossman-owner, tools/exact_sha_certify.py",
+      "symptom": "Матрица (~40 мин) не успевает завершиться на объявленном SHA: head уходит вперёд каждые несколько минут (docs/evo, README), кандидат снова и снова незавершён.",
+      "symptom_examples": [
+        "ignored_other_sha",
+        "candidate superseded"
+      ],
+      "symptom_regex": [
+        "(?i)ignored_other_sha\"?\\s*:\\s*[1-9]",
+        "(?i)superseded"
+      ],
+      "keywords": [
+        "freeze",
+        "moving candidate",
+        "exact-SHA",
+        "release candidate",
+        "заморозка",
+        "F-22"
+      ],
+      "detection": "git log origin/release/bossman-owner после объявления кандидата; сертификатор: workflows не на том SHA.",
+      "root_cause": "Параллельные сессии пушат документацию в канонную ветку во время заморозки.",
+      "fix": "После входа кандидата в матрицу — никаких пушей в канон (наблюдения — в evidence-ветку); ломать заморозку только воспроизведённым релизным дефектом.",
+      "prevention": "Наблюдения и чекпоинты писать в evidence/* ветки; документационные ветки не сливать до завершения матрицы.",
+      "evidence": [],
+      "sources": [
+        "owner-repair/CONTINUATION.md (open item 5, F-22)",
+        "docs/owner/TOMORROW_OPERATOR_RUNBOOK.md §2"
+      ],
+      "verification": {
+        "state": "CANDIDATE",
+        "reason": "процессное правило из документов, без исполняемого доказательства"
+      }
+    },
+    {
+      "id": "NEVER-KILL-ALL-PYTHON",
+      "class": "operator-safety",
+      "title": "Никогда не убивать все python.exe (и все llama-server)",
+      "severity": "CRITICAL",
+      "status": "ENV",
+      "component": "машина владельца: backend, тесты, модели",
+      "symptom": "После «зачистки» падают чужие прогоны, backend Bossman, Telegram-компаньон или модели других сессий; теряются незаписанные результаты.",
+      "symptom_examples": [
+        "taskkill /F /IM python.exe",
+        "Stop-Process -Name python",
+        "Stop-Process -Name llama-server -Force"
+      ],
+      "symptom_regex": [
+        "(?i)taskkill\\s+/F\\s+/IM\\s+python",
+        "(?i)Stop-Process\\s+-Name\\s+(python|llama-server)"
+      ],
+      "keywords": [
+        "python.exe",
+        "taskkill",
+        "Stop-Process",
+        "kill all",
+        "убить процессы",
+        "lease"
+      ],
+      "detection": "Перед остановкой: Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | select ProcessId,CommandLine — остановить только PID своего теста.",
+      "root_cause": "На машине одновременно работают несколько акторов (backend, тесты, компаньон, модели); массовая остановка по имени бьёт по всем.",
+      "fix": "Останавливать только проверенные PID текущего теста; ресурсы брать через lease (C:\\Users\\asd\\Bossman\\handoff\\LEASE.json).",
+      "prevention": "Запрещено taskkill /IM python.exe и Stop-Process -Name; режим stop в start-models.ps1 не использовать во время прогонов.",
+      "evidence": [],
+      "sources": [
+        "docs/owner/TOMORROW_OPERATOR_RUNBOOK.md §4",
+        "feat/telegram-local-llm-20260922:docs/owner/TELEGRAM_LOCAL_LLM_SETUP.md §4"
+      ],
+      "verification": {
+        "state": "CANDIDATE",
+        "reason": "правило runbook; инцидент не зафиксирован логом"
+      }
+    },
+    {
+      "id": "B4-DOWNLOAD-IS-STARTING",
+      "class": "browser-automation",
+      "title": "B4: Playwright «Download is starting» в navigate -> HTTP 500",
+      "severity": "MEDIUM",
+      "status": "FIXED",
+      "component": "command-center browser_control.navigate()",
+      "symptom": "playwright._impl._errors.Error: Page.goto: Download is starting -> ERROR: Exception in ASGI application (500).",
+      "symptom_examples": [
+        "playwright._impl._errors.Error: Page.goto: Download is starting"
+      ],
+      "symptom_regex": [
+        "Download is starting"
+      ],
+      "keywords": [
+        "Playwright",
+        "download",
+        "Download is starting",
+        "HTTP 500",
+        "B4",
+        "скачивание"
+      ],
+      "detection": "Лог сервера (startup*.log): «Download is starting» рядом с «Exception in ASGI application».",
+      "root_cause": "Переход на URL-вложение запускает скачивание; goto бросает исключение, которое не перехватывалось.",
+      "fix": "Коммит 79a12276: слушатель скачиваний на странице, проверка политики, .part -> размер/sha256/тип, карантин исполняемых, честный 422; регрессия command-center/tests/test_browser_download_b4.py.",
+      "prevention": "Навигация браузера должна обрабатывать скачивание как штатный исход; повторно проверить на установленном кандидате.",
+      "evidence": [
+        {
+          "path": "docs/owner/evidence/critical-errors-20260922/E12_b4_download.txt",
+          "sha256": "23ad428d16435db2f505def2d0b8d9a580458a5e8ef038f9b41bede0a8f2a35e",
+          "kind": "log_excerpt"
+        }
+      ],
+      "sources": [
+        "owner-repair/repair-ledger.md (2026-09-21T20:05Z)",
+        "C:\\Users\\asd\\Bossman\\startup-night4.log"
+      ],
+      "verification": {
+        "state": "CANDIDATE",
+        "reason": "сбой в логе есть; прохождение регрессии записано в ledger, но в этой сессии не перезапускалось; на установленном кандидате NEEDS_RETEST"
+      }
+    }
+  ]
+}

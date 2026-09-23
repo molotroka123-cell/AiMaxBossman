@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "started_at": "2026-09-22T14:47:03+00:00",
+  "out": "C:\\Bossman-Test\\fa7ceae1\\owner-run-1",
+  "runner": "C:\\Bossman-Test\\fa7ceae1\\BOSSMAN-Windows-x64-fa7ceae105c9\\app-support\\owner_run_tomorrow.py",
+  "stages": {
+    "doctor": {
+      "status": "WARN",
+      "detail": "16 PASS, 5 WARN, 0 BLOCKED",
+      "route": "WARN означает отсутствующую необязательную возможность — см. doctor.json",
+      "facts": {
+        "warn": [
+          "model-endpoint",
+          "media-engine",
+          "openhands",
+          "cloud-providers",
+          "port"
+        ]
+      },
+      "at": "2026-09-22T14:47:10+00:00"
+    },
+    "models": {
+      "status": "PASS",
+      "detail": "http://127.0.0.1:8081: C:\\Users\\asd\\Bossman\\models\\qwen38-27b\\Qwen3.8-27B-UD-Q5_K_M.gguf (1.237 с на 8 токенов); http://127.0.0.1:8082: C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b\\Qwen3.6-35B-A3B-UD-Q5_K_M.gguf (3.207 с на 8 токенов)",
+      "route": "",
+      "facts": {
+        "live": [
+          "http://127.0.0.1:8081",
+          "http://127.0.0.1:8082"
+        ]
+      },
+      "at": "2026-09-22T14:47:14+00:00"
+    },
+    "media": {
+      "status": "NOT_RUN",
+      "detail": "не запускалась",
+      "route": "",
+      "facts": {},
+      "at": "2026-09-22T14:47:14+00:00"
+    },
+    "evening": {
+      "status": "NOT_RUN",
+      "detail": "не запускалась",
+      "route": "",
+      "facts": {},
+      "at": "2026-09-22T14:47:14+00:00"
+    },
+    "coaching": {
+      "status": "NOT_RUN",
+      "detail": "не запускалась",
+      "route": "",
+      "facts": {},
+      "at": "2026-09-22T14:47:14+00:00"
+    },
+    "diagnostics": {
+      "status": "PASS",
+      "detail": "diagnostics.zip: 7 файлов, секреты вырезаны по шаблону",
+      "route": "",
+      "facts": {
+        "zip": "C:\\Bossman-Test\\fa7ceae1\\owner-run-1\\diagnostics.zip",
+        "files": [
+          "environment.json",
+          "doctor.json",
+          "models.json",
+          "report.json",
+          "bundle/MANIFEST.json",
+          "bundle/SHA256SUMS",
+          "data-dir-listing.json"
+        ]
+      },
+      "at": "2026-09-22T14:47:15+00:00"
+    }
+  },
+  "weights_unchanged": true,
+  "owner_hardware_certified": false,
+  "overall": "WARN",
+  "finished_at": "2026-09-22T14:47:15+00:00"
+}

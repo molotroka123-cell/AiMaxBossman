@@ -1,0 +1,23 @@
+{
+  "task_id": "train-03-safe-max",
+  "split": "train",
+  "task_class": "empty-input",
+  "title": "Max of a possibly empty list",
+  "prompt": "Write safe_max(items) returning the largest number in the list, or None when the list is empty.",
+  "signature": "def safe_max(items):",
+  "hidden_tests": [
+    "assert safe_max([3, 9, 2]) == 9",
+    "assert safe_max([]) is None",
+    "assert safe_max([-5]) == -5",
+    "assert safe_max([0, 0]) == 0"
+  ],
+  "reference_solution": "def safe_max(items):\n    if not items:\n        return None\n    return max(items)\n",
+  "teacher_lesson": "Check for an empty list before calling max() or min(); return the documented sentinel instead of raising.",
+  "mock": {
+    "label": "MOCK — scripted student, not a model",
+    "first_attempt": "def safe_max(items):\n    return max(items)\n",
+    "second_attempt": "def safe_max(items):\n    if not items:\n        return None\n    return max(items)\n",
+    "lesson_trigger": "empty",
+    "student_lesson": "Check for an empty list before calling max() or min(); return the documented sentinel instead of raising."
+  }
+}

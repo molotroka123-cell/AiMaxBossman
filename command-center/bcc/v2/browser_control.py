@@ -300,6 +300,58 @@ def _is_download_navigation(exc: BaseException) -> bool:
     return "download is starting" in str(exc).lower()
 
 
+# Типы ответа, которые для владельца — ФАЙЛ, а не страница. Полный Chromium в
+# новом headless-режиме (и обычный настольный) показывает PDF встроенным
+# просмотрщиком вместо загрузки: событие download не приходит, goto
+# возвращает 200, а «Файл скачан» не наступает (B4 на Linux CI, 2026-09-21).
+# Такой ответ забирается байтами того же ответа и идёт через ТУ ЖЕ проверку
+# и запись, что и настоящая загрузка: политика, лимит, .part → sha256 → имя.
+_DOCUMENT_MIME_PREFIXES = ("application/pdf", "application/octet-stream", "application/zip",
+                           "application/x-zip", "application/msword", "application/vnd.",
+                           "application/x-7z", "application/x-rar", "application/gzip",
+                           "application/x-tar", "application/x-msdownload", "audio/", "video/")
+
+
+def _document_content_type(headers: dict | None) -> str:
+    ctype = str((headers or {}).get("content-type") or "").split(";", 1)[0].strip().lower()
+    return ctype if ctype.startswith(_DOCUMENT_MIME_PREFIXES) else ""
+
+
+def _disposition_filename(headers: dict | None) -> str:
+    disp = str((headers or {}).get("content-disposition") or "")
+    m = re.search(r"filename\*=(?:UTF-8|utf-8)''([^;]+)", disp)
+    if m:
+        from urllib.parse import unquote
+        return unquote(m.group(1).strip())
+    m = re.search(r'filename\s*=\s*"?([^";]+)"?', disp)
+    return m.group(1).strip() if m else ""
+
+
+class _InlineDocument:
+    """Ответ навигации, который браузер показал, а не скачал, в форме
+    download-объекта Playwright: url, suggested_filename, cancel, failure, save_as."""
+
+    def __init__(self, url: str, body: bytes, headers: dict | None):
+        from urllib.parse import unquote, urlparse
+        self.url = url
+        self._body = body
+        name = _disposition_filename(headers) or unquote(urlparse(url).path.rsplit("/", 1)[-1])
+        if "." not in name:
+            import mimetypes
+            ext = mimetypes.guess_extension(_document_content_type(headers) or "") or ".bin"
+            name = (name or "download") + ext
+        self.suggested_filename = name
+
+    async def cancel(self) -> None:
+        self._body = b""
+
+    async def failure(self):
+        return None
+
+    async def save_as(self, path: str) -> None:
+        Path(path).write_bytes(self._body)
+
+
 def human_size(size: int) -> str:
     value = float(size)
     for unit in ("байт", "КБ", "МБ", "ГБ"):
@@ -996,8 +1048,9 @@ class BrowserManager:
         if refusal:
             raise BrowserPolicyDenied("navigate", f"browser action denied: navigate — {refusal}")
         self._drain_downloads(sess)
+        response = None
         try:
-            await sess.page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            response = await sess.page.goto(url, wait_until="domcontentloaded", timeout=60000)
             started = False
         except Exception as exc:
             # «Download is starting» — не ошибка навигации, а начало загрузки.
@@ -1022,6 +1075,12 @@ class BrowserManager:
                                                actor=actor, approved=approved,
                                                allow_download=allow_download)
             return await self._download_result(sess, record)
+        inline = await self._inline_document(response, url, sess)
+        if inline is not None:
+            record = await self._save_download(sess, inline, trigger="navigate", source_url=url,
+                                               actor=actor, approved=approved,
+                                               allow_download=allow_download)
+            return await self._download_result(sess, record)
         if expect_download:
             raise BrowserDownloadFailed("адрес открылся как страница, а не как файл — "
                                         "загрузки не было")
@@ -1037,6 +1096,46 @@ class BrowserManager:
             raise BrowserPolicyDenied("navigate", f"browser action denied: navigate — "
                                       f"редирект на {landed[:120]!r}: {why}")
         return await self.snapshot(session_id, actor=actor, approved=True)
+
+    @staticmethod
+    async def _inline_document(response: Any, url: str, sess: Any = None) -> "_InlineDocument | None":
+        """Документ (PDF/архив/бинарник), который браузер показал вместо загрузки.
+
+        Байты берутся НЕ из `response.body()` главного кадра — у встроенного
+        просмотрщика PDF это HTML-обёртка, а не документ, — а повторным запросом
+        того же адреса через request-контекст сессии (те же cookies, тот же
+        адрес после редиректов)."""
+        if response is None:
+            return None
+        try:
+            headers = {str(k).lower(): str(v) for k, v in (await response.all_headers()).items()}
+        except Exception:  # noqa: BLE001 — фейковая страница/ответ в юнит-тестах
+            try:
+                headers = {str(k).lower(): str(v) for k, v in dict(getattr(response, "headers", {}) or {}).items()}
+            except Exception:  # noqa: BLE001
+                return None
+        if not _document_content_type(headers):
+            return None
+        final_url = str(getattr(response, "url", "") or url)
+        body = None
+        request_ctx = getattr(getattr(sess, "context", None), "request", None)
+        if request_ctx is not None:
+            try:
+                fetched = await request_ctx.get(final_url, max_redirects=0, timeout=60000)
+                fetched_headers = {str(k).lower(): str(v) for k, v in dict(fetched.headers or {}).items()}
+                if fetched.ok and _document_content_type(fetched_headers):
+                    body = await fetched.body()
+                    headers = fetched_headers
+            except Exception as exc:  # noqa: BLE001
+                raise BrowserDownloadFailed(f"браузер показал файл, но его байты недоступны: "
+                                            f"{type(exc).__name__}: {exc}") from exc
+        if body is None:
+            try:
+                body = await response.body()
+            except Exception as exc:  # noqa: BLE001
+                raise BrowserDownloadFailed(f"браузер показал файл, но его байты недоступны: "
+                                            f"{type(exc).__name__}") from exc
+        return _InlineDocument(final_url, bytes(body), headers)
 
     async def _target(self, sess: BrowserRuntimeSession, selector: str = "",
                       ref: str = ""):

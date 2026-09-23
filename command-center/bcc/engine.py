@@ -29,7 +29,7 @@ from .providers import ChatResult, ProviderError
 from .registry import Registry
 from .tools import (REGISTRY as TOOLS, ToolContext, agent_policy_rules, allowed_tools_for,
                     approval_digest,
-                    args_hash, decide_effect, execute_tool)
+                    args_hash, decide_effect, execute_tool, malformed_arguments)
 
 ACTIVE_RUN_STATUSES = ("queued", "leased", "running")
 TERMINAL_TASK_STATUSES = ("completed", "failed", "stopped", "cancelled")
@@ -1382,6 +1382,22 @@ class TaskEngine:
                                 f"{call.name}: инструмент не выдан агенту")
                 continue
 
+            # Red team 2026-09-21 (RT-M3): аргументы, которые провайдер не смог
+            # разобрать ({"_raw": …}) или в которых нет обязательных полей, не
+            # доходят ни до политики, ни до обработчика. Иначе `_resource_of`
+            # не видит `command`, правило владельца `rm*→deny` и хук `rm` молчат,
+            # а обработчик получает мусор под AUTO. Отказ — данными для модели.
+            malformed = malformed_arguments(spec, call.arguments)
+            if malformed:
+                await self._record_tool_call(run_id, task["id"], step, call, spec,
+                                             effect="deny", status="denied", preview=malformed)
+                messages.append(_tool_message(
+                    call, f"вызов {spec.name} отклонён: {malformed} — повторите вызов с "
+                          f"корректным JSON-объектом аргументов"))
+                await self._log(run_id, "warn", "tool.denied", f"{spec.name}: {malformed}")
+                await self.bus.emit("tool.denied", task_id=task["id"], run_id=run_id,
+                                    tool=spec.name, reason=malformed)
+                continue
             effect, reason = decide_effect(spec, call.arguments, agent, policy_rules)
             if effect != "deny":
                 # A path forbidden by current owner roots must not ask for an
@@ -1567,7 +1583,8 @@ class TaskEngine:
         Без него неоднозначная прежняя отправка поднимает AmbiguousPriorEffect."""
         ctx = ToolContext(svc=self.services, task=task, run_id=run_id, agent=agent,
                           step=step, workspace=str(task.get("workspace_path") or ""),
-                          call_id=str(call.id))
+                          call_id=str(call.id),
+                          approval_id=int(approval_id) if approval_id is not None else None)
         # FL-01 §2.2 п.3: fence проверяется ДО эффекта, не только при записи receipt.
         await self.assert_fence(run_id)
         # INV-2 идемпотентность: неидемпотентный шаг с тем же (task, step, args)
@@ -1756,6 +1773,22 @@ class TaskEngine:
             await s.commit()
         await self.bus.emit("task.progress", task_id=task_id, run_id=run_id,
                             waiting_approval=True, tool=pending.get("tool"))
+        # Lost-wakeup guard. The approval row is committed (and shown to the
+        # owner) BEFORE the tool_calls row and this park. A decision landing in
+        # that window was dropped by on_approval_decided (no pending row yet) or
+        # overwritten by the park above (queued -> waiting_approval), leaving an
+        # approved task hung until the next recover() sweep. decide() commits
+        # before it emits, so re-reading the approval AFTER our park commit
+        # observes every decision made earlier; later ones reach the watcher,
+        # which now finds the task parked. on_approval_decided is idempotent
+        # (keyed on the pending_approval row), so a double trigger is harmless.
+        approval_id = pending.get("approval_id")
+        if approval_id is not None:
+            async with self.db.session() as s:
+                decided = (await s.execute(sa.select(approvals_t.c.status).where(
+                    approvals_t.c.id == int(approval_id)))).scalar_one_or_none()
+            if decided is not None and decided != "pending":
+                await self.on_approval_decided(int(approval_id))
 
     async def on_approval_decided(self, approval_id: int) -> None:
         """Решение принято → вернуть ожидающий run в очередь.

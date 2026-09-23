@@ -1,0 +1,7 @@
+# opencode v2 vs v1 bridge false-healthy (open P2)
+captured_utc: 2026-09-22T08:09:59Z
+captured_by: knowledge engineer (Claude Opus 5), read-only
+redaction: learning.trace.redact_text applied; no secrets present
+source: git:465c04eae73effed1776ae47820ded809d5edf4b:owner-repair/pass2/YESTERDAY_REMAINDER.md (branch evidence/owner-pass2-20260922) blob_sha256=97d51271e29740147b9688279f8410e87446ed76915c90666b0cbbda43c23190
+
+YESTERDAY_REMAINDER.md:19: | R12 | Bossman ↔ opencode bridge | NEEDS_FIX (P2, new) | installed OpenCode is v2.0.12 (API under `/api/session`); bridge calls v1 `/session`; v2 answers v1 paths with the SPA HTML + 200, so Bossman's health probe (`/config`) would report "available" while every session call fails |

@@ -129,3 +129,38 @@ def test_green_complete_only_after_the_finalizer(live):
             assert page.locator("td .badge-ok", has_text="COMPLETE").count() == 1
         finally:
             browser.close()
+
+
+def test_owner_stop_and_resume_buttons_drive_the_computer_state(live):
+    """CU-STOP: кнопки «Стоп»/«Продолжить» на пульте владельца — единственный
+    путь к /api/computer/stop|resume; состояние читается с сервера, «Стоп»
+    записывает файл STOP (переживает перезапуск), «Продолжить» его снимает."""
+    from playwright.sync_api import sync_playwright
+
+    stop_file = live.settings.data_dir / "computer" / "STOP"
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page()
+            _open(page, live)
+            page.wait_for_selector("#computer-stop", timeout=15000)
+            assert page.locator("#computer-resume").is_disabled()
+            # выключенная кнопка объясняет причину (UI sweep: disabled_reason, не disabled_silent)
+            assert (page.get_attribute("#computer-resume", "title") or "").strip()
+            assert (page.get_attribute("#computer-stop", "title") or "").strip()
+            page.click("#computer-stop")
+            page.wait_for_function("document.querySelector('#computer-stop-state') && "
+                                   "document.querySelector('#computer-stop-state').innerText.includes('СТОП')",
+                                   timeout=15000)
+            assert stop_file.is_file()
+            assert page.locator("#computer-stop").is_disabled()
+            assert "остановлено" in (page.get_attribute("#computer-stop", "title") or "").lower()
+            page.reload()
+            page.wait_for_selector("#computer-resume", timeout=15000)
+            assert "СТОП" in page.locator("#computer-stop-state").inner_text()
+            page.click("#computer-resume")
+            page.wait_for_function("!document.querySelector('#computer-resume') || "
+                                   "document.querySelector('#computer-resume').disabled", timeout=15000)
+            assert not stop_file.exists()
+        finally:
+            browser.close()

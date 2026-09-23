@@ -1,0 +1,31 @@
+# llama-server without --reasoning off -> empty answers; fixed by --jinja --reasoning off
+captured_utc: 2026-09-22T08:09:59Z
+captured_by: knowledge engineer (Claude Opus 5), read-only
+redaction: learning.trace.redact_text applied; no secrets present
+source: git:465c04eae73effed1776ae47820ded809d5edf4b:owner-repair/pass2/YESTERDAY_REMAINDER.md (branch evidence/owner-pass2-20260922) blob_sha256=97d51271e29740147b9688279f8410e87446ed76915c90666b0cbbda43c23190
+source: git:465c04eae73effed1776ae47820ded809d5edf4b:owner-repair/LIVE_CHECKPOINTS.json (branch evidence/owner-pass2-20260922) blob_sha256=407c752c497d8b5d0e5440bf9611c64af21b584df8b9953cf7a9c77c3fcda64a
+source: C:\Users\asd\Bossman\start-models.ps1.bak-20260922 sha256=3fe4e558f15607a12a678855dc90458e2dadb9643a14d07cf791fa31c57f9501 mtime_utc=2026-09-21T18:00:53Z (stale, before fix)
+source: C:\Users\asd\Bossman\start-models.ps1 sha256=1c791abc0e8c96c22524bef262612dca8d89c1ea0faa8c5b909c4f6b2d123c8d mtime_utc=2026-09-22T06:20:58Z (after fix)
+
+## failure (R11)
+YESTERDAY_REMAINDER.md:18: | R11 | `start-models.ps1` (owner machine, not in repo) | DONE (local) | stale: ports 8080/8081 and no `--reasoning off`; product model test returned empty answers until corrected to the audited config (8081/8082, `--jinja --reasoning off`) — ENVIRONMENT, not product |
+
+## launcher args before fix
+start-models.ps1.bak-20260922:15:                         '--port',"$Port", '--host','127.0.0.1', '--jinja') `
+start-models.ps1.bak-20260922:23:     'main' { Start-Model 'qwen38-27b'      'Qwen3.8-27B-UD-Q5_K_M.gguf'      8080 'main' }
+start-models.ps1.bak-20260922:24:     'fast' { Start-Model 'qwen36-35b-a3b'  'Qwen3.6-35B-A3B-UD-Q5_K_M.gguf'  8081 'fast' }
+start-models.ps1.bak-20260922:26:         Start-Model 'qwen38-27b'     'Qwen3.8-27B-UD-Q5_K_M.gguf'     8080 'main'
+start-models.ps1.bak-20260922:27:         Start-Model 'qwen36-35b-a3b' 'Qwen3.6-35B-A3B-UD-Q5_K_M.gguf' 8081 'fast'
+
+## launcher args after fix
+start-models.ps1:15:                         '--port',"$Port", '--host','127.0.0.1', '--jinja', '--reasoning','off') `
+start-models.ps1:23:     'main' { Start-Model 'qwen38-27b'      'Qwen3.8-27B-UD-Q5_K_M.gguf'      8081 'main' }
+start-models.ps1:24:     'fast' { Start-Model 'qwen36-35b-a3b'  'Qwen3.6-35B-A3B-UD-Q5_K_M.gguf'  8082 'fast' }
+start-models.ps1:26:         Start-Model 'qwen38-27b'     'Qwen3.8-27B-UD-Q5_K_M.gguf'     8081 'main'
+start-models.ps1:27:         Start-Model 'qwen36-35b-a3b' 'Qwen3.6-35B-A3B-UD-Q5_K_M.gguf' 8082 'fast'
+
+## correction verified by product endpoint POST /api/models/{1,2}/test (CP00)
+LIVE_CHECKPOINTS.json:27:         "MAIN qwen3.8-27b answer ok gen 9.91 tok/s; FAST qwen3.6-35b-a3b answer ok gen 42.59 tok/s (server_timings)"
+LIVE_CHECKPOINTS.json:46:           "MAIN": "Qwen3.8-27B-UD-Q5_K_M.gguf @127.0.0.1:8081, llama.cpp b10964-b29c606e2 Vulkan, ctx 32768, vision=true, --jinja --reasoning off",
+LIVE_CHECKPOINTS.json:47:           "FAST": "Qwen3.6-35B-A3B-UD-Q5_K_M.gguf @127.0.0.1:8082, llama.cpp b10964-b29c606e2 Vulkan, ctx 32768, vision=true, --jinja --reasoning off"
+LIVE_CHECKPOINTS.json:60:       "student_model": "MAIN Qwen3.8-27B-UD-Q5_K_M (llama.cpp b10964 Vulkan, ctx 131072, -np 1, --jinja --reasoning off)",

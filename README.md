@@ -5,11 +5,15 @@
 Локальное AI-рабочее пространство: модели, агенты, память, управление компьютером, файлы, сайты, изображения, видео и связь через Telegram. Владелец задаёт результат обычным языком; Bossman должен выполнить работу, запросить нужные разрешения и проверить итог.
 
 > **Текущее направление: общая сборка Bossman, самоулучшение 1.1 и этап 1.2 — Terminal Run.**
-> Каноническая линия — **`release/bossman-owner`**; интеграционные PR сверяются по актуальному remote.
-> Этот README — карта продукта и направления, **не сертификат готовности**.
-> Версия считается принятой только по конкретному TESTED_SHA, Windows-архиву и проверяемым owner-evidence.
+> **Кандидат BOSSMAN 1.0-RC подготовлен 21 сентября 2026 (только GitHub, без доступа к машине владельца).**
+> Каноническая линия — **`release/bossman-owner`** (PR **#67**); кандидат RC живёт на ветке
+> **`claude/bossman-1-0-rc-owner-ready-cfesui`** и вливается в неё через PR **#71**.
+> Точный `CANDIDATE_SHA`, матрица CI и SHA-256 внутреннего Windows-ZIP — в handoff-комментарии PR #71 и в
+> [owner-repair/CONTINUATION.md](owner-repair/CONTINUATION.md).
+> Статус: **READY_FOR_OWNER_RUN только после сертификата exact-SHA**; OWNER_HARDWARE_CERTIFIED не объявлен.
+> Этот README — карта продукта и запуска, **не сертификат готовности**.
 
-[Открыть каноническую ветку](https://github.com/molotroka123-cell/AiMaxBossman/tree/release/bossman-owner) · [Установка](INSTALL.md) · [Первый прогон](OWNER_ACCEPTANCE.md) · [Задание интегратору](CLAUDE_NEXT_ACTION.md)
+[Каноническая ветка](https://github.com/molotroka123-cell/AiMaxBossman/tree/release/bossman-owner) · [Кандидат RC (PR #71)](https://github.com/molotroka123-cell/AiMaxBossman/pull/71) · [Установка](INSTALL.md) · [Завтрашний прогон](START_TOMORROW_RU.md) · [Приёмка HW-01…HW-13](OWNER_ACCEPTANCE.md) · [Задание интегратору](CLAUDE_NEXT_ACTION.md)
 
 ## Этап 1.2 — тот же Bossman, теперь ещё и в CMD
 
@@ -61,9 +65,10 @@ Bossman уже прошёл первый реальный owner-hardware цик�
 
 1. Получить от интегратора **один TESTED_SHA, один Windows-архив, его SHA-256 и результаты обязательных проверок**. Нет этих данных — сборка ещё не передана на приёмку.
 2. Скачать именно этот архив по [инструкции установки](INSTALL.md). Не выбирать просто последний зелёный прогон и не использовать архив другой ветки.
-3. Распаковать в отдельную тестовую папку, запустить `Start-Bossman.cmd`, настроить одну проверенную локальную модель. Рабочие данные и внешние действия пока не подключать.
-4. Запустить поставляемый `Evening-Test.cmd`, затем пройти [HW-01…HW-13](OWNER_ACCEPTANCE.md) и относящиеся к новому клиенту Terminal Run проверки. Базовая диагностика не означает прохождение всех кейсов.
-5. Сбой: сохранить задачу, SHA архива, результат и обезличенный лог. Исправление получает новый архив и повторный прогон затронутых сценариев.
+3. Распаковать в отдельную тестовую папку рядом со старой (копия данных — по [ROLLBACK_RU](docs/owner/ROLLBACK_RU.md)), запустить `Start-Bossman.cmd`, настроить одну проверенную локальную модель. Рабочие данные и внешние действия пока не подключать.
+4. Запустить `Owner-Run.cmd` (doctor → MAIN/FAST discovery → манифест медиадвижка → coaching → диагностика), затем `Evening-Test.cmd` и пройти шаги 1–8 из [START_TOMORROW_RU](START_TOMORROW_RU.md) / [HW-01…HW-13](OWNER_ACCEPTANCE.md) и относящиеся к новому клиенту Terminal Run проверки. Машинные стадии не означают прохождение владельческих кейсов.
+5. Медиадвижок (sd.cpp) настраивается один раз через `Media-Setup.cmd` (validate / plan-download / download --allow-download / configure); обучение — `Coaching.cmd`; улики для дефекта — `Collect-Diagnostics.cmd`.
+6. Сбой: сохранить задачу, SHA архива, результат и `diagnostics.zip`. Исправление получает новый архив и повторный прогон затронутых сценариев.
 
 <a id="capabilities"></a>
 ## Что входит в программу испытаний
@@ -73,10 +78,12 @@ Bossman уже прошёл первый реальный owner-hardware цик�
 | Модели и Gateway | Подходящая модель и понятный fallback | Настоящий вызов, правильные tools/JSON, лимит памяти и бюджета |
 | Задачи и агенты | Ход работы, остановка, результат | Полная цепочка, отсутствие ложного успеха, восстановление |
 | Контекст и файлы | Поиск, редактирование, история | Изоляция проектов, сохранность и удаление после рестарта |
-| Браузер и Computer Operator | Наблюдение, действие, передача управления человеку | Правильное окно/цель, проверка эффекта, реальный Windows desktop |
+| Браузер и Computer Use | Наблюдение, действие, кнопки «Стоп»/«Продолжить» на Пульте, передача управления человеку | Окно запущенного приложения, свежее наблюдение, постусловие по диску, подтверждение только из approval-контекста, реальный Windows desktop |
 | Web Designer | Проект, предпросмотр, правки и откат | Реальное подключение creative brief к AI-пути, сохранность сайта |
 | Image Studio | Импорт, правки, библиотека и экспорт | Нативное редактирование отдельно от генерации реальным провайдером |
 | Video Studio | Таймлайн, правка, сохранение и экспорт | Фактический рендер, ffprobe/полное декодирование, ожидаемое изменение |
+| Локальная генерация (sd.cpp) | Z-Image-Turbo → картинка, Wan2.2 TI2V-5B → T2V/I2V, отмена, перезапуск | sha256 моделей, сирота-процесс убит после рестарта, атомарный проверенный вывод; настоящая генерация — только на 8060S завтра |
+| Обучение (coaching) | Урок после ошибки → проверка → применение после перезапуска | Канонический LearningStore, holdout не попадает в уроки, отравленный урок отвергнут; WEIGHTS_UNCHANGED, gain на локальной модели не измерен |
 | Telegram | Поручение, подтверждение, продолжение | Реальная доставка владельцу, идентичность и защита от повтора |
 | Terminal Run | Разговор и управление тем же Bossman в CMD | Общие файлы/состояние, structured exec, installed Windows и отсутствие второй очереди |
 | Trading Lab | Анализ и симуляция | Только READ-ONLY/PAPER; не разрешение на реальные ордера |
@@ -127,6 +134,9 @@ Bossman уже прошёл первый реальный owner-hardware цик�
 | Что ещё не доказано | [KNOWN_LIMITATIONS](KNOWN_LIMITATIONS.md) |
 | Что сохранено из старых веток | [CONVERGENCE_DECISIONS](CONVERGENCE_DECISIONS.md), [salvage ledger](docs/final/FINAL_SALVAGE_LEDGER.md) |
 | Как разбирать поломку первого прогона | [Hotfix playbook](tests/owner_hardware/HOTSPOTS_AND_HOTFIX_PLAYBOOK.md) |
+| Что делать завтра по шагам | [START_TOMORROW_RU](START_TOMORROW_RU.md), [откат](docs/owner/ROLLBACK_RU.md) |
+| Что сделано 21.09 и что осталось | [CONTINUATION](owner-repair/CONTINUATION.md), [ledger](owner-repair/repair-ledger.md), [триаж полного прогона](owner-repair/full-suite-triage.md), [red team](owner-repair/redteam-rc-20260921.md) |
+| Локальный медиадвижок | [SDCPP_ENGINE_RU](docs/media/SDCPP_ENGINE_RU.md) |
 | Как frontier-модели будут проверять и обучать Bossman | [Frontier Council и тренинг — спецификация](docs/evo/FRONTIER_COUNCIL_AND_TRAINING.md) |
 | Как проверить, чему Qwen реально научился на ремонтах | [Local Qwen Apprentice Benchmark](docs/evo/LOCAL_QWEN_APPRENTICE_BENCHMARK.md) |
 | Как пройти всё в правильном порядке | [Tomorrow Operator Runbook](docs/owner/TOMORROW_OPERATOR_RUNBOOK.md) |
@@ -189,9 +199,12 @@ python tools/exact_sha_certify.py --sha "$TESTED_SHA" --runs-json runs.json --ou
 </details>
 
 <details>
-<summary>Актуальный Live Scorecard — оценка прогресса, не сертификат текущего кандидата</summary>
+<summary>Историческая проекция Live Scorecard — не сертификат текущего кандидата</summary>
 
-Источник — docs/benchmark/current-scorecard.json, обновлён 22 сентября 2026 по текущему repair evidence и owner-hardware проверкам. Это инженерная оценка прогресса, а не release-сертификат: exact-SHA CI и финальная установленная приёмка текущих байтов всё ещё требуются. Его отображение восстанавливается штатным scripts/update_readme_scorecard.py.
+Источник — docs/benchmark/current-scorecard.json, последнее измерение 7 сентября 2026.
+Числа и статусы ниже сохранены из этого источника, а не измерены заново. Они не дают
+PASS для текущего TESTED_SHA. Источник не переписывается ради зелёной проверки README;
+его отображение восстанавливается штатным scripts/update_readme_scorecard.py.
 
 <!-- BOSSMAN_LIVE_SCORECARD_START -->
 | # | Ось системы | Оценка | Статус | Уверенность | Улики |
@@ -209,7 +222,7 @@ python tools/exact_sha_certify.py --sha "$TESTED_SHA" --runs-json runs.json --ou
 
 - **Current bottleneck:** The repair pass is materially ahead of the 2026-09-07 scorecard, but the final repaired exact-SHA Windows artifact still needs mandatory CI, clean-install owner re-run, Video Studio product-path acceptance, coaching/holdout and an independent red-team.
 - **Next highest-value fix:** Finish mandatory exact-SHA CI, build one clean Windows 1.0-RC artifact, then run the full owner acceptance and independent red-team on those exact bytes.
-- **Last evidence SHA:** `0c1cbe651f5271bbd0bb2d30b467c1206c19f565` · **Current HEAD SHA:** `9e3aa192f513` · **Evidence freshness:** PARTIALLY_STALE
+- **Last evidence SHA:** `0c1cbe651f5271bbd0bb2d30b467c1206c19f565` · **Current HEAD SHA:** `5b5ccff5e96c` · **Evidence freshness:** PARTIALLY_STALE
 - **Last scorecard update:** 2026-09-22
 - **Benchmark hard failures:** none observed
 - **Live hardware attestation:** PENDING

@@ -1,0 +1,9 @@
+# MEDIA-RESTART orphan sd.cpp engine (open P1)
+captured_utc: 2026-09-22T08:09:59Z
+captured_by: knowledge engineer (Claude Opus 5), read-only
+redaction: learning.trace.redact_text applied; no secrets present
+source: git:465c04eae73effed1776ae47820ded809d5edf4b:owner-repair/LIVE_CHECKPOINTS.json (branch evidence/owner-pass2-20260922) blob_sha256=407c752c497d8b5d0e5440bf9611c64af21b584df8b9953cf7a9c77c3fcda64a
+
+LIVE_CHECKPOINTS.json:72:         "repro: engine child alive after hard backend kill = True (defect reproduced)",
+LIVE_CHECKPOINTS.json:76:         "hidden verifier on 9e3aa192: orphan case FAILS (expected), foreign-engine case passes"
+LIVE_CHECKPOINTS.json:81:         "finding": "MEDIA-RESTART narrowed: DB side already honest (runtime.setup marks running jobs interrupted_unknown/OWNER_REQUIRED, no resubmit). Real remaining defect: on hard backend death the sd.cpp engine process tree is orphaned on Windows, keeps GPU/unified memory up to the job deadline and still writes into engine-work; the new backend never sees or stops it.",

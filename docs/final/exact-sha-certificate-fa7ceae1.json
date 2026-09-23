@@ -1,0 +1,111 @@
+{
+  "final": true,
+  "ignored_other_sha": 0,
+  "reason": "all required workflows completed successfully on this exact SHA",
+  "required": [
+    "root-ci (shared contracts, learning layer, tools)",
+    "Bossman Core CI",
+    "Command Center CI",
+    "Bossman V2 Auto-Repair",
+    "ASTRA acceptance",
+    "Solana safety gates",
+    "Fable media and Fleet acceptance",
+    "One-download Windows application",
+    "Windows owner run — light, medium and super-long task",
+    "Owner scenarios (integrated, not unit tests)"
+  ],
+  "sha": "fa7ceae105c92c3eee718381efdd0333ddcb5e35",
+  "verdict": "CERTIFIED",
+  "workflows": {
+    "ASTRA acceptance": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/35738105460",
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 35738105460,
+      "run_number": 1974,
+      "status": "completed"
+    },
+    "Bossman Core CI": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/35738105669",
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 35738105669,
+      "run_number": 2291,
+      "status": "completed"
+    },
+    "Bossman V2 Auto-Repair": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/35738097775",
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 35738097775,
+      "run_number": 675,
+      "status": "completed"
+    },
+    "Command Center CI": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/35738105379",
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 35738105379,
+      "run_number": 2365,
+      "status": "completed"
+    },
+    "Fable media and Fleet acceptance": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/35738105603",
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 35738105603,
+      "run_number": 990,
+      "status": "completed"
+    },
+    "One-download Windows application": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/35738097760",
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 35738097760,
+      "run_number": 214,
+      "status": "completed"
+    },
+    "Owner scenarios (integrated, not unit tests)": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/35738097754",
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 35738097754,
+      "run_number": 82,
+      "status": "completed"
+    },
+    "Solana safety gates": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/35738105655",
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 35738105655,
+      "run_number": 1984,
+      "status": "completed"
+    },
+    "Windows owner run — light, medium and super-long task": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/35738097708",
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 35738097708,
+      "run_number": 52,
+      "status": "completed"
+    },
+    "root-ci (shared contracts, learning layer, tools)": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/35738105440",
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 35738105440,
+      "run_number": 2131,
+      "status": "completed"
+    }
+  }
+}
