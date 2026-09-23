@@ -309,7 +309,11 @@ class SkillCatalog:
         source = sk.source_root.name
         sid = f"{source}/{sk.id}"
         raw = sk.path.read_bytes()
-        sha = hashlib.sha256(raw).hexdigest()
+        # Hash over LF line ends: a Windows checkout/unzip (git autocrlf) turns the
+        # pinned upstream LF into CRLF, and every skill was QUARANTINED on the
+        # owner's machine (core-runtime windows-latest). Content edits still change
+        # the hash; only the line-end convention is neutral.
+        sha = hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
         prov: dict[str, Any] = {}
         status, reason = UNVERIFIED, "импортирован, владельцем не проверен"
         prov_path = sk.path.parent / PROVENANCE_FILE

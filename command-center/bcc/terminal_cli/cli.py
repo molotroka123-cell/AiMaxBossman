@@ -624,7 +624,9 @@ def _decide(args, *, approve: bool) -> int:
             raise BossmanError(f"разрешение #{args.approval_id} уже решено: {row.get('status')}",
                                kind="conflict")
         if approve and not getattr(args, "yes", False):
-            if not (sys.stdin and sys.stdin.isatty()):
+            if not (sys.stdin and sys.stdin.isatty() and sys.stderr and sys.stderr.isatty()):
+                # stdin alone is not enough: on Windows a child inherits the console
+                # stdin while its output is captured, and the prompt went unseen.
                 raise UsageError("одобрение без терминала требует --yes: это решение владельца, "
                                  "а не автоматический шаг")
             sys.stderr.write(sanitize(row.get("preview") or "") + "\n")

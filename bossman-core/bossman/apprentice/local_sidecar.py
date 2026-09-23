@@ -252,7 +252,9 @@ def _install():
             mode = args[1] if len(args) > 1 and isinstance(args[1], str) else "r"
             flags = args[2] if len(args) > 2 and isinstance(args[2], int) else 0
             writing = any(c in mode for c in "wax+") or (flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT))
-            if os.fsdecode(args[0]).lower() in devnull:
+            name = os.fsdecode(args[0]).lower()
+            # Windows device NUL in any spelling (pytest's logging opens it at configure)
+            if name in devnull or (os.name == "nt" and os.path.basename(name).split(".")[0] == "nul"):
                 return
             if not inside(args[0], write_ok if writing else read_ok):
                 raise PermissionError(f"bossman sidecar guard: {'write' if writing else 'read'} outside workspace refused: {os.fsdecode(args[0])}")
