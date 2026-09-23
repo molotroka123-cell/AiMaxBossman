@@ -1,0 +1,1 @@
+{"v": 1, "type": "list", "ok": true, "what": "approvals", "items": [{"id": 24, "task_id": 35, "kind": "tool", "preview": "Агент «Быстрый» хочет выполнить memory.fact.add причина политики: право filesystem.write не выдано агенту approval_digest: fc74e70723480f50… аргументы: {  \"subj"}], "exit_code": 0}

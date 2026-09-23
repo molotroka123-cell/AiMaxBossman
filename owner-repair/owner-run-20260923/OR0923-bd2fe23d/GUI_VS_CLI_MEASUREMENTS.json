@@ -1,0 +1,123 @@
+{
+ "schema": "owner-run.gui_vs_cli.v1",
+ "RUNTIME": "OLLAMA_PROXY",
+ "ADMIN_RUN": true,
+ "bossman_build_sha": "d53f3b1219224a3bfc73af25f70c67163224e8bc",
+ "model": "qwen-fast-nt (Qwen3.6-35B-A3B UD-Q5_K_M, gguf sha256 c13ce262…)",
+ "agent": "Быстрый",
+ "n_pairs": 3,
+ "order": "alternating GUI-first/CLI-first/GUI-first",
+ "gui_driver": "Playwright over CDP on the real Edge --app window (DOM text + 1 screenshot per task). A vision/screenshot-only teacher would cost more per step; not measured.",
+ "rows": [
+  {
+   "pair": 0,
+   "channel": "GUI",
+   "order": 0,
+   "task_id": 25,
+   "wall_s": 6.4,
+   "submit_to_running_s": 1.01,
+   "model_run_s": 1.89,
+   "client_overhead_s": 3.5,
+   "teacher_actions": 10,
+   "screenshots": 1,
+   "control_bytes": 22159,
+   "verified": true
+  },
+  {
+   "pair": 0,
+   "channel": "CLI",
+   "order": 1,
+   "task_id": 26,
+   "wall_s": 4.13,
+   "submit_to_running_s": 1.31,
+   "model_run_s": 1.1,
+   "client_overhead_s": 1.72,
+   "teacher_actions": 1,
+   "screenshots": 0,
+   "control_bytes": 3919,
+   "verified": true
+  },
+  {
+   "pair": 1,
+   "channel": "CLI",
+   "order": 0,
+   "task_id": 27,
+   "wall_s": 4.26,
+   "submit_to_running_s": 1.19,
+   "model_run_s": 1.36,
+   "client_overhead_s": 1.71,
+   "teacher_actions": 1,
+   "screenshots": 0,
+   "control_bytes": 3951,
+   "verified": true
+  },
+  {
+   "pair": 1,
+   "channel": "GUI",
+   "order": 1,
+   "task_id": 28,
+   "wall_s": 5.48,
+   "submit_to_running_s": 0.54,
+   "model_run_s": 1.26,
+   "client_overhead_s": 3.68,
+   "teacher_actions": 9,
+   "screenshots": 1,
+   "control_bytes": 21948,
+   "verified": true
+  },
+  {
+   "pair": 2,
+   "channel": "GUI",
+   "order": 0,
+   "task_id": 29,
+   "wall_s": 5.45,
+   "submit_to_running_s": 0.17,
+   "model_run_s": 1.56,
+   "client_overhead_s": 3.71,
+   "teacher_actions": 9,
+   "screenshots": 1,
+   "control_bytes": 23212,
+   "verified": true
+  },
+  {
+   "pair": 2,
+   "channel": "CLI",
+   "order": 1,
+   "task_id": 30,
+   "wall_s": 4.07,
+   "submit_to_running_s": 1.19,
+   "model_run_s": 1.13,
+   "client_overhead_s": 1.74,
+   "teacher_actions": 1,
+   "screenshots": 0,
+   "control_bytes": 3917,
+   "verified": true
+  }
+ ],
+ "median": {
+  "GUI": {
+   "wall_s": 5.48,
+   "submit_to_running_s": 0.54,
+   "model_run_s": 1.56,
+   "client_overhead_s": 3.68,
+   "teacher_actions": 9,
+   "control_bytes": 22159
+  },
+  "CLI": {
+   "wall_s": 4.13,
+   "submit_to_running_s": 1.19,
+   "model_run_s": 1.13,
+   "client_overhead_s": 1.72,
+   "teacher_actions": 1,
+   "control_bytes": 3919
+  }
+ },
+ "verdict": "MEASURED_OVERHEAD_REDUCTION (pilot, n=3 pairs, short tasks): CLI 1 teacher action vs 9-10, ~5.6x less control context, lower client overhead; model run time comparable. Small sample; not a model-speed claim.",
+ "caveats": [
+  "same model/runtime/agent/prompt/criterion",
+  "warm model (keep_alive=-1)",
+  "second run of an identical prompt may reuse the Ollama prompt cache (tiny prompts)",
+  "a student coding task was using MAIN (different model) at the same time",
+  "CLI wall includes Python start of bossman.cmd"
+ ]
+}

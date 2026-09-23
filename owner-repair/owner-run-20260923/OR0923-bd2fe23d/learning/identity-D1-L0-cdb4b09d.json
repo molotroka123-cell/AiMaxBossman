@@ -1,0 +1,121 @@
+{
+ "label": "D1 L0 cdb4b09d",
+ "captured_at_utc": "2026-09-23T15:48:01Z",
+ "TESTED_SHA": "bd2fe23dab55704d60ed468bcbb4664475e49879",
+ "ZIP_SHA256": "95476d4a560d9f347ca4797b75475dbd9e20c52417b209701f7692bf6ab3528c",
+ "installed_manifest_source_sha": "cdb4b09db49aebac46bea2f3b98ef143d4a343d6",
+ "bossman_build_sha": "cdb4b09db49aebac46bea2f3b98ef143d4a343d6",
+ "bossman_started_at": "2026-09-23T15:47:14.221286",
+ "source_identity": "PASS",
+ "data_root": "C:\\Users\\asd\\Bossman Test 0923\\data",
+ "port": 8810,
+ "RUNTIME": "OLLAMA_PROXY",
+ "ADMIN_RUN": true,
+ "runtime": {
+  "ollama_version": "ollama version is 0.34.3",
+  "ollama_endpoint": "http://127.0.0.1:11435 (dedicated instance, OLLAMA_KEEP_ALIVE=-1, OLLAMA_FLASH_ATTENTION=1, OLLAMA_NO_CLOUD=1)",
+  "proxy": "http://127.0.0.1:11500 nothink_proxy.py adds reasoning_effort=none when absent",
+  "proxy_sha256": "e1a95569a5e6c638d61ee562a4018920944c19f12d88f3c3c0d1af7e029af868",
+  "why_not_llama_cpp": "Smart App Control=On blocks unsigned llama.cpp DLLs (0xC0E90002); SAC not changed",
+  "comparability": "NOT directly comparable with 2026-09-22 llama.cpp b10964 Vulkan numbers"
+ },
+ "models": {
+  "bossman-fast-qwen36-35b-a3b-q5:latest": {
+   "ollama_manifest_digest": "0c57084a79bbc9abdd16f4e7e6b189eeeeb389d8644d4c18b38231934bf32a65",
+   "gguf_sha256(blob)": "c13ce26253ea334df472bd8fbd2d6da66d8a41195c17f6fcbf44c4d20ece0932",
+   "quant": "Q5_K_M",
+   "family": "qwen35moe",
+   "parameter_size": "34.7B",
+   "source_gguf": "Qwen3.6-35B-A3B-UD-Q5_K_M.gguf"
+  },
+  "bossman-main-qwen38-27b-q5:latest": {
+   "ollama_manifest_digest": "1bcff1fd767f368783d1f040645374674b66bdf7a8222c5433c97816285a7fcc",
+   "gguf_sha256(blob)": "2de73110cb254cbf09b54b717578dadff12ef1194e7271527e68202f39ba4bfd",
+   "quant": "Q5_K_M",
+   "family": "qwen35",
+   "parameter_size": "27.3B",
+   "source_gguf": "Qwen3.8-27B-UD-Q5_K_M.gguf"
+  }
+ },
+ "model_contexts": {
+  "qwen-main-nt": 65536,
+  "qwen-fast-nt": 32768
+ },
+ "sampling": {
+  "coding_sidecar": {
+   "temperature": 0,
+   "max_tokens": 4096,
+   "top_p": "server default",
+   "max_steps": 40,
+   "tool_output_cap_chars": 6000,
+   "tools": [
+    "list_dir",
+    "read_file",
+    "search",
+    "edit_file",
+    "write_file",
+    "run_tests",
+    "finish"
+   ]
+  },
+  "coaching_runner": "see its run_manifest (temperature per runner)",
+  "chat_engine": "Bossman engine defaults (not overridden)"
+ },
+ "sidecar_source_sha256": "0a1459a3cdd796c10b552a6815f5bff46a20bb97d8e92284392a1bfeb3e2da8f",
+ "agents": [
+  {
+   "id": 1,
+   "name": "Помощник",
+   "model_id": 3,
+   "fallback_model_id": null,
+   "tools": [],
+   "max_steps": 12,
+   "permissions": {}
+  },
+  {
+   "id": 2,
+   "name": "Быстрый",
+   "model_id": 4,
+   "fallback_model_id": null,
+   "tools": [],
+   "max_steps": 6,
+   "permissions": {}
+  },
+  {
+   "id": 3,
+   "name": "Мёртвый",
+   "model_id": 5,
+   "fallback_model_id": null,
+   "tools": [],
+   "max_steps": 2,
+   "permissions": {}
+  },
+  {
+   "id": 4,
+   "name": "Оператор ПК",
+   "model_id": 3,
+   "fallback_model_id": null,
+   "tools": [
+    "computer.observe",
+    "computer.act"
+   ],
+   "max_steps": 20,
+   "permissions": {}
+  }
+ ],
+ "tool_policy_sha256": "aefda80426a35de2ecbed30abf8de1cc4a950328a4179c82e30c354685ccc733",
+ "memory_stats": {
+  "stats": {
+   "backend": "sqlite",
+   "files": 0,
+   "chunks": 0,
+   "terms": 0,
+   "dense": false,
+   "index_path": "C:\\Users\\asd\\Bossman Test 0923\\data\\memory\\index-872176f0238ed729.sqlite3",
+   "size_bytes": 57344,
+   "schema_version": 1
+  }
+ },
+ "skills_catalog_sha256": "cc08f54c1f02ec060b84783ef64b55c12839f1528f7672c7c1251aff5b72bc35",
+ "approvals_delegation": "owner 2026-09-23: «среда подготовлена для тестов разрешай всё сам» -> approvals in the TEST scope are DELEGATED_BY_OWNER, labelled as such"
+}

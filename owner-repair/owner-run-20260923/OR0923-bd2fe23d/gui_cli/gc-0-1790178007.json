@@ -1,0 +1,1 @@
+{"schema": "bossman.exec.v1", "prompt": "37*43? Ответь только числом.", "title": "37*43? Ответь только числом.", "agent": "Быстрый", "request_id": "gc-0-1790178007", "wait": true, "max_seconds": 300, "approval_mode": "fail", "on_timeout": "stop"}

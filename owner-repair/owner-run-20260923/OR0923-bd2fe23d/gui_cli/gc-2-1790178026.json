@@ -1,0 +1,1 @@
+{"schema": "bossman.exec.v1", "prompt": "Сколько дней в високосном году? Только число.", "title": "Сколько дней в високосном году? Только число.", "agent": "Быстрый", "request_id": "gc-2-1790178026", "wait": true, "max_seconds": 300, "approval_mode": "fail", "on_timeout": "stop"}

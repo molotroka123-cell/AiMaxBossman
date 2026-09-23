@@ -1,0 +1,2 @@
+PASS: теневой прогон валиден; решение о фазе 2 — см. summary.phase2
+report: C:\Users\asd\Bossman\wt-run0923\owner-repair\owner-run-20260923\OR0923-bd2fe23d\artifacts\jev\live-openrouter\jev-shadow-report.json

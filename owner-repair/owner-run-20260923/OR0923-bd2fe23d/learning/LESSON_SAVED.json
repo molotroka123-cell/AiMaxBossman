@@ -1,0 +1,106 @@
+{
+ "saved": {
+  "recipe_id": "win-double-crlf-text-mode-write",
+  "lesson_id": "coach-lesson:29a7424bd33b115b",
+  "status": "VERIFIED",
+  "version": 7,
+  "project_id": "bossman",
+  "scope": "global",
+  "kind": "student_fix",
+  "learning_dir": "C:\\Users\\asd\\Bossman Test 0923\\data\\learning"
+ },
+ "recipe": {
+  "schema_version": "bossman.coding-recipe/1",
+  "id": "win-double-crlf-text-mode-write",
+  "title": "Windows: двойной CR при записи текста, который уже содержит CRLF",
+  "symptom": "В файлах, которые пишет программа на Windows, окончания строк CR CR LF (\\r\\r\\n) вместо CRLF; при просмотре между строками появляются лишние или пустые строки.",
+  "cause": "Код сам вставляет \\r\\n (replace или join) и пишет строку в ТЕКСТОВОМ режиме (write_text или open с режимом w); на Windows текстовый режим ещё раз превращает каждый \\n в \\r\\n.",
+  "diagnosis": "Найди места записи файлов поиском по write_text и open( , и места, где в строку вставляется CRLF (replace, join). Читай только окрестность найденной строки (read_file со start_line и end_line), не весь большой файл. Если строка уже содержит CRLF и пишется в текстовом режиме, это и есть причина.",
+  "action": "Писать байтами (write_bytes с encode utf-8) или текстом без трансляции (newline='' в open/write_text), оставив один явный CRLF. Добавить unittest, который выполняет ту же запись во временную папку и проверяет байты: нет CR CR LF, число LF равно числу CRLF. Тест должен падать на старом коде и проходить на исправленном.",
+  "required_check": {
+   "tool": "run_tests",
+   "args": {
+    "paths": [
+     "tests"
+    ]
+   }
+  },
+  "applies_when": {
+   "task_class": "coding_recipe",
+   "keywords": [
+    "CRLF",
+    "CR CR LF",
+    "CRCRLF",
+    "окончания строк",
+    "перевод строки",
+    "line endings",
+    "Windows",
+    "text mode",
+    "newline"
+   ],
+   "language": "python",
+   "environment": "windows"
+  },
+  "counterexample": "Если строка содержит только \\n и пишется в текстовом режиме, на Windows получится корректный CRLF, менять ничего не нужно. Двоичные форматы и файлы, где нужен LF (shell-скрипты для Linux), не трогать.",
+  "failed_approaches": [
+   "Искать символ CR обычным поиском по файлам с LF: 0 совпадений не доказывает отсутствие проблемы",
+   "Читать большой файл целиком снова и снова вместо диапазона вокруг найденной строки"
+  ],
+  "steps": [
+   {
+    "tool": "search",
+    "args": {
+     "pattern": "write_text\\(|open\\("
+    }
+   },
+   {
+    "tool": "search",
+    "args": {
+     "pattern": "replace\\(|join\\("
+    }
+   },
+   {
+    "tool": "run_tests",
+    "args": {
+     "paths": [
+      "tests"
+     ]
+    }
+   }
+  ],
+  "provenance": {
+   "source": "student",
+   "who": "student:qwen3.8-27b-q5@ollama-proxy",
+   "what": "D1 CR CR LF in Windows launchers, fixed by the local student at hint level L4 (approach)",
+   "assistance_level": "hint",
+   "model": "Qwen3.8-27B UD-Q5_K_M (gguf sha256 2de73110)",
+   "runtime": "OLLAMA_PROXY",
+   "run_id": "06d240faac9e",
+   "code_refs": [
+    "tools/build_windows_bundle.py"
+   ],
+   "test_refs": [
+    "tests/test_windows_bundle_launcher_line_endings.py"
+   ],
+   "evidence_refs": [
+    "owner-repair/owner-run-20260923/OR0923-bd2fe23d/learning/record-D1-L4-cdb4b09d.json"
+   ]
+  },
+  "status": "VERIFIED",
+  "project_id": "bossman",
+  "scope": "global"
+ },
+ "evidence": {
+  "source": "hidden verifier hv_d1 (sealed, sha256 d8edecbd) on the student's diff, independent of the student",
+  "expected": "HV_D1 PASS on candidate; FAIL on base",
+  "actual": "HV_D1 PASS on candidate; FAIL on base",
+  "head_sha": "8212da6760bc0fb7314d9754db1070fae557989c",
+  "environment": "windows-11 owner-run OR0923 SHA3 cdb4b09d OLLAMA_PROXY ADMIN_RUN"
+ },
+ "verifier": {
+  "principal_id": "tool:hidden_verifier_hv_d1",
+  "independence_class": "external_tool",
+  "run_id": "hv_d1-rescore-OR0923-L4",
+  "model_id": "tool:hv_d1"
+ }
+}

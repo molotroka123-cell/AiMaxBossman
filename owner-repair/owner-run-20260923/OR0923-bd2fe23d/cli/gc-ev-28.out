@@ -1,0 +1,18 @@
+{"v": 1, "type": "task", "subtype": "status", "task_id": 28, "status": "draft", "seq": 765, "ts": "2026-09-23T15:40:16.640660"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 28, "run_id": 28, "status": "queued", "seq": 766, "ts": "2026-09-23T15:40:16.653739"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 28, "run_id": 28, "status": "running", "seq": 767, "ts": "2026-09-23T15:40:17.179359"}
+{"v": 1, "type": "usage", "step": 1, "model": "qwen-fast-nt", "reported": true, "step_tokens_in": 38, "step_tokens_out": 6, "tokens_in": 38, "tokens_out": 6, "cost_known": false, "context_window": 32768, "max_tokens_total": 400000, "max_cost_usd": 2.0, "run_id": 28, "seq": 768, "ts": "2026-09-23T15:40:18.198710"}
+{"v": 1, "type": "assistant_message", "text": "Братислава", "step": 1, "model": "qwen-fast-nt", "run_id": 28, "seq": 770, "ts": "2026-09-23T15:40:18.209543"}
+{"v": 1, "type": "step", "task_id": 28, "run_id": 28, "step": 1, "max_steps": 6, "model": "qwen-fast-nt", "seq": 771, "ts": "2026-09-23T15:40:18.341033"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 28, "seq": 773, "ts": "2026-09-23T15:40:18.369327"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 28, "seq": 774, "ts": "2026-09-23T15:40:18.372857"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 28, "seq": 775, "ts": "2026-09-23T15:40:18.377825"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 28, "seq": 776, "ts": "2026-09-23T15:40:18.377825"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 28, "seq": 777, "ts": "2026-09-23T15:40:18.389232"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 28, "seq": 778, "ts": "2026-09-23T15:40:18.392913"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 28, "seq": 779, "ts": "2026-09-23T15:40:18.392913"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 28, "seq": 780, "ts": "2026-09-23T15:40:18.405004"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 28, "seq": 781, "ts": "2026-09-23T15:40:18.410220"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 28, "seq": 782, "ts": "2026-09-23T15:40:18.410220"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 28, "run_id": 28, "status": "completed", "seq": 783, "ts": "2026-09-23T15:40:18.435913"}
+{"v": 1, "type": "cursor", "task_id": 28, "cursor": 784, "status": "completed", "task_state": "PASS"}

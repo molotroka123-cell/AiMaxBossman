@@ -1,0 +1,1 @@
+{"v": 1, "type": "result", "ok": true, "task_state": "FAIL", "status": "failed", "task_id": 33, "run_id": 33, "title": "t052", "error": "action_contract/no_verified_action", "usage": {"tokens_in": 2459, "tokens_out": 349}, "model": "qwen-main-nt", "exit_code": 1}

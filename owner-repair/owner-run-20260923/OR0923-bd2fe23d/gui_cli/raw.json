@@ -1,0 +1,134 @@
+[
+ {
+  "channel": "GUI",
+  "task_id": 25,
+  "wall_s": 6.4,
+  "teacher_actions": 10,
+  "screenshots": 1,
+  "control_bytes_read": 22159,
+  "answer_visible_in_ui": null,
+  "ui_text_tail": " инструментов.\nостановлена\nБыстрый\n1ч 21м назад\nПривет! Запомни кодовое слово «Влтава». Сколько будет 7*8? Ответь кратко.\nостановлена\nБыстрый\n1ч 22м назад\nt008\nостановлена\nПомощник\n1ч 17м назад\nt005\nостановлена\nПомощник\n1ч 29м назад\nГлавная\nОператорский канал\nПриложения\nVideo Studio\nВеб-дизайн\nПульт",
+  "pair": 0,
+  "prompt": "37*43? Ответь только числом.",
+  "expected": "1591",
+  "order": 0,
+  "backend": {
+   "status": null,
+   "result": "1591",
+   "running_ts": null,
+   "done_ts": null,
+   "draft_ts": null
+  },
+  "verified": true
+ },
+ {
+  "channel": "CLI",
+  "task_id": 26,
+  "wall_s": 4.13,
+  "teacher_actions": 1,
+  "screenshots": 0,
+  "control_bytes_read": 3919,
+  "answer": "1591",
+  "exit": 0,
+  "pair": 0,
+  "prompt": "37*43? Ответь только числом.",
+  "expected": "1591",
+  "order": 1,
+  "backend": {
+   "status": null,
+   "result": "1591",
+   "running_ts": null,
+   "done_ts": null,
+   "draft_ts": null
+  },
+  "verified": true
+ },
+ {
+  "channel": "CLI",
+  "task_id": 27,
+  "wall_s": 4.26,
+  "teacher_actions": 1,
+  "screenshots": 0,
+  "control_bytes_read": 3951,
+  "answer": "Братислава",
+  "exit": 0,
+  "pair": 1,
+  "prompt": "Столица Словакии? Одно слово.",
+  "expected": "Братислава|Bratislava",
+  "order": 0,
+  "backend": {
+   "status": null,
+   "result": "Братислава",
+   "running_ts": null,
+   "done_ts": null,
+   "draft_ts": null
+  },
+  "verified": true
+ },
+ {
+  "channel": "GUI",
+  "task_id": 28,
+  "wall_s": 5.48,
+  "teacher_actions": 9,
+  "screenshots": 1,
+  "control_bytes_read": 21948,
+  "answer_visible_in_ui": null,
+  "ui_text_tail": " инструментов.\nостановлена\nБыстрый\n1ч 22м назад\nПривет! Запомни кодовое слово «Влтава». Сколько будет 7*8? Ответь кратко.\nостановлена\nБыстрый\n1ч 23м назад\nt008\nостановлена\nПомощник\n1ч 17м назад\nt005\nостановлена\nПомощник\n1ч 30м назад\nГлавная\nОператорский канал\nПриложения\nVideo Studio\nВеб-дизайн\nПульт",
+  "pair": 1,
+  "prompt": "Столица Словакии? Одно слово.",
+  "expected": "Братислава|Bratislava",
+  "order": 1,
+  "backend": {
+   "status": null,
+   "result": "Братислава",
+   "running_ts": null,
+   "done_ts": null,
+   "draft_ts": null
+  },
+  "verified": true
+ },
+ {
+  "channel": "GUI",
+  "task_id": 29,
+  "wall_s": 5.45,
+  "teacher_actions": 9,
+  "screenshots": 1,
+  "control_bytes_read": 23212,
+  "answer_visible_in_ui": null,
+  "ui_text_tail": " инструментов.\nостановлена\nБыстрый\n1ч 22м назад\nПривет! Запомни кодовое слово «Влтава». Сколько будет 7*8? Ответь кратко.\nостановлена\nБыстрый\n1ч 23м назад\nt008\nостановлена\nПомощник\n1ч 17м назад\nt005\nостановлена\nПомощник\n1ч 30м назад\nГлавная\nОператорский канал\nПриложения\nVideo Studio\nВеб-дизайн\nПульт",
+  "pair": 2,
+  "prompt": "Сколько дней в високосном году? Только число.",
+  "expected": "366",
+  "order": 0,
+  "backend": {
+   "status": null,
+   "result": "366",
+   "running_ts": null,
+   "done_ts": null,
+   "draft_ts": null
+  },
+  "verified": true
+ },
+ {
+  "channel": "CLI",
+  "task_id": 30,
+  "wall_s": 4.07,
+  "teacher_actions": 1,
+  "screenshots": 0,
+  "control_bytes_read": 3917,
+  "answer": "366",
+  "exit": 0,
+  "pair": 2,
+  "prompt": "Сколько дней в високосном году? Только число.",
+  "expected": "366",
+  "order": 1,
+  "backend": {
+   "status": null,
+   "result": "366",
+   "running_ts": null,
+   "done_ts": null,
+   "draft_ts": null
+  },
+  "verified": true
+ }
+]

@@ -1,0 +1,360 @@
+{
+ "id": "06d240faac9e",
+ "status": "completed",
+ "instruction": "Баг-репорт владельца: во всех .cmd-файлах собранного Windows-архива Bossman (Start-Bossman.cmd, Bossman-CLI.cmd и других) окончания строк получаются CR CR LF вместо CRLF. Сборщик архива лежит в tools/. Найди причину, исправь минимально и добавь регрессионный тест на unittest в tests/, который падает на текущем коде и проходит после исправления. Запусти тест. Не меняй ничего лишнего. ПОДСКАЗКА УЧИТЕЛЯ (L4, подход): в tools/build_windows_bundle.py функция assemble() пишет лаунчеры циклом `for name, body in launcher_files().items(): ... target.write_text(body.replace('\\n', '\\r\\n'), encoding='utf-8')`. Исправление: записывать байтами (write_bytes(...encode('utf-8'))) или write_text(..., newline=''). Тест в tests/: импортировать build_windows_bundle (sys.path += tools), подменить тяжёлые install_* функции (install_runtime, install_packages, normalize_bytecode, verify_runtime, install_browser, install_media, install_icons, install_support, install_self_improve, write_licenses) на заглушки, вызвать assemble во временную папку и проверить, что в каждом лаунчере нет b'\\r\\r\\n'.",
+ "boot_id": "3aeba9ee9331c67c",
+ "agent_id": null,
+ "agent": null,
+ "project_id": null,
+ "memory": {
+  "requested": true,
+  "recalled": false,
+  "sources": [],
+  "recipe_ids": [],
+  "error": ""
+ },
+ "skills": {
+  "ids": [
+   "superpowers/test-driven-development",
+   "superpowers/verification-before-completion",
+   "superpowers/systematic-debugging"
+  ],
+  "error": ""
+ },
+ "verify_tests": [],
+ "source_repo": "C:\\Users\\asd\\Bossman Test 0923\\projects\\bossman-tools-lab",
+ "allowed_paths": [
+  "tools",
+  "tests"
+ ],
+ "protected_paths": [],
+ "model": null,
+ "created_at": 1790179614.0707476,
+ "finished_at": 1790179980.0543733,
+ "changed_files": [
+  "tests/test_windows_bundle_launcher_line_endings.py",
+  "tools/build_windows_bundle.py"
+ ],
+ "diff": "diff --git b/tests/test_windows_bundle_launcher_line_endings.py b/tests/test_windows_bundle_launcher_line_endings.py\nnew file mode 100644\nindex 0000000..ed9876e\n--- /dev/null\n+++ b/tests/test_windows_bundle_launcher_line_endings.py\n@@ -0,0 +1,65 @@\n+\"\"\"Regression: launchers in the Windows bundle must end lines with CRLF, not CR CR LF.\n+\n+tools/build_windows_bundle.py used to write the launcher bodies with\n+``write_text(body.replace(\"\\\\n\", \"\\\\r\\\\n\"), encoding=\"utf-8\")``. On Windows the\n+default text-mode newline translation turns every ``\\\\n`` into ``\\\\r\\\\n`` again,\n+so the explicit CRLF became ``\\\\r\\\\r\\\\n`` in every shipped .cmd file.\n+\"\"\"\n+from __future__ import annotations\n+\n+import sys\n+import tempfile\n+import unittest\n+from pathlib import Path\n+\n+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / \"tools\"))\n+\n+import build_windows_bundle as bundle  # noqa: E402\n+\n+\n+class LauncherLineEndingsTest(unittest.TestCase):\n+    def test_launchers_have_crlf_not_cr_cr_lf(self):\n+        with tempfile.TemporaryDirectory() as tmp:\n+            out = Path(tmp) / \"bundle\"\n+            out.mkdir()\n+            work = Path(tmp) / \"work\"\n+            work.mkdir()\n+            wheels = Path(tmp) / \"wheels\"\n+            wheels.mkdir()\n+\n+            # The heavy acquisition steps are irrelevant to launcher line\n+            # endings; stub them so assemble() runs without network or checkout.\n+            bundle.install_runtime = lambda runtime, work, lock=None: {\"python_version\": \"stub\"}\n+            bundle.install_packages = lambda runtime, wheels, lock=None, work=None: {\"packages\": []}\n+            bundle.normalize_bytecode = lambda runtime: {}\n+            bundle.verify_runtime = lambda runtime, wheels, lock=None: {}\n+            bundle.install_browser = lambda browser, runtime, lock=None: {}\n+            bundle.install_media = lambda media, work, ffmpeg_zip, lock=None: ({}, [])\n+            bundle.install_icons = lambda icons: {}\n+            bundle.install_support = lambda support: {}\n+            bundle.install_self_improve = lambda home: {}\n+            bundle.write_licenses = lambda licenses, contents: None\n+\n+            try:\n+                bundle.assemble(out, \"0\" * 40, wheels=wheels, work=work,\n+                                ffmpeg_zip=None, lock=None)\n+            finally:\n+                # Never leak the stubs into other tests.\n+                for name in (\"install_runtime\", \"install_packages\", \"normalize_bytecode\",\n+                             \"verify_runtime\", \"install_browser\", \"install_media\",\n+                             \"install_icons\", \"install_support\", \"install_self_improve\",\n+                             \"write_licenses\"):\n+                    delattr(bundle, name)\n+\n+            launchers = {name: out / name for name in bundle.launcher_files()}\n+            self.assertTrue(launchers, \"launcher_files() returned no launchers\")\n+            for name, target in launchers.items():\n+                self.assertTrue(target.is_file(), f\"launcher missing from bundle: {name}\")\n+                data = target.read_bytes()\n+                self.assertNotIn(b\"\\r\\r\\n\", data,\n+                                 f\"{name} has CR CR LF line endings: {data[:120]!r}\")\n+                self.assertIn(b\"\\r\\n\", data, f\"{name} has no CRLF line endings at all\")\n+\n+\n+if __name__ == \"__main__\":\n+    unittest.main()\ndiff --git a/tools/build_windows_bundle.py b/tools/build_windows_bundle.py\nindex 5627cfb..0889b4b 100644\n--- a/tools/build_windows_bundle.py\n+++ b/tools/build_windows_bundle.py\n@@ -886,7 +886,7 @@ def assemble(out: Path, sha: str, *, wheels: Path, work: Path,\n     for name, body in launcher_files().items():\n         target = out / name\n         target.parent.mkdir(parents=True, exist_ok=True)\n-        target.write_text(body.replace(\"\\n\", \"\\r\\n\"), encoding=\"utf-8\")\n+        target.write_bytes(body.replace(\"\\n\", \"\\r\\n\").encode(\"utf-8\"))\n     write_licenses(out / \"LICENSES\", contents)\n     return contents, required\n \n",
+ "error": "",
+ "evidence": {
+  "modified_files": [
+   "tools/build_windows_bundle.py"
+  ],
+  "added_files": [
+   "tests/test_windows_bundle_launcher_line_endings.py"
+  ],
+  "deleted_files": [],
+  "patches": {
+   "tools/build_windows_bundle.py": "diff --git a/tools/build_windows_bundle.py b/tools/build_windows_bundle.py\nindex 5627cfb..0889b4b 100644\n--- a/tools/build_windows_bundle.py\n+++ b/tools/build_windows_bundle.py\n@@ -886,7 +886,7 @@ def assemble(out: Path, sha: str, *, wheels: Path, work: Path,\n     for name, body in launcher_files().items():\n         target = out / name\n         target.parent.mkdir(parents=True, exist_ok=True)\n-        target.write_text(body.replace(\"\\n\", \"\\r\\n\"), encoding=\"utf-8\")\n+        target.write_bytes(body.replace(\"\\n\", \"\\r\\n\").encode(\"utf-8\"))\n     write_licenses(out / \"LICENSES\", contents)\n     return contents, required\n \n"
+  },
+  "head_before": "8212da6760bc0fb7314d9754db1070fae557989c",
+  "head_after": "8212da6760bc0fb7314d9754db1070fae557989c",
+  "untracked_files": []
+ },
+ "sandbox_cleanup": {
+  "removed": true,
+  "path": null,
+  "error": null,
+  "kept_on_purpose": false
+ },
+ "authority": {
+  "push": false,
+  "merge": false,
+  "deploy": false
+ },
+ "sidecar_status": "completed",
+ "sidecar": {
+  "schema": "bossman.openhands.v1",
+  "status": "completed",
+  "summary": "Исправлен баг с CR CR LF в .cmd-лаунчерах Windows-архива Bossman.\n\nПричина: в tools/build_windows_bundle.py функция assemble() писала лаунчеры через `target.write_text(body.replace(\"\\n\", \"\\r\\n\"), encoding=\"utf-8\")`. На Windows text-mode запись дополнительно транслирует каждый `\\n` в `\\r\\n`, поэтому явный CRLF превращался в `\\r\\r\\n` во всех .cmd-файлах.\n\nИсправление (минимальное, 1 строка): запись байтами — `target.write_bytes(body.replace(\"\\n\", \"\\r\\n\").encode(\"utf-8\"))`, что исключает любую newline-трансляцию.\n\nРегрессионный тест: tests/test_windows_bundle_launcher_line_endings.py (unittest). Он подменяет тяжёлые install_* функции заглушками, вызывает assemble() во временную папку и проверяет, что ни в одном лаунчере нет b'\\r\\r\\n', а CRLF присутствует. Тест подтверждён по циклу red-green: на исходном коде он падал (AssertionError: b'\\r\\r\\n' unexpectedly found in Start-Bossman.cmd), после исправления проходит. Полный прогон tests/ — OK (1 test, 0 failures).",
+  "tests": {
+   "ran": true,
+   "runner": "unittest",
+   "paths": [
+    "tests"
+   ],
+   "exit_code": 0,
+   "passed": true,
+   "timed_out": false
+  },
+  "notes": "stop_reason=finished",
+  "steps": 25,
+  "stop_reason": "finished",
+  "tool_calls": [
+   {
+    "step": 1,
+    "tool": "read_file",
+    "ok": true,
+    "t": 13.25,
+    "sig": "cafd57fcc115",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 1,
+    "tool": "list_dir",
+    "ok": true,
+    "t": 13.25,
+    "sig": "a926be098d25",
+    "path": "tests"
+   },
+   {
+    "step": 2,
+    "tool": "search",
+    "ok": true,
+    "t": 25.016,
+    "sig": "82809531aff8",
+    "path": "tools/build_windows_bundle.py",
+    "pattern": "def assemble|launcher_files|write_text",
+    "hits": 10
+   },
+   {
+    "step": 3,
+    "tool": "read_file",
+    "ok": true,
+    "t": 38.11,
+    "sig": "c9435336d17f",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 3,
+    "tool": "read_file",
+    "ok": true,
+    "t": 38.11,
+    "sig": "6afcc6832b02",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 4,
+    "tool": "search",
+    "ok": true,
+    "t": 64.735,
+    "sig": "98102145f2e1",
+    "path": "tools/build_windows_bundle.py",
+    "pattern": "START_CMD = |EVENING_CMD = |MACHINE_CMD = |OWNER_RUN_CMD = |MEDIA_SETUP_CMD = |COACHING_CMD = |DIAGNOSTICS_CMD = |ENV_CM",
+    "hits": 8
+   },
+   {
+    "step": 4,
+    "tool": "read_file",
+    "ok": true,
+    "t": 64.735,
+    "sig": "1b3bf89d3d76",
+    "path": "tools/terminal_launchers.py"
+   },
+   {
+    "step": 5,
+    "tool": "read_file",
+    "ok": true,
+    "t": 74.219,
+    "sig": "6ab542df1794",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 6,
+    "tool": "search",
+    "ok": true,
+    "t": 91.422,
+    "sig": "42c5b0973907",
+    "path": "tools/build_windows_bundle.py",
+    "pattern": "def install_packages|def normalize_bytecode|def verify_runtime|def install_browser|def install_media|def install_icons|d",
+    "hits": 9
+   },
+   {
+    "step": 7,
+    "tool": "read_file",
+    "ok": true,
+    "t": 104.485,
+    "sig": "29608a05c3f1",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 7,
+    "tool": "read_file",
+    "ok": true,
+    "t": 104.485,
+    "sig": "8a7e1f037721",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 8,
+    "tool": "read_file",
+    "ok": true,
+    "t": 121.344,
+    "sig": "1698b36e0d41",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 9,
+    "tool": "read_file",
+    "ok": true,
+    "t": 135.391,
+    "sig": "19d42b5f6c44",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 10,
+    "tool": "read_file",
+    "ok": true,
+    "t": 146.375,
+    "sig": "8efa9f65dee1",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 11,
+    "tool": "search",
+    "ok": true,
+    "t": 161.25,
+    "sig": "fc5342ffe439",
+    "path": "tools/build_windows_bundle.py",
+    "pattern": "def console_shim",
+    "hits": 1
+   },
+   {
+    "step": 12,
+    "tool": "read_file",
+    "ok": true,
+    "t": 167.907,
+    "sig": "5e1ce9ac717a",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 13,
+    "tool": "search",
+    "ok": true,
+    "t": 175.016,
+    "sig": "cb2c9387c0a3",
+    "path": "tools/windows_bundle_lock.py",
+    "pattern": "def load",
+    "hits": 1
+   },
+   {
+    "step": 14,
+    "tool": "read_file",
+    "ok": true,
+    "t": 181.547,
+    "sig": "4d1b23b9e605",
+    "path": "tools/windows_bundle_lock.py"
+   },
+   {
+    "step": 15,
+    "tool": "search",
+    "ok": true,
+    "t": 189.422,
+    "sig": "09dd62dfcafd",
+    "path": "tools/build_windows_bundle.py",
+    "pattern": "def pip_requirements",
+    "hits": 1
+   },
+   {
+    "step": 16,
+    "tool": "read_file",
+    "ok": true,
+    "t": 196.063,
+    "sig": "be496e2c9167",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 17,
+    "tool": "search",
+    "ok": true,
+    "t": 202.204,
+    "sig": "c9be0110c995",
+    "path": "tools/build_windows_bundle.py",
+    "pattern": "def install_media",
+    "hits": 1
+   },
+   {
+    "step": 18,
+    "tool": "read_file",
+    "ok": true,
+    "t": 208.86,
+    "sig": "0e56057db9bf",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 19,
+    "tool": "read_file",
+    "ok": true,
+    "t": 219.375,
+    "sig": "1151afed39b0",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 20,
+    "tool": "write_file",
+    "ok": true,
+    "t": 300.875,
+    "sig": "758b9df6f594",
+    "path": "tests/test_windows_bundle_launcher_line_endings.py"
+   },
+   {
+    "step": 21,
+    "tool": "run_tests",
+    "ok": false,
+    "t": 306.579,
+    "sig": "6922a2f5d7e0",
+    "paths": [
+     "tests/test_windows_bundle_launcher_line_endings.py"
+    ],
+    "passed": false,
+    "timed_out": false
+   },
+   {
+    "step": 22,
+    "tool": "edit_file",
+    "ok": true,
+    "t": 318.641,
+    "sig": "e88a64f3a989",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 23,
+    "tool": "run_tests",
+    "ok": true,
+    "t": 324.391,
+    "sig": "6922a2f5d7e0",
+    "paths": [
+     "tests/test_windows_bundle_launcher_line_endings.py"
+    ],
+    "passed": true,
+    "timed_out": false
+   },
+   {
+    "step": 24,
+    "tool": "run_tests",
+    "ok": true,
+    "t": 329.86,
+    "sig": "3d5b953a4ecb",
+    "paths": [
+     "tests"
+    ],
+    "passed": true,
+    "timed_out": false
+   },
+   {
+    "step": 25,
+    "tool": "finish",
+    "ok": true,
+    "t": 364.266,
+    "sig": "a100d69c5b39"
+   }
+  ],
+  "tool_calls_total": 29,
+  "elapsed_seconds": 364.266,
+  "recipes_applied": [],
+  "profile": "",
+  "memory_used": false,
+  "skills_used": [
+   "superpowers/test-driven-development",
+   "superpowers/verification-before-completion",
+   "superpowers/systematic-debugging"
+  ],
+  "executor": "bossman-local-sidecar",
+  "model": "bossman-main-qwen38-27b-q5:latest",
+  "deterministic_test_model": false,
+  "model_kind": "REAL_MODEL",
+  "endpoint": "http://127.0.0.1:11500/v1"
+ },
+ "duration_seconds": 365.93
+}

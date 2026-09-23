@@ -1,0 +1,364 @@
+{
+ "id": "a12df09a247e",
+ "status": "failed",
+ "instruction": "Баг-репорт владельца: во всех .cmd-файлах собранного Windows-архива Bossman (Start-Bossman.cmd, Bossman-CLI.cmd и других) окончания строк получаются CR CR LF вместо CRLF. Сборщик архива лежит в tools/. Найди причину, исправь минимально и добавь регрессионный тест на unittest в tests/, который падает на текущем коде и проходит после исправления. Запусти тест. Не меняй ничего лишнего.",
+ "boot_id": "3aeba9ee9331c67c",
+ "agent_id": null,
+ "agent": null,
+ "project_id": null,
+ "memory": {
+  "requested": true,
+  "recalled": false,
+  "sources": [],
+  "recipe_ids": [],
+  "error": ""
+ },
+ "skills": {
+  "ids": [
+   "superpowers/test-driven-development",
+   "superpowers/systematic-debugging",
+   "superpowers/verification-before-completion"
+  ],
+  "error": ""
+ },
+ "verify_tests": [],
+ "source_repo": "C:\\Users\\asd\\Bossman Test 0923\\projects\\bossman-tools-lab",
+ "allowed_paths": [
+  "tools",
+  "tests"
+ ],
+ "protected_paths": [],
+ "model": null,
+ "created_at": 1790178486.7094295,
+ "finished_at": 1790178702.5953815,
+ "changed_files": [],
+ "diff": "",
+ "error": "сайдкар сообщил о неудаче",
+ "evidence": {
+  "modified_files": [],
+  "added_files": [],
+  "deleted_files": [],
+  "patches": {},
+  "head_before": "8212da6760bc0fb7314d9754db1070fae557989c",
+  "head_after": "8212da6760bc0fb7314d9754db1070fae557989c",
+  "untracked_files": []
+ },
+ "sandbox_cleanup": {
+  "removed": true,
+  "path": null,
+  "error": null,
+  "kept_on_purpose": false
+ },
+ "authority": {
+  "push": false,
+  "merge": false,
+  "deploy": false
+ },
+ "sidecar_status": "failed",
+ "sidecar": {
+  "schema": "bossman.openhands.v1",
+  "status": "failed",
+  "summary": "stopped: 8 observation calls repeated with the same result and no file change in between",
+  "tests": {
+   "ran": true,
+   "runner": "unittest",
+   "paths": [
+    "tests"
+   ],
+   "exit_code": 5,
+   "passed": false,
+   "timed_out": false
+  },
+  "notes": "stop_reason=no_progress_loop",
+  "steps": 22,
+  "stop_reason": "no_progress_loop",
+  "tool_calls": [
+   {
+    "step": 1,
+    "tool": "list_dir",
+    "ok": true,
+    "t": 27.594,
+    "sig": "76024f36f9c8",
+    "path": "tools"
+   },
+   {
+    "step": 1,
+    "tool": "list_dir",
+    "ok": true,
+    "t": 27.594,
+    "sig": "a926be098d25",
+    "path": "tests"
+   },
+   {
+    "step": 2,
+    "tool": "read_file",
+    "ok": true,
+    "t": 32.516,
+    "sig": "cafd57fcc115",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 3,
+    "tool": "search",
+    "ok": true,
+    "t": 47.735,
+    "sig": "7d7ba2b25df1",
+    "path": "tools/build_windows_bundle.py",
+    "pattern": "\\.cmd",
+    "hits": 28
+   },
+   {
+    "step": 3,
+    "tool": "search",
+    "ok": true,
+    "t": 47.735,
+    "sig": "3b1c01d8657d",
+    "path": "tools/build_windows_bundle.py",
+    "pattern": "\\r",
+    "hits": 0
+   },
+   {
+    "step": 4,
+    "tool": "read_file",
+    "ok": true,
+    "t": 56.781,
+    "sig": "63343f653532",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 5,
+    "tool": "read_file",
+    "ok": true,
+    "t": 71.485,
+    "sig": "85069a44b94f",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 6,
+    "tool": "read_file",
+    "ok": true,
+    "t": 86.156,
+    "sig": "f909f723f2ae",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 7,
+    "tool": "search",
+    "ok": true,
+    "t": 98.75,
+    "sig": "95b8454ade95",
+    "path": "tools/build_windows_bundle.py",
+    "pattern": "console_shim|write_text|launcher_files",
+    "hits": 10
+   },
+   {
+    "step": 8,
+    "tool": "read_file",
+    "ok": true,
+    "t": 106.172,
+    "sig": "ebd0ef641a06",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 9,
+    "tool": "read_file",
+    "ok": true,
+    "t": 111.938,
+    "sig": "1b3bf89d3d76",
+    "path": "tools/terminal_launchers.py"
+   },
+   {
+    "step": 10,
+    "tool": "search",
+    "ok": true,
+    "t": 122.406,
+    "sig": "c680e16bf799",
+    "path": "tools/terminal_launchers.py",
+    "pattern": "\\r",
+    "hits": 0
+   },
+   {
+    "step": 10,
+    "tool": "run_tests",
+    "ok": false,
+    "t": 122.406,
+    "sig": "24349ff78c4b",
+    "paths": [
+     "tests"
+    ],
+    "passed": false,
+    "timed_out": false
+   },
+   {
+    "step": 11,
+    "tool": "search",
+    "ok": true,
+    "t": 132.328,
+    "sig": "3b1c01d8657d",
+    "path": "tools/build_windows_bundle.py",
+    "pattern": "\\r",
+    "hits": 0,
+    "repeat_no_progress": 1
+   },
+   {
+    "step": 11,
+    "tool": "search",
+    "ok": true,
+    "t": 132.328,
+    "sig": "872e7a47c6a7",
+    "path": "tools",
+    "pattern": "CRLF|crlf|line.ending|newline",
+    "hits": 19
+   },
+   {
+    "step": 12,
+    "tool": "search",
+    "ok": true,
+    "t": 144.36,
+    "sig": "274294a56c06",
+    "path": "tools/verify_windows_bundle.py",
+    "pattern": "launcher_files|\\.cmd",
+    "hits": 0
+   },
+   {
+    "step": 12,
+    "tool": "search",
+    "ok": true,
+    "t": 144.36,
+    "sig": "7fa19fb9c083",
+    "path": "tools",
+    "pattern": "launcher_files",
+    "hits": 3
+   },
+   {
+    "step": 13,
+    "tool": "read_file",
+    "ok": true,
+    "t": 151.031,
+    "sig": "fa22b08aaf78",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 14,
+    "tool": "read_file",
+    "ok": true,
+    "t": 165.641,
+    "sig": "0d998bdfdc38",
+    "path": "tools/build_windows_bundle.py"
+   },
+   {
+    "step": 15,
+    "tool": "search",
+    "ok": true,
+    "t": 174.328,
+    "sig": "c680e16bf799",
+    "path": "tools/terminal_launchers.py",
+    "pattern": "\\r",
+    "hits": 0,
+    "repeat_no_progress": 1
+   },
+   {
+    "step": 16,
+    "tool": "search",
+    "ok": true,
+    "t": 183.531,
+    "sig": "43ec55deb824",
+    "path": "tools",
+    "pattern": "replace\\(\"\\\\n\"",
+    "hits": 2
+   },
+   {
+    "step": 16,
+    "tool": "search",
+    "ok": true,
+    "t": 183.563,
+    "sig": "e71016b23504",
+    "path": "tools",
+    "pattern": "write_text\\(.*replace",
+    "hits": 3
+   },
+   {
+    "step": 17,
+    "tool": "search",
+    "ok": true,
+    "t": 188.938,
+    "sig": "3b1c01d8657d",
+    "path": "tools/build_windows_bundle.py",
+    "pattern": "\\r",
+    "hits": 0,
+    "repeat_no_progress": 2
+   },
+   {
+    "step": 18,
+    "tool": "search",
+    "ok": true,
+    "t": 194.047,
+    "sig": "c680e16bf799",
+    "path": "tools/terminal_launchers.py",
+    "pattern": "\\r",
+    "hits": 0,
+    "repeat_no_progress": 2
+   },
+   {
+    "step": 19,
+    "tool": "search",
+    "ok": true,
+    "t": 199.016,
+    "sig": "3b1c01d8657d",
+    "path": "tools/build_windows_bundle.py",
+    "pattern": "\\r",
+    "hits": 0,
+    "repeat_no_progress": 3
+   },
+   {
+    "step": 20,
+    "tool": "search",
+    "ok": true,
+    "t": 204.094,
+    "sig": "c680e16bf799",
+    "path": "tools/terminal_launchers.py",
+    "pattern": "\\r",
+    "hits": 0,
+    "repeat_no_progress": 3
+   },
+   {
+    "step": 21,
+    "tool": "search",
+    "ok": true,
+    "t": 209.063,
+    "sig": "3b1c01d8657d",
+    "path": "tools/build_windows_bundle.py",
+    "pattern": "\\r",
+    "hits": 0,
+    "repeat_no_progress": 4
+   },
+   {
+    "step": 22,
+    "tool": "search",
+    "ok": true,
+    "t": 214.125,
+    "sig": "c680e16bf799",
+    "path": "tools/terminal_launchers.py",
+    "pattern": "\\r",
+    "hits": 0,
+    "repeat_no_progress": 4
+   }
+  ],
+  "tool_calls_total": 28,
+  "elapsed_seconds": 214.125,
+  "recipes_applied": [],
+  "profile": "",
+  "memory_used": false,
+  "skills_used": [
+   "superpowers/test-driven-development",
+   "superpowers/systematic-debugging",
+   "superpowers/verification-before-completion"
+  ],
+  "executor": "bossman-local-sidecar",
+  "model": "bossman-main-qwen38-27b-q5:latest",
+  "deterministic_test_model": false,
+  "model_kind": "REAL_MODEL",
+  "endpoint": "http://127.0.0.1:11500/v1"
+ },
+ "duration_seconds": 215.83
+}

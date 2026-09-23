@@ -89,3 +89,39 @@ ZIP `BOSSMAN-Windows-x64-d53f3b121922.zip` SHA-256 `2edb42768a928e14276ef9eb8603
 
 ## Прочее
 - Настройки Telegram тестового экземпляра показывают значения общей конфигурации компаньона пользователя (не data root) — вопрос изоляции (P2).
+
+---
+# Чекпоинт 4 (~16:45Z) — D1 post-fix, restart, D2, Jev, медиа
+
+TESTED_SHA (текущий кандидат): **SHA3 `cdb4b09db49aebac46bea2f3b98ef143d4a343d6`** = SHA2 `d53f3b12` + NO_PROGRESS-детектор (требование владельца). Branch `fix/owner-run-20260923-p1`. ZIP SHA3 `484590c791fe0ffe1e494e98083e3650d11e7100440b272e13830921b73b8bc8` (bundle acceptance PASS). ZIP SHA2 `2edb42768a928e14276ef9eb86035bcf38f61bd6de98f50b6e400cc292d82007`. PRE-FIX baseline = bd2fe23d.
+RUNTIME=OLLAMA_PROXY · PRIVILEGE=ADMIN_RUN · MODEL MAIN Qwen3.8-27B Q5 (gguf 2de73110…), FAST Qwen3.6-35B-A3B Q5 (c13ce262…) · identity: `learning/identity-*.json`, `RUNTIME_IDENTITY*.json`.
+
+## D1 (SHA3) — STUDENT_COACHED_PASS на L4
+L0/L1/L2 FAIL (no_progress_loop, 22–34 шага), L3 FAIL (max_steps, без петли), **L4 PASS**: diff ученика применяется, hv_d1 PASS на кандидате / FAIL на базе, регрессия ученика падает на базе и проходит на кандидате. Отрицательный контроль (LF-only patch) — REJECTED. Причина неудач L0–L3: MODEL (не переходит от поиска к правке, игнорирует предупреждения) + TOOL (regex `\r`). Ложный FAIL L4 сначала был HARNESS (встроенный Python не видит cwd) — исправлено.
+**North Star: SELF_REPAIR_SINGLE_CYCLE_PASS (coached, L4)** — Qwen сделал фикс, скрытый verifier подтвердил, teacher patch не использовался.
+
+## Урок и перезапуск
+`POST /api/coding-recipes` → VERIFIED `coach-lesson:29a7424bd33b115b` (recipe `win-double-crlf-text-mode-write`), verifier — внешний инструмент со своим run id. Полный рестарт: PID 9780 → 15556, started_at 16:16:24Z; урок на месте.
+
+## D2 unseen (раскрыт 16:21Z, после рестарта, без подсказок)
+RAW (no memory): STUDENT_UNASSISTED_PASS, 7 шагов, 121.6 с. LESSON_AVAILABLE: урок извлечён и применён, STUDENT_UNASSISTED_PASS, 8 шагов, 149.6 с. **TRANSFER: NO_MEASURED_GAIN** (D2 решается и без урока; n=1).
+P2 продукт: при autocrlf=true evidence-diff содержит CRLF-контекст рабочей копии и не применяется к LF-репозиторию.
+
+## P1-соседи после рестарта (SHA3, живой чат)
+запомни → вопрос: PASS без approval (задачи 35/36); браузер → вопрос: PASS (37 с проверенным browser evidence / 38); approval → вопрос: PASS. CRLF-фикс при обычном Git (без обхода): PASS (coding task e2f63e6235f9).
+
+## Облако и Jev
+Лимит $3/день включён (BOSSMAN_SPEND_METER_ENABLED + /api/spend/limit). Jev через OpenRouter System One API: контракт VERIFIED, 6/6 функц., 4/4 защитных, согласие 18/18, ≈$0.00084 → CONTRACT_VERIFIED + SHADOW_PASS; phase 2 INSUFFICIENT_EVIDENCE.
+
+## GUI vs CLI (SHA2, n=3, короткие задачи)
+MEASURED_OVERHEAD_REDUCTION (пилот): CLI 1 действие vs 9–10, контекст 3.9 КБ vs 22 КБ, overhead клиента 1.7 с vs 3.7 с. Пары A/B/C (файл/код/браузер) на SHA3 — в работе.
+
+## Медиа
+- Image Studio через ComfyUI: **ENVIRONMENT_BLOCKER** (SAC блокирует scipy `_nd_image.pyd`).
+- sd.cpp (штатный провайдер Студии): изображение Z-Image-Turbo 768×768 PNG, полное декодирование, sha256 4b9d6247…, provenance (Vulkan observed, sha256 бинарника и весов совпали). P2: UI «Студии» не показывает sd.cpp-модели (есть только в /api/studio/models) → запуск через API; P2: запись задачи показывает дефолтные 1024×1024/30 шагов.
+- Видео TestRun (Wan2.2 TI2V-5B, пресет test_1s) — идёт.
+
+## Прочее
+- Ярлык «Bossman CMD» на рабочем столе (Windows Terminal, без прав администратора) — CLI тестового экземпляра.
+- Ветка `feat/cli-claude-parity-20260923` @12612c81: /compact /context /cost(/usage) /export /doctor /permissions (42 теста + e2e) — ещё не собрана.
+- Video Studio: при первом переходе вечный скелетон до перезагрузки (P2).

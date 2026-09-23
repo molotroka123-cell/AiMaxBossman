@@ -1,0 +1,182 @@
+{
+ "id": "f9562fc2969e",
+ "status": "completed",
+ "instruction": "Жалоба бухгалтера: когда он открывает в Excel на Windows CSV, выгруженный функцией export_csv, между строками появляются пустые строки. Найди причину, исправь минимально и добавь регрессионный тест на unittest в tests/, который падает на текущем коде и проходит после исправления. Запусти тесты. Не ломай существующие тесты.",
+ "boot_id": "f61de585abcfb705",
+ "agent_id": null,
+ "agent": null,
+ "project_id": null,
+ "memory": {
+  "requested": false,
+  "recalled": false,
+  "sources": [],
+  "recipe_ids": [],
+  "error": ""
+ },
+ "skills": {
+  "ids": [
+   "superpowers/test-driven-development",
+   "superpowers/systematic-debugging",
+   "superpowers/verification-before-completion"
+  ],
+  "error": ""
+ },
+ "verify_tests": [],
+ "source_repo": "C:\\Users\\asd\\Bossman Test 0923\\projects\\report-export",
+ "allowed_paths": [
+  "report_export",
+  "tests"
+ ],
+ "protected_paths": [],
+ "model": null,
+ "created_at": 1790180482.2886324,
+ "finished_at": 1790180603.9594944,
+ "changed_files": [
+  "report_export/__init__.py",
+  "tests/test_export_no_blank_lines.py"
+ ],
+ "diff": "diff --git a/report_export/__init__.py b/report_export/__init__.py\nindex 8fcbd7d..646936a 100644\n--- a/report_export/__init__.py\n+++ b/report_export/__init__.py\n@@ -9,7 +9,7 @@ def to_line(row):\n def export_csv(rows, path, header=(\"date\", \"item\", \"amount\")):\r\n     \"\"\"Write rows as a Windows CSV (CRLF line ends, UTF-8 with BOM for Excel).\"\"\"\r\n     lines = [to_line(header)] + [to_line(r) for r in rows]\r\n-    with open(path, \"w\", encoding=\"utf-8-sig\") as f:\r\n+    with open(path, \"w\", encoding=\"utf-8-sig\", newline=\"\") as f:\r\n         f.write(\"\\r\\n\".join(lines) + \"\\r\\n\")\r\n     return Path(path)\r\n \r\ndiff --git b/tests/test_export_no_blank_lines.py b/tests/test_export_no_blank_lines.py\nnew file mode 100644\nindex 0000000..d48588a\n--- /dev/null\n+++ b/tests/test_export_no_blank_lines.py\n@@ -0,0 +1,47 @@\n+import os\n+import tempfile\n+import unittest\n+\n+from report_export import export_csv\n+\n+\n+class NoBlankLines(unittest.TestCase):\n+    def test_no_blank_lines_between_rows(self):\n+        \"\"\"Excel on Windows shows blank lines between rows when the file\n+        uses bare LF line endings (Excel treats LF as an in-cell line break).\n+        The file must use CRLF line endings and contain no empty lines.\"\"\"\n+        p = os.path.join(tempfile.mkdtemp(), \"r.csv\")\n+        export_csv(\n+            [\n+                (\"2026-09-01\", \"coffee\", \"3.5\"),\n+                (\"2026-09-02\", \"tea\", \"2.0\"),\n+            ],\n+            p,\n+        )\n+        with open(p, \"rb\") as f:\n+            data = f.read()\n+\n+        # Strip the UTF-8 BOM, then split on CRLF.\n+        body = data[len(b\"\\xef\\xbb\\xbf\"):]\n+        self.assertTrue(body.endswith(b\"\\r\\n\"), \"file must end with CRLF\")\n+        lines = body[:-2].split(b\"\\r\\n\")\n+\n+        # Every line must be non-empty (no blank lines visible in Excel).\n+        for line in lines:\n+            self.assertNotEqual(line, b\"\", \"blank line found in CSV\")\n+\n+        # No bare LF (not part of CRLF) may remain.\n+        self.assertNotIn(b\"\\n\", body.replace(b\"\\r\\n\", b\"\"))\n+\n+        self.assertEqual(\n+            lines,\n+            [\n+                b\"date;item;amount\",\n+                b\"2026-09-01;coffee;3.5\",\n+                b\"2026-09-02;tea;2.0\",\n+            ],\n+        )\n+\n+\n+if __name__ == \"__main__\":\n+    unittest.main()\n",
+ "error": "",
+ "evidence": {
+  "modified_files": [
+   "report_export/__init__.py"
+  ],
+  "added_files": [
+   "tests/test_export_no_blank_lines.py"
+  ],
+  "deleted_files": [],
+  "patches": {
+   "report_export/__init__.py": "diff --git a/report_export/__init__.py b/report_export/__init__.py\nindex 7c5de1f..d2476ac 100644\n--- a/report_export/__init__.py\n+++ b/report_export/__init__.py\n@@ -9,7 +9,7 @@ def to_line(row):\n def export_csv(rows, path, header=(\"date\", \"item\", \"amount\")):\n     \"\"\"Write rows as a Windows CSV (CRLF line ends, UTF-8 with BOM for Excel).\"\"\"\n     lines = [to_line(header)] + [to_line(r) for r in rows]\n-    with open(path, \"w\", encoding=\"utf-8-sig\") as f:\n+    with open(path, \"w\", encoding=\"utf-8-sig\", newline=\"\") as f:\n         f.write(\"\\r\\n\".join(lines) + \"\\r\\n\")\n     return Path(path)\n \n"
+  },
+  "head_before": "a7c9a8704e5b21f26c5a07aff7ca7a1c86855319",
+  "head_after": "a7c9a8704e5b21f26c5a07aff7ca7a1c86855319",
+  "untracked_files": []
+ },
+ "sandbox_cleanup": {
+  "removed": true,
+  "path": null,
+  "error": null,
+  "kept_on_purpose": false
+ },
+ "authority": {
+  "push": false,
+  "merge": false,
+  "deploy": false
+ },
+ "sidecar_status": "completed",
+ "sidecar": {
+  "schema": "bossman.openhands.v1",
+  "status": "completed",
+  "summary": "Причина: export_csv открывал файл в текстовом режиме без newline=\"\", поэтому на Windows Python переводил каждый \"\\r\\n\" в \"\\r\\r\\n\" (двойной перевод строки), и Excel показывал пустые строки между строками. Исправление: добавлен newline=\"\" в open() в report_export/__init__.py. Добавлен регрессионный тест tests/test_export_no_blank_lines.py, который проверяет, что в файле нет пустых строк и одиночных LF; тест падал на старом коде и проходит после исправления. Все 4 теста проходят.",
+  "tests": {
+   "ran": true,
+   "runner": "unittest",
+   "paths": [
+    "tests"
+   ],
+   "exit_code": 0,
+   "passed": true,
+   "timed_out": false
+  },
+  "notes": "stop_reason=finished",
+  "steps": 7,
+  "stop_reason": "finished",
+  "tool_calls": [
+   {
+    "step": 1,
+    "tool": "list_dir",
+    "ok": true,
+    "t": 27.766,
+    "sig": "945e8c87031c",
+    "path": "report_export"
+   },
+   {
+    "step": 1,
+    "tool": "list_dir",
+    "ok": true,
+    "t": 27.766,
+    "sig": "a926be098d25",
+    "path": "tests"
+   },
+   {
+    "step": 2,
+    "tool": "read_file",
+    "ok": true,
+    "t": 34.141,
+    "sig": "323e29891881",
+    "path": "report_export/__init__.py"
+   },
+   {
+    "step": 2,
+    "tool": "read_file",
+    "ok": true,
+    "t": 34.141,
+    "sig": "d4f36e39ca7f",
+    "path": "tests/test_export_basic.py"
+   },
+   {
+    "step": 3,
+    "tool": "write_file",
+    "ok": true,
+    "t": 82.375,
+    "sig": "d5127eff9374",
+    "path": "tests/test_export_no_blank_lines.py"
+   },
+   {
+    "step": 4,
+    "tool": "run_tests",
+    "ok": false,
+    "t": 85.734,
+    "sig": "24349ff78c4b",
+    "paths": [
+     "tests"
+    ],
+    "passed": false,
+    "timed_out": false
+   },
+   {
+    "step": 5,
+    "tool": "edit_file",
+    "ok": true,
+    "t": 99.672,
+    "sig": "e01a218714d5",
+    "path": "report_export/__init__.py"
+   },
+   {
+    "step": 6,
+    "tool": "run_tests",
+    "ok": true,
+    "t": 103.016,
+    "sig": "24349ff78c4b",
+    "paths": [
+     "tests"
+    ],
+    "passed": true,
+    "timed_out": false
+   },
+   {
+    "step": 7,
+    "tool": "finish",
+    "ok": true,
+    "t": 120.328,
+    "sig": "6195526f89d4"
+   }
+  ],
+  "tool_calls_total": 9,
+  "elapsed_seconds": 120.328,
+  "recipes_applied": [],
+  "profile": "",
+  "memory_used": false,
+  "skills_used": [
+   "superpowers/test-driven-development",
+   "superpowers/systematic-debugging",
+   "superpowers/verification-before-completion"
+  ],
+  "executor": "bossman-local-sidecar",
+  "model": "bossman-main-qwen38-27b-q5:latest",
+  "deterministic_test_model": false,
+  "model_kind": "REAL_MODEL",
+  "endpoint": "http://127.0.0.1:11500/v1"
+ },
+ "duration_seconds": 121.62
+}

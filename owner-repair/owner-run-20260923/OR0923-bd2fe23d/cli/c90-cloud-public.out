@@ -1,0 +1,22 @@
+{"v": 1, "type": "system", "subtype": "init", "schema": "bossman.events.v1", "client": {"name": "bossman-terminal", "version": "1.2.0"}, "bossman": {"url": "http://127.0.0.1:8810", "app": "bossman-command-center", "version": "0.1.0", "build_sha": "cdb4b09db49aebac46bea2f3b98ef143d4a343d6", "source_identity": "PASS", "started_at": "2026-09-23T15:47:14.221286", "data_dir": "C:\\Users\\asd\\Bossman Test 0923\\data"}, "cwd": "C:\\Users\\asd\\Bossman Test 0923", "request_id": "or0923-t060-sha3", "agent": {"id": 5, "name": "Облако"}, "model": {"id": 6, "alias": "openai/gpt-oss-120b", "name": "openai/gpt-oss-120b", "provider_kind": "openai_compat", "locality": "cloud", "context_window": 131072, "model_kind": "REAL_MODEL"}}
+{"v": 1, "type": "task", "subtype": "submitted", "task_id": 34, "status": "draft", "request_id": "or0923-t060-sha3"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 34, "status": "draft", "seq": 976, "ts": "2026-09-23T15:49:04.765576"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 34, "run_id": 34, "status": "queued", "source": "poll"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 34, "run_id": 34, "status": "queued", "seq": 977, "ts": "2026-09-23T15:49:04.963286"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 34, "run_id": 34, "status": "running", "seq": 978, "ts": "2026-09-23T15:49:05.015168"}
+{"v": 1, "type": "thinking", "delta": "We need to respond only with the number, in Russian but only a number. 19*21 = 399. So answer \"399\".", "step": 1, "source": "provider_message", "run_id": 34, "ts": "2026-09-23T15:49:07.179354"}
+{"v": 1, "type": "usage", "step": 1, "model": "openai/gpt-oss-120b", "reported": true, "step_tokens_in": 97, "step_tokens_out": 40, "tokens_in": 97, "tokens_out": 40, "cost_usd": 3.9e-05, "cost_known": true, "context_window": 131072, "max_tokens_total": 400000, "max_cost_usd": 2.0, "run_id": 34, "seq": 979, "ts": "2026-09-23T15:49:07.179354"}
+{"v": 1, "type": "assistant_message", "text": "399", "step": 1, "model": "openai/gpt-oss-120b", "run_id": 34, "seq": 981, "ts": "2026-09-23T15:49:07.211933"}
+{"v": 1, "type": "step", "task_id": 34, "run_id": 34, "step": 1, "max_steps": 4, "model": "openai/gpt-oss-120b", "seq": 982, "ts": "2026-09-23T15:49:07.223466"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 34, "seq": 984, "ts": "2026-09-23T15:49:07.257751"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 34, "seq": 985, "ts": "2026-09-23T15:49:07.261758"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 34, "seq": 986, "ts": "2026-09-23T15:49:07.268759"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 34, "seq": 987, "ts": "2026-09-23T15:49:07.274267"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 34, "seq": 988, "ts": "2026-09-23T15:49:07.281282"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 34, "seq": 989, "ts": "2026-09-23T15:49:07.287303"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 34, "seq": 990, "ts": "2026-09-23T15:49:07.293291"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 34, "seq": 991, "ts": "2026-09-23T15:49:07.299799"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 34, "seq": 992, "ts": "2026-09-23T15:49:07.370026"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 34, "seq": 993, "ts": "2026-09-23T15:49:07.377377"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 34, "run_id": 34, "status": "completed", "seq": 994, "ts": "2026-09-23T15:49:07.606423"}
+{"v": 1, "type": "result", "ok": true, "task_state": "PASS", "status": "completed", "task_id": 34, "run_id": 34, "duration_ms": 2859, "result": "399", "usage": {"tokens_in": 97, "tokens_out": 40, "cost_usd": 3.9e-05}, "model": "openai/gpt-oss-120b", "model_kind": "REAL_MODEL", "cursor": 994, "exit_code": 0}

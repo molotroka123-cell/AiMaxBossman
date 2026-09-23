@@ -1,0 +1,147 @@
+{
+ "schema": "owner-run.learning.v1",
+ "RUNTIME": "OLLAMA_PROXY",
+ "PRIVILEGE": "ADMIN_RUN",
+ "WEIGHTS": "WEIGHTS_UNCHANGED",
+ "student": {
+  "model": "Qwen3.8-27B UD-Q5_K_M",
+  "gguf_sha256": "2de73110cb254cbf09b54b717578dadff12ef1194e7271527e68202f39ba4bfd",
+  "ollama": "0.34.3",
+  "context": 65536,
+  "reasoning": "off (proxy reasoning_effort=none)",
+  "executor": "bossman-local-sidecar via bossman code (CLI)",
+  "max_steps": 40,
+  "temperature": 0
+ },
+ "coaching_pack_5plus5": {
+  "sha": "bd2fe23d",
+  "result": "10/10 unassisted, coached=unassisted=1.0",
+  "status": [
+   "CEILING_SATURATED",
+   "NO_MEASURED_GAIN",
+   "WEIGHTS_UNCHANGED"
+  ]
+ },
+ "D1_pre_fix": {
+  "sha": "bd2fe23d",
+  "attempts": "L0,L1,L2,L3 FAIL (max_steps)",
+  "label": [
+   "PRE_FIX_CONFOUNDED",
+   "NOT_MODEL_FAILURE"
+  ],
+  "cause": "silent 6000-char tool-output cut + no repeat breaker (orchestration)"
+ },
+ "D1_sha2": {
+  "sha": "d53f3b12",
+  "L0": "FAIL max_steps (still looping; no detector yet)"
+ },
+ "D1_sha3": {
+  "sha": "cdb4b09d",
+  "ladder": [
+   {
+    "level": "L0",
+    "result": "FAIL",
+    "stop_reason": "no_progress_loop",
+    "steps": 22,
+    "duration_s": 215.83,
+    "changed_files": []
+   },
+   {
+    "level": "L1",
+    "result": "FAIL",
+    "stop_reason": "no_progress_loop",
+    "steps": 34,
+    "duration_s": 329.01,
+    "changed_files": []
+   },
+   {
+    "level": "L2",
+    "result": "FAIL",
+    "stop_reason": "no_progress_loop",
+    "steps": 22,
+    "duration_s": 263.45,
+    "changed_files": []
+   },
+   {
+    "level": "L3",
+    "result": "FAIL",
+    "stop_reason": "max_steps",
+    "steps": 40,
+    "duration_s": 295.99,
+    "changed_files": []
+   },
+   {
+    "level": "L4",
+    "result": "FAIL",
+    "stop_reason": "finished",
+    "steps": 25,
+    "duration_s": 365.93,
+    "changed_files": [
+     "tests/test_windows_bundle_launcher_line_endings.py",
+     "tools/build_windows_bundle.py"
+    ]
+   }
+  ],
+  "L4_rescore": "STUDENT_COACHED_PASS (hv_d1 PASS on candidate, FAIL on base; student regression fails on base, passes on candidate) — first FAIL was a HARNESS bug (embeddable python ignores cwd)",
+  "failure_class_L0_L3": "MODEL: finds the cause line by search but does not move from exploration to an edit; ignores repeat warnings; searches literal \r with regex (TOOL ambiguity)",
+  "negative_control": "wrong LF-only patch REJECTED by hv_d1 and by the student regression; lab repo unchanged",
+  "status": "STUDENT_COACHED_PASS (hint L4 = approach)"
+ },
+ "lesson": {
+  "api": "POST /api/coding-recipes -> canonical LearningStore <data_root>/learning",
+  "lesson_id": "coach-lesson:29a7424bd33b115b",
+  "recipe_id": "win-double-crlf-text-mode-write",
+  "status": "VERIFIED",
+  "verifier": "tool:hidden_verifier_hv_d1 (external_tool, own run id)",
+  "written_from": "D1 wording + generic cause class only (no D2 knowledge)",
+  "survived_restart": true,
+  "restart": "PID 9780 -> 15556, started_at 2026-09-23T16:16:24Z"
+ },
+ "D2_transfer": {
+  "revealed_at": "2026-09-23T16:21:09Z (after restart)",
+  "hints": "none (L0)",
+  "RAW": {
+   "result": "STUDENT_UNASSISTED_PASS",
+   "steps": 7,
+   "tool_calls_total": 9,
+   "duration_s": 121.62,
+   "coding_task_id": "f9562fc2969e",
+   "recipes_applied": []
+  },
+  "LESSON_AVAILABLE": {
+   "result": "STUDENT_UNASSISTED_PASS",
+   "steps": 8,
+   "tool_calls_total": 10,
+   "duration_s": 149.64,
+   "coding_task_id": "22e5e263a24f",
+   "recipes_applied": [
+    "win-double-crlf-text-mode-write"
+   ],
+   "memory": {
+    "requested": true,
+    "recalled": true,
+    "sources": [
+     "coach-lesson:29a7424bd33b115b"
+    ],
+    "recipe_ids": [
+     "win-double-crlf-text-mode-write"
+    ],
+    "error": ""
+   }
+  },
+  "status": "NO_MEASURED_GAIN",
+  "note": "memory hit + recipe applied in LESSON profile, but RAW already solves D2 unassisted (smaller repo, 1 short file); n=1 per profile — pilot only"
+ },
+ "north_star": {
+  "achieved": "SELF_REPAIR_SINGLE_CYCLE_PASS (coached, L4)",
+  "not_achieved": [
+   "SELF_REPAIR_3_CYCLE_PASS",
+   "TRANSFER_MEASURED_GAIN",
+   "24H_SOAK_PASS"
+  ]
+ },
+ "harness_bugs_found_and_fixed": [
+  "student tests ran under the embeddable runtime (cwd ignored) -> false FAIL (fixed: CPython 3.12)",
+  "D2 evidence diff CRLF context -> normalized before apply (product P2 recorded)"
+ ]
+}
