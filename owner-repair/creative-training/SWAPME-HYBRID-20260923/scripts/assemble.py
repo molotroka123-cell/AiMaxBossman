@@ -59,7 +59,7 @@ def soundtrack(s1, s2):
             "+0.10*sin(2*PI*if(lt(mod(t,4),2),55,41.2)*t)*(1-exp(-8*mod(t,0.5)))"
             "+0.07*sin(2*PI*if(lt(mod(t,4),2),110,82.4)*t)*(1-exp(-8*mod(t,0.5)))*gte(t,5)")
     hats = "0.11*(2*random(0)-1)*exp(-70*mod(t+0.25,0.5))*gte(t,2)"
-    swoosh = "+".join(f"0.55*(2*random(1)-1)*exp(-pow((t-{c}+0.12)/0.16,2))" for c in (5.0, 7.5, 12.5))
+    swoosh = "+".join(f"0.55*(2*random(1)-1)*exp(-pow((t-{c}+0.12)/0.16,2))" for c in (2.5, 7.5, 12.5))
     rise = "0.10*pow((t-11)/1.5,2)*sin(2*PI*(200*(t-11)+333.3*pow(t-11,2)))*between(t,11,12.5)"
     hit = "0.9*sin(2*PI*38*(t-12.5))*exp(-4*(t-12.5))*gte(t,12.5)"
     out = RUN / "work" / "soundtrack.wav"
@@ -67,7 +67,7 @@ def soundtrack(s1, s2):
           f"aevalsrc='{hats}':s=48000:d=15,highpass=f=7000[hat];"
           f"aevalsrc='{swoosh}':s=48000:d=15,bandpass=f=1800:width_type=o:w=2[sw];"
           f"aevalsrc='{rise}+{hit}':s=48000:d=15[fx];"
-          f"[0:a]aresample=48000,atrim=0:5,volume=0.55,afade=t=out:st=4.7:d=0.3[amb1];"
+          f"[0:a]aresample=48000,atrim=0:5,volume=0.55,afade=t=in:d=0.2,afade=t=out:st=4.7:d=0.3,adelay=2500|2500[amb1];"
           f"[1:a]aresample=48000,atrim=0:5,volume=0.55,afade=t=in:d=0.2,afade=t=out:st=4.7:d=0.3,adelay=7500|7500[amb2];"
           f"[beat][hat][sw][fx]amix=inputs=4:normalize=0,aformat=channel_layouts=stereo[mus];"
           f"[amb1][amb2]amix=inputs=2:normalize=0,apad=whole_dur=15,aformat=channel_layouts=stereo[amb];"
@@ -80,28 +80,31 @@ def soundtrack(s1, s2):
 
 def main():
     st = h.load()
-    S1, L1, S2, L2 = (Path(st["jobs"][k]["file"]) for k in ("S1", "L1", "S2", "L2"))
+    S1, S2 = (Path(st["jobs"][k]["file"]) for k in ("S1", "S2"))
+    L2 = h.RUN / "work" / "S2_last.png"  # owner stop: L2 render cancelled -> compositor push-in on S2 last frame
+    L1 = h.RUN / "bench" / "bench_steps24.mp4"  # local Wan I2V (benchmark take), used as the opening hook
     card = end_card()
     audio = soundtrack(S1, S2)
     # L2 was rendered short (33 frames, owner 25-min deadline): stretched to 2.55 s with motion interpolation.
     global L2_STRETCH
-    L2_STRETCH = max(1.0, 2.55 / max(0.1, h.probe(L2)["duration"] - 1 / 24))
     grade = "eq=contrast=1.04:saturation=1.06:gamma=0.98,vignette=PI/5"
     sc = f"scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920,setsar=1,fps={FPS}"
+    l1_stretch = 2.62 / max(0.1, h.probe(L1)["duration"])
     fc = (
+        f"[1:v]crop=405:720:40:0,setpts={l1_stretch:.4f}*PTS,minterpolate=fps={FPS}:mi_mode=mci:mc_mode=aobmc:vsbmc=1,"
+        f"{sc},zoompan=z='min(zoom+0.0009,1.12)':d=1:x='iw/2-(iw/zoom/2)':y='ih/3-(ih/zoom/3)':s=1080x1920:fps={FPS},"
+        f"trim=0:2.62,setpts=PTS-STARTPTS,unsharp=5:5:0.6,{grade},format=yuv420p[l1];"
         f"[0:v]{sc},trim=0:5,setpts=PTS-STARTPTS,{grade},format=yuv420p[s1];"
-        f"[1:v]{sc},trim=start_frame=1,trim=0:2.66,setpts=PTS-STARTPTS,unsharp=5:5:0.5,{grade},format=yuv420p[l1];"
         f"[2:v]{sc},trim=0:5,setpts=PTS-STARTPTS,{grade},format=yuv420p[s2];"
-        f"[3:v]trim=start_frame=1,setpts={L2_STRETCH:.4f}*(PTS-STARTPTS),minterpolate=fps={FPS}:mi_mode=mci:mc_mode=aobmc:vsbmc=1,"
-        f"{sc},trim=0:2.5,setpts=PTS-STARTPTS,unsharp=5:5:0.5,{grade},format=yuv420p[l2];"
-        f"[s1][l1]concat=n=2:v=1:a=0[a];"
-        f"[a][s2]xfade=transition=fadewhite:duration=0.16:offset=7.5[b];"
+        f"[3:v]scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920,setsar=1,zoompan=z='min(zoom+0.0011,1.14)':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1920:fps=24,trim=0:2.66,setpts=PTS-STARTPTS,{grade},format=yuv420p[l2];"
+        f"[l1][s1]xfade=transition=fadewhite:duration=0.12:offset=2.5[a];"
+        f"[a][s2]xfade=transition=fadewhite:duration=0.16:offset=7.34[b];"
         f"[b][l2]concat=n=2:v=1:a=0[c];"
         f"[4:v]format=rgba,fade=t=in:st=12.55:d=0.45:alpha=1[card];"
         f"[c][card]overlay=0:0:enable='gte(t,12.55)',trim=0:15,setpts=PTS-STARTPTS[v]")
     master = RUN / "final" / "swapme_fox_15s_master.mp4"
     t0 = time.time()
-    run([FF, "-y", "-v", "error", "-i", str(S1), "-i", str(L1), "-i", str(S2), "-i", str(L2), "-loop", "1", "-t", "15", "-i", str(card),
+    run([FF, "-y", "-v", "error", "-i", str(S1), "-i", str(L1), "-i", str(S2), "-loop", "1", "-t", "2.8", "-i", str(L2), "-loop", "1", "-t", "15", "-i", str(card),
          "-i", str(audio), "-filter_complex", fc, "-map", "[v]", "-map", "5:a", "-t", "15",
          "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-profile:v", "high", "-level", "4.2", "-pix_fmt", "yuv420p",
          "-r", str(FPS), "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", str(master)])
@@ -112,10 +115,10 @@ def main():
     run([FF, "-y", "-v", "error", "-i", str(master), "-vf", "fps=4/3,scale=270:480,tile=5x4:padding=4", "-frames:v", "1",
          "-q:v", "3", str(RUN / "final" / "contact_sheet.jpg")])
     edl = {"fps": FPS, "size": "1080x1920", "segments": [
-        {"t": [0, 5.0], "src": "S1", "kind": "cloud", "in": [0, 5.0]},
-        {"t": [5.0, 7.5], "src": "L1", "kind": "local", "in": [1 / 24, 2.66], "join": "seamless (L1 starts on S1 last frame)"},
+        {"t": [0, 2.5], "src": "L1(bench_steps24)", "kind": "local", "note": "Wan I2V take, face crop 405x720, slowed x%.2f + push-in; hook" % l1_stretch},
+        {"t": [2.5, 7.5], "src": "S1", "kind": "cloud", "in": [0, 5.0], "join": "fadewhite 0.12 s on beat"},
         {"t": [7.5, 12.5], "src": "S2", "kind": "cloud", "in": [0, 5.0], "join": "fadewhite 0.16 s + whoosh on beat"},
-        {"t": [12.5, 15.0], "src": "L2", "kind": "local", "in": [1 / 24, 2.5], "join": "seamless (L2 starts on S2 last frame)"}],
+        {"t": [12.34, 15.0], "src": "S2 last frame", "kind": "compositor", "note": "owner stop: local L2 render cancelled after 34 min; zoompan push-in on the S2 last frame (not generated)"}],
         "overlay": {"end_card": str(card), "from": 12.55}, "audio": "procedural 120 BPM + Seedance ambience; loudnorm -14 LUFS",
         "grade": grade, "filter_complex": fc, "render_s": round(time.time() - t0, 1)}
     (RUN / "production" / "EDL.json").write_text(json.dumps(edl, ensure_ascii=False, indent=1), encoding="utf-8")

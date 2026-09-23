@@ -1,0 +1,58 @@
+{
+ "fps": 24,
+ "size": "1080x1920",
+ "segments": [
+  {
+   "t": [
+    0,
+    2.5
+   ],
+   "src": "L1(bench_steps24)",
+   "kind": "local",
+   "note": "Wan I2V take, face crop 405x720, slowed x3.70 + push-in; hook"
+  },
+  {
+   "t": [
+    2.5,
+    7.5
+   ],
+   "src": "S1",
+   "kind": "cloud",
+   "in": [
+    0,
+    5.0
+   ],
+   "join": "fadewhite 0.12 s on beat"
+  },
+  {
+   "t": [
+    7.5,
+    12.5
+   ],
+   "src": "S2",
+   "kind": "cloud",
+   "in": [
+    0,
+    5.0
+   ],
+   "join": "fadewhite 0.16 s + whoosh on beat"
+  },
+  {
+   "t": [
+    12.34,
+    15.0
+   ],
+   "src": "S2 last frame",
+   "kind": "compositor",
+   "note": "owner stop: local L2 render cancelled after 34 min; zoompan push-in on the S2 last frame (not generated)"
+  }
+ ],
+ "overlay": {
+  "end_card": "C:\\Users\\asd\\Bossman\\creative-runs\\SWAPME-HYBRID-20260923\\work\\end_card.png",
+  "from": 12.55
+ },
+ "audio": "procedural 120 BPM + Seedance ambience; loudnorm -14 LUFS",
+ "grade": "eq=contrast=1.04:saturation=1.06:gamma=0.98,vignette=PI/5",
+ "filter_complex": "[1:v]crop=405:720:40:0,setpts=3.7006*PTS,minterpolate=fps=24:mi_mode=mci:mc_mode=aobmc:vsbmc=1,scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920,setsar=1,fps=24,zoompan=z='min(zoom+0.0009,1.12)':d=1:x='iw/2-(iw/zoom/2)':y='ih/3-(ih/zoom/3)':s=1080x1920:fps=24,trim=0:2.62,setpts=PTS-STARTPTS,unsharp=5:5:0.6,eq=contrast=1.04:saturation=1.06:gamma=0.98,vignette=PI/5,format=yuv420p[l1];[0:v]scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920,setsar=1,fps=24,trim=0:5,setpts=PTS-STARTPTS,eq=contrast=1.04:saturation=1.06:gamma=0.98,vignette=PI/5,format=yuv420p[s1];[2:v]scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920,setsar=1,fps=24,trim=0:5,setpts=PTS-STARTPTS,eq=contrast=1.04:saturation=1.06:gamma=0.98,vignette=PI/5,format=yuv420p[s2];[3:v]scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920,setsar=1,zoompan=z='min(zoom+0.0011,1.14)':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1920:fps=24,trim=0:2.66,setpts=PTS-STARTPTS,eq=contrast=1.04:saturation=1.06:gamma=0.98,vignette=PI/5,format=yuv420p[l2];[l1][s1]xfade=transition=fadewhite:duration=0.12:offset=2.5[a];[a][s2]xfade=transition=fadewhite:duration=0.16:offset=7.34[b];[b][l2]concat=n=2:v=1:a=0[c];[4:v]format=rgba,fade=t=in:st=12.55:d=0.45:alpha=1[card];[c][card]overlay=0:0:enable='gte(t,12.55)',trim=0:15,setpts=PTS-STARTPTS[v]",
+ "render_s": 11.9
+}

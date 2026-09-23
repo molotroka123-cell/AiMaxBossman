@@ -202,28 +202,6 @@
     "decode_ok": true
    }
   },
-  "L1": {
-   "id": 9,
-   "model": "sdcpp:wan2.2-ti2v-5b",
-   "prompt": "close-up of the confident anthropomorphic red fox in a black hoodie on a night Prague street, he looks into the camera, raises one eyebrow and gives a sly confident smirk, green neon reflections glide over his fur, slow camera push-in, premium 3D animated commercial, detailed fur, cinematic lighting, smooth motion",
-   "settings": {
-    "width": 640,
-    "height": 1152,
-    "frames": 65,
-    "fps": 24,
-    "steps": 24,
-    "cfg_scale": 5.0,
-    "seed": 2309
-   },
-   "media": [
-    {
-     "run_id": "f65d13dd113c4d5aa0a9ec934e370237",
-     "role": "start"
-    }
-   ],
-   "t0": 1790196752.055081,
-   "submitted": "2026-09-23T20:52:32+00:00"
-  },
   "L2": {
    "id": 11,
    "model": "sdcpp:wan2.2-ti2v-5b",
@@ -244,7 +222,35 @@
     }
    ],
    "t0": 1790197969.7767155,
-   "submitted": "2026-09-23T21:12:49+00:00"
+   "submitted": "2026-09-23T21:12:49+00:00",
+   "status": "cancelled",
+   "elapsed_s": 3005.4,
+   "error": ""
+  },
+  "L1": {
+   "id": 12,
+   "model": "sdcpp:wan2.2-ti2v-5b",
+   "prompt": "close-up of the confident anthropomorphic red fox in a black hoodie on a night Prague street, he looks into the camera, raises one eyebrow and gives a sly confident smirk, green neon reflections glide over his fur, slow camera push-in, premium 3D animated commercial, detailed fur, cinematic lighting, smooth motion",
+   "settings": {
+    "width": 640,
+    "height": 1152,
+    "frames": 33,
+    "fps": 24,
+    "steps": 16,
+    "cfg_scale": 5.0,
+    "seed": 2309
+   },
+   "media": [
+    {
+     "run_id": "f65d13dd113c4d5aa0a9ec934e370237",
+     "role": "start"
+    }
+   ],
+   "t0": 1790198931.9765923,
+   "submitted": "2026-09-23T21:28:13+00:00",
+   "status": "cancelled",
+   "elapsed_s": 2043.2,
+   "error": ""
   }
  },
  "board": {
@@ -279,6 +285,23 @@
    "t0": 1790196752.094571,
    "submitted": "2026-09-23T20:52:32+00:00",
    "reason": "owner 25-min deadline: 65-frame L2 would not finish; replaced by 33-frame preset"
+  },
+  "L1_65f": {
+   "id": 9,
+   "model": "sdcpp:wan2.2-ti2v-5b",
+   "prompt": "close-up of the confident anthropomorphic red fox in a black hoodie on a night Prague street, he looks into the camera, raises one eyebrow and gives a sly confident smirk, green neon reflections glide over his fur, slow camera push-in, premium 3D animated commercial, detailed fur, cinematic lighting, smooth motion",
+   "settings": {
+    "width": 640,
+    "height": 1152,
+    "frames": 65,
+    "fps": 24,
+    "steps": 24,
+    "cfg_scale": 5.0,
+    "seed": 2309
+   },
+   "t0": 1790196752.055081,
+   "submitted": "2026-09-23T20:52:32+00:00",
+   "reason": "product deadline estimate 10640 s for 65f x 24 steps at 640x1152; owner time limit -> 33f/16 steps"
   }
  }
 }
