@@ -8,6 +8,7 @@ cannot prove: that a real local model picks good edits — that is the owner-run
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
@@ -237,6 +238,40 @@ def test_timeout_kills_the_grandchild_too(tmp_path):
             break
         time.sleep(0.1)
     assert not _alive(grandchild), "grandchild survived the timeout (orphan)"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX sessions; on Windows the nested Job Object covers this")
+def test_kill_reaches_a_descendant_that_started_its_own_session(tmp_path):
+    """The owner's STOP kills the sidecar's tree while its test runner is going:
+    that runner was started by the sidecar's own run_tree, i.e. in a NEW session,
+    so killpg of the sidecar's group does not reach it. Negative control in the
+    same test: before kill() the grandchild is alive (the fixture really runs)."""
+    from bossman.apprentice.proc_tree import ProcessTree
+    pidfile = tmp_path / "escaped.pid"
+    code = textwrap.dedent(f"""
+        import subprocess, sys, time, pathlib
+        p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"], start_new_session=True)
+        pathlib.Path({str(pidfile)!r}).write_text(str(p.pid))
+        time.sleep(120)
+        """)
+    tree = ProcessTree([sys.executable, "-c", code], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        for _ in range(100):
+            if pidfile.is_file() and pidfile.read_text().strip():
+                break
+            time.sleep(0.05)
+        grandchild = int(pidfile.read_text())
+        assert _alive(grandchild)
+        tree.kill()
+        for _ in range(50):
+            if not _alive(grandchild):
+                break
+            time.sleep(0.1)
+        assert not _alive(grandchild), "a descendant in its own session survived kill() (orphan)"
+    finally:
+        tree.close()
+        with contextlib.suppress(Exception):
+            os.kill(int(pidfile.read_text()), 9)
 
 
 def test_a_normally_finished_child_does_not_leave_its_grandchild_running(tmp_path):
