@@ -190,6 +190,57 @@ def test_the_test_guard_refuses_reading_owner_files_outside_the_workspace(repo, 
     assert res["passed"] is True, res["output_tail"]
 
 
+# The Windows archive runs an *embeddable* Python: its ._pth file makes the
+# interpreter ignore PYTHONPATH and keep the current directory off sys.path.
+# `python -I` reproduces exactly that on any OS (isolated: -E -P -s). Found by
+# the installed-archive coding path on Windows CI (owner-experience, f25d6fd4):
+# `ModuleNotFoundError: No module named 'test_calc'` for the student AND for
+# Bossman's independent verification — and, worse, the guard (sitecustomize
+# via PYTHONPATH) was never loaded there.
+EMBEDDED_LIKE = [sys.executable, "-I"]
+
+
+@pytest.mark.parametrize("runner", ["unittest", "pytest"])
+def test_workspace_tests_import_under_an_embedded_like_interpreter(repo, tmp_path, monkeypatch, runner):
+    if runner == "pytest" and not ls._pytest_available():
+        pytest.skip("pytest not installed in this runtime")
+    monkeypatch.setattr(ls, "_interpreter", lambda: list(EMBEDDED_LIKE))
+    (repo / "test_inside.py").write_text(textwrap.dedent("""
+        import unittest
+        import calc
+        class T(unittest.TestCase):
+            def test_inside(self):
+                self.assertTrue(hasattr(calc, "add"))
+        """), encoding="utf-8")
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    res = ls.tool_run_tests(ls.Workspace(repo, ["."], []), {"paths": ["test_inside.py"], "runner": runner},
+                            scratch=scratch, deadline=time.monotonic() + 60, test_timeout=60)
+    assert res["passed"] is True, res["output_tail"]
+
+
+@pytest.mark.parametrize("runner", ["unittest", "pytest"])
+def test_the_guard_is_active_under_an_embedded_like_interpreter(repo, tmp_path, monkeypatch, runner):
+    if runner == "pytest" and not ls._pytest_available():
+        pytest.skip("pytest not installed in this runtime")
+    monkeypatch.setattr(ls, "_interpreter", lambda: list(EMBEDDED_LIKE))
+    owner_doc = tmp_path / "Documents" / "passport.txt"
+    owner_doc.parent.mkdir()
+    owner_doc.write_text("PERSONAL", encoding="utf-8")
+    (repo / "test_peek.py").write_text(textwrap.dedent(f"""
+        import unittest
+        class T(unittest.TestCase):
+            def test_peek(self):
+                with open({str(owner_doc)!r}) as f:
+                    self.assertEqual(f.read(), "PERSONAL")
+        """), encoding="utf-8")
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    res = ls.tool_run_tests(ls.Workspace(repo, ["."], []), {"paths": ["test_peek.py"], "runner": runner},
+                            scratch=scratch, deadline=time.monotonic() + 60, test_timeout=60)
+    assert res["passed"] is False and "sidecar guard" in res["output_tail"], res["output_tail"]
+
+
 def test_the_test_process_does_not_inherit_owner_secrets(repo, tmp_path, monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-should-not-leak")
     (repo / "test_env.py").write_text(textwrap.dedent("""

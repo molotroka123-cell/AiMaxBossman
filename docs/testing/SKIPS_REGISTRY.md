@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 285. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 287. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -176,6 +176,8 @@
 | `command-center/tests/test_windows_secret_acl.py:70` | skipif | `sys.platform == "win32"` | POSIX-контракт (0600, без icacls); на Windows icacls вызывается по замыслу | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_windows_terminal_quoting.py:13` | skipif | `os.name != "nt"` | requires native Windows cmd.exe | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_local_sidecar.py:164` | skip | `—` | pytest not installed in this runtime | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/apprentice/test_local_sidecar.py:206` | skip | `—` | pytest not installed in this runtime | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/apprentice/test_local_sidecar.py:225` | skip | `—` | pytest not installed in this runtime | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_evidence_independence.py:132` | skip | `—` | symlink creation needs privileges on Windows | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_evidence_independence.py:141` | skip | `—` | symlink creation needs privileges on Windows | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_live_sdk.py:61` | skipif | `SDK_PYTHON is None` | openhands-sdk runtime not installed (set BOSSMAN_OPENHANDS_PYTHON) | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
