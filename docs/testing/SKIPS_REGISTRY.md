@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 299. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 305. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -19,6 +19,8 @@
 | `command-center/tests/test_code_intel_and_scorecard.py:381` | skip | `—` | symlink resolution differs on this host | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_code_intel_and_scorecard.py:277` | skip | `—` | f"symlink not supported on this host: {exc}" | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_code_intel_and_scorecard.py:379` | skip | `—` | f"symlink not supported on this host: {exc}" | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_coding_apply.py:33` | importorskip | `—` | bossman-core runtime not installed | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_coding_apply.py:366` | importorskip | `—` | нет пакета rich | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_coding_path_owner_tool.py:13` | importorskip | `—` | bossman-core runtime not installed | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_coding_recipes.py:22` | skipif | `not available()` | bossman-shared without learning.lifecycle | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_coding_tasks.py:25` | importorskip | `—` | bossman-core runtime not installed next to Command Center | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -27,10 +29,12 @@
 | `command-center/tests/test_computer_stop_race.py:26` | importorskip | `—` | нет пакета bossman.computer_operator.models | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_computer_use_tools.py:21` | importorskip | `—` | нет пакета bossman.computer_operator.models | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_continuity_desktop_ui.py:8` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_contract_keeps_agent_tools.py:32` | importorskip | `—` | нет пакета bossman.computer_operator.models | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_desktop_dock_overlap.py:27` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_desktop_edge_relaunch.py:165` | skipif | `os.name != "nt"` | lockfile Chromium на Windows | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_desktop_edge_relaunch.py:178` | skipif | `os.name != "nt"` | lockfile Chromium на Windows | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_double_submit_real_buttons.py:24` | skipif | `not chromium_available() and not required()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_download_false_success.py:156` | skipif | `not chromium_available()` | reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_fable_hard_cap.py:24` | skipif | `not fable_cap.LEDGER_AVAILABLE` | f"общий журнал потолка недоступен: {fable_cap.LEDGER_PROBLEM}" | Command Center | необязательный пакет / соседний компонент | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_fable_video_chaos.py:38` | skipif | `not shutil.which("ffmpeg")` | local FFmpeg unavailable | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_feat_browser.py:44` | skipif | `not _has_chromium()` | Chromium не предустановлен | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -102,7 +106,9 @@
 | `command-center/tests/test_studio_sdcpp_hostile.py:421` | skip | `—` | symlink not permitted | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_sdcpp_hostile.py:436` | skip | `—` | symlink not permitted | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_sdcpp_provider.py:48` | skipif | `shutil.which("ffmpeg") is None` | ffmpeg required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_studio_vision_review.py:11` | skipif | `not FFMPEG` | bundled FFmpeg not on PATH | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_telegram_settings_ui.py:17` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_terminal_chat_claude_parity.py:19` | importorskip | `—` | rich is a runtime dependency of the terminal client | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_terminal_cli_e2e.py:22` | importorskip | `—` | bossman-core (scripted test model) not installed | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_terminal_cli_e2e.py:24` | importorskip | `—` | rich is a runtime dependency of the terminal client | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_terminal_cli_unit.py:10` | importorskip | `—` | rich is a runtime dependency of the terminal client | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
