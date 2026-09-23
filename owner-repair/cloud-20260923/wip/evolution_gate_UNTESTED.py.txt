@@ -1,0 +1,383 @@
+"""Mandatory deterministic gates of the evolution loop, and the rule that names them.
+
+``run_mock_gate`` drives the REAL product path end to end with the DETERMINISTIC
+TEST MODEL: the installed Command Center (child process), the local coding
+sidecar with real tools, the scripted student (gate_fixture), the evolution loop
+as a child process that is HARD-KILLED once and resumed. It proves plumbing:
+
+  (a) BAD PATCH: the student weakens a test -> the RESULT_VERIFIER rejects it
+      (INVALID_TEST / UNSAFE / FAIL), no candidate ref, stable byte-identical,
+      evidence sealed, the loop goes on to the next task;
+  (b) THREE CYCLES: FIND -> FIX -> TEST -> VERIFY -> LEARN -> CHECKPOINT -> CONTINUE
+      three times without manual recovery; one cycle survives a hard kill + resume,
+      one rejects a bad patch, one uses a lesson learned in cycle 1 (recalled by the
+      product memory and its required check executed by the sidecar).
+
+A mock run can NEVER print AUTONOMOUS_SELF_IMPROVEMENT_READY: ``gate_verdict``
+returns THREE_CYCLE_GATE_PLUMBING_PASS (MOCK_MODEL) at best. Only
+``evaluate_campaign`` over a REAL_MODEL campaign on confirmed owner hardware may
+return it, and only with every criterion met by that campaign's own evidence.
+"""
+from __future__ import annotations
+
+import contextlib
+import hashlib
+import json
+import os
+from pathlib import Path
+import platform
+import shlex
+import socket
+import subprocess
+import sys
+import time
+
+from bossman.apprentice.proc_tree import ProcessTree
+
+from . import gate_fixture as fx
+from . import loop as L
+from . import verifier as v
+from .attempts import CommandCenterApi, ApiError
+
+READY = "AUTONOMOUS_SELF_IMPROVEMENT_READY"
+MOCK_PASS = "THREE_CYCLE_GATE_PLUMBING_PASS (MOCK_MODEL)"
+FAIL = "THREE_CYCLE_GATE_FAIL"
+REJECTING_VERDICTS = ("INVALID_TEST", "UNSAFE", "FAIL")
+
+
+# ---------------------------------------------------------------- the naming rule
+def owner_hardware(flag: bool) -> dict:
+    """What can honestly be said about the machine. The flag is the owner's statement;
+    it is confirmed only on Windows with a large-memory box (the Ryzen AI Max+ 395 / 128 GB)."""
+    ram_gb = None
+    with contextlib.suppress(Exception):
+        import psutil  # noqa: PLC0415
+        ram_gb = round(psutil.virtual_memory().total / 1024 ** 3, 1)
+    system = platform.system()
+    confirmed = bool(flag) and system == "Windows" and (ram_gb or 0) >= 64
+    return {"flag": bool(flag), "system": system, "processor": platform.processor(), "ram_gb": ram_gb,
+            "confirmed": confirmed, "note": "the owner's --owner-hardware statement plus OS/RAM facts; "
+                                            "not a cryptographic attestation"}
+
+
+def gate_verdict(report: dict) -> str:
+    checks = report.get("checks") or {}
+    if not checks or not all(value is True for value in checks.values()):
+        return FAIL
+    kinds = set(report.get("model_kinds") or [])
+    if kinds != {"REAL_MODEL"}:
+        return MOCK_PASS if "MOCK_MODEL" in kinds else "THREE_CYCLE_GATE_PLUMBING_PASS (MODEL_UNVERIFIED)"
+    if not (report.get("owner_hardware") or {}).get("confirmed"):
+        return "SELF_REPAIR_3_CYCLE_PASS (REAL_MODEL, owner hardware not confirmed)"
+    return READY
+
+
+def evaluate_campaign(work: Path, *, hardware: dict | None = None) -> dict:
+    """The three-cycle criteria over a campaign's OWN checkpoint (a real owner run or the mock gate)."""
+    state = L._read_json(Path(work) / L.STATE_FILE) or {}
+    closed = [c for c in state.get("cycles") or [] if c.get("status") == L.CLOSED and c.get("task_id")]
+    report: dict = {"campaign": str(work), "cycles_closed": len(closed), "checks": {}, "window": None}
+    manual = {c["id"] for c in closed if c.get("redo")}
+    recovered = {n.get("cycle") for n in state.get("recoveries") or [] if n.get("outcome") == "RESUMED"}
+    best = None
+    for start in range(max(0, len(closed) - 2)):
+        window = closed[start:start + 3]
+        ids = [c["id"] for c in window]
+        rejected = [c for c in window if c.get("outcome", "").startswith("REJECTED_")
+                    and (c.get("verdict") or {}).get("verdict") in REJECTING_VERDICTS]
+        accepted = [c for c in window if c.get("outcome") == "ACCEPTED"]
+        lessons = {((c.get("lesson") or {}).get("product_recipe") or {}).get("recipe_id")
+                   for c in closed[:start + 3] if c.get("outcome") == "ACCEPTED"}
+        lessons.discard(None)
+        remembered = [c for c in accepted if lessons & set(((c.get("attempt") or {}).get("memory") or {}).get("recipe_ids") or [])
+                      and lessons & set(((c.get("attempt") or {}).get("sidecar") or {}).get("recipes_applied") or [])]
+        checks = {
+            "three_consecutive_closed_cycles": len(window) == 3,
+            "no_manual_recovery": not (set(ids) & manual) and not any(
+                (x.get("forced") for x in state.get("lease_recoveries") or [])),
+            "one_rejected_bad_patch": bool(rejected),
+            "one_hard_kill_resumed": bool(set(ids) & recovered) and bool(state.get("lease_recoveries")),
+            "one_useful_memory_retrieval": bool(remembered),
+            "accepted_cycles_verified": bool(accepted) and all(
+                (c.get("verdict") or {}).get("verdict") == "PASS" for c in accepted),
+            "every_cycle_evidence_sealed": all(c.get("evidence_manifest_sha256") for c in window),
+            "no_unknown_outcome": not any(c.get("outcome") == "UNKNOWN_OUTCOME" for c in window),
+        }
+        kinds = sorted({(c.get("attempt") or {}).get("model_kind") or "UNKNOWN" for c in window})
+        if kinds == ["REAL_MODEL"]:
+            checks["accepted_cycles_count_as_student_success"] = all(
+                (c.get("verdict") or {}).get("counts_as_student_success") for c in accepted)
+        score = sum(checks.values())
+        if best is None or score > best[0]:
+            best = (score, ids, checks, kinds, window)
+    if best is None:
+        report["checks"] = {"three_consecutive_closed_cycles": False}
+        report["model_kinds"] = []
+    else:
+        _score, ids, checks, kinds, window = best
+        report.update(window=ids, checks=checks, model_kinds=kinds,
+                      cycles=[{"index": c.get("index"), "task": c.get("task_id"), "outcome": c.get("outcome"),
+                               "verdict": (c.get("verdict") or {}).get("verdict"),
+                               "model_kind": (c.get("attempt") or {}).get("model_kind"),
+                               "memory_recipe_ids": ((c.get("attempt") or {}).get("memory") or {}).get("recipe_ids"),
+                               "recipes_applied": ((c.get("attempt") or {}).get("sidecar") or {}).get("recipes_applied"),
+                               "phase_runs": {p: (c.get("phases") or {}).get(p, {}).get("runs") for p in L.PHASES}}
+                              for c in window])
+    report["owner_hardware"] = hardware or owner_hardware(False)
+    report["verdict"] = gate_verdict(report)
+    return report
+
+
+# ---------------------------------------------------------------- process plumbing
+def package_roots() -> list[str]:
+    """The folders holding the packages THIS process runs (checkout or installed runtime)."""
+    roots: list[str] = []
+    for name in ("bossman", "bossman_v3", "bcc", "learning", "bossman_shared"):
+        with contextlib.suppress(ImportError):
+            module = __import__(name)
+            root = str(Path(module.__file__).resolve().parents[1])
+            if root not in roots:
+                roots.append(root)
+    return roots
+
+
+def write_boot(folder: Path, name: str, module: str, roots: list[str]) -> Path:
+    """A small launcher that runs ``module`` from exactly these package roots, so the
+    children run the same code as the gate (no PYTHONPATH, works under ``-I`` and the
+    embeddable runtime)."""
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{name}.py"
+    path.write_text("import runpy, sys\n"
+                    f"sys.path[:0] = {json.dumps(roots)}\n"
+                    f"sys.argv = [{module!r}] + sys.argv[1:]\n"
+                    f"runpy.run_module({module!r}, run_name='__main__', alter_sys=True)\n", encoding="utf-8")
+    return path
+
+
+def command_line(parts: list[str]) -> str:
+    if os.name == "nt":
+        return " ".join(f'"{p}"' if " " in p else p for p in parts)
+    return " ".join(shlex.quote(p) for p in parts)
+
+
+def free_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def _wait(predicate, seconds: float, step: float = 0.2):
+    for _ in range(int(seconds / step) + 1):
+        value = predicate()
+        if value:
+            return value
+        time.sleep(step)
+    return None
+
+
+def stable_fingerprint(repo: Path, home: Path) -> str:
+    """HEAD, every ref, the index/worktree status and every tracked file's bytes."""
+    digest = hashlib.sha256()
+    for args in (("rev-parse", "HEAD"), ("for-each-ref",), ("status", "--porcelain", "--untracked-files=all")):
+        digest.update(v.git(repo, *args, home=home)[1].encode("utf-8"))
+    for name in sorted(v.git(repo, "ls-files", home=home)[1].splitlines()):
+        digest.update(name.encode("utf-8") + b"\0" + (repo / name).read_bytes())
+    return digest.hexdigest()
+
+
+def leftover_processes(marker: str) -> list[dict]:
+    try:
+        import psutil  # noqa: PLC0415
+    except ImportError:
+        return [{"note": "psutil unavailable: leftovers not measured"}]
+    found = []
+    for proc in psutil.process_iter(["pid", "cmdline"]):
+        with contextlib.suppress(psutil.Error):
+            if proc.pid != os.getpid() and marker in " ".join(proc.info.get("cmdline") or []):
+                found.append({"pid": proc.pid, "cmdline": " ".join(proc.info["cmdline"])[:200]})
+    return found
+
+
+class _Children:
+    def __init__(self):
+        self.trees: list[ProcessTree] = []
+        self.logs: list = []
+
+    def start(self, argv: list[str], log: Path, env: dict) -> ProcessTree:
+        fh = log.open("wb")
+        self.logs.append(fh)
+        tree = ProcessTree(argv, stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT, env=env)
+        self.trees.append(tree)
+        return tree
+
+    def close(self) -> None:
+        for tree in reversed(self.trees):
+            with contextlib.suppress(Exception):
+                tree.close()
+        for fh in self.logs:
+            with contextlib.suppress(Exception):
+                fh.close()
+
+
+def _clean_env(**extra: str) -> dict:
+    env = {k: val for k, val in os.environ.items()
+           if not k.startswith(("PYTHON", "BCC_", "BOSSMAN_")) and k not in ("DATABASE_URL",)}
+    env.update(extra)
+    return env
+
+
+# ---------------------------------------------------------------- the mock gate
+def run_mock_gate(out: Path, *, attempt_minutes: float = 5.0, timeout_s: float = 900.0,
+                  python: str | None = None) -> dict:
+    out = Path(out).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    python = python or sys.executable
+    report: dict = {"schema": "bossman.evolution.gate/1", "kind": "THREE_CYCLE+BAD_PATCH",
+                    "model_kinds": ["MOCK_MODEL"], "model_note": "DETERMINISTIC TEST MODEL: plumbing, not skill",
+                    "started_at": L.now_iso(), "python": python, "platform": platform.platform(),
+                    "checks": {}, "gates": {}, "manual_recovery": False, "folder": str(out)}
+    children = _Children()
+    home = out / ".git-home"
+    deadline = time.monotonic() + timeout_s
+    try:
+        roots = package_roots()
+        boots = out / "boot"
+        repo = out / "repos" / "stable"
+        fx.make_repo(repo)
+        before = stable_fingerprint(repo, home)
+        script = out / "student-script.json"
+        script.write_text(json.dumps(fx.student_script(), ensure_ascii=False), encoding="utf-8")
+
+        port_file = out / "model.port"
+        children.start([python, "-I", str(write_boot(boots, "model", "bossman.apprentice.scripted_model", roots)),
+                        "--script", str(script), "--port-file", str(port_file)], out / "model.log", _clean_env())
+        if not _wait(port_file.exists, 60):
+            raise RuntimeError("deterministic test model did not start")
+        model_url = f"http://127.0.0.1:{port_file.read_text().strip()}"
+        model_id = f"{fx.MOCK_MARKER if hasattr(fx, 'MOCK_MARKER') else 'DETERMINISTIC-TEST-MODEL'}-{fx.MODEL_NAME}"
+        sidecar = command_line([python, "-I", str(write_boot(boots, "sidecar", "bossman.apprentice.local_sidecar", roots)),
+                                "--endpoint", model_url, "--model", model_id])
+
+        data = out / "command-center-data"
+        data.mkdir(exist_ok=True)
+        port = free_port()
+        api_url = f"http://127.0.0.1:{port}"
+        children.start([python, "-I", str(write_boot(boots, "server", "bcc.app", roots)), "--host", "127.0.0.1",
+                        "--port", str(port)], out / "server.log",
+                       _clean_env(BCC_DATA_DIR=str(data), BOSSMAN_OPENHANDS_COMMAND=sidecar))
+
+        def alive():
+            with contextlib.suppress(Exception):
+                import urllib.request  # noqa: PLC0415
+                opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+                with opener.open(api_url + "/health/live", timeout=2) as resp:
+                    return json.loads(resp.read()).get("alive") is True
+            return False
+        if not _wait(alive, 90, 0.3):
+            raise RuntimeError("Command Center did not start; see server.log")
+        token = (data / "token").read_text(encoding="utf-8").strip()
+        api = CommandCenterApi(api_url, token)
+
+        work = out / "campaign"
+        loop_boot = write_boot(boots, "loop", "bossman_v3.self_improvement.loop", roots)
+        base_args = ["loop", "--work", str(work)]
+        first_args = base_args + ["--repo", str(repo), "--suite", str(repo / "evolution-suite.json"),
+                                  "--backend", "bossman_coding", "--api-url", api_url, "--project-id", "evolution-gate",
+                                  "--max-cycles", "3", "--attempt-minutes", str(attempt_minutes), "--poll-seconds", "0.5",
+                                  "--allow-mock-lessons", "--add-root", "--test-timeout", "300"]
+        loop_env = _clean_env(BCC_TOKEN=token)
+        first = children.start([python, "-I", str(loop_boot), *first_args], out / "loop-1.log",
+                               {**loop_env, L.HOLD_ENV: "2:LEARN_WRITTEN"})
+        held = _wait(lambda: (work / L.HOLD_MARKER).exists() or first.proc.poll() is not None,
+                     max(10.0, deadline - time.monotonic()), 0.2)
+        if not held or not (work / L.HOLD_MARKER).exists():
+            raise RuntimeError("loop never reached the kill point (cycle 2, inside LEARN); see loop-1.log")
+        killed_pid = first.pid
+        first.kill()                                     # hard kill of the whole loop tree
+        report["kill"] = {"pid": killed_pid, "at": L.now_iso(), "point": "cycle 2, LEARN after the lesson write",
+                          "lease_left_behind": (work / L.LEASE_FILE).exists(),
+                          "pid_alive_after_kill": L.process_alive({"pid": killed_pid})}
+        (work / L.HOLD_MARKER).unlink(missing_ok=True)
+        second = children.start([python, "-I", str(loop_boot), *base_args], out / "loop-2.log", loop_env)
+        if _wait(lambda: second.proc.poll() is not None, max(10.0, deadline - time.monotonic()), 0.5) is None:
+            L.request_stop(work, "gate", "gate timeout")
+            _wait(lambda: second.proc.poll() is not None, 120, 0.5)
+            raise RuntimeError("resumed loop did not finish within the gate timeout; see loop-2.log")
+        report["resumed_exit_code"] = second.proc.returncode
+
+        state = L._read_json(work / L.STATE_FILE) or {}
+        campaign = evaluate_campaign(work, hardware=owner_hardware(False))
+        report["campaign"] = campaign
+        cycles = [c for c in state.get("cycles") or [] if c.get("status") == L.CLOSED]
+        code, listing = api.get("/api/coding-tasks")
+        tasks = (listing or {}).get("items") or [] if code == 200 else []
+        refs = v.git(work / "candidates.git", "for-each-ref", "--format=%(refname)", "refs/heads/evo",
+                     home=home)[1].split()
+        fsck_code, _o, fsck_err = v.git(work / "candidates.git", "fsck", "--no-progress", home=home, check=False,
+                                        timeout=600)
+        after = stable_fingerprint(repo, home)
+        evidence = L.verify_cycles(work)
+        bad = cycles[1] if len(cycles) > 1 else {}
+        nxt = cycles[2] if len(cycles) > 2 else {}
+        report["gates"]["bad_patch"] = {
+            "verdict": (bad.get("verdict") or {}).get("verdict"), "reasons": (bad.get("verdict") or {}).get("reasons"),
+            "checks": {
+                "verifier_rejected": (bad.get("verdict") or {}).get("verdict") in REJECTING_VERDICTS,
+                "candidate_discarded": (bad.get("decision") or {}).get("decision") == "REJECT"
+                and not any(bad.get("id", "?") in ref for ref in refs),
+                "stable_byte_identical": before == after,
+                "evidence_sealed": bool(bad.get("evidence_manifest_sha256")),
+                "loop_went_on_to_the_next_task": bool(nxt.get("task_id")) and nxt.get("task_id") != bad.get("task_id"),
+            }}
+        report["checks"] = {
+            **{f"bad_patch.{k}": val for k, val in report["gates"]["bad_patch"]["checks"].items()},
+            **{f"three_cycle.{k}": val for k, val in campaign["checks"].items()},
+            "loop_finished_completed": state.get("status") == "COMPLETED",
+            "tasks_in_order": [c.get("task_id") for c in cycles] == ["money", "price", "weight"],
+            "outcomes": [c.get("outcome") for c in cycles] == ["ACCEPTED", "REJECTED_INVALID_TEST", "ACCEPTED"],
+            "attempt_not_replayed_after_kill": len(tasks) == 3,
+            "killed_phase_resumed_once": ((cycles[1]["phases"]["LEARN"].get("resumed_after_crash") == 1)
+                                          if len(cycles) > 1 else False),
+            "lesson_written_once": len(_campaign_lessons(work)) == 3,
+            "candidate_refs_only_for_accepted": sorted(refs) == sorted(
+                (c.get("decision") or {}).get("ref") for c in cycles if c.get("outcome") == "ACCEPTED"),
+            "candidate_repo_fsck_clean": fsck_code == 0,
+            "stable_byte_identical": before == after,
+            "evidence_manifests_intact": evidence.get("cycles_checked") == 3,
+            "all_cycles_mock_labelled": all((c.get("attempt") or {}).get("model_kind") == "MOCK_MODEL" for c in cycles),
+            "no_student_success_claimed": not any((c.get("verdict") or {}).get("counts_as_student_success")
+                                                  for c in cycles),
+        }
+        report["facts"] = {"cycles": campaign.get("cycles"), "candidate_refs": refs, "coding_tasks": len(tasks),
+                           "fsck": (fsck_err or "")[-300:], "stable_fingerprint": after,
+                           "lease_recoveries": state.get("lease_recoveries"), "recoveries": state.get("recoveries")}
+    except (RuntimeError, OSError, ValueError, ApiError, v.VerifierError) as exc:
+        report["error"] = f"{type(exc).__name__}: {v.redact_text(str(exc))[:800]}"
+        report["checks"]["gate_ran_to_completion"] = False
+    finally:
+        children.close()
+        leftovers = _wait(lambda: not leftover_processes(str(out)) or None, 20, 0.5)
+        report["leftover_processes"] = [] if leftovers else leftover_processes(str(out))
+        report["checks"]["no_leftover_processes"] = not report["leftover_processes"]
+    report["verdict"] = gate_verdict(report)
+    report["finished_at"] = L.now_iso()
+    L._write_json(out / "gate-report.json", report)
+    return report
+
+
+def _campaign_lessons(work: Path) -> list[dict]:
+    from .runner import LearningStore  # noqa: PLC0415
+    store = LearningStore(Path(work) / "learning")
+    return [c for c in store.verified() + store.failed() if str(c.get("task_id", "")).startswith("EVO-LOOP-")]
+
+
+def print_verdict(report: dict) -> None:
+    verdict = report["verdict"]
+    if verdict == READY and set(report.get("model_kinds") or []) != {"REAL_MODEL"}:  # belt and braces
+        verdict = MOCK_PASS
+    print(verdict)
+    if verdict == READY:
+        print("SELF_REPAIR_3_CYCLE_PASS")
+    elif "MOCK_MODEL" in verdict:
+        print("AUTONOMOUS_SELF_IMPROVEMENT_READY is NOT claimed: a MOCK_MODEL run proves plumbing only; "
+              "only a REAL_MODEL run on the owner's hardware may claim it.")
