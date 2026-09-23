@@ -1,7 +1,7 @@
 # CLOUD_PREPARE — чекпоинт облачного этапа 2026-09-23
 
 Ветка: `claude/bossman-cloud-closure-owner-a6s1ki` → PR #74 → `integrate/owner-final-20260922` (PR #73) → `release/bossman-owner`.
-Статус этапа: **IN_PROGRESS**. Компьютер владельца не запускался. OWNER_HARDWARE_CERTIFIED не заявляется.
+Статус этапа: **IN_PROGRESS — сведение 1.0+1.1+1.2 в одну ветку (см. CONVERGENCE_1_1.md)**. Компьютер владельца не запускался. OWNER_HARDWARE_CERTIFIED не заявляется.
 
 ## Решение владельца 2026-09-23: эта линия — рабочая 1.0
 Новые коммиты в `release/bossman-owner` — работа Aster над **1.1**; она переезжает в отдельную ветку.
@@ -9,6 +9,25 @@
 TOMORROW_* runbook, `docs/JEV_*.md`), кода 1.1 в линии нет. Не влит: `df30cf26` (weekly P0 upstream candidates, 1.1).
 Jev готовится по отдельной команде владельца, но только выключенным по умолчанию (shadow) — поведение 1.0 не меняет.
 Целевая ветка для слияния 1.0 после переезда 1.1 — подтверждает владелец (PR #74 → integrate/owner-final → PR #73).
+
+## Ночь 2026-09-23: сведено в ветку (все коммиты запушены)
+| Что | Коммит | Проверено |
+|---|---|---|
+| release/bossman-owner (North Star 1.1, директива 1.2 Terminal) | f5258d60, ccde8573 | конфликты README/CLAUDE_NEXT_ACTION решены без потерь |
+| codex/bossman-v1.1-evolution (Aster: турнир, ревью, holdout, бюджеты) | b8dacfda | 120 тестов v1.1 зелёные на сведённом дереве |
+| Jev (shadow, выключен по умолчанию) + раннер в ZIP | 647d9a47…fbd5444d, 17e68786 | 71 + 10 тестов |
+| **P0 Windows:** coding path из архива падал (embeddable Python игнорирует PYTHONPATH/cwd); guard ученика не загружался | 74b66f46 | воспроизведено `python -I`, красное→зелёное; 133+47 тестов |
+| root-ci красный из-за зависимостей MVČR | 647f725b | чистое окружение root-ci: 31/31 owner_scenarios |
+| Цикл 1.1: RESULT_VERIFIER + ограниченный loop (STOP/PAUSE/RESUME, lease, бюджеты, UNKNOWN_OUTCOME без слепого повтора) | 3d9fb3d8, f55fd9a1 | 177 тестов (MOCK_MODEL — только связность) |
+| Лаборатория: промпты владельца RAW…USER_UX, CLAUDE_AUDITOR/RESULT_VERIFIER/UX_OBSERVER, учитель 0–5, UX-метрики, честное сравнение, tournament-report | 4a1c7f24…1450bd71 | 90+51 тестов |
+| subprocess без таймаута (6 мест) — дерево процессов убивается | 25f82654 | 20 новых тестов, красное→зелёное |
+| CI: core-runtime (ubuntu+windows) гоняет coding/evolution/lab/timeouts/MVČR | d383e574, 3f1a534f | — |
+
+## Не сделано к этому часу (честно)
+* 1.1: CLI `bossman_evolve.py loop/gate/soak`, `/api/evolution/*`, Telegram `/evolution_*`, EVOLUTION_LOOP.md; сквозной mock-gate (gate.py не запущен, не влит).
+* Лаборатория: три закреплённые модели из local-champions.json в model_profiles.json, TTFT/prefill/RAM в bake-off, навык community-evals.
+* 1.2 терминал: см. отчёт агента терминала (вливается, только если тесты зелёные).
+* Windows ZIP на финальном SHA и слияние #74 → #73 → release — после зелёного CI на этом SHA.
 
 ## Исправлено в линии 1.0 (воспроизведение → регрессия красная до фикса → зелёная)
 | Дефект | Коммит |
