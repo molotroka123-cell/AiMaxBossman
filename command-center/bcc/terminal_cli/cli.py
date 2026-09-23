@@ -270,6 +270,20 @@ def build_parser() -> argparse.ArgumentParser:
     ev2.add_argument("--plain", action="store_true")
     _fmt(ev2)
 
+    rv = sub.add_parser("review", help="Bossman Vision: проверка видео Studio (review <run>, --run — проверить заново, --stats)")
+    _common(rv)
+    rv.add_argument("run_id", nargs="?")
+    rv.add_argument("--run", action="store_true", help="проверить сейчас (локальная vision-модель)")
+    rv.add_argument("--stats", action="store_true", help="насколько Vision совпадает с владельцем + правила")
+    _fmt(rv)
+
+    rt = sub.add_parser("rate", help="оценка владельца: rate <run> good|bad [\"что не так\"] — учит Bossman Vision")
+    _common(rt)
+    rt.add_argument("run_id")
+    rt.add_argument("verdict", choices=("good", "bad"))
+    rt.add_argument("reason", nargs="*")
+    _fmt(rt)
+
     sa = sub.add_parser("start", help="запустить Bossman (backend), если он не запущен")
     _common(sa)
     sa.add_argument("--port", type=int)
@@ -560,6 +574,65 @@ def cmd_result(args) -> int:
                 out.say("ошибка: " + rec["error"])
         return rec["exit_code"]
     return _simple(args, run, what="result")
+
+
+def cmd_review(args) -> int:
+    def run(client: Client, out: Out) -> int:
+        if args.stats:
+            data = client.get("/api/studio/review/stats")
+            rec = record("review_stats", ok=True, **data)
+            if out.machine:
+                out.json(rec)
+            else:
+                out.say(f"отзывов владельца: {data.get('owner_feedback')} · сравнимо: {data.get('compared')} · "
+                        f"совпало: {data.get('agreed')} · пропущен брак: {data.get('missed_garbage')} · "
+                        f"ложная тревога: {data.get('false_alarm')}")
+                for kind, title in (("bad", "брак"), ("good", "хорошо")):
+                    for r in (data.get("rules") or {}).get(kind) or []:
+                        out.say(f"  [{title}] {sanitize(r.get('text'))}  (run {r.get('id')})")
+            return EXIT_OK
+        if not args.run_id:
+            out.say("нужен run: bossman review <run_id> [--run] или bossman review --stats")
+            return EXIT_FAIL
+        path = f"/api/studio/runs/{args.run_id}/review"
+        data = client.post(path, timeout=600) if args.run else client.get(path)   # a local vision pass takes minutes
+        review, feedback = data.get("review") or {}, data.get("feedback") or {}
+        verdict = review.get("verdict") or "NOT_REVIEWED"
+        rec = record("review", ok=verdict in ("GOOD", "BAD"), run_id=args.run_id, verdict=verdict,
+                     score=review.get("score"), defects=review.get("defects") or [],
+                     summary=sanitize(review.get("summary") or review.get("reason") or ""),
+                     owner=feedback.get("verdict"), owner_reason=sanitize(feedback.get("reason") or ""),
+                     exit_code=EXIT_OK if verdict in ("GOOD", "BAD") else EXIT_FAIL)
+        if out.machine:
+            out.json(rec)
+        else:
+            out.say(f"run {args.run_id} · Bossman Vision: {verdict}"
+                    + (f" {rec['score']}/10" if rec["score"] else "") + (f" · {rec['summary']}" if rec["summary"] else ""))
+            for d in rec["defects"]:
+                out.say("  - " + sanitize(d))
+            if rec["owner"]:
+                out.say(f"владелец: {rec['owner']}" + (f" — {rec['owner_reason']}" if rec["owner_reason"] else ""))
+        return rec["exit_code"]
+    return _simple(args, run, what="review")
+
+
+def cmd_rate(args) -> int:
+    def run(client: Client, out: Out) -> int:
+        reason = " ".join(args.reason).strip()
+        data = client.post(f"/api/studio/runs/{args.run_id}/feedback", {"verdict": args.verdict, "reason": reason})
+        fb = data.get("feedback") or {}
+        rec = record("rate", ok=True, run_id=args.run_id, verdict=fb.get("verdict"), reason=sanitize(fb.get("reason") or ""),
+                     vision_verdict=fb.get("vision_verdict"), agreed_with_vision=fb.get("agreed_with_vision"),
+                     learned_rule=bool(fb.get("reason")))
+        if out.machine:
+            out.json(rec)
+        else:
+            out.say(f"записано: {rec['verdict']}" + (f" — правило «{rec['reason']}» теперь применяется к каждому новому видео"
+                                                     if rec["learned_rule"] else ""))
+            if rec["agreed_with_vision"] is False:
+                out.say(f"Bossman Vision думал иначе ({rec['vision_verdict']}) — это расхождение учтено в статистике")
+        return EXIT_OK
+    return _simple(args, run, what="rate")
 
 
 def cmd_events(args) -> int:

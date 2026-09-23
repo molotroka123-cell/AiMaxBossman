@@ -25,3 +25,9 @@ runs = sa.Table('studio_runs',metadata,
 )
 config = sa.Table('studio_config',metadata,sa.Column('key',sa.String(80),primary_key=True),sa.Column('value',sa.JSON,nullable=False))
 budget = sa.Table('studio_budget',metadata,sa.Column('day',sa.String(10),primary_key=True),sa.Column('committed_usd',sa.Float,nullable=False,default=0))
+# Bossman Vision verdict and the owner's feedback per run; evidence columns above stay immutable.
+reviews = sa.Table('studio_reviews',metadata,
+    sa.Column('run_id',sa.String(40),sa.ForeignKey('studio_runs.id'),primary_key=True),
+    sa.Column('review',sa.JSON),sa.Column('feedback',sa.JSON),
+    sa.Column('updated_at',sa.DateTime,default=utcnow),
+)

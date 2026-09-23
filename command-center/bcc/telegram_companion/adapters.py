@@ -431,6 +431,19 @@ class Core:
     async def studio_cancel(self, job_id: int) -> None:
         await self._request("POST", f"/api/studio/jobs/{int(job_id)}/cancel")
 
+    async def studio_review(self, run_id: str) -> dict:
+        if not isinstance(run_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", run_id):
+            raise CompanionError("STUDIO_RUN_UNKNOWN")
+        body = await self._request("GET", f"/api/studio/runs/{run_id}/review")
+        return body if isinstance(body, dict) else {}
+
+    async def studio_feedback(self, run_id: str, verdict: str, reason: str = "") -> dict:
+        if not isinstance(run_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", run_id) or verdict not in {"good", "bad"}:
+            raise CompanionError("STUDIO_RUN_UNKNOWN")
+        body = await self._request("POST", f"/api/studio/runs/{run_id}/feedback",
+                                   {"verdict": verdict, "reason": reason[:500]})
+        return body if isinstance(body, dict) else {}
+
     async def studio_runs(self, job_id: int, surface: str = "image") -> list:
         body = await json_request(self.client, "GET", self.settings.core_url + "/api/studio/runs",
                                   params={"job_id": int(job_id), "surface": surface},

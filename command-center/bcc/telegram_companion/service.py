@@ -220,6 +220,7 @@ class Companion(AgentBridgeMixin, ConsoleMixin):
         self.image_poll_seconds = 2.0
         # Button tokens live only in memory: after a restart every old button is stale.
         self.buttons = {}
+        self.vision_tasks: set = set()
         self.profile_building = False
         self.monitor_state = None
         self.monitor_failures = 0
@@ -525,7 +526,12 @@ class Companion(AgentBridgeMixin, ConsoleMixin):
                 repeat = "/img " + prompt
             again = [[self.button(person, "🔁 Ещё вариант", repeat[:2000])]]
             if video:
+                if person.role == "owner":
+                    again.append([self.button(person, "👍 Годно", f"/rate {run['id']} good"),
+                                  self.button(person, "👎 Брак", f"/rate {run['id']} bad")])
                 await self.telegram.send_video(person, data, caption, again)
+                self.vision_tasks.add(task := asyncio.create_task(self.vision_followup(person, run["id"])))
+                task.add_done_callback(self.vision_tasks.discard)
             else:
                 again[0].append(self.button(person, "🧩 Другая модель", "/imgmodel"))
                 again.append([self.button(person, "🎞 Оживить 5 с", f"/animate 5 run:{run['id']}"),
@@ -624,6 +630,12 @@ class Companion(AgentBridgeMixin, ConsoleMixin):
         text = message['text'].strip()
         if not text:
             return HELP
+        pending = self.store.get("rate_wait:" + person.key)
+        if pending and not text.startswith("/"):
+            # The message right after 👎 is the reason: it becomes the owner's rule for Bossman Vision.
+            self.store.put("rate_wait:" + person.key, None)
+            if isinstance(pending, dict) and time.time() < pending.get("until", 0):
+                return await self.rate(person, pending["run"], pending["verdict"], text)
         command, _, arg = text.partition(" ")
         command, arg = command.lower(), arg.strip()
         if command in {"/start", "/help", "/menu"}:
@@ -794,6 +806,12 @@ class Companion(AgentBridgeMixin, ConsoleMixin):
             if not arg:
                 return "Напишите /img и что нарисовать, например: /img кот-астронавт в стиле акварели."
             return await self.generate(person, arg)
+        if command == "/rate":
+            run_id, _, rest = arg.partition(" ")
+            verdict, _, reason = rest.strip().partition(" ")
+            if verdict not in {"good", "bad"}:
+                return "Оценка видео: /rate <run> good|bad [что не так]. Проще — кнопками 👍/👎 под видео."
+            return await self.rate(person, run_id, verdict, reason.strip())
         if command == "/cancel":
             job = self.image_job
             if job is None or job["who"] != person.key:
@@ -803,6 +821,48 @@ class Companion(AgentBridgeMixin, ConsoleMixin):
         if command.startswith("/"):
             return "Неизвестная команда. /help — доступные действия."
         return await self.converse(person, message, text, self.chat_route(person))
+
+    # ---------------------------------------------------------------- Bossman Vision
+    async def rate(self, person: Person, run_id: str, verdict: str, reason: str = "") -> str:
+        """Owner's verdict on a generated video; a reason teaches Bossman Vision."""
+        if person.role != "owner":
+            return "Оценки видео учат Bossman вкусу владельца, поэтому принимаются только от владельца."
+        await self.core.studio_feedback(run_id, verdict, reason)
+        if verdict == "bad" and not reason:
+            self.store.put("rate_wait:" + person.key, {"run": run_id, "verdict": "bad", "until": time.time() + 900})
+            return ("Записал 👎. Что именно не так? Ответь одним сообщением, например: «лиса без хвоста, морда плывёт». "
+                    "Это станет правилом: Bossman Vision будет браковать такое сам.")
+        if reason:
+            return (f"Запомнил правило: {'брак' if verdict == 'bad' else 'хорошо'} — «{reason[:200]}». "
+                    "Теперь Bossman Vision проверяет по нему каждое новое видео.")
+        return "Записал 👍. Если хочешь, чтобы Bossman запомнил, что именно хорошо: /rate " + run_id + " good <что хорошо>."
+
+    async def vision_followup(self, person: Person, run_id: str, wait_s: float = 900):
+        """Send Bossman Vision's verdict when the background review finishes; silence is not a verdict."""
+        deadline = time.monotonic() + wait_s
+        review = None
+        while time.monotonic() < deadline:
+            try:
+                review = (await self.core.studio_review(run_id)).get("review")
+            except CompanionError:
+                review = None
+            if review:
+                break
+            await asyncio.sleep(self.image_poll_seconds)
+        if not review:
+            text = "👁 Bossman Vision не успел проверить видео за 15 минут. Оцени сам: 👍/👎 под видео."
+        elif review.get("verdict") == "GOOD":
+            text = f"👁 Bossman Vision: ✅ годно {review.get('score') or '?'}/10. {review.get('summary') or ''}"
+        elif review.get("verdict") == "BAD":
+            defects = "; ".join(review.get("defects") or [])[:400]
+            text = f"👁 Bossman Vision: ❌ брак {review.get('score') or '?'}/10. {review.get('summary') or ''}" + (
+                f"\nДефекты: {defects}" if defects else "")
+        else:
+            text = f"👁 Bossman Vision: не смог проверить ({str(review.get('reason') or 'нет данных')[:200]}). Оцени сам: 👍/👎."
+        if review and review.get("owner_rules_applied"):
+            text += f"\nУчтено твоих правил: {len(review['owner_rules_applied'])}."
+        with contextlib.suppress(CompanionError):
+            await self.telegram.send(person, text.strip())
 
     # ---------------------------------------------------------------- persona & learning
     def context(self, person: Person) -> list:

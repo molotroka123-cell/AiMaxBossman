@@ -103,7 +103,7 @@ class Store:
         # The control lane has its own worker per person: STOP, pause and the
         # approval console stay answerable while the chat lane waits on a slow
         # local model or a running generation.
-        if command in {"/status", "/help", "/lock", "/watch", "/cloud", "/model", "/cancel", "/menu", "/start", "/photo",
+        if command in {"/status", "/help", "/rate", "/lock", "/watch", "/cloud", "/model", "/cancel", "/menu", "/start", "/photo",
                        "/privacy", "/forget", "/forget_confirm", "/pause_learning", "/resume_learning",
                        "/imgmodel", "/stop", "/pause", "/resume", "/queue", "/approvals", "/approve", "/reject",
                        "/screen", "/diag", "/lessons", "/bossman",
