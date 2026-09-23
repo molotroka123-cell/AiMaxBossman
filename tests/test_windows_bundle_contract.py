@@ -83,7 +83,8 @@ def test_a_launcher_only_starts_a_script_the_archive_actually_ships(name: str) -
     body = bundle.launcher_files()[name]
     shipped = {shipped_name for _, shipped_name in bundle.SUPPORT_SCRIPTS}
     referenced = set(re.findall(r"app-support\\([A-Za-z0-9_.-]+\.py)", body))
-    assert referenced or name == "Start-Bossman.cmd", (
+    # Terminal launchers (1.2) start the installed `bossman` entry point.
+    assert referenced or name == "Start-Bossman.cmd" or "-m bossman.cli" in body, (
         f"{name}: разбор не нашёл ни одного .py — проверка стала пустой")
     assert referenced <= shipped, f"{name} запускает то, чего нет в архиве: {referenced - shipped}"
 

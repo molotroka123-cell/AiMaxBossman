@@ -1,8 +1,7 @@
 """Windows launchers of the Bossman 1.2 terminal, for the one-download archive.
 
-Templates only: tools/build_windows_bundle.py does not import this module yet.
-To ship them, merge TERMINAL_LAUNCHERS into `launcher_files()` there (the
-builder writes them with CRLF line ends, like the other launchers).
+tools/build_windows_bundle.py merges TERMINAL_LAUNCHERS into `launcher_files()`
+(the builder writes them with CRLF line ends, like the other launchers).
 
 * Bossman-CLI.cmd       — opens `bossman chat` (the owner's conversation window)
 * Bossman-Terminal.cmd  — the same, under the name used in the owner's notes

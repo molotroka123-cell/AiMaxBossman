@@ -38,6 +38,9 @@ on:
       - 'release/**'
     paths:
       - 'tools/build_windows_bundle.py'
+      - 'tools/terminal_launchers.py'
+      - 'command-center/bcc/terminal_cli/**'
+      - 'bossman-core/bossman/cli.py'
       - 'tools/verify_windows_bundle.py'
       - 'tools/bundle_evening_test.py'
       - 'tools/build_local_bundle.py'
@@ -474,6 +477,25 @@ jobs:
           $present = @($plan | Select-String '^\s+(model_fetch\.py|model_profiles\.json|model_bakeoff\.py|mvcr_prepare\.py|self_improve_lab\.py)\s+есть').Count
           if ($present -ne 5) { Write-Host "::error::ожидалось 5 соседей Owner-Run со статусом «есть», найдено $present (кодировка вывода?)"; exit 1 }
           if (Test-Path "$env:RUNNER_TEMP\owner-run-plan") { Write-Host '::error::plan создал папку прогона — у него есть побочные эффекты'; exit 1 }
+      - name: Terminal 1.2 (bossman.cmd) from the archive
+        if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $cli = Join-Path $env:BOSSMAN_INSTALLED_HOME 'bossman.cmd'
+          if (-not (Test-Path (Join-Path $env:BOSSMAN_INSTALLED_HOME 'Bossman-CLI.cmd'))) { Write-Host '::error::Bossman-CLI.cmd отсутствует в архиве'; exit 1 }
+          $ver = & $cli version 2>$null
+          if ($LASTEXITCODE -ne 0 -or -not ($ver -match 'bossman-terminal')) { Write-Host "::error::bossman.cmd version: код $LASTEXITCODE, вывод $ver"; exit 1 }
+          # No backend on this port: the machine contract must answer DISCONNECTED (3)
+          # with JSON only on stdout — never a banner, ANSI or a fake PASS.
+          $out = & $cli --url http://127.0.0.1:9 status --json 2>$null
+          $code = $LASTEXITCODE
+          $out | Out-File -Encoding utf8 "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/terminal-status.jsonl"
+          if ($code -ne 3) { Write-Host "::error::status без backend: ожидался код 3 (DISCONNECTED), получен $code"; exit 1 }
+          foreach ($line in @($out)) {
+            if ($line -match [char]27) { Write-Host '::error::ANSI в машинном stdout'; exit 1 }
+            try { $null = $line | ConvertFrom-Json } catch { Write-Host "::error::не JSON в stdout: $line"; exit 1 }
+          }
+          Write-Host "BOSSMAN_TERMINAL_SMOKE=PASS ($ver; DISCONNECTED contract)"
       - name: Genuine free-model human task smoke
         if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
         env:

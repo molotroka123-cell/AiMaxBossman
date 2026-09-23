@@ -53,6 +53,9 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from terminal_launchers import TERMINAL_LAUNCHERS  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import windows_bundle_lock as lockmod  # noqa: E402
@@ -338,6 +341,10 @@ def launcher_files() -> dict[str, str]:
         "Coaching.cmd": COACHING_CMD,
         "Collect-Diagnostics.cmd": DIAGNOSTICS_CMD,
         "app-support/_env.cmd": ENV_CMD,
+        # Bossman 1.2 terminal: Bossman-CLI.cmd (bossman chat) and bossman.cmd
+        # (headless, for Claude Code). They start the installed `bossman`
+        # entry point (bossman.cli), not an app-support script.
+        **TERMINAL_LAUNCHERS,
     }
 
 
