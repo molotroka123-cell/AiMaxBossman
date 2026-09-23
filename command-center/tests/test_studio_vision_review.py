@@ -208,3 +208,55 @@ async def test_watcher_reviews_videos_of_completed_jobs_only(env, monkeypatch):
 
 async def test_watcher_is_not_started_in_the_worker_less_app(env):
     assert not any(t.get_name() == 'bcc-studio-vision-review' for t in getattr(env.svc, '_tasks', []))
+
+
+# ---------------------------------------------------------------- finding the local vision model
+
+def fake_servers(llama_vision=False, ollama=('bossman-main', ['completion']), loaded=()):
+    import httpx, json as _json
+    calls = []
+
+    def handler(request):
+        url, path = str(request.url), request.url.path
+        calls.append((request.method, url))
+        if url.startswith('http://llama') and path == '/props':
+            return httpx.Response(200, json={'modalities': {'vision': llama_vision}})
+        if url.startswith('http://llama') and path == '/v1/models':
+            return httpx.Response(200, json={'data': [{'id': 'qwen-vl'}]})
+        if url.startswith('http://llama') and path == '/v1/chat/completions':
+            return httpx.Response(200, json={'choices': [{'message': {'content': GOOD_JSON}}]})
+        if url.startswith('http://ollama') and path == '/api/tags':
+            return httpx.Response(200, json={'models': [{'name': n} for n, _ in ollama]})
+        if url.startswith('http://ollama') and path == '/api/ps':
+            return httpx.Response(200, json={'models': [{'name': n} for n in loaded]})
+        if url.startswith('http://ollama') and path == '/api/show':
+            name = _json.loads(request.content)['model']
+            return httpx.Response(200, json={'capabilities': dict(ollama)[name]})
+        if url.startswith('http://ollama') and path == '/api/chat':
+            body = _json.loads(request.content)
+            assert body['think'] is False and body['format'] == 'json' and body['messages'][0]['images']
+            return httpx.Response(200, json={'message': {'content': BAD_JSON}})
+        return httpx.Response(404, text='no')
+    return httpx.MockTransport(handler), calls
+
+
+async def test_llama_cpp_with_mmproj_is_used_first():
+    t, _ = fake_servers(llama_vision=True, ollama=(('vl', ['vision']),))
+    c = rv.VisionClient(['http://llama:1', 'http://ollama:2'], transport=t)
+    assert await c.find() == ('http://llama:1', 'qwen-vl', 'llama.cpp')
+    assert (await c.see('p', [b'frame']))['text'] == GOOD_JSON
+
+
+async def test_ollama_vision_model_already_in_memory_is_preferred():
+    t, _ = fake_servers(ollama=(('big-vl', ['vision']), ('main', ['completion']), ('fast-vl', ['vision'])),
+                        loaded=('fast-vl', 'main'))
+    c = rv.VisionClient(['http://llama:1', 'http://ollama:2'], transport=t)
+    assert await c.find() == ('http://ollama:2', 'fast-vl', 'ollama')
+    ans = await c.see('p', [b'frame'])
+    assert ans['model'] == 'fast-vl' and rv.parse_verdict(ans['text'])['verdict'] == 'BAD'
+
+
+async def test_text_only_models_are_not_a_vision_model():
+    t, _ = fake_servers(ollama=(('main', ['completion', 'tools']),))
+    c = rv.VisionClient(['http://llama:1', 'http://ollama:2', 'http://nothing:3'], transport=t)
+    assert await c.find() is None and await c.see('p', [b'frame']) is None

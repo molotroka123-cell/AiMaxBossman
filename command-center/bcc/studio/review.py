@@ -1,7 +1,7 @@
 """Bossman Vision: a local look at every generated Studio video, taught by the owner.
 
 After a video run is persisted, frames are sampled with the bundled FFmpeg and shown to a
-local vision model (llama.cpp with --mmproj). The verdict is GOOD, BAD or
+local vision model (llama.cpp with --mmproj, or a vision model in Bossman's Ollama). The verdict is GOOD, BAD or
 INSUFFICIENT_EVIDENCE — no vision model, unreadable answer or unreadable bytes are never
 reported as GOOD. The owner's thumbs up/down with a reason becomes a fact in the shared
 FactStore (source_kind='human'); every later review must apply those rules, so what the
@@ -26,7 +26,8 @@ BAD, GOOD = 'owner_bad_criterion', 'owner_good_criterion'
 VERDICTS = ('GOOD', 'BAD', 'INSUFFICIENT_EVIDENCE')
 FRAMES = 4
 MAX_RULES = 20
-DEFAULT_ENDPOINTS = 'http://127.0.0.1:8085,http://127.0.0.1:8084,http://127.0.0.1:8082,http://127.0.0.1:8081'
+DEFAULT_ENDPOINTS = ('http://127.0.0.1:8085,http://127.0.0.1:8084,http://127.0.0.1:8082,http://127.0.0.1:8081,'
+                     'http://127.0.0.1:11435')   # the last one is Bossman's own Ollama
 # Baseline signs of a broken clip; the owner's own rules are added on top of these.
 BASELINE_BAD = (
     'colour noise, static, rainbow mush or a pattern instead of a picture',
@@ -125,25 +126,35 @@ def unique_rules(facts, limit=MAX_RULES):
 
 
 class VisionClient:
-    """OpenAI-compatible llama.cpp endpoint that advertises modalities.vision in /props."""
+    """A local vision model: llama.cpp that advertises modalities.vision in /props, or an Ollama
+    model whose capabilities include 'vision' (an already loaded one first: no new RAM)."""
 
-    def __init__(self, endpoints=None, timeout=240):
+    def __init__(self, endpoints=None, timeout=900, transport=None):
         env = os.environ.get('BCC_VISION_REVIEW_ENDPOINTS', DEFAULT_ENDPOINTS)
         self.endpoints = [e.strip().rstrip('/') for e in (endpoints or env.split(',')) if e.strip()]
-        self.timeout = timeout
+        # a shared GPU (a video render next door) made one live call take over 5 minutes
+        self.timeout, self.transport = timeout, transport
 
     async def find(self):
         import httpx
-        async with httpx.AsyncClient(timeout=5) as c:
+        async with httpx.AsyncClient(timeout=5, trust_env=False, transport=self.transport) as c:
             for base in self.endpoints:
                 try:
                     props = (await c.get(base + '/props')).json()
-                    if not (isinstance(props, dict) and (props.get('modalities') or {}).get('vision') is True):
-                        continue
-                    models = (await c.get(base + '/v1/models')).json().get('data') or []
-                    return base, (models[0].get('id') if models else 'local')
+                    if isinstance(props, dict) and (props.get('modalities') or {}).get('vision') is True:
+                        models = (await c.get(base + '/v1/models')).json().get('data') or []
+                        return base, (models[0].get('id') if models else 'local'), 'llama.cpp'
                 except (httpx.HTTPError, ValueError, AttributeError):
-                    continue
+                    pass
+                try:
+                    names = [m['name'] for m in (await c.get(base + '/api/tags')).json().get('models') or []]
+                    loaded = {m['name'] for m in (await c.get(base + '/api/ps')).json().get('models') or []}
+                    for name in sorted(names, key=lambda n: n not in loaded):
+                        caps = (await c.post(base + '/api/show', json={'model': name})).json().get('capabilities') or []
+                        if 'vision' in caps:
+                            return base, name, 'ollama'
+                except (httpx.HTTPError, ValueError, AttributeError, KeyError, TypeError):
+                    pass
         return None
 
     async def see(self, prompt, images):
@@ -151,16 +162,24 @@ class VisionClient:
         found = await self.find()
         if not found:
             return None
-        base, model = found
-        content = [{'type': 'text', 'text': prompt}] + [
-            {'type': 'image_url', 'image_url': {'url': 'data:image/jpeg;base64,' + base64.b64encode(i).decode('ascii')}}
-            for i in images]
-        body = {'model': model, 'messages': [{'role': 'user', 'content': content}], 'temperature': 0,
-                'max_tokens': 600}
-        async with httpx.AsyncClient(timeout=self.timeout) as c:
-            r = await c.post(base + '/v1/chat/completions', json=body)
-            r.raise_for_status()
-            text = r.json()['choices'][0]['message'].get('content') or ''
+        base, model, kind = found
+        encoded = [base64.b64encode(i).decode('ascii') for i in images]
+        async with httpx.AsyncClient(timeout=self.timeout, trust_env=False, transport=self.transport) as c:
+            if kind == 'ollama':
+                # native API: thinking off and JSON-only output, like the other Bossman Ollama calls
+                r = await c.post(base + '/api/chat', json={
+                    'model': model, 'stream': False, 'think': False, 'format': 'json',
+                    'options': {'temperature': 0, 'num_ctx': 16384},
+                    'messages': [{'role': 'user', 'content': prompt, 'images': encoded}]})
+                r.raise_for_status()
+                text = (r.json().get('message') or {}).get('content') or ''
+            else:
+                content = [{'type': 'text', 'text': prompt}] + [
+                    {'type': 'image_url', 'image_url': {'url': 'data:image/jpeg;base64,' + e}} for e in encoded]
+                r = await c.post(base + '/v1/chat/completions', json={
+                    'model': model, 'messages': [{'role': 'user', 'content': content}], 'temperature': 0, 'max_tokens': 600})
+                r.raise_for_status()
+                text = r.json()['choices'][0]['message'].get('content') or ''
         return {'text': text, 'model': model, 'endpoint': base}
 
 
@@ -255,7 +274,7 @@ async def review_run(svc, rid, *, client=None):
                 except Exception as e:  # a reviewer outage must not look like a verdict
                     answer, err = None, f'{type(e).__name__}: {str(e)[:200]}'
                 else:
-                    err = 'no local vision model is running (llama.cpp with --mmproj)'
+                    err = 'no local vision model found (llama.cpp with --mmproj or an Ollama vision model)'
                 if answer is None:
                     review = {**base, 'verdict': 'INSUFFICIENT_EVIDENCE', 'reason': err}
                 else:
