@@ -61,5 +61,7 @@ Read in order:
 8. [EVALUATION_AND_HOLDOUT.md](docs/tomorrow-2026-09-24/EVALUATION_AND_HOLDOUT.md)
 9. [BOSSMAN_RUNTIME_INTEGRATION.md](docs/tomorrow-2026-09-24/BOSSMAN_RUNTIME_INTEGRATION.md)
 10. [TOMORROW_RUNBOOK.md](docs/tomorrow-2026-09-24/TOMORROW_RUNBOOK.md)
+11. [GAME_STUDIO_NEXT.md](docs/tomorrow-2026-09-24/GAME_STUDIO_NEXT.md)
+12. [TODAY_HANDOFF_2026-09-23.md](docs/tomorrow-2026-09-24/TODAY_HANDOFF_2026-09-23.md)
 
 Do not call a model "Claude-level" from training loss, a screenshot cherry-pick, or an internet benchmark. That claim is allowed only from the frozen blind evaluation described in this package.
