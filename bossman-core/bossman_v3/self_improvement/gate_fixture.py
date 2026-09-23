@@ -121,6 +121,7 @@ def _run(folder: Path, *args: str) -> str:
                GIT_AUTHOR_DATE="2026-01-01T00:00:00+0000", GIT_COMMITTER_DATE="2026-01-01T00:00:00+0000")
     res = run_tree(["git", "-c", "core.autocrlf=false", "-c", "user.name=Bossman Gate",
                     "-c", "user.email=gate@localhost", *args], cwd=str(folder), env=env, text=True,
+                   encoding="utf-8", errors="replace",
                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
     if res.timed_out or res.returncode:
         raise RuntimeError(f"git {args[0]} failed: {(res.stderr or '')[-500:]}")

@@ -23,7 +23,7 @@ FIXED = ["tests/test_money.py", "tests/test_units.py"]
 
 def sh(repo: Path, *args: str) -> str:
     return subprocess.run(["git", "-c", "core.autocrlf=false", "-c", "user.name=t", "-c", "user.email=t@l",
-                           *args], cwd=repo, check=True, capture_output=True, text=True).stdout
+                           *args], cwd=repo, check=True, capture_output=True, text=True, encoding="utf-8").stdout
 
 
 @pytest.fixture(scope="module")

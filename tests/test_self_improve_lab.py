@@ -38,7 +38,7 @@ ID_VARIANT = {i: v for v, i in VARIANT_IDS.items()}
 # ------------------------------------------------------------------ student behaviours
 def _git(repo, *args, input_text=None):
     return subprocess.run(["git", "-c", "core.autocrlf=false", *args], cwd=repo, input=input_text,
-                          text=True, capture_output=True, check=True).stdout
+                          text=True, encoding="utf-8", capture_output=True, check=True).stdout
 
 
 def _target(repo: Path) -> Path:

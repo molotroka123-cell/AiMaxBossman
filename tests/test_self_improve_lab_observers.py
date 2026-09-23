@@ -331,7 +331,7 @@ def test_parse_quant():
 
 # ------------------------------------------------------------------ reproducer on the baseline
 def _git(repo, *args):
-    return subprocess.run(["git", "-c", "core.autocrlf=false", *args], cwd=repo, text=True,
+    return subprocess.run(["git", "-c", "core.autocrlf=false", *args], cwd=repo, text=True, encoding="utf-8",
                           capture_output=True, check=True).stdout
 
 

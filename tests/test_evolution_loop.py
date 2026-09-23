@@ -36,7 +36,7 @@ GOOD_PRICE = {"edits": [fx.PRICE_FIX], "writes": {"tests/test_regress_price.py":
 
 
 def git_out(repo: Path, *args: str) -> str:
-    return subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, text=True).stdout.strip()
+    return subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, text=True, encoding="utf-8").stdout.strip()
 
 
 def stable_hash(repo: Path) -> str:
