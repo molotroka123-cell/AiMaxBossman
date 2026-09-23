@@ -240,7 +240,7 @@ def _install():
     else:
         read_ok += ["/dev", "/etc", "/usr", "/proc/self", "/sys/devices/system/cpu"]
     write_ok = [ws, scratch]
-    devnull = {os.devnull.lower(), "nul", "\\.\nul", "/dev/null"}
+    devnull = {os.devnull.lower(), "nul", r"\\.\nul", "//./nul", "/dev/null"}
     def inside(path, roots):
         try:
             p = os.path.realpath(os.fsdecode(path))

@@ -432,3 +432,13 @@ def test_tool_choice_is_required_and_falls_back_to_auto_on_a_400():
     finally:
         srv.shutdown()
     assert seen == ["required", "auto", "auto"]   # tried required once, then remembered auto
+
+
+def test_guard_source_allows_the_windows_nul_device_spelled_with_backslashes():
+    # The guard is exec'd source: a non-raw "\\.\nul" there becomes "\.<newline>ul",
+    # and pytest's `\\.\nul` open was refused on Windows (NO_TEST_RESULTS).
+    from bossman.apprentice import local_sidecar as ls
+    line = next(l for l in ls._GUARD_SOURCE.splitlines() if "devnull =" in l).strip()
+    ns: dict = {}
+    exec(line, {"os": __import__("os")}, ns)  # noqa: S102 — the guard's own literal
+    assert "\\\\.\\nul" in ns["devnull"]
