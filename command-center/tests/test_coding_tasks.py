@@ -71,6 +71,12 @@ def sidecar(body: str) -> str:
 
 
 def _q(x: str) -> str:
+    # Quote the way the product splits the configured command on this OS:
+    # POSIX shlex there, Windows command-line rules here (split_command).
+    import os
+    if os.name == "nt":
+        import subprocess
+        return subprocess.list2cmdline([x])
     import shlex
     return shlex.quote(x)
 
