@@ -108,6 +108,9 @@ SUPPORT_SCRIPTS = (
     # Лаборатория самоулучшения (фазы compare/lesson/transfer) — тоже раннер,
     # поэтому под общей проверкой UTF-8 консоли.
     (ROOT / "tools" / "self_improve_lab.py", "self_improve_lab.py"),
+    # Jev (browser fast path + decision provider) — только shadow и выключен по
+    # умолчанию; раннер без флагов проверяет лишь ключ и конфиг (exit 3).
+    (ROOT / "tools" / "jev_shadow_owner.py", "jev_shadow_owner.py"),
 )
 # Данные, которые раннеры читают рядом с собой (не исполняемые скрипты).
 SUPPORT_DATA = (
@@ -162,7 +165,7 @@ OWNER_RUN_FILES = (
 # are copied. These files enter the existing MANIFEST.json/SHA256SUMS inventory.
 OWNER_ACCEPTANCE_FILES = (
     "INSTALL.md", "OWNER_ACCEPTANCE.md", "KNOWN_LIMITATIONS.md", "owner-acceptance.ps1",
-    "START_TOMORROW_RU.md", "docs/owner/ROLLBACK_RU.md",
+    "START_TOMORROW_RU.md", "docs/owner/ROLLBACK_RU.md", "docs/owner/JEV_TOMORROW.md",
     "tests/owner_hardware/README.md", "tests/owner_hardware/manifest.json",
     "tests/owner_hardware/HOTSPOTS_AND_HOTFIX_PLAYBOOK.md",
     "tests/owner_hardware/MODEL_STACK_2026-09-20.md",
