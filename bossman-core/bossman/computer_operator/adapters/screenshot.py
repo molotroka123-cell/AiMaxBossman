@@ -34,6 +34,9 @@ class LocalScreenshotProvider:
         """Удалить кадры вне окна хранения. Ошибка удаления не роняет наблюдение."""
         while len(self._written)>self.retention:
             stale=self._written.pop(0)
+            # Грубые часы Windows дают два кадра с одним именем: не удалять кадр,
+            # который всё ещё в окне хранения.
+            if stale in self._written: continue
             try: stale.unlink()
             except OSError: pass
     async def capture(self):
