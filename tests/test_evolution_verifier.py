@@ -204,3 +204,8 @@ def test_unittest_output_parser_keys_import_failures_by_module():
     assert v.belongs("tests.test_new", "tests/test_new.py")
     assert v.belongs("tests.test_money.ParseAmountTest::test_plain", "tests/test_money.py")
     assert not v.belongs("tests.test_money2.T::test", "tests/test_money.py")
+
+
+def test_unittest_output_with_windows_line_endings_is_parsed():
+    text = "test_a (tests.test_x.T.test_a) ... ok\r\ntest_b (tests.test_x.T.test_b) ... FAIL\r\n"
+    assert v.parse_unittest(text) == {"tests.test_x.T.test_a": "PASS", "tests.test_x.T.test_b": "FAIL"}

@@ -215,7 +215,8 @@ def parse_unittest(text: str) -> dict[str, str]:
     """``python -m unittest -v`` lines -> {dotted test id: status}. An import failure
     (``unittest.loader._FailedTest``) is keyed by the module it could not load."""
     out: dict[str, str] = {}
-    for name, where, result in _UNITTEST_LINE.findall(text):
+    # Windows writes "\r\n": "ok\r" never matches the line-anchored pattern.
+    for name, where, result in _UNITTEST_LINE.findall(text.replace("\r\n", "\n")):
         if "unittest.loader._FailedTest" in where:
             key = name
         else:
