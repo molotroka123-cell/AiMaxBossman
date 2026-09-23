@@ -77,3 +77,6 @@ Use rented GPUs for training iterations, not for discovering basic data bugs.
 - Integration: [BOSSMAN_RUNTIME_INTEGRATION.md](BOSSMAN_RUNTIME_INTEGRATION.md)
 - Execution: [TOMORROW_RUNBOOK.md](TOMORROW_RUNBOOK.md)
 - Claude: [CLAUDE_MASTER_PROMPT.md](CLAUDE_MASTER_PROMPT.md)
+
+- Game Studio next target: [GAME_STUDIO_NEXT.md](GAME_STUDIO_NEXT.md)
+- Today's branch/work snapshot: [TODAY_HANDOFF_2026-09-23.md](TODAY_HANDOFF_2026-09-23.md)
