@@ -4,6 +4,7 @@
 
 Локальное AI-рабочее пространство: модели, агенты, память, управление компьютером, файлы, сайты, изображения, видео и связь через Telegram. Владелец задаёт результат обычным языком; Bossman должен выполнить работу, запросить нужные разрешения и проверить итог.
 
+> **Текущее направление: общая сборка Bossman, самоулучшение 1.1 и этап 1.2 — Terminal Run.**
 > **Кандидат BOSSMAN 1.0-RC подготовлен 21 сентября 2026 (только GitHub, без доступа к машине владельца).**
 > Каноническая линия — **`release/bossman-owner`** (PR **#67**); кандидат RC живёт на ветке
 > **`claude/bossman-1-0-rc-owner-ready-cfesui`** и вливается в неё через PR **#71**.
@@ -14,27 +15,39 @@
 
 [Каноническая ветка](https://github.com/molotroka123-cell/AiMaxBossman/tree/release/bossman-owner) · [Кандидат RC (PR #71)](https://github.com/molotroka123-cell/AiMaxBossman/pull/71) · [Установка](INSTALL.md) · [Завтрашний прогон](START_TOMORROW_RU.md) · [Приёмка HW-01…HW-13](OWNER_ACCEPTANCE.md) · [Задание интегратору](CLAUDE_NEXT_ACTION.md)
 
+## Этап 1.2 — тот же Bossman, теперь ещё и в CMD
+
+**Не второй Bossman и не новая база. Только ещё один удобный пульт.** Терминал, дашборд и Telegram должны работать с одним выбранным экземпляром программы: общие проекты и файлы, модели, задачи, навыки, память, разрешения и результаты. Изменение через один интерфейс видно в остальных без переноса папок.
+
+Владелец хочет общаться с Bossman прямо в Windows CMD, как с современным coding-CLI. Claude Code будет обучать и аудировать его через структурированные команды, а не тратить каждый шаг на клики по дашборду. Это должно сделать процесс удобнее; снижение времени и расходов ещё нужно измерить на одинаковых задачах. Терминал сам по себе не ускоряет модель и не заменяет реальную проверку результата.
+
+**Статус этого обновления: задание на реализацию и приёмку, не утверждение, что новый CLI уже работает.** Этап 1.2 не создаёт отдельный engine, memory store или систему самообучения. Изолированные кандидаты для self-repair сохраняются как механизм проверки; stable не переписывается учеником напрямую.
+
+[Мастер-промпт Claude](docs/terminal/TERMINAL_RUN_1_2_MASTER.md) · [Открытые компоненты](docs/terminal/OPEN_SOURCE_REUSE.md) · [Приёмка Terminal Run](docs/terminal/ACCEPTANCE_AND_OWNER_RUN.md) · [Claude Code: учить и аудировать через терминал](docs/terminal/CLAUDE_TEACHER_TERMINAL.md)
+
 ## Bossman 1.1 — главный North Star
 
 **После release-critical безопасности и корректности главный продуктовый приоритет — проверяемое непрерывное самоулучшение Bossman.**
 
 Цель следующего этапа: локальный Bossman сам находит ограниченную полезную проблему, исправляет её в изолированной среде, доказывает результат тестами, получает независимую проверку, сохраняет обобщённый урок, переживает перезапуск и применяет опыт к новой аналогичной задаче.
 
-После первого принятого self-repair запуска начинается **4–7-дневный измеряемый learning experiment**. Цель — доказать перенос опыта на новые задачи и способность всё более самостоятельно создавать owner-approved результаты с измеримой бизнес-ценностью. Это целевой эксперимент, **не обещание гарантированной прибыли** и не разрешение на автономные платежи, торговлю, массовые рассылки или внешние отправки без обычных approval-gates.
+Последнее уточнение владельца — **целевой 4–6-дневный измеряемый learning experiment после первого принятого запуска**: начать получать коммерчески полезные результаты и двигаться к первому заработку за счёт идей, процессов и своего железа. Это обновляет прежний ориентир 4–7 дней, но **не обещает гарантированной прибыли** и не разрешает автономные платежи, торговлю, массовые рассылки или внешние отправки без обычных approval-gates. Подготовленная работа, оценочная экономия и фактическая выручка учитываются отдельно.
 
 Лестница доказательств:
 
 `SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT → SELF_REPAIR_SINGLE_CYCLE_PASS → SELF_REPAIR_3_CYCLE_PASS → TRANSFER_MEASURED_GAIN → 24H_SOAK_PASS → 48H_SOAK_PASS → WEEK_MODE_READY → REVENUE_CAPABLE_PILOT`
 
-[Полный обязательный контракт Bossman 1.1](docs/evo/BOSSMAN_1_1_NORTH_STAR.md).
+[Полный обязательный контракт Bossman 1.1](docs/evo/BOSSMAN_1_1_NORTH_STAR.md) · [Последнее уточнение владельца](docs/terminal/TERMINAL_RUN_1_2_MASTER.md).
 
-## Текущее состояние 1.0 RC
+## Состояние основы 1.0 RC — ранее зафиксированный срез
+
+Следующий раздел и scorecard ниже сохраняют прежние evidence; они не подтверждают готовность более новых интеграционных SHA или Terminal Run.
 
 Bossman уже прошёл первый реальный owner-hardware цикл на **Ryzen AI Max+ 395 / Radeon 8060S / 128 GB**. После живого аудита и repair-pass в канонической линии появились исправления browser download, approvals, честной телеметрии локальных моделей и Computer Use. Локальный MAIN/FAST стек и управление Windows были проверены на реальном железе; media-generation путь на sd.cpp/Wan/Z-Image интегрируется и ещё требует финальной установленной приёмки.
 
 **Что уже доказано на owner hardware:** запуск самостоятельного Windows-продукта, встроенные Python/Chromium/FFmpeg, auth/Flight Recorder, локальные Qwen-модели, restart/approval continuity, реальный Computer Use и исправленный download path. **Что ещё не является финальным PASS:** новый exact-SHA Windows-кандидат после всех repair-коммитов, полный owner re-run, AI-video через окончательный product path, coaching/holdout и независимая red-team атака.
 
-Текущий принцип выпуска: **не количество тестов, а один точный SHA → один Windows artifact → реальные owner-сценарии → независимая атака → только затем 1.0.**
+Текущий принцип выпуска: **не количество тестов, а один точный SHA → один Windows artifact → реальные owner-сценарии → независимая атака → только затем принятый выпуск.**
 
 <a id="why"></a>
 ## Для чего нужен Bossman
@@ -46,15 +59,14 @@ Bossman уже прошёл первый реальный owner-hardware цик�
 Примеры: подготовить документы к проверке владельцем; собрать и отредактировать сайт; обработать изображения и видео; разобрать файлы; проверить проект и подготовить исправление. Каждый путь принимается отдельно — универсальная автономность заранее не обещается.
 
 <a id="quick-start"></a>
-## Завтра начинаем отсюда
+## Следующий прогон начинаем отсюда
 
-**Единая карта завтрашнего прогона:** [Tomorrow Operator Runbook](docs/owner/TOMORROW_OPERATOR_RUNBOOK.md) · [короткий checklist](docs/owner/TOMORROW_CHECKLIST.md). Если старые handoff-документы расходятся по порядку действий, используйте runbook как sequencing-layer, а фактический remote HEAD/certifier/artifact — как источник технической истины.
-
+**Единая карта прогона:** [Tomorrow Operator Runbook](docs/owner/TOMORROW_OPERATOR_RUNBOOK.md) · [короткий checklist](docs/owner/TOMORROW_CHECKLIST.md) · [дополнение Terminal Run](docs/terminal/ACCEPTANCE_AND_OWNER_RUN.md). При расхождении старых handoff-документов фактический remote HEAD/certifier/artifact определяет техническое состояние, а последнее решение владельца — scope и порядок. Новые команды CLI публикуются как рабочие только после реализации и проверки.
 
 1. Получить от интегратора **один TESTED_SHA, один Windows-архив, его SHA-256 и результаты обязательных проверок**. Нет этих данных — сборка ещё не передана на приёмку.
 2. Скачать именно этот архив по [инструкции установки](INSTALL.md). Не выбирать просто последний зелёный прогон и не использовать архив другой ветки.
 3. Распаковать в отдельную тестовую папку рядом со старой (копия данных — по [ROLLBACK_RU](docs/owner/ROLLBACK_RU.md)), запустить `Start-Bossman.cmd`, настроить одну проверенную локальную модель. Рабочие данные и внешние действия пока не подключать.
-4. Запустить `Owner-Run.cmd` (doctor → MAIN/FAST discovery → манифест медиадвижка → coaching → диагностика), затем `Evening-Test.cmd` и пройти шаги 1–8 из [START_TOMORROW_RU](START_TOMORROW_RU.md) / [HW-01…HW-13](OWNER_ACCEPTANCE.md). Машинные стадии не означают прохождение владельческих кейсов.
+4. Запустить `Owner-Run.cmd` (doctor → MAIN/FAST discovery → манифест медиадвижка → coaching → диагностика), затем `Evening-Test.cmd` и пройти шаги 1–8 из [START_TOMORROW_RU](START_TOMORROW_RU.md) / [HW-01…HW-13](OWNER_ACCEPTANCE.md) и относящиеся к новому клиенту Terminal Run проверки. Машинные стадии не означают прохождение владельческих кейсов.
 5. Медиадвижок (sd.cpp) настраивается один раз через `Media-Setup.cmd` (validate / plan-download / download --allow-download / configure); обучение — `Coaching.cmd`; улики для дефекта — `Collect-Diagnostics.cmd`.
 6. Сбой: сохранить задачу, SHA архива, результат и `diagnostics.zip`. Исправление получает новый архив и повторный прогон затронутых сценариев.
 
@@ -73,6 +85,7 @@ Bossman уже прошёл первый реальный owner-hardware цик�
 | Локальная генерация (sd.cpp) | Z-Image-Turbo → картинка, Wan2.2 TI2V-5B → T2V/I2V, отмена, перезапуск | sha256 моделей, сирота-процесс убит после рестарта, атомарный проверенный вывод; настоящая генерация — только на 8060S завтра |
 | Обучение (coaching) | Урок после ошибки → проверка → применение после перезапуска | Канонический LearningStore, holdout не попадает в уроки, отравленный урок отвергнут; WEIGHTS_UNCHANGED, gain на локальной модели не измерен |
 | Telegram | Поручение, подтверждение, продолжение | Реальная доставка владельцу, идентичность и защита от повтора |
+| Terminal Run | Разговор и управление тем же Bossman в CMD | Общие файлы/состояние, structured exec, installed Windows и отсутствие второй очереди |
 | Trading Lab | Анализ и симуляция | Только READ-ONLY/PAPER; не разрешение на реальные ордера |
 
 Подробные критерии: [owner-сценарии](tests/owner_scenarios/owner_scenarios.json), [hardware-манифест](tests/owner_hardware/manifest.json), [известные ограничения](KNOWN_LIMITATIONS.md).
@@ -99,7 +112,7 @@ Bossman уже прошёл первый реальный owner-hardware цик�
 <a id="telegram"></a>
 ## Первый день: результат важнее количества тестов
 
-Сначала безопасные файлы, браузер и перезапуск. Затем фото/видео, агентные цепочки и Telegram в разрешённом тестовом чате. MVČR — подготовить проверяемый пакет и остановиться перед отправкой. Подробный порядок и критерии находятся в [OWNER_ACCEPTANCE.md](OWNER_ACCEPTANCE.md).
+Сначала безопасные файлы, браузер и перезапуск. Затем фото/видео, агентные цепочки и Telegram в разрешённом тестовом чате. MVČR — подготовить проверяемый пакет и остановиться перед отправкой. Основные критерии находятся в [OWNER_ACCEPTANCE.md](OWNER_ACCEPTANCE.md), дополнительный терминальный путь — в [Terminal Run](docs/terminal/ACCEPTANCE_AND_OWNER_RUN.md).
 
 <a id="performance"></a>
 ## Модели и производительность
@@ -126,22 +139,37 @@ Bossman уже прошёл первый реальный owner-hardware цик�
 | Локальный медиадвижок | [SDCPP_ENGINE_RU](docs/media/SDCPP_ENGINE_RU.md) |
 | Как frontier-модели будут проверять и обучать Bossman | [Frontier Council и тренинг — спецификация](docs/evo/FRONTIER_COUNCIL_AND_TRAINING.md) |
 | Как проверить, чему Qwen реально научился на ремонтах | [Local Qwen Apprentice Benchmark](docs/evo/LOCAL_QWEN_APPRENTICE_BENCHMARK.md) |
-| Как завтра пройти всё в правильном порядке | [Tomorrow Operator Runbook](docs/owner/TOMORROW_OPERATOR_RUNBOOK.md) |
+| Как пройти всё в правильном порядке | [Tomorrow Operator Runbook](docs/owner/TOMORROW_OPERATOR_RUNBOOK.md) |
 | Как Claude должен экономно работать поверх Qwen | [Qwen-first master prompt](docs/owner/TOMORROW_MASTER_PROMPT_QWEN_FIRST.md) |
 | Как Bossman должен помнить опыт между сессиями | [Durable Memory / Always-Remember Contract](docs/evo/DURABLE_MEMORY_OPERATING_CONTRACT.md) |
+| Как сделать терминал без второго Bossman | [Terminal Run 1.2](docs/terminal/TERMINAL_RUN_1_2_MASTER.md) |
+| Как Claude Code учит через терминал | [Teacher runbook](docs/terminal/CLAUDE_TEACHER_TERMINAL.md) |
 
 <a id="vision"></a>
-## После первой стабильной сборки — EVO 1.0
+## EVO — развитие общей системы
 
-[Предложение EVO](docs/evo/EVO_1_0_PROPOSAL.md) — пока рекомендации: изолированный кандидат → сравнение → независимая проверка → решение владельца → обновление с откатом. Самостоятельная замена рабочего ядра, разрешений или моделей не включается этой документацией.
+[Предложение EVO](docs/evo/EVO_1_0_PROPOSAL.md) описывает изолированный кандидат → сравнение → независимую проверку → решение владельца → обновление с откатом. Самостоятельная замена рабочего ядра, разрешений или моделей не включается одной документацией.
+
+### Frontier Council — внешние аудиторы и учителя
+
+Следующее описание — архитектурное направление, не сертификат его реализации. Согласованный объём v1.1/Terminal Run определяют текущие [North Star](docs/evo/BOSSMAN_1_1_NORTH_STAR.md) и [последнее уточнение](docs/terminal/TERMINAL_RUN_1_2_MASTER.md).
+
+Локальный Bossman выполняет работу, а разрешённые frontier-модели независимо проверяют обезличенные результаты, находят ошибки и готовят коррекции. Проверяемые тесты, а не авторитет модели или голосование, определяют полезность совета.
+
+**Работа → подтверждённая ошибка → коррекция учителя → повторная попытка Bossman → проверенный урок → новые невиденные задачи → предложение улучшения → решение владельца.**
+
+Обучение разделено: **память/skills**, **учебные задачи и проверенный датасет**, затем отдельно — **экспериментальное LoRA/QLoRA-дообучение весов**. Запись урока не называется fine-tuning. Пользу надо доказать на новых задачах и после перезапуска; помощь учителя учитывается отдельно от самостоятельного успеха.
+
+В проектируемом EVO Lab владелец увидит, чему Bossman научился, какие советы отклонены, сравнение stable/candidate, расходы и откат. Неизмеренные показатели остаются неизвестными. Stable не переписывается автоматически; LOCAL_ONLY не уходит наружу; нет неразрешённого платного fallback.
+
+[Полная спецификация, этапы и критерии приёмки](docs/evo/FRONTIER_COUNCIL_AND_TRAINING.md). Само наличие плана не включает облачные вызовы, расписание аудитов или обучение весов.
 
 <a id="journey"></a>
 ## Одна линия продукта, история сохранена
 
-Финальная ветка остаётся **`release/bossman-owner`**. Не создаём `final-final`, отдельный Dashboard-Bossman или новую версию ради уборки. Незавершённые полезные PR не закрываем без проверки переноса. GitHub default branch может показывать старую линию — для этого прогона используйте ссылку на каноническую ветку сверху.
+Финальная ветка остаётся **`release/bossman-owner`**. Не создаём `final-final`, отдельный Dashboard-Bossman или Terminal-Bossman. Незавершённые полезные PR не закрываем без проверки переноса. GitHub default branch может показывать старую линию — для этого прогона используйте ссылку на каноническую ветку сверху.
 
 Обширные прежние README, INSTALL и handoff сохранены без изменения байтов в [архиве до уборки](docs/archive/owner-preflight-05a1bb02/README.md). Они объясняют историю, но не определяют текущую готовность.
-
 
 ## Проверки интегратора
 
@@ -194,7 +222,7 @@ PASS для текущего TESTED_SHA. Источник не переписы�
 
 - **Current bottleneck:** The repair pass is materially ahead of the 2026-09-07 scorecard, but the final repaired exact-SHA Windows artifact still needs mandatory CI, clean-install owner re-run, Video Studio product-path acceptance, coaching/holdout and an independent red-team.
 - **Next highest-value fix:** Finish mandatory exact-SHA CI, build one clean Windows 1.0-RC artifact, then run the full owner acceptance and independent red-team on those exact bytes.
-- **Last evidence SHA:** `0c1cbe651f5271bbd0bb2d30b467c1206c19f565` · **Current HEAD SHA:** `737a31b1c172` · **Evidence freshness:** PARTIALLY_STALE
+- **Last evidence SHA:** `0c1cbe651f5271bbd0bb2d30b467c1206c19f565` · **Current HEAD SHA:** `5b5ccff5e96c` · **Evidence freshness:** PARTIALLY_STALE
 - **Last scorecard update:** 2026-09-22
 - **Benchmark hard failures:** none observed
 - **Live hardware attestation:** PENDING
