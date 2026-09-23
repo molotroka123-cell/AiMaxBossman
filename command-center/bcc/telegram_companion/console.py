@@ -50,6 +50,10 @@ CONSOLE_COMMANDS = {"/queue", "/approvals", "/approve", "/reject", "/stop", "/pa
 # Команды пульта, которым нужен владелец + включённый тумблер управления.
 OWNER_CONSOLE = {"/queue", "/approvals", "/approve", "/reject", "/stop", "/pause", "/resume",
                  "/screen", "/open", "/files", "/diag", "/lessons", "/fix", "/bossman"}
+EVOLUTION_COMMANDS = {"/evolution_status", "/evolution_start", "/evolution_pause",
+                      "/evolution_resume", "/evolution_stop", "/evolution_report"}
+CONSOLE_COMMANDS.update(EVOLUTION_COMMANDS)
+OWNER_CONSOLE.update(EVOLUTION_COMMANDS)
 
 CONSOLE_OFF = ("Пульт управления компьютером из Telegram выключен или доступен только владельцу. "
                "Владелец включает его локально: pc_control в config.json компаньона. "
@@ -109,7 +113,26 @@ class ConsoleMixin:
             return await self.console_task(person, command, arg, message)
         if command == "/bossman":
             return await self.console_bossman(person)
+        if command in EVOLUTION_COMMANDS:
+            return await self.console_evolution(command, arg)
         return NO_DIRECT_SHELL
+
+    async def console_evolution(self, command: str, arg: str):
+        """Owner commands share the authenticated Core adapter and existing control lane."""
+        if arg:
+            return "Команды Evolution не принимают аргументов; настройки задаются локально."
+        action = command.removeprefix("/evolution_")
+        try:
+            body = await self.core.evolution(action)
+        except CompanionError as exc:
+            return f"Evolution {action}: состояние не подтверждено ({_short(exc, 160)}). Проверьте /evolution_status."
+        if action == "report":
+            return ("Evolution report: " + _short(body, 3000))
+        current = body.get("campaign") if isinstance(body.get("campaign"), dict) else body
+        fields = ("status", "loop_running", "cycle", "cycles_closed", "halt_reason",
+                  "verifier_verdict", "last_action", "control")
+        details = "; ".join(f"{key}={_short(current[key], 120)}" for key in fields if key in current)
+        return f"Evolution {action}: {details or 'ответ получен; /evolution_status для подробностей'}"
 
     # ------------------------------------------- низкорисковые чтения (без диалогов)
     async def console_queue(self, person: Person):

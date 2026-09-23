@@ -385,6 +385,17 @@ class Core:
         return await json_request(self.client, method, self.settings.core_url + path, payload=payload,
                                   headers={"X-BCC-Token": self.settings.core_token}, timeout=timeout)
 
+    async def evolution(self, action: str) -> dict:
+        """Only the fixed owner actions are forwarded; no arbitrary URL or command."""
+        if action not in {"status", "start", "pause", "resume", "stop", "report"}:
+            raise CompanionError("EVOLUTION_ACTION_DENIED")
+        body = await self._request("GET" if action in {"status", "report"} else "POST",
+                                   "/api/evolution/" + action,
+                                   {"backend": "bossman_coding", "cycles": 1} if action == "start" else None)
+        if not isinstance(body, dict):
+            raise CompanionError("EVOLUTION_RESPONSE_INVALID")
+        return body
+
     # ---- Bossman Studio (local generation; provenance and gallery stay in Bossman)
     async def studio_model(self, model_id: str) -> dict | None:
         # The first listing after a Bossman start re-hashes every model file against MANIFEST.json.
