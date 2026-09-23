@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "kind": "PROPOSED_PROFILE_NOT_RUNTIME_CONFIG",
+  "active": false,
+  "name": "bossman-1.5-local-first-owner-directed",
+  "behavior_profile": "LOCAL_UNRESTRICTED",
+  "behavior_goal": "Minimize unnecessary refusals on eligible requests; no blanket topic keyword gate in local text generation.",
+  "model_selection": "MEASURE_BEFORE_ACTIVATION",
+  "routine_execution": "AUTO_WITHIN_AUTHENTICATED_OWNER_GRANT",
+  "auto_build": "ISOLATED_CANDIDATES_ONLY",
+  "auto_operate": "WITHIN_SAME_OWNER_GRANT_AND_EXISTING_POLICY",
+  "authority_backend": "EXISTING_BOSSMAN_POLICY_AND_COST_GOVERNOR",
+  "owner_grant_ref": null,
+  "monetary_budget": null,
+  "voice_profile_ref": null,
+  "external_calls_enabled": false,
+  "purchases_enabled": false,
+  "cloud_egress": "EXPLICIT_RECIPIENT_AND_DATA_SCOPE",
+  "missing_required_input": "ASK_ONCE_FOR_ONLY_MISSING_FIELDS",
+  "unknown_side_effect": "RECONCILE_BEFORE_RETRY",
+  "stable_self_update": "CANDIDATE_TEST_REVIEW_RELEASE_GATE",
+  "notes": "This file must never silently activate permissions. The user chooses actual models, limits and trusted scope in the implemented product. No credentials, real addresses or voice samples belong here."
+}

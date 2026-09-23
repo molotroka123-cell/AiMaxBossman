@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bossman 1.5 proposed capability manifest",
+  "description": "SPECIFICATION ONLY. Schema validity is not activation permission or safety certification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "version", "kind", "status", "entrypoint", "source", "artifact_sha256", "dependencies_lock_sha256", "input_schema_ref", "output_schema_ref", "requested_scope", "verification", "rollback_ref", "authorship"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,95}$"},
+    "version": {"type": "string", "minLength": 1},
+    "kind": {"enum": ["skill", "adapter", "mcp_adapter", "app"]},
+    "status": {"enum": ["CANDIDATE", "VERIFIED", "ACTIVE", "QUARANTINED", "REVOKED"]},
+    "entrypoint": {"type": "string", "minLength": 1, "description": "Declarative registry entry; never execute as an unchecked shell string."},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["origin", "revision", "license"],
+      "properties": {
+        "origin": {"type": "string", "minLength": 1},
+        "revision": {"type": "string", "minLength": 1},
+        "license": {"type": "string", "minLength": 1}
+      }
+    },
+    "artifact_sha256": {"$ref": "#/$defs/sha256"},
+    "dependencies_lock_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "input_schema_ref": {"type": "string", "minLength": 1},
+    "output_schema_ref": {"type": "string", "minLength": 1},
+    "requested_scope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tools", "root_refs", "network_destinations", "data_classes", "max_seconds", "max_memory_mb"],
+      "properties": {
+        "tools": {"$ref": "#/$defs/stringSet"},
+        "root_refs": {"$ref": "#/$defs/stringSet"},
+        "network_destinations": {"$ref": "#/$defs/stringSet"},
+        "data_classes": {"$ref": "#/$defs/stringSet"},
+        "max_seconds": {"type": "integer", "minimum": 1},
+        "max_memory_mb": {"type": "integer", "minimum": 1}
+      }
+    },
+    "verification": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "verifier_ref", "evidence_refs"],
+      "properties": {
+        "status": {"enum": ["NOT_RUN", "PASS", "FAIL", "BLOCKED"]},
+        "verifier_ref": {"type": ["string", "null"]},
+        "evidence_refs": {"$ref": "#/$defs/stringSet"}
+      }
+    },
+    "rollback_ref": {"type": "string", "minLength": 1},
+    "authorship": {"enum": ["LOCAL_STUDENT", "TEACHER", "UPSTREAM", "MIXED", "FIXTURE"]}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "stringSet": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}
