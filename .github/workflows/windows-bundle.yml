@@ -496,6 +496,8 @@ jobs:
             try { $null = $line | ConvertFrom-Json } catch { Write-Host "::error::не JSON в stdout: $line"; exit 1 }
           }
           Write-Host "BOSSMAN_TERMINAL_SMOKE=PASS ($ver; DISCONNECTED contract)"
+          # The expected DISCONNECTED code 3 stays in $LASTEXITCODE; pwsh would end the step with it.
+          exit 0
       - name: Genuine free-model human task smoke
         if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
         env:
