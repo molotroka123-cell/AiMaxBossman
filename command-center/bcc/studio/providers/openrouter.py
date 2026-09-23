@@ -132,7 +132,15 @@ class OpenRouterProvider:
             if kind=='base64':data=base64.b64decode(value,validate=True)
             else:
                 parsed=urlsplit(value)
-                if parsed.scheme!='https' or parsed.hostname not in self._hosts or parsed.username or parsed.password or parsed.port not in (None,443):raise ValueError('CDN not allowed')
+                # OpenRouter отдаёт готовое видео со СВОЕГО API (/api/v1/videos/<id>/content) и без
+                # ключа отвечает 401: оплаченная генерация пропадала как `failed: malformed`
+                # (SwapMe 23.09). Ключ уходит ровно на этот путь первого лица; сторонний CDN —
+                # по-прежнему только из списка владельца и без токена.
+                first_party=(parsed.scheme=='https' and parsed.hostname==urlsplit(BASE).hostname and parsed.port in (None,443)
+                             and not parsed.username and not parsed.password and parsed.path.startswith('/api/v1/videos/'))
+                hosts=self._hosts|({parsed.hostname} if first_party else set())
+                headers={'Authorization':'Bearer '+self._key} if first_party else None
+                if parsed.scheme!='https' or parsed.hostname not in hosts or parsed.username or parsed.password or parsed.port not in (None,443):raise ValueError('CDN not allowed')
                 try:
                     if not ipaddress.ip_address(parsed.hostname).is_global:raise ValueError('private CDN')
                 except ValueError as exc:
@@ -140,12 +148,12 @@ class OpenRouterProvider:
                 if self._gate:await self._gate()
                 if self._transport is None:
                     from bcc.plugin_security import safe_get
-                    response=await safe_get(value,allowed_hosts=self._hosts,max_bytes=LIMIT,timeout=120,max_redirects=0)
+                    response=await safe_get(value,allowed_hosts=hosts,max_bytes=LIMIT,timeout=120,max_redirects=0,headers=headers)
                     if response.status_code!=200:raise ValueError('CDN status')
                     data=response.content
                 else:
                     async with httpx.AsyncClient(transport=self._transport,follow_redirects=False,timeout=120) as c:
-                        response=await c.get(value)  # deliberately NO auth headers
+                        response=await c.get(value,headers=headers or {})  # the key only for the first-party path
                         if response.status_code!=200:raise ValueError('CDN status')
                         data=response.content
             if not data or len(data)>LIMIT:raise ValueError('output size')

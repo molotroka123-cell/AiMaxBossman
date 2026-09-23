@@ -46,3 +46,50 @@ def test_seedance25_accepts_short_shots_the_provider_supports():
     for seconds in (3, 16, 0):
         with pytest.raises(ValueError):
             validate_settings(model, {"duration": seconds})
+
+
+async def test_paid_openrouter_video_is_fetched_with_the_key_from_the_api_origin():
+    """SwapMe run 23.09 (bug STUDIO-OPENROUTER-FETCH-NO-AUTH): OpenRouter serves the finished video at
+    https://openrouter.ai/api/v1/videos/<id>/content and answers 401 without the key. Studio fetched it
+    unauthenticated (and only from allow-listed CDN hosts), so a PAID generation ended `failed: malformed`.
+    The key goes to that exact first-party path only; a third-party CDN still gets no token."""
+    import pytest
+    from bcc.studio.provider import ProviderOutput
+    seen = []
+
+    def serve(request):
+        seen.append((request.url.host, request.url.path, request.headers.get("authorization")))
+        if request.method == "POST":
+            return httpx.Response(202, json={"id": "vid-9"})
+        if request.url.path == "/api/v1/videos/vid-9":
+            return httpx.Response(200, json={"status": "completed", "usage": {"cost": 1.2},
+                                             "unsigned_urls": ["https://openrouter.ai/api/v1/videos/vid-9/content"]})
+        if request.url.path == "/api/v1/videos/vid-9/content":
+            if request.headers.get("authorization") != "Bearer test-secret":
+                return httpx.Response(401, json={"error": {"message": "No cookie auth credentials found", "code": 401}})
+            return httpx.Response(200, content=b"\x00\x00\x00\x18ftypmp42video")
+        if request.url.host == "cdn.example.net":
+            return httpx.Response(200, content=b"cdnbytes")
+        return httpx.Response(404)
+
+    provider = OpenRouterProvider("test-secret", transport=httpx.MockTransport(serve))
+    shot = GenerationPlane("openrouter:bytedance/seedance-2.5", "one shot",
+                           settings={"duration": 5, "resolution": "720p", "aspect_ratio": "9:16"})
+    rid = (await provider.submit(shot)).request_id
+    status = await provider.status(rid)
+    assert status.state == "completed"
+    import tempfile, pathlib
+    dest = pathlib.Path(tempfile.mkdtemp()) / "out.mp4"
+    fetched = await provider.fetch(status.outputs[0], dest)
+    assert dest.read_bytes().startswith(b"\x00\x00\x00\x18ftyp") and fetched.bytes == dest.stat().st_size
+    assert provider.costs[rid] == 1.2
+
+    # A third-party CDN URL keeps the old rule: allow-listed host only, and never the key.
+    cdn = OpenRouterProvider("test-secret", transport=httpx.MockTransport(serve), allowed_download_hosts=("cdn.example.net",))
+    cdn._outputs["x:0"] = ("url", "https://cdn.example.net/v.mp4")
+    await cdn.fetch(ProviderOutput("x:0"), dest)
+    assert seen[-1] == ("cdn.example.net", "/v.mp4", None)
+    other = OpenRouterProvider("test-secret", transport=httpx.MockTransport(serve))
+    other._outputs["y:0"] = ("url", "https://openrouter.ai/somewhere/else")
+    with pytest.raises(Exception):
+        await other.fetch(ProviderOutput("y:0"), dest)
