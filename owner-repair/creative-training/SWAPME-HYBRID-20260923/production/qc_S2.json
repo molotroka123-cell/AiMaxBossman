@@ -1,0 +1,31 @@
+{
+ "t": "2026-09-23T21:01:56+00:00",
+ "clip": "SWAPME-HYBRID-20260923\\clips\\S2.mp4",
+ "intent": "fox in black SwapMe hoodie in a dark crypto exchange office with Prague castle window sits down and slides a gold Bitcoin coin across the desk toward the camera",
+ "deterministic": {
+  "duration": 5.056,
+  "size": "720x1280",
+  "decode_ok": true,
+  "black_segments": 0,
+  "frozen_segments": 0
+ },
+ "vision_model": "bossman-fast-qwen36-vision",
+ "vision": {
+  "verdict": "FAIL",
+  "score": 3,
+  "issues": [
+   "Character identity inconsistency: The fox's face and hoodie text change between frames (e.g., 'SwapMe' vs 'SivapMe' vs 'wapMe').",
+   "Anatomy issues: Extra fingers visible on paws in multiple frames; deformed hand shapes.",
+   "Garbled AI text: Hoodie logo is misspelled or distorted across frames.",
+   "Morphing objects: The Bitcoin coin changes size and clarity abruptly, especially in final frame where it appears unnaturally large and sharp while background blurs inconsistently.",
+   "Shot does not fully match intent: Fox doesn’t clearly sit down — appears seated throughout; sliding motion is implied but not fluidly captured across frames."
+  ],
+  "identity_consistent": false,
+  "anatomy_ok": false,
+  "text_garbled": true,
+  "matches_intent": false
+ },
+ "grid": "C:\\Users\\asd\\AppData\\Local\\Temp\\tmp1ab73ed0\\grid.jpg",
+ "gate": "FAIL",
+ "owner_taste_rules_used": 0
+}

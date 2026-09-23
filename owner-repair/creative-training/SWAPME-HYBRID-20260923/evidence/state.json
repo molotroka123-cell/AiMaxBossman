@@ -1,0 +1,284 @@
+{
+ "refs": {
+  "01_fox_hero": {
+   "run_id": "6a778bbf284e45668967311b5d4955b7",
+   "path": "C:\\Users\\asd\\Bossman\\creative-runs\\SWAPME-HYBRID-20260923\\refs\\01_fox_hero.png",
+   "sha256": "d26cbb05585c90699d7020f9d127ddd40fa0044304eb57a84f79032b5099233a"
+  },
+  "02_exchange": {
+   "run_id": "3a9dd71a95e24bdf9e1d83c4c18ed349",
+   "path": "C:\\Users\\asd\\Bossman\\creative-runs\\SWAPME-HYBRID-20260923\\refs\\02_exchange.png",
+   "sha256": "6f6ae9e87ae65e055f5ccfc58b92ba992f61959a00aa0ea7d0422772dea05d4d"
+  },
+  "04_prague_street": {
+   "run_id": "3567944982cd46fbb9a7bf47a42d8492",
+   "path": "C:\\Users\\asd\\Bossman\\creative-runs\\SWAPME-HYBRID-20260923\\refs\\04_prague_street.png",
+   "sha256": "21f1facdcecb973304f353532486cc8ef1e3e380415effdb8d001699d06c0975"
+  },
+  "03_vault": {
+   "run_id": "ea4f2f1e73984be49f4304bb0d4487a5",
+   "path": "C:\\Users\\asd\\Bossman\\creative-runs\\SWAPME-HYBRID-20260923\\refs\\03_vault.png",
+   "sha256": "666e0bfe9ba3e1111656ed438ab9c99c57297b7ca3893a2a218f84f8cb17bef9"
+  },
+  "05_skyline": {
+   "run_id": "3d2a5bb3ca0241f7b392131cb972d76a",
+   "path": "C:\\Users\\asd\\Bossman\\creative-runs\\SWAPME-HYBRID-20260923\\refs\\05_skyline.png",
+   "sha256": "652f5508e905af2e75c99d1241c38dcccf834f59f0a14b3c5d60fab403c07387"
+  },
+  "bench_source": {
+   "run_id": "916421ddf22f44858ebeee6cb84b73ee",
+   "path": "C:\\Users\\asd\\Bossman\\creative-runs\\SWAPME-HYBRID-20260923\\bench\\bench_source_640x1152.png",
+   "sha256": "9bf281adf97ca093ef4f34bd98d286ebb7b54006ebf40dfe003c5906b029f78d"
+  },
+  "S1_last": {
+   "run_id": "f65d13dd113c4d5aa0a9ec934e370237",
+   "path": "C:\\Users\\asd\\Bossman\\creative-runs\\SWAPME-HYBRID-20260923\\work\\S1_last_640x1152.png",
+   "sha256": "be410739d895f98627c3db77dd223278cd921ba52049a2918b1e04bfa852021d"
+  },
+  "S2_last": {
+   "run_id": "d21e00c05f6e4fdbb2b496a2ffea4ede",
+   "path": "C:\\Users\\asd\\Bossman\\creative-runs\\SWAPME-HYBRID-20260923\\work\\S2_last_640x1152.png",
+   "sha256": "f55caf31735a10c6496ab8e5bf93759b4cf21ae33ff4a0854b69d4e9da76930e"
+  }
+ },
+ "jobs": {
+  "S1": {
+   "id": 5,
+   "model": "openrouter:bytedance/seedance-2.5",
+   "prompt": "Premium cinematic 3D animated commercial, vertical 9:16. Night in Prague old town: wet cobblestones reflect warm street lamps and green neon, gothic towers softly lit behind. A confident anthropomorphic red fox with orange fur, white muzzle, black sunglasses and a black hoodie with a small green-and-white SwapMe logo walks toward the camera with a relaxed swagger, then lowers his sunglasses with one paw and smirks at the viewer. Camera dollies backwards at walking pace, shallow depth of field, stylish and expensive, not cartoonish. No smoking, no cigarette, no alcohol, no readable text, no subtitles, no watermark, no other brand logos. Sound: footsteps on cobblestones and night city ambience, no music, no speech.",
+   "settings": {
+    "duration": 5,
+    "resolution": "720p",
+    "aspect_ratio": "9:16",
+    "generate_audio": true
+   },
+   "media": [
+    {
+     "run_id": "3567944982cd46fbb9a7bf47a42d8492",
+     "role": "reference"
+    },
+    {
+     "run_id": "6a778bbf284e45668967311b5d4955b7",
+     "role": "reference"
+    }
+   ],
+   "t0": 1790195419.1684391,
+   "submitted": "2026-09-23T20:30:19+00:00",
+   "status": "completed_rescued",
+   "request_id": "gen-vid-1790195406-6FHYzA8vXfYemsnQqoP3",
+   "cost_usd": 1.16523,
+   "file": "C:\\Users\\asd\\Bossman\\creative-runs\\SWAPME-HYBRID-20260923\\clips\\S1.mp4",
+   "sha256": "79e9319253ac2f1ed1d3634c40a1a43146fd0f83b6114beb7a32f030ba7f2ebe",
+   "rescue": "manual authenticated download: Studio fetch sent no Authorization -> 401 -> failed:malformed"
+  },
+  "S2": {
+   "id": 6,
+   "model": "openrouter:bytedance/seedance-2.5",
+   "prompt": "Premium cinematic 3D animated commercial, vertical 9:16. Inside a dark luxurious SwapMe crypto exchange office at night: black walls, green neon light, a wall of trading monitors with rising green charts, a window with the golden Prague castle skyline. The same anthropomorphic red fox in a black SwapMe hoodie walks past the monitors, sits down in a leather chair and slides a shiny gold Bitcoin coin across the dark desk toward the camera with a confident smile. Smooth camera arc and slow push-in, warm key light, green rim light, detailed fur. No smoking, no cigarette, no alcohol, no readable text, no subtitles, no watermark, no other brand logos. Sound: soft room tone, the coin sliding on the desk, subtle interface beeps, no music, no speech.",
+   "settings": {
+    "duration": 5,
+    "resolution": "720p",
+    "aspect_ratio": "9:16",
+    "generate_audio": true
+   },
+   "media": [
+    {
+     "run_id": "3a9dd71a95e24bdf9e1d83c4c18ed349",
+     "role": "reference"
+    },
+    {
+     "run_id": "6a778bbf284e45668967311b5d4955b7",
+     "role": "reference"
+    }
+   ],
+   "t0": 1790195419.2359746,
+   "submitted": "2026-09-23T20:30:19+00:00",
+   "status": "completed_rescued",
+   "request_id": "gen-vid-1790195558-vTXmdBMBRgPuxFWQgTeD",
+   "cost_usd": 1.16523,
+   "file": "C:\\Users\\asd\\Bossman\\creative-runs\\SWAPME-HYBRID-20260923\\clips\\S2.mp4",
+   "sha256": "8561b52590737b0d9c734f912f804c7085d391c2e92b610c3e72af8f215f81d3",
+   "rescue": "manual authenticated download: Studio fetch sent no Authorization -> 401 -> failed:malformed"
+  },
+  "bench_steps16": {
+   "id": 7,
+   "model": "sdcpp:wan2.2-ti2v-5b",
+   "prompt": "close-up of a confident anthropomorphic red fox in black sunglasses and a black hoodie, he slowly lowers the sunglasses and smirks, green neon reflections glide across the lenses, slow camera push-in, night Prague lights, premium 3D animated commercial, detailed fur, cinematic lighting",
+   "settings": {
+    "width": 640,
+    "height": 1152,
+    "frames": 17,
+    "fps": 24,
+    "steps": 16,
+    "cfg_scale": 5.0,
+    "seed": 2309
+   },
+   "media": [
+    {
+     "run_id": "916421ddf22f44858ebeee6cb84b73ee",
+     "role": "start"
+    }
+   ],
+   "t0": 1790195434.031072,
+   "submitted": "2026-09-23T20:30:34+00:00",
+   "status": "completed",
+   "elapsed_s": 772.2,
+   "error": "",
+   "run_id": "d7ac3f161ec941b18f391c8ba670e7d7",
+   "file": "C:\\Users\\asd\\Bossman\\creative-runs\\SWAPME-HYBRID-20260923\\bench\\bench_steps16.mp4",
+   "sha256": "b9c7ed9474a84f67af405e00d70be1a5059709d5c6a4296fa3dbbf3af3b15b6f",
+   "cost_usd": 0,
+   "provenance_keys": [
+    "cost_usd",
+    "finished_at",
+    "harness",
+    "inputs",
+    "mock",
+    "model",
+    "output",
+    "plane",
+    "provider",
+    "provider_request_id",
+    "settings_resolved"
+   ],
+   "probe": {
+    "duration": 0.708,
+    "w": 640,
+    "h": 1152,
+    "fps": 24.0,
+    "frames": 17,
+    "audio": false,
+    "decode_ok": true
+   }
+  },
+  "bench_steps24": {
+   "id": 8,
+   "model": "sdcpp:wan2.2-ti2v-5b",
+   "prompt": "close-up of a confident anthropomorphic red fox in black sunglasses and a black hoodie, he slowly lowers the sunglasses and smirks, green neon reflections glide across the lenses, slow camera push-in, night Prague lights, premium 3D animated commercial, detailed fur, cinematic lighting",
+   "settings": {
+    "width": 640,
+    "height": 1152,
+    "frames": 17,
+    "fps": 24,
+    "steps": 24,
+    "cfg_scale": 5.0,
+    "seed": 2309
+   },
+   "media": [
+    {
+     "run_id": "916421ddf22f44858ebeee6cb84b73ee",
+     "role": "start"
+    }
+   ],
+   "t0": 1790195434.0493877,
+   "submitted": "2026-09-23T20:30:34+00:00",
+   "status": "completed",
+   "elapsed_s": 1283.4,
+   "error": "",
+   "run_id": "3ca0ac8c63b44176a2b10bb892e82781",
+   "file": "C:\\Users\\asd\\Bossman\\creative-runs\\SWAPME-HYBRID-20260923\\bench\\bench_steps24.mp4",
+   "sha256": "68dcbde9d2086dbf75257cabbf9c1867ea3e8b5c1ea192062a6577e8263cf424",
+   "cost_usd": 0,
+   "provenance_keys": [
+    "cost_usd",
+    "finished_at",
+    "harness",
+    "inputs",
+    "mock",
+    "model",
+    "output",
+    "plane",
+    "provider",
+    "provider_request_id",
+    "settings_resolved"
+   ],
+   "probe": {
+    "duration": 0.708,
+    "w": 640,
+    "h": 1152,
+    "fps": 24.0,
+    "frames": 17,
+    "audio": false,
+    "decode_ok": true
+   }
+  },
+  "L1": {
+   "id": 9,
+   "model": "sdcpp:wan2.2-ti2v-5b",
+   "prompt": "close-up of the confident anthropomorphic red fox in a black hoodie on a night Prague street, he looks into the camera, raises one eyebrow and gives a sly confident smirk, green neon reflections glide over his fur, slow camera push-in, premium 3D animated commercial, detailed fur, cinematic lighting, smooth motion",
+   "settings": {
+    "width": 640,
+    "height": 1152,
+    "frames": 65,
+    "fps": 24,
+    "steps": 24,
+    "cfg_scale": 5.0,
+    "seed": 2309
+   },
+   "media": [
+    {
+     "run_id": "f65d13dd113c4d5aa0a9ec934e370237",
+     "role": "start"
+    }
+   ],
+   "t0": 1790196752.055081,
+   "submitted": "2026-09-23T20:52:32+00:00"
+  },
+  "L2": {
+   "id": 11,
+   "model": "sdcpp:wan2.2-ti2v-5b",
+   "prompt": "a shiny gold Bitcoin coin slowly spins on a dark glossy desk in the foreground, the confident red fox in a black hoodie sits behind it in soft focus and smiles, green neon glow and the golden Prague castle lights behind the window, slow cinematic camera push-in, premium 3D animated commercial, smooth motion",
+   "settings": {
+    "width": 640,
+    "height": 1152,
+    "frames": 33,
+    "fps": 24,
+    "steps": 16,
+    "cfg_scale": 5.0,
+    "seed": 2309
+   },
+   "media": [
+    {
+     "run_id": "d21e00c05f6e4fdbb2b496a2ffea4ede",
+     "role": "start"
+    }
+   ],
+   "t0": 1790197969.7767155,
+   "submitted": "2026-09-23T21:12:49+00:00"
+  }
+ },
+ "board": {
+  "path": "C:\\Users\\asd\\Desktop\\SwapMe Fox_ Luxury Crypto Nights (2).png",
+  "sha256": "63d58cc20f0a9da2be2979ce9174fa2dce8242bcf6196770bcec5794abd7cd54",
+  "size": [
+   1536,
+   1024
+  ],
+  "source": "OWNER_INPUT"
+ },
+ "cancelled": {
+  "L2_65f": {
+   "id": 10,
+   "model": "sdcpp:wan2.2-ti2v-5b",
+   "prompt": "a shiny gold Bitcoin coin slowly spins on a dark glossy desk in the foreground, the confident red fox in a black hoodie sits behind it in soft focus and smiles, green neon glow and the golden Prague castle lights behind the window, slow cinematic camera push-in, premium 3D animated commercial, smooth motion",
+   "settings": {
+    "width": 640,
+    "height": 1152,
+    "frames": 65,
+    "fps": 24,
+    "steps": 24,
+    "cfg_scale": 5.0,
+    "seed": 2309
+   },
+   "media": [
+    {
+     "run_id": "d21e00c05f6e4fdbb2b496a2ffea4ede",
+     "role": "start"
+    }
+   ],
+   "t0": 1790196752.094571,
+   "submitted": "2026-09-23T20:52:32+00:00",
+   "reason": "owner 25-min deadline: 65-frame L2 would not finish; replaced by 33-frame preset"
+  }
+ }
+}
