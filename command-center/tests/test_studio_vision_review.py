@@ -260,3 +260,19 @@ async def test_text_only_models_are_not_a_vision_model():
     t, _ = fake_servers(ollama=(('main', ['completion', 'tools']),))
     c = rv.VisionClient(['http://llama:1', 'http://ollama:2', 'http://nothing:3'], transport=t)
     assert await c.find() is None and await c.see('p', [b'frame']) is None
+
+
+@needs_ffmpeg
+async def test_review_reads_the_same_file_the_verification_opened(env, quiet):
+    """Review P2 (c): a run whose bytes live in the legacy Images store passed verification but was
+    looked up in the Studio store, so it could only ever be INSUFFICIENT_EVIDENCE. Not reachable
+    through migrate_legacy today (legacy rows are images); one resolver keeps it that way."""
+    path = env.svc.settings.data_dir / 'images' / 'legacy-clip.mp4'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run([FFMPEG, '-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=160x96:rate=12:duration=1',
+                    '-pix_fmt', 'yuv420p', '-c:v', 'libx264', str(path)], check=True)
+    rid = await rt.persist(env.svc, None, {'prompt': 'fox', 'settings': {}, 'media': []},
+                           {'id': 'legacy-video', 'provider': 'legacy', 'surface': 'video'}, path, legacy=424242)
+    fake = FakeVision(GOOD_JSON)
+    out = await rv.review_run(env.svc, rid, client=fake)
+    assert out['verdict'] == 'GOOD' and len(fake.images[0]) == rv.FRAMES
