@@ -33,6 +33,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import shutil
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
@@ -57,6 +58,7 @@ MANIFEST_VERSION = 1
 DB_FILE = "db.sqlite"
 MANIFEST_FILE = "manifest.json"
 SNAPSHOT_DIRNAME = "snapshots"
+_KIND_RE = re.compile(r"[a-z0-9_-]{1,16}")
 RESTORE_KIND = "snapshot_restore"
 
 # Снапшот — это состояние, а не дистрибутив: артефакт больше этого предела
@@ -268,7 +270,11 @@ async def create_snapshot(request: Request):
     except Exception:
         pass
     body = body if isinstance(body, dict) else {}
-    kind = str(body.get("kind") or "manual")[:16]
+    kind = str(body.get("kind") or "manual")
+    # `kind` — метка, а не путь: он входит в имя каталога. Раньше "/../../../x"
+    # уводил каталог (с полной копией БД) за пределы data dir — P0 EOD 23.09.
+    if not _KIND_RE.fullmatch(kind):
+        raise HTTPException(400, {"message": "kind: только [a-z0-9_-], 1–16 символов"})
     stamp = utcnow().strftime("%Y%m%d-%H%M%S")
     name = str(body.get("name") or f"snapshot-{stamp}")[:200]
 
@@ -280,6 +286,8 @@ async def create_snapshot(request: Request):
     while base.exists():
         suffix += 1
         base = root / f"{stamp}-{kind}-{suffix}"
+    if not base.resolve().is_relative_to(root.resolve()):
+        raise HTTPException(400, {"message": "каталог снапшота вне каталога снапшотов"})
     base.mkdir(parents=True)
 
     try:
