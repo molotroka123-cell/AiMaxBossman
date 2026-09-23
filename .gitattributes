@@ -19,3 +19,7 @@ tools/windows_bundle_build_tools.txt -text
 # чекаут с autocrlf ломал их на машине владельца.
 docs/v8/owner-final-run/** -text
 .agents/skills/** -text
+
+# Imported skills are byte-identical to their pinned upstream (sha256 in provenance.json):
+# no whitespace rewrite or hygiene check on them, and no EOL conversion.
+command-center/bcc/skills_catalog/** -whitespace -text
