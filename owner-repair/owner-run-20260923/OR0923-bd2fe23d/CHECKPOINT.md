@@ -125,3 +125,12 @@ MEASURED_OVERHEAD_REDUCTION (пилот): CLI 1 действие vs 9–10, ко
 - Ярлык «Bossman CMD» на рабочем столе (Windows Terminal, без прав администратора) — CLI тестового экземпляра.
 - Ветка `feat/cli-claude-parity-20260923` @12612c81: /compact /context /cost(/usage) /export /doctor /permissions (42 теста + e2e) — ещё не собрана.
 - Video Studio: при первом переходе вечный скелетон до перезагрузки (P2).
+
+---
+# Чекпоинт 5 (~17:10Z) — финал сессии
+
+- **Медиа sd.cpp:** видео Wan2.2 test_1s — h264 640×352, 17 кадров, 16 fps, 1.06 с, полное декодирование, Vulkan observed; cancel → sd-cli завершён ≤2 с, без результата; жёсткое падение backend → sd-cli не осиротел (Job Object), задача `interrupted_unknown`, retry → 409 (без слепого повтора). P2: закрытие окна во время медиазадачи оставляет backend работать (окно подключается к нему же).
+- **GUI vs CLI (SHA3, 2 раунда):** A память/задача 4.1 → 1.8 с, C браузер 6.5 → 3.4 с (MEASURED_CLI_OVERHEAD_REDUCTION); B coding 21.8 vs 26.9 с (NO_MEASURED_GAIN, но 17 → 1 действие учителя). Ошибка harness первого прохода (старая карточка) исправлена, перемерено.
+- **STANDARD_USER_RUN smoke** (Medium S-1-16-8192, backend из Проводника): status, кириллица «Прага», coding PASS, запись в data root, approval → dummy.pdf 13 264 байт sha256 3df79d34…, STOP — все PASS; отличий от ADMIN_RUN нет.
+- **SHA4 `12612c8184a19dd477e09c60bdaa9a0d2eea21cd`** (feat/cli-claude-parity-20260923 = SHA3 + CLI): ZIP `012ceb838c2c39b5b07d233904da1398c4a648efa92c3d60fb4decc4fb4bb235`, bundle acceptance PASS; вживую в «Bossman CMD» (без админа): /doctor, /context, /cost (цена «—» для локальной), /compact (задача #62, 54 с), /export — работают. P2: /compact на короткой беседе увеличил контекст 220 → 2037 символов.
+- Отчёты: REPORT_RU.md, BUGS.md, TR_MATRIX.md, HW_MATRIX.md, UX_CLI_PARITY.md, MODEL_AND_LEARNING_RESULTS.json, GUI_VS_CLI_MEASUREMENTS.json, RUN_MANIFEST.json, CONTINUE.md.

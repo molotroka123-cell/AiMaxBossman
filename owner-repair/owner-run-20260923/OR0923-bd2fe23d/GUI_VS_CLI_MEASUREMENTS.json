@@ -1,123 +1,362 @@
 {
- "schema": "owner-run.gui_vs_cli.v1",
+ "schema": "owner-run.gui_vs_cli.v2",
  "RUNTIME": "OLLAMA_PROXY",
- "ADMIN_RUN": true,
- "bossman_build_sha": "d53f3b1219224a3bfc73af25f70c67163224e8bc",
- "model": "qwen-fast-nt (Qwen3.6-35B-A3B UD-Q5_K_M, gguf sha256 c13ce262…)",
- "agent": "Быстрый",
- "n_pairs": 3,
- "order": "alternating GUI-first/CLI-first/GUI-first",
- "gui_driver": "Playwright over CDP on the real Edge --app window (DOM text + 1 screenshot per task). A vision/screenshot-only teacher would cost more per step; not measured.",
- "rows": [
-  {
-   "pair": 0,
-   "channel": "GUI",
-   "order": 0,
-   "task_id": 25,
-   "wall_s": 6.4,
-   "submit_to_running_s": 1.01,
-   "model_run_s": 1.89,
-   "client_overhead_s": 3.5,
-   "teacher_actions": 10,
-   "screenshots": 1,
-   "control_bytes": 22159,
-   "verified": true
+ "PRIVILEGE": "ADMIN_RUN",
+ "sha3": {
+  "bossman_build_sha": "cdb4b09db49aebac46bea2f3b98ef143d4a343d6",
+  "metric": "TIME_TO_VERIFIED_RESULT (teacher starts action -> result read and checked)",
+  "scenarios": {
+   "A": "memory recall task, agent Быстрый (FAST)",
+   "B": "coding task on crlf-check repo, local sidecar MAIN",
+   "C": "browser/research task example.org, agent Быстрый"
   },
-  {
-   "pair": 0,
-   "channel": "CLI",
-   "order": 1,
-   "task_id": 26,
-   "wall_s": 4.13,
-   "submit_to_running_s": 1.31,
-   "model_run_s": 1.1,
-   "client_overhead_s": 1.72,
-   "teacher_actions": 1,
-   "screenshots": 0,
-   "control_bytes": 3919,
-   "verified": true
+  "conditions": "same backend/model/agent/prompt/criterion; models warmed beforehand; 2 rounds, alternating order; GUI = Playwright over CDP on the real window (DOM text + 1 screenshot); peak RAM per run in raw files",
+  "rows": [
+   {
+    "scenario": "A",
+    "channel": "GUI",
+    "wall_s": 4.13,
+    "teacher_actions": 6,
+    "screenshots": 1,
+    "ui_navigations": 1,
+    "control_bytes": 15248,
+    "verified": true,
+    "task_id": 50,
+    "order": 0,
+    "ram_used_before_gb": 62.4,
+    "ram_used_after_gb": 62.4
+   },
+   {
+    "scenario": "A",
+    "channel": "CLI",
+    "wall_s": 1.92,
+    "teacher_actions": 1,
+    "screenshots": 0,
+    "ui_navigations": 0,
+    "control_bytes": 4132,
+    "verified": true,
+    "task_id": 51,
+    "task_state": "PASS",
+    "order": 1,
+    "ram_used_before_gb": 62.4,
+    "ram_used_after_gb": 62.4
+   },
+   {
+    "scenario": "C",
+    "channel": "CLI",
+    "wall_s": 3.27,
+    "teacher_actions": 1,
+    "screenshots": 0,
+    "ui_navigations": 0,
+    "control_bytes": 5646,
+    "verified": true,
+    "task_id": 52,
+    "task_state": "PASS",
+    "order": 2,
+    "ram_used_before_gb": 62.4,
+    "ram_used_after_gb": 62.4
+   },
+   {
+    "scenario": "C",
+    "channel": "GUI",
+    "wall_s": 6.58,
+    "teacher_actions": 9,
+    "screenshots": 1,
+    "ui_navigations": 1,
+    "control_bytes": 37009,
+    "verified": true,
+    "task_id": 53,
+    "order": 3,
+    "ram_used_before_gb": 62.4,
+    "ram_used_after_gb": 62.5
+   },
+   {
+    "scenario": "A",
+    "channel": "CLI",
+    "wall_s": 1.72,
+    "teacher_actions": 1,
+    "screenshots": 0,
+    "ui_navigations": 0,
+    "control_bytes": 4132,
+    "verified": true,
+    "task_id": 54,
+    "task_state": "PASS",
+    "order": 4,
+    "ram_used_before_gb": 62.5,
+    "ram_used_after_gb": 62.5
+   },
+   {
+    "scenario": "A",
+    "channel": "GUI",
+    "wall_s": 4.11,
+    "teacher_actions": 6,
+    "screenshots": 1,
+    "ui_navigations": 1,
+    "control_bytes": 16275,
+    "verified": true,
+    "task_id": 55,
+    "order": 5,
+    "ram_used_before_gb": 62.5,
+    "ram_used_after_gb": 62.5
+   },
+   {
+    "scenario": "C",
+    "channel": "GUI",
+    "wall_s": 6.5,
+    "teacher_actions": 9,
+    "screenshots": 1,
+    "ui_navigations": 1,
+    "control_bytes": 39024,
+    "verified": true,
+    "task_id": 56,
+    "order": 6,
+    "ram_used_before_gb": 62.5,
+    "ram_used_after_gb": 62.5
+   },
+   {
+    "scenario": "C",
+    "channel": "CLI",
+    "wall_s": 3.6,
+    "teacher_actions": 1,
+    "screenshots": 0,
+    "ui_navigations": 0,
+    "control_bytes": 5644,
+    "verified": true,
+    "task_id": 57,
+    "task_state": "PASS",
+    "order": 7,
+    "ram_used_before_gb": 62.6,
+    "ram_used_after_gb": 62.7
+   },
+   {
+    "scenario": "B",
+    "channel": "CLI",
+    "wall_s": 37.91,
+    "teacher_actions": 1,
+    "screenshots": 0,
+    "ui_navigations": 0,
+    "control_bytes": 778,
+    "verified": true,
+    "coding_task_id": "bf2c8267f9b2",
+    "task_state": "PASS",
+    "order": 2,
+    "ram_used_before_gb": 60.4,
+    "ram_used_after_gb": 61.8
+   },
+   {
+    "scenario": "B",
+    "channel": "GUI",
+    "wall_s": 21.37,
+    "teacher_actions": 17,
+    "screenshots": 1,
+    "ui_navigations": 1,
+    "control_bytes": 212920,
+    "verified": true,
+    "coding_task_id": "0f62822bd7b0",
+    "order": 3,
+    "ram_used_before_gb": 61.8,
+    "ram_used_after_gb": 61.6
+   },
+   {
+    "scenario": "B",
+    "channel": "GUI",
+    "wall_s": 22.23,
+    "teacher_actions": 17,
+    "screenshots": 1,
+    "ui_navigations": 1,
+    "control_bytes": 215940,
+    "verified": true,
+    "coding_task_id": "12f52187e822",
+    "order": 8,
+    "ram_used_before_gb": 62.3,
+    "ram_used_after_gb": 62.2
+   },
+   {
+    "scenario": "B",
+    "channel": "CLI",
+    "wall_s": 15.91,
+    "teacher_actions": 1,
+    "screenshots": 0,
+    "ui_navigations": 0,
+    "control_bytes": 778,
+    "verified": true,
+    "coding_task_id": "09b8afe2c27e",
+    "task_state": "PASS",
+    "order": 9,
+    "ram_used_before_gb": 62.2,
+    "ram_used_after_gb": 62.2
+   }
+  ],
+  "median": {
+   "A": {
+    "GUI": {
+     "wall_s": 4.12,
+     "teacher_actions": 6.0,
+     "control_bytes": 15761.5
+    },
+    "CLI": {
+     "wall_s": 1.82,
+     "teacher_actions": 1.0,
+     "control_bytes": 4132.0
+    }
+   },
+   "B": {
+    "GUI": {
+     "wall_s": 21.8,
+     "teacher_actions": 17.0,
+     "control_bytes": 214430.0
+    },
+    "CLI": {
+     "wall_s": 26.91,
+     "teacher_actions": 1.0,
+     "control_bytes": 778.0
+    }
+   },
+   "C": {
+    "GUI": {
+     "wall_s": 6.54,
+     "teacher_actions": 9.0,
+     "control_bytes": 38016.5
+    },
+    "CLI": {
+     "wall_s": 3.44,
+     "teacher_actions": 1.0,
+     "control_bytes": 5645.0
+    }
+   }
   },
-  {
-   "pair": 1,
-   "channel": "CLI",
-   "order": 0,
-   "task_id": 27,
-   "wall_s": 4.26,
-   "submit_to_running_s": 1.19,
-   "model_run_s": 1.36,
-   "client_overhead_s": 1.71,
-   "teacher_actions": 1,
-   "screenshots": 0,
-   "control_bytes": 3951,
-   "verified": true
+  "verdict": {
+   "A": "MEASURED_CLI_OVERHEAD_REDUCTION",
+   "B": "NO_MEASURED_GAIN on wall-clock (CLI 37.9/15.9 s vs GUI 21.4/22.2 s, n=2, first CLI outlier) but 17x fewer teacher actions and ~270x less control context",
+   "C": "MEASURED_CLI_OVERHEAD_REDUCTION"
   },
-  {
-   "pair": 1,
-   "channel": "GUI",
-   "order": 1,
-   "task_id": 28,
-   "wall_s": 5.48,
-   "submit_to_running_s": 0.54,
-   "model_run_s": 1.26,
-   "client_overhead_s": 3.68,
-   "teacher_actions": 9,
-   "screenshots": 1,
-   "control_bytes": 21948,
-   "verified": true
-  },
-  {
-   "pair": 2,
-   "channel": "GUI",
-   "order": 0,
-   "task_id": 29,
-   "wall_s": 5.45,
-   "submit_to_running_s": 0.17,
-   "model_run_s": 1.56,
-   "client_overhead_s": 3.71,
-   "teacher_actions": 9,
-   "screenshots": 1,
-   "control_bytes": 23212,
-   "verified": true
-  },
-  {
-   "pair": 2,
-   "channel": "CLI",
-   "order": 1,
-   "task_id": 30,
-   "wall_s": 4.07,
-   "submit_to_running_s": 1.19,
-   "model_run_s": 1.13,
-   "client_overhead_s": 1.74,
-   "teacher_actions": 1,
-   "screenshots": 0,
-   "control_bytes": 3917,
-   "verified": true
-  }
- ],
- "median": {
-  "GUI": {
-   "wall_s": 5.48,
-   "submit_to_running_s": 0.54,
-   "model_run_s": 1.56,
-   "client_overhead_s": 3.68,
-   "teacher_actions": 9,
-   "control_bytes": 22159
-  },
-  "CLI": {
-   "wall_s": 4.13,
-   "submit_to_running_s": 1.19,
-   "model_run_s": 1.13,
-   "client_overhead_s": 1.72,
-   "teacher_actions": 1,
-   "control_bytes": 3919
-  }
+  "harness_notes": [
+   "first GUI A/C pass matched an older identical task card (harness bug) -> discarded, remeasured by task id (raw_AC_v2.json)",
+   "A CLI run in the discarded pass returned 'Турецкий' (real model error in memory recall, task 45) — kept as a model-quality observation"
+  ],
+  "pilot": "small n; not a model-speed claim"
  },
- "verdict": "MEASURED_OVERHEAD_REDUCTION (pilot, n=3 pairs, short tasks): CLI 1 teacher action vs 9-10, ~5.6x less control context, lower client overhead; model run time comparable. Small sample; not a model-speed claim.",
- "caveats": [
-  "same model/runtime/agent/prompt/criterion",
-  "warm model (keep_alive=-1)",
-  "second run of an identical prompt may reuse the Ollama prompt cache (tiny prompts)",
-  "a student coding task was using MAIN (different model) at the same time",
-  "CLI wall includes Python start of bossman.cmd"
- ]
+ "sha2_pilot": {
+  "schema": "owner-run.gui_vs_cli.v1",
+  "RUNTIME": "OLLAMA_PROXY",
+  "ADMIN_RUN": true,
+  "bossman_build_sha": "d53f3b1219224a3bfc73af25f70c67163224e8bc",
+  "model": "qwen-fast-nt (Qwen3.6-35B-A3B UD-Q5_K_M, gguf sha256 c13ce262…)",
+  "agent": "Быстрый",
+  "n_pairs": 3,
+  "order": "alternating GUI-first/CLI-first/GUI-first",
+  "gui_driver": "Playwright over CDP on the real Edge --app window (DOM text + 1 screenshot per task). A vision/screenshot-only teacher would cost more per step; not measured.",
+  "rows": [
+   {
+    "pair": 0,
+    "channel": "GUI",
+    "order": 0,
+    "task_id": 25,
+    "wall_s": 6.4,
+    "submit_to_running_s": 1.01,
+    "model_run_s": 1.89,
+    "client_overhead_s": 3.5,
+    "teacher_actions": 10,
+    "screenshots": 1,
+    "control_bytes": 22159,
+    "verified": true
+   },
+   {
+    "pair": 0,
+    "channel": "CLI",
+    "order": 1,
+    "task_id": 26,
+    "wall_s": 4.13,
+    "submit_to_running_s": 1.31,
+    "model_run_s": 1.1,
+    "client_overhead_s": 1.72,
+    "teacher_actions": 1,
+    "screenshots": 0,
+    "control_bytes": 3919,
+    "verified": true
+   },
+   {
+    "pair": 1,
+    "channel": "CLI",
+    "order": 0,
+    "task_id": 27,
+    "wall_s": 4.26,
+    "submit_to_running_s": 1.19,
+    "model_run_s": 1.36,
+    "client_overhead_s": 1.71,
+    "teacher_actions": 1,
+    "screenshots": 0,
+    "control_bytes": 3951,
+    "verified": true
+   },
+   {
+    "pair": 1,
+    "channel": "GUI",
+    "order": 1,
+    "task_id": 28,
+    "wall_s": 5.48,
+    "submit_to_running_s": 0.54,
+    "model_run_s": 1.26,
+    "client_overhead_s": 3.68,
+    "teacher_actions": 9,
+    "screenshots": 1,
+    "control_bytes": 21948,
+    "verified": true
+   },
+   {
+    "pair": 2,
+    "channel": "GUI",
+    "order": 0,
+    "task_id": 29,
+    "wall_s": 5.45,
+    "submit_to_running_s": 0.17,
+    "model_run_s": 1.56,
+    "client_overhead_s": 3.71,
+    "teacher_actions": 9,
+    "screenshots": 1,
+    "control_bytes": 23212,
+    "verified": true
+   },
+   {
+    "pair": 2,
+    "channel": "CLI",
+    "order": 1,
+    "task_id": 30,
+    "wall_s": 4.07,
+    "submit_to_running_s": 1.19,
+    "model_run_s": 1.13,
+    "client_overhead_s": 1.74,
+    "teacher_actions": 1,
+    "screenshots": 0,
+    "control_bytes": 3917,
+    "verified": true
+   }
+  ],
+  "median": {
+   "GUI": {
+    "wall_s": 5.48,
+    "submit_to_running_s": 0.54,
+    "model_run_s": 1.56,
+    "client_overhead_s": 3.68,
+    "teacher_actions": 9,
+    "control_bytes": 22159
+   },
+   "CLI": {
+    "wall_s": 4.13,
+    "submit_to_running_s": 1.19,
+    "model_run_s": 1.13,
+    "client_overhead_s": 1.72,
+    "teacher_actions": 1,
+    "control_bytes": 3919
+   }
+  },
+  "verdict": "MEASURED_OVERHEAD_REDUCTION (pilot, n=3 pairs, short tasks): CLI 1 teacher action vs 9-10, ~5.6x less control context, lower client overhead; model run time comparable. Small sample; not a model-speed claim.",
+  "caveats": [
+   "same model/runtime/agent/prompt/criterion",
+   "warm model (keep_alive=-1)",
+   "second run of an identical prompt may reuse the Ollama prompt cache (tiny prompts)",
+   "a student coding task was using MAIN (different model) at the same time",
+   "CLI wall includes Python start of bossman.cmd"
+  ]
+ }
 }

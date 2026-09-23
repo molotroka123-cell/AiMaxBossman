@@ -1,0 +1,1 @@
+{"schema": "bossman.exec.v1", "prompt": "Найди в памяти Bossman цвет теста owner-run и назови его одним словом.", "title": "gc2-A-6", "agent": "Быстрый", "request_id": "gc2-A-6-1790181966", "wait": true, "max_seconds": 300, "approval_mode": "fail", "on_timeout": "stop"}

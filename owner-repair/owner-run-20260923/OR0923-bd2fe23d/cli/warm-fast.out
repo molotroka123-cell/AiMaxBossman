@@ -1,0 +1,22 @@
+{"v": 1, "type": "system", "subtype": "init", "schema": "bossman.events.v1", "client": {"name": "bossman-terminal", "version": "1.2.0"}, "bossman": {"url": "http://127.0.0.1:8810", "app": "bossman-command-center", "version": "0.1.0", "build_sha": "cdb4b09db49aebac46bea2f3b98ef143d4a343d6", "source_identity": "PASS", "started_at": "2026-09-23T16:41:24.815151", "data_dir": "C:\\Users\\asd\\Bossman Test 0923\\data"}, "cwd": "C:\\Users\\asd\\Bossman Test 0923", "request_id": "warm-fast-1790181808", "agent": {"id": 2, "name": "Быстрый"}, "model": {"id": 4, "alias": "qwen-fast-nt", "name": "bossman-fast-qwen36-35b-a3b-q5:latest", "provider_kind": "openai_compat", "locality": "local", "context_window": 32768, "model_kind": "REAL_MODEL"}}
+{"v": 1, "type": "task", "subtype": "submitted", "task_id": 39, "status": "draft", "request_id": "warm-fast-1790181808"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 39, "status": "draft", "seq": 1132, "ts": "2026-09-23T16:43:28.670502"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 39, "run_id": 39, "status": "queued", "source": "poll"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 39, "run_id": 39, "status": "queued", "seq": 1133, "ts": "2026-09-23T16:43:28.843937"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 39, "run_id": 39, "status": "running", "seq": 1134, "ts": "2026-09-23T16:43:29.250265"}
+{"v": 1, "type": "memory", "subtype": "recalled", "message": "память: 1 записей", "count": 1, "run_id": 39, "ts": "2026-09-23T16:43:29.288205"}
+{"v": 1, "type": "usage", "step": 1, "model": "qwen-fast-nt", "reported": true, "step_tokens_in": 680, "step_tokens_out": 2, "tokens_in": 680, "tokens_out": 2, "cost_known": false, "context_window": 32768, "max_tokens_total": 400000, "max_cost_usd": 2.0, "run_id": 39, "seq": 1135, "ts": "2026-09-23T16:44:04.442727"}
+{"v": 1, "type": "assistant_message", "text": "ок", "step": 1, "model": "qwen-fast-nt", "run_id": 39, "seq": 1137, "ts": "2026-09-23T16:44:04.465867"}
+{"v": 1, "type": "step", "task_id": 39, "run_id": 39, "step": 1, "max_steps": 6, "model": "qwen-fast-nt", "seq": 1138, "ts": "2026-09-23T16:44:04.472722"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 39, "seq": 1140, "ts": "2026-09-23T16:44:04.489717"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 39, "seq": 1141, "ts": "2026-09-23T16:44:04.492839"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 39, "seq": 1142, "ts": "2026-09-23T16:44:04.495842"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 39, "seq": 1143, "ts": "2026-09-23T16:44:04.498847"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 39, "seq": 1144, "ts": "2026-09-23T16:44:04.502733"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 39, "seq": 1145, "ts": "2026-09-23T16:44:04.506786"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 39, "seq": 1146, "ts": "2026-09-23T16:44:04.509569"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 39, "seq": 1147, "ts": "2026-09-23T16:44:04.511569"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 39, "seq": 1148, "ts": "2026-09-23T16:44:04.515605"}
+{"v": 1, "type": "evaluation", "verdict": "NOT_APPLICABLE", "reasons": "", "run_id": 39, "seq": 1149, "ts": "2026-09-23T16:44:04.518605"}
+{"v": 1, "type": "task", "subtype": "status", "task_id": 39, "run_id": 39, "status": "completed", "seq": 1150, "ts": "2026-09-23T16:44:04.534660"}
+{"v": 1, "type": "result", "ok": true, "task_state": "PASS", "status": "completed", "task_id": 39, "run_id": 39, "duration_ms": 35859, "result": "ок", "usage": {"tokens_in": 680, "tokens_out": 2, "cost_usd": null}, "model": "qwen-fast-nt", "model_kind": "REAL_MODEL", "cursor": 1150, "exit_code": 0}

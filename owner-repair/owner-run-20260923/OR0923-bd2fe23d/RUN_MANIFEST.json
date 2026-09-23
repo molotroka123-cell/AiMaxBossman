@@ -1,0 +1,78 @@
+{
+ "run_id": "OR0923-bd2fe23d",
+ "date": "2026-09-23",
+ "mode": "OWNER_RUN",
+ "source": {
+  "repo": "molotroka123-cell/AiMaxBossman",
+  "source_branch": "integrate/owner-final-20260922",
+  "pre_fix_baseline": "bd2fe23dab55704d60ed468bcbb4664475e49879",
+  "candidates": {
+   "SHA2": {
+    "sha": "d53f3b1219224a3bfc73af25f70c67163224e8bc",
+    "branch": "fix/owner-run-20260923-p1",
+    "zip_sha256": "2edb42768a928e14276ef9eb86035bcf38f61bd6de98f50b6e400cc292d82007"
+   },
+   "SHA3": {
+    "sha": "cdb4b09db49aebac46bea2f3b98ef143d4a343d6",
+    "branch": "fix/owner-run-20260923-p1",
+    "zip_sha256": "484590c791fe0ffe1e494e98083e3650d11e7100440b272e13830921b73b8bc8"
+   }
+  },
+  "baseline_zip_sha256": "95476d4a560d9f347ca4797b75475dbd9e20c52417b209701f7692bf6ab3528c",
+  "packaging": "PACKAGING_BLOCKER in CI (no windows-bundle run for bd2fe23d/3707d6ab); all ZIPs built locally with tools/build_windows_bundle.py --profile release from clean LF clones; each verify_windows_bundle.py = PASS; not CI certificates"
+ },
+ "machine": {
+  "cpu": "AMD Ryzen AI MAX+ 395",
+  "gpu": "Radeon 8060S (driver 32.0.22021.1009)",
+  "ram_gb": 119.6,
+  "os": "Windows 11 Pro 10.0.26200",
+  "smart_app_control": "On (not changed)",
+  "privilege": "ADMIN_RUN (High integrity S-1-16-12288); STANDARD_USER smoke at Medium S-1-16-8192"
+ },
+ "runtime": {
+  "RUNTIME": "OLLAMA_PROXY",
+  "ollama": "0.34.3 dedicated instance 127.0.0.1:11435 KEEP_ALIVE=-1 FLASH_ATTENTION=1 NO_CLOUD=1",
+  "proxy": "127.0.0.1:11500 nothink_proxy.py (reasoning_effort=none default)",
+  "models": {
+   "MAIN": {
+    "name": "Qwen3.8-27B UD-Q5_K_M",
+    "gguf_sha256": "2de73110cb254cbf09b54b717578dadff12ef1194e7271527e68202f39ba4bfd",
+    "ctx": 65536
+   },
+   "FAST": {
+    "name": "Qwen3.6-35B-A3B UD-Q5_K_M",
+    "gguf_sha256": "c13ce26253ea334df472bd8fbd2d6da66d8a41195c17f6fcbf44c4d20ece0932",
+    "ctx": 32768
+   }
+  },
+  "why": "llama.cpp b10964 blocked by Smart App Control (unsigned DLLs, 0xC0E90002)",
+  "media": "stable-diffusion.cpp master-890-74988b2 Vulkan (sd-cli sha256 ee6fb793…), models hash-verified by media_bootstrap validate"
+ },
+ "scope": {
+  "install": "C:\\Users\\asd\\Bossman Test 0923\\ (sha3\\… current)",
+  "data_root": "C:\\Users\\asd\\Bossman Test 0923\\data",
+  "port": 8810,
+  "owner_working_install_touched": false,
+  "projects": [
+   "projects\\bossman-tools-lab (tools/ @ bd2fe23d)",
+   "projects\\report-export (sealed D2, revealed after restart)",
+   "projects\\crlf-check",
+   "projects\\паритет проект"
+  ]
+ },
+ "limits": {
+  "cloud_budget_usd": 3.0,
+  "cloud_spent_usd_estimate": 0.00088,
+  "spend_meter": "enabled, daily 3.0",
+  "attempt_minutes": 40,
+  "weights": "WEIGHTS_UNCHANGED",
+  "downloads_of_new_models": 0
+ },
+ "approvals": "DELEGATED_BY_OWNER_TEST_SCOPE (owner messages 2026-09-23), allowlisted tools per test; logged in logs/ui-actions.jsonl",
+ "evidence_branch": "evidence/owner-run-20260923",
+ "fix_branches": [
+  "fix/coding-path-crlf-blob-20260923 (7439917f)",
+  "fix/owner-run-20260923-p1 (d53f3b12, cdb4b09d)",
+  "feat/cli-claude-parity-20260923 (12612c81)"
+ ]
+}

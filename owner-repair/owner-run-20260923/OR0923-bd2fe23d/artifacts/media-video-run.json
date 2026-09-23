@@ -1,0 +1,219 @@
+{
+ "id": "cc84a9c57223429d809de9937da02193",
+ "job_id": 2,
+ "legacy_asset_id": null,
+ "surface": "video",
+ "model": "sdcpp:wan2.2-ti2v-5b",
+ "provenance": {
+  "plane": {
+   "model": "sdcpp:wan2.2-ti2v-5b",
+   "prompt": "a red lighthouse on a rocky coast, waves, sunset, slow camera pan",
+   "settings": {
+    "length": "test_1s",
+    "width": 640,
+    "height": 352,
+    "frames": 17,
+    "fps": 16,
+    "steps": 16,
+    "cfg_scale": 5.0,
+    "seed": 923
+   },
+   "media": [],
+   "count": 1,
+   "collection_id": null
+  },
+  "settings_resolved": {
+   "length": "test_1s",
+   "width": 640,
+   "height": 352,
+   "frames": 17,
+   "fps": 16,
+   "steps": 16,
+   "cfg_scale": 5.0,
+   "seed": 923,
+   "engine_trace": {
+    "engine": "stable-diffusion.cpp",
+    "engine_release_declared": "master-890-74988b2",
+    "backend": {
+     "declared": "vulkan",
+     "observed": "ggml_vulkan: Found 1 Vulkan devices:",
+     "evidence": "engine_log",
+     "status": "OBSERVED"
+    },
+    "generation": {
+     "source": "engine_process",
+     "engine_binary": {
+      "name": "sd-cli.exe",
+      "sha256_expected": "ee6fb793824759f322202deec69d9b5526765bb3308930ff754cdf906cb9cfd1",
+      "sha256_observed": "ee6fb793824759f322202deec69d9b5526765bb3308930ff754cdf906cb9cfd1",
+      "match": true,
+      "method": "cache",
+      "release_declared": "master-890-74988b2"
+     },
+     "model_files": {
+      "diffusion": {
+       "name": "Wan2.2-TI2V-5B-Q8_0.gguf",
+       "bytes": 5400179040,
+       "sha256_expected": "57bece983817ab2f957546683bb670f13be7d99022d45674840cd999a050ea8f",
+       "sha256_observed": "57bece983817ab2f957546683bb670f13be7d99022d45674840cd999a050ea8f",
+       "revision_declared": null,
+       "verification": {
+        "method": "sampled",
+        "mode": "submit"
+       }
+      },
+      "vae": {
+       "name": "wan2.2_vae.safetensors",
+       "bytes": 1409400960,
+       "sha256_expected": "e40321bd36b9709991dae2530eb4ac303dd168276980d3e9bc4b6e2b75fed156",
+       "sha256_observed": "e40321bd36b9709991dae2530eb4ac303dd168276980d3e9bc4b6e2b75fed156",
+       "revision_declared": null,
+       "verification": {
+        "method": "sampled",
+        "mode": "submit"
+       }
+      },
+      "text_encoder": {
+       "name": "umt5-xxl-encoder-Q8_0.gguf",
+       "bytes": 6043068256,
+       "sha256_expected": "2521d4de0bf9e1cc6549866463ceae85e4ec3239bc6063f7488810be39033bbc",
+       "sha256_observed": "2521d4de0bf9e1cc6549866463ceae85e4ec3239bc6063f7488810be39033bbc",
+       "revision_declared": null,
+       "verification": {
+        "method": "sampled",
+        "mode": "submit"
+       }
+      }
+     },
+     "argv": [
+      "sd-cli.exe",
+      "-M",
+      "vid_gen",
+      "--diffusion-model",
+      "Wan2.2-TI2V-5B-Q8_0.gguf",
+      "--vae",
+      "wan2.2_vae.safetensors",
+      "--t5xxl",
+      "umt5-xxl-encoder-Q8_0.gguf",
+      "--video-frames",
+      "17",
+      "--fps",
+      "16",
+      "--flow-shift",
+      "5.0",
+      "--cfg-scale",
+      "5.0",
+      "--sampling-method",
+      "euler",
+      "-p",
+      "a red lighthouse on a rocky coast, waves, sunset, slow camera pan",
+      "-W",
+      "640",
+      "-H",
+      "352",
+      "--steps",
+      "16",
+      "-s",
+      "923",
+      "-o",
+      "8b0ec2b646944533.webm"
+     ],
+     "returncode": 0,
+     "elapsed_s": 66.99,
+     "peak_rss_bytes": 12029304832,
+     "raw_output": {
+      "name": "8b0ec2b646944533.webm",
+      "sha256": "47dc0bed92e65d8369b3c76383086d5b45e1d862645e2884898784ef74628688",
+      "bytes": 603622,
+      "container": "matroska",
+      "width": 640,
+      "height": 352
+     },
+     "frames": 17,
+     "fps": 16,
+     "length": "test_1s",
+     "segments": null,
+     "duration_s_declared": 1.0625,
+     "duration_s_observed": 1.0,
+     "image_to_video": false,
+     "log_tail": [
+      "[INFO   ] ggml_graph_cut.cpp:1034 - Wan2.2-TI2V-5B build cached graph cut plan done (taking 4 ms)",
+      "\r  |#                                                 | 1/825 - 0.00MB/s\u001b[K\r  |###################                               | 307/825 - 6.55GB/s\u001b[K\r  |####################################              | 581/825 - 7.39GB/s\u001b[K\r  |##################################################| 825/825 - 7.41GB/s\u001b[K",
+      "[INFO   ] model_loader.cpp:1309 - loading tensors completed, taking 0.68s (read: 0.53s, memcpy: 0.00s, convert: 0.00s, copy_to_backend: 0.07s)",
+      "\r  |===>                                              | 1/16 - 3.37s/it\u001b[K\r  |======>                                           | 2/16 - 2.24s/it\u001b[K\r  |=========>                                        | 3/16 - 2.29s/it\u001b[K\r  |============>                                     | 4/16 - 2.24s/it\u001b[K\r  |===============>                                  | 5/16 - 2.31s/it\u001b[K\r  |==================>                               | 6/16 - 2.30s/it\u001b[K\r  |=====================>                            | 7/16 - 2.37s/it\u001b[K\r  |=========================>                        | 8/16 - 2.30s/it\u001b[K\r  |============================>                     | 9/16 - 2.31s/it\u001b[K\r  |===============================>                  | 10/16 - 2.31s/it\u001b[K\r  |==================================>               | 11/16 - 2.30s/it\u001b[K\r  |=====================================>            | 12/16 - 2.32s/it\u001b[K\r  |========================================>         | 13/16 - 2.30s/it\u001b[K\r  |===========================================>      | 14/16 - 2.35s/it\u001b[K\r  |==============================================>   | 15/16 - 2.30s/it\u001b[K\r  |==================================================| 16/16 - 2.36s/it\u001b[K",
+      "[INFO   ] video.cpp:1699 - sampling completed, taking 37.98s",
+      "[INFO   ] video.cpp:1843 - generating latent video completed, taking 37.99s",
+      "[INFO   ] ggml_graph_cut.cpp:1034 - wan_vae build cached graph cut plan done (taking 3 ms)",
+      "\r  |##################################################| 110/110 - 4.90GB/s\u001b[K",
+      "[INFO   ] model_loader.cpp:1309 - loading tensors completed, taking 0.21s (read: 0.11s, memcpy: 0.00s, convert: 0.00s, copy_to_backend: 0.03s)",
+      "[INFO   ] video.cpp:1240 - decode_first_stage completed, taking 23.74s",
+      "[INFO   ] video.cpp:1931 - generate_video completed in 65.21s",
+      "[INFO   ] main.cpp:554  - save result video to 'C:\\Users\\asd\\Bossman Test 0923\\data\\studio\\engine-work\\8b0ec2b646944533.webm'"
+     ]
+    },
+    "transcode": {
+     "tool": "ffmpeg",
+     "argv": [
+      "ffmpeg.exe",
+      "-v",
+      "error",
+      "-y",
+      "-i",
+      "8b0ec2b646944533.webm",
+      "-an",
+      "-c:v",
+      "libx264",
+      "-pix_fmt",
+      "yuv420p",
+      "-crf",
+      "16",
+      "-movflags",
+      "+faststart",
+      "-f",
+      "mp4",
+      ".generated-2-0-0.mp4.8b0ec2b646944533.part"
+     ],
+     "input_sha256": "47dc0bed92e65d8369b3c76383086d5b45e1d862645e2884898784ef74628688",
+     "output_sha256": "b3ebc5644ebfde6fa91e31726c3c5b842704b3a0ce2cd8f7b8a118504f4ddab6",
+     "output_bytes": 292685
+    },
+    "import": {
+     "dest_name": "generated-2-0-0.mp4",
+     "sha256": "b3ebc5644ebfde6fa91e31726c3c5b842704b3a0ce2cd8f7b8a118504f4ddab6",
+     "bytes": 292685,
+     "mime": "video/mp4",
+     "atomic": true
+    }
+   }
+  },
+  "provider": "sdcpp",
+  "model": "sdcpp:wan2.2-ti2v-5b",
+  "mock": false,
+  "output": {
+   "width": 640,
+   "height": 352,
+   "duration_ms": 1062.5,
+   "mime": "video/mp4",
+   "path": "C:\\Users\\asd\\Bossman Test 0923\\data\\studio\\generated-2-0-0.mp4",
+   "sha256": "b3ebc5644ebfde6fa91e31726c3c5b842704b3a0ce2cd8f7b8a118504f4ddab6",
+   "bytes": 292685
+  },
+  "inputs": [],
+  "provider_request_id": "8b0ec2b646944533",
+  "cost_usd": 0,
+  "finished_at": "2026-09-23T16:37:45.788483",
+  "harness": {
+   "repository_sha": "NOT_CAPTURED:development",
+   "catalog_sha256": "2f3cb244f39cd863360b792dc2499873257955156117fb4e120fd61c49774ccd"
+  }
+ },
+ "file_path": "C:\\Users\\asd\\Bossman Test 0923\\data\\studio\\generated-2-0-0.mp4",
+ "sha256": "b3ebc5644ebfde6fa91e31726c3c5b842704b3a0ce2cd8f7b8a118504f4ddab6",
+ "file_bytes": 292685,
+ "mime": "video/mp4",
+ "created_at": "2026-09-23T16:37:45.789044",
+ "favorite": false,
+ "deleted": false,
+ "collection_id": null,
+ "file_url": "/api/studio/runs/cc84a9c57223429d809de9937da02193/file"
+}

@@ -1,0 +1,33 @@
+ Volume in drive C is Windows
+ Volume Serial Number is A010-5DA5
+
+ Directory of C:\Users\asd\Bossman Test 0923\data
+
+23.09.2026  09:50    <DIR>          .
+23.09.2026  09:50    <DIR>          ..
+23.09.2026  09:49         3 874 816 bcc.db
+23.09.2026  09:50            32 768 bcc.db-shm
+23.09.2026  09:50           420 272 bcc.db-wal
+23.09.2026  08:12    <DIR>          browser
+23.09.2026  07:40    <DIR>          coding-sessions
+23.09.2026  09:50    <DIR>          coding-tasks
+23.09.2026  08:46    <DIR>          computer
+23.09.2026  09:50    <DIR>          desktop-profile
+23.09.2026  09:50            11 538 desktop-run.log
+23.09.2026  09:50                71 desktop.lock
+23.09.2026  06:58    <DIR>          evolution
+23.09.2026  09:15    <DIR>          learning
+23.09.2026  09:23    <DIR>          media
+23.09.2026  09:50    <DIR>          memory
+23.09.2026  06:58    <DIR>          scratch
+23.09.2026  06:55                44 secret.key
+23.09.2026  09:16                69 spend_meter.json
+23.09.2026  09:37    <DIR>          studio
+23.09.2026  07:16    <DIR>          terminal
+23.09.2026  06:55    <DIR>          testing
+23.09.2026  06:55                43 token
+23.09.2026  06:55    <DIR>          video-studio
+23.09.2026  07:43    <DIR>          web_designer
+               8 File(s)      4 339 621 bytes
+              17 Dir(s)  1 585 748 381 696 bytes free
+WRITE_OK

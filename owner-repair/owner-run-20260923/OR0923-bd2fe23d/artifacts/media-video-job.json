@@ -1,0 +1,58 @@
+{
+ "id": 2,
+ "kind": "generate",
+ "status": "completed",
+ "prompt": "a red lighthouse on a rocky coast, waves, sunset, slow camera pan",
+ "negative_prompt": "",
+ "model_alias": "sdcpp:wan2.2-ti2v-5b",
+ "aspect_ratio": "1:1",
+ "width": 1024,
+ "height": 1024,
+ "steps": 30,
+ "seed": null,
+ "count": 1,
+ "collection_id": null,
+ "source_asset_id": null,
+ "reference_asset_ids": [],
+ "tags": [],
+ "options": {
+  "studio": true
+ },
+ "progress": 1.0,
+ "error": "",
+ "created_at": "2026-09-23T16:36:38.403687",
+ "updated_at": "2026-09-23T16:37:45.789044",
+ "started_at": "2026-09-23T16:36:38.417043",
+ "finished_at": "2026-09-23T16:37:45.802904",
+ "studio": {
+  "job_id": 2,
+  "task_id": null,
+  "agent_run_id": null,
+  "plane": {
+   "model": "sdcpp:wan2.2-ti2v-5b",
+   "prompt": "a red lighthouse on a rocky coast, waves, sunset, slow camera pan",
+   "settings": {
+    "length": "test_1s",
+    "width": 640,
+    "height": 352,
+    "frames": 17,
+    "fps": 16,
+    "steps": 16,
+    "cfg_scale": 5.0,
+    "seed": 923
+   },
+   "media": [],
+   "count": 1,
+   "collection_id": null
+  },
+  "surface": "video",
+  "request_id": "8b0ec2b646944533",
+  "reason": null,
+  "verdict": "PASS",
+  "submit_started": true,
+  "reserved_usd": 0.0,
+  "budget_day": null,
+  "cost_usd": "NOT_CAPTURED:not_dispatched",
+  "policy_digest": null
+ }
+}

@@ -1,0 +1,1 @@
+{"schema": "bossman.exec.v1", "prompt": "Открой в браузере https://example.org и скажи заголовок страницы.", "title": "gc2-C-10", "agent": "Быстрый", "request_id": "gc2-C-10-1790182012", "wait": true, "max_seconds": 300, "approval_mode": "fail", "on_timeout": "stop"}

@@ -1,0 +1,58 @@
+{
+ "id": 4,
+ "kind": "generate",
+ "status": "failed",
+ "prompt": "restart test clip, ocean waves",
+ "negative_prompt": "",
+ "model_alias": "sdcpp:wan2.2-ti2v-5b",
+ "aspect_ratio": "1:1",
+ "width": 1024,
+ "height": 1024,
+ "steps": 30,
+ "seed": null,
+ "count": 1,
+ "collection_id": null,
+ "source_asset_id": null,
+ "reference_asset_ids": [],
+ "tags": [],
+ "options": {
+  "studio": true
+ },
+ "progress": 0.05,
+ "error": "interrupted_unknown: inspect provider before retry",
+ "created_at": "2026-09-23T16:39:08.341777",
+ "updated_at": "2026-09-23T16:39:08.557018",
+ "started_at": "2026-09-23T16:39:08.557018",
+ "finished_at": "2026-09-23T16:41:24.906775",
+ "studio": {
+  "job_id": 4,
+  "task_id": null,
+  "agent_run_id": null,
+  "plane": {
+   "model": "sdcpp:wan2.2-ti2v-5b",
+   "prompt": "restart test clip, ocean waves",
+   "settings": {
+    "length": "5s",
+    "width": 832,
+    "height": 480,
+    "frames": 81,
+    "fps": 16,
+    "steps": 20,
+    "cfg_scale": 5.0,
+    "seed": 2
+   },
+   "media": [],
+   "count": 1,
+   "collection_id": null
+  },
+  "surface": "video",
+  "request_id": "5fc8f04870ce4657",
+  "reason": "interrupted_unknown",
+  "verdict": "OWNER_REQUIRED",
+  "submit_started": true,
+  "reserved_usd": 0.0,
+  "budget_day": null,
+  "cost_usd": "NOT_CAPTURED:not_dispatched",
+  "policy_digest": null
+ }
+}

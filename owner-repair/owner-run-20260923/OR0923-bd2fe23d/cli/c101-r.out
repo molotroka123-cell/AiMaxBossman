@@ -1,0 +1,1 @@
+{"v": 1, "type": "result", "ok": true, "task_state": "WAIT_APPROVAL", "status": "waiting_approval", "task_id": 59, "run_id": 59, "title": "t070", "usage": {"tokens_in": 3848, "tokens_out": 88}, "model": "qwen-main-nt", "exit_code": 4}
