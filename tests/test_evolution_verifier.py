@@ -88,7 +88,10 @@ def test_pytest_runner_reaches_the_same_verdict(repo, tmp_path):
     src, sha = repo
     rec = check(src, sha, tmp_path, make_diff(src, sha, tmp_path, **GOOD), runner=v.GuardedHostRunner())
     assert rec["runner"]["runner"] == "pytest"
-    assert rec["verdict"] == "PASS", rec["reasons"]
+    # on failure, show what the guarded pytest actually printed (Windows-only diagnosis)
+    outputs = {str(p.relative_to(tmp_path)): p.read_text(encoding="utf-8", errors="replace")[-3000:]
+               for p in tmp_path.rglob("output.txt")}
+    assert rec["verdict"] == "PASS", (rec["reasons"], outputs)
 
 
 def test_mock_model_pass_never_counts_as_student_success(repo, tmp_path):
