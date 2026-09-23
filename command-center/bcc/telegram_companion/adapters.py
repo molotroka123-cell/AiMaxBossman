@@ -825,3 +825,131 @@ class Models:
                 continue
             out.append(f"{str(row.get('title', 'Источник'))[:100]}\n{url[:500]}")
         return "\n\n".join(out) or "По этому запросу результатов не найдено."
+
+    async def web_results(self, query: str) -> list[dict]:
+        """Top web results for ONLY this query: configured SearXNG, else keyless DuckDuckGo HTML.
+
+        Results are untrusted third-party text; callers quote them as data, never obey them."""
+        query = " ".join(query.split())[:300]
+        if not query:
+            return []
+        if self.settings.search_url:
+            body = await json_request(self.local, "GET", self.settings.search_url + "/search",
+                                      params={"q": query, "format": "json"}, timeout=10)
+            rows = body.get("results") if isinstance(body, dict) else None
+            if not isinstance(rows, list):
+                raise CompanionError("SEARCH_RESPONSE_INVALID")
+            out = []
+            for row in rows:
+                if isinstance(row, dict):
+                    item = clean_result(row.get("title"), row.get("url"), row.get("content"))
+                    if item:
+                        out.append(item)
+                if len(out) >= WEB_RESULTS:
+                    break
+            return out
+        # Remote client: honours the configured proxy, no cookies/history, no redirects.
+        html = await text_request(self.remote, DDG_HTML, params={"q": query},
+                                  headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                                           "Accept-Language": "ru,en;q=0.8"}, timeout=15)
+        return parse_ddg_html(html)
+
+
+WEB_RESULTS = 5
+MAX_HTML_BYTES = 1024 * 1024
+DDG_HTML = "https://html.duckduckgo.com/html/"
+
+
+async def text_request(client, url, *, params=None, headers=None, timeout=15) -> str:
+    """Bounded GET of an HTML page; only 200 is a result (DDG answers 202 to bot checks)."""
+    try:
+        async with asyncio.timeout(timeout):
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                data = bytearray()
+                async for part in response.aiter_bytes():
+                    data.extend(part)
+                    if len(data) > MAX_HTML_BYTES:
+                        raise CompanionError("RESPONSE_TOO_LARGE")
+                if response.status_code != 200:
+                    raise CompanionError("SEARCH_UNAVAILABLE")
+                return data.decode("utf-8", "replace")
+    except (httpx.HTTPError, OSError, TimeoutError):
+        raise CompanionError("NETWORK_UNAVAILABLE") from None
+
+
+def clean_result(title, url, snippet) -> dict | None:
+    """Plain, bounded, fence-free fields; only http(s) URLs without credentials."""
+    url = str(url or "").strip()
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return None
+    if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
+        return None
+
+    def plain(value, limit):
+        text = " ".join(str(value or "").split())
+        return re.sub(r"<{2,}|>{2,}|`{3,}", " ", text)[:limit].strip()
+    return {"title": plain(title, 150) or parsed.hostname, "url": url[:500], "snippet": plain(snippet, 400)}
+
+
+def parse_ddg_html(html: str) -> list[dict]:
+    """DuckDuckGo HTML results -> [{title,url,snippet}] (top WEB_RESULTS, ads skipped)."""
+    from html.parser import HTMLParser
+    from urllib.parse import parse_qs
+
+    class Parser(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.rows, self.field, self.ad_depth, self.depth = [], None, None, 0
+
+        def handle_starttag(self, tag, attrs):
+            a = dict(attrs)
+            classes = (a.get("class") or "").split()
+            if tag == "div":
+                self.depth += 1
+                if "result--ad" in classes and self.ad_depth is None:
+                    self.ad_depth = self.depth
+            if self.ad_depth is not None or tag != "a":
+                return
+            if "result__a" in classes:
+                self.rows.append({"href": a.get("href") or "", "title": [], "snippet": []})
+                self.field = "title"
+            elif "result__snippet" in classes and self.rows:
+                self.field = "snippet"
+
+        def handle_endtag(self, tag):
+            if tag == "a":
+                self.field = None
+            elif tag == "div":
+                if self.ad_depth is not None and self.depth == self.ad_depth:
+                    self.ad_depth = None
+                self.depth -= 1
+
+        def handle_data(self, data):
+            if self.field and self.rows:
+                self.rows[-1][self.field].append(data)
+
+    parser = Parser()
+    try:
+        parser.feed(html)
+        parser.close()
+    except Exception:
+        return []
+    out, seen = [], set()
+    for row in parser.rows:
+        href = row["href"]
+        if href.startswith("//"):
+            href = "https:" + href
+        target = urlsplit(href)
+        if target.hostname and target.hostname.endswith("duckduckgo.com"):
+            if target.path.startswith("/y.js"):
+                continue  # sponsored link
+            href = (parse_qs(target.query).get("uddg") or [""])[0]
+        item = clean_result("".join(row["title"]), href, "".join(row["snippet"]))
+        if item and item["url"] not in seen:
+            seen.add(item["url"])
+            out.append(item)
+        if len(out) >= WEB_RESULTS:
+            break
+    return out
