@@ -46,13 +46,27 @@ Enter — отправить; Tab — дополнение команд и пу�
 Команды: `/help /status /tasks /models [use X] /agent [X] /skills [запрос] /tools /memory <запрос>
 /diff [id] /code --allow <путь> [--verify <тест>] <задача> /approve [id] /deny [id] /approvals
 /pause /stop [id|all] /resume /computer [status|stop|resume] /evolve [status|pause|resume|stop|report]
-/keys /panel /expand [N] /history [on|off] /clear /exit`.
+/keys /panel /compact [инструкция] /context /cost /export [путь] [--force] /doctor /expand [N]
+/history [on|off] /clear /exit`. Синонимы: `/permissions` = `/tools`, `/usage` = `/cost`, `/model` = `/models`.
 
 * `/models use X` меняет модель **текущего агента** — это постоянная настройка агента, видна в вебе.
 * `/panel` — панель контекста по запросу: Workspace, Active Task, Tools Enabled, Memory (summary),
   Budget (session), Model.
 * Беседа: каждый ход — обычная задача Bossman; в следующий ход терминал добавляет последние 3 хода
   (их ответы берутся из Bossman). Продолжить позже: `bossman resume <id сессии>`.
+* `/compact [инструкция]` — сжать беседу, как в Claude Code: резюме пишет **обычная задача Bossman**
+  текущего агента (видна в `/tasks`, вебе, Telegram), хранится в том же файле сессии
+  (`<данные>\terminal\sessions\<id>.json`: `summary`, `compacted_at_turn`). Дальше каждое сообщение
+  несёт «Краткое содержание беседы…» + только ходы после сжатия. Инструкция — подсказка для резюме,
+  не действие. Задача не удалась или остановлена — сессия не меняется. Показывает размер до/после.
+* `/context` — что уйдёт со следующим сообщением: резюме да/нет, число ходов, символы,
+  ≈токены (**оценка** символы/4), агент, модель, окно контекста (если backend его сообщил).
+* `/cost` (`/usage`) — токены и стоимость задач этой сессии, прочитанные из Bossman; неизвестная цена — «—».
+* `/export [путь] [--force]` — беседа в Markdown (UTF-8): ходы владельца, ответы Bossman, id задач,
+  время. По умолчанию `<данные>\terminal\exports\<id>.md`; существующий файл без `--force` не
+  перезаписывается.
+* `/doctor` — только чтение: сборка, каталог данных, агент/модель, готовность coding path, память,
+  управление компьютером, ожидающие разрешения. Нет эндпоинта в этой сборке — «эта сборка не сообщает».
 
 ### Ctrl+C и STOP
 

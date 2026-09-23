@@ -31,13 +31,18 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "evolve": ("/evolve [status|pause|resume|stop|report]", "цикл самоулучшения 1.1"),
     "keys": ("/keys [set <vendor>|remove <vendor>|import-env]", "ключи облачных моделей"),
     "panel": ("/panel", "панель контекста: workspace, задача, инструменты, память, бюджет"),
+    "compact": ("/compact [инструкция]", "сжать беседу в резюме (задачей Bossman); дальше — резюме + новые ходы"),
+    "context": ("/context", "что уйдёт со следующим сообщением: резюме, ходы, размер"),
+    "cost": ("/cost", "токены и стоимость задач этой сессии (из Bossman)"),
+    "export": ("/export [путь] [--force]", "сохранить беседу в Markdown"),
+    "doctor": ("/doctor", "проверка: сборка, данные, агент, coding path, память, компьютер"),
     "expand": ("/expand [N]", "развернуть свёрнутый блок (мысли модели, вывод инструмента)"),
     "history": ("/history [on|off]", "история ввода: показать состояние / включить / выключить"),
     "clear": ("/clear", "очистить экран"),
     "exit": ("/exit", "выйти (задачи продолжают работу в Bossman)"),
 }
 ALIASES = {"quit": "exit", "q": "exit", "model": "models", "evolution": "evolve", "?": "help",
-           "agents": "agent", "approval": "approvals"}
+           "agents": "agent", "approval": "approvals", "permissions": "tools", "usage": "cost"}
 
 
 @dataclass

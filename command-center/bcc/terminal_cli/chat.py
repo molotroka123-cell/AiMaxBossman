@@ -33,7 +33,7 @@ from .console import color_allowed, make_console, sanitize, utf8_console
 from .follow import Follower, FollowOptions
 from .human import (View, human_duration, human_tokens, money, render_status_bar, render_title,
                     status_cells)
-from .ops import Catalog, create_draft, new_request_id, start_run
+from .ops import MAX_PROMPT_CHARS, Catalog, create_draft, new_request_id, start_run
 from .records import EXIT_DISCONNECTED, EXIT_OK, model_kind, state_of
 from .theme import glyphs
 
@@ -83,6 +83,10 @@ class Session:
     id: str
     path: Path
     turns: list[dict] = field(default_factory=list)
+    #: /compact: summary of turns[:compacted_at_turn] written by a Bossman task
+    summary: str = ""
+    compacted_at_turn: int = 0
+    compact_tasks: list[int] = field(default_factory=list)
 
     @classmethod
     def open(cls, data_dir: Path, session_id: str | None) -> "Session":
@@ -96,7 +100,13 @@ class Session:
                 raise BossmanError(f"сессия {session_id} не найдена", kind="not_found",
                                    hint=f"сессии: {root}")
             data = json.loads(path.read_text(encoding="utf-8"))
-            return cls(id=session_id, path=path, turns=list(data.get("turns") or []))
+            turns = list(data.get("turns") or [])
+            # Sessions written before /compact have no summary fields.
+            at = data.get("compacted_at_turn")
+            at = at if isinstance(at, int) and 0 <= at <= len(turns) else 0
+            return cls(id=session_id, path=path, turns=turns, summary=str(data.get("summary") or ""),
+                       compacted_at_turn=at,
+                       compact_tasks=[t for t in data.get("compact_tasks") or [] if isinstance(t, int)])
         sid = time.strftime("%Y%m%d-%H%M%S") + "-" + secrets.token_hex(3)
         return cls(id=sid, path=root / f"{sid}.json")
 
@@ -105,24 +115,88 @@ class Session:
         # words: the answer itself is read back from Bossman, not stored here.
         self.turns.append({"task_id": task_id, "text": filter_history_line(text)[:4000],
                            "at": time.strftime("%Y-%m-%dT%H:%M:%S")})
+        self.save()
+
+    def live_turns(self) -> list[dict]:
+        """Turns after the compaction point (all of them without /compact)."""
+        return self.turns[self.compacted_at_turn:]
+
+    def compacted(self, summary: str, task_id: int) -> None:
+        self.summary = summary
+        self.compacted_at_turn = len(self.turns)
+        self.compact_tasks.append(task_id)
+        self.save()
+
+    def save(self) -> None:
+        data: dict[str, Any] = {"id": self.id, "turns": self.turns}
+        if self.summary or self.compact_tasks:
+            data.update(summary=self.summary, compacted_at_turn=self.compacted_at_turn,
+                        compact_tasks=self.compact_tasks)
         tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"id": self.id, "turns": self.turns}, ensure_ascii=False, indent=1),
-                       encoding="utf-8")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
         os.replace(tmp, self.path)
 
 
+SUMMARY_LABEL = "Краткое содержание беседы до этого места (/compact):\n"
+
+
+def _turn_part(client: Client, turn: dict) -> str | None:
+    try:
+        data = client.get(f"/api/tasks/{turn['task_id']}")
+    except BossmanError:
+        return None
+    answer = sanitize(data.get("result") or data.get("error") or "")[:CONTEXT_CHARS]
+    return f"Владелец: {sanitize(turn.get('text'))[:CONTEXT_CHARS]}\nBossman: {answer or '—'}"
+
+
+def context_parts(client: Client, session: Session) -> list[str]:
+    """The /compact summary (if any), then the last turns after the compaction
+    point, read back from Bossman (the truth)."""
+    parts = [SUMMARY_LABEL + session.summary] if session.summary else []
+    for turn in session.live_turns()[-CONTEXT_TURNS:]:
+        part = _turn_part(client, turn)
+        if part is not None:
+            parts.append(part)
+    return parts
+
+
 def context_preamble(client: Client, session: Session) -> str:
-    """Last turns of this conversation, read back from Bossman (the truth), so
-    a follow-up message has its context. Empty for the first message."""
-    parts = []
-    for turn in session.turns[-CONTEXT_TURNS:]:
-        try:
-            data = client.get(f"/api/tasks/{turn['task_id']}")
-        except BossmanError:
-            continue
-        answer = sanitize(data.get("result") or data.get("error") or "")[:CONTEXT_CHARS]
-        parts.append(f"Владелец: {sanitize(turn.get('text'))[:CONTEXT_CHARS]}\nBossman: {answer or '—'}")
-    return conversation_context.compose(parts)
+    """What a follow-up message carries as its context. Empty for the first message."""
+    return conversation_context.compose(context_parts(client, session))
+
+
+def approx_tokens(chars: int) -> int:
+    """A rough estimate (chars/4), always labelled as an estimate where shown."""
+    return (chars + 3) // 4
+
+
+COMPACT_REQUEST = ("Составь краткое резюме беседы выше, чтобы по нему можно было продолжить разговор: "
+                   "цели владельца, ключевые факты, имена и числа, принятые решения, открытые вопросы. "
+                   "Ничего не выполняй и не вызывай инструменты — ответь только текстом резюме, "
+                   "не длиннее {limit} символов.")
+COMPACT_SUMMARY_CHARS = 2000
+
+
+def compact_prompt(client: Client, session: Session, instruction: str = "") -> str:
+    """Prompt of the /compact task: the previous summary and EVERY turn since the
+    compaction point as conversation context (same format as a chat turn, so the
+    backend checks see only the fixed request), then the summarisation request.
+
+    The owner's /compact instruction shapes the summary; it is not an action, so it
+    rides in the context part: «/compact запомни главное» must not turn the summary
+    task into a memory action with an approval."""
+    parts = [SUMMARY_LABEL + session.summary] if session.summary else []
+    for turn in session.live_turns():
+        part = _turn_part(client, turn)
+        if part is not None:
+            parts.append(part)
+    hint = ["Указание владельца к резюме (/compact): " + sanitize(instruction.strip())[:500]] \
+        if instruction.strip() else []
+    request = COMPACT_REQUEST.format(limit=COMPACT_SUMMARY_CHARS)
+    budget = MAX_PROMPT_CHARS - len(request) - 1000
+    while len(parts) > 1 and len(conversation_context.compose(parts + hint)) > budget:
+        parts.pop(1 if session.summary else 0)        # the oldest turn goes first
+    return conversation_context.compose(parts + hint) + request
 
 
 # ----------------------------------------------------------------- policy view
@@ -337,6 +411,9 @@ class Chat:
 
     def replay_session(self) -> None:
         self.view.note(f"(продолжение сессии {self.session.id}: {len(self.session.turns)} ходов)")
+        if self.session.summary:
+            self.view.note(f"(беседа сжата /compact после хода {self.session.compacted_at_turn}: "
+                           "дальше уходит резюме + новые ходы; /context — подробнее)")
         for turn in self.session.turns[-CONTEXT_TURNS:]:
             self.view.user(turn.get("text") or "")
             try:
@@ -793,6 +870,217 @@ class Chat:
             self.view.print(Text(f"{g.section} {title}", style="label"))
             for ln in lines:
                 self.view.print(Text(f"  {sanitize(ln)}", style="text"))
+
+    # -- Claude-Code-style session commands ------------------------------------
+
+    def _run_quiet_task(self, prompt: str, title: str) -> dict:
+        """One ordinary Bossman task for the current agent, followed to a verdict
+        without printing its stream (used by /compact)."""
+        pre = self.client.post("/api/tasks/preflight", {"prompt": prompt, "agent_id": self.agent["id"]})
+        if not pre.get("ok"):
+            raise BossmanError(pre.get("reason") or "исполнитель недоступен", kind="blocked",
+                               hint=pre.get("hint"))
+        sub = create_draft(self.client, prompt=prompt, title=title, agent=self.agent,
+                           request_id=new_request_id())
+        self.view.note(f"сжимаю беседу задачей Bossman #{sub.task['id']}… (Ctrl+C — отменить)")
+        self.view.state = type(self.view.state)()
+        self.view.state.task_id = sub.task["id"]
+        self.view.state.run_started = time.monotonic()
+        follower = Follower(self.client, sub.task["id"], sink=lambda _rec: None,
+                            options=FollowOptions(approval_mode="fail", max_seconds=900),
+                            on_tick=lambda _st: self.view.tick())
+        try:
+            return follower.run(before=lambda: start_run(self.client, sub))
+        except KeyboardInterrupt:
+            return self._cancel(follower)
+
+    def _preamble_size(self) -> tuple[int, int]:
+        chars = len(context_preamble(self.client, self.session))
+        return chars, approx_tokens(chars)
+
+    def cmd_compact(self, p) -> None:
+        if self.agent is None:
+            self.view.error("нет агента с моделью", "/agent <имя>")
+            return
+        if not self.session.live_turns():
+            self.view.note("сжимать нечего: после последнего /compact новых ходов нет")
+            return
+        before = self._preamble_size()
+        prompt = compact_prompt(self.client, self.session, p.text)
+        res = self._run_quiet_task(prompt, "/compact: резюме беседы терминала " + self.session.id)
+        summary = sanitize(res.get("result") or "").strip()[:2 * COMPACT_SUMMARY_CHARS]
+        tid = res.get("task_id")
+        if res.get("task_state") != "PASS" or not summary:
+            if res.get("task_state") in ("WAIT_APPROVAL", "TIMEOUT") and tid is not None:
+                try:
+                    self.client.post(f"/api/tasks/{tid}/stop")   # no parked /compact task left behind
+                except BossmanError:
+                    pass
+            reason = res.get("error") or res.get("note") or ("пустой ответ" if res.get("task_state") == "PASS"
+                                                             else res.get("status"))
+            self.view.error(f"/compact не удался (задача {tid}: {res.get('task_state')}; {sanitize(reason)}) — "
+                            "сессия не изменена")
+            return
+        self.session.compacted(summary, int(tid))
+        after = self._preamble_size()
+        self.view.note(f"беседа сжата задачей #{tid}: контекст следующего сообщения {before[0]} → {after[0]} "
+                       f"символов (≈{before[1]} → ≈{after[1]} токенов, оценка символы/4)", "value.on")
+
+    def cmd_context(self, _p) -> None:
+        parts = context_parts(self.client, self.session)
+        chars = len(conversation_context.compose(parts))
+        turns = len(parts) - (1 if self.session.summary else 0)
+        desc = self.cat.describe_agent(self.agent).get("model") or {}
+        window = self.last_usage.get("context_window") or desc.get("context_window")
+        tokens = approx_tokens(chars)
+        share = f" ({100 * tokens // int(window)}% окна)" if window and chars else ""
+        compacted = (f"да (после хода {self.session.compacted_at_turn}, {len(self.session.summary)} символов)"
+                     if self.session.summary else "нет")
+        for label, value in (
+                ("резюме /compact", compacted),
+                ("ходов в контексте", f"{turns} (последние до {CONTEXT_TURNS} после сжатия; "
+                                      f"всего в сессии {len(self.session.turns)})"),
+                ("размер", f"{chars} символов · ≈{tokens} токенов (оценка: символы/4){share}"),
+                ("агент", sanitize((self.agent or {}).get("name")) or "—"),
+                ("модель", f"{desc.get('alias') or '—'} ({desc.get('locality') or '—'})"),
+                ("окно контекста модели", str(window) if window else "— (backend не сообщил)")):
+            t = Text(f"  {label:<22} ", style="label")
+            t.append(sanitize(value), style="text")
+            self.view.print(t)
+
+    def _session_task_ids(self) -> list[int]:
+        return [t["task_id"] for t in self.session.turns if isinstance(t.get("task_id"), int)] \
+            + list(self.session.compact_tasks)
+
+    def _task_usage(self, data: dict) -> tuple[int, int, float | None]:
+        """tokens in/out and cost of all runs of a task; cost is None unless the
+        model's pricing is known (the backend stores 0.0 for unknown prices)."""
+        runs = data.get("runs") or []
+        tin = sum(int(r.get("tokens_in") or 0) for r in runs)
+        tout = sum(int(r.get("tokens_out") or 0) for r in runs)
+        cost = 0.0
+        for r in runs:
+            model = self.cat.find_model(str(r.get("model_alias") or "")) if r.get("model_alias") else None
+            if not (model and model.get("pricing_known")):
+                return tin, tout, None
+            cost += float(r.get("cost_usd") or 0.0)
+        return tin, tout, cost
+
+    def cmd_cost(self, _p) -> None:
+        ids = self._session_task_ids()
+        if not ids:
+            self.view.note("в этой сессии задач ещё нет")
+            return
+        total_in = total_out = 0
+        total_cost: float | None = 0.0
+        unknown = 0
+        for tid in ids:
+            try:
+                data = self.client.get(f"/api/tasks/{tid}") or {}
+            except BossmanError as exc:
+                self.view.print(Text(f"  #{tid:<5} нет данных ({sanitize(exc.message)})", style="muted"))
+                unknown += 1
+                total_cost = None
+                continue
+            tin, tout, cost = self._task_usage(data)
+            total_in += tin
+            total_out += tout
+            if cost is None:
+                unknown += 1
+                total_cost = None
+            elif total_cost is not None:
+                total_cost += cost
+            task = data.get("task") or {}
+            mark = " (/compact)" if tid in self.session.compact_tasks else ""
+            self.view.print(Text(f"  #{tid:<5} {str(task.get('status') or '—'):<17} {human_tokens(tin)}→"
+                                 f"{human_tokens(tout)} tok  {money(cost):>8}  "
+                                 f"{sanitize(task.get('title'), keep_newlines=False)[:60]}{mark}", style="text"))
+        note = f" (цена неизвестна для {unknown} из {len(ids)})" if unknown else ""
+        self.view.note(f"итого за сессию: {len(ids)} задач · {human_tokens(total_in)}→{human_tokens(total_out)} "
+                       f"tok · {money(total_cost)}{note}", "value.on")
+
+    def _export_markdown(self) -> str:
+        ident = self.client.target.identity or {}
+        lines = [f"# Bossman — сессия терминала {self.session.id}", "",
+                 f"- экспорт: {time.strftime('%Y-%m-%dT%H:%M:%S')}",
+                 f"- Bossman: {sanitize(ident.get('version')) or '—'} · сборка "
+                 f"{sanitize(ident.get('build_sha_short') or ident.get('source_identity')) or '—'} · "
+                 f"{self.client.target.url}",
+                 f"- данные: {self.client.target.data_dir}", ""]
+        if self.session.summary:
+            lines += [f"## Резюме /compact (после хода {self.session.compacted_at_turn}, задача "
+                      f"#{self.session.compact_tasks[-1] if self.session.compact_tasks else '—'})", "",
+                      sanitize(self.session.summary), ""]
+        for n, turn in enumerate(self.session.turns, 1):
+            tid = turn.get("task_id")
+            try:
+                data = self.client.get(f"/api/tasks/{tid}") or {}
+            except BossmanError as exc:
+                data = {"error": f"(ответ недоступен: {exc.message})"}
+            status = (data.get("task") or {}).get("status") or "—"
+            answer = data.get("result") or data.get("error") or f"({status})"
+            lines += [f"## Ход {n} · задача #{tid} · {sanitize(turn.get('at')) or '—'}", "",
+                      "**Владелец:**", "", sanitize(turn.get("text")), "",
+                      f"**Bossman** ({sanitize(status)}):", "", sanitize(answer), ""]
+        return "\n".join(lines)
+
+    def cmd_export(self, p) -> None:
+        force = "--force" in p.args
+        rest = [a for a in p.args if a != "--force"]
+        if len(rest) > 1:
+            self.view.error(slash.COMMANDS["export"][0], "путь с пробелами — в кавычках")
+            return
+        if rest:
+            path = Path(os.path.expanduser(rest[0]))
+            path = path if path.is_absolute() else Path(self.cwd) / path
+        else:
+            path = Path(self.client.target.data_dir) / "terminal" / "exports" / f"{self.session.id}.md"
+        if path.exists() and not force:
+            self.view.error(f"файл уже есть: {path}", "другой путь или /export <путь> --force")
+            return
+        text = self._export_markdown()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+        self.view.note(f"беседа сохранена: {path} ({len(self.session.turns)} ходов)", "value.on")
+
+    def _probe(self, path: str) -> tuple[dict, str]:
+        """(answer, "") or ({}, why there is no answer) — /doctor never crashes."""
+        try:
+            data = self.client.get(path)
+        except BossmanError as exc:
+            return {}, ("эта сборка не сообщает" if exc.kind in ("not_supported", "not_found")
+                        else f"ошибка: {exc.message}")
+        return (data, "") if isinstance(data, dict) else ({}, "нет данных")
+
+    def cmd_doctor(self, _p) -> None:
+        ident = self.client.target.identity or {}
+        desc = self.cat.describe_agent(self.agent).get("model") or {}
+        rows = [("Bossman", f"{ident.get('version') or '—'} · сборка "
+                            f"{ident.get('build_sha_short') or ident.get('source_identity') or '—'} · "
+                            f"{self.client.target.url}"),
+                ("данные", str(self.client.target.data_dir)),
+                ("агент / модель", f"{(self.agent or {}).get('name') or '—'} / {desc.get('alias') or '—'} "
+                                   f"({desc.get('locality') or '—'})"
+                                   f"{' MOCK_MODEL' if desc.get('model_kind') == 'MOCK_MODEL' else ''}")]
+        ready, err = self._probe("/api/coding-tasks/readiness")
+        rows.append(("coding path", err or ("готов" if ready.get("available") else
+                                            f"не готов: {ready.get('reason') or '—'}")))
+        mem, err = self._probe("/api/memory/config")
+        rows.append(("память (заметки)", err or (f"подключена ({mem.get('backend_class') or mem.get('backend')})"
+                                                 if mem.get("configured") else "не настроена")))
+        comp, err = self._probe("/api/computer/status")
+        rows.append(("управление компьютером", err or ("STOP" if comp.get("stopped") else
+                                                       "доступно" if comp.get("available") else "недоступно")))
+        try:
+            pending = str(len(self.client.get("/api/approvals", params={"status": "pending"}) or []))
+        except BossmanError as exc:
+            pending = f"— ({exc.message})"
+        rows.append(("ждут разрешения", pending))
+        for label, value in rows:
+            t = Text(f"  {label:<24} ", style="label")
+            t.append(sanitize(value, keep_newlines=False), style="text")
+            self.view.print(t)
 
     def cmd_expand(self, p) -> None:
         index = int(p.args[0]) if p.args and p.args[0].isdigit() else None
