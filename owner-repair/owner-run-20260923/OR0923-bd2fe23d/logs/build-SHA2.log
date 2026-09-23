@@ -1,0 +1,20 @@
+building BOSSMAN-Windows-x64-d53f3b121922 from d53f3b1219224a3bfc73af25f70c67163224e8bc (inputs locked: 2026-09-17T15:06:11.733000+00:00)
+  building bossman-shared
+  building bossman-core
+  building bossman-command-center
+  building ai-3d-maker
+  building ai-webcam-vision
+  building bossman-accountant
+  building exam-trainer-ai
+  building file-commander-mini
+  building pc-autopilot-mini
+  building social-farm
+  building travel-architect
+  fetching https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip
+  digest verified 4acbed6dd1c744b0…
+  fetching https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-04-30-13-44/ffmpeg-n8.1-11-g75d37c499d-win64-gpl-8.1.zip
+  digest verified 9f7f43db2e205f94…
+BOSSMAN_WINDOWS_BUNDLE=BUILT files=22935 bytes=2010376885 required_downloads=0
+BOSSMAN_BUILD_INPUTS=LOCKED profile=release
+BOSSMAN_WINDOWS_ARCHIVE=C:\Users\asd\Bossman\build-0923\dist2\BOSSMAN-Windows-x64-d53f3b121922.zip bytes=787059148
+exit=0

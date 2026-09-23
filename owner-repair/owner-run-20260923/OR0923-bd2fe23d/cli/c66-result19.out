@@ -1,0 +1,1 @@
+{"v": 1, "type": "result", "ok": true, "task_state": "RUNNING", "status": "running", "task_id": 19, "run_id": 19, "title": "t031", "usage": {"tokens_in": 9336, "tokens_out": 249}, "model": "qwen-main-nt", "exit_code": 0}

@@ -1,0 +1,2 @@
+bossman: связь с Bossman потеряна (ConnectError)
+  подсказка: `bossman status`

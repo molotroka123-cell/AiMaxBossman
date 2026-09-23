@@ -1,0 +1,1 @@
+{"v": 1, "type": "list", "ok": true, "what": "approvals", "items": [{"id": 14, "task_id": 19, "kind": "review_escalation", "preview": "Верификация невозможна (UNVERIFIED) — нужна независимая проверка человеком. browser:session: наблюдение невозможно: browser session 2 is not running"}], "exit_code": 0}

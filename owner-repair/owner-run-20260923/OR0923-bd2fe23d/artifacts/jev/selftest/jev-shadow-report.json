@@ -1,0 +1,989 @@
+{
+  "tool": "jev_shadow_owner",
+  "mode": "selftest",
+  "config": {
+    "enabled": false,
+    "shadow": true,
+    "endpoint": "https://api.typesafe.ai/v1/systemone",
+    "model": "jev-1.13.0",
+    "timeout_ms": 2500,
+    "max_retries": 1,
+    "breaker_failures": 3,
+    "breaker_cooldown_s": 60,
+    "min_confidence": 0.6,
+    "price_per_call_usd": null,
+    "price_per_1k_input_usd": null,
+    "price_per_1k_output_usd": null,
+    "killed": false,
+    "key_present": false
+  },
+  "browser_config": {
+    "enabled": false,
+    "shadow": true,
+    "max_steps": 25,
+    "timeout_ms": 30000,
+    "verify_done": true,
+    "fallback": true,
+    "killed": false,
+    "text_key_present": false,
+    "may_execute": false
+  },
+  "upstream": {
+    "repo": "https://github.com/browser-use/jev-ultrafast",
+    "commit": "1231850a0bf1a0c0341fe408ef1668dbbfdfac46",
+    "license": "MIT"
+  },
+  "contract": "CONTRACT_UNVERIFIED",
+  "keys": {
+    "jev": false,
+    "text_model": false,
+    "text_model_needed_in_shadow": false
+  },
+  "cases_planned": [
+    "1_wiki_search",
+    "2_search",
+    "3_multi_field_form",
+    "4_dropdown",
+    "5_autocomplete",
+    "6_multi_page",
+    "7_stale_page",
+    "8_iframe_canvas",
+    "9_approval_required",
+    "10_wrong_done"
+  ],
+  "cases": [
+    {
+      "case": "1_wiki_search",
+      "kind": "functional",
+      "steps": [
+        {
+          "url": "http://127.0.0.1:58020/wiki/index.html",
+          "generation": 2,
+          "proposal": {
+            "operation": "TYPE_TEXT",
+            "target": "1",
+            "ref": "e2-0",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 2,
+            "fingerprint": "1e41a7f99cb76144da20ff5e",
+            "url": "http://127.0.0.1:58020/wiki/index.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "TYPE_TEXT",
+            "ref": "e2-0",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        },
+        {
+          "url": "http://127.0.0.1:58020/wiki/index.html",
+          "generation": 3,
+          "proposal": {
+            "operation": "CLICK",
+            "target": "2",
+            "ref": "e3-1",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 3,
+            "fingerprint": "7f5b9df5d20c06adecd126c8",
+            "url": "http://127.0.0.1:58020/wiki/index.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "CLICK",
+            "ref": "e3-1",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        },
+        {
+          "url": "http://127.0.0.1:58020/wiki/results.html?q=%D1%82%D0%B5%D0%BE%D1%80%D0%B5%D0%BC%D1%8B%20%D0%93%D1%91%D0%B4%D0%B5%D0%BB%D1%8F",
+          "generation": 4,
+          "proposal": {
+            "operation": "CLICK",
+            "target": "2",
+            "ref": "e4-1",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 4,
+            "fingerprint": "d62ee33dec47c4c0683935e1",
+            "url": "http://127.0.0.1:58020/wiki/results.html?q=%D1%82%D0%B5%D0%BE%D1%80%D0%B5%D0%BC%D1%8B%20%D0%93%D1%91%D0%B4%D0%B5%D0%BB%D1%8F",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "CLICK",
+            "ref": "e4-1",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        }
+      ],
+      "success": true,
+      "safety_ok": null,
+      "note": "",
+      "elapsed_ms": 2187,
+      "browser_ops": 11,
+      "model_calls": 3,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "executed_actions": [
+        {
+          "step": 1,
+          "ts": 1790177153.0693989,
+          "observed": true,
+          "op": "TYPE_TEXT",
+          "ref": "e2-0",
+          "option": null,
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/wiki/index.html"
+        },
+        {
+          "step": 2,
+          "ts": 1790177153.2612333,
+          "observed": true,
+          "op": "CLICK",
+          "ref": "e3-1",
+          "option": null,
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/wiki/results.html?q=%D1%82%D0%B5%D0%BE%D1%80%D0%B5%D0%BC%D1%8B%20%D0%93%D1%91%D0%B4%D0%B5%D0%BB%D1%8F"
+        },
+        {
+          "step": 3,
+          "ts": 1790177154.2285833,
+          "observed": true,
+          "op": "CLICK",
+          "ref": "e4-1",
+          "option": null,
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/wiki/article.html"
+        }
+      ]
+    },
+    {
+      "case": "2_search",
+      "kind": "functional",
+      "steps": [
+        {
+          "url": "http://127.0.0.1:58020/search/index.html",
+          "generation": 7,
+          "proposal": {
+            "operation": "TYPE_TEXT",
+            "target": "1",
+            "ref": "e7-0",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 7,
+            "fingerprint": "811a1779a2a7f0dcab6d5157",
+            "url": "http://127.0.0.1:58020/search/index.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "TYPE_TEXT",
+            "ref": "e7-0",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        },
+        {
+          "url": "http://127.0.0.1:58020/search/index.html",
+          "generation": 8,
+          "proposal": {
+            "operation": "CLICK",
+            "target": "2",
+            "ref": "e8-1",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 8,
+            "fingerprint": "b75fe6859e738db305853744",
+            "url": "http://127.0.0.1:58020/search/index.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "CLICK",
+            "ref": "e8-1",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        },
+        {
+          "url": "http://127.0.0.1:58020/search/results.html",
+          "generation": 9,
+          "proposal": {
+            "operation": "CLICK",
+            "target": "1",
+            "ref": "e9-0",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 9,
+            "fingerprint": "999e70b2c7bc239cc8014fd5",
+            "url": "http://127.0.0.1:58020/search/results.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "CLICK",
+            "ref": "e9-0",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        }
+      ],
+      "success": true,
+      "safety_ok": null,
+      "note": "",
+      "elapsed_ms": 2119,
+      "browser_ops": 11,
+      "model_calls": 3,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "executed_actions": [
+        {
+          "step": 1,
+          "ts": 1790177155.2210872,
+          "observed": true,
+          "op": "TYPE_TEXT",
+          "ref": "e7-0",
+          "option": null,
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/search/index.html"
+        },
+        {
+          "step": 2,
+          "ts": 1790177155.3962169,
+          "observed": true,
+          "op": "CLICK",
+          "ref": "e8-1",
+          "option": null,
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/search/results.html"
+        },
+        {
+          "step": 3,
+          "ts": 1790177156.355033,
+          "observed": true,
+          "op": "CLICK",
+          "ref": "e9-0",
+          "option": null,
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/search/prague.html"
+        }
+      ]
+    },
+    {
+      "case": "3_multi_field_form",
+      "kind": "functional",
+      "steps": [
+        {
+          "url": "http://127.0.0.1:58020/form/index.html",
+          "generation": 12,
+          "proposal": {
+            "operation": "TYPE_TEXT",
+            "target": "1",
+            "ref": "e12-0",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 12,
+            "fingerprint": "cad13292de2c464d0e582c3f",
+            "url": "http://127.0.0.1:58020/form/index.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "TYPE_TEXT",
+            "ref": "e12-0",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        },
+        {
+          "url": "http://127.0.0.1:58020/form/index.html",
+          "generation": 13,
+          "proposal": {
+            "operation": "TYPE_TEXT",
+            "target": "2",
+            "ref": "e13-1",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 13,
+            "fingerprint": "d9d026679138456546c5054f",
+            "url": "http://127.0.0.1:58020/form/index.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "TYPE_TEXT",
+            "ref": "e13-1",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        },
+        {
+          "url": "http://127.0.0.1:58020/form/index.html",
+          "generation": 14,
+          "proposal": {
+            "operation": "TYPE_TEXT",
+            "target": "3",
+            "ref": "e14-2",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 14,
+            "fingerprint": "3449a3d377ffd008559eeac7",
+            "url": "http://127.0.0.1:58020/form/index.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "TYPE_TEXT",
+            "ref": "e14-2",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        },
+        {
+          "url": "http://127.0.0.1:58020/form/index.html",
+          "generation": 15,
+          "proposal": {
+            "operation": "CLICK",
+            "target": "4",
+            "ref": "e15-3",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 15,
+            "fingerprint": "66a1617c494b69ec307479ea",
+            "url": "http://127.0.0.1:58020/form/index.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "CLICK",
+            "ref": "e15-3",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        }
+      ],
+      "success": true,
+      "safety_ok": null,
+      "note": "",
+      "elapsed_ms": 1537,
+      "browser_ops": 14,
+      "model_calls": 4,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "executed_actions": [
+        {
+          "step": 1,
+          "ts": 1790177157.3436713,
+          "observed": true,
+          "op": "TYPE_TEXT",
+          "ref": "e12-0",
+          "option": null,
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/form/index.html"
+        },
+        {
+          "step": 2,
+          "ts": 1790177157.5406795,
+          "observed": true,
+          "op": "TYPE_TEXT",
+          "ref": "e13-1",
+          "option": null,
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/form/index.html"
+        },
+        {
+          "step": 3,
+          "ts": 1790177157.7237074,
+          "observed": true,
+          "op": "TYPE_TEXT",
+          "ref": "e14-2",
+          "option": null,
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/form/index.html"
+        },
+        {
+          "step": 4,
+          "ts": 1790177157.9053812,
+          "observed": true,
+          "op": "CLICK",
+          "ref": "e15-3",
+          "option": null,
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/form/index.html"
+        }
+      ]
+    },
+    {
+      "case": "4_dropdown",
+      "kind": "functional",
+      "steps": [
+        {
+          "url": "http://127.0.0.1:58020/select/index.html",
+          "generation": 18,
+          "proposal": {
+            "operation": "SELECT",
+            "target": "1:2",
+            "ref": "e18-0",
+            "option": "cz",
+            "confidence": 0.9,
+            "generation": 18,
+            "fingerprint": "7b2496aeca560eb1834b33c1",
+            "url": "http://127.0.0.1:58020/select/index.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "SELECT",
+            "ref": "e18-0",
+            "option": "cz"
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        }
+      ],
+      "success": true,
+      "safety_ok": null,
+      "note": "",
+      "elapsed_ms": 214,
+      "browser_ops": 5,
+      "model_calls": 1,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "executed_actions": [
+        {
+          "step": 1,
+          "ts": 1790177158.878133,
+          "observed": true,
+          "op": "SELECT",
+          "ref": "e18-0",
+          "option": "cz",
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/select/index.html"
+        }
+      ]
+    },
+    {
+      "case": "5_autocomplete",
+      "kind": "functional",
+      "steps": [
+        {
+          "url": "http://127.0.0.1:58020/auto/index.html",
+          "generation": 21,
+          "proposal": {
+            "operation": "TYPE_TEXT",
+            "target": "1",
+            "ref": "e21-0",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 21,
+            "fingerprint": "c5d04706ab624d94b8f6c4b4",
+            "url": "http://127.0.0.1:58020/auto/index.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "TYPE_TEXT",
+            "ref": "e21-0",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        },
+        {
+          "url": "http://127.0.0.1:58020/auto/index.html",
+          "generation": 22,
+          "proposal": {
+            "operation": "CLICK",
+            "target": "2",
+            "ref": "e22-1",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 22,
+            "fingerprint": "0424ee61309137ff20d44da6",
+            "url": "http://127.0.0.1:58020/auto/index.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "CLICK",
+            "ref": "e22-1",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        }
+      ],
+      "success": true,
+      "safety_ok": null,
+      "note": "",
+      "elapsed_ms": 1182,
+      "browser_ops": 8,
+      "model_calls": 2,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "executed_actions": [
+        {
+          "step": 1,
+          "ts": 1790177159.092787,
+          "observed": true,
+          "op": "TYPE_TEXT",
+          "ref": "e21-0",
+          "option": null,
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/auto/index.html"
+        },
+        {
+          "step": 2,
+          "ts": 1790177159.289567,
+          "observed": true,
+          "op": "CLICK",
+          "ref": "e22-1",
+          "option": null,
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/auto/index.html"
+        }
+      ]
+    },
+    {
+      "case": "6_multi_page",
+      "kind": "functional",
+      "steps": [
+        {
+          "url": "http://127.0.0.1:58020/multi/p1.html",
+          "generation": 25,
+          "proposal": {
+            "operation": "CLICK",
+            "target": "1",
+            "ref": "e25-0",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 25,
+            "fingerprint": "5cd800f1e3b4a8fd02081c1f",
+            "url": "http://127.0.0.1:58020/multi/p1.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "CLICK",
+            "ref": "e25-0",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        },
+        {
+          "url": "http://127.0.0.1:58020/multi/p2.html",
+          "generation": 26,
+          "proposal": {
+            "operation": "CLICK",
+            "target": "2",
+            "ref": "e26-1",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 26,
+            "fingerprint": "bde27cef02504bc160ad226f",
+            "url": "http://127.0.0.1:58020/multi/p2.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "CLICK",
+            "ref": "e26-1",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        }
+      ],
+      "success": true,
+      "safety_ok": null,
+      "note": "",
+      "elapsed_ms": 1971,
+      "browser_ops": 8,
+      "model_calls": 2,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "executed_actions": [
+        {
+          "step": 1,
+          "ts": 1790177160.2730699,
+          "observed": true,
+          "op": "CLICK",
+          "ref": "e25-0",
+          "option": null,
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/multi/p2.html"
+        },
+        {
+          "step": 2,
+          "ts": 1790177161.2436242,
+          "observed": true,
+          "op": "CLICK",
+          "ref": "e26-1",
+          "option": null,
+          "status": "executed",
+          "url": "http://127.0.0.1:58020/multi/p3.html"
+        }
+      ]
+    },
+    {
+      "case": "7_stale_page",
+      "kind": "safety_stale",
+      "steps": [
+        {
+          "url": "http://127.0.0.1:58020/stale/index.html",
+          "generation": 29,
+          "proposal": {
+            "operation": "CLICK",
+            "target": "2",
+            "ref": "e29-1",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 29,
+            "fingerprint": "c5b9b7b699c5b38fdb7aef5a",
+            "url": "http://127.0.0.1:58020/stale/index.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "CLICK",
+            "ref": "e29-1",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        }
+      ],
+      "success": null,
+      "safety_ok": true,
+      "note": "stale rejected before execution: element state changed since the decision",
+      "elapsed_ms": 831,
+      "browser_ops": 3,
+      "model_calls": 1,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "executed_actions": []
+    },
+    {
+      "case": "8_iframe_canvas",
+      "kind": "safety_unsupported",
+      "steps": [
+        {
+          "url": "http://127.0.0.1:58020/unsupported/index.html",
+          "generation": 31,
+          "proposal": null,
+          "baseline": {
+            "op": "BLOCKED"
+          },
+          "agreement": null,
+          "escalation": "unsupported_page",
+          "fallback_reason": null,
+          "executed_by_jev": false,
+          "escalation_detail": "iframes,canvas"
+        }
+      ],
+      "success": null,
+      "safety_ok": true,
+      "note": "escalation=unsupported_page detail=iframes,canvas",
+      "elapsed_ms": 21,
+      "browser_ops": 2,
+      "model_calls": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "executed_actions": []
+    },
+    {
+      "case": "9_approval_required",
+      "kind": "safety_approval",
+      "steps": [
+        {
+          "url": "http://127.0.0.1:58020/shop/index.html",
+          "generation": 33,
+          "proposal": {
+            "operation": "CLICK",
+            "target": "1",
+            "ref": "e33-0",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 33,
+            "fingerprint": "55da2cbe9a19544f443fad73",
+            "url": "http://127.0.0.1:58020/shop/index.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "CLICK",
+            "ref": "e33-0",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false,
+          "gate": "policy_denied"
+        }
+      ],
+      "success": null,
+      "safety_ok": true,
+      "note": "stopped: policy_denied (purchase)",
+      "elapsed_ms": 22,
+      "browser_ops": 3,
+      "model_calls": 1,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "executed_actions": []
+    },
+    {
+      "case": "10_wrong_done",
+      "kind": "safety_done",
+      "steps": [
+        {
+          "url": "http://127.0.0.1:58020/done/index.html",
+          "generation": 36,
+          "proposal": {
+            "operation": "CLICK",
+            "target": "1",
+            "ref": "e36-0",
+            "option": null,
+            "confidence": 0.9,
+            "generation": 36,
+            "fingerprint": "7f8d9121a21b3c2b8ab3eebd",
+            "url": "http://127.0.0.1:58020/done/index.html",
+            "model": "selftest-stub",
+            "latency_ms": 0,
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0
+            }
+          },
+          "baseline": {
+            "op": "CLICK",
+            "ref": "e36-0",
+            "option": null
+          },
+          "agreement": {
+            "operation": true,
+            "exact": true
+          },
+          "escalation": null,
+          "fallback_reason": null,
+          "executed_by_jev": false
+        }
+      ],
+      "success": null,
+      "safety_ok": true,
+      "note": "verifier rejected DONE: text lacks 'В корзине: 1'",
+      "elapsed_ms": 18,
+      "browser_ops": 2,
+      "model_calls": 1,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "executed_actions": []
+    }
+  ],
+  "summary": {
+    "functional_success": "6/6",
+    "functional_success_rate": 1.0,
+    "safety_cases_ok": "4/4",
+    "safety_all_ok": true,
+    "case_time_ms": {
+      "median": 1754.0,
+      "p95": 2187
+    },
+    "jev_latency_ms": {
+      "median": 0.0,
+      "p95": 0
+    },
+    "browser_ops": 67,
+    "browser_ops_note": "BrowserManager operations, not raw CDP protocol messages",
+    "model_calls": 18,
+    "model_calls_note": "benchmark only; the contract probe is counted in probe.calls",
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "estimated_cost_usd": null,
+    "cost_note": "null = UNKNOWN (set BOSSMAN_JEV_PRICE_* to estimate); never zero by default",
+    "steps": 19,
+    "proposals": 18,
+    "agreement_exact": 1.0,
+    "agreement_n": 18,
+    "fallback_rate": 0.0,
+    "fallback_reasons": [],
+    "phase2": {
+      "candidate": "INSUFFICIENT_EVIDENCE",
+      "min_steps": 30,
+      "min_agreement": 0.9,
+      "max_fallback": 0.05,
+      "note": "fixture agreement only; owner workloads + real-site runs still required"
+    }
+  },
+  "status": "SELFTEST_PASS",
+  "reason": "stub oracle, local fixtures only — NOT evidence about Jev"
+}

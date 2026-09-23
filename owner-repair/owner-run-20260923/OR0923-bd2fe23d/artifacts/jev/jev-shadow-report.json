@@ -1,0 +1,56 @@
+{
+  "tool": "jev_shadow_owner",
+  "mode": "dry",
+  "config": {
+    "enabled": false,
+    "shadow": true,
+    "endpoint": "https://api.typesafe.ai/v1/systemone",
+    "model": "jev-1.13.0",
+    "timeout_ms": 2500,
+    "max_retries": 1,
+    "breaker_failures": 3,
+    "breaker_cooldown_s": 60,
+    "min_confidence": 0.6,
+    "price_per_call_usd": null,
+    "price_per_1k_input_usd": null,
+    "price_per_1k_output_usd": null,
+    "killed": false,
+    "key_present": false
+  },
+  "browser_config": {
+    "enabled": false,
+    "shadow": true,
+    "max_steps": 25,
+    "timeout_ms": 30000,
+    "verify_done": true,
+    "fallback": true,
+    "killed": false,
+    "text_key_present": false,
+    "may_execute": false
+  },
+  "upstream": {
+    "repo": "https://github.com/browser-use/jev-ultrafast",
+    "commit": "1231850a0bf1a0c0341fe408ef1668dbbfdfac46",
+    "license": "MIT"
+  },
+  "contract": "CONTRACT_UNVERIFIED",
+  "keys": {
+    "jev": false,
+    "text_model": false,
+    "text_model_needed_in_shadow": false
+  },
+  "cases_planned": [
+    "1_wiki_search",
+    "2_search",
+    "3_multi_field_form",
+    "4_dropdown",
+    "5_autocomplete",
+    "6_multi_page",
+    "7_stale_page",
+    "8_iframe_canvas",
+    "9_approval_required",
+    "10_wrong_done"
+  ],
+  "status": "OWNER_REQUIRED",
+  "reason": "Нет ключа Jev: задайте BOSSMAN_JEV_API_KEY (или TYPESAFE_API_KEY) в окружении."
+}

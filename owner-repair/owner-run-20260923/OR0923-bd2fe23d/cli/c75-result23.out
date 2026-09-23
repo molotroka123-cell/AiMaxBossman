@@ -1,0 +1,1 @@
+{"v": 1, "type": "result", "ok": true, "task_state": "FAIL", "status": "failed", "task_id": 23, "run_id": 23, "title": "t040", "error": "effectful tool did not succeed: memory.fact.add", "usage": {"tokens_in": 3198, "tokens_out": 233}, "model": "qwen-fast-nt", "exit_code": 1}

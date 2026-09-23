@@ -1,0 +1,2 @@
+{"v": 1, "type": "coding_task", "subtype": "submitted", "coding_task_id": "f1a3013fc59a", "repo": "C:\\Users\\asd\\Bossman Test 0923\\projects\\bossman-tools-lab"}
+{"v": 1, "type": "error", "ok": false, "operation": "code", "error": "связь с Bossman потеряна (ConnectError)", "hint": "`bossman status`", "kind": "disconnected", "exit_code": 3}
