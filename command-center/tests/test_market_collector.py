@@ -409,3 +409,18 @@ def test_two_agreeing_wrong_reads_no_longer_verify():
     assert rec["metrics"]["oi_value"] is None
     assert rec["quality"]["per_metric"]["oi"]["status"] == "LOW_CONFIDENCE"
     assert len(rec["evidence"]["ocr_raw"]["oi"]) == 3
+
+
+def test_research_takes_only_the_calibrated_extractor(tmp_path):
+    from bcc.market import research
+    led = Ledger(tmp_path)
+    rec = build_record(live(frame()), FakeReader(), last_frame_sha=None)
+    old = json.loads(json.dumps(rec))
+    old["evidence"]["extractor"] = "ollama:x double-read"
+    old["evidence"]["frame_sha256"] = "b" * 64
+    old["captured_at_utc"] = "2026-09-24T10:02:21.135Z"
+    led.record(rec)
+    led.record(old)
+    led.close()
+    rows = research.load_verified(tmp_path / "market-observations.sqlite")
+    assert len(rows) == 1 and "triple-read-unanimous/v2" in rec["evidence"]["extractor"]
