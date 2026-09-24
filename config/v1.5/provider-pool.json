@@ -1,0 +1,64 @@
+{
+  "schema": "bossman.v1.5.provider-pool/1",
+  "policy": {
+    "purpose": "overflow and resilience for Bossman self-improvement; never circumvent provider limits",
+    "owner_account_creation_required": true,
+    "auto_signup": false,
+    "multi_account_limit_evasion": false,
+    "prefer_zero_cost": true,
+    "unknown_price_is_blocked": true,
+    "private_data_to_free_cloud": false
+  },
+  "providers": [
+    {
+      "id": "openrouter",
+      "kind": "openai_compat",
+      "base_url": "https://openrouter.ai/api/v1",
+      "key_env": "OPENROUTER_API_KEY",
+      "signup_url": "https://openrouter.ai/",
+      "tier": "free-model-pool",
+      "account_state": "OWNER_MANAGED",
+      "models_discovered_at_runtime": true
+    },
+    {
+      "id": "nvidia_nim",
+      "kind": "openai_compat",
+      "base_url": "https://integrate.api.nvidia.com/v1",
+      "key_env": "NVIDIA_API_KEY",
+      "signup_url": "https://build.nvidia.com/explore/discover",
+      "tier": "developer-prototyping",
+      "account_state": "OWNER_REQUIRED_IF_NO_KEY",
+      "models_discovered_at_runtime": true
+    },
+    {
+      "id": "groq",
+      "kind": "openai_compat",
+      "base_url": "https://api.groq.com/openai/v1",
+      "key_env": "GROQ_API_KEY",
+      "signup_url": "https://console.groq.com/",
+      "tier": "free-plan",
+      "account_state": "OWNER_REQUIRED_IF_NO_KEY",
+      "models_discovered_at_runtime": true
+    },
+    {
+      "id": "cerebras",
+      "kind": "openai_compat",
+      "base_url": "https://api.cerebras.ai/v1",
+      "key_env": "CEREBRAS_API_KEY",
+      "signup_url": "https://cloud.cerebras.ai/",
+      "tier": "free",
+      "account_state": "OWNER_REQUIRED_IF_NO_KEY",
+      "models_discovered_at_runtime": true
+    },
+    {
+      "id": "gemini",
+      "kind": "openai_compat",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "key_env": "GEMINI_API_KEY",
+      "signup_url": "https://aistudio.google.com/",
+      "tier": "free-where-model-allows",
+      "account_state": "OWNER_REQUIRED_IF_NO_KEY",
+      "models_discovered_at_runtime": true
+    }
+  ]
+}
