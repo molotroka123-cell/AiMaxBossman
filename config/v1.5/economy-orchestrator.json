@@ -1,0 +1,69 @@
+{
+  "schema": "bossman.v1.5.economy-policy/1",
+  "openrouter_base": "https://openrouter.ai/api/v1",
+  "youtube": {
+    "channel_name": "K1m6a",
+    "channel_url": "https://www.youtube.com/channel/UC2KGf4oWao2NMOnIA88ZwJQ/videos",
+    "date_from": "2026-08-14",
+    "date_to": "2026-08-27",
+    "public_only": true
+  },
+  "roles": {
+    "nemotron_extract": {
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "paid": false,
+      "purpose": "extract strategy claims, levels and evidence without promotion"
+    },
+    "nemotron_skeptic": {
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "paid": false,
+      "purpose": "attack lookahead, unsupported claims, unit/series mismatches and retrospective bias"
+    },
+    "nemotron_curriculum": {
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "paid": false,
+      "purpose": "convert verified evidence into candidate skills, workflows and memory lessons"
+    },
+    "ling_coder": {
+      "model": "inclusionai/ling-3.0-flash-fin:free",
+      "paid": false,
+      "purpose": "run tests, write bounded code patches and verify finance/trading logic"
+    },
+    "glm_finalizer": {
+      "model": "z-ai/glm-5.3-flash",
+      "paid": true,
+      "purpose": "final review/fix only after free lanes fail, disagree or leave a release blocker"
+    }
+  },
+  "jev": {
+    "required_for_execute": true,
+    "may_add_strong_verifier": true,
+    "may_not_expand_authority": true,
+    "may_not_authorize_paid": true
+  },
+  "budget": {
+    "free_first": true,
+    "glm_max_total_usd": 0.5,
+    "glm_max_calls": 4,
+    "codex_role": "orchestrator_only",
+    "unknown_price_is_blocked": true,
+    "no_auto_recharge": true
+  },
+  "learning": {
+    "raw_teacher_status": "UNVERIFIED",
+    "promotion_requires_outcome": true,
+    "promotion_requires_independent_verifier": true,
+    "weights_changed": false,
+    "targets": [
+      "skills",
+      "workflows",
+      "memory",
+      "distillation_candidates"
+    ]
+  },
+  "trading": {
+    "execution": "OFF",
+    "paper_only": true,
+    "external_write_actions": "DENY"
+  }
+}
