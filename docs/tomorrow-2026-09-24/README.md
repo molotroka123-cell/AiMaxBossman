@@ -41,6 +41,7 @@ The model is only one component. The loop, renderer, critic, design context and 
 | 8xH200 | Reproducible LoRA/SFT and optional preference tuning |
 | Evaluation | Blind comparison vs base, current Bossman, and Claude reference |
 | Evidence | exact model/data/config/code identities and rendered artifacts |
+| Jev Twitch market collector | Local verified OI/CVD observations from `k1m6a`; raw evidence + time series, no trading |
 
 ## Acceptance ladder
 
@@ -76,6 +77,7 @@ Use rented GPUs for training iterations, not for discovering basic data bugs.
 - Evaluation: [EVALUATION_AND_HOLDOUT.md](EVALUATION_AND_HOLDOUT.md)
 - Integration: [BOSSMAN_RUNTIME_INTEGRATION.md](BOSSMAN_RUNTIME_INTEGRATION.md)
 - Execution: [TOMORROW_RUNBOOK.md](TOMORROW_RUNBOOK.md)
+- Jev Twitch OI/CVD collector: [JEV_TWITCH_OI_CVD_COLLECTOR.md](JEV_TWITCH_OI_CVD_COLLECTOR.md)
 - Claude: [CLAUDE_MASTER_PROMPT.md](CLAUDE_MASTER_PROMPT.md)
 
 - Game Studio next target: [GAME_STUDIO_NEXT.md](GAME_STUDIO_NEXT.md)
