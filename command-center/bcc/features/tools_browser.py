@@ -393,6 +393,86 @@ async def _login(args, ctx):
     return result
 
 
+async def _request_owner_fields(args, ctx):
+    """Ask the owner for missing form values without exposing the answer to the model."""
+    store = getattr(ctx.svc, "owner_input", None)
+    if store is None:
+        return ToolResult(content="owner-input store is unavailable",
+                          one_line="browser.owner_input: unavailable", error=True)
+    try:
+        sid = await _session_for(ctx, args)
+        current = await _mgr(ctx.svc).jev_current(sid, actor="agent", approved=True)
+        refs = set(current.get("refs") or [])
+        fields = args.get("fields")
+        if not isinstance(fields, list):
+            raise ValueError("fields must be a list")
+        for field in fields:
+            if not isinstance(field, dict):
+                raise ValueError("every field must be an object")
+            ref = str(field.get("ref") or "")
+            selector = str(field.get("selector") or "")
+            if ref and ref not in refs:
+                raise ValueError(f"stale/unknown ref: {ref}")
+            if not ref and not selector:
+                raise ValueError("field needs ref or selector")
+        row = store.create(
+            task_id=ctx.task.get("id"), session_id=sid, fields=fields,
+            context=str(args.get("context") or "missing form data"), source="browser")
+        await ctx.svc.bus.emit("owner.input_requested", request_id=row["id"],
+                               task_id=ctx.task.get("id"), session_id=sid,
+                               fields=[f["key"] for f in row["fields"]])
+        return ToolResult(
+            content=(f"нужны данные владельца: request_id={row['id']}. "
+                     f"Значения придут через owner-input/Telegram и модели не показываются. "
+                     f"После ответа вызовите browser.fill_owner_fields с этим request_id."),
+            one_line=f"owner input {row['id']}: ожидает владельца",
+            data={"request_id": row["id"], "needs_owner_input": True,
+                  "field_labels": [f["label"] for f in row["fields"]]},
+            external=True)
+    except Exception as exc:
+        return ToolResult(content=f"не удалось создать запрос владельцу: {type(exc).__name__}: {exc}",
+                          one_line="browser.owner_input: ошибка", error=True)
+
+
+async def _fill_owner_fields(args, ctx):
+    """Fill an answered request; plaintext values never enter tool/model output."""
+    store = getattr(ctx.svc, "owner_input", None)
+    request_id = str(args.get("request_id") or "").strip()
+    if store is None or not request_id:
+        return ToolResult(content="нужен answered owner-input request_id",
+                          one_line="browser.fill_owner_fields: нет request", error=True)
+    try:
+        row, values = store.values_for_fill(request_id, task_id=ctx.task.get("id"))
+        sid = await _session_for(ctx, {"session_id": row["session_id"]})
+        mgr = _mgr(ctx.svc)
+        filled = []
+        for field in row.get("fields") or []:
+            key = str(field["key"])
+            if key not in values:
+                raise ValueError(f"answer missing field {key}")
+            selector, ref = str(field.get("selector") or ""), str(field.get("ref") or "")
+            if field.get("secret"):
+                await mgr.fill_secret(sid, selector, secret=values[key], ref=ref,
+                                      actor="agent", approved=True)
+            else:
+                await mgr.type_text(sid, selector, values[key], ref=ref,
+                                    actor="agent", approved=True)
+            filled.append(key)
+        store.mark_filled(request_id)
+        await ctx.svc.bus.emit("owner.input_filled", request_id=request_id,
+                               task_id=ctx.task.get("id"), session_id=sid, fields=filled)
+        return ToolResult(
+            content=(f"заполнены поля из owner-input {request_id}: {', '.join(filled)}. "
+                     "Значения не раскрыты модели. Перечитайте DOM перед следующим действием. "
+                     "Отправка формы/регистрация остаётся отдельным ASK-действием."),
+            one_line=f"browser.fill_owner_fields: {len(filled)} полей",
+            data={"request_id": request_id, "session_id": sid, "filled": filled,
+                  "needs_fresh_snapshot": True})
+    except Exception as exc:
+        return ToolResult(content=f"поля не заполнены: {type(exc).__name__}: {exc}",
+                          one_line="browser.fill_owner_fields: ошибка", error=True)
+
+
 async def _screenshot(args, ctx):
     try:
         sid = await _session_for(ctx, args)
@@ -465,6 +545,30 @@ SPECS = [
              required=["selector", "value"], category="write", permission="browser.control",
              source="browser", default_effect="auto", timeout_seconds=60.0, idempotent=False,
              external_output=True),
+    ToolSpec(
+        name="browser.request_owner_fields",
+        description=("Если форме не хватает данных владельца: создать запрос с названиями полей "
+                     "и ref/selector. Bossman пришлёт запрос владельцу в Telegram; ответ хранится "
+                     "зашифрованно и не показывается модели."),
+        handler=_request_owner_fields,
+        input_schema={
+            "session_id": {"type": "integer"},
+            "context": {"type": "string"},
+            "fields": {"type": "array", "items": {"type": "object"}},
+        },
+        required=["fields"], category="read", permission="browser.control",
+        source="browser", default_effect="auto", timeout_seconds=30.0,
+        external_output=True),
+    ToolSpec(
+        name="browser.fill_owner_fields",
+        description=("Заполнить ранее запрошенные поля ответом владельца по request_id. "
+                     "Значения получает рантайм напрямую; модель их не видит. "
+                     "Не отправляет форму и не создаёт аккаунт."),
+        handler=_fill_owner_fields,
+        input_schema={"request_id": {"type": "string"}},
+        required=["request_id"], category="write", permission="browser.control",
+        source="browser", default_effect="auto", timeout_seconds=90.0,
+        idempotent=False, external_output=True),
     ToolSpec(name="browser.back", description="Назад по истории браузера.", handler=_back,
              input_schema={}, category="read", permission="browser.read", source="browser",
              default_effect="auto", external_output=True),
