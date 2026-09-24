@@ -8,6 +8,7 @@ on:
       - 'command-center/bcc/economy_orchestrator.py'
       - 'command-center/bcc/features/v15_economy.py'
       - 'command-center/tests/test_economy_orchestrator.py'
+      - 'command-center/tests/test_v15_economy_feature.py'
       - 'tools/v15_economy_orchestrator.py'
       - 'tools/bossman_15_economy_run.py'
       - 'tools/bossman_15_ling_coder.py'
