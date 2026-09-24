@@ -43,7 +43,8 @@ AGENT_TOOLS = [
                                                      "properties": {"path": {"type": "string"},
                                                                     "content": {"type": "string"}}}}},
     {"type": "function", "function": {"name": "run", "description": "Run a command in the workspace "
-                                      "(e.g. `python -m pytest -q`, `python make_report.py`). 60 s limit.",
+                                      "through Windows cmd.exe (no bash syntax; `python` is the "
+                                      "project interpreter), e.g. `python -m pytest -q`. 60 s limit.",
                                       "parameters": {"type": "object", "required": ["command"],
                                                      "properties": {"command": {"type": "string"}}}}},
     {"type": "function", "function": {"name": "finish", "description": "Stop working and report.",
