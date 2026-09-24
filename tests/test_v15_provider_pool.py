@@ -169,3 +169,21 @@ def test_self_improve_refuses_unproven_installed_source(tmp_path):
     assert got_sha == "unknown"
     assert clean is False
     assert kind == "installed-unproven"
+
+
+def test_provider_onboarding_metadata_is_owner_safe_and_prioritized(monkeypatch):
+    pool = load_module("v15_provider_pool_onboarding_test", "tools/v15_provider_pool.py")
+    data = pool.load(ROOT / "config/v1.5/provider-pool.json")
+    assert data["policy"]["provider_onboarding_mode"] == "OWNER_REQUIRED_PARALLEL_NONBLOCKING"
+    assert data["policy"]["aster_may_accept_terms"] is False
+    assert data["policy"]["aster_may_solve_captcha"] is False
+    assert data["policy"]["aster_may_create_api_key"] is False
+    priorities = [int(p.get("priority") or 999) for p in data["providers"]]
+    assert min(priorities) == 1
+    assert all((p.get("free_evidence") or {}).get("status") for p in data["providers"])
+    for provider in data["providers"]:
+        monkeypatch.delenv(provider["key_env"], raising=False)
+        monkeypatch.delenv(pool.confirm_env(provider), raising=False)
+    monkeypatch.setattr(pool, "_env_file", lambda _path: {})
+    rows = pool.status(data)["providers"]
+    assert all("free_evidence" in row and "priority" in row for row in rows)
