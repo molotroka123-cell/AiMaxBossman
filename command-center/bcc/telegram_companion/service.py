@@ -15,6 +15,7 @@ from .config import CompanionError, Person, Settings
 from .agent_bridge import AGENT_COMMANDS, AgentBridgeMixin
 from .console import CONSOLE_COMMANDS, CONSOLE_OFF, NO_DIRECT_SHELL, ConsoleMixin
 from .jev_bridge import JevBridgeMixin
+from .form_bridge import FORM_COMMANDS, FormBridgeMixin
 from .store import Store
 
 HELP = ("Я Bossman, ваш ИИ-помощник на локальных моделях. Можно просто написать мне.\n\n"
@@ -29,6 +30,7 @@ HELP = ("Я Bossman, ваш ИИ-помощник на локальных мод
         "/menu — пульт владельца кнопками (статус, очередь, подтверждения, СТОП)\n"
         "/status — связь с компьютером (владелец)\n"
         "/task описание — подготовить поручение агенту Bossman\n"
+        "/fill Поле=значение; ... — заполнить видимую форму через Bossman, без отправки/оплаты\n"
         "/confirm код — подтвердить ровно это поручение\n"
         "/approvals — подтвердить или отклонить ожидающие действия Bossman (владелец)\n"
         "/stop — остановить всё, что ещё можно остановить; /pause — пауза; /resume — продолжить\n"
@@ -239,7 +241,7 @@ def model_name(model_id: str) -> str:
     return re.sub(r"-0*1-of-\d+$", "", name)[:80] or "модель"
 
 
-class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
+class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin):
     def __init__(self, settings: Settings, store: Store, telegram: Telegram, core: Core, models: Models,
                  *, policy_provider=None):
         self.settings, self.store = settings, store
@@ -704,6 +706,8 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
             return "Подробные уведомления рынка: " + ("включены" if arg.lower() == "on" else "выключены")
         if command in AGENT_COMMANDS:
             return await self.agent_command(person, command, arg, message)
+        if command in FORM_COMMANDS:
+            return await self.form_command(person, command, arg, message)
         if command in REMOVED_DIRECT_COMMANDS:
             # Второй путь исполнения удалён: отказ даже владельцу и при включённом тумблере.
             return NO_DIRECT_SHELL if self.console_allowed(person) else CONSOLE_OFF
