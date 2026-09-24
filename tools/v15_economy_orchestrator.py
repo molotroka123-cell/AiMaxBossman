@@ -185,7 +185,8 @@ def _case_digest(video_dir: pathlib.Path, max_chars: int = 60000) -> str:
             "transcript_excerpt": str(row.get("transcript_excerpt") or "")[:1000],
             "observation": row.get("observation"),
             "deterministic_analysis": row.get("deterministic_analysis"),
-            "future_outcomes": row.get("future_outcomes"),
+            # Future outcomes are verifier-only. Showing them to the workers would
+            # teach with hindsight and poison any later transfer measurement.
             "learning_status": row.get("learning_status"),
         }
         encoded = json.dumps(compact, ensure_ascii=False)
