@@ -152,16 +152,23 @@ def locate_price_badge(img: Image.Image, layout: dict[str, Any] = DEFAULT_LAYOUT
     px = img.load()
     band: list[int] = []
     best: list[int] | None = None
+    gap = 0
     for y in range(y0, min(y1, img.height)):
         # badge background just right of the axis line: darkest of 5 px (text is bright)
         edge = min((px[x, y] for x in range(x0 + 4, x0 + 9)), key=sum)
-        neutral = edge[2] - edge[0] < 16 and 19 <= sum(edge) / 3 <= 45
+        neutral = edge[2] - edge[0] < 16 and 15 <= sum(edge) / 3 <= 45
         if neutral:
             band.append(y)
+            gap = 0
+            continue
+        if band and gap < 2:                      # one or two compression-dark rows inside a badge
+            gap += 1
             continue
         if 16 <= len(band) <= 34 and (best is None or len(band) > len(best)):
             best = band
-        band = []
+        band, gap = [], 0
+    if 16 <= len(band) <= 34 and (best is None or len(band) > len(best)):
+        best = band
     if best is None:
         return None
     top = best[0]

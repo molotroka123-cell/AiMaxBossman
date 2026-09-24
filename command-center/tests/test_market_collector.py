@@ -392,3 +392,12 @@ def test_split_is_by_day_and_chronological_never_random():
     assert max(info["train"]) < min(info["valid"]) <= max(info["valid"]) < min(info["holdout"])
     one_day = research.build_table(_rows(0, 10), datetime(2026, 10, 1, tzinfo=timezone.utc))
     assert research.split_by_day(one_day)["status"] == "INSUFFICIENT_DAYS"
+
+
+def test_price_badge_band_tolerates_a_dark_compression_row():
+    # calibration v4 frame 2: one row of the badge at avg 17.7 split the band -> price missed
+    img = frame()
+    d = ImageDraw.Draw(img)
+    d.rectangle((1256, 466, 1300, 466), fill=(16, 18, 19))
+    box = extract.locate_price_badge(img)
+    assert box is not None and box[1] == 456
