@@ -91,3 +91,11 @@ def test_bossman_export_reads_runs_once(tmp_path, monkeypatch):
 def test_owner_scenario_harness_tools_work_before_any_model_is_blamed():
     import owner_scenarios_20260924 as osc
     assert osc.harness_preflight() == ""
+
+
+def test_default_distill_dir_uses_owner_profile_not_a_hardcoded_username(monkeypatch, tmp_path):
+    monkeypatch.delenv("BOSSMAN_DISTILL_DIR", raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "LocalAppData"))
+    assert distill_recorder._default_dir() == tmp_path / "LocalAppData" / "Bossman" / "datasets" / "distill"
+    monkeypatch.setenv("BOSSMAN_DISTILL_DIR", str(tmp_path / "custom"))
+    assert distill_recorder._default_dir() == tmp_path / "custom"
