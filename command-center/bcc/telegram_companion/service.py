@@ -675,20 +675,6 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
             return Reply(title, self.main_menu(person))
         if command == "/jev":
             return await self.jev_command(person, arg, message)
-        if command == "/market_deep":
-            if person.role != "owner":
-                return "Глубокий анализ рынка доступен только владельцу."
-            from bcc.market.deep_request import parse_deep_command
-            from bcc.market.deep_analysis import run_deep
-            from bcc.market.ledger import Ledger, default_root
-            req = parse_deep_command(text)
-            if req is None:
-                return "Используйте /market_deep BTC, /market_deep BTC 6h или /market_deep BTC 24h."
-            ledger = Ledger(default_root("k1m6a"))
-            try:
-                return await run_deep(ledger, req)
-            finally:
-                ledger.close()
         if command == "/market_verbose":
             if person.role != "owner":
                 return "Только владелец может менять уведомления рынка."
