@@ -490,7 +490,9 @@ def main(argv=None) -> int:
         "external_auditor": "OPTIONAL_RED_TEAM_ONLY",
     }
 
-    report["runtime_repairs"] = run_runtime_repairs(repo, work, data_dir)
+    # Runtime repair is continuously owned by Command Center's v15_self_repair
+    # tick worker. Running a second pass here would race the same inbox.
+    report["runtime_repairs"] = {"mode": "AUTOMATIC_COMMAND_CENTER_WORKER"}
 
     if not ns.skip_economy:
         acquisition = prepare_youtube_inbox(work / "economy-input", ns.youtube_url)
