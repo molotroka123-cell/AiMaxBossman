@@ -1,0 +1,70 @@
+{
+  "schema": "bossman.v1.5.self-improvement/1",
+  "goal": "move routine coding/learning from Codex/Claude/Aster into Bossman's own verified loop",
+  "controller": "bossman",
+  "router": "jev",
+  "external_auditor": "aster",
+  "codex_role": "owner_integrator_only",
+  "claude_role": "not_required_for_routine_loop",
+  "student": {
+    "preferred_model": "inclusionai/ling-3.0-flash-fin:free",
+    "fallback_mode": "bossman_router",
+    "use_memory": true,
+    "use_skills": true,
+    "use_verified_recipes": true
+  },
+  "teacher_swarm": [
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free"
+  ],
+  "finalizer": {
+    "model": "z-ai/glm-5.3-flash",
+    "paid": true,
+    "max_calls_per_campaign": 4,
+    "max_usd_per_campaign": 0.50,
+    "only_after_verified_blocker": true
+  },
+  "provider_pool": {
+    "config": "config/v1.5/provider-pool.json",
+    "minimum_ready_zero_cost_providers": 1,
+    "allow_owner_onboarding": true,
+    "auto_create_accounts": false,
+    "allow_quota_evasion": false
+  },
+  "evolution": {
+    "suite": "config/evolution/owner-v1.5-self-improve.json",
+    "backend": "bossman_coding",
+    "executor": "host",
+    "max_cycles": 8,
+    "attempt_minutes": 35,
+    "total_hours": 8,
+    "max_retries_per_task": 2,
+    "max_consecutive_failures": 3,
+    "max_disk_mb": 8192,
+    "max_rss_mb": 24576,
+    "min_free_ram_mb": 16384,
+    "max_usd": 0.50,
+    "attempt_usd": 0.10
+  },
+  "promotion": {
+    "model_done_is_pass": false,
+    "requires_deterministic_or_executable_verifier": true,
+    "requires_unseen_transfer": true,
+    "requires_security_non_regression": true,
+    "minimum_shadow_runs": 20,
+    "owner_promotion_required": true,
+    "auto_write_stable": false
+  },
+  "trading": {
+    "execution": "OFF",
+    "paper_only": true,
+    "teacher_claims_start": "UNVERIFIED",
+    "promotion_via_trading_memory_only": true
+  },
+  "stop": {
+    "durable": true,
+    "campaign_stop_file": "STOP",
+    "provider_breaker_on_repeated_failures": true
+  }
+}
