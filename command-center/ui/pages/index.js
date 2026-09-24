@@ -96,6 +96,8 @@ export const FEATURE_PAGES = [
     () => import('./images.js'), (m) => m.default),
   lazyPage({ id: 'trading_lab', title: 'Обучение трейдингу', icon: 'activity', nav: 'more', section: 'studio' },
     () => import('./trading_lab.js'), (m) => m.default),
+  lazyPage({ id: 'v15-owner-run', title: 'Bossman 1.5', icon: 'bolt', nav: 'primary', section: 'brains' },
+    () => import('./v15_owner_run.js'), (m) => m.default),
   lazyPage({ id: 'mission_console', title: 'Операторский канал', icon: 'activity', nav: 'primary', section: 'work' },
     () => import('./mission_console.js'), (m) => m.default),
   lazyPage({ id: 'web_research', title: 'Поиск в интернете', icon: 'browser', nav: 'more', section: 'studio' },
