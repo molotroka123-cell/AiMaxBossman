@@ -7,7 +7,7 @@ by a negative test (`tests/test_market_collector.py::test_no_trading_surface`).
 
 Pipeline (docs/tomorrow-2026-09-24/JEV_TWITCH_OI_CVD_COLLECTOR.md):
     browser (Playwright) -> fresh video frame -> Jev routing (video/canvas escalates)
-    -> badge location -> LOCAL vision double-read -> schema validator
+    -> badge location -> LOCAL vision triple-read (unanimous) -> schema validator
     -> JSONL raw ledger -> SQLite (WAL) index -> CSV export
 """
 

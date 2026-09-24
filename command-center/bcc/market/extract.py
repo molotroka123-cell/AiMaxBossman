@@ -11,8 +11,8 @@ value, so crops are located per frame, not fixed:
   countdown) inside the price pane;
 * the symbol line ("BTC1! · 30 · CME") sits at the chart's top-left.
 
-Every value is read TWICE from two independently resampled crops. Agreement of
-the parsed value AND unit -> verified; disagreement -> low confidence;
+Every value is read THREE times from decorrelated renderings (colour and
+grayscale). Unanimous agreement of the parsed value AND unit -> verified; disagreement -> low confidence;
 nothing parseable -> unreadable. A number is never guessed or carried forward.
 """
 from __future__ import annotations
@@ -177,10 +177,19 @@ def locate_price_badge(img: Image.Image, layout: dict[str, Any] = DEFAULT_LAYOUT
 
 # ------------------------------------------------------------------ reading
 
-def _variants(crop: Image.Image) -> tuple[Image.Image, Image.Image]:
-    """Two independent resamplings of the same crop -> two reads."""
+def _variants(crop: Image.Image) -> tuple[Image.Image, ...]:
+    """Three decorrelated renderings of the same crop -> three reads, all must agree.
+
+    Live run B (2026-09-24 10:02:21Z) recorded a FALSE VERIFIED: a 3x bicubic and a
+    6x nearest-neighbour read of a teal badge showing 19.55B both returned 19.65B.
+    Measured on the failing crops: a grayscale autocontrast rendering was right on
+    every one; each colour rendering erred on some. Unanimity across colour and
+    grayscale renderings removed every false value on those crops."""
+    from PIL import ImageOps
     return (crop.resize((crop.width * 3, crop.height * 3), Image.BICUBIC),
-            crop.resize((crop.width * 6, crop.height * 6), Image.NEAREST))
+            ImageOps.autocontrast(ImageOps.grayscale(crop)).resize((crop.width * 4, crop.height * 4),
+                                                                    Image.LANCZOS).convert("RGB"),
+            crop.resize((crop.width * 5, crop.height * 5), Image.LANCZOS))
 
 
 def sha256_png(img: Image.Image) -> str:
@@ -206,10 +215,12 @@ class Reading:
 
 
 def _agree(parsed: list[Any]) -> tuple[str, Any]:
+    """VERIFIED only when EVERY read parsed and all are identical."""
     good = [p for p in parsed if p is not None]
-    if len(good) == 2 and good[0] == good[1]:
+    if len(good) == len(parsed) >= 2 and all(g == good[0] for g in good):
         return schema.VERIFIED, good[0]
-    if len(good) == 2 and isinstance(good[0], tuple) and good[0][0] == good[1][0] and good[0][1] != good[1][1]:
+    if (len(good) == len(parsed) >= 2 and isinstance(good[0], tuple)
+            and all(g[0] == good[0][0] for g in good) and len({g[1] for g in good}) > 1):
         return schema.AMBIGUOUS_UNIT, None
     if good:
         return schema.LOW_CONFIDENCE, None

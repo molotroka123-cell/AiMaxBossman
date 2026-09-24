@@ -46,16 +46,15 @@ class FakeReader:
 
 
 def _tag_of(image: Image.Image) -> str:
-    """Synthetic badges encode their identity in the exact fill colour."""
-    colours = {(220, 52, 70): "cvd", (234, 52, 77): "oi", (4, 147, 123): "liq",
-               (24, 28, 30): "price", (40, 40, 200): "symbol"}
-    counts: dict[str, int] = {}
-    rgb = image.convert("RGB")
-    for px in (rgb.get_flattened_data() if hasattr(rgb, "get_flattened_data") else rgb.getdata()):
-        tag = colours.get(px)
-        if tag:
-            counts[tag] = counts.get(tag, 0) + 1
-    return max(counts, key=counts.get) if counts else "none"
+    """Synthetic badges are identified by aspect ratio (survives every rendering:
+    colour, grayscale, any scale): cvd 70x16, oi 107x16, price 50x~13, symbol 145x18."""
+    w, h = image.size
+    ratio = w / h
+    for tag, lo, hi in (("price", 3.2, 4.2), ("cvd", 4.2, 5.0), ("oi", 6.2, 7.2), ("symbol", 7.5, 8.6),
+                        ("liq", 9.0, 30.0)):
+        if lo <= ratio < hi:
+            return tag
+    return "none"
 
 
 def frame(*, cvd_y: int = 660, oi_y: int = 760, with_cvd: bool = True, with_oi: bool = True,
@@ -129,7 +128,7 @@ def test_disagreeing_reads_are_low_confidence_not_a_number():
     rec = build_record(live(frame()), reader, last_frame_sha=None)
     assert rec["metrics"]["cvd_value"] is None and rec["quality"]["per_metric"]["cvd"]["status"] == "LOW_CONFIDENCE"
     assert rec["metrics"]["oi_value"] == 19.57
-    assert rec["evidence"]["ocr_raw"]["cvd"] == ["CVD 74.44B", "CVD 74.49B"]
+    assert rec["evidence"]["ocr_raw"]["cvd"] == ["CVD 74.44B", "CVD 74.49B", "CVD 74.49B"]
 
 
 def test_unit_disagreement_is_ambiguous_unit():
@@ -401,3 +400,12 @@ def test_price_badge_band_tolerates_a_dark_compression_row():
     d.rectangle((1256, 466, 1300, 466), fill=(16, 18, 19))
     box = extract.locate_price_badge(img)
     assert box is not None and box[1] == 456
+
+
+def test_two_agreeing_wrong_reads_no_longer_verify():
+    # run B 10:02:21Z: colour renderings both said 19.65B, the badge showed 19.55B (grayscale read right)
+    reader = FakeReader({"oi": ["Open Interest 19.65B", "Open Interest 19.55B", "Open Interest 19.65B"]})
+    rec = build_record(live(frame()), reader, last_frame_sha=None)
+    assert rec["metrics"]["oi_value"] is None
+    assert rec["quality"]["per_metric"]["oi"]["status"] == "LOW_CONFIDENCE"
+    assert len(rec["evidence"]["ocr_raw"]["oi"]) == 3
