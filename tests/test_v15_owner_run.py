@@ -51,6 +51,7 @@ def test_unified_start_launches_both_lanes_and_stop_is_durable(tmp_path, monkeyp
     assert out["status"] == "RUNNING"
     assert len(seen) == 2
     assert "bcc.market.collector" in " ".join(seen[0][0])
+    assert seen[0][2] == ROOT / "command-center"
     joined = " ".join(seen[1][0])
     assert "bossman_15_self_improve.py" in joined and "--cycles 3" in joined and "--allow-glm" in joined
 
@@ -60,7 +61,10 @@ def test_unified_start_launches_both_lanes_and_stop_is_durable(tmp_path, monkeyp
     assert stopped["status"] == "STOP_REQUESTED"
 
 
-def test_windows_bundle_declares_v15_launcher_and_runner():
+def test_windows_bundle_declares_one_api_backed_v15_launcher_and_runner():
     text = (ROOT / "tools" / "build_windows_bundle.py").read_text(encoding="utf-8")
     assert "bossman_15_owner_run.py" in text
-    assert '"Bossman-1.5.cmd": V15_CMD' in text
+    assert "bossman_15_owner_ctl.py" in text
+    assert text.count('"Bossman-1.5.cmd"') == 1
+    assert '"Bossman-1.5.cmd": V15_OWNER_CMD' in text
+    assert "V15_CMD =" not in text
