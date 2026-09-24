@@ -57,7 +57,10 @@ def test_self_improvement_policy_moves_routine_work_off_aster_and_claude():
     cfg = json.loads((ROOT / "config/v1.5/self-improvement.json").read_text(encoding="utf-8"))
     assert cfg["controller"] == "bossman"
     assert cfg["router"] == "jev"
-    assert cfg["external_auditor"] == "aster"
+    assert cfg["external_auditor"] == "optional_red_team_only"
+    assert cfg["owner_supervisor"] == "telegram_ux_cmd"
+    assert cfg["runtime_repair"]["auto_create_local_candidate_branch"] is True
+    assert cfg["runtime_repair"]["auto_write_stable"] is False
     assert cfg["codex_role"] == "owner_integrator_only"
     assert cfg["claude_role"] == "not_required_for_routine_loop"
     assert cfg["evolution"]["backend"] == "bossman_coding"
