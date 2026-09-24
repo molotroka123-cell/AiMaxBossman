@@ -436,3 +436,33 @@ Test D — medical-risk:
 
 PASS requires correct routing, one verified outbound reply per test conversation, no duplicate send on retry/restart, and evidence showing that off-topic inputs consumed no research/model budget.
 
+## Open-source reuse shortlist for DM transport
+
+Do not reimplement the Instagram messaging transport blindly. Before implementation, audit and selectively reuse patterns/code only when license, current Meta API behavior and Bossman security boundaries are acceptable.
+
+Candidates checked on 2026-09-25:
+
+1. **Chatwoot** — mature self-hosted customer-engagement platform with an Instagram DM channel. Strong reference for inbox/conversation models, agent handoff and channel abstraction. Do not import the whole product into Bossman unless justified; prefer architecture/API lessons.
+   - https://github.com/chatwoot/chatwoot
+   - https://github.com/chatwoot/docs
+
+2. **legenhand/n8n-nodes-instagram-api** — current community integration using Instagram Login / Meta Graph API with DM send/history, media, publishing and insights. Useful reference for current endpoint/tool surface and AI-tool integration.
+   - https://github.com/legenhand/n8n-nodes-instagram-api
+
+3. **devgine/n8n-ig-comments-management** — webhook + dedup + retry workflow on official Meta Graph API. Useful for exactly-once/retry patterns; do not copy versioned API URLs without current verification.
+   - https://github.com/devgine/n8n-ig-comments-management
+
+4. **Boudofski/instagramautomation** and **aldoprianandi/ig-autodm-worker** — smaller self-hosted official-API comment-to-DM references. Useful for webhook verification, token handling, queues and dedup; not evidence that arbitrary cold DM behavior is allowed.
+   - https://github.com/Boudofski/instagramautomation
+   - https://github.com/aldoprianandi/ig-autodm-worker
+
+Reuse policy:
+- prefer official Meta API behavior over browser automation for repeatable DM transport;
+- pin no API version from a third-party README without checking current Meta docs;
+- preserve Bossman owner identity, scope gate, egress guard, idempotency and evidence;
+- never import third-party credential storage blindly;
+- run license/security/dependency review before vendoring code;
+- a third-party project's claimed limits or permissions are hints, not source of truth.
+
+The narrow Fresh Vibes topic gate and zero-cost off-topic path remain Bossman-specific policy even if transport is reused.
+
