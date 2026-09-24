@@ -39,6 +39,12 @@ def require(record: dict[str, Any]) -> None:
     for key in ("attempt_id", "task_id", "project_id", "failure_observation", "correction"):
         if not str(record.get(key) or "").strip():
             raise ValueError(key + " is required")
+    task_class = str(record.get("task_class") or "general").strip().lower()
+    if task_class.startswith(("trading", "market", "crypto", "orderflow", "order-flow")):
+        raise ValueError(
+            "trading lessons must use bossman.trading_learning TradingMemory promotion gates, "
+            "not the generic LearningBook compiler"
+        )
     recipe = record.get("recipe")
     if not isinstance(recipe, list) or not [x for x in recipe if str(x).strip()]:
         raise ValueError("verified workflow recipe is required")
