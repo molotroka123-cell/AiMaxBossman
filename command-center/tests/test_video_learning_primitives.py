@@ -50,3 +50,28 @@ def test_level_parser_and_temporal_events():
     previous = {"price": 84500.0, "levels": {"dPOC": 84620.0}}
     current = {"price": 84715.0, "levels": {"dPOC": 84620.0}}
     assert track(previous, current)["dPOC"] == "RECLAIM"
+
+
+def test_purged_split_removes_overlap_and_embargo():
+    from bcc.market.stat_guard import TimedSample, purged_split
+    rows = [
+        TimedSample("train", "d1", 10, 20),
+        TimedSample("overlap", "d1", 40, 55),
+        TimedSample("test", "d2", 61, 70),
+    ]
+    train, test, purged = purged_split(rows, split_ts=50, embargo_s=10)
+    assert [x.sample_id for x in train] == ["train"]
+    assert [x.sample_id for x in test] == ["test"]
+    assert [x.sample_id for x in purged] == ["overlap"]
+
+
+def test_sparse_bayesian_rate_is_not_raw_certainty():
+    from bcc.market.stat_guard import beta_posterior_interval
+    mean, lo, hi = beta_posterior_interval(9, 1)
+    assert mean < .9 and lo < mean < hi
+
+
+def test_multiple_testing_fdr_gate():
+    from bcc.market.stat_guard import benjamini_hochberg
+    accepted = benjamini_hochberg([.001, .01, .2, .8], alpha=.05)
+    assert accepted == [True, True, False, False]
