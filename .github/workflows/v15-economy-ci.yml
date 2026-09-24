@@ -8,6 +8,7 @@ on:
       - 'command-center/bcc/economy_orchestrator.py'
       - 'command-center/bcc/features/v15_economy.py'
       - 'command-center/bcc/features/v15_owner_run.py'
+      - 'command-center/bcc/features/v15_self_repair.py'
       - 'command-center/bcc/features/owner_input.py'
       - 'command-center/bcc/owner_input.py'
       - 'command-center/bcc/features/tools_browser.py'
@@ -29,6 +30,7 @@ on:
       - 'tests/test_v15_economy_orchestrator.py'
       - 'tests/test_v15_owner_run.py'
       - 'command-center/tests/test_owner_input_v15.py'
+      - 'command-center/tests/test_v15_self_repair.py'
       - 'tests/test_bossman_15_economy_tools.py'
       - 'tests/test_distill_recorder.py'
       - 'tests/test_windows_bundle_contract.py'
@@ -113,7 +115,7 @@ jobs:
             tools/bossman_15_economy_run.py \
             tools/bossman_15_ling_coder.py \
             tools/bossman_15_learning_compile.py \
-            tools/distill_recorder.py
+            tools/distill_recorder.py \
             bossman-core/bossman_v3/society.py \
             bossman-core/bossman_v3/operating_graph.py \
             bossman-core/bossman_v3/resource_manager.py \
@@ -126,6 +128,7 @@ jobs:
           python -m pytest -q \
             command-center/tests/test_economy_orchestrator.py \
             command-center/tests/test_owner_input_v15.py \
+            command-center/tests/test_v15_self_repair.py \
             tests/test_v15_economy_orchestrator.py \
             tests/test_v15_owner_run.py \
             tests/test_bossman_15_economy_tools.py \
