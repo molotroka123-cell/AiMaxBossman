@@ -108,6 +108,8 @@ def status(data: dict[str, Any]) -> dict[str, Any]:
             "zero_cost_worker_eligible": key_present and confirmed,
             "signup_url": p.get("signup_url"),
             "tier": p.get("tier"),
+            "priority": int(p.get("priority") or 999),
+            "free_evidence": p.get("free_evidence") or {},
             "account_state": (
                 "READY_FOR_ZERO_COST_PROBE" if key_present and confirmed
                 else "OWNER_CONFIRM_FREE_TIER" if key_present
@@ -208,6 +210,7 @@ def main(argv=None) -> int:
     ap.add_argument("--config", default=str(DEFAULT_CONFIG))
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status")
+    sub.add_parser("onboarding")
     p = sub.add_parser("probe")
     p.add_argument("--timeout", type=float, default=20.0)
     t = sub.add_parser("write-template")
@@ -216,6 +219,38 @@ def main(argv=None) -> int:
     data = load(Path(ns.config))
     if ns.cmd == "status":
         print(json.dumps(status(data), ensure_ascii=False, indent=2))
+        return 0
+    if ns.cmd == "onboarding":
+        st = status(data)
+        rows = []
+        for row in sorted(st["providers"], key=lambda x: (x.get("priority", 999), x["id"])):
+            if row["zero_cost_worker_eligible"]:
+                continue
+            rows.append({
+                "provider": row["id"],
+                "priority": row.get("priority"),
+                "account_state": row["account_state"],
+                "signup_url": row.get("signup_url"),
+                "key_env": row["key_env"],
+                "free_confirmation_env": row["free_confirmation_env"],
+                "free_evidence": row.get("free_evidence") or {},
+                "owner_actions": [
+                    "open the official signup page",
+                    "owner reviews/accepts provider terms and any CAPTCHA",
+                    "owner creates/copies the API key",
+                    "store the key only in Bossman's local provider-pool secret file or environment",
+                    "set the provider FREE_OK flag only after the owner confirms the account/tier is intended for zero-cost use",
+                    "run provider probe and record actual rate-limit headers",
+                ],
+                "forbidden": [
+                    "automatic acceptance of Terms of Service",
+                    "CAPTCHA bypass",
+                    "creating additional accounts to evade quotas",
+                    "automatic recharge or paid upgrade",
+                ],
+            })
+        print(json.dumps({"schema": "bossman.v1.5.provider-onboarding/1",
+                          "parallel_nonblocking": True, "items": rows}, ensure_ascii=False, indent=2))
         return 0
     if ns.cmd == "write-template":
         out = Path(ns.out)
