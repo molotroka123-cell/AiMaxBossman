@@ -7,9 +7,18 @@ on:
     paths:
       - 'command-center/bcc/economy_orchestrator.py'
       - 'command-center/bcc/features/v15_economy.py'
+      - 'command-center/bcc/features/v15_owner_run.py'
+      - 'command-center/bcc/features/owner_input.py'
+      - 'command-center/bcc/owner_input.py'
+      - 'command-center/bcc/features/tools_browser.py'
+      - 'command-center/bcc/telegram_companion/**'
+      - 'command-center/ui/pages/v15_owner_run.js'
+      - 'command-center/ui/pages/index.js'
       - 'command-center/tests/test_economy_orchestrator.py'
       - 'command-center/tests/test_v15_economy_feature.py'
       - 'tools/v15_economy_orchestrator.py'
+      - 'tools/bossman_15_owner_run.py'
+      - 'tools/build_windows_bundle.py'
       - 'tools/bossman_15_economy_run.py'
       - 'tools/bossman_15_ling_coder.py'
       - 'tools/bossman_15_learning_compile.py'
@@ -18,6 +27,8 @@ on:
       - 'tools/youtube_trader_ingest*.py'
       - 'config/v1.5/**'
       - 'tests/test_v15_economy_orchestrator.py'
+      - 'tests/test_v15_owner_run.py'
+      - 'command-center/tests/test_owner_input_v15.py'
       - 'tests/test_bossman_15_economy_tools.py'
       - 'tests/test_distill_recorder.py'
       - 'tests/test_windows_bundle_contract.py'
@@ -26,7 +37,16 @@ on:
     paths:
       - 'command-center/bcc/economy_orchestrator.py'
       - 'command-center/bcc/features/v15_economy.py'
+      - 'command-center/bcc/features/v15_owner_run.py'
+      - 'command-center/bcc/features/owner_input.py'
+      - 'command-center/bcc/owner_input.py'
+      - 'command-center/bcc/features/tools_browser.py'
+      - 'command-center/bcc/telegram_companion/**'
+      - 'command-center/ui/pages/v15_owner_run.js'
+      - 'command-center/ui/pages/index.js'
       - 'tools/v15_economy_orchestrator.py'
+      - 'tools/bossman_15_owner_run.py'
+      - 'tools/build_windows_bundle.py'
       - 'config/v1.5/**'
       - 'tests/test_v15_economy_orchestrator.py'
       - 'tests/test_bossman_15_economy_tools.py'
@@ -56,7 +76,29 @@ jobs:
           python -m pip install --disable-pip-version-check -e ./bossman-core -e ./command-center pytest
       - name: Compile 1.5 economy surfaces
         run: |
-          python -m py_compile             command-center/bcc/economy_orchestrator.py             command-center/bcc/features/v15_economy.py             tools/v15_economy_orchestrator.py             tools/bossman_15_economy_run.py             tools/bossman_15_ling_coder.py             tools/bossman_15_learning_compile.py             tools/distill_recorder.py
+          python -m py_compile \
+            command-center/bcc/economy_orchestrator.py \
+            command-center/bcc/features/v15_economy.py \
+            command-center/bcc/features/v15_owner_run.py \
+            command-center/bcc/features/owner_input.py \
+            command-center/bcc/owner_input.py \
+            command-center/bcc/features/tools_browser.py \
+            command-center/bcc/telegram_companion/adapters.py \
+            command-center/bcc/telegram_companion/console.py \
+            command-center/bcc/telegram_companion/service.py \
+            tools/v15_economy_orchestrator.py \
+            tools/bossman_15_owner_run.py \
+            tools/bossman_15_economy_run.py \
+            tools/bossman_15_ling_coder.py \
+            tools/bossman_15_learning_compile.py \
+            tools/distill_recorder.py
       - name: Economy, learning and packaging contracts
         run: |
-          python -m pytest -q             command-center/tests/test_economy_orchestrator.py             tests/test_v15_economy_orchestrator.py             tests/test_bossman_15_economy_tools.py             tests/test_distill_recorder.py             tests/test_windows_bundle_contract.py::test_v15_economy_runtime_is_shipped_with_its_policy
+          python -m pytest -q \
+            command-center/tests/test_economy_orchestrator.py \
+            command-center/tests/test_owner_input_v15.py \
+            tests/test_v15_economy_orchestrator.py \
+            tests/test_v15_owner_run.py \
+            tests/test_bossman_15_economy_tools.py \
+            tests/test_distill_recorder.py \
+            tests/test_windows_bundle_contract.py::test_v15_economy_runtime_is_shipped_with_its_policy
