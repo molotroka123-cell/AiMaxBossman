@@ -25,3 +25,9 @@
 Ориентир обучения из owner-run: `SELF_REPAIR_SINGLE_CYCLE_PASS (coached)`; перенос улучшения — `NO_MEASURED_GAIN`. Это исторический результат конкретной конфигурации, не сертификат нового HEAD.
 
 Полный индекс и границы пакета: [docs/v1.5/README.md](docs/v1.5/README.md).
+
+## 2026-09-24 economy implementation
+
+Implemented on `feat/bossman-1.5-economy-orchestrator-20260924`: a free-first Jev-managed worker lane using three independent Nemotron roles, free Ling coding/verifier work, bounded paid GLM finalization, public K1m6a YouTube batch ingestion, distillation quarantine, Bossman API controls, STOP, tests and Windows packaging. Live owner acceptance remains for the 2026-09-25 run.
+
+Start tomorrow with [ECONOMY_ORCHESTRATOR.md](docs/v1.5/ECONOMY_ORCHESTRATOR.md) and [CODEX_OWNER_RUN_20260925.md](docs/v1.5/CODEX_OWNER_RUN_20260925.md).
