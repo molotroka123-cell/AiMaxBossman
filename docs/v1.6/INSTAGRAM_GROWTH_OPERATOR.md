@@ -1,0 +1,276 @@
+# Bossman 1.6 — Instagram Growth Operator + Telegram Approval Contract
+
+Branch: `feat/bossman-1.6-bossnet-foundation-20260925`
+
+Status: **TARGET CONTRACT / PARTIAL FOUNDATION EXISTS / LIVE INSTAGRAM ACCEPTANCE PENDING.**
+
+## Current repository truth
+
+Already present:
+- Social Farm browser session/runtime foundation;
+- real-Chromium fixture tests for account/session isolation, stale-target rejection and CAPTCHA handoff;
+- partial official Instagram provider transport/profile fixtures;
+- Instagram media/insights fixtures;
+- shared Bossman approvals/Telegram infrastructure;
+- cybersec ingest/egress guard;
+- image/video production stack;
+- web research tools for local agents.
+
+Not yet allowed to be claimed from code presence alone:
+- live login to the owner's Fresh Vibes Beauty Instagram account;
+- live official Instagram API token flow;
+- live publish through the exact installed owner build;
+- live Story/Highlight/profile edit;
+- live five-account follow batch;
+- end-to-end Telegram approval -> Instagram side effect -> verified readback.
+
+## Connection strategy
+
+Use two explicit modes.
+
+### Mode A — official Instagram API (preferred for supported repeatable operations)
+
+Use when the account is a supported professional account and the required Meta app/token/permissions are available.
+
+Current official Meta documentation supports professional-account content publishing and insights. Publishing uses a create-container -> wait for FINISHED -> media_publish flow. Stories are supported in the documented professional/business publishing flows subject to account/setup limitations.
+
+References:
+- Meta Instagram API collection: https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api
+- Meta Instagram collection: https://www.postman.com/meta/instagram/collection/6yqw8pt/instagram-api
+- Instagram content publishing guide: https://developers.facebook.com/docs/instagram-platform/content-publishing
+
+Do not hard-code API versions, permission names or publishing limits without verifying the current official documentation during implementation/owner setup.
+
+### Mode B — governed browser session
+
+Use for owner-authenticated surfaces that are not covered by the connected API, including initial login/session bootstrap and, when required, profile/avatar/highlight/follow operations.
+
+Rules:
+- Browser profile directory is bound to one Instagram account identity.
+- Before every consequential action, re-check visible account identity.
+- Login/password/2FA values are never passed to the language model.
+- Owner enters credentials locally in the browser or approved secret input surface.
+- No password in GitHub, task text, Telegram, screenshots intended for cloud models or logs.
+- CAPTCHA, security checkpoint or 2FA challenge => HUMAN_HANDOFF.
+- No anti-bot bypass, CAPTCHA solver or stealth-evasion loop.
+- If the UI target is stale or ambiguous, stop instead of clicking the first match.
+
+## Target connector interface
+
+The following names define the 1.6 contract. They do not imply every function is implemented today.
+
+### Account/session
+
+`instagram.connect_account(account_ref, mode)`
+- mode: `official_api | browser`
+- returns a connection record, never raw credentials.
+
+`instagram.verify_identity(account_ref)`
+- verifies username/account id and expected business namespace.
+- mandatory before every write batch.
+
+`instagram.connection_status(account_ref)`
+- reports API permissions, browser session freshness, unresolved owner steps and live/not-live evidence.
+
+`instagram.disconnect_account(account_ref)`
+- revokes local session/token references according to the underlying provider.
+
+### Profile
+
+`instagram.read_profile(account_ref)`
+- reads visible profile state and returns provenance.
+
+`instagram.prepare_profile_patch(account_ref, desired_profile)`
+- creates a diff only.
+- no external write.
+
+`instagram.apply_profile_patch(account_ref, approved_patch_ref)`
+- requires a valid owner approval bound to the exact diff.
+
+Profile fields to model:
+- username (normally immutable in pilot unless explicitly requested);
+- display/name field;
+- category/professional type;
+- biography;
+- website/booking URL;
+- contact buttons/contact data;
+- address/location if owner-confirmed;
+- avatar;
+- other supported professional fields.
+
+Never invent phone, hours, address, qualifications or treatment claims.
+
+### Content
+
+`instagram.prepare_feed_post(account_ref, creative_ref, caption, metadata)`
+
+`instagram.prepare_story(account_ref, creative_ref, metadata)`
+
+`instagram.prepare_highlight(account_ref, story_ref, title, cover_ref)`
+
+Each returns an immutable content revision hash.
+
+`instagram.publish_feed_post(account_ref, approved_revision)`
+
+`instagram.publish_story(account_ref, approved_revision)`
+
+`instagram.create_highlight(account_ref, approved_revision)`
+
+Each write requires approval for the exact revision unless the owner has explicitly configured a narrower pre-approved policy later.
+
+### Following
+
+`instagram.research_follow_candidates(account_ref, objective, limit)`
+- read-only.
+- candidate discovery can use public web/social research.
+- returns evidence and a relevance score.
+
+`instagram.prepare_follow_batch(account_ref, candidates)`
+- exact usernames/account ids; max 5 for the Fresh Vibes Day-1 pilot.
+
+`instagram.execute_follow_batch(account_ref, approved_batch_ref)`
+- executes only the approved accounts.
+- no substitutions if one account is unavailable.
+- no retries that turn the task into follow farming.
+
+Five follows are treated as **local relevance/network seeding**, not as a guaranteed SEO ranking factor.
+
+### Verification/metrics
+
+`instagram.verify_external_state(account_ref, expected_state)`
+- performs readback after each mutation.
+
+`instagram.collect_content_metrics(account_ref, media_ref, window)`
+- stores actual available metrics with timestamp/source.
+
+`instagram.record_attribution(media_ref, lead_or_booking_ref)`
+- links only supported attribution evidence; unknown stays unknown.
+
+## Content approval state machine
+
+```
+DRAFT
+ -> CREATIVE_VERIFIED
+ -> COMPLIANCE_CHECKED
+ -> WAIT_OWNER_APPROVAL
+ -> APPROVED
+ -> EXECUTING
+ -> EXTERNAL_STATE_VERIFIED
+ -> DONE
+```
+
+Failure branches:
+- `CHANGE_REQUESTED -> DRAFT_REVISION`
+- `REJECTED -> CLOSED`
+- `AUTH_REQUIRED -> HUMAN_HANDOFF`
+- `CAPTCHA_OR_2FA -> HUMAN_HANDOFF`
+- `IDENTITY_MISMATCH -> BLOCKED`
+- `STALE_TARGET -> BLOCKED`
+- `PUBLISH_FAILED -> VERIFY_NO_SIDE_EFFECT -> RETRY_OR_BLOCKED`
+
+A model saying “posted” is never proof.
+
+## Telegram approval contract
+
+Before each publish/write batch Bossman sends the owner a preview containing:
+
+- business: Fresh Vibes Beauty;
+- target account username/id;
+- action type;
+- image/video preview or local artifact reference;
+- exact caption/bio/text;
+- destination: feed/story/highlight/profile/follow batch;
+- scheduled/immediate time;
+- expected external effects;
+- any known cost;
+- compliance warnings;
+- immutable revision hash;
+- expiry time.
+
+Owner controls:
+- `APPROVE`
+- `CHANGE`
+- `REJECT`
+
+Security invariants:
+1. approval is bound to owner identity;
+2. approval is bound to account + action + revision hash;
+3. approval token/nonce is single-use;
+4. expired approval cannot execute;
+5. any content/caption/account/time change creates a new revision and new approval;
+6. duplicate Telegram delivery cannot duplicate the external side effect;
+7. STOP cancels pending execution;
+8. approval messages never contain the Instagram password/access token.
+
+Suggested interaction:
+
+```
+Fresh Vibes Beauty — POST #fv-ig-0001
+Account: @...
+Format: feed image
+Caption: ...
+Publish: now
+Cost: 0 Kč
+Revision: 9d7...
+[APPROVE] [CHANGE] [REJECT]
+```
+
+For the five follows, use one batch approval showing all five exact accounts and the reason for each. If the owner approves five, Bossman may follow only those five.
+
+## Day-1 content scope
+
+Exactly:
+- 1 avatar;
+- 1 feed post;
+- 1 Story;
+- 1 Highlight;
+- complete truthful profile;
+- exactly 5 owner-approved relevant follows.
+
+No extra post, Story, follow, DM, comment, like or ad launch is authorized by this scope.
+
+## SEO/local-discovery profile rules
+
+The system may optimize discoverability only with truthful data:
+- brand in display name;
+- service/location wording in the name/bio where natural and accurate;
+- Prague/locality only if correct;
+- website/booking link;
+- consistent brand/service terms across site and social profile;
+- descriptive alt text where the connected publishing path supports it;
+- no keyword stuffing;
+- no invented credentials/medical claims.
+
+## Day-1 evidence bundle
+
+Store:
+- tested Bossman SHA/build id;
+- account connection mode;
+- redacted identity evidence;
+- each draft revision;
+- Telegram approval decision id/hash;
+- external publish ids/URLs where available;
+- profile before/after diff;
+- exact five followed accounts;
+- final readback screenshots/structured state;
+- failures/owner handoffs;
+- API/browser route used for each action.
+
+Secrets are excluded.
+
+## Acceptance
+
+Day-1 PASS requires:
+1. owner-authenticated correct account;
+2. credentials not exposed to model/log/Git;
+3. profile diff approved and verified after write;
+4. avatar visibly set;
+5. exactly one approved feed post visible;
+6. exactly one approved Story visible;
+7. exactly one approved Highlight visible with expected content/title/cover;
+8. exactly five approved accounts followed and no others followed by the run;
+9. Telegram approval replay test does not duplicate an effect;
+10. restart/STOP does not execute a stale approval;
+11. evidence bundle matches the actual external state.
+
+Anything else is PARTIAL/BLOCKED, not PASS.
