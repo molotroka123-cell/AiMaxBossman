@@ -18,9 +18,20 @@ const Page = {
   section: 'brains',
 
   async render(ctx) {
-    let s = {};
-    try { s = await api.raw('/api/v15/owner-run/status'); }
-    catch (e) { return h('div.bx-page', pageHead('Bossman 1.5', 'Самостоятельный режим'), h('p', String(e))); }
+    let s = {}, autonomy = {}, repairs = {};
+    try {
+      const rows = await Promise.allSettled([
+        api.raw('/api/v15/owner-run/status'),
+        api.raw('/api/v15/autonomy/status'),
+        api.raw('/api/v15/self-repair/inbox?limit=20'),
+      ]);
+      if (rows[0].status === 'rejected') throw rows[0].reason;
+      s = rows[0].value || {};
+      autonomy = rows[1].status === 'fulfilled' ? (rows[1].value || {}) : {};
+      repairs = rows[2].status === 'fulfilled' ? (rows[2].value || {}) : {};
+    } catch (e) {
+      return h('div.bx-page', pageHead('Bossman 1.5', 'Самостоятельный режим'), h('p', String(e)));
+    }
 
     const repo = input({ class: 'input mono', value: s.repo || '', placeholder: 'Путь к clean Bossman checkout (можно оставить пустым, если задан BOSSMAN_SELF_IMPROVE_REPO)' });
     const cycles = input({ class: 'input mono', type: 'number', min: '1', max: '20', value: '8' });
@@ -32,6 +43,13 @@ const Page = {
         field('Циклов максимум', cycles, 'Bossman останавливается раньше при STOP/серии провалов/лимитах.'),
         h('label.row.gap-sm', paid, h('span', 'Разрешить ограниченный платный финализатор (free-first остаётся обязательным)')),
         h('div.row.gap-sm',
+          actionButton('⚡ Quick Test', async () => {
+            try {
+              const out = await api.raw('/api/v15/owner-run/quick-test', { method: 'POST', body: {} });
+              out.status === 'READY' ? toastOk('1.5 Quick Test: READY') : toastError(new Error((out.problems || []).join(', ')), '1.5 требует подготовки');
+              ctx.refresh();
+            } catch (e) { toastError(e, 'Quick Test не выполнен'); }
+          }, { cls: 'btn btn-secondary', iconName: 'check' }),
           actionButton('▶ Запустить 1.5', async () => {
             try {
               await api.raw('/api/v15/owner-run/start', { method: 'POST', body: {
@@ -62,7 +80,13 @@ const Page = {
              body: [h('p.xsmall.dim', `цикл: ${evo.cycle ?? '—'} · halt: ${evo.halt_reason || '—'}`)] }),
       tile({ title: 'Данные владельца', sub: 'Bossman спрашивает недостающие поля через Telegram',
              statusNode: pill(String(s.owner_inputs_pending ?? '—'), { tone: (s.owner_inputs_pending || 0) ? 'warn' : 'ok' }),
-             body: [h('p.xsmall.dim', 'Значения подставляет runtime; submit/ToS остаются отдельным ASK.')] })
+             body: [h('p.xsmall.dim', 'Значения подставляет runtime; submit/ToS остаются отдельным ASK.')] }),
+      tile({ title: 'Self-repair inbox', sub: 'реальные code/harness ошибки → isolated candidates',
+             statusNode: pill(String((repairs.items || []).length), { tone: (repairs.items || []).length ? 'warn' : 'ok' }),
+             body: [h('p.xsmall.dim', 'Stable не меняется автоматически. DONE требует executable verifier.')] }),
+      tile({ title: 'Autonomy kernel', sub: 'persistent roles + operating graph + cost/quality routing',
+             statusNode: pill(autonomy.wired ? 'WIRED' : 'UNKNOWN', { tone: autonomy.wired ? 'ok' : 'idle' }),
+             body: [h('p.xsmall.dim', `roles: ${(autonomy.roles || []).length} · graph: ${autonomy.graph?.nodes ?? '—'} nodes / ${autonomy.graph?.edges ?? '—'} edges`)] })
     );
 
     const head = pageHead('Bossman 1.5',
