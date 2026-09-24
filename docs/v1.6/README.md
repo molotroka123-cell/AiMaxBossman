@@ -8,6 +8,23 @@ Bossman 1.5 remains independently closable. 1.6 must preserve owner authority,
 STOP, budgets, privacy, exact-SHA identity, verifier independence and false-PASS
 protections.
 
+## 2026-09-25 closure source of truth
+
+- [Full audit + Plan Maximum](FULL_AUDIT_PLAN_MAX_20260925.md)
+- [Executable owner master run](../owner/BOSSMAN_16_MASTER_RUN_20260925.md)
+
+The audit found that this 1.6 lane is **not yet a clean child of the current 1.5 RC2**. Tomorrow's first step is therefore controlled convergence from the current 1.5 RC2 into one integration branch, preserving the stronger 1.5 autonomy/self-repair/economy runtime and adding the unique 1.6 BossNet/Game/Business surfaces.
+
+The maximum acceptance run has three real verticals:
+
+1. **YouTube learning** — public evidence → local ingest → multi-agent free-first analysis → independent verification → quarantined/verified learning.
+2. **Instagram business operator** — owner-authenticated account, Telegram-bound approvals, exact external readback and narrow DM receptionist tests.
+3. **Game Dev** — BossBlocks-001, a four-hour owner-equivalent autonomous voxel-game benchmark.
+
+These verticals are not independent demos. They are the workload used to prove self-repair, scientific self-improvement, persistent roles, skill compilation, structured operating memory, resource routing and restart transfer.
+
+No `bossman-v1.6` tag is valid until one exact converged SHA passes the declared base/1.5/1.6 tests, the three vertical acceptances, self-improvement evidence, installed Windows acceptance and final independent audit.
+
 ## Existing foundation
 
 1. [Distributed Brain](DISTRIBUTED_BRAIN.md)
