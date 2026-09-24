@@ -51,3 +51,30 @@ for the rest of Bossman.
 The target is not "perfect software forever". GREEN means **zero known defects
 inside the frozen benchmark acceptance scope after the final owner-equivalent
 simulation and independent verification**.
+
+## Business Growth / Revenue Engine
+
+The first owner-business lane is now defined as a revenue-oriented application of the existing Bossman foundation, not a second product.
+
+Read:
+- [Business Growth / Revenue Engine](BUSINESS_GROWTH_ENGINE.md)
+- [Instagram Growth Operator + Telegram Approval Contract](INSTAGRAM_GROWTH_OPERATOR.md)
+- [Fresh Vibes Beauty Instagram Day-1 owner run](../owner/FRESH_VIBES_BEAUTY_INSTAGRAM_DAY1_20260926.md)
+
+### First social-business pilot
+
+Fresh Vibes Beauty Day-1 freezes the first external social scope to:
+
+- complete truthful Instagram profile;
+- one avatar;
+- one feed post;
+- one Story;
+- one Highlight;
+- exactly five owner-approved relevant follows;
+- Telegram approval before consequential writes;
+- readback/evidence after every external mutation.
+
+The account credential is never model context. Initial login, 2FA and security checkpoints are owner-local/human-handoff operations. Official Instagram API is preferred for supported repeatable publishing/insights; governed browser operation is the fallback for owner-authenticated surfaces not covered by the connected API.
+
+This pilot is accepted as a social bootstrap only after live owner evidence. It does **not** become `VERIFIED_REVENUE_LOOP_PASS` until later real lead/booking/revenue attribution is measured.
+
