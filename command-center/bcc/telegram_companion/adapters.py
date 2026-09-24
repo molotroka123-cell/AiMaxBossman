@@ -539,15 +539,19 @@ class Core:
         keys = ("id", "enabled", "model_id", "fallback_model_id", "tools", "permissions", "budget_usd")
         return fingerprint({k: row.get(k) for k in keys})
 
-    async def delegate(self, person: Person, prompt: str, expected_fingerprint: str, *, before_submit=None):
+    async def delegate(self, person: Person, prompt: str, expected_fingerprint: str, *,
+                       before_submit=None, client_request_id: str | None = None):
         if await self.executor(person) != expected_fingerprint:
             raise CompanionError("EXECUTOR_CHANGED_REVIEW_AGAIN")
         if before_submit is not None:
             before_submit()
-        body = await self._request("POST", "/api/tasks", {
+        payload = {
             "prompt": prompt, "title": "Telegram: " + prompt[:60],
             "agent_id": person.agent_id, "run_now": True, "max_retries": 0,
-        })
+        }
+        if client_request_id:
+            payload["client_request_id"] = client_request_id
+        body = await self._request("POST", "/api/tasks", payload)
         task = body.get("task") if isinstance(body, dict) else None
         if (not isinstance(task, dict) or task.get("agent_id") != person.agent_id or
                 task.get("prompt") != prompt):
