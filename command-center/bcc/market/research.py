@@ -31,6 +31,7 @@ from .schema import UNITS
 HORIZONS_MIN = (1, 5, 15, 30)
 TOLERANCE_S = 30
 STATUS = "DATA_COLLECTION"
+ACCEPTED_EXTRACTOR = "triple-read-unanimous/v2"
 
 
 def _ts(s: str) -> datetime:
@@ -40,8 +41,11 @@ def _ts(s: str) -> datetime:
 def load_verified(db_path: Path) -> list[dict[str, Any]]:
     con = sqlite3.connect(db_path)
     try:
+        # only the extractor version that passed calibration: rows of the earlier
+        # double-read extractor (one live false VERIFIED, 2026-09-24) never enter research
         rows = con.execute("SELECT captured_at_utc, symbol, price, oi_value, oi_unit, cvd_value, cvd_unit "
-                           "FROM observations WHERE status='VERIFIED' ORDER BY captured_at_utc").fetchall()
+                           "FROM observations WHERE status='VERIFIED' AND extractor LIKE ? "
+                           "ORDER BY captured_at_utc", (f"%{ACCEPTED_EXTRACTOR}%",)).fetchall()
     finally:
         con.close()
     out = []
