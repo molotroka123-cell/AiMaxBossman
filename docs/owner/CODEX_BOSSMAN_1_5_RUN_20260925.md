@@ -103,17 +103,57 @@ exists in environment/config/history.
 
 ## Step B — YouTube training window
 
-Use owner-selected K1mba/K1m6a training material only from:
+Use the exact owner-selected public K1m6a source already pinned in
+`config/v1.5/economy-orchestrator.json`:
+
+`https://www.youtube.com/channel/UC2KGf4oWao2NMOnIA88ZwJQ/videos`
+
+Only:
 
 **2026-08-14 through 2026-08-27**
 
-Run:
+Prepare the evidence inbox with the shipped read-only acquisition tools:
 
-```
-python tools/bossman_15_economy_run.py --allow-glm
+```powershell
+$root = "$env:LOCALAPPDATA\Bossman\owner-run\v1.5-economy"
+$manifest = "$root\youtube-window.json"
+$inbox = "$root\youtube-inbox"
+
+.\runtime\python.exe -I .\app-support\youtube_trader_ingest_batch.py discover `
+  --source-url "https://www.youtube.com/channel/UC2KGf4oWao2NMOnIA88ZwJQ/videos" `
+  --from-date 2026-08-14 --to-date 2026-08-27 --out $manifest
+
+.\runtime\python.exe -I .\app-support\youtube_trader_ingest_batch.py ingest `
+  --manifest $manifest --output-root $inbox
 ```
 
-The runner itself filters the date window.
+Then start the worker swarm **through the already running Bossman Command Center**,
+not by calling OpenRouter directly and not by making Codex impersonate the workers.
+
+Use Bossman's authenticated owner client/session to call:
+
+`POST /api/v15/economy/start`
+
+with:
+
+```json
+{
+  "inbox": "<the youtube-inbox path above>",
+  "allow_paid_finalizer": true,
+  "glm_cap_usd": 0.50,
+  "run_ling_scenarios": true
+}
+```
+
+Poll:
+
+`GET /api/v15/economy/status`
+
+STOP if needed:
+
+`POST /api/v15/economy/stop`
+
+Never print/copy the owner token into logs or the repository.
 
 For every discovered video:
 1. canonical URL-only ingest;
