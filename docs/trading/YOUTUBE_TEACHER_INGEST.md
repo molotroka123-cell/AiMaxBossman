@@ -85,3 +85,26 @@ Never fine-tune directly on raw YouTube speech. Fine-tune only on filtered, outc
 ## Router rule
 
 When a user supplies a YouTube URL in a trading-learning request, Bossman should invoke `tools/youtube_trader_ingest_auto.py` automatically rather than asking the user to download the video, make screenshots, transcribe it, or provide timestamps.
+
+
+## 2026-09-24 next-lane additions
+
+The next market-learning lane adds explicit structural-level evidence and
+multi-horizon context without promoting raw teacher claims.
+
+For each candidate episode, when enough verified history exists, store:
+- explicit named levels (dPOC, dVAH, dVAL, dOpen) with frame/crop evidence;
+- price relation to each verified level;
+- temporal level events only when proven across frames (RECLAIM/LOSS/RETEST);
+- 15m, 30m and 60m Price/CVD/OI deltas and deterministic regime;
+- future 15m, 30m and 60m outcomes when the video extends far enough.
+
+If a named level is not explicitly readable it remains absent. Do not infer a
+numeric level from a line's pixels alone. Do not compare CVD/OI across different
+series identities.
+
+Training flow:
+`raw episode -> UNVERIFIED -> outcome-labelled -> verifier -> PROMOTED`.
+
+A local model may summarize a promoted lesson, but it may not promote its own
+teacher extraction without independent evidence.
