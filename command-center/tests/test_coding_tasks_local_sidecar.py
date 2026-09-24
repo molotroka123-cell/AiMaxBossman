@@ -140,6 +140,7 @@ async def test_host_verification_fails_the_task_even_when_the_sidecar_says_done(
         res = await env.client.post("/api/coding-tasks", json={
             "instruction": "fix add", "source_repo": str(repo), "allowed_paths": ["calc.py"],
             "verify_tests": ["test_calc.py"], "timeout_seconds": 120, "use_memory": False})
+        assert res.status_code == 200, res.text
         rec = await _wait(env, res.json()["id"])
     finally:
         server.shutdown()

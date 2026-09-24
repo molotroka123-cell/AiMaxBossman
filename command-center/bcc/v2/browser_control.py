@@ -872,7 +872,11 @@ class BrowserManager:
             if executable:
                 folder = folder / "quarantine"
                 folder.mkdir(parents=True, exist_ok=True)
-            path = _unique_path(folder, name)
+            # Windows reports executable bits from the extension and chmod cannot
+            # remove the ability to launch a .EXE. Keep the original name in the
+            # receipt, but give quarantined files an inert on-disk extension.
+            stored_name = name + ".blocked" if executable and os.name == "nt" else name
+            path = _unique_path(folder, stored_name)
             part = path.with_name(path.name + ".part")
             try:
                 await download.save_as(str(part))
@@ -888,12 +892,15 @@ class BrowserManager:
                         f"({DOWNLOAD_MAX_MB_ENV})")
                 digest = _sha256(part)
                 os.replace(part, path)
+                if executable and os.name != "nt":
+                    path.chmod(0o600)
             finally:
                 if part.exists():
                     part.unlink(missing_ok=True)
             if not path.is_file() or path.stat().st_size != size:
                 raise BrowserDownloadFailed(f"файл «{name}» не подтвердился на диске после записи")
-            record.update(status="saved", path=str(path), filename=path.name, bytes=size,
+            record.update(status="saved", path=str(path), filename=path.name,
+                          original_filename=name, bytes=size,
                           size_human=human_size(size), sha256=digest, mime=_sniff_mime(path),
                           mime_mismatch=_mime_mismatch(path),
                           quarantined=executable, finished_at=time.time())

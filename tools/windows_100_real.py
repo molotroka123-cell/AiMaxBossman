@@ -102,7 +102,14 @@ def _run(args: list[str], *, cwd: pathlib.Path, timeout: int,
          extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     env = {**os.environ, **(extra_env or {})}
     env.setdefault("PYTHONUTF8", "1")
-    env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(ROOT / "tools"), env.get("PYTHONPATH", "")]))
+    # Each project is collected from its own root, but integration tests in
+    # command-center import the checked-out bossman-core test model. Make that
+    # dependency explicit for both collection and execution (installed wheels
+    # still take precedence only where they are intentionally imported).
+    env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(ROOT / "tools"),
+                                                    str(ROOT / "bossman-core"),
+                                                    str(ROOT / "command-center"),
+                                                    env.get("PYTHONPATH", "")]))
     return subprocess.run(args, cwd=cwd, env=env, text=True, encoding="utf-8", errors="replace",
                           capture_output=True, timeout=timeout, check=False)
 

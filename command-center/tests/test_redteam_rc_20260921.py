@@ -340,14 +340,21 @@ async def test_rt_d5_executables_are_quarantined_not_executed(env, dl_site):
             dl = r.json()["download"]
             p = Path(dl["path"])
             assert dl["quarantined"] is True and p.parent == folder / "quarantine", dl
-            assert p.name == expect_name and p.is_file()
-            assert not (p.stat().st_mode & 0o111), f"quarantined file is executable: {oct(p.stat().st_mode)}"
+            assert p.is_file() and dl["original_filename"] == expect_name
+            if os.name == "nt":
+                assert p.name == expect_name + ".blocked"
+            else:
+                assert p.name == expect_name
+                assert not (p.stat().st_mode & 0o111), f"quarantined file is executable: {oct(p.stat().st_mode)}"
         await asyncio.sleep(0.3)
         assert not marker.exists(), "the downloaded script was executed"
         r = await _act(env, sid, action="navigate", url=f"{dl_site}/note.pdf", actor="human")
         assert r.status_code == 200 and r.json()["download"]["quarantined"] is False
         assert Path(r.json()["download"]["path"]).parent == folder
-        assert sorted(p.name for p in _all_files(folder)) == ["invoice.pdf.EXE", "note.pdf", "run.sh"]
+        expected = ["invoice.pdf.EXE", "note.pdf", "run.sh"]
+        if os.name == "nt":
+            expected = ["invoice.pdf.EXE.blocked", "note.pdf", "run.sh.blocked"]
+        assert sorted(p.name for p in _all_files(folder)) == expected
     finally:
         await env.client.post(f"/api/browser/sessions/{sid}/stop")
 
