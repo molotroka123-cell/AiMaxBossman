@@ -60,6 +60,17 @@ def format_message(a: dict, why: str) -> str:
             f"classification confidence={a['classification_confidence']:.2f} (не вероятность прибыли)")
 
 
+def observation_quality(rec: dict) -> tuple[str, list[str]]:
+    status = rec["quality"]["status"]
+    if status != "VERIFIED":
+        return status, []
+    per_metric = rec["quality"].get("per_metric", {})
+    metrics = rec["metrics"]
+    missing = [name for name, key in (("price", "price"), ("cvd", "cvd_value"), ("oi", "oi_value"))
+               if per_metric.get(name, {}).get("status") != "VERIFIED" or metrics.get(key) is None]
+    return ("PARTIAL_VERIFIED" if missing else "VERIFIED"), missing
+
+
 class MarketNotifier:
     def __init__(self, root: Path):
         self.state_path = root / "reports" / "notification-state.json"
@@ -68,8 +79,8 @@ class MarketNotifier:
 
     async def process(self, ledger: Ledger, rec: dict, *, verbose: bool = False) -> dict:
         verbose = verbose or (ledger.root / "VERBOSE_NOTIFICATIONS").exists()
-        status = rec["quality"]["status"]
-        analysis = latest_analysis(ledger) if status == "VERIFIED" else None
+        quality_state, missing = observation_quality(rec)
+        analysis = latest_analysis(ledger) if quality_state == "VERIFIED" else None
         fingerprint = None
         if analysis and analysis["timestamp"] == rec["captured_at_utc"]:
             detail = analysis["classification_detail"]
@@ -81,8 +92,8 @@ class MarketNotifier:
                                           detail["lost_levels"], anomaly], sort_keys=True)
             if self.state.get("last_quality") not in (None, "VERIFIED"):
                 fingerprint = "quality_recovered:" + fingerprint if fingerprint else "quality_recovered"
-        elif status != self.state.get("last_quality"):
-            fingerprint = "quality:" + status
+        elif quality_state != self.state.get("last_quality"):
+            fingerprint = "quality:" + quality_state
         now = time.time()
         recent = self.state.get("recent_fingerprints", {})
         if not isinstance(recent, dict):
@@ -103,7 +114,11 @@ class MarketNotifier:
                 why = "; ".join(analysis["classification_detail"]["reasons"][1:3]) or "UNKNOWN"
             message = format_message(analysis, why)
         else:
-            message = f"BTC DATA QUALITY: {status}; значения UNKNOWN до нового VERIFIED кадра."
+            if quality_state == "PARTIAL_VERIFIED":
+                message = ("BTC DATA QUALITY: PARTIAL_VERIFIED; недостаёт " + ", ".join(missing)
+                           + "; анализ ожидает полный свежий кадр.")
+            else:
+                message = f"BTC DATA QUALITY: {quality_state}; значения UNKNOWN до нового VERIFIED кадра."
         from bcc.telegram_companion.__main__ import default_config
         from bcc.telegram_companion.config import load
         from bcc.telegram_companion.adapters import Telegram
@@ -121,7 +136,7 @@ class MarketNotifier:
             message_id = await tg.send(owner, message)
         finally:
             await tg.close()
-        self.state.update(fingerprint=fingerprint, sent_at=now, last_quality=status)
+        self.state.update(fingerprint=fingerprint, sent_at=now, last_quality=quality_state)
         recent[fingerprint] = now
         if analysis:
             self.state["last_regime"] = analysis["regime"]

@@ -23,7 +23,7 @@ from bcc.market import collector, extract, routing, schema
 from bcc.market.collector import Capture, Collector, build_record
 from bcc.market.ledger import Ledger
 from bcc.market.analyzer import analyze_pair
-from bcc.market.notify import MarketNotifier, format_message
+from bcc.market.notify import MarketNotifier, format_message, observation_quality
 
 
 def test_installed_market_cases_match_canonical_source():
@@ -55,6 +55,17 @@ def test_notification_cooldown_survives_restart_and_intervening_state(tmp_path, 
     result = asyncio.run(notifier.process(ledger, rec))
     assert result == {"sent": False, "reason": "unchanged_or_cooldown"}
     assert "quality:AMBIGUOUS_SYMBOL" in MarketNotifier(tmp_path).state["recent_fingerprints"]
+
+
+def test_partial_verified_observation_is_a_data_quality_state():
+    complete = build_record(live(frame()), FakeReader(), last_frame_sha=None)
+    assert observation_quality(complete) == ("VERIFIED", [])
+    partial = json.loads(json.dumps(complete))
+    partial["metrics"]["oi_value"] = None
+    partial["metrics"]["oi_unit"] = None
+    partial["quality"]["per_metric"]["oi"] = {"status": "UNREADABLE", "confidence": 0.0}
+    assert partial["quality"]["status"] == "VERIFIED"
+    assert observation_quality(partial) == ("PARTIAL_VERIFIED", ["oi"])
 
 
 class FakeReader:
