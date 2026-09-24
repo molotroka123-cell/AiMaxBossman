@@ -15,7 +15,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из push;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-24-bossman-1.0-final-1",
-  "declared_for": "claude/bossman-1-0-cert-20260924 → release/bossman-owner",
-  "note": "Bossman 1.0 final certification candidate after 2026-09-23 owner run: owner P0/P1 fixes, controlled apply, Terminal 1.2, Jev shadow/Telegram bridge, Studio/OpenRouter fixes, review hardening, release docs/Money MVP, root whitespace repair, and replacement of the historical fake Windows-100 with an exact 100-test Windows gate. This declaration requests every mandatory exact-SHA workflow. No OWNER_HARDWARE_CERTIFIED, transfer-gain, phone, purchase, or 1.5 implementation claim is implied."
+  "candidate_label": "rc-2026-09-24-bossman-1.0-final-2",
+  "declared_for": "claude/bossman-1-0-exact-20260924 → release/bossman-owner",
+  "note": "Bossman 1.0 final certification candidate 2 (supersedes final-1 5a2b6f13). Closes the two release blockers of the 2026-09-24 audit: Terminal /export Windows-path semantics on POSIX (plus cwd-escape, device-name and FS-error hardening) and the Windows-100 gate nodeid/root mismatch (per-project collection, per-nodeid verdict, two negative controls, pinned FFmpeg). Includes fixes for independent red-team findings and a live-found P1 privacy fix: TASK_START owner memory is withheld from non-local providers unless the task opts in. This declaration requests every mandatory exact-SHA workflow. No OWNER_HARDWARE_CERTIFIED, transfer-gain, phone, purchase, or 1.5 implementation claim is implied."
 }
