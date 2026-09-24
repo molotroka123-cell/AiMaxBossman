@@ -122,3 +122,23 @@ def test_learning_run_never_self_promotes(tmp_path, monkeypatch):
     assert result["status"] == "COMPLETE_QUARANTINED"
     assert result["videos"][0]["promotion"] == "QUARANTINE"
     assert result["weights_changed"] is False
+
+
+def test_worker_evidence_never_contains_future_outcomes(tmp_path):
+    m = _module()
+    video = tmp_path / "video1"
+    video.mkdir()
+    (video / "candidate_cases.jsonl").write_text(
+        json.dumps({
+            "case_id": "x",
+            "timestamp_seconds": 30,
+            "transcript_excerpt": "teacher claim",
+            "observation": {"chart_price": 100, "cvd": 2, "open_interest": 3},
+            "deterministic_analysis": {"regime": "RANGE"},
+            "future_outcomes": {"900s": {"return_pct": 9.9}},
+            "learning_status": "UNVERIFIED",
+        }) + "\n", encoding="utf-8")
+    packet = m._case_digest(video)
+    assert "teacher claim" in packet
+    assert "future_outcomes" not in packet
+    assert "9.9" not in packet
