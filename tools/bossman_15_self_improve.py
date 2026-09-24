@@ -200,6 +200,7 @@ def run_cmd(argv: list[str], *, cwd: Path, timeout: int, log: Path) -> dict[str,
 
 
 def runtime_repair_inbox(data_dir: Path, limit: int = 5) -> list[dict[str, Any]]:
+    """Latest status per repair signature; only the latest QUEUED rows are work."""
     path = data_dir / "v1.5" / "self-repair" / "inbox.jsonl"
     if not path.is_file():
         return []
@@ -209,9 +210,31 @@ def runtime_repair_inbox(data_dir: Path, limit: int = 5) -> list[dict[str, Any]]
             row = json.loads(line)
         except ValueError:
             continue
-        if isinstance(row, dict) and row.get("status") == "QUEUED" and row.get("signature"):
+        if isinstance(row, dict) and row.get("signature"):
             latest[str(row["signature"])] = row
-    return list(latest.values())[-max(1, limit):]
+    pending = [row for row in latest.values() if row.get("status") == "QUEUED"]
+    return pending[-max(1, limit):]
+
+
+def append_runtime_repair_result(data_dir: Path, source: dict[str, Any], result: dict[str, Any]) -> None:
+    path = data_dir / "v1.5" / "self-repair" / "inbox.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    row = {
+        "schema": "bossman.v1.5.self-repair-result/1",
+        "signature": source.get("signature"),
+        "repair_id": result.get("repair_id"),
+        "status": result.get("status"),
+        "task_id": source.get("task_id"),
+        "run_id": source.get("run_id"),
+        "occurrence": source.get("occurrence"),
+        "at": time.time(),
+        "candidate_sha": result.get("candidate_sha"),
+        "candidate_branch": result.get("candidate_branch"),
+        "promotion": result.get("promotion"),
+        "error": result.get("error"),
+    }
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
 def run_runtime_repairs(repo: Path, work: Path, data_dir: Path) -> list[dict[str, Any]]:
@@ -306,6 +329,7 @@ def run_runtime_repairs(repo: Path, work: Path, data_dir: Path) -> list[dict[str
         finally:
             subprocess.run(["git", "worktree", "remove", "--force", str(wt)],
                            cwd=repo, capture_output=True, timeout=60)
+        append_runtime_repair_result(data_dir, row, entry)
     (root / "summary.json").write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
     return results
 
@@ -389,6 +413,9 @@ def main(argv=None) -> int:
     x = sub.add_parser("stop")
     x.add_argument("--work", required=True)
 
+    r = sub.add_parser("repair")
+    r.add_argument("--work")
+
     c = sub.add_parser("compile-verified")
     c.add_argument("--input", required=True)
     c.add_argument("--out", required=True)
@@ -408,6 +435,22 @@ def main(argv=None) -> int:
         if not script.is_file():
             script = ROOT / "tools" / "bossman_evolve.py"
         return subprocess.call([sys.executable, str(script), "stop", "--work", str(work)], cwd=repo)
+
+    if ns.cmd == "repair":
+        if not (repo / ".git").exists():
+            print(json.dumps({"status": "OWNER_REQUIRED_REPO"}, ensure_ascii=False))
+            return 3
+        dirty = git("status", "--porcelain", "--untracked-files=normal", cwd=repo)
+        if dirty:
+            print(json.dumps({"status": "SOURCE_DIRTY"}, ensure_ascii=False))
+            return 3
+        repair_work = Path(ns.work).resolve() if ns.work else data_dir / "v1.5" / "self-repair" / "worker"
+        rows = run_runtime_repairs(repo, repair_work, data_dir)
+        bad = [r for r in rows if r.get("status") == "HARNESS_ERROR"]
+        print(json.dumps({"status": "REPAIR_PASS_COMPLETE", "count": len(rows),
+                          "harness_errors": len(bad), "results": rows},
+                         ensure_ascii=False, default=str))
+        return 2 if bad else 0
 
     if ns.cmd == "compile-verified":
         script = HERE / "bossman_15_learning_compile.py"
