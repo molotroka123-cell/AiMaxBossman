@@ -7,6 +7,7 @@ paid GLM is enabled only by an explicit bounded owner request.
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import json
 import os
 from pathlib import Path
@@ -65,6 +66,41 @@ def _jev_present() -> bool:
     return bool(os.getenv("BOSSMAN_JEV_API_KEY") or os.getenv("TYPESAFE_API_KEY"))
 
 
+def _pid_alive(pid: object) -> bool:
+    try:
+        value = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if value <= 0:
+        return False
+    if os.name == "nt":
+        # Query only: never send a signal to an arbitrary PID on Windows.
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, value)
+        if not handle:
+            return False
+        ctypes.windll.kernel32.CloseHandle(handle)
+        return True
+    try:
+        os.kill(value, 0)
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def _state(root: Path) -> dict:
+    path = root / "run-state.json"
+    if not path.is_file():
+        return {}
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else {}
+    except (OSError, ValueError):
+        return {"status": "UNREADABLE"}
+
+
 async def _reap(key: Path, proc: subprocess.Popen, log) -> None:
     try:
         await asyncio.to_thread(proc.wait)
@@ -76,18 +112,22 @@ async def _reap(key: Path, proc: subprocess.Popen, log) -> None:
 @router.get("/status")
 async def status(request: Request):
     root = _root(request.app.state.svc)
-    state = root / "run-state.json"
+    saved = _state(root)
+    detached_alive = (
+        root not in _ACTIVE
+        and saved.get("status") in ("RUNNING", "STARTING")
+        and _pid_alive(saved.get("pid"))
+    )
     payload = {
-        "running": root in _ACTIVE,
+        "running": root in _ACTIVE or detached_alive,
+        "detached_after_backend_restart": detached_alive,
         "root": str(root),
         "openrouter_key_present": _openrouter_present(),
         "jev_key_present": _jev_present(),
+        "run": saved or None,
     }
-    if state.is_file():
-        try:
-            payload["run"] = json.loads(state.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            payload["run"] = {"status": "UNREADABLE"}
+    if saved.get("status") in ("RUNNING", "STARTING") and not payload["running"]:
+        payload["reconcile_required"] = True
     return payload
 
 
@@ -97,6 +137,13 @@ async def start(body: StartBody, request: Request):
     root = _root(svc)
     if root in _ACTIVE:
         raise HTTPException(409, {"code": "V15_ALREADY_RUNNING"})
+    saved = _state(root)
+    if saved.get("status") in ("RUNNING", "STARTING"):
+        if _pid_alive(saved.get("pid")):
+            raise HTTPException(409, {"code": "V15_DETACHED_RUN_ACTIVE",
+                                      "run_id": saved.get("run_id")})
+        raise HTTPException(409, {"code": "V15_RECONCILE_REQUIRED",
+                                  "run_id": saved.get("run_id")})
     inbox = Path(body.inbox).expanduser().resolve()
     if not inbox.is_dir():
         raise HTTPException(422, {"code": "V15_INBOX_MISSING"})
@@ -131,6 +178,22 @@ async def stop(request: Request):
     root = _root(request.app.state.svc)
     (root / "STOP").write_text("owner stop\n", encoding="utf-8")
     return {"status": "STOP_REQUESTED", "root": str(root)}
+
+
+@router.post("/reconcile")
+async def reconcile(request: Request):
+    """Acknowledge a dead pre-restart worker before starting another paid-capable run."""
+    root = _root(request.app.state.svc)
+    saved = _state(root)
+    if not saved:
+        return {"status": "NO_PREVIOUS_RUN"}
+    if saved.get("status") in ("RUNNING", "STARTING") and _pid_alive(saved.get("pid")):
+        raise HTTPException(409, {"code": "V15_RUN_STILL_ACTIVE", "run_id": saved.get("run_id")})
+    if saved.get("status") in ("RUNNING", "STARTING"):
+        saved["status"] = "INTERRUPTED_RECONCILED"
+        saved["reconciled_reason"] = "recorded worker pid is not alive; no external trade/order surface exists"
+        (root / "run-state.json").write_text(json.dumps(saved, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"status": saved.get("status"), "run_id": saved.get("run_id")}
 
 
 FEATURE = Feature(name="v15_economy", router=router)
