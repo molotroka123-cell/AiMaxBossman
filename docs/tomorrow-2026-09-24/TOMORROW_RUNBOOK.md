@@ -47,6 +47,31 @@ Then add specialists.
 
 Do not saturate disk/RAM downloading every candidate before the fleet UX works.
 
+## 2A. Jev Twitch OI/CVD collector — read-only market data
+
+Source: `https://m.twitch.tv/k1m6a`.
+
+Goal for today: collect verified local OI/CVD observations for later research, not trading.
+
+Execution order:
+1. Open the channel in the existing Bossman browser and record the final resolved URL + LIVE/OFFLINE state.
+2. Keep Jev in observer/shadow or approved low-risk browser mode; do not give it trading/order authority.
+3. Because Twitch metrics may be inside video/canvas, escalate extraction to the existing LOCAL screenshot + vision/OCR path instead of inventing DOM data.
+4. Calibrate OI/CVD regions on 20 manually reviewed samples. Exact visible numeric accuracy must be >=95% before unattended collection.
+5. Start append-only collection at ~15 s cadence while live. Every attempt gets a timestamp and status; unreadable values are null, never copied forward.
+6. Store runtime data outside Git under `%LOCALAPPDATA%\Bossman\CommandCenter\market-data\twitch\k1m6a\`.
+7. Prove STOP and restart/resume: no stale screenshot may become a new row and no downtime is backfilled with the last value.
+8. Run at least a one-hour collection window when the stream is live and write the owner report with sample counts, OI/CVD coverage and calibration accuracy.
+
+Hard boundary:
+- no exchange login/order placement;
+- no automatic buy/sell action;
+- no cloud frame egress by default;
+- no fabricated numeric CVD when only a graph is visible.
+
+Full contract and schema:
+[JEV_TWITCH_OI_CVD_COLLECTOR.md](JEV_TWITCH_OI_CVD_COLLECTOR.md).
+
 ## 3. WebDesigner runtime before training
 
 Build one tiny end-to-end project:
