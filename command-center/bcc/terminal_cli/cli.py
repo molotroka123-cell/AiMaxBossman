@@ -37,7 +37,7 @@ ERROR_EXIT = {"disconnected": EXIT_DISCONNECTED, "auth": EXIT_DISCONNECTED,
 
 TERMINAL_COMMANDS = ("chat", "exec", "status", "events", "result", "resume", "approve", "deny",
                      "pause", "stop", "continue", "list", "keys", "code", "evolution", "repair",
-                     "run", "evolve", "start", "version", "approvals", "tasks")
+                     "run", "evolve", "start", "version", "approvals", "tasks", "market")
 
 
 class UsageError(Exception):
@@ -290,6 +290,14 @@ def build_parser() -> argparse.ArgumentParser:
     sa.add_argument("--port", type=int)
     _fmt(sa)
 
+    mk = sub.add_parser("market", help="read-only Twitch monitor: watch/status/export/stop")
+    mk.add_argument("action", choices=("watch", "status", "export", "stop"))
+    mk.add_argument("--root", help="локальный каталог market ledger (по умолчанию Bossman data)")
+    mk.add_argument("--cadence", type=float, default=15.0)
+    mk.add_argument("--minutes", type=float, default=60.0)
+    mk.add_argument("--headed", action="store_true")
+    mk.add_argument("--keep-frames", type=int, default=0)
+
     sub.add_parser("version", help="версия клиента")
     return p
 
@@ -318,6 +326,25 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return EXIT_USAGE
     return handler(args)
+
+
+def cmd_market(args) -> int:
+    """Use the same read-only collector and ledger from the owner terminal."""
+    from bcc.market.collector import main as collector_main
+
+    if args.cadence <= 0 or args.minutes <= 0 or args.keep_frames < 0:
+        print("bossman market: cadence/minutes must be positive; keep-frames nonnegative", file=sys.stderr)
+        return EXIT_USAGE
+    command = "run" if args.action == "watch" else args.action
+    argv = [command]
+    if args.root:
+        argv += ["--root", args.root]
+    if command == "run":
+        argv += ["--cadence", str(args.cadence), "--minutes", str(args.minutes),
+                 "--keep-frames", str(args.keep_frames)]
+        if args.headed:
+            argv.append("--headed")
+    return collector_main(argv)
 
 
 # ----------------------------------------------------------------- exec / -p

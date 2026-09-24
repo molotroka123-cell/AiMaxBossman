@@ -166,8 +166,19 @@ def test_bossman_entry_point_keeps_core_commands():
                  ["models", "list", "--all"], ["--help"]):
         assert not cli.is_terminal_call(argv), argv
     for argv in ([], ["chat"], ["exec", "--input-file", "f"], ["-p", "hi"], ["status", "--json"],
-                 ["keys", "set", "anthropic"]):
+                 ["keys", "set", "anthropic"], ["market", "status"]):
         assert cli.is_terminal_call(argv), argv
+
+
+def test_market_terminal_uses_the_read_only_collector(tmp_path, capsys):
+    from bcc.terminal_cli.cli import main
+
+    root = str(tmp_path / "market")
+    assert main(["market", "status", "--root", root]) == 0
+    assert '"attempted": 0' in capsys.readouterr().out
+    assert main(["market", "stop", "--root", root]) == 0
+    assert (tmp_path / "market" / "STOP").exists()
+    assert main(["market", "watch", "--cadence", "0", "--root", root]) != 0
 
 
 # ----------------------------------------------------------------- launchers

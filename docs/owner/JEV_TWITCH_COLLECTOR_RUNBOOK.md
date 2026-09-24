@@ -4,7 +4,20 @@ Spec: `docs/tomorrow-2026-09-24/JEV_TWITCH_OI_CVD_COLLECTOR.md` (on `main`).
 Status: **DATA_COLLECTION**. The collector has no trade, order, exchange or
 credential capability (negative test `test_no_trading_surface`).
 
-## Commands (from `command-center/`)
+## Commands (from installed Bossman CMD)
+
+```powershell
+bossman market watch --cadence 15 --minutes 60  # foreground; read-only
+bossman market status
+bossman market export
+bossman market stop                             # writes collector STOP
+```
+
+These commands use the same `bcc.market.collector` and local ledger. `watch`
+keeps running in its own terminal process; close it with `bossman market stop`.
+For an isolated test, pass the same `--root <dir>` to every command.
+
+## Direct module commands (from `command-center/`)
 
 ```powershell
 python -m bcc.market.collector calibrate --samples 20 --root <dir>   # keeps frames + crops for review
@@ -38,8 +51,8 @@ index) → `exports/*.csv`; `crops/<day>/` evidence; `reports/`.
 4. Badges move with the value; they are located per frame. The badge's own
    label ("CVD", "Open Interest") decides the metric.
 5. LOCAL vision (`bossman-fast-qwen36-vision`, loopback only) reads each badge
-   three times from decorrelated 8x renderings (colour, grayscale, inverted
-   grayscale). Only unanimous, schema-valid readings become numbers; anything
+   three times from 8x colour Lanczos, grayscale Lanczos and grayscale bicubic
+   renderings. Only unanimous, schema-valid readings become numbers; anything
    else is `LOW_CONFIDENCE` / `UNREADABLE` with the raw reads kept as evidence.
 
 ## Known model behaviour (measured 2026-09-24)
