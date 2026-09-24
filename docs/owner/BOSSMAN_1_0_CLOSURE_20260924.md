@@ -27,6 +27,13 @@ remaining owner-PC and release gates pass.
 - A Companion test message was sent to the configured owner through the
   existing adapter after preflight. Telegram returned message ID **340** at
   `2026-09-24T19:06:52.216423+00:00`. Owner-phone visibility remains unconfirmed.
+- A locked-input Windows release ZIP was built from candidate
+  `f4bf3fb05c77de88b9904ab0ba76954db022288e`; archive SHA-256
+  `5c41f47eda053a35aef7a24032832542f0b6c9f62c2f4c90e3a3b7a45595b986`.
+  Fresh extraction and installed-bundle verification: **PASS**, including
+  isolated product run and evening acceptance. Report:
+  `owner-test-pack/bundle-f4bf3fb0-acceptance.json`. This package predates the
+  skips-registry correction and is not the final 1.0 artifact.
 - The collector's notifier now explicitly opts in to the same local untracked
   Companion env file used by the Windows launcher. Process env still has
   precedence. No secret value was logged or committed.
@@ -41,8 +48,8 @@ remaining owner-PC and release gates pass.
 - The required 60-minute Twitch soak, crash/restart/STOP exercise and one
   complete live Twitch-to-Telegram owner-phone E2E are NOT RUN.
 - The final SHA has not passed every mandatory Exact-SHA CI workflow. No
-  Windows package built from a frozen SHA has completed installed-bundle and
-  owner-PC acceptance. There is no `BOSSMAN_1_0_FINAL_SHA` yet.
+  Windows package built from a frozen SHA has completed all owner-PC gates.
+  There is no `BOSSMAN_1_0_FINAL_SHA` yet.
 
 The prior North Star checkpoint remains `SELF_REPAIR_SINGLE_CYCLE_PASS
 (coached)`; this work does not establish transfer gain.
