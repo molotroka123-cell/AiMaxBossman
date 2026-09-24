@@ -74,3 +74,21 @@ def test_groups_are_repo_root_paths_that_exist_with_the_declared_quotas():
 def test_path_outside_a_project_is_refused():
     with pytest.raises(w100.GateError):
         w100.split_project("tests/telegram_contracts/test_companion.py")
+
+
+def test_xpass_is_not_a_pass():
+    recs = _passed(IDS)
+    recs[1] = {**recs[1], "wasxfail": "known bug"}          # call of IDS[0] passed unexpectedly
+    res = w100.verify(IDS, recs)
+    assert res["verdict"] == "FAIL" and res["not_passed"] == {IDS[0]: {"call": "xpassed"}}
+
+
+def test_a_failure_is_sticky_even_if_a_rerun_later_passes():
+    recs = [{"nodeid": IDS[0], "when": "call", "outcome": "failed"}] + _passed(IDS)
+    res = w100.verify(IDS, recs)
+    assert res["verdict"] == "FAIL" and res["not_passed"] == {IDS[0]: {"call": "failed"}}
+
+
+def test_only_allow_listed_skip_reasons_may_exclude_a_test():
+    assert "ffmpeg required" not in w100.ALLOWED_EXCLUSION_REASONS
+    assert all("ffmpeg" not in r.lower() and "chromium" not in r.lower() for r in w100.ALLOWED_EXCLUSION_REASONS)

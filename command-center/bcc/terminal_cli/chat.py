@@ -38,6 +38,8 @@ from .records import EXIT_DISCONNECTED, EXIT_OK, model_kind, state_of
 from .theme import glyphs
 
 CONTEXT_TURNS = 3
+_WINDOWS_DEVICE_NAMES = frozenset({"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$",
+                                   *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))})
 
 
 def export_target(raw: str, cwd: str) -> Path:
@@ -53,6 +55,11 @@ def export_target(raw: str, cwd: str) -> Path:
     text = (raw or "").strip()
     if not text:
         raise ValueError("пустой путь")
+    if text.startswith("\\") and not text.startswith("\\\\"):
+        raise ValueError(f"неполный путь Windows (нет диска): {text}")
+    for part in re.split(r"[\\/]", text):
+        if part.split(".")[0].rstrip(" ").upper() in _WINDOWS_DEVICE_NAMES:
+            raise ValueError(f"имя устройства Windows, а не файла: {part}")
     win = PureWindowsPath(text)
     if os.name != "nt" and win.drive:
         raise ValueError(f"путь с диском Windows ({win.drive}) на этой системе недоступен: {text}")
@@ -1073,9 +1080,22 @@ class Chat:
             self.view.error(f"файл уже есть: {path}", "другой путь или /export <путь> --force")
             return
         text = self._export_markdown()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(text)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:        # e.g. a FILE where a folder of the path must be
+            self.view.error(f"не удалось сохранить {path}: {exc.strerror or exc}", slash.COMMANDS["export"][0])
+            return
+        try:
+            # without --force the file is created exclusively: nothing that
+            # appeared after the check above is ever overwritten
+            with open(path, "w" if force else "x", encoding="utf-8", newline="\n") as fh:
+                fh.write(text)
+        except FileExistsError:
+            self.view.error(f"файл уже есть: {path}", "другой путь или /export <путь> --force")
+            return
+        except OSError as exc:
+            self.view.error(f"не удалось сохранить {path}: {exc.strerror or exc}", slash.COMMANDS["export"][0])
+            return
         self.view.note(f"беседа сохранена: {path} ({len(self.session.turns)} ходов)", "value.on")
 
     def _probe(self, path: str) -> tuple[dict, str]:

@@ -15,8 +15,15 @@ def pytest_runtest_logreport(report):
     if not path:
         return
     with open(path, "a", encoding="utf-8") as fh:
-        fh.write(json.dumps({"nodeid": report.nodeid, "when": report.when,
-                             "outcome": report.outcome}, ensure_ascii=False) + "\n")
+        fh.write(json.dumps({"nodeid": report.nodeid, "when": report.when, "outcome": report.outcome,
+                             "wasxfail": getattr(report, "wasxfail", None)}, ensure_ascii=False) + "\n")
+
+
+def pytest_runtest_setup(item):
+    """Negative control only: skip ONE named real test at run time."""
+    if item.nodeid == os.environ.get("BOSSMAN_W100_PLANT_SKIP"):
+        import pytest
+        pytest.skip("windows-100 negative control: planted runtime skip")
 
 
 def pytest_collection_modifyitems(config, items):

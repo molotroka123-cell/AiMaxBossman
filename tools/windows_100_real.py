@@ -72,6 +72,16 @@ GROUPS: list[tuple[str, int, list[str]]] = [
 PROJECTS = ("command-center", "bossman-core")
 # nodeid -> reason: tests this platform skips by marker; never selected.
 EXCLUDED: dict[str, str] = {}
+# A marker-skip may be excluded ONLY for these reasons (the other OS's twin of
+# a Windows test, or the already-current install). Any other skip reason — a
+# missing FFmpeg, browser or package — is a FAIL, never a silent swap for an
+# easier test from the same file.
+ALLOWED_EXCLUSION_REASONS = (
+    "SIGSTOP stands in for CREATE_SUSPENDED off Windows",
+    "POSIX sessions; on Windows the nested Job Object covers this",
+    "kernel-enforced job objects are a Windows mechanism",
+    "the installed bossman-shared already has the lifecycle",
+)
 TOTAL = sum(quota for _, quota, _ in GROUPS)
 assert TOTAL == 100
 
@@ -114,6 +124,10 @@ def collect(repo_path: str) -> list[str]:
             rec = json.loads(line)
             skipped[f"{project}/{rec['nodeid']}"] = rec["reason"]
         skips_file.unlink()
+    unexpected = {n: r for n, r in skipped.items() if r not in ALLOWED_EXCLUSION_REASONS}
+    if unexpected:
+        raise GateError("tests skipped by marker for a reason not on the allow-list "
+                        f"(missing dependency on the runner?): {json.dumps(unexpected, ensure_ascii=False)}")
     EXCLUDED.update(skipped)
     if proc.returncode != 0:
         raise GateError(f"collection of {repo_path} failed (exit {proc.returncode}):\n"
@@ -155,7 +169,11 @@ def verify(selected: list[str], reports: list[dict]) -> dict:
     passed setup+call+teardown, nothing was skipped, missing or extra."""
     by_id: dict[str, dict[str, str]] = {}
     for rec in reports:
-        by_id.setdefault(rec["nodeid"], {})[rec["when"]] = rec["outcome"]
+        outcome = "xpassed" if rec.get("wasxfail") is not None else rec["outcome"]
+        phases = by_id.setdefault(rec["nodeid"], {})
+        # a non-pass is sticky: a later "passed" (a rerun plugin) never erases it
+        if phases.get(rec["when"], "passed") == "passed":
+            phases[rec["when"]] = outcome
     wanted = set(selected)
     missing = sorted(n for n in selected if n not in by_id)
     extra = sorted(n for n in by_id if n not in wanted)
@@ -191,7 +209,7 @@ def build_selection() -> tuple[list[str], list[dict]]:
     return selected, groups
 
 
-def execute(selected: list[str], out_dir: pathlib.Path) -> tuple[list[dict], dict]:
+def execute(selected: list[str], out_dir: pathlib.Path, *, plant_skip: str = "") -> tuple[list[dict], dict]:
     """Run the nodeids per project from its own directory; return plugin records."""
     records: list[dict] = []
     runs: dict = {}
@@ -204,7 +222,7 @@ def execute(selected: list[str], out_dir: pathlib.Path) -> tuple[list[dict], dic
         started = time.monotonic()
         proc = _run([sys.executable, "-m", "pytest", "-q", "--tb=short", "-p", "no:cacheprovider",
                      "-p", PLUGIN, "--rootdir", ".", *ids], cwd=ROOT / project, timeout=1800,
-                    extra_env={"BOSSMAN_W100_REPORT": str(log)})
+                    extra_env={"BOSSMAN_W100_REPORT": str(log), "BOSSMAN_W100_PLANT_SKIP": plant_skip})
         (out_dir / f"pytest-{project}.stdout.txt").write_text(proc.stdout, encoding="utf-8")
         (out_dir / f"pytest-{project}.stderr.txt").write_text(proc.stderr, encoding="utf-8")
         runs[project] = {"returncode": proc.returncode, "requested": len(ids),
@@ -216,6 +234,38 @@ def execute(selected: list[str], out_dir: pathlib.Path) -> tuple[list[dict], dic
                 rec["nodeid"] = f"{project}/{rec['nodeid']}"
                 records.append(rec)
     return records, runs
+
+
+def negative_control(selected: list[str], out_dir: pathlib.Path, evidence: dict) -> int:
+    """Two planted faults; the gate must be red on EACH, for its own reason.
+
+    A: a nonexistent nodeid — pytest aborts the run (exit != 0).
+    B: a real selected test skipped at run time by the plugin — pytest exits 0,
+       so only the per-nodeid verdict can catch it.
+    """
+    bogus = "command-center/tests/test_terminal_cli_unit.py::test_windows100_negative_control_does_not_exist"
+    victim = next(n for n in selected if n.startswith("command-center/"))
+    controls = {}
+    for name, sel, plant in (("A_bogus_nodeid", [selected[0], bogus, *selected[2:]], ""),
+                             ("B_runtime_skip", selected, victim[len("command-center/"):])):
+        sub = out_dir / name
+        sub.mkdir(parents=True, exist_ok=True)
+        records, runs = execute(sel, sub, plant_skip=plant)
+        result = verify(sel, records)
+        caught = result["verdict"] == "FAIL"
+        if name == "B_runtime_skip":
+            # red for the right reason: pytest said OK, the verdict found the skip
+            caught = (caught and all(r["returncode"] == 0 for r in runs.values())
+                      and result["not_passed"] == {victim: {"setup": "skipped"}})
+        controls[name] = {"caught": caught, "runs": runs, "missing": len(result["missing"]),
+                          "not_passed": result["not_passed"]}
+    ok = all(c["caught"] for c in controls.values())
+    (out_dir / "summary.json").write_text(json.dumps({**evidence, "controls": controls,
+                                                      "verdict": "PASS" if ok else "FAIL"},
+                                                     ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    for name, c in controls.items():
+        print(f"WINDOWS_100_NEGATIVE_CONTROL {name}: {'caught' if c['caught'] else 'NOT CAUGHT'}")
+    return 0 if ok else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -236,10 +286,7 @@ def main(argv: list[str] | None = None) -> int:
                                                          ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         return 1 if not ns.negative_control else 2
     if ns.negative_control:
-        planted = "command-center/tests/test_terminal_cli_unit.py::test_windows100_negative_control_does_not_exist"
-        evidence["planted_bogus_nodeid"] = planted
-        evidence["replaced_nodeid"] = selected[1]
-        selected = [selected[0], planted, *selected[2:]]
+        return negative_control(selected, out_dir, evidence)
     evidence.update(groups=groups, selected_total=len(selected), selected=selected,
                     excluded_skipped_by_marker_on_this_platform=EXCLUDED)
     (out_dir / "selected-tests.json").write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + "\n",
