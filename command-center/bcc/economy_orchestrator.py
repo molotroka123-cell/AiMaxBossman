@@ -29,7 +29,7 @@ from typing import Any, Iterable
 from .jev import config as jev_config
 from .jev.client import JevClient, JevError, validate_choice
 from .provider_governance import GovernedAdapter
-from .providers import ChatResult, OpenAICompatAdapter
+from .providers import ChatResult, OpenAICompatAdapter, ProviderError
 
 OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 DEFAULT_SECRET = Path(os.environ.get("LOCALAPPDATA", "")) / "Bossman" / "secrets" / "openrouter-test.env"
@@ -180,6 +180,7 @@ class BossmanOpenRouter:
         self.ledger = ledger or SpendLedger(
             glm_budget_usd=float(os.environ.get("BOSSMAN_15_GLM_BUDGET_USD", "0.25") or "0.25")
         )
+        self.retry_events: list[dict[str, Any]] = []
 
     def _adapter(self, spec: ModelSpec) -> GovernedAdapter:
         raw = OpenAICompatAdapter(base_url=OPENROUTER_BASE, api_key=self.key)
@@ -198,10 +199,30 @@ class BossmanOpenRouter:
         if spec.free and not spec.model.endswith(":free"):
             raise PaidViolation(f"free role {role} is not bound to a :free model")
         self.ledger.reserve(spec, messages)
-        result = await self._adapter(spec).chat(
-            spec.model, messages, tools=tools, max_tokens=max_tokens or spec.max_tokens,
-            temperature=spec.temperature,
-        )
+        adapter = self._adapter(spec)
+        delays = (2.0, 5.0, 15.0) if spec.free else ()
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                result = await adapter.chat(
+                    spec.model, messages, tools=tools, max_tokens=max_tokens or spec.max_tokens,
+                    temperature=spec.temperature,
+                )
+                break
+            except ProviderError as exc:
+                text = str(exc)
+                transient = exc.kind == "network" or any(
+                    marker in text for marker in ("(408)", "(429)", " 500", " 502", " 503", " 504", " 529")
+                )
+                if not transient or attempt > len(delays):
+                    raise
+                wait = delays[attempt - 1]
+                self.retry_events.append({
+                    "role": role, "model": spec.model, "attempt": attempt,
+                    "wait_s": wait, "kind": exc.kind, "reason": text[:160],
+                })
+                await asyncio.sleep(wait)
         self.ledger.record(spec, result)
         return result
 
