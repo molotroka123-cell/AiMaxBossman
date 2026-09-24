@@ -181,6 +181,22 @@ def test_market_terminal_uses_the_read_only_collector(tmp_path, capsys):
     assert main(["market", "watch", "--cadence", "0", "--root", root]) != 0
 
 
+def test_start_without_optional_url_or_data_dir(monkeypatch, capsys):
+    from bcc.terminal_cli.cli import main
+    from bcc.terminal_cli import launch
+
+    seen = {}
+
+    def fake_start_backend(**kwargs):
+        seen.update(kwargs)
+        return {"url": "http://127.0.0.1:8800", "already_running": True}
+
+    monkeypatch.setattr(launch, "start_backend", fake_start_backend)
+    assert main(["start", "--json"]) == 0
+    assert seen == {"url": None, "data_dir": None, "port": None}
+    assert '"ok": true' in capsys.readouterr().out
+
+
 # ----------------------------------------------------------------- launchers
 
 

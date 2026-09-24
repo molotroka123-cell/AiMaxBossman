@@ -42,6 +42,10 @@ remaining owner-PC and release gates pass.
   import that assumed a source checkout. The analyzer now imports the packaged
   Trader Apprentice, and the historical casebook/CASE records ship in
   `bossman-shared`; a byte-for-byte sync test guards the copied records.
+- A further installed `bossman.cmd start --json` probe found that omitted
+  optional `--url`/`--data-dir` fields caused an AttributeError before backend
+  launch. The CLI now supplies their documented defaults; 29 Terminal tests
+  pass. Rebuilt installed acceptance is required on the next SHA.
 - Prior live headed 20-frame calibration: 19 VERIFIED, 1 LOW_CONFIDENCE;
   manual crop comparison found zero wrong VERIFIED CVD/OI values. Evidence and
   hashes are in `ASTER_OWNER_TWITCH_TEST_20260924.md`.

@@ -994,7 +994,8 @@ def cmd_start(args) -> int:
     out = Out(args.output_format)
     from .launch import start_backend
     try:
-        info = start_backend(url=args.url, data_dir=args.data_dir, port=args.port)
+        info = start_backend(url=getattr(args, "url", None),
+                             data_dir=getattr(args, "data_dir", None), port=args.port)
     except BossmanError as exc:
         return fail(out, exc, what="start")
     rec = record("started", ok=True, **info, exit_code=EXIT_OK)
