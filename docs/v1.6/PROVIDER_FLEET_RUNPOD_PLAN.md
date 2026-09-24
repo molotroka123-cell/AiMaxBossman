@@ -11,7 +11,7 @@ Bossman should exhaust legitimate capacity in this order:
 3. Existing paid/prepaid balance of each distinct provider
 4. Local AI Max resources
 5. Only then optional second low-cost account / sub-account where the provider's terms explicitly permit it
-6. GPU rental (RunPod) when batch throughput, memory, or training makes it economically better
+6. GPU rental (RunPod) only when batch throughput, memory, or training makes it economically better **AND the owner explicitly approves that rental and its spend cap**
 
 Never create multiple accounts to evade rate limits, abuse free tiers, or violate provider terms. A "second account" is only eligible when the provider explicitly supports subaccounts/projects/workspaces or multiple owner-controlled accounts for legitimate separation/billing.
 
@@ -247,3 +247,15 @@ Provider Fleet PASS requires:
 - rented-GPU decision model;
 - RunPod create -> workload -> verify -> terminate E2E in a capped sandbox;
 - proof that a failed workflow also terminates billing resources.
+
+
+## Owner-only rental authority addendum
+
+Even if the economic scheduler ranks RunPod first, the scheduler output is only
+a recommendation until a fresh owner approval binds workload, provider, GPU
+class/count, maximum runtime and maximum spend.
+
+When approved, pre-pack compatible expensive work so the rental produces the
+maximum amount of independently verifiable output per billed hour. Track useful
+GPU utilization and dollars per verified artifact, not raw utilization alone.
+See `docs/v1.6/FOUNDATION_FREEZE.md`.
