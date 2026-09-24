@@ -1,9 +1,9 @@
 {
   "schema": "bossman.v1.5.self-improvement/1",
-  "goal": "move routine coding/learning from Codex/Claude/Aster into Bossman's own verified loop",
+  "goal": "autonomous Bossman loop: task failure -> self-repair candidate -> executable verifier -> lesson -> unseen transfer, with owner supervision from Telegram/UX/CMD",
   "controller": "bossman",
   "router": "jev",
-  "external_auditor": "aster",
+  "external_auditor": "optional_red_team_only",
   "codex_role": "owner_integrator_only",
   "claude_role": "not_required_for_routine_loop",
   "student": {
@@ -22,7 +22,7 @@
     "model": "z-ai/glm-5.3-flash",
     "paid": true,
     "max_calls_per_campaign": 4,
-    "max_usd_per_campaign": 0.50,
+    "max_usd_per_campaign": 0.5,
     "only_after_verified_blocker": true
   },
   "provider_pool": {
@@ -44,8 +44,8 @@
     "max_disk_mb": 8192,
     "max_rss_mb": 24576,
     "min_free_ram_mb": 16384,
-    "max_usd": 0.50,
-    "attempt_usd": 0.10
+    "max_usd": 0.5,
+    "attempt_usd": 0.1
   },
   "promotion": {
     "model_done_is_pass": false,
@@ -66,5 +66,14 @@
     "durable": true,
     "campaign_stop_file": "STOP",
     "provider_breaker_on_repeated_failures": true
+  },
+  "owner_supervisor": "telegram_ux_cmd",
+  "runtime_repair": {
+    "failure_inbox": "v1.5/self-repair/inbox.jsonl",
+    "auto_create_local_candidate_branch": true,
+    "candidate_prefix": "bossman-self-repair/",
+    "requires_green_executable_test": true,
+    "requires_unseen_transfer_before_promotion": true,
+    "auto_write_stable": false
   }
 }
