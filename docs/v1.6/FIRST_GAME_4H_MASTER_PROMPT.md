@@ -17,8 +17,24 @@ Read first:
 - `docs/v1.6/FIRST_GAME_4H_BENCHMARK.md`
 - `docs/v1.6/GAME_STUDIO_IDEAS.md`
 - `docs/v1.6/CODING_LIMIT_SAVER.md`
+- `docs/v1.6/JEV_BOOTSTRAP_TELEGRAM.md`
 
 Do not plan a new scope. Execute the frozen benchmark.
+
+## Bootstrap first
+
+Before writing game code, call the Bossman 1.6 game bootstrap planner and execute
+its steps through the existing Bossman download/terminal/verifier path.
+
+Primary Windows fast path: pinned Voxel Tools 1.7 custom Godot 4.7.2 build +
+pinned export template. Verify actual SHA-256 before activation.
+
+If the primary bootstrap is not READY inside the defined bootstrap/plugin time
+budget, Jev selects the documented fallback instead of looping.
+
+Owner control remains Telegram Companion: milestone updates + /menu /status
+/queue /screen /approvals /pause /resume /stop. Jev cannot approve, confirm or
+resume itself.
 
 ## Engine
 
@@ -177,9 +193,14 @@ FINAL_SHA=
 FINAL_BUILD_HASH=
 BOSSMAN_ONLY_BOUNDARY=
 ENGINE=
+BOOTSTRAP_STATUS=
+BOOTSTRAP_EDITOR_SHA256=
+BOOTSTRAP_TEMPLATE_SHA256=
 VOXEL_BACKEND=
 WALL_TIME=
 OWNER_INTERVENTIONS=
+TELEGRAM_APPROVALS=
+TELEGRAM_MILESTONES=
 LOCAL_MODELS=
 FREE_MODELS=
 GLM53_CODE_CALLS=
