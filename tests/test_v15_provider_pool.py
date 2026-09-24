@@ -147,3 +147,22 @@ def test_self_improve_api_timeout_requests_durable_stop(monkeypatch, tmp_path):
     )
     assert out["status"] == "TIMEOUT_STOP_REQUESTED"
     assert client.posts[-1] == "/api/v15/economy/stop"
+
+
+def test_self_improve_accepts_exact_installed_bundle_manifest(tmp_path):
+    mod = load_module("v15_self_improve_installed_test", "tools/bossman_15_self_improve.py")
+    sha = "d" * 40
+    (tmp_path / "MANIFEST.json").write_text(
+        json.dumps({"source_sha": sha, "source_dirty": False}), encoding="utf-8")
+    got_sha, clean, kind = mod._source_identity(tmp_path)
+    assert got_sha == sha
+    assert clean is True
+    assert kind == "installed"
+
+
+def test_self_improve_refuses_unproven_installed_source(tmp_path):
+    mod = load_module("v15_self_improve_unproven_test", "tools/bossman_15_self_improve.py")
+    got_sha, clean, kind = mod._source_identity(tmp_path)
+    assert got_sha == "unknown"
+    assert clean is False
+    assert kind == "installed-unproven"
