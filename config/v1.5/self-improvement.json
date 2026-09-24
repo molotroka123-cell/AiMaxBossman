@@ -3,7 +3,7 @@
   "goal": "autonomous Bossman loop: task failure -> self-repair candidate -> executable verifier -> lesson -> unseen transfer, with owner supervision from Telegram/UX/CMD",
   "controller": "bossman",
   "router": "jev",
-  "external_auditor": "optional_red_team_only",
+  "external_auditor": "bootstrap_then_optional_red_team_only",
   "codex_role": "owner_integrator_only",
   "claude_role": "not_required_for_routine_loop",
   "student": {
@@ -30,7 +30,10 @@
     "minimum_ready_zero_cost_providers": 1,
     "allow_owner_onboarding": true,
     "auto_create_accounts": false,
-    "allow_quota_evasion": false
+    "allow_quota_evasion": false,
+    "target_ready_zero_cost_providers": 2,
+    "capacity_expansion_nonblocking": true,
+    "onboarding_command": "python tools/v15_provider_pool.py onboarding"
   },
   "evolution": {
     "suite": "config/evolution/owner-v1.5-self-improve.json",
@@ -75,5 +78,20 @@
     "requires_green_executable_test": true,
     "requires_unseen_transfer_before_promotion": true,
     "auto_write_stable": false
+  },
+  "aster_role": "launch_self_improvement_then_detach",
+  "exit_gate": {
+    "status": "ASTER_DETACHED_CONTINUITY_PASS",
+    "requires_campaign_started": true,
+    "requires_bossman_status_without_external_auditor": true,
+    "requires_one_verified_or_rejected_scientific_cycle": true,
+    "requires_restart_continuity": true,
+    "requires_owner_controls_without_aster_or_codex": true
+  },
+  "self_improvement_north_star": {
+    "routine_external_coder_dependency": false,
+    "aster_required_after_bootstrap": false,
+    "codex_required_after_bootstrap": false,
+    "target": "Bossman selects resources, repairs, verifies, learns, retries, and reports using its own bounded runtime"
   }
 }
