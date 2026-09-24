@@ -17,6 +17,7 @@ import pathlib
 import subprocess
 import sys
 import time
+import uuid
 from dataclasses import asdict, dataclass
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -270,6 +271,8 @@ def run(policy: dict, inbox: pathlib.Path, out: pathlib.Path, *,
     out.mkdir(parents=True, exist_ok=True)
     state = {
         "schema": "bossman.v1.5.economy-run/1",
+        "run_id": uuid.uuid4().hex,
+        "pid": os.getpid(),
         "started_at": time.time(), "status": "RUNNING",
         "weights_changed": False, "videos": [], "glm_calls": 0, "paid": {},
     }
