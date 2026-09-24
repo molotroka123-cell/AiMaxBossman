@@ -45,11 +45,13 @@ NONCE_RE = re.compile(r"^[0-9a-f]{12}$")
 FRAME_RE = re.compile(r"^screen-\d{1,25}\.png$")
 FRAME_MAX_BYTES = 10 * 1024 * 1024
 
-CONSOLE_COMMANDS = {"/queue", "/approvals", "/approve", "/reject", "/stop", "/pause",
-                    "/resume", "/screen", "/open", "/files", "/diag", "/lessons", "/fix", "/bossman"}
+CONSOLE_COMMANDS = {"/queue", "/approvals", "/approve", "/reject", "/inputs", "/input",
+                    "/stop", "/pause", "/resume", "/screen", "/open", "/files",
+                    "/diag", "/lessons", "/fix", "/bossman"}
 # Команды пульта, которым нужен владелец + включённый тумблер управления.
-OWNER_CONSOLE = {"/queue", "/approvals", "/approve", "/reject", "/stop", "/pause", "/resume",
-                 "/screen", "/open", "/files", "/diag", "/lessons", "/fix", "/bossman"}
+OWNER_CONSOLE = {"/queue", "/approvals", "/approve", "/reject", "/inputs", "/input",
+                 "/stop", "/pause", "/resume", "/screen", "/open", "/files",
+                 "/diag", "/lessons", "/fix", "/bossman"}
 EVOLUTION_COMMANDS = {"/evolution_status", "/evolution_start", "/evolution_pause",
                       "/evolution_resume", "/evolution_stop", "/evolution_report"}
 CONSOLE_COMMANDS.update(EVOLUTION_COMMANDS)
@@ -80,7 +82,8 @@ class ConsoleMixin:
         """Главный экран. Кнопки — те же opaque-токены, привязанные к человеку."""
         b = lambda label, cmd: self.button(person, label, cmd)  # noqa: E731
         rows = [[b("📊 Статус", "/status"), b("🗂 Очередь", "/queue")],
-                [b("📝 Новая задача", "/task"), b("✅ Подтвердить / ⛔ Отклонить", "/approvals")],
+                [b("📝 Новая задача", "/task"), b("✍️ Данные форм", "/inputs"),
+                 b("✅ Подтвердить / ⛔ Отклонить", "/approvals")],
                 [b("📸 Экран", "/screen"), b("🚀 Открыть приложение/папку", "/open")],
                 [b("📂 Файлы проекта", "/files"), b("🩺 Диагностика", "/diag")],
                 [b("🎨 Фото", "/img"), b("🎬 Видео / TestRun", "/video")],
@@ -97,6 +100,10 @@ class ConsoleMixin:
             return await self.console_queue(person)
         if command == "/approvals":
             return await self.console_approvals(person)
+        if command == "/inputs":
+            return await self.console_inputs(person)
+        if command == "/input":
+            return await self.console_input(person, arg)
         if command in {"/approve", "/reject"}:
             return await self.console_decide(person, command == "/approve", arg, message)
         if command in {"/stop", "/pause"}:
@@ -149,6 +156,64 @@ class ConsoleMixin:
         keyboard = [[self.button(person, "✅ Подтвердить / ⛔ Отклонить", "/approvals")]] if pending else []
         from .service import Reply
         return Reply("\n".join(lines), keyboard + [[self.button(person, "🏠 Меню", "/menu")]])
+
+    async def console_inputs(self, person: Person):
+        """Missing form data Bossman can fill after the owner answers from the phone."""
+        try:
+            rows = await self.core.owner_inputs()
+        except CompanionError as exc:
+            return f"Запросы данных не прочитаны: {_short(exc, 180)}."
+        if not rows:
+            return "Сейчас Bossman не ждёт данных для форм."
+        lines = ["✍️ Bossman ждёт данные:"]
+        for row in rows[:10]:
+            fields = row.get("fields") if isinstance(row.get("fields"), list) else []
+            labels = []
+            secret = False
+            for field in fields:
+                if isinstance(field, dict):
+                    labels.append(_short(field.get("label") or field.get("key"), 80))
+                    secret = secret or bool(field.get("secret"))
+            lines.append(
+                f"• {row['id']} · {_short(row.get('context'), 140) or 'форма'}\n"
+                f"  поля: {', '.join(labels) or '(не указаны)'}"
+                + ("\n  ⚠️ есть секретное поле: Telegram сам увидит отправленное значение; "
+                   "для пароля безопаснее Human Take Over/локальный vault." if secret else ""))
+        lines.append(
+            "\nОтвет: /input ID key=value; key2=value\n"
+            "или /input ID {\"key\":\"value\",\"key2\":\"value\"}.\n"
+            "После ответа Bossman сам вставит значения; отправка формы остаётся отдельным ASK.")
+        return "\n".join(lines)
+
+    async def console_input(self, person: Person, arg: str):
+        """Answer one owner-input request. The value is sent only to local Bossman."""
+        request_id, sep, payload = (arg or "").strip().partition(" ")
+        if not sep or not re.fullmatch(r"[0-9a-f]{12}", request_id):
+            return "Формат: /input <12-символьный ID> key=value; key2=value  (или JSON-объект)."
+        payload = payload.strip()
+        if not payload:
+            return "После ID нужны значения полей."
+        try:
+            if payload.startswith("{"):
+                import json
+                values = json.loads(payload)
+                if not isinstance(values, dict):
+                    raise ValueError("JSON должен быть объектом")
+            else:
+                values = {}
+                for part in payload.split(";"):
+                    key, eq, value = part.strip().partition("=")
+                    if not eq or not key.strip():
+                        raise ValueError("каждое поле: key=value")
+                    values[key.strip()] = value.strip()
+            actor = f"tg:user:{person.user_id}@chat:{person.chat_id}"
+            row = await self.core.answer_owner_input(request_id, values, actor)
+        except (ValueError, CompanionError) as exc:
+            return f"Данные не приняты: {_short(exc, 220)}. Проверьте /inputs."
+        labels = [str(f.get("label") or f.get("key")) for f in row.get("fields") or [] if isinstance(f, dict)]
+        return ("✅ Данные приняты локальным Bossman для запроса " + request_id
+                + (": " + ", ".join(labels) if labels else "")
+                + ". Значения не возвращаются модели. Bossman заполнит форму сам; submit/login/ToS не подтверждены.")
 
     async def console_lessons(self, person: Person):
         try:
