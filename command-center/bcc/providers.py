@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import time
@@ -16,6 +17,11 @@ from urllib.parse import urlparse
 
 CHAT_TIMEOUT = 600.0     # локальная модель на CPU думает долго
 HEALTH_TIMEOUT = 6.0     # проверка доступности должна быть быстрой
+# OpenRouter (и другие шлюзы) отвечают HTTP 200 с телом {"error": {"code": 503, ...}},
+# когда апстрим перегружен. Это временный отказ: две короткие повторные попытки,
+# затем названная ошибка с kind="rate_limit" (backoff), а не «модель молчит».
+TRANSIENT_RETRY_DELAYS: tuple[float, ...] = (2.0, 5.0)
+_TRANSIENT_CODES = frozenset({408, 429, 500, 502, 503, 504, 529})
 
 
 class ProviderError(RuntimeError):
@@ -243,10 +249,23 @@ class OpenAICompatAdapter(_BaseAdapter):
             payload["tool_choice"] = kw.get("tool_choice") or "auto"
         if kw.get("response_format") is not None:
             payload["response_format"] = kw["response_format"]
-        resp = await self._request("POST", f"{self.base_url}/chat/completions",
-                                   timeout=kw.get("timeout", CHAT_TIMEOUT),
-                                   headers=self._headers(), json=payload)
-        data = _response_object(resp, what="chat/completions")
+        delays = iter(TRANSIENT_RETRY_DELAYS)
+        while True:
+            resp = await self._request("POST", f"{self.base_url}/chat/completions",
+                                       timeout=kw.get("timeout", CHAT_TIMEOUT),
+                                       headers=self._headers(), json=payload)
+            data = _response_object(resp, what="chat/completions")
+            upstream = _in_body_error(data)
+            if upstream is None:
+                break
+            code, message = upstream
+            if code not in _TRANSIENT_CODES:
+                raise ProviderError(f"провайдер отказал ({code}): {message}", kind="http")
+            delay = next(delays, None)
+            if delay is None:
+                raise ProviderError(f"провайдер временно перегружен ({code}): {message}",
+                                    kind="rate_limit", hint="повторите позже или выберите другую модель")
+            await asyncio.sleep(delay)
         choices = data.get("choices") or []
         if not choices:
             raise ProviderError("модель вернула пустой ответ (нет choices)")
@@ -504,6 +523,20 @@ def _host(url: str) -> str:
         return f"{parsed.scheme}://{parsed.netloc.decode()}"
     except Exception:
         return url
+
+
+def _in_body_error(data: dict) -> tuple[int, str] | None:
+    """(code, message) of an error a gateway put into a 200 body, else None."""
+    err = data.get("error") if isinstance(data, dict) else None
+    if not err or data.get("choices"):
+        return None
+    if isinstance(err, dict):
+        try:
+            code = int(err.get("code") or 0)
+        except (TypeError, ValueError):
+            code = 0
+        return code, str(err.get("message") or err)[:300]
+    return 0, str(err)[:300]
 
 
 def _explain(resp: httpx.Response) -> str:
