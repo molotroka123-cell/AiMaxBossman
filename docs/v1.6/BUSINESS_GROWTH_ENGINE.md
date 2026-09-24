@@ -208,3 +208,22 @@ Evidence: linked
 ```
 
 The owner should not need GitHub or Claude Code for routine operation.
+
+## Narrow business-channel agents
+
+A customer-facing agent attached to a business channel must not inherit Bossman's general-purpose knowledge/search authority.
+
+For Fresh Vibes Beauty Instagram DMs, use a scoped receptionist profile:
+- business namespace: `fresh_vibes_beauty`;
+- allowed knowledge: Fresh Vibes business graph/FAQ + explicitly permitted topic sources;
+- allowed internet intent: Fresh Vibes Beauty questions only;
+- unrelated questions are rejected before LLM or web-research execution;
+- no cross-business tool access;
+- no general research proxy behavior.
+
+This is both a safety rule and a cost rule: a client asking an unrelated question must consume effectively zero research/model budget.
+
+The first acceptance example is deliberately simple:
+`Какая формула второго закона Ньютона?`
+must produce a short Fresh Vibes-only redirect with zero web calls and zero business-answer LLM calls.
+
