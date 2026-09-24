@@ -23,6 +23,10 @@ Canonical 1.5 branch: `feat/bossman-1.5-economy-orchestrator-20260924`.
 | [MERGE_TODAY.md](MERGE_TODAY.md) | Пошаговое безопасное сведение сегодняшних delta и exact-SHA |
 | [CLAUDE_MERGE_MASTER.md](CLAUDE_MERGE_MASTER.md) | Исполняемый handoff локальному Claude, 5 агентов |
 | [SOURCES_AND_BASELINE.md](SOURCES_AND_BASELINE.md) | Проверенные источники, snapshot и неизвестное |
+| [BOSSMAN_1_5_FINAL_CLOSURE_20260925.md](BOSSMAN_1_5_FINAL_CLOSURE_20260925.md) | Финальный контракт автономности 1.5: self-improvement, society, skill compiler, operating graph, resource manager |
+| [ASTER_SELF_IMPROVEMENT_MASTER_20260925.md](ASTER_SELF_IMPROVEMENT_MASTER_20260925.md) | Owner-run: внешний аудитор запускает и доказывает собственное самоулучшение Bossman |
+| [OPEN_SOURCE_AGI_REUSE_20260924.md](OPEN_SOURCE_AGI_REUSE_20260924.md) | Какие идеи взяты из современных OSS agent/memory/routing систем и почему без второго backend |
+
 | [contracts/source-refs.json](contracts/source-refs.json) | Зафиксированные remote-указатели, которые нужно обновить после fetch |
 | [contracts/capability-manifest.schema.json](contracts/capability-manifest.schema.json) | Проект формата регистрируемой capability |
 | [contracts/owner-grant.schema.json](contracts/owner-grant.schema.json) | Проект формата делегирования прав на кампанию |
