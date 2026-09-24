@@ -7,14 +7,9 @@ Target branch: `feat/bossman-1.5-economy-orchestrator-20260924`
 
 Finish and test Bossman 1.5 while minimizing Codex/Claude token usage.
 
-**Codex is the operator, not the primary worker.**
-Use Bossman itself for the bulk of model work.
+**Codex is the owner integrator, not the primary worker.** Use Bossman itself for the bulk of model work.
 
-Aster is responsible only for:
-- overall coordination;
-- independent audit;
-- convergence decisions;
-- final evidence review.
+The external auditor is NOT a runtime dependency. It may perform one independent closure/red-team pass after Bossman has already demonstrated its own repair/learning loop. Normal 1.5 operation must continue with that auditor disconnected.
 
 Jev is the runtime System-1 controller inside Bossman.
 
@@ -231,20 +226,87 @@ No raw videos, giant logs or repeated full repo context.
 One final pass maximum unless a measured cost report proves another is needed
 and remains under the owner budget.
 
-## Step F — Aster audit
+## Step F — Independent closure audit (optional for runtime)
 
-Aster independently audits:
+After the product itself has run, an external auditor may independently inspect:
 - Jev route decisions;
 - cost ledger;
 - free/paid model identities;
 - no owner-private egress;
 - learning promotion boundaries;
-- false PASS;
-- test weakening;
+- false PASS and test weakening;
 - exact branch/SHA;
-- 1.5 acceptance matrix.
+- self-repair evidence and 1.5 acceptance matrix.
 
-Aster does not become the routine coding worker.
+The auditor must not implement a routine fix and then certify its own fix. After this check, disconnect it and prove the same owner controls still work.
+
+## Step G0 — One-button owner run
+
+Before manual subtests, run the same path the owner will use after closure:
+
+```powershell
+Bossman-1.5.cmd quick-test
+Bossman-1.5.cmd start --repo "<CLEAN_BOSSMAN_CHECKOUT>"
+Bossman-1.5.cmd status
+```
+
+Or use the **Bossman 1.5** page in Command Center. UX and CMD must reach the same `/api/v15/owner-run/*` backend and show the same state.
+
+One Start must make the following independently observable in parallel:
+- self-improvement / runtime self-repair;
+- YouTube economy/learning;
+- Twitch OI/CVD collection + verified Telegram delivery;
+- Telegram owner-input / approvals.
+
+Do not accept a second hidden 1.5 runner or a second owner-state file.
+
+## Step G1 — Telegram owner-input -> browser fill
+
+Use a harmless synthetic form. Bossman must request missing ordinary fields with `browser.request_owner_fields`. Telegram should proactively show the request; the owner replies:
+
+`/input <request_id> key=value; key2=value`
+
+Then `browser.fill_owner_fields` must fill the fresh bound fields. PASS requires:
+- values encrypted at rest;
+- plaintext values absent from model/tool output;
+- owner-input bound to the same task/session;
+- encrypted answer cleared after successful fill;
+- fresh DOM observation after fill;
+- no automatic submit.
+
+Passwords/OTP/CVV/card numbers/API keys are not part of this Telegram acceptance. Registration, login submit, ToS, CAPTCHA and payment remain separate owner/approval boundaries.
+
+## Step G2 — Real runtime failure -> self-repair candidate
+
+Plant one small reversible defect in an isolated test/candidate environment. Let an ordinary Bossman task encounter it.
+
+Required trace:
+
+`task failure -> v1.5 self-repair inbox -> isolated git worktree -> free coding worker -> executable green test -> independent compile/targeted verifier -> local bossman-self-repair/<signature> branch`
+
+PASS requires:
+- stable/release HEAD unchanged;
+- network/CAPTCHA/approval/owner-input failures are NOT misclassified as code bugs;
+- coding worker cannot claim DONE without at least one executable green test;
+- failed candidate is not promoted;
+- successful candidate is explicitly `NOT_PROMOTED_REQUIRES_UNSEEN_TRANSFER`.
+
+## Step G3 — Prove learning with unseen transfer
+
+Take a second unseen instance of the repaired task family. Compare BEFORE vs AFTER verified lesson/skill/workflow. Primary metric is verified success; secondary metrics are retries, tool/schema errors, owner interventions, duration and cost.
+
+For skills also compare NO_SKILL vs SKILL_ENABLED. A skill that lowers success is rejected. A memory hit alone is not learning.
+
+## Step G4 — Restart / STOP and auditor independence
+
+While market + self-improve are active:
+
+```powershell
+Bossman-1.5.cmd status
+Bossman-1.5.cmd stop
+```
+
+Verify durable STOP, no duplicate external effect, no stale Twitch frame promoted as fresh, owner-input remains bound/expired rather than applied to another task, and repair candidates remain Git-addressable. Then run normal status/owner controls with the external auditor disconnected.
 
 ## Step G — 1.5 closure report
 
@@ -278,9 +340,13 @@ actually complete.
 - No Codex-heavy rewrite when Ling can do the bounded repair.
 - No Claude-heavy routine coding.
 - No feature commits to the frozen Bossman 1.0 release.
+- No automatic external account creation or quota-evasion accounts.
+- No stable self-write: repair stays on an isolated candidate until verifier + unseen transfer.
+- No external auditor as a runtime dependency.
 - STOP/budgets/approvals/privacy remain authoritative.
 
 Primary optimization target:
 
-**verified useful result per dollar and per Codex/Claude token**, not raw model
-call count.
+**verified useful result per dollar / owner intervention / expensive coding token**, not raw model call count.
+
+Bossman 1.5 is OWNER_READY only when unified UX/CMD, Twitch→Telegram, owner-input→browser fill, real runtime-failure→tested repair candidate, unseen transfer and restart/STOP all pass with no open P0 or release-blocking P1.
