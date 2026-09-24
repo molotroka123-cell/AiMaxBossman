@@ -180,7 +180,8 @@ def frame_for_video(data: bytes) -> tuple[bytes, tuple[int, int]]:
 
 ROUTE_TITLE = {"main": "🧠 Лучшая", "fast": "⚡ Быстрая"}
 BOT_COMMANDS = [("menu", "Пульт с кнопками"), ("status", "Состояние компьютера"), ("queue", "Очередь и подтверждения"),
-                ("task", "Новое поручение Bossman"), ("approvals", "Подтвердить или отклонить"),
+                ("task", "Новое поручение Bossman"), ("fill", "Заполнить видимую форму"),
+                ("approvals", "Подтвердить или отклонить"),
                 ("stop", "СТОП: остановить отменяемое"), ("pause", "Пауза: не начинать новое"),
                 ("resume", "Продолжить (с новым наблюдением)"),
                 ("evolution_status", "Цикл улучшения"), ("evolution_report", "Отчёт Evolution"),
