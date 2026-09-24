@@ -9,6 +9,7 @@ samples frames and uses LOCAL vision. Raw teacher material stays UNVERIFIED.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import datetime as dt
 import json
 import pathlib
@@ -92,6 +93,32 @@ def _load(path: pathlib.Path) -> dict:
         return {}
 
 
+def episode_fingerprint(inbox: pathlib.Path, video_id: str) -> str | None:
+    """Content fingerprint independent of YouTube id/local frame paths.
+
+    Exact replays/reuploads should count as one evidence episode, not multiple
+    confirmations. Use causal transcript + extracted observation + timestamp.
+    """
+    path = inbox / video_id / "candidate_cases.jsonl"
+    if not path.is_file():
+        return None
+    basis = []
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        try:
+            row = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        basis.append({
+            "t": row.get("timestamp_seconds"),
+            "transcript": " ".join(str(row.get("transcript_excerpt") or "").split()),
+            "observation": row.get("observation") or {},
+        })
+    if not basis:
+        return None
+    payload = json.dumps(basis, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def ingest_one(row: dict, *, inbox: pathlib.Path, frame_interval: int, max_frames: int) -> dict:
     script = ROOT / "tools" / "youtube_trader_ingest_auto.py"
     cmd = [
@@ -159,6 +186,8 @@ def main(argv: list[str] | None = None) -> int:
         "videos": [],
     }
     failures = 0
+    duplicates = 0
+    seen_fingerprints: dict[str, str] = {}
     for row in videos:
         prior = prior_by_id.get(row["video_id"]) or {}
         if ns.discover_only:
@@ -170,6 +199,16 @@ def main(argv: list[str] | None = None) -> int:
             row["ingest"] = ingest_one(row, inbox=inbox, frame_interval=ns.frame_interval,
                                        max_frames=ns.max_frames)
         failures += int((row["ingest"] or {}).get("status") == "FAIL")
+        if (row["ingest"] or {}).get("status") == "PASS":
+            fp = episode_fingerprint(inbox, row["video_id"])
+            if fp:
+                row["content_fingerprint"] = fp
+                if fp in seen_fingerprints:
+                    row["duplicate_of"] = seen_fingerprints[fp]
+                    row["learning_status"] = "DUPLICATE_EVIDENCE"
+                    duplicates += 1
+                else:
+                    seen_fingerprints[fp] = row["video_id"]
         out["videos"].append(row)
         manifest_path.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -177,6 +216,8 @@ def main(argv: list[str] | None = None) -> int:
         "discovered": len(videos),
         "ingested_pass": sum((v.get("ingest") or {}).get("status") == "PASS" for v in videos),
         "failed": failures,
+        "duplicates": duplicates,
+        "independent_episodes": len(videos) - duplicates,
         "not_run": sum((v.get("ingest") or {}).get("status") == "NOT_RUN" for v in videos),
     }
     manifest_path.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
