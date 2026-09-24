@@ -5,6 +5,7 @@
 Jev operates **inside Bossman**.
 
 Responsibilities:
+- route every code-authoring packet through `coding_limit_saver_v16`;
 - compile owner goal into frozen acceptance criteria;
 - build task/capability DAG;
 - schedule local/free/authorized teacher models;
@@ -45,6 +46,10 @@ CONTEXT_BLOAT | RESOURCE_CONFLICT | FINAL_ACCEPT | FINAL_REJECT`.
 
 Aster may request test/replan/STOP through Bossman. It does not bypass policy.
 
+**ASTER_CODE_WRITES MUST REMAIN 0.** Aster is not a fallback coder, patch author,
+or emergency implementation model. Its scarce context/limits are reserved for
+audit, causal diagnosis, efficiency findings and generalized improvements.
+
 ### Improvement broadcast
 
 Aster proposals are sent to:
@@ -80,12 +85,22 @@ incremental metered cost under the owner's current setup.
 
 ## Worker pool
 
-Preferred:
+All normal product code must be authored by one of the writer classes exposed by
+`command-center/bcc/features/coding_limit_saver_v16.py`:
+- LOCAL;
+- FREE;
+- GLM53_FLASH.
+
+Preferred concrete order:
 - current GREEN local MAIN;
 - Xing/FAST or current best local agent worker;
 - other verified local specialist;
 - legitimate free provider route such as OpenRouter free models, subject to
-  privacy/capability/rate-limit policy.
+  privacy/capability/rate-limit policy;
+- bounded `z-ai/glm-5.3-flash` escalation for the hard blocker.
+
+Do not spend Aster quota on implementation. Do not silently replace the allowed
+writer classes with another premium coder.
 
 No model receives LOCAL_ONLY data if its route is external.
 
