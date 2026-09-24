@@ -167,16 +167,24 @@ Audit checks:
 
 Violation -> `BOSSMAN_BOUNDARY_FAIL`, not GREEN.
 
-## Models
+## Models / limit saver
 
-Default priority:
+Every coding packet uses `coding_limit_saver_v16`.
+
+Default author priority:
 1. local verified worker;
 2. local specialist/challenger;
 3. legitimate free cloud worker where data class permits;
-4. existing authorized Claude teacher only on escalation;
-5. incremental paid route only if already authorized.
+4. bounded GLM-5.3-Flash coding escalation;
+5. no other code writer unless owner changes the benchmark contract.
 
-Jev tracks cost and chooses by verified quality/cost/latency, not cheapest token.
+Claude can remain a teacher/advisor through an authorized Bossman path, but the
+normal code author for this benchmark remains LOCAL/FREE/GLM53_FLASH.
+
+Aster is AUDIT_ONLY and `ASTER_CODE_WRITES` must equal zero.
+
+Jev tracks verified quality/cost/latency/context, not cheapest token alone.
+Default cheap-attempt and GLM caps come from the Coding Limit Saver contract.
 
 ## Automated acceptance matrix
 
@@ -250,7 +258,10 @@ Otherwise final result is PARTIAL/FAIL with exact blockers.
 Record:
 - four-hour wall time;
 - feature completion time;
-- local/free/Claude request counts;
+- local/free/GLM/Claude request counts;
+- ASTER_CODE_WRITES (must be 0);
+- coding cache hits;
+- context tokens avoided/saved where measurable;
 - incremental USD;
 - total model tokens if available;
 - owner interventions;
