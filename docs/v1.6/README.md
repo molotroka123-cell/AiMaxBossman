@@ -17,6 +17,7 @@ protections.
 5. [Provider Fleet / RunPod](PROVIDER_FLEET_RUNPOD_PLAN.md)
 6. [Context Budget Policy](CONTEXT_BUDGET_POLICY.md)
 7. [Foundation Freeze](FOUNDATION_FREEZE.md)
+8. [Coding Limit Saver / Cheap-First Policy](CODING_LIMIT_SAVER.md)
 
 ## First 1.6 application benchmark — Game Studio
 
@@ -41,8 +42,8 @@ build to the owner to play.
 backend.** Direct human edits, hidden parallel scripts, direct IDE intervention
 or a separate orchestration product invalidate GREEN.
 
-Jev directs. Local/free workers execute. Claude may teach/escalate through an
-already authorized Bossman path. Aster independently audits, continuously
+Jev directs. Product code is authored by LOCAL/FREE workers or bounded GLM-5.3-Flash through the Coding Limit Saver. Claude may teach/escalate through an
+already authorized Bossman path. **Aster never writes product code**; Aster independently audits, continuously
 identifies improvements and turns verified findings into lesson/skill candidates
 for the rest of Bossman.
 
