@@ -1073,10 +1073,16 @@ class Chat:
                 return
         else:
             path = Path(self.client.target.data_dir) / "terminal" / "exports" / f"{self.session.id}.md"
-        if path.is_dir():
+        try:
+            is_dir = path.is_dir()
+            exists = path.exists()
+        except OSError as exc:
+            self.view.error(f"не удалось сохранить {path}: {exc.strerror or exc}", slash.COMMANDS["export"][0])
+            return
+        if is_dir:
             self.view.error(f"это каталог, а не файл: {path}", "укажите имя файла, например отчёт.md")
             return
-        if path.exists() and not force:
+        if exists and not force:
             self.view.error(f"файл уже есть: {path}", "другой путь или /export <путь> --force")
             return
         text = self._export_markdown()
