@@ -15,7 +15,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из push;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-24-bossman-1.0-final-4",
-  "declared_for": "release/bossman-owner + feat/jev-twitch-collector-20260924",
-  "note": "Bossman 1.0 final certification candidate 4. Converges the two post-freeze sibling commits that contained the same concise evidence-first market Telegram output, while preserving both histories. Includes candidate-3 /export ENAMETOOLONG fix and all prior owner-run/Jev/Twitch work. This marker intentionally re-raises every mandatory exact-SHA workflow, including Windows owner run, after the post-freeze market notification change. No new product feature is added by this convergence commit."
+  "candidate_label": "rc-2026-09-24-bossman-1.0-final-5",
+  "declared_for": "release/bossman-owner",
+  "note": "Bossman 1.0 final certification candidate 5 after owner-requested convergence of feat/market-levels-multihorizon-youtube-20260924 through dd75ab83 via PR #76. Includes the previously frozen release fixes plus read-only structural levels, 15/30/60m horizons, YouTube learning primitives, CASE-003, owner on-demand market_deep and their tests/docs. No additional 1.0 feature scope is authorized after this marker. Exact-SHA CI, Windows package and owner acceptance must all belong to this resulting SHA; old green evidence does not transfer."
 }
