@@ -1309,9 +1309,24 @@ class TaskEngine:
                           run_id: int, *, tools: list[dict] | None = None,
                           model_override: int | None = None) -> tuple[ChatResult, dict]:
         from bossman_shared.privacy import execution_privacy
-        with execution_privacy((task.get("meta") or {}).get("privacy", "public")):
-            return await self._call_model_scoped(task, agent, messages, run_id, tools=tools,
-                                                 model_override=model_override)
+        from .provider_governance import memory_to_cloud_allowed, memory_withheld
+        meta = task.get("meta") or {}
+        allow = memory_to_cloud_allowed.set(meta.get("memory_to_cloud") is True)
+        withheld: list = []
+        sink = memory_withheld.set(withheld)
+        try:
+            with execution_privacy(meta.get("privacy", "public")):
+                return await self._call_model_scoped(task, agent, messages, run_id, tools=tools,
+                                                     model_override=model_override)
+        finally:
+            memory_withheld.reset(sink)
+            memory_to_cloud_allowed.reset(allow)
+            if withheld:
+                last = withheld[-1]
+                await self._log(run_id, "info", "memory.withheld_from_cloud",
+                                f"память владельца не отправлена в облачную модель {last['model']} "
+                                f"(локальные данные; разрешить: meta.memory_to_cloud=true)",
+                                {"calls": withheld[:5]})
 
     async def _call_model_scoped(self, task: dict, agent: dict, messages: list[dict],
                           run_id: int, *, tools: list[dict] | None = None,

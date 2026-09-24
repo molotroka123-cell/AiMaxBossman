@@ -117,3 +117,64 @@ async def test_a_failing_recall_costs_the_memory_not_the_run(tmp_path, monkeypat
     assert seen and _memory_messages(seen[0]) == []
     skipped = [e for e in events if e["kind"] == "memory.recall_skipped"]
     assert skipped and "OSError" in skipped[0]["message"]
+
+
+# ------------------------------------------------ owner memory stays local (P1 2026-09-24)
+# Live finding: a task on a free cloud endpoint that may retain prompts received
+# five vault notes via TASK_START recall. Memory is local data: a non-local model
+# gets the task without it unless the task opts in with meta.memory_to_cloud.
+
+async def _run_cloud_task(settings):
+    seen: list[list[dict]] = []
+
+    async def capture(call, messages):
+        seen.append([dict(m) for m in messages])
+
+    fake = FakeAdapter("готово", on_chat=capture)
+    app, svc = await start_app(settings, start_workers=True,
+                               adapter_factory=lambda m, p: fake, engine_options=FAST_ENGINE)
+    try:
+        async with client_for(app, svc) as client:
+            provider = (await client.post("/api/providers", json={
+                "name": "облако", "kind": "openai_compat",
+                "base_url": "https://cloud.example.test/api/v1", "api_key": "sk-test-abcd"})).json()
+            model = (await client.post("/api/models", json={
+                "provider_id": provider["id"], "name": "vendor/free-model", "alias": "cloud-free",
+                "price_in": 0, "price_out": 0, "pricing_known": True})).json()
+            assert "id" in model, model
+            agent = (await client.post("/api/agents", json={
+                "name": "облачный", "system_prompt": "отвечай коротко",
+                "model_id": model["id"], "max_steps": 1})).json()
+            body = {"title": "проверка", "prompt": PROMPT, "agent_id": agent["id"],
+                    "run_now": True, "max_retries": 0}
+            task = (await client.post("/api/tasks", json=body)).json()["task"]
+
+            async def done():
+                data = (await client.get(f"/api/tasks/{task['id']}")).json()
+                return data if data["task"]["status"] in ("completed", "failed") else None
+
+            data = await wait_for(done, timeout=15)
+            assert data["task"]["status"] == "completed", data
+            events = (await client.get(f"/api/runs/{data['runs'][-1]['id']}/events")).json()
+    finally:
+        await svc.stop()
+    return seen, events
+
+
+async def test_owner_memory_is_withheld_from_a_cloud_model(tmp_path):
+    settings = make_settings(tmp_path)
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    _seed_verified_lesson(settings.data_dir)
+
+    seen, events = await _run_cloud_task(settings)
+
+    assert seen, "the cloud model was never called"
+    assert all(_memory_messages(call) == [] for call in seen)
+    assert not any(RECIPE in (m.get("content") or "") for call in seen for m in call)
+    assert seen[0][-1]["content"] == PROMPT                  # the task itself still runs
+    withheld = [e for e in events if e["kind"] == "memory.withheld_from_cloud"]
+    assert withheld and "memory_to_cloud" in withheld[0]["message"]
+
+
+# The opt-in (task.meta.memory_to_cloud is True) is set only by internal callers;
+# its effect at the provider boundary is pinned in test_provider_governance_memory.py.
