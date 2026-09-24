@@ -42,12 +42,21 @@ class PaidViolation(RuntimeError):
 
 class Worker:
     def __init__(self, base: str, model: str, *, recorder=None, timeout: float = 900.0,
-                 max_retries: int = 6, extra_body: dict | None = None):
+                 max_retries: int = 6, extra_body: dict | None = None,
+                 allow_paid: bool = False, max_total_cost_usd: float = 0.0):
         self.base = base.rstrip("/")
         self.model = model
         self.remote = self.base.startswith("https://openrouter.ai")
-        if self.remote and not model.endswith(":free"):
-            raise PaidViolation(f"refusing non-free OpenRouter model {model}")
+        self.free_model = model.endswith(":free")
+        self.allow_paid = bool(allow_paid)
+        self.max_total_cost_usd = float(max_total_cost_usd or 0.0)
+        self.total_cost_usd = 0.0
+        self.cost_unknown = False
+        if self.remote and not self.free_model:
+            if not self.allow_paid:
+                raise PaidViolation(f"refusing non-free OpenRouter model {model}")
+            if self.max_total_cost_usd <= 0:
+                raise PaidViolation("paid OpenRouter worker requires a positive max_total_cost_usd")
         self.key = openrouter_key() if self.remote else ""
         self.recorder = recorder
         self.timeout = timeout
@@ -67,6 +76,13 @@ class Worker:
     def chat(self, messages: list[dict], *, tools: list | None = None, max_tokens: int = 16000,
              temperature: float = 0.2, task_class: str = "adhoc", response_format: dict | None = None,
              record: bool = True, verdict: str = "UNVERIFIED", curator_note: str = "") -> dict:
+        if self.remote and not self.free_model and (
+            self.cost_unknown or self.total_cost_usd >= self.max_total_cost_usd
+        ):
+            return {"text": "", "reasoning": "", "tool_calls": [], "usage": {},
+                    "error": "PAID_BUDGET_EXHAUSTED", "attempts": 0,
+                    "latency_s": None, "ttft_ms": None, "tps": None,
+                    "budget": self.budget()}
         body: dict[str, Any] = {"model": self.model, "messages": messages, "max_tokens": max_tokens,
                                 "temperature": temperature, "stream": True,
                                 "stream_options": {"include_usage": True}, **self.extra_body}
@@ -106,8 +122,19 @@ class Worker:
                        "latency_s": None, "ttft_ms": None, "tps": None}
                 break
         cost = (out.get("usage") or {}).get("cost")
-        if self.remote and cost not in (None, 0, 0.0):
+        if self.remote and self.free_model and cost not in (None, 0, 0.0):
             out["error"] = f"PAID_VIOLATION cost={cost}"
+        elif self.remote and not self.free_model:
+            if not isinstance(cost, (int, float)) or isinstance(cost, bool) or cost < 0:
+                self.cost_unknown = True
+                out["error"] = "PAID_COST_UNKNOWN"
+            else:
+                self.total_cost_usd += float(cost)
+                if self.total_cost_usd > self.max_total_cost_usd + 1e-12:
+                    out["error"] = (
+                        f"PAID_BUDGET_EXCEEDED total={self.total_cost_usd:.6f} "
+                        f"cap={self.max_total_cost_usd:.6f}"
+                    )
         if record and self.recorder is not None:
             out["record_id"] = self.recorder.record(
                 model=self.model, task_class=task_class, messages=messages, tools=tools,
@@ -116,7 +143,14 @@ class Worker:
                 verdict=verdict, curator_note=curator_note, error=out.get("error"),
                 extra={"attempts": out.get("attempts"), "tps": out.get("tps"),
                        "served_model": out.get("served_model"), "finish_reason": out.get("finish_reason")})
+        out["budget"] = self.budget()
         return out
+
+    def budget(self) -> dict:
+        return {"model": self.model, "free": self.free_model,
+                "allow_paid": self.allow_paid, "spent_usd": round(self.total_cost_usd, 8),
+                "max_total_cost_usd": self.max_total_cost_usd,
+                "cost_unknown": self.cost_unknown}
 
     def _stream(self, body: dict) -> dict:
         req = urllib.request.Request(self.base + "/chat/completions", data=json.dumps(body).encode("utf-8"),
