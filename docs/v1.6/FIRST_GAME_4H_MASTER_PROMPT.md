@@ -16,6 +16,7 @@ Read first:
 - `docs/v1.6/JEV_ASTER_GAME_RUN_CONTRACT.md`
 - `docs/v1.6/FIRST_GAME_4H_BENCHMARK.md`
 - `docs/v1.6/GAME_STUDIO_IDEAS.md`
+- `docs/v1.6/CODING_LIMIT_SAVER.md`
 
 Do not plan a new scope. Execute the frozen benchmark.
 
@@ -40,16 +41,29 @@ model calls and tests must carry Bossman mission/task/evidence identity.
 
 Anything materially edited outside Bossman invalidates GREEN.
 
-## Model policy
+## Model / quota policy
 
-First line: current GREEN local models.
+Every code-authoring packet MUST call the Bossman Coding Limit Saver policy.
 
-Use legitimate free cloud workers when data policy permits and they improve the
-critical path.
+Allowed code writers for this benchmark:
+- LOCAL;
+- FREE;
+- GLM53_FLASH (`z-ai/glm-5.3-flash`, when the configured route is available and
+  policy/budget permits).
 
-Claude is a teacher/escalation path through Bossman only. Escalate after two
-bounded failed attempts on the same blocker or for a difficult architecture/
-engine issue. Any Claude result needs independent verification.
+Use current GREEN local models first and legitimate free cloud workers when data
+policy permits. After bounded cheap failures, GLM-5.3-Flash may author the hard
+fix within its call/budget cap.
+
+**Aster never writes product code. ASTER_CODE_WRITES=0 is a GREEN invariant.**
+Aster receives compact evidence/checkpoint packets and spends its capacity on
+audit + generalized improvements.
+
+Claude is a teacher/escalation path through Bossman only, not the normal coding
+worker. Any Claude advice/result still needs independent verification.
+
+Reuse verified skills/cache before another inference. Keep scoped context small;
+do not dump the full repo into every worker.
 
 No new paid spend unless current owner policy already grants it.
 
@@ -168,7 +182,11 @@ WALL_TIME=
 OWNER_INTERVENTIONS=
 LOCAL_MODELS=
 FREE_MODELS=
+GLM53_CODE_CALLS=
 CLAUDE_ESCALATIONS=
+ASTER_CODE_WRITES=
+CODING_CACHE_HITS=
+CONTEXT_TOKENS_SAVED=
 INCREMENTAL_USD=
 REQUIRED_GATES=
 OWNER_EMULATOR=
