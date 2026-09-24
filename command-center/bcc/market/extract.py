@@ -185,11 +185,14 @@ def _variants(crop: Image.Image) -> tuple[Image.Image, ...]:
     Measured on the failing crops: a grayscale autocontrast rendering was right on
     every one; each colour rendering erred on some. Unanimity across colour and
     grayscale renderings removed every false value on those crops."""
+    # v3 (calibration v5): at 3-5x the model read 83,595 as 83,695 unanimously (3/3);
+    # at 8x every rendering read the 5/6 glyphs right. Small renderings are the bias.
     from PIL import ImageOps
-    return (crop.resize((crop.width * 3, crop.height * 3), Image.BICUBIC),
-            ImageOps.autocontrast(ImageOps.grayscale(crop)).resize((crop.width * 4, crop.height * 4),
-                                                                    Image.LANCZOS).convert("RGB"),
-            crop.resize((crop.width * 5, crop.height * 5), Image.LANCZOS))
+    gray = ImageOps.autocontrast(ImageOps.grayscale(crop))
+    k = 8
+    return (crop.resize((crop.width * k, crop.height * k), Image.LANCZOS),
+            gray.resize((crop.width * k, crop.height * k), Image.LANCZOS).convert("RGB"),
+            ImageOps.invert(gray).resize((crop.width * k, crop.height * k), Image.LANCZOS).convert("RGB"))
 
 
 def sha256_png(img: Image.Image) -> str:
