@@ -13,6 +13,8 @@
 | [GAME_STUDIO.md](GAME_STUDIO.md) | Unreal/Game Studio: автономная разработка и проверка оригинального 15-минутного AAA-FPS vertical slice |
 | [MODEL_STACK_REFRESH_2026-09-23.md](MODEL_STACK_REFRESH_2026-09-23.md) | Свежая ревизия локального стека, Xing4 challenger, маршрутизация и owner-hardware A/B |
 | [ACCEPTANCE_AND_LEARNING.md](ACCEPTANCE_AND_LEARNING.md) | 20 классов неизвестных задач, safety-гейты, измерение обучения |
+| [ECONOMY_ORCHESTRATOR.md](ECONOMY_ORCHESTRATOR.md) | Jev-managed free-first swarm: 3× Nemotron, Ling tester/coder, capped paid GLM |
+| [CODEX_OWNER_RUN_20260925.md](CODEX_OWNER_RUN_20260925.md) | Завтрашний owner-run: Codex как интегратор, дешёвые модели делают bulk work |
 | [MERGE_TODAY.md](MERGE_TODAY.md) | Пошаговое безопасное сведение сегодняшних delta и exact-SHA |
 | [CLAUDE_MERGE_MASTER.md](CLAUDE_MERGE_MASTER.md) | Исполняемый handoff локальному Claude, 5 агентов |
 | [SOURCES_AND_BASELINE.md](SOURCES_AND_BASELINE.md) | Проверенные источники, snapshot и неизвестное |
