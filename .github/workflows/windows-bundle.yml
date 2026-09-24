@@ -83,6 +83,13 @@ on:
       - 'tools/windows_bundle_build_tools.txt'
       # 1.0-RC: раннеры и пак, которые едут в app-support/, — их правка меняет архив.
       - 'tools/owner_run_tomorrow.py'
+      - 'tools/v15_economy_orchestrator.py'
+      - 'tools/youtube_trader_ingest.py'
+      - 'tools/youtube_trader_ingest_auto.py'
+      - 'tools/youtube_trader_ingest_batch.py'
+      - 'tools/worker_client.py'
+      - 'tools/distill_recorder.py'
+      - 'config/v1.5/economy-orchestrator.json'
       - 'tools/media_bootstrap.py'
       - 'tools/media_ab_preset.py'
       - 'tools/coaching_runner.py'
