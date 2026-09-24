@@ -121,6 +121,18 @@ class TwitchSource:
         self.opened_at = time.time()
         await self._dom_housekeeping()
         self.quality = await self._pin_quality()
+        await self._wait_ready()
+
+    async def _wait_ready(self, timeout_s: float = 30.0) -> None:
+        """After (re)open the player needs a moment; sampling before it plays only
+        yields PLAYER_ERROR rows. Waits up to `timeout_s`, never forever."""
+        end = time.monotonic() + timeout_s
+        while time.monotonic() < end:
+            info = await self._page.evaluate(_FRAME_JS)
+            v = info.get("video") or {}
+            if (v.get("rs") or 0) >= 2 and v.get("w") and (v.get("t") or 0) > 0:
+                return
+            await self._page.wait_for_timeout(1_000)
 
     async def _pin_quality(self) -> str | None:
         """Player Settings -> Quality -> 1080p (else Source): turns adaptive bitrate off.
