@@ -1,0 +1,7 @@
+main-ollama A_bug: PASS [52.4]
+main-ollama B_repo_nav: PASS [1.7]
+main-ollama C_patch_regression: PASS [35.5]
+main-ollama D_tool_select: PASS [6.0]
+main-ollama E_json: PASS [5.4]
+main-ollama F_tool_recovery: FAIL [3.4]
+main-ollama G_context: PASS [101.3]

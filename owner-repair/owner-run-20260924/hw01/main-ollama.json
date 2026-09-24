@@ -1,0 +1,113 @@
+{
+  "schema": "bossman.model_bakeoff.v1",
+  "tag": "main-ollama",
+  "model": "bossman-main-qwen38-27b-q5:latest",
+  "url": "http://127.0.0.1:8081/v1",
+  "passed": 6,
+  "total": 7,
+  "seconds": 205.7,
+  "gen_tps_median": null,
+  "failed": [
+    "F_tool_recovery"
+  ],
+  "results": {
+    "A_bug": {
+      "pass": true,
+      "note": "ok\n",
+      "calls": [
+        {
+          "s": 52.4,
+          "gen_tps": null,
+          "pp_tps": null,
+          "out": 60
+        }
+      ]
+    },
+    "B_repo_nav": {
+      "pass": true,
+      "note": "command-center/bcc/registry.py",
+      "calls": [
+        {
+          "s": 1.7,
+          "gen_tps": null,
+          "pp_tps": null,
+          "out": 8
+        }
+      ]
+    },
+    "C_patch_regression": {
+      "pass": true,
+      "note": "fixed_rc=0 buggy_rc=1 ok\n",
+      "calls": [
+        {
+          "s": 35.5,
+          "gen_tps": null,
+          "pp_tps": null,
+          "out": 336
+        }
+      ]
+    },
+    "D_tool_select": {
+      "pass": true,
+      "note": "[{\"id\": \"2yhgz9f0pGxoI5M48F0Edm4SgA0paQkQ\", \"index\": 0, \"type\": \"function\", \"function\": {\"name\": \"run_tests\", \"arguments\": \"{\\\"path\\\":\\\"command-center/tests/test_health_model_components.py\\\"}\"}}]",
+      "calls": [
+        {
+          "s": 6.0,
+          "gen_tps": null,
+          "pp_tps": null,
+          "out": 33
+        }
+      ]
+    },
+    "E_json": {
+      "pass": true,
+      "note": "{\n  \"file\": \"utils.py\",\n  \"line\": 4,\n  \"severity\": \"high\",\n  \"fix\": \"Fix the range bound to include the last window\"\n}",
+      "calls": [
+        {
+          "s": 5.4,
+          "gen_tps": null,
+          "pp_tps": null,
+          "out": 45
+        }
+      ]
+    },
+    "F_tool_recovery": {
+      "pass": false,
+      "note": "[{\"id\": \"TsfQUztMhNe2iJtZVlAFBCHVylqlzcco\", \"index\": 0, \"type\": \"function\", \"function\": {\"name\": \"search_code\", \"arguments\": \"{\\\"pattern\\\":\\\"health\\\"}\"}}]",
+      "calls": [
+        {
+          "s": 3.4,
+          "gen_tps": null,
+          "pp_tps": null,
+          "out": 26
+        }
+      ]
+    },
+    "G_context": {
+      "pass": true,
+      "note": "AMBER-4471",
+      "calls": [
+        {
+          "s": 101.3,
+          "gen_tps": null,
+          "pp_tps": null,
+          "out": 8
+        }
+      ]
+    }
+  },
+  "weights_unchanged": true,
+  "latency_probe": {
+    "status": "MEASURED",
+    "ttft_ms": 891.0,
+    "prefill_tps_reported": null,
+    "prefill_note": "provider timings only; null if omitted",
+    "stream_elapsed_ms": 984.0,
+    "usage_completion_tokens_reported": 2,
+    "memory": {
+      "server_pid": null,
+      "peak_process_rss_bytes": null,
+      "note": "process RSS, not AMD GPU allocation or system peak"
+    }
+  }
+}

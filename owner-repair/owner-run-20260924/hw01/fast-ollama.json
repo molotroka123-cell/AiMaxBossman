@@ -1,0 +1,113 @@
+{
+  "schema": "bossman.model_bakeoff.v1",
+  "tag": "fast-ollama",
+  "model": "bossman-fast-qwen36-35b-a3b-q5:latest",
+  "url": "http://127.0.0.1:8082/v1",
+  "passed": 6,
+  "total": 7,
+  "seconds": 101.8,
+  "gen_tps_median": null,
+  "failed": [
+    "F_tool_recovery"
+  ],
+  "results": {
+    "A_bug": {
+      "pass": true,
+      "note": "ok\n",
+      "calls": [
+        {
+          "s": 63.7,
+          "gen_tps": null,
+          "pp_tps": null,
+          "out": 60
+        }
+      ]
+    },
+    "B_repo_nav": {
+      "pass": true,
+      "note": "command-center/bcc/registry.py",
+      "calls": [
+        {
+          "s": 0.7,
+          "gen_tps": null,
+          "pp_tps": null,
+          "out": 8
+        }
+      ]
+    },
+    "C_patch_regression": {
+      "pass": true,
+      "note": "fixed_rc=0 buggy_rc=1 ok\n",
+      "calls": [
+        {
+          "s": 6.5,
+          "gen_tps": null,
+          "pp_tps": null,
+          "out": 230
+        }
+      ]
+    },
+    "D_tool_select": {
+      "pass": true,
+      "note": "[{\"id\": \"7yc1Iow0WYDgXXnBqYUV0TDBjX2uDag5\", \"index\": 0, \"type\": \"function\", \"function\": {\"name\": \"run_tests\", \"arguments\": \"{\\\"path\\\":\\\"command-center/tests/test_health_model_components.py\\\"}\"}}]",
+      "calls": [
+        {
+          "s": 1.8,
+          "gen_tps": null,
+          "pp_tps": null,
+          "out": 33
+        }
+      ]
+    },
+    "E_json": {
+      "pass": true,
+      "note": "{\n  \"file\": \"utils.py\",\n  \"line\": 4,\n  \"severity\": \"high\",\n  \"fix\": \"Change the range bound in the moving_sum function to include the last element of the window",
+      "calls": [
+        {
+          "s": 2.6,
+          "gen_tps": null,
+          "pp_tps": null,
+          "out": 79
+        }
+      ]
+    },
+    "F_tool_recovery": {
+      "pass": false,
+      "note": "[{\"id\": \"C1r2Enukb4D5PCB8lXqNn8Gb92gJjHU6\", \"index\": 0, \"type\": \"function\", \"function\": {\"name\": \"search_code\", \"arguments\": \"{\\\"pattern\\\":\\\"health\\\\\\\\.py\\\"}\"}}]",
+      "calls": [
+        {
+          "s": 2.2,
+          "gen_tps": null,
+          "pp_tps": null,
+          "out": 63
+        }
+      ]
+    },
+    "G_context": {
+      "pass": true,
+      "note": "AMBER-4471",
+      "calls": [
+        {
+          "s": 24.3,
+          "gen_tps": null,
+          "pp_tps": null,
+          "out": 8
+        }
+      ]
+    }
+  },
+  "weights_unchanged": true,
+  "latency_probe": {
+    "status": "MEASURED",
+    "ttft_ms": 329.0,
+    "prefill_tps_reported": null,
+    "prefill_note": "provider timings only; null if omitted",
+    "stream_elapsed_ms": 360.0,
+    "usage_completion_tokens_reported": 2,
+    "memory": {
+      "server_pid": null,
+      "peak_process_rss_bytes": null,
+      "note": "process RSS, not AMD GPU allocation or system peak"
+    }
+  }
+}

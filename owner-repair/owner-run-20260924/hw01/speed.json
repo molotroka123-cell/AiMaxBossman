@@ -1,0 +1,89 @@
+{
+ "bossman-main-qwen38-27b-q5:latest": {
+  "short": [
+   {
+    "wall_s": 27.39,
+    "eval_tps": 9.51,
+    "prefill_tps": 80.9,
+    "prompt_tokens": 27,
+    "out_tokens": 256,
+    "load_s": 0.0
+   },
+   {
+    "wall_s": 27.13,
+    "eval_tps": 9.55,
+    "prefill_tps": 138.1,
+    "prompt_tokens": 27,
+    "out_tokens": 256,
+    "load_s": 0.0
+   },
+   {
+    "wall_s": 30.55,
+    "eval_tps": 8.44,
+    "prefill_tps": 129.3,
+    "prompt_tokens": 27,
+    "out_tokens": 256,
+    "load_s": 0.0
+   }
+  ],
+  "long_prefill": {
+   "wall_s": 50.92,
+   "eval_tps": 8.02,
+   "prefill_tps": 144.5,
+   "prompt_tokens": 6941,
+   "out_tokens": 23,
+   "load_s": 0.01
+  }
+ },
+ "bossman-fast-qwen36-35b-a3b-q5:latest": {
+  "short": [
+   {
+    "wall_s": 8.36,
+    "eval_tps": 32.38,
+    "prefill_tps": 85.5,
+    "prompt_tokens": 27,
+    "out_tokens": 256,
+    "load_s": 0.0
+   },
+   {
+    "wall_s": 7.01,
+    "eval_tps": 38.33,
+    "prefill_tps": 278.5,
+    "prompt_tokens": 27,
+    "out_tokens": 256,
+    "load_s": 0.02
+   },
+   {
+    "wall_s": 6.88,
+    "eval_tps": 38.08,
+    "prefill_tps": 316.6,
+    "prompt_tokens": 27,
+    "out_tokens": 256,
+    "load_s": 0.0
+   }
+  ],
+  "long_prefill": {
+   "wall_s": 10.94,
+   "eval_tps": 35.92,
+   "prefill_tps": 680.1,
+   "prompt_tokens": 6941,
+   "out_tokens": 25,
+   "load_s": 0.01
+  }
+ },
+ "ollama_ps": [
+  {
+   "name": "bossman-fast-qwen36-35b-a3b-q5:latest",
+   "size_gb": 25.1,
+   "vram_gb": 25.1,
+   "ctx": 32768
+  },
+  {
+   "name": "bossman-main-qwen38-27b-q5:latest",
+   "size_gb": 22.3,
+   "vram_gb": 22.3,
+   "ctx": 65536
+  }
+ ],
+ "runtime": "OLLAMA 0.34.3 Vulkan :11435 (SAC blocks llama.cpp); think=false"
+}

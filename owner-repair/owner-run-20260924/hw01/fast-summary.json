@@ -1,0 +1,1 @@
+{"tag": "fast-ollama", "model": "bossman-fast-qwen36-35b-a3b-q5:latest", "passed": 6, "total": 7, "seconds": 101.8, "gen_tps_median": null, "failed": ["F_tool_recovery"], "status": "DONE", "result_file": "C:\\Users\\asd\\Bossman\\evidence\\owner-run-20260924\\hw01\\fast-ollama.json"}

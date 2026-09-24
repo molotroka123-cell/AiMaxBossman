@@ -1,0 +1,1 @@
+{"tag": "main-ollama", "model": "bossman-main-qwen38-27b-q5:latest", "passed": 6, "total": 7, "seconds": 205.7, "gen_tps_median": null, "failed": ["F_tool_recovery"], "status": "DONE", "result_file": "C:\\Users\\asd\\Bossman\\evidence\\owner-run-20260924\\hw01\\main-ollama.json"}

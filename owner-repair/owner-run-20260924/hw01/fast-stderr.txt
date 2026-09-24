@@ -1,0 +1,7 @@
+fast-ollama A_bug: PASS [63.7]
+fast-ollama B_repo_nav: PASS [0.7]
+fast-ollama C_patch_regression: PASS [6.5]
+fast-ollama D_tool_select: PASS [1.8]
+fast-ollama E_json: PASS [2.6]
+fast-ollama F_tool_recovery: FAIL [2.2]
+fast-ollama G_context: PASS [24.3]
