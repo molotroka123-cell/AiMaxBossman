@@ -18,6 +18,7 @@ protections.
 6. [Context Budget Policy](CONTEXT_BUDGET_POLICY.md)
 7. [Foundation Freeze](FOUNDATION_FREEZE.md)
 8. [Coding Limit Saver / Cheap-First Policy](CODING_LIMIT_SAVER.md)
+9. [Jev Bootstrap + Telegram owner control](JEV_BOOTSTRAP_TELEGRAM.md)
 
 ## First 1.6 application benchmark — Game Studio
 
