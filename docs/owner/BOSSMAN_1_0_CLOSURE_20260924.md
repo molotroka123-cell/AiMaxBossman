@@ -40,11 +40,16 @@ remaining owner-PC and release gates pass.
 - Prior live headed 20-frame calibration: 19 VERIFIED, 1 LOW_CONFIDENCE;
   manual crop comparison found zero wrong VERIFIED CVD/OI values. Evidence and
   hashes are in `ASTER_OWNER_TWITCH_TEST_20260924.md`.
+- The owner golden JPG SHA-256
+  `9c9fc16a5590836c7d73f7d0d8b57b32587f173fa734be7cfb9ac65b14a57930`
+  exposed `B`→`8` in the old inverted-grayscale third read. The extractor kept
+  CVD UNKNOWN, then v4 changed that rendering to grayscale bicubic. The v4
+  local vision result is **VERIFIED CVD 75.32B and OI 19.52B**, with three
+  agreeing reads for each. It also matched all 40 archived CVD/OI calibration
+  crops. Evidence: `owner-test-pack/golden-owner-20260924.json`.
 
 ## Closure blockers
 
-- The supplied golden screenshot with CVD 75.32B and OI 19.52B is not yet
-  accessible. Golden extractor pass is NOT RUN.
 - The required 60-minute Twitch soak, crash/restart/STOP exercise and one
   complete live Twitch-to-Telegram owner-phone E2E are NOT RUN.
 - The final SHA has not passed every mandatory Exact-SHA CI workflow. No

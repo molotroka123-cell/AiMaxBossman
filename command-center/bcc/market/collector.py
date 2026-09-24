@@ -239,7 +239,7 @@ def build_record(cap: Capture, reader: extract.Reader | None, *, last_frame_sha:
         rec["evidence"]["detail"] = "STOP before parse: parse aborted"
         return rec
     out = extract.extract(reader, cap.frame)
-    rec["evidence"]["extractor"] = f"{reader.identity} triple-read-unanimous/v3"
+    rec["evidence"]["extractor"] = f"{reader.identity} {extract.EXTRACTOR_VERSION}"
     sym = out["symbol"]
     rec["evidence"]["ocr_raw"]["symbol"] = sym["raw"]
     rec["evidence"]["bbox"]["symbol"] = list(sym["bbox"])

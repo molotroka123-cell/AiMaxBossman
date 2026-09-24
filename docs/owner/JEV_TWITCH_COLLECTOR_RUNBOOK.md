@@ -46,8 +46,10 @@ index) → `exports/*.csv`; `crops/<day>/` evidence; `reports/`.
 
 - At 3–6x renderings the vision model reads some `5` as `6` — twice with all
   three reads agreeing (false VERIFIED). 8x renderings removed it on every
-  eye-checked crop. Rows of earlier extractor versions stay in the ledger but
-  `research.py` only accepts `triple-read-unanimous/v3`.
+  eye-checked crop. The owner golden JPEG exposed a final `B` misread as `8`
+  in the inverted grayscale rendering. Version v4 uses grayscale bicubic for
+  that third read. Rows of earlier extractor versions stay in the ledger;
+  `research.py` accepts calibrated v3 and v4 only.
 - On 480p frames the model invents text ("Epic Material: 50,000"); the label +
   unit validator rejects it.
 

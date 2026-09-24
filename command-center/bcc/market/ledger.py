@@ -16,7 +16,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from . import schema
+from . import extract, schema
 
 COLUMNS = ("captured_at_utc", "status", "stream_state", "symbol", "exchange", "timeframe", "price",
            "oi_value", "oi_unit", "cvd_value", "cvd_unit", "cvd_type", "confidence", "fresh_frame",
@@ -148,7 +148,7 @@ class Ledger:
             if frame is None and rec["quality"].get("fresh_frame"):
                 frame = rec["evidence"].get("frame_sha256")
             if (rec["quality"].get("status") == schema.VERIFIED
-                    and "triple-read-unanimous/v3" in (rec["evidence"].get("extractor") or "")):
+                    and extract.calibrated_extractor(rec["evidence"].get("extractor"))):
                 for metric in ("cvd", "oi"):
                     m = rec["metrics"]
                     if (metric not in values and m.get(f"{metric}_value") is not None

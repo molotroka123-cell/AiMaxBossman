@@ -7,7 +7,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from . import schema
+from . import extract, schema
 from .ledger import Ledger
 
 REPO = Path(__file__).resolve().parents[3]
@@ -22,7 +22,7 @@ _spec.loader.exec_module(ta)
 def _complete(rec: dict[str, Any]) -> bool:
     m, q, ev, ins = rec["metrics"], rec["quality"], rec["evidence"], rec["instrument"]
     return (not schema.validate(rec) and q["status"] == schema.VERIFIED and q["fresh_frame"]
-            and "triple-read-unanimous/v3" in (ev.get("extractor") or "")
+            and extract.calibrated_extractor(ev.get("extractor"))
             and all(m.get(k) is not None for k in ("price", "cvd_value", "cvd_unit", "oi_value", "oi_unit"))
             and all(q.get("per_metric", {}).get(k, {}).get("status") == schema.VERIFIED
                     for k in ("price", "cvd", "oi"))

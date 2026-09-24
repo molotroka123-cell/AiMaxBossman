@@ -50,6 +50,12 @@ VISION_MODEL = os.environ.get("BOSSMAN_MARKET_VISION_MODEL", "bossman-fast-qwen3
 VISION_URL = os.environ.get("BOSSMAN_MARKET_VISION_URL", "http://127.0.0.1:11434")
 PROMPT = ("Transcribe the text in this image exactly. Numbers on this chart end with a unit suffix letter "
           "(K, M, B or T) when abbreviated. Output only the text. If it is not legible, output UNREADABLE.")
+EXTRACTOR_VERSION = "triple-read-unanimous/v4"
+ACCEPTED_EXTRACTORS = ("triple-read-unanimous/v3", EXTRACTOR_VERSION)
+
+
+def calibrated_extractor(identity: str | None) -> bool:
+    return any(version in (identity or "") for version in ACCEPTED_EXTRACTORS)
 
 
 class Reader(Protocol):
@@ -190,9 +196,12 @@ def _variants(crop: Image.Image) -> tuple[Image.Image, ...]:
     from PIL import ImageOps
     gray = ImageOps.autocontrast(ImageOps.grayscale(crop))
     k = 8
+    # Owner golden JPEG: inverted gray interpreted the final B in 75.32B as 8.
+    # Gray bicubic kept the unit legible; 40 archived calibration badges also
+    # matched their verified values. Keep unanimity: one uncertain read is UNKNOWN.
     return (crop.resize((crop.width * k, crop.height * k), Image.LANCZOS),
             gray.resize((crop.width * k, crop.height * k), Image.LANCZOS).convert("RGB"),
-            ImageOps.invert(gray).resize((crop.width * k, crop.height * k), Image.LANCZOS).convert("RGB"))
+            gray.resize((crop.width * k, crop.height * k), Image.BICUBIC).convert("RGB"))
 
 
 def sha256_png(img: Image.Image) -> str:

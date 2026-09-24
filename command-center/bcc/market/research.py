@@ -26,12 +26,12 @@ from pathlib import Path
 from typing import Any
 
 from .ledger import default_root
+from .extract import ACCEPTED_EXTRACTORS
 from .schema import UNITS
 
 HORIZONS_MIN = (1, 5, 15, 30)
 TOLERANCE_S = 30
 STATUS = "DATA_COLLECTION"
-ACCEPTED_EXTRACTOR = "triple-read-unanimous/v3"
 
 
 def _ts(s: str) -> datetime:
@@ -43,9 +43,11 @@ def load_verified(db_path: Path) -> list[dict[str, Any]]:
     try:
         # only the extractor version that passed calibration: rows of the earlier
         # double-read extractor (one live false VERIFIED, 2026-09-24) never enter research
+        patterns = tuple(f"%{version}%" for version in ACCEPTED_EXTRACTORS)
         rows = con.execute("SELECT captured_at_utc, symbol, price, oi_value, oi_unit, cvd_value, cvd_unit "
-                           "FROM observations WHERE status='VERIFIED' AND extractor LIKE ? "
-                           "ORDER BY captured_at_utc", (f"%{ACCEPTED_EXTRACTOR}%",)).fetchall()
+                           "FROM observations WHERE status='VERIFIED' AND ("
+                           + " OR ".join("extractor LIKE ?" for _ in patterns) + ") "
+                           "ORDER BY captured_at_utc", patterns).fetchall()
     finally:
         con.close()
     out = []

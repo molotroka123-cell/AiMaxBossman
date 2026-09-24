@@ -466,7 +466,7 @@ def test_research_takes_only_the_calibrated_extractor(tmp_path):
     led.record(old)
     led.close()
     rows = research.load_verified(tmp_path / "market-observations.sqlite")
-    assert len(rows) == 1 and "triple-read-unanimous/v3" in rec["evidence"]["extractor"]
+    assert len(rows) == 1 and extract.EXTRACTOR_VERSION in rec["evidence"]["extractor"]
 
 
 def test_report_counts_from_the_ledger(tmp_path):
