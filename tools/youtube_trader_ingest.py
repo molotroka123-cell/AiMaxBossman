@@ -202,7 +202,14 @@ def choose_subtitle(paths: Iterable[Path]) -> Optional[Path]:
 
 
 def transcript_near(cues: list[Cue], timestamp: float, radius: float = 35.0, max_chars: int = 3500) -> str:
-    selected = [c.text for c in cues if c.end >= timestamp - radius and c.start <= timestamp + radius]
+    """Decision-time transcript: look backward only, never past the frame time.
+
+    The previous symmetric window included future teacher language (for example
+    "winner", "stopped", "perfect") and could leak outcomes into features.
+    Cues may overlap the frame, but a cue that starts after timestamp is future
+    information and is excluded.
+    """
+    selected = [c.text for c in cues if c.end >= timestamp - radius and c.start <= timestamp]
     return SPACE_RE.sub(" ", " ".join(selected)).strip()[:max_chars]
 
 
