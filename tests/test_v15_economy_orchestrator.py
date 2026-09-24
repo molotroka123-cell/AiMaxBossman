@@ -101,6 +101,15 @@ def test_learning_run_never_self_promotes(tmp_path, monkeypatch):
         def __init__(self, *args, **kwargs):
             pass
 
+    class FakeLedger:
+        rows = []
+        spent_usd = 0.0
+
+    class FakeGateway:
+        ledger = FakeLedger()
+        retry_events = []
+
+    monkeypatch.setattr(m, "BossmanOpenRouter", lambda *args, **kwargs: FakeGateway())
     monkeypatch.setattr(m, "JevCoordinator", FakeJev)
     monkeypatch.setattr(m, "_worker", lambda *args, **kwargs: FakeWorker())
     monkeypatch.setattr(m, "Recorder", FakeRecorder)
