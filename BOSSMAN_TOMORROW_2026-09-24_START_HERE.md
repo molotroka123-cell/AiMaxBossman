@@ -12,7 +12,7 @@ This file is the single entrypoint for tomorrow's work.
 - Tomorrow: `git fetch --all --prune`, read this package from `main`, then implement on the fresh product line.
 - No force-push. No "final-final" branch. No replacement of working Bossman subsystems with duplicates.
 
-## Tomorrow's three tracks
+## Tomorrow's four tracks
 
 1. **MODEL FLEET GREEN**
    - Download, register and expose the approved local models in Bossman UX/CLI.
@@ -50,6 +50,7 @@ A good day produces:
 - a frozen unseen holdout;
 - a license/provenance-clean dataset manifest;
 - a reproducible H200 container/config even if GPUs are not rented yet;
+- a calibrated local Twitch OI/CVD collector with evidence-backed rows and no trading authority;
 - zero fake PASS;
 - one pushed implementation SHA plus evidence.
 
