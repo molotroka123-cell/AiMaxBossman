@@ -89,3 +89,61 @@ def test_self_improve_command_uses_bossman_coding_not_claude(tmp_path):
     assert "--max-cycles 3" in joined
     assert "inclusionai/ling-3.0-flash-fin:free" in joined
     assert " claude " not in (" " + joined + " ")
+
+
+def test_self_improve_economy_uses_bossman_api(monkeypatch, tmp_path):
+    mod = load_module("v15_self_improve_api_test", "tools/bossman_15_self_improve.py")
+
+    class FakeApi:
+        def __init__(self):
+            self.posts = []
+            self.gets = 0
+
+        def post(self, path, payload=None):
+            self.posts.append((path, payload))
+            if path == "/api/v15/economy/start":
+                return 200, {"status": "STARTING", "pid": 123}
+            if path == "/api/v15/economy/stop":
+                return 200, {"status": "STOP_REQUESTED"}
+            return 404, {}
+
+        def get(self, path):
+            self.gets += 1
+            assert path == "/api/v15/economy/status"
+            return 200, {"running": False, "run": {"status": "COMPLETE_QUARANTINED"}}
+
+    client = FakeApi()
+    out = mod.run_economy_via_bossman(
+        client, inbox=tmp_path, allow_glm=True, glm_cap=0.50, timeout_s=5,
+    )
+    assert out["status"] == "FINISHED"
+    assert client.posts[0][0] == "/api/v15/economy/start"
+    assert client.posts[0][1]["inbox"] == str(tmp_path)
+    assert client.posts[0][1]["allow_paid_finalizer"] is True
+    assert client.posts[0][1]["glm_cap_usd"] == 0.50
+    assert client.posts[0][1]["run_ling_scenarios"] is True
+
+
+def test_self_improve_api_timeout_requests_durable_stop(monkeypatch, tmp_path):
+    mod = load_module("v15_self_improve_timeout_test", "tools/bossman_15_self_improve.py")
+
+    class FakeApi:
+        def __init__(self):
+            self.posts = []
+
+        def post(self, path, payload=None):
+            self.posts.append(path)
+            return 200, {"status": "STARTING"}
+
+        def get(self, path):
+            return 200, {"running": True, "run": {"status": "RUNNING"}}
+
+    ticks = iter([0.0, 0.1, 1.1, 1.2])
+    monkeypatch.setattr(mod.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(mod.time, "sleep", lambda _s: None)
+    client = FakeApi()
+    out = mod.run_economy_via_bossman(
+        client, inbox=tmp_path, allow_glm=False, glm_cap=0.25, timeout_s=1.0,
+    )
+    assert out["status"] == "TIMEOUT_STOP_REQUESTED"
+    assert client.posts[-1] == "/api/v15/economy/stop"
