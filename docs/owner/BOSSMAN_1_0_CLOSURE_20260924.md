@@ -37,6 +37,11 @@ remaining owner-PC and release gates pass.
 - The collector's notifier now explicitly opts in to the same local untracked
   Companion env file used by the Windows launcher. Process env still has
   precedence. No secret value was logged or committed.
+- `bossman market watch/status/export/stop` now exposes the read-only collector
+  from Bossman's installed CMD. An installed-package probe found a P0 analyzer
+  import that assumed a source checkout. The analyzer now imports the packaged
+  Trader Apprentice, and the historical casebook/CASE records ship in
+  `bossman-shared`; a byte-for-byte sync test guards the copied records.
 - Prior live headed 20-frame calibration: 19 VERIFIED, 1 LOW_CONFIDENCE;
   manual crop comparison found zero wrong VERIFIED CVD/OI values. Evidence and
   hashes are in `ASTER_OWNER_TWITCH_TEST_20260924.md`.
@@ -50,8 +55,13 @@ remaining owner-PC and release gates pass.
 
 ## Closure blockers
 
-- The required 60-minute Twitch soak, crash/restart/STOP exercise and one
-  complete live Twitch-to-Telegram owner-phone E2E are NOT RUN.
+- The required 60-minute Twitch soak has not completed. Restart/STOP and one
+  complete live Twitch-to-Telegram owner-phone E2E remain outstanding.
+- The 60-minute soak is in progress at `owner-test-pack/soak-b7de73a6`.
+  The channel is currently showing a NASDAQ chart, so all market values remain
+  null with `AMBIGUOUS_SYMBOL`. A deliberate owned browser crash produced one
+  `PLAYER_ERROR` row, followed by a fresh LIVE player. Telegram sent one
+  data-quality notification (message ID 341), then suppressed duplicates.
 - The final SHA has not passed every mandatory Exact-SHA CI workflow. No
   Windows package built from a frozen SHA has completed all owner-PC gates.
   There is no `BOSSMAN_1_0_FINAL_SHA` yet.

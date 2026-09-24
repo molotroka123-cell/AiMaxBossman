@@ -26,6 +26,19 @@ from bcc.market.analyzer import analyze_pair
 from bcc.market.notify import format_message
 
 
+def test_installed_market_cases_match_canonical_source():
+    from importlib.resources import files
+
+    repo = Path(__file__).resolve().parents[2]
+    shipped = files("bossman_shared.market_cases")
+    originals = [repo / "data" / "trading" / "btc_casebook_2026_09.jsonl",
+                 *sorted((repo / "data" / "trading" / "canonical_cases").glob("*.json"))]
+    assert {p.name for p in originals} == {p.name for p in shipped.iterdir()
+                                                if p.name.endswith((".json", ".jsonl"))}
+    for source in originals:
+        assert shipped.joinpath(source.name).read_bytes() == source.read_bytes()
+
+
 class FakeReader:
     """Answers by badge colour marker; counts calls. `script` maps a metric to a
     list of answers returned in order (to simulate disagreeing reads)."""

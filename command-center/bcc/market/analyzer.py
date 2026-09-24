@@ -1,22 +1,17 @@
 """Read-only market analysis. The ledger is the sole source of live values."""
 from __future__ import annotations
 
-import importlib.util
+from importlib.resources import files
 import json
 import sqlite3
-from pathlib import Path
 from typing import Any
+
+from learning import trader_apprentice as ta
 
 from . import extract, schema
 from .ledger import Ledger
 
-REPO = Path(__file__).resolve().parents[3]
-_spec = importlib.util.spec_from_file_location("trader_apprentice", REPO / "learning" / "trader_apprentice.py")
-assert _spec and _spec.loader
-import sys
-ta = importlib.util.module_from_spec(_spec)
-sys.modules[_spec.name] = ta
-_spec.loader.exec_module(ta)
+CASES = files("bossman_shared.market_cases")
 
 
 def _complete(rec: dict[str, Any]) -> bool:
@@ -50,13 +45,14 @@ def _snapshot(rec: dict[str, Any]) -> ta.Snapshot:
 
 def _matches(matrix: str, regime: str) -> list[dict[str, str]]:
     matches = []
-    path = REPO / "data" / "trading" / "btc_casebook_2026_09.jsonl"
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in CASES.joinpath("btc_casebook_2026_09.jsonl").read_text(encoding="utf-8").splitlines():
         case = json.loads(line)
         if case.get("state", "").upper() == matrix.upper() or case.get("regime") == regime:
             matches.append({"case_id": case["case_id"], "date": case.get("date", ""),
                             "lesson": case.get("lesson", "")})
-    for path in sorted((REPO / "data" / "trading" / "canonical_cases").glob("*.json")):
+    for path in sorted(CASES.iterdir(), key=lambda p: p.name):
+        if not path.name.startswith("case-") or not path.name.endswith(".json"):
+            continue
         case = json.loads(path.read_text(encoding="utf-8"))
         for event in case.get("timeline", []):
             if event.get("state", "").upper() == matrix.upper():
