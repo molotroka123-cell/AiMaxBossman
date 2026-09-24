@@ -34,7 +34,13 @@ from . import extract, routing, schema
 from .ledger import Ledger, default_root
 
 CHANNEL = "k1m6a"
-URL = "https://m.twitch.tv/k1m6a"
+OWNER_URL = "https://m.twitch.tv/k1m6a"          # the source the owner named
+# The desktop player of the SAME channel: its quality menu lets us pin 1080p.
+# On m.twitch.tv the menu is click-intercepted and adaptive bitrate drops the
+# stream to 480p under host load, which makes the axis labels illegible
+# (calibration v3, 2026-09-24: rows 12-19 at 852x480).
+URL = "https://www.twitch.tv/k1m6a"
+QUALITY_PREFERENCE = ("1080p", "Источник", "Source")
 FRAME_SIZE = (1920, 1080)          # extract.DEFAULT_LAYOUT coordinate space
 JUMP_FLAG = 0.15                  # relative change between consecutive verified samples that gets flagged
 
@@ -96,6 +102,7 @@ class TwitchSource:
         self._pw = self._browser = self._page = None
         self.opened_at: float | None = None
         self.dom_actions: list[str] = []
+        self.quality: str | None = None
 
     async def open(self) -> None:
         from playwright.async_api import async_playwright
@@ -113,6 +120,32 @@ class TwitchSource:
         await self._page.wait_for_timeout(8_000)
         self.opened_at = time.time()
         await self._dom_housekeeping()
+        self.quality = await self._pin_quality()
+
+    async def _pin_quality(self) -> str | None:
+        """Player Settings -> Quality -> 1080p (else Source): turns adaptive bitrate off.
+        Observed-target DOM clicks on the player's own menu; reversible, no account."""
+        page = self._page
+        try:
+            await page.mouse.move(600, 400)
+            await page.wait_for_timeout(300)
+            await page.mouse.move(640, 420)
+            await page.click('[data-a-target="player-settings-button"]', timeout=5_000)
+            await page.wait_for_timeout(600)
+            await page.click('[data-a-target="player-settings-menu-item-quality"]', timeout=5_000)
+            await page.wait_for_timeout(600)
+            options = page.locator('[data-a-target="player-settings-submenu-quality-option"]')
+            for want in QUALITY_PREFERENCE:
+                opt = options.filter(has_text=want)
+                if await opt.count():
+                    label = " ".join((await opt.first.inner_text()).split())
+                    await opt.first.click(timeout=5_000)
+                    await page.keyboard.press("Escape")
+                    self.dom_actions.append(f"quality:{label}")
+                    return label
+        except Exception as exc:                    # pinning is best effort; frames still get checked
+            self.dom_actions.append(f"quality_pin_failed:{type(exc).__name__}")
+        return None
 
     async def _dom_housekeeping(self) -> None:
         info = await self._page.evaluate(_FRAME_JS)
@@ -152,11 +185,14 @@ class TwitchSource:
         raw = __import__("base64").b64decode(data_url.split(",", 1)[1])
         img = Image.open(io.BytesIO(raw)).convert("RGB")
         native = img.size
+        if native[1] < FRAME_SIZE[1]:               # adaptive bitrate slipped: pin again for the next sample
+            self.quality = await self._pin_quality()
         if native != FRAME_SIZE:                  # layout is in 1920x1080 space; the hash stays the native frame's
             img = img.resize(FRAME_SIZE, Image.LANCZOS)
         return Capture("LIVE", info1.get("url"), frame=img, frame_sha256=hashlib.sha256(raw).hexdigest(),
                        video_t0=info0["video"]["t"], video_t1=(info1.get("video") or {}).get("t"),
-                       paused=(info1.get("video") or {}).get("paused"), detail=detail, routing=route,
+                       paused=(info1.get("video") or {}).get("paused"),
+                       detail=f"{detail}; quality={self.quality or 'auto'}", routing=route,
                        native_size=native)
 
 
@@ -167,6 +203,7 @@ def build_record(cap: Capture, reader: extract.Reader | None, *, last_frame_sha:
     rec = schema.new_observation(channel=CHANNEL, requested_url=URL, resolved_url=cap.resolved_url,
                                  stream_state=cap.stream_state)
     rec["evidence"]["routing"] = cap.routing
+    rec["source"]["owner_url"] = OWNER_URL
     if cap.stream_state != "LIVE":
         rec["quality"]["status"] = {"OFFLINE": schema.STREAM_OFFLINE, "PLAYER_ERROR": schema.PLAYER_ERROR,
                                     "LOGIN_REQUIRED": schema.LOGIN_REQUIRED}[cap.stream_state]
@@ -175,6 +212,7 @@ def build_record(cap: Capture, reader: extract.Reader | None, *, last_frame_sha:
     rec["evidence"]["frame_sha256"] = cap.frame_sha256
     rec["evidence"]["video_time"] = [cap.video_t0, cap.video_t1]
     rec["evidence"]["native_frame_size"] = list(cap.native_size) if cap.native_size else None
+    rec["evidence"]["player"] = cap.detail
     fresh = (cap.frame is not None and not cap.paused and cap.video_t0 is not None and cap.video_t1 is not None
              and cap.video_t1 > cap.video_t0 and cap.frame_sha256 != last_frame_sha)
     rec["quality"]["fresh_frame"] = bool(fresh)
