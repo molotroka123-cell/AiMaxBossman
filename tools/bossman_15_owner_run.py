@@ -141,7 +141,8 @@ def start(root: Path, *, data_dir: Path, repo: Path | None, cycles: int,
         sys.executable, "-m", "bcc.market.collector", "run",
         "--root", str(market_root), "--cadence", str(cadence),
     ]
-    market_pid = _spawn(market_cmd, root / "market.log", ROOT if (ROOT / "command-center").exists() else None)
+    market_cwd = (ROOT / "command-center") if (ROOT / "command-center").exists() else None
+    market_pid = _spawn(market_cmd, root / "market.log", market_cwd)
 
     self_pid = None
     self_blocker = None
