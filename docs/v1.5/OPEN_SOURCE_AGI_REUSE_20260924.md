@@ -101,3 +101,27 @@ Bossman mapping:
 When external provider onboarding is required, Bossman produces OWNER_REQUIRED
 with the exact fields/URL/instructions. The owner may provide missing data
 through Telegram owner-input and Bossman resumes the task.
+
+
+## 2026-09-24 research refresh
+
+Additional patterns checked before the owner run:
+
+- OpenHands Software Agent SDK + OpenHands benchmarks: keep the evaluator separate
+  from the coding agent and use reproducible software/GAIA/safety-style tasks. Bossman
+  reuses the pattern, not a second runtime: its candidate worktrees and RESULT_VERIFIER
+  remain authoritative.
+- DSPy optimizers (Bootstrap/MIPROv2/SIMBA/GEPA): treat prompts, examples and workflows
+  as optimizable program parameters against an explicit metric. Bossman 1.5 should first
+  optimize skills/workflows/prompts with held-out evidence; weight training remains a
+  separate later experiment.
+- LangGraph supervisor/persistence: durable checkpoint + long-term store patterns support
+  restartable multi-agent teams. Bossman already has its own campaign checkpoints,
+  persistent society and memory, so LangGraph is a reference rather than a dependency.
+- Mem0: useful reference for scoped memory and hybrid retrieval. Current Mem0 OSS v3 no
+  longer provides graph memory; therefore Bossman must not claim it is importing an OSS
+  Mem0 graph. PersonalOperatingGraph stays local and Bossman-owned.
+
+The implementation rule remains: reuse a proven contract/pattern when it is better,
+but do not replace Bossman's policy, evidence, memory or exact-SHA authority with an
+external framework.
