@@ -23,13 +23,14 @@ def explain_local(analysis: dict, *, url: str = "http://127.0.0.1:11434",
     payload = {"model": model, "stream": False, "think": False,
                "options": {"temperature": 0, "num_predict": 100},
                "messages": [{"role": "system", "content":
-                             "Объясни на русском одной короткой фразой только заданный режим и причины. "
-                             "Не называй чисел, процентов, целей, вероятностей и торговых приказов. "
-                             "Если данных недостаточно, скажи об этом."},
+                             "Ты краткий order-flow комментатор Bossman. Объясни по-русски в 1-2 простых "
+                             "предложениях только то, что следует из Price/CVD/OI и причин классификатора. "
+                             "Не называй отсутствующие уровни, CASE или служебные поля; это не причина режима. "
+                             "Не придумывай числа, проценты, цели, вероятности, позиции или торговые приказы. "
+                             "Для NEUTRAL_BALANCE скажи, что существенного изменения пока нет, без воды про шум."},
                             {"role": "user", "content": json.dumps({
                                 "regime": analysis["regime"], "matrix": analysis["matrix"],
-                                "reasons": analysis["classification_detail"]["reasons"],
-                                "missing_data": analysis["missing_data"]}, ensure_ascii=False)}]}
+                                "reasons": analysis["classification_detail"]["reasons"]}, ensure_ascii=False)}]}
     request = urllib.request.Request(url.rstrip("/") + "/api/chat", data=json.dumps(payload).encode(),
                                      headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(request, timeout=60) as response:
@@ -44,20 +45,49 @@ def explain_local(analysis: dict, *, url: str = "http://127.0.0.1:11434",
 
 
 def format_message(a: dict, why: str) -> str:
+    """Compact owner message: show evidence, omit empty placeholders."""
     def value(v, scale=1):
         return "UNKNOWN" if v is None else f"{v / scale:,.2f}"
+
+    def delta(v, *, scale=1, suffix=""):
+        if v is None:
+            return "UNKNOWN"
+        scaled = v / scale
+        # Do not print a real non-zero move as 0.00 after rounding.
+        if scaled != 0 and abs(scaled) < 0.01:
+            return f"{'+' if scaled > 0 else '-'}<0.01{suffix}"
+        return f"{scaled:+,.2f}{suffix}"
+
     d = a["classification_detail"]
     case = a["case_matches"][0] if a["case_matches"] else None
-    return (f"BTC\nЦена: {value(a['price'])} (Δ {value(a['delta_price'])})\n"
-            f"CVD: {value(a['cvd'], 1e9)}B (Δ {value(a['delta_cvd'], 1e9)}B)\n"
-            f"OI: {value(a['oi'], 1e9)}B (Δ {value(a['delta_oi'], 1e9)}B)\n\n"
-            f"STATE: {a['matrix']}\nРЕЖИМ: {a['regime']}\nПОЧЕМУ: {why}\n\n"
-            f"УРОВНИ: {a['levels'] or 'UNKNOWN'}\n\n"
-            f"LONG: {a['long_scenario']['trigger']} → {a['long_scenario']['confirmation']} → {a['long_scenario']['invalidation']}\n"
-            f"BEAR: {a['bear_scenario']['trigger']} → {a['bear_scenario']['confirmation']} → {a['bear_scenario']['invalidation']}\n\n"
-            f"ПОХОЖИЙ CASE: {case['case_id'] + ': ' + case['lesson'] if case else 'UNKNOWN'}\n"
-            f"DATA QUALITY: missing={', '.join(a['missing_data']) or 'none'}; "
-            f"classification confidence={a['classification_confidence']:.2f} (не вероятность прибыли)")
+    lines = [
+        "BTC",
+        f"Цена: {value(a['price'])} ({delta(a['delta_price'])})",
+        f"CVD: {value(a['cvd'], 1e9)}B ({delta(a['delta_cvd'], scale=1e9, suffix='B')})",
+        f"OI: {value(a['oi'], 1e9)}B ({delta(a['delta_oi'], scale=1e9, suffix='B')})",
+        "",
+        f"STATE: {a['matrix']}",
+        f"РЕЖИМ: {a['regime']}",
+        f"ПОЧЕМУ: {why}",
+    ]
+
+    # Empty optional context is omitted instead of filling the phone with UNKNOWN.
+    if a.get("levels"):
+        lines += ["", f"УРОВНИ: {a['levels']}"]
+        long = a.get("long_scenario") or {}
+        bear = a.get("bear_scenario") or {}
+        if all(long.get(k) not in (None, "UNKNOWN") for k in ("trigger", "confirmation", "invalidation")):
+            lines.append(f"LONG: {long['trigger']} → {long['confirmation']} → {long['invalidation']}")
+        if all(bear.get(k) not in (None, "UNKNOWN") for k in ("trigger", "confirmation", "invalidation")):
+            lines.append(f"BEAR: {bear['trigger']} → {bear['confirmation']} → {bear['invalidation']}")
+
+    if case:
+        lines += ["", f"ПОХОЖИЙ CASE: {case['case_id']}: {case['lesson']}"]
+
+    # Confidence is internal classification metadata, not a trading probability.
+    # Keep Telegram owner output focused on observed evidence.
+    lines += ["", "ДАННЫЕ: VERIFIED"]
+    return "\n".join(lines)
 
 
 def observation_quality(rec: dict) -> tuple[str, list[str]]:
