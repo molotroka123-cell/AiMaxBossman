@@ -265,6 +265,36 @@ def _stopped(out: pathlib.Path) -> bool:
     return (out / STOP_NAME).exists()
 
 
+def _source_sha() -> str:
+    for name in ("BOSSMAN_ACCEPTANCE_SHA", "BOSSMAN_BUILD_SHA", "GITHUB_SHA"):
+        value = os.environ.get(name, "").strip().lower()
+        if re.fullmatch(r"[0-9a-f]{40}", value):
+            return value
+    manifest = ROOT / "MANIFEST.json"
+    if manifest.is_file():
+        try:
+            value = str(json.loads(manifest.read_text(encoding="utf-8")).get("source_sha") or "").lower()
+            if re.fullmatch(r"[0-9a-f]{40}", value):
+                return value
+        except (OSError, ValueError):
+            pass
+    if (ROOT / ".git").exists():
+        try:
+            proc = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
+                                  text=True, timeout=10, encoding="utf-8", errors="replace")
+            value = proc.stdout.strip().lower()
+            if proc.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", value):
+                return value
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return "unknown"
+
+
+def _policy_digest(policy: dict) -> str:
+    raw = json.dumps(policy, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
 def run(policy: dict, inbox: pathlib.Path, out: pathlib.Path, *,
         require_jev: bool = True, allow_paid: bool = False,
         paid_cap: float = 0.50, run_ling_scenarios: bool = False) -> dict:
@@ -273,6 +303,9 @@ def run(policy: dict, inbox: pathlib.Path, out: pathlib.Path, *,
         "schema": "bossman.v1.5.economy-run/1",
         "run_id": uuid.uuid4().hex,
         "pid": os.getpid(),
+        "source_sha": _source_sha(),
+        "policy_sha256": _policy_digest(policy),
+        "models": {role: spec["model"] for role, spec in policy["roles"].items()},
         "started_at": time.time(), "status": "RUNNING",
         "weights_changed": False, "videos": [], "glm_calls": 0, "paid": {},
     }
@@ -388,6 +421,9 @@ def run(policy: dict, inbox: pathlib.Path, out: pathlib.Path, *,
         state["status"] = "COMPLETE_QUARANTINED"
     state["finished_at"] = time.time()
     state["distill_records"] = recorder.count
+    state["cost_ledger"] = list(gateway.ledger.rows)
+    state["total_paid_usd"] = round(gateway.ledger.spent_usd, 8)
+    state["worker_retry_events"] = list(gateway.retry_events)
     (out / "run-state.json").write_text(
         json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
     return state
