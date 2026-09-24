@@ -25,6 +25,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "command-center"))
 
 from bcc.economy_orchestrator import EconomyOrchestrator, TrainingRound, model_policy  # noqa: E402
+from distill_recorder import Recorder  # noqa: E402
 
 WINDOW_START = "20260814"
 WINDOW_END = "20260827"
@@ -97,6 +98,7 @@ async def main_async(ns) -> int:
     out.mkdir(parents=True, exist_ok=True)
     inbox = out / "youtube-inbox"
     orch = EconomyOrchestrator()
+    recorder = Recorder("bossman-15-youtube-economy", directory=out / "distill")
 
     videos = discover_videos(channel)
     report: dict[str, Any] = {
@@ -118,6 +120,18 @@ async def main_async(ns) -> int:
                 TrainingRound(video["url"], video["id"], evidence_packet(vdir))
             )
             learned["title"] = video.get("title")
+            for worker in learned.get("workers", []):
+                recorder.record(
+                    model=worker["model"],
+                    task_class="youtube_training:" + video["id"] + ":" + worker["role"],
+                    messages=[],
+                    response_text=worker.get("text", ""),
+                    verdict="UNVERIFIED",
+                    verifier="pending independent outcome/holdout verification",
+                    curator_note="Teacher material is quarantined; not canonical strategy memory.",
+                    extra={"source_url": video["url"], "packet_sha256": worker.get("packet_sha256"),
+                           "learning_status": "UNVERIFIED"},
+                )
             report["video_runs"].append(learned)
         except Exception as exc:
             report["video_runs"].append({
@@ -132,6 +146,15 @@ async def main_async(ns) -> int:
         "requirements": ["free-first", "tests decide", "no live trading", "no raw teacher promotion"],
     }
     report["coding"] = await orch.code_review(code_task)
+    recorder.record(
+        model=report["coding"].get("model", ""),
+        task_class="v1.5_free_code_review",
+        messages=[],
+        response_text=report["coding"].get("text", ""),
+        verdict="UNVERIFIED",
+        verifier="Codex/Aster + executable tests required",
+        curator_note="Free Ling review; model DONE is never a PASS.",
+    )
 
     unresolved = [x for x in report["video_runs"] if x.get("status") in ("BLOCKED", "FAIL")]
     bundle = {
@@ -148,6 +171,8 @@ async def main_async(ns) -> int:
     report["finished_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     report["weights_changed"] = False
     report["live_trading"] = False
+    report["distill"] = {"records": recorder.count, "path": str(recorder.path),
+                          "gate_state": "RAW_CANDIDATE"}
 
     path = out / "bossman-1.5-owner-run.json"
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
