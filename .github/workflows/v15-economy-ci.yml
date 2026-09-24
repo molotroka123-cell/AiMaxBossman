@@ -39,6 +39,8 @@ on:
       - 'bossman-core/bossman_v3/skill_factory/compiler.py'
       - 'bossman-core/bossman_v3/self_improvement/scientist.py'
       - 'bossman-core/tests/test_v15_autonomy_core.py'
+      - 'command-center/bcc/features/v15_autonomy.py'
+      - 'command-center/tests/test_v15_autonomy_feature.py'
       - 'README.md'
       - 'docs/v1.5/**'
       - '.github/workflows/v15-economy-ci.yml'
@@ -66,6 +68,8 @@ on:
       - 'bossman-core/bossman_v3/skill_factory/compiler.py'
       - 'bossman-core/bossman_v3/self_improvement/scientist.py'
       - 'bossman-core/tests/test_v15_autonomy_core.py'
+      - 'command-center/bcc/features/v15_autonomy.py'
+      - 'command-center/tests/test_v15_autonomy_feature.py'
       - 'README.md'
       - 'docs/v1.5/**'
       - '.github/workflows/v15-economy-ci.yml'
@@ -115,7 +119,8 @@ jobs:
             bossman-core/bossman_v3/resource_manager.py \
             bossman-core/bossman_v3/autonomy_kernel.py \
             bossman-core/bossman_v3/skill_factory/compiler.py \
-            bossman-core/bossman_v3/self_improvement/scientist.py
+            bossman-core/bossman_v3/self_improvement/scientist.py \
+            command-center/bcc/features/v15_autonomy.py
       - name: Economy, learning and packaging contracts
         run: |
           python -m pytest -q \
@@ -126,4 +131,5 @@ jobs:
             tests/test_bossman_15_economy_tools.py \
             tests/test_distill_recorder.py \
             bossman-core/tests/test_v15_autonomy_core.py \
+            command-center/tests/test_v15_autonomy_feature.py \
             tests/test_windows_bundle_contract.py::test_v15_economy_runtime_is_shipped_with_its_policy
