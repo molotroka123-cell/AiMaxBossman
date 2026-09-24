@@ -86,9 +86,12 @@ first benchmark unless all required scope is already green with time remaining.
 
 ## Timebox
 
-### T-00:00 to 00:15 — preflight
+### T-00:00 to 00:15 — preflight + self-bootstrap
 Bossman:
 - creates mission/run identity;
+- calls the pinned game-bootstrap plan;
+- downloads/verifies/unpacks required portable tooling through Bossman only;
+- sends Telegram milestone signals without per-edit spam;
 - verifies Godot/runtime;
 - verifies model fleet;
 - freezes acceptance;
@@ -257,6 +260,9 @@ Otherwise final result is PARTIAL/FAIL with exact blockers.
 
 Record:
 - four-hour wall time;
+- bootstrap time and fallback count;
+- verified tool/download hashes;
+- Telegram milestone count and owner approvals;
 - feature completion time;
 - local/free/GLM/Claude request counts;
 - ASTER_CODE_WRITES (must be 0);
