@@ -129,15 +129,34 @@ def run_economy_via_bossman(client: CommandCenterApi, *, inbox: Path,
     return {"status": "TIMEOUT_STOP_REQUESTED", "start": body, "last": last}
 
 
+def _source_identity(repo: Path) -> tuple[str, bool, str]:
+    """Return (sha, clean, source). Installed bundles have MANIFEST.json, not .git."""
+    if (repo / ".git").exists():
+        source_sha = git("rev-parse", "HEAD", cwd=repo)
+        dirty = git("status", "--porcelain", "--untracked-files=normal", cwd=repo)
+        return source_sha, not bool(dirty), "checkout"
+    manifest = repo / "MANIFEST.json"
+    try:
+        body = json.loads(manifest.read_text(encoding="utf-8"))
+        source_sha = str(body.get("source_sha") or "").strip().lower()
+        dirty = bool(body.get("source_dirty"))
+    except (OSError, ValueError):
+        return "unknown", False, "installed-unproven"
+    if len(source_sha) == 40 and all(ch in "0123456789abcdef" for ch in source_sha):
+        return source_sha, not dirty, "installed"
+    return "unknown", False, "installed-unproven"
+
+
 def preflight(cfg: dict[str, Any], *, repo: Path, data_dir: Path, api_url: str) -> dict[str, Any]:
-    source_sha = git("rev-parse", "HEAD", cwd=repo)
-    dirty = git("status", "--porcelain", "--untracked-files=normal", cwd=repo)
+    source_sha, clean, source_kind = _source_identity(repo)
+    dirty = "" if clean else "SOURCE_NOT_PROVEN_CLEAN"
     providers = provider_status(load_provider_pool())
     out: dict[str, Any] = {
         "schema": "bossman.v1.5.self-improve-preflight/1",
         "source_sha": source_sha,
+        "source_kind": source_kind,
         "repo": str(repo),
-        "clean": not bool(dirty),
+        "clean": clean,
         "provider_pool": providers,
         "openrouter_key_present": bool(
             os.environ.get("OPENROUTER_API_KEY")
@@ -158,7 +177,7 @@ def preflight(cfg: dict[str, Any], *, repo: Path, data_dir: Path, api_url: str) 
     except Exception as exc:  # loopback product is allowed to be offline during status
         out["api_error"] = type(exc).__name__ + ": " + str(exc)[:300]
     ready = bool((out["coding"].get("body") or {}).get("available"))
-    out["self_improve_startable"] = bool(out["clean"] and ready)
+    out["self_improve_startable"] = bool(out["clean"] and source_sha != "unknown" and ready)
     if not ready and "blocker" not in out:
         out["blocker"] = "BOSSMAN_CODING_PATH_NOT_READY"
     return out
