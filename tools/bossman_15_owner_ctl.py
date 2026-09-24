@@ -45,9 +45,10 @@ def main(argv=None) -> int:
     sub.add_parser("status")
     sub.add_parser("quick-test")
     start = sub.add_parser("start")
-    start.add_argument("--no-glm", action="store_true")
-    start.add_argument("--glm-cap-usd", type=float, default=0.50)
-    start.add_argument("--market-cadence", type=float, default=15.0)
+    start.add_argument("--repo")
+    start.add_argument("--cycles", type=int, default=8)
+    start.add_argument("--allow-glm", action="store_true")
+    start.add_argument("--cadence", type=float, default=15.0)
     start.add_argument("--youtube-url", default="")
     sub.add_parser("stop")
     ns = ap.parse_args(argv)
@@ -59,17 +60,18 @@ def main(argv=None) -> int:
         return 3
 
     if ns.cmd == "status":
-        code, body = c.get("/api/v15/owner/status")
+        code, body = c.get("/api/v15/owner-run/status")
     elif ns.cmd == "quick-test":
-        code, body = c.post("/api/v15/owner/quick-test", {})
+        code, body = c.post("/api/v15/owner-run/quick-test", {})
     elif ns.cmd == "stop":
-        code, body = c.post("/api/v15/owner/stop", {})
+        code, body = c.post("/api/v15/owner-run/stop", {})
     else:
-        code, body = c.post("/api/v15/owner/start", {
-            "allow_paid_finalizer": not ns.no_glm,
-            "glm_cap_usd": ns.glm_cap_usd,
-            "market_cadence_s": ns.market_cadence,
+        code, body = c.post("/api/v15/owner-run/start", {
+            "repo": ns.repo,
+            "cycles": max(1, min(int(ns.cycles), 20)),
+            "allow_glm": bool(ns.allow_glm),
             "youtube_url": ns.youtube_url,
+            "cadence": max(5.0, min(float(ns.cadence), 120.0)),
         })
     return show(code, body)
 
