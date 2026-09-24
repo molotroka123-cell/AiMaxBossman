@@ -64,9 +64,9 @@ def discover_videos(channel: str) -> list[dict[str, Any]]:
 
 def ingest(url: str, inbox: pathlib.Path) -> pathlib.Path:
     inbox.mkdir(parents=True, exist_ok=True)
-    env = {**os.environ, "BOSSMAN_YOUTUBE_INBOX": str(inbox)}
-    proc = run([sys.executable, str(ROOT / "tools" / "youtube_trader_ingest_auto.py"), url],
-               timeout=7200, env=env)
+    env = dict(os.environ)
+    proc = run([sys.executable, str(ROOT / "tools" / "youtube_trader_ingest_auto.py"), url,
+                "--output-root", str(inbox)], timeout=7200, env=env)
     if proc.returncode != 0:
         raise RuntimeError("youtube ingest failed: " + (proc.stderr or proc.stdout)[-1200:])
     manifests = sorted(inbox.rglob("manifest.json"), key=lambda p: p.stat().st_mtime, reverse=True)
