@@ -32,6 +32,30 @@
 
 [1.5 Economy Orchestrator](docs/v1.5/ECONOMY_ORCHESTRATOR.md) · [Open-source autonomy reuse](docs/v1.5/OPEN_SOURCE_AGI_REUSE_20260924.md) · [Self-improvement bootstrap](tools/bossman_15_self_improve.py)
 
+### Фактический статус пяти автономных контуров
+
+На текущей 1.5-ветке код уже существует для всех пяти контуров, но статус
+**IMPLEMENTED/CONTRACT_TESTED не равен OWNER_LIVE_PASS**:
+
+- Scientific Self-Improvement: `bossman_v3/self_improvement/scientist.py` поверх
+  существующего bounded evolution loop; promote требует benchmark gain, regression,
+  independent verifier, unseen transfer и security non-regression.
+- Persistent Agent Society: `bossman_v3/society.py`; восемь постоянных ролей,
+  skill/memory refs и verifier-backed статистика переживают restart.
+- Skill Compiler: `bossman_v3/skill_factory/compiler.py`; verified trace без unseen
+  transfer не компилируется, новый skill начинает с EXPERIMENTAL.
+- Personal Operating Graph: `bossman_v3/operating_graph.py`; локальные temporal
+  nodes/edges, provenance, supersession и as-of history без хранения секретов.
+- Autonomous Resource Manager: `bossman_v3/resource_manager.py`; quality/cost/latency/
+  energy/RAM routing, unknown-price cloud fail-closed.
+
+Контрактные проверки находятся в
+`bossman-core/tests/test_v15_autonomy_core.py` и
+`command-center/tests/test_v15_autonomy_feature.py`. Финальное закрытие требует
+завтрашний owner-live прогон: один реальный scientific cycle, restart continuity,
+skill transfer, operating-graph continuity, measured routing и работу после
+отключения внешнего аудитора.
+
 ### Критерий закрытия 1.5
 
 1. Одна команда из **UX или CMD** запускает параллельно self-improvement и read-only market observation; STOP останавливает оба контура штатно.
