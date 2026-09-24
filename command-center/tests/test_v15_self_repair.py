@@ -71,3 +71,47 @@ def test_setup_writes_redacted_deduplicated_repair_evidence(tmp_path, monkeypatc
     assert "secret-value" not in path.read_text(encoding="utf-8")
     assert bus.rows[-1][0] == "v15.self_repair.queued"
     assert rows[-1]["tests"] == ["tests/test_demo.py::test_x"]
+
+
+def test_latest_status_closes_repair_until_a_new_failure_arrives(tmp_path):
+    path = tmp_path / "inbox.jsonl"
+    queued = {"signature": "abc", "status": "QUEUED", "occurrence": 1}
+    done = {"signature": "abc", "status": "TARGETED_TESTED_CANDIDATE", "occurrence": 1}
+    path.write_text(json.dumps(queued) + "\n" + json.dumps(done) + "\n", encoding="utf-8")
+    assert repair._latest_pending(path) == []
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps({"signature": "abc", "status": "QUEUED", "occurrence": 2}) + "\n")
+    rows = repair._latest_pending(path)
+    assert len(rows) == 1 and rows[0]["occurrence"] == 2
+
+
+def test_tick_starts_only_one_runtime_repair_worker(tmp_path, monkeypatch):
+    base = tmp_path / "v1.5" / "self-repair"
+    base.mkdir(parents=True)
+    (base / "inbox.jsonl").write_text(
+        json.dumps({"signature": "abc", "status": "QUEUED"}) + "\n",
+        encoding="utf-8",
+    )
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    script = tmp_path / "repair.py"
+    script.write_text("# test", encoding="utf-8")
+
+    class Proc:
+        pid = 4321
+        returncode = None
+        def poll(self): return None
+
+    calls = []
+    monkeypatch.setattr(repair, "_REPAIR_PROC", None)
+    monkeypatch.setattr(repair, "_owner_repo", lambda _svc: repo)
+    monkeypatch.setattr(repair, "_runner", lambda: script)
+    monkeypatch.setattr(repair.subprocess, "Popen", lambda argv, **kw: calls.append(argv) or Proc())
+    svc = SimpleNamespace(settings=SimpleNamespace(data_dir=tmp_path), bus=Bus())
+
+    asyncio.run(repair._tick(svc))
+    asyncio.run(repair._tick(svc))
+    assert len(calls) == 1
+    assert "repair" in calls[0]
+    assert (base / "worker.pid").read_text(encoding="utf-8") == "4321"
+    assert any(kind == "v15.self_repair.worker_started" for kind, _ in bus.rows)
