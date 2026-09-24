@@ -1,0 +1,36 @@
+{
+  "research_id": "PIXEL-PERFECT-K1M6A-V1",
+  "status": "RESEARCH",
+  "objective": "Discover whether rare wick/structure entries with tight invalidation and rapid breakeven protection have positive out-of-sample expectancy.",
+  "sides": ["LONG", "SHORT"],
+  "required_features": [
+    "preexisting_structure",
+    "wick_or_liquidity_sweep",
+    "price_response",
+    "cvd",
+    "open_interest",
+    "liquidations_when_available",
+    "reclaim_or_rejection",
+    "retest_or_acceptance",
+    "entry",
+    "initial_stop"
+  ],
+  "outcome_horizons": ["1m", "5m", "15m", "30m", "60m", "4h"],
+  "be_policies_r": [0.25, 0.5, 1.0],
+  "metrics": [
+    "expectancy_r",
+    "median_r",
+    "profit_factor",
+    "max_drawdown_r",
+    "initial_stop_rate",
+    "breakeven_rate",
+    "winner_stopped_at_be_rate",
+    "mfe_r",
+    "mae_r",
+    "candidates_per_week"
+  ],
+  "negative_examples_required": true,
+  "no_setup_is_valid_label": true,
+  "anti_hindsight": "Decision features stop at timestamp T; all later frames are labels only.",
+  "promotion_gate": "chronological holdout + costs/slippage + losing examples + paper/shadow validation"
+}
