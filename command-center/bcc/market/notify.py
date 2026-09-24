@@ -102,7 +102,7 @@ class MarketNotifier:
         config = default_config()
         if not config.exists():
             return {"sent": False, "reason": "companion_not_configured"}
-        settings = load(config)
+        settings = load(config, env_file=config.parent / "companion.env")
         owner = next((p for p in settings.people if p.role == "owner"), None)
         if not settings.enabled or owner is None:
             return {"sent": False, "reason": "owner_delivery_disabled"}

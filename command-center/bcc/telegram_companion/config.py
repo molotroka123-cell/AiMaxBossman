@@ -207,7 +207,7 @@ class Settings:
         return next((p for p in self.people if p.user_id == sender["id"] and p.chat_id == chat["id"]), None)
 
 
-def load(path: Path) -> Settings:
+def load(path: Path, *, env_file: Path | None = None) -> Settings:
     raw = path.read_bytes()
     if len(raw) > 65536:
         raise ValueError("configuration too large")
@@ -233,6 +233,22 @@ def load(path: Path) -> Settings:
         if value is None:
             raise ValueError("companion credentials cannot be decrypted")
         secrets = json.loads(value)
+    # The Windows Companion launcher supports a local, untracked env file. An
+    # explicitly opted-in caller (the market notifier) needs the same source.
+    # Never search a checkout or accept a link to a different secrets file.
+    if env_file is not None and env_file.is_file():
+        if env_file.is_symlink() or env_file.parent.resolve() != path.parent.resolve():
+            raise ValueError("companion env path must be beside its config")
+        if env_file.stat().st_size > 65536:
+            raise ValueError("companion env file too large")
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            name, sep, value = line.strip().partition("=")
+            if sep and name.strip() in {"TG_COMPANION_BOT_TOKEN", "TG_COMPANION_CORE_TOKEN",
+                                        "TG_COMPANION_LOCAL_TOKEN", "TG_COMPANION_CLOUD_TOKEN",
+                                        "TG_COMPANION_PROXY"}:
+                value = value.strip().strip('"')
+                if value:
+                    secrets[name.strip().removeprefix("TG_COMPANION_").lower()] = value
     for key in secret_fields:
         data[key] = os.environ.get("TG_COMPANION_" + key.upper(), secrets.get(key, ""))
     return Settings(**data)

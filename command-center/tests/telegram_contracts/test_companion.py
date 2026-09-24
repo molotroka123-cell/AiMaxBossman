@@ -11,7 +11,7 @@ import httpx
 import pytest
 
 from bcc.telegram_companion.adapters import Core, Models, Telegram, scrub
-from bcc.telegram_companion.config import CompanionError, Person, Settings, local_url
+from bcc.telegram_companion.config import CompanionError, Person, Settings, load, local_url
 from bcc.telegram_companion.service import Companion
 from bcc.telegram_companion.store import Store, single_instance
 
@@ -72,6 +72,24 @@ def test_invalid_cloud_budgets_refused(price):
 def test_secrets_not_in_settings_repr():
     secret = 'credential-' + 'x' * 40
     assert secret not in repr(cfg(bot_token=secret, core_token=secret, cloud_token=secret, proxy='http://u:p@127.0.0.1:9'))
+
+
+def test_opt_in_companion_env_file_for_owner_market_delivery(tmp_path, monkeypatch):
+    config = tmp_path / 'config.json'
+    config.write_text(json.dumps({'people': [{'user_id': 11111, 'chat_id': 11111, 'role': 'owner'}]}))
+    env_file = tmp_path / 'companion.env'
+    env_file.write_text('TG_COMPANION_BOT_TOKEN=file-token\nIGNORED=bad\n')
+    monkeypatch.delenv('TG_COMPANION_BOT_TOKEN', raising=False)
+    assert load(config).bot_token == ''
+    assert load(config, env_file=env_file).bot_token == 'file-token'
+    monkeypatch.setenv('TG_COMPANION_BOT_TOKEN', 'process-token')
+    assert load(config, env_file=env_file).bot_token == 'process-token'
+    other = tmp_path / 'other'
+    other.mkdir()
+    outside = other / 'outside.env'
+    outside.write_text('TG_COMPANION_BOT_TOKEN=bad\n')
+    with pytest.raises(ValueError, match='beside its config'):
+        load(config, env_file=outside)
 
 
 def test_inbox_is_durable_encrypted_replay_safe_and_bounded(tmp_path):
