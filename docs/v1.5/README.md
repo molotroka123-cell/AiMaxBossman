@@ -1,6 +1,10 @@
-# Bossman 1.5 — Universal Operator: документация
+# Bossman 1.5 — Autonomous Personal Operator
 
-**SPECIFICATION, 2026-09-23.** Target: `release/bossman-owner`. Данная публикация — только документация. Тестовые статусы ниже описаны как будущие критерии, не как выполненные работы.
+**IMPLEMENTATION BRANCH / OWNER LIVE ACCEPTANCE PENDING, 2026-09-24.**
+
+Canonical 1.5 branch: `feat/bossman-1.5-economy-orchestrator-20260924`.
+
+1.5 is no longer only a specification. The branch now contains the autonomy kernel, free-first worker economy, runtime self-repair inbox, isolated repair candidates, owner-input via Telegram, unified UX/CMD owner-run, Twitch OI/CVD collection, YouTube learning ingestion and dedicated 1.5 CI. None of that by itself is a release certificate: the 2026-09-25 owner run must prove the installed/runtime path.
 
 | Документ | Назначение |
 |---|---|
@@ -13,6 +17,7 @@
 | [GAME_STUDIO.md](GAME_STUDIO.md) | Unreal/Game Studio: автономная разработка и проверка оригинального 15-минутного AAA-FPS vertical slice |
 | [MODEL_STACK_REFRESH_2026-09-23.md](MODEL_STACK_REFRESH_2026-09-23.md) | Свежая ревизия локального стека, Xing4 challenger, маршрутизация и owner-hardware A/B |
 | [ACCEPTANCE_AND_LEARNING.md](ACCEPTANCE_AND_LEARNING.md) | 20 классов неизвестных задач, safety-гейты, измерение обучения |
+| [AUTONOMY_SELF_REPAIR.md](AUTONOMY_SELF_REPAIR.md) | Главный контракт 1.5: task failure → isolated repair → verifier → unseen transfer; Telegram/UX/CMD supervision |
 | [ECONOMY_ORCHESTRATOR.md](ECONOMY_ORCHESTRATOR.md) | Jev-managed free-first swarm: 3× Nemotron, Ling tester/coder, capped paid GLM |
 | [CODEX_OWNER_RUN_20260925.md](CODEX_OWNER_RUN_20260925.md) | Завтрашний owner-run: Codex как интегратор, дешёвые модели делают bulk work |
 | [MERGE_TODAY.md](MERGE_TODAY.md) | Пошаговое безопасное сведение сегодняшних delta и exact-SHA |
@@ -22,6 +27,24 @@
 | [contracts/capability-manifest.schema.json](contracts/capability-manifest.schema.json) | Проект формата регистрируемой capability |
 | [contracts/owner-grant.schema.json](contracts/owner-grant.schema.json) | Проект формата делегирования прав на кампанию |
 | [contracts/autonomy-profile.example.json](contracts/autonomy-profile.example.json) | Неактивный пример профиля, НЕ действующее разрешение |
+
+## Что является сутью 1.5
+
+```
+GOAL
+ -> plan / route / execute
+ -> verify
+ -> if code failure: self-repair candidate
+ -> executable test
+ -> independent verifier
+ -> unseen transfer
+ -> verified skill/workflow/memory
+ -> continue
+```
+
+Owner supervision is available through Command Center, CMD and Telegram. The normal runtime does not depend on an external coding/audit agent. Missing ordinary form values can be supplied from the phone and filled by the browser runtime; consequential submit/login/ToS/payment remains under the existing authority gates.
+
+Market observation and training may run in parallel with self-repair. Trading execution remains OFF/PAPER.
 
 ## Обязательное различие
 
@@ -37,6 +60,18 @@
 
 Существующие `never/ask/allowed`, Cost Governor, STOP, approvals, privacy и rollback не заменяются параллельной системой. Новые schemas — проект расширения существующих контрактов, до реализации их нельзя принимать как authority.
 
-## Что считать завершением подготовки
+## Что считать закрытием 1.5
 
-Пакет доступен из целевой ветки, все внутренние ссылки разрешаются, JSON валиден, нет секретов/адресов/голосовых образцов, master prompt называет тот же target и сохраняет сегодняшние fixes. Реализация и слияние продукта имеют отдельные доказательства.
+Минимальный owner-ready результат:
+
+- один UX/CMD start запускает market + self-improvement;
+- Twitch → VERIFIED OI/CVD → Telegram trace проходит;
+- missing browser fields → Telegram owner input → runtime fill проходит без утечки values в model output;
+- planted code defect → durable repair inbox → isolated tested candidate branch проходит;
+- skill/memory/workflow получает unseen-transfer measurement;
+- restart/STOP проходит без duplicate side effect;
+- cost routing остаётся free-first и bounded;
+- обычная работа проходит без внешнего auditor/coding agent;
+- открытых P0 и release-blocking P1 по 1.5 surface нет.
+
+Canonical tomorrow directive: [../owner/CODEX_BOSSMAN_1_5_RUN_20260925.md](../owner/CODEX_BOSSMAN_1_5_RUN_20260925.md).
