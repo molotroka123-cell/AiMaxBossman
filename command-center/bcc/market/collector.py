@@ -237,7 +237,7 @@ def build_record(cap: Capture, reader: extract.Reader | None, *, last_frame_sha:
         rec["evidence"]["detail"] = "STOP before parse: parse aborted"
         return rec
     out = extract.extract(reader, cap.frame)
-    rec["evidence"]["extractor"] = f"{reader.identity} double-read"
+    rec["evidence"]["extractor"] = f"{reader.identity} triple-read-unanimous/v2"
     sym = out["symbol"]
     rec["evidence"]["ocr_raw"]["symbol"] = sym["raw"]
     rec["evidence"]["bbox"]["symbol"] = list(sym["bbox"])
@@ -375,7 +375,10 @@ class Collector:
                     break
                 t0 = time.monotonic()
                 rec = await self.sample_once()
-                wait = self.cadence if rec["source"]["stream_state"] == "LIVE" else self.offline_cadence
+                # a player error is transient (browser reopened): retry at live cadence;
+                # OFFLINE / LOGIN_REQUIRED are re-checked slowly to save calls
+                wait = (self.cadence if rec["source"]["stream_state"] in ("LIVE", "PLAYER_ERROR")
+                        else self.offline_cadence)
                 await self._sleep(max(0.0, wait - (time.monotonic() - t0)))
         finally:
             try:
