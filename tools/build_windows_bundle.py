@@ -121,6 +121,10 @@ SUPPORT_SCRIPTS = (
     (ROOT / "tools" / "worker_client.py", "worker_client.py"),
     (ROOT / "tools" / "distill_recorder.py", "distill_recorder.py"),
     (ROOT / "tools" / "v15_economy_orchestrator.py", "v15_economy_orchestrator.py"),
+    (ROOT / "tools" / "v15_provider_pool.py", "v15_provider_pool.py"),
+    (ROOT / "tools" / "bossman_15_self_improve.py", "bossman_15_self_improve.py"),
+    (ROOT / "tools" / "bossman_15_learning_compile.py", "bossman_15_learning_compile.py"),
+    (ROOT / "tools" / "bossman_15_ling_coder.py", "bossman_15_ling_coder.py"),
     # Same bounded evolution engine used by the product API; no second daemon.
     (ROOT / "tools" / "bossman_evolve.py", "bossman_evolve.py"),
     # Four-clip Bossfield preflight/editor; generation remains governed by Studio.
@@ -132,6 +136,9 @@ SUPPORT_DATA = (
     (ROOT / "config" / "evolution" / "owner-v1.1.json", "config/evolution/owner-v1.1.json"),
     (ROOT / "config" / "evolution" / "local-champions.json", "config/evolution/local-champions.json"),
     (ROOT / "config" / "v1.5" / "economy-orchestrator.json", "config/v1.5/economy-orchestrator.json"),
+    (ROOT / "config" / "v1.5" / "provider-pool.json", "config/v1.5/provider-pool.json"),
+    (ROOT / "config" / "v1.5" / "self-improvement.json", "config/v1.5/self-improvement.json"),
+    (ROOT / "config" / "evolution" / "owner-v1.5-self-improve.json", "config/evolution/owner-v1.5-self-improve.json"),
 )
 
 # Профиль `Owner-Run.cmd self-improve-mvcr` вызывает эти файлы рядом с раннером.
