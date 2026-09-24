@@ -57,8 +57,13 @@ def test_self_improvement_policy_moves_routine_work_off_aster_and_claude():
     cfg = json.loads((ROOT / "config/v1.5/self-improvement.json").read_text(encoding="utf-8"))
     assert cfg["controller"] == "bossman"
     assert cfg["router"] == "jev"
-    assert cfg["external_auditor"] == "optional_red_team_only"
+    assert cfg["external_auditor"] == "bootstrap_then_optional_red_team_only"
     assert cfg["owner_supervisor"] == "telegram_ux_cmd"
+    assert cfg["aster_role"] == "launch_self_improvement_then_detach"
+    assert cfg["exit_gate"]["status"] == "ASTER_DETACHED_CONTINUITY_PASS"
+    assert cfg["exit_gate"]["requires_campaign_started"] is True
+    assert cfg["self_improvement_north_star"]["aster_required_after_bootstrap"] is False
+    assert cfg["provider_pool"]["target_ready_zero_cost_providers"] >= cfg["provider_pool"]["minimum_ready_zero_cost_providers"]
     assert cfg["runtime_repair"]["auto_create_local_candidate_branch"] is True
     assert cfg["runtime_repair"]["auto_write_stable"] is False
     assert cfg["codex_role"] == "owner_integrator_only"
