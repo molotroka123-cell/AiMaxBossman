@@ -50,3 +50,34 @@ index) → `exports/*.csv`; `crops/<day>/` evidence; `reports/`.
   `research.py` only accepts `triple-read-unanimous/v3`.
 - On 480p frames the model invents text ("Epic Material: 50,000"); the label +
   unit validator rejects it.
+
+## Owner analyzer and notifications
+
+`run` processes every observation from the ledger. Only two complete,
+individually VERIFIED v3 observations with the same channel, symbol, exchange,
+timeframe, CVD type, and extractor can enter `bcc.market.analyzer`.
+It normalizes K/M/B/T before calculating deltas and calls
+`learning/trader_apprentice.py` for the single live classification path.
+Historical matches come from the September casebook and canonical CASE files.
+No level is inferred from a value badge; absent levels stay `UNKNOWN`.
+Classification confidence measures the quality of the classification, never
+the chance of profit. Analysis JSON goes to `reports/analyses.jsonl`.
+
+The local Ollama text model may explain the already classified result in
+Russian. Numeric fields, regime, scenarios, case IDs and confidence in the
+Telegram message are rendered deterministically from typed analysis. A failed
+text-model call falls back to deterministic reasons, never to cloud vision or
+to a fabricated number. `reports/delivery.jsonl` records the returned Telegram
+message ID or an error code. Delivery uses the existing Companion configuration
+and outbound transport with its bound owner identity and egress guard. The
+collector keeps collecting if explanation or Telegram fails.
+
+By default, messages are sent for a new regime, level crossing, large CVD/OI
+change, or data-quality transition, with a persistent fingerprint and a
+15-minute cooldown. The owner can use `/market_verbose on|off` in Companion to
+send every verified observation. This switch uses the default collector data
+root; a custom `--root` requires placing/removing `VERBOSE_NOTIFICATIONS` there.
+
+After a restart the last fresh frame SHA and last individually verified v3
+CVD/OI baselines are restored from the JSONL-backed ledger. A repeated frame
+therefore becomes `STALE_FRAME` with null metrics even on the first new attempt.

@@ -132,3 +132,28 @@ class Ledger:
                 "oi_coverage_live": round(oi / live, 4) if live else None,
                 "cvd_coverage_live": round(cvd / live, 4) if live else None,
                 "first": first_last[0], "last": first_last[1]}
+
+    def resume_state(self) -> tuple[str | None, dict[str, float]]:
+        """Recover freshness and jump baselines from durable observations.
+
+        JSONL is authoritative after a crash between append and SQLite insert.
+        Only a fresh frame can become the previous frame; only a calibrated,
+        individually verified metric can become a jump baseline.
+        """
+        self.reindex()
+        frame = None
+        values: dict[str, float] = {}
+        for (raw,) in self.db.execute("SELECT raw FROM observations ORDER BY id DESC"):
+            rec = json.loads(raw)
+            if frame is None and rec["quality"].get("fresh_frame"):
+                frame = rec["evidence"].get("frame_sha256")
+            if (rec["quality"].get("status") == schema.VERIFIED
+                    and "triple-read-unanimous/v3" in (rec["evidence"].get("extractor") or "")):
+                for metric in ("cvd", "oi"):
+                    m = rec["metrics"]
+                    if (metric not in values and m.get(f"{metric}_value") is not None
+                            and rec["quality"].get("per_metric", {}).get(metric, {}).get("status") == schema.VERIFIED):
+                        values[metric] = m[f"{metric}_value"] * schema.UNITS[m[f"{metric}_unit"]]
+            if frame is not None and len(values) == 2:
+                break
+        return frame, values

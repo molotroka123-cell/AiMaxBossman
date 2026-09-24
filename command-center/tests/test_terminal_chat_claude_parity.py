@@ -335,10 +335,51 @@ def test_export_target_refuses_windows_drive_path_on_posix(tmp_path):
 
 
 @pytest.mark.skipif(os.name != "nt", reason="drive-relative / root-relative paths exist only on Windows")
-@pytest.mark.parametrize("raw", ["C:x.md", "\\x.md", "/x.md"])
+@pytest.mark.parametrize("raw", ["C:x.md", "/x.md"])
 def test_export_target_refuses_ambiguous_windows_paths(tmp_path, raw):
     with pytest.raises(ValueError):
         export_target(raw, str(tmp_path))
+
+
+@pytest.mark.parametrize("raw", ["\\x.md", "\\папка\\x.md"])
+def test_export_target_refuses_root_relative_backslash_on_every_os(tmp_path, raw):
+    # red team 2026-09-24: on POSIX `\x.md` became `/x.md` at the filesystem root
+    with pytest.raises(ValueError, match="нет диска"):
+        export_target(raw, str(tmp_path))
+
+
+@pytest.mark.parametrize("raw", ["CON", "nul.md", "aux.md", "папка\\COM1.md", "LPT9", "con .md"])
+def test_export_target_refuses_windows_device_names_on_every_os(tmp_path, raw):
+    with pytest.raises(ValueError, match="устройства"):
+        export_target(raw, str(tmp_path))
+
+
+def test_export_filesystem_error_is_reported_not_a_crash(tmp_path):
+    chat, client, buf = make_chat(tmp_path)
+    client.add_task(1, prompt="x", result="ответ")
+    chat.session.add(1, "вопрос")
+    (tmp_path / "f.md").write_text("файл", encoding="utf-8")
+    chat.cmd_export(slash.parse("/export f.md\\x.md"))              # parent is a FILE
+    assert "не удалось сохранить" in buf.getvalue()
+    assert (tmp_path / "f.md").read_text(encoding="utf-8") == "файл"
+    chat.cmd_export(slash.parse("/export " + "я" * 300 + ".md"))    # name too long for the FS
+    assert buf.getvalue().count("не удалось сохранить") == 2
+
+
+def test_export_without_force_never_overwrites_a_file_that_appeared_after_the_check(tmp_path, monkeypatch):
+    chat, client, buf = make_chat(tmp_path)
+    client.add_task(1, prompt="x", result="ответ")
+    chat.session.add(1, "вопрос")
+    target = tmp_path / "гонка.md"
+    real_export = chat._export_markdown
+
+    def export_then_race():
+        target.write_text("появился между проверкой и записью", encoding="utf-8")
+        return real_export()
+    monkeypatch.setattr(chat, "_export_markdown", export_then_race)
+    chat.cmd_export(slash.parse("/export гонка.md"))
+    assert target.read_text(encoding="utf-8") == "появился между проверкой и записью"
+    assert "файл уже есть" in buf.getvalue()
 
 
 def test_export_unicode_spaces_mixed_separators_and_directory(tmp_path):
