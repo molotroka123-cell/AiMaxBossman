@@ -16,6 +16,7 @@
 | [MERGE_TODAY.md](MERGE_TODAY.md) | Пошаговое безопасное сведение сегодняшних delta и exact-SHA |
 | [CLAUDE_MERGE_MASTER.md](CLAUDE_MERGE_MASTER.md) | Исполняемый handoff локальному Claude, 5 агентов |
 | [SOURCES_AND_BASELINE.md](SOURCES_AND_BASELINE.md) | Проверенные источники, snapshot и неизвестное |
+| [BOSSMAN_15_ECONOMY_SWARM.md](BOSSMAN_15_ECONOMY_SWARM.md) | Jev-managed free-first Nemotron/Ling/GLM workflow, YouTube batch, memory and cost gates |
 | [contracts/source-refs.json](contracts/source-refs.json) | Зафиксированные remote-указатели, которые нужно обновить после fetch |
 | [contracts/capability-manifest.schema.json](contracts/capability-manifest.schema.json) | Проект формата регистрируемой capability |
 | [contracts/owner-grant.schema.json](contracts/owner-grant.schema.json) | Проект формата делегирования прав на кампанию |
@@ -38,3 +39,6 @@
 ## Что считать завершением подготовки
 
 Пакет доступен из целевой ветки, все внутренние ссылки разрешаются, JSON валиден, нет секретов/адресов/голосовых образцов, master prompt называет тот же target и сохраняет сегодняшние fixes. Реализация и слияние продукта имеют отдельные доказательства.
+
+
+Owner execution prompt: [CODEX_BOSSMAN_15_MASTER_RUN_20260925.md](../owner/CODEX_BOSSMAN_15_MASTER_RUN_20260925.md)
