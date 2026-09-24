@@ -1,0 +1,38 @@
+{
+  "event_id": "OWNER-POSITION-2026-09-24-BTC-LONG-84900",
+  "date": "2026-09-24",
+  "market": "BTC",
+  "event_type": "OWNER_ACTUAL_POSITION_UPDATE",
+  "status": "OPEN",
+  "previous_position": {
+    "note": "Owner states prior BTC long was closed at 88,100."
+  },
+  "current_position": {
+    "direction": "LONG",
+    "average_entry_approx": 84900,
+    "allocation_status": {
+      "already_deployed_pct": 70,
+      "reserved_for_adds_pct": 30
+    },
+    "planned_limit_adds": [
+      {"price": 83880, "status": "PENDING"},
+      {"price": 82400, "status": "PENDING"}
+    ],
+    "time_horizon": "MEDIUM_TERM_ACCUMULATION"
+  },
+  "risk_and_learning_notes": [
+    "Do not merge this position with prior closed trade history; this is a new position lifecycle.",
+    "Track current market regime independently from owner entry so hindsight does not rewrite the signal.",
+    "Record each add only when execution is explicitly confirmed; pending limits are not filled positions.",
+    "Do not infer leverage, stop, liquidation price, size in BTC, or realized/unrealized PnL unless owner provides them.",
+    "Compare management decisions against NOW/15m/30m/60m/4h/24h/7D structure and verified dPOC/dVAH/dVAL/dOpen."
+  ],
+  "management_context": {
+    "current_reference_entry": 84900,
+    "planned_add_1": 83880,
+    "planned_add_2": 82400,
+    "reserved_capital_pct": 30,
+    "note": "This file records owner intent/history only; it is not a model-generated trade recommendation."
+  },
+  "promotion_status": "OWNER_CONFIRMED_POSITION_FACT"
+}
