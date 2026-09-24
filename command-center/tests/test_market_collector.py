@@ -423,4 +423,4 @@ def test_research_takes_only_the_calibrated_extractor(tmp_path):
     led.record(old)
     led.close()
     rows = research.load_verified(tmp_path / "market-observations.sqlite")
-    assert len(rows) == 1 and "triple-read-unanimous/v2" in rec["evidence"]["extractor"]
+    assert len(rows) == 1 and "triple-read-unanimous/v3" in rec["evidence"]["extractor"]

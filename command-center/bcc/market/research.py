@@ -31,7 +31,7 @@ from .schema import UNITS
 HORIZONS_MIN = (1, 5, 15, 30)
 TOLERANCE_S = 30
 STATUS = "DATA_COLLECTION"
-ACCEPTED_EXTRACTOR = "triple-read-unanimous/v2"
+ACCEPTED_EXTRACTOR = "triple-read-unanimous/v3"
 
 
 def _ts(s: str) -> datetime:
