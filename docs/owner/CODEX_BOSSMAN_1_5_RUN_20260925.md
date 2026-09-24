@@ -165,6 +165,10 @@ For every discovered video:
 
 Do not train directly on raw transcript/model prose.
 
+**Anti-lookahead:** `future_outcomes` stay local and verifier-only. They are
+intentionally removed from the Nemotron/Ling evidence prompt. Never add them
+back to the worker context to improve a score.
+
 ## Step C — learning and memory
 
 For every useful result:
@@ -188,6 +192,16 @@ Promote only lessons that have:
 Measure BEFORE vs AFTER.
 
 A memory hit without transfer gain is not learning.
+
+For engineering/operations lessons, verified unseen transfer may be compiled
+with `tools/bossman_15_learning_compile.py` into LearningStore + workflow +
+a non-activated skill proposal.
+
+For **trading strategy**, do NOT use the generic compiler. Promotion must go
+through `bossman.trading_learning.TradingMemory.promote()` with its existing
+minimum independent episodes, anti-lookahead, out-of-sample EV, provenance and
+independent-verifier gates. AUTHOR_CLAIM/HYPOTHESIS alone never becomes a
+procedural trading rule.
 
 ## Step D — free coding swarm
 
