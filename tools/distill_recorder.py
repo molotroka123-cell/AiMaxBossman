@@ -33,11 +33,21 @@ DEFAULT_DIR = pathlib.Path(os.environ.get("BOSSMAN_DISTILL_DIR", r"C:\Users\asd\
 LICENSES: dict[str, dict[str, str]] = {
     "nvidia/nemotron-3-ultra-550b-a55b:free": {
         "model_license": "OpenMDW-1.1 (HF nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16 card)",
-        "outputs": "OpenMDW-1.1: 'does not impose any restrictions or obligations with respect to any use, "
-                   "modification, or sharing of any outputs'",
-        "privacy": "OpenRouter :free endpoint served by Nvidia; free endpoints may retain prompts — "
-                   "send no owner-private data or secrets",
+        "outputs": "OpenMDW-1.1: outputs are not restricted by the model license",
+        "privacy": "OpenRouter :free endpoint may retain prompts; public/non-private inputs only",
         "training_use": "ALLOWED_BY_MODEL_LICENSE",
+    },
+    "inclusionai/ling-3.0-flash-fin:free": {
+        "model_license": "UNVERIFIED_IN_REPO",
+        "outputs": "UNVERIFIED_IN_REPO",
+        "privacy": "OpenRouter :free endpoint; public/non-private inputs only",
+        "training_use": "QUARANTINE_UNTIL_LICENSE_VERIFIED",
+    },
+    "z-ai/glm-5.3-flash": {
+        "model_license": "UNVERIFIED_IN_REPO",
+        "outputs": "UNVERIFIED_IN_REPO",
+        "privacy": "Paid OpenRouter endpoint; public/non-private inputs only for this owner run",
+        "training_use": "QUARANTINE_UNTIL_LICENSE_VERIFIED",
     },
 }
 UNKNOWN_LICENSE = {"model_license": "UNVERIFIED", "outputs": "UNVERIFIED", "privacy": "UNVERIFIED",
