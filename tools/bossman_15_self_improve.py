@@ -61,6 +61,74 @@ def api_get(client: CommandCenterApi, path: str) -> dict[str, Any]:
     return {"http": code, "body": body}
 
 
+def _support_script(name: str) -> Path:
+    installed = HERE / name
+    if installed.is_file():
+        return installed
+    checkout = ROOT / "tools" / name
+    if checkout.is_file():
+        return checkout
+    raise RuntimeError(f"support script missing: {name}")
+
+
+def prepare_youtube_inbox(work: Path, youtube_url: str) -> dict[str, Any]:
+    """Read-only public acquisition. Model workers are started later through Bossman API."""
+    economy_cfg = (
+        HERE / "config" / "v1.5" / "economy-orchestrator.json"
+        if (HERE / "config" / "v1.5" / "economy-orchestrator.json").is_file()
+        else ROOT / "config" / "v1.5" / "economy-orchestrator.json"
+    )
+    policy = read_json(economy_cfg)
+    source = youtube_url.strip() or str(policy["youtube"]["channel_url"])
+    manifest = work / "youtube-window.json"
+    inbox = work / "youtube-inbox"
+    batch = _support_script("youtube_trader_ingest_batch.py")
+    discover = run_cmd([
+        sys.executable, str(batch), "discover", "--source-url", source,
+        "--from-date", str(policy["youtube"]["date_from"]),
+        "--to-date", str(policy["youtube"]["date_to"]),
+        "--out", str(manifest),
+    ], cwd=ROOT, timeout=1800, log=work / "youtube-discover.log")
+    if discover["returncode"] != 0:
+        return {"status": "DISCOVERY_FAILED", "source_url": source, "discover": discover}
+    ingest = run_cmd([
+        sys.executable, str(batch), "ingest", "--manifest", str(manifest),
+        "--output-root", str(inbox),
+    ], cwd=ROOT, timeout=8 * 3600, log=work / "youtube-ingest.log")
+    return {
+        "status": "READY" if ingest["returncode"] == 0 else "INGEST_FAILED",
+        "source_url": source, "manifest": str(manifest), "inbox": str(inbox),
+        "discover": discover, "ingest": ingest,
+    }
+
+
+def run_economy_via_bossman(client: CommandCenterApi, *, inbox: Path,
+                            allow_glm: bool, glm_cap: float, timeout_s: float) -> dict[str, Any]:
+    code, body = client.post("/api/v15/economy/start", {
+        "inbox": str(inbox),
+        "allow_paid_finalizer": bool(allow_glm),
+        "glm_cap_usd": float(glm_cap),
+        "run_ling_scenarios": True,
+    })
+    if code != 200 or not isinstance(body, dict):
+        return {"status": "START_REFUSED", "http": code, "body": body}
+    started = time.monotonic()
+    last: dict[str, Any] = {}
+    while time.monotonic() - started < timeout_s:
+        code, status_body = client.get("/api/v15/economy/status")
+        if code == 200 and isinstance(status_body, dict):
+            last = status_body
+            run_state = status_body.get("run") or {}
+            if not status_body.get("running") and run_state.get("status") not in ("RUNNING", "STARTING", None):
+                return {"status": "FINISHED", "start": body, "final": status_body}
+        time.sleep(5.0)
+    try:
+        client.post("/api/v15/economy/stop", {})
+    except Exception:
+        pass
+    return {"status": "TIMEOUT_STOP_REQUESTED", "start": body, "last": last}
+
+
 def preflight(cfg: dict[str, Any], *, repo: Path, data_dir: Path, api_url: str) -> dict[str, Any]:
     source_sha = git("rev-parse", "HEAD", cwd=repo)
     dirty = git("status", "--porcelain", "--untracked-files=normal", cwd=repo)
@@ -250,20 +318,25 @@ def main(argv=None) -> int:
     }
 
     if not ns.skip_economy:
-        economy = HERE / "bossman_15_economy_run.py"
-        if not economy.is_file():
-            economy = ROOT / "tools" / "bossman_15_economy_run.py"
-        cmd = [sys.executable, str(economy), "--out", str(work / "economy")]
-        if ns.youtube_url:
-            cmd += ["--channel", ns.youtube_url]
-        if ns.allow_glm:
-            cmd += ["--allow-glm"]
-        try:
-            report["economy"] = run_cmd(
-                cmd, cwd=repo, timeout=8 * 3600, log=work / "economy-run.log"
-            )
-        except subprocess.TimeoutExpired:
-            report["economy"] = {"returncode": 124, "status": "TIMEOUT"}
+        acquisition = prepare_youtube_inbox(work / "economy-input", ns.youtube_url)
+        report["economy_acquisition"] = acquisition
+        if acquisition.get("status") == "READY":
+            try:
+                client = api(data_dir, ns.api_url)
+                report["economy"] = run_economy_via_bossman(
+                    client,
+                    inbox=Path(acquisition["inbox"]),
+                    allow_glm=ns.allow_glm,
+                    glm_cap=float(cfg["finalizer"]["max_usd_per_campaign"]),
+                    timeout_s=8 * 3600,
+                )
+            except Exception as exc:
+                report["economy"] = {
+                    "status": "BOSSMAN_API_ERROR",
+                    "error": type(exc).__name__ + ": " + str(exc)[:500],
+                }
+        else:
+            report["economy"] = {"status": "INPUT_NOT_READY"}
 
     preferred = ns.student_model or cfg["student"]["preferred_model"]
     cmd = evolution_command(
