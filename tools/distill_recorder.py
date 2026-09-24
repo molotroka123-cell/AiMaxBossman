@@ -27,7 +27,19 @@ import uuid
 from typing import Any
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DEFAULT_DIR = pathlib.Path(os.environ.get("BOSSMAN_DISTILL_DIR", r"C:\Users\asd\Bossman\datasets\distill-20260924"))
+
+
+def _default_dir() -> pathlib.Path:
+    explicit = os.environ.get("BOSSMAN_DISTILL_DIR", "").strip()
+    if explicit:
+        return pathlib.Path(explicit).expanduser()
+    local = os.environ.get("LOCALAPPDATA", "").strip()
+    if local:
+        return pathlib.Path(local) / "Bossman" / "datasets" / "distill"
+    return pathlib.Path.home() / "Bossman" / "datasets" / "distill"
+
+
+DEFAULT_DIR = _default_dir()
 
 # Licence findings per worker model (checked 2026-09-24, sources in the note).
 LICENSES: dict[str, dict[str, str]] = {
