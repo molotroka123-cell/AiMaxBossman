@@ -1,0 +1,34 @@
+from bcc.market.learning_episode import LearningEpisode, TeacherClaim, can_promote
+from bcc.market.video_timeline import TimelineCandidate, build_candidates, cue_priority, dedupe_phash, thin
+
+
+def test_video_timeline_prioritizes_trading_visual_cues():
+    segs = [
+        {"start": 21.0, "text": "normal commentary"},
+        {"start": 42.0, "text": "look here, CVD is changing at this level"},
+    ]
+    rows = build_candidates(duration=60, scene_times=[10, 40], transcript_segments=segs, periodic=15)
+    cue = next(r for r in rows if r.kind == "cue")
+    assert cue.t == 42 and cue.priority >= 65
+    kept = thin(rows, 4)
+    assert any(r.t == 0 for r in kept) and any(r.t == 60 for r in kept)
+    assert any(r.t == 42 for r in kept)
+
+
+def test_phash_dedupe_keeps_high_priority_cue():
+    a = TimelineCandidate(0, "periodic", 10)
+    b = TimelineCandidate(1, "periodic", 10)
+    cue = TimelineCandidate(2, "cue", 65)
+    rows = dedupe_phash([(a, "00"), (b, "01"), (cue, "01")], threshold=2)
+    assert [r[0].t for r in rows] == [0, 2]
+
+
+def test_learning_episode_cannot_self_promote_without_outcome_verifier():
+    ep = LearningEpisode(source_url="https://youtu.be/x", video_id="x", timestamp_s=10,
+                         frame_sha256="a" * 64, extractor_version="v4", observation={},
+                         claims=[TeacherClaim("buy here", "TRIGGER", .9)], status="PROMOTED")
+    assert "promotion_without_outcome_and_verifier" in ep.validate()
+    assert not can_promote(ep)
+    ep.outcome = {"15m": {"ret": 0.01}}
+    ep.verifier_refs = ["ledger:abc"]
+    assert ep.validate() == [] and can_promote(ep)
