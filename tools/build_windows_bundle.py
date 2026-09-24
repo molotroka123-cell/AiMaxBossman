@@ -275,15 +275,6 @@ if errorlevel 1 exit /b 1
 exit /b %ERRORLEVEL%
 """
 
-V15_CMD = r"""@echo off
-setlocal
-rem Bossman 1.5 unified mode: self-improve + Twitch market watch + Telegram owner console.
-set "BOSSMAN_HOME=%~dp0"
-call "%BOSSMAN_HOME%app-support\_env.cmd"
-if errorlevel 1 exit /b 1
-"%BOSSMAN_HOME%runtime\python.exe" "%BOSSMAN_HOME%app-support\bossman_15_owner_run.py" %*
-exit /b %ERRORLEVEL%
-"""
 
 
 MEDIA_SETUP_CMD = r"""@echo off
@@ -386,7 +377,6 @@ def launcher_files() -> dict[str, str]:
         "Evening-Test.cmd": EVENING_CMD,
         "Machine-Report.cmd": MACHINE_CMD,
         "Owner-Run.cmd": OWNER_RUN_CMD,
-        "Bossman-1.5.cmd": V15_CMD,
         "Bossman-1.5.cmd": V15_OWNER_CMD,
         "Media-Setup.cmd": MEDIA_SETUP_CMD,
         "Coaching.cmd": COACHING_CMD,
