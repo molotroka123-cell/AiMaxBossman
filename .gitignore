@@ -111,3 +111,7 @@ astra-security-results/
 
 # Промежуточные снимки долгих замеров: под учёт идёт только завершённый отчёт
 *.partial.json
+
+# Windows-100 gate local evidence
+windows-100-results/
+windows-100-negative/

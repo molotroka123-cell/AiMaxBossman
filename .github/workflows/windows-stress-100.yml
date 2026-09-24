@@ -8,6 +8,7 @@ on:
       - 'release/**'
     paths:
       - 'tools/windows_100_real.py'
+      - 'tools/windows_100_plugin.py'
       - '.github/workflows/windows-stress-100.yml'
       - 'tools/release_candidate.json'
       - 'bossman-core/**'
@@ -48,6 +49,25 @@ jobs:
           python -m pip install -e .
           python -m pip install -e "./bossman-core[dev]"
           python -m pip install -e "./command-center[dev,browser]"
+      # The studio/media checks execute real FFmpeg. Same pinned build as the
+      # Windows bundle (tools/windows_bundle_lock.json), verified by digest.
+      - name: Install pinned FFmpeg (digest-verified)
+        shell: pwsh
+        run: |
+          $lock = Get-Content tools/windows_bundle_lock.json -Raw | ConvertFrom-Json
+          $zip = Join-Path $env:RUNNER_TEMP 'ffmpeg.zip'
+          Invoke-WebRequest -Uri $lock.ffmpeg.url -OutFile $zip
+          $got = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          if ($got -ne $lock.ffmpeg.sha256) { throw "ffmpeg digest mismatch: $got" }
+          Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
+          $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
+          Add-Content $env:GITHUB_PATH $bin
+          & (Join-Path $bin 'ffmpeg.exe') -version | Select-Object -First 1
+      # A deliberately wrong nodeid must turn the gate red — otherwise the gate
+      # proves nothing. Exit 0 here means "the planted fault was caught".
+      - name: Negative control — planted bogus nodeid must fail the gate
+        shell: pwsh
+        run: python tools/windows_100_real.py --negative-control --out windows-100-negative
       - name: Run exactly 100 real product checks
         shell: pwsh
         run: python tools/windows_100_real.py
@@ -56,6 +76,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: windows-100-real-${{ github.sha }}
-          path: windows-100-results/
+          path: |
+            windows-100-results/
+            windows-100-negative/
           if-no-files-found: error
           retention-days: 14
