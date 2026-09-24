@@ -38,6 +38,7 @@ HELP = ("Я Bossman, ваш ИИ-помощник на локальных мод
         "можно просто: «найди в интернете …», «поищи …»\n"
         "/cloud on|off — резерв Claude: только ваше текущее сообщение, без истории и файлов\n"
         "/watch on|off — уведомления о потере связи с Bossman (владелец)\n"
+        "/market_verbose on|off — каждая проверенная запись рынка в Telegram (владелец)\n"
         "/lock — запретить новые поручения (разблокировка локально)\n"
         "/forget — удалить мою историю и профиль (с подтверждением)\n"
         "/privacy — что обо мне хранится; /pause_learning, /resume_learning — пауза обучения\n\n"
@@ -674,6 +675,19 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
             return Reply(title, self.main_menu(person))
         if command == "/jev":
             return await self.jev_command(person, arg, message)
+        if command == "/market_verbose":
+            if person.role != "owner":
+                return "Только владелец может менять уведомления рынка."
+            from bcc.market.ledger import default_root
+            flag = default_root() / "VERBOSE_NOTIFICATIONS"
+            if arg.lower() == "on":
+                flag.parent.mkdir(parents=True, exist_ok=True)
+                flag.write_text("owner", encoding="utf-8")
+            elif arg.lower() == "off":
+                flag.unlink(missing_ok=True)
+            else:
+                return "Используйте /market_verbose on или /market_verbose off."
+            return "Подробные уведомления рынка: " + ("включены" if arg.lower() == "on" else "выключены")
         if command in AGENT_COMMANDS:
             return await self.agent_command(person, command, arg, message)
         if command in REMOVED_DIRECT_COMMANDS:

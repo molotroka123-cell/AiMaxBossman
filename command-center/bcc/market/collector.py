@@ -32,6 +32,8 @@ from PIL import Image
 
 from . import extract, routing, schema
 from .ledger import Ledger, default_root
+from .analyzer import latest_analysis
+from .notify import MarketNotifier
 
 CHANNEL = "k1m6a"
 OWNER_URL = "https://m.twitch.tv/k1m6a"          # the source the owner named
@@ -301,15 +303,15 @@ def build_record(cap: Capture, reader: extract.Reader | None, *, last_frame_sha:
 
 class Collector:
     def __init__(self, root: Path, source: Any, reader: extract.Reader | None, *, cadence: float = 15.0,
-                 offline_cadence: float = 90.0, keep_frames: int = 0):
+                 offline_cadence: float = 90.0, keep_frames: int = 0, notifications: bool = False):
         self.root, self.source, self.reader = Path(root), source, reader
         self.cadence, self.offline_cadence, self.keep_frames = cadence, offline_cadence, keep_frames
         self.ledger = Ledger(self.root)
         self.stop_file = self.root / "STOP"
         self.status_file = self.root / "reports" / "collector-status.json"
         self.status_file.parent.mkdir(parents=True, exist_ok=True)
-        self.last_frame_sha: str | None = None
-        self.last_verified: dict[str, float] = {}
+        self.last_frame_sha, self.last_verified = self.ledger.resume_state()
+        self.notifier = MarketNotifier(self.root) if notifications else None
         self.attempts = 0
         self.started = schema.utc_now()
 
@@ -362,6 +364,22 @@ class Collector:
                 if rec["metrics"][f"{key}_value"] is not None:
                     self.last_verified[key] = rec["metrics"][f"{key}_value"] * schema.UNITS[rec["metrics"][f"{key}_unit"]]
         self._write_status(rec, "running")
+        try:
+            if rec["quality"]["status"] == schema.VERIFIED:
+                analysis = latest_analysis(self.ledger)
+                if analysis and analysis["timestamp"] == rec["captured_at_utc"]:
+                    path = self.root / "reports" / "analyses.jsonl"
+                    with path.open("a", encoding="utf-8") as output:
+                        output.write(json.dumps(analysis, ensure_ascii=False) + "\n")
+            if self.notifier:
+                delivery = await self.notifier.process(self.ledger, rec)
+                with (self.root / "reports" / "delivery.jsonl").open("a", encoding="utf-8") as output:
+                    output.write(json.dumps(delivery, ensure_ascii=False) + "\n")
+        except Exception as exc:
+            # Telegram/Jev/local explanation are optional surfaces. Collection continues.
+            with (self.root / "reports" / "delivery.jsonl").open("a", encoding="utf-8") as output:
+                output.write(json.dumps({"sent": False, "error": type(exc).__name__,
+                                         "at": rec["captured_at_utc"]}) + "\n")
         return rec
 
     async def run(self, *, minutes: float | None = None, max_attempts: int | None = None) -> int:
@@ -440,7 +458,8 @@ def main(argv: list[str] | None = None) -> int:
     reader = extract.CachedReader(extract.OllamaVisionReader())
     source = TwitchSource(headless=not ns.headed)
     keep = ns.samples if ns.command == "calibrate" else ns.keep_frames
-    col = Collector(root, source, reader, cadence=ns.cadence, offline_cadence=ns.offline_cadence, keep_frames=keep)
+    col = Collector(root, source, reader, cadence=ns.cadence, offline_cadence=ns.offline_cadence,
+                    keep_frames=keep, notifications=ns.command == "run")
     try:
         n = asyncio.run(col.run(minutes=ns.minutes,
                                 max_attempts=ns.samples if ns.command == "calibrate" else None))

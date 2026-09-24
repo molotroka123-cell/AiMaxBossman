@@ -22,6 +22,8 @@ from bcc import market
 from bcc.market import collector, extract, routing, schema
 from bcc.market.collector import Capture, Collector, build_record
 from bcc.market.ledger import Ledger
+from bcc.market.analyzer import analyze_pair
+from bcc.market.notify import format_message
 
 
 class FakeReader:
@@ -225,6 +227,47 @@ def test_ledger_jsonl_sqlite_csv_and_dedupe(tmp_path):
         bad = json.loads(json.dumps(rec))
         bad["quality"]["fresh_frame"] = False
         led.record(bad)
+
+
+def test_restart_restores_fresh_frame_and_verified_baselines(tmp_path):
+    led = Ledger(tmp_path)
+    rec = build_record(live(frame(), sha="a" * 64), FakeReader(), last_frame_sha=None)
+    led.record(rec)
+    led.close()
+    class Source:
+        async def capture(self):
+            return live(frame(), sha="a" * 64)
+        async def close(self):
+            pass
+    resumed = Collector(tmp_path, Source(), FakeReader())
+    assert resumed.last_frame_sha == "a" * 64
+    assert resumed.last_verified == {"cvd": 74.44e9, "oi": 19.57e9}
+    stale = asyncio.run(resumed.sample_once())
+    assert stale["quality"]["status"] == schema.STALE_FRAME
+    assert all(stale["metrics"][k] is None for k in schema.METRIC_KEYS)
+    resumed.ledger.close()
+
+
+def test_live_analyzer_uses_apprentice_semantics_and_rejects_missing():
+    previous = build_record(live(frame(), sha="a" * 64),
+                            FakeReader({"cvd": ["CVD 75.32B"], "oi": ["Open Interest 19.52B"]}),
+                            last_frame_sha=None)
+    latest = build_record(live(frame(), sha="b" * 64),
+                          FakeReader({"cvd": ["CVD 74.32B"], "oi": ["Open Interest 19.62B"],
+                                      "price": ["83,765"]}), last_frame_sha="a" * 64)
+    previous["captured_at_utc"] = "2026-09-24T00:00:00Z"
+    latest["captured_at_utc"] = "2026-09-24T00:00:15Z"
+    analysis = analyze_pair(previous, latest)
+    assert analysis["regime"] == "BEARISH_LEVERAGE_EXPANSION"
+    assert analysis["delta_cvd"] == -1e9
+    assert analysis["case_matches"]
+    message = format_message(analysis, "Падение цены и CVD при росте OI означает расширение плеча.")
+    assert "РЕЖИМ: BEARISH_LEVERAGE_EXPANSION" in message
+    assert "74.32B" in message and "19.62B" in message
+    assert "70%" not in message
+    latest["metrics"]["oi_value"] = None
+    with pytest.raises(ValueError):
+        analyze_pair(previous, latest)
 
 
 # ------------------------------------------------------------------ loop / STOP / restart
