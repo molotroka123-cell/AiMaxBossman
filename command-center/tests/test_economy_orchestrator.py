@@ -6,9 +6,10 @@ from types import SimpleNamespace
 import pytest
 
 from bcc.economy_orchestrator import (
-    BudgetExceeded, EconomyOrchestrator, JevEconomyController, PaidViolation,
+    BossmanOpenRouter, BudgetExceeded, EconomyOrchestrator, JevEconomyController, PaidViolation,
     SpendLedger, TrainingRound, ROLE_SPECS, model_policy,
 )
+from bcc.providers import ChatResult, ProviderError
 
 
 def result(*, tin=1000, tout=100, cost=None):
@@ -121,3 +122,30 @@ def test_policy_declares_jev_controller_and_no_live_trading():
     assert p["auditor"] == "aster_external_only"
     assert p["rules"]["three_independent_nemotron_agents"] is True
     assert p["rules"]["live_trading"] is False
+
+
+
+def test_free_worker_retries_transient_rate_limit_without_paid_fallback(monkeypatch):
+    class Flaky:
+        def __init__(self):
+            self.calls = 0
+
+        async def chat(self, *args, **kwargs):
+            self.calls += 1
+            if self.calls < 3:
+                raise ProviderError("лимит запросов провайдера (429): попробуйте позже", kind="http")
+            return ChatResult(text="ok", tokens_in=10, tokens_out=2,
+                              provider_meta={"usage": {"cost": 0}})
+
+    async def no_sleep(_seconds):
+        return None
+
+    adapter = Flaky()
+    gw = BossmanOpenRouter(key="test")
+    monkeypatch.setattr(gw, "_adapter", lambda _spec: adapter)
+    monkeypatch.setattr("bcc.economy_orchestrator.asyncio.sleep", no_sleep)
+    out = asyncio.run(gw.chat("nemotron_evidence", [{"role": "user", "content": "public evidence"}]))
+    assert out.text == "ok"
+    assert adapter.calls == 3
+    assert len(gw.retry_events) == 2
+    assert gw.ledger.spent_usd == 0
