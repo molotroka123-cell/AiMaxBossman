@@ -33,6 +33,7 @@ HELP = ("Я Bossman, ваш ИИ-помощник на локальных мод
         "/fill Поле=значение; ... — заполнить видимую форму через Bossman, без отправки/оплаты\n"
         "/confirm код — подтвердить ровно это поручение\n"
         "/approvals — подтвердить или отклонить ожидающие действия Bossman (владелец)\n"
+        "/inputs — какие данные нужны Bossman для формы; /input ID key=value — ответить с телефона\n"
         "/stop — остановить всё, что ещё можно остановить; /pause — пауза; /resume — продолжить\n"
         "/evolution_status, /evolution_start, /evolution_pause, /evolution_resume, /evolution_stop, /evolution_report — цикл улучшения (владелец)\n"
         "/result ID — состояние и результат своей задачи\n"
@@ -1226,6 +1227,44 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
                 continue  # uncertain send is not replayed on restart
             self.store.put(key, 'delivered')
 
+    async def notify_owner_inputs(self):
+        """Proactively tell the owner about missing form fields; never include values."""
+        owner = next((p for p in self.settings.people if p.role == "owner"), None)
+        if owner is None or not self.console_allowed(owner):
+            return
+        try:
+            current = self.policy_provider()
+            if owner not in current.people:
+                return
+            rows = await self.core.owner_inputs()
+        except (CompanionError, OSError, ValueError, TypeError):
+            return
+        for row in rows[:10]:
+            rid = str(row.get("id") or "")
+            if not rid:
+                continue
+            key = "owner_input_notified:" + rid
+            if self.store.get(key) is not None:
+                continue
+            fields = row.get("fields") if isinstance(row.get("fields"), list) else []
+            labels = [str(f.get("label") or f.get("key"))[:80] for f in fields if isinstance(f, dict)]
+            body = (
+                "✍️ Bossman ждёт данные, чтобы продолжить форму.\n"
+                f"Запрос: {rid}\n"
+                f"Контекст: {str(row.get('context') or 'форма')[:300]}\n"
+                f"Поля: {', '.join(labels) or '(не указаны)'}\n\n"
+                f"Ответьте: /input {rid} key=value; key2=value\n"
+                "Bossman сам вставит значения. Отправка формы/регистрация/ToS остаются отдельным подтверждением."
+            )
+            self.store.put(key, "delivery_pending_or_unknown")
+            try:
+                await self.telegram.send(
+                    owner, body,
+                    [[self.button(owner, "✍️ Показать все запросы", "/inputs")]])
+            except CompanionError:
+                continue
+            self.store.put(key, "delivered")
+
     async def monitor(self):
         owner = next(p for p in self.settings.people if p.role == "owner")
         ticks = 0
@@ -1236,6 +1275,7 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
                 self.store.prune()
                 self.store.prune_learning(self.settings.retention_days)
             await self.notify_tasks()
+            await self.notify_owner_inputs()
             with contextlib.suppress(CompanionError):
                 await self.refresh_profiles()
             if not self.store.get("watch", False):
