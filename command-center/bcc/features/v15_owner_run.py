@@ -67,6 +67,32 @@ async def status(request: Request):
     return out
 
 
+@router.post("/quick-test")
+async def quick_test(request: Request):
+    svc = request.app.state.svc
+    out = _call(svc, "status")
+    problems = []
+    if not _script().is_file():
+        problems.append("runner_missing")
+    if not (os.environ.get("BOSSMAN_JEV_API_KEY") or os.environ.get("TYPESAFE_API_KEY")):
+        problems.append("jev_key_missing")
+    openrouter = bool(
+        os.environ.get("OPENROUTER_API_KEY")
+        or os.environ.get("BOSSMAN_OPENROUTER_API_KEY")
+        or (Path(os.environ.get("LOCALAPPDATA", "")) / "Bossman" / "secrets" / "openrouter-test.env").is_file()
+    )
+    if not openrouter:
+        problems.append("openrouter_key_missing")
+    return {
+        "status": "READY" if not problems else "OWNER_REQUIRED",
+        "problems": problems,
+        "runner": str(_script()),
+        "market_trading_execution": "OFF",
+        "stable_auto_write": False,
+        "current": out,
+    }
+
+
 @router.post("/start")
 async def start(body: StartBody, request: Request):
     out = _call(request.app.state.svc, "start", body)
