@@ -1,0 +1,61 @@
+name: Bossman 1.5 Economy CI
+
+on:
+  push:
+    branches:
+      - feat/bossman-1.5-economy-orchestrator-20260924
+    paths:
+      - 'command-center/bcc/economy_orchestrator.py'
+      - 'command-center/bcc/features/v15_economy.py'
+      - 'command-center/tests/test_economy_orchestrator.py'
+      - 'tools/v15_economy_orchestrator.py'
+      - 'tools/bossman_15_economy_run.py'
+      - 'tools/bossman_15_ling_coder.py'
+      - 'tools/bossman_15_learning_compile.py'
+      - 'tools/distill_recorder.py'
+      - 'tools/worker_client.py'
+      - 'tools/youtube_trader_ingest*.py'
+      - 'config/v1.5/**'
+      - 'tests/test_v15_economy_orchestrator.py'
+      - 'tests/test_bossman_15_economy_tools.py'
+      - 'tests/test_distill_recorder.py'
+      - 'tests/test_windows_bundle_contract.py'
+      - '.github/workflows/v15-economy-ci.yml'
+  pull_request:
+    paths:
+      - 'command-center/bcc/economy_orchestrator.py'
+      - 'command-center/bcc/features/v15_economy.py'
+      - 'tools/v15_economy_orchestrator.py'
+      - 'config/v1.5/**'
+      - 'tests/test_v15_economy_orchestrator.py'
+      - 'tests/test_bossman_15_economy_tools.py'
+      - '.github/workflows/v15-economy-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v15-economy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  economy-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install Bossman test runtime
+        run: |
+          python -m pip install --disable-pip-version-check -e ./bossman-core -e ./command-center pytest
+      - name: Compile 1.5 economy surfaces
+        run: |
+          python -m py_compile             command-center/bcc/economy_orchestrator.py             command-center/bcc/features/v15_economy.py             tools/v15_economy_orchestrator.py             tools/bossman_15_economy_run.py             tools/bossman_15_ling_coder.py             tools/bossman_15_learning_compile.py             tools/distill_recorder.py
+      - name: Economy, learning and packaging contracts
+        run: |
+          python -m pytest -q             command-center/tests/test_economy_orchestrator.py             tests/test_v15_economy_orchestrator.py             tests/test_bossman_15_economy_tools.py             tests/test_distill_recorder.py             tests/test_windows_bundle_contract.py::test_v15_economy_runtime_is_shipped_with_its_policy
