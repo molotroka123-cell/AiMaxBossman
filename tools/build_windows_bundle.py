@@ -114,6 +114,13 @@ SUPPORT_SCRIPTS = (
     # Jev (browser fast path + decision provider) — только shadow и выключен по
     # умолчанию; раннер без флагов проверяет лишь ключ и конфиг (exit 3).
     (ROOT / "tools" / "jev_shadow_owner.py", "jev_shadow_owner.py"),
+    # Bossman 1.5 economy lane: public YouTube ingest + free-first worker swarm.
+    (ROOT / "tools" / "youtube_trader_ingest.py", "youtube_trader_ingest.py"),
+    (ROOT / "tools" / "youtube_trader_ingest_auto.py", "youtube_trader_ingest_auto.py"),
+    (ROOT / "tools" / "youtube_trader_ingest_batch.py", "youtube_trader_ingest_batch.py"),
+    (ROOT / "tools" / "worker_client.py", "worker_client.py"),
+    (ROOT / "tools" / "distill_recorder.py", "distill_recorder.py"),
+    (ROOT / "tools" / "v15_economy_orchestrator.py", "v15_economy_orchestrator.py"),
     # Same bounded evolution engine used by the product API; no second daemon.
     (ROOT / "tools" / "bossman_evolve.py", "bossman_evolve.py"),
     # Four-clip Bossfield preflight/editor; generation remains governed by Studio.
@@ -124,6 +131,7 @@ SUPPORT_DATA = (
     (ROOT / "tools" / "model_profiles.json", "model_profiles.json"),
     (ROOT / "config" / "evolution" / "owner-v1.1.json", "config/evolution/owner-v1.1.json"),
     (ROOT / "config" / "evolution" / "local-champions.json", "config/evolution/local-champions.json"),
+    (ROOT / "config" / "v1.5" / "economy-orchestrator.json", "config/v1.5/economy-orchestrator.json"),
 )
 
 # Профиль `Owner-Run.cmd self-improve-mvcr` вызывает эти файлы рядом с раннером.
