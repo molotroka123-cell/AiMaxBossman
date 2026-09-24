@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "economy-routing-truth",
+      "role": "train",
+      "goal": "Keep Bossman 1.5 free-first routing truthful, bounded and fail-closed under provider failures and Jev fallback.",
+      "tests": [
+        "command-center/tests/test_economy_orchestrator.py",
+        "tests/test_v15_economy_orchestrator.py"
+      ],
+      "editable": [
+        "command-center/bcc/economy_orchestrator.py",
+        "tools/v15_economy_orchestrator.py"
+      ]
+    },
+    {
+      "id": "economy-restart-fencing",
+      "role": "train",
+      "goal": "Preserve durable STOP, restart fencing and one-live-worker semantics for the 1.5 economy campaign.",
+      "tests": [
+        "command-center/tests/test_v15_economy_feature.py"
+      ],
+      "editable": [
+        "command-center/bcc/features/v15_economy.py"
+      ]
+    },
+    {
+      "id": "free-worker-coding-sandbox",
+      "role": "train",
+      "goal": "Keep the low-cost Ling coding worker inside its bounded worktree and preserve executable-test verification.",
+      "tests": [
+        "tests/test_bossman_15_economy_tools.py"
+      ],
+      "editable": [
+        "tools/bossman_15_ling_coder.py",
+        "tools/worker_client.py"
+      ]
+    },
+    {
+      "id": "verified-learning-compiler",
+      "role": "train",
+      "goal": "Compile only independently verified unseen-transfer gains into reusable lessons/workflows; never self-promote trading claims.",
+      "tests": [
+        "tests/test_bossman_15_economy_tools.py",
+        "tests/test_learning_store_authority.py"
+      ],
+      "editable": [
+        "tools/bossman_15_learning_compile.py",
+        "learning/lessons.py"
+      ]
+    },
+    {
+      "id": "v15-security-regression",
+      "role": "regression",
+      "goal": "Never trade live, never bypass approvals/budgets/privacy, and never let model prose substitute for verifier evidence.",
+      "tests": [
+        "tests/test_learning_store_authority.py",
+        "command-center/tests/test_provider_governance_memory.py",
+        "command-center/tests/test_jev_decision.py",
+        "bossman-core/tests/test_trading_safety.py",
+        "bossman-core/tests/test_learning_guard.py"
+      ],
+      "editable": []
+    }
+  ]
+}
