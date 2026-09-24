@@ -112,6 +112,7 @@ async def run_agent(worktree: pathlib.Path, task: str) -> dict[str, Any]:
     claim = None
     summary = ""
     transcript = []
+    successful_tests: list[str] = []
     for step in range(1, MAX_STEPS + 1):
         res = await gateway.chat("ling_coder", messages, tools=TOOLS)
         assistant: dict[str, Any] = {"role": "assistant", "content": res.text or ""}
@@ -135,12 +136,22 @@ async def run_agent(worktree: pathlib.Path, task: str) -> dict[str, Any]:
                 finished = True
             else:
                 result = execute(worktree, call.name, call.arguments)
+                if call.name == "run_tests" and result.startswith("exit_code=0"):
+                    successful_tests.append(str(call.arguments.get("command") or "")[:500])
             messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
         if finished:
+            if claim == "DONE" and not successful_tests:
+                messages.append({"role": "user", "content":
+                                 "DONE is refused until at least one relevant run_tests call exits 0. "
+                                 "Run an executable verifier, then finish again."})
+                finished = False
+                continue
             return {"claim": claim, "summary": summary, "steps": step,
-                    "transcript": transcript, "cost": gateway.ledger.rows}
+                    "transcript": transcript, "successful_tests": successful_tests,
+                    "cost": gateway.ledger.rows}
     return {"claim": "BLOCKED", "summary": "step limit reached", "steps": MAX_STEPS,
-            "transcript": transcript, "cost": gateway.ledger.rows}
+            "transcript": transcript, "successful_tests": successful_tests,
+            "cost": gateway.ledger.rows}
 
 
 async def main_async(ns) -> int:
