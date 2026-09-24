@@ -84,8 +84,16 @@ class MarketNotifier:
         elif status != self.state.get("last_quality"):
             fingerprint = "quality:" + status
         now = time.time()
-        if not fingerprint or (fingerprint == self.state.get("fingerprint")
-                               and now - self.state.get("sent_at", 0) < 900):
+        recent = self.state.get("recent_fingerprints", {})
+        if not isinstance(recent, dict):
+            recent = {}
+        recent = {key: at for key, at in recent.items()
+                  if isinstance(at, (int, float)) and now - at < 900}
+        self.state["recent_fingerprints"] = recent
+        if not fingerprint or (not verbose and (
+                now - recent.get(fingerprint, 0) < 900 or
+                (fingerprint == self.state.get("fingerprint")
+                 and now - self.state.get("sent_at", 0) < 900))):
             self._save()
             return {"sent": False, "reason": "unchanged_or_cooldown"}
         if analysis:
@@ -114,6 +122,7 @@ class MarketNotifier:
         finally:
             await tg.close()
         self.state.update(fingerprint=fingerprint, sent_at=now, last_quality=status)
+        recent[fingerprint] = now
         if analysis:
             self.state["last_regime"] = analysis["regime"]
         self._save()

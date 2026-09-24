@@ -23,7 +23,7 @@ from bcc.market import collector, extract, routing, schema
 from bcc.market.collector import Capture, Collector, build_record
 from bcc.market.ledger import Ledger
 from bcc.market.analyzer import analyze_pair
-from bcc.market.notify import format_message
+from bcc.market.notify import MarketNotifier, format_message
 
 
 def test_installed_market_cases_match_canonical_source():
@@ -37,6 +37,24 @@ def test_installed_market_cases_match_canonical_source():
                                                 if p.name.endswith((".json", ".jsonl"))}
     for source in originals:
         assert shipped.joinpath(source.name).read_bytes() == source.read_bytes()
+
+
+def test_notification_cooldown_survives_restart_and_intervening_state(tmp_path, monkeypatch):
+    import time
+
+    state_path = tmp_path / "reports" / "notification-state.json"
+    state_path.parent.mkdir()
+    state_path.write_text(json.dumps({
+        "fingerprint": "quality:PLAYER_ERROR", "last_quality": "PLAYER_ERROR",
+        "sent_at": time.time(),
+        "recent_fingerprints": {"quality:AMBIGUOUS_SYMBOL": time.time()},
+    }), encoding="utf-8")
+    notifier = MarketNotifier(tmp_path)
+    ledger = type("LedgerStub", (), {"root": tmp_path})()
+    rec = {"quality": {"status": "AMBIGUOUS_SYMBOL"}}
+    result = asyncio.run(notifier.process(ledger, rec))
+    assert result == {"sent": False, "reason": "unchanged_or_cooldown"}
+    assert "quality:AMBIGUOUS_SYMBOL" in MarketNotifier(tmp_path).state["recent_fingerprints"]
 
 
 class FakeReader:
