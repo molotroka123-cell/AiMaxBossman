@@ -10,6 +10,7 @@ Model output never self-promotes. Trading execution remains OFF/PAPER only.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import pathlib
@@ -27,12 +28,19 @@ for item in (TOOLS, CC, ROOT / "bossman-core"):
         sys.path.insert(0, str(item))
 
 from distill_recorder import Recorder
-from worker_client import Worker
+from bcc.economy_orchestrator import BossmanOpenRouter, SpendLedger, ROLE_SPECS
 
 _INSTALLED_POLICY = HERE / "config" / "v1.5" / "economy-orchestrator.json"
 DEFAULT_POLICY = (_INSTALLED_POLICY if _INSTALLED_POLICY.is_file()
                   else ROOT / "config" / "v1.5" / "economy-orchestrator.json")
 NEMOTRON_ROLES = ("nemotron_extract", "nemotron_skeptic", "nemotron_curriculum")
+ROLE_TO_CORE = {
+    "nemotron_extract": "nemotron_evidence",
+    "nemotron_skeptic": "nemotron_adversary",
+    "nemotron_curriculum": "nemotron_strategy",
+    "ling_coder": "ling_coder",
+    "glm_finalizer": "glm_finalizer",
+}
 STOP_NAME = "STOP"
 
 ROLE_PROMPTS = {
@@ -187,16 +195,52 @@ def _case_digest(video_dir: pathlib.Path, max_chars: int = 60000) -> str:
     return json.dumps(rows, ensure_ascii=False)
 
 
-def _worker(policy: dict, role: str, recorder: Recorder, paid_cap: float) -> Worker:
+class _BossmanWorker:
+    """Compatibility shim for the CLI: inference still goes through Bossman governance."""
+
+    def __init__(self, gateway: BossmanOpenRouter, role: str, recorder: Recorder):
+        self.gateway = gateway
+        self.role = ROLE_TO_CORE[role]
+        self.model = ROLE_SPECS[self.role].model
+        self.recorder = recorder
+
+    def chat(self, messages, *, task_class: str, max_tokens: int, temperature: float) -> dict:
+        try:
+            result = asyncio.run(self.gateway.chat(self.role, messages, max_tokens=max_tokens))
+            usage = {"prompt_tokens": result.tokens_in, "completion_tokens": result.tokens_out}
+            row = self.gateway.ledger.rows[-1] if self.gateway.ledger.rows else {}
+            usage["cost"] = row.get("cost_usd", 0.0)
+            rid = self.recorder.record(
+                model=self.model, task_class=task_class, messages=messages,
+                response_text=result.text, tool_calls=[
+                    {"id": t.id, "name": t.name, "arguments": t.arguments}
+                    for t in result.tool_calls
+                ],
+                usage=usage, verdict="UNVERIFIED",
+                verifier="", curator_note="Bossman 1.5 economy worker output; quarantine until verified.",
+            )
+            return {"text": result.text, "error": None, "record_id": rid,
+                    "budget": self.budget()}
+        except Exception as exc:
+            return {"text": "", "error": f"{type(exc).__name__}: {exc}",
+                    "record_id": None, "budget": self.budget()}
+
+    def budget(self) -> dict:
+        return {"spent_usd": round(self.gateway.ledger.spent_usd, 8),
+                "max_total_cost_usd": self.gateway.ledger.glm_budget_usd,
+                "rows": list(self.gateway.ledger.rows)}
+
+
+def _worker(policy: dict, role: str, recorder: Recorder, paid_cap: float,
+            gateway: BossmanOpenRouter) -> _BossmanWorker:
     spec = policy["roles"][role]
-    return Worker(
-        policy["openrouter_base"], spec["model"], recorder=recorder,
-        allow_paid=bool(spec.get("paid")),
-        max_total_cost_usd=paid_cap if spec.get("paid") else 0.0,
-    )
+    core = ROLE_SPECS[ROLE_TO_CORE[role]]
+    if spec["model"] != core.model:
+        raise ValueError(f"{role}: policy model differs from Bossman role binding")
+    return _BossmanWorker(gateway, role, recorder)
 
 
-def _call(worker: Worker, role: str, evidence: str, reports: str = "") -> dict:
+def _call(worker: _BossmanWorker, role: str, evidence: str, reports: str = "") -> dict:
     messages = [
         {"role": "system", "content": ROLE_PROMPTS[role]},
         {"role": "user", "content": (
@@ -232,6 +276,7 @@ def run(policy: dict, inbox: pathlib.Path, out: pathlib.Path, *,
     (out / "run-state.json").write_text(
         json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
     recorder = Recorder("v15-economy")
+    gateway = BossmanOpenRouter(ledger=SpendLedger(glm_budget_usd=paid_cap))
     jev = JevCoordinator(require=require_jev)
     max_glm_calls = int(policy["budget"]["glm_max_calls"])
 
@@ -257,13 +302,13 @@ def run(policy: dict, inbox: pathlib.Path, out: pathlib.Path, *,
             role = route.choice
             pending.remove(role)
             reports.append({
-                **_call(_worker(policy, role, recorder, paid_cap), role, evidence),
+                **_call(_worker(policy, role, recorder, paid_cap, gateway), role, evidence),
                 "jev": asdict(route),
             })
 
         reports_json = json.dumps([row["parsed"] for row in reports], ensure_ascii=False)
         ling = _call(
-            _worker(policy, "ling_coder", recorder, paid_cap),
+            _worker(policy, "ling_coder", recorder, paid_cap, gateway),
             "ling_coder", evidence, reports_json,
         )
         ling_obj = ling.get("parsed") or {}
@@ -281,7 +326,7 @@ def run(policy: dict, inbox: pathlib.Path, out: pathlib.Path, *,
                 {"glm_finalizer": policy["roles"]["glm_finalizer"]["purpose"]},
                 "paid_allowed=true; free verifier did not PASS",
             )
-            paid = _worker(policy, "glm_finalizer", recorder, paid_cap)
+            paid = _worker(policy, "glm_finalizer", recorder, paid_cap, gateway)
             glm = {
                 **_call(
                     paid, "glm_finalizer", evidence,
