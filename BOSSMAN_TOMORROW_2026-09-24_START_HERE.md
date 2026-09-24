@@ -30,6 +30,12 @@ This file is the single entrypoint for tomorrow's work.
    - Then LoRA/SFT -> preference stage only if it wins blind evaluation.
    - See [H200_TRAINING_PLAN.md](docs/tomorrow-2026-09-24/H200_TRAINING_PLAN.md).
 
+4. **JEV TWITCH OI/CVD COLLECTOR**
+   - On the owner PC, observe `https://m.twitch.tv/k1m6a` and build a local evidence-backed OI/CVD time series.
+   - Jev handles low-risk browser observation/routing; video/canvas extraction escalates to local screenshot + vision/OCR.
+   - Data collection only: no exchange order placement, no credentials, no auto-trading.
+   - See [JEV_TWITCH_OI_CVD_COLLECTOR.md](docs/tomorrow-2026-09-24/JEV_TWITCH_OI_CVD_COLLECTOR.md).
+
 Game Studio remains the next reuse target for the same generate -> render/play -> critique -> repair loop. The WebDesigner pipeline is deliberately built so its evaluator/training machinery can later be reused by Game Studio.
 
 ## Definition of tomorrow's useful progress
@@ -63,5 +69,6 @@ Read in order:
 10. [TOMORROW_RUNBOOK.md](docs/tomorrow-2026-09-24/TOMORROW_RUNBOOK.md)
 11. [GAME_STUDIO_NEXT.md](docs/tomorrow-2026-09-24/GAME_STUDIO_NEXT.md)
 12. [TODAY_HANDOFF_2026-09-23.md](docs/tomorrow-2026-09-24/TODAY_HANDOFF_2026-09-23.md)
+13. [JEV_TWITCH_OI_CVD_COLLECTOR.md](docs/tomorrow-2026-09-24/JEV_TWITCH_OI_CVD_COLLECTOR.md)
 
 Do not call a model "Claude-level" from training loss, a screenshot cherry-pick, or an internet benchmark. That claim is allowed only from the frozen blind evaluation described in this package.
