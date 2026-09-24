@@ -424,3 +424,16 @@ def test_research_takes_only_the_calibrated_extractor(tmp_path):
     led.close()
     rows = research.load_verified(tmp_path / "market-observations.sqlite")
     assert len(rows) == 1 and "triple-read-unanimous/v3" in rec["evidence"]["extractor"]
+
+
+def test_report_counts_from_the_ledger(tmp_path):
+    from bcc.market import report
+    led = Ledger(tmp_path)
+    led.record(build_record(live(frame()), FakeReader(), last_frame_sha=None))
+    led.record(build_record(live(frame(), sha="c" * 64, t1=10.0), FakeReader(), last_frame_sha=None))
+    led.close()
+    st = report.window_stats(tmp_path / "market-observations.sqlite", "2000-01-01", None)
+    assert st["attempted"] == 2 and st["by_status"] == {"VERIFIED": 1, "STALE_FRAME": 1}
+    assert st["stale_or_unreadable_rows_with_numbers"] == 0 and st["duplicate_frames"] == 0
+    md = report.render(st, calibration=None, meta={"blockers": ["x"], "next_action": "y"})
+    assert "DATA_COLLECTION" in md and "| Attempted | 2 |" in md
