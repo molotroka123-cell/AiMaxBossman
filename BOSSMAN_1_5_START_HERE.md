@@ -2,7 +2,7 @@
 
 Дата решения владельца: 2026-09-23; обновление реализации: 2026-09-24.
 
-**Статус: IMPLEMENTED ON DEDICATED 1.5 BRANCH / OWNER LIVE ACCEPTANCE PENDING.**
+**Статус: CODE_COMPLETE / FROZEN FOR OWNER RUN / OWNER LIVE ACCEPTANCE PENDING.**
 
 Каноническая ветка 1.5: `feat/bossman-1.5-economy-orchestrator-20260924`.
 Bossman 1.0 остаётся отдельной release-линей до своего freeze/tag. Не переносить 1.5 feature-коммиты в 1.0 ради удобства.
@@ -55,3 +55,8 @@ Bossman 1.0 остаётся отдельной release-линей до свое
 Затем planted defect → isolated repair candidate → verifier → unseen transfer.
 
 Canonical directive: [docs/owner/CODEX_BOSSMAN_1_5_RUN_20260925.md](docs/owner/CODEX_BOSSMAN_1_5_RUN_20260925.md).
+
+
+## CODE FREEZE
+
+Кодовая линия 1.5 заморожена. Новые фичи до owner-run запрещены. Канонический freeze: [docs/v1.5/BOSSMAN_1_5_CODE_FREEZE_20260925.md](docs/v1.5/BOSSMAN_1_5_CODE_FREEZE_20260925.md).
