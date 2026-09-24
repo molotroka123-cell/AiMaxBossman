@@ -7,7 +7,14 @@
     "multi_account_limit_evasion": false,
     "prefer_zero_cost": true,
     "unknown_price_is_blocked": true,
-    "private_data_to_free_cloud": false
+    "private_data_to_free_cloud": false,
+    "provider_onboarding_mode": "OWNER_REQUIRED_PARALLEL_NONBLOCKING",
+    "aster_may_open_signup_page": true,
+    "aster_may_fill_nonsecret_fields": true,
+    "aster_may_accept_terms": false,
+    "aster_may_solve_captcha": false,
+    "aster_may_create_api_key": false,
+    "owner_pastes_key_to_local_secret_store": true
   },
   "providers": [
     {
@@ -18,7 +25,12 @@
       "signup_url": "https://openrouter.ai/",
       "tier": "free-model-pool",
       "account_state": "OWNER_MANAGED",
-      "models_discovered_at_runtime": true
+      "models_discovered_at_runtime": true,
+      "priority": 1,
+      "free_evidence": {
+        "status": "RUNTIME_MODEL_DEPENDENT",
+        "note": "Use only model ids explicitly marked :free; runtime must reject non-zero reported cost."
+      }
     },
     {
       "id": "nvidia_nim",
@@ -28,7 +40,14 @@
       "signup_url": "https://build.nvidia.com/explore/discover",
       "tier": "developer-prototyping",
       "account_state": "OWNER_REQUIRED_IF_NO_KEY",
-      "models_discovered_at_runtime": true
+      "models_discovered_at_runtime": true,
+      "priority": 2,
+      "free_evidence": {
+        "status": "OFFICIAL_DEVELOPER_FREE",
+        "verified_at": "2026-09-24",
+        "source": "https://docs.api.nvidia.com/nim/docs/product",
+        "note": "NVIDIA Developer Program members have free NIM API endpoint access for prototyping/development; owner must create/accept account terms."
+      }
     },
     {
       "id": "groq",
@@ -38,7 +57,14 @@
       "signup_url": "https://console.groq.com/",
       "tier": "free-plan",
       "account_state": "OWNER_REQUIRED_IF_NO_KEY",
-      "models_discovered_at_runtime": true
+      "models_discovered_at_runtime": true,
+      "priority": 3,
+      "free_evidence": {
+        "status": "OFFICIAL_FREE_PLAN",
+        "verified_at": "2026-09-24",
+        "source": "https://console.groq.com/docs/rate-limits",
+        "note": "Official Free Plan rate limits exist; runtime must respect provider limits and never rotate accounts."
+      }
     },
     {
       "id": "cerebras",
@@ -48,7 +74,14 @@
       "signup_url": "https://cloud.cerebras.ai/",
       "tier": "free",
       "account_state": "OWNER_REQUIRED_IF_NO_KEY",
-      "models_discovered_at_runtime": true
+      "models_discovered_at_runtime": true,
+      "priority": 5,
+      "free_evidence": {
+        "status": "OFFICIAL_FREE_TRIAL_CREDIT",
+        "verified_at": "2026-09-24",
+        "source": "https://www.cerebras.ai/inference",
+        "note": "Official site states $5 free credit after account creation; treat as finite trial credit, not unlimited free capacity."
+      }
     },
     {
       "id": "gemini",
@@ -58,7 +91,14 @@
       "signup_url": "https://aistudio.google.com/",
       "tier": "free-where-model-allows",
       "account_state": "OWNER_REQUIRED_IF_NO_KEY",
-      "models_discovered_at_runtime": true
+      "models_discovered_at_runtime": true,
+      "priority": 4,
+      "free_evidence": {
+        "status": "OFFICIAL_FREE_TIER_EEA",
+        "verified_at": "2026-09-24",
+        "source": "https://ai.google.dev/gemini-api/docs/billing",
+        "note": "Gemini API free tier is available in EEA; model-specific quota still applies."
+      }
     }
   ]
 }
