@@ -192,7 +192,7 @@ def markup(keyboard) -> dict:
 
 class Telegram:
     METHODS = frozenset({"getMe", "getWebhookInfo", "getUpdates", "sendMessage", "sendChatAction", "getFile",
-                         "answerCallbackQuery", "setMyCommands"})
+                         "answerCallbackQuery", "setMyCommands", "deleteMessage"})
 
     async def send_video(self, person: Person, data: bytes, caption: str, keyboard=None):
         """Upload a verified MP4; same identity check and caption egress guard as photos."""
@@ -336,6 +336,21 @@ class Telegram:
             # Never delete an existing approvals webhook to take over the bot.
             raise CompanionError("WEBHOOK_CONFLICT_USE_SEPARATE_COMPANION_BOT")
         return {"status": "AUTH_AND_POLLING_CONFIG_OK_NOT_E2E", "username": me.get("username", "")}
+
+    async def delete_message(self, person: Person, message_id: int) -> bool:
+        """Delete one message in the exact bound private chat.
+
+        A True Bot API result proves Telegram accepted the deletion request. It
+        is not a claim that Telegram infrastructure never retained a copy.
+        """
+        if type(message_id) is not int or message_id <= 0:
+            raise CompanionError("TELEGRAM_MESSAGE_ID_INVALID")
+        if not self.authorize_delivery(person):
+            raise CompanionError("IDENTITY_REVOKED")
+        result = await self.call("deleteMessage", {"chat_id": person.chat_id, "message_id": message_id})
+        if result is not True:
+            raise CompanionError("TELEGRAM_DELETE_UNVERIFIED")
+        return True
 
     async def send(self, person: Person, text: str, keyboard=None):
         clean = scrub(text, (self.settings.bot_token, self.settings.core_token,
