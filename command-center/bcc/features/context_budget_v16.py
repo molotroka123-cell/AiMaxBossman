@@ -11,6 +11,12 @@ class ContextBudget:
     safety_reserve: int
     max_utilization: float
 
+    def __post_init__(self):
+        if self.capacity_tokens <= 0 or min(self.output_reserve, self.system_tool_reserve, self.safety_reserve) < 0:
+            raise ValueError("invalid context reserves")
+        if not 0 < self.max_utilization <= 1:
+            raise ValueError("invalid context utilization")
+
     def evidence_budget(self) -> int:
         if self.capacity_tokens <= 0 or not 0 < self.max_utilization <= 1:
             raise ValueError("invalid context budget")
@@ -33,6 +39,12 @@ class EvidenceItem:
     relevance: float
     novelty: float = 0.0
     mandatory: bool = False
+
+    def __post_init__(self):
+        if not self.ref or self.tokens < 0:
+            raise ValueError("invalid evidence item")
+        if not 0 <= self.relevance <= 1 or not 0 <= self.novelty <= 1:
+            raise ValueError("evidence scores must be in [0,1]")
 
 
 def select_evidence(items: list[EvidenceItem], token_budget: int) -> list[EvidenceItem]:

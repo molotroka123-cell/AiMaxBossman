@@ -23,6 +23,11 @@ class Signals:
     duplicate: float = 0
     stale: float = 0
 
+    def __post_init__(self):
+        for value in self.__dict__.values():
+            if not 0 <= value <= 1:
+                raise ValueError("memory signals must be normalized to [0,1]")
+
 
 @dataclass(frozen=True)
 class Weights:
@@ -37,6 +42,10 @@ class MemoryCandidate:
     tokens: int
     signals: Signals
     mandatory: bool=False
+
+    def __post_init__(self):
+        if not self.ref or self.tokens < 0:
+            raise ValueError("invalid memory candidate")
 
 
 def temporal_decay(delta_seconds: float, half_life_seconds: float) -> float:

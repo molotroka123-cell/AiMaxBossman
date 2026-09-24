@@ -30,11 +30,24 @@ class ProviderSlot:
     privacy_ok: bool = True
     circuit_open: bool = False
     secondary_terms_allowed: bool = False
+    rental_authorized: bool = False
+
+    def __post_init__(self):
+        if not self.provider or not self.account_alias:
+            raise ValueError("provider/account identity required")
+        if not 0 <= self.quality_score <= 1 or self.latency_ms < 0 or self.marginal_cost_usd < 0:
+            raise ValueError("invalid provider metrics")
+        if self.quota_remaining is not None and self.quota_remaining < 0:
+            raise ValueError("negative quota")
 
     def eligible(self) -> bool:
         if not (self.available and self.capability_ok and self.privacy_ok) or self.circuit_open:
             return False
+        if self.quota_remaining is not None and self.quota_remaining <= 0:
+            return False
         if self.account_class == ProviderClass.OWNER_SECONDARY and not self.secondary_terms_allowed:
+            return False
+        if self.account_class == ProviderClass.RENTED_GPU and not self.rental_authorized:
             return False
         return True
 
@@ -69,6 +82,10 @@ class RentalEstimate:
     hours: float
     storage_usd: float = 0.0
     egress_usd: float = 0.0
+
+    def __post_init__(self):
+        if min(self.hourly_usd, self.hours, self.storage_usd, self.egress_usd) < 0:
+            raise ValueError("negative rental estimate")
 
     @property
     def total_usd(self) -> float:

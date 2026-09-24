@@ -1,7 +1,7 @@
 """Immutable model/dataset lineage and promotion gates."""
 from __future__ import annotations
 from dataclasses import dataclass
-import hashlib, json
+import hashlib, json, math
 
 
 def manifest_hash(rows: list[dict]) -> str:
@@ -22,6 +22,11 @@ class ModelCandidate:
 
 
 def promotable(c: ModelCandidate, *, min_relative_gain: float=.02) -> bool:
+    numeric = (c.benchmark_old, c.benchmark_new, c.safety_old, c.safety_new, min_relative_gain)
+    if not all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in numeric):
+        return False
+    if min_relative_gain < 0 or c.benchmark_new < 0 or c.safety_old < 0 or c.safety_new < 0:
+        return False
     if not c.train_manifest_hash or not c.holdout_manifest_hash:
         return False
     if c.train_manifest_hash == c.holdout_manifest_hash:

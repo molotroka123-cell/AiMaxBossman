@@ -14,10 +14,17 @@ class Node:
     privacy_class: str = "OWNER_LOCAL"
     load: float = 0
     last_heartbeat: float = 0
+    owner_bound: bool = False
+
+    def __post_init__(self):
+        if not self.node_id or self.ram_gb < 0 or self.gpu_memory_gb < 0 or self.marginal_cost_usd_h < 0:
+            raise ValueError("invalid node resources")
+        if not 0 <= self.load <= 1 or self.last_heartbeat < 0:
+            raise ValueError("invalid node telemetry")
 
     def healthy(self, now: float | None = None, ttl: float = 30) -> bool:
         now = time() if now is None else now
-        return 0 <= now - self.last_heartbeat <= ttl and 0 <= self.load <= 1
+        return self.owner_bound and 0 <= now - self.last_heartbeat <= ttl and 0 <= self.load <= 1
 
 
 @dataclass(frozen=True)
@@ -26,6 +33,12 @@ class TaskNeed:
     min_ram_gb: float = 0
     min_gpu_memory_gb: float = 0
     max_cost_usd_h: float | None = None
+
+    def __post_init__(self):
+        if self.min_ram_gb < 0 or self.min_gpu_memory_gb < 0:
+            raise ValueError("negative task resource requirement")
+        if self.max_cost_usd_h is not None and self.max_cost_usd_h < 0:
+            raise ValueError("negative task cost cap")
 
 
 def eligible(node: Node, need: TaskNeed, *, now: float | None = None) -> bool:
