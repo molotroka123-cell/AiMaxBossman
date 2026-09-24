@@ -520,6 +520,25 @@ class Core:
             raise CompanionError("LESSONS_RESPONSE_INVALID")
         return [r for r in body if isinstance(r, dict)]
 
+    async def owner_inputs(self) -> list:
+        """Pending owner-input requests. Labels only; values never come back here."""
+        body = await self._request("GET", "/api/owner-input/pending")
+        rows = body.get("requests") if isinstance(body, dict) else None
+        if not isinstance(rows, list):
+            raise CompanionError("OWNER_INPUT_RESPONSE_INVALID")
+        return [r for r in rows if isinstance(r, dict) and isinstance(r.get("id"), str)]
+
+    async def answer_owner_input(self, request_id: str, values: dict, actor: str) -> dict:
+        if not re.fullmatch(r"[0-9a-f]{12}", str(request_id or "")):
+            raise CompanionError("OWNER_INPUT_ID_INVALID")
+        body = await self._request(
+            "POST", f"/api/owner-input/{request_id}/answer",
+            {"values": values, "actor": actor})
+        if not isinstance(body, dict) or body.get("id") != request_id or body.get("status") != "ANSWERED":
+            raise CompanionError("OWNER_INPUT_ANSWER_UNKNOWN")
+        return body
+
+
     async def status(self):
         data = await self._request("GET", "/health/live")
         if not isinstance(data, dict) or data.get("app") != "bossman-command-center" or data.get("alive") is not True:
