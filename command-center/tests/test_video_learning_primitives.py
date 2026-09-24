@@ -32,3 +32,21 @@ def test_learning_episode_cannot_self_promote_without_outcome_verifier():
     ep.outcome = {"15m": {"ret": 0.01}}
     ep.verifier_refs = ["ledger:abc"]
     assert ep.validate() == [] and can_promote(ep)
+
+
+def test_deep_command_contract():
+    from bcc.market.deep_request import parse_deep_command
+    req = parse_deep_command("/market_deep BTC 24h")
+    assert req is not None and req.symbol == "BTC" and req.context_hours == 24
+    assert req.read_only and req.bypass_notification_cooldown
+    assert parse_deep_command("/market_deep BTC 99h") is None
+
+
+def test_level_parser_and_temporal_events():
+    from bcc.market.levels import parse_level, relation, track
+    assert parse_level("dPOC 84,620") == ("dPOC", 84620.0)
+    assert parse_level("garbage 84,620") is None
+    assert relation(84715, 84620) == "ABOVE"
+    previous = {"price": 84500.0, "levels": {"dPOC": 84620.0}}
+    current = {"price": 84715.0, "levels": {"dPOC": 84620.0}}
+    assert track(previous, current)["dPOC"] == "RECLAIM"
