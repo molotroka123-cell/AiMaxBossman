@@ -59,3 +59,16 @@ def test_learning_compiler_accepts_only_complete_independent_transfer_record():
         },
     }
     mod.require(rec)
+
+
+def test_generic_learning_compiler_cannot_bypass_trading_memory_gate():
+    mod = load("bossman_15_learning_compile_trading", "tools/bossman_15_learning_compile.py")
+    rec = {
+        "attempt_id": "a", "task_id": "t", "project_id": "p", "task_class": "trading_strategy",
+        "failure_observation": "setup failed", "correction": "Use the level only after a verified reclaim.",
+        "recipe": ["observe", "verify reclaim", "paper-test"], "check": "paper replay",
+        "provenance": {"who": "nemotron", "evidence_refs": ["video:1"]},
+        "transfer": {"passed": True, "verifier_principal": "aster", "head_sha": "c" * 40},
+    }
+    with pytest.raises(ValueError, match="TradingMemory"):
+        mod.require(rec)
