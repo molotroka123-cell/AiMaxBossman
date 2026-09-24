@@ -79,8 +79,10 @@ def tool_exec(ws: pathlib.Path, name: str, args: dict) -> str:
             cmd = args["command"]
             if re.search(r"\b(rm\s+-rf\s+/|format|shutdown|curl|wget|pip\s+install)\b", cmd):
                 return "refused: command not allowed in this sandbox"
-            cmd = re.sub(r"^\s*python3?\b", f'"{sys.executable}"', cmd)
-            cmd = re.sub(r"^\s*pytest\b", f'"{sys.executable}" -m pytest', cmd)
+            # lambda replacement: a Windows interpreter path (C:\Users\...) is not a regex template
+            exe = f'"{sys.executable}"'
+            cmd = re.sub(r"(^|&&\s*|;\s*)python3?\b", lambda m: m.group(1) + exe, cmd)
+            cmd = re.sub(r"(^|&&\s*|;\s*)pytest\b", lambda m: m.group(1) + exe + " -m pytest", cmd)
             r = subprocess.run(cmd, cwd=ws, shell=True, capture_output=True, text=True, timeout=60,
                                encoding="utf-8", errors="replace",
                                env={**os.environ, "PYTHONPATH": str(ws), "PYTHONUTF8": "1", "PYTHONDONTWRITEBYTECODE": "1"})
@@ -90,6 +92,27 @@ def tool_exec(ws: pathlib.Path, name: str, args: dict) -> str:
         return "exit_code=timeout"
     except Exception as exc:  # noqa: BLE001 — a tool error is information for the model
         return f"ERROR: {type(exc).__name__}: {exc}"
+
+
+def harness_preflight() -> str:
+    """The tools must work BEFORE a model is blamed (2026-09-24: a regex bug made
+    every `run` fail and 60 model turns were wasted). '' when healthy."""
+    ws = pathlib.Path(tempfile.mkdtemp(prefix="preflight-"))
+    try:
+        (ws / "m.py").write_text("X = 1\n", encoding="utf-8")
+        (ws / "tests").mkdir()
+        (ws / "tests" / "test_m.py").write_text("from m import X\n\ndef test_x():\n    assert X == 1\n",
+                                                encoding="utf-8")
+        for cmd, want in (('python -c "from m import X; print(X + 41)"', "42"),
+                          ("python3 -m pytest -q", "1 passed"), ("pytest -q", "1 passed")):
+            got = tool_exec(ws, "run", {"command": cmd})
+            if not got.startswith("exit_code=0") or want not in got:
+                return f"`{cmd}` -> {got[:300]}"
+        if not tool_exec(ws, "read_file", {"path": "../../etc/passwd"}).startswith("ERROR"):
+            return "read_file escaped the workspace"
+        return ""
+    finally:
+        shutil.rmtree(ws, ignore_errors=True)
 
 
 def hidden_verdict(scen: pathlib.Path, ws: pathlib.Path, original: pathlib.Path) -> dict:
@@ -220,6 +243,10 @@ def main(argv=None) -> int:
     ap.add_argument("--only", nargs="*")
     ap.add_argument("--extra-body", default="{}")
     ns = ap.parse_args(argv)
+    problem = harness_preflight()
+    if problem:
+        print(f"HARNESS_BROKEN — no model call made: {problem}", file=sys.stderr)
+        return 2
     out = pathlib.Path(ns.out)
     out.mkdir(parents=True, exist_ok=True)
     rec = Recorder(f"scenarios-{ns.tag}")

@@ -86,3 +86,8 @@ def test_bossman_export_reads_runs_once(tmp_path, monkeypatch):
     assert len(rows) == 1 and rows[0]["extra"]["bossman_run_id"] == 5
     assert rows[0]["response"] == "4" and rows[0]["messages"] == [{"role": "user", "content": "2+2"}]
     assert rows[0]["verifier_verdict"] == "UNVERIFIED"
+
+
+def test_owner_scenario_harness_tools_work_before_any_model_is_blamed():
+    import owner_scenarios_20260924 as osc
+    assert osc.harness_preflight() == ""
