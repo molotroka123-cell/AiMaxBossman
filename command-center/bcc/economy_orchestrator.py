@@ -239,6 +239,9 @@ class JevEconomyController:
         except (JevError, KeyError, ValueError) as exc:
             rec["error"] = getattr(exc, "reason", type(exc).__name__)
             picked = fallback
+        except Exception as exc:  # Jev is an optimization; controller failure must fail back to policy.
+            rec["error"] = type(exc).__name__
+            picked = fallback
         else:
             rec["jev"] = envelope.get("model")
             rec["choice"] = picked
