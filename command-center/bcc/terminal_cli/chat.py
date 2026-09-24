@@ -21,7 +21,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from rich.text import Text
@@ -38,6 +38,34 @@ from .records import EXIT_DISCONNECTED, EXIT_OK, model_kind, state_of
 from .theme import glyphs
 
 CONTEXT_TURNS = 3
+
+
+def export_target(raw: str, cwd: str) -> Path:
+    """The file `/export <path>` writes, the same on Windows and POSIX.
+
+    The owner types Windows paths: `\\` and `/` are both separators on every OS
+    (on POSIX `out\\s.md` must not become one file named "out\\s.md"). An absolute
+    path (or `~`) stays where the owner pointed it. A relative path is resolved
+    against the chat's cwd and must stay inside it — `..` never escapes, `--force`
+    included. Ambiguous Windows forms (`C:x.md`, `\\x.md`) and a drive path on a
+    system without drives are refused rather than guessed. ValueError explains why.
+    """
+    text = (raw or "").strip()
+    if not text:
+        raise ValueError("пустой путь")
+    win = PureWindowsPath(text)
+    if os.name != "nt" and win.drive:
+        raise ValueError(f"путь с диском Windows ({win.drive}) на этой системе недоступен: {text}")
+    if os.name == "nt" and (win.drive or win.root) and not win.is_absolute():
+        raise ValueError(f"неполный путь Windows (нет диска или корня): {text}")
+    path = Path(os.path.expanduser(text.replace("\\", "/")))
+    if path.is_absolute():
+        return path
+    base = Path(cwd).resolve()
+    target = (base / path).resolve()
+    if target != base and base not in target.parents:
+        raise ValueError(f"путь выходит за пределы рабочей папки {base}: {text}")
+    return target
 CONTEXT_CHARS = 1500
 
 
@@ -1031,10 +1059,16 @@ class Chat:
             self.view.error(slash.COMMANDS["export"][0], "путь с пробелами — в кавычках")
             return
         if rest:
-            path = Path(os.path.expanduser(rest[0]))
-            path = path if path.is_absolute() else Path(self.cwd) / path
+            try:
+                path = export_target(rest[0], self.cwd)
+            except ValueError as exc:
+                self.view.error(str(exc), slash.COMMANDS["export"][0])
+                return
         else:
             path = Path(self.client.target.data_dir) / "terminal" / "exports" / f"{self.session.id}.md"
+        if path.is_dir():
+            self.view.error(f"это каталог, а не файл: {path}", "укажите имя файла, например отчёт.md")
+            return
         if path.exists() and not force:
             self.view.error(f"файл уже есть: {path}", "другой путь или /export <путь> --force")
             return

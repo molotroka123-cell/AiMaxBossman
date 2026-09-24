@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
 import threading
 from pathlib import Path
@@ -22,7 +23,7 @@ from bcc import conversation_context  # noqa: E402
 from bcc.terminal_cli import slash  # noqa: E402
 from bcc.terminal_cli.api_client import BossmanError  # noqa: E402
 from bcc.terminal_cli.chat import (SUMMARY_LABEL, Chat, Session, approx_tokens,  # noqa: E402
-                                   context_preamble)
+                                   context_preamble, export_target)
 from bcc.terminal_cli.console import make_console  # noqa: E402
 from bcc.terminal_cli.human import View  # noqa: E402
 
@@ -303,6 +304,59 @@ def test_export_writes_markdown_refuses_overwrite_and_sanitizes(tmp_path):
 
     chat.cmd_export(slash.parse("/export out\\s.md"))      # relative to the chat's cwd
     assert (tmp_path / "out" / "s.md").is_file()
+
+
+# The owner types Windows paths; the same command must mean the same file on the
+# Linux CI runner and on the owner's Windows machine (release blocker 2026-09-24:
+# `out\s.md` became ONE file named "out\s.md" on POSIX).
+@pytest.mark.parametrize("raw", ["out\\s.md", "out/s.md", "out\\\\s.md", ".\\out\\s.md", "x\\..\\out/s.md"])
+def test_export_target_treats_both_separators_as_separators(tmp_path, raw):
+    assert export_target(raw, str(tmp_path)) == (tmp_path / "out" / "s.md").resolve()
+
+
+@pytest.mark.parametrize("raw", ["..\\x.md", "../x.md", "a\\..\\..\\x.md", "a/../../x.md",
+                                 "..\\..\\..\\..\\..\\..\\etc\\x.md"])
+def test_export_target_refuses_relative_escape_from_cwd(tmp_path, raw):
+    with pytest.raises(ValueError, match="за пределы"):
+        export_target(raw, str(tmp_path / "work"))
+
+
+def test_export_target_keeps_absolute_paths_absolute(tmp_path):
+    target = tmp_path / "elsewhere" / "беседа.md"
+    assert export_target(str(target), str(tmp_path / "work")) == target
+    assert export_target(str(target).replace(os.sep, "\\") if os.name == "nt" else str(target),
+                         str(tmp_path / "work")) == target
+
+
+@pytest.mark.skipif(os.name == "nt", reason="drive letters are real on Windows")
+def test_export_target_refuses_windows_drive_path_on_posix(tmp_path):
+    with pytest.raises(ValueError, match="диск"):
+        export_target("C:\\Users\\x.md", str(tmp_path))
+
+
+@pytest.mark.skipif(os.name != "nt", reason="drive-relative / root-relative paths exist only on Windows")
+@pytest.mark.parametrize("raw", ["C:x.md", "\\x.md", "/x.md"])
+def test_export_target_refuses_ambiguous_windows_paths(tmp_path, raw):
+    with pytest.raises(ValueError):
+        export_target(raw, str(tmp_path))
+
+
+def test_export_unicode_spaces_mixed_separators_and_directory(tmp_path):
+    chat, client, buf = make_chat(tmp_path)
+    client.add_task(1, prompt="x", result="ответ")
+    chat.session.add(1, "вопрос")
+    chat.cmd_export(slash.parse('/export "папка с пробелом\\вложенная/файл отчёта.md"'))
+    written = tmp_path / "папка с пробелом" / "вложенная" / "файл отчёта.md"
+    assert written.is_file() and b"\r\n" not in written.read_bytes()
+    assert "ответ" in written.read_text(encoding="utf-8")
+
+    chat.cmd_export(slash.parse("/export ..\\сбежал.md --force"))   # --force never allows escape
+    assert not (tmp_path.parent / "сбежал.md").exists()
+    assert "за пределы" in buf.getvalue()
+
+    (tmp_path / "каталог").mkdir()
+    chat.cmd_export(slash.parse("/export каталог --force"))          # a directory is not a file
+    assert (tmp_path / "каталог").is_dir() and "каталог" in buf.getvalue()
 
 
 # ----------------------------------------------------------------- /doctor
