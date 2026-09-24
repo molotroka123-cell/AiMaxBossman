@@ -47,7 +47,8 @@
     "glm_max_calls": 4,
     "codex_role": "orchestrator_only",
     "unknown_price_is_blocked": true,
-    "no_auto_recharge": true
+    "no_auto_recharge": true,
+    "aster_role": "bootstrap_auditor_only"
   },
   "learning": {
     "raw_teacher_status": "UNVERIFIED",
