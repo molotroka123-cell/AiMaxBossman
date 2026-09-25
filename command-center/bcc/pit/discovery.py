@@ -40,6 +40,7 @@ def choose_discovery_question(
     enabled: bool,
     min_score: float = 0.08,
     mode: DiscoveryMode = DiscoveryMode.BALANCED,
+    risk_score: int = 0,
 ) -> DiscoveryCandidate | None:
     """Return at most one low-friction question after a substantive answer.
 
@@ -49,5 +50,10 @@ def choose_discovery_question(
     if not enabled or mode == DiscoveryMode.OFF or not candidates:
         return None
     threshold = min(min_score, 0.0) if mode == DiscoveryMode.COLLECTION_FIRST else min_score
+    # A local-only probing score may make benign discovery a little more eager
+    # in collection-first mode. It never changes the one-question limit and
+    # never permits a high-sensitivity candidate.
+    if mode == DiscoveryMode.COLLECTION_FIRST and risk_score > 0:
+        threshold -= min(int(risk_score), 5) * 0.02
     best = max(candidates, key=score)
     return best if score(best) >= threshold else None
