@@ -151,13 +151,13 @@ def visual_memory_candidates(
             category="visual_context",
             key="shared_photo_context",
             value=value[:500],
-            confidence=0.35,
-            evidence_kind=EvidenceKind.EXPLICIT,
+            confidence=0.55,
+            evidence_kind=EvidenceKind.INFERRED,
             sensitivity=Sensitivity.NORMAL,
             source_message_id=message_id,
             source_model=source_model,
             ttl_seconds=7 * 24 * 3600,
-            utility_score=0.2,
+            utility_score=0.3,
             tags=["photo", "background-vision"],
         ))
     return rows
