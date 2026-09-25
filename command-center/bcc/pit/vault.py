@@ -109,6 +109,22 @@ class PersonaVault:
     def write_profile(self, person_key: str, payload: dict[str, Any]) -> None:
         _atomic_json(self.ensure(person_key) / "profile.json", dict(payload))
 
+    def roleplay_state(self, person_key: str) -> dict[str, Any]:
+        path = self.person_dir(person_key) / "roleplay.json"
+        if not path.is_file():
+            return {"enabled": False, "mode": "off", "participant_consented": False, "persona_label": ""}
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {"enabled": False, "mode": "off", "participant_consented": False, "persona_label": ""}
+
+    def set_roleplay_state(self, person_key: str, payload: dict[str, Any]) -> None:
+        allowed = {
+            "enabled": bool(payload.get("enabled", False)),
+            "mode": str(payload.get("mode", "off"))[:40],
+            "participant_consented": bool(payload.get("participant_consented", False)),
+            "persona_label": str(payload.get("persona_label", ""))[:80],
+        }
+        _atomic_json(self.ensure(person_key) / "roleplay.json", allowed)
+
     def export(self, person_key: str) -> dict[str, Any]:
         target = self.person_dir(person_key)
         if not target.is_dir():
