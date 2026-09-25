@@ -294,6 +294,26 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
         self.secret_cleanup_tasks.add(task)
         task.add_done_callback(self.secret_cleanup_tasks.discard)
 
+    async def _cleanup_login_receipt_messages(self, person: Person, receipt_id: str,
+                                              delay_s: float = 90.0) -> None:
+        """Keep the post-login screenshot briefly, then erase all transient bot messages."""
+        await asyncio.sleep(max(5.0, min(float(delay_s), 300.0)))
+        ids = self.store.pop_transients(person.key, receipt_id)
+        for message_id in ids:
+            if self.telegram is not None:
+                with contextlib.suppress(CompanionError):
+                    await self.telegram.delete_message(person, message_id)
+
+    def schedule_login_receipt_cleanup(self, person: Person, receipt_id: str,
+                                       delay_s: float = 90.0) -> None:
+        if not re.fullmatch(r"[0-9a-f]{12}", str(receipt_id or "")):
+            return
+        task = asyncio.create_task(
+            self._cleanup_login_receipt_messages(person, receipt_id, delay_s),
+            name=f"tg-login-cleanup-{receipt_id}")
+        self.secret_cleanup_tasks.add(task)
+        task.add_done_callback(self.secret_cleanup_tasks.discard)
+
     def delivery_allowed(self, person: Person) -> bool:
         try:
             return person in self.policy_provider().people
@@ -1270,6 +1290,85 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
                 continue  # uncertain send is not replayed on restart
             self.store.put(key, 'delivered')
 
+    async def notify_login_receipts(self):
+        """Ephemeral owner login trace: public login/field labels + one verified screenshot.
+
+        Passwords never transit this bridge. The browser runtime injects them from the
+        local encrypted vault. After a verified post-login receipt the temporary Telegram
+        messages are deleted automatically.
+        """
+        owner = next((p for p in self.settings.people if p.role == "owner"), None)
+        if owner is None or not self.console_allowed(owner):
+            return
+        try:
+            current = self.policy_provider()
+            if owner not in current.people:
+                return
+            rows = await self.core.login_receipts()
+        except (CompanionError, OSError, ValueError, TypeError):
+            return
+        for row in rows[:12]:
+            rid = str(row.get("id") or "")
+            if not re.fullmatch(r"[0-9a-f]{12}", rid):
+                continue
+            phase = str(row.get("phase") or "")
+            login = str(row.get("login") or "(логин не задан)")[:320]
+            labels = [str(x)[:120] for x in (row.get("next_fields") or [])
+                      if isinstance(x, (str, int, float))]
+            pre_key = "login_pre_notified:" + rid
+
+            if phase in {"PRE_LOGIN", "SUCCESS", "FAILED", "UNVERIFIED_POST_SUBMIT"} and self.store.get(pre_key) is None:
+                body = (
+                    "🔐 Локальный вход Bossman.\n"
+                    f"Аккаунт/логин: {login}\n"
+                    f"После входа могут понадобиться: {', '.join(labels) if labels else 'дополнительные поля не указаны'}\n"
+                    "Пароль хранится локально и подставляется runtime из encrypted vault. "
+                    "Telegram и cloud-модели пароль не получают."
+                )
+                try:
+                    mid = await self.telegram.send(owner, body)
+                except CompanionError:
+                    continue
+                self.store.track_transient(owner.key, rid, mid)
+                self.store.put(pre_key, "delivered")
+
+            if phase == "SUCCESS":
+                done_key = "login_success_notified:" + rid
+                if self.store.get(done_key) is not None:
+                    continue
+                try:
+                    png = await self.core.login_receipt_screenshot(rid)
+                    caption = (
+                        "✅ Post-login состояние подтверждено свежим локальным наблюдением. "
+                        "Это контрольный screenshot после входа. Временная цепочка будет удалена автоматически."
+                    )
+                    mid = await self.telegram.send_photo(owner, png, caption)
+                    self.store.track_transient(owner.key, rid, mid)
+                    await self.core.consume_login_receipt(rid)
+                except CompanionError:
+                    continue
+                self.store.put(done_key, "delivered")
+                self.schedule_login_receipt_cleanup(owner, rid, 90.0)
+                continue
+
+            if phase in {"FAILED", "UNVERIFIED_POST_SUBMIT"}:
+                done_key = "login_terminal_notified:" + rid
+                if self.store.get(done_key) is not None:
+                    continue
+                note = (
+                    "⚠️ Вход не подтверждён свежим post-login URL; Bossman не объявляет LOGIN PASS."
+                    if phase == "UNVERIFIED_POST_SUBMIT"
+                    else "⚠️ Локальный вход завершился ошибкой. Пароль в Telegram/cloud не отправлялся."
+                )
+                try:
+                    mid = await self.telegram.send(owner, note)
+                    self.store.track_transient(owner.key, rid, mid)
+                    await self.core.consume_login_receipt(rid)
+                except CompanionError:
+                    continue
+                self.store.put(done_key, "delivered")
+                self.schedule_login_receipt_cleanup(owner, rid, 45.0)
+
     async def notify_owner_inputs(self):
         """Proactively tell the owner about missing form fields; never include values."""
         owner = next((p for p in self.settings.people if p.role == "owner"), None)
@@ -1319,6 +1418,7 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
                 self.store.prune_learning(self.settings.retention_days)
             await self.notify_tasks()
             await self.notify_owner_inputs()
+            await self.notify_login_receipts()
             with contextlib.suppress(CompanionError):
                 await self.refresh_profiles()
             if not self.store.get("watch", False):
