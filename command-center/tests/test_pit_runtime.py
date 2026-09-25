@@ -387,7 +387,9 @@ def test_open_allowlist_refuses_group_and_forwarded_material(tmp_path):
 
 
 # -- two-ID isolation through the runtime -----------------------------------------------------
-def test_local_route_is_preferred_and_remote_is_fallback(tmp_path):
+def test_local_route_is_preferred_and_remote_is_fallback(tmp_path, monkeypatch):
+    from bcc.pit import resources
+    monkeypatch.setattr(resources, "_read_free_vram_mb", lambda: 8192)
     settings = dataclasses.replace(make_settings(tmp_path),
                                    local_url="http://127.0.0.1:11434/v1",
                                    local_models=("bossman-fast:latest",))
@@ -432,6 +434,71 @@ def test_local_route_is_preferred_and_remote_is_fallback(tmp_path):
     assert rows[-2]["provider"] == "local" and rows[-1 - 0].get("ok") in (True, False)
     assert "context_tokens_est" in rows[-1]
     assert all("привет" not in json.dumps(row, ensure_ascii=False) for row in rows)
+
+
+def test_local_failure_does_not_send_private_turn_to_cloud_without_consent(tmp_path, monkeypatch):
+    from bcc.pit import resources
+    from bcc.providers import ProviderError
+
+    monkeypatch.setattr(resources, "_read_free_vram_mb", lambda: 8192)
+    settings = dataclasses.replace(make_settings(tmp_path),
+                                   local_url="http://127.0.0.1:11434/v1",
+                                   local_models=("bossman-fast:latest",))
+    runtime = rt.ParticipantRuntime(settings)
+    runtime.catalog_checked_at = 1.0
+    runtime.catalog = {
+        "bossman-fast:latest": ModelEndpoint(
+            id="bossman-fast:latest", provider="local", capabilities=frozenset({"chat"}),
+            local=True, available=True, zero_cost=True, paid=False),
+        "free/model:free": FREE_ENDPOINT,
+    }
+    class FailingLocal(FakeAdapter):
+        async def chat(self, model, messages, **kw):
+            raise ProviderError("down", kind="network")
+    runtime.local_adapter = FailingLocal()
+    remote = FakeAdapter()
+    runtime.adapter = remote
+    person = settings.people[0]
+    person_key = runtime.vault.key_for_telegram(person.user_id)
+    runtime.vault.set_consent(person_key, ConsentState(
+        memory_enabled=True, remote_processing_enabled=False))
+    answer = asyncio.run(runtime.handle(person, message("личный запрос", message_id=82)))
+    assert answer == rt.PROVIDER_DOWN_RU
+    assert remote.calls == []
+
+
+def test_local_fallback_rebuilds_remote_context_without_personal_memory(tmp_path, monkeypatch):
+    from bcc.pit import resources
+    from bcc.providers import ProviderError
+
+    monkeypatch.setattr(resources, "_read_free_vram_mb", lambda: 8192)
+    settings = dataclasses.replace(make_settings(tmp_path),
+                                   local_url="http://127.0.0.1:11434/v1",
+                                   local_models=("bossman-fast:latest",))
+    runtime = rt.ParticipantRuntime(settings)
+    runtime.catalog_checked_at = 1.0
+    runtime.catalog = {
+        "bossman-fast:latest": ModelEndpoint(
+            id="bossman-fast:latest", provider="local", capabilities=frozenset({"chat"}),
+            local=True, available=True, zero_cost=True, paid=False),
+        "free/model:free": FREE_ENDPOINT,
+    }
+    class FailingLocal(FakeAdapter):
+        async def chat(self, model, messages, **kw):
+            raise ProviderError("down", kind="network")
+    runtime.local_adapter = FailingLocal()
+    remote = FakeAdapter()
+    runtime.adapter = remote
+    person = settings.people[0]
+    person_key = runtime.vault.key_for_telegram(person.user_id)
+    runtime.vault.set_consent(person_key, ConsentState(
+        memory_enabled=True, remote_processing_enabled=True,
+        remote_personalization_enabled=False))
+    runtime.vault.append_candidate(person_key, candidate("PRIVATE_MARKER_927", "private"))
+    answer = asyncio.run(runtime.handle(person, message("расскажи обо мне", message_id=83)))
+    assert answer == "готово"
+    assert remote.calls
+    assert "PRIVATE_MARKER_927" not in json.dumps(remote.calls, ensure_ascii=False)
 
 
 def test_remote_route_used_when_local_catalog_down(tmp_path):

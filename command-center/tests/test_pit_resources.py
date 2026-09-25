@@ -82,10 +82,10 @@ def test_guard_denies_local_when_1_6_owns_vram(monkeypatch):
     assert "1.6-priority" in guard.last_reason
 
 
-def test_guard_defaults_to_local_when_probe_broken(monkeypatch):
+def test_guard_yields_to_1_6_when_probe_broken(monkeypatch):
     monkeypatch.setattr(res, "_read_free_vram_mb", lambda: None)
     guard = LocalCapacityGuard(min_free_mb=2000, ttl_seconds=0)
-    assert _run(guard.local_allowed()) is True
+    assert _run(guard.local_allowed()) is False
     assert "unmeasured" in guard.last_reason
 
 
@@ -155,3 +155,37 @@ def test_refresh_catalog_keeps_local_when_vram_free(tmp_path, monkeypatch):
     endpoints = _run(runtime.refresh_catalog())
     assert endpoints["bossman-fast-local:latest"].local is True
     assert endpoints["free/model:free"].local is False
+
+
+def test_cached_local_route_is_demoted_when_capacity_becomes_unknown(tmp_path, monkeypatch):
+    from bcc.pit.models import ConsentState
+    runtime = with_local(make_runtime(tmp_path))
+    runtime.catalog = {
+        "bossman-fast-local:latest": rt.ModelEndpoint(
+            id="bossman-fast-local:latest", provider="local",
+            capabilities=frozenset({"chat"}), local=True, available=True,
+            zero_cost=True, paid=False),
+        "free/model:free": rt.ModelEndpoint(
+            id="free/model:free", provider="remote",
+            capabilities=frozenset({"chat"}), local=False, available=True,
+            zero_cost=True, paid=False),
+    }
+    runtime.catalog_checked_at = 1.0
+    class ChatAdapter(FakeAdapter):
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+        async def chat(self, model, messages, **kw):
+            self.calls += 1
+            return ChatResult(text="ok", tokens_in=1, tokens_out=1, model=model)
+    remote = ChatAdapter()
+    runtime.adapter = remote
+    monkeypatch.setattr(res, "_read_free_vram_mb", lambda: None)
+    person = runtime.settings.people[0]
+    key = runtime.vault.key_for_telegram(person.user_id)
+    runtime.vault.set_consent(key, ConsentState(
+        memory_enabled=True, remote_processing_enabled=True))
+    answer = _run(runtime.handle(person, {"text": "hello", "_message_id": 1}))
+    assert answer == "ok"
+    assert remote.calls == 1
+    assert all(not endpoint.local for endpoint in runtime.catalog.values())

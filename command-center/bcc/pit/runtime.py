@@ -567,7 +567,10 @@ class ParticipantRuntime:
                 self.store.finish(update_id, "done")
                 continue
             try:
-                await self.telegram.send(fresh, render_jeff_reply(answer))
+                await self.telegram.send(
+                    fresh, render_jeff_reply(answer),
+                    reply_to_message_id=message.get("_message_id"),
+                )
                 self.store.finish(update_id, "done")
             except (CompanionError, Exception):
                 self.store.finish(update_id, "delivery_unknown")
@@ -850,6 +853,15 @@ class ParticipantRuntime:
 
         if self.catalog_checked_at == 0.0:
             await self.refresh_catalog_safe()
+        # The catalog can outlive a change in the owner's GPU workload. Check
+        # capacity again for this turn before offering any cached local route.
+        self.capacity_guard.reset()
+        local_allowed_now = await self.capacity_guard.local_allowed()
+        if local_allowed_now and not any(e.local for e in self.catalog.values()):
+            await self.refresh_catalog_safe()
+        elif not local_allowed_now:
+            self.catalog = {key: endpoint for key, endpoint in self.catalog.items()
+                            if not endpoint.local}
         try:
             model, is_local = self._free_route()
         except NoEligibleRoute:
@@ -893,6 +905,7 @@ class ParticipantRuntime:
         if state.enabled:
             messages.append({"role": "system", "content": roleplay_prompt(state)})
         messages.append({"role": "user", "content": text})
+        context_prefix_length = len(context.as_messages())
 
         context_chars = sum(len(str(m.get("content", ""))) for m in messages)
         result = None
@@ -900,7 +913,7 @@ class ParticipantRuntime:
         attempts: list[tuple[str, object, str]] = []
         if is_local:
             attempts.append((model, self.local_adapter, "local"))
-            fallback = self._route_fallback(model)
+            fallback = self._route_fallback(model) if consent.remote_processing_enabled else None
             if fallback is not None:
                 attempts.append((fallback[0], self.adapter, "remote"))
         else:
@@ -908,6 +921,14 @@ class ParticipantRuntime:
         for route_model, adapter, provider in attempts:
             started = time.monotonic()
             try:
+                if provider == "remote" and is_local:
+                    remote_context = build_participant_context(
+                        query=text, vault=self.vault, person_key=person_key,
+                        consent=consent, selected_model_is_remote=True,
+                        profile_stability=snapshot.profile_stability)
+                    messages = remote_context.as_messages() + messages[context_prefix_length:]
+                    context = remote_context
+                    context_chars = sum(len(str(m.get("content", ""))) for m in messages)
                 timeout = self.settings.local_timeout if provider == "local" \
                     else self.settings.remote_timeout
                 result = await adapter.chat(route_model, messages,

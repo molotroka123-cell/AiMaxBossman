@@ -8,9 +8,9 @@ demotes local endpoints for that turn so the router falls back to a
 runtime-confirmed FREE cloud model. Nothing is ever unloaded, killed or
 throttled: the guard only decides what Jeff is allowed to use right now.
 
-Measurement is a bounded subprocess (nvidia-smi); on any failure the guard
-answers "local allowed" — the previous behaviour — because a broken probe must
-never take the whole laptop offline for participants.
+Measurement is a bounded subprocess (nvidia-smi). When capacity cannot be
+measured, Jeff yields to a verified free cloud route so an unmeasured AMD GPU
+cannot contend with the owner's 1.6 workload.
 """
 from __future__ import annotations
 
@@ -90,9 +90,9 @@ class LocalCapacityGuard:
         except Exception:  # noqa: BLE001 — a broken probe must not block chat
             free_mb = None
         if free_mb is None:
-            self._cached, self._checked_at = True, now
-            self.last_reason = "vram-unmeasured-local-allowed"
-            return True
+            self._cached, self._checked_at = False, now
+            self.last_reason = "vram-unmeasured-1.6-priority"
+            return False
         if free_mb >= self.min_free_mb:
             self._cached, self._checked_at = True, now
             self.last_reason = f"vram-free-{free_mb}mb"
