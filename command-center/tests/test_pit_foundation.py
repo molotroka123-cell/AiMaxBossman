@@ -10,6 +10,8 @@ from bcc.pit.discovery import DiscoveryCandidate, choose_discovery_question
 from bcc.pit.identity import derive_person_key, scoped_person_dir
 from bcc.pit.models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
 from bcc.pit.policy import TelegramToolPolicy
+from bcc.pit.companion_profile import PIT_BLOCKED_COMMANDS, PitParticipantPolicy, command_allowed_in_pit
+from bcc.pit.participant_context import PIT_ASSISTANT_SYSTEM, build_participant_context
 from bcc.pit.router import (
     ModelEndpoint,
     NoEligibleRoute,
@@ -270,3 +272,86 @@ def test_telegram_update_idempotency_is_stable():
     event = TelegramEnvelope(1, 2, 3, 4, "hello")
     assert idempotency_key(event) == idempotency_key(event)
     assert idempotency_key(event) != idempotency_key(TelegramEnvelope(2, 2, 3, 4, "hello"))
+
+
+def test_pit_chat_has_no_owner_console_commands():
+    forbidden = {
+        "/status", "/queue", "/menu", "/task", "/result", "/approvals",
+        "/stop", "/screen", "/claude", "/codex", "/cloud", "/watch",
+        "/evolution_status", "/jev",
+    }
+    assert forbidden <= PIT_BLOCKED_COMMANDS
+    assert all(not command_allowed_in_pit(cmd) for cmd in forbidden)
+
+
+def test_pit_role_is_participant_even_for_machine_owner():
+    policy = PitParticipantPolicy(local_model_available=True, remote_model=False)
+    assert policy.role == "participant"
+
+
+def test_new_participant_starts_with_zero_personal_context(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(4242)
+    ctx = build_participant_context(
+        query="hello",
+        vault=vault,
+        person_key=key,
+        consent=ConsentState(memory_enabled=True),
+        selected_model_is_remote=False,
+    )
+    assert ctx.persona_items == ()
+    assert len(ctx.as_messages()) == 1
+    assert "ничего не знаешь" in PIT_ASSISTANT_SYSTEM
+
+
+def test_participant_context_reads_only_own_persona(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    a, b = vault.key_for_telegram(111), vault.key_for_telegram(222)
+    consent = ConsentState(memory_enabled=True)
+    vault.set_consent(a, consent)
+    vault.set_consent(b, consent)
+    vault.append_candidate(a, candidate("a-own", "likes mountain travel", confidence=0.95))
+    vault.append_candidate(b, candidate("b-other", "likes casino hotels", confidence=0.95))
+
+    ctx = build_participant_context(
+        query="travel",
+        vault=vault,
+        person_key=a,
+        consent=consent,
+        selected_model_is_remote=False,
+    )
+    joined = "\n".join(ctx.persona_items)
+    assert "mountain travel" in joined
+    assert "casino hotels" not in joined
+
+
+def test_remote_model_gets_no_persona_without_separate_personalization_consent(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(333)
+    consent = ConsentState(memory_enabled=True, remote_processing_enabled=True, remote_personalization_enabled=False)
+    vault.set_consent(key, consent)
+    vault.append_candidate(key, candidate("own", "prefers examples", confidence=0.95))
+    ctx = build_participant_context(
+        query="examples",
+        vault=vault,
+        person_key=key,
+        consent=consent,
+        selected_model_is_remote=True,
+    )
+    assert ctx.persona_items == ()
+
+
+def test_local_model_uses_only_own_persona_without_per_message_approval(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(444)
+    consent = ConsentState(memory_enabled=True)
+    vault.set_consent(key, consent)
+    vault.append_candidate(key, candidate("own", "prefers concise answers", confidence=0.95))
+    ctx = build_participant_context(
+        query="answer",
+        vault=vault,
+        person_key=key,
+        consent=consent,
+        selected_model_is_remote=False,
+    )
+    assert "prefers concise answers" in "\n".join(ctx.persona_items)
