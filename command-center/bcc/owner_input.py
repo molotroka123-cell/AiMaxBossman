@@ -69,15 +69,35 @@ class OwnerInputStore:
                         "hint": str(raw.get("hint") or "")[:240]})
         return out
 
+    @staticmethod
+    def _validate_success(success: Any, *, secret: bool) -> dict[str, Any]:
+        raw = success if isinstance(success, dict) else {}
+        out: dict[str, Any] = {}
+        for key in ("url_contains", "contains_text", "absent_text"):
+            value = raw.get(key)
+            if value is not None:
+                value = str(value).strip()
+                if not 2 <= len(value) <= 300:
+                    raise OwnerInputError(f"success.{key} must be 2..300 chars")
+                out[key] = value
+        if raw.get("url_changed") is True:
+            out["url_changed"] = True
+        if secret and not out:
+            raise OwnerInputError("secret owner-input requires deterministic success criteria")
+        return out
+
     def create(self, *, task_id: int | None, session_id: int, fields: Any,
-               context: str = "", source: str = "browser") -> dict[str, Any]:
+               context: str = "", source: str = "browser", initial_url: str = "",
+               success: Any = None) -> dict[str, Any]:
         normalized = self._validate_fields(fields)
+        success_rule = self._validate_success(success, secret=any(f["secret"] for f in normalized))
         now = time.time()
         row = {
             "id": uuid.uuid4().hex[:12], "status": "PENDING", "created_at": now,
             "expires_at": now + TTL_SECONDS, "task_id": task_id,
             "session_id": int(session_id), "source": source[:64],
             "context": str(context or "")[:500], "fields": normalized,
+            "initial_url": str(initial_url or "")[:1000], "success": success_rule,
             "answered_by": None, "answered_at": None, "answers_enc": "",
         }
         with self._lock:
@@ -100,7 +120,7 @@ class OwnerInputStore:
             for row in (data.get("requests") or {}).values():
                 if not isinstance(row, dict):
                     continue
-                if row.get("status") in {"PENDING", "ANSWERED"} and float(row.get("expires_at") or 0) < now:
+                if row.get("status") in {"PENDING", "ANSWERED", "FILLED"} and float(row.get("expires_at") or 0) < now:
                     row["status"] = "EXPIRED"; row["answers_enc"] = ""; changed = True
                 if row.get("status") == "PENDING":
                     out.append(self._public(dict(row)))
@@ -160,13 +180,33 @@ class OwnerInputStore:
             self._write(data)
             return self._public(dict(row))
 
+    def mark_verified(self, request_id: str, *, evidence: dict[str, Any]) -> dict[str, Any]:
+        """Commit verified form/login success. Values were erased at FILLED."""
+        with self._lock:
+            data = self._read()
+            row = (data.get("requests") or {}).get(str(request_id))
+            if not isinstance(row, dict) or row.get("status") != "FILLED":
+                raise OwnerInputError("request is not ready to verify")
+            if not isinstance(evidence, dict) or evidence.get("verified") is not True:
+                raise OwnerInputError("verified evidence required")
+            row["status"] = "VERIFIED"
+            row["verified_at"] = time.time()
+            row["verification"] = {
+                "verified": True,
+                "url": str(evidence.get("url") or "")[:1000],
+                "checks": [str(x)[:300] for x in (evidence.get("checks") or [])[:8]],
+            }
+            row["answers_enc"] = ""
+            self._write(data)
+            return self._public(dict(row))
+
     def cancel(self, request_id: str) -> dict[str, Any]:
         with self._lock:
             data = self._read()
             row = (data.get("requests") or {}).get(str(request_id))
             if not isinstance(row, dict):
                 raise OwnerInputError("request not found")
-            if row.get("status") not in {"PENDING", "ANSWERED"}:
+            if row.get("status") not in {"PENDING", "ANSWERED", "FILLED"}:
                 return self._public(dict(row))
             row["status"] = "CANCELLED"; row["answers_enc"] = ""
             self._write(data)

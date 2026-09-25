@@ -453,7 +453,8 @@ async def _request_owner_fields(args, ctx):
                 raise ValueError("field needs ref or selector")
         row = store.create(
             task_id=ctx.task.get("id"), session_id=sid, fields=fields,
-            context=str(args.get("context") or "missing form data"), source="browser")
+            context=str(args.get("context") or "missing form data"), source="browser",
+            initial_url=str(current.get("url") or ""), success=args.get("success"))
         await ctx.svc.bus.emit("owner.input_requested", request_id=row["id"],
                                task_id=ctx.task.get("id"), session_id=sid,
                                fields=[f["key"] for f in row["fields"]])
@@ -508,6 +509,61 @@ async def _fill_owner_fields(args, ctx):
     except Exception as exc:
         return ToolResult(content=f"поля не заполнены: {type(exc).__name__}: {exc}",
                           one_line="browser.fill_owner_fields: ошибка", error=True)
+
+
+async def _verify_owner_input_success(args, ctx):
+    """Fresh deterministic post-login/post-registration verification.
+
+    The local model chooses the request only. Success conditions were frozen
+    when the request was created; this tool cannot weaken them afterwards.
+    """
+    await _require_local_secret_agent(ctx)
+    store = getattr(ctx.svc, "owner_input", None)
+    request_id = str(args.get("request_id") or "").strip()
+    if store is None or not request_id:
+        return ToolResult(content="нужен owner-input request_id",
+                          one_line="browser.verify_owner_input_success: нет request", error=True)
+    try:
+        row = store.get(request_id)
+        if not isinstance(row, dict) or row.get("status") != "FILLED":
+            raise ValueError("owner-input must be FILLED before success verification")
+        sid = await _session_for(ctx, {"session_id": row["session_id"]})
+        snap = await _mgr(ctx.svc).snapshot(sid, actor="agent", approved=True)
+        url = str(snap.get("url") or "")
+        text = str(snap.get("text") or "")
+        rules = row.get("success") if isinstance(row.get("success"), dict) else {}
+        checks, ok = [], True
+        if rules.get("url_changed"):
+            hit = bool(row.get("initial_url")) and url != str(row.get("initial_url"))
+            checks.append(f"url_changed={hit}"); ok = ok and hit
+        if rules.get("url_contains"):
+            hit = str(rules["url_contains"]) in url
+            checks.append(f"url_contains={hit}"); ok = ok and hit
+        if rules.get("contains_text"):
+            hit = str(rules["contains_text"]).casefold() in text.casefold()
+            checks.append(f"contains_text={hit}"); ok = ok and hit
+        if rules.get("absent_text"):
+            hit = str(rules["absent_text"]).casefold() not in text.casefold()
+            checks.append(f"absent_text={hit}"); ok = ok and hit
+        if not checks:
+            raise ValueError("request has no deterministic success criteria")
+        if not ok:
+            return ToolResult(content="успех входа/регистрации НЕ подтверждён: " + ", ".join(checks),
+                              one_line="browser.verify_owner_input_success: не подтверждено",
+                              error=True, data={"request_id": request_id, "verified": False,
+                                                "checks": checks, "session_id": sid})
+        verified = store.mark_verified(request_id, evidence={"verified": True, "url": url, "checks": checks})
+        await ctx.svc.bus.emit("owner.input_verified", request_id=request_id,
+                               task_id=ctx.task.get("id"), session_id=sid, checks=checks)
+        return ToolResult(content="успех входа/регистрации подтверждён свежей страницей; "
+                                  "секретная Telegram-сессия может показать финальный кадр и очиститься.",
+                          one_line="browser.verify_owner_input_success: VERIFIED",
+                          data={"request_id": request_id, "verified": True,
+                                "checks": checks, "session_id": sid,
+                                "status": verified.get("status")})
+    except Exception as exc:
+        return ToolResult(content=f"успех не подтверждён: {type(exc).__name__}: {exc}",
+                          one_line="browser.verify_owner_input_success: ошибка", error=True)
 
 
 async def _screenshot(args, ctx):
@@ -592,9 +648,20 @@ SPECS = [
             "session_id": {"type": "integer"},
             "context": {"type": "string"},
             "fields": {"type": "array", "items": {"type": "object"}},
+            "success": {"type": "object"},
         },
         required=["fields"], category="read", permission="browser.control",
         source="browser", default_effect="auto", timeout_seconds=30.0,
+        external_output=True),
+    ToolSpec(
+        name="browser.verify_owner_input_success",
+        description=("После заполнения и submit/login перечитать страницу и проверить "
+                     "ЗАРАНЕЕ зафиксированные success-критерии owner-input. "
+                     "Только VERIFIED запускает финальный Telegram-скрин и очистку сессии."),
+        handler=_verify_owner_input_success,
+        input_schema={"request_id": {"type": "string"}},
+        required=["request_id"], category="read", permission="browser.read",
+        source="browser", default_effect="auto", timeout_seconds=45.0,
         external_output=True),
     ToolSpec(
         name="browser.fill_owner_fields",
