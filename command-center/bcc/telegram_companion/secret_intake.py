@@ -164,6 +164,14 @@ class SecretIntakeManager:
             raise SecretIntakeError("TELEGRAM_MESSAGE_ID_INVALID")
         req.request_message_id = message_id
 
+    def active(self, owner_key: str) -> bool:
+        req = self._by_owner.get(owner_key)
+        if req and req.expired:
+            req.state = "EXPIRED"
+            self._by_owner.pop(owner_key, None)
+            return False
+        return bool(req and req.state in {"WAIT_SECRET", "PROCESSING"})
+
     def pending(self, owner_key: str) -> SecretRequest | None:
         req = self._by_owner.get(owner_key)
         if req and req.expired:
