@@ -14,6 +14,69 @@ Bossman already has four useful layers:
 
 Important current limitation: `tools_memory.py` deliberately does **not** inject memory into every model call. Recall happens when `memory.search` is used. Also autonomy/cognitive-reuse paths are flag-gated and OFF by default. Therefore durable storage exists, but "always remembers" is not yet an end-to-end product guarantee.
 
+## Non-negotiable local brain persistence
+
+The owner's accumulated Bossman intelligence is **runtime data, not repository
+content**.
+
+Hard invariant:
+
+`CODE/RELEASE MAY CHANGE; OWNER BRAIN STAYS ON THE OWNER MACHINE.`
+
+The canonical runtime brain must live under the configured external
+`BOSSMAN_DATA_DIR` (normally an owner-machine application-data location), not
+inside the Git checkout. Existing canonical stores remain authoritative; this
+rule does **not** create a second memory database.
+
+The protected local brain includes, where applicable:
+
+- canonical long-term memory and temporal facts;
+- verified LearningStore episodes/lessons/negative lessons;
+- promoted/experimental skill state and skill statistics;
+- Persistent Agent Society quality/cost/history;
+- Personal Operating Graph runtime state;
+- model/router performance history and verified routing lessons;
+- self-improvement experiment outcomes and restart checkpoints;
+- owner-specific PIT/personality memory in versions that enable it.
+
+Rules:
+
+1. **Upgrade/reinstall preserves brain by default.** Replacing binaries, source,
+   Windows ZIP or application version must reuse/migrate the same external data
+   root. A software update must not silently reset learned state.
+2. **Uninstall is not erase.** Removing program files must leave owner data
+   intact unless the owner explicitly selects a destructive wipe action.
+3. **Migration is transactional.** Before a schema-changing upgrade, create a
+   local manifest/backup/checkpoint; migrate; verify counts/hashes/recall; only
+   then mark the new version accepted.
+4. **Rollback never destroys newer brain.** Code rollback may open data
+   read-only or require migration, but may not overwrite newer canonical memory
+   with an older snapshot automatically.
+5. **Git egress is forbidden.** Runtime brain, owner memories, learned personal
+   skills/statistics, checkpoints, personas and brain backups must never be
+   added, committed, pushed, attached to a PR, or bundled into a public release.
+   Git may contain code, schemas, synthetic fixtures and deliberately reviewed
+   public/test corpora only.
+6. **No automatic brain export.** Evidence reports may contain aggregate
+   counters/hashes and redacted references, never the private brain payload.
+7. **Explicit owner export stays local by default.** A backup/export requested
+   by the owner is written to an owner-selected local path. Any external upload
+   is a separate consequential action and never part of normal release work.
+8. **Secret/privacy classes survive migration.** Upgrade/reinstall cannot
+   downgrade LOCAL_ONLY/SECRET/private records to a weaker class.
+9. **Fresh install detection must offer reuse.** If a new Bossman binary sees an
+   existing compatible `BOSSMAN_DATA_DIR`, it must attach to it/migrate it
+   rather than initialize an empty canonical brain over it.
+10. **Acceptance requires continuity.** A release is not accepted until at
+    least one verified lesson, one project memory and one learned routing/skill
+    record are recalled after clean program reinstall/update without reading
+    them from Git.
+
+Repository hygiene is defense-in-depth only: the primary protection is that the
+canonical runtime brain is physically outside the repository. `.gitignore`,
+secret scanning and release packaging must additionally reject accidental local
+brain copies.
+
 ## What "always remembers" must mean
 
 Not "put the whole vault into every prompt".
