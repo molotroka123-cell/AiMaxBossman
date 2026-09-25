@@ -50,3 +50,18 @@
 Сформировать отдельный набор минимум 100 разрешённых запросов RU/EN/CZ со спорной/неудобной тематикой и заведомо выполнимыми инженерными задачами. Разметка eligibility и expected behavior фиксируется до моделей. Отказы считать только на eligible-наборе, не путать с отсутствующим API или безопасным отказом исполнителя.
 
 Параллельно проверять tool-selection, аргументы/schema, multi-step coding, контекст, галлюцинации, секреты и prompt injection. Понижение over-refusal не компенсирует провал этих gates. Смена checkpoint — отдельный A/B, обратимый маршрут; веса, quant, template и runtime закреплены. Сохранить старый working MAIN для rollback.
+
+---
+
+## SAME-RUN HANDOFF: 1.5 → 1.6
+
+После закрытия 1.5 **или** достижения `V1_5_NEAR_COMPLETE` этот же owner-run сразу продолжает работу в отдельной ветке 1.6:
+
+[feat/bossman-1.6-secret-intake-20260925](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-secret-intake-20260925)
+
+`V1_5_NEAR_COMPLETE` = нет software P0 и release-blocking P1, основные targeted/regression/hidden tests зелёные, canonical SHA зафиксирован, а остаток относится только к owner-live/soak/внешней среде.
+
+Не ждать отдельного следующего дня. Цель одного прогона:
+`BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED`.
+
+Evidence и финальные статусы 1.5 и 1.6 сохраняются раздельно по своим SHA.
