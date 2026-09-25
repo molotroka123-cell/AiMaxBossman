@@ -2,6 +2,23 @@
 
 **Единый общий контракт 1.7.** Эта ветка изолирована от 1.5/1.6 до отдельной convergence-проверки.
 
+
+## NOW — immediate execution
+
+For the full 1.7 run **today**, use:
+
+[BOSSMAN_17_FULL_RC_MASTER_RUN_20260925.md](BOSSMAN_17_FULL_RC_MASTER_RUN_20260925.md)
+
+After 1.7 produces a concrete `TESTED_17_SHA` and fills the RC handoff, the next chat/integrator must use:
+
+[NEXT_CHAT_CONVERGENCE_1_5_1_6_1_7_RU.md](NEXT_CHAT_CONVERGENCE_1_5_1_6_1_7_RU.md)
+
+Machine-readable handoff template:
+
+[evidence/BOSSMAN_17_RC_HANDOFF.template.json](evidence/BOSSMAN_17_RC_HANDOFF.template.json)
+
+Do not start convergence from prose memory. The convergence chat consumes the exact tested SHA and evidence files.
+
 ## 0. Главная идея
 
 Jeff — отдельный Telegram AI-assistant на базе того же Bossman. Для участника он выглядит как универсальный умный чат-помощник с web, vision, file understanding, code reasoning и персональной памятью.
