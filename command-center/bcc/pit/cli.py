@@ -157,9 +157,14 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
         add("web", await _probe_web(settings), "keyless fallback")
 
     media = photo_runtime_status(build_photo_services(core_token="").config)
+    # Photo ANALYSIS is the live 1.7 product surface: when AI Max media is
+    # enabled it must have a vision route. Photo EDIT is owner-deferred until
+    # a local Qwen image model is registered in Bossman Studio (AI Max phase);
+    # its absence is an honest capability gap, not a broken runtime, so it is
+    # reported in the detail without failing the doctor.
     media_ok = True
-    if media["ai_max_media_ready"]:
-        media_ok = bool(media["vision_configured"]) and bool(media["image_edit_configured"])
+    if media["ai_max_media_ready"] and not media["vision_configured"]:
+        media_ok = False
     add("ai_max_media", media_ok, json.dumps(media, ensure_ascii=False))
 
     add("participant_tool_perimeter", _tool_perimeter(), "location/device/computer denied")
