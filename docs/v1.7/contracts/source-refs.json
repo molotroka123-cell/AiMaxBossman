@@ -61,6 +61,18 @@
       "revision": "72bf19b886312041b32f7cae12c02dab8653c6fa",
       "license": "VERIFY_BEFORE_USE",
       "role": "synthetic persona stress tests"
+    },
+    {
+      "repo": "QwenLM/Qwen-Image",
+      "revision": "6b5e1f5cec987d404be5ac6657db3b9aacb56a89",
+      "license": "Apache-2.0",
+      "role": "local image generation/editing reference"
+    },
+    {
+      "repo": "QwenLM-corp/Qwen2.5-VL",
+      "revision": "a8fdb64927bad8fe499afe5f4f40562fb0b659b2",
+      "license": "Apache-2.0",
+      "role": "local visual understanding reference"
     }
   ]
 }
