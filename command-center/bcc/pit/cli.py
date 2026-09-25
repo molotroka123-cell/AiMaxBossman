@@ -137,6 +137,12 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
         probe.adapter = adapter
         probe.local_adapter = build_adapter("openai_compat", settings.local_url) \
             if settings.local_url else None
+        # The catalog probe follows the same resource-arbitration contract as
+        # the live runtime.  Keep the diagnostic object structurally aligned
+        # with ParticipantRuntime.__init__ so doctor cannot report a false
+        # integration failure before it reaches the provider catalog.
+        from .resources import LocalCapacityGuard
+        probe.capacity_guard = LocalCapacityGuard()
         probe.catalog = {}
         probe.catalog_checked_at = 0.0
         endpoints = await ParticipantRuntime.refresh_catalog(probe)
