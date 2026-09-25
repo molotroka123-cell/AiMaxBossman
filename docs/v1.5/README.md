@@ -20,6 +20,7 @@ Canonical 1.5 branch: `feat/bossman-1.5-economy-orchestrator-20260924`.
 | [ACCEPTANCE_AND_LEARNING.md](ACCEPTANCE_AND_LEARNING.md) | 20 классов неизвестных задач, safety-гейты, измерение обучения |
 | [AUTONOMY_SELF_REPAIR.md](AUTONOMY_SELF_REPAIR.md) | Главный контракт 1.5: task failure → isolated repair → verifier → unseen transfer; Telegram/UX/CMD supervision |
 | [ECONOMY_ORCHESTRATOR.md](ECONOMY_ORCHESTRATOR.md) | Jev-managed free-first swarm: 3× Nemotron, Ling tester/coder, capped paid GLM |
+| [TELEGRAM_LOGIN_PRIVACY.md](TELEGRAM_LOGIN_PRIVACY.md) | Local-vault login, ephemeral Telegram receipt/screenshot and automatic cleanup contract |
 | [CODEX_OWNER_RUN_20260925.md](CODEX_OWNER_RUN_20260925.md) | Завтрашний owner-run: Codex как интегратор, дешёвые модели делают bulk work |
 | [MERGE_TODAY.md](MERGE_TODAY.md) | Пошаговое безопасное сведение сегодняшних delta и exact-SHA |
 | [CLAUDE_MERGE_MASTER.md](CLAUDE_MERGE_MASTER.md) | Исполняемый handoff локальному Claude, 5 агентов |

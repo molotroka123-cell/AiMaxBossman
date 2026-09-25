@@ -383,3 +383,19 @@ Primary optimization target:
 **verified useful result per dollar / owner intervention / expensive coding token**, not raw model call count.
 
 Bossman 1.5 is OWNER_READY only when unified UX/CMD, Twitch→Telegram, owner-input→browser fill, real runtime-failure→tested repair candidate, unseen transfer and restart/STOP all pass with no open P0 or release-blocking P1.
+
+---
+
+## Immediate handoff to Bossman 1.6
+
+As soon as Bossman 1.5 reaches OWNER_READY closure — or only explicitly non-blocking P2 / optional OWNER_REQUIRED items remain — continue the SAME owner run in:
+
+[Bossman 1.6 self-evolution branch](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-self-evolution-20260925)
+
+Start with `BOSSMAN_1_6_START_HERE.md`.
+
+One-run objective:
+
+`BOSSMAN_1_5_OWNER_READY -> 1.6 HANDOFF -> BOSSMAN_SELF_EVOLUTION_RUNNING`
+
+Do not use this handoff to hide an open 1.5 P0 or release-blocking P1. The goal is to close both stages in one continuous owner run whenever the critical 1.5 gates allow it.
