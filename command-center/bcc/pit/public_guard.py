@@ -44,6 +44,7 @@ class GuardKind(StrEnum):
 class GuardReply:
     kind: GuardKind
     text: str
+    risk_delta: int = 0
 
 
 _MODEL_RE = re.compile(
@@ -83,15 +84,15 @@ def public_guard(text: str) -> GuardReply | None:
     if not value:
         return None
     if _MODEL_RE.search(value) or _IDENTITY_RE.search(value):
-        return GuardReply(GuardKind.IDENTITY, JEFF_IDENTITY_REPLY_RU)
+        return GuardReply(GuardKind.IDENTITY, JEFF_IDENTITY_REPLY_RU, risk_delta=1)
     if _OWNER_RE.search(value):
-        return GuardReply(GuardKind.OWNER_PRIVACY, OWNER_PRIVACY_REPLY_RU)
+        return GuardReply(GuardKind.OWNER_PRIVACY, OWNER_PRIVACY_REPLY_RU, risk_delta=1)
     if _LOCATION_RE.search(value):
-        return GuardReply(GuardKind.LOCATION, LOCATION_REPLY_RU)
+        return GuardReply(GuardKind.LOCATION, LOCATION_REPLY_RU, risk_delta=1)
     if _INTERNAL_RE.search(value):
-        return GuardReply(GuardKind.INTERNAL_STAGE, INTERNAL_STAGE_REPLY_RU)
+        return GuardReply(GuardKind.INTERNAL_STAGE, INTERNAL_STAGE_REPLY_RU, risk_delta=1)
     if _OTHER_RE.search(value):
-        return GuardReply(GuardKind.OTHER_PERSON, OTHER_PERSON_REPLY_RU)
+        return GuardReply(GuardKind.OTHER_PERSON, OTHER_PERSON_REPLY_RU, risk_delta=1)
     if _BOSSMAN_RE.search(value):
         return GuardReply(GuardKind.BOSSMAN_PUBLIC, BOSSMAN_PUBLIC_REPLY_RU)
     return None
