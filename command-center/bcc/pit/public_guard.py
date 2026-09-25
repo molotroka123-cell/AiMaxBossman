@@ -54,10 +54,7 @@ _MODEL_RE = re.compile(
     re.I,
 )
 _IDENTITY_RE = re.compile(r"^(?:кто ты|как тебя зовут|who are you|what are you|your name)\??$", re.I)
-_OWNER_RE = re.compile(
-    r"\b(?:владелец|owner|тимур|создатель)\b.*\b(?:адрес|жив[её]т|location|местополож|данн|телефон|почт|личн)\b",
-    re.I,
-)
+_OWNER_RE = re.compile(r"\b(?:владелец|owner|тимур|создатель|creator)\b", re.I)
 _LOCATION_RE = re.compile(
     r"\b(?:где я|where am i|мо[её] местополож|my location|знаешь где я|видишь мою геолокац)\b",
     re.I,
