@@ -11,6 +11,7 @@ from bcc.pit.identity import derive_person_key, scoped_person_dir
 from bcc.pit.models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
 from bcc.pit.policy import TelegramToolPolicy
 from bcc.pit.public_guard import GuardKind, public_guard
+from bcc.pit.presentation import InternalRouteMeta, public_model_label, render_jeff_reply
 from bcc.pit.companion_profile import PIT_BLOCKED_COMMANDS, PitParticipantPolicy, command_allowed_in_pit
 from bcc.pit.participant_context import PIT_ASSISTANT_SYSTEM, build_participant_context
 from bcc.pit.router import (
@@ -279,7 +280,7 @@ def test_pit_chat_has_no_owner_console_commands():
     forbidden = {
         "/status", "/queue", "/menu", "/task", "/result", "/approvals",
         "/stop", "/screen", "/claude", "/codex", "/cloud", "/watch",
-        "/evolution_status", "/jev",
+        "/evolution_status", "/model", "/jev",
     }
     assert forbidden <= PIT_BLOCKED_COMMANDS
     assert all(not command_allowed_in_pit(cmd) for cmd in forbidden)
@@ -393,3 +394,16 @@ def test_system_contract_is_jeff_and_politically_non_inherited():
     assert "публичное имя — Jeff" in PIT_ASSISTANT_SYSTEM
     assert "не наследуй взгляды или национальность владельца" in PIT_ASSISTANT_SYSTEM
     assert "не агитируй" in PIT_ASSISTANT_SYSTEM
+
+
+def test_pit_public_renderer_never_prefixes_internal_route_metadata():
+    meta = InternalRouteMeta(
+        selected_model="private-model-id",
+        provider="private-provider",
+        reason_code="LOCAL_FIRST",
+    )
+    rendered = render_jeff_reply("Готовый ответ")
+    assert rendered == "Готовый ответ"
+    assert meta.selected_model not in rendered
+    assert meta.provider not in rendered
+    assert public_model_label() == "Jeff"
