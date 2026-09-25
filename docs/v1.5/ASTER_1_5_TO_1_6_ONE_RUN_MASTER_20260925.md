@@ -1,5 +1,17 @@
 # ASTER — ONE RUN MASTER: Bossman 1.5 -> 1.6
 
+> **ABSOLUTE CORRECTION — ASTER WRITES NO PRODUCT CODE.**
+>
+> Aster only coordinates, launches, measures, audits and reports. It cannot be
+> the author of product fixes, patches, commits or merges. Coding/testing bulk
+> work must run through Bossman and its local/free-first worker stack. Provider
+> registration is never automatic: missing accounts/keys become OWNER_REQUIRED
+> packets for the owner, preferably delivered through Telegram owner-input.
+>
+> If Aster finds a defect, its output is only a reproducer + failing test +
+> evidence packet for Bossman.
+
+
 Date: 2026-09-25
 Start branch: `feat/bossman-1.5-economy-orchestrator-20260924`
 Next branch: `feat/bossman-1.6-self-evolution-20260925`

@@ -3,7 +3,7 @@
   "goal": "autonomous Bossman loop: task failure -> self-repair candidate -> executable verifier -> lesson -> unseen transfer, with owner supervision from Telegram/UX/CMD",
   "controller": "bossman",
   "router": "jev",
-  "external_auditor": "bootstrap_then_optional_red_team_only",
+  "external_auditor": "read_only_bootstrap_then_optional_red_team",
   "codex_role": "owner_integrator_only",
   "claude_role": "not_required_for_routine_loop",
   "student": {
@@ -79,7 +79,7 @@
     "requires_unseen_transfer_before_promotion": true,
     "auto_write_stable": false
   },
-  "aster_role": "launch_self_improvement_then_detach",
+  "aster_role": "launch_audit_coordinate_detach_no_code",
   "exit_gate": {
     "status": "ASTER_DETACHED_CONTINUITY_PASS",
     "requires_campaign_started": true,
@@ -92,7 +92,7 @@
     "routine_external_coder_dependency": false,
     "aster_required_after_bootstrap": false,
     "codex_required_after_bootstrap": false,
-    "target": "Bossman selects resources, repairs, verifies, learns, retries, and reports using its own bounded runtime"
+    "target": "Bossman selects resources, writes/fixes code through its own local/free/cheap worker stack, verifies, learns, retries, and reports; Aster only audits/coordinates/bootstrap-launches and then detaches"
   },
   "model_routing_stack": {
     "config": "config/v1.5/model-routing-stack.json",
@@ -114,5 +114,18 @@
     "start_as_soon_as_minimum_safe_path_exists": true,
     "optional_specialists_do_not_block_start": true,
     "provider_onboarding_does_not_block_start_when_capacity_exists": true
+  },
+  "aster_policy": {
+    "code_write": false,
+    "patch_apply": false,
+    "commit": false,
+    "merge": false,
+    "candidate_promotion": false,
+    "run_tests": true,
+    "launch_bossman": true,
+    "inspect_evidence": true,
+    "write_audit_report": true,
+    "request_owner_input": true,
+    "provider_onboarding": "OWNER_REQUIRED_PACKET_ONLY"
   }
 }

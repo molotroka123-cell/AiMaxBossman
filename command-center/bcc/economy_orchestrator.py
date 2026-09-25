@@ -361,12 +361,30 @@ class EconomyOrchestrator:
 
 def model_policy() -> dict[str, Any]:
     return {
-        "controller": "jev", "auditor": "aster_external_only",
+        "controller": "jev",
+        "auditor": "aster_read_only_external",
         "workers": {name: asdict(spec) for name, spec in ROLE_SPECS.items()},
         "youtube_window": list(PUBLIC_VIDEO_WINDOW),
+        "external_auditor_policy": {
+            "may_write_code": False,
+            "may_apply_patch": False,
+            "may_commit": False,
+            "may_merge": False,
+            "may_promote_candidate": False,
+            "may_run_tests": True,
+            "may_launch_bossman": True,
+            "may_compare_evidence": True,
+            "may_request_owner_input": True,
+            "may_write_audit_report": True,
+        },
         "rules": {
-            "free_first": True, "three_independent_nemotron_agents": True,
-            "ling_codes_and_tests": True, "glm_paid_finalizer_only": True,
-            "youtube_claims_start_unverified": True, "live_trading": False,
+            "free_first": True,
+            "three_independent_nemotron_agents": True,
+            "ling_codes_and_tests": True,
+            "bossman_owns_repairs": True,
+            "aster_never_codes": True,
+            "glm_paid_finalizer_only": True,
+            "youtube_claims_start_unverified": True,
+            "live_trading": False,
         },
     }

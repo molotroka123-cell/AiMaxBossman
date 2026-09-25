@@ -14,7 +14,14 @@
     "aster_may_accept_terms": false,
     "aster_may_solve_captcha": false,
     "aster_may_create_api_key": false,
-    "owner_pastes_key_to_local_secret_store": true
+    "owner_pastes_key_to_local_secret_store": true,
+    "bossman_may_create_account": false,
+    "bossman_may_open_signup_page": false,
+    "bossman_may_fill_signup_fields": false,
+    "aster_owner_required_helper": true,
+    "aster_may_prepare_signup_packet": true,
+    "owner_completes_registration": true,
+    "owner_may_supply_fields_via_telegram": true
   },
   "providers": [
     {

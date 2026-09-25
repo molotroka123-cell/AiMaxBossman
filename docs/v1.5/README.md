@@ -27,6 +27,7 @@ Canonical 1.5 branch: `feat/bossman-1.5-economy-orchestrator-20260924`.
 | [SOURCES_AND_BASELINE.md](SOURCES_AND_BASELINE.md) | Проверенные источники, snapshot и неизвестное |
 | [BOSSMAN_1_5_CODE_FREEZE_20260925.md](BOSSMAN_1_5_CODE_FREEZE_20260925.md) | Канонический code-freeze: scope закрыт, завтра только owner-run/self-improvement evidence |\n| [BOSSMAN_1_5_FINAL_CLOSURE_20260925.md](BOSSMAN_1_5_FINAL_CLOSURE_20260925.md) | Финальный контракт автономности 1.5: self-improvement, society, skill compiler, operating graph, resource manager |
 | [ASTER_SELF_IMPROVEMENT_MASTER_20260925.md](ASTER_SELF_IMPROVEMENT_MASTER_20260925.md) | Owner-run: внешний аудитор запускает и доказывает собственное самоулучшение Bossman |
+| [ASTER_NO_CODE_FREE_WORKERS_CORRECTION_20260925.md](ASTER_NO_CODE_FREE_WORKERS_CORRECTION_20260925.md) | Жёсткая correction policy: Aster не пишет product code; Bossman/local/free workers делают fixes, Aster только audit/launch/OWNER_REQUIRED |
 | [ASTER_1_5_TO_1_6_ONE_RUN_MASTER_20260925.md](ASTER_1_5_TO_1_6_ONE_RUN_MASTER_20260925.md) | Главный one-run directive: закрыть 1.5, запустить self-improvement и без остановки перейти в 1.6 |
 | [OPEN_SOURCE_AGI_REUSE_20260924.md](OPEN_SOURCE_AGI_REUSE_20260924.md) | Какие идеи взяты из современных OSS agent/memory/routing систем и почему без второго backend |
 
@@ -49,7 +50,7 @@ GOAL
  -> continue
 ```
 
-Owner supervision is available through Command Center, CMD and Telegram. The normal runtime does not depend on an external coding/audit agent. Missing ordinary form values can be supplied from the phone and filled by the browser runtime; consequential submit/login/ToS/payment remains under the existing authority gates.
+Owner supervision is available through Command Center, CMD and Telegram. The normal runtime does not depend on an external coding/audit agent. **Aster is explicitly non-coding/read-only for product fixes: all patches/tests/repairs are authored through Bossman's own local/free-first worker stack; provider signup is OWNER_REQUIRED and never performed automatically by Bossman.** Missing ordinary form values can be supplied from the phone and filled by the browser runtime; consequential submit/login/ToS/payment remains under the existing authority gates.
 
 Market observation and training may run in parallel with self-repair. Trading execution remains OFF/PAPER.
 
