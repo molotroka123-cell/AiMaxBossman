@@ -70,6 +70,18 @@ class Store:
         self.db.execute("INSERT INTO state VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                         (key, self.seal(value)))
 
+    def acknowledge_without_body(self, update_id: int) -> bool:
+        """Advance Telegram offset without persisting a message body.
+
+        Used by the secret-intake lane: plaintext is processed in memory and is
+        deliberately never sealed into inbox/history/learning tables.
+        """
+        with self.tx():
+            if update_id < self.get("offset", 0):
+                return False
+            self.put("offset", update_id + 1)
+            return True
+
     def ingest(self, update_id: int, who: str | None, body: dict | None) -> bool:
         """Durably acknowledge only after accepting or explicitly refusing the update."""
         with self.tx():
