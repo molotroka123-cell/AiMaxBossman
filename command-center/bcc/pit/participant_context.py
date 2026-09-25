@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from .context import select_persona_context
 from .models import ConsentState
 from .vault import PersonaVault
+from .behavior_scores import memory_confidence_floor
 
 
 PIT_ASSISTANT_SYSTEM = (
@@ -56,6 +57,7 @@ def build_participant_context(
     consent: ConsentState,
     selected_model_is_remote: bool,
     max_items: int = 20,
+    profile_stability: int = 50,
 ) -> ParticipantContext:
     """Build context from exactly one participant namespace.
 
@@ -69,7 +71,12 @@ def build_participant_context(
         return ParticipantContext(person_key=person_key, system=PIT_ASSISTANT_SYSTEM, persona_items=())
 
     records = vault.iter_candidate_records(person_key)
-    selected = select_persona_context(query, records, max_items=max_items)
+    selected = select_persona_context(
+        query,
+        records,
+        max_items=max_items,
+        min_confidence=memory_confidence_floor(profile_stability),
+    )
     return ParticipantContext(
         person_key=person_key,
         system=PIT_ASSISTANT_SYSTEM,
