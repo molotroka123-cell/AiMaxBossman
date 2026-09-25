@@ -14,6 +14,7 @@ class LocalExecutor:
     local_only = True
     network_isolated = True
     model_sees_secret = False
+    local_model_controlled = True
 
     def __init__(self, result=None):
         self.refs = None
@@ -93,6 +94,7 @@ def test_single_field_can_be_plain_text():
         local_only = True
         network_isolated = True
         model_sees_secret = False
+        local_model_controlled = True
         ref = None
         async def apply(self, request, values):
             self.ref = values["password"]
@@ -137,6 +139,7 @@ def test_companion_never_persists_plaintext_and_deletes_after_verified_login(tmp
         local_only = True
         network_isolated = True
         model_sees_secret = False
+        local_model_controlled = True
         async def apply(self, request, values):
             assert bytes(values["password"]) == b"CANARY-PASSWORD-9f34"
             return SecretExecutionResult(True, True, "LOGIN_VERIFIED")
