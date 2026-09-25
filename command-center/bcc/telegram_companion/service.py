@@ -284,6 +284,8 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
 
     def cloud_allowed(self, person: Person, message: dict) -> bool:
         try:
+            if self.secret_intake.active(person.key):
+                return False
             current = self.policy_provider()
             # A live local configuration edit may revoke or reduce a policy;
             # changed pricing/credential settings require restart, never stale authority.
