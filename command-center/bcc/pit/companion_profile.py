@@ -19,7 +19,7 @@ PIT_BLOCKED_COMMANDS = frozenset({
 PIT_ALLOWED_COMMANDS = frozenset({
     "/start", "/help", "/privacy", "/memory", "/why_memory", "/forget",
     "/pause_memory", "/resume_memory", "/export_me", "/delete_me", "/style",
-    "/search", "/best", "/fast",
+    "/search", "/best", "/fast", "/roleplay", "/parody",
 })
 
 
