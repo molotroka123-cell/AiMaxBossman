@@ -1,7 +1,7 @@
 # Bossman final UX swarm audit — interim, not release acceptance
 
-TESTED_SHA=`dd89151ec1c81881c0ac418d0970aa70f9186d2d`  
-BRANCH=`integrate/bossman-1.7-unified-20260925`  
+TESTED_SHA=`dd89151ec1c81881c0ac418d0970aa70f9186d2d`
+BRANCH=`integrate/bossman-1.7-unified-20260925`
 ASTER_CODE_WRITES=0
 
 This is a read-only source and isolated-browser-test checkpoint. It is **not** a
@@ -37,6 +37,7 @@ provisional until a live repro; no issue is marked closed.
 | UX-008 | P2 controls | Home “Создать агента” navigates to the agent list instead of opening creation; another click is required. Expected: direct create action or accurate label. | `command-center/ui/pages/home.js:445`, `command-center/ui/pages.js:804` |
 | UX-009 | P2 duplicate work | Double-click Images “Запустить” before refresh. No pending guard is visible; each request can enqueue a separate image job. Expected: one intentional submission or explicit duplicate confirmation. | `command-center/ui/pages/images.js:190,434`, `command-center/bcc/features/images.py:492` |
 | UX-010 | P2 duplicate work | Double-click Music “Сгенерировать трек”. Each click can start a provider task while the UI retains only the latest task ID. Expected: one task or visibility/cancellation of all tasks. | `command-center/ui/pages/music_studio.js:59,73`, `command-center/bcc/features/music_studio.py:86` |
+| UX-011 | P1 control | In Terminal submit an `ask` command. Backend returns HTTP 202 with `detail.approval_id`, while UI reads top-level `r.approval_id`; its subsequent retry sends `approved: true` without the required `approval_id`. Expected: owner approval workflow completes using the existing approval record, never self-approval. | `command-center/bcc/features/terminal.py:164-171`, `command-center/ui/pages/terminal.js:85-103` |
 
 Other unverified neighbours: OpenHands card lacks visible cancel despite a backend
 cancel endpoint; Studio partial artifacts are not labelled; PIT malformed-update
@@ -47,7 +48,7 @@ reproduction before severity or release decisions.
 
 SCREENS=0 owner screens; BUTTONS_TESTED=0 live; BUTTON_PASS=unknown;
 BUTTON_FAIL=unknown; DEAD_BUTTONS=unknown; P0=unknown; P1=unknown confirmed
-(5 provisional candidates); P2=unknown confirmed (5 provisional candidates);
+(6 provisional candidates); P2=unknown confirmed (5 provisional candidates);
 P3=unknown;
 P50_UI_MS=unknown; P95_UI_MS=unknown. STARTUP, RESTART, STOP,
 TELEGRAM_OWNER, JEFF, STUDIO, COMPUTER_USE=BLOCKED/UNVERIFIED.

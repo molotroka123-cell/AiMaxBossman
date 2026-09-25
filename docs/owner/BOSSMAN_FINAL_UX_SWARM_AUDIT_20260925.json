@@ -12,7 +12,7 @@
   "p1_confirmed": null,
   "p2_confirmed": null,
   "p3_confirmed": null,
-  "p1_provisional": 5,
+  "p1_provisional": 6,
   "p2_provisional": 5,
   "p50_ui_ms": null,
   "p95_ui_ms": null,
@@ -29,7 +29,7 @@
     "warnings": 1,
     "installed_owner_app": false
   },
-  "finding_ids": ["UX-001", "UX-002", "UX-003", "UX-004", "UX-005", "UX-006", "UX-007", "UX-008", "UX-009", "UX-010"],
+  "finding_ids": ["UX-001", "UX-002", "UX-003", "UX-004", "UX-005", "UX-006", "UX-007", "UX-008", "UX-009", "UX-010", "UX-011"],
   "repro_rate": "NOT_RUN",
   "screenshot": null,
   "ready_for_final_freeze": false
