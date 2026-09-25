@@ -331,6 +331,7 @@ class ParticipantRuntime:
             broker=self.photo_services.edit,
             ai_max_ready=self.photo_services.config.ai_max_media_ready,
         )
+        self._pending_photo_memory: dict[tuple[str, str], tuple[object, str]] = {}
         self.adapter = build_adapter("openai_compat", settings.provider_base_url,
                                      api_key=settings.provider_key or None)
         self.local_adapter = build_adapter(
@@ -572,7 +573,16 @@ class ParticipantRuntime:
                     reply_to_message_id=message.get("_message_id"),
                 )
                 self.store.finish(update_id, "done")
+                pending = self._pending_photo_memory.pop(
+                    (fresh.key, str(message.get("_message_id") or "0")), None)
+                if pending is not None:
+                    asset, caption = pending
+                    if self.vault.consent(asset.person_key).memory_enabled:
+                        self.photo_pipeline.schedule_background_after_delivery(
+                            asset, caption=caption)
             except (CompanionError, Exception):
+                self._pending_photo_memory.pop(
+                    (fresh.key, str(message.get("_message_id") or "0")), None)
                 self.store.finish(update_id, "delivery_unknown")
 
     # -- message pipeline ---------------------------------------------------------------
@@ -1058,6 +1068,8 @@ class ParticipantRuntime:
                 return ""
             except CompanionError as exc:
                 return _failure_text(str(exc))
+        if reply.background_memory_pending and reply.asset is not None:
+            self._pending_photo_memory[(person.key, message_id)] = (reply.asset, caption)
         return reply.text
 
     async def _handle_document(self, person: Person, person_key: str, message: dict,

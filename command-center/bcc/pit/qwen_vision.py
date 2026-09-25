@@ -18,8 +18,8 @@ class QwenVisionConfig:
     token: str = ""
     fast_timeout: float = 20.0
     memory_timeout: float = 60.0
-    fast_max_tokens: int = 256
-    memory_max_tokens: int = 384
+    fast_max_tokens: int = 1024
+    memory_max_tokens: int = 1536
 
     def __post_init__(self) -> None:
         parsed = urlsplit(self.base_url)

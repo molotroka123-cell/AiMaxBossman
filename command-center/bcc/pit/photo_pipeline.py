@@ -44,6 +44,7 @@ class PhotoReply:
     text: str
     asset: PhotoAsset | None
     background_memory_scheduled: bool
+    background_memory_pending: bool = False
 
 
 class VisionBackend(Protocol):
@@ -215,16 +216,17 @@ class PhotoPipeline:
         raw = self.store.read_verified(asset)
         answer = await self.vision.analyze_fast(raw, asset.mime, prompt)
         state = consent if consent is not None else self.vault.consent(person_key)
-        scheduled = False
-        if state.memory_enabled:
-            task = asyncio.create_task(
-                self._background_memory(asset, caption=prompt),
-                name=f"pit-photo-memory-{asset.message_id}",
-            )
-            self._background.add(task)
-            task.add_done_callback(self._background.discard)
-            scheduled = True
-        return PhotoReply(answer, asset, scheduled)
+        # The Telegram worker starts this only after sendMessage confirms the
+        # participant received the foreground answer.
+        return PhotoReply(answer, asset, False, state.memory_enabled)
+
+    def schedule_background_after_delivery(self, asset: PhotoAsset, *, caption: str) -> None:
+        task = asyncio.create_task(
+            self._background_memory(asset, caption=caption),
+            name=f"pit-photo-memory-{asset.message_id}",
+        )
+        self._background.add(task)
+        task.add_done_callback(self._background.discard)
 
     async def _wait_for_idle(self, *, max_wait_seconds: float = 30.0) -> None:
         loop = asyncio.get_running_loop()

@@ -74,7 +74,10 @@ def test_fast_photo_reply_does_not_wait_for_background_memory(tmp_path):
         pipe = PhotoPipeline(vault, vision=vision, ai_max_ready=True)
         reply = await pipe.answer_photo(person_key=key, message_id=7, data=JPEG, prompt="что здесь?")
         assert reply.text == "На фото красная машина."
-        assert reply.background_memory_scheduled
+        assert not reply.background_memory_scheduled
+        assert reply.background_memory_pending
+        assert not vision.memory_started.is_set()
+        pipe.schedule_background_after_delivery(reply.asset, caption="что здесь?")
         await asyncio.wait_for(vision.memory_started.wait(), 1)
         assert list(vault.iter_candidate_records(key)) == []
         vision.release.set()
@@ -134,6 +137,7 @@ def test_qwen_vision_uses_loopback_data_uri_and_no_tools():
     content = requests[0]["messages"][0]["content"]
     assert content[1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
     assert "tools" not in requests[0]
+    assert requests[0]["max_tokens"] == 1024
 
 
 def test_qwen_vision_rejects_non_loopback():

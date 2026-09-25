@@ -10,6 +10,8 @@ import dataclasses
 import json
 from pathlib import Path
 
+import pytest
+
 from bcc.pit import runtime as rt
 from bcc.pit.config import PITSettings
 from bcc.pit.models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
@@ -499,6 +501,38 @@ def test_local_fallback_rebuilds_remote_context_without_personal_memory(tmp_path
     assert answer == "готово"
     assert remote.calls
     assert "PRIVATE_MARKER_927" not in json.dumps(remote.calls, ensure_ascii=False)
+
+
+def test_photo_memory_starts_only_after_verified_telegram_delivery(tmp_path, monkeypatch):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    key = runtime.vault.key_for_telegram(person.user_id)
+    runtime.vault.set_consent(key, ConsentState(memory_enabled=True))
+    events = []
+    asset = type("Asset", (), {"person_key": key})()
+    runtime._pending_photo_memory[(person.key, "7")] = (asset, "caption")
+    claims = iter([(101, message("photo answer", message_id=7))])
+    def claim(*args):
+        try:
+            return next(claims)
+        except StopIteration:
+            raise asyncio.CancelledError
+    monkeypatch.setattr(runtime.store, "claim", claim)
+    monkeypatch.setattr(runtime.store, "finish", lambda *args: events.append("finish"))
+    async def handle(*args):
+        return "На фото кот."
+    async def send(*args, **kwargs):
+        events.append("send")
+        assert kwargs["reply_to_message_id"] == 7
+        return 42
+    monkeypatch.setattr(runtime, "handle", handle)
+    monkeypatch.setattr(runtime.telegram, "send", send)
+    monkeypatch.setattr(runtime.photo_pipeline, "schedule_background_after_delivery",
+                        lambda *args, **kwargs: events.append("memory"))
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(runtime._worker(person, "chat"))
+    assert events == ["send", "finish", "memory"]
+    runtime.store.close()
 
 
 def test_remote_route_used_when_local_catalog_down(tmp_path):
