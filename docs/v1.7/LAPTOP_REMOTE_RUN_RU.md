@@ -44,11 +44,17 @@ BOSSMAN_V17_COLLECTION_MODE=high_recall
 
 ## Переход на AI Max
 
-Когда 1.5/1.6 закончены:
+После первого успешного ответа 1.7 на ноутбуке переносим тот же PIT runtime на AI Max.
+
 - BOSSMAN_V17_LOCAL_MODELS=1;
-- Jev видит local endpoints как available;
-- те же PIT tests повторяются;
-- сравниваем verified answer quality, latency, tool correctness, cost и privacy;
-- local-first включается только там, где local quality достаточна.
+- BOSSMAN_V17_ROUTE_MODE=local_first_auto;
+- Jev сам выбирает локальную модель и переключает локальные endpoints;
+- выбор локальной модели не требует отдельного подтверждения на каждый запрос;
+- обычный web search/read для ответа также работает автоматически;
+- после принятого onboarding memory extraction и compaction не спрашивают владельца на каждый факт;
+- заранее разрешённый zero-cost cloud fallback может работать автоматически по privacy policy;
+- платный маршрут не включается молча и остаётся отдельной политикой.
+
+Подтверждения сохраняются только там, где Bossman и так считает действие внешним или значимым. Routine inference и локальная персонализация работают без лишних кликов.
 
 Telegram gateway, persona storage и dataset format не меняются.
