@@ -112,3 +112,44 @@ answer → candidate extraction → provenance → high-recall collection → ou
 - no open P0.
 
 После этого тот же runtime переносится на AI Max и включается `local_first_auto`.
+
+
+## Перед любым кодом — база 1.5
+
+Прочитай `BASELINE_1_5_20260925.md`.
+
+Зафиксированная база 1.7:
+`release/bossman-1.5-rc2-20260925 @ 21a8092b75763aefb741b4b150344a0673e01344`.
+
+На момент фиксации 1.7 имела `behind_by=0` относительно этого SHA и была его прямым потомком. После fetch перепроверь это; если 1.5 ушла вперёд — адаптируй interfaces по смыслу, но не переписывай PIT.
+
+## Поведение
+
+До live shadow должны быть подключены:
+- RiskLedger: только растёт;
+- Engagement 0–100: растёт/падает;
+- Profile Stability 0–100: растёт/падает;
+- BehaviorController;
+- topic_policy;
+- roleplay/parody state + restart;
+- moderate contextual discovery.
+
+LLM не получает ни одну из трёх шкал.
+
+## Religion / politics
+
+Не инициировать profiling.
+Разрешать обсуждение только после того, как participant сам поднял тему.
+Durable sensitive memory — только отдельный opt-in + explicit self-statement.
+
+## Role-play
+
+Добавь /roleplay и /parody в participant mode.
+Перед включением получить согласие.
+Режим переживает restart только для этого ID.
+Role-play не ослабляет privacy/tool boundaries.
+
+## Публичный Bossman
+
+На запрос человека Jeff может содержательно объяснить публичный Bossman до v1.6 включительно и дать GitHub.
+Никаких сведений о PIT/1.7.
