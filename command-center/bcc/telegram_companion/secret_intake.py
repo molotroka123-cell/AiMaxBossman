@@ -56,6 +56,7 @@ class LocalOnlySecretExecutor(Protocol):
     local_only: bool
     network_isolated: bool
     model_sees_secret: bool
+    local_model_controlled: bool
 
     async def apply(self, request: "SecretRequest",
                     values: dict[str, bytearray]) -> SecretExecutionResult: ...
@@ -137,6 +138,8 @@ class SecretIntakeManager:
             raise SecretIntakeError("SECRET_EXECUTOR_HAS_NETWORK")
         if getattr(executor, "model_sees_secret", True):
             raise SecretIntakeError("MODEL_MUST_NOT_SEE_SECRET")
+        if not getattr(executor, "local_model_controlled", False):
+            raise SecretIntakeError("LOCAL_MODEL_CONTROL_REQUIRED")
         rows = tuple(fields)
         if not 1 <= len(rows) <= 4 or len({f.name for f in rows}) != len(rows):
             raise SecretIntakeError("SECRET_FIELDS_INVALID")
