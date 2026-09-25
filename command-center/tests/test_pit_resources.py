@@ -1,0 +1,157 @@
+"""Resource arbiter contracts: Bossman 1.6 owns the GPU, Jeff yields.
+
+The participant runtime must demote local model routes when free VRAM is below
+the owner-configured headroom, fall back to runtime-confirmed FREE cloud
+models, and never evict or throttle the 1.6 workload. A broken VRAM probe
+degrades to the previous behaviour (local allowed), never to a participant
+facing outage.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from bcc.pit import resources as res
+from bcc.pit import runtime as rt
+from bcc.pit.config import PITSettings
+from bcc.pit.resources import LocalCapacityGuard
+from bcc.providers import ChatResult
+from bcc.telegram_companion.config import Person
+
+
+class FakeAdapter:
+    def __init__(self, text: str = "готово", pricing: dict | None = None):
+        self.text = text
+        self.pricing = {"free/model:free": {"prompt": 0.0, "completion": 0.0}} \
+            if pricing is None else pricing
+
+    async def list_model_info(self):
+        return [{"id": model_id} for model_id in self.pricing]
+
+    async def list_model_pricing(self):
+        return self.pricing
+
+    async def close(self):
+        return None
+
+
+def make_runtime(tmp_path: Path) -> rt.ParticipantRuntime:
+    settings = PITSettings(
+        data_dir=tmp_path,
+        people=(Person(user_id=101, chat_id=101, role="owner"),),
+        chat_models=("free/model:free",),
+        provider_base_url="http://127.0.0.1:9/v1",
+        provider_key="test-key",
+        bot_token="test-bot-token",
+        identity_salt="ab" * 32,
+    )
+    runtime = rt.ParticipantRuntime(settings)
+    runtime.adapter = FakeAdapter()
+    return runtime
+
+
+def with_local(runtime: rt.ParticipantRuntime) -> rt.ParticipantRuntime:
+    local_adapter = FakeAdapter()
+    local_adapter.pricing = {"bossman-fast-local:latest": {"prompt": 0.0, "completion": 0.0}}
+    runtime.local_adapter = local_adapter
+    runtime.settings = PITSettings(**{
+        **{f.name: getattr(runtime.settings, f.name)
+           for f in runtime.settings.__dataclass_fields__.values()},
+        "local_url": "http://127.0.0.1:11434/v1",
+        "local_models": ("bossman-fast-local:latest",),
+    })
+    return runtime
+
+
+# -- guard decisions --------------------------------------------------------------
+
+def test_guard_allows_local_when_vram_is_free(monkeypatch):
+    monkeypatch.setattr(res, "_read_free_vram_mb", lambda: 8192)
+    guard = LocalCapacityGuard(min_free_mb=2000, ttl_seconds=0)
+    assert guard.local_allowed.__doc__  # sanity: real coroutine fn
+    allowed = _run(guard.local_allowed())
+    assert allowed is True
+    assert "vram-free" in guard.last_reason
+
+
+def test_guard_denies_local_when_1_6_owns_vram(monkeypatch):
+    monkeypatch.setattr(res, "_read_free_vram_mb", lambda: 400)
+    guard = LocalCapacityGuard(min_free_mb=2000, ttl_seconds=0)
+    assert _run(guard.local_allowed()) is False
+    assert "1.6-priority" in guard.last_reason
+
+
+def test_guard_defaults_to_local_when_probe_broken(monkeypatch):
+    monkeypatch.setattr(res, "_read_free_vram_mb", lambda: None)
+    guard = LocalCapacityGuard(min_free_mb=2000, ttl_seconds=0)
+    assert _run(guard.local_allowed()) is True
+    assert "unmeasured" in guard.last_reason
+
+
+def test_guard_caches_within_ttl(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_measure():
+        calls["n"] += 1
+        return 8192
+
+    monkeypatch.setattr(res, "_read_free_vram_mb", fake_measure)
+    guard = LocalCapacityGuard(min_free_mb=2000, ttl_seconds=3600)
+    assert _run(guard.local_allowed()) is True
+    assert _run(guard.local_allowed()) is True
+    assert calls["n"] == 1
+    guard.reset()
+    assert _run(guard.local_allowed()) is True
+    assert calls["n"] == 2
+
+
+def test_guard_min_free_mb_env_override(monkeypatch):
+    monkeypatch.setenv("BOSSMAN_PIT_VRAM_FREE_MIN_MB", "10000")
+    guard = LocalCapacityGuard(ttl_seconds=0)
+    assert guard.min_free_mb == 10000
+
+
+def test_vram_probe_parses_nvidia_smi_csv(monkeypatch):
+    import subprocess
+
+    class FakeProc:
+        returncode = 0
+        stdout = "6144 MiB, 16384 MiB\n12288 MiB, 16384 MiB\n"
+        stderr = ""
+
+    def fake_run(*args, **kwargs):
+        return FakeProc()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert res._read_free_vram_mb() == 6144 + 12288
+
+
+def _run(coro):
+    import asyncio
+    return asyncio.new_event_loop().run_until_complete(coro)
+
+
+# -- routing integration ----------------------------------------------------------
+
+def test_refresh_catalog_drops_local_when_vram_busy(tmp_path, monkeypatch):
+    runtime = with_local(make_runtime(tmp_path))
+
+    async def vram_busy():
+        return False
+
+    runtime.capacity_guard = LocalCapacityGuard(ttl_seconds=0)
+    monkeypatch.setattr(LocalCapacityGuard, "local_allowed",
+                        lambda self: vram_busy())
+    endpoints = _run(runtime.refresh_catalog())
+    assert all(not endpoint.local for endpoint in endpoints.values())
+    assert "free/model:free" in endpoints
+
+
+def test_refresh_catalog_keeps_local_when_vram_free(tmp_path, monkeypatch):
+    runtime = with_local(make_runtime(tmp_path))
+    monkeypatch.setattr(res, "_read_free_vram_mb", lambda: 8192)
+    runtime.capacity_guard = LocalCapacityGuard(min_free_mb=2000, ttl_seconds=0)
+    endpoints = _run(runtime.refresh_catalog())
+    assert endpoints["bossman-fast-local:latest"].local is True
+    assert endpoints["free/model:free"].local is False

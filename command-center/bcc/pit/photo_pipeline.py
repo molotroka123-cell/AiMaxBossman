@@ -180,6 +180,7 @@ class PhotoPipeline:
         source_model: str = "qwen2.5-vl",
         ai_max_ready: bool = False,
         foreground_busy: Callable[[], bool] | None = None,
+        vram_gate: Callable[[], Awaitable[bool]] | None = None,
     ):
         self.vault = vault
         self.store = PhotoStore(vault)
@@ -188,6 +189,9 @@ class PhotoPipeline:
         self.source_model = source_model
         self.ai_max_ready = bool(ai_max_ready)
         self.foreground_busy = foreground_busy or (lambda: False)
+        # LocalCapacityGuard.local_allowed: False means Bossman 1.6 owns the
+        # GPU right now — heavy local vision must not contend with it.
+        self.vram_gate = vram_gate
         self._background: set[asyncio.Task] = set()
         self._bg_slots = asyncio.Semaphore(1)
 
@@ -202,6 +206,10 @@ class PhotoPipeline:
     ) -> PhotoReply:
         asset = self.store.ingest(person_key, message_id, data)
         if not self.ai_max_ready or self.vision is None:
+            return PhotoReply(LAPTOP_PHOTO_REPLY_RU, asset, False)
+        if self.vram_gate is not None and not await self.vram_gate():
+            # Honest deferral: the photo is safely stored and analysed later
+            # is NOT claimed — the participant hears the laptop answer.
             return PhotoReply(LAPTOP_PHOTO_REPLY_RU, asset, False)
 
         raw = self.store.read_verified(asset)
@@ -233,6 +241,8 @@ class PhotoPipeline:
             # If the foreground is still busy after the bounded wait, skip deep
             # enrichment rather than stealing compute from a live chat.
             if self.foreground_busy():
+                return
+            if self.vram_gate is not None and not await self.vram_gate():
                 return
             raw = await asyncio.to_thread(self.store.read_verified, asset)
             try:

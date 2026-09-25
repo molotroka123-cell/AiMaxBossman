@@ -42,6 +42,7 @@ from .behavior_controller import BehaviorController
 from .behavior_scores import BehaviorEvent
 from .collector import HighRecallCollector
 from .config import PITSettings
+from .resources import LocalCapacityGuard
 from .models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
 from .participant_context import build_participant_context
 from .photo_commands import photo_intent
@@ -307,11 +308,13 @@ class ParticipantRuntime:
         self.models = Models(_transport_settings(settings), self.home)
         self.behavior = BehaviorController(self.vault)
         self.collector = HighRecallCollector(self.vault)
+        self.capacity_guard = LocalCapacityGuard()
         self.photo_services: PhotoServices = build_photo_services(core_token=settings.core_token)
         self.photo_pipeline = PhotoPipeline(
             self.vault,
             vision=self.photo_services.vision,
             ai_max_ready=self.photo_services.config.ai_max_media_ready,
+            vram_gate=self.capacity_guard.local_allowed,
         )
         self.photo_edit = PhotoEditPipeline(
             self.vault,
@@ -349,10 +352,23 @@ class ParticipantRuntime:
         lists them; the router prefers them over remote. Remote models must be
         listed AND zero-priced in the live provider catalog — unknown price is
         never a route. A local catalog that is down simply yields no local
-        endpoints, so chat falls back to the remote free route.
+        endpoints, so chat falls back to the remote free route. Local
+        endpoints are also demoted when the LocalCapacityGuard reports that
+        Bossman 1.6 owns the VRAM right now — the participant route never
+        contends with the 1.6 workload and never evicts its models.
         """
         endpoints: dict[str, ModelEndpoint] = {}
-        if self.local_adapter is not None:
+        local_allowed = await self.capacity_guard.local_allowed()
+        if not local_allowed and self.local_adapter is not None:
+            # Owner-visible arbitration evidence: 1.6 keeps the GPU, the
+            # participant route fell back to free cloud for this turn.
+            _append_jsonl(self.home / "logs" / "resource_log.jsonl", {
+                "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "decision": "LOCAL_DEMOTED",
+                "reason": self.capacity_guard.last_reason,
+                "schema": "bossman.pit.resource-log/1",
+            })
+        if self.local_adapter is not None and local_allowed:
             try:
                 local_rows = await self.local_adapter.list_model_info()
                 local_ids = {row.get("id") for row in local_rows}
