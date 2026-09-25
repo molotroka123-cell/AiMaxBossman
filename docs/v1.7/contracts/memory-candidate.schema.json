@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bossman PIT Memory Candidate",
+  "type": "object",
+  "required": [
+    "id",
+    "category",
+    "key",
+    "value",
+    "confidence",
+    "evidence_kind",
+    "sensitivity",
+    "source_message_id"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1
+    },
+    "key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "value": {},
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "evidence_kind": {
+      "enum": [
+        "explicit",
+        "inferred",
+        "confirmed"
+      ]
+    },
+    "sensitivity": {
+      "enum": [
+        "normal",
+        "sensitive",
+        "secret_forbidden"
+      ]
+    },
+    "source_message_id": {
+      "type": [
+        "string",
+        "integer"
+      ]
+    },
+    "source_model": {
+      "type": "string"
+    },
+    "first_seen": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "last_seen": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "observation_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "contradiction_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "supersedes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ttl_seconds": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "utility_score": {
+      "type": "number"
+    },
+    "extraction_version": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}
