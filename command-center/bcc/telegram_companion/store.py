@@ -15,7 +15,9 @@ from .config import CompanionError
 
 class Store:
     def __init__(self, home: Path):
+        home = Path(home)
         home.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.home = home
         self.vault = Vault(home)
         self.path = home / "companion.sqlite3"
         self.db = sqlite3.connect(self.path, timeout=2, isolation_level=None)
@@ -127,6 +129,36 @@ class Store:
         if phase not in {"done", "failed", "delivery_unknown"}:
             raise ValueError("invalid inbox terminal state")
         self.db.execute("UPDATE inbox SET phase=? WHERE id=? AND phase='processing'", (phase, update_id))
+
+    def scrub_inbox(self, update_id: int) -> None:
+        """Erase a secret-bearing Telegram update after local Bossman accepted it.
+
+        The inbox is encrypted already; this removes even the encrypted copy so
+        restart/recovery cannot replay or later reveal the submitted value.
+        """
+        if type(update_id) is not int or update_id < 0:
+            return
+        self.db.execute("UPDATE inbox SET body=? WHERE id=?",
+                        (self.seal({"_redacted_secret_input": True}), update_id))
+
+    def track_transient(self, who: str, request_id: str, message_id: int) -> None:
+        """Remember bot messages that must disappear after owner-input is FILLED."""
+        if not isinstance(who, str) or not who or not isinstance(request_id, str):
+            return
+        if type(message_id) is not int or message_id <= 0:
+            return
+        key = f"secret_transient:{who}:{request_id}"
+        rows = self.get(key, [])
+        rows = [int(x) for x in rows if type(x) is int and x > 0][-31:] if isinstance(rows, list) else []
+        if message_id not in rows:
+            rows.append(message_id)
+        self.put(key, rows)
+
+    def pop_transients(self, who: str, request_id: str) -> list[int]:
+        key = f"secret_transient:{who}:{request_id}"
+        rows = self.get(key, [])
+        self.put(key, [])
+        return [int(x) for x in rows if type(x) is int and x > 0] if isinstance(rows, list) else []
 
     def remember(self, who: str, user: str, assistant: str):
         with self.tx():

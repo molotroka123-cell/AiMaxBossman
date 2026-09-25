@@ -192,7 +192,7 @@ def markup(keyboard) -> dict:
 
 class Telegram:
     METHODS = frozenset({"getMe", "getWebhookInfo", "getUpdates", "sendMessage", "sendChatAction", "getFile",
-                         "answerCallbackQuery", "setMyCommands"})
+                         "answerCallbackQuery", "setMyCommands", "deleteMessage"})
 
     async def send_video(self, person: Person, data: bytes, caption: str, keyboard=None):
         """Upload a verified MP4; same identity check and caption egress guard as photos."""
@@ -296,6 +296,23 @@ class Telegram:
         if not isinstance(body, dict) or body.get("ok") is not True or "result" not in body:
             raise CompanionError("TELEGRAM_API_REJECTED")
         return body["result"]
+
+    async def delete_message(self, person: Person, message_id: int) -> bool:
+        """Best-effort privacy cleanup for owner secret-input messages.
+
+        Telegram necessarily receives an inbound message before the bot can
+        delete it. This method verifies identity and a concrete message id; it
+        never treats an unverified API response as deletion.
+        """
+        if type(message_id) is not int or message_id <= 0:
+            raise CompanionError("TELEGRAM_MESSAGE_ID_INVALID")
+        if not self.authorize_delivery(person):
+            raise CompanionError("IDENTITY_REVOKED")
+        result = await self.call("deleteMessage", {"chat_id": person.chat_id,
+                                                   "message_id": message_id})
+        if result is not True:
+            raise CompanionError("TELEGRAM_DELETE_UNVERIFIED")
+        return True
 
     async def fetch_file(self, file_id: str, max_bytes: int = IMAGE_MAX_BYTES) -> bytes:
         """getFile + download into memory only, capped; the URL (with token) is never exposed."""
@@ -527,6 +544,14 @@ class Core:
         if not isinstance(rows, list):
             raise CompanionError("OWNER_INPUT_RESPONSE_INVALID")
         return [r for r in rows if isinstance(r, dict) and isinstance(r.get("id"), str)]
+
+    async def owner_input(self, request_id: str) -> dict:
+        if not re.fullmatch(r"[0-9a-f]{12}", str(request_id or "")):
+            raise CompanionError("OWNER_INPUT_ID_INVALID")
+        body = await self._request("GET", f"/api/owner-input/{request_id}")
+        if not isinstance(body, dict) or body.get("id") != request_id:
+            raise CompanionError("OWNER_INPUT_RESPONSE_INVALID")
+        return body
 
     async def answer_owner_input(self, request_id: str, values: dict, actor: str) -> dict:
         if not re.fullmatch(r"[0-9a-f]{12}", str(request_id or "")):

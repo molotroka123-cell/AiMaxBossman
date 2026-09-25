@@ -325,6 +325,40 @@ async def save_credentials(svc, data: dict) -> None:
         await s.commit()
 
 
+async def _require_local_secret_agent(ctx) -> None:
+    """Secret/login page reasoning must use only a local model route.
+
+    The secret itself is never model-visible, but the login page can contain
+    account metadata. Main and fallback models must both resolve to local
+    providers; otherwise the secret flow is refused before page reasoning.
+    """
+    task = ctx.task if isinstance(ctx.task, dict) else {}
+    agent_id = task.get("agent_id")
+    if type(agent_id) is not int:
+        raise PermissionError("secret/login flow requires an explicitly bound local agent")
+    from ..db import agents as agents_t, models as models_t, providers as providers_t
+    from ..v2.model_router import derive_local
+    async with ctx.svc.db.session() as s:
+        agent = (await s.execute(sa.select(agents_t.c.model_id, agents_t.c.fallback_model_id)
+                                 .where(agents_t.c.id == agent_id))).first()
+        if agent is None:
+            raise PermissionError("secret/login agent no longer exists")
+        mids = [agent._mapping.get("model_id"), agent._mapping.get("fallback_model_id")]
+        for mid in [m for m in mids if type(m) is int]:
+            row = (await s.execute(
+                sa.select(models_t.c.kind, providers_t.c.kind.label("provider_kind"),
+                          providers_t.c.base_url)
+                .select_from(models_t.join(providers_t, models_t.c.provider_id == providers_t.c.id))
+                .where(models_t.c.id == mid))).first()
+            if row is None:
+                raise PermissionError("secret/login model route is unresolved")
+            m = row._mapping
+            local, _why = derive_local(str(m["kind"] or ""), str(m["provider_kind"] or ""),
+                                       str(m["base_url"] or ""))
+            if not local:
+                raise PermissionError("secret/login flow refuses cloud or non-local model routes")
+
+
 def public_credential(cid: str, cred: dict) -> dict:
     """То, что можно показывать модели и в UI: без пароля, всегда."""
     return {"id": cid, "login": str(cred.get("login") or ""),
@@ -334,6 +368,7 @@ def public_credential(cid: str, cred: dict) -> dict:
 
 
 async def _login(args, ctx):
+    await _require_local_secret_agent(ctx)
     """Вход по ССЫЛКЕ на учётку. Пароль модель не видит и не передаёт.
 
     Раньше `password` был обычным строковым аргументом инструмента: модель
@@ -394,6 +429,7 @@ async def _login(args, ctx):
 
 
 async def _request_owner_fields(args, ctx):
+    await _require_local_secret_agent(ctx)
     """Ask the owner for missing form values without exposing the answer to the model."""
     store = getattr(ctx.svc, "owner_input", None)
     if store is None:
@@ -435,6 +471,7 @@ async def _request_owner_fields(args, ctx):
 
 
 async def _fill_owner_fields(args, ctx):
+    await _require_local_secret_agent(ctx)
     """Fill an answered request; plaintext values never enter tool/model output."""
     store = getattr(ctx.svc, "owner_input", None)
     request_id = str(args.get("request_id") or "").strip()

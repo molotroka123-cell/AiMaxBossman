@@ -257,11 +257,42 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
         # Button tokens live only in memory: after a restart every old button is stale.
         self.buttons = {}
         self.vision_tasks: set = set()
+        self.secret_cleanup_tasks: set = set()
         self.profile_building = False
         self.monitor_state = None
         self.monitor_failures = 0
         if self.telegram is not None:
             self.telegram.authorize_delivery = self.delivery_allowed
+
+    async def _cleanup_owner_input_messages(self, person: Person, request_id: str) -> None:
+        """Delete checklist/screenshot/ack after runtime confirms fields FILLED."""
+        deadline = time.monotonic() + 1800
+        terminal = {"FILLED", "CANCELLED", "EXPIRED"}
+        while time.monotonic() < deadline:
+            try:
+                row = await self.core.owner_input(request_id)
+            except CompanionError:
+                await asyncio.sleep(2)
+                continue
+            status = str(row.get("status") or "")
+            if status in terminal:
+                ids = self.store.pop_transients(person.key, request_id)
+                for message_id in ids:
+                    if self.telegram is not None:
+                        with contextlib.suppress(CompanionError):
+                            await self.telegram.delete_message(person, message_id)
+                if self.store.get("active_owner_input:" + person.key) == request_id:
+                    self.store.put("active_owner_input:" + person.key, None)
+                return
+            await asyncio.sleep(2)
+
+    def schedule_owner_input_cleanup(self, person: Person, request_id: str) -> None:
+        if not re.fullmatch(r"[0-9a-f]{12}", str(request_id or "")):
+            return
+        task = asyncio.create_task(self._cleanup_owner_input_messages(person, request_id),
+                                   name=f"tg-secret-cleanup-{request_id}")
+        self.secret_cleanup_tasks.add(task)
+        task.add_done_callback(self.secret_cleanup_tasks.discard)
 
     def delivery_allowed(self, person: Person) -> bool:
         try:
@@ -1141,12 +1172,24 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
                 self.store.finish(update_id, "failed")
                 continue
             try:
-                await self.telegram.send(person, answer, getattr(answer, "keyboard", None))
+                sent_id = await self.telegram.send(person, answer, getattr(answer, "keyboard", None))
             except CompanionError:
                 self.store.finish(update_id, "delivery_unknown")
             else:
                 self.store.finish(update_id, "done")
                 self.store.put("last_roundtrip:" + person.key, time.time())
+                command = text.partition(" ")[0].lower()
+                request_id = None
+                if command == "/inputs":
+                    request_id = self.store.get("active_owner_input:" + person.key)
+                elif command == "/input":
+                    candidate = text.partition(" ")[2].strip().partition(" ")[0]
+                    if re.fullmatch(r"[0-9a-f]{12}", candidate):
+                        request_id = candidate
+                if isinstance(request_id, str) and re.fullmatch(r"[0-9a-f]{12}", request_id):
+                    self.store.track_transient(person.key, request_id, sent_id)
+                    if command == "/input":
+                        self.schedule_owner_input_cleanup(person, request_id)
             self.last_message[person.key] = time.monotonic()
 
     async def poll(self):

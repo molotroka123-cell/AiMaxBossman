@@ -103,7 +103,7 @@ class ConsoleMixin:
         if command == "/inputs":
             return await self.console_inputs(person)
         if command == "/input":
-            return await self.console_input(person, arg)
+            return await self.console_input(person, arg, message)
         if command in {"/approve", "/reject"}:
             return await self.console_decide(person, command == "/approve", arg, message)
         if command in {"/stop", "/pause"}:
@@ -164,7 +164,12 @@ class ConsoleMixin:
         except CompanionError as exc:
             return f"Запросы данных не прочитаны: {_short(exc, 180)}."
         if not rows:
+            self.store.put("active_owner_input:" + person.key, None)
             return "Сейчас Bossman не ждёт данных для форм."
+        # A login flow normally has one active request. Only then may /screen
+        # and this checklist be tied to that request for automatic cleanup.
+        self.store.put("active_owner_input:" + person.key,
+                       rows[0]["id"] if len(rows) == 1 else None)
         lines = ["✍️ Bossman ждёт данные:"]
         for row in rows[:10]:
             fields = row.get("fields") if isinstance(row.get("fields"), list) else []
@@ -177,16 +182,18 @@ class ConsoleMixin:
             lines.append(
                 f"• {row['id']} · {_short(row.get('context'), 140) or 'форма'}\n"
                 f"  поля: {', '.join(labels) or '(не указаны)'}"
-                + ("\n  ⚠️ есть секретное поле: Telegram сам увидит отправленное значение; "
-                   "для пароля безопаснее Human Take Over/локальный vault." if secret else ""))
+                + ("\n  🔐 секретное поле: значение сразу шифруется локальным Vault, "
+                   "не попадает модели/памяти; исходное /input удаляется из Telegram best-effort." if secret else ""))
         lines.append(
             "\nОтвет: /input ID key=value; key2=value\n"
             "или /input ID {\"key\":\"value\",\"key2\":\"value\"}.\n"
-            "После ответа Bossman сам вставит значения; отправка формы остаётся отдельным ASK.")
+            "После ответа runtime сам вставит значения; модель их не увидит. "
+            "Логин/submit остаётся отдельным ASK. Telegram — внешний транспорт: удаление сообщений "
+            "после обработки best-effort, а не гарантия отсутствия серверной истории.")
         return "\n".join(lines)
 
-    async def console_input(self, person: Person, arg: str):
-        """Answer one owner-input request. The value is sent only to local Bossman."""
+    async def console_input(self, person: Person, arg: str, message: dict | None = None):
+        """Answer one owner-input request without showing values to any model."""
         request_id, sep, payload = (arg or "").strip().partition(" ")
         if not sep or not re.fullmatch(r"[0-9a-f]{12}", request_id):
             return "Формат: /input <12-символьный ID> key=value; key2=value  (или JSON-объект)."
@@ -210,6 +217,18 @@ class ConsoleMixin:
             row = await self.core.answer_owner_input(request_id, values, actor)
         except (ValueError, CompanionError) as exc:
             return f"Данные не приняты: {_short(exc, 220)}. Проверьте /inputs."
+        # From this point the encrypted local owner-input store is authoritative.
+        # Remove the Telegram copy immediately and erase even the encrypted
+        # inbox body. Failure to delete Telegram is reported only locally and
+        # never causes a dangerous retry of the form action.
+        if isinstance(message, dict):
+            self.store.scrub_inbox(message.get("_update_id"))
+            mid = message.get("message_id")
+            if self.telegram is not None and type(mid) is int and mid > 0:
+                import contextlib
+                with contextlib.suppress(CompanionError):
+                    await self.telegram.delete_message(person, mid)
+        self.store.put("active_owner_input:" + person.key, request_id)
         labels = [str(f.get("label") or f.get("key")) for f in row.get("fields") or [] if isinstance(f, dict)]
         return ("✅ Данные приняты локальным Bossman для запроса " + request_id
                 + (": " + ", ".join(labels) if labels else "")
@@ -271,7 +290,19 @@ class ConsoleMixin:
         if data is None:
             from .service import Reply
             return Reply(caption + "\nКадр не приложен (скриншотер не отдал файл). Текст наблюдения — выше.", keyboard)
-        await self.telegram.send_photo(person, data, caption, keyboard)
+        mid = await self.telegram.send_photo(person, data, caption, keyboard)
+        request_id = self.store.get("active_owner_input:" + person.key)
+        if isinstance(request_id, str) and re.fullmatch(r"[0-9a-f]{12}", request_id):
+            self.store.track_transient(person.key, request_id, mid)
+            # The Telegram copy remains until FILLED; the local screenshot is
+            # no longer needed after successful upload and is removed now.
+            try:
+                from pathlib import Path
+                p = Path(obs.get("screenshot") or "")
+                if FRAME_RE.match(p.name) and p.is_file() and not p.is_symlink():
+                    p.unlink()
+            except OSError:
+                pass
         return None
 
     @staticmethod
