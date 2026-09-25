@@ -33,6 +33,10 @@ class TelegramToolPolicy:
         "payments",
         "trading",
         "admin",
+        "geo",
+        "geolocation",
+        "location",
+        "device",
     )
 
     def allows(self, tool_name: str) -> bool:
