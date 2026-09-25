@@ -69,6 +69,10 @@ CATEGORIES: dict[str, tuple[str, ...]] = {
         "operating_system", "devices", "ides", "browsers", "messengers",
         "file_formats", "cloud_services", "ai_tools",
     ),
+    "visual_context": (
+        "shared_photo_subjects", "visual_preferences", "photo_edit_preferences",
+        "favorite_visual_styles", "recurrent_visible_objects", "visible_document_topics",
+    ),
 }
 
 ALL_KEYS = frozenset(key for keys in CATEGORIES.values() for key in keys)
