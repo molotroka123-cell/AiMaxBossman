@@ -102,6 +102,19 @@ Aster must write the live mapping/benchmarks first. Codex consumes that compact
 report and must not independently rediscover the whole local fleet unless the
 report is contradictory or a test fails.
 
+## Step 0B — start Bossman before optional expansion
+
+After Aster writes the live fleet table, do not wait for every optional model/provider.
+As soon as one coding route, one independent verifier, Jev and STOP/budget/candidate isolation pass, start:
+
+`tools/bossman_15_self_improve.py start`
+
+Then run provider expansion, YouTube ingestion, Twitch and the remaining acceptance lanes in parallel.
+The first milestone is `SELF_IMPROVEMENT_PROCESS_STARTED`, not a perfect provider inventory.
+
+If OpenRouter free limits are hit, prefer verified local routes and already-configured zero-cost providers.
+If another provider requires signup/API-key creation, emit OWNER_REQUIRED with official signup instructions and continue other work.
+Do not use fake identities, bypass CAPTCHA/ToS, create quota-evasion accounts or scrape credentials.
 ## Step A — preflight
 
 Verify:

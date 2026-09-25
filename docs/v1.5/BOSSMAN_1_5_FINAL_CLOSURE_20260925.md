@@ -115,6 +115,10 @@ Routine fixes should move to Bossman's coding path and its own worker society.
 
 ## Self-improvement launch gate
 
+The campaign starts as early as safely possible. Full provider expansion and YouTube ingestion do not need to finish first.
+A clean source, one verified coding route, one independent verifier, and live Jev/STOP/budget/candidate-isolation boundaries are enough to launch.
+Provider onboarding and training-data work continue in parallel after launch.
+
 Minimum success tomorrow:
 
 - Bossman installed candidate starts;
@@ -143,6 +147,13 @@ Best-day target:
 
 Do not rename a weaker status into a stronger one.
 
+## Owner local model hierarchy
+
+The routing intent is frozen in `config/v1.5/model-routing-stack.json`.
+
+Jev/Bossman should prefer Qwen3.6 for simple work; Qwen3.8 plus Xing/Occamy for coding/projects; Nex-N2.5 for screen/browser; Flash-Next for the hardest reasoning; gpt-oss-120B as independent verifier; Qwen-Image-2.1 for images; LTX-2.5/Wan for video.
+
+Aster's first owner-run task is to resolve these aliases to actual installed IDs/runtime/quantization and measure the role gates. The live table, not the documentation name, is authoritative.
 ## Provider capacity
 
 Use existing configured zero-cost capacity first. If one provider is unavailable or rate-limited, the provider pool may offer another already-owner-configured provider.
@@ -155,7 +166,7 @@ If additional capacity requires an account/key, emit OWNER_REQUIRED with:
 - reason this capacity helps;
 - whether a free tier was actually confirmed.
 
-No automated registration.
+No automated registration. Aster must still search for legitimate extra zero-cost providers, prepare owner onboarding packets, and validate any new key immediately after the owner completes signup. Provider expansion is non-blocking when another verified route already exists.
 
 ## Money/economy principle
 

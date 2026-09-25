@@ -41,6 +41,19 @@ not the bulk coder. Bossman owns the routine loop.
 7. **Owner supervision** — Command Center + `Bossman-1.5.cmd` + Telegram
    owner-input all use the same Bossman backend/data root.
 
+## Canonical local routing stack
+
+Before any owner-run work Aster refreshes `config/v1.5/model-routing-stack.json` against the real machine.
+
+- simple → Qwen3.6;
+- coding/project → Qwen3.8 with Xing/Occamy workers;
+- screen/browser → Nex-N2.5;
+- very hard reasoning → Flash-Next;
+- independent verifier → gpt-oss-120B;
+- image → Qwen-Image-2.1;
+- video → LTX-2.5 / Wan.
+
+No silent model substitution. Missing/unloadable roles are DEGRADED/BLOCKED until a fallback passes the same role gate.
 ## Frozen economy/model policy
 
 Bulk work goes through Bossman/OpenRouter:
@@ -89,11 +102,14 @@ Twitch OI/CVD collection remains evidence-backed and read-only.
 Canonical order:
 
 1. `git fetch --all --prune`; checkout this frozen branch/SHA.
-2. Run dedicated Bossman 1.5 CI/target tests.
-3. Build/install the exact Windows candidate if required by the runbook.
-4. `Bossman-1.5.cmd quick-test`.
-5. `Bossman-1.5.cmd start --repo "<clean checkout>"`.
-6. Confirm parallel lanes:
+2. Aster FIRST refreshes the canonical local routing stack on the real machine.
+3. Prove one coding route + one independent verifier + Jev/STOP/budget boundaries.
+4. Immediately start Bossman's real self-improvement campaign.
+5. Run dedicated Bossman 1.5 CI/target tests and provider expansion in parallel.
+6. Build/install the exact Windows candidate if required by the runbook.
+7. `Bossman-1.5.cmd quick-test`.
+8. `Bossman-1.5.cmd start --repo "<clean checkout>"`.
+9. Confirm parallel lanes:
    - self-improvement/runtime self-repair;
    - YouTube economy/learning;
    - Twitch verified collector;
