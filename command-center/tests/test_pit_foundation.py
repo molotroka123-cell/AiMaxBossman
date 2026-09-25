@@ -161,7 +161,7 @@ def test_telegram_tool_registry_has_no_computer_shell_admin_payment_or_trading()
         "admin.users",
     ):
         assert not policy.allows(forbidden), forbidden
-    for allowed in ("web.search", "browser.read", "calculator", "persona.read_own", "vision.analyze_own"):
+    for allowed in ("web.search", "browser.read", "calculator", "vision.analyze_own", "file.analyze_upload"):
         assert policy.allows(allowed), allowed
 
 
