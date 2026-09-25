@@ -37,3 +37,24 @@
 - /model отсутствует на PIT participant surface.
 - owner-console/computer/shell/admin/payment/trading/evolution commands отсутствуют до dispatcher.
 - user-visible renderer не добавляет selected_model/provider к ответу.
+
+## Free-only runtime
+
+Jeff 1.7 использует только local models или runtime-подтверждённые zero-cost remote models. Неизвестная цена означает отказ маршрута, а не платный fallback.
+
+## Direct storage boundary
+
+Ни одна отвечающая LLM не получает прямой tool/access к PersonaVault, risk ledger или файловой системе. Bossman может подать только bounded transient context текущего participant.
+
+## Local risk ledger
+
+Model/owner/location/other-person/internal-stage probes дают +1 в локальный `security/risk.json`. Этот score не показывается LLM и не экспортируется как persona. Он может только слегка повысить частоту benign optional discovery в collection-first режиме, не открывая sensitive categories или дополнительные tools.
+
+## Laptop media
+
+Vision participant uploads — целевая обязательная функция.
+
+Image generation до AI Max:
+**«Скоро научусь, малышка 😊»**
+
+Никакой fake image generation до live-ready локального image path.
