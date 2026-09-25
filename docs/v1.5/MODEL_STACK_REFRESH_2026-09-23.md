@@ -253,3 +253,17 @@ CLOUD FRONTIER  DeepSeek-V4.1-Flash + approved premium routes
 ```
 
 This is a benchmark target, not a declaration that every item is currently installed.
+
+---
+
+## SAME-RUN HANDOFF: 1.5 → 1.6
+
+После закрытия 1.5 или достижения `V1_5_NEAR_COMPLETE` этот же owner-run сразу переходит в отдельную ветку:
+[feat/bossman-1.6-secret-intake-20260925](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-secret-intake-20260925)
+
+`V1_5_NEAR_COMPLETE`: software P0 = 0, release-blocking P1 = 0, основные targeted/regression/hidden tests зелёные, canonical SHA зафиксирован; остаток только owner-live/soak/внешняя среда.
+
+Не ждать отдельного следующего дня. Цель одного owner-run:
+`BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED`.
+
+Evidence 1.5 и 1.6 сохраняются раздельно по своим SHA.
