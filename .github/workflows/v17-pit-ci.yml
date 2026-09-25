@@ -1,0 +1,67 @@
+name: Bossman 1.7 PIT foundation
+
+on:
+  push:
+    branches:
+      - 'feat/bossman-1.7-personal-identity-training-*'
+    paths:
+      - 'command-center/bcc/pit/**'
+      - 'command-center/tests/test_pit_foundation.py'
+      - 'command-center/tests/test_pit_photo_foundation.py'
+      - 'command-center/tests/test_pit_runtime.py'
+      - 'command-center/tests/test_pit_cli.py'
+      - '.github/workflows/v17-pit-ci.yml'
+  pull_request:
+    paths:
+      - 'command-center/bcc/pit/**'
+      - 'command-center/tests/test_pit_foundation.py'
+      - 'command-center/tests/test_pit_photo_foundation.py'
+      - 'command-center/tests/test_pit_runtime.py'
+      - 'command-center/tests/test_pit_cli.py'
+      - '.github/workflows/v17-pit-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pit-foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      # tests/conftest.py imports bcc.api, which needs the real Command Center
+      # dependency set at collection time. The PIT contracts themselves stay
+      # identical; this only gives the shared conftest what it imports.
+      - name: Install test runner
+        run: >
+          python -m pip install --quiet pytest httpx "sqlalchemy[asyncio]>=2.0,<2.0.44"
+          aiosqlite fastapi "uvicorn[standard]>=0.30" "httpx[socks]>=0.27"
+          pydantic psutil "cryptography>=50.0.1" pyyaml Pillow rich psutil
+      - name: PIT contracts
+        env:
+          PYTHONPATH: command-center
+        run: |
+          set +e
+          python -m pytest \
+            command-center/tests/test_pit_foundation.py \
+            command-center/tests/test_pit_photo_foundation.py \
+            command-center/tests/test_pit_runtime.py \
+            command-center/tests/test_pit_cli.py \
+            -q --tb=short > pytest-output.txt 2>&1
+          status=$?
+          cat pytest-output.txt
+          exit $((status))
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pit-pytest-output
+          path: pytest-output.txt
+      - name: Compile PIT package
+        run: python -m compileall -q command-center/bcc/pit
+      - name: Whitespace hygiene
+        run: git diff --check

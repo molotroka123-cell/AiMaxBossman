@@ -32,6 +32,20 @@ sys.path[:0] = [str(HERE), str(ROOT), str(ROOT / "bossman-core")]
 from v15_provider_pool import load as load_provider_pool, status as provider_status  # noqa: E402
 from bossman_v3.self_improvement.attempts import CommandCenterApi, resolve_token  # noqa: E402
 
+def utf8_console() -> None:
+    # Shipped runners start with `-I`, which ignores PYTHONUTF8/PYTHONIOENCODING:
+    # without this the first Cyrillic line dies with cp1252 on Windows.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
+utf8_console()
+
+
+
 _INSTALLED_CONFIG = HERE / "config" / "v1.5" / "self-improvement.json"
 DEFAULT_CONFIG = (
     _INSTALLED_CONFIG if _INSTALLED_CONFIG.is_file()

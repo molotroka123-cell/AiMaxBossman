@@ -1,0 +1,25 @@
+{
+  "schema": "bossman.v1.5.release-candidate/1",
+  "source_sha": "2338c7ddbda3b70072ad517b08eb42a864a6fcae",
+  "candidate": "rc2",
+  "purpose": "Exact test of autonomous self-repair + autonomy core + provider/economy + owner supervision.",
+  "required": [
+    "scientific_self_improvement",
+    "persistent_agent_society",
+    "skill_compiler",
+    "personal_operating_graph",
+    "autonomous_resource_manager",
+    "continuous_runtime_self_repair",
+    "telegram_owner_input",
+    "provider_pool",
+    "economy_orchestrator"
+  ],
+  "boundaries": {
+    "scientific_agi_claim": false,
+    "stable_auto_write": false,
+    "account_auto_signup": false,
+    "quota_evasion": false,
+    "trading_execution": "OFF",
+    "external_accounts": "OWNER_REQUIRED"
+  }
+}

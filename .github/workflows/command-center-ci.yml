@@ -50,6 +50,18 @@ jobs:
         # 3.14 зелёный — значит, восемь отказов OpenRouter у владельца объясняются
         # не интерпретатором.
         python: ["3.11", "3.12", "3.14"]
+        include:
+          # bossman-core runtime рядом с CC: на 3.11/3.12 sidecar говорит
+          # bossman.openhands.v1 (core-runtime job зелёный на этой комбинации).
+          # На 3.14 sidecar (код 1.5) пока не стартует — до его 3.14-фикса на
+          # convergence рантайм здесь не подставляется, и эти тесты остаются в
+          # прежнем честном состоянии «рантайма нет» (skip), а не новых красных.
+          - python: "3.11"
+            with_bossman_runtime: true
+          - python: "3.12"
+            with_bossman_runtime: true
+          - python: "3.14"
+            with_bossman_runtime: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -104,6 +116,10 @@ jobs:
           # Тот же режим, что в разработке: воркеры не стартуют сами,
           # тесты сами крутят движок и не зависят от таймингов раннера.
           BCC_DATA_DIR: ${{ runner.temp }}/bcc-data
+          # bossman_v3 импортируется conftest-фичами и test_v15_autonomy_feature
+          # из checkout bossman-core; editable-установка его не экспонирует.
+          # 3.14 пока без рантайма (sidecar 1.5 не совместим) — см. matrix.include.
+          PYTHONPATH: ${{ matrix.with_bossman_runtime && format('{0}/bossman-core:{0}', github.workspace) || '' }}
           # Браузер здесь ставится намеренно, значит браузерные тесты обязаны
           # ВЫПОЛНИТЬСЯ. Без этого флага «браузера нет — пропустили» и «браузер
           # есть — прошли» выглядят в отчёте одинаково, и потерянное покрытие
@@ -248,6 +264,9 @@ jobs:
         working-directory: command-center
         env:
           BCC_DATA_DIR: ${{ runner.temp }}\bcc-data
+          # The conftest feature loader imports bossman_v3 from the bossman-core
+          # checkout; editable installs do not expose it (repo-wide red before).
+          PYTHONPATH: ${{ github.workspace }}\bossman-core;${{ github.workspace }}
         run: >-
           python -m pytest -q --timeout=180 --timeout-method=thread
           tests/test_discovery.py tests/test_feat_terminal_map.py tests/test_diag_bundle.py
@@ -266,6 +285,7 @@ jobs:
         working-directory: command-center
         env:
           BCC_DATA_DIR: ${{ runner.temp }}\bcc-video-data
+          PYTHONPATH: ${{ github.workspace }}\bossman-core;${{ github.workspace }}
         run: >-
           python -m pytest -q --timeout=180 --timeout-method=thread
           tests/test_video_descriptor_boundary.py::test_verified_media_body_survives_pathname_replacement

@@ -1,0 +1,78 @@
+{
+  "schema_version": "bossman.v1.7.source-refs/1",
+  "recorded_at": "2026-09-25",
+  "repositories": [
+    {
+      "repo": "getzep/graphiti",
+      "revision": "47f648213da99aa96ec190c61dbb3e0d163e1250",
+      "license": "Apache-2.0",
+      "role": "temporal memory provenance"
+    },
+    {
+      "repo": "langchain-ai/langmem",
+      "revision": "9d033b47d9ce53e37e92c92241b0496c0278932e",
+      "license": "MIT",
+      "role": "background memory management"
+    },
+    {
+      "repo": "mem0ai/mem0",
+      "revision": "989c7da0fc8e4df6342dbb8c448af9816d60d24c",
+      "license": "Apache-2.0",
+      "role": "memory evaluation reference"
+    },
+    {
+      "repo": "letta-ai/letta",
+      "revision": "5bcdd177d70fa2b31a754cfcd801e77b2e1ab16a",
+      "license": "Apache-2.0",
+      "role": "stateful memory reference"
+    },
+    {
+      "repo": "stanfordnlp/dspy",
+      "revision": "430af8d8722fa5d28fc10e8d02a3f585bcf27b88",
+      "license": "MIT",
+      "role": "prompt optimization"
+    },
+    {
+      "repo": "gepa-ai/gepa",
+      "revision": "d771eb21b5dd3228bc3f567293d2ccfc423fc900",
+      "license": "VERIFY_BEFORE_VENDORING",
+      "role": "reflective prompt optimization"
+    },
+    {
+      "repo": "LaMP-Benchmark/LaMP",
+      "revision": "38c9d4d87629aba5a821bcddc10ddcc83f8d49a1",
+      "license": "VERIFY_BEFORE_USE",
+      "role": "personalization benchmark"
+    },
+    {
+      "repo": "LongLaMP-benchmark/LongLaMP-Benchmark",
+      "revision": "41412feaadd6d07c74306de1d5e7e3ed3c9abc93",
+      "license": "VERIFY_BEFORE_USE",
+      "role": "long form personalization benchmark"
+    },
+    {
+      "repo": "HannahKirk/prism-alignment",
+      "revision": "a9ec82149036374768f70e132a2369a750e06bbe",
+      "license": "VERIFY_BEFORE_USE",
+      "role": "individual preference research"
+    },
+    {
+      "repo": "tencent-ailab/persona-hub",
+      "revision": "72bf19b886312041b32f7cae12c02dab8653c6fa",
+      "license": "VERIFY_BEFORE_USE",
+      "role": "synthetic persona stress tests"
+    },
+    {
+      "repo": "QwenLM/Qwen-Image",
+      "revision": "6b5e1f5cec987d404be5ac6657db3b9aacb56a89",
+      "license": "Apache-2.0",
+      "role": "local image generation/editing reference"
+    },
+    {
+      "repo": "QwenLM-corp/Qwen2.5-VL",
+      "revision": "a8fdb64927bad8fe499afe5f4f40562fb0b659b2",
+      "license": "Apache-2.0",
+      "role": "local visual understanding reference"
+    }
+  ]
+}

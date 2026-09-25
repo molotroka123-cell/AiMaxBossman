@@ -97,10 +97,21 @@ def main(argv: list[str] | None = None) -> None:
                     help="опросить всех провайдеров, у которых есть ключ")
     pm.add_argument("--json", action="store_true", dest="as_json")
 
+    pit = sub.add_parser("pit",
+                         help="PIT-режим 1.7 (Jeff): setup | status | doctor | start | stop")
+    pit_sub = pit.add_subparsers(dest="pit_cmd", required=True)
+    for pit_action in ("setup", "status", "doctor", "start", "stop"):
+        pit_sub.add_parser(pit_action)
+
     args = p.parse_args(argv)
     if args.cmd == "serve":
         from .api import main as serve
         serve()
+    elif args.cmd == "pit":
+        # Bossman 1.7 PIT participant runtime (docs/v1.7): the owner launch
+        # surface lives in the existing `bossman` CLI, not a private script.
+        from bcc.pit.cli import main as pit_main
+        sys.exit(int(pit_main(argv) or 0))
     elif args.cmd == "task":
         asyncio.run(_task(args))
     elif args.cmd == "project":

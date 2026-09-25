@@ -369,7 +369,8 @@ class Telegram:
             raise CompanionError("TELEGRAM_DELETE_UNVERIFIED")
         return True
 
-    async def send(self, person: Person, text: str, keyboard=None):
+    async def send(self, person: Person, text: str, keyboard=None,
+                    reply_to_message_id: int | None = None):
         clean = scrub(text, (self.settings.bot_token, self.settings.core_token,
                             self.settings.cloud_token, self.settings.local_token))
         from bossman.notifications.telegram_transport import _egress_guard_text
@@ -384,6 +385,11 @@ class Telegram:
                 if index:
                     await asyncio.sleep(1.05)   # stay under Telegram's per-chat rate
                 payload = {"chat_id": person.chat_id, "text": part, "disable_web_page_preview": True}
+                if index == 0 and type(reply_to_message_id) is int and reply_to_message_id > 0:
+                    payload["reply_parameters"] = {
+                        "message_id": reply_to_message_id,
+                        "allow_sending_without_reply": True,
+                    }
                 if keyboard and index == len(parts) - 1:
                     payload["reply_markup"] = markup(keyboard)
                 try:

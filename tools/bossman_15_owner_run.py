@@ -17,6 +17,20 @@ import subprocess
 import sys
 import time
 
+def utf8_console() -> None:
+    # Shipped runners start with `-I`, which ignores PYTHONUTF8/PYTHONIOENCODING:
+    # without this the first Cyrillic line dies with cp1252 on Windows.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
+utf8_console()
+
+
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 IS_WIN = sys.platform == "win32"

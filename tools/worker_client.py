@@ -17,10 +17,25 @@ import json
 import sys
 import os
 import pathlib
+import sys
 import time
 import urllib.error
 import urllib.request
 from typing import Any
+
+def utf8_console() -> None:
+    # Shipped runners start with `-I`, which ignores PYTHONUTF8/PYTHONIOENCODING:
+    # without this the first Cyrillic line dies with cp1252 on Windows.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
+utf8_console()
+
+
 
 OPENROUTER = "https://openrouter.ai/api/v1"
 SECRETS = pathlib.Path(os.environ.get("LOCALAPPDATA", "")) / "Bossman" / "secrets" / "openrouter-test.env"

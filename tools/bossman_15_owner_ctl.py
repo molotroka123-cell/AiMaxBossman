@@ -19,6 +19,20 @@ for p in (ROOT / "bossman-core", ROOT):
 
 from bossman_v3.self_improvement.attempts import CommandCenterApi, resolve_token  # noqa: E402
 
+def utf8_console() -> None:
+    # Shipped runners start with `-I`, which ignores PYTHONUTF8/PYTHONIOENCODING:
+    # without this the first Cyrillic line dies with cp1252 on Windows.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
+utf8_console()
+
+
+
 
 def client(data_dir: str, url: str) -> CommandCenterApi:
     token = resolve_token(data_dir=data_dir)
