@@ -83,6 +83,22 @@ class StudioImageEditBroker:
             for row in rows
         )
 
+    @staticmethod
+    def _reference_bytes(image_bytes: bytes, mime: str, filename: str) -> tuple[bytes, str]:
+        """Match the current 1.6 Studio reference contract (.png/.jpg/.jpeg).
+
+        Telegram accepts WebP too, so normalize verified WebP to PNG before the
+        Studio import rather than changing the shared 1.6 API.
+        """
+        if mime != "image/webp":
+            return image_bytes, filename
+        import io
+        from PIL import Image
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            out = io.BytesIO()
+            image.convert("RGBA").save(out, format="PNG")
+        return out.getvalue(), "telegram-photo.png"
+
     async def edit(
         self,
         *,
@@ -94,6 +110,7 @@ class StudioImageEditBroker:
     ) -> EditedImage:
         if image_mime(image_bytes) != mime:
             raise ValueError("unverified source image")
+        reference_bytes, reference_name = self._reference_bytes(image_bytes, mime, filename)
         if not await self.available():
             raise RuntimeError("QWEN_IMAGE_EDIT_NOT_CONFIGURED")
 
@@ -103,8 +120,8 @@ class StudioImageEditBroker:
             self._url("/api/studio/references"),
             headers=self._headers,
             payload={
-                "filename": filename[:120],
-                "data_base64": base64.b64encode(image_bytes).decode("ascii"),
+                "filename": reference_name[:120],
+                "data_base64": base64.b64encode(reference_bytes).decode("ascii"),
             },
             timeout=60,
         )
