@@ -44,6 +44,15 @@
             "string",
             "null"
           ]
+        },
+        "remote_processing_enabled": {
+          "type": "boolean"
+        },
+        "remote_personalization_enabled": {
+          "type": "boolean"
+        },
+        "training_use_enabled": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
