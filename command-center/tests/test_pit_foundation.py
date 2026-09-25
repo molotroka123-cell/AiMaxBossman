@@ -4,6 +4,16 @@ import json
 
 import pytest
 
+from bcc.pit.moderate_discovery import choose_personal_question
+
+from bcc.pit.topic_policy import SensitiveTopic, detect_user_initiated_topics, may_discuss, may_store_durably
+
+from bcc.pit.roleplay import RolePlayMode, RolePlayState, roleplay_allowed, roleplay_prompt
+
+from bcc.pit.behavior_controller import BehaviorController
+
+from bcc.pit.behavior_scores import BehaviorEvent, BehaviorLedger, discovery_threshold_adjustment, memory_confidence_floor
+
 from bcc.pit.collector import HighRecallCollector
 from bcc.pit.context import select_persona_context
 from bcc.pit.discovery import DiscoveryCandidate, choose_discovery_question
@@ -488,3 +498,108 @@ def test_free_only_router_rejects_unknown_or_nonzero_remote_price():
 def test_laptop_image_generation_is_honest_until_ai_max():
     assert image_generation_reply(ai_max_image_generation_ready=False) == LAPTOP_IMAGE_GENERATION_REPLY_RU
     assert image_generation_reply(ai_max_image_generation_ready=True) is None
+
+
+def test_engagement_and_profile_stability_can_rise_and_fall(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(600)
+    ledger = BehaviorLedger(vault)
+    start = ledger.read(key)
+    assert start.engagement == 50 and start.profile_stability == 50
+
+    up = ledger.apply(key, BehaviorEvent.DISCOVERY_ANSWERED)
+    assert up.engagement > start.engagement
+    down = ledger.apply(key, BehaviorEvent.DISCOVERY_SKIPPED)
+    assert down.engagement < up.engagement
+
+    stable = ledger.apply(key, BehaviorEvent.MEMORY_CONFIRMED)
+    assert stable.profile_stability > down.profile_stability
+    unstable = ledger.apply(key, BehaviorEvent.CONTRADICTION)
+    assert unstable.profile_stability < stable.profile_stability
+
+
+def test_behavior_scores_are_hidden_from_persona_export(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(601)
+    BehaviorLedger(vault).apply(key, BehaviorEvent.DISCOVERY_ANSWERED)
+    exported = json.dumps(vault.export(key), ensure_ascii=False)
+    assert "behavior.json" not in exported
+    assert "profile_stability" not in exported
+
+
+def test_engagement_tunes_discovery_and_stability_tunes_memory_floor():
+    assert discovery_threshold_adjustment(90) < discovery_threshold_adjustment(50)
+    assert discovery_threshold_adjustment(10) > discovery_threshold_adjustment(50)
+    assert memory_confidence_floor(90) < memory_confidence_floor(20)
+
+
+def test_behavior_controller_stops_personal_questions_on_low_engagement(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(602)
+    controller = BehaviorController(vault)
+    for _ in range(6):
+        controller.record(key, BehaviorEvent.DISCOVERY_SKIPPED)
+    assert controller.snapshot(key).engagement < 25
+    assert controller.choose_contextual_personal_question(
+        key,
+        intent="travel",
+        already_known=set(),
+        skipped=set(),
+        enabled=True,
+    ) is None
+
+
+def test_roleplay_requires_explicit_participant_consent():
+    off = RolePlayState(enabled=True, mode=RolePlayMode.PARODY, participant_consented=False)
+    on = RolePlayState(enabled=True, mode=RolePlayMode.PARODY, participant_consented=True, persona_label="playful")
+    assert not roleplay_allowed(off)
+    assert roleplay_allowed(on)
+    assert "parody" in roleplay_prompt(on).lower()
+
+
+def test_roleplay_does_not_unlock_sensitive_or_secret_discovery():
+    state = RolePlayState(enabled=True, mode=RolePlayMode.PARODY, participant_consented=True)
+    q = choose_personal_question(
+        intent="shopping",
+        already_known=set(),
+        skipped=set(),
+        enabled=roleplay_allowed(state),
+    )
+    assert q is not None
+    assert "парол" not in q.question.lower()
+    assert "полит" not in q.question.lower()
+    assert "религ" not in q.question.lower()
+
+
+def test_politics_and_religion_only_activate_after_user_raises_topic():
+    blank = detect_user_initiated_topics("посоветуй фильм")
+    assert not may_discuss(SensitiveTopic.POLITICS, blank)
+    assert not may_discuss(SensitiveTopic.RELIGION, blank)
+
+    politics = detect_user_initiated_topics("что думаешь о выборах и политике?")
+    religion = detect_user_initiated_topics("расскажи про ислам")
+    assert may_discuss(SensitiveTopic.POLITICS, politics)
+    assert may_discuss(SensitiveTopic.RELIGION, religion)
+
+
+def test_sensitive_topic_storage_needs_explicit_statement_and_sensitive_opt_in():
+    state = detect_user_initiated_topics("я хочу поговорить о политике")
+    no_opt = ConsentState(memory_enabled=True, sensitive_memory_enabled=False)
+    opt = ConsentState(memory_enabled=True, sensitive_memory_enabled=True)
+    assert not may_store_durably(
+        SensitiveTopic.POLITICS, state=state, consent=no_opt, explicitly_stated_by_user=True
+    )
+    assert not may_store_durably(
+        SensitiveTopic.POLITICS, state=state, consent=opt, explicitly_stated_by_user=False
+    )
+    assert may_store_durably(
+        SensitiveTopic.POLITICS, state=state, consent=opt, explicitly_stated_by_user=True
+    )
+
+
+def test_public_bossman_overview_stops_at_v16_and_hides_v17():
+    reply = public_guard("Расскажи про Bossman")
+    assert reply is not None
+    assert "v1.6" in reply.text
+    assert "1.7" not in reply.text
+    assert "PIT" not in reply.text
