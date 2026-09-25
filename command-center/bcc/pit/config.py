@@ -192,7 +192,7 @@ def load(path: Path) -> PITSettings:
         raise ValueError("configuration must be an object")
     data["data_dir"] = str(data.get("data_dir") or default_data_dir())
     data["people"] = tuple(Person(**p) for p in data.get("people", []))
-    for retired in ("owner_id", "allowlist"):
+    for retired in ("owner_id", "allowlist", "local_model"):
         data.pop(retired, None)
     secret_keys = {"bot_token", "provider_key", "core_token", "vision_token", "identity_salt", "proxy"}
     if secret_keys & set(data):
