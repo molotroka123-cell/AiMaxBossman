@@ -48,3 +48,18 @@
 Создай `MERGE_RESULT.md` и актуальный CONTINUE с одним следующим действием. Выдай: TARGET, START_TARGET_SHA, INCLUDED/SKIPPED/DEFERRED SOURCES, CANDIDATE_SHA, RELEASE_SHA, MERGED_YES_NO, EXACT_SHA_CI, WINDOWS_100, ZIP_SHA256, P0/P1/P2, LIVE_RETESTS, 1.5_DOCS_PRESENT, MAIN_UNCHANGED, UNPUSHED_CHANGES и BLOCKERS.
 
 Если gates не закрыты — сохранить candidate/evidence и точную команду продолжения. Если закрыты — выполнить разрешённое продвижение в ту же `release/bossman-owner`, не только предложить его. В обоих случаях не объявлять нереализованные функции 1.5 готовыми и не начинать следующий большой эксперимент после итогового handoff.
+
+---
+
+## SAME-RUN HANDOFF: 1.5 → 1.6
+
+После закрытия 1.5 **или** достижения `V1_5_NEAR_COMPLETE` этот же owner-run сразу продолжает работу в отдельной ветке 1.6:
+
+[feat/bossman-1.6-secret-intake-20260925](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-secret-intake-20260925)
+
+`V1_5_NEAR_COMPLETE` = нет software P0 и release-blocking P1, основные targeted/regression/hidden tests зелёные, canonical SHA зафиксирован, а остаток относится только к owner-live/soak/внешней среде.
+
+Не ждать отдельного следующего дня. Цель одного прогона:
+`BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED`.
+
+Evidence и финальные статусы 1.5 и 1.6 сохраняются раздельно по своим SHA.
