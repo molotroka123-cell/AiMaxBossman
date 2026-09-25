@@ -277,8 +277,7 @@ Jeff должен закрывать безопасную chat-surface функ�
 **Обязательно на laptop/первом этапе**
 - general multilingual chat;
 - web search/read + sources;
-- vision: анализ присланного изображения;
-- safe uploaded-file understanding;
+- safe uploaded-file understanding для поддерживаемых не-image документов;
 - code writing/review/explanation без host execution authority;
 - calculator/data reasoning;
 - summarization;
@@ -286,6 +285,12 @@ Jeff должен закрывать безопасную chat-surface функ�
 - memory/personalization;
 - follow-up questions;
 - source-aware current answers.
+
+**После переезда на AI Max добавить как обязательный media-блок**
+- локальный fast vision по присланным JPEG/PNG/WebP;
+- background visual-memory enrichment после ответа;
+- Qwen image editing последнего/выбранного собственного фото через Bossman Studio;
+- настоящая local image generation после live PASS.
 
 **После стартовых модулей добавить**
 - Telegram voice input → STT;
@@ -440,7 +445,7 @@ CI:
 - CMD path работает через Bossman;
 - реальный Jeff Telegram answer;
 - free-only route;
-- web/vision minimum surface;
+- web minimum surface;
 - local PIT storage;
 - two-ID isolation;
 - risk local-only;
@@ -450,3 +455,34 @@ CI:
 - no open P0.
 
 После первого успешного laptop-run тот же runtime/data contract переносится на AI Max и переключается в `local_first_auto`.
+
+
+## 22. Photo / Vision после AI Max
+
+Фото-функции намеренно **не являются laptop blocker**: локальной vision/image-edit модели на ноутбуке нет.
+
+После переноса на AI Max:
+
+`Telegram photo → Bossman verified ingest → Qwen fast vision → Jeff answer → background visual-memory analysis`.
+
+Deep visual-memory не задерживает ответ. При занятости foreground/background enrichment ждёт или пропускается.
+
+Редактирование:
+
+`own verified photo → Bossman Studio reference → local Qwen image-edit job → independently verified output → Telegram`.
+
+PIT не запускает diffusion/shell напрямую.
+
+Использовать:
+- `qwen_vision.py`
+- `photo_pipeline.py`
+- `studio_image_edit.py`
+- `photo_edit.py`
+
+Полный контракт: [PHOTO_PIPELINE_AI_MAX_RU.md](PHOTO_PIPELINE_AI_MAX_RU.md)
+
+Совместимость с текущей 1.6: [COMPAT_1_6_MEDIA_20260925.md](COMPAT_1_6_MEDIA_20260925.md)
+
+На ноутбуке:
+- анализ фото честно сообщает, что функция появится после AI Max;
+- генерация/редактирование: **«Скоро научусь, малышка 😊»**.
