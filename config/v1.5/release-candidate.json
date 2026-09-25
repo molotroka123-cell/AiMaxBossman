@@ -1,0 +1,20 @@
+{
+  "schema": "bossman.v1.5.release-candidate/1",
+  "source_sha": "5d7fbcefc14b0df8c6771a4009cc0e0f79c05dc7",
+  "purpose": "Freeze one immutable 1.5 RC for economy/autonomy/self-repair verification.",
+  "scope": [
+    "self-improvement",
+    "persistent-agent-society",
+    "skill-compiler",
+    "personal-operating-graph",
+    "autonomous-resource-manager",
+    "owner-input-telegram",
+    "economy-orchestrator"
+  ],
+  "claims": {
+    "agi_scientific_claim": false,
+    "autonomous_operator_target": true,
+    "account_auto_signup": false,
+    "owner_required_external_accounts": true
+  }
+}
