@@ -31,6 +31,7 @@ Canonical 1.5 branch: `feat/bossman-1.5-economy-orchestrator-20260924`.
 | [ASTER_1_5_TO_1_6_ONE_RUN_MASTER_20260925.md](ASTER_1_5_TO_1_6_ONE_RUN_MASTER_20260925.md) | Главный one-run directive: закрыть 1.5, запустить self-improvement и без остановки перейти в 1.6 |
 | [OPEN_SOURCE_AGI_REUSE_20260924.md](OPEN_SOURCE_AGI_REUSE_20260924.md) | Какие идеи взяты из современных OSS agent/memory/routing систем и почему без второго backend |
 
+| [BOSSMAN_15_ECONOMY_SWARM.md](BOSSMAN_15_ECONOMY_SWARM.md) | Jev-managed free-first Nemotron/Ling/GLM workflow, YouTube batch, memory and cost gates |
 | [contracts/source-refs.json](contracts/source-refs.json) | Зафиксированные remote-указатели, которые нужно обновить после fetch |
 | [contracts/capability-manifest.schema.json](contracts/capability-manifest.schema.json) | Проект формата регистрируемой capability |
 | [contracts/owner-grant.schema.json](contracts/owner-grant.schema.json) | Проект формата делегирования прав на кампанию |
@@ -111,3 +112,8 @@ Aster после перехода остаётся координатором и
 
 Финальная цель одного owner-run:
 `BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED -> SELF_IMPROVEMENT_WITHOUT_PRIMARY_ASTER_CLAUDE_DEPENDENCY`.
+
+Пакет доступен из целевой ветки, все внутренние ссылки разрешаются, JSON валиден, нет секретов/адресов/голосовых образцов, master prompt называет тот же target и сохраняет сегодняшние fixes. Реализация и слияние продукта имеют отдельные доказательства.
+
+
+Owner execution prompt: [CODEX_BOSSMAN_15_MASTER_RUN_20260925.md](../owner/CODEX_BOSSMAN_15_MASTER_RUN_20260925.md)

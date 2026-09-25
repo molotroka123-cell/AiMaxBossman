@@ -41,6 +41,16 @@ CVD is selling but price holds
     assert "OI is dropping" not in nearby
 
 
+def test_decision_transcript_never_uses_future_teacher_language():
+    cues = [
+        Cue(90.0, 99.0, "price is testing the level"),
+        Cue(101.0, 104.0, "perfect winner target hit"),
+    ]
+    decision = transcript_near(cues, 100.0, radius=35.0)
+    assert "testing the level" in decision
+    assert "perfect winner" not in decision
+
+
 def test_future_outcomes_use_later_video_frames():
     rows = [
         {"timestamp_seconds": 0.0, "observation": {"chart_price": 100.0}},

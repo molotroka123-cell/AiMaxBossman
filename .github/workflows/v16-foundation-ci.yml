@@ -1,0 +1,61 @@
+name: Bossman 1.6 Foundation CI
+
+on:
+  push:
+    branches:
+      - feat/bossman-1.6-bossnet-foundation-20260925
+    paths:
+      - 'command-center/bcc/features/*_v16.py'
+      - 'command-center/bcc/features/economy_swarm.py'
+      - 'command-center/tests/test_*_v16.py'
+      - 'command-center/tests/test_economy_swarm.py'
+      - '.github/workflows/v16-foundation-ci.yml'
+      - 'docs/v1.6/**'
+  pull_request:
+    paths:
+      - 'command-center/bcc/features/*_v16.py'
+      - 'command-center/bcc/features/economy_swarm.py'
+      - 'command-center/tests/test_*_v16.py'
+      - 'command-center/tests/test_economy_swarm.py'
+      - '.github/workflows/v16-foundation-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v16-foundation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check -e ./command-center pytest
+      - name: Compile 1.6 foundation
+        run: >-
+          python -m py_compile
+          command-center/bcc/features/bossnet_nodes_v16.py
+          command-center/bcc/features/coding_limit_saver_v16.py
+          command-center/bcc/features/context_budget_v16.py
+          command-center/bcc/features/game_bootstrap_v16.py
+          command-center/bcc/features/knowledge_fabric_v16.py
+          command-center/bcc/features/memory_retrieval_v16.py
+          command-center/bcc/features/model_foundry_v16.py
+          command-center/bcc/features/provider_fleet_v16.py
+          command-center/bcc/features/simulation_world_v16.py
+          command-center/bcc/features/economy_swarm.py
+      - name: Foundation contracts
+        run: >-
+          python -m pytest -q
+          command-center/tests/test_bossnet_foundation_v16.py
+          command-center/tests/test_coding_limit_saver_v16.py
+          command-center/tests/test_economy_swarm.py
+          command-center/tests/test_game_bootstrap_v16.py
