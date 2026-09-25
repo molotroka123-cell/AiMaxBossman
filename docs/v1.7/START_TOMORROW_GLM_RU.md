@@ -67,20 +67,29 @@ Telegram → Bossman → PIT policy → Jev/provider registry → answer → Bos
 
 ## Capabilities
 
-До owner shadow доказать:
+До owner shadow на ноутбуке доказать:
 - chat;
 - web + sources;
-- vision по присланному изображению;
-- safe uploaded-file understanding;
+- safe uploaded-file understanding для поддерживаемых не-image файлов;
 - code reasoning;
 - calculator;
 - summaries/translation;
 - own memory.
 
-Image generation на ноутбуке не фейкать. Ответ:
+Фото/vision/edit на ноутбуке не считать доступными — локальной модели там нет.
+
+Фото на ноутбуке:
+**«Фото получил. Разбирать и редактировать изображения локально я начну после переезда на AI Max 😊»**
+
+Image generation/edit на ноутбуке:
 **«Скоро научусь, малышка 😊»**
 
-Настоящая генерация включается только после AI Max live PASS.
+После переезда на AI Max подключить:
+- Qwen2.5-VL-style local vision fast-path;
+- background visual-memory pipeline;
+- Qwen-Image-Edit через existing Bossman Studio reference/job/run API.
+
+Прочитать PHOTO_PIPELINE_AI_MAX_RU.md и COMPAT_1_6_MEDIA_20260925.md.
 
 ## Isolation
 
@@ -103,7 +112,7 @@ answer → candidate extraction → provenance → high-recall collection → ou
 - `bossman pit start` реально запускает;
 - живой Telegram Jeff answer;
 - free-only routing;
-- web + vision minimum;
+- web minimum;
 - local storage;
 - two-ID isolation;
 - risk local-only;
