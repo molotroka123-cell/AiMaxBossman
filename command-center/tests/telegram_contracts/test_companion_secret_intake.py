@@ -167,3 +167,39 @@ def test_companion_never_persists_plaintext_and_deletes_after_verified_login(tmp
         assert b"CANARY-PASSWORD-9f34" not in (tmp_path / "companion.sqlite3").read_bytes()
 
     asyncio.run(run())
+
+
+def test_secret_like_message_without_session_is_not_persisted(tmp_path):
+    from bcc.telegram_companion.config import Person, Settings
+    from bcc.telegram_companion.service import Companion
+    from bcc.telegram_companion.store import Store
+
+    owner = Person(11111, 11111, "owner")
+    settings = Settings((owner,), local_model="local-test")
+
+    class TelegramFake:
+        def __init__(self):
+            self.deleted = []
+            self.sent = []
+            self.authorize_delivery = lambda p: True
+        async def delete_message(self, person, message_id):
+            self.deleted.append(message_id); return True
+        async def send(self, person, text, keyboard=None):
+            self.sent.append(text); return 2
+
+    async def run():
+        store = Store(tmp_path)
+        tg = TelegramFake()
+        app = Companion(settings, store, tg, object(), object())
+        await app.ingest({"update_id": 1, "message": {
+            "message_id": 9,
+            "from": {"id": owner.user_id, "is_bot": False},
+            "chat": {"id": owner.chat_id, "type": "private"},
+            "text": "password=CANARY-NO-SESSION",
+        }})
+        assert tg.deleted == [9]
+        assert store.db.execute("SELECT count(*) FROM inbox").fetchone()[0] == 0
+        store.close()
+        assert b"CANARY-NO-SESSION" not in (tmp_path / "companion.sqlite3").read_bytes()
+
+    asyncio.run(run())
