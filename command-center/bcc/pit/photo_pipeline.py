@@ -97,6 +97,26 @@ class PhotoStore:
         })
         return asset
 
+    def latest(self, person_key: str) -> PhotoAsset | None:
+        path = self.vault.person_dir(person_key) / "media" / "latest.json"
+        if not path.is_file():
+            return None
+        import json
+        data = json.loads(path.read_text(encoding="utf-8"))
+        rel = str(data.get("path", ""))
+        candidate = (self.vault.person_dir(person_key) / rel).resolve()
+        root = self.vault.person_dir(person_key).resolve()
+        if root not in candidate.parents:
+            raise ValueError("latest photo escaped participant root")
+        return PhotoAsset(
+            person_key=person_key,
+            message_id=str(data.get("message_id", "")),
+            path=candidate,
+            sha256=str(data.get("sha256", "")),
+            mime=str(data.get("mime", "")),
+            bytes=int(data.get("bytes", 0)),
+        )
+
     def read_verified(self, asset: PhotoAsset) -> bytes:
         root = self.vault.person_dir(asset.person_key).resolve()
         path = asset.path.resolve()
