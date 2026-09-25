@@ -16,8 +16,6 @@ class TelegramToolPolicy:
         "web.read",
         "browser.read",
         "calculator",
-        "vision.analyze_own",
-        "file.analyze_upload",
         "code.reason",
     )
     denied_prefixes: tuple[str, ...] = (
@@ -36,6 +34,8 @@ class TelegramToolPolicy:
         "persona",
         "files",
         "filesystem",
+        "vision",
+        "file",
     )
 
     def allows(self, tool_name: str) -> bool:
