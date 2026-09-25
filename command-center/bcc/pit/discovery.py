@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from .behavior_scores import discovery_threshold_adjustment
+
 
 class DiscoveryMode(StrEnum):
     OFF = "off"
@@ -41,6 +43,7 @@ def choose_discovery_question(
     min_score: float = 0.08,
     mode: DiscoveryMode = DiscoveryMode.BALANCED,
     risk_score: int = 0,
+    engagement_score: int = 50,
 ) -> DiscoveryCandidate | None:
     """Return at most one low-friction question after a substantive answer.
 
@@ -55,5 +58,6 @@ def choose_discovery_question(
     # never permits a high-sensitivity candidate.
     if mode == DiscoveryMode.COLLECTION_FIRST and risk_score > 0:
         threshold -= min(int(risk_score), 5) * 0.02
+    threshold += discovery_threshold_adjustment(engagement_score)
     best = max(candidates, key=score)
     return best if score(best) >= threshold else None
