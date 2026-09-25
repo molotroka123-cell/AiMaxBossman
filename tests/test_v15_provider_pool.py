@@ -57,9 +57,12 @@ def test_self_improvement_policy_moves_routine_work_off_aster_and_claude():
     cfg = json.loads((ROOT / "config/v1.5/self-improvement.json").read_text(encoding="utf-8"))
     assert cfg["controller"] == "bossman"
     assert cfg["router"] == "jev"
-    assert cfg["external_auditor"] == "bootstrap_then_optional_red_team_only"
+    assert cfg["external_auditor"] == "read_only_bootstrap_then_optional_red_team"
+    auditor = json.loads((ROOT / "config/v1.5/external-auditor-policy.json").read_text(encoding="utf-8"))
+    assert auditor["mode"] == "READ_ONLY_COORDINATOR"
+    assert "write_product_code" in auditor["forbidden"]
     assert cfg["owner_supervisor"] == "telegram_ux_cmd"
-    assert cfg["aster_role"] == "launch_self_improvement_then_detach"
+    assert cfg["aster_role"] == "launch_audit_coordinate_detach_no_code"
     assert cfg["exit_gate"]["status"] == "ASTER_DETACHED_CONTINUITY_PASS"
     assert cfg["exit_gate"]["requires_campaign_started"] is True
     assert cfg["self_improvement_north_star"]["aster_required_after_bootstrap"] is False
