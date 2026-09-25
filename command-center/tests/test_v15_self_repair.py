@@ -107,7 +107,8 @@ def test_tick_starts_only_one_runtime_repair_worker(tmp_path, monkeypatch):
     monkeypatch.setattr(repair, "_owner_repo", lambda _svc: repo)
     monkeypatch.setattr(repair, "_runner", lambda: script)
     monkeypatch.setattr(repair.subprocess, "Popen", lambda argv, **kw: calls.append(argv) or Proc())
-    svc = SimpleNamespace(settings=SimpleNamespace(data_dir=tmp_path), bus=Bus())
+    bus = Bus()
+    svc = SimpleNamespace(settings=SimpleNamespace(data_dir=tmp_path), bus=bus)
 
     asyncio.run(repair._tick(svc))
     asyncio.run(repair._tick(svc))
