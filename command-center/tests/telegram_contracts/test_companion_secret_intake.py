@@ -107,3 +107,63 @@ def test_single_field_can_be_plain_text():
                                               text="only-secret"))
     assert req.state == "FAILED" and not result.success
     assert set(one.ref) <= {0}
+
+
+def test_companion_never_persists_plaintext_and_deletes_after_verified_login(tmp_path):
+    from bcc.telegram_companion.config import Person, Settings
+    from bcc.telegram_companion.service import Companion
+    from bcc.telegram_companion.store import Store
+
+    owner = Person(11111, 11111, "owner")
+    settings = Settings((owner,), local_model="local-test")
+
+    class TelegramFake:
+        def __init__(self):
+            self.deleted = []
+            self.sent = []
+            self.authorize_delivery = lambda p: True
+        async def send_photo(self, person, data, caption, keyboard=None):
+            assert b"CANARY-PASSWORD" not in data
+            self.sent.append(("photo", caption))
+            return 50
+        async def delete_message(self, person, message_id):
+            self.deleted.append(message_id)
+            return True
+        async def send(self, person, text, keyboard=None):
+            self.sent.append(("text", text))
+            return 60
+
+    class Exec:
+        local_only = True
+        network_isolated = True
+        model_sees_secret = False
+        async def apply(self, request, values):
+            assert bytes(values["password"]) == b"CANARY-PASSWORD-9f34"
+            return SecretExecutionResult(True, True, "LOGIN_VERIFIED")
+
+    async def run():
+        store = Store(tmp_path)
+        tg = TelegramFake()
+        app = Companion(settings, store, tg, object(), object(), secret_executor=Exec())
+        await app.request_secret(
+            owner, screenshot=b"redacted-login-screen",
+            fields=(SecretField("password", "Password"),),
+            target="Example login", screenshot_redacted=True,
+        )
+        update = {
+            "update_id": 1,
+            "message": {
+                "message_id": 51,
+                "from": {"id": owner.user_id, "is_bot": False},
+                "chat": {"id": owner.chat_id, "type": "private"},
+                "text": "CANARY-PASSWORD-9f34",
+            },
+        }
+        await app.ingest(update)
+        assert tg.deleted == [51, 50]
+        assert store.get("offset") == 2
+        assert store.db.execute("SELECT count(*) FROM inbox").fetchone()[0] == 0
+        store.close()
+        assert b"CANARY-PASSWORD-9f34" not in (tmp_path / "companion.sqlite3").read_bytes()
+
+    asyncio.run(run())
