@@ -63,6 +63,10 @@ def build_photo_services(
                 base_url=cfg.vision_url,
                 model=cfg.vision_model,
                 token=vision_token,
+                # Local Ollama cold-loads the vision model after idle; a 20 s
+                # default produced false NETWORK_UNAVAILABLE on first photo.
+                fast_timeout=90.0,
+                memory_timeout=240.0,
             ),
             transport=transport,
         )

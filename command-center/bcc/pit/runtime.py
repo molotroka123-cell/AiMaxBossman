@@ -332,10 +332,9 @@ class ParticipantRuntime:
         self._dynamic_tasks: set[asyncio.Task] = set()
 
     async def close(self) -> None:
-        closers = [self.telegram.close, self.models.close, self.photo_services.close,
-                   self.adapter.close]
-        if self.local_adapter is not None:
-            closers.append(self.local_adapter.close)
+        # Provider adapters create a per-request client and need no close;
+        # only the long-lived Telegram/Models/photo transports do.
+        closers = [self.telegram.close, self.models.close, self.photo_services.close]
         for closer in closers:
             with contextlib.suppress(Exception):
                 await closer()

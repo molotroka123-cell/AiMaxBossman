@@ -148,13 +148,6 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
         if settings.local_models:
             detail += f"; local={'OK' if local_ok else 'DOWN'}"
         add("free_route", route_ok, detail)
-        if probe.local_adapter is not None:
-            import contextlib
-            with contextlib.suppress(Exception):
-                await probe.local_adapter.close()
-        import contextlib
-        with contextlib.suppress(Exception):
-            await adapter.close()
     except Exception as exc:  # noqa: BLE001 — doctor must not crash on a broken provider
         add("free_route", False, str(exc))
 
