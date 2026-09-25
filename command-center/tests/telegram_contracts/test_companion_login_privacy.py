@@ -82,7 +82,7 @@ def test_login_receipt_sends_no_password_and_one_post_login_screenshot():
     assert "Company name" in text
     assert "encrypted vault" in text
     lowered = text.casefold()
-    assert "password=" not in lowered and "пароль:" not in lowered
+    assert "password=" not in lowered and "пароль:" not in lowered  # ci-secret-scan: allow — assertion literals, not credentials
     assert len(telegram.photos) == 1
     assert telegram.photos[0][1].startswith(b"\x89PNG")
     assert core.consumed == ["abcdef123456"]

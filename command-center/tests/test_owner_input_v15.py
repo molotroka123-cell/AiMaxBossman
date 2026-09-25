@@ -6,6 +6,9 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
+from bcc.db import Database, agents, models, providers
 from bcc.owner_input import OwnerInputStore
 from bcc.telegram_companion.config import Person, Settings
 from bcc.telegram_companion.console import ConsoleMixin
@@ -37,7 +40,7 @@ class Manager:
 
 def test_owner_input_is_encrypted_and_erased_after_fill(tmp_path):
     store = OwnerInputStore(tmp_path / "requests.json", Vault())
-    row = store.create(task_id=7, session_id=3, context="provider signup", fields=[
+    row = store.create(task_id=7, session_id=3, context="provider signup", success={"url_changed": True}, fields=[
         {"key": "email", "label": "Email", "ref": "e1-0"},
         {"key": "password", "label": "Password", "ref": "e1-1", "secret": True},
     ])
@@ -56,14 +59,29 @@ def test_owner_input_is_encrypted_and_erased_after_fill(tmp_path):
 def test_browser_requests_then_fills_owner_values_without_rendering_them(tmp_path, monkeypatch):
     store = OwnerInputStore(tmp_path / "requests.json", Vault())
     mgr = Manager()
-    svc = SimpleNamespace(owner_input=store, bus=Bus())
+    db = Database(f"sqlite+aiosqlite:///{tmp_path / 'local-route.db'}")
+    async def seed_local_agent():
+        await db.create_all()
+        async with db.session() as session:
+            await session.execute(providers.insert().values(id=1, name="local", kind="openai_compat",
+                                                          base_url="http://127.0.0.1:11434/v1"))
+            await session.execute(models.insert().values(id=1, provider_id=1, name="local-model",
+                                                       alias="local-model", kind="local"))
+            await session.execute(agents.insert().values(id=1, name="local-agent", model_id=1))
+            await session.commit()
+    asyncio.run(seed_local_agent())
+    svc = SimpleNamespace(owner_input=store, bus=Bus(), db=db)
     ctx = SimpleNamespace(svc=svc, task={"id": 11})
     async def session_for(_ctx, args): return int(args.get("session_id") or 4)
     monkeypatch.setattr(tools_browser, "_session_for", session_for)
     monkeypatch.setattr(tools_browser, "_mgr", lambda _svc: mgr)
 
+    with pytest.raises(PermissionError, match="explicitly bound local agent"):
+        asyncio.run(tools_browser._request_owner_fields({"session_id": 4}, ctx))
+    ctx.task["agent_id"] = 1
     req = asyncio.run(tools_browser._request_owner_fields({
         "session_id": 4, "context": "signup",
+        "success": {"url_changed": True},
         "fields": [{"key": "name", "label": "Name", "ref": "e1-0"},
                    {"key": "password", "label": "Password", "ref": "e1-1", "secret": True}],
     }, ctx))
@@ -77,6 +95,7 @@ def test_browser_requests_then_fills_owner_values_without_rendering_them(tmp_pat
     assert mgr.calls == [("text", 4, "", "e1-0", "Tim"),
                          ("secret", 4, "", "e1-1", "private-value")]
     assert store.get(rid)["status"] == "FILLED"
+    asyncio.run(db.close())
 
 
 class Core:
@@ -94,7 +113,7 @@ class Console(ConsoleMixin):
     def __init__(self):
         self.settings = Settings((Person(1, 1, role="owner"),), pc_control=True)
         self.core = Core()
-        self.store = SimpleNamespace()
+        self.store = SimpleNamespace(put=lambda *_args: None)
     def button(self, person, label, command): return (label, command)
 
 
