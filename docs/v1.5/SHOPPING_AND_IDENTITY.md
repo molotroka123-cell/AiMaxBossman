@@ -41,3 +41,12 @@ Task-specific grant может заранее разрешить один зак
 3. Отдельная реальная purchase-task владельца с бюджетом и адресом через vault. Покупка считается подтверждённой только с сопоставленным receipt/amount. Доставка наблюдается в последующей разрешённой задаче.
 
 Fixture PASS, preview PASS и REAL_PURCHASE_PASS не взаимозаменяемы. Нельзя сертификатом synthetic checkout объявлять «сам уже покупает домой».
+
+---
+
+## SAME-RUN HANDOFF: 1.5 → 1.6
+
+После завершения 1.5 или достижения `V1_5_NEAR_COMPLETE` тот же owner-run без отдельного дня продолжает работу в ветке 1.6:
+https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-secret-intake-20260925
+
+Цель одного прогона: `BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED`.
