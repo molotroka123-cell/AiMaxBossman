@@ -27,6 +27,7 @@ Canonical 1.5 branch: `feat/bossman-1.5-economy-orchestrator-20260924`.
 | [SOURCES_AND_BASELINE.md](SOURCES_AND_BASELINE.md) | Проверенные источники, snapshot и неизвестное |
 | [BOSSMAN_1_5_CODE_FREEZE_20260925.md](BOSSMAN_1_5_CODE_FREEZE_20260925.md) | Канонический code-freeze: scope закрыт, завтра только owner-run/self-improvement evidence |\n| [BOSSMAN_1_5_FINAL_CLOSURE_20260925.md](BOSSMAN_1_5_FINAL_CLOSURE_20260925.md) | Финальный контракт автономности 1.5: self-improvement, society, skill compiler, operating graph, resource manager |
 | [ASTER_SELF_IMPROVEMENT_MASTER_20260925.md](ASTER_SELF_IMPROVEMENT_MASTER_20260925.md) | Owner-run: внешний аудитор запускает и доказывает собственное самоулучшение Bossman |
+| [ASTER_1_5_TO_1_6_ONE_RUN_MASTER_20260925.md](ASTER_1_5_TO_1_6_ONE_RUN_MASTER_20260925.md) | Главный one-run directive: закрыть 1.5, запустить self-improvement и без остановки перейти в 1.6 |
 | [OPEN_SOURCE_AGI_REUSE_20260924.md](OPEN_SOURCE_AGI_REUSE_20260924.md) | Какие идеи взяты из современных OSS agent/memory/routing систем и почему без второго backend |
 
 | [contracts/source-refs.json](contracts/source-refs.json) | Зафиксированные remote-указатели, которые нужно обновить после fetch |
