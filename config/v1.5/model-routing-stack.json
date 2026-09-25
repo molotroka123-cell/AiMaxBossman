@@ -1,0 +1,76 @@
+{
+  "schema": "bossman.v1.5.model-routing-stack/1",
+  "owner_stack_version": "2026-09-25",
+  "controller": "bossman/jev",
+  "resolve_actual_model_ids_at_owner_run": true,
+  "no_silent_alias_substitution": true,
+  "statuses": ["GREEN", "DEGRADED", "BLOCKED", "UNVERIFIED"],
+  "roles": {
+    "simple_task": {
+      "preferred_alias": "Qwen3.6",
+      "purpose": "short low-risk chat, routing support, simple tools and cheap execution",
+      "required_checks": ["load", "chat", "strict_json", "tool_call", "error_recovery", "restart"]
+    },
+    "coding_project": {
+      "preferred_alias": "Qwen3.8",
+      "workers": ["Xing", "Occamy"],
+      "purpose": "repo coding, project work, patch generation and multi-agent implementation",
+      "required_checks": ["load", "repo_task", "strict_json", "tool_call", "coding_hidden_test", "restart"]
+    },
+    "screen_browser": {
+      "preferred_alias": "Nex-N2.5",
+      "purpose": "screen/browser perception and action planning",
+      "required_checks": ["load", "vision", "browser_grounding", "stale_observation_reject", "restart"]
+    },
+    "hard_reasoning": {
+      "preferred_alias": "Flash-Next",
+      "purpose": "very hard reasoning and escalation after cheaper local routes are insufficient",
+      "required_checks": ["load", "reasoning_holdout", "strict_json", "tool_call", "long_context"]
+    },
+    "verifier": {
+      "preferred_alias": "gpt-oss-120B",
+      "purpose": "independent verification, review and final local evidence check",
+      "must_be_independent_from_worker": true,
+      "required_checks": ["load", "verifier_holdout", "tool_recovery", "false_done_reject"]
+    },
+    "image": {
+      "preferred_alias": "Qwen-Image-2.1",
+      "purpose": "local image generation/editing",
+      "required_checks": ["load", "image_generate", "decode", "artifact_hash"]
+    },
+    "video": {
+      "preferred_aliases": ["LTX-2.5", "Wan"],
+      "purpose": "local video generation/editing",
+      "required_checks": ["load", "video_generate", "ffprobe", "full_decode", "stop"]
+    }
+  },
+  "cloud_economy_overlay": {
+    "nemotron_teacher_swarm": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "ling_coder": "inclusionai/ling-3.0-flash-fin:free",
+    "glm_finalizer": "z-ai/glm-5.3-flash",
+    "policy": "free-first; paid GLM only behind explicit bounded finalizer gate"
+  },
+  "refresh_order": [
+    "simple_task",
+    "coding_project",
+    "screen_browser",
+    "hard_reasoning",
+    "verifier",
+    "image",
+    "video"
+  ],
+  "routing_rules": {
+    "measure_before_route": true,
+    "prefer_local_when_sufficient": true,
+    "unknown_model_state_is_not_green": true,
+    "missing_role_may_use_fallback_only_after_capability_test": true,
+    "paid_cloud_never_silent": true,
+    "authority_remains_existing_never_ask_allowed": true
+  },
+  "aster_bootstrap": {
+    "must_run_first": true,
+    "task": "refresh local fleet aliases to actual installed model ids and benchmark each role before any 1.5 owner task",
+    "write_report": "owner-run/v1.5/model-routing-stack-live.json",
+    "do_not_modify_role_names_without_owner_change": true
+  }
+}

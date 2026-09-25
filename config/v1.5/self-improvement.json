@@ -93,5 +93,11 @@
     "aster_required_after_bootstrap": false,
     "codex_required_after_bootstrap": false,
     "target": "Bossman selects resources, repairs, verifies, learns, retries, and reports using its own bounded runtime"
+  },
+  "model_routing_stack": {
+    "config": "config/v1.5/model-routing-stack.json",
+    "refresh_owner_run_first": true,
+    "live_report": "owner-run/v1.5/model-routing-stack-live.json",
+    "no_silent_alias_substitution": true
   }
 }

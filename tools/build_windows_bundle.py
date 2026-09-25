@@ -140,6 +140,7 @@ SUPPORT_DATA = (
     (ROOT / "config" / "v1.5" / "economy-orchestrator.json", "config/v1.5/economy-orchestrator.json"),
     (ROOT / "config" / "v1.5" / "provider-pool.json", "config/v1.5/provider-pool.json"),
     (ROOT / "config" / "v1.5" / "self-improvement.json", "config/v1.5/self-improvement.json"),
+    (ROOT / "config" / "v1.5" / "model-routing-stack.json", "config/v1.5/model-routing-stack.json"),
     (ROOT / "config" / "evolution" / "owner-v1.5-self-improve.json", "config/evolution/owner-v1.5-self-improve.json"),
 )
 

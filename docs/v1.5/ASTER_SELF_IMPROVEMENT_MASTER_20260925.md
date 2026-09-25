@@ -33,6 +33,41 @@ Do not substitute your own patching activity for Bossman learning.
 4. Do not mix new product features into the tested candidate.
 5. Do not force-push or rewrite history.
 
+## Phase 0 — FIRST ACTION: refresh the owner model stack
+
+Before any 1.5 test, coding, YouTube training or self-improvement campaign, read:
+
+`config/v1.5/model-routing-stack.json`
+
+Treat it as the owner's canonical routing intent:
+
+```text
+OWNER
+  ↓
+BOSSMAN / JEV
+  ├─ simple task       → Qwen3.6
+  ├─ code / project    → Qwen3.8 → Xing / Occamy workers
+  ├─ screen / browser  → Nex-N2.5
+  ├─ very hard task    → Flash-Next
+  ├─ verifier          → gpt-oss-120B
+  ├─ image             → Qwen-Image-2.1
+  └─ video             → LTX-2.5 / Wan
+```
+
+Aster's FIRST executable job:
+1. inspect the real owner machine/model registry;
+2. resolve each alias above to the actual installed model id/runtime/quant;
+3. load and run the role-specific checks from the routing-stack file;
+4. measure TTFT/tok-s/RAM plus functional pass/fail where applicable;
+5. write `owner-run/v1.5/model-routing-stack-live.json`;
+6. update Bossman/Jev routing only from verified live identities.
+
+A missing/unloadable model is `BLOCKED` or `DEGRADED`, never silently renamed to a neighbour.
+A fallback is allowed only after it passes the same capability gate.
+The verifier must remain independent from the worker whose output it checks.
+
+Do not spend time improving a model before the fleet truth table exists.
+
 ## Phase A — prove product wiring
 
 Verify exact candidate:

@@ -82,6 +82,26 @@ Read:
 - `docs/JEV_DECISION_ENGINE.md`
 - current learning/evolution docs.
 
+## Step 0 — Aster fleet refresh before Codex work
+
+Aster runs first and owns the initial model-fleet truth pass. Read
+`config/v1.5/model-routing-stack.json` and resolve the owner's aliases to real
+installed identities before Codex spends tokens.
+
+Required routing intent:
+
+- simple → Qwen3.6;
+- coding/project → Qwen3.8 with Xing/Occamy workers;
+- screen/browser → Nex-N2.5;
+- very hard reasoning → Flash-Next;
+- verifier → gpt-oss-120B;
+- image → Qwen-Image-2.1;
+- video → LTX-2.5 / Wan.
+
+Aster must write the live mapping/benchmarks first. Codex consumes that compact
+report and must not independently rediscover the whole local fleet unless the
+report is contradictory or a test fails.
+
 ## Step A — preflight
 
 Verify:
