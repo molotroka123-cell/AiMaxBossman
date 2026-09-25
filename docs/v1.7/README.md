@@ -57,6 +57,8 @@ PIT adds only a participant-only policy surface, PersonaVault namespace, persona
 
 ## Docs
 
+- [Завтра начать отсюда](START_TOMORROW_GLM_RU.md)
+
 - [Full PIT specification](PERSONAL_IDENTITY_TRAINING_SPEC_RU.md)
 - [Laptop remote run](LAPTOP_REMOTE_RUN_RU.md)
 - [Dataset / future garbage sorter](DATASET_AND_GARBAGE_SORTER_RU.md)
