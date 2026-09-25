@@ -69,6 +69,10 @@ predicted_quality - a*latency - b*cost - c*privacy_risk + d*local_bonus
 
 Local bonus не имеет права выбирать модель, которая не умеет выполнить задачу.
 
+## Identity isolation
+
+Каждый новый Telegram ID начинает с пустого персонального профиля. PIT context builder использует только память текущего person_key и его собственные turns/files. Профиль владельца, общая память Bossman и профили других участников в PIT model context не входят. Внутри этого отдельного бота даже владелец машины рассматривается как participant; административные возможности остаются вне conversational surface.
+
 ## Telegram capability boundary
 
 У Telegram-пользователя структурно отсутствуют:
