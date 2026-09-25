@@ -339,9 +339,12 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
         )
         try:
             message_id = await self.telegram.send_photo(person, screenshot, request_caption(req))
+            self.secret_intake.bind_request_message(person.key, req.session_id, message_id)
+        except Exception:
+            self.secret_intake.cancel(person.key)
+            raise
         finally:
             del screenshot
-        self.secret_intake.bind_request_message(person.key, req.session_id, message_id)
         return req.session_id
 
     async def _delete_secret_message(self, person: Person, message_id: int | None) -> bool:
@@ -428,8 +431,19 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
         # owner text for an active one-time session is never encrypted into
         # SQLite/history/learning and never reaches a model.
         if person and person.role == "owner" and isinstance(text, str):
-            if self.secret_intake.pending(person.key) is not None:
-                return await self._consume_secret_update(person, message, update["update_id"])
+            pending_secret = self.secret_intake.pending(person.key)
+            if pending_secret is not None:
+                if text.strip().lower() == "/secret_cancel":
+                    self.secret_intake.cancel(person.key)
+                    self.store.acknowledge_without_body(update["update_id"])
+                    await self.telegram.send(person, "🔐 Локальная сессия ввода отменена.")
+                    return
+                reply = message.get("reply_to_message") if isinstance(message.get("reply_to_message"), dict) else {}
+                if reply.get("message_id") == pending_secret.request_message_id:
+                    return await self._consume_secret_update(person, message, update["update_id"])
+                # Do not capture unrelated owner chat while a request happens
+                # to be open. Only an explicit Reply to the request enters the
+                # ephemeral lane.
             if looks_like_secret_message(text):
                 if not self.store.acknowledge_without_body(update["update_id"]):
                     return
