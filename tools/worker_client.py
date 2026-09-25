@@ -14,6 +14,7 @@ free-only guard and distillation recording.
 from __future__ import annotations
 
 import json
+import sys
 import os
 import pathlib
 import time
@@ -202,3 +203,10 @@ class Worker:
                 "ttft_ms": round((first - started) * 1000, 1) if first else None,
                 "tps": round(comp / gen, 2) if comp and gen and gen > 0 else None,
                 "served_model": served, "finish_reason": finish, "error": None}
+
+if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError, ValueError):
+            pass

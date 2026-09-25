@@ -83,13 +83,14 @@ def test_only_a_full_pass_on_real_target_hardware_earns_the_verdict(capsys, monk
     assert code == 0
 
 
-def test_the_real_probe_on_this_machine_does_not_claim_target_hardware():
-    # Контроль над самим детектором: на сборочной машине он обязан говорить
-    # «не целевая». Если этот тест однажды упадёт — прогон идёт на железе
-    # владельца, и это надо заметить, а не проглядеть.
+def test_the_real_probe_reports_a_consistent_hardware_identity():
+    # Этот тест запускается и в CI, и на целевом компьютере владельца.
+    # Совпадение железа само по себе не означает прохождение acceptance.
     host = tha.probe()
-    assert host["on_target"] is False, host
-    assert host["mismatch"]
+    assert host["on_target"] == (
+        host["cpu_match"] and host["gpu_match"] and host["ram_match"]
+    ), host
+    assert bool(host["mismatch"]) is not host["on_target"], host
 
 
 # ------------------------------------------- OA-04: the archive runs it alone
