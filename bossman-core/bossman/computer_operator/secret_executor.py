@@ -249,6 +249,8 @@ class LocalModelSecretExecutor:
                         return ApplyResult(False, False, "LOCAL_MODEL_TOOL_ARGS_INVALID")
                     call_id = str(call.get("id") or f"call_{idx}")
                     if name == "fill_secret":
+                        if not str(self.page.url or "").startswith(self.binding.page_url_prefix):
+                            return ApplyResult(False, False, "LOGIN_PAGE_IDENTITY_CHANGED")
                         field_name = str(args.get("field") or "")
                         if field_name not in allowed or field_name in filled:
                             return ApplyResult(False, False, "LOCAL_MODEL_FIELD_ORDER_INVALID")
@@ -262,6 +264,8 @@ class LocalModelSecretExecutor:
                         filled.add(field_name)
                         result_text = "field filled from local opaque handle"
                     elif name == "submit_login":
+                        if not str(self.page.url or "").startswith(self.binding.page_url_prefix):
+                            return ApplyResult(False, False, "LOGIN_PAGE_IDENTITY_CHANGED")
                         if filled != set(allowed):
                             return ApplyResult(False, False, "LOCAL_MODEL_SUBMIT_BEFORE_ALL_FIELDS")
                         self._actuator._exact(self.binding.submit_role, self.binding.submit_name).click(timeout=10_000)
