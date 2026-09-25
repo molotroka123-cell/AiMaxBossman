@@ -84,3 +84,57 @@ python -m compileall -q command-center/bcc/pit
 Глубокие вопросы о публичном Bossman можно отвечать через публичный GitHub/web. Не используй внутреннюю память/ветки PIT как источник ответа участнику.
 
 Никакой owner/global memory не подмешивать даже если participant — сам владелец компьютера.
+
+
+## L. Free-only + Bossman-only invariant
+
+PIT handler не имеет собственного прямого cloud client как отдельный мозг. Route идёт через Bossman/Jev/provider registry.
+
+Remote candidate eligible только если текущий provider catalog подтвердил zero-cost. Unknown price = no route. Paid fallback в 1.7 выключен.
+
+## M. Local storage and direct-access invariant
+
+PIT authoritative root:
+`<BOSSMAN_DATA_DIR>/pit-v1.7/personalities/<person_key>/`.
+
+Не выдавай модели `persona.*`, filesystem или arbitrary file tools.
+Модель получает только transient bounded context от Bossman broker.
+`security/risk.json` никогда не входит в prompt/export.
+
+## N. Risk wiring
+
+Если `public_guard` вернул `risk_delta > 0`:
+1. `RiskLedger.add(current_person_key, delta, kind)`;
+2. guard reply отправить без LLM;
+3. score не показывать модели;
+4. при следующем разрешённом discovery Bossman может передать только число в deterministic selector;
+5. risk не разрешает sensitive question, второй follow-up или новые tools.
+
+## O. Capability parity
+
+До `PIT_LAPTOP_SHADOW_READY` реализовать безопасный chat surface:
+text/chat, web+sources, vision, uploaded-file understanding, code reasoning, calculator, summaries, translation, memory.
+
+Vision = только participant upload.
+File = только participant upload через broker.
+
+Laptop image generation:
+`image_generation_reply(ai_max_image_generation_ready=False)`
+→ «Скоро научусь, малышка 😊».
+
+Не заменять это placeholder-картинкой.
+
+## P. CMD acceptance
+
+Реализовать в существующем `bossman` CLI, не отдельном пользовательском скрипте:
+- `bossman pit start`
+- `bossman pit status`
+- `bossman pit doctor`
+- `bossman pit stop`
+
+`start` запускает именно PIT mode того же Command Center/Telegram infrastructure.
+`status` показывает transport/backend/provider availability без model ID в participant UI.
+`doctor` проверяет config/storage/free-route/web/vision/token availability без вывода secrets.
+`stop` останавливает PIT transport без остановки всего Bossman.
+
+Добавь CLI regression и installed-path smoke test.
