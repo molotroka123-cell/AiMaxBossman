@@ -11,6 +11,8 @@ import pytest
 from bcc.pit.capabilities import LAPTOP_IMAGE_GENERATION_REPLY_RU
 from bcc.pit.models import ConsentState
 from bcc.pit.photo_edit import PhotoEditPipeline
+from bcc.pit.photo_commands import photo_intent
+from bcc.pit.photo_runtime import PhotoRuntimeConfig, photo_runtime_status
 from bcc.pit.photo_pipeline import LAPTOP_PHOTO_REPLY_RU, PhotoPipeline, PhotoStore, visual_memory_candidates
 from bcc.pit.qwen_vision import QwenVisionBackend, QwenVisionConfig
 from bcc.pit.studio_image_edit import StudioImageEditBroker, StudioImageEditConfig
@@ -215,3 +217,36 @@ def test_photo_edit_is_ai_max_only_and_per_user_latest(tmp_path):
         answer = await ai_max.edit_latest(key, "убери фон")
         assert answer.image is not None and answer.image.data == PNG
     asyncio.run(go())
+
+
+def test_photo_intent_supports_simple_followup_edit_commands():
+    edit = photo_intent("/photoedit убери фон", has_photo=False)
+    assert edit.kind == "edit" and edit.prompt == "убери фон"
+    caption = photo_intent("замени фон на ночной город", has_photo=True)
+    assert caption.kind == "edit"
+    assert photo_intent("что на фото?", has_photo=True).kind == "analyze"
+
+
+def test_photo_runtime_is_disabled_by_default_and_status_is_secret_free(monkeypatch):
+    for name in (
+        "BOSSMAN_PIT_AI_MAX_MEDIA", "BOSSMAN_PIT_VISION_MODEL",
+        "BOSSMAN_PIT_IMAGE_EDIT_MODEL", "BOSSMAN_PIT_VISION_URL",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    cfg = PhotoRuntimeConfig.from_env()
+    status = photo_runtime_status(cfg)
+    assert cfg.ai_max_media_ready is False
+    assert status["vision_configured"] is False
+    assert status["image_edit_configured"] is False
+    assert "token" not in json.dumps(status).lower()
+
+
+def test_photo_runtime_ai_max_config(monkeypatch):
+    monkeypatch.setenv("BOSSMAN_PIT_AI_MAX_MEDIA", "1")
+    monkeypatch.setenv("BOSSMAN_PIT_VISION_MODEL", "qwen2.5-vl")
+    monkeypatch.setenv("BOSSMAN_PIT_IMAGE_EDIT_MODEL", "qwen-image-edit:local")
+    cfg = PhotoRuntimeConfig.from_env()
+    status = photo_runtime_status(cfg)
+    assert status["ai_max_media_ready"] is True
+    assert status["vision_configured"] is True
+    assert status["image_edit_configured"] is True
