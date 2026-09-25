@@ -1,6 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
+
+
+class DiscoveryMode(StrEnum):
+    OFF = "off"
+    BALANCED = "balanced"
+    COLLECTION_FIRST = "collection_first"
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,9 +39,15 @@ def choose_discovery_question(
     *,
     enabled: bool,
     min_score: float = 0.08,
+    mode: DiscoveryMode = DiscoveryMode.BALANCED,
 ) -> DiscoveryCandidate | None:
-    """Return at most one optional personalization question."""
-    if not enabled or not candidates:
+    """Return at most one low-friction question after a substantive answer.
+
+    COLLECTION_FIRST deliberately lowers the threshold so the first experiment
+    learns faster. It still never returns a suppressed/high-risk candidate.
+    """
+    if not enabled or mode == DiscoveryMode.OFF or not candidates:
         return None
+    threshold = min(min_score, 0.0) if mode == DiscoveryMode.COLLECTION_FIRST else min_score
     best = max(candidates, key=score)
-    return best if score(best) >= min_score else None
+    return best if score(best) >= threshold else None
