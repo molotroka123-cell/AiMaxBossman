@@ -49,3 +49,12 @@ https://github.com/molotroka123-cell/AiMaxBossman/blob/010d19076951d2911dc1bade4
 ## Источники состояния внутри repo
 
 Перед каждым merge обновить refs и читать AGENTS, CLAUDE_NEXT_ACTION, owner FINAL-1.0 evidence, docs/terminal, docs/evo, docs/owner/JEV_TOMORROW.md, docs/owner/SKILLS.md и docs/media. Если файл отсутствует в текущем TARGET, читать его из конкретного source SHA, не подменять это памятью чата. Upstream claims, documentation, code presence, mock tests и live evidence имеют разные уровни доверия.
+
+---
+
+## SAME-RUN HANDOFF: 1.5 → 1.6
+
+После закрытия 1.5 или достижения `V1_5_NEAR_COMPLETE` тот же owner-run сразу продолжает работу в ветке:
+https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-secret-intake-20260925
+
+Цель одного прогона: `BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED`.
