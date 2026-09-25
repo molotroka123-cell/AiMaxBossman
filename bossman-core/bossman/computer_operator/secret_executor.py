@@ -67,7 +67,7 @@ class PlaywrightSecretExecutor:
             raise RuntimeError(f"bound target {role}:{name!r} has {count} matches")
         return loc.first
 
-    async def apply(self, request, values: dict[str, bytearray]) -> SecretExecutionResult:
+    async def apply(self, request, values: dict[str, bytearray]) -> ApplyResult:
         current = str(self.page.url or "")
         if not current.startswith(self.binding.page_url_prefix):
             return ApplyResult(False, False, "LOGIN_PAGE_IDENTITY_CHANGED")
