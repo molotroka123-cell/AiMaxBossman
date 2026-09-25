@@ -1,0 +1,272 @@
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from bcc.pit.collector import HighRecallCollector
+from bcc.pit.context import select_persona_context
+from bcc.pit.discovery import DiscoveryCandidate, choose_discovery_question
+from bcc.pit.identity import derive_person_key, scoped_person_dir
+from bcc.pit.models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
+from bcc.pit.policy import TelegramToolPolicy
+from bcc.pit.router import (
+    ModelEndpoint,
+    NoEligibleRoute,
+    PrivacyClass,
+    RouteRequest,
+    choose_route,
+)
+from bcc.pit.telegram_contract import TelegramEnvelope, idempotency_key
+from bcc.pit.vault import PersonaVault
+
+
+SALT = b"pit-test-salt-is-long-enough-123"
+
+
+def candidate(
+    cid: str,
+    value: str,
+    *,
+    category: str = "preference",
+    sensitivity: Sensitivity = Sensitivity.NORMAL,
+    confidence: float = 0.2,
+):
+    return MemoryCandidate(
+        id=cid,
+        category=category,
+        key="answer_style",
+        value=value,
+        confidence=confidence,
+        evidence_kind=EvidenceKind.EXPLICIT,
+        sensitivity=sensitivity,
+        source_message_id="m-1",
+        source_model="test",
+    )
+
+
+def test_person_key_is_stable_pseudonymous_and_salt_scoped():
+    a = derive_person_key(123456, SALT)
+    assert a == derive_person_key("123456", SALT)
+    assert len(a) == 64
+    assert "123456" not in a
+    assert a != derive_person_key(123456, b"another-long-enough-test-salt")
+
+
+def test_person_scope_cannot_escape(tmp_path):
+    key = derive_person_key(1, SALT)
+    assert scoped_person_dir(tmp_path, key).parent == tmp_path.resolve()
+    with pytest.raises(ValueError):
+        scoped_person_dir(tmp_path, "../other")
+
+
+def test_cross_user_vault_isolation_and_delete(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    a, b = vault.key_for_telegram(1001), vault.key_for_telegram(1002)
+    enabled = ConsentState(memory_enabled=True, raw_history_enabled=True)
+    vault.set_consent(a, enabled)
+    vault.set_consent(b, enabled)
+    assert vault.append_candidate(a, candidate("a1", "short answers"))
+    assert vault.append_candidate(b, candidate("b1", "long explanations"))
+
+    export_a = json.dumps(vault.export(a), ensure_ascii=False)
+    export_b = json.dumps(vault.export(b), ensure_ascii=False)
+    assert "short answers" in export_a and "long explanations" not in export_a
+    assert "long explanations" in export_b and "short answers" not in export_b
+
+    assert vault.delete(a)
+    assert not vault.person_dir(a).exists()
+    assert vault.person_dir(b).exists()
+
+
+def test_collection_first_keeps_low_confidence_normal_candidates(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(7)
+    vault.set_consent(key, ConsentState(memory_enabled=True))
+    result = HighRecallCollector(vault).ingest(key, [candidate("c1", "prefers examples", confidence=0.05)])
+    assert result.accepted == 1
+    rows = list(vault.iter_candidate_records(key))
+    assert rows[0]["confidence"] == 0.05
+
+
+def test_secret_and_sensitive_memory_fail_closed(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(7)
+    vault.set_consent(key, ConsentState(memory_enabled=True, sensitive_memory_enabled=False))
+    collector = HighRecallCollector(vault)
+    result = collector.ingest(
+        key,
+        [
+            candidate("normal", "likes concise answers"),
+            candidate("secret", "password: hunter2"),
+            candidate("health", "private health note", category="health"),
+        ],
+    )
+    assert result.accepted == 1
+    assert result.rejected_secret == 1
+    assert result.rejected_sensitive == 1
+
+
+def test_explicit_sensitive_opt_in_is_separate(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(8)
+    vault.set_consent(key, ConsentState(memory_enabled=True, sensitive_memory_enabled=True))
+    result = HighRecallCollector(vault).ingest(
+        key,
+        [candidate("s1", "user explicitly asked to remember this", category="health")],
+    )
+    assert result.accepted == 1
+
+
+def test_raw_spool_requires_consent_and_redacts_obvious_token(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(9)
+    assert not vault.append_raw_event(key, {"message_id": 1, "text": "hello"})
+    vault.set_consent(key, ConsentState(memory_enabled=True, raw_history_enabled=True))
+    token = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi"
+    assert vault.append_raw_event(key, {"message_id": 2, "text": f"token={token}"})
+    stored = (vault.person_dir(key) / "raw" / "events.jsonl").read_text(encoding="utf-8")
+    assert token not in stored
+    assert "REDACTED_SECRET" in stored
+
+
+def test_outcome_stream_exists_for_future_garbage_sorter(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(10)
+    vault.set_consent(key, ConsentState(memory_enabled=True))
+    collector = HighRecallCollector(vault)
+    collector.record_outcome(key, candidate_id="x", outcome="later_seen", useful=False, retrieved=True)
+    text = (vault.person_dir(key) / "memory_outcomes.jsonl").read_text(encoding="utf-8")
+    assert '"candidate_id": "x"' in text
+    assert '"useful": false' in text
+
+
+def test_telegram_tool_registry_has_no_computer_shell_admin_payment_or_trading():
+    policy = TelegramToolPolicy()
+    for forbidden in (
+        "computer.click",
+        "shell.run",
+        "terminal.exec",
+        "owner.approve",
+        "secrets.read",
+        "payments.charge",
+        "trading.execute",
+        "admin.users",
+    ):
+        assert not policy.allows(forbidden), forbidden
+    for allowed in ("web.search", "browser.read", "calculator", "persona.read_own", "vision.analyze_own"):
+        assert policy.allows(allowed), allowed
+
+
+def test_laptop_profile_can_choose_remote_zero_cost_primary():
+    request = RouteRequest(intent="chat")
+    endpoints = [
+        ModelEndpoint(
+            id="local-main",
+            provider="local",
+            capabilities=frozenset({"chat"}),
+            local=True,
+            available=False,
+            predicted_quality=0.95,
+            latency_score=0.2,
+            privacy_risk=0.0,
+        ),
+        ModelEndpoint(
+            id="glm-5.3",
+            provider="openrouter",
+            capabilities=frozenset({"chat"}),
+            zero_cost=True,
+            predicted_quality=0.90,
+            latency_score=0.35,
+            privacy_risk=0.35,
+        ),
+        ModelEndpoint(
+            id="free-fallback",
+            provider="allowlisted-cloud",
+            capabilities=frozenset({"chat"}),
+            zero_cost=True,
+            predicted_quality=0.70,
+            latency_score=0.30,
+            privacy_risk=0.35,
+        ),
+    ]
+    decision = choose_route(request, endpoints)
+    assert decision.selected_model == "glm-5.3"
+    assert decision.reason_code == "REMOTE_ZERO_COST"
+
+
+def test_paid_route_never_happens_silently():
+    request = RouteRequest(intent="chat", max_cost_usd=0)
+    paid = ModelEndpoint(
+        id="paid",
+        provider="cloud",
+        capabilities=frozenset({"chat"}),
+        paid=True,
+        predicted_quality=1.0,
+    )
+    with pytest.raises(NoEligibleRoute):
+        choose_route(request, [paid], allow_paid=False)
+
+
+def test_local_only_cannot_fall_back_to_remote():
+    request = RouteRequest(intent="private", privacy=PrivacyClass.LOCAL_ONLY)
+    remote = ModelEndpoint(
+        id="remote",
+        provider="cloud",
+        capabilities=frozenset({"chat"}),
+        zero_cost=True,
+    )
+    with pytest.raises(NoEligibleRoute):
+        choose_route(request, [remote])
+
+
+def test_local_model_wins_after_ai_max_transition_when_quality_is_sufficient():
+    request = RouteRequest(intent="chat")
+    local = ModelEndpoint(
+        id="local-main",
+        provider="llama.cpp",
+        capabilities=frozenset({"chat"}),
+        local=True,
+        predicted_quality=0.84,
+        latency_score=0.25,
+        privacy_risk=0.0,
+    )
+    remote = ModelEndpoint(
+        id="remote-free",
+        provider="cloud",
+        capabilities=frozenset({"chat"}),
+        zero_cost=True,
+        predicted_quality=0.86,
+        latency_score=0.25,
+        privacy_risk=0.35,
+    )
+    assert choose_route(request, [local, remote]).selected_model == "local-main"
+
+
+def test_discovery_returns_at_most_one_and_suppresses_sensitive_probe():
+    selected = choose_discovery_question(
+        [
+            DiscoveryCandidate("style", "Коротко или с примерами?", 0.9, 0.9, 0.8, annoyance_cost=0.1),
+            DiscoveryCandidate("sensitive", "Sensitive?", 1, 1, 1, sensitivity_risk=0.8),
+        ],
+        enabled=True,
+    )
+    assert selected is not None
+    assert selected.key == "style"
+    assert choose_discovery_question([], enabled=True) is None
+
+
+def test_persona_context_is_bounded_not_full_vault_dump():
+    rows = [
+        {"id": f"i{i}", "category": "travel", "key": "travel_style", "value": f"travel item {i}",
+         "confidence": 0.9, "utility_score": i / 100, "evidence_kind": "explicit"}
+        for i in range(100)
+    ]
+    selected = select_persona_context("travel plan", rows, max_items=12)
+    assert 1 <= len(selected) <= 12
+
+
+def test_telegram_update_idempotency_is_stable():
+    event = TelegramEnvelope(1, 2, 3, 4, "hello")
+    assert idempotency_key(event) == idempotency_key(event)
+    assert idempotency_key(event) != idempotency_key(TelegramEnvelope(2, 2, 3, 4, "hello"))
