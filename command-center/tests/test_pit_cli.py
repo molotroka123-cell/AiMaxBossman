@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from bcc.pit import cli as pit_cli
-from bcc.pit.config import config_path, credentials_path, looks_like_repo, pit_home
+from bcc.pit.config import PITSettings, config_path, credentials_path, looks_like_repo, pit_home
 from bcc.telegram_companion.config import CompanionError
 
 

@@ -78,7 +78,8 @@ _INTERNAL_RE = re.compile(
     re.I,
 )
 _OTHER_RE = re.compile(
-    r"\b(?:друг(?:ого|их)? пользовател|other user|чуж(?:ая|ие) памя|memory of|что знаешь о .+)\b",
+    r"\b(?:друг(?:ого|их|ой)?\s*пользовател\w*|other users?|чуж(?:ая|ие|ой) (?:памя|профил)\w*|"
+    r"memory of another|знаешь (?:о|про) .{0,30}пользовател\w*|about (?:the )?other users?)",
     re.I,
 )
 _BOSSMAN_RE = re.compile(

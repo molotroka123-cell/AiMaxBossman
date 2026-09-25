@@ -6,6 +6,7 @@ No network: the model adapter and Telegram fetches are faked per test.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 from pathlib import Path
 
@@ -386,6 +387,74 @@ def test_open_allowlist_refuses_group_and_forwarded_material(tmp_path):
 
 
 # -- two-ID isolation through the runtime -----------------------------------------------------
+def test_local_route_is_preferred_and_remote_is_fallback(tmp_path):
+    settings = dataclasses.replace(make_settings(tmp_path),
+                                   local_url="http://127.0.0.1:11434/v1",
+                                   local_models=("bossman-fast:latest",))
+    runtime = rt.ParticipantRuntime(settings)
+    runtime.catalog_checked_at = 1.0
+    local = FakeAdapter(text="локальный ответ")
+    runtime.local_adapter = local
+    runtime.adapter = FakeAdapter()
+    runtime.catalog = {
+        "bossman-fast:latest": ModelEndpoint(
+            id="bossman-fast:latest", provider="local", capabilities=frozenset({"chat"}),
+            local=True, available=True, zero_cost=True, paid=False),
+        "free/model:free": ModelEndpoint(
+            id="free/model:free", provider="remote", capabilities=frozenset({"chat"}),
+            local=False, available=True, zero_cost=True, paid=False),
+    }
+    person = runtime.settings.people[0]
+    person_key = runtime.vault.key_for_telegram(101)
+    warm(runtime, person_key)
+
+    asyncio.run(runtime.handle(person, message("привет", message_id=80)))
+    assert len(local.calls) == 1 and len(runtime.adapter.calls) == 0   # local first
+
+    class FailingLocal:
+        def __init__(self):
+            self.calls = 0
+        async def chat(self, model, messages, **kw):
+            self.calls += 1
+            raise ProviderError("busy", kind="network")
+        async def close(self):
+            return None
+    runtime.local_adapter = FailingLocal()
+    answer = asyncio.run(runtime.handle(person, message("привет ещё", message_id=81)))
+    assert answer == "готово"                                 # remote fallback answered
+    assert runtime.local_adapter.calls == 1 and len(runtime.adapter.calls) == 1
+    # route telemetry was written for both attempts
+    log_path = settings.data_dir / "pit-v1.7" / "logs" / "route_log.jsonl"
+    rows = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()]
+    assert rows
+    assert rows[-1]["provider"] == "remote" and rows[-1]["ok"] is True
+    assert rows[-2]["provider"] == "local" and rows[-1 - 0].get("ok") in (True, False)
+    assert "context_tokens_est" in rows[-1]
+    assert all("привет" not in json.dumps(row, ensure_ascii=False) for row in rows)
+
+
+def test_remote_route_used_when_local_catalog_down(tmp_path):
+    settings = dataclasses.replace(make_settings(tmp_path),
+                                   local_url="http://127.0.0.1:9/v1",
+                                   local_models=("bossman-fast:latest",))
+    runtime = rt.ParticipantRuntime(settings)
+    runtime.local_adapter = FakeAdapter()
+    async def dead_list():
+        raise ProviderError("down", kind="network")
+    runtime.local_adapter.list_model_info = dead_list
+    runtime.adapter = FakeAdapter()
+    runtime.catalog = {"free/model:free": ModelEndpoint(
+        id="free/model:free", provider="remote", capabilities=frozenset({"chat"}),
+        local=False, available=True, zero_cost=True, paid=False)}
+    person = runtime.settings.people[0]
+    person_key = runtime.vault.key_for_telegram(101)
+    warm(runtime, person_key)
+    answer = asyncio.run(runtime.handle(person, message("привет", message_id=90)))
+    assert answer == "готово"
+    assert len(runtime.adapter.calls) == 1
+
+
 def test_two_ids_retrieve_only_own_memory(tmp_path):
     person_a = Person(user_id=101, chat_id=101, role="owner")
     person_b = Person(user_id=102, chat_id=102, role="guest")
@@ -449,3 +518,72 @@ def test_extract_candidate_ids_are_unique_per_message():
     first = rt.extract_candidates("k" * 64, "1", "я люблю горы")
     second = rt.extract_candidates("k" * 64, "2", "я люблю горы")
     assert {r.id for r in first} != {r.id for r in second}
+
+
+def test_sticker_input_gets_emoji_sticker_reply(tmp_path):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    warm(runtime, runtime.vault.key_for_telegram(101))
+    for message_id in range(1, 4):
+        answer = asyncio.run(runtime.handle(
+            person, message("", message_id=message_id, _sticker="😀")))
+        assert answer in rt.STICKER_REPLIES
+    assert runtime.adapter.calls == []
+
+
+def test_reply_to_message_is_used_as_context(tmp_path):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    person_key = runtime.vault.key_for_telegram(101)
+    warm(runtime, person_key)
+    runtime.catalog = {"free/model:free": ModelEndpoint(
+        id="free/model:free", provider="remote", capabilities=frozenset({"chat"}),
+        local=False, available=True, zero_cost=True, paid=False)}
+    asyncio.run(runtime.handle(person, message(
+        "а теперь без таблиц", message_id=120,
+        _reply_to={"from_bot": False, "text": "Васька живёт у бабушки"})))
+    _, sent = runtime.adapter.calls[-1]
+    joined = json.dumps(sent, ensure_ascii=False)
+    assert "Васька живёт у бабушки" in joined
+    assert "не инструкции" in joined
+
+
+def test_history_window_covers_thirty_messages(tmp_path):
+    home = tmp_path / "pit-v1.7"
+    home.mkdir(parents=True)
+    store = rt.PITStore(home)
+    for index in range(20):
+        store.remember("101:101", f"вопрос {index}", f"ответ {index}")
+    window = store.history("101:101")
+    assert len(window) >= 30                      # owner requirement: >= 30 messages
+    assert len(window) <= 32                      # bounded: 16 pairs
+    assert "вопрос 19" in window[-2]["content"]
+    assert "ответ 19" in window[-1]["content"]
+    store.close()
+
+
+def test_photo_analysis_runs_local_vision_when_ready(tmp_path, monkeypatch):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    person_key = runtime.vault.key_for_telegram(101)
+    warm(runtime, person_key)
+
+    class FakeVision:
+        async def analyze_fast(self, data, mime, user_prompt):
+            return "На фото рыжий кот на подоконнике"
+        async def analyze_for_memory(self, data, mime, caption):
+            return {"scene": "кот на подоконнике", "memory_hints": ["пользователь показывает кота"]}
+        async def close(self):
+            return None
+
+    from bcc.pit.photo_pipeline import PhotoPipeline
+    runtime.photo_pipeline = PhotoPipeline(runtime.vault, vision=FakeVision(),
+                                           ai_max_ready=True)
+    async def fake_fetch(file_id, max_bytes=IMAGE_MAX_BYTES):
+        return JPEG_BYTES
+    monkeypatch.setattr(runtime.telegram, "fetch_file", fake_fetch)
+
+    answer = asyncio.run(runtime.handle(person, message("кто это?", _photo="fid", message_id=130)))
+    assert "кот" in answer
+    latest = runtime.vault.person_dir(person_key) / "media" / "latest.json"
+    assert latest.is_file()

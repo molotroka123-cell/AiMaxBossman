@@ -75,11 +75,12 @@ class PITSettings:
     chat_models: tuple[str, ...] = DEFAULT_FREE_CHAT_MODELS
     provider_base_url: str = "https://openrouter.ai/api/v1"
     local_url: str = ""
-    local_model: str = ""
+    local_models: tuple[str, ...] = ()
     search_url: str = ""
     core_url: str = "http://127.0.0.1:8800"
     max_tokens: int = 1024
     remote_timeout: float = 120.0
+    local_timeout: float = 120.0
     catalog_refresh_seconds: int = 900
     discovery_mode: str = "collection_first"
     collection_mode: str = "high_recall"
@@ -112,10 +113,15 @@ class PITSettings:
             raise ValueError("chat model allowlist must be 1..N exact model ids")
         if len(set(self.chat_models)) != len(self.chat_models):
             raise ValueError("duplicate chat model ids")
-        if bool(self.local_url) != bool(self.local_model):
-            raise ValueError("local route needs both local_url and local_model")
+        if bool(self.local_url) != bool(self.local_models):
+            raise ValueError("local route needs both local_url and local_models")
         if self.local_url:
             local_url(self.local_url)
+            if any(not isinstance(m, str) or not 0 < len(m.strip()) <= 120
+                   for m in self.local_models):
+                raise ValueError("local model ids must be non-empty strings <=120 chars")
+            if len(set(self.local_models)) != len(self.local_models):
+                raise ValueError("duplicate local model ids")
         if self.search_url:
             local_url(self.search_url)
         local_url(self.core_url)
@@ -144,7 +150,7 @@ class PITSettings:
             raise ValueError("identity salt must be at least 16 bytes")
         if not self.bot_token:
             raise ValueError("bot token is required")
-        if not self.provider_key and not self.local_model:
+        if not self.provider_key and not self.local_models:
             raise ValueError("provider key is required without a local model")
 
     def participant(self, user_id: int, chat_id: int) -> Person | None:
@@ -202,6 +208,15 @@ def load(path: Path) -> PITSettings:
     for key in (*[k for k, _ in _SECRET_ENV], "identity_salt"):
         data[key] = secrets.get(key, "")
     data["chat_models"] = tuple(data.get("chat_models") or DEFAULT_FREE_CHAT_MODELS)
+    # Non-secret runtime knobs may be overridden by the environment (owner run
+    # helpers), exactly like the companion's env file contract.
+    data["local_url"] = os.environ.get("BOSSMAN_PIT_LOCAL_URL", data.get("local_url", "")).strip()
+    env_locals = os.environ.get("BOSSMAN_PIT_LOCAL_MODELS", "").strip()
+    if env_locals:
+        data["local_models"] = tuple(m.strip() for m in env_locals.split(",") if m.strip())
+    else:
+        data["local_models"] = tuple(data.get("local_models") or ())
+    data["allowlist_open"] = bool(data.get("allowlist_open", False))
     return PITSettings(**data)
 
 
@@ -214,7 +229,7 @@ def save_setup(
     core_url: str,
     search_url: str = "",
     local_url: str = "",
-    local_model: str = "",
+    local_models: list[str] | None = None,
     allowlist_open: bool = False,
     bot_token: str = "",
     provider_key: str = "",
@@ -235,7 +250,7 @@ def save_setup(
         "core_url": core_url,
         "search_url": search_url,
         "local_url": local_url,
-        "local_model": local_model,
+        "local_models": list(local_models or ()),
         "allowlist_open": bool(allowlist_open),
     }
     import secrets as _secrets
@@ -261,7 +276,8 @@ def save_setup(
         core_url=parsed["core_url"],
         search_url=parsed.get("search_url", ""),
         local_url=parsed.get("local_url", ""),
-        local_model=parsed.get("local_model", ""),
+        local_models=tuple(parsed.get("local_models") or ()),
+        allowlist_open=bool(parsed.get("allowlist_open", False)),
         bot_token=credentials["bot_token"],
         provider_key=credentials["provider_key"],
         core_token=credentials["core_token"],

@@ -135,13 +135,23 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
         probe.settings = settings
         probe.home = pit_home(data_dir)
         probe.adapter = adapter
+        probe.local_adapter = build_adapter("openai_compat", settings.local_url) \
+            if settings.local_url else None
         probe.catalog = {}
         probe.catalog_checked_at = 0.0
         endpoints = await ParticipantRuntime.refresh_catalog(probe)
+        local_ok = any(endpoint.local for endpoint in endpoints.values())
         rows = [{"model": model, "status": "ZERO_COST_OK" if model in endpoints else "NOT_ELIGIBLE"}
                 for model in settings.chat_models]
-        route_ok = bool(endpoints) or bool(settings.local_model)
-        add("free_route", route_ok, json.dumps(rows, ensure_ascii=False))
+        route_ok = bool(endpoints) or bool(settings.local_models)
+        detail = json.dumps(rows, ensure_ascii=False)
+        if settings.local_models:
+            detail += f"; local={'OK' if local_ok else 'DOWN'}"
+        add("free_route", route_ok, detail)
+        if probe.local_adapter is not None:
+            import contextlib
+            with contextlib.suppress(Exception):
+                await probe.local_adapter.close()
         import contextlib
         with contextlib.suppress(Exception):
             await adapter.close()
@@ -225,7 +235,8 @@ def cmd_status(path: Path) -> int:
             report["chat_models"] = len(settings.chat_models)
             report["pit_storage"] = {"participants": participants, "facts": facts, "root": str(home)}
             report["web"] = "SEARXNG" if settings.search_url else "KEYLESS_FALLBACK"
-            report["local_model"] = settings.local_model or "NONE"
+            report["local_models"] = list(settings.local_models) or "NONE"
+            report["route_stats"] = _route_stats(home)
             transport_error = _store_state(home, "transport_error")
             if transport_error:
                 report["last_transport_error"] = transport_error
@@ -267,6 +278,44 @@ def _is_running(home: Path) -> bool:
             file.close()
         except OSError:
             pass
+
+
+def _route_stats(home: Path) -> dict:
+    """Secret-free aggregates of the internal route log (no message content)."""
+    log_path = home / "logs" / "route_log.jsonl"
+    if not log_path.is_file():
+        return {}
+    rows = []
+    try:
+        for line in log_path.read_text(encoding="utf-8").splitlines()[-500:]:
+            if line.strip():
+                rows.append(json.loads(line))
+    except (OSError, ValueError):
+        return {}
+    if not rows:
+        return {}
+    per_model: dict[str, dict] = {}
+    latencies = []
+    for row in rows:
+        entry = per_model.setdefault(row.get("model", "?"),
+                                     {"ok": 0, "fail": 0, "latency_ms": []})
+        if row.get("ok"):
+            entry["ok"] += 1
+            latency = row.get("latency_ms")
+            if type(latency) is int and latency >= 0:
+                entry["latency_ms"].append(latency)
+                latencies.append(latency)
+        else:
+            entry["fail"] += 1
+    summary = {}
+    for model, entry in per_model.items():
+        lat = sorted(entry["latency_ms"])
+        summary[model] = {
+            "ok": entry["ok"], "fail": entry["fail"],
+            "p50_ms": lat[len(lat) // 2] if lat else None,
+            "p95_ms": lat[int(len(lat) * 0.95)] if lat else None,
+        }
+    return {"turns": len(rows), "by_model": summary}
 
 
 def _queue_pending(home: Path) -> int:
