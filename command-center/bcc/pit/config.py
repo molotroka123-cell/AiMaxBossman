@@ -83,6 +83,7 @@ class PITSettings:
     catalog_refresh_seconds: int = 900
     discovery_mode: str = "collection_first"
     collection_mode: str = "high_recall"
+    allowlist_open: bool = False
     bot_token: str = field(default="", repr=False)
     provider_key: str = field(default="", repr=False)
     core_token: str = field(default="", repr=False)
@@ -131,6 +132,8 @@ class PITSettings:
             raise ValueError("invalid discovery mode")
         if self.collection_mode not in {"off", "high_recall"}:
             raise ValueError("invalid collection mode")
+        if type(self.allowlist_open) is not bool:
+            raise ValueError("allowlist_open must be a boolean")
         if not self.identity_salt:
             raise ValueError("identity salt is required in credentials")
         try:
@@ -212,6 +215,7 @@ def save_setup(
     search_url: str = "",
     local_url: str = "",
     local_model: str = "",
+    allowlist_open: bool = False,
     bot_token: str = "",
     provider_key: str = "",
     core_token: str = "",
@@ -232,6 +236,7 @@ def save_setup(
         "search_url": search_url,
         "local_url": local_url,
         "local_model": local_model,
+        "allowlist_open": bool(allowlist_open),
     }
     import secrets as _secrets
     credentials = {

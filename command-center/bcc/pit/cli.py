@@ -74,6 +74,7 @@ def cmd_setup(path: Path) -> int:
         provider_base_url="https://openrouter.ai/api/v1",
         core_url="http://127.0.0.1:8800",
         search_url=search_url,
+        allowlist_open=True,
         bot_token=token,
         provider_key=provider_key,
         core_token=core_token,

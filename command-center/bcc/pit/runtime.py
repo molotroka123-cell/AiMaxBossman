@@ -6,14 +6,17 @@ Reuse contract (docs/v1.7):
   second client stack; the free-only route is enforced by ``bcc.pit.router``
   against the live provider pricing catalog;
 - participant pipeline order: allowlist -> durable idempotency -> pending
-  consent confirmations -> ``public_guard`` -> safe commands -> chat route ->
-  memory extraction -> at most one discovery question -> PIT presentation
-  renderer -> Telegram send;
+  confirmations -> ``public_guard`` -> safe commands -> chat route -> memory
+  extraction -> PIT presentation renderer -> Telegram send;
 - every Telegram ID is zero-start and may retrieve only its own person_key;
   owner-console/computer/evolution/model-inspection commands are refused
   before any dispatch;
 - risk/engagement/profile-stability stay in local security telemetry and are
   never sent to the model, never exported.
+
+Owner product decision 2026-09-25: the first contact gets a short intro and
+memory starts silently enabled (revocation: /pause_memory, /delete_me); the
+allowlist can be opened so friends become zero-start participants directly.
 """
 from __future__ import annotations
 
@@ -50,7 +53,7 @@ from .public_guard import public_guard
 from .roleplay import RolePlayMode, roleplay_prompt
 from .roleplay_commands import load_roleplay, parse_roleplay_command, set_roleplay
 from .router import ModelEndpoint, NoEligibleRoute, PrivacyClass, RouteRequest, choose_route
-from .telegram_contract import ONBOARDING_RU, USER_COMMANDS
+from .telegram_contract import USER_COMMANDS
 from .vault import PersonaVault, _append_jsonl, _atomic_json
 
 STOP_FLAG = "stop.flag"
@@ -84,15 +87,16 @@ DISCOVERY_INTENT_HINTS = (
     ("devices", ("телефон", "ноутбук", "настройк", "windows", "android", "iphone")),
 )
 
+INTRO_RU = (
+    "Привет! Я Jeff — живой AI-ассистент из программы AiBossman (локальный ИИ-проект). "
+    "Понимаю текст, ищу в интернете, помогаю с кодом и переводами. Модели бесплатные. "
+    "Просто пиши — отвечу 🙂"
+)
+
 HELP_RU = (
-    "Я Jeff — универсальный помощник. Умею: обычный чат, поиск по вебу с источниками, "
-    "объяснение кода, переводы, память о твоих предпочтениях.\n\n"
-    "Команды: /start — знакомство и память; /memory — что я помню; /why_memory — почему вспомнил; "
-    "/forget <что> — забыть факт; /pause_memory и /resume_memory; /export_me — выгрузка; "
-    "/delete_me — удалить всё; /style <как отвечать>; /privacy — приватность; /search <запрос>; "
-    "/roleplay и /parody — игровые режимы; фото с подписью — разберу после переезда на AI Max.\n\n"
-    "Голосовые пока не разбираю. Команд управления компьютером или внутренностями Bossman "
-    "у участника нет."
+    "Команды Jeff: /memory — что помню; /forget <что>; /pause_memory; /resume_memory; "
+    "/export_me; /delete_me; /privacy; /search <запрос>; /style <как отвечать>; "
+    "/roleplay и /parody — игровые режимы."
 )
 
 NO_MODEL_RU = ("Сейчас у меня нет доступной бесплатной модели для ответа. Это честный статус, "
@@ -101,13 +105,13 @@ NO_WEB_RU = "Веб-поиск сейчас недоступен, поэтому
 PROVIDER_DOWN_RU = ("Модель-провайдер недоступен. Платные маршруты у меня выключены; "
                     "попробуй позже.")
 VOICE_REPLY_RU = "Голосовые пока не разбираю — напиши текстом, отвечу сразу 😊"
-FORBIDDEN_REPLY_RU = ("Такой команды у Jeff нет: у участника отсутствует управление компьютером, "
-                      "оболочкой и внутренностями Bossman.")
+FORBIDDEN_REPLY_RU = ("Такой команды у Jeff нет: управление компьютером и внутренностями "
+                      "Bossman здесь недоступно.")
 DELETE_CONFIRM_RU = ("Точно удалить всю твою память и профиль? Это необратимо. "
                      "Напиши «подтверждаю», чтобы удалить, или что-нибудь другое, чтобы отменить.")
 DELETED_RU = ("Память удалена полностью: профиль, факты и производные данные. "
               "Начали с чистого листа (zero-start).")
-UNKNOWN_COMMAND_RU = "Такой команды у Jeff нет. Доступные — по /help."
+UNKNOWN_COMMAND_RU = "Такой команды у Jeff нет. Список — /help."
 NO_REMOTE_RU = ("Удалённые модели отключены в твоих настройках приватности, а локальной "
                 "модели на этой машине нет. Включить: /privacy remote on.")
 
@@ -272,6 +276,12 @@ class ParticipantRuntime:
                                      api_key=settings.provider_key or None)
         self.catalog: dict[str, ModelEndpoint] = {}
         self.catalog_checked_at = 0.0
+        # Open allowlist (owner decision): every new private-chat human becomes a
+        # zero-start participant. Ingest already filters who may reach handle().
+        if settings.allowlist_open:
+            self.telegram.authorize_delivery = lambda person: True
+        self._spawned_workers: set[str] = {p.key for p in settings.people}
+        self._dynamic_tasks: set[asyncio.Task] = set()
 
     async def close(self) -> None:
         for closer in (self.telegram.close, self.models.close, self.photo_services.close,
@@ -331,6 +341,8 @@ class ParticipantRuntime:
         tasks = [asyncio.create_task(self._worker(person, lane))
                  for person in self.settings.people for lane in ("chat", "control")]
         tasks.append(asyncio.create_task(self._poll()))
+        if self.settings.allowlist_open:
+            tasks.append(asyncio.create_task(self._worker_spawner()))
         try:
             done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
             for task in done:
@@ -341,6 +353,32 @@ class ParticipantRuntime:
             await asyncio.gather(*tasks, return_exceptions=True)
             with contextlib.suppress(OSError):
                 (self.home / STOP_FLAG).unlink(missing_ok=True)
+
+    async def _worker_spawner(self) -> None:
+        """Open allowlist: spawn workers for participants that appear later."""
+        while True:
+            await asyncio.sleep(2.0)
+            if len(self._spawned_workers) > 64:
+                continue
+            try:
+                rows = self.store.db.execute(
+                    "SELECT DISTINCT who FROM inbox WHERE who IS NOT NULL").fetchall()
+            except Exception:
+                rows = []
+            for row in rows:
+                who = row[0]
+                if who in self._spawned_workers:
+                    continue
+                try:
+                    user_id = int(who.split(":", 1)[0])
+                except ValueError:
+                    continue
+                person = Person(user_id=user_id, chat_id=user_id, role="guest")
+                self._spawned_workers.add(who)
+                for lane in ("chat", "control"):
+                    task = asyncio.create_task(self._worker(person, lane))
+                    self._dynamic_tasks.add(task)
+                    task.add_done_callback(self._dynamic_tasks.discard)
 
     async def _poll(self) -> None:
         delay = 1.0
@@ -373,8 +411,17 @@ class ParticipantRuntime:
             return
         body = _minimize_message(message)
         user_id, chat_id = body.get("_user_id"), body.get("_chat_id")
-        person = self.settings.participant(user_id, chat_id) \
-            if type(user_id) is int and type(chat_id) is int else None
+        if type(user_id) is not int or type(chat_id) is not int:
+            return
+        person = self.settings.participant(user_id, chat_id)
+        if person is None and self.settings.allowlist_open:
+            sender = message.get("from") or {}
+            chat = message.get("chat") or {}
+            if (sender.get("is_bot") is not False or chat.get("type") != "private"
+                    or any(k in message
+                           for k in ("forward_origin", "forward_from", "sender_chat"))):
+                return
+            person = Person(user_id=user_id, chat_id=chat_id, role="guest")
         self.store.ingest(update_id, person.key if person else None, body)
 
     async def _worker(self, person: Person, lane: str) -> None:
@@ -385,6 +432,10 @@ class ParticipantRuntime:
                 continue
             update_id, message = item
             fresh = self.settings.participant(message.get("_user_id"), message.get("_chat_id"))
+            if fresh is None and self.settings.allowlist_open:
+                friend_user = message.get("_user_id")
+                if type(friend_user) is int:
+                    fresh = Person(user_id=friend_user, chat_id=friend_user, role="guest")
             if fresh is None:
                 self.store.finish(update_id, "failed")
                 continue
@@ -421,6 +472,17 @@ class ParticipantRuntime:
         if consumed is not None:
             return consumed
 
+        consent = self.vault.consent(person_key)
+
+        # A forbidden owner-console command is refused even on first contact.
+        if text.startswith("/") and text.partition(" ")[0].lower() in FORBIDDEN_COMMANDS:
+            self.behavior.privacy_probe(person_key, kind="tool_probe")
+            return FORBIDDEN_REPLY_RU
+
+        welcome = self._welcome_if_first_contact(person_key, consent)
+        if welcome is not None:
+            return welcome
+
         guard = public_guard(text)
         if guard is not None:
             self.behavior.privacy_probe(person_key, kind=guard.kind.value)
@@ -437,56 +499,30 @@ class ParticipantRuntime:
         if edit_words.kind == "edit":
             return await self._edit_latest(person, person_key, edit_words.prompt)
 
-        consent = self.vault.consent(person_key)
         return await self._chat_route(person, person_key, text, consent,
                                       message_id=str(message.get("_message_id") or "0"))
 
-    # -- pending confirmations ------------------------------------------------------------
+    # -- zero-start welcome / pending confirmations ----------------------------------------
+    def _welcome_if_first_contact(self, person_key: str, consent: ConsentState) -> str | None:
+        """Zero-start: first contact gets a short intro; memory starts silently.
+
+        Owner product decision (2026-09-25): no consent maze — memory on by
+        default, revocation one command away (/pause_memory, /delete_me).
+        """
+        if (self.vault.person_dir(person_key) / "consent.json").is_file():
+            return None
+        (self.vault.ensure(person_key) / "onboarding.json").unlink(missing_ok=True)
+        consent.memory_enabled = True
+        consent.remote_processing_enabled = True
+        consent.discovery_enabled = False
+        consent.accepted_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        self.vault.set_consent(person_key, consent)
+        return INTRO_RU
+
     def _consume_pending(self, person_key: str, person: Person, text: str) -> str | None:
         lowered = text.lower().strip()
         affirmative = lowered in {"да", "yes", "давай", "согласен", "согласна", "+", "ок", "ok"}
         declined = lowered in {"нет", "no", "-", "не хочу", "стоп"}
-
-        onboarding_path = self.vault.person_dir(person_key) / "onboarding.json"
-        if onboarding_path.is_file():
-            data = json.loads(onboarding_path.read_text(encoding="utf-8"))
-            stage = str(data.get("stage", "memory"))
-            consent = self.vault.consent(person_key)
-            if stage == "memory":
-                if affirmative:
-                    consent.memory_enabled = True
-                    consent.discovery_enabled = True
-                    consent.accepted_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-                    self.vault.set_consent(person_key, consent)
-                    _atomic_json(onboarding_path, {"stage": "remote"})
-                    return ("Память включена. Отвечать через удалённую бесплатную модель, "
-                            "пока локальной нет? (да/нет)")
-                if declined:
-                    _atomic_json(onboarding_path, {"stage": "remote_offered"})
-                    return ("Память остаётся выключенной: я ничего не сохраняю. "
-                            "Без локальной модели и без согласия на удалённую бесплатную "
-                            "модель обычные ответы недоступны. Включить: /privacy remote on.")
-                return "Ответь «да» или «нет», пожалуйста."
-            if stage == "remote":
-                if affirmative:
-                    consent.remote_processing_enabled = True
-                    self.vault.set_consent(person_key, consent)
-                    onboarding_path.unlink(missing_ok=True)
-                    return ("Готово. Спрашивай что угодно: чат, поиск с источниками, код, "
-                            "переводы. Память — /memory.")
-                if declined:
-                    consent.remote_processing_enabled = False
-                    self.vault.set_consent(person_key, consent)
-                    onboarding_path.unlink(missing_ok=True)
-                    return ("Принято: удалённые модели отключены. Локальной модели на этой "
-                            "машине сейчас нет, поэтому обычные ответы будут недоступны. "
-                            "Передумал — /privacy remote on.")
-                return "Ответь «да» или «нет», пожалуйста."
-            if stage == "remote_offered" and affirmative:
-                consent.remote_processing_enabled = True
-                self.vault.set_consent(person_key, consent)
-                onboarding_path.unlink(missing_ok=True)
-                return "Готово. Спрашивай что угодно 😊"
 
         if self.store.get(f"delete_pending:{person.key}"):
             self.store.put(f"delete_pending:{person.key}", None)
@@ -502,7 +538,6 @@ class ParticipantRuntime:
             data = json.loads(pending_path.read_text(encoding="utf-8"))
             pending_path.unlink(missing_ok=True)
             if affirmative:
-                from .roleplay import RolePlayMode
                 state = set_roleplay(self.vault, person_key, enabled=True,
                                      mode=RolePlayMode(str(data.get("mode", "parody"))),
                                      participant_consented=True,
@@ -535,10 +570,10 @@ class ParticipantRuntime:
         return UNKNOWN_COMMAND_RU
 
     def _start(self, person_key: str, consent: ConsentState) -> str:
-        if consent.memory_enabled:
-            return "С возвращением! Память активна: /memory покажет, что я помню."
-        _atomic_json(self.vault.ensure(person_key) / "onboarding.json", {"stage": "memory"})
-        return ONBOARDING_RU + "\n\nВключить память? (да/нет)"
+        welcome = self._welcome_if_first_contact(person_key, consent)
+        if welcome is not None:
+            return welcome
+        return INTRO_RU + "\n\n" + HELP_RU
 
     async def _memory_command(self, person: Person, person_key: str, text: str) -> str:
         command, _, argument = text.partition(" ")
@@ -616,17 +651,17 @@ class ParticipantRuntime:
 
     def _memory_summary(self, person_key: str, consent: ConsentState) -> str:
         if not consent.memory_enabled:
-            return "Память выключена. Включить — /start. Ничего о тебе не сохранено."
+            return "Память выключена (/pause_memory включал). Включить — /resume_memory."
         facts = list(self.vault.iter_candidate_records(person_key))
         if not facts:
-            return "Память включена, но я ещё ничего не записал — просто общайся."
+            return "Я пока ничего не записал — просто общайся. /forget — забыть, /delete_me — стереть всё."
         counts: dict[str, int] = {}
         for record in facts:
             category = str(record.get("category", "?"))
             counts[category] = counts.get(category, 0) + 1
         listing = ", ".join(f"{name}: {count}" for name, count in sorted(counts.items()))
         return (f"Память включена. Фактов: {len(facts)} ({listing}). "
-                "/forget — забыть факт, /export_me — выгрузка, /delete_me — удалить всё.")
+                "/forget — забыть факт, /delete_me — удалить всё.")
 
     def _forget(self, person_key: str, query: str) -> str:
         needle = query.lower()

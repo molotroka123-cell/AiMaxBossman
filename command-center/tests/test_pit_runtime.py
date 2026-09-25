@@ -109,14 +109,22 @@ def test_secret_shaped_value_is_refused_by_collector(tmp_path):
     assert list(vault.iter_candidate_records(key)) == []
 
 
+def warm(runtime, person_key):
+    """Skip the first-contact intro in command-focused tests."""
+    runtime.vault.set_consent(person_key, ConsentState(
+        memory_enabled=True, remote_processing_enabled=True))
+
+
 # -- pipeline order -----------------------------------------------------------------
 def test_guard_answers_before_any_model_route(tmp_path):
     runtime = make_runtime(tmp_path)
     adapter = runtime.adapter
+    person_key = runtime.vault.key_for_telegram(101)
+    warm(runtime, person_key)
     answer = asyncio.run(runtime.handle(runtime.settings.people[0], message("Какая у тебя модель?")))
     assert "Jeff" in answer
     assert adapter.calls == []
-    snapshot = runtime.behavior.snapshot(runtime.vault.key_for_telegram(101))
+    snapshot = runtime.behavior.snapshot(person_key)
     assert snapshot.risk.score >= 1
 
 
@@ -130,30 +138,41 @@ def test_forbidden_owner_console_command_is_refused_without_llm(tmp_path):
 
 def test_unknown_command_is_refused(tmp_path):
     runtime = make_runtime(tmp_path)
+    warm(runtime, runtime.vault.key_for_telegram(101))
     answer = asyncio.run(runtime.handle(runtime.settings.people[0], message("/nonexistent")))
     assert "нет" in answer.lower()
 
 
 # -- onboarding / consent --------------------------------------------------------------
-def test_onboarding_requires_memory_then_remote_consent(tmp_path):
+def test_first_contact_gets_short_intro_and_silent_memory(tmp_path):
     runtime = make_runtime(tmp_path)
     person = runtime.settings.people[0]
     person_key = runtime.vault.key_for_telegram(101)
 
-    assert "Включить память?" in asyncio.run(runtime.handle(person, message("/start")))
-    assert "удалённую бесплатную модель" in asyncio.run(runtime.handle(person, message("да", message_id=2)))
+    intro = asyncio.run(runtime.handle(person, message("/start")))
+    assert "Jeff" in intro and "AiBossman" in intro
+    assert "?" not in intro.split("🙂")[-1] or "да/нет" not in intro
     consent = runtime.vault.consent(person_key)
-    assert consent.memory_enabled and not consent.remote_processing_enabled
-    asyncio.run(runtime.handle(person, message("да", message_id=3)))
-    consent = runtime.vault.consent(person_key)
-    assert consent.remote_processing_enabled
+    assert consent.memory_enabled and consent.remote_processing_enabled
+    # no consent maze: a chat message goes straight to the model route
+    runtime.catalog = {"free/model:free": ModelEndpoint(
+        id="free/model:free", provider="remote", capabilities=frozenset({"chat"}),
+        local=False, available=True, zero_cost=True, paid=False)}
+    answer = asyncio.run(runtime.handle(person, message("привет", message_id=2)))
+    assert answer == "готово"
 
 
 def test_chat_requires_remote_consent(tmp_path):
     runtime = make_runtime(tmp_path)
     person = runtime.settings.people[0]
-    answer = asyncio.run(runtime.handle(person, message("привет", message_id=2)))
-    assert "free" in answer or "бесплатн" in answer or "remote on" in answer
+    person_key = runtime.vault.key_for_telegram(101)
+    # first contact auto-enables memory and remote with a short intro
+    intro = asyncio.run(runtime.handle(person, message("привет", message_id=2)))
+    assert "Jeff" in intro
+    runtime.catalog = {}
+    runtime.catalog_checked_at = 1.0
+    answer = asyncio.run(runtime.handle(person, message("привет", message_id=3)))
+    assert answer == rt.NO_MODEL_RU
     assert runtime.adapter.calls == []
 
 
@@ -244,7 +263,7 @@ def test_memory_pause_resume_and_forget(tmp_path):
     runtime.vault.set_consent(person_key, ConsentState(
         memory_enabled=True, remote_processing_enabled=True))
 
-    assert "Память включена" in asyncio.run(runtime.handle(person, message("/memory", message_id=10)))
+    assert "ничего не записал" in asyncio.run(runtime.handle(person, message("/memory", message_id=10)))
     assert "паузе" in asyncio.run(runtime.handle(person, message("/pause_memory", message_id=11)))
     assert runtime.vault.consent(person_key).memory_enabled is False
     assert "активна" in asyncio.run(runtime.handle(person, message("/resume_memory", message_id=12)))
@@ -286,6 +305,7 @@ def test_delete_me_requires_confirm_and_zero_starts(tmp_path):
 
 def test_privacy_command_is_secret_free(tmp_path):
     runtime = make_runtime(tmp_path)
+    warm(runtime, runtime.vault.key_for_telegram(101))
     answer = asyncio.run(runtime.handle(runtime.settings.people[0], message("/privacy", message_id=30)))
     assert "Приватность" in answer
     assert "test-key" not in answer
@@ -296,7 +316,7 @@ def test_style_command_stores_preference(tmp_path):
     runtime = make_runtime(tmp_path)
     person = runtime.settings.people[0]
     person_key = runtime.vault.key_for_telegram(101)
-    runtime.vault.set_consent(person_key, ConsentState(memory_enabled=True))
+    warm(runtime, person_key)
     answer = asyncio.run(runtime.handle(person, message("/style коротко и по делу", message_id=31)))
     assert "Принято" in answer
     values = " ".join(str(r.get("value")) for r in runtime.vault.iter_candidate_records(person_key))
@@ -325,6 +345,44 @@ def test_pit_commands_land_on_control_lane(tmp_path):
     assert store.lane({"text": "/memory"}) == "control"
     assert store.lane({"text": "привет"}) == "chat"
     store.close()
+
+
+def test_open_allowlist_accepts_new_zero_start_participants(tmp_path):
+    import dataclasses
+    person_a = Person(user_id=101, chat_id=101, role="owner")
+    settings = dataclasses.replace(make_settings(tmp_path, people=(person_a,)),
+                                   allowlist_open=True)
+    runtime = make_runtime(tmp_path, settings=settings)
+    update = {"update_id": 100, "message": {
+        "message_id": 7, "text": "привет",
+        "from": {"id": 102, "is_bot": False}, "chat": {"id": 102, "type": "private"}}}
+    runtime._ingest_update(update)
+    assert runtime.store.claim("102:102", "chat") is not None
+
+    bot_update = {"update_id": 101, "message": {
+        "message_id": 8, "text": "привет",
+        "from": {"id": 103, "is_bot": True}, "chat": {"id": 103, "type": "private"}}}
+    runtime._ingest_update(bot_update)
+    assert runtime.store.claim("103:103", "chat") is None
+    runtime.store.close()
+
+
+def test_open_allowlist_refuses_group_and_forwarded_material(tmp_path):
+    import dataclasses
+    person_a = Person(user_id=101, chat_id=101, role="owner")
+    settings = dataclasses.replace(make_settings(tmp_path, people=(person_a,)),
+                                   allowlist_open=True)
+    runtime = make_runtime(tmp_path, settings=settings)
+    group = {"update_id": 200, "message": {
+        "message_id": 9, "text": "привет",
+        "from": {"id": 103, "is_bot": False}, "chat": {"id": -100, "type": "group"}}}
+    runtime._ingest_update(group)
+    forwarded = {"update_id": 201, "message": {
+        "message_id": 10, "text": "привет", "forward_from": {"id": 777},
+        "from": {"id": 103, "is_bot": False}, "chat": {"id": 103, "type": "private"}}}
+    runtime._ingest_update(forwarded)
+    assert runtime.store.claim("103:103", "chat") is None
+    runtime.store.close()
 
 
 # -- two-ID isolation through the runtime -----------------------------------------------------
@@ -367,6 +425,7 @@ def test_photo_on_laptop_is_stored_but_not_claimed(tmp_path, monkeypatch):
 
 def test_image_generation_intent_gets_placeholder(tmp_path):
     runtime = make_runtime(tmp_path)
+    warm(runtime, runtime.vault.key_for_telegram(101))
     answer = asyncio.run(runtime.handle(runtime.settings.people[0],
                                         message("нарисуй кота", message_id=60)))
     assert answer == "Скоро научусь, малышка 😊"
@@ -376,6 +435,7 @@ def test_roleplay_requires_consent_then_persists(tmp_path):
     runtime = make_runtime(tmp_path)
     person = runtime.settings.people[0]
     person_key = runtime.vault.key_for_telegram(101)
+    warm(runtime, person_key)
 
     assert "Включить" in asyncio.run(runtime.handle(person, message("/roleplay капитан", message_id=70)))
     assert "включён" in asyncio.run(runtime.handle(person, message("да", message_id=71)))
