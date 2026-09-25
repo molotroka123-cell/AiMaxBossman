@@ -28,11 +28,11 @@ class TelegramToolPolicy:
         "computer",
         "shell",
         "terminal",
-        "owner.",
+        "owner",
         "secrets",
         "payments",
-        "trading.",
-        "admin.",
+        "trading",
+        "admin",
     )
 
     def allows(self, tool_name: str) -> bool:
