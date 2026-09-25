@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from bossman.computer_operator.secret_executor import (
-    BoundField, BrowserSecretBinding, PlaywrightSecretExecutor,
+    BoundField, BrowserSecretBinding, LocalModelSecretExecutor, PlaywrightSecretExecutor,
 )
 
 
@@ -70,3 +70,58 @@ def test_page_identity_change_refuses_secret_injection():
     ))
     assert not result.success and result.code == "LOGIN_PAGE_IDENTITY_CHANGED"
     assert not page.filled
+
+
+def test_local_model_controls_fill_order_without_receiving_secret_values():
+    page = Page()
+    binding = BrowserSecretBinding(
+        page_url_prefix="https://example.test/login",
+        fields=(BoundField("username", "textbox", "Email"),
+                BoundField("password", "textbox", "Password")),
+        submit_role="button", submit_name="Sign in",
+        success_url_prefix="https://example.test/account",
+    )
+    calls = []
+    scripted = [
+        {"choices": [{"message": {"tool_calls": [
+            {"id": "c1", "type": "function", "function": {"name": "fill_secret", "arguments": '{"field":"username"}'}}
+        ]}}]},
+        {"choices": [{"message": {"tool_calls": [
+            {"id": "c2", "type": "function", "function": {"name": "fill_secret", "arguments": '{"field":"password"}'}}
+        ]}}]},
+        {"choices": [{"message": {"tool_calls": [
+            {"id": "c3", "type": "function", "function": {"name": "submit_login", "arguments": '{}'}}
+        ]}}]},
+    ]
+    def transport(payload):
+        encoded = str(payload)
+        assert "alice" not in encoded and "super-secret" not in encoded
+        calls.append(payload)
+        return scripted[len(calls)-1]
+
+    executor = LocalModelSecretExecutor(
+        page, binding, api_base="http://127.0.0.1:8080/v1",
+        model="local-only", transport=transport,
+    )
+    request = type("Req", (), {"target": "Example login"})()
+    result = asyncio.run(executor.apply(
+        request, {"username": bytearray(b"alice"), "password": bytearray(b"super-secret")}
+    ))
+    assert result.success and result.verified
+    assert len(calls) == 3
+    assert page.filled[("textbox", "Email", True)] == "alice"
+    assert page.filled[("textbox", "Password", True)] == "super-secret"
+
+
+def test_local_model_endpoint_must_be_explicit_loopback():
+    page = Page()
+    binding = BrowserSecretBinding(
+        page_url_prefix="https://example.test/login",
+        fields=(BoundField("password", "textbox", "Password"),),
+        submit_role="button", submit_name="Sign in", success_text="Account",
+    )
+    import pytest
+    with pytest.raises(ValueError, match="loopback"):
+        LocalModelSecretExecutor(page, binding, api_base="https://api.example.com/v1", model="x")
+    with pytest.raises(ValueError, match="explicit loopback"):
+        LocalModelSecretExecutor(page, binding, api_base="http://localhost:8080/v1", model="x")
