@@ -142,7 +142,77 @@ Risk:
 
 В collection-first режиме risk может только **слегка увеличить вероятность одного обычного добровольного non-sensitive discovery-вопроса**. Лимит остаётся максимум один follow-up; sensitive-risk candidate всё равно блокируется.
 
-## 8. Full learning mode
+## 8. Поведенческие шкалы
+
+Кроме однонаправленного risk-score у каждого participant локально есть две обратимые operational шкалы 0–100:
+
+### Engagement
+Начинается с 50.
+
+Растёт, когда человек:
+- отвечает на optional discovery;
+- сам сообщает предпочтения/цели;
+- полезно исправляет Jeff;
+- продолжает контекст.
+
+Падает, когда человек:
+- систематически пропускает/отклоняет discovery;
+- не хочет персонализироваться.
+
+Engagement влияет только на частоту добровольных уточнений. Низкий engagement = Jeff спрашивает меньше.
+
+### Profile Stability
+Начинается с 50.
+
+Растёт при:
+- повторном подтверждении факта;
+- согласованных наблюдениях;
+- полезном retrieval.
+
+Падает при:
+- исправлении памяти;
+- противоречиях;
+- смене предпочтений;
+- устаревании.
+
+Profile Stability влияет только на минимальный confidence памяти перед тем, как Bossman добавит её в transient context. Низкая стабильность = чаще уточнить, а не считать старую память фактом.
+
+Обе шкалы:
+- хранятся локально в `security/behavior.json`;
+- могут расти и падать;
+- не передаются LLM;
+- не экспортируются как persona;
+- не дают никаких новых прав.
+
+## 9. Religion / politics
+
+Jeff может обсуждать религию или политику **только если сам participant уже поднял эту тему**.
+
+Он не должен:
+- начинать политический/религиозный profiling ради заполнения persona;
+- выводить взгляды из косвенных сигналов;
+- использовать политические сведения для убеждения/агитации.
+
+Если participant сам говорит о своей религии или политической позиции, это можно использовать в текущем разговоре. Durable memory возможна только при отдельном sensitive-memory opt-in и явном утверждении самого пользователя.
+
+## 10. Role-play / parody
+
+Jeff поддерживает opt-in режим:
+- `/roleplay ...`
+- `/parody ...`
+
+Role-play включается только если participant согласен.
+
+Режимы:
+- PARODY — дружеская преувеличенная пародия;
+- CHARACTER — согласованный персонаж;
+- MIRROR_STYLE — лёгкое отражение манеры речи без выдачи себя за человека.
+
+В role-play Jeff может в игровой форме узнавать **обычные/умеренно личные** предпочтения: вкусы, бытовые привычки, бюджетный диапазон, формат поездок, график, цели, уровень опыта, preferred communication style.
+
+Role-play не является обходом privacy: secrets и чувствительные темы не вытягиваются скрытно; politics/religion — только если participant сам уже поднял тему.
+
+## 11. Full learning mode
 
 «Полное обучение» на первом этапе означает, что каждый содержательный turn после разрешённого onboarding проходит полный learning pipeline:
 
@@ -173,7 +243,7 @@ answer
 - DSPy/GEPA prompt optimization;
 - только после доказанного baseline возможен LoRA/QLoRA на общем поведении персонализации, а не на сырых фактах конкретных людей.
 
-## 9. Collection-first data
+## 12. Collection-first data
 
 Собираем максимально широко допустимые NORMAL signals:
 - язык/стиль/словарь;
@@ -200,7 +270,7 @@ Secrets не становятся persona memory.
 
 Sensitive durable categories остаются отдельно контролируемыми.
 
-## 10. ChatGPT-like participant capability target
+## 13. ChatGPT-like participant capability target
 
 Jeff должен закрывать безопасную chat-surface функциональность современного универсального assistant:
 
@@ -242,7 +312,7 @@ Jeff должен закрывать безопасную chat-surface функ�
 
 После AI Max включается настоящий local image-generation path и этот placeholder исчезает только после live PASS.
 
-## 11. Vision/file boundary
+## 14. Vision/file boundary
 
 Vision получает только image bytes, которые прислал текущий participant.
 
@@ -255,7 +325,7 @@ File understanding получает только текущий user-upload че
 - archive/path traversal;
 - prompt injection внутри документов как untrusted content.
 
-## 12. Discovery Engine
+## 15. Discovery Engine
 
 Collection-first означает активное, но не бесконечное знакомство.
 
@@ -265,7 +335,7 @@ Collection-first означает активное, но не бесконечн
 Skipped question снижает шанс повтора.
 Risk score может только понизить threshold для benign discovery; лимит one-question сохраняется.
 
-## 13. Existing Bossman reuse
+## 16. Existing Bossman reuse
 
 Переиспользовать:
 - Command Center;
@@ -283,7 +353,7 @@ Risk score может только понизить threshold для benign disc
 - второй owner console;
 - параллельный canonical Bossman brain.
 
-## 14. Уже написанный фундамент
+## 17. Уже написанный фундамент
 
 `command-center/bcc/pit/`:
 - identity.py
@@ -299,6 +369,12 @@ Risk score может только понизить threshold для benign disc
 - public_guard.py
 - presentation.py
 - risk.py
+- behavior_scores.py
+- behavior_controller.py
+- moderate_discovery.py
+- topic_policy.py
+- roleplay.py
+- roleplay_commands.py
 - capabilities.py
 - categories.py
 - secret_filter.py
@@ -310,7 +386,7 @@ Tests:
 CI:
 `.github/workflows/v17-pit-ci.yml`
 
-## 15. Что обязательно добавить после стартовых модулей
+## 18. Что обязательно добавить после стартовых модулей
 
 После первого работающего Telegram answer GLM не должен сразу переходить к косметике. Закрыть:
 
@@ -335,7 +411,7 @@ CI:
 19. **Abuse/flood protection** без утечки данных.
 20. **Exact-SHA evidence** для laptop и потом AI Max.
 
-## 16. OSS / datasets
+## 19. OSS / datasets
 
 Смотри:
 - [OSS + datasets](OPEN_SOURCE_AND_DATASETS_20260925.md)
@@ -344,7 +420,7 @@ CI:
 
 Основные reference направления: Graphiti, LangMem, Mem0, Letta, DSPy/GEPA, LaMP/LongLaMP, PRISM, PersonaHub.
 
-## 17. Завтра начать отсюда
+## 20. Завтра начать отсюда
 
 [START_TOMORROW_GLM_RU.md](START_TOMORROW_GLM_RU.md)
 
@@ -352,7 +428,9 @@ CI:
 
 [Jeff public behavior/privacy](JEFF_PUBLIC_BEHAVIOR_RU.md)
 
-## 18. Tomorrow target
+[Latest 1.5 base alignment](BASELINE_1_5_20260925.md)
+
+## 21. Tomorrow target
 
 Финальный laptop-статус:
 
