@@ -13,13 +13,13 @@ PIT_BLOCKED_COMMANDS = frozenset({
     "/claude", "/codex", "/sh", "/mode", "/fill", "/input",
     "/evolution_status", "/evolution_start", "/evolution_pause",
     "/evolution_resume", "/evolution_stop", "/evolution_report",
-    "/cloud", "/watch", "/lock", "/market_verbose", "/jev",
+    "/cloud", "/watch", "/lock", "/market_verbose", "/model", "/jev",
 })
 
 PIT_ALLOWED_COMMANDS = frozenset({
     "/start", "/help", "/privacy", "/memory", "/why_memory", "/forget",
     "/pause_memory", "/resume_memory", "/export_me", "/delete_me", "/style",
-    "/search", "/model", "/best", "/fast",
+    "/search", "/best", "/fast",
 })
 
 
