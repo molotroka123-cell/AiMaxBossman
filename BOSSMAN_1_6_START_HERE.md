@@ -13,6 +13,18 @@ The owner-run target is to close **both stages in one continuous run**:
 
 Do not pause for a new planning day if 1.5 critical gates are already green.
 
+## Handoff mechanics
+
+Before the first 1.6 code/experiment step:
+
+1. identify the exact Bossman 1.5 SHA that reached OWNER_READY;
+2. merge that exact accepted SHA into this 1.6 branch preserving history;
+3. verify the resulting tree contains the 1.5 owner evidence references and current model-routing contract;
+4. do not cherry-pick around a failed 1.5 P0/P1;
+5. freeze the resulting 1.6 bootstrap SHA before the first measured self-evolution experiment.
+
+Merge the exact accepted Bossman 1.5 SHA — never inherit an older provisional 1.5 snapshot.
+
 ## Entry gate from 1.5
 
 1.5 may hand off into 1.6 when all of the following are true:
