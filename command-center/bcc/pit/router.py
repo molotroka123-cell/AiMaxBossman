@@ -49,7 +49,13 @@ class NoEligibleRoute(RuntimeError):
     pass
 
 
-def _eligible(req: RouteRequest, endpoint: ModelEndpoint, *, allow_paid: bool) -> bool:
+def _eligible(
+    req: RouteRequest,
+    endpoint: ModelEndpoint,
+    *,
+    allow_paid: bool,
+    zero_cost_only: bool,
+) -> bool:
     if not endpoint.available:
         return False
     if not req.required_capabilities.issubset(endpoint.capabilities):
@@ -59,6 +65,11 @@ def _eligible(req: RouteRequest, endpoint: ModelEndpoint, *, allow_paid: bool) -
     if endpoint.paid and not allow_paid:
         return False
     if req.max_cost_usd <= 0 and endpoint.paid:
+        return False
+    # PIT 1.7 free-only contract: local execution is allowed; every remote
+    # endpoint must have been verified as zero-cost by the live provider
+    # catalogue. Unknown/non-zero remote pricing is not silently accepted.
+    if zero_cost_only and not endpoint.local and not endpoint.zero_cost:
         return False
     return True
 
@@ -79,6 +90,7 @@ def choose_route(
     endpoints: list[ModelEndpoint],
     *,
     allow_paid: bool = False,
+    zero_cost_only: bool = True,
     local_bonus: float = 0.30,
 ) -> RouteDecision:
     """Choose one model without changing Bossman's authority.
@@ -86,7 +98,10 @@ def choose_route(
     Laptop mode simply marks local endpoints unavailable. Later AI Max mode can
     enable them without changing Telegram/persona code.
     """
-    eligible = [e for e in endpoints if _eligible(req, e, allow_paid=allow_paid)]
+    eligible = [
+        e for e in endpoints
+        if _eligible(req, e, allow_paid=allow_paid, zero_cost_only=zero_cost_only)
+    ]
     if not eligible:
         raise NoEligibleRoute("no provider satisfies capability/privacy/cost policy")
 
@@ -100,5 +115,5 @@ def choose_route(
         needs_web=req.needs_web,
         reason_code=reason,
         score=round(_score(winner, local_bonus=local_bonus), 6),
-        requires_owner_approval=bool(winner.paid),
+        requires_owner_approval=False if zero_cost_only else bool(winner.paid),
     )
