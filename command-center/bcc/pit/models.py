@@ -22,6 +22,9 @@ class ConsentState:
     memory_enabled: bool = False
     raw_history_enabled: bool = False
     sensitive_memory_enabled: bool = False
+    remote_processing_enabled: bool = False
+    remote_personalization_enabled: bool = False
+    training_use_enabled: bool = False
     discovery_enabled: bool = False
     version: str = "pit-consent/1"
     accepted_at: str | None = None
@@ -41,13 +44,23 @@ class MemoryCandidate:
     sensitivity: Sensitivity
     source_message_id: str
     source_model: str = ""
+    source_episode_id: str | None = None
+    observed_at: str | None = None
+    ingested_at: str | None = None
+    valid_from: str | None = None
+    valid_to: str | None = None
     first_seen: str | None = None
     last_seen: str | None = None
     observation_count: int = 1
+    retrieval_count: int = 0
+    correction_count: int = 0
     contradiction_count: int = 0
     supersedes: str | None = None
+    duplicate_of: str | None = None
     ttl_seconds: int | None = None
     utility_score: float = 0.0
+    novelty_score: float = 0.0
+    retention_label: str = "UNKNOWN"
     extraction_version: str = "pit-extractor/1"
     tags: list[str] = field(default_factory=list)
 
