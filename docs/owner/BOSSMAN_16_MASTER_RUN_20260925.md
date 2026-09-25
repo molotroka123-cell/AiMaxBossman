@@ -25,6 +25,27 @@ Do not create a new architecture plan. Execute, test, fix, verify, learn, freeze
 
 ## Phase 0 — fetch and source truth
 
+### Local brain preservation gate
+
+Before changing versions, branches or installed binaries:
+
+1. resolve the active external `BOSSMAN_DATA_DIR`;
+2. prove it is outside the Git checkout/worktrees;
+3. record a LOCAL-ONLY brain manifest (record counts + hashes, no private payload);
+4. prove `git status` contains no owner-brain/runtime-memory files;
+5. keep the same data root across 1.5 -> 1.6 -> 1.7 transitions;
+6. after each installed-version replacement, run recall/restart checks against
+   the same local brain.
+
+Never copy the owner runtime brain into the repo to simplify testing or
+evidence. Git receives only code, schemas, synthetic fixtures and deliberately
+reviewed public/test data.
+
+Read:
+- `docs/evo/DURABLE_MEMORY_OPERATING_CONTRACT.md`
+
+
+
 Run:
 
 ```bash
@@ -492,6 +513,26 @@ Before freeze run:
 
 No open release-blocking P0/P1.
 
+## Phase 14.5 — local brain upgrade/reinstall continuity
+
+Before release freeze, perform an installed-product continuity drill:
+
+`OLD VERSION + EXISTING LOCAL BRAIN -> REPLACE PROGRAM FILES -> NEW VERSION -> MIGRATE/ATTACH -> RESTART -> RECALL`
+
+PASS requires:
+- the canonical `BOSSMAN_DATA_DIR` remained outside the checkout;
+- no owner brain file appears in Git status/index/history;
+- pre-upgrade record counts/hashes have a verified post-upgrade correspondence;
+- at least one verified lesson is recalled;
+- at least one project decision/fact is recalled;
+- Persistent Agent Society / skill or routing history survives where enabled;
+- restart does not create a second empty canonical brain;
+- rollback/failed migration leaves the pre-upgrade local brain recoverable;
+- release ZIP contains zero owner-brain payload.
+
+A reinstall that resets learned owner state is a release-blocking P1.
+Any private brain content committed/pushed or packaged publicly is P0.
+
 ## Phase 15 — freeze
 
 Freeze one exact candidate SHA.
@@ -572,6 +613,10 @@ OPEN_P1=
 OPEN_P2=
 ASTER_VERDICT=
 TAG_CREATED=
+BRAIN_DATA_ROOT_EXTERNAL=
+BRAIN_UPGRADE_CONTINUITY=
+BRAIN_GIT_LEAKS=
+BRAIN_RELEASE_ARTIFACT_LEAKS=
 FINAL_STATUS=
 ```
 
