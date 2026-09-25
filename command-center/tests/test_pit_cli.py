@@ -55,10 +55,10 @@ def test_stop_without_process_reports_not_running(tmp_path, capsys):
 
 def test_running_probe_checks_byte_zero(tmp_path, monkeypatch):
     """The probe must lock the same byte the runtime locks, not EOF."""
-    import msvcrt
     import os as _os
     if _os.name != "nt":
         pytest.skip("msvcrt probe")
+    import msvcrt
     home = tmp_path / "pit-v1.7"
     home.mkdir(parents=True)
     holder = (home / "poller.lock").open("a+b")
