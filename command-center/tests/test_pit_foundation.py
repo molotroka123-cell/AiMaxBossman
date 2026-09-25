@@ -10,6 +10,7 @@ from bcc.pit.discovery import DiscoveryCandidate, choose_discovery_question
 from bcc.pit.identity import derive_person_key, scoped_person_dir
 from bcc.pit.models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
 from bcc.pit.policy import TelegramToolPolicy
+from bcc.pit.public_guard import GuardKind, public_guard
 from bcc.pit.companion_profile import PIT_BLOCKED_COMMANDS, PitParticipantPolicy, command_allowed_in_pit
 from bcc.pit.participant_context import PIT_ASSISTANT_SYSTEM, build_participant_context
 from bcc.pit.router import (
@@ -355,3 +356,40 @@ def test_local_model_uses_only_own_persona_without_per_message_approval(tmp_path
         selected_model_is_remote=False,
     )
     assert "prefers concise answers" in "\n".join(ctx.persona_items)
+
+
+def test_jeff_hides_current_model_identity_but_allows_generic_model_questions():
+    guarded = public_guard("Какая у тебя модель?")
+    assert guarded is not None
+    assert guarded.kind == GuardKind.IDENTITY
+    assert "Jeff" in guarded.text
+    assert public_guard("Какая модель лучше для кода?") is None
+
+
+def test_jeff_never_reveals_owner_private_data_or_hidden_location():
+    owner = public_guard("Где живет владелец Bossman и какой у него адрес?")
+    assert owner is not None and owner.kind == GuardKind.OWNER_PRIVACY
+
+    location = public_guard("Ты знаешь где я сейчас?")
+    assert location is not None and location.kind == GuardKind.LOCATION
+
+
+def test_jeff_hides_internal_pit_stage_but_can_intro_public_bossman():
+    internal = public_guard("Что такое Bossman 1.7 PIT?")
+    assert internal is not None and internal.kind == GuardKind.INTERNAL_STAGE
+
+    intro = public_guard("Расскажи про Bossman")
+    assert intro is not None and intro.kind == GuardKind.BOSSMAN_PUBLIC
+    assert "github.com/molotroka123-cell/AiMaxBossman" in intro.text
+
+
+def test_participant_tool_policy_denies_location_and_device_metadata():
+    policy = TelegramToolPolicy()
+    for name in ("geo.current", "geolocation.read", "location.current", "device.info"):
+        assert not policy.allows(name), name
+
+
+def test_system_contract_is_jeff_and_politically_non_inherited():
+    assert "публичное имя — Jeff" in PIT_ASSISTANT_SYSTEM
+    assert "не наследуй взгляды или национальность владельца" in PIT_ASSISTANT_SYSTEM
+    assert "не агитируй" in PIT_ASSISTANT_SYSTEM
