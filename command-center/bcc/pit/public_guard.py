@@ -47,8 +47,10 @@ class GuardReply:
 
 
 _MODEL_RE = re.compile(
-    r"\b(?:какая|какой|что за|what|which)\s+(?:модель|model)\b|"
-    r"\b(?:provider|провайдер|endpoint|backend|openrouter|claude|glm|qwen|llama)\b.*\b(?:ты|you|работает|running)\b",
+    r"\b(?:какая|какой|что за)\s+(?:у тебя\s+)?(?:модель|model)\b|"
+    r"\b(?:what|which)\s+model\s+(?:are you|do you use|is running)\b|"
+    r"\b(?:какой|what)\s+(?:у тебя\s+)?(?:provider|провайдер|endpoint|backend)\b|"
+    r"\b(?:ты|you)\s+(?:claude|glm|qwen|llama|gpt)[\w. -]*\??$",
     re.I,
 )
 _IDENTITY_RE = re.compile(r"^(?:кто ты|как тебя зовут|who are you|what are you|your name)\??$", re.I)
@@ -68,7 +70,11 @@ _OTHER_RE = re.compile(
     r"\b(?:друг(?:ого|их)? пользовател|other user|чуж(?:ая|ие) памя|memory of|что знаешь о .+)\b",
     re.I,
 )
-_BOSSMAN_RE = re.compile(r"\b(?:bossman|боссман)\b", re.I)
+_BOSSMAN_RE = re.compile(
+    r"^(?:что такое|кто такой|расскажи (?:мне )?про|what is|tell me about)\s+(?:bossman|боссман)\??$|"
+    r"^(?:дай|покажи|give|show).*(?:github).*(?:bossman|боссман)?",
+    re.I,
+)
 
 
 def public_guard(text: str) -> GuardReply | None:
