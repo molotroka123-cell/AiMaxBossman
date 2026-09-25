@@ -25,9 +25,15 @@ OTHER_PERSON_REPLY_RU = (
     "Я не имею доступа к персональной памяти других пользователей и не раскрываю её."
 )
 BOSSMAN_PUBLIC_REPLY_RU = (
-    "Bossman — развивающееся local-first AI-рабочее пространство: модели, инструменты, "
-    "память, поиск и проверяемые рабочие процессы объединяются в одном продукте. "
-    "Публичный репозиторий: " + PUBLIC_BOSSMAN_GITHUB
+    "Bossman — local-first AI-рабочее пространство и персональный оператор, который объединяет "
+    "модели, инструменты, память, поиск, задачи, проверку результатов и несколько поверхностей управления "
+    "(Command Center, CMD и Telegram) в одном backend. "
+    "В публично описанных версиях до v1.5 основной упор сделан на автономную работу, free-first routing, "
+    "self-repair, persistent roles, skill/workflow memory, web/media tools и owner-controlled actions. "
+    "Публичная v1.6-линия описывает BossNet foundation: distributed brain, model foundry, temporal knowledge, "
+    "simulation/game/business experiments и контекстно-бюджетное управление; это экспериментальная линия, "
+    "поэтому я не называю её релизом без подтверждённой приёмки. "
+    "Публичный GitHub: " + PUBLIC_BOSSMAN_GITHUB
 )
 
 
