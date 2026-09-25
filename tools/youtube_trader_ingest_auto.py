@@ -19,6 +19,20 @@ from typing import Any
 
 from tools import youtube_trader_ingest as base
 
+def utf8_console() -> None:
+    # Shipped runners start with `-I`, which ignores PYTHONUTF8/PYTHONIOENCODING:
+    # without this the first Cyrillic line dies with cp1252 on Windows.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
+utf8_console()
+
+
+
 _ORIGINAL_DOWNLOAD_SUBTITLES = base.download_subtitles
 ASR_MODEL = os.getenv("BOSSMAN_LOCAL_ASR_MODEL", "whisper-1").strip() or "whisper-1"
 

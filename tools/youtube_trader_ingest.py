@@ -33,6 +33,20 @@ if str(ROOT) not in sys.path:
 
 from learning.trader_apprentice import LevelMap, Snapshot, analyze  # noqa: E402
 
+def utf8_console() -> None:
+    # Shipped runners start with `-I`, which ignores PYTHONUTF8/PYTHONIOENCODING:
+    # without this the first Cyrillic line dies with cp1252 on Windows.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
+utf8_console()
+
+
+
 YOUTUBE_HOSTS = {
     "youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"
 }

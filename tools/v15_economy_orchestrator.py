@@ -33,6 +33,20 @@ for item in (TOOLS, CC, ROOT / "bossman-core"):
 from distill_recorder import Recorder
 from bcc.economy_orchestrator import BossmanOpenRouter, SpendLedger, ROLE_SPECS
 
+def utf8_console() -> None:
+    # Shipped runners start with `-I`, which ignores PYTHONUTF8/PYTHONIOENCODING:
+    # without this the first Cyrillic line dies with cp1252 on Windows.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
+utf8_console()
+
+
+
 _INSTALLED_POLICY = HERE / "config" / "v1.5" / "economy-orchestrator.json"
 DEFAULT_POLICY = (_INSTALLED_POLICY if _INSTALLED_POLICY.is_file()
                   else ROOT / "config" / "v1.5" / "economy-orchestrator.json")
