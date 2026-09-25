@@ -1004,6 +1004,8 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
         the results quoted as untrusted data. No cloud, no tools, no invented sources."""
         if person.role != "owner":
             raise CompanionError("WEB_SEARCH_OWNER_ONLY")
+        if self.secret_intake.active(person.key):
+            return "🔐 Пока открыта локальная sensitive-сессия, веб-поиск и cloud-маршруты для этого чата выключены."
         if self.store.get("delegation_locked", False):
             return failure_text("WEB_SEARCH_LOCKED")
         s = self.settings
