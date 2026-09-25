@@ -44,7 +44,8 @@ def _resolve_path(argv: list[str]) -> Path:
 
 
 def _resolve_data_dir(path: Path) -> Path:
-    return path.parent.parent.parent
+    """config.json sits at <data_dir>/pit-v1.7/config.json."""
+    return path.parent.parent
 
 
 # -- setup ----------------------------------------------------------------------

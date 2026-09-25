@@ -64,6 +64,12 @@ def test_repo_detection_refuses_git_checkout(tmp_path):
     assert looks_like_repo(tmp_path / "pit-v1.7") is False
 
 
+def test_resolve_data_dir_points_at_config_parent(tmp_path):
+    path = config_path(tmp_path)
+    assert pit_cli._resolve_data_dir(path) == tmp_path
+    assert credentials_path(tmp_path) == path.parent / "credentials.enc"
+
+
 def test_main_without_args_defaults_to_status(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("BOSSMAN_DATA_DIR", str(tmp_path))
     assert pit_cli.main(["pit"]) == 2
