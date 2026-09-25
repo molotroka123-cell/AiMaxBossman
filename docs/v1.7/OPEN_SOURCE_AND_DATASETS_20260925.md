@@ -36,3 +36,11 @@ UltraFeedback: synthetic scored completions только как baseline evaluat
 Train/eval делить group-by-user. Один и тот же человек не должен одновременно давать train и независимый transfer result.
 
 Точные revisions записаны в docs/v1.7/contracts/source-refs.json. Источник с непроверенной лицензией остаётся research-reference до отдельной проверки.
+
+## Prompt-learning plan
+
+Optimize four components separately: memory extraction, discovery-question selection, persona retrieval, and response-style adaptation.
+
+Use user-separated train/holdout sets. First run optimizer suggestions in shadow mode and promote only when held-out usefulness improves without raising context cost or isolation errors.
+
+Later model adaptation, if needed, should teach generic personalization behavior. Participant-specific facts remain in retrieval memory rather than shared weights.
