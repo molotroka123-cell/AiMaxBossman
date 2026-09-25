@@ -72,7 +72,16 @@
     "participants": 2,
     "soak_target_minutes": 60,
     "soak_so_far_minutes": 8,
-    "route_log": "logs/route_log.jsonl (model/provider/latency/context chars/tokens, no content)"
+    "route_log": "logs/route_log.jsonl (model/provider/latency/context chars/tokens, no content)",
+    "e2e_live_proof": {
+      "when": "2026-09-25T09:35:58Z",
+      "route": "local-first: bossman-main-qwen38-27b-q5:latest answered a real chat turn",
+      "latency_ms": 40921,
+      "context_tokens_est": 374,
+      "tokens": "436 in / 79 out",
+      "route_log_entry": true,
+      "note": "full ParticipantRuntime against live Ollama; remote free models also confirmed eligible against the live OpenRouter catalog"
+    }
   },
   "ai_max_media": {
     "local_first_auto": "PASS (live: local preferred, remote fallback)",
