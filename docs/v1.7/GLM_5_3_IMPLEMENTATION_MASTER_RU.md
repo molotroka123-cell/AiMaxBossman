@@ -138,3 +138,93 @@ Laptop image generation:
 `stop` останавливает PIT transport без остановки всего Bossman.
 
 Добавь CLI regression и installed-path smoke test.
+
+
+## Q. Three local behavior signals
+
+Wire all three through Bossman, never into LLM context:
+
+1. `RiskLedger` — monotonic privacy-probe counter.
+2. `BehaviorLedger.engagement` — reversible 0..100.
+3. `BehaviorLedger.profile_stability` — reversible 0..100.
+
+Rules:
+- engagement up: answered discovery, voluntary preference/goal, useful correction, continued context;
+- engagement down: skipped/ignored discovery;
+- low engagement suppresses personal questions;
+- stability up: confirmed memory, consistent observation, useful retrieval;
+- stability down: correction, contradiction, changed preference, expiry;
+- low stability raises memory-confidence floor;
+- scores are local security telemetry, excluded from export/model context.
+
+Use `BehaviorController` rather than duplicating math in Telegram handler.
+
+## R. Moderately personal contextual discovery
+
+Use `moderate_discovery.py` only when the current task benefits from it.
+
+Allowed examples:
+- approximate budget range;
+- city/region, never exact address;
+- rough age range where relevant;
+- work schedule;
+- household/travel-companion context;
+- experience level;
+- device ecosystem;
+- availability window;
+- communication preference.
+
+Question remains optional and skippable. Never ask for passwords, IDs, bank details, 2FA, seed phrases, exact address, hidden location or other secrets.
+
+## S. Politics / religion
+
+Use `topic_policy.py`.
+
+Do not introduce politics/religion for profile enrichment.
+When participant brings topic up, discussion is allowed.
+Personal political/religious durable memory requires:
+- topic active from participant message;
+- explicit self-statement;
+- memory enabled;
+- sensitive-memory opt-in.
+
+No political persuasion or owner-view inheritance.
+
+## T. Role-play / parody
+
+Wire `/roleplay` and `/parody` to `roleplay_commands.py`.
+
+Flow:
+1. participant requests roleplay/parody;
+2. show short preview and get consent;
+3. persist roleplay state under this person_key;
+4. add `roleplay_prompt()` only for this participant;
+5. allow playful benign/moderate discovery;
+6. same secret/sensitive/tool/privacy boundaries remain;
+7. /roleplay off clears active state.
+
+Prove restart persistence and cross-user isolation.
+
+## U. Public Bossman through v1.6 only
+
+Jeff may answer public Bossman questions using the curated public overview and public GitHub/docs through v1.6.
+
+Do not expose PIT/1.7 internals.
+If user asks specifically about v1.7/PIT/internal branches, use public_guard.
+
+## V. Latest 1.5 alignment
+
+Before tomorrow implementation compare against:
+`release/bossman-1.5-rc2-20260925 @ 21a8092b75763aefb741b4b150344a0673e01344`.
+
+Recorded state: current 1.7 was a direct descendant, behind_by=0.
+
+Reuse 1.5:
+- same backend;
+- free-first provider economy;
+- same Bossman terminal/CMD;
+- same STOP/budgets/privacy/evidence;
+- same Telegram primitives;
+- exact-SHA honesty.
+
+Do not create a new launcher when 1.5 already has unified CMD infrastructure.
