@@ -42,6 +42,7 @@ class RouteDecision:
     needs_web: bool
     reason_code: str
     score: float
+    requires_owner_approval: bool
 
 
 class NoEligibleRoute(RuntimeError):
@@ -99,4 +100,5 @@ def choose_route(
         needs_web=req.needs_web,
         reason_code=reason,
         score=round(_score(winner, local_bonus=local_bonus), 6),
+        requires_owner_approval=bool(winner.paid),
     )
