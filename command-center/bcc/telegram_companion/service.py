@@ -17,6 +17,9 @@ from .console import CONSOLE_COMMANDS, CONSOLE_OFF, NO_DIRECT_SHELL, ConsoleMixi
 from .jev_bridge import JevBridgeMixin
 from .form_bridge import FORM_COMMANDS, FormBridgeMixin
 from .store import Store
+from .secret_intake import (
+    SecretField, SecretIntakeError, SecretIntakeManager, looks_like_secret_message, request_caption,
+)
 
 HELP = ("Я Bossman, ваш ИИ-помощник на локальных моделях. Можно просто написать мне.\n\n"
         "/best — отвечать лучшей (самой умной) моделью; /best вопрос — один ответ ею\n"
@@ -245,7 +248,7 @@ def model_name(model_id: str) -> str:
 
 class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin):
     def __init__(self, settings: Settings, store: Store, telegram: Telegram, core: Core, models: Models,
-                 *, policy_provider=None):
+                 *, policy_provider=None, secret_executor=None):
         self.settings, self.store = settings, store
         self.telegram, self.core, self.models = telegram, core, models
         self.policy_provider = policy_provider or (lambda: self.settings)
@@ -260,6 +263,8 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
         self.profile_building = False
         self.monitor_state = None
         self.monitor_failures = 0
+        self.secret_intake = SecretIntakeManager()
+        self.secret_executor = secret_executor
         if self.telegram is not None:
             self.telegram.authorize_delivery = self.delivery_allowed
 
@@ -314,6 +319,68 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
                 [b("❓ Какая модель?", "/model"), b("ℹ️ Помощь", "/help")],
                 [b("🧹 Очистить историю", "/forget")]]
 
+    async def request_secret(self, person: Person, *, screenshot: bytes, fields: tuple[SecretField, ...],
+                             target: str, screenshot_redacted: bool = False,
+                             ttl_seconds: int = 180) -> str:
+        """Ask the bound owner for one ephemeral credential payload.
+
+        The screenshot must be captured before secret entry and explicitly
+        redacted by the caller. Plaintext is never sent to a model.
+        """
+        if person.role != "owner":
+            raise CompanionError("SECRET_INTAKE_OWNER_ONLY")
+        if self.secret_executor is None:
+            raise CompanionError("SECRET_EXECUTOR_NOT_CONFIGURED")
+        req = self.secret_intake.begin(
+            owner_key=person.key, chat_id=person.chat_id, target=target, fields=fields,
+            screenshot=screenshot, screenshot_redacted=screenshot_redacted,
+            executor=self.secret_executor, ttl_seconds=ttl_seconds,
+        )
+        try:
+            message_id = await self.telegram.send_photo(person, screenshot, request_caption(req))
+        finally:
+            del screenshot
+        self.secret_intake.bind_request_message(person.key, req.session_id, message_id)
+        return req.session_id
+
+    async def _delete_secret_message(self, person: Person, message_id: int | None) -> bool:
+        if type(message_id) is not int or message_id <= 0:
+            return False
+        try:
+            return await self.telegram.delete_message(person, message_id)
+        except CompanionError:
+            return False
+
+    async def _consume_secret_update(self, person: Person, message: dict, update_id: int) -> None:
+        """Process plaintext without ever passing it through Store.ingest()."""
+        if not self.store.acknowledge_without_body(update_id):
+            return
+        message_id = message.get("message_id")
+        text = message.get("text") if isinstance(message.get("text"), str) else ""
+        try:
+            req, result = await self.secret_intake.consume(
+                owner_key=person.key, chat_id=person.chat_id, message_id=message_id, text=text,
+            )
+        except SecretIntakeError as exc:
+            deleted = await self._delete_secret_message(person, message_id)
+            suffix = "" if deleted else " Сообщение не удалось удалить автоматически — удалите его вручную."
+            await self.telegram.send(person, "🔐 Секрет не принят: " + str(exc) + "." + suffix)
+            return
+
+        secret_deleted = await self._delete_secret_message(person, req.secret_message_id)
+        request_deleted = False
+        if result.success and result.verified:
+            request_deleted = await self._delete_secret_message(person, req.request_message_id)
+        if result.success and result.verified:
+            msg = "🔐 Доступ подтверждён. Секрет не сохранён в Bossman."
+            if not (secret_deleted and request_deleted):
+                msg += " Telegram не подтвердил удаление всех сообщений — удалите их вручную."
+        else:
+            msg = "🔐 Вход не подтверждён. Сессия сожжена; для повтора нужен новый запрос."
+            if not secret_deleted:
+                msg += " Telegram не подтвердил удаление сообщения — удалите его вручную."
+        await self.telegram.send(person, msg)
+
     async def ingest_callback(self, update: dict):
         cb = update.get("callback_query")
         if not isinstance(cb, dict) or not isinstance(cb.get("id"), str):
@@ -355,6 +422,24 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
         message = update.get("message")
         person = self.authorized(message)
         text = message.get("text") if isinstance(message, dict) else None
+
+        # Secret lane is intercepted BEFORE the durable Store inbox. The next
+        # owner text for an active one-time session is never encrypted into
+        # SQLite/history/learning and never reaches a model.
+        if person and person.role == "owner" and isinstance(text, str):
+            if self.secret_intake.pending(person.key) is not None:
+                return await self._consume_secret_update(person, message, update["update_id"])
+            if looks_like_secret_message(text):
+                if not self.store.acknowledge_without_body(update["update_id"]):
+                    return
+                deleted = await self._delete_secret_message(person, message.get("message_id"))
+                warning = ("🔐 Похожее на секрет сообщение пришло без активной secret-сессии. "
+                           "Bossman его не сохранил и не обработал.")
+                if not deleted:
+                    warning += " Telegram не подтвердил удаление — удалите сообщение вручную."
+                await self.telegram.send(person, warning)
+                return
+
         valid = person and (person.key, "chat") in self.wake and isinstance(text, str) and 0 < len(text) <= 4000
         # Internal markers ("_callback", "_image", ...) are ours only; never taken from Telegram input.
         body = ({**{k: v for k, v in message.items() if not str(k).startswith("_")}, "_update_id": update["update_id"]}
