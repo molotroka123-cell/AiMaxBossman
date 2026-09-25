@@ -20,7 +20,7 @@ import time
 from typing import Any
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DEFAULT_CHANNEL = "https://www.youtube.com/@k1m6a/videos"
+DEFAULT_CHANNEL = "https://www.youtube.com/@k1m6a/streams"
 DEFAULT_START = "2026-08-14"
 DEFAULT_END = "2026-08-27"
 
