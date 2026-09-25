@@ -46,7 +46,8 @@ class PersonaVault:
 
     def __init__(self, data_dir: Path, identity_salt: bytes):
         self.data_dir = Path(data_dir).resolve()
-        self.root = self.data_dir / "personalities"
+        # PIT data is physically separated from every other Bossman memory.
+        self.root = self.data_dir / "pit-v1.7" / "personalities"
         self.root.mkdir(parents=True, exist_ok=True)
         if len(identity_salt) < 16:
             raise ValueError("identity_salt must be at least 16 bytes")
@@ -60,7 +61,7 @@ class PersonaVault:
 
     def ensure(self, person_key: str) -> Path:
         target = self.person_dir(person_key)
-        for name in ("raw", "summaries", "derived"):
+        for name in ("raw", "summaries", "derived", "security"):
             (target / name).mkdir(parents=True, exist_ok=True)
         return target
 
@@ -114,7 +115,8 @@ class PersonaVault:
             return {"person_key": person_key, "files": {}}
         files: dict[str, Any] = {}
         for path in sorted(target.rglob("*")):
-            if not path.is_file() or "derived" in path.relative_to(target).parts:
+            rel_parts = path.relative_to(target).parts
+            if not path.is_file() or "derived" in rel_parts or "security" in rel_parts:
                 continue
             rel = path.relative_to(target).as_posix()
             if path.suffix == ".json":
