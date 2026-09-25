@@ -150,7 +150,10 @@ def test_studio_edit_broker_matches_v16_reference_job_run_contract():
         seen.append((request.method, request.url.path))
         path, method = request.url.path, request.method
         if path == "/api/studio/models":
-            return httpx.Response(200, json={"items": [{"id": "qwen-image-edit:local", "available": True}]})
+            return httpx.Response(200, json={"items": [{
+                "id": "qwen-image-edit:local", "available": True,
+                "free": True, "provider": "qwen-image-edit"
+            }]})
         if path == "/api/studio/references":
             body = json.loads(request.content)
             assert base64.b64decode(body["data_base64"]) == JPEG
