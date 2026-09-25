@@ -159,6 +159,7 @@ def test_companion_never_persists_plaintext_and_deletes_after_verified_login(tmp
                 "message_id": 51,
                 "from": {"id": owner.user_id, "is_bot": False},
                 "chat": {"id": owner.chat_id, "type": "private"},
+                "reply_to_message": {"message_id": 50},
                 "text": "CANARY-PASSWORD-9f34",
             },
         }
@@ -204,5 +205,48 @@ def test_secret_like_message_without_session_is_not_persisted(tmp_path):
         assert store.db.execute("SELECT count(*) FROM inbox").fetchone()[0] == 0
         store.close()
         assert b"CANARY-NO-SESSION" not in (tmp_path / "companion.sqlite3").read_bytes()
+
+    asyncio.run(run())
+
+
+def test_active_session_does_not_capture_unrelated_owner_message(tmp_path):
+    from bcc.telegram_companion.config import Person, Settings
+    from bcc.telegram_companion.service import Companion
+    from bcc.telegram_companion.store import Store
+
+    owner = Person(11111, 11111, "owner")
+    settings = Settings((owner,), local_model="local-test")
+
+    class TelegramFake:
+        authorize_delivery = lambda self, p: True
+        async def send_photo(self, person, data, caption, keyboard=None): return 50
+        async def send(self, person, text, keyboard=None): return 60
+        async def delete_message(self, person, message_id): return True
+
+    class Exec:
+        local_only = True
+        network_isolated = True
+        model_sees_secret = False
+        local_model_controlled = True
+        async def apply(self, request, values):
+            raise AssertionError("unrelated chat must not enter sensitive lane")
+
+    async def run():
+        store = Store(tmp_path)
+        app = Companion(settings, store, TelegramFake(), object(), object(), secret_executor=Exec())
+        await app.request_secret(
+            owner, screenshot=b"redacted", fields=(SecretField("password", "Password"),),
+            target="Example", screenshot_redacted=True,
+        )
+        await app.ingest({"update_id": 1, "message": {
+            "message_id": 77,
+            "from": {"id": owner.user_id, "is_bot": False},
+            "chat": {"id": owner.chat_id, "type": "private"},
+            "text": "обычное сообщение",
+        }})
+        row = store.claim(owner.key, "chat")
+        assert row is not None and row[1]["text"] == "обычное сообщение"
+        assert app.secret_intake.pending(owner.key) is not None
+        store.close()
 
     asyncio.run(run())
