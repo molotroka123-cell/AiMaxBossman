@@ -56,3 +56,18 @@ Candidate → diff → tests → independent receipt → текущая revision
 ## 7. Выход Factory
 
 `capability_id/version/digest`, `manifest`, `diff`, `tests`, `independent verification`, `registry receipt`, `invocation task_id`, `artifact/receipt`, `rollback`, `lesson`. Отсутствует хотя бы original-goal verified outcome — сообщать capability built, task not yet completed, а не общий PASS.
+
+---
+
+## SAME-RUN HANDOFF: 1.5 → 1.6
+
+После закрытия 1.5 **или** достижения `V1_5_NEAR_COMPLETE` этот же owner-run сразу продолжает работу в отдельной ветке 1.6:
+
+[feat/bossman-1.6-secret-intake-20260925](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-secret-intake-20260925)
+
+`V1_5_NEAR_COMPLETE` = нет software P0 и release-blocking P1, основные targeted/regression/hidden tests зелёные, canonical SHA зафиксирован, а остаток относится только к owner-live/soak/внешней среде.
+
+Не ждать отдельного следующего дня. Цель одного прогона:
+`BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED`.
+
+Evidence и финальные статусы 1.5 и 1.6 сохраняются раздельно по своим SHA.
