@@ -248,6 +248,9 @@ jobs:
         working-directory: command-center
         env:
           BCC_DATA_DIR: ${{ runner.temp }}\bcc-data
+          # The conftest feature loader imports bossman_v3 from the bossman-core
+          # checkout; editable installs do not expose it (repo-wide red before).
+          PYTHONPATH: ${{ github.workspace }}\bossman-core;${{ github.workspace }}
         run: >-
           python -m pytest -q --timeout=180 --timeout-method=thread
           tests/test_discovery.py tests/test_feat_terminal_map.py tests/test_diag_bundle.py
@@ -266,6 +269,7 @@ jobs:
         working-directory: command-center
         env:
           BCC_DATA_DIR: ${{ runner.temp }}\bcc-video-data
+          PYTHONPATH: ${{ github.workspace }}\bossman-core;${{ github.workspace }}
         run: >-
           python -m pytest -q --timeout=180 --timeout-method=thread
           tests/test_video_descriptor_boundary.py::test_verified_media_body_survives_pathname_replacement
