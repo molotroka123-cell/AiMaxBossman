@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bossman PIT Persona Snapshot",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "person_key",
+    "consent",
+    "facts",
+    "uncertainty"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "bossman.pit.persona/1"
+    },
+    "person_key": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "consent": {
+      "type": "object",
+      "required": [
+        "memory_enabled",
+        "version"
+      ],
+      "properties": {
+        "memory_enabled": {
+          "type": "boolean"
+        },
+        "raw_history_enabled": {
+          "type": "boolean"
+        },
+        "sensitive_memory_enabled": {
+          "type": "boolean"
+        },
+        "discovery_enabled": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "string"
+        },
+        "accepted_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "communication_style": {
+      "type": "object"
+    },
+    "stable_preferences": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "active_goals": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "recurring_interests": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "decision_preferences": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "knowledge_map": {
+      "type": "object"
+    },
+    "tool_preferences": {
+      "type": "object"
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "$ref": "memory-candidate.schema.json"
+      }
+    },
+    "uncertainty": {
+      "type": "object"
+    },
+    "contradictions": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "evidence_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "last_refresh": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}
