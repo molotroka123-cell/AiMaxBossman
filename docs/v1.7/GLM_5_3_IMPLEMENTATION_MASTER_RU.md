@@ -261,3 +261,18 @@ Photo edit:
 participant own verified image → Bossman Studio reference → local Qwen edit model → verified run bytes → Telegram.
 
 Do not change shared 1.6 Studio API unless actual provider integration requires one minimal adapter.
+
+
+## X. Telegram photo intent routing
+
+Use `photo_commands.photo_intent()` before ordinary chat routing.
+
+- Telegram photo + normal question/caption → `PhotoPipeline.answer_photo()`.
+- Telegram photo without question → fast local visual description after AI Max, then background memory.
+- Telegram photo + edit wording (убери/замени/добавь/отредактируй/...) → ingest verified photo, then `PhotoEditPipeline.edit_latest()`.
+- `/photoedit <instruction>` or `/editphoto <instruction>` → edit this participant's verified latest photo only.
+- No latest own photo → ask the participant to send one.
+- Laptop mode → no vision/edit model call; use the documented placeholders.
+- Never search the host filesystem for a source image.
+
+Foreground vision response must complete before background visual-memory enrichment is allowed to consume model resources.
