@@ -80,6 +80,8 @@ class StudioImageEditBroker:
             isinstance(row, dict)
             and row.get("id") == self.config.model_id
             and row.get("available") is True
+            and row.get("free") is True
+            and row.get("provider") != "openrouter"
             for row in rows
         )
 
