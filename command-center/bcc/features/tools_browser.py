@@ -484,18 +484,23 @@ async def _login(args, ctx):
                             actor="agent", approved=True)
         receipt["session_id"] = sid
         if args.get("submit_selector") or args.get("submit_ref"):
+            before = await m.status(sid)
+            pre_url = str(before.get("url") or "")
             clicked = await m.click(sid, str(args.get("submit_selector") or ""),
                                     ref=str(args.get("submit_ref") or ""),
                                     actor="agent", approved=True)
             expected = str(args.get("success_url_contains") or "").strip()
             status = await m.status(sid)
             post_url = str(status.get("url") or "")
+            observed["pre_url"] = pre_url
             observed["post_url"] = post_url
-            if expected and expected in post_url:
-                observed["verified"] = True
+            # A model-supplied "/" or the unchanged login URL is not proof.
+            # Controlled owner tests can provide a concrete dashboard/account fragment.
+            verified = (len(expected) >= 4 and expected in post_url and
+                        bool(pre_url) and bool(post_url) and pre_url != post_url)
+            observed["verified"] = verified
+            if verified:
                 observed["png"] = await m.screenshot(sid, actor="agent", approved=True)
-            else:
-                observed["verified"] = False
             return clicked
         return await m.snapshot(sid, actor="agent", approved=True)
 
@@ -803,7 +808,7 @@ SPECS = [
                            "submit_selector": {"type": "string"},
                            "submit_ref": {"type": "string"},
                            "success_url_contains": {"type": "string",
-                                                    "description": "ожидаемый фрагмент post-login URL; нужен для verified Telegram receipt"},
+                                                    "description": "конкретный ожидаемый фрагмент НОВОГО post-login URL (минимум 4 символа); нужен для verified Telegram receipt"},
                            "next_fields": {"type": "array", "items": {"type": "string"},
                                            "description": "только названия несекретных полей, которые владелец должен подготовить после входа"}},
              required=["credential_id"], category="send",
