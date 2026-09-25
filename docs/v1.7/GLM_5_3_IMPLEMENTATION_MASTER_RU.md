@@ -52,3 +52,17 @@ I. Owner shadow
 
 J. Handoff
 Создай docs/v1.7/evidence/LAPTOP_SHADOW_REPORT.md. Статус PIT_LAPTOP_SHADOW_READY только после живого Telegram response и зелёного P0 набора.
+
+
+## Первые команды завтра
+
+```bash
+git fetch --all --prune
+git switch feat/bossman-1.7-personal-identity-training-20260925
+git pull --ff-only
+git rev-parse HEAD
+PYTHONPATH=command-center python -m pytest command-center/tests/test_pit_foundation.py -q
+python -m compileall -q command-center/bcc/pit
+```
+
+После каждого исправления повторяй PIT foundation и затронутые существующие Telegram-contract tests. Не делай merge в 1.5/1.6 во время laptop shadow.
