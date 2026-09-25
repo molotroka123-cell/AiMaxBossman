@@ -23,11 +23,22 @@ evidence accumulates; no status below is claimed stronger than measured.
   `nvidia/nemotron-3-ultra-550b-a55b:free`, `nex-agi/nex-n2.5-pro:free`.
   `typesafe/jev-1.5` is NOT in the live catalog → NOT_ELIGIBLE (unknown price
   is not free; route refused by policy, kept in allowlist as owner candidate).
+- Provider key rotated in the encrypted vault (owner-provided second test key,
+  2026-09-25); never in Git/logs/evidence.
 - Local (owner decision 2026-09-25): Ollama loopback `http://127.0.0.1:11434/v1`
   with `bossman-fast-qwen36-35b-a3b-q5:latest` and
   `bossman-main-qwen38-27b-q5:latest` probed live every 300 s; local route is
   preferred (local_bonus=2.0) and falls back to the remote free route in the
   same turn when the local call fails.
+- Resource arbiter (owner directive 2026-09-25, "1.6 owns the GPU first"):
+  before a local route is offered, the runtime measures free VRAM
+  (`nvidia-smi`, 20 s cache, `BOSSMAN_PIT_VRAM_FREE_MIN_MB` headroom, default
+  2000 MiB). Below the headroom local endpoints are demoted for the turn and
+  the chat falls back to a runtime-confirmed FREE cloud model; nothing is
+  ever unloaded or throttled. The photo pipeline honours the same gate: when
+  VRAM is owned by 1.6, a photo gets the honest laptop answer instead of a
+  contending vision call, and background visual enrichment is skipped.
+  Demotions are recorded in `<pit-v1.7>/logs/resource_log.jsonl`.
 - Paid routes: OFF (allow_paid=False everywhere; zero_cost_only=True).
 - Per-turn route telemetry: `<pit-v1.7>/logs/route_log.jsonl` (model, provider,
   ok/fail, latency, context chars/tokens estimate, tokens in/out — no content).
@@ -40,6 +51,26 @@ evidence accumulates; no status below is claimed stronger than measured.
 - Photo EDITING: intentionally still `«Скоро научусь, малышка 😊»` until a local
   Qwen-Image-Edit is registered in the existing Bossman Studio catalog.
 - Image generation: laptop placeholder until the real local path passes live.
+
+## Owner-path fixes found and fixed during the live run
+
+- `bossman pit stop` previously never terminated the process: the poll loop
+  returned normally, but `asyncio.wait(FIRST_EXCEPTION)` only reacts to
+  exceptions. Fixed (`StopRequested` surfaces through the supervisor; clean
+  exit code 0) with a contract test. Live-proven across the 2026-09-25
+  restarts (offset persisted, no duplicate answers).
+- Windows sleep killed the bot: `bossman pit start` now holds a system-awake
+  state (`SetThreadExecutionState`, released on any exit path) so the owner's
+  laptop does not nap while Jeff is live.
+- Doctor previously failed the whole run because photo EDIT is deferred until
+  the local Qwen image model is registered in Bossman Studio (AI Max phase).
+  Semantics corrected: photo ANALYSIS (the live product surface) is mandatory;
+  the edit gap is reported honestly in the detail without failing the doctor.
+- Repo-wide CI reds fixed on the 1.7 tree (they also reproduce on 1.5 heads):
+  missing `re`/`hashlib` imports in `tools/v15_economy_orchestrator.py`,
+  stale skips registry, UTF-8 console helper missing from 12 shipped runners,
+  secret-scan canary, and the `bossman-core` path needed by the
+  postgres-contracts and ASTRA runner workflows (`bossman_v3` conftest import).
 
 ## Live traffic evidence (accumulating):
 

@@ -22,7 +22,14 @@
     "v15_critical_on_17_tree": {"result": "PASS", "count": 99, "skipped": 1},
     "v15_economy_orchestrator": {"result": "PASS", "count": 8,
       "note": "fixed missing re/hashlib imports (11f3772f)"},
-    "skips_registry": {"result": "PASS", "entries": 308}
+    "skips_registry": {"result": "PASS", "entries": 308},
+    "pit_resource_arbiter": {"result": "PASS", "count": 8,
+      "note": "1.6 owns the GPU: local routes demote under VRAM headroom, "
+              "free-cloud fallback, nothing unloaded; telemetry resource_log.jsonl"},
+    "pit_stop_contract": {"result": "PASS",
+      "note": "StopRequested surfaces through asyncio.wait; clean exit 0"},
+    "pit_keep_awake": {"result": "PASS",
+      "note": "start holds system-awake state so Windows sleep cannot kill the bot"}
   },
   "product_wiring": {
     "bossman_pit_cli": {"setup": "PASS", "status": "PASS", "doctor": "PASS",
@@ -98,13 +105,13 @@
   },
   "ci": {
     "pit_foundation": "GREEN on every pushed SHA since 4c75be7f",
-    "root_ci": {"pre_existing_red": ["test_shipped_runners_console (1.5 tool scripts lack UTF-8 helper on the 1.7 base; fixed on newer 1.5 branches)",
-                                      "PostgreSQL run contracts (fails on 1.5 branch heads too)",
-                                      "ASTRA acceptance (fails on all branches)",
-                                      "Command Center CI (red at b1f471b7 before any 1.7 RC commit)"],
+    "root_ci": {"pre_existing_red": ["Command Center CI / Bossman Core CI pending on the freeze SHA (previous branch runs were only concurrency-cancelled)"],
                 "fixed_by_17": ["secret scan canary (44a63cb4)",
                                  "v15 economy orchestrator missing re/hashlib imports (11f3772f)",
-                                 "skips registry refresh (11f3772f)"]}
+                                 "skips registry refresh (11f3772f)",
+                                 "UTF-8 console helper for 12 shipped runners (50525d20, e43c93cd)",
+                                 "postgres-contracts workflow: bossman-core path for bossman_v3 conftest import (95a5116a)",
+                                 "ASTRA runner workflow: same path fix (95a5116a)"]}
   },
   "blockers": {
     "p0": [],
