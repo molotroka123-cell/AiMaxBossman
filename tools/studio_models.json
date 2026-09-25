@@ -430,6 +430,28 @@
       "status": "UNVERIFIED"
     },
     {
+      "id": "sdcpp:qwen-image-2.1",
+      "provider": "sdcpp",
+      "surface": "image",
+      "label": "Qwen-Image-2.1 — локальная генерация и редактирование (оценочный режим)",
+      "settings": {
+        "width": {"type": "range", "min": 256, "max": 2048, "default": 1024, "integer": true, "multiple_of": 32},
+        "height": {"type": "range", "min": 256, "max": 2048, "default": 1024, "integer": true, "multiple_of": 32},
+        "steps": {"type": "range", "min": 4, "max": 50, "default": 20, "integer": true},
+        "seed": {"type": "range", "min": 0, "max": 2147483647, "default": null, "nullable": true, "integer": true}
+      },
+      "roles": {"reference": 3},
+      "source": "command-center/bcc/studio/providers/sdcpp.py; Qwen/Qwen-Image-2.1 + leejet/stable-diffusion.cpp/docs/qwen_image_2.1.md",
+      "deadline_seconds": 3600,
+      "license": "Qwen Research License: non-commercial research/evaluation only; commercial use requires separate license",
+      "price": {"kind": "local", "usd": 0, "source": "local engine, no provider charge"},
+      "free": true,
+      "enabled": false,
+      "answers": {"BUNDLED": false, "CONFIGURED": "BOSSMAN_SDCPP_BIN + BOSSMAN_MEDIA_MODELS (MANIFEST.json)", "MODEL_REQUIRED": true, "EXTERNAL_SERVICE_REQUIRED": false, "VERIFIED": false},
+      "verified_capabilities": {},
+      "status": "UNVERIFIED"
+    },
+    {
       "id": "sdcpp:z-image-turbo",
       "provider": "sdcpp",
       "surface": "image",
