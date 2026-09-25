@@ -27,3 +27,23 @@ Implemented files:
 - bossman-core/tests/test_secret_executor.py
 
 Acceptance: prove no canary value in durable storage/logs/model requests, reject wrong identity/replay/expired session, verify exact page/field binding, verify fresh success state, and report Telegram cleanup honestly.
+
+
+## Local-model-only entry
+
+The 1.6 default controller is a local OpenAI-compatible model endpoint bound to an
+explicit loopback IP only. Proxy environment is ignored and there is no cloud
+fallback. The model controls the sequence of exact field fills and form submit,
+but receives only opaque local handles such as secret:password rather than the
+sensitive value itself. The control plane resolves those handles only at the
+final local actuator boundary.
+
+This means the local model controls the login interaction without placing the
+owner value into model tokens, KV cache, prompt logs or learning memory.
+
+After verified access:
+- the owner reply containing the sensitive value is deleted from Telegram;
+- the Bossman photo message containing the redacted login screenshot and the
+  requested-field list is deleted too;
+- deletion is treated separately from login verification and is reported
+  honestly if Telegram does not confirm it.
