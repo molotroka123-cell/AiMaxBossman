@@ -66,3 +66,21 @@ python -m compileall -q command-center/bcc/pit
 ```
 
 После каждого исправления повторяй PIT foundation и затронутые существующие Telegram-contract tests. Не делай merge в 1.5/1.6 во время laptop shadow.
+
+
+## K. Jeff public behavior — обязательно
+
+Прочитай `JEFF_PUBLIC_BEHAVIOR_RU.md`.
+
+Порядок обработки participant message:
+1. auth/idempotency;
+2. `public_guard(message)`;
+3. если guard вернул ответ — отправь его напрямую, без Jev/model route;
+4. иначе обычный PIT pipeline;
+5. перед Telegram send используй PIT presentation renderer, который НЕ добавляет model/provider/route metadata.
+
+`/model` отсутствует у PIT participant.
+
+Глубокие вопросы о публичном Bossman можно отвечать через публичный GitHub/web. Не используй внутреннюю память/ветки PIT как источник ответа участнику.
+
+Никакой owner/global memory не подмешивать даже если participant — сам владелец компьютера.
