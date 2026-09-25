@@ -197,8 +197,15 @@ class SecretIntakeManager:
         values: dict[str, bytearray] = {}
         try:
             values = _parse(req, text)
-            result = await req.executor.apply(req, values)
-            if not isinstance(result, SecretExecutionResult):
+            raw_result = await req.executor.apply(req, values)
+            if isinstance(raw_result, SecretExecutionResult):
+                result = raw_result
+            elif all(hasattr(raw_result, name) for name in ("success", "verified", "code", "detail")):
+                result = SecretExecutionResult(
+                    bool(raw_result.success), bool(raw_result.verified),
+                    str(raw_result.code)[:80], str(raw_result.detail)[:200],
+                )
+            else:
                 raise SecretIntakeError("SECRET_EXECUTOR_RESULT_INVALID")
             if result.success and result.verified:
                 req.state = "VERIFIED"
