@@ -66,6 +66,10 @@ jobs:
       - name: Real SQL transitions, guards and rollback
         env:
           BCC_DATA_DIR: ${{ runner.temp }}/bcc-postgres-contracts
+          # The conftest feature loader imports bossman_v3 from the bossman-core
+          # checkout; editable installs do not expose it, so the test step needs
+          # both roots on the path (this red was repo-wide, on 1.5 heads too).
+          PYTHONPATH: ${{ github.workspace }}/bossman-core:${{ github.workspace }}
         run: >-
           python -m pytest -c command-center/pyproject.toml
           command-center/tests/test_run_provenance_postgres.py
