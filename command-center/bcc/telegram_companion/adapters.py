@@ -354,6 +354,21 @@ class Telegram:
             raise CompanionError("WEBHOOK_CONFLICT_USE_SEPARATE_COMPANION_BOT")
         return {"status": "AUTH_AND_POLLING_CONFIG_OK_NOT_E2E", "username": me.get("username", "")}
 
+    async def delete_message(self, person: Person, message_id: int) -> bool:
+        """Delete one message in the exact bound private chat.
+
+        A True Bot API result proves Telegram accepted the deletion request. It
+        is not a claim that Telegram infrastructure never retained a copy.
+        """
+        if type(message_id) is not int or message_id <= 0:
+            raise CompanionError("TELEGRAM_MESSAGE_ID_INVALID")
+        if not self.authorize_delivery(person):
+            raise CompanionError("IDENTITY_REVOKED")
+        result = await self.call("deleteMessage", {"chat_id": person.chat_id, "message_id": message_id})
+        if result is not True:
+            raise CompanionError("TELEGRAM_DELETE_UNVERIFIED")
+        return True
+
     async def send(self, person: Person, text: str, keyboard=None):
         clean = scrub(text, (self.settings.bot_token, self.settings.core_token,
                             self.settings.cloud_token, self.settings.local_token))
