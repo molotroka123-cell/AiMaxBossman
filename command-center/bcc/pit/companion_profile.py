@@ -8,10 +8,12 @@ from .router import PrivacyClass
 
 PIT_BLOCKED_COMMANDS = frozenset({
     "/task", "/confirm", "/approvals", "/approve", "/reject",
+    "/status", "/queue", "/menu", "/result", "/agents", "/audits",
     "/stop", "/pause", "/resume", "/screen", "/pc",
     "/claude", "/codex", "/sh", "/mode", "/fill", "/input",
-    "/evolution_start", "/evolution_pause", "/evolution_resume",
-    "/evolution_stop", "/jev",
+    "/evolution_status", "/evolution_start", "/evolution_pause",
+    "/evolution_resume", "/evolution_stop", "/evolution_report",
+    "/cloud", "/watch", "/lock", "/market_verbose", "/jev",
 })
 
 PIT_ALLOWED_COMMANDS = frozenset({
@@ -25,6 +27,7 @@ PIT_ALLOWED_COMMANDS = frozenset({
 class PitParticipantPolicy:
     local_model_available: bool
     remote_model: bool
+    role: str = "participant"
 
     def privacy_class(self, consent: ConsentState) -> PrivacyClass:
         if self.remote_model and not consent.remote_processing_enabled:
