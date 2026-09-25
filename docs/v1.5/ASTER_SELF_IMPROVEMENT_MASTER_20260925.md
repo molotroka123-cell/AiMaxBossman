@@ -68,6 +68,35 @@ The verifier must remain independent from the worker whose output it checks.
 
 Do not spend time improving a model before the fleet truth table exists.
 
+## Bootstrap order — start self-improvement early
+
+Do not wait for every optional provider/model/media path to become perfect.
+
+After the model-fleet truth pass, use this order:
+
+1. prove one safe coding route is usable;
+2. prove one independent verifier route is usable;
+3. prove Jev/controller + STOP/budget boundaries are alive;
+4. **immediately start the real Bossman self-improvement campaign**;
+5. while it runs, expand provider capacity, ingest YouTube evidence and execute the rest of owner acceptance in parallel.
+
+Minimum start condition:
+- one coding worker is actually callable (prefer local Qwen3.8; free Ling is an economy fallback);
+- one independent verifier is callable (prefer local gpt-oss-120B);
+- source identity is clean;
+- Jev/controller, STOP, budget and candidate isolation are active.
+
+Do not make optional provider onboarding a prerequisite if the minimum start condition already passes.
+
+If OpenRouter free capacity is exhausted:
+- prefer the verified local model stack;
+- use already configured alternative zero-cost providers;
+- create OWNER_REQUIRED signup/key packets for additional legitimate providers;
+- continue the campaign on remaining capacity instead of waiting idle.
+
+No fake identities, quota-evasion accounts, CAPTCHA bypass, automatic ToS acceptance or secret scraping.
+`SELF_IMPROVEMENT_PROCESS_STARTED` is the first non-negotiable owner-run milestone.
+
 ## Phase A — prove product wiring
 
 Verify exact candidate:

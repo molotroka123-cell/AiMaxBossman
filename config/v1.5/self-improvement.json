@@ -99,5 +99,20 @@
     "refresh_owner_run_first": true,
     "live_report": "owner-run/v1.5/model-routing-stack-live.json",
     "no_silent_alias_substitution": true
+  },
+  "bootstrap": {
+    "order": [
+      "aster_refresh_model_routing_stack",
+      "prove_one_coding_route",
+      "prove_one_independent_verifier",
+      "prove_jev_stop_budget_isolation",
+      "start_self_improvement_campaign",
+      "parallel_provider_expansion",
+      "parallel_youtube_learning",
+      "parallel_owner_acceptance"
+    ],
+    "start_as_soon_as_minimum_safe_path_exists": true,
+    "optional_specialists_do_not_block_start": true,
+    "provider_onboarding_does_not_block_start_when_capacity_exists": true
   }
 }

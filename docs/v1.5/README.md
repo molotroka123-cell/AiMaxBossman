@@ -16,6 +16,7 @@ Canonical 1.5 branch: `feat/bossman-1.5-economy-orchestrator-20260924`.
 | [INTERNET_MEDIA_AND_MODELS.md](INTERNET_MEDIA_AND_MODELS.md) | Интернет/Computer Use/Jev, hybrid video, модельные профили |
 | [GAME_STUDIO.md](GAME_STUDIO.md) | Unreal/Game Studio: автономная разработка и проверка оригинального 15-минутного AAA-FPS vertical slice |
 | [MODEL_STACK_REFRESH_2026-09-23.md](MODEL_STACK_REFRESH_2026-09-23.md) | Свежая ревизия локального стека, Xing4 challenger, маршрутизация и owner-hardware A/B |
+| [MODEL_ROUTING_STACK_20260925.md](MODEL_ROUTING_STACK_20260925.md) | Канонический owner-стек ролей и обязательный Aster-first live fleet refresh |
 | [ACCEPTANCE_AND_LEARNING.md](ACCEPTANCE_AND_LEARNING.md) | 20 классов неизвестных задач, safety-гейты, измерение обучения |
 | [AUTONOMY_SELF_REPAIR.md](AUTONOMY_SELF_REPAIR.md) | Главный контракт 1.5: task failure → isolated repair → verifier → unseen transfer; Telegram/UX/CMD supervision |
 | [ECONOMY_ORCHESTRATOR.md](ECONOMY_ORCHESTRATOR.md) | Jev-managed free-first swarm: 3× Nemotron, Ling tester/coder, capped paid GLM |
