@@ -16,12 +16,8 @@ class TelegramToolPolicy:
         "web.read",
         "browser.read",
         "calculator",
-        "persona.read_own",
-        "persona.write_own",
-        "persona.delete_own",
-        "files.read_own",
-        "files.write_own_sandbox",
         "vision.analyze_own",
+        "file.analyze_upload",
         "code.reason",
     )
     denied_prefixes: tuple[str, ...] = (
@@ -37,6 +33,9 @@ class TelegramToolPolicy:
         "geolocation",
         "location",
         "device",
+        "persona",
+        "files",
+        "filesystem",
     )
 
     def allows(self, tool_name: str) -> bool:
