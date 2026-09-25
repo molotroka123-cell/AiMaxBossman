@@ -89,6 +89,19 @@ def test_resolve_data_dir_points_at_config_parent(tmp_path):
     assert credentials_path(tmp_path) == path.parent / "credentials.enc"
 
 
+def test_saved_config_records_the_right_data_root(tmp_path, monkeypatch):
+    """The config must point at the CommandCenter root, not one level higher."""
+    from bcc.pit.config import load, save_setup
+
+    path = config_path(tmp_path)
+    answers = iter(["386321847", "", ""])          # owner id, models, search url
+    monkeypatch.setattr("getpass.getpass", lambda *a, **k: "123:testtoken")
+    monkeypatch.setattr("builtins.input", lambda *a, **k: next(answers))
+    pit_cli.cmd_setup(path)
+    settings = load(path)
+    assert Path(settings.data_dir) == tmp_path
+
+
 def test_main_without_args_defaults_to_status(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("BOSSMAN_DATA_DIR", str(tmp_path))
     assert pit_cli.main(["pit"]) == 2

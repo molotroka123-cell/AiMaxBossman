@@ -224,7 +224,7 @@ def save_setup(
     if not bot_token or bot_token.lower().startswith(("replace", "your")):
         raise CompanionError("TELEGRAM_TOKEN_REQUIRED")
     data: dict = {
-        "data_dir": str(path.parent.parent.parent),
+        "data_dir": str(path.parent.parent),
         "people": [{"user_id": p.user_id, "chat_id": p.chat_id, "role": p.role} for p in people],
         "chat_models": chat_models,
         "provider_base_url": provider_base_url,
