@@ -15,11 +15,14 @@ Resume модель обязана перечитать DOM — старое с�
 """
 from __future__ import annotations
 
+import json
+import threading
+import time
 import uuid
 from pathlib import Path
 
 import sqlalchemy as sa
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from ..db import settings_kv, utcnow
 from ..tools import REGISTRY, ToolResult, ToolSpec
@@ -34,6 +37,8 @@ from . import Feature
 # Модель называет ИМЯ учётки, пароль подставляет рантайм. В аргументах
 # инструмента, в `tool_calls.args` и в контексте модели пароля нет никогда.
 CREDENTIALS_KEY = "browser.credentials"
+LOGIN_RECEIPTS_REL = Path("browser") / "login-receipts.json"
+_LOGIN_RECEIPTS_LOCK = threading.Lock()
 
 # Действия, которые нельзя одобрить в принципе (совпадает с HARD_DENY_ACTIONS
 # рантайма — дублируем осознанно: инструмент не должен зависеть от того,
@@ -316,6 +321,60 @@ async def credentials_map(svc) -> dict:
     return {}
 
 
+
+
+def _login_receipts_path(svc) -> Path:
+    path = Path(svc.settings.data_dir) / LOGIN_RECEIPTS_REL
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _login_receipts_read(svc) -> dict:
+    path = _login_receipts_path(svc)
+    try:
+        body = json.loads(path.read_text(encoding="utf-8"))
+        return body if isinstance(body, dict) else {"receipts": {}}
+    except (OSError, ValueError):
+        return {"receipts": {}}
+
+
+def _login_receipts_write(svc, data: dict) -> None:
+    path = _login_receipts_path(svc)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(path)
+
+
+def _login_receipt_public(row: dict) -> dict:
+    return {k: v for k, v in row.items() if k not in {"screenshot_path"}}
+
+
+def _login_receipt_put(svc, row: dict) -> dict:
+    with _LOGIN_RECEIPTS_LOCK:
+        data = _login_receipts_read(svc)
+        data.setdefault("receipts", {})[row["id"]] = row
+        _login_receipts_write(svc, data)
+    return _login_receipt_public(row)
+
+
+def _login_receipt_update(svc, rid: str, **changes) -> dict | None:
+    with _LOGIN_RECEIPTS_LOCK:
+        data = _login_receipts_read(svc)
+        row = (data.get("receipts") or {}).get(rid)
+        if not isinstance(row, dict):
+            return None
+        row.update(changes)
+        _login_receipts_write(svc, data)
+        return _login_receipt_public(row)
+
+
+def _login_receipts_pending(svc) -> list[dict]:
+    with _LOGIN_RECEIPTS_LOCK:
+        rows = list((_login_receipts_read(svc).get("receipts") or {}).values())
+    out = [_login_receipt_public(dict(r)) for r in rows if isinstance(r, dict)
+           and r.get("phase") in {"PRE_LOGIN", "SUCCESS", "FAILED", "UNVERIFIED_POST_SUBMIT"}]
+    return sorted(out, key=lambda r: float(r.get("created_at") or 0.0))
+
 async def save_credentials(svc, data: dict) -> None:
     import json
     enc = svc.vault.encrypt(json.dumps(data, ensure_ascii=False))
@@ -395,6 +454,18 @@ async def _login(args, ctx):
 
     secret = str(cred.get("password") or "")
     login_value = str(cred.get("login") or "")
+    next_fields = [str(x)[:120] for x in (args.get("next_fields") or [])
+                   if isinstance(x, (str, int, float))][:16]
+    receipt_id = uuid.uuid4().hex[:12]
+    receipt = {
+        "id": receipt_id, "phase": "PRE_LOGIN", "created_at": time.time(),
+        "task_id": ctx.task.get("id"), "credential_id": cid, "login": login_value[:320],
+        "domain": str(cred.get("domain") or "")[:240], "next_fields": next_fields,
+        "session_id": None, "verified_by": None, "post_login_url": None,
+        "screenshot_path": None,
+    }
+    _login_receipt_put(ctx.svc, receipt)
+    observed: dict = {}
 
     async def run(m, sid):
         # Проверка домена: учётка, привязанная к домену, не подставляется на
@@ -411,13 +482,28 @@ async def _login(args, ctx):
         await m.fill_secret(sid, str(args.get("password_selector") or ""), secret=secret,
                             ref=str(args.get("password_ref") or ""),
                             actor="agent", approved=True)
+        receipt["session_id"] = sid
         if args.get("submit_selector") or args.get("submit_ref"):
-            return await m.click(sid, str(args.get("submit_selector") or ""),
-                                 ref=str(args.get("submit_ref") or ""),
-                                 actor="agent", approved=True)
+            clicked = await m.click(sid, str(args.get("submit_selector") or ""),
+                                    ref=str(args.get("submit_ref") or ""),
+                                    actor="agent", approved=True)
+            expected = str(args.get("success_url_contains") or "").strip()
+            status = await m.status(sid)
+            post_url = str(status.get("url") or "")
+            observed["post_url"] = post_url
+            if expected and expected in post_url:
+                observed["verified"] = True
+                observed["png"] = await m.screenshot(sid, actor="agent", approved=True)
+            else:
+                observed["verified"] = False
+            return clicked
         return await m.snapshot(sid, actor="agent", approved=True)
 
-    result = await _act(ctx, args, "login", run)
+    try:
+        result = await _act(ctx, args, "login", run)
+    except Exception:
+        _login_receipt_update(ctx.svc, receipt_id, phase="FAILED", finished_at=time.time())
+        raise
     # Последняя страховка: что бы ни попало в результат, секрета там не будет.
     # `data` чистим наравне с текстом: туда кладётся `url`, а форма входа с
     # `method=GET` уносит пароль именно в адрес.
@@ -425,6 +511,23 @@ async def _login(args, ctx):
         result.content = redact_secrets(result.content, {secret})
         result.one_line = redact_secrets(result.one_line, {secret})
         result.data = redact_secrets(result.data, {secret})
+    if args.get("submit_selector") or args.get("submit_ref"):
+        if observed.get("verified"):
+            shots = Path(ctx.svc.settings.data_dir) / "browser" / "login-receipts"
+            shots.mkdir(parents=True, exist_ok=True)
+            shot = shots / f"{receipt_id}.png"
+            shot.write_bytes(observed["png"])
+            _login_receipt_update(
+                ctx.svc, receipt_id, phase="SUCCESS", finished_at=time.time(),
+                verified_by="success_url_contains", post_login_url=observed.get("post_url"),
+                screenshot_path=str(shot))
+            if isinstance(result.data, dict):
+                result.data["login_receipt_id"] = receipt_id
+                result.data["login_verified"] = True
+        else:
+            _login_receipt_update(
+                ctx.svc, receipt_id, phase="UNVERIFIED_POST_SUBMIT",
+                finished_at=time.time(), post_login_url=observed.get("post_url"))
     return result
 
 
@@ -698,7 +801,11 @@ SPECS = [
                            "password_selector": {"type": "string"},
                            "password_ref": {"type": "string"},
                            "submit_selector": {"type": "string"},
-                           "submit_ref": {"type": "string"}},
+                           "submit_ref": {"type": "string"},
+                           "success_url_contains": {"type": "string",
+                                                    "description": "ожидаемый фрагмент post-login URL; нужен для verified Telegram receipt"},
+                           "next_fields": {"type": "array", "items": {"type": "string"},
+                                           "description": "только названия несекретных полей, которые владелец должен подготовить после входа"}},
              required=["credential_id"], category="send",
              permission="browser.control", source="browser", default_effect="ask",
              idempotent=False, external_output=True,
@@ -709,6 +816,43 @@ SPECS = [
 # ------------------------------------------------- API учётных данных браузера
 
 router = APIRouter()
+
+
+@router.get("/browser/login-receipts")
+async def http_login_receipts(request: Request):
+    """Safe metadata only: account/login and field labels, never password."""
+    return {"receipts": _login_receipts_pending(request.app.state.svc)}
+
+
+@router.get("/browser/login-receipts/{receipt_id}/screenshot")
+async def http_login_receipt_screenshot(receipt_id: str, request: Request):
+    if not __import__("re").fullmatch(r"[0-9a-f]{12}", receipt_id):
+        raise HTTPException(404, {"message": "login receipt not found"})
+    data = _login_receipts_read(request.app.state.svc)
+    row = (data.get("receipts") or {}).get(receipt_id)
+    path = Path(str((row or {}).get("screenshot_path") or ""))
+    if not isinstance(row, dict) or row.get("phase") != "SUCCESS" or not path.is_file():
+        raise HTTPException(404, {"message": "verified login screenshot unavailable"})
+    raw = path.read_bytes()
+    if not raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise HTTPException(409, {"message": "login receipt screenshot invalid"})
+    return Response(content=raw, media_type="image/png")
+
+
+@router.post("/browser/login-receipts/{receipt_id}/consumed")
+async def http_consume_login_receipt(receipt_id: str, request: Request):
+    row = _login_receipt_update(request.app.state.svc, receipt_id, phase="CONSUMED", consumed_at=time.time())
+    if row is None:
+        raise HTTPException(404, {"message": "login receipt not found"})
+    data = _login_receipts_read(request.app.state.svc)
+    stored = (data.get("receipts") or {}).get(receipt_id) or {}
+    path = Path(str(stored.get("screenshot_path") or ""))
+    if path.is_file():
+        try:
+            path.unlink()
+        except OSError:
+            pass
+    return {"id": receipt_id, "phase": "CONSUMED"}
 
 
 @router.get("/browser/credentials")
