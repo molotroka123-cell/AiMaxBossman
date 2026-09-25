@@ -317,7 +317,7 @@ def test_new_participant_starts_with_zero_personal_context(tmp_path):
     )
     assert ctx.persona_items == ()
     assert len(ctx.as_messages()) == 1
-    assert "ничего не знаешь" in PIT_ASSISTANT_SYSTEM
+    assert "ничего персонального не знаешь" in PIT_ASSISTANT_SYSTEM
 
 
 def test_participant_context_reads_only_own_persona(tmp_path):
