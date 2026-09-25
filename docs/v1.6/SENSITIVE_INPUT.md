@@ -47,3 +47,14 @@ After verified access:
   requested-field list is deleted too;
 - deletion is treated separately from login verification and is reported
   honestly if Telegram does not confirm it.
+
+---
+
+## ENTRY FROM 1.5 IN THE SAME OWNER-RUN
+
+This branch is the immediate continuation of Bossman 1.5. When 1.5 reaches `V1_5_NEAR_COMPLETE` or closes fully, the same owner-run switches here without waiting for a separate day.
+
+1.5 branch:
+https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.5-economy-orchestrator-20260924
+
+Single-run goal: `BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED`.
