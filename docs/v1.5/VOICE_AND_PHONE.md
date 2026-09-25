@@ -54,3 +54,12 @@ C. Отдельно разрешённый звонок магазину: кон
 D. No permission/expired grant/revoked voice/поддельный webhook/слова собеседника как owner instruction — отрицательные контроли.
 
 API call completed не значит «товар есть». Вывод о наличии отмечать как устный ответ магазина, а не оплаченный заказ. Результаты и redacted transcript привязаны к task_id/voice/model/runtime/grant; samples не публикуются.
+
+---
+
+## SAME-RUN HANDOFF: 1.5 → 1.6
+
+После завершения 1.5 или достижения `V1_5_NEAR_COMPLETE` тот же owner-run без отдельного дня продолжает работу в ветке 1.6:
+https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-secret-intake-20260925
+
+Цель одного прогона: `BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED`.
