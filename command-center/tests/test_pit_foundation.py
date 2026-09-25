@@ -12,6 +12,9 @@ from bcc.pit.models import ConsentState, EvidenceKind, MemoryCandidate, Sensitiv
 from bcc.pit.policy import TelegramToolPolicy
 from bcc.pit.public_guard import GuardKind, public_guard
 from bcc.pit.presentation import InternalRouteMeta, public_model_label, render_jeff_reply
+from bcc.pit.risk import RiskLedger
+from bcc.pit.capabilities import LAPTOP_IMAGE_GENERATION_REPLY_RU, image_generation_reply
+from bcc.pit.discovery import DiscoveryMode
 from bcc.pit.companion_profile import PIT_BLOCKED_COMMANDS, PitParticipantPolicy, command_allowed_in_pit
 from bcc.pit.participant_context import PIT_ASSISTANT_SYSTEM, build_participant_context
 from bcc.pit.router import (
@@ -407,3 +410,81 @@ def test_pit_public_renderer_never_prefixes_internal_route_metadata():
     assert meta.selected_model not in rendered
     assert meta.provider not in rendered
     assert public_model_label() == "Jeff"
+
+
+def test_privacy_probe_adds_local_risk_only_and_export_hides_it(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(555)
+    state = vault.consent(key)
+    guard = public_guard("Какая у тебя модель?")
+    assert guard is not None and guard.risk_delta == 1
+    risk = RiskLedger(vault).add(key, delta=guard.risk_delta, kind=guard.kind.value)
+    assert risk.score == 1
+    assert (vault.person_dir(key) / "security" / "risk.json").is_file()
+    exported = json.dumps(vault.export(key), ensure_ascii=False)
+    assert "risk.json" not in exported
+    assert '"score": 1' not in exported
+
+
+def test_risk_score_is_not_part_of_model_persona_context(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(556)
+    vault.set_consent(key, ConsentState(memory_enabled=True))
+    RiskLedger(vault).add(key, delta=3, kind="identity")
+    ctx = build_participant_context(
+        query="hello",
+        vault=vault,
+        person_key=key,
+        consent=vault.consent(key),
+        selected_model_is_remote=False,
+    )
+    assert all("risk" not in item.lower() and "score" not in item.lower() for item in ctx.persona_items)
+
+
+def test_risk_can_only_lower_benign_discovery_threshold_with_one_question():
+    candidate_low = DiscoveryCandidate(
+        "format",
+        "Тебе удобнее коротко или подробно?",
+        relevance=0.4,
+        uncertainty=0.4,
+        future_utility=0.4,
+        annoyance_cost=0.12,
+        sensitivity_risk=0.0,
+    )
+    assert choose_discovery_question(
+        [candidate_low], enabled=True, mode=DiscoveryMode.COLLECTION_FIRST, risk_score=0
+    ) is None
+    selected = choose_discovery_question(
+        [candidate_low], enabled=True, mode=DiscoveryMode.COLLECTION_FIRST, risk_score=3
+    )
+    assert selected is candidate_low
+
+
+def test_pit_models_have_no_direct_persona_or_filesystem_tools():
+    policy = TelegramToolPolicy()
+    for name in (
+        "persona.read_own", "persona.write_own", "files.read_own",
+        "filesystem.read", "device.info", "geolocation.read",
+    ):
+        assert not policy.allows(name), name
+    assert policy.allows("vision.analyze_own")
+    assert policy.allows("file.analyze_upload")
+
+
+def test_free_only_router_rejects_unknown_or_nonzero_remote_price():
+    request = RouteRequest(intent="chat")
+    unknown_price = ModelEndpoint(
+        id="remote-unknown",
+        provider="cloud",
+        capabilities=frozenset({"chat"}),
+        zero_cost=False,
+        paid=False,
+        predicted_quality=1.0,
+    )
+    with pytest.raises(NoEligibleRoute):
+        choose_route(request, [unknown_price])
+
+
+def test_laptop_image_generation_is_honest_until_ai_max():
+    assert image_generation_reply(ai_max_image_generation_ready=False) == LAPTOP_IMAGE_GENERATION_REPLY_RU
+    assert image_generation_reply(ai_max_image_generation_ready=True) is None
