@@ -79,3 +79,37 @@ def test_valid_jev_hint_selects_only_authorized_model_and_private_falls_back(mon
         {"privacy": "private", "jev_egress_allowed": True}, req, _models(), baseline))
     assert chosen.model.id == baseline.model.id and reason == "egress_not_allowed"
     assert len(called) == 1
+
+
+def test_broken_jev_recorder_never_breaks_authoritative_router(monkeypatch, tmp_path):
+    for name, value in {
+        "BOSSMAN_JEV_ENABLED": "1", "BOSSMAN_JEV_SHADOW": "0",
+        "BOSSMAN_JEV_API_KEY": "jev-TEST-CANARY-NOT-REAL",  # ci-secret-scan: allow
+        "BOSSMAN_JEV_ZERO_COST_CONFIRMED": "1",
+        "BOSSMAN_JEV_PRICE_PER_CALL_USD": "0",
+        "BOSSMAN_JEV_PRICE_PER_1K_INPUT_USD": "0",
+        "BOSSMAN_JEV_PRICE_PER_1K_OUTPUT_USD": "0",
+        "BOSSMAN_JEV_KILL_FILE": str(tmp_path / "jev.disabled"),
+    }.items():
+        monkeypatch.setenv(name, value)
+
+    class BrokenRecorder:
+        def write(self, _record):
+            raise OSError("audit disk unavailable")
+
+    state = SimpleNamespace(
+        cfg=jev_config.load(), recorder=BrokenRecorder(),
+        provider=SimpleNamespace(decide=lambda _ctx: SimpleNamespace(
+            model_route="cloud_reasoner", low_confidence=False,
+            tool_route="terminal", needs_owner_approval=False)),
+    )
+    req = RouteRequest("generic", cloud_allowed=True)
+    baseline = route(req, _models())
+    chosen, reason = asyncio.run(_jev_route_hint(
+        SimpleNamespace(jev=state),
+        {"id": 10, "kind": "generic", "prompt": "public"}, {},
+        {"privacy": "public", "jev_egress_allowed": True},
+        req, _models(), baseline,
+    ))
+    assert chosen.model.id == baseline.model.id
+    assert reason == "recorder_failed:OSError"

@@ -276,10 +276,13 @@ async def _jev_route_hint(svc, task: dict, agent: dict, meta: dict,
                     chosen = hint
         except Exception as exc:  # Jev is never a task authority or hard dependency.
             reason = getattr(exc, "reason", type(exc).__name__)
-    state.recorder.write({"task_id": task.get("id"), "mode": "bounded_routing",
-                          "baseline_alias": baseline.model.alias if baseline.model else None,
-                          "selected_alias": chosen.model.alias if chosen.model else None,
-                          "fallback_reason": reason, "authoritative": False})
+    try:
+        state.recorder.write({"task_id": task.get("id"), "mode": "bounded_routing",
+                              "baseline_alias": baseline.model.alias if baseline.model else None,
+                              "selected_alias": chosen.model.alias if chosen.model else None,
+                              "fallback_reason": reason, "authoritative": False})
+    except Exception as exc:  # Evidence failure must also fail closed to Bossman's route.
+        return baseline, f"recorder_failed:{type(exc).__name__}"
     return chosen, reason
 
 
