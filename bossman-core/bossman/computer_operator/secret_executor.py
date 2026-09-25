@@ -9,7 +9,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from bcc.telegram_companion.secret_intake import SecretExecutionResult
+
+@dataclass(frozen=True)
+class ApplyResult:
+    success: bool
+    verified: bool
+    code: str = ""
+    detail: str = ""
 
 
 @dataclass(frozen=True)
@@ -64,11 +70,11 @@ class PlaywrightSecretExecutor:
     async def apply(self, request, values: dict[str, bytearray]) -> SecretExecutionResult:
         current = str(self.page.url or "")
         if not current.startswith(self.binding.page_url_prefix):
-            return SecretExecutionResult(False, False, "LOGIN_PAGE_IDENTITY_CHANGED")
+            return ApplyResult(False, False, "LOGIN_PAGE_IDENTITY_CHANGED")
 
         expected = {f.secret_name for f in self.binding.fields}
         if set(values) != expected:
-            return SecretExecutionResult(False, False, "LOGIN_SECRET_BINDING_MISMATCH")
+            return ApplyResult(False, False, "LOGIN_SECRET_BINDING_MISMATCH")
 
         # Decode only at the final actuator boundary. Python strings cannot be
         # physically zeroized, so references are kept as short-lived as possible.
@@ -80,15 +86,15 @@ class PlaywrightSecretExecutor:
             self._exact(self.binding.submit_role, self.binding.submit_name).click(timeout=10_000)
             self.page.wait_for_load_state("domcontentloaded", timeout=20_000)
         except Exception:
-            return SecretExecutionResult(False, False, "LOGIN_ACTUATOR_ERROR")
+            return ApplyResult(False, False, "LOGIN_ACTUATOR_ERROR")
 
         if self.binding.success_url_prefix and str(self.page.url or "").startswith(self.binding.success_url_prefix):
-            return SecretExecutionResult(True, True, "LOGIN_VERIFIED_BY_URL")
+            return ApplyResult(True, True, "LOGIN_VERIFIED_BY_URL")
         if self.binding.success_text:
             try:
                 loc = self.page.get_by_text(self.binding.success_text, exact=True)
                 if loc.count() == 1 and loc.first.is_visible():
-                    return SecretExecutionResult(True, True, "LOGIN_VERIFIED_BY_POSTSTATE")
+                    return ApplyResult(True, True, "LOGIN_VERIFIED_BY_POSTSTATE")
             except Exception:
                 pass
-        return SecretExecutionResult(False, False, "LOGIN_POSTSTATE_NOT_VERIFIED")
+        return ApplyResult(False, False, "LOGIN_POSTSTATE_NOT_VERIFIED")
