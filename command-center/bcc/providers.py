@@ -343,6 +343,42 @@ class OpenAICompatAdapter(_BaseAdapter):
             models.append(model)
         return models
 
+    async def list_model_pricing(self) -> dict[str, dict[str, float | None]]:
+        """Live per-model pricing from the same catalog, used by the free-only
+        PIT route. Unknown/absent price is returned as None: for PIT an unknown
+        price is not free and never silently routed. Local llama.cpp catalogs
+        simply return an empty mapping.
+        """
+        resp = await self._request("GET", f"{self.base_url}/models", timeout=HEALTH_TIMEOUT,
+                                   headers=self._headers())
+        data = _response_object(resp, what="models").get("data")
+        if not isinstance(data, list):
+            raise ProviderError("models: поле data должно быть списком", kind="protocol")
+        pricing: dict[str, dict[str, float | None]] = {}
+        for item in data:
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+                continue
+            raw = item.get("pricing")
+            if not isinstance(raw, dict):
+                pricing[item["id"]] = {"prompt": None, "completion": None}
+                continue
+            parsed: dict[str, float | None] = {}
+            for key in ("prompt", "completion"):
+                value = raw.get(key)
+                if isinstance(value, bool):
+                    parsed[key] = None
+                elif isinstance(value, (int, float)):
+                    parsed[key] = float(value)
+                elif isinstance(value, str):
+                    try:
+                        parsed[key] = float(value)
+                    except ValueError:
+                        parsed[key] = None
+                else:
+                    parsed[key] = None
+            pricing[item["id"]] = parsed
+        return pricing
+
 
 def model_catalog_problem(models: list[dict[str, Any]]) -> str:
     """Catalog availability, not a claim that a real inference has passed."""

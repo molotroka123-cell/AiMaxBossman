@@ -1,0 +1,76 @@
+"""Bossman pit CLI contracts: secret-free status, fail-closed doctor, lane routing."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from bcc.pit import cli as pit_cli
+from bcc.pit.config import config_path, credentials_path, looks_like_repo, pit_home
+from bcc.telegram_companion.config import CompanionError
+
+
+def test_setup_refuses_to_overwrite(tmp_path):
+    path = config_path(tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_text("{}", encoding="utf-8")
+    with pytest.raises(CompanionError):
+        pit_cli.cmd_setup(path)
+
+
+def test_setup_requires_token_and_never_writes_it_to_config(tmp_path, monkeypatch):
+    prompts = iter(["", "999", ""])
+    monkeypatch.setattr("getpass.getpass", lambda *a, **k: next(prompts))
+    monkeypatch.setattr("builtins.input", lambda *a, **k: next(prompts))
+    path = config_path(tmp_path)
+    with pytest.raises(CompanionError):
+        pit_cli.cmd_setup(path)
+
+
+def test_status_without_config_is_fail_closed(tmp_path, capsys):
+    code = pit_cli.cmd_status(config_path(tmp_path))
+    assert code == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["config_present"] is False
+    assert report["process"] == "STOPPED"
+
+
+def test_doctor_without_config_fails_closed(tmp_path, capsys):
+    code = pit_cli.cmd_doctor(config_path(tmp_path))
+    assert code == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["ok"] is False
+    names = {item["check"] for item in report["checks"]}
+    assert "config" in names
+
+
+def test_stop_without_process_reports_not_running(tmp_path, capsys):
+    home = tmp_path / "pit-v1.7"
+    home.mkdir(parents=True)
+    code = pit_cli.cmd_stop(config_path(tmp_path))
+    assert code == 0
+    assert "не запущен" in capsys.readouterr().out
+
+
+def test_tool_perimeter_denies_participant_hazards():
+    assert pit_cli._tool_perimeter() is True
+
+
+def test_repo_detection_refuses_git_checkout(tmp_path):
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    assert looks_like_repo(repo / "pit-v1.7") is True
+    assert looks_like_repo(tmp_path / "pit-v1.7") is False
+
+
+def test_main_without_args_defaults_to_status(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("BOSSMAN_DATA_DIR", str(tmp_path))
+    assert pit_cli.main(["pit"]) == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["surface"] == "bossman-pit"
+
+
+def test_start_refuses_without_setup(tmp_path):
+    with pytest.raises((FileNotFoundError, OSError, ValueError, CompanionError)):
+        pit_cli.cmd_start(config_path(tmp_path))
