@@ -1,0 +1,39 @@
+name: Bossman 1.7 PIT foundation
+
+on:
+  push:
+    branches:
+      - 'feat/bossman-1.7-personal-identity-training-*'
+    paths:
+      - 'command-center/bcc/pit/**'
+      - 'command-center/tests/test_pit_foundation.py'
+      - '.github/workflows/v17-pit-ci.yml'
+  pull_request:
+    paths:
+      - 'command-center/bcc/pit/**'
+      - 'command-center/tests/test_pit_foundation.py'
+      - '.github/workflows/v17-pit-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pit-foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install test runner
+        run: python -m pip install --quiet pytest
+      - name: PIT contracts
+        env:
+          PYTHONPATH: command-center
+        run: python -m pytest command-center/tests/test_pit_foundation.py -q
+      - name: Compile PIT package
+        run: python -m compileall -q command-center/bcc/pit
+      - name: Whitespace hygiene
+        run: git diff --check
