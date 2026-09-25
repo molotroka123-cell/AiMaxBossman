@@ -115,3 +115,23 @@ astra-security-results/
 # Windows-100 gate local evidence
 windows-100-results/
 windows-100-negative/
+
+
+# Owner runtime brain — NEVER Git / NEVER release artifact.
+# Canonical personal memory/learning lives outside the checkout under the
+# configured BOSSMAN_DATA_DIR. These patterns are defense-in-depth for any
+# accidental copy placed beside source code. Product fixtures/datasets that
+# are intentionally versioned elsewhere are not the owner's runtime brain.
+/.bossman-brain/
+/bossman-brain/
+/local-brain/
+/runtime-brain/
+/owner-brain/
+brain-backup-*.zip
+brain-backup-*.tar*
+brain-manifest.local.json
+memory-owner.local/
+learning-owner.local/
+skills-owner.local/
+society-owner.local/
+operating-graph-owner.local/
