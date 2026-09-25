@@ -1,0 +1,54 @@
+{
+  "canonical_case_id": "CASE-003",
+  "title": "FOMC BTC long from 75,400: deleveraging, two-sided event sweep, reclaim test",
+  "market": "BTC",
+  "case_type": "ACTUAL_POSITION_EVENT_WINDOW",
+  "status": "OPEN_OBSERVATION",
+  "setup_window_start": "2026-09-16",
+  "source_commit": "5eeb0dc1bb836b4b1c940913693b02ac9133507d",
+  "position": {
+    "direction": "LONG",
+    "entry": 75400,
+    "size": null,
+    "leverage": null,
+    "closure": "NOT_CONFIRMED"
+  },
+  "context": {
+    "event": "FOMC press-conference window",
+    "lower_sweep_area": [75000, 75200],
+    "reclaim_watch": [75700, 76000],
+    "upper_event_extreme": 76521.2
+  },
+  "timeline": [
+    {
+      "phase": "FLUSH_BEFORE_RECLAIM",
+      "price_approx": 75700,
+      "cvd_billion": 51.06,
+      "oi_billion": 18.11,
+      "state": "Price DOWN + CVD DOWN + OI DOWN",
+      "lesson": "Treat first as deleveraging/exhaustion candidate, not automatic long confirmation."
+    },
+    {
+      "phase": "INITIAL_RECLAIM_ATTEMPT",
+      "price_approx": 75835,
+      "cvd_billion": 51.22,
+      "oi_billion": 18.14,
+      "lesson": "CVD/OI stabilization plus lower-value reclaim improves the long candidate, but acceptance is still required."
+    },
+    {
+      "phase": "FOMC_TWO_SIDED_WHIPSAW",
+      "last_price": 75757.6,
+      "event_low": 75025,
+      "event_high": 76521.2,
+      "lesson": "The first event impulse is not directional confirmation; preserve the full path through both liquidity sweeps and post-event acceptance."
+    }
+  ],
+  "canonical_lessons": [
+    "Event risk is a separate feature; ordinary order-flow confidence should be downgraded around FOMC/CPI/NFP.",
+    "Price response to CVD matters more than absolute CVD.",
+    "Price DOWN + CVD DOWN + OI DOWN is primarily deleveraging until fresh bearish leverage is shown.",
+    "A sweep/reclaim is not acceptance; require hold/retest.",
+    "Keep actual owner entry separate from model-recommended trigger to avoid hindsight contamination."
+  ],
+  "promotion_status": "VERIFIED_HISTORICAL_OWNER_CASE_NOT_YOUTUBE_TEACHER"
+}

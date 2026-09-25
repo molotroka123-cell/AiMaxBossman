@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 308. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 310. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -79,7 +79,7 @@
 | `command-center/tests/test_owner_path_latency.py:80` | skip | `—` | first.reason | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_owner_path_latency.py:97` | skip | `—` | first.reason | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_owner_stop_lifecycle.py:24` | importorskip | `—` | нет пакета bossman.computer_operator.models | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `command-center/tests/test_pit_cli.py:110` | skip | `—` | msvcrt probe | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_pit_cli.py:117` | skip | `—` | msvcrt probe | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_plugins_adapter.py:208` | skip | `—` | f"SKIP_HOST: symlink privilege unavailable on this host: {exc}" | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_redteam_rc_20260921.py:41` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_redteam_rc_20260921.py:517` | importorskip | `—` | нет пакета bossman.computer_operator.models | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -313,6 +313,8 @@
 | `apps/social-farm/tests/unit/test_policy_engine.py:228` | skipif | `not (SPEC / "examples" / "account_policy.yaml").exists()` | пакет спецификации не распакован рядом | Social Farm | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `apps/social-farm/tests/unit/test_provider_errors.py:68` | skipif | `not (SPEC / "schemas" / "provider_error.schema.json").exists()` | пакет спецификации не распакован рядом | Social Farm | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `apps/social-farm/tests/unit/test_provider_errors.py:76` | skipif | `not (SPEC / "examples" / "provider_error_unknown_state.json").exists()` | пакет спецификации не распакован рядом | Social Farm | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `apps/social-farm/tests/unit/test_secret_vault.py:97` | skipif | `os.name != "nt"` | real NTFS ACL check | Social Farm | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `apps/social-farm/tests/unit/test_secret_vault.py:112` | skipif | `os.name != "nt"` | real NTFS ACL check | Social Farm | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `apps/file-commander-mini/tests/test_owner_safety.py:305` | skipif | `os.name != "posix"` | POSIX advisory locks; Windows locks have a separate host gate | File Commander | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `apps/file-commander-mini/tests/test_owner_safety.py:358` | skipif | `os.name != "posix"` | POSIX no-follow directory handles; Windows junctions have a host gate | File Commander | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `apps/file-commander-mini/tests/test_owner_safety.py:138` | skip | `—` | host does not permit creating symlinks | File Commander | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

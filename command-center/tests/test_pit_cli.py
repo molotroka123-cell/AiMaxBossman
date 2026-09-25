@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import ast
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,12 @@ from bcc.pit import cli as pit_cli
 from bcc.pit import runtime as rt
 from bcc.pit.config import PITSettings, config_path, credentials_path, looks_like_repo, pit_home
 from bcc.telegram_companion.config import CompanionError, Person
+
+
+def test_cli_source_is_plain_utf8_and_ast_parseable():
+    source = Path(pit_cli.__file__).read_bytes()
+    assert not source.startswith(b"\xef\xbb\xbf")
+    ast.parse(source.decode("utf-8"))
 
 
 def test_setup_refuses_to_overwrite(tmp_path):

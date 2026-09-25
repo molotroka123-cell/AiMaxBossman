@@ -1,4 +1,4 @@
-﻿"""``bossman pit setup|status|doctor|start|stop`` — owner launch surface.
+"""``bossman pit setup|status|doctor|start|stop`` — owner launch surface.
 
 The owner launch contract (docs/v1.7): PIT starts from the existing ``bossman``
 CLI, secrets stay out of argv/logs/config, diagnostics are secret-free and

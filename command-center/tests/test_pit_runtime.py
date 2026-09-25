@@ -593,6 +593,69 @@ def test_photo_on_laptop_is_stored_but_not_claimed(tmp_path, monkeypatch):
     assert (runtime.vault.person_dir(person_key) / "media" / "latest.json").is_file()
 
 
+def test_reference_caption_does_not_replace_latest_or_enter_model(tmp_path, monkeypatch):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    key = runtime.vault.key_for_telegram(101)
+    warm(runtime, key)
+    target = runtime.photo_pipeline.store.ingest(key, 40, JPEG_BYTES)
+
+    async def fake_fetch(file_id, max_bytes=IMAGE_MAX_BYTES):
+        return b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + b"\x22" * 60
+    monkeypatch.setattr(runtime.telegram, "fetch_file", fake_fetch)
+    answer = asyncio.run(runtime.handle(person, message(
+        "/reference", _photo="own-reference", message_id=41)))
+    assert "Референс" in answer
+    assert runtime.photo_pipeline.store.latest(key).sha256 == target.sha256
+    assert len(runtime.photo_pipeline.store.references(key)) == 1
+    assert runtime.adapter.calls == []
+
+
+def test_photo_edit_unavailable_returns_text_instead_of_crashing(tmp_path, monkeypatch):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    warm(runtime, runtime.vault.key_for_telegram(101))
+
+    async def fake_fetch(file_id, max_bytes=IMAGE_MAX_BYTES):
+        return JPEG_BYTES
+    monkeypatch.setattr(runtime.telegram, "fetch_file", fake_fetch)
+    answer = asyncio.run(runtime.handle(person, message(
+        "убери фон", _photo="target", message_id=42)))
+    assert "Скоро" in answer
+
+
+def test_generation_sends_verified_studio_bytes_only_when_licensed(tmp_path, monkeypatch):
+    from bcc.pit.studio_image_edit import EditedImage
+    import hashlib
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    calls = []
+
+    class Broker:
+        async def generate(self, *, prompt):
+            calls.append(prompt)
+            return EditedImage(JPEG_BYTES, "image/jpeg", hashlib.sha256(JPEG_BYTES).hexdigest(), "run", 1)
+
+    async def free_capacity():
+        return True
+
+    async def fake_send_photo(target, data, caption):
+        calls.append((target.key, data, caption))
+
+    runtime.photo_services.edit = Broker()
+    runtime.photo_services.config = dataclasses.replace(
+        runtime.photo_services.config, ai_max_media_ready=True,
+        image_license_mode="research_eval")
+    monkeypatch.setattr(runtime.capacity_guard, "local_allowed", free_capacity)
+    monkeypatch.setattr(runtime.telegram, "send_photo", fake_send_photo)
+    assert asyncio.run(runtime._generate_image(person, "кот")) == ""
+    assert calls[0] == "кот" and calls[1][1] == JPEG_BYTES
+
+    runtime.settings = dataclasses.replace(runtime.settings, allowlist_open=True)
+    assert "не включена" in asyncio.run(runtime._generate_image(person, "кот"))
+    assert len(calls) == 2
+
+
 def test_image_generation_intent_gets_placeholder(tmp_path):
     runtime = make_runtime(tmp_path)
     warm(runtime, runtime.vault.key_for_telegram(101))

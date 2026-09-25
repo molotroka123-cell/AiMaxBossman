@@ -1055,7 +1055,8 @@ class ParticipantRuntime:
         intent = photo_intent(caption, has_photo=True)
         message_id = str(message.get("_message_id") or "0")
         try:
-            if caption.strip().lower().startswith("/reference"):
+            words = caption.strip().split(maxsplit=1)
+            if words and words[0].lower() == "/reference":
                 self.photo_pipeline.store.ingest_reference(person_key, message_id, data)
                 return "Референс сохранён только для твоих следующих правок фото."
             if intent.kind == "edit":
@@ -1066,8 +1067,8 @@ class ParticipantRuntime:
                     person_key=person_key, message_id=message_id, data=data, prompt=caption)
         except CompanionError as exc:
             return _failure_text(str(exc))
-        except (ValueError, OSError) as exc:
-            return f"С фото сейчас не получилось: {str(exc)[:120]}"
+        except (ValueError, OSError, RuntimeError, TimeoutError) as exc:
+            return f"С фото сейчас не получилось: {type(exc).__name__}"
         if getattr(reply, "image", None) is not None:
             try:
                 await self.telegram.send_photo(person, reply.image.data, render_jeff_reply("Готово:"))
@@ -1108,8 +1109,8 @@ class ParticipantRuntime:
             reply = await self.photo_edit.edit_latest(person_key, prompt)
         except CompanionError as exc:
             return _failure_text(str(exc))
-        except (ValueError, OSError, RuntimeError) as exc:
-            return f"Редактирование сейчас недоступно: {str(exc)[:120]}"
+        except (ValueError, OSError, RuntimeError, TimeoutError) as exc:
+            return f"Редактирование сейчас недоступно: {type(exc).__name__}"
         if getattr(reply, "image", None) is None:
             return reply.text
         try:
