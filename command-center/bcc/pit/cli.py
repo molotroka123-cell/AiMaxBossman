@@ -246,6 +246,7 @@ def _is_running(home: Path) -> bool:
     except OSError:
         return False
     try:
+        file.seek(0)                     # lock byte 0, where the runtime holds it
         if os.name == "nt":
             import msvcrt
             msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, 1)

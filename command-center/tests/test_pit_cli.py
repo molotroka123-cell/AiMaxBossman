@@ -53,6 +53,25 @@ def test_stop_without_process_reports_not_running(tmp_path, capsys):
     assert "не запущен" in capsys.readouterr().out
 
 
+def test_running_probe_checks_byte_zero(tmp_path, monkeypatch):
+    """The probe must lock the same byte the runtime locks, not EOF."""
+    import msvcrt
+    import os as _os
+    if _os.name != "nt":
+        pytest.skip("msvcrt probe")
+    home = tmp_path / "pit-v1.7"
+    home.mkdir(parents=True)
+    holder = (home / "poller.lock").open("a+b")
+    holder.seek(0)
+    msvcrt.locking(holder.fileno(), msvcrt.LK_NBLCK, 1)
+    try:
+        assert pit_cli._is_running(home) is True
+    finally:
+        msvcrt.locking(holder.fileno(), msvcrt.LK_UNLCK, 1)
+        holder.close()
+    assert pit_cli._is_running(home) is False
+
+
 def test_tool_perimeter_denies_participant_hazards():
     assert pit_cli._tool_perimeter() is True
 
