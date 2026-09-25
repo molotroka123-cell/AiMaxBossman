@@ -141,7 +141,7 @@ def test_raw_spool_requires_consent_and_redacts_obvious_token(tmp_path):
     key = vault.key_for_telegram(9)
     assert not vault.append_raw_event(key, {"message_id": 1, "text": "hello"})
     vault.set_consent(key, ConsentState(memory_enabled=True, raw_history_enabled=True))
-    token = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi"
+    token = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi"  # ci-secret-scan: allow
     assert vault.append_raw_event(key, {"message_id": 2, "text": f"token={token}"})
     stored = (vault.person_dir(key) / "raw" / "events.jsonl").read_text(encoding="utf-8")
     assert token not in stored
