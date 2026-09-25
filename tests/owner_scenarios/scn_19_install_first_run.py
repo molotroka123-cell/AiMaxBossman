@@ -49,6 +49,8 @@ import sys
 import time
 from pathlib import Path
 
+import psutil
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "command-center"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -190,12 +192,24 @@ def _installed_server(ctx, pkg: Path, data: Path, *, tag: str, **extra: str):
                 time.sleep(0.2)
         yield call, log_path
     finally:
-        process.terminate()
+        # Windows venv python.exe can be a launcher whose child owns the log.
+        # Stop the complete installed-product process tree before closing it.
+        with contextlib.suppress(psutil.NoSuchProcess):
+            root = psutil.Process(process.pid)
+            descendants = root.children(recursive=True)
+            def depth(item):
+                with contextlib.suppress(psutil.NoSuchProcess):
+                    return len(item.parents())
+                return -1
+            descendants.sort(key=depth, reverse=True)
+            for child in descendants:
+                with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
+                    child.kill()
+            with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
+                root.kill()
+            psutil.wait_procs(descendants + [root], timeout=20)
         with contextlib.suppress(subprocess.TimeoutExpired):
             process.wait(timeout=20)
-        if process.poll() is None:
-            process.kill()
-            process.wait(timeout=10)
         log.close()
 
 

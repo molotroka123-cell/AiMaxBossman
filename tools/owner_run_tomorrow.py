@@ -648,11 +648,15 @@ def kill_tree(pid: int, create_time: float | None = None, known: list[dict] | tu
     root_matches = True
     if ps is not None:
         procs = []
+        root = None
         try:
             root = ps.Process(pid)
             root_matches = _same(root, create_time)
             if root_matches:
-                procs = [root] + root.children(recursive=True)
+                # On Windows a venv python.exe launcher is itself a parent of
+                # the interpreter. Kill descendants first: terminating the
+                # launcher can make its child disappear before it is recorded.
+                procs = root.children(recursive=True)
         except Exception:  # noqa: BLE001 — корень уже умер; потомков ищем по записям
             pass
         seen = {p.pid for p in procs}
@@ -664,6 +668,14 @@ def kill_tree(pid: int, create_time: float | None = None, known: list[dict] | tu
                     seen.add(q.pid)
             except Exception:  # noqa: BLE001
                 continue
+        if root_matches and root is not None and root.pid not in seen:
+            procs.append(root)
+        def depth(proc) -> int:
+            try:
+                return len(proc.parents())
+            except Exception:  # noqa: BLE001 — process exited during snapshot
+                return -1
+        procs.sort(key=depth, reverse=True)
         for q in procs:
             try:
                 if q.status() != ps.STATUS_ZOMBIE:
