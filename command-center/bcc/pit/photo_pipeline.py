@@ -20,9 +20,11 @@ LAPTOP_PHOTO_REPLY_RU = (
     "Фото получил. Разбирать и редактировать изображения локально я начну после переезда на AI Max 😊"
 )
 
+# Sensitive visual inference is refused by stem + inflection suffix («религиозные»,
+# «политические»): a bare trailing \b would miss every inflected Russian form.
 _BLOCKED_VISUAL = re.compile(
-    r"\b(?:race|ethnic|relig|politic|diagnos|disease|pregnan|sexual|address|"
-    r"раса|этнич|религи|политич|диагноз|болезн|беремен|сексуал|адрес)\b",
+    r"\b(?:race|ethnic|relig|politic|diagnos|disease|pregnan|sexual|address)[a-z]*\b|"
+    r"\b(?:рас[аиоу]|этнич|религи|политич|диагноз|болезн|беремен|сексуал|адрес)[а-яё]*\b",
     re.I,
 )
 

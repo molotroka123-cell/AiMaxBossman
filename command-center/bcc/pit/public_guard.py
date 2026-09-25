@@ -53,10 +53,17 @@ class GuardReply:
     risk_delta: int = 0
 
 
+# Identity probing must reference THIS assistant ("у тебя/твоя/your"). A
+# generic topical question — «какая модель лучше для кода?» — is ordinary
+# capability talk and goes to the LLM, not to the guard.
 _MODEL_RE = re.compile(
-    r"\b(?:какая|какой|что за)\s+(?:у тебя\s+)?(?:модель|model)\b|"
+    r"\b(?:какая|какой|что за)\s+у тебя\s+(?:модель|model)\b|"
+    r"\b(?:какая|какой)\s+(?:модель|model)\s+у тебя\b|"
+    r"\b(?:твоя|твоей|твою|твоё)\s+(?:модель|model)\b|"
     r"\b(?:what|which)\s+model\s+(?:are you|do you use|is running)\b|"
-    r"\b(?:какой|what)\s+(?:у тебя\s+)?(?:provider|провайдер|endpoint|backend)\b|"
+    r"\b(?:what|which)\s+is\s+your\s+(?:model|llm)\b|"
+    r"\b(?:у тебя|твой|твоя)\s+(?:provider|провайдер|endpoint|backend)\b|"
+    r"\b(?:what|which)\s+(?:provider|провайдер|endpoint|backend)\s+(?:are you|do you use|is running)\b|"
     r"\b(?:ты|you)\s+(?:claude|glm|qwen|llama|gpt)[\w. -]*\??$",
     re.I,
 )

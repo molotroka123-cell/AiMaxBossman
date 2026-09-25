@@ -12,9 +12,11 @@ class SensitiveTopic(StrEnum):
     RELIGION = "religion"
 
 
+# Russian stems are prefixes: «политике», «выборах», «войны» must match too,
+# so the word boundary is placed after the inflection suffix, not after the stem.
 _POLITICS = re.compile(
-    r"\b(?:политик|выбор|парт|президент|парламент|правительств|войн[аы]|украин|росси|"
-    r"politic|election|party|president|parliament|government|ukraine|russia|war)\b",
+    r"\b(?:политик|политич|выбор|парти|президент|парламент|правительств|войн|украин|росси)[а-яё]*\b|"
+    r"\b(?:politic\w*|elections?|parties?|presidents?|parliament|government|ukraine|russia|wars?)\b",
     re.I,
 )
 _RELIGION = re.compile(
