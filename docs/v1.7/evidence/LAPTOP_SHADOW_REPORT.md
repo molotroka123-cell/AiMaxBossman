@@ -41,16 +41,17 @@ evidence accumulates; no status below is claimed stronger than measured.
   Qwen-Image-Edit is registered in the existing Bossman Studio catalog.
 - Image generation: laptop placeholder until the real local path passes live.
 
-## Live traffic evidence (accumulating)
+## Live traffic evidence (accumulating):
 
 | metric | value |
 | --- | --- |
-| updates ingested (durable inbox) | 15+ (continues) |
+| updates ingested (durable inbox) | 15 (continues) |
 | distinct participants | 2 (owner + first friend) |
-| learning-log turns | 10+ (continues) |
+| learning-log turns | 10 (pre-restart accumulation; continues) |
 | duplicate/replay updates | refused at ingest (idempotent) |
 | delivery errors stored | 0 |
 | transport errors stored | 0 |
+| soak target | >= 60 min continuous run before freeze; process restarted 5x during bring-up without duplicate effects (update offset persisted) |
 
 Observed live behavior:
 - onboarding: short AiBossman/Jeff intro only (owner decision — no consent maze);
@@ -76,7 +77,41 @@ Observed live behavior:
 - PIT runtime contracts: 34 passed.
 - PIT CLI contracts: 12 passed.
 - PIT replay battery: 7 passed.
-- Total: 111 local pytest contracts green at the current SHA.
+- Telegram contracts: 246 passed (full `telegram_contracts/` tree).
+- Studio/media neighbours: 123 passed (with ffmpeg 9.0.2 portable in PATH).
+- 1.5 critical regressions ON the 1.7 tree: 99 passed, 1 skipped
+  (`test_v3_self_improvement`, `test_owner_run_self_improve`,
+  `test_self_improve_lab`, `test_self_improve_lab_observers`,
+  `test_youtube_trader_ingest`, `test_youtube_trader_ingest_auto`).
+- Total PIT lane: 111 contracts green at the current SHA.
+
+## PHASE 10 drift (honest classification)
+
+The master-run document lists compatibility tests that do not exist on the
+1.7 base tree (`release/bossman-1.5-rc2 @ 21a8092b` descendant):
+
+- `command-center/tests/test_economy_swarm.py` — absent (exists on the newer
+  1.5 economy branch);
+- `tests/test_bossman_15_economy_scripts.py` — absent (same drift);
+- `command-center/tests/test_bossnet_foundation_v16.py`,
+  `test_coding_limit_saver_v16.py`, `test_game_bootstrap_v16.py` — 1.6
+  foundation tests live on the 1.6 branch only.
+
+These are recorded as `NOT_RUN (BRANCH_DRIFT)` for the 1.7 freeze; they are
+mandatory at the convergence gate where all three lines meet. Nothing was
+ported from 1.5/1.6 into 1.7 during the isolated laptop pass (isolation rule).
+
+## Live route verification (measured on the real Ollama)
+
+- Local chat through the existing Bossman provider adapter:
+  `bossman-fast-qwen36-35b-a3b-q5:latest` answered in 25.4 s (thinking model,
+  222 output tokens) — REAL inference, not a mock.
+- Local Qwen vision (`bossman-fast-qwen36-vision:latest`): live analyze_fast
+  on a test image returned a description. Root cause of earlier failures was
+  the 20 s default fast timeout vs Ollama cold-load — fixed to 90/240 s
+  (`fd4d4fb1`).
+- Route log will accumulate on the next live turns; `bossman pit status`
+  aggregates per-model ok/fail and p50/p95 latency.
 
 ## Known pre-existing red (NOT caused by 1.7 work, documented for freeze)
 
