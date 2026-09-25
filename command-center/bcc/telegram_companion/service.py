@@ -1209,6 +1209,12 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
                 if isinstance(request_id, str) and re.fullmatch(r"[0-9a-f]{12}", request_id):
                     self.store.track_transient(person.key, request_id, sent_id)
                     if command == "/input":
+                        # Delete the owner's value-bearing Telegram message too, not only
+                        # Bossman's acknowledgement. The local encrypted inbox is scrubbed
+                        # separately after acceptance; Telegram should retain no transient copy.
+                        incoming_id = message.get("message_id") if isinstance(message, dict) else None
+                        if type(incoming_id) is int and incoming_id > 0:
+                            self.store.track_transient(person.key, request_id, incoming_id)
                         self.schedule_owner_input_cleanup(person, request_id)
             self.last_message[person.key] = time.monotonic()
 
