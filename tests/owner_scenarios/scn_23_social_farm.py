@@ -506,6 +506,7 @@ def os105_the_owners_account_never_mixes_with_another(ctx) -> None:
     """
     import os  # noqa: PLC0415
     import stat  # noqa: PLC0415
+    import subprocess  # noqa: PLC0415
 
     from social_farm.browser import IdentityMismatch  # noqa: PLC0415
     from social_farm.browser.isolation import (MARKER_NAME,  # noqa: PLC0415
@@ -532,11 +533,19 @@ def os105_the_owners_account_never_mixes_with_another(ctx) -> None:
     root = AccountContextRoot(root=ctx.path("контексты", "корень"))
     mine_dir = root.prepare(OWNER_ACCOUNT)
     theirs_dir = root.prepare(OTHER_ACCOUNT)
+    if os.name == "nt":
+        try:
+            root.assert_private(mine_dir)
+            private = True
+        except PermissionError:
+            private = False
+    else:
+        private = stat.S_IMODE(mine_dir.stat().st_mode) == 0o700
     ctx.positive("у каждого аккаунта свой каталог с маркером владельца и правами 0700",
                  mine_dir != theirs_dir
                  and root.owner_of(mine_dir) == OWNER_ACCOUNT
                  and root.owner_of(theirs_dir) == OTHER_ACCOUNT
-                 and stat.S_IMODE(mine_dir.stat().st_mode) == 0o700,
+                 and private,
                  f"{mine_dir.name} / {theirs_dir.name}, "
                  f"права {oct(stat.S_IMODE(mine_dir.stat().st_mode))}")
     ctx.positive("имена, различимые только запрещёнными символами, не делят каталог",
@@ -565,10 +574,24 @@ def os105_the_owners_account_never_mixes_with_another(ctx) -> None:
                 lambda: root.assert_owned(OWNER_ACCOUNT, mine_dir),
                 CrossAccountViolation)
     (mine_dir / MARKER_NAME).write_text(OWNER_ACCOUNT, encoding="utf-8")
-    os.chmod(mine_dir, 0o755)
-    ctx.refused("каталог сессии, открытый другим пользователям машины, отвергается",
-                lambda: root.assert_private(mine_dir), PermissionError)
-    os.chmod(mine_dir, 0o700)
+    if os.name == "nt":
+        # NTFS st_mode remains 0777; widen the real test directory ACL and
+        # prove the product rejects it, then restore owner-only access.
+        widened = subprocess.run(
+            ["icacls", str(mine_dir), "/grant", "*S-1-5-32-545:(OI)(CI)(RX)"],
+            capture_output=True, check=False, timeout=30)
+        if widened.returncode != 0:
+            ctx.not_proven("не удалось создать Windows ACL negative control")
+        try:
+            ctx.refused("каталог сессии, открытый другим пользователям машины, отвергается",
+                        lambda: root.assert_private(mine_dir), PermissionError)
+        finally:
+            root.prepare(OWNER_ACCOUNT)
+    else:
+        os.chmod(mine_dir, 0o755)
+        ctx.refused("каталог сессии, открытый другим пользователям машины, отвергается",
+                    lambda: root.assert_private(mine_dir), PermissionError)
+        os.chmod(mine_dir, 0o700)
 
     def reassign_account() -> None:
         sess.account_id = OTHER_ACCOUNT

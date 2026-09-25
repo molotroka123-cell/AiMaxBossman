@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import os
 import shlex
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -71,6 +72,8 @@ def branch_module(ctx, name: str):
 
 def python_cmd(script: str) -> str:
     """Команда оболочки, запускающая короткий питон. Без цепочек и подстановок."""
+    if os.name == "nt":
+        return subprocess.list2cmdline([sys.executable, "-c", script])
     return f"{shlex.quote(sys.executable)} -c {shlex.quote(script)}"
 
 

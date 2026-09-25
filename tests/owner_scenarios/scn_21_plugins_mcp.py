@@ -470,7 +470,7 @@ def os94_swapped_binary_is_refused_before_launch(ctx) -> None:
     except (OSError, NotImplementedError) as exc:
         ctx.not_proven(f"symlink в этой среде не создаётся ({type(exc).__name__}): "
                        "подмену бинаря на диске проверить нечем")
-    shell = "/bin/sh"
+    shell = os.environ.get("COMSPEC", r"C:\Windows\System32\cmd.exe") if os.name == "nt" else "/bin/sh"
     if not Path(shell).exists():
         ctx.not_proven(f"{shell} в этой среде нет: подменять путь не на что")
 

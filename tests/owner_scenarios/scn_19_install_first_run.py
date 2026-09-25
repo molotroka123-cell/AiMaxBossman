@@ -383,9 +383,17 @@ def os82_doctor_names_each_missing_thing(ctx) -> None:
     ctx.negative("блокер не заканчивается нулевым кодом возврата",
                  code_dir == 1 and report_dir["blocked"] >= 1,
                  f"код {code_dir}, блокеров {report_dir['blocked']}")
-    ctx.negative("отсутствие инструмента не выдаётся за блокер, а занятый порт — за исправность",
-                 code_tool == 0 and code_port == 0 and code_cfg == 0,
-                 f"инструмент={code_tool}, порт={code_port}, конфигурация={code_cfg}")
+    # На машине владельца другие проверки могут быть BLOCKED одновременно.
+    # Код процесса обязан отражать весь отчёт, а три проверки выше отдельно
+    # доказывают, что инструмент, порт и URL классифицированы как WARN.
+    ctx.negative("код доктора соответствует всем блокерам, без ложного нуля",
+                 all(code == (1 if report["blocked"] else 0)
+                     for code, report in ((code_tool, report_tool),
+                                          (code_port, report_port),
+                                          (code_cfg, report_cfg))),
+                 f"инструмент={code_tool}/{report_tool['blocked']}, "
+                 f"порт={code_port}/{report_port['blocked']}, "
+                 f"конфигурация={code_cfg}/{report_cfg['blocked']}")
 
     # Ключ владельца: доктор обязан называть ПЕРЕМЕННУЮ, а не её значение.
     secret = "sk-" + "or-" + "v1-" + "0" * 24
