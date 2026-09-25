@@ -564,6 +564,45 @@ class Core:
         return body
 
 
+    async def login_receipts(self) -> list:
+        """Pending safe login receipts: login/account labels only, never passwords."""
+        body = await self._request("GET", "/api/browser/login-receipts")
+        rows = body.get("receipts") if isinstance(body, dict) else None
+        if not isinstance(rows, list):
+            raise CompanionError("LOGIN_RECEIPTS_INVALID")
+        return [r for r in rows if isinstance(r, dict) and
+                re.fullmatch(r"[0-9a-f]{12}", str(r.get("id") or ""))]
+
+    async def login_receipt_screenshot(self, receipt_id: str, max_bytes: int = IMAGE_MAX_BYTES) -> bytes:
+        if not re.fullmatch(r"[0-9a-f]{12}", str(receipt_id or "")):
+            raise CompanionError("LOGIN_RECEIPT_ID_INVALID")
+        data = bytearray()
+        try:
+            async with asyncio.timeout(30):
+                async with self.client.stream(
+                    "GET", self.settings.core_url + f"/api/browser/login-receipts/{receipt_id}/screenshot",
+                    headers={"X-BCC-Token": self.settings.core_token}) as response:
+                    if response.status_code != 200:
+                        raise CompanionError("LOGIN_SCREENSHOT_UNAVAILABLE")
+                    async for part in response.aiter_bytes():
+                        data.extend(part)
+                        if len(data) > max_bytes:
+                            raise CompanionError("IMAGE_TOO_LARGE")
+        except (httpx.HTTPError, OSError, TimeoutError):
+            raise CompanionError("NETWORK_UNAVAILABLE") from None
+        raw = bytes(data)
+        if image_mime(raw) != "image/png":
+            raise CompanionError("LOGIN_SCREENSHOT_INVALID")
+        return raw
+
+    async def consume_login_receipt(self, receipt_id: str) -> dict:
+        if not re.fullmatch(r"[0-9a-f]{12}", str(receipt_id or "")):
+            raise CompanionError("LOGIN_RECEIPT_ID_INVALID")
+        body = await self._request("POST", f"/api/browser/login-receipts/{receipt_id}/consumed", {})
+        if not isinstance(body, dict) or body.get("id") != receipt_id or body.get("phase") != "CONSUMED":
+            raise CompanionError("LOGIN_RECEIPT_CONSUME_UNKNOWN")
+        return body
+
     async def status(self):
         data = await self._request("GET", "/health/live")
         if not isinstance(data, dict) or data.get("app") != "bossman-command-center" or data.get("alive") is not True:
