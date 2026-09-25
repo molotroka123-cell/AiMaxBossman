@@ -112,17 +112,27 @@ PIT authoritative root:
 
 ## O. Capability parity
 
-До `PIT_LAPTOP_SHADOW_READY` реализовать безопасный chat surface:
-text/chat, web+sources, vision, uploaded-file understanding, code reasoning, calculator, summaries, translation, memory.
+До `PIT_LAPTOP_SHADOW_READY` реализовать безопасный laptop chat surface:
+text/chat, web+sources, safe non-image uploaded-file understanding, code reasoning, calculator, summaries, translation, memory.
 
-Vision = только participant upload.
-File = только participant upload через broker.
+Фото/vision/edit НЕ являются laptop blocker: локальных media-моделей там нет.
 
-Laptop image generation:
+Laptop photo analysis:
+`PhotoPipeline(..., ai_max_ready=False)`
+→ «Фото получил. Разбирать и редактировать изображения локально я начну после переезда на AI Max 😊»
+
+Laptop image generation/edit:
 `image_generation_reply(ai_max_image_generation_ready=False)`
 → «Скоро научусь, малышка 😊».
 
-Не заменять это placeholder-картинкой.
+После AI Max:
+- qwen_vision.py = fast local VLM;
+- photo_pipeline.py = foreground answer + background memory;
+- studio_image_edit.py = existing Studio reference/job/run broker;
+- photo_edit.py = current participant latest-photo editing.
+
+Прочитай PHOTO_PIPELINE_AI_MAX_RU.md и COMPAT_1_6_MEDIA_20260925.md.
+Не создавай второй media backend и не запускай shell из participant path.
 
 ## P. CMD acceptance
 
@@ -228,3 +238,26 @@ Reuse 1.5:
 - exact-SHA honesty.
 
 Do not create a new launcher when 1.5 already has unified CMD infrastructure.
+
+
+## W. AI Max photo speed contract
+
+При фото с вопросом foreground vision имеет приоритет над visual-memory enrichment.
+
+Обязательный порядок:
+1. verify Telegram identity;
+2. reject >10 MiB before model;
+3. verify JPEG/PNG/WebP magic bytes;
+4. persist only under current person_key media folder;
+5. run short local Qwen vision answer;
+6. send Jeff answer;
+7. only then schedule deeper structured visual analysis;
+8. if chat/model resources remain busy, background analysis waits or is skipped;
+9. never hold up a new chat answer for memory enrichment.
+
+Visual memory stores only neutral short-lived context initially. No person identification or inferred protected/sensitive traits from pixels.
+
+Photo edit:
+participant own verified image → Bossman Studio reference → local Qwen edit model → verified run bytes → Telegram.
+
+Do not change shared 1.6 Studio API unless actual provider integration requires one minimal adapter.
