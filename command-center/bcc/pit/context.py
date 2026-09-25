@@ -25,6 +25,7 @@ def select_persona_context(
     records: Iterable[dict[str, Any]],
     *,
     max_items: int = 24,
+    min_confidence: float = 0.0,
 ) -> list[ContextItem]:
     """Cheap first-stage retrieval for laptop experiments.
 
@@ -40,6 +41,8 @@ def select_persona_context(
         category = str(row.get("category", ""))
         overlap = len(q & (_tokens(value) | _tokens(key) | _tokens(category)))
         confidence = float(row.get("confidence", 0.0) or 0.0)
+        if confidence < float(min_confidence):
+            continue
         utility = float(row.get("utility_score", 0.0) or 0.0)
         evidence = str(row.get("evidence_kind", ""))
         confirmed_bonus = 0.35 if evidence == "confirmed" else (0.15 if evidence == "explicit" else 0.0)
