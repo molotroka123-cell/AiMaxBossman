@@ -14,6 +14,7 @@ V2.6 (модули B/G, за правилом rules["adaptive"]=true, OFF по �
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 
@@ -224,6 +225,64 @@ def cloud_policy(meta: dict, agent: dict | None, rules: dict) -> tuple[bool, str
     return True, "; ".join(grants)
 
 
+def _jev_bounded_choice(req: RouteRequest, candidates: list[ModelCandidate],
+                        model_route: str):
+    """Jev chooses only a locality bucket; Smart Router still scores eligible models."""
+    eligible, _rejected = shortlist(req, candidates)
+    if model_route in ("local_fast", "local_reasoner"):
+        bucket = [m for m in eligible if m.local]
+    elif model_route == "cloud_reasoner":
+        bucket = [m for m in eligible if not m.local]
+    else:
+        return None
+    if not bucket:
+        return None
+    picked = route(req, bucket)
+    return picked if picked.model is not None else None
+
+
+async def _jev_route_hint(svc, task: dict, agent: dict, meta: dict,
+                          req: RouteRequest, candidates: list[ModelCandidate], baseline):
+    """Opt-in public/free Jev hint; every failure uses the unchanged Bossman route."""
+    state = getattr(svc, "jev", None)
+    if state is None or state.cfg.shadow:
+        return baseline, None
+    from ..jev import config as jev_config
+    from ..jev.decision import TaskContext
+    cfg = jev_config.load()
+    reason = None
+    chosen = baseline
+    if not cfg.active:
+        reason = "disabled"
+    elif not cfg.zero_cost_confirmed:
+        reason = "price_not_confirmed_free"
+    elif not jev_config.api_key():
+        reason = "owner_required_jev_key"
+    elif meta.get("jev_egress_allowed") is not True or meta.get("privacy") != "public" or not req.cloud_allowed:
+        reason = "egress_not_allowed"
+    else:
+        ctx = TaskContext(task_id=task.get("id"), kind=str(task.get("kind") or "generic"),
+                          prompt=str(task.get("prompt") or ""),
+                          tools=[str(t) for t in (agent.get("tools") or []) if isinstance(t, str)])
+        try:
+            decision = await asyncio.to_thread(state.provider.decide, ctx)
+            if decision.low_confidence:
+                reason = "low_confidence"
+            else:
+                hint = _jev_bounded_choice(req, candidates, decision.model_route)
+                if hint is None:
+                    reason = "no_authorized_candidate"
+                else:
+                    chosen = hint
+        except Exception as exc:  # Jev is never a task authority or hard dependency.
+            reason = getattr(exc, "reason", type(exc).__name__)
+    state.recorder.write({"task_id": task.get("id"), "mode": "bounded_routing",
+                          "baseline_alias": baseline.model.alias if baseline.model else None,
+                          "selected_alias": chosen.model.alias if chosen.model else None,
+                          "fallback_reason": reason, "authoritative": False})
+    return chosen, reason
+
+
 async def check_forced_model(svc, model_id, *, meta: dict | None, agent: dict | None,
                              kind: str | None) -> list[str]:
     """F-016: принудительная модель (meta.force_model_id, форк с model_id)
@@ -297,7 +356,10 @@ async def _make_pick_hook(svc):
             prefer_local=prefer_local,
             max_candidates=int(rules.get("max_candidates") or MAX_CANDIDATES),
             require_verified=require_verified)
-        decision = route(req, await _candidates(svc, rules, kind=kind))
+        candidates = await _candidates(svc, rules, kind=kind)
+        decision = route(req, candidates)
+        decision, jev_fallback = await _jev_route_hint(svc, task, agent or {}, meta,
+                                                       req, candidates, decision)
         if decision.model is None:
             return None            # никого не выбрали → модель агента
         route_info = {"alias": decision.model.alias, "score": decision.score,
@@ -305,6 +367,9 @@ async def _make_pick_hook(svc):
                       "task_type": kind, "considered": decision.considered,
                       "total_candidates": decision.total,
                       "cloud_allowed": cloud_allowed, "cloud_policy": cloud_why}
+        if getattr(svc, "jev", None) is not None and not svc.jev.cfg.shadow:
+            route_info["jev"] = {"mode": "bounded_routing", "fallback": jev_fallback,
+                                 "authority": "smart_router"}
         if reasoning_info is not None:
             route_info["reasoning"] = reasoning_info
         await svc.bus.emit("router.route_selected", task_id=task["id"],

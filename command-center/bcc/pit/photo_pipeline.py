@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import os
 import re
 import tempfile
@@ -68,6 +69,41 @@ class PhotoStore:
         return {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[mime]
 
     def ingest(self, person_key: str, message_id: str | int, data: bytes) -> PhotoAsset:
+        return self._ingest(person_key, message_id, data, update_latest=True)
+
+    def ingest_reference(self, person_key: str, message_id: str | int, data: bytes) -> PhotoAsset:
+        """Keep at most two explicit references without changing the edit target."""
+        asset = self._ingest(person_key, message_id, data, update_latest=False)
+        path = self.vault.person_dir(person_key) / "media" / "references.json"
+        records = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else []
+        if not isinstance(records, list):
+            raise ValueError("invalid reference manifest")
+        records = [row for row in records if isinstance(row, dict) and row.get("sha256") != asset.sha256]
+        records.append(self._record(asset))
+        _atomic_json(path, records[-2:])
+        return asset
+
+    def references(self, person_key: str) -> tuple[PhotoAsset, ...]:
+        path = self.vault.person_dir(person_key) / "media" / "references.json"
+        if not path.is_file():
+            return ()
+        records = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(records, list) or len(records) > 2:
+            raise ValueError("invalid reference manifest")
+        return tuple(self._from_record(person_key, row) for row in records)
+
+    def _record(self, asset: PhotoAsset) -> dict:
+        return {
+            "message_id": asset.message_id,
+            "path": asset.path.relative_to(self.vault.person_dir(asset.person_key)).as_posix(),
+            "sha256": asset.sha256,
+            "mime": asset.mime,
+            "bytes": asset.bytes,
+            "schema": "bossman.pit.photo/1",
+        }
+
+    def _ingest(self, person_key: str, message_id: str | int, data: bytes,
+                *, update_latest: bool) -> PhotoAsset:
         if not isinstance(data, (bytes, bytearray)) or not data:
             raise ValueError("empty photo")
         if len(data) > IMAGE_MAX_BYTES:
@@ -90,22 +126,20 @@ class PhotoStore:
             finally:
                 Path(tmp).unlink(missing_ok=True)
         asset = PhotoAsset(person_key, str(message_id), path, digest, mime, len(raw))
-        _atomic_json(self.vault.ensure(person_key) / "media" / "latest.json", {
-            "message_id": asset.message_id,
-            "path": asset.path.relative_to(self.vault.person_dir(person_key)).as_posix(),
-            "sha256": asset.sha256,
-            "mime": asset.mime,
-            "bytes": asset.bytes,
-            "schema": "bossman.pit.photo/1",
-        })
+        if update_latest:
+            _atomic_json(self.vault.ensure(person_key) / "media" / "latest.json", self._record(asset))
         return asset
 
     def latest(self, person_key: str) -> PhotoAsset | None:
         path = self.vault.person_dir(person_key) / "media" / "latest.json"
         if not path.is_file():
             return None
-        import json
         data = json.loads(path.read_text(encoding="utf-8"))
+        return self._from_record(person_key, data)
+
+    def _from_record(self, person_key: str, data: dict) -> PhotoAsset:
+        if not isinstance(data, dict):
+            raise ValueError("invalid photo manifest")
         rel = str(data.get("path", ""))
         candidate = (self.vault.person_dir(person_key) / rel).resolve()
         root = self.vault.person_dir(person_key).resolve()

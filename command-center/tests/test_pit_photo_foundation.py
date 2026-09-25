@@ -37,6 +37,25 @@ def test_photo_store_is_per_participant_and_magic_verified(tmp_path):
         store.ingest(a, 11, b"GIF89a-not-supported")
 
 
+def test_references_are_person_scoped_and_do_not_replace_target(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    store = PhotoStore(vault)
+    a, b = vault.key_for_telegram(1), vault.key_for_telegram(2)
+    target = store.ingest(a, 10, JPEG)
+    store.ingest_reference(a, 11, PNG)
+    assert store.latest(a).sha256 == target.sha256
+    assert [store.read_verified(ref) for ref in store.references(a)] == [PNG]
+    assert store.references(b) == ()
+    store.ingest_reference(a, 12, JPEG)
+    assert len(store.references(a)) == 2
+    store.ingest_reference(a, 13, PNG)
+    assert len(store.references(a)) == 2
+    with pytest.raises(ValueError):
+        store.read_verified(store.references(a)[0].__class__(
+            b, "11", store.references(a)[0].path,
+            store.references(a)[0].sha256, "image/png", len(PNG)))
+
+
 def test_laptop_photo_path_is_honest_and_does_not_call_vision(tmp_path):
     class Never:
         async def analyze_fast(self, *a, **k):

@@ -21,6 +21,7 @@ class PhotoRuntimeConfig:
     vision_model: str
     studio_url: str
     image_edit_model: str
+    image_license_mode: str = "unconfirmed"
 
     @classmethod
     def from_env(cls) -> "PhotoRuntimeConfig":
@@ -30,7 +31,13 @@ class PhotoRuntimeConfig:
             vision_model=os.environ.get("BOSSMAN_PIT_VISION_MODEL", "").strip(),
             studio_url=os.environ.get("BCC_URL", "http://127.0.0.1:8800").strip(),
             image_edit_model=os.environ.get("BOSSMAN_PIT_IMAGE_EDIT_MODEL", "").strip(),
+            image_license_mode=os.environ.get("BOSSMAN_PIT_IMAGE_LICENSE_MODE", "unconfirmed").strip().lower(),
         )
+
+    def image_use_allowed(self, *, public_mode: bool) -> bool:
+        if self.image_license_mode == "commercial_licensed":
+            return True
+        return self.image_license_mode == "research_eval" and not public_mode
 
 
 @dataclass
@@ -95,6 +102,8 @@ def photo_runtime_status(config: PhotoRuntimeConfig) -> dict:
         "ai_max_media_ready": config.ai_max_media_ready,
         "vision_configured": bool(config.ai_max_media_ready and config.vision_model),
         "image_edit_configured": bool(config.ai_max_media_ready and config.image_edit_model),
+        "image_license_mode": config.image_license_mode if config.image_license_mode in {
+            "research_eval", "commercial_licensed"} else "unconfirmed",
         "vision_endpoint": "LOOPBACK_CONFIGURED" if config.vision_model else "NOT_CONFIGURED",
         "studio_endpoint": "LOOPBACK_CONFIGURED" if config.image_edit_model else "NOT_CONFIGURED",
     }

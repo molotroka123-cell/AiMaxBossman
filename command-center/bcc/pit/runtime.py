@@ -330,6 +330,9 @@ class ParticipantRuntime:
             self.vault,
             broker=self.photo_services.edit,
             ai_max_ready=self.photo_services.config.ai_max_media_ready,
+            image_use_allowed=self.photo_services.config.image_use_allowed(
+                public_mode=settings.allowlist_open),
+            vram_gate=self.capacity_guard.local_allowed,
         )
         self._pending_photo_memory: dict[tuple[str, str], tuple[object, str]] = {}
         self.adapter = build_adapter("openai_compat", settings.provider_base_url,
@@ -632,7 +635,7 @@ class ParticipantRuntime:
             return await self._dispatch_command(person, person_key, text)
 
         if IMAGE_GENERATION_INTENT.search(text):
-            return pit_capabilities.image_generation_reply(ai_max_image_generation_ready=False)
+            return await self._generate_image(person, text)
 
         edit_words = photo_intent(text, has_photo=False)
         if edit_words.kind == "edit":
@@ -1052,6 +1055,9 @@ class ParticipantRuntime:
         intent = photo_intent(caption, has_photo=True)
         message_id = str(message.get("_message_id") or "0")
         try:
+            if caption.strip().lower().startswith("/reference"):
+                self.photo_pipeline.store.ingest_reference(person_key, message_id, data)
+                return "Референс сохранён только для твоих следующих правок фото."
             if intent.kind == "edit":
                 self.photo_pipeline.store.ingest(person_key, message_id, data)
                 reply = await self.photo_edit.edit_latest(person_key, intent.prompt)
@@ -1068,7 +1074,7 @@ class ParticipantRuntime:
                 return ""
             except CompanionError as exc:
                 return _failure_text(str(exc))
-        if reply.background_memory_pending and reply.asset is not None:
+        if getattr(reply, "background_memory_pending", False) and getattr(reply, "asset", None) is not None:
             self._pending_photo_memory[(person.key, message_id)] = (reply.asset, caption)
         return reply.text
 
@@ -1111,3 +1117,20 @@ class ParticipantRuntime:
             return ""
         except CompanionError as exc:
             return _failure_text(str(exc))
+
+    async def _generate_image(self, person: Person, prompt: str) -> str:
+        broker = self.photo_services.edit
+        cfg = self.photo_services.config
+        if not cfg.ai_max_media_ready or broker is None:
+            return pit_capabilities.image_generation_reply(ai_max_image_generation_ready=False)
+        if not cfg.image_use_allowed(public_mode=self.settings.allowlist_open):
+            return "Локальная генерация изображений пока не включена для этого режима использования."
+        self.capacity_guard.reset()
+        if not await self.capacity_guard.local_allowed():
+            return "Генерация временно отложена: ресурсы нужны Bossman 1.6."
+        try:
+            output = await broker.generate(prompt=prompt)
+            await self.telegram.send_photo(person, output.data, render_jeff_reply("Готово:"))
+            return ""
+        except (CompanionError, ValueError, OSError, RuntimeError, TimeoutError) as exc:
+            return f"Генерация сейчас недоступна: {type(exc).__name__}"

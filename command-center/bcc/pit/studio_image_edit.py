@@ -109,28 +109,41 @@ class StudioImageEditBroker:
         prompt: str,
         filename: str = "telegram-photo.png",
         settings: dict | None = None,
+        references: tuple[tuple[bytes, str, str], ...] = (),
     ) -> EditedImage:
         if image_mime(image_bytes) != mime:
             raise ValueError("unverified source image")
-        reference_bytes, reference_name = self._reference_bytes(image_bytes, mime, filename)
+        if len(references) > 2:
+            raise ValueError("at most two additional reference images")
         if not await self.available():
             raise RuntimeError("QWEN_IMAGE_EDIT_NOT_CONFIGURED")
+        media = []
+        for data, kind, name in ((image_bytes, mime, filename), *references):
+            if image_mime(data) != kind:
+                raise ValueError("unverified reference image")
+            reference_bytes, reference_name = self._reference_bytes(data, kind, name)
+            reference = await json_request(
+                self.client, "POST", self._url("/api/studio/references"),
+                headers=self._headers,
+                payload={"filename": reference_name[:120],
+                         "data_base64": base64.b64encode(reference_bytes).decode("ascii")},
+                timeout=60,
+            )
+            run_id = reference.get("id") if isinstance(reference, dict) else None
+            if not isinstance(run_id, str) or not run_id:
+                raise RuntimeError("Studio reference import failed")
+            media.append({"run_id": run_id, "role": "reference"})
+        return await self._run_job(prompt=prompt, media=media, settings=settings)
 
-        reference = await json_request(
-            self.client,
-            "POST",
-            self._url("/api/studio/references"),
-            headers=self._headers,
-            payload={
-                "filename": reference_name[:120],
-                "data_base64": base64.b64encode(reference_bytes).decode("ascii"),
-            },
-            timeout=60,
-        )
-        run_id = reference.get("id") if isinstance(reference, dict) else None
-        if not isinstance(run_id, str) or not run_id:
-            raise RuntimeError("Studio reference import failed")
+    async def generate(self, *, prompt: str, settings: dict | None = None) -> EditedImage:
+        if not await self.available():
+            raise RuntimeError("QWEN_IMAGE_GENERATION_NOT_CONFIGURED")
+        return await self._run_job(prompt=prompt, media=[], settings=settings)
 
+    async def _run_job(self, *, prompt: str, media: list[dict],
+                       settings: dict | None) -> EditedImage:
+        if not str(prompt or "").strip():
+            raise ValueError("image prompt required")
         job = await json_request(
             self.client,
             "POST",
@@ -140,7 +153,7 @@ class StudioImageEditBroker:
                 "model": self.config.model_id,
                 "prompt": str(prompt or "").strip()[:12000],
                 "settings": dict(settings or {}),
-                "media": [{"run_id": run_id, "role": "reference"}],
+                "media": media,
                 "count": 1,
             },
             timeout=60,
