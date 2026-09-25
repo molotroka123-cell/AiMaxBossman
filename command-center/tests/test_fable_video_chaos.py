@@ -149,7 +149,7 @@ async def test_ffmpeg_crash_mid_render_never_publishes_an_artifact(env, tmp_path
 
     async def crashing(argv, **kwargs):
         argv = list(argv)
-        if kwargs.get("stage") == "render" or "-filter_complex_script" in map(str, argv):
+        if kwargs.get("stage") == "rendering":
             calls["n"] += 1
             # Emulate the encoder dying part-way: exit non-zero, leave debris.
             raise ValueError("media process failed: encoder terminated")
@@ -363,7 +363,7 @@ async def test_interrupted_export_is_recoverable_by_re_export(env, tmp_path, mon
     original = media_mod.process
 
     async def killed(argv, **kwargs):
-        if "-filter_complex_script" in list(map(str, argv)):
+        if kwargs.get("stage") == "rendering":
             raise asyncio.CancelledError()
         return await original(argv, **kwargs)
 
