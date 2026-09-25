@@ -9,6 +9,7 @@ from bcc.pit.moderate_discovery import choose_personal_question
 from bcc.pit.topic_policy import SensitiveTopic, detect_user_initiated_topics, may_discuss, may_store_durably
 
 from bcc.pit.roleplay import RolePlayMode, RolePlayState, roleplay_allowed, roleplay_prompt
+from bcc.pit.roleplay_commands import load_roleplay, parse_roleplay_command, set_roleplay
 
 from bcc.pit.behavior_controller import BehaviorController
 
@@ -603,3 +604,56 @@ def test_public_bossman_overview_stops_at_v16_and_hides_v17():
     assert "v1.6" in reply.text
     assert "1.7" not in reply.text
     assert "PIT" not in reply.text
+
+
+def test_roleplay_state_is_per_id_and_survives_restart(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    a = vault.key_for_telegram(700)
+    b = vault.key_for_telegram(701)
+
+    set_roleplay(
+        vault,
+        a,
+        enabled=True,
+        mode=RolePlayMode.PARODY,
+        participant_consented=True,
+        persona_label="friendly caricature",
+    )
+
+    assert load_roleplay(vault, a).mode == RolePlayMode.PARODY
+    assert load_roleplay(vault, a).participant_consented is True
+    assert load_roleplay(vault, b).enabled is False
+
+    reopened = PersonaVault(tmp_path, SALT)
+    assert load_roleplay(reopened, a).mode == RolePlayMode.PARODY
+    assert load_roleplay(reopened, b).enabled is False
+
+
+def test_roleplay_command_parser_needs_separate_consent_gate():
+    enabled, mode, label = parse_roleplay_command("/parody on playful")
+    assert enabled is True and mode == RolePlayMode.PARODY
+    assert label == "playful"
+
+    enabled, mode, label = parse_roleplay_command("/roleplay off")
+    assert enabled is False and mode == RolePlayMode.OFF
+
+
+def test_roleplay_state_is_participant_exportable_but_security_scores_are_not(tmp_path):
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(702)
+    set_roleplay(
+        vault,
+        key,
+        enabled=True,
+        mode=RolePlayMode.CHARACTER,
+        participant_consented=True,
+        persona_label="detective",
+    )
+    BehaviorLedger(vault).apply(key, BehaviorEvent.DISCOVERY_ANSWERED)
+    RiskLedger(vault).add(key, delta=1, kind="identity")
+
+    exported = json.dumps(vault.export(key), ensure_ascii=False)
+    assert "roleplay.json" in exported
+    assert "detective" in exported
+    assert "behavior.json" not in exported
+    assert "risk.json" not in exported
