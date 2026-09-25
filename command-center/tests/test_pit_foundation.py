@@ -172,7 +172,7 @@ def test_telegram_tool_registry_has_no_computer_shell_admin_payment_or_trading()
         "admin.users",
     ):
         assert not policy.allows(forbidden), forbidden
-    for allowed in ("web.search", "browser.read", "calculator", "vision.analyze_own", "file.analyze_upload"):
+    for allowed in ("web.search", "browser.read", "calculator", "code.reason"):
         assert policy.allows(allowed), allowed
 
 
@@ -478,8 +478,8 @@ def test_pit_models_have_no_direct_persona_or_filesystem_tools():
         "filesystem.read", "device.info", "geolocation.read",
     ):
         assert not policy.allows(name), name
-    assert policy.allows("vision.analyze_own")
-    assert policy.allows("file.analyze_upload")
+    assert not policy.allows("vision.analyze_own")
+    assert not policy.allows("file.analyze_upload")
 
 
 def test_free_only_router_rejects_unknown_or_nonzero_remote_price():
