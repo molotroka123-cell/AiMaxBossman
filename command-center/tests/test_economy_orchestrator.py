@@ -119,9 +119,15 @@ def test_paid_finalizer_is_skipped_without_explicit_allow():
 def test_policy_declares_jev_controller_and_no_live_trading():
     p = model_policy()
     assert p["controller"] == "jev"
-    assert p["auditor"] == "aster_external_only"
+    assert p["auditor"] == "aster_read_only_external"
     assert p["rules"]["three_independent_nemotron_agents"] is True
+    assert p["rules"]["bossman_owns_repairs"] is True
+    assert p["rules"]["aster_never_codes"] is True
     assert p["rules"]["live_trading"] is False
+    assert p["external_auditor_policy"]["may_write_code"] is False
+    assert p["external_auditor_policy"]["may_apply_patch"] is False
+    assert p["external_auditor_policy"]["may_commit"] is False
+    assert p["external_auditor_policy"]["may_run_tests"] is True
 
 
 
