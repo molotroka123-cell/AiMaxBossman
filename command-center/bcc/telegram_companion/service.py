@@ -321,7 +321,7 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
 
     async def request_secret(self, person: Person, *, screenshot: bytes, fields: tuple[SecretField, ...],
                              target: str, screenshot_redacted: bool = False,
-                             ttl_seconds: int = 180) -> str:
+                             ttl_seconds: int = 180, executor=None) -> str:
         """Ask the bound owner for one ephemeral credential payload.
 
         The screenshot must be captured before secret entry and explicitly
@@ -329,12 +329,13 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
         """
         if person.role != "owner":
             raise CompanionError("SECRET_INTAKE_OWNER_ONLY")
-        if self.secret_executor is None:
+        chosen_executor = executor or self.secret_executor
+        if chosen_executor is None:
             raise CompanionError("SECRET_EXECUTOR_NOT_CONFIGURED")
         req = self.secret_intake.begin(
             owner_key=person.key, chat_id=person.chat_id, target=target, fields=fields,
             screenshot=screenshot, screenshot_redacted=screenshot_redacted,
-            executor=self.secret_executor, ttl_seconds=ttl_seconds,
+            executor=chosen_executor, ttl_seconds=ttl_seconds,
         )
         try:
             message_id = await self.telegram.send_photo(person, screenshot, request_caption(req))
