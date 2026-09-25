@@ -50,7 +50,13 @@ jobs:
           command-center/tests/test_pit_photo_foundation.py
           command-center/tests/test_pit_runtime.py
           command-center/tests/test_pit_cli.py
-          -q
+          -q --tb=short > pytest-output.txt 2>&1; status=$?; cat pytest-output.txt; exit $((status))
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pit-pytest-output
+          path: pytest-output.txt
       - name: Compile PIT package
         run: python -m compileall -q command-center/bcc/pit
       - name: Whitespace hygiene
