@@ -99,3 +99,32 @@ When 1.6 gets a new HEAD tomorrow:
 - adapt PIT broker only if the existing Studio contract changed;
 - do not merge 1.6 wholesale into 1.7 during laptop shadow;
 - later convergence happens by meaning after 1.5/1.6 tests are green.
+
+
+## Exact inspected 1.6 media contracts
+
+At `c3b65e30d62383a054126a4c6726ed4a3bbf65a1`:
+
+- `command-center/bcc/telegram_companion/adapters.py` = `d3f44cb102ee5967bb5eb172359d68643c4b05f9`
+- `command-center/bcc/telegram_companion/config.py` = `20f401e805449a9730d58017ccd55b0310d44092`
+- `command-center/bcc/features/studio.py` = `fb1167b9c50b1a06241fee362d81a7c0876d90a4`
+- `command-center/bcc/studio/provider.py` = `477cb58b0c9515023bb236e34b5e4c9ff9afe043`
+- `command-center/bcc/studio/dispatch.py` = `035db39a167362ce7afce923dcd2b0d12466065c`
+- `command-center/tests/telegram_contracts/test_companion_vision.py` = `1d53a8f7d7560769ed153bed6f21d9bbffaed33c`
+- `command-center/tests/telegram_contracts/test_companion_image_gen.py` = `3dfe92d2427a0dc9924b6a7b342a457ce8eac83e`
+
+## WebP compatibility
+
+Telegram vision accepts JPEG/PNG/WebP.
+
+The current 1.6 Studio reference import accepts PNG/JPG/JPEG for raster images.
+
+1.7 therefore normalizes a verified WebP participant photo to PNG **inside `StudioImageEditBroker` before reference import**. This avoids widening/changing the shared 1.6 Studio API and lowers merge-conflict risk.
+
+## Path conflict check
+
+The inspected 1.6 tree contains **no `command-center/bcc/pit/` files**.
+
+Current Qwen/PIT media foundation therefore lands in new paths only. No existing 1.6 Studio/Telegram source file was modified for this foundation.
+
+The later convergence should add only the minimal local Qwen image-edit provider/catalog registration necessary for Studio to advertise the configured model.
