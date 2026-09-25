@@ -29,7 +29,7 @@ from .config import (
     save_setup,
 )
 from .photo_runtime import build_photo_services, photo_runtime_status
-from .runtime import STOP_FLAG, ParticipantRuntime
+from .runtime import STOP_FLAG, ParticipantRuntime, StopRequested
 
 COMMANDS = ("setup", "status", "doctor", "start", "stop")
 
@@ -349,6 +349,36 @@ def _store_state(home: Path, key: str):
 
 
 # -- start / stop ------------------------------------------------------------------------
+def _keep_system_awake():
+    """Windows: hold an awake state while the participant bot is alive.
+
+    The owner runs Jeff on a laptop that also sleeps on idle; a Telegram bot
+    that dies every time the machine naps is not a product. While this context
+    is held the system cannot sleep (the display still may). It is released on
+    any exit path, so stop/restart keeps working as before.
+    """
+    import contextlib
+
+    if os.name != "nt":
+        return contextlib.nullcontext()
+
+    import ctypes
+
+    ES_CONTINUOUS = 0x80000000
+    ES_SYSTEM_REQUIRED = 0x00000001
+
+    class _Awake:
+        def __enter__(self):
+            ctypes.windll.kernel32.SetThreadExecutionState(
+                ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+
+        def __exit__(self, *exc):
+            ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+            return False
+
+    return _Awake()
+
+
 def cmd_start(path: Path) -> int:
     from bcc.telegram_companion.store import single_instance
     settings = load(path)
@@ -359,12 +389,14 @@ def cmd_start(path: Path) -> int:
         print(f"bossman pit: {exc}", file=sys.stderr)
         return 3
     (home / STOP_FLAG).unlink(missing_ok=True)
-    with lock:
+    with lock, _keep_system_awake():
         runtime = ParticipantRuntime(settings)
         try:
             asyncio.run(runtime.run())
             return 0
         except KeyboardInterrupt:
+            return 0
+        except StopRequested:
             return 0
         except CompanionError as exc:
             print(f"bossman pit: {exc}", file=sys.stderr)

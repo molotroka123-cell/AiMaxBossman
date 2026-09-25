@@ -58,6 +58,16 @@ from .telegram_contract import USER_COMMANDS
 from .vault import PersonaVault, _append_jsonl, _atomic_json
 
 STOP_FLAG = "stop.flag"
+
+
+class StopRequested(RuntimeError):
+    """Raised by the poll loop when the owner asked for a clean shutdown.
+
+    asyncio.wait(FIRST_EXCEPTION) does not react to a task that merely returns,
+    so the stop flag must surface as an exception for the supervisor in run()
+    to notice it and tear the process down.
+    """
+
 MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
 DOCUMENT_TEXT_CHUNK = 12000
 TEXT_DOCUMENT_SUFFIXES = frozenset({
@@ -453,6 +463,8 @@ class ParticipantRuntime:
             done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
             for task in done:
                 task.result()
+        except StopRequested:
+            pass
         finally:
             for task in tasks:
                 task.cancel()
@@ -490,7 +502,7 @@ class ParticipantRuntime:
         delay = 1.0
         while True:
             if (self.home / STOP_FLAG).exists():
-                return
+                raise StopRequested("owner stop flag")
             try:
                 updates = await self.telegram.call("getUpdates", {
                     "offset": self.store.get("offset", 0), "timeout": 25, "limit": 20,

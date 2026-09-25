@@ -7,8 +7,9 @@ from pathlib import Path
 import pytest
 
 from bcc.pit import cli as pit_cli
+from bcc.pit import runtime as rt
 from bcc.pit.config import PITSettings, config_path, credentials_path, looks_like_repo, pit_home
-from bcc.telegram_companion.config import CompanionError
+from bcc.telegram_companion.config import CompanionError, Person
 
 
 def test_setup_refuses_to_overwrite(tmp_path):
@@ -51,6 +52,55 @@ def test_stop_without_process_reports_not_running(tmp_path, capsys):
     code = pit_cli.cmd_stop(config_path(tmp_path))
     assert code == 0
     assert "не запущен" in capsys.readouterr().out
+
+
+def test_poll_stop_flag_raises_stop_requested(tmp_path):
+    """bossman pit stop must actually terminate the loop (owner path)."""
+    import asyncio
+
+    from bcc.pit.runtime import STOP_FLAG, StopRequested
+
+    runtime = rt.ParticipantRuntime.__new__(rt.ParticipantRuntime)
+    runtime.home = tmp_path / "pit-v1.7"
+    runtime.home.mkdir(parents=True)
+    (runtime.home / STOP_FLAG).write_text("now", encoding="utf-8")
+    runtime.store = _DummyStore()
+    runtime.telegram = _DummyTelegram()
+    runtime.settings = PITSettings(
+        data_dir=tmp_path,
+        people=(Person(user_id=101, chat_id=101, role="owner"),),
+        chat_models=("m:free",),
+        provider_base_url="http://127.0.0.1:9/v1", provider_key="k",
+        bot_token="t", identity_salt="ab" * 32)
+    with pytest.raises(rt.StopRequested):
+        asyncio.run(runtime._poll())
+
+
+class _DummyStore:
+    def get(self, key, default=0):
+        return default
+
+    def put(self, key, value):
+        return None
+
+
+class _DummyTelegram:
+    async def call(self, method, payload):
+        return []
+
+
+def test_keep_system_awake_context_on_windows():
+    """PIT start holds an awake state on Windows so sleep cannot kill the bot."""
+    import contextlib
+    import os as _os
+
+    holder = pit_cli._keep_system_awake()
+    if _os.name == "nt":
+        assert hasattr(holder, "__enter__") and hasattr(holder, "__exit__")
+        with holder:
+            pass  # enter/exit must not raise even when called twice in a row
+    else:
+        assert isinstance(holder, contextlib.nullcontext)
 
 
 def test_running_probe_checks_byte_zero(tmp_path, monkeypatch):
