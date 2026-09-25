@@ -31,6 +31,29 @@ async def get_one(request_id: str, request: Request):
         raise HTTPException(404, {"code": "OWNER_INPUT_NOT_FOUND"})
     return row
 
+@router.get("/{request_id}/screenshot")
+async def screenshot(request_id: str, request: Request):
+    """Fresh browser image for the private Telegram secret session.
+
+    Bytes stay local until the Telegram transport sends this explicitly to the
+    authenticated owner. They are not written to learning/memory.
+    """
+    import base64
+    svc = request.app.state.svc
+    row = _store(svc).get(request_id)
+    if row is None:
+        raise HTTPException(404, {"code": "OWNER_INPUT_NOT_FOUND"})
+    try:
+        from .browser import _mgr
+        data = await _mgr(svc).screenshot(int(row["session_id"]), actor="agent", approved=True)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(409, {"code": "OWNER_INPUT_SCREENSHOT_FAILED",
+                                  "message": f"{type(exc).__name__}: {exc}"[:300]}) from exc
+    if not isinstance(data, (bytes, bytearray)) or not bytes(data).startswith(b"\x89PNG\r\n\x1a\n"):
+        raise HTTPException(409, {"code": "OWNER_INPUT_SCREENSHOT_INVALID"})
+    return {"id": request_id, "status": row.get("status"), "mime": "image/png",
+            "data_base64": base64.b64encode(bytes(data)).decode("ascii")}
+
 
 @router.post("/{request_id}/answer")
 async def answer(request_id: str, request: Request):
