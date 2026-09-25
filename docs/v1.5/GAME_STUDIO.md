@@ -254,3 +254,18 @@ FALSE_PASS_NEGATIVE_CONTROL=PASS
 ```
 
 Then scale duration and quality through the same verified loop.
+
+---
+
+## SAME-RUN HANDOFF: 1.5 → 1.6
+
+После закрытия 1.5 **или** достижения `V1_5_NEAR_COMPLETE` этот же owner-run сразу продолжает работу в отдельной ветке 1.6:
+
+[feat/bossman-1.6-secret-intake-20260925](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-secret-intake-20260925)
+
+`V1_5_NEAR_COMPLETE` = нет software P0 и release-blocking P1, основные targeted/regression/hidden tests зелёные, canonical SHA зафиксирован, а остаток относится только к owner-live/soak/внешней среде.
+
+Не ждать отдельного следующего дня. Цель одного прогона:
+`BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED`.
+
+Evidence и финальные статусы 1.5 и 1.6 сохраняются раздельно по своим SHA.
