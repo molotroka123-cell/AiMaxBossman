@@ -75,6 +75,44 @@ Automatically classify inputs TEXT/PHOTO/MULTI-PHOTO/VIDEO/AUDIO/DOCUMENT and in
 Studio remains canonical media execution plane.
 Borrow-first: ComfyUI workflow ideas; stable-diffusion.cpp local media runtime.
 
+### AI Video Editing Workspace — Kadr
+Canonical candidate:
+- `HelpFreedom/kadr`
+- Usefulness: 9.8/10
+- Architecture fit: 10/10
+- Owner-hardware fit: high; Electron/WebGL2/ffmpeg path does not require CUDA
+- Windows integration readiness: medium-high, but its embedded Claude session currently contains Linux-specific process/session assumptions that must not be treated as production-ready on Windows without adaptation
+- License: GPL-3.0
+
+Bossman should use Kadr as an **external video-editing workspace/process through MCP/API-style integration**, not copy GPL-3.0 source into Bossman core unless the licensing consequences are explicitly accepted.
+
+Preferred architecture:
+`Bossman → Jev media intent → Studio/media assets → Kadr MCP/adapter → live timeline → preview/snapshot → visual verifier → export`.
+
+Division of responsibilities:
+- Qwen Image / Wan / other Studio models generate media assets;
+- Kadr performs timeline editing, subtitles, beat alignment, Remotion fragments, TTS/voice-over workflows and export;
+- Bossman acts as director/orchestrator;
+- Jev chooses generation/editing route;
+- vision verifier checks preview/final frames;
+- Aster audits UX and workflow reliability.
+
+Useful Kadr capabilities to reuse via adapter:
+- live project state;
+- timeline edits with undo;
+- snapshot;
+- export;
+- transcription;
+- Remotion fragment creation;
+- beat-aligned editing;
+- captions;
+- ffmpeg export;
+- autosave/recovery;
+- storage/cache visibility;
+- AI-accessible project controls.
+
+Do not expose unrestricted Kadr eval/file/PTY authority to participant Jeff. Kadr is an owner/control-plane capability only unless a narrower sandboxed media tool is explicitly approved.
+
 ## 9. Agent Society 2.0
 Agents become measured specialists. Track speciality, verified quality, context efficiency, latency, tool success, skills, cost and failures. Task Compiler assembles temporary teams based on measured history.
 Borrow-first: AutoGen team/bench concepts; CAMEL society/critic concepts.
@@ -350,6 +388,75 @@ Bossman should map existing telemetry into this schema where sensible rather tha
 Privacy rule:
 raw participant prompts/responses remain opt-in/private; observability defaults to metadata, IDs, counts, timings, route/provider, costs, tool results and verifier outcomes without personal message content.
 
+
+# Mandatory 1.8 media smoke — 5-second advertisement intro
+
+After the 1.7 freeze and after the Kadr adapter is available, run one real owner-machine end-to-end media test before calling the Multimodal Brain foundation complete.
+
+## Goal
+Produce a **5-second vertical advertisement intro** for Fresh Vibes using Bossman orchestration.
+
+Default target:
+- duration: exactly 5.0 s ± 1 frame;
+- format: 1080×1920, 9:16;
+- fps: 30 unless the selected generation path requires another fixed rate;
+- final container: MP4/H.264 or the current verified Studio/Kadr export preset;
+- no paid external generation unless owner policy explicitly allows it.
+
+## Workflow
+1. Bossman receives: `create a 5-second premium Fresh Vibes intro ad`.
+2. Jev classifies it as VIDEO_GENERATE + VIDEO_EDIT.
+3. Studio generates or selects the base visual asset using the current best verified local/free route (prefer latest supported Wan path when available).
+4. Verify the generated source asset exists and is readable.
+5. Import the asset into Kadr through the adapter/MCP path.
+6. Assemble a 5-second timeline.
+7. Add a simple brand-safe intro treatment:
+   - Fresh Vibes name/logo if approved asset exists;
+   - short premium visual motion;
+   - optional beat-aligned sound only from approved/licensed local library;
+   - no fabricated medical claims.
+8. Create a live preview.
+9. Take at least one fresh preview snapshot.
+10. Run visual verifier for:
+   - readable branding;
+   - no obvious generation artifacts;
+   - no black frames;
+   - no broken alpha/composition;
+   - correct orientation;
+   - correct duration.
+11. Export final video.
+12. Independently verify with ffprobe:
+   - duration;
+   - resolution;
+   - fps;
+   - codec/container;
+   - audio presence/absence as expected.
+13. Open/play the exported file on the owner machine and verify first/middle/last frames.
+14. Record telemetry:
+   - generation wall time;
+   - Kadr edit/render wall time;
+   - peak unified memory;
+   - model/provider route;
+   - local/free/paid calls;
+   - total cost;
+   - output bytes;
+   - verifier verdict.
+15. Deliver the preview/final artifact to the OWNER AI CONTROL CHANNEL, not Jeff.
+
+## PASS
+`KADR_5S_INTRO=PASS` only if:
+- real generated/edited artifact exists;
+- exact-ish 5-second duration is independently measured;
+- output is playable;
+- branding is readable;
+- no black/corrupt frames;
+- export survives reopen;
+- no secrets/private paths are exposed;
+- owner/control-plane permissions remain intact.
+
+This test proves the chain:
+`Bossman → Jev → Studio/Wan → Kadr → verifier → export`.
+
 # Hardware / media research decisions
 
 ## ROCm / PyTorch experimental lane
@@ -399,6 +506,7 @@ Borrow its useful ideas:
 | Durable semantics | `dbos-inc/dbos-transact-py` | 9.5/10 | 9.5/10 | borrow/integrate, no second engine |
 | Business optimizer | `facebook/Ax` | 9.3/10 | 9.5/10 | bounded optimizer adapter |
 | GenAI telemetry | `open-telemetry/semantic-conventions-genai` | 10/10 | 9.5/10 | canonical telemetry semantics |
+| AI video editor | `HelpFreedom/kadr` | 9.0/10 overall (higher after Windows adapter) | 9.8/10 | external MCP/adapter; keep GPL boundary |
 
 # Consolidated 1.8 architecture
 
@@ -467,6 +575,7 @@ No foreground task → telemetry ranks opportunities → run bounded experiments
 - BUSINESS_VALUE_TRACKING PASS
 - DISTILLATION_FOUNDRY PASS
 - STREAMING_GIANT_BENCHMARKED
+- KADR_5S_INTRO PASS
 
 Minimum: >=10 autonomous improvement cycles, >=3 promoted, 0 critical regressions.
 
