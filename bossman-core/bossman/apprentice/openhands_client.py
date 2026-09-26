@@ -756,5 +756,9 @@ class OpenHandsClient:
         diff = _snapshot_diff(before_evidence, after_evidence, changed)
         if proc.returncode and response.get("status") != "failed":
             raise OpenHandsError(f"OpenHands sidecar exited {proc.returncode} without failed status")
+        if response.get("status") == "failed" and proc.stderr:
+            # Owner-visible bounded diagnostic: the sidecar suppresses secret-bearing
+            # detail on stdout; a bounded stderr tail names the real failure class.
+            response["stderr_tail"] = (proc.stderr or "")[-500:]
         return OpenHandsResult(str(response["status"]), changed, diff, response,
                                MappingProxyType(after_evidence))
