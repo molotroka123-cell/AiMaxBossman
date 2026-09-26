@@ -97,14 +97,14 @@ async def test_restore_returns_derived_index_to_snapshot_state(env):
 async def test_oversized_index_is_reported_as_rebuild_required(env, monkeypatch):
     """БД откатывается даже когда индекс не влез: он производный.
 
-    Предел опускаем до реального размера БД плюс запас — так проверяется тот же
-    арифметический путь «остаток предела», что и в бою, а не подменённая функция.
+    Предел опускаем до реального размера БД с запасом на строки аудита,
+    которые добавит сам второй запрос создания снапшота.
     """
     import bcc.features.snapshot as snap
     probe = (await env.client.post("/api/snapshots", json={"name": "замер"})).json()
     db_size = json.loads((Path(probe["path"]) / "manifest.json")
                          .read_text(encoding="utf-8"))["database"]["size_bytes"]
-    limit = db_size + 4096
+    limit = db_size + max(128 * 1024, db_size // 8)
     monkeypatch.setattr(snap, "MAX_ARTIFACT_BYTES", limit)
     index = _make_index(env, b"y" * (limit + 1))
 
