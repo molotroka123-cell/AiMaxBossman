@@ -379,7 +379,11 @@ def test_new_build_refuses_old_command_center_on_same_port(tmp_path, monkeypatch
     code = desktop.run(["--port", "18927", "--browser", "/bin/true",
                         "--profile", str(tmp_path / "profile"), "--no-show-token"],
                        launcher=lambda *a, **kw: opened.append(True) or 0, out=out)
-    assert code == 4
+    # 2026-09-26 contract (2b310849): a DIFFERENT Bossman build on the port is
+    # its own launch reason `backend-build-mismatch` with exit code 7; code 4
+    # stays for a foreign non-Command-Center app (see
+    # test_desktop_build_identity.py). Exact-build protection is unchanged.
+    assert code == 7
     assert opened == []
     assert "SHA" in out.getvalue() or "сборк" in out.getvalue().lower()
 

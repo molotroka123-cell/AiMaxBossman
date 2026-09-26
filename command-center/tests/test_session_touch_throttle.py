@@ -5,13 +5,22 @@
 запросы ждали не своих данных, а чужого коммита."""
 from __future__ import annotations
 
+import types
+
 import sqlalchemy as sa
 
 from bcc.db import sessions as sessions_t
 
 
-async def test_repeated_requests_write_last_seen_once(env):
+async def test_repeated_requests_write_last_seen_once(env, monkeypatch):
     store = env.svc.sessions
+    # Управляемые часы: под полной регрессией процесс мог подвиснуть дольше
+    # TOUCH_INTERVAL_S между двумя соседними touch, и троттл честно сработал бы.
+    # Тест меряет семантику троттла, а не удачу планировщика, поэтому идём
+    # по заведомо внутрииинтервальным шагам.
+    clock = {"t": 1000.0}
+    fake_time = types.SimpleNamespace(monotonic=lambda: clock["t"])
+    monkeypatch.setattr("bcc.sessions.time", fake_time)
     sess = await store.create("тест")
     sid = sess["id"]
 
@@ -24,6 +33,7 @@ async def test_repeated_requests_write_last_seen_once(env):
     await store.touch(sid)
     first = await stamp()
     for _ in range(30):                      # столько же, сколько даёт одна загрузка панели
+        clock["t"] += 1.0                    # шаг 1с << TOUCH_INTERVAL_S
         await store.touch(sid)
     assert await stamp() == first, "каждый запрос всё ещё пишет в БД"
 
