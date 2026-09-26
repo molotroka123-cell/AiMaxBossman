@@ -106,10 +106,21 @@ def _run(req: dict, out) -> int:
                   file=sys.stderr, flush=True)
 
 
+def _sanitize(obj):
+    """Strip lone surrogates: the SDK's pydantic serialization refuses them."""
+    if isinstance(obj, str):
+        return obj.encode("utf-8", "replace").decode("utf-8")
+    if isinstance(obj, dict):
+        return {_sanitize(k): _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize(v) for v in obj]
+    return obj
+
+
 def main() -> int:
     with _stdout_reserved() as out:
         try:
-            req = json.load(sys.stdin)
+            req = _sanitize(json.load(sys.stdin))
         except Exception as exc:  # noqa: BLE001 — тип наружу, детали в stderr
             _emit(out, "failed", error_type=type(exc).__name__)
             return 1
