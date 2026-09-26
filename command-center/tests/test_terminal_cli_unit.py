@@ -197,6 +197,19 @@ def test_start_without_optional_url_or_data_dir(monkeypatch, capsys):
     assert '"ok": true' in capsys.readouterr().out
 
 
+def test_exec_keeps_global_agent_and_model_unless_overridden():
+    from bcc.terminal_cli.cli import build_parser
+
+    parser = build_parser()
+    before = parser.parse_args(["--agent", "11", "--model", "local:qwen", "exec", "--text"])
+    assert before.agent == "11"
+    assert before.model == "local:qwen"
+
+    after = parser.parse_args(["exec", "--text", "--agent", "12", "--model", "cloud:x"])
+    assert after.agent == "12"
+    assert after.model == "cloud:x"
+
+
 # ----------------------------------------------------------------- launchers
 
 
