@@ -28,7 +28,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from . import db as dbm, discovery
 from . import __version__
 
-# Метка приложения для настольного лаунчера (GET /api/identity)
+# Stable health marker used by owner control and Telegram probes. Desktop
+# attachment has its own versioned marker in /api/identity.
 APP_IDENTITY = "bossman-command-center"
 # /api/events/stream: комментарий-пульс, чтобы прокси и клиент отличали тишину
 # задачи от оборванного соединения.
@@ -575,14 +576,15 @@ def _public_router() -> APIRouter:
     async def identity(svc: Services = Depends(services)):
         """Кто слушает этот порт. Нужен настольному лаунчеру: прежде чем
         переиспользовать «уже запущенный сервер», он обязан убедиться, что это
-        именно Command Center, а не чужое приложение. Секретов здесь нет —
-        только имя приложения, версия, время старта и SHA работающего исходника.
+        именно Command Center нужного desktop-протокола и сборки, а не чужое
+        приложение. Секретов здесь нет — только маркер протокола, версия,
+        время старта и SHA работающего исходника.
 
         SHA здесь обязателен: владелец не должен гонять брейкер по одному
         чекауту, думая, что запущен другой. Недоказанный источник называется
         SOURCE_IDENTITY_UNKNOWN, а не подставляется догадкой."""
-        from .build_identity import source_identity
-        return {"app": APP_IDENTITY, "version": __version__,
+        from .build_identity import DESKTOP_APP_IDENTITY, source_identity
+        return {"app": DESKTOP_APP_IDENTITY, "version": __version__,
                 "started_at": svc.started_at, **source_identity()}
 
     @router.post("/login")

@@ -28,6 +28,17 @@ def _load(path: Path):
     return mod
 
 
+def test_owner_runner_accepts_only_the_current_desktop_identity(monkeypatch):
+    mod = _load(RUNNER)
+    current = {"app": "bossman-command-center-build-bound-v1", "build_sha": "a" * 40}
+    monkeypatch.setattr(mod, "_loopback_get", lambda *a, **k: (200, current))
+    assert mod.bossman_identity("http://127.0.0.1:8800") == current
+
+    monkeypatch.setattr(mod, "_loopback_get", lambda *a, **k: (200, {
+        "app": "bossman-command-center", "build_sha": "b" * 40}))
+    assert mod.bossman_identity("http://127.0.0.1:8800") is None
+
+
 @pytest.fixture
 def support(tmp_path, monkeypatch):
     """A copy of the runner in an app-support-like folder with synthetic siblings."""

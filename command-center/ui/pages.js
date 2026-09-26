@@ -1286,26 +1286,40 @@ function appendLiveLog(ev) {
   if (nearBottom) taskState.logEl.scrollTop = taskState.logEl.scrollHeight;
 }
 
-/** Остановить все активные задачи (используется в командной палитре). */
+/** Общий STOP владельца (используется в командной палитре). */
 export async function stopAllRunning(ctx) {
-  let tasks = [];
-  try { tasks = listOf(await api.tasks(), 'tasks'); }
-  catch (e) { toastError(e, 'Не удалось получить список задач'); return; }
-
-  const active = tasks.filter((t) => ['running', 'queued', 'paused'].includes(String(t.status)));
-  if (!active.length) { toast('Активных задач нет', { type: 'info' }); return; }
+  let preview = null;
+  try { preview = await api.activeOwnerWork(); }
+  catch (e) { toastError(e, 'Не удалось получить полный список активных операций'); }
+  const unresolvedStudio = preview?.active?.studio_provider_unknown || [];
+  const count = Math.max(0, (Number(preview?.count) || 0) - unresolvedStudio.length);
+  const parts = Object.entries(preview?.active || {})
+    .filter(([plane, ids]) => plane !== 'studio_provider_unknown' && Array.isArray(ids) && ids.length)
+    .map(([plane, ids]) => `${plane}: ${ids.length}`);
 
   const ok = await confirmDialog({
-    title: 'Остановить все активные задачи?',
-    text: `Будут остановлены: ${active.map((t) => pick(t, ['title'], `#${pick(t, ['id'])}`)).slice(0, 8).join(', ')}${active.length > 8 ? ` и ещё ${active.length - 8}` : ''}.`,
-    okText: `Остановить (${active.length})`, danger: true,
+    title: 'Остановить все активные операции?',
+    text: `${count ? `Активно: ${parts.join(', ')}. ` : 'Активные операции не обнаружены. '}`
+      + 'STOP управления компьютером сохранится после перезапуска. '
+      + (unresolvedStudio.length ? `Studio: исход внешнего провайдера не подтверждён для ${unresolvedStudio.length} заданий. ` : '')
+      + (preview?.errors?.length ? 'Часть источников состояния недоступна; результат покажет ошибки. ' : '')
+      + 'Новые действия на компьютере потребуют «Продолжить».',
+    okText: 'Остановить всё', danger: true,
   });
   if (!ok) return;
 
-  const results = await Promise.allSettled(active.map((t) => api.taskAction(pick(t, ['id']), 'stop')));
-  const failed = results.filter((r) => r.status === 'rejected').length;
-  if (failed) toast(`Остановлено ${results.length - failed} из ${results.length}`, { type: 'warn', hint: 'Часть задач не приняла команду — обновите список.' });
-  else toastOk(`Остановлено задач: ${results.length}`);
+  let result;
+  try { result = await api.stopAllOwnerWork(); }
+  catch (e) { toastError(e, 'Глобальный STOP не подтверждён'); return; }
+  const stopped = Object.values(result.stopped || {}).reduce((n, ids) => n + ids.length, 0);
+  const remaining = Object.values(result.remaining || {}).reduce((n, ids) => n + ids.length, 0);
+  const requested = Object.values(result.requested || {}).reduce((n, ids) => n + ids.length, 0);
+  const unknown = result.provider_outcome_unknown || [];
+  if (result.ok === true) toastOk(`STOP подтверждён: завершено ${stopped} операций`);
+  else if (unknown.length) toast(`STOP частично подтверждён: завершено ${stopped}, ожидают проверки ${remaining || requested}, ошибок ${(result.errors || []).length}; исход Studio не подтверждён для ${unknown.length} заданий`,
+    { type: 'warn', hint: `OWNER_REQUIRED: проверьте результат у внешнего Studio-провайдера для job ID ${unknown.slice(0, 10).join(', ')}${unknown.length > 10 ? '…' : ''}. Повтор STOP не подтверждает внешний результат.` });
+  else toast(`STOP частично подтверждён: завершено ${stopped}, ожидают остановки ${remaining || requested}, ошибок ${(result.errors || []).length}`,
+    { type: 'warn', hint: 'Проверьте состояние операций и повторите STOP, если они ещё активны.' });
   ctx.refresh();
 }
 

@@ -120,6 +120,21 @@ async def test_stop_then_instant_resume_still_cancels_the_queued_action(env, gat
     assert [t for k, _, t, _ in gated.desktop.executed if k == "TYPE"] == ["A"]
 
 
+async def test_stop_interrupts_an_in_flight_wait(env, gated):
+    """A harmless active wait must not report verified success after owner STOP."""
+    action = asyncio.create_task(tc.act(env.svc, {"action": "wait", "seconds": 5,
+                                                 "expect": {"window_title_contains": "Блокнот"}}))
+    for _ in range(100):
+        if gated.lock.locked():
+            break
+        await asyncio.sleep(0.01)
+    assert gated.lock.locked()
+    assert (await env.client.post("/api/computer/stop")).json()["persisted"] is True
+    with pytest.raises(tc.ActRefused, match="Стоп"):
+        await asyncio.wait_for(action, timeout=1)
+    assert not gated.lock.locked()
+
+
 @pytest.mark.parametrize("queued", [{"action": "launch", "target": "notepad"},
                                     {"action": "wait", "seconds": 0}])
 async def test_stop_then_instant_resume_cancels_queued_launch_and_wait(env, gated, queued):

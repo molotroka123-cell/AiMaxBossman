@@ -313,7 +313,11 @@ class WindowsDesktop:
             elif a.kind is ActionKind.DOUBLE_CLICK: pyautogui.doubleClick(*self._xy(a))
             elif a.kind is ActionKind.TYPE:
                 text=a.text or ""
-                interval=min(.2,max(0,float(a.args.get("interval",.01))))
+                # On the owner Win11 Notepad, 10 ms inter-key spacing dropped
+                # letters in ordinary ASCII text; 50 ms survived fresh UIA
+                # readback and file verification. Explicit callers may still
+                # request a different pacing for a known target.
+                interval=min(.2,max(0,float(a.args.get("interval",.05))))
                 if self._typeable(text,pyautogui):
                     # Порциями, а не одним вызовом: длинный текст с задержкой в
                     # 0.2 с на символ — это минуты, в течение которых команда

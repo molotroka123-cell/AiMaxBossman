@@ -162,6 +162,17 @@ class StudioImageEditBroker:
         if type(job_id) is not int:
             raise RuntimeError("Studio edit job creation failed")
 
+        try:
+            return await self._collect_job(job_id)
+        except asyncio.CancelledError:
+            # PIT STOP must not orphan a Studio request that was already admitted.
+            with __import__("contextlib").suppress(Exception):
+                await asyncio.wait_for(json_request(
+                    self.client, "POST", self._url(f"/api/studio/jobs/{job_id}/cancel"),
+                    headers=self._headers, timeout=5), timeout=6)
+            raise
+
+    async def _collect_job(self, job_id: int) -> EditedImage:
         loop = asyncio.get_running_loop()
         deadline = loop.time() + self.config.timeout_seconds
         while True:

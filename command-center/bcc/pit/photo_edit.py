@@ -38,12 +38,9 @@ class PhotoEditPipeline:
         instruction = str(prompt or "").strip()
         if not instruction:
             return PhotoEditReply("Напиши, что именно изменить на последнем фото.", None)
-        if not self.ai_max_ready or self.broker is None:
-            return PhotoEditReply(LAPTOP_IMAGE_GENERATION_REPLY_RU, None)
-        if not self.image_use_allowed:
-            return PhotoEditReply("Локальное редактирование пока не включено для этого режима использования.", None)
-        if self.vram_gate is not None and not await self.vram_gate():
-            return PhotoEditReply("Редактирование временно отложено: ресурсы нужны Bossman 1.6.", None)
+        unavailable = await self._unavailable()
+        if unavailable:
+            return PhotoEditReply(unavailable, None)
 
         asset = self.store.latest(person_key)
         if asset is None:
@@ -63,3 +60,31 @@ class PhotoEditPipeline:
             references=references,
         )
         return PhotoEditReply("Готово.", output)
+
+    async def edit_current_bytes(self, data: bytes, prompt: str) -> PhotoEditReply:
+        """Edit this upload without making it Jeff's durable latest photo."""
+        instruction = str(prompt or "").strip()
+        if not instruction:
+            return PhotoEditReply("Напиши, что именно изменить на фото.", None)
+        unavailable = await self._unavailable()
+        if unavailable:
+            return PhotoEditReply(unavailable, None)
+        source, mime = PhotoStore.verify_input(data)
+        output = await self.broker.edit(
+            image_bytes=source,
+            mime=mime,
+            prompt=instruction,
+            filename="telegram-photo" + PhotoStore._suffix(mime),
+            settings={},
+            references=(),
+        )
+        return PhotoEditReply("Готово.", output)
+
+    async def _unavailable(self) -> str | None:
+        if not self.ai_max_ready or self.broker is None:
+            return LAPTOP_IMAGE_GENERATION_REPLY_RU
+        if not self.image_use_allowed:
+            return "Локальное редактирование пока не включено для этого режима использования."
+        if self.vram_gate is not None and not await self.vram_gate():
+            return "Редактирование временно отложено: ресурсы нужны Bossman 1.6."
+        return None

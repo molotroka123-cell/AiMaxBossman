@@ -250,7 +250,7 @@ def os81_product_installs_and_starts(ctx) -> None:
     with _installed_server(ctx, pkg, data, tag="os81") as (call, log_path):
         identity = call("/api/identity", expect=200).json()
         ctx.positive("установленный продукт поднялся и назвал себя",
-                     identity.get("app") == "bossman-command-center"
+                     identity.get("app") == "bossman-command-center-build-bound-v1"
                      and identity.get("source") == "installed_build",
                      f"{identity.get('app')} / {identity.get('source')} / {identity.get('version')}")
         page = call("/", expect=200)
@@ -454,7 +454,8 @@ def os83_first_run_without_configuration(ctx) -> None:
     with _installed_server(ctx, pkg, data, tag="os83") as (call, log_path):
         identity = call("/api/identity", expect=200).json()
         ctx.positive("первый запуск дошёл до ответа, а не до трассы",
-                     identity.get("app") == "bossman-command-center", str(identity.get("app")))
+                     identity.get("app") == "bossman-command-center-build-bound-v1",
+                     str(identity.get("app")))
 
         health = call("/health")
         components = health.json()["components"]

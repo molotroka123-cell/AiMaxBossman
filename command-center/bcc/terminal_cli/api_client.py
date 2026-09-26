@@ -23,7 +23,9 @@ from typing import Any, Iterator
 
 import httpx
 
-APP_IDENTITY = "bossman-command-center"
+from ..build_identity import DESKTOP_APP_IDENTITY
+
+APP_IDENTITY = DESKTOP_APP_IDENTITY
 HEADER = "X-BCC-Token"
 CSRF_HEADER = "X-BCC-CSRF"
 _APPROVAL_DECISION = re.compile(r"^/api/approvals/\d+/?$")

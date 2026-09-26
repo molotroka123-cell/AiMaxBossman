@@ -333,6 +333,28 @@ def test_launch_binds_new_window_to_launched_process():
     assert tc.attribute_new_window([], launched_pid=42, expected_exes={"notepad.exe"}) is None
 
 
+def test_calculator_launch_binds_only_verified_hosted_window():
+    """Win11 Calculator is framed by ApplicationFrameHost, not calc.exe."""
+    names = {10: "applicationframehost.exe", 11: "applicationframehost.exe",
+             12: "msedge.exe"}
+    new = [(101, "Unrelated UWP", 10), (102, "Калькулятор", 11),
+           (103, "Ad popup", 12)]
+    kwargs = {"launched_pid": 99, "expected_exes": {"calc.exe"},
+              "process_name": lambda p: names.get(p, ""),
+              "hosted_app": "calculator",
+              "hosted_window_matcher": lambda h: h == 102}
+    assert tc.attribute_new_window(new, **kwargs) == (102, "Калькулятор")
+    assert tc.attribute_new_window(new, **{**kwargs, "hosted_window_matcher": lambda h: False}) is None
+    assert tc.attribute_new_window(new, **{**kwargs, "hosted_app": "notepad"}) is None
+    assert tc._is_hosted_calculator_exe(
+        r"C:\Program Files\WindowsApps\Microsoft.WindowsCalculator_11.2607_x64__8wekyb3d8bbwe\CalculatorApp.exe"
+    )
+    assert not tc._is_hosted_calculator_exe(r"C:\Users\asd\CalculatorApp.exe")
+    assert not tc._is_hosted_calculator_exe(
+        r"C:\Program Files\WindowsApps\OtherPackage_1_x64\CalculatorApp.exe"
+    )
+
+
 async def test_launch_is_allowlist_only(env, desk):
     with pytest.raises(tc.ActRefused, match="allowlist"):
         await tc.act(env.svc, {"action": "launch", "target": "cmd.exe /c del *"})

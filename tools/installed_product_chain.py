@@ -717,7 +717,7 @@ def run_chain(work: Path, evidence: Path, *, expected_sha, doctor, require_brows
 
         def http_ready():
             identity = client("/api/identity")
-            assert identity["app"] == "bossman-command-center", identity
+            assert identity["app"] == "bossman-command-center-build-bound-v1", identity
             assert identity.get("source") == "installed_build", (
                 f"работающий код называет себя {identity.get('source')!r}, а не установленной "
                 f"сборкой: {identity.get('detail')!r}")

@@ -57,7 +57,8 @@ async def cancel(jid:int,request:Request):
 async def retry(jid:int,request:Request):
     old=await guard(rt.get_job(request.app.state.svc,jid))
     if old['status'] not in ('failed','cancelled'):raise HTTPException(409,'Only stopped jobs may be retried')
-    if old['studio']['reason']=='interrupted_unknown':raise HTTPException(409,'Inspect external request before creating a fresh job')
+    if old['studio']['reason'] in ('interrupted_unknown','owner_stop_provider_unknown'):
+        raise HTTPException(409,'Inspect external request before creating a fresh job')
     plane=old['studio']['plane']
     return await guard(rt.create_job(request.app.state.svc,{**plane,'media':[{'run_id':m['run_id'],'role':m['role']} for m in plane['media']]}))
 @router.get('/runs')

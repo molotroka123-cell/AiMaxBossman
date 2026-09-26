@@ -68,6 +68,18 @@ class PhotoStore:
     def _suffix(mime: str) -> str:
         return {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[mime]
 
+    @staticmethod
+    def verify_input(data: bytes) -> tuple[bytes, str]:
+        if not isinstance(data, (bytes, bytearray)) or not data:
+            raise ValueError("empty photo")
+        if len(data) > IMAGE_MAX_BYTES:
+            raise ValueError("photo exceeds 10 MiB")
+        raw = bytes(data)
+        mime = image_mime(raw)
+        if mime is None:
+            raise ValueError("unsupported photo bytes")
+        return raw, mime
+
     def ingest(self, person_key: str, message_id: str | int, data: bytes) -> PhotoAsset:
         return self._ingest(person_key, message_id, data, update_latest=True)
 
@@ -104,14 +116,7 @@ class PhotoStore:
 
     def _ingest(self, person_key: str, message_id: str | int, data: bytes,
                 *, update_latest: bool) -> PhotoAsset:
-        if not isinstance(data, (bytes, bytearray)) or not data:
-            raise ValueError("empty photo")
-        if len(data) > IMAGE_MAX_BYTES:
-            raise ValueError("photo exceeds 10 MiB")
-        raw = bytes(data)
-        mime = image_mime(raw)
-        if mime is None:
-            raise ValueError("unsupported photo bytes")
+        raw, mime = self.verify_input(data)
         digest = hashlib.sha256(raw).hexdigest()
         safe_mid = re.sub(r"[^0-9A-Za-z_-]", "_", str(message_id))[:80] or "photo"
         path = self._dir(person_key) / f"{safe_mid}-{digest[:16]}{self._suffix(mime)}"
@@ -229,6 +234,7 @@ class PhotoPipeline:
         self.vram_gate = vram_gate
         self._background: set[asyncio.Task] = set()
         self._bg_slots = asyncio.Semaphore(1)
+        self._memory_epoch: dict[str, int] = {}
 
     async def answer_photo(
         self,
@@ -238,8 +244,13 @@ class PhotoPipeline:
         data: bytes,
         prompt: str = "",
         consent: ConsentState | None = None,
+        retain: bool = True,
     ) -> PhotoReply:
-        asset = self.store.ingest(person_key, message_id, data)
+        # A paused participant may request a one-time vision answer without
+        # adding the image to Jeff's durable latest/reference media store.
+        asset = self.store.ingest(person_key, message_id, data) if retain else None
+        if asset is None:
+            raw, mime = PhotoStore.verify_input(data)
         if not self.ai_max_ready or self.vision is None:
             return PhotoReply(LAPTOP_PHOTO_REPLY_RU, asset, False)
         if self.vram_gate is not None and not await self.vram_gate():
@@ -247,20 +258,32 @@ class PhotoPipeline:
             # is NOT claimed — the participant hears the laptop answer.
             return PhotoReply(LAPTOP_PHOTO_REPLY_RU, asset, False)
 
-        raw = self.store.read_verified(asset)
-        answer = await self.vision.analyze_fast(raw, asset.mime, prompt)
+        if asset is not None:
+            raw, mime = self.store.read_verified(asset), asset.mime
+        answer = await self.vision.analyze_fast(raw, mime, prompt)
         state = consent if consent is not None else self.vault.consent(person_key)
         # The Telegram worker starts this only after sendMessage confirms the
         # participant received the foreground answer.
-        return PhotoReply(answer, asset, False, state.memory_enabled)
+        return PhotoReply(answer, asset, False, bool(asset and state.memory_enabled))
 
     def schedule_background_after_delivery(self, asset: PhotoAsset, *, caption: str) -> None:
+        if not self.vault.consent(asset.person_key).memory_enabled:
+            return
+        epoch = self._memory_epoch.get(asset.person_key, 0)
         task = asyncio.create_task(
-            self._background_memory(asset, caption=caption),
+            self._background_memory(asset, caption=caption, epoch=epoch),
             name=f"pit-photo-memory-{asset.message_id}",
         )
         self._background.add(task)
         task.add_done_callback(self._background.discard)
+
+    def invalidate_background_memory(self, person_key: str) -> None:
+        """Retire scheduled photo learning when this participant pauses memory."""
+        self._memory_epoch[person_key] = self._memory_epoch.get(person_key, 0) + 1
+
+    def _memory_current(self, person_key: str, epoch: int) -> bool:
+        return (self._memory_epoch.get(person_key, 0) == epoch
+                and self.vault.consent(person_key).memory_enabled)
 
     async def _wait_for_idle(self, *, max_wait_seconds: float = 30.0) -> None:
         loop = asyncio.get_running_loop()
@@ -268,22 +291,32 @@ class PhotoPipeline:
         while self.foreground_busy() and loop.time() < deadline:
             await asyncio.sleep(0.1)
 
-    async def _background_memory(self, asset: PhotoAsset, *, caption: str) -> None:
+    async def _background_memory(self, asset: PhotoAsset, *, caption: str, epoch: int) -> None:
         if self.vision is None:
             return
         async with self._bg_slots:
+            if not self._memory_current(asset.person_key, epoch):
+                return
             await asyncio.sleep(0)
             await self._wait_for_idle()
+            if not self._memory_current(asset.person_key, epoch):
+                return
             # If the foreground is still busy after the bounded wait, skip deep
             # enrichment rather than stealing compute from a live chat.
             if self.foreground_busy():
                 return
             if self.vram_gate is not None and not await self.vram_gate():
                 return
+            if not self._memory_current(asset.person_key, epoch):
+                return
             raw = await asyncio.to_thread(self.store.read_verified, asset)
+            if not self._memory_current(asset.person_key, epoch):
+                return
             try:
                 analysis = await self.vision.analyze_for_memory(raw, asset.mime, caption)
             except (OSError, ValueError, RuntimeError, TimeoutError):
+                return
+            if not self._memory_current(asset.person_key, epoch):
                 return
             candidates = visual_memory_candidates(
                 analysis=analysis,
@@ -292,6 +325,14 @@ class PhotoPipeline:
             )
             if candidates:
                 self.collector.ingest(asset.person_key, candidates)
+
+    async def cancel_background(self) -> None:
+        """Stop and await in-flight photo learning during owner STOP."""
+        tasks = tuple(self._background)
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def drain_background(self, *, timeout: float = 5.0) -> None:
         tasks = tuple(self._background)

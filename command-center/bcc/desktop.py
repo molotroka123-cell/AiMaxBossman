@@ -30,6 +30,7 @@ from typing import Callable, Sequence
 
 # Один и тот же переключатель для баннера окна и для анонса токена сервером.
 from .auth import TOKEN_STDOUT_ENV
+from .build_identity import DESKTOP_APP_IDENTITY
 
 # Кандидаты в порядке предпочтения: предустановленный Playwright-Chromium (его же
 # использует рантайм браузера), затем системные браузеры на Chromium-движке.
@@ -139,7 +140,35 @@ def browser_argv(browser: str, url: str, profile_dir: Path, *, window_size: str 
     ]
 
 
-APP_IDENTITY = "bossman-command-center"
+APP_IDENTITY = DESKTOP_APP_IDENTITY
+_LEGACY_APP_IDENTITY = "bossman-command-center"
+_BUILD_SHA = re.compile(r"[0-9a-f]{40}\Z")
+
+
+def _local_identity() -> dict:
+    """Identity of the code that is about to create the desktop window."""
+    from . import __version__
+    from .build_identity import source_identity
+
+    return {"app": APP_IDENTITY, "version": __version__, **source_identity(fresh=True)}
+
+
+def _same_build(local: dict, server: dict | None) -> bool:
+    """Only a proven, exact build may reuse a server from another process."""
+    if not server or local.get("app") != server.get("app") or local.get("version") != server.get("version"):
+        return False
+    local_sha, server_sha = local.get("build_sha"), server.get("build_sha")
+    return (local.get("source_identity") == server.get("source_identity") == "PASS"
+            and isinstance(local_sha, str) and isinstance(server_sha, str)
+            and _BUILD_SHA.fullmatch(local_sha) is not None
+            and local_sha == server_sha)
+
+
+def _identity_label(identity: dict) -> str:
+    sha = identity.get("build_sha")
+    if identity.get("source_identity") == "PASS" and isinstance(sha, str) and _BUILD_SHA.fullmatch(sha):
+        return sha[:12]
+    return "SOURCE_IDENTITY_UNKNOWN"
 
 
 def _get_json(url: str, timeout: float) -> dict | None:
@@ -820,7 +849,10 @@ class _BackgroundServer:
         self.thread.start()
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            if server_alive(url):
+            # A Command Center from another build can claim the port between
+            # run()'s first probe and uvicorn's bind. Its HTTP reply is not
+            # evidence that *this* server started.
+            if self.server.started and self.thread.is_alive() and server_alive(url):
                 return True
             if not self.thread.is_alive():
                 return False
@@ -881,7 +913,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     """Точка входа с инъекцией launcher'а для тестов.
 
     Коды выхода: 0 ок, 2 нет браузера, 3 сервер не поднялся, 4 порт занят чужим
-    приложением, 5 не удалось создать ярлык."""
+    приложением, 5 не удалось создать ярлык, 7 сервер другой сборки."""
     from .config import settings
 
     if out is None:
@@ -963,6 +995,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     launch_id = uuid.uuid4().hex[:8]
     _append_run_log(data_dir, f"start pid={os.getpid()} launch={launch_id} url={url}")
     _record_launch(data_dir, launch_id, "start", browser=browser)
+    local_identity = _local_identity()
     lock = _read_lock(data_dir)
     if lock:
         # Второе окно на том же профиле Chrome не открывает, а молча завершается
@@ -986,7 +1019,8 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
                 _desktop_lock_path(data_dir).unlink()
             except OSError:
                 pass
-        if owner_alive and lock_port and identify_server(f"http://{host}:{lock_port}/"):
+        lock_identity = identify_server(f"http://{host}:{lock_port}/") if owner_alive and lock_port else None
+        if owner_alive and _same_build(local_identity, lock_identity):
             msg = (f"[bcc-desktop] окно BOSSMAN уже запущено (порт {lock_port}) — второе окно "
                    "на том же профиле не открываю, иначе Chrome закроется сам.\n"
                    "[bcc-desktop] Совет: если окно ПУСТОЕ (страница не загрузилась) — "
@@ -1000,9 +1034,32 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     started: _BackgroundServer | None = None
     ident = identify_server(url)
     if ident:
+        if not _same_build(local_identity, ident):
+            own = _identity_label(local_identity)
+            running = _identity_label(ident)
+            print(f"[bcc-desktop] порт {port} занят Command Center другой сборки: "
+                  f"окно {own}, сервер {running}. Закройте старый сервер или укажите другой --port.",
+                  file=out, flush=True)
+            _append_run_log(data_dir, f"exit code=7 backend-build-mismatch port={port} "
+                                      f"window={own} server={running}")
+            _record_launch(data_dir, launch_id, "backend-build-mismatch", code=7)
+            _pause_console(out)
+            return 7
         print(f"[bcc-desktop] Command Center уже работает: {url} "
-              f"(версия {ident.get('version', '?')}) — подключаюсь к нему", file=out, flush=True)
+              f"(версия {ident.get('version', '?')}, сборка {_identity_label(ident)}) — подключаюсь к нему",
+              file=out, flush=True)
     elif port_busy(url):
+        # The old desktop protocol had no SHA check. Recognize its backend so
+        # the owner sees the real cause, but never attach the new window to it.
+        legacy = _get_json(url.rstrip("/") + "/api/identity", 2.0)
+        if legacy and legacy.get("app") == _LEGACY_APP_IDENTITY:
+            print(f"[bcc-desktop] порт {port} занят прежней сборкой Command Center "
+                  f"({_identity_label(legacy)}). Закройте старый сервер или укажите другой --port.",
+                  file=out, flush=True)
+            _append_run_log(data_dir, f"exit code=7 backend-legacy-identity port={port}")
+            _record_launch(data_dir, launch_id, "backend-build-mismatch", code=7)
+            _pause_console(out)
+            return 7
         # Порт занят чужим приложением: второй сервер тут не поднять, а открывать
         # чужой UI под именем BOSSMAN нельзя.
         print(f"[bcc-desktop] порт {port} занят другим приложением (это не Command Center) —"

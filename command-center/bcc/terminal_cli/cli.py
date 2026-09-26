@@ -808,39 +808,26 @@ def cmd_stop(args) -> int:
 
 
 def global_stop(client: Client, out: Out) -> int:
-    """Global STOP: every active task, the computer-control STOP flag, running
-    coding tasks. Each result is the backend's answer, reported one by one."""
-    stopped, errors = [], []
-    tasks = client.get("/api/tasks", params={"status": "queued,running,waiting_approval,paused",
-                                             "limit": 500}) or []
-    for t in tasks:
-        try:
-            client.post(f"/api/tasks/{t['id']}/stop")
-            stopped.append(t["id"])
-        except BossmanError as exc:
-            errors.append({"task_id": t["id"], "error": exc.message})
-    computer = None
-    try:
-        computer = client.post("/api/computer/stop")
-    except BossmanError as exc:
-        errors.append({"computer": exc.message})
-    coding = []
-    try:
-        for item in (client.get("/api/coding-tasks") or {}).get("items", []):
-            if item.get("status") == "running":
-                client.post(f"/api/coding-tasks/{item['id']}/cancel")
-                coding.append(item["id"])
-    except BossmanError as exc:
-        if exc.kind != "not_supported":
-            errors.append({"coding": exc.message})
-    rec = record("stop_all", ok=not errors, stopped_tasks=stopped, computer_stopped=bool(
-        (computer or {}).get("stopped")), cancelled_coding_tasks=coding, errors=errors or None,
-        exit_code=EXIT_OK if not errors else EXIT_FAIL)
+    """Use the same backend owner STOP as the Command Center palette."""
+    result = client.post("/api/control-plane/stop-all") or {}
+    confirmed = result.get("ok") is True
+    rec = record("stop_all", ok=confirmed, result=result,
+                 exit_code=EXIT_OK if confirmed else EXIT_FAIL)
     if out.machine:
         out.json(rec)
     else:
-        out.say(f"STOP: задач {len(stopped)}, компьютер {'остановлен' if rec['computer_stopped'] else '—'},"
-                f" coding {len(coding)}" + (f"; ошибки: {len(errors)}" if errors else ""))
+        stopped = sum(len(ids) for ids in (result.get("stopped") or {}).values())
+        remaining = sum(len(ids) for ids in (result.get("remaining") or {}).values())
+        out.say(f"STOP: подтверждено {stopped}, ещё активны {remaining}, "
+                f"ошибки {len(result.get('errors') or [])}; "
+                + ("полностью подтверждён" if confirmed else "требует проверки"))
+        unknown = result.get("provider_outcome_unknown") or []
+        if unknown:
+            ids = ", ".join(str(jid) for jid in unknown[:10])
+            suffix = "…" if len(unknown) > 10 else ""
+            out.say(f"OWNER_REQUIRED: проверьте исход внешнего Studio-провайдера "
+                    f"для {len(unknown)} заданий (job ID {ids}{suffix}). "
+                    "Повтор STOP не подтверждает внешний результат.")
     return rec["exit_code"]
 
 

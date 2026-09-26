@@ -35,33 +35,13 @@ jobs:
     # 30m repeatedly killed otherwise-green py3.12/3.14 jobs at the runner cap;
     # 60m keeps the test/coverage contracts intact while allowing runner jitter.
     timeout-minutes: 60
-    # Python 3.14 прочитан: run 34137665700 (ca9a4a7a) — Pytest на 3.14 зелёный
-    # на полном наборе. С этого момента 3.14 — такой же гейт, как 3.11 и 3.12;
-    # continue-on-error снят, чтобы он не превратился в способ не смотреть.
+    # The same installed core runtime is required on all three interpreters:
+    # v1.5 imports bossman_v3 and the coding path launches bossman.apprentice
+    # from a child process. A source checkout on PYTHONPATH cannot prove that.
     strategy:
       fail-fast: false          # красная 3.11 не должна скрывать результат 3.12
       matrix:
-        # 3.14 добавлена по journal-улике, а не «на всякий случай»: в сессии
-        # владельца 6cbb17ce84db ВСЕ восемь отказов OpenRouter (502/503/400)
-        # случились на python 3.14.3 и НИ ОДНОГО на 3.12.14, при том что
-        # requires-python объявлен как ">=3.11" без верхней границы. Продукт
-        # обещает интерпретатор, на котором его никогда не проверяли; это и
-        # проверяется здесь. Первый прочитанный результат (run 34137665700):
-        # 3.14 зелёный — значит, восемь отказов OpenRouter у владельца объясняются
-        # не интерпретатором.
         python: ["3.11", "3.12", "3.14"]
-        include:
-          # bossman-core runtime рядом с CC: на 3.11/3.12 sidecar говорит
-          # bossman.openhands.v1 (core-runtime job зелёный на этой комбинации).
-          # На 3.14 sidecar (код 1.5) пока не стартует — до его 3.14-фикса на
-          # convergence рантайм здесь не подставляется, и эти тесты остаются в
-          # прежнем честном состоянии «рантайма нет» (skip), а не новых красных.
-          - python: "3.11"
-            with_bossman_runtime: true
-          - python: "3.12"
-            with_bossman_runtime: true
-          - python: "3.14"
-            with_bossman_runtime: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -78,23 +58,11 @@ jobs:
       - name: Install Command Center
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .            # общий пакет bossman_shared: без него импорт падает в CI
+          python -m pip install -e .
+          python -m pip install -e ./bossman-core
           # mcp — опциональная группа: без неё рантайм честно отвечает
           # «недоступно», но в CI мы хотим прогонять и его тесты
           python -m pip install -e "./command-center[dev,mcp,browser]"
-          # asyncpg/redis — НЕ зависимости Command Center и намеренно ими не
-          # становятся. Их требует ровно один тест: test_fable_hard_cap.py::
-          # test_both_paths_share_one_ledger запускает дочерний интерпретатор с
-          # PYTHONPATH на bossman-core и импортирует `bossman.apprentice`, чей
-          # __init__ тянет цепочку до bossman/db.py (asyncpg) и bossman/runner.py
-          # (redis). Без них тест падал в CI на КАЖДОМ коммите этой ветки, то
-          # есть проверка «у Fable и Command Center один потолок в $3, а не два»
-          # не выполнялась ни разу. Ставятся только сами пакеты: `pip install -e
-          # ./bossman-core` положил бы bossman-core на sys.path родительского
-          # pytest-процесса, а этот тест сознательно так не делает (см. его
-          # докстринг) — дочерний процесс находит пакет через свой PYTHONPATH.
-          # Список — подмножество объявленных зависимостей bossman-core/pyproject.toml.
-          python -m pip install asyncpg redis
 
       - name: Python compile
         run: python -m compileall -q command-center/bcc command-center/tests
@@ -116,10 +84,6 @@ jobs:
           # Тот же режим, что в разработке: воркеры не стартуют сами,
           # тесты сами крутят движок и не зависят от таймингов раннера.
           BCC_DATA_DIR: ${{ runner.temp }}/bcc-data
-          # bossman_v3 импортируется conftest-фичами и test_v15_autonomy_feature
-          # из checkout bossman-core; editable-установка его не экспонирует.
-          # 3.14 пока без рантайма (sidecar 1.5 не совместим) — см. matrix.include.
-          PYTHONPATH: ${{ matrix.with_bossman_runtime && format('{0}/bossman-core:{0}', github.workspace) || '' }}
           # Браузер здесь ставится намеренно, значит браузерные тесты обязаны
           # ВЫПОЛНИТЬСЯ. Без этого флага «браузера нет — пропустили» и «браузер
           # есть — прошли» выглядят в отчёте одинаково, и потерянное покрытие
@@ -140,12 +104,9 @@ jobs:
 
   core-runtime:
     # Тесты, которым нужен рантайм bossman-core рядом с Command Center (как в
-    # Windows-архиве, где ставятся оба пакета). Основная матрица bossman-core
-    # намеренно не ставит (см. test_fable_hard_cap), поэтому эти тесты там
-    # честно SKIP — и без этого job'а coding path (локальный сайдкар, отмена,
-    # проверка из архива), Fleet/организация и правка профиля Telegram не
-    # выполнялись в CI ни разу. Windows — ради Job Object, кавычек в путях с
-    # пробелами и убийства дерева процессов.
+    # Windows-архиве, где ставятся оба пакета). Основная матрица тоже ставит
+    # core, чтобы проверить Python 3.11/3.12/3.14. Этот job сохраняет
+    # отдельный installed coding path и Windows Job Object/пути с пробелами.
     name: core runtime (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -259,14 +220,12 @@ jobs:
       - name: Install Command Center (no browser/mcp extras)
         run: |
           python -m pip install -e .
+          python -m pip install -e ./bossman-core
           python -m pip install -e "./command-center[dev]"
       - name: Windows-specific and path-sensitive tests
         working-directory: command-center
         env:
           BCC_DATA_DIR: ${{ runner.temp }}\bcc-data
-          # The conftest feature loader imports bossman_v3 from the bossman-core
-          # checkout; editable installs do not expose it (repo-wide red before).
-          PYTHONPATH: ${{ github.workspace }}\bossman-core;${{ github.workspace }}
         run: >-
           python -m pytest -q --timeout=180 --timeout-method=thread
           tests/test_discovery.py tests/test_feat_terminal_map.py tests/test_diag_bundle.py
@@ -281,11 +240,11 @@ jobs:
           tests/test_apps_pid_portability.py
           tests/test_browser_installed_readiness.py
           tests/test_desktop_startup_refusal.py
+          tests/test_owner_global_stop.py
       - name: Windows Video Studio descriptor boundary
         working-directory: command-center
         env:
           BCC_DATA_DIR: ${{ runner.temp }}\bcc-video-data
-          PYTHONPATH: ${{ github.workspace }}\bossman-core;${{ github.workspace }}
         run: >-
           python -m pytest -q --timeout=180 --timeout-method=thread
           tests/test_video_descriptor_boundary.py::test_verified_media_body_survives_pathname_replacement
