@@ -138,15 +138,22 @@ async def _sidecar_env(svc) -> dict[str, str]:
     """Explicit provider input for the sidecar (never inherited wholesale).
 
     The OpenHands security contract keeps the Bossman process environment out
-    of the sidecar; only the resolved OpenRouter credential is forwarded, and
-    the sidecar itself pops it before the agent's terminal tool starts.
+    of the sidecar; only the resolved OpenRouter credential and the configured
+    executor model are forwarded, and the sidecar itself pops the key before
+    the agent's terminal tool starts.
     """
+    env: dict[str, str] = {}
     try:
         from .plugins import resolve_cred
         key = await resolve_cred("OPENROUTER_API_KEY", svc)
     except Exception:  # noqa: BLE001 — a credential outage must not crash readiness
-        return {}
-    return {"OPENROUTER_API_KEY": key} if key else {}
+        key = None
+    if key:
+        env["OPENROUTER_API_KEY"] = key
+    model = os.environ.get("BOSSMAN_OPENHANDS_MODEL", "").strip()
+    if model:
+        env["BOSSMAN_OPENHANDS_MODEL"] = model
+    return env
 
 
 async def readiness(svc) -> dict[str, Any]:
@@ -246,7 +253,8 @@ async def _confined_repo(svc, raw: str) -> Path:
 
 SIDECAR_FIELDS = ("schema", "status", "summary", "tests", "notes", "steps", "stop_reason", "tool_calls",
                   "recipes_applied", "executor", "model", "deterministic_test_model", "model_kind", "profile",
-                  "memory_used", "skills_used", "endpoint", "elapsed_seconds", "tool_calls_total")
+                  "memory_used", "skills_used", "endpoint", "elapsed_seconds", "tool_calls_total",
+                  "error_type", "stderr_tail")
 
 
 def _verify_in_sandbox(root: Path, tests: list[str], timeout: int) -> dict:
