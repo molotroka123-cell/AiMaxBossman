@@ -132,6 +132,297 @@ Resource Brain experiments may optimize expert cache/residency policy from real 
 
 The value of `kimi-k3-in-c` is both the possible runtime and its architecture ideas: memory budgeting, resident vs streamed weights, expert caching and graceful execution of giant MoE models under limited RAM.
 
+
+# Additional 10/10 systems — 13 to 22
+
+These are borrow-first candidates selected for Bossman 1.8 only when compatibility and practical usefulness are at least 9/10. Do not install all of them as parallel platforms. Prefer adapters, schemas, algorithms and bounded runtimes inside the existing Bossman control plane.
+
+## 13. Internet Radar
+
+Goal: Bossman keeps learning from the external world during idle time without aimless browsing.
+
+Flow:
+`sources/watchlists → crawl/search → change detection → dedupe → relevance → source verification → compare with current Bossman/business graph → opportunity → experiment queue`.
+
+Canonical candidate:
+- `unclecode/crawl4ai`
+- Compatibility: 9.5/10
+- Usefulness: 10/10
+- Intended use: direct crawler/extractor component behind Bossman policy and source provenance.
+
+Use for:
+- AI/model/runtime releases;
+- GitHub projects relevant to Bossman;
+- AMD/Strix Halo updates;
+- Fresh Vibes competitors/market;
+- SwapMe operational/marketing research;
+- business opportunity discovery.
+
+Rules:
+- no unlimited crawling;
+- obey budgets/robots/provider limits;
+- raw web text is untrusted evidence;
+- no external text may expand authority;
+- dedupe and source trust are required before memory/skill promotion.
+
+## 14. Capability Market / MCP Discovery
+
+Goal: if Bossman lacks a capability, it may discover a candidate tool instead of asking the owner to manually search for one.
+
+Canonical candidate:
+- `modelcontextprotocol/registry` — official MCP Registry
+- Compatibility: 10/10
+- Usefulness: 9.5/10
+- Intended use: discovery API/catalog, not automatic trust.
+
+Flow:
+`missing capability → registry search → candidate metadata → security/license scan → isolated install/test → capability verifier → register or reject`.
+
+Never:
+`discover → auto-install → production authority`.
+
+A discovered MCP server inherits no secrets, network scope, budget or approval authority unless existing Bossman policy explicitly grants it.
+
+## 15. Counterfactual Replay + Chaos Lab
+
+Goal: test new Bossman candidates against historical workflows and synthetic failures without spending real model money or repeating real side effects.
+
+Canonical candidate:
+- `mockagents/mockagents` (canonical project; legacy mirror existed under `anandtopu/mock-agents`)
+- Compatibility: 9.5/10
+- Usefulness: 9.5/10
+- Intended use: deterministic offline model/tool/MCP mock + record/replay + fault injection.
+
+Replay classes:
+- historical task traces;
+- timeouts;
+- 429/rate limits;
+- malformed JSON;
+- truncated SSE/streaming;
+- provider disconnect;
+- tool failure;
+- slow TTFT;
+- restart mid-task.
+
+External effects are simulated/reconciled, never replayed blindly.
+
+## 16. Agent Self-Optimization
+
+Goal: optimize prompts/configs/agent behavior from measured outcomes rather than manual prompt tweaking.
+
+Canonical candidate:
+- `gepa-ai/gepa`
+- Compatibility: 9.5/10
+- Usefulness: 10/10
+- Intended use: evaluator-driven candidate generation/optimization inside Rollout Lab.
+
+Initial scope:
+- prompts;
+- task decomposition templates;
+- routing policies;
+- context packing;
+- retry/fallback configs.
+
+Do not start with security policy, authority or money-related optimization.
+
+Full RL systems that require CUDA-centric trainers remain optional later experiments; they are not 1.8 hard dependencies on the Windows AI Max.
+
+## 17. External Agent Gym
+
+Goal: prevent Bossman from inventing its own benchmark and then self-certifying.
+
+Canonical candidate:
+- `harbor-framework/harbor`
+- Compatibility: 9.2/10
+- Usefulness: 9.5/10
+- Intended use: external eval harness for agents/models, standard environments and rollout generation.
+
+Use:
+`Internal BossmanBench + Harbor external benchmark`.
+
+A promoted coding/agent candidate should pass both internal real-task regression and at least one suitable external benchmark where relevant.
+
+Harbor may run locally or via a bounded external environment, but external paid environments require normal Bossman budget policy.
+
+## 18. NPU Reflex Brain
+
+Goal: use the AI Max XDNA2 NPU as an always-on low-power System-0 layer while keeping Radeon resources free for larger models/media.
+
+Canonical candidate:
+- `ROCm/FastFlowLM`
+- Compatibility: 10/10 for Ryzen AI XDNA2/Strix Halo class hardware; owner-machine benchmark still required.
+- Usefulness: 10/10
+- Intended use: OpenAI-compatible NPU inference runtime for small/fast LLM/VLM/embedding/reflex tasks.
+
+Possible workloads:
+- intent classification;
+- lightweight Jev pre-routing;
+- memory tagging;
+- relevance scoring for Internet Radar;
+- spam/abuse filtering;
+- small background agents;
+- cheap embeddings/structured extraction where supported.
+
+Architecture target:
+`NPU = always-on reflex`
+`GPU = main intelligence/media`
+`CPU/RAM/SSD = data/giant streamed tier`
+`cloud = overflow/frontier`.
+
+Do not move a task to NPU merely to use the NPU; benchmark quality/latency first.
+
+## 19. MTP / Speculative Local Accelerator
+
+Goal: materially accelerate the main local Qwen path before buying more compute.
+
+Canonical candidate:
+- `olliehm/qwen-flash-next-windows`
+- Compatibility: 10/10 target match for Windows + Strix Halo/Ryzen AI Max class workflows.
+- Usefulness: 10/10
+- Intended use: reference/build/benchmark path for Qwen Flash-Next and speculative/MTP-style acceleration.
+
+Measure:
+- tokens/sec;
+- TTFT;
+- context-length sensitivity;
+- unified-memory footprint;
+- correctness parity;
+- tool/JSON reliability;
+- stability after restart.
+
+No acceleration is promoted if quality/tool reliability regresses.
+
+## 20. Durable Agent Kernel
+
+Goal: long-running Bossman tasks resume from durable checkpoints after process/Windows failure rather than restart from zero.
+
+Canonical candidate:
+- `dbos-inc/dbos-transact-py`
+- Compatibility: 9.5/10
+- Usefulness: 9.5/10
+- Intended use: borrow/adapt durable-step/checkpoint/recovery semantics; selectively integrate where it improves existing Bossman task durability.
+
+Bossman already has a task engine. Do NOT install DBOS as a second canonical task engine by default.
+
+Borrow:
+- step checkpointing;
+- durable queues;
+- crash recovery;
+- workflow IDs/deduplication;
+- rewind/retry semantics where useful.
+
+## 21. Adaptive Business Experiment Engine
+
+Goal: choose the next business experiment mathematically instead of brute-forcing all variants.
+
+Canonical candidate:
+- `facebook/Ax`
+- Compatibility: 9.3/10
+- Usefulness: 9.5/10
+- Intended use: optimization engine for bounded business experiments, not business authority.
+
+Optimize real objectives such as:
+`verified gross profit - spend - owner time - risk`.
+
+Possible parameters:
+- offer;
+- creative;
+- CTA;
+- audience;
+- response template;
+- landing variant;
+- scheduling/time slot.
+
+Use constraints, noisy outcomes, parallel suggestions and early stopping. External spend/publication remains inside existing approval/budget policy.
+
+## 22. Standardized GenAI Telemetry
+
+Goal: stop inventing ad-hoc schemas for every new model/tool/runtime.
+
+Canonical candidate:
+- `open-telemetry/semantic-conventions-genai`
+- Compatibility: 10/10
+- Usefulness: 9.5/10
+- Intended use: canonical semantic vocabulary for GenAI model/agent/tool/MCP traces, metrics and evaluation events inside Bossman Observatory.
+
+Bossman should map existing telemetry into this schema where sensible rather than deploy a separate telemetry platform solely for standards compliance.
+
+Privacy rule:
+raw participant prompts/responses remain opt-in/private; observability defaults to metadata, IDs, counts, timings, route/provider, costs, tool results and verifier outcomes without personal message content.
+
+# Hardware / media research decisions
+
+## ROCm / PyTorch experimental lane
+ROCm/PyTorch is strategically useful for the Ryzen AI Max but must be introduced side-by-side after 1.5–1.7 freeze.
+
+Keep working production paths:
+- Ollama;
+- llama.cpp;
+- stable-diffusion.cpp.
+
+Then benchmark ROCm/PyTorch for:
+- Qwen;
+- vision;
+- distillation/training;
+- media;
+- ComfyUI/Wan where supported.
+
+Do not remove a stable runtime until replacement wins real owner-machine benchmarks.
+
+## Wan video
+For local video, prefer evaluating the latest supported Wan line (currently Wan 2.2 rather than treating Wan 2.1 as the long-term target) through existing Studio/Model Market.
+
+Video model selection is dynamic:
+`quality + latency + memory + task type + cost`.
+
+## FreeToken
+FreeToken remains a strategic Resource Brain / MoE-runtime reference, but it is NOT a current production dependency until AMD/Windows/Strix Halo support proves >=9/10 compatibility on the owner machine.
+
+Borrow its useful ideas:
+- expert caching;
+- hybrid residency;
+- memory budgeting;
+- semantic-aware cache;
+- large-MoE scheduling.
+
+# Borrow-first implementation matrix
+
+| System | Canonical reference | Compatibility | Usefulness | Integration stance |
+|---|---|---:|---:|---|
+| Internet Radar | `unclecode/crawl4ai` | 9.5/10 | 10/10 | use behind Bossman policy |
+| Capability Market | `modelcontextprotocol/registry` | 10/10 | 9.5/10 | registry API + security gate |
+| Replay/Chaos | `mockagents/mockagents` | 9.5/10 | 9.5/10 | deterministic test harness |
+| Agent optimization | `gepa-ai/gepa` | 9.5/10 | 10/10 | Rollout Lab optimizer |
+| External Gym | `harbor-framework/harbor` | 9.2/10 | 9.5/10 | independent benchmark |
+| NPU Reflex Brain | `ROCm/FastFlowLM` | 10/10 | 10/10 | owner-machine benchmark then adapter |
+| Local accelerator | `olliehm/qwen-flash-next-windows` | 10/10 | 10/10 | benchmark/adopt winning path |
+| Durable semantics | `dbos-inc/dbos-transact-py` | 9.5/10 | 9.5/10 | borrow/integrate, no second engine |
+| Business optimizer | `facebook/Ax` | 9.3/10 | 9.5/10 | bounded optimizer adapter |
+| GenAI telemetry | `open-telemetry/semantic-conventions-genai` | 10/10 | 9.5/10 | canonical telemetry semantics |
+
+# Consolidated 1.8 architecture
+
+Do not implement 22 independent subsystems. Group them into six coherent planes:
+
+## A. Evolution Plane
+Rollout Lab + Replay/Chaos + GEPA + Harbor + Distillation Foundry.
+
+## B. Intelligence Market
+Jev + Model Market + NPU reflex + resident Qwen + speculative/MTP acceleration + streamed giant + free/frontier cloud.
+
+## C. World / Capability Plane
+Internet Radar + MCP Capability Market + Computer World Model + Multimodal Brain.
+
+## D. Durability / Memory Plane
+Context Economy + Skill Compiler 2 + durable execution semantics + Operating Graph.
+
+## E. Money Plane
+Business Growth Engine + Revenue Lab + Ax-style adaptive experiments + attribution.
+
+## F. Observatory
+OpenTelemetry GenAI semantics + existing Bossman telemetry + business/owner-time/model-economics views.
+
+
 # Business / Revenue Lab
 
 Self-improvement must connect to real owner outcomes.
