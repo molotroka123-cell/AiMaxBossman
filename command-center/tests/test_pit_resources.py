@@ -84,6 +84,7 @@ def test_guard_denies_local_when_1_6_owns_vram(monkeypatch):
 
 def test_guard_yields_to_1_6_when_probe_broken(monkeypatch):
     monkeypatch.setattr(res, "_read_free_vram_mb", lambda: None)
+    monkeypatch.setattr(res, "_read_amd_unified_free_mb", lambda: None)
     guard = LocalCapacityGuard(min_free_mb=2000, ttl_seconds=0)
     assert _run(guard.local_allowed()) is False
     assert "unmeasured" in guard.last_reason
@@ -125,6 +126,99 @@ def test_vram_probe_parses_nvidia_smi_csv(monkeypatch):
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     assert res._read_free_vram_mb() == 6144 + 12288
+
+
+# -- AMD AI Max unified-memory capacity (owner Ryzen AI Max+ 395) ------------------
+
+def _amd_owner_machine(monkeypatch, available_mb: int | None):
+    """Patch the prober for the owner's Strix Halo host: no NVIDIA, AMD APU."""
+    monkeypatch.setattr(res, "_read_free_vram_mb", lambda: None)
+    monkeypatch.setattr(res, "_has_amd_gpu", lambda: True)
+    monkeypatch.setattr(res, "_win_available_memory_mb", lambda: available_mb)
+
+
+def test_amd_probe_used_only_when_nvidia_absent(monkeypatch):
+    monkeypatch.setattr(res, "_read_free_vram_mb", lambda: 8192)
+    monkeypatch.setattr(res, "_read_amd_unified_free_mb", lambda: 65536)
+    free_mb, kind = res._measure_local_capacity()
+    assert (free_mb, kind) == (8192, "nvidia-smi")
+
+
+def test_amd_unified_probe_measures_owner_machine(monkeypatch):
+    monkeypatch.setattr(res, "_read_free_vram_mb", lambda: None)
+    monkeypatch.setattr(res, "_read_amd_unified_free_mb", lambda: 98304)
+    free_mb, kind = res._measure_local_capacity()
+    assert (free_mb, kind) == (98304, "amd-unified")
+
+
+def test_amd_unified_probe_requires_amd_gpu(monkeypatch):
+    monkeypatch.setattr(res, "_has_amd_gpu", lambda: False)
+    assert res._read_amd_unified_free_mb() is None
+
+
+def test_amd_idle_machine_allows_local_qwen(monkeypatch):
+    _amd_owner_machine(monkeypatch, available_mb=98304)
+    guard = LocalCapacityGuard(ttl_seconds=0)
+    assert _run(guard.local_allowed()) is True
+    assert guard.last_reason == "unified-free-98304mb"
+
+
+def test_amd_heavy_owner_workload_demotes_local(monkeypatch):
+    _amd_owner_machine(monkeypatch, available_mb=4096)
+    guard = LocalCapacityGuard(ttl_seconds=0)
+    assert _run(guard.local_allowed()) is False
+    assert guard.last_reason == "unified-low-4096mb-min-8000mb-1.6-priority"
+
+
+def test_amd_owner_headroom_override_wins(monkeypatch):
+    _amd_owner_machine(monkeypatch, available_mb=4096)
+    monkeypatch.setenv("BOSSMAN_PIT_VRAM_FREE_MIN_MB", "2000")
+    guard = LocalCapacityGuard(ttl_seconds=0)
+    assert _run(guard.local_allowed()) is True
+    assert guard.last_reason == "unified-free-4096mb"
+
+
+def test_amd_telemetry_unavailable_keeps_safe_fallback(monkeypatch):
+    _amd_owner_machine(monkeypatch, available_mb=None)
+    guard = LocalCapacityGuard(ttl_seconds=0)
+    assert _run(guard.local_allowed()) is False
+    assert guard.last_reason == "vram-unmeasured-1.6-priority"
+
+
+def test_amd_non_amd_windows_host_without_nvidia_still_demotes(monkeypatch):
+    monkeypatch.setattr(res, "_read_free_vram_mb", lambda: None)
+    monkeypatch.setattr(res, "_has_amd_gpu", lambda: False)
+    guard = LocalCapacityGuard(ttl_seconds=0)
+    assert _run(guard.local_allowed()) is False
+    assert "unmeasured" in guard.last_reason
+
+
+def test_amd_restart_reproduces_same_decision(monkeypatch):
+    _amd_owner_machine(monkeypatch, available_mb=98304)
+    first = LocalCapacityGuard(ttl_seconds=0)
+    second = LocalCapacityGuard(ttl_seconds=0)
+    assert _run(first.local_allowed()) is _run(second.local_allowed()) is True
+    assert first.last_reason == second.last_reason == "unified-free-98304mb"
+    _amd_owner_machine(monkeypatch, available_mb=4096)
+    third = LocalCapacityGuard(ttl_seconds=0)
+    assert _run(third.local_allowed()) is False
+    assert third.last_reason == "unified-low-4096mb-min-8000mb-1.6-priority"
+
+
+def test_amd_low_measured_verdict_blocks_media_even_with_optin(
+        monkeypatch):
+    """A measured low verdict always wins: the unmeasured opt-in is narrower."""
+    from bcc.pit.photo_runtime import PhotoRuntimeConfig
+    cfg = PhotoRuntimeConfig(
+        ai_max_media_ready=True, vision_url="http://127.0.0.1:8991/v1",
+        vision_model="qwen-vl", studio_url="http://127.0.0.1:8800",
+        image_edit_model="qwen-image-edit", allow_unmeasured_media=True)
+    _amd_owner_machine(monkeypatch, available_mb=2048)
+    guard = LocalCapacityGuard(ttl_seconds=0)
+    allowed = _run(guard.local_allowed())
+    optin_excuse = not allowed and cfg.allow_unmeasured_media and (
+        guard.last_reason == "vram-unmeasured-1.6-priority")
+    assert allowed is False and optin_excuse is False
 
 
 def _run(coro):
