@@ -48,7 +48,25 @@ No final SHA/freeze, no complete one-click Windows product, installed OpenHands/
 3. ~~Jeff cloud-only chat blocked by expired OpenRouter key~~ **DONE 2026-09-26**: owner provided a replacement key (file on desktop, name = key). Rotated into the encrypted PIT credential store (`credentials.enc`) and `%LOCALAPPDATA%\Bossman\secrets\openrouter-test.env` (both outside Git). `pit doctor`: provider_auth HTTP 200, telegram_auth PASS, free_route ZERO_COST_OK, tool perimeter PASS. Live poller restarted onto the new key.
 4. ~~Computer Use native pipe unavailable / os error 2~~ **DONE 2026-09-26**: root cause was missing Windows desktop deps (DO-001). `pip install pywinauto pyautogui` restored `availability()=(True,'')`. Full live owner-desktop sequence PASS through product handlers: fresh screenshot (1.78 MB PNG, visually verified), UIA window list, Notepad launch, deterministic typing (fresh UIA readback `typed_text_visible=true`), Save-As dialog drive, disk-verified saved file (60 bytes, exact content), harmless wait, owner STOP aborted the in-flight action (`stop_file_persisted=true`, post-STOP acts refused), resume restored actions, Calculator launched by product launcher and interacted (UIA readback "Выражение — 77 × 6=" → "Отображать как 462", arithmetic correct), closed via product path. Policy guard correctly refuses any action on Bossman-titled surfaces.
 
-## 2026-09-26 CI truth (SHA 3bf7d65806497417c00f04283cec6a0b3ddf270f)
+## 2026-09-26 evening — closure state (SHA c2dfe919)
+
+**Working product tonight (all verified live):**
+- Jeff chat LIVE through free OpenRouter (rotated owner key): fresh owner turn answered in **6.2 s**, ok. Historical 40–90 s latencies were the local-27B era.
+- Engine P0 "unknown cloud pricing" FIXED: provider connected (458-model catalog synced), free model pinned with price 0/0 (`pricing_known=true`), agent registered; "Ответь одним словом: ГОТОВ" → completed.
+- Jeff Telegram formatting SHIPPED (`d3608b97`): HTML quote/spoiler/bold/code with per-part conversion and plain-text fail-open (a markup mistake can never lose a reply). 261/261 telegram contracts green.
+- Disclosure guard verified: "Какая модель?" → "Я Джефф, помощник." Owner rule recorded: answers may ask for the data we collect, formatting mandatory, Jeff never knows which AI answers.
+- OpenHands coding path WORKS END-TO-END on owner hardware: SDK 1.44.1 sidecar + free model, task `88ed0c9fbfdf` completed. Repairs: credential+model forwarding from the vault (456fd730, da00a335 — the client never received the resolved key before), surrogate sanitization (fdbf1bf1), one fresh-retry on model serialization hiccups (0b850c60), per-call telemetry for the lab (c2dfe919), bash-env note + cache/garbage pruning (103d37e9, a67e5c28).
+- Scientific protocol cycle 1 (lab, case `sample`, RAW+PLAN_EXECUTE_VERIFY): both variants produced REAL sidecar telemetry (22 tool calls, tool_accuracy 1.0, schema 1.0); case NOT solved in the 8-min budget by the free model → honest FAIL, weights unchanged. **SCIENTIFIC_CYCLES=1/3, POSITIVE_TRANSFER=0.**
+- Full CC regression on owner Windows: 5095 passed / 2 failed → both fixed and committed (`bc3ddf9a`): UX2 exit-code contract (7 = backend-build-mismatch, 4 = foreign app; protection intact) + touch-throttle de-flaked with controlled clock.
+- Owner scenarios 31/31 PASS incl. installed-product OS-81..85. AMD AI Max capacity: measured unified memory, LOCAL_ALLOWED at idle, restart-stable.
+- Computer Use live owner-desktop sequence PASS (screenshot/UIA/type/readback/save/STOP-race/resume/Calculator).
+- YOUTUBE-001: bounded-batch manifest discovered and committed (11 videos 2026-08-14..27); local faster-whisper ASR server built and running on 127.0.0.1:8000; ingest not yet run.
+- INSTAGRAM-001: SKIPPED by owner decision 2026-09-26 (needs owner live login later).
+- Instagram/BossBlocks/one-click-bundle: not closed. Validation Windows bundle blocked earlier by dirty tree; tree now clean, build not yet re-run.
+
+**NOT frozen.** Remaining for freeze: scientific cycles 2–3 + lesson/transfer, YouTube ingest + outcome verification, BossBlocks-001, bundle validation build + one-click smoke, ONE full regression re-run, exact-SHA CI re-verify, fresh-install smoke.
+
+## 2026-09-26 CI truth (SHA 3bf7d658 and successors — all mandatory green)
 ALL mandatory CI GREEN: root-ci, Command Center CI (rest/security/stage8-14/gateway-context py3.11+3.12, Real media/Web/Fleet, Windows workspace+PID, compile+security), PostgreSQL 3.11/3.12/3.14, ASTRA (portable ubuntu+windows, runner recovery), Solana safety, autonomy-and-foundation, economy-contract, foundation, vertical-contracts.
 Repairs that made it green (all pushed to the SAME unified branch):
 - `ac60e62c` merged owner-PC fixes + Jeff media candidate with remote docs (no force).
