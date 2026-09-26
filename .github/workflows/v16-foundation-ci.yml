@@ -39,7 +39,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - run: python -m pip install --disable-pip-version-check -e . -e ./command-center pytest
+      - run: python -m pip install --disable-pip-version-check -e . -e './command-center[dev]' pytest
       - name: Compile 1.6 foundation
         run: >-
           python -m py_compile

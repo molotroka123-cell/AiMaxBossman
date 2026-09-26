@@ -106,7 +106,7 @@ jobs:
           python-version: '3.12'
       - name: Install Bossman test runtime
         run: |
-          python -m pip install --disable-pip-version-check -e . -e ./bossman-core -e ./command-center pytest
+          python -m pip install --disable-pip-version-check -e . -e ./bossman-core -e './command-center[dev]' pytest
       - name: Compile 1.5 economy surfaces
         run: |
           python -m py_compile \
