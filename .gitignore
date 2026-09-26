@@ -135,3 +135,6 @@ learning-owner.local/
 skills-owner.local/
 society-owner.local/
 operating-graph-owner.local/
+
+# self-improve lab runtime state (worktrees, run reports) — never tracked
+self-improve-lab/
