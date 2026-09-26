@@ -235,6 +235,8 @@ export const api = {
   providers: () => GET('/api/providers'),
   createProvider: (data) => POST('/api/providers', data),
   deleteProvider: (id) => DEL(`/api/providers/${encodeURIComponent(id)}`),
+  freeProviders: () => GET('/api/free-providers'),
+  connectFreeProvider: (name, apiKey) => POST(`/api/free-providers/${encodeURIComponent(name)}/connect`, { api_key: apiKey }),
 
   // models
   models: () => GET('/api/models'),

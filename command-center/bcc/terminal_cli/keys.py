@@ -36,6 +36,7 @@ class Vendor:
     base_url: str
     env: tuple[str, ...]
     via_openrouter: bool = False
+    free_preset: str | None = None   # bcc.features.free_providers: 0/0, caps.free_tier
 
 
 VENDORS: dict[str, Vendor] = {
@@ -47,9 +48,13 @@ VENDORS: dict[str, Vendor] = {
                      ("OPENAI_API_KEY",)),
     "gemini": Vendor("gemini", "Google Gemini", "openai_compat",
                      "https://generativelanguage.googleapis.com/v1beta/openai",
-                     ("GEMINI_API_KEY", "GOOGLE_API_KEY")),
+                     ("GEMINI_API_KEY", "GOOGLE_API_KEY"), free_preset="google_ai_studio"),
+    "nvidia": Vendor("nvidia", "NVIDIA NIM", "openai_compat", "https://integrate.api.nvidia.com/v1",
+                     ("NVIDIA_API_KEY", "NGC_API_KEY"), free_preset="nvidia_nim"),
+    "groq": Vendor("groq", "Groq", "openai_compat", "https://api.groq.com/openai/v1",
+                   ("GROQ_API_KEY",), free_preset="groq"),
 }
-ALIASES = {"claude": "anthropic", "google": "gemini"}
+ALIASES = {"claude": "anthropic", "google": "gemini", "nim": "nvidia"}
 
 
 def vendor_of(name: str | None) -> Vendor:
@@ -149,6 +154,12 @@ def store_key(client: Client, vendor: Vendor, key: str, *, base_url: str | None 
         return {"vendor": vendor.name, "provider_id": res.get("provider_id"), "created": res.get("created"),
                 "mask": mask(key), "models_registered": res.get("models"), "models": None,
                 "catalog_error": res.get("catalog_error")}
+    if vendor.free_preset:
+        res = client.post(f"/api/free-providers/{vendor.free_preset}/connect", {"api_key": key})
+        added = res.get("models_added") or []
+        return {"vendor": vendor.name, "provider_id": res.get("provider_id"), "created": res.get("created"),
+                "mask": res.get("key"), "models_registered": len(added), "models_added": added,
+                "models": None}
     providers = client.get("/api/providers") or []
     existing = find_provider(providers, vendor, base_url)
     if existing is None:
