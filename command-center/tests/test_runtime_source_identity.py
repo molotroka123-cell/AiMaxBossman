@@ -106,7 +106,8 @@ async def test_identity_and_health_report_the_same_source(tmp_path):
         async with client_for(app, svc) as client:
             identity = (await client.get("/api/identity")).json()
             api_health = (await client.get("/api/health")).json()
-        assert identity["app"] == "bossman-command-center"
+        assert identity["app"] == build_identity.DESKTOP_APP_IDENTITY
+        assert api_health["app"] == "bossman-command-center"
         for key in ("build_sha", "source_identity", "source"):
             assert key in identity, key
             assert identity[key] == api_health[key], key

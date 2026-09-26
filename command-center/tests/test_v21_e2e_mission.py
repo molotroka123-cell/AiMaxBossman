@@ -29,7 +29,8 @@ import pytest
 import sqlalchemy as sa
 
 from bcc.db import (approvals as approvals_t, missions as missions_t, settings_kv,
-                    tasks as tasks_t, tool_calls as tool_calls_t, utcnow)
+                    task_runs as task_runs_t, tasks as tasks_t,
+                    tool_calls as tool_calls_t, utcnow)
 from bcc.v2.tables import mcp_servers as mcp_servers_t
 from .browser_support import chromium_available, reason as browser_reason
 
@@ -207,26 +208,30 @@ async def test_autonomous_mission_with_ten_plus_tool_calls(
     base_url, script_path, llm_log = scripted_llm
     counter = tmp_path / "mcp_calls.txt"
     monkeypatch.setenv("MCP_ECHO_COUNTER", str(counter))
+    monkeypatch.setenv("BCC_BROWSER_ALLOW_PRIVATE", "1")  # local fixture site
 
     await _configure_terminal(env, project)
     indexed = await _configure_memory(env, vault)
     assert indexed.get("added", 0) >= 1, indexed
     await _configure_mcp(env, counter)
 
-    fix = ("python - <<'PY'\n"
-           "import pathlib, shutil\n"
-           "p = pathlib.Path('calc.py')\n"
-           "p.write_text('def add(a, b):\\n    # по соглашению проекта — сложение\\n"
-           "    return a + b\\n')\n"
-           "shutil.rmtree('__pycache__', ignore_errors=True)\n"
-           "PY")
+    fix = ('python -c "from pathlib import Path; import shutil; '
+           "Path('calc.py').write_text('def add(a, b):\\n    # add numbers\\n"
+           "    return a + b\\n', encoding='utf-8'); "
+           "shutil.rmtree('__pycache__', ignore_errors=True)\"")
+    inspect_code = ('python -c "from pathlib import Path; '
+                    "print(Path('calc.py').read_text(encoding='utf-8'))\"")
+    expect_red = ('python -c "import subprocess, sys; '
+                  "r = subprocess.run([sys.executable, '-m', 'pytest', '-q'], "
+                  "capture_output=True, text=True); print(r.stdout); print(r.stderr); "
+                  "assert r.returncode == 1 and 'test_add' in r.stdout\"")
 
     # Сценарий «рассуждения». Каждый шаг — настоящий вызов настоящего инструмента.
     script = [
         {"tool": "memory_search", "arguments": {"query": "соглашения проекта тесты"}},
-        {"tool": "terminal_run", "arguments": {"command": "cat calc.py",
+        {"tool": "terminal_run", "arguments": {"command": inspect_code,
                                                "mode": "project_host", "cwd": str(project)}},
-        {"tool": "terminal_run", "arguments": {"command": "python -m pytest -q",
+        {"tool": "terminal_run", "arguments": {"command": expect_red,
                                                "mode": "project_host", "cwd": str(project),
                                                "timeout": 60}},
         {"tool": "mcp_echo_echo", "arguments": {"text": "план: заменить минус на плюс"}},
@@ -237,7 +242,7 @@ async def test_autonomous_mission_with_ten_plus_tool_calls(
                                                "timeout": 60}},
         {"tool": "browser_open", "arguments": {"url": site}},
         {"tool": "browser_read_dom", "arguments": {}},
-        {"tool": "terminal_run", "arguments": {"command": "git diff --stat || true",
+        {"tool": "terminal_run", "arguments": {"command": inspect_code,
                                                "mode": "project_host", "cwd": str(project)}},
         {"tool": "memory_write", "arguments": {"title": "Починка add", "kind": "lesson",
                                                "content": "add складывал через минус; "
@@ -284,7 +289,15 @@ async def test_autonomous_mission_with_ten_plus_tool_calls(
                               json={"approve": True, "by": "оператор"})
         status = await _drain(env, task_id, timeout=180)
 
-    assert status == "completed", f"миссия не завершилась: {status}"
+    async with env.svc.db.session() as s:
+        run_errors = (await s.execute(
+            sa.select(task_runs_t.c.error).where(task_runs_t.c.task_id == task_id)
+            .order_by(task_runs_t.c.id))).scalars().all()
+        tool_states = [dict(r._mapping) for r in (await s.execute(
+            sa.select(tool_calls_t.c.tool, tool_calls_t.c.status,
+                      tool_calls_t.c.result_preview)
+            .order_by(tool_calls_t.c.id))).fetchall()]
+    assert status == "completed", f"миссия не завершилась: {status}; ошибки: {run_errors}; инструменты: {tool_states}"
     # Раньше здесь стояло `== 1` (эпоха, когда спрашивал только memory.write).
     # После P1-ужесточения КАЖДЫЙ project_host shell-вызов тоже обязан спросить
     # владельца, поэтому фиксировать магическое число нельзя — иначе тест начнёт

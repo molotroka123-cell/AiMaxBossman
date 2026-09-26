@@ -700,18 +700,31 @@ async def test_a_git_step_that_hangs_is_reported_as_a_timeout_not_a_500(
     repo = tmp_path / "repo"
     _make_repo(repo)
     monkeypatch.setattr(tp, "_repo_root", lambda _start: repo)
-    # «git», у которого push висит: остальное — настоящий git.
-    bindir = tmp_path / "bin"
-    bindir.mkdir()
-    fake = bindir / "git"
-    fake.write_text(
-        f"#!{sys.executable}\n"
-        "import os, sys, time\n"
-        "if 'push' in sys.argv[1:]:\n"
-        "    time.sleep(5)\n"
-        f"os.execv({real_git!r}, [{real_git!r}, *sys.argv[1:]])\n", encoding="utf-8")
-    fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
-    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
+    # On POSIX the shim is a real executable and tests process termination.
+    # Windows CreateProcess does not execute a shebang-only file named `git`,
+    # so inject the same OS TimeoutExpired at the subprocess boundary while
+    # all preceding git steps still run against the real binary.
+    if os.name == "nt":
+        real_run = subprocess.run
+
+        def timeout_push(args, *a, **kw):
+            if args and Path(args[0]).name.lower() in {"git", "git.exe"} and "push" in args[1:]:
+                raise subprocess.TimeoutExpired(args, kw.get("timeout", 1.0))
+            return real_run(args, *a, **kw)
+
+        monkeypatch.setattr(tp.subprocess, "run", timeout_push)
+    else:
+        bindir = tmp_path / "bin"
+        bindir.mkdir()
+        fake = bindir / "git"
+        fake.write_text(
+            f"#!{sys.executable}\n"
+            "import os, sys, time\n"
+            "if 'push' in sys.argv[1:]:\n"
+            "    time.sleep(5)\n"
+            f"os.execv({real_git!r}, [{real_git!r}, *sys.argv[1:]])\n", encoding="utf-8")
+        fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+        monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setattr(tp, "GIT_TIMEOUT_S", 1.0, raising=False)
 
     res = await env.client.post("/api/testing/publish")

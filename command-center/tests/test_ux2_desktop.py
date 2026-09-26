@@ -5,9 +5,12 @@ from __future__ import annotations
 import io
 import json
 import os
+import shutil
 import sys
 import subprocess
+import tempfile
 import time
+import uuid
 from pathlib import Path
 
 import pytest
@@ -15,7 +18,7 @@ import pytest
 from bcc import desktop
 
 from .browser_support import chromium_available, reason as browser_reason
-from .test_ux2_thinking_pane import live  # noqa: F401
+from .test_ux2_thinking_pane import _free_port, live  # noqa: F401
 
 
 def _use_temp_data_dir(monkeypatch, path) -> Path:
@@ -47,6 +50,39 @@ def _isolated_data_dir(tmp_path_factory, monkeypatch):
     _use_temp_data_dir(monkeypatch, tmp_path_factory.mktemp("bcc-data"))
 
 
+@pytest.fixture
+def matched_live_identity(live, monkeypatch):
+    """The token/window tests use a real server from a dirty test checkout.
+
+    They exercise banner and logging behavior, so model a compatible installed
+    build at the attach boundary. The dedicated build-identity tests exercise
+    mismatched and unproven SHA refusal without weakening the product guard.
+    """
+    identify = desktop.identify_server
+    actual = identify(live.url)
+    assert actual and actual["app"] == desktop.APP_IDENTITY
+    proven = {**actual, "source_identity": "PASS", "build_sha": "a" * 40}
+    monkeypatch.setattr(desktop, "_local_identity", lambda: proven)
+    monkeypatch.setattr(desktop, "identify_server",
+                        lambda url, timeout=2.0: proven if url.rstrip("/") == live.url else identify(url, timeout))
+
+
+@pytest.fixture
+def short_chromium_profile():
+    # Chromium's Windows child can hang before DevTools with pytest's deeply
+    # nested temp path or tempfile's restrictive 0700 root. Use a short,
+    # disposable directory created with the same permissions as a real desktop
+    # profile, then verify its location before recursive cleanup.
+    temp_root = Path(tempfile.gettempdir()).resolve()
+    root = temp_root / f"bcc-app-{uuid.uuid4().hex[:8]}"
+    root.mkdir()
+    try:
+        yield root / "profile"
+    finally:
+        assert root.resolve().parent == temp_root
+        shutil.rmtree(root)
+
+
 def test_find_browser_prefers_preinstalled_chromium(tmp_path):
     fake = tmp_path / "chromium"
     fake.write_text("")
@@ -64,7 +100,11 @@ def test_browser_argv_is_app_window_without_secret(tmp_path):
         desktop.browser_argv("/usr/bin/chromium", "http://127.0.0.1:8800/?token=abc", tmp_path)
 
 
-def test_run_reuses_running_server_and_does_not_bind_twice(live, tmp_path):  # noqa: F811
+def test_run_reuses_running_server_and_does_not_bind_twice(live, tmp_path, monkeypatch):  # noqa: F811
+    identity = {"app": desktop.APP_IDENTITY, "version": "0.1.0",
+                "source_identity": "PASS", "build_sha": "a" * 40}
+    monkeypatch.setattr(desktop, "_local_identity", lambda: identity)
+    monkeypatch.setattr(desktop, "identify_server", lambda *a, **k: identity)
     calls: list[dict] = []
 
     def fake_launcher(browser, url, profile_dir, *, extra=(), window_size="1440,900"):
@@ -122,6 +162,7 @@ def _devtools_endpoint(profile_dir, proc, timeout: float = 60.0):
     marker = Path(profile_dir) / "DevToolsActivePort"
     deadline = time.monotonic() + timeout
     seen = ""
+    exited_at = None
     while time.monotonic() < deadline:
         rc = proc.poll()
         if marker.exists():
@@ -130,7 +171,14 @@ def _devtools_endpoint(profile_dir, proc, timeout: float = 60.0):
             if len(lines) >= 2 and lines[0].strip().isdigit():
                 return int(lines[0].strip()), lines[1].strip()
         if rc is not None:
-            raise AssertionError(f"окно завершилось, rc={rc}, DevToolsActivePort={seen!r}")
+            # Chrome/Edge on Windows can hand --app to a child and exit 0.
+            # Give that child the same bounded discovery window as the product
+            # launcher; a nonzero exit or a missing holder still fails.
+            if rc != 0 or os.name != "nt":
+                raise AssertionError(f"окно завершилось, rc={rc}, DevToolsActivePort={seen!r}")
+            exited_at = exited_at or time.monotonic()
+            if time.monotonic() - exited_at > 5 and not desktop.profile_holders(Path(profile_dir)):
+                raise AssertionError(f"окно завершилось без наследника, rc={rc}, DevToolsActivePort={seen!r}")
         time.sleep(0.1)
     raise AssertionError(
         f"DevToolsActivePort не появился за {timeout} с (rc={proc.poll()}, содержимое={seen!r})")
@@ -144,14 +192,19 @@ def _devtools_endpoint(profile_dir, proc, timeout: float = 60.0):
 # позже, а разброс скорости раннера больше не выдаёт себя за дефект.
 @pytest.mark.timeout(300)
 @pytest.mark.skipif(not chromium_available(), reason=browser_reason())
-def test_real_chromium_app_window_renders_command_center(live, tmp_path):  # noqa: F711
+def test_real_chromium_app_window_renders_command_center(live, short_chromium_profile):  # noqa: F711
     """Настоящее окно --app с предустановленным Chromium: без дисплея — headless-снимок,
     который доказывает, что команда окна работает и страница входа отрисована."""
     from playwright.sync_api import sync_playwright
 
-    browser = desktop.find_browser()
-    assert browser, "предустановленный Chromium не найден"
-    profile = tmp_path / "profile"
+    # The system Edge on the owner PC hands --app off to another process and
+    # exits 0 before publishing DevToolsActivePort. This CI headless proof uses
+    # Playwright's installed Chromium; Edge handoff is covered by the desktop
+    # relaunch tests and live owner acceptance.
+    with sync_playwright() as pw:
+        browser = pw.chromium.executable_path
+    assert Path(browser).is_file(), "предустановленный Chromium не найден"
+    profile = short_chromium_profile
     # Порт отладки выбирает сам браузер (0) и публикует его в профиле. Тест
     # больше не занимает порт заранее: между выбором и запуском окна ядро могло
     # отдать его другому соединению, и тогда мы опрашивали чужой адрес.
@@ -180,14 +233,18 @@ def test_real_chromium_app_window_renders_command_center(live, tmp_path):  # noq
             assert "token=" not in page.url
             b.close()
     finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=10)
-        except Exception:  # noqa: BLE001
-            proc.kill()
-    assert (tmp_path / "profile").is_dir()  # отдельный профиль окна создан
+        # An app browser can outlive the original PID on Windows. Only stop
+        # processes carrying this test's private --user-data-dir.
+        desktop._terminate_holders(desktop._ProfileScanner(profile).scan())
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+            except Exception:  # noqa: BLE001
+                proc.kill()
+    assert profile.is_dir()  # отдельный профиль окна создан
     # профиль не должен содержать токен доступа в открытом виде
-    for f in (tmp_path / "profile").rglob("*"):
+    for f in profile.rglob("*"):
         if f.is_file() and f.stat().st_size < 2_000_000:
             try:
                 data = f.read_bytes()
@@ -303,7 +360,7 @@ def test_busy_port_with_foreign_app_is_refused(tmp_path):
 def test_identity_of_real_server(live):  # noqa: F811
     """У живого Command Center identity действительно есть и он опознаётся."""
     ident = desktop.identify_server(live.url)
-    assert ident and ident["app"] == "bossman-command-center"
+    assert ident and ident["app"] == desktop.APP_IDENTITY
     assert ident.get("version")
     assert "token" not in str(ident).lower()
 
@@ -340,8 +397,11 @@ def test_second_window_refused_while_first_instance_alive(tmp_path, monkeypatch)
         assert desktop._pid_alive(first.pid)
         (tmp_path / "desktop.lock").write_text(json.dumps({"pid": first.pid, "port": 18923}),
                                                encoding="utf-8")
+        identity = {"app": desktop.APP_IDENTITY, "version": "0.1.0",
+                    "source_identity": "PASS", "build_sha": "a" * 40}
+        monkeypatch.setattr(desktop, "_local_identity", lambda: identity)
         monkeypatch.setattr(desktop, "identify_server",
-                            lambda url, timeout=2.0: {"app": "bossman-command-center"} if ":18923/" in url else None)
+                            lambda url, timeout=2.0: identity if ":18923/" in url else None)
         calls = []
         out = io.StringIO()
         code = desktop.run(["--port", "18924", "--browser", "/bin/true", "--profile", str(tmp_path / "prof")],
@@ -387,7 +447,8 @@ def test_fast_browser_exit_is_logged_with_hint(tmp_path, monkeypatch):
 
 # ------------------------------------------------- консоль с токеном при запуске
 
-def test_launcher_shows_access_token_but_never_writes_it_to_logs(live, tmp_path, monkeypatch):  # noqa: F811
+def test_launcher_shows_access_token_but_never_writes_it_to_logs(live, tmp_path, monkeypatch,
+                                                                matched_live_identity):  # noqa: F811
     """Владельцу нужен токен при первом входе, поэтому он печатается в консоль.
 
     Но `desktop-run.log` владелец пересылает при разборе сбоев (так написано в
@@ -416,7 +477,8 @@ def test_launcher_shows_access_token_but_never_writes_it_to_logs(live, tmp_path,
     assert token not in run_log, "секрет не должен попадать в пересылаемый журнал"
 
 
-def test_no_show_token_keeps_the_secret_off_screen(live, tmp_path, monkeypatch):  # noqa: F811
+def test_no_show_token_keeps_the_secret_off_screen(live, tmp_path, monkeypatch,
+                                                  matched_live_identity):  # noqa: F811
     """Режим без консоли: приложение работает, токен на экран не выводится."""
     from bcc.config import settings
 
@@ -471,7 +533,8 @@ def test_access_banner_warns_only_when_console_owns_the_app():
     assert desktop.access_banner("http://x/", None, _P("/d/token"), console_owns_app=False).count("Токен") >= 1
 
 
-def test_browser_launch_failure_is_reported_and_logged(live, tmp_path, monkeypatch):  # noqa: F811
+def test_browser_launch_failure_is_reported_and_logged(live, tmp_path, monkeypatch,
+                                                       matched_live_identity):  # noqa: F811
     """Если браузер не запустился, владелец должен увидеть причину, а не пустую консоль.
 
     Раньше OSError из Popen улетал трейсбеком, консоль закрывалась вместе с ним,
@@ -497,7 +560,8 @@ def test_browser_launch_failure_is_reported_and_logged(live, tmp_path, monkeypat
     assert "browser-launch-failed FileNotFoundError" in log
 
 
-def test_run_log_records_the_exact_window_command(live, tmp_path, monkeypatch):  # noqa: F811
+def test_run_log_records_the_exact_window_command(live, tmp_path, monkeypatch,
+                                                  matched_live_identity):  # noqa: F811
     """Команда окна попадает в журнал: без неё «окно не появилось» неразбираемо."""
     from bcc.config import settings
 
@@ -515,7 +579,7 @@ def test_run_log_records_the_exact_window_command(live, tmp_path, monkeypatch): 
     assert "token" not in log.lower()          # argv по-прежнему без секретов
 
 
-def test_tests_never_write_into_the_owner_data_dir(live, tmp_path):  # noqa: F811
+def test_tests_never_write_into_the_owner_data_dir(live, tmp_path, matched_live_identity):  # noqa: F811
     """Регрессия к засорённому журналу: прогон пишет только во временный каталог."""
     from bcc.config import settings
 
@@ -594,7 +658,10 @@ def test_stale_lock_from_a_killed_run_does_not_block_the_window(live, tmp_path, 
     (data_dir / "desktop.lock").write_text(
         json.dumps({"pid": dead_pid, "port": live.port}), encoding="utf-8")
     # порт при этом отвечает как Command Center — ровно ситуация владельца
-    monkeypatch.setattr(desktop, "identify_server", lambda *a, **k: {"app": "bossman-command-center"})
+    identity = {"app": desktop.APP_IDENTITY, "version": "0.1.0",
+                "source_identity": "PASS", "build_sha": "a" * 40}
+    monkeypatch.setattr(desktop, "_local_identity", lambda: identity)
+    monkeypatch.setattr(desktop, "identify_server", lambda *a, **k: identity)
 
     opened: list[str] = []
     out = io.StringIO()
@@ -615,7 +682,10 @@ def test_live_lock_still_refuses_a_second_window(live, tmp_path, monkeypatch):  
     data_dir = Path(settings.data_dir)
     (data_dir / "desktop.lock").write_text(
         json.dumps({"pid": os.getpid(), "port": live.port}), encoding="utf-8")   # мы сами живы
-    monkeypatch.setattr(desktop, "identify_server", lambda *a, **k: {"app": "bossman-command-center"})
+    identity = {"app": desktop.APP_IDENTITY, "version": "0.1.0",
+                "source_identity": "PASS", "build_sha": "a" * 40}
+    monkeypatch.setattr(desktop, "_local_identity", lambda: identity)
+    monkeypatch.setattr(desktop, "identify_server", lambda *a, **k: identity)
 
     opened: list[str] = []
     out = io.StringIO()

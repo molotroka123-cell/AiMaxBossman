@@ -28,6 +28,11 @@ from typing import Any
 #: отсутствующее поле, которое легко принять за косметику.
 UNKNOWN = "SOURCE_IDENTITY_UNKNOWN"
 
+# Desktop protocol marker. Older launchers accept only the original app name
+# from /api/identity and cannot check SHA. A different marker makes them refuse
+# a new backend instead of silently attaching an old window to it.
+DESKTOP_APP_IDENTITY = "bossman-command-center-build-bound-v1"
+
 _HEX40 = re.compile(r"[0-9a-f]{40}")
 
 #: Живой чекаут и установленное колесо отвечают по-разному дорого: первое —

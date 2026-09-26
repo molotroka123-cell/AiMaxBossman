@@ -129,7 +129,7 @@ def verify(work: Path, expected_sha: str | None = None) -> dict:
                 raise AssertionError(f"installed server exited: {(work / 'server.log').read_text()[-5000:]}")
             try:
                 identity = request("/api/identity")
-                assert identity["app"] == "bossman-command-center", identity
+                assert identity["app"] == "bossman-command-center-build-bound-v1", identity
                 return process, log
             except (urllib.error.URLError, TimeoutError):
                 time.sleep(0.1)

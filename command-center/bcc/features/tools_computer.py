@@ -51,7 +51,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -465,8 +465,42 @@ def _expected_exes(app: str) -> set[str]:
         return set()
 
 
+def _is_hosted_calculator_exe(path: str) -> bool:
+    """Windows Calculator's real UWP executable, beneath its package directory."""
+    exe = PureWindowsPath(path)
+    return (exe.name.casefold() == "calculatorapp.exe"
+            and exe.parent.name.casefold().startswith("microsoft.windowscalculator_")
+            and exe.parent.parent.name.casefold() == "windowsapps")
+
+
+def _hosted_calculator_window(handle: int) -> bool:
+    """Verify the app process inside an ApplicationFrameHost window.
+
+    Windows Calculator's top-level UIA PID belongs to the shared frame host,
+    not to CalculatorApp.exe. The newly created window is attributable only
+    when its direct CoreWindow child belongs to the Calculator package.
+    """
+    try:
+        import psutil
+        from pywinauto import Desktop
+
+        window = Desktop(backend="uia").window(handle=handle)
+        if window.class_name() != "ApplicationFrameWindow":
+            return False
+        for child in window.children():
+            if child.class_name() != "Windows.UI.Core.CoreWindow":
+                continue
+            if _is_hosted_calculator_exe(psutil.Process(int(child.process_id())).exe()):
+                return True
+    except Exception:  # noqa: BLE001 — uncertain identity is a refusal
+        return False
+    return False
+
+
 def attribute_new_window(new: list[tuple[int, str, int]], *, launched_pid: int | None,
-                         expected_exes: set[str], process_name=_process_name) -> tuple[int, str] | None:
+                         expected_exes: set[str], process_name=_process_name,
+                         hosted_app: str | None = None,
+                         hosted_window_matcher=_hosted_calculator_window) -> tuple[int, str] | None:
     """Какое из НОВЫХ окон принадлежит запущенному приложению.
 
     Первое попавшееся новое окно — не ответ: за 5 с могло всплыть чужое
@@ -481,6 +515,11 @@ def attribute_new_window(new: list[tuple[int, str, int]], *, launched_pid: int |
     for h, title, pid in new:
         if pid and expected_exes and process_name(pid) in expected_exes:
             return h, title
+    if hosted_app == "calculator":
+        for h, title, pid in new:
+            if (pid and process_name(pid) == "applicationframehost.exe"
+                    and hosted_window_matcher(h)):
+                return h, title
     return None
 
 
@@ -713,7 +752,13 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                 AK.HOTKEY, args={"keys": ["ctrl", "a"]}), None), "выделение")
         t0 = time.perf_counter()
         if kind == "wait":
-            await asyncio.sleep(min(10.0, max(0.0, float(args.get("seconds") or 1))))
+            deadline = time.monotonic() + min(10.0, max(0.0, float(args.get("seconds") or 1)))
+            while True:
+                _stop_check(st, "ожидание", epoch)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                await asyncio.sleep(min(0.1, remaining))
         elif kind == "launch":
             from bossman.computer_operator.applist import canonical_app
             app = canonical_app(target)
@@ -729,7 +774,8 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                 await asyncio.sleep(0.25)
                 seen_new = [w for w in await asyncio.to_thread(_top_windows) if w[0] not in known]
                 chosen = attribute_new_window(seen_new, launched_pid=st.launched_pid,
-                                              expected_exes=_expected_exes(app or ""))
+                                              expected_exes=_expected_exes(app or ""),
+                                              hosted_app=app)
                 if chosen:
                     break
             if not chosen:

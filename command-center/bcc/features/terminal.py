@@ -64,7 +64,8 @@ async def _retire_finished(svc, mgr: TerminalManager) -> None:
         return
     async with svc.db.session() as s:
         for st in retired:
-            await s.execute(sa.update(term_t).where(term_t.c.id == st["id"]).values(
+            await s.execute(sa.update(term_t).where(
+                term_t.c.id == st["id"], term_t.c.status == "running").values(
                 status="finished", exit_code=st["exit_code"], finished_at=utcnow()))
         await s.commit()
     for st in retired:
@@ -208,7 +209,8 @@ async def session_status(session_id: str, request: Request):
     # синхронизируем БД по завершении
     if st["finished"]:
         async with svc.db.session() as s:
-            await s.execute(sa.update(term_t).where(term_t.c.id == session_id).values(
+            await s.execute(sa.update(term_t).where(
+                term_t.c.id == session_id, term_t.c.status == "running").values(
                 status="finished", exit_code=st["exit_code"], finished_at=utcnow()))
             await s.commit()
     return st
@@ -232,9 +234,12 @@ async def kill(session_id: str, request: Request):
     if session_id not in mgr.sessions:
         raise HTTPException(404, {"message": "сессия не найдена"})
     await mgr.kill(session_id)
+    state = mgr.status(session_id)
+    if not state["finished"] or mgr.sessions[session_id].proc.returncode is None:
+        raise HTTPException(503, {"message": "остановка процесса не подтверждена"})
     async with svc.db.session() as s:
         await s.execute(sa.update(term_t).where(term_t.c.id == session_id).values(
-            status="killed", finished_at=utcnow()))
+            status="killed", exit_code=state["exit_code"], finished_at=utcnow()))
         await s.commit()
     await svc.bus.emit("agent.warning", tool="terminal", session_id=session_id, killed=True)
     return {"ok": True}

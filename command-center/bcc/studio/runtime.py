@@ -284,6 +284,11 @@ async def process_claimed(svc,job):
     ext=await one(svc,jobs,jobs.c.job_id,job['id'])
     if not ext: return await fail(svc,job['id'],'malformed','studio metadata missing')
     task=asyncio.create_task(_generate(svc,job,ext))
+    active=getattr(svc,'_studio_active_tasks',None)
+    if active is None:
+        active={}
+        svc._studio_active_tasks=active
+    active[job['id']]=task
     try:
         budget=next(m['deadline_seconds'] for m in model_specs() if m['id']==ext['plane']['model'])
         if ext['plane']['model'].startswith('sdcpp:'):
@@ -310,6 +315,7 @@ async def process_claimed(svc,job):
     finally:
         if not task.done(): task.cancel()
         with contextlib.suppress(BaseException): await task
+        if active.get(job['id']) is task: active.pop(job['id'],None)
 
 async def migrate_legacy(svc):
     async with svc.db.session() as s:

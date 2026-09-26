@@ -279,6 +279,59 @@ def test_owner_approval_decisions_are_durable_and_single_use(live):  # noqa: F81
     assert errors == [], errors
 
 
+def test_terminal_ui_consumes_owner_approval_for_the_exact_command(live):  # noqa: F811
+    """An ASK command must run only after the UI decides its real approval row."""
+    from playwright.sync_api import sync_playwright
+    from bcc.v2.tables import terminal_sessions
+
+    command = "echo BOSSMAN_UX_011"
+
+    async def rows(table, predicate):
+        async with live.svc.db.session() as s:
+            result = await s.execute(sa.select(table).where(predicate))
+            return [dict(row._mapping) for row in result.fetchall()]
+
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        errors = []
+        run_requests = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.on("console", lambda message: errors.append(message.text) if message.type == "error" else None)
+        page.on("request", lambda request: run_requests.append(request)
+                if request.url.endswith("/api/terminal/run") else None)
+        _login(page, live)
+        page.goto(live.url + "/#/terminal", wait_until="domcontentloaded")
+        page.get_by_role("button", name="С правами системы").click()
+        page.get_by_role("textbox", name="Команда").fill(command)
+        with page.expect_response(lambda response: response.url.endswith("/api/terminal/run")) as first_run:
+            # A rapid double click must not create two approvals or two shells.
+            page.get_by_role("button", name="Запустить", exact=True).evaluate(
+                "button => { button.click(); button.click(); }")
+        first = first_run.value
+        assert first.status == 202, first.text()
+        assert first.json()["error"]["approval_id"] > 0
+
+        dialog = page.get_by_role("dialog")
+        dialog.wait_for(timeout=10000)
+        assert dialog.get_by_text("Нужно ваше подтверждение").is_visible()
+        pending = _call(live, lambda: rows(approvals_t, approvals_t.c.preview.like(f"%{command}%")))
+        assert len(pending) == 1 and pending[0]["status"] == "pending"
+        assert _call(live, lambda: rows(terminal_sessions, terminal_sessions.c.command == command)) == []
+
+        dialog.get_by_role("button", name="Разрешить и запустить").click()
+        page.get_by_text("Команда запущена").wait_for(timeout=15000)
+        approved = _wait_row(live, approvals_t, pending[0]["id"],
+                             lambda row: row.get("status") == "consumed",
+                             "Terminal did not consume the approved row")
+        sessions = _call(live, lambda: rows(terminal_sessions, terminal_sessions.c.command == command))
+        assert approved["decided_by"] == "ui"
+        assert len(sessions) == 1 and sessions[0]["mode"] == "system_admin"
+        assert len(run_requests) == 2  # one ASK, one exact approval consumption
+        browser.close()
+    assert errors == [], errors
+
+
 def test_unauthenticated_action_is_refused(live):  # noqa: F811
     """Тот же запрос без сессии владельца не меняет ничего (не только UI прячет кнопку)."""
     import httpx

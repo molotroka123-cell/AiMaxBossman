@@ -198,7 +198,8 @@ class _Bossman(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):  # noqa: N802
         if self.path == "/api/identity":
-            return self._json(200, {"app": "bossman-command-center", "started_at": type(self).started_at})
+            return self._json(200, {"app": "bossman-command-center-build-bound-v1",
+                                    "started_at": type(self).started_at})
         if self.path == "/api/coding-tasks/readiness":
             # Real readiness names the allowed coding roots; the lab work dir must be inside one.
             body = {"available": True, "runtime": True, "sidecar_command": True, "reason": "",

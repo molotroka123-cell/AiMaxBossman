@@ -122,5 +122,42 @@ Implementation rule:
 Do NOT interpret this shortlist as permission to install ten new daemons. All of it must converge through one Bossman control plane, one task state, one brain, one Jev/router, one Studio and one evidence system.
 
 
+
+### Kadr / AI video editing decision
+
+Bossman 1.8 now treats `HelpFreedom/kadr` as the canonical borrow-first candidate for AI-native timeline editing.
+
+Integration stance:
+- external application/process + MCP/adapter;
+- do NOT copy GPL-3.0 source into Bossman core by default;
+- Bossman remains authority/director;
+- Jev routes media intent;
+- Studio/Wan/Qwen create assets;
+- Kadr edits/assembles/transcribes/captions/renders;
+- visual verifier checks preview/final export;
+- Jeff never receives unrestricted Kadr/PTY/file authority.
+
+Mandatory first Kadr owner-machine smoke after 1.7 freeze:
+`KADR_5S_INTRO`
+
+Create a 5-second vertical Fresh Vibes advertisement intro:
+- 1080×1920 / 9:16;
+- 30 fps unless generator requires a fixed rate;
+- base visual generated/selected via verified Studio route, preferably latest supported local/free Wan path;
+- import to Kadr;
+- assemble exact ~5 s timeline;
+- add simple approved Fresh Vibes branding;
+- preview + fresh snapshot;
+- visual verifier;
+- export;
+- ffprobe duration/resolution/fps/codec;
+- owner-machine playback first/middle/last frame;
+- record wall time, peak unified memory, model route, calls, cost and bytes;
+- send preview/final artifact only to owner AI-control channel.
+
+Gate:
+`KADR_5S_INTRO=PASS` only for a real playable independently verified artifact with no black/corrupt frames or permission/privacy regression.
+
+
 ## Agent start rule
 Read this file first, fetch current unified HEAD, finish 1.5 + 1.6 + 1.7 on owner AI Max with real Computer Use/OpenHands evidence, freeze one exact SHA, and do not start 1.8 until `READY_FOR_1_8=YES`.

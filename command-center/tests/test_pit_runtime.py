@@ -15,7 +15,8 @@ import pytest
 from bcc.pit import runtime as rt
 from bcc.pit.config import PITSettings
 from bcc.pit.models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
-from bcc.pit.roleplay_commands import load_roleplay
+from bcc.pit.roleplay import RolePlayMode
+from bcc.pit.roleplay_commands import load_roleplay, set_roleplay
 from bcc.pit.router import ModelEndpoint
 from bcc.pit.vault import PersonaVault
 from bcc.telegram_companion.adapters import IMAGE_MAX_BYTES
@@ -356,6 +357,112 @@ def test_privacy_command_is_secret_free(tmp_path):
     assert "ab" * 32 not in answer
 
 
+def test_remote_personalization_off_excludes_saved_chat_after_restart(tmp_path):
+    settings = make_settings(tmp_path)
+    runtime = make_runtime(tmp_path, settings=settings)
+    person = settings.people[0]
+    person_key = runtime.vault.key_for_telegram(person.user_id)
+    runtime.vault.set_consent(person_key, ConsentState(
+        memory_enabled=True, remote_processing_enabled=True,
+        remote_personalization_enabled=True))
+    runtime.catalog = {"free/model:free": FREE_ENDPOINT}
+    runtime.catalog_checked_at = 1.0
+
+    asyncio.run(runtime.handle(person, message("PRIVATE_CHAT_MARKER_572", message_id=32)))
+    set_roleplay(runtime.vault, person_key, enabled=True, mode=RolePlayMode.CHARACTER,
+                 participant_consented=True, persona_label="PRIVATE_ROLEPLAY_MARKER_572")
+    assert runtime.store.history(person.key)
+    assert "только текущий запрос" in asyncio.run(runtime.handle(
+        person, message("/privacy personalization off", message_id=33)))
+    asyncio.run(runtime.close())
+
+    reopened = make_runtime(tmp_path, settings=settings)
+    reopened.catalog = {"free/model:free": FREE_ENDPOINT}
+    reopened.catalog_checked_at = 1.0
+    assert reopened.store.history(person.key)  # Revocation retains existing memory.
+    answer = asyncio.run(reopened.handle(person, message(
+        "Новый вопрос", message_id=34,
+        _reply_to={"from_bot": True, "text": "PRIVATE_QUOTE_MARKER_572"})))
+    assert answer == "готово"
+    payload = json.dumps(reopened.adapter.calls[-1][1], ensure_ascii=False)
+    assert "Новый вопрос" in payload
+    assert "PRIVATE_CHAT_MARKER_572" not in payload
+    assert "PRIVATE_ROLEPLAY_MARKER_572" not in payload
+    assert "PRIVATE_QUOTE_MARKER_572" not in payload
+    asyncio.run(reopened.close())
+
+
+def test_paused_memory_retains_old_data_without_new_durable_turns(tmp_path):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    person_key = runtime.vault.key_for_telegram(person.user_id)
+    runtime.vault.set_consent(person_key, ConsentState(
+        memory_enabled=True, remote_processing_enabled=True,
+        remote_personalization_enabled=True, discovery_enabled=True))
+    runtime.catalog = {"free/model:free": FREE_ENDPOINT}
+    runtime.catalog_checked_at = 1.0
+    runtime.store.remember(person.key, "RETAINED_CHAT_MARKER_472", "old reply")
+    runtime.store.log(person.key, "RETAINED_LOG_MARKER_472", "old reply")
+    runtime.store.put(f"last_context:{person.key}", ["retained context"])
+    runtime.store.put(f"last_web:{person.key}", ["retained source"])
+    runtime.store.put(f"discovery:{person.key}", {"key": "food", "question": "old question?"})
+    history_before = runtime.store.history(person.key)
+    logs_before = runtime.store.log_entries(person.key)
+    behavior_before = runtime.behavior.snapshot(person_key).behavior
+
+    assert "паузе" in asyncio.run(runtime.handle(person, message("/pause_memory", message_id=35)))
+    answer = asyncio.run(runtime.handle(person, message("PAUSED_CHAT_MARKER_472", message_id=36)))
+    assert answer == "готово"
+    payload = json.dumps(runtime.adapter.calls[-1][1], ensure_ascii=False)
+    assert "PAUSED_CHAT_MARKER_472" in payload
+    assert "RETAINED_CHAT_MARKER_472" not in payload
+    assert "Jeff" in asyncio.run(runtime.handle(person, message("кто ты?", message_id=39)))
+    async def web_results(_query):
+        return [{"title": "fresh source", "url": "https://example.org/fresh"}]
+    runtime.models.web_results = web_results
+    asyncio.run(runtime.handle(person, message("latest PAUSED_WEB_MARKER_472", message_id=40)))
+    assert runtime.store.history(person.key) == history_before
+    assert runtime.store.log_entries(person.key) == logs_before
+    assert runtime.store.get(f"last_context:{person.key}") == ["retained context"]
+    assert runtime.store.get(f"last_web:{person.key}") == ["retained source"]
+    assert runtime.store.get(f"discovery:{person.key}") is None
+    assert not (runtime.vault.person_dir(person_key) / "discovery.json").exists()
+    assert runtime.behavior.snapshot(person_key).behavior == behavior_before
+    asyncio.run(runtime.close())
+
+    reopened = make_runtime(tmp_path)
+    assert reopened.store.history(person.key) == history_before
+    assert reopened.store.log_entries(person.key) == logs_before
+    assert reopened.vault.consent(person_key).memory_enabled is False
+    asyncio.run(reopened.close())
+
+
+@pytest.mark.parametrize("resume_before_completion", [False, True])
+def test_pause_during_provider_call_prevents_late_history_write(tmp_path, resume_before_completion):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    person_key = runtime.vault.key_for_telegram(person.user_id)
+    runtime.vault.set_consent(person_key, ConsentState(
+        memory_enabled=True, remote_processing_enabled=True, discovery_enabled=True))
+    runtime.catalog = {"free/model:free": FREE_ENDPOINT}
+    runtime.catalog_checked_at = 1.0
+
+    class PausingAdapter(FakeAdapter):
+        async def chat(self, model, messages, **kw):
+            await runtime.handle(person, message("/pause_memory", message_id=38))
+            if resume_before_completion:
+                await runtime.handle(person, message("/resume_memory", message_id=39))
+            return await super().chat(model, messages, **kw)
+
+    runtime.adapter = PausingAdapter()
+    assert asyncio.run(runtime.handle(person, message("хочу купить ноутбук", message_id=37))) == "готово"
+    assert runtime.store.history(person.key) == []
+    assert runtime.store.log_entries(person.key) == []
+    assert runtime.store.get(f"discovery:{person.key}") is None
+    assert runtime.behavior.snapshot(person_key).behavior.events == 0
+    asyncio.run(runtime.close())
+
+
 def test_style_command_stores_preference(tmp_path):
     runtime = make_runtime(tmp_path)
     person = runtime.settings.people[0]
@@ -510,11 +617,7 @@ def test_local_failure_does_not_send_private_turn_to_cloud_without_consent(tmp_p
     assert remote.calls == []
 
 
-def test_local_fallback_rebuilds_remote_context_without_personal_memory(tmp_path, monkeypatch):
-    from bcc.pit import resources
-    from bcc.providers import ProviderError
-
-    monkeypatch.setattr(resources, "_read_free_vram_mb", lambda: 8192)
+def test_cloud_only_route_excludes_personal_memory_after_revocation(tmp_path):
     settings = dataclasses.replace(make_settings(tmp_path),
                                    local_url="http://127.0.0.1:11434/v1",
                                    local_models=("bossman-fast:latest",))
@@ -526,22 +629,69 @@ def test_local_fallback_rebuilds_remote_context_without_personal_memory(tmp_path
             local=True, available=True, zero_cost=True, paid=False),
         "free/model:free": FREE_ENDPOINT,
     }
-    class FailingLocal(FakeAdapter):
-        async def chat(self, model, messages, **kw):
-            raise ProviderError("down", kind="network")
-    runtime.local_adapter = FailingLocal()
+    local = FakeAdapter()
+    runtime.local_adapter = local
     remote = FakeAdapter()
     runtime.adapter = remote
     person = settings.people[0]
     person_key = runtime.vault.key_for_telegram(person.user_id)
     runtime.vault.set_consent(person_key, ConsentState(
         memory_enabled=True, remote_processing_enabled=True,
-        remote_personalization_enabled=False))
+        remote_personalization_enabled=True))
     runtime.vault.append_candidate(person_key, candidate("PRIVATE_MARKER_927", "private"))
-    answer = asyncio.run(runtime.handle(person, message("расскажи обо мне", message_id=83)))
-    assert answer == "готово"
-    assert remote.calls
-    assert "PRIVATE_MARKER_927" not in json.dumps(remote.calls, ensure_ascii=False)
+    runtime.store.remember(person.key, "PRIOR_CHAT_MARKER_927", "old answer")
+    assert asyncio.run(runtime.handle(person, message("расскажи обо мне", message_id=83))) == "готово"
+    assert local.calls == []  # Local models are for learning, never participant replies.
+    assert remote.calls and remote.calls[-1][0] == "free/model:free"
+    assert "PRIOR_CHAT_MARKER_927" in json.dumps(remote.calls[-1], ensure_ascii=False)
+    assert "только текущий запрос" in asyncio.run(runtime.handle(
+        person, message("/privacy personalization off", message_id=84)))
+    assert runtime.vault.consent(person_key).remote_personalization_enabled is False
+    assert asyncio.run(runtime.handle(person, message("Новый вопрос", message_id=85))) == "готово"
+    payload = json.dumps(remote.calls[-1], ensure_ascii=False)
+    assert "PRIVATE_MARKER_927" not in payload
+    assert "PRIOR_CHAT_MARKER_927" not in payload
+    assert local.calls == []
+    asyncio.run(runtime.close())
+
+
+def test_pause_resume_during_cloud_call_does_not_record_late_turn(tmp_path):
+    settings = dataclasses.replace(make_settings(tmp_path),
+                                   local_url="http://127.0.0.1:11434/v1",
+                                   local_models=("bossman-fast:latest",))
+    runtime = rt.ParticipantRuntime(settings)
+    runtime.catalog_checked_at = 1.0
+    runtime.catalog = {
+        "bossman-fast:latest": ModelEndpoint(
+            id="bossman-fast:latest", provider="local", capabilities=frozenset({"chat"}),
+            local=True, available=True, zero_cost=True, paid=False),
+        "free/model:free": FREE_ENDPOINT,
+    }
+    person = settings.people[0]
+    person_key = runtime.vault.key_for_telegram(person.user_id)
+    runtime.vault.set_consent(person_key, ConsentState(
+        memory_enabled=True, remote_processing_enabled=True,
+        remote_personalization_enabled=True))
+    runtime.store.remember(person.key, "PRE_PAUSE_MARKER_927", "old answer")
+    history_before = runtime.store.history(person.key)
+    logs_before = runtime.store.log_entries(person.key)
+
+    class PausingRemote(FakeAdapter):
+        async def chat(self, model, messages, **kw):
+            await runtime.handle(person, message("/pause_memory", message_id=85))
+            await runtime.handle(person, message("/resume_memory", message_id=86))
+            return await super().chat(model, messages, **kw)
+
+    local = FakeAdapter()
+    runtime.local_adapter = local
+    remote = PausingRemote()
+    runtime.adapter = remote
+    assert asyncio.run(runtime.handle(person, message("новый вопрос", message_id=87))) == "готово"
+    assert remote.calls and remote.calls[0][0] == "free/model:free"
+    assert local.calls == []
+    assert runtime.store.history(person.key) == history_before
+    assert runtime.store.log_entries(person.key) == logs_before
+    asyncio.run(runtime.close())
 
 
 def test_photo_memory_starts_only_after_verified_telegram_delivery(tmp_path, monkeypatch):
@@ -574,6 +724,105 @@ def test_photo_memory_starts_only_after_verified_telegram_delivery(tmp_path, mon
         asyncio.run(runtime._worker(person, "chat"))
     assert events == ["send", "finish", "memory"]
     runtime.store.close()
+
+
+@pytest.mark.parametrize("pause_stage", ["before_analysis", "during_analysis"])
+def test_pause_resume_invalidates_scheduled_photo_memory(tmp_path, pause_stage):
+    from bcc.pit.photo_pipeline import PhotoPipeline
+
+    async def go():
+        runtime = make_runtime(tmp_path)
+        person = runtime.settings.people[0]
+        person_key = runtime.vault.key_for_telegram(person.user_id)
+        warm(runtime, person_key)
+        idle_entered = asyncio.Event()
+        analysis_entered = asyncio.Event()
+        release = asyncio.Event()
+        analysis_calls = []
+        ingest_calls = []
+
+        class Vision:
+            async def analyze_for_memory(self, _data, _mime, _caption):
+                analysis_entered.set()
+                if pause_stage == "during_analysis":
+                    await release.wait()
+                analysis_calls.append("analyzed")
+                return {"scene": "красная машина"}
+
+        pipe = PhotoPipeline(runtime.vault, vision=Vision(), ai_max_ready=True)
+        runtime.photo_pipeline = pipe
+        asset = pipe.store.ingest(person_key, 65, JPEG_BYTES)
+        original_ingest = pipe.collector.ingest
+
+        def ingest_spy(key, candidates):
+            ingest_calls.append(key)
+            return original_ingest(key, candidates)
+
+        pipe.collector.ingest = ingest_spy
+        if pause_stage == "before_analysis":
+            async def wait_for_idle(*, max_wait_seconds=30.0):
+                idle_entered.set()
+                await release.wait()
+            pipe._wait_for_idle = wait_for_idle
+
+        pipe.schedule_background_after_delivery(asset, caption="что здесь?")
+        signal = idle_entered if pause_stage == "before_analysis" else analysis_entered
+        await asyncio.wait_for(signal.wait(), 2)
+        await runtime.handle(person, message("/pause_memory", message_id=66))
+        await runtime.handle(person, message("/resume_memory", message_id=67))
+        release.set()
+        await pipe.drain_background(timeout=2)
+
+        assert analysis_calls == ([] if pause_stage == "before_analysis" else ["analyzed"])
+        assert ingest_calls == []
+        assert list(runtime.vault.iter_candidate_records(person_key)) == []
+        await runtime.close()
+
+    asyncio.run(go())
+
+
+def test_delete_then_new_profile_cannot_receive_old_photo_memory(tmp_path):
+    from bcc.pit.photo_pipeline import PhotoPipeline
+
+    async def go():
+        runtime = make_runtime(tmp_path)
+        person = runtime.settings.people[0]
+        person_key = runtime.vault.key_for_telegram(person.user_id)
+        warm(runtime, person_key)
+        analysis_entered = asyncio.Event()
+        release = asyncio.Event()
+        ingest_calls = []
+
+        class Vision:
+            async def analyze_for_memory(self, _data, _mime, _caption):
+                analysis_entered.set()
+                await release.wait()
+                return {"scene": "красная машина"}
+
+        pipe = PhotoPipeline(runtime.vault, vision=Vision(), ai_max_ready=True)
+        runtime.photo_pipeline = pipe
+        asset = pipe.store.ingest(person_key, 68, JPEG_BYTES)
+        original_ingest = pipe.collector.ingest
+
+        def ingest_spy(key, candidates):
+            ingest_calls.append(key)
+            return original_ingest(key, candidates)
+
+        pipe.collector.ingest = ingest_spy
+        pipe.schedule_background_after_delivery(asset, caption="что здесь?")
+        await asyncio.wait_for(analysis_entered.wait(), 2)
+        await runtime.handle(person, message("/delete_me", message_id=69))
+        assert "zero-start" in await runtime.handle(person, message("подтверждаю", message_id=70))
+        await runtime.handle(person, message("привет", message_id=71))
+        assert runtime.vault.consent(person_key).memory_enabled is True
+        release.set()
+        await pipe.drain_background(timeout=2)
+
+        assert ingest_calls == []
+        assert list(runtime.vault.iter_candidate_records(person_key)) == []
+        await runtime.close()
+
+    asyncio.run(go())
 
 
 def test_remote_route_used_when_local_catalog_down(tmp_path):
@@ -632,6 +881,89 @@ def test_photo_on_laptop_is_stored_but_not_claimed(tmp_path, monkeypatch):
     answer = asyncio.run(runtime.handle(person, message("", _photo="fileid", message_id=50)))
     assert "AI Max" in answer
     assert (runtime.vault.person_dir(person_key) / "media" / "latest.json").is_file()
+
+
+def test_paused_photo_is_analyzed_without_new_media_retention(tmp_path, monkeypatch):
+    from bcc.pit.photo_pipeline import PhotoPipeline
+
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    person_key = runtime.vault.key_for_telegram(person.user_id)
+    warm(runtime, person_key)
+    old = runtime.photo_pipeline.store.ingest(person_key, 50, JPEG_BYTES)
+    fresh_bytes = b"\xff\xd8\xff" + b"\x01" * 64
+
+    class Vision:
+        async def analyze_fast(self, data, mime, user_prompt):
+            assert data == fresh_bytes and mime == "image/jpeg"
+            return "На фото тестовый объект."
+
+    runtime.photo_pipeline = PhotoPipeline(runtime.vault, vision=Vision(), ai_max_ready=True)
+
+    async def fetch_file(_file_id, _limit):
+        return fresh_bytes
+
+    monkeypatch.setattr(runtime.telegram, "fetch_file", fetch_file)
+    asyncio.run(runtime.handle(person, message("/pause_memory", message_id=51)))
+    answer = asyncio.run(runtime.handle(person, message(
+        "что на фото?", _photo="fresh-photo", message_id=52)))
+    assert "На фото тестовый объект" in answer
+    assert "не сохраняю" in answer
+    assert runtime.photo_pipeline.store.latest(person_key).sha256 == old.sha256
+    assert list((runtime.vault.person_dir(person_key) / "media" / "inbox").iterdir()) == [old.path]
+    assert runtime._pending_photo_memory == {}
+
+    refusal = asyncio.run(runtime.handle(person, message(
+        "/reference", _photo="new-reference", message_id=53)))
+    assert "не сохраняю" in refusal
+    assert runtime.photo_pipeline.store.references(person_key) == ()
+    asyncio.run(runtime.close())
+
+    reopened = make_runtime(tmp_path)
+    assert reopened.photo_pipeline.store.latest(person_key).sha256 == old.sha256
+    assert reopened.photo_pipeline.store.references(person_key) == ()
+    assert list((reopened.vault.person_dir(person_key) / "media" / "inbox").iterdir()) == [old.path]
+    asyncio.run(reopened.close())
+
+
+def test_paused_photo_caption_edit_uses_current_bytes_without_retaining_them(tmp_path, monkeypatch):
+    from bcc.pit.photo_edit import PhotoEditPipeline
+    from bcc.pit.studio_image_edit import EditedImage
+
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    person_key = runtime.vault.key_for_telegram(person.user_id)
+    warm(runtime, person_key)
+    old = runtime.photo_pipeline.store.ingest(person_key, 60, JPEG_BYTES)
+    fresh_bytes = b"\xff\xd8\xff" + b"\x01" * 64
+    edited = b"\xff\xd8\xff" + b"\x02" * 64
+    seen = []
+
+    class Broker:
+        async def edit(self, **kw):
+            assert kw["image_bytes"] == fresh_bytes
+            assert kw["references"] == ()
+            seen.append("edited")
+            return EditedImage(edited, "image/jpeg", "sha", "run", 1)
+
+    runtime.photo_edit = PhotoEditPipeline(runtime.vault, broker=Broker(), ai_max_ready=True)
+
+    async def fetch_file(_file_id, _limit):
+        return fresh_bytes
+
+    async def send_photo(_person, data, _caption):
+        assert data == edited
+        seen.append("sent")
+
+    monkeypatch.setattr(runtime.telegram, "fetch_file", fetch_file)
+    monkeypatch.setattr(runtime.telegram, "send_photo", send_photo)
+    asyncio.run(runtime.handle(person, message("/pause_memory", message_id=61)))
+    assert asyncio.run(runtime.handle(person, message(
+        "убери фон", _photo="fresh-photo", message_id=62))) == ""
+    assert seen == ["edited", "sent"]
+    assert runtime.photo_pipeline.store.latest(person_key).sha256 == old.sha256
+    assert list((runtime.vault.person_dir(person_key) / "media" / "inbox").iterdir()) == [old.path]
+    asyncio.run(runtime.close())
 
 
 def test_reference_caption_does_not_replace_latest_or_enter_model(tmp_path, monkeypatch):
@@ -763,6 +1095,9 @@ def test_reply_to_message_is_used_as_context(tmp_path):
     person = runtime.settings.people[0]
     person_key = runtime.vault.key_for_telegram(101)
     warm(runtime, person_key)
+    consent = runtime.vault.consent(person_key)
+    consent.remote_personalization_enabled = True
+    runtime.vault.set_consent(person_key, consent)
     runtime.catalog = {"free/model:free": ModelEndpoint(
         id="free/model:free", provider="remote", capabilities=frozenset({"chat"}),
         local=False, available=True, zero_cost=True, paid=False)}

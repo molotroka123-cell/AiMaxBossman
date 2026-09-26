@@ -412,7 +412,7 @@ IDEMPOTENT = frozenset({"preflight", "bootstrap", "skills", "compare", "mvcr", "
 SEVERITY = {PASS: 0, WARN: 1, NOT_RUN: 2, OWNER_REQUIRED: 3, UNKNOWN_OUTCOME: 4, BLOCKED: 5, FAIL: 6}
 KNOWN_STATUSES = frozenset(SEVERITY)
 EXIT_STOPPED = 3
-APP_IDENTITY = "bossman-command-center"
+APP_IDENTITY = "bossman-command-center-build-bound-v1"
 TOKEN_HEADER = "X-BCC-Token"
 NO_DOWNLOAD = frozenset({"REUSED", "REUSE", "PRESENT_OK", "OK", "HEALTHY", "PRESENT", "VERIFIED", "SKIP",
                          "SKIPPED", "UP_TO_DATE", "INSTALLED"})
@@ -642,7 +642,12 @@ def descendants(pid: int) -> list[dict]:
 
 
 def kill_tree(pid: int, create_time: float | None = None, known: list[dict] | tuple = ()) -> list[int]:
-    """Убить процесс, всех его потомков и ранее замеченных потомков. Вернуть убитые pid."""
+    """Stop the owned tree and report only observed members confirmed gone.
+
+    Windows venv launchers may exit when their interpreter child is killed,
+    before their own ``kill()`` call. They still belong in the STOP receipt;
+    conversely, a successful kill request alone is not proof of exit.
+    """
     victims: set[int] = set()
     ps = _psutil()
     root_matches = True
@@ -676,12 +681,19 @@ def kill_tree(pid: int, create_time: float | None = None, known: list[dict] | tu
             except Exception:  # noqa: BLE001 — process exited during snapshot
                 return -1
         procs.sort(key=depth, reverse=True)
+        # Capture identities before the first signal. A launcher can disappear
+        # while we kill its child, and its create_time is no longer readable.
+        observed = []
         for q in procs:
             try:
                 if q.status() != ps.STATUS_ZOMBIE:
-                    q.kill()
-                    victims.add(q.pid)
+                    observed.append((q, q.create_time()))
             except Exception:  # noqa: BLE001
+                continue
+        for q, _ in observed:
+            try:
+                q.kill()
+            except Exception:  # noqa: BLE001 — it may have exited with its child
                 continue
         try:
             ps.wait_procs(procs, timeout=10)
@@ -690,13 +702,16 @@ def kill_tree(pid: int, create_time: float | None = None, known: list[dict] | tu
     if os.name == "nt":
         if ps is None and pid_alive(pid):
             subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, check=False)
-            victims.add(pid)
+            if not pid_alive(pid):
+                victims.add(pid)
     elif root_matches:
         import signal
         try:  # ребёнок запущен в своей сессии: группа = его pid, внуки в ней же
             os.killpg(pid, signal.SIGKILL)
         except (ProcessLookupError, PermissionError, OSError):
             pass
+    if ps is not None:
+        victims.update(q.pid for q, born in observed if not pid_alive(q.pid, born))
     return sorted(victims)
 
 

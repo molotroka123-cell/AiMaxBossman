@@ -258,6 +258,8 @@ export const api = {
   preflightTask: (data) => POST('/api/tasks/preflight', data),
   task: (id) => GET(`/api/tasks/${encodeURIComponent(id)}`),
   taskAction: (id, action) => POST(`/api/tasks/${encodeURIComponent(id)}/${action}`),
+  activeOwnerWork: () => GET('/api/control-plane/active'),
+  stopAllOwnerWork: () => POST('/api/control-plane/stop-all'),
 
   // runs
   run: (id) => GET(`/api/runs/${encodeURIComponent(id)}`),
