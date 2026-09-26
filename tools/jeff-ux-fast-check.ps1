@@ -23,7 +23,7 @@ function Run-Step([string]$Name, [scriptblock]$Action) {
 }
 
 Run-Step "Python compile" {
-    & $Python -m py_compile command-center/bcc/jeff_desktop.py tools/jeff_ux_packet.py
+    & $Python -m py_compile command-center/bcc/jeff_desktop.py command-center/bcc/pit/presentation_profile.py tools/jeff_ux_packet.py
 }
 
 if (Get-Command node -ErrorAction SilentlyContinue) {
@@ -33,7 +33,7 @@ if (Get-Command node -ErrorAction SilentlyContinue) {
 }
 
 Run-Step "Static authority + packet tests" {
-    & $Python -m pytest tests/test_jeff_ux_packet.py command-center/tests/test_jeff_ux_isolation.py -q --tb=short --maxfail=1
+    & $Python -m pytest tests/test_jeff_ux_packet.py command-center/tests/test_jeff_ux_isolation.py command-center/tests/test_pit_presentation_profile.py -q --tb=short --maxfail=1
 }
 
 Run-Step "Compact context packet" { & $Python tools/jeff_ux_packet.py }
