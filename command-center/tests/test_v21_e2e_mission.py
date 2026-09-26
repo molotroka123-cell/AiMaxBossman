@@ -116,7 +116,9 @@ async def _make_stack(env, base_url: str, *, tools: list[str], max_steps: int = 
         "api_key": "sk-test"})).json()
     model = (await env.client.post("/api/models", json={
         "provider_id": provider["id"], "name": "scripted-coder", "alias": "scripted-coder",
-        "kind": "local"})).json()
+        # The scripted model really emits the coding tool sequence below. The
+        # router now checks this declared capability before its first call.
+        "kind": "local", "caps": {"coding": True}})).json()
     agent = (await env.client.post("/api/agents", json={
         "name": "Инженер", "role": "coder",
         "system_prompt": "Ты инженер. Пользуйся инструментами, не выдумывай результаты.",

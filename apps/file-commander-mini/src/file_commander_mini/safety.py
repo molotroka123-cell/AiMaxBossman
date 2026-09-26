@@ -12,6 +12,12 @@ from pathlib import Path
 import stat
 import sys
 
+_WINDOWS_DEVICE_STEMS = frozenset(
+    {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
+    | {f"COM{i}" for i in range(1, 10)}
+    | {f"LPT{i}" for i in range(1, 10)}
+)
+
 
 class FilePolicy:
     def __init__(self, state_dir: Path):
@@ -44,6 +50,10 @@ class FilePolicy:
                         ".config", "secrets", "credentials", "token", "vault.key", "bcc.db"}
         for component in path.parts:
             name = component.casefold()
+            if os.name == "nt" and component != path.anchor:
+                stem = component.split(".", 1)[0].rstrip(" ").upper()
+                if stem in _WINDOWS_DEVICE_STEMS:
+                    raise PermissionError("reserved Windows device path")
             if name in secret_names or name.startswith(".env") or name.endswith((".pem", ".key", ".p12", ".pfx")):
                 raise PermissionError("secret or protected path")
             if os.name == "nt" and ":" in component and component != path.anchor:

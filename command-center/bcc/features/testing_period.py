@@ -226,7 +226,7 @@ class SessionLog:
 # Закрытый список исходов запуска. Ровно то, что умеет записать desktop.run —
 # без запаса «на будущее»: причина, которую никто не пишет, при разборе журнала
 # выглядит как «такого не случалось», хотя её просто нет в коде.
-LAUNCH_REASONS = ("start", "ok", "no-browser-found", "port-busy-foreign",
+LAUNCH_REASONS = ("start", "ok", "no-browser-found", "port-busy-foreign", "build-sha-mismatch",
                   "server-start-failed", "no-server-flag", "browser-launch-failed",
                   "refused-second-window", "window-not-ready")
 

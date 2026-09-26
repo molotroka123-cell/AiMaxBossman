@@ -50,18 +50,6 @@ jobs:
         # 3.14 зелёный — значит, восемь отказов OpenRouter у владельца объясняются
         # не интерпретатором.
         python: ["3.11", "3.12", "3.14"]
-        include:
-          # bossman-core runtime рядом с CC: на 3.11/3.12 sidecar говорит
-          # bossman.openhands.v1 (core-runtime job зелёный на этой комбинации).
-          # На 3.14 sidecar (код 1.5) пока не стартует — до его 3.14-фикса на
-          # convergence рантайм здесь не подставляется, и эти тесты остаются в
-          # прежнем честном состоянии «рантайма нет» (skip), а не новых красных.
-          - python: "3.11"
-            with_bossman_runtime: true
-          - python: "3.12"
-            with_bossman_runtime: true
-          - python: "3.14"
-            with_bossman_runtime: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,22 +67,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e .            # общий пакет bossman_shared: без него импорт падает в CI
+          # v1.5 feature imports bossman_v3; sidecar runs from an installed
+          # interpreter with -I. Install the declared package on every Python
+          # version instead of relying on checkout-only PYTHONPATH.
+          python -m pip install -e ./bossman-core
           # mcp — опциональная группа: без неё рантайм честно отвечает
           # «недоступно», но в CI мы хотим прогонять и его тесты
           python -m pip install -e "./command-center[dev,mcp,browser]"
-          # asyncpg/redis — НЕ зависимости Command Center и намеренно ими не
-          # становятся. Их требует ровно один тест: test_fable_hard_cap.py::
-          # test_both_paths_share_one_ledger запускает дочерний интерпретатор с
-          # PYTHONPATH на bossman-core и импортирует `bossman.apprentice`, чей
-          # __init__ тянет цепочку до bossman/db.py (asyncpg) и bossman/runner.py
-          # (redis). Без них тест падал в CI на КАЖДОМ коммите этой ветки, то
-          # есть проверка «у Fable и Command Center один потолок в $3, а не два»
-          # не выполнялась ни разу. Ставятся только сами пакеты: `pip install -e
-          # ./bossman-core` положил бы bossman-core на sys.path родительского
-          # pytest-процесса, а этот тест сознательно так не делает (см. его
-          # докстринг) — дочерний процесс находит пакет через свой PYTHONPATH.
-          # Список — подмножество объявленных зависимостей bossman-core/pyproject.toml.
-          python -m pip install asyncpg redis
 
       - name: Python compile
         run: python -m compileall -q command-center/bcc command-center/tests
@@ -116,10 +95,6 @@ jobs:
           # Тот же режим, что в разработке: воркеры не стартуют сами,
           # тесты сами крутят движок и не зависят от таймингов раннера.
           BCC_DATA_DIR: ${{ runner.temp }}/bcc-data
-          # bossman_v3 импортируется conftest-фичами и test_v15_autonomy_feature
-          # из checkout bossman-core; editable-установка его не экспонирует.
-          # 3.14 пока без рантайма (sidecar 1.5 не совместим) — см. matrix.include.
-          PYTHONPATH: ${{ matrix.with_bossman_runtime && format('{0}/bossman-core:{0}', github.workspace) || '' }}
           # Браузер здесь ставится намеренно, значит браузерные тесты обязаны
           # ВЫПОЛНИТЬСЯ. Без этого флага «браузера нет — пропустили» и «браузер
           # есть — прошли» выглядят в отчёте одинаково, и потерянное покрытие

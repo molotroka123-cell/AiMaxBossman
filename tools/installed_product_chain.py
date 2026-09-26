@@ -56,7 +56,7 @@ EXIT_CODES = {PASS: 0, FAIL: 1, OWNER_HW: 2}
 HEX40 = re.compile(r"[0-9a-f]{40}\Z")
 
 #: Пакеты продукта. Ни один из них не имеет права прийти из чекаута.
-PRODUCT_MODULES = ("bossman_shared", "bossman", "bcc")
+PRODUCT_MODULES = ("bossman_shared", "bossman", "bossman_v3", "bcc")
 #: Дистрибутивы, у которых проверяется СПОСОБ установки.
 PRODUCT_DISTRIBUTIONS = ("bossman-shared", "bossman-core", "bossman-command-center")
 #: Подсистемы, за которые продукт отвечает САМ. Тот же список, что и у

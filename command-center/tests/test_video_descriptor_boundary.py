@@ -92,6 +92,21 @@ def descriptors() -> int:
     return process.num_fds()
 
 
+def point_pathname_at(path: Path, attacker: Path) -> None:
+    """Replace a verified pathname with the attacker's real file inode.
+
+    A hard link exercises the same open-descriptor boundary on Windows hosts
+    without the privilege required to create a symbolic link.
+    """
+    try:
+        path.symlink_to(attacker)
+    except OSError as exc:
+        if os.name != "nt" or getattr(exc, "winerror", None) != 1314:
+            raise
+        os.link(attacker, path)
+    assert path.samefile(attacker), "the pathname must refer to the attacker's file"
+
+
 # --------------------------------------------------------------------------
 # A1: the original media body
 # --------------------------------------------------------------------------
@@ -112,7 +127,7 @@ async def test_verified_media_body_survives_pathname_replacement(tmp_path, attac
     if attack == "rewrite":
         path.write_bytes(attacker)
     else:
-        path.symlink_to(elsewhere)
+        point_pathname_at(path, elsewhere)
     assert path.read_bytes() == attacker, "the pathname really was re-pointed"
 
     status, headers, body = await drive(response)
@@ -213,7 +228,7 @@ async def test_export_download_serves_verified_bytes_after_pathname_replacement(
     elsewhere = artifact.with_suffix(".attacker")
     elsewhere.write_bytes(attacker)
     artifact.unlink()
-    artifact.symlink_to(elsewhere)
+    point_pathname_at(artifact, elsewhere)
     assert artifact.read_bytes() == attacker
 
     status, headers, body = await drive(response)

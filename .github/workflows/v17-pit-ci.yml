@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'feat/bossman-1.7-personal-identity-training-*'
+      - 'integrate/bossman-1.7-unified-20260925'
     paths:
       - 'command-center/bcc/pit/**'
       - 'command-center/tests/test_pit_foundation.py'

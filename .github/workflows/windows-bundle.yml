@@ -36,6 +36,7 @@ on:
       # Список объявлен в tools/owner_facing_branches.json и сверяется
       # tests/test_windows_workflows_cover_owner_branches.py.
       - 'release/**'
+      - 'integrate/bossman-1.7-unified-20260925'
     paths:
       - 'tools/build_windows_bundle.py'
       - 'tools/terminal_launchers.py'

@@ -5,6 +5,7 @@ import base64
 import hashlib
 import ipaddress
 from dataclasses import dataclass
+from typing import Callable
 from urllib.parse import urlsplit
 
 import httpx
@@ -135,13 +136,16 @@ class StudioImageEditBroker:
             media.append({"run_id": run_id, "role": "reference"})
         return await self._run_job(prompt=prompt, media=media, settings=settings)
 
-    async def generate(self, *, prompt: str, settings: dict | None = None) -> EditedImage:
+    async def generate(self, *, prompt: str, settings: dict | None = None,
+                       on_job_created: Callable[[int], None] | None = None) -> EditedImage:
         if not await self.available():
             raise RuntimeError("QWEN_IMAGE_GENERATION_NOT_CONFIGURED")
-        return await self._run_job(prompt=prompt, media=[], settings=settings)
+        return await self._run_job(prompt=prompt, media=[], settings=settings,
+                                   on_job_created=on_job_created)
 
     async def _run_job(self, *, prompt: str, media: list[dict],
-                       settings: dict | None) -> EditedImage:
+                       settings: dict | None,
+                       on_job_created: Callable[[int], None] | None = None) -> EditedImage:
         if not str(prompt or "").strip():
             raise ValueError("image prompt required")
         job = await json_request(
@@ -159,8 +163,18 @@ class StudioImageEditBroker:
             timeout=60,
         )
         job_id = job.get("id") if isinstance(job, dict) else None
-        if type(job_id) is not int:
+        if type(job_id) is not int or job_id <= 0:
             raise RuntimeError("Studio edit job creation failed")
+        # Persist the server's job identity before the first wait. Restart
+        # recovery can then resume the same job instead of creating another.
+        if on_job_created is not None:
+            on_job_created(job_id)
+
+        return await self.resume(job_id)
+
+    async def resume(self, job_id: int) -> EditedImage:
+        if type(job_id) is not int or job_id <= 0:
+            raise ValueError("invalid Studio job id")
 
         loop = asyncio.get_running_loop()
         deadline = loop.time() + self.config.timeout_seconds

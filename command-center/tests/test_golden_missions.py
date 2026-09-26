@@ -47,6 +47,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shlex
 import subprocess
 import sys
 import threading
@@ -68,10 +69,18 @@ from bcc.v2.verification import observe_pid
 
 from .browser_support import chromium_available, reason as browser_reason
 
-# Интерпретатор для команд хостовой оболочки. shlex.quote на Linux оставляет
-# путь как есть; на Windows под Git-sh неэкранированные `\` в
-# `C:\...\python.exe` съедаются оболочкой, и команда «не найдена».
-_PY = __import__("shlex").quote(sys.executable)
+# The host shell can be sh or cmd.exe on Windows. Both understand a double
+# quoted executable path; unquoted backslashes are eaten by sh, while POSIX
+# single-quote syntax is not understood by cmd.exe.
+_PY = f'"{sys.executable}"' if os.name == "nt" else shlex.quote(sys.executable)
+
+
+def _python_command(code: str) -> str:
+    """Readable one-line Python command accepted by sh and Windows cmd.exe."""
+    assert "\n" not in code and '"' not in code
+    return f'{_PY} -c "{code}"'
+
+
 from .conftest import wait_for
 from .test_v21_tool_loop import ToolAdapter, _stack_with_tools
 
@@ -404,7 +413,9 @@ async def test_mission_01_real_file_create(env, project):
     # 1. intent
     assert "TERMINAL_FILE_ACTION" in {c.name for c in classify_all(prompt)}
 
-    command = f"printf '%s\\n' '{TOKEN}-CREATE' > release_notes.md"
+    command = _python_command(
+        f"from pathlib import Path; Path('release_notes.md').write_text("
+        f"'{TOKEN}-CREATE' + chr(10), encoding='utf-8')")
     adapter = ToolAdapter([
         ("tool", "terminal_run", {"command": command, "mode": "project_host",
                                   "cwd": str(project)}),
@@ -451,12 +462,10 @@ async def test_mission_02_real_file_edit(env, project):
     prompt = "Исправь файл config.ini: замени значение mode на NEW-MODE."
     assert "TERMINAL_FILE_ACTION" in {c.name for c in classify_all(prompt)}
 
-    command = (f"{_PY} - <<'PY'\n"
-               "from pathlib import Path\n"
-               "p = Path('config.ini')\n"
-               "p.write_text(p.read_text(encoding='utf-8').replace('OLD-MODE', 'NEW-MODE'),"
-               " encoding='utf-8')\n"
-               "PY")
+    command = _python_command(
+        "from pathlib import Path; p = Path('config.ini'); "
+        "p.write_text(p.read_text(encoding='utf-8').replace('OLD-MODE', 'NEW-MODE'), "
+        "encoding='utf-8')")
     adapter = ToolAdapter([
         ("tool", "terminal_run", {"command": command, "mode": "project_host",
                                   "cwd": str(project)}),
@@ -492,11 +501,10 @@ async def test_mission_03_terminal_command(env, project):
     prompt = "Запусти в терминале команду, которая сохранит отчёт о процессе."
     assert "TERMINAL_FILE_ACTION" in {c.name for c in classify_all(prompt)}
 
-    command = (f"{_PY} - <<'PY'\n"
-               "import json, os\n"
-               "json.dump({'pid': os.getpid(), 'ppid': os.getppid(), 'cwd': os.getcwd()},\n"
-               "          open('proc.json', 'w'))\n"
-               "PY")
+    command = _python_command(
+        "import json, os; from pathlib import Path; "
+        "Path('proc.json').write_text(json.dumps({'pid': os.getpid(), "
+        "'ppid': os.getppid(), 'cwd': os.getcwd()}), encoding='utf-8')")
     adapter = ToolAdapter([
         ("tool", "terminal_run", {"command": command, "mode": "project_host",
                                   "cwd": str(project), "timeout": 60}),
@@ -861,11 +869,9 @@ async def test_mission_09_video_export(env, project):
     prompt = "Экспортируй видео: создай файл take-001.mp4 длительностью 1 секунда."
     assert "TERMINAL_FILE_ACTION" in {c.name for c in classify_all(prompt)}
 
-    command = (f"{_PY} - <<'PY'\n"
-               "import asyncio\n"
-               "from bossman.video_factory.ffmpeg import run_testsrc\n"
-               "asyncio.run(run_testsrc('take-001.mp4', 1.0))\n"
-               "PY")
+    command = _python_command(
+        "import asyncio; from bossman.video_factory.ffmpeg import run_testsrc; "
+        "asyncio.run(run_testsrc('take-001.mp4', 1.0))")
     adapter = ToolAdapter([
         ("tool", "terminal_run", {"command": command, "mode": "project_host",
                                   "cwd": str(project), "timeout": 120}),
@@ -951,7 +957,9 @@ async def test_mission_11_approval_then_resume(env, project):
     prompt = "Создай файл approved_only.txt с отчётом о выпуске."
     assert "TERMINAL_FILE_ACTION" in {c.name for c in classify_all(prompt)}
 
-    command = f"printf '%s\\n' '{TOKEN}-APPROVED' > approved_only.txt"
+    command = _python_command(
+        f"from pathlib import Path; Path('approved_only.txt').write_text("
+        f"'{TOKEN}-APPROVED' + chr(10), encoding='utf-8')")
     adapter = ToolAdapter([
         ("tool", "terminal_run", {"command": command, "mode": "project_host",
                                   "cwd": str(project)}),
@@ -1012,12 +1020,11 @@ async def test_mission_12_multi_step_mixed_mission(env, calc_repo, vault):
     caps = {c.name for c in classify_all(prompt)}
     assert {"TERMINAL_FILE_ACTION", "CODE_ACTION", "GITHUB_ACTION"} <= caps, caps
 
-    fix = (f"{_PY} - <<'PY'\n"
-           "from pathlib import Path\n"
-           "Path('calc.py').write_text('def add(a, b):\\n    return a + b\\n')\n"
-           "PY")
+    fix = _python_command(
+        "from pathlib import Path; Path('calc.py').write_text("
+        "'def add(a, b):' + chr(10) + '    return a + b' + chr(10), encoding='utf-8')")
     tests = f"{_PY} -m pytest -q -p no:cacheprovider"
-    commit = "git add -A && git commit -m 'fix: add складывает'"
+    commit = 'git add -A && git commit -m "fix: add calculation"'
     adapter = ToolAdapter([
         ("tool", "memory_search", {"query": "соглашения проекта add складывает"}),
         ("tool", "terminal_run", {"command": fix, "mode": "project_host",

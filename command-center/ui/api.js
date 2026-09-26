@@ -40,7 +40,7 @@ export function clearToken() { clearCsrf(); }
 /* ---------------- Ошибки ---------------- */
 
 export class ApiError extends Error {
-  constructor(message, { status = 0, hint = '', actions = null, path = '', code = '' } = {}) {
+  constructor(message, { status = 0, hint = '', actions = null, path = '', code = '', detail = null } = {}) {
     super(message || 'Неизвестная ошибка');
     this.name = 'ApiError';
     this.status = status;
@@ -48,6 +48,7 @@ export class ApiError extends Error {
     this.actions = actions;
     this.path = path;
     this.code = code;
+    this.detail = detail;
   }
   /* 401 — сессии нет; 403 code=csrf — сессия есть, но CSRF-токен этой вкладки
      потерян или от другого входа: без повторного входа ни один POST не пройдёт. */
@@ -163,7 +164,8 @@ async function rawRequest(method, path, body, { signal } = {}) {
       || humanStatus(res.status, path);
     const hint = (e && typeof e === 'object' && e.hint) || hintFor(res.status);
     const actions = (e && typeof e === 'object' && e.actions) || null;
-    throw new ApiError(message, { status: res.status, hint, actions, path, code });
+    throw new ApiError(message, { status: res.status, hint, actions, path, code,
+      detail: e && typeof e === 'object' ? e : null });
   }
   return data;
 }

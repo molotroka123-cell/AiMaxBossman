@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import shutil
 import sqlite3
 import sys
 from pathlib import Path
@@ -51,7 +52,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "command-center"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from scenario_runner import INSTALLED_PRODUCT, PRODUCT_CONTRACTS, scenario  # noqa: E402
+from scenario_runner import INSTALLED_PRODUCT, PRODUCT_CONTRACTS, file_escape_alias, scenario  # noqa: E402
 
 
 # --------------------------------------------------------------- общая оснастка
@@ -165,9 +166,9 @@ def os91_connector_reaches_neither_files_nor_keys(ctx) -> None:
     private.write_text("пароли и ключи владельца", encoding="utf-8")
     escape = root / "ссылка.md"
     try:
-        escape.symlink_to(private)
+        escape = file_escape_alias(escape, private)
     except (OSError, NotImplementedError) as exc:
-        ctx.not_proven(f"symlink в этой среде не создаётся ({type(exc).__name__}): "
+        ctx.not_proven(f"symlink/junction в этой среде не создаётся ({type(exc).__name__}): "
                        "побег по ссылке проверить нечем")
 
     key = _fake_key("gh", "p_", "Zq7", "Mx2", "Rt9", "Kd4", "Vb1", "Ns6", "Pw3")
@@ -194,7 +195,7 @@ def os91_connector_reaches_neither_files_nor_keys(ctx) -> None:
             for name, path in (("две точки", "../вне-хранилища/тайна.txt"),
                                ("абсолютный", str(private)),
                                ("системный", "/etc/passwd"),
-                               ("symlink", "ссылка.md")):
+                               ("symlink", escape.relative_to(root).as_posix())):
                 res = await execute_tool(reader, {"path": path}, call)
                 out["escapes"][name] = (res.error, res.content[:120])
 
@@ -464,11 +465,11 @@ def os94_swapped_binary_is_refused_before_launch(ctx) -> None:
     ctx.reached_installed_product(
         "обработчики bcc.features.skills/tools_mcp установленного Command Center")
 
-    link = ctx.path("бинари", "python3")
+    original_link = ctx.path("бинари", "python3")
     try:
-        link.symlink_to(sys.executable)
+        link = file_escape_alias(original_link, Path(sys.executable))
     except (OSError, NotImplementedError) as exc:
-        ctx.not_proven(f"symlink в этой среде не создаётся ({type(exc).__name__}): "
+        ctx.not_proven(f"symlink/junction в этой среде не создаётся ({type(exc).__name__}): "
                        "подмену бинаря на диске проверить нечем")
     shell = os.environ.get("COMSPEC", r"C:\Windows\System32\cmd.exe") if os.name == "nt" else "/bin/sh"
     if not Path(shell).exists():
@@ -508,9 +509,25 @@ def os94_swapped_binary_is_refused_before_launch(ctx) -> None:
         # Подмена НА ДИСКЕ между установкой и запуском.
         installed = mcp_f._spec_from_row(await mcp_f._server_row(svc, "mail-mcp"))
         out["before_swap"] = mcp_f.launch_refusal(installed)[:200]
-        link.unlink()
-        link.symlink_to(shell)
-        out["after_swap"] = mcp_f.launch_refusal(installed)[:200]
+        if link == original_link:
+            # Обычная файловая ссылка (Linux или Windows с правом symlink).
+            link.unlink()
+            link.symlink_to(shell)
+        else:
+            # Без права symlink на Windows используем реальную NTFS junction.
+            # Нельзя удалять link: это файл python.exe в целевой директории!
+            # Удаляем только саму junction и переключаем её на временную папку
+            # с копией настоящего cmd.exe под тем же именем python.exe.
+            link.parent.rmdir()
+            swapped_binary = ctx.path("подменённый-бинарь", link.name)
+            swapped_binary.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(shell, swapped_binary)
+            swapped_link = file_escape_alias(original_link, swapped_binary)
+            if swapped_link != link:
+                ctx.not_proven("junction после подмены не сохранила путь команды")
+        # Проверку причины делаем по полному отказу: длинные Windows-пути
+        # иначе обрезают слово allowlist раньше, чем его увидит assertion.
+        out["after_swap"] = mcp_f.launch_refusal(installed)
         try:
             await mcp_f.connect_server("mail-mcp", _Call(svc))
             out["connect"] = ("ЗАПУЩЕН", "")

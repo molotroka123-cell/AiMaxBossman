@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/bossman-1.5-economy-orchestrator-20260924
+      - integrate/bossman-1.7-unified-20260925
     paths:
       - 'command-center/bcc/economy_orchestrator.py'
       - 'command-center/bcc/features/v15_economy.py'

@@ -37,6 +37,7 @@ GOOD_PREFIX = "/opt/bossman/venv"
 GOOD_MODULES = {
     "bcc": f"{GOOD_PREFIX}/lib/python3.12/site-packages/bcc/__init__.py",
     "bossman": f"{GOOD_PREFIX}/lib/python3.12/site-packages/bossman/__init__.py",
+    "bossman_v3": f"{GOOD_PREFIX}/lib/python3.12/site-packages/bossman_v3/__init__.py",
     "bossman_shared": f"{GOOD_PREFIX}/lib/python3.12/site-packages/bossman_shared/__init__.py",
 }
 GOOD_DIRECT = {name: {"url": "file:///build/wheel", "archive_info": {}}
@@ -89,6 +90,11 @@ def test_a_checkout_on_the_import_path_is_refused(tmp_path):
 def test_a_missing_package_is_named_rather_than_passed_over():
     problems = _editable(module_paths={**GOOD_MODULES, "bossman": None})
     assert any("не импортируется" in p for p in problems), problems
+
+
+def test_a_missing_bossman_v3_package_is_named_rather_than_passed_over():
+    problems = _editable(module_paths={**GOOD_MODULES, "bossman_v3": None})
+    assert any("bossman_v3" in p and "не импортируется" in p for p in problems), problems
 
 
 # --- привязка установки к коммиту -------------------------------------------

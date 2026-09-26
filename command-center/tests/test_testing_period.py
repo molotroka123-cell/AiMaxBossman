@@ -18,7 +18,7 @@ from bcc.features import testing_period as tp
 
 from .browser_support import chromium_available, reason as browser_reason, required
 from .conftest import client_for, make_settings, start_app
-from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
+from .test_ux2_thinking_pane import _free_port, _launch, _login, live  # noqa: F401
 
 # Файл смешанный: почти всё здесь — серверная половина через API, и она обязана
 # гоняться всегда. Поэтому условие висит на трёх браузерных тестах поимённо, а
@@ -394,7 +394,13 @@ def test_a_click_that_works_is_not_called_dead(live):  # noqa: F811
         page.wait_for_selector(".bcc-testing-bar", timeout=15000)
 
         page.click("#think-open")          # настоящая кнопка: открывает панель
+        page.wait_for_selector("#think-pane:not([hidden])")
+        assert page.get_attribute("#think-open", "aria-pressed") == "true"
         page.wait_for_timeout(2500)
+        # A prior test could finish close to the 4 s batch timer while this
+        # isolated run has not reached it. Flush explicitly so both runs judge
+        # the same completed dead-click verdict, never an empty server batch.
+        page.evaluate("async () => (await import('/testing.js'))._internal.flush()")
 
         events = page.evaluate(
             "async () => (await (await fetch('/api/testing/events?limit=1000')).json()).events")
@@ -434,6 +440,18 @@ def test_visible_feedback_outside_view_is_not_dead(live, feedback):
           };
         }""", feedback)
         page.click("#feedback-probe")
+        # Establish that the control actually responded before judging the
+        # observer. On a busy Windows runner Playwright's event delivery and
+        # the browser timer need not finish at the same wall-clock instant.
+        page.wait_for_function("""mode => {
+          const b = document.querySelector('#feedback-probe');
+          const box = b?.parentElement;
+          if (!b || !box) return false;
+          if (mode === 'text') return b.textContent === 'Done';
+          if (mode === 'busy') return b.disabled && b.getAttribute('aria-busy') === 'true';
+          if (mode === 'ancestor') return box.hidden;
+          return document.activeElement === box.querySelector('input');
+        }""", arg=feedback)
         page.wait_for_timeout(1200)
         page.evaluate("async () => (await import('/testing.js'))._internal.flush()")
         events = page.evaluate("async () => (await (await fetch('/api/testing/events?limit=1000')).json()).events")
@@ -485,8 +503,9 @@ def test_launch_record_ties_start_and_outcome(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "data_dir", tmp_path / "data")
     monkeypatch.setattr(settings, "database_url", f"sqlite+aiosqlite:///{tmp_path / 'data' / 'x.db'}")
     monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: "/bin/true")
+    port = _free_port()  # --port 0 means "use configured default", which may be live Bossman.
 
-    desktop.run(["--host", "127.0.0.1", "--port", "0", "--browser", "/bin/true",
+    desktop.run(["--host", "127.0.0.1", "--port", str(port), "--browser", "/bin/true",
                  "--profile", str(tmp_path / "prof"), "--no-show-token"],
                 launcher=lambda *a, **k: 0, out=io.StringIO())
 
@@ -505,11 +524,12 @@ def test_launch_record_carries_no_paths_and_no_free_text_of_others(tmp_path, mon
     monkeypatch.setattr(settings, "data_dir", tmp_path / "data")
     monkeypatch.setattr(settings, "database_url", f"sqlite+aiosqlite:///{tmp_path / 'data' / 'x.db'}")
     monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: "/opt/secret-place/chromium")
+    port = _free_port()
 
     def _boom(*_a, **_kw):
         raise OSError("не запустить /opt/secret-place/chromium: нет доступа")
 
-    desktop.run(["--host", "127.0.0.1", "--port", "0", "--browser", "/opt/secret-place/chromium",
+    desktop.run(["--host", "127.0.0.1", "--port", str(port), "--browser", "/opt/secret-place/chromium",
                  "--profile", str(tmp_path / "prof"), "--no-show-token"],
                 launcher=_boom, out=io.StringIO())
 

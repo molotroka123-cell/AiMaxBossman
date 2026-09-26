@@ -798,7 +798,8 @@ class TaskEngine:
             self._fences[run_id] = int(cur or 0)
         self._held_since.setdefault(run_id, utcnow())
         self._fenced_out.discard(run_id)
-        heartbeat = asyncio.create_task(self._heartbeat(run_id, asyncio.current_task()))
+        heartbeat_stop = asyncio.Event()
+        heartbeat = asyncio.create_task(self._heartbeat(run_id, asyncio.current_task(), heartbeat_stop))
         from .trace import current_trace_id, run_trace_id
         trace_token = current_trace_id.set(run_trace_id(run_id))       # TRUTH-003 §14: один trace на run
         try:
@@ -814,14 +815,15 @@ class TaskEngine:
             current_trace_id.reset(trace_token)
             self._fences.pop(run_id, None)
             self._held_since.pop(run_id, None)
-            heartbeat.cancel()
-            # Дожидаемся отмены heartbeat: он держит db-сессию в цикле
-            # `sleep → s.execute → s.commit`; без await он переживает execute()
-            # и виснет при закрытии пула на 3.12 (FABLE5 lifecycle audit).
+            # Wake the heartbeat and let any in-flight DB transaction finish.
+            # Cancelling it inside SQLite rollback can strand a checked-out
+            # connection even if we await the cancelled task afterwards.
+            heartbeat_stop.set()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await heartbeat
 
-    async def _heartbeat(self, run_id: int, owner: asyncio.Task | None = None) -> None:
+    async def _heartbeat(self, run_id: int, owner: asyncio.Task | None = None,
+                         stop: asyncio.Event | None = None) -> None:
         """Продление аренды: пока worker жив, run не считается протухшим.
 
         FL-01: продление УСЛОВНО по fence. 0 обновлённых строк = run перехвачен
@@ -829,7 +831,14 @@ class TaskEngine:
         без записи результата (см. execute)."""
         try:
             while True:
-                await asyncio.sleep(self.heartbeat_seconds)
+                if stop is None:
+                    await asyncio.sleep(self.heartbeat_seconds)
+                else:
+                    try:
+                        await asyncio.wait_for(stop.wait(), timeout=self.heartbeat_seconds)
+                        return
+                    except asyncio.TimeoutError:
+                        pass
                 if not await self._heartbeat_once(run_id):
                     self._fenced_out.add(run_id)
                     if owner is not None and not owner.done():
@@ -1337,12 +1346,40 @@ class TaskEngine:
         kw: dict[str, Any] = {"max_tokens": agent.get("max_tokens")}
         if tools:
             kw["tools"] = tools
+        meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
+        kind = task.get("kind") or "generic"
+        routed = bool(meta.get("route") or meta.get("force_model_id")
+                      or kind != "generic")
+
+        async def check_fallback_model(model_id: int | None,
+                                       *, configured_agent_model: bool = False) -> None:
+            # A pick_model hook returning None, or a routed provider failure,
+            # must not turn an excluded cloud model into an implicit fallback.
+            if not routed:
+                return
+            if self.services is None:
+                raise LookupError("router policy service unavailable")
+            from .features.router import check_forced_model
+            reasons = await check_forced_model(
+                self.services, model_id, meta=meta, agent=agent, kind=kind)
+            if configured_agent_model:
+                # Router health is a cached routing hint. An explicitly
+                # configured agent adapter may have recovered since its last
+                # probe; attempt it and let the real provider call decide.
+                # Cloud consent, price and capability refusals stay hard.
+                reasons = [reason for reason in reasons if reason != "unhealthy/offline"]
+            if reasons:
+                raise ProviderError(
+                    f"router policy denied model {model_id}: "
+                    + "; ".join(reasons)[:300])
+
         if model_override is not None:
             # Ступень «другая модель» лестницы восстановления. Действует только
             # на этот прогон и не переписывает конфигурацию агента: владелец её
             # задал, и молча менять её лестница не имеет права. Полномочия при
             # этом те же — меняется исполнитель, а не то, что ему позволено.
             try:
+                await check_fallback_model(model_override)
                 adapter, model = await self.registry.adapter_for(int(model_override))
                 result = await adapter.chat(model["name"], messages, **kw)
                 return result, model
@@ -1367,6 +1404,7 @@ class TaskEngine:
                                 f"маршрут (модель {model_id}) недоступен ({exc}) — модель агента")
                 await self.bus.emit("router.fallback", task_id=task["id"],
                                     model_id=model_id, reason=str(exc))
+        await check_fallback_model(agent.get("model_id"), configured_agent_model=True)
         try:
             adapter, model = await self.registry.adapter_for(int(agent["model_id"]))
         except (LookupError, TypeError):
@@ -1378,6 +1416,7 @@ class TaskEngine:
                 raise
             await self._log(run_id, "warn", "model.fallback",
                             f"модель {model['alias']} недоступна ({exc}) — пробуем fallback")
+            await check_fallback_model(agent["fallback_model_id"], configured_agent_model=True)
             fb_adapter, fb_model = await self.registry.adapter_for(int(agent["fallback_model_id"]))
             result = await fb_adapter.chat(fb_model["name"], messages, **kw)
             await self.bus.emit("model.status", id=model["id"], alias=model["alias"],

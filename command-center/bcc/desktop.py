@@ -883,6 +883,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     Коды выхода: 0 ок, 2 нет браузера, 3 сервер не поднялся, 4 порт занят чужим
     приложением, 5 не удалось создать ярлык."""
     from .config import settings
+    from .build_identity import source_identity
 
     if out is None:
         # pythonw (ярлык BOSSMAN): консоли нет — информационный вывод отбрасываем,
@@ -961,6 +962,15 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         _pause_console(out)
 
     launch_id = uuid.uuid4().hex[:8]
+    current_build = source_identity(fresh=True)
+    current_sha = current_build.get("build_sha")
+
+    def same_build(ident: dict | None) -> bool:
+        # A packaged build must never attach its window to an older backend.
+        # An unproven development checkout must not attach to a known installed
+        # build either; the only compatible unknown is another unknown checkout.
+        return bool(ident) and ident.get("build_sha") == current_sha
+
     _append_run_log(data_dir, f"start pid={os.getpid()} launch={launch_id} url={url}")
     _record_launch(data_dir, launch_id, "start", browser=browser)
     lock = _read_lock(data_dir)
@@ -986,7 +996,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
                 _desktop_lock_path(data_dir).unlink()
             except OSError:
                 pass
-        if owner_alive and lock_port and identify_server(f"http://{host}:{lock_port}/"):
+        if owner_alive and lock_port and same_build(identify_server(f"http://{host}:{lock_port}/")):
             msg = (f"[bcc-desktop] окно BOSSMAN уже запущено (порт {lock_port}) — второе окно "
                    "на том же профиле не открываю, иначе Chrome закроется сам.\n"
                    "[bcc-desktop] Совет: если окно ПУСТОЕ (страница не загрузилась) — "
@@ -999,6 +1009,15 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
 
     started: _BackgroundServer | None = None
     ident = identify_server(url)
+    if ident and not same_build(ident):
+        print(f"[bcc-desktop] порт {port} занят Command Center другой сборки: "
+              f"ожидаемый SHA {current_sha or 'неизвестен'}, "
+              f"работающий SHA {ident.get('build_sha') or 'неизвестен'}. "
+              "Закройте старую сборку или укажите другой --port.", file=out, flush=True)
+        _append_run_log(data_dir, f"exit code=4 build-sha-mismatch port={port}")
+        _record_launch(data_dir, launch_id, "build-sha-mismatch", code=4)
+        _pause_console(out)
+        return 4
     if ident:
         print(f"[bcc-desktop] Command Center уже работает: {url} "
               f"(версия {ident.get('version', '?')}) — подключаюсь к нему", file=out, flush=True)

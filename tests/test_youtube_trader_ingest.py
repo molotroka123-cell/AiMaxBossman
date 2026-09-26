@@ -3,6 +3,7 @@ import pytest
 from tools.youtube_trader_ingest import (
     Cue,
     attach_future_outcomes,
+    build_cases,
     extract_video_id,
     parse_vtt,
     transcript_near,
@@ -52,11 +53,30 @@ def test_decision_transcript_never_uses_future_teacher_language():
 
 
 def test_future_outcomes_use_later_video_frames():
+    same_chart = {"instrument": "BTC", "venue": "CME", "timeframe": "30m"}
     rows = [
-        {"timestamp_seconds": 0.0, "observation": {"chart_price": 100.0}},
-        {"timestamp_seconds": 300.0, "observation": {"chart_price": 101.0}},
-        {"timestamp_seconds": 900.0, "observation": {"chart_price": 99.0}},
+        {"timestamp_seconds": 0.0, "observation": {"chart_price": 100.0, **same_chart}},
+        {"timestamp_seconds": 300.0, "observation": {"chart_price": 101.0, **same_chart}},
+        {"timestamp_seconds": 900.0, "observation": {"chart_price": 99.0, **same_chart}},
     ]
     attach_future_outcomes(rows, horizons=(300, 900))
     assert rows[0]["future_outcomes"]["300s"]["return_pct"] == 1.0
     assert rows[0]["future_outcomes"]["900s"]["return_pct"] == -1.0
+    assert rows[0]["future_outcomes"]["300s"]["evidence_status"] == "UNVERIFIED_VIDEO_FRAME_DELTA"
+
+
+def test_chart_switch_or_missing_identity_yields_unknown_outcome():
+    rows = [
+        {"timestamp_seconds": 0.0, "observation": {"chart_price": 100.0, "instrument": "BTC", "venue": "CME", "timeframe": "30m"}},
+        {"timestamp_seconds": 300.0, "observation": {"chart_price": 101.0, "instrument": "BTC", "venue": "Coinbase", "timeframe": "1D"}},
+        {"timestamp_seconds": 900.0, "observation": {"chart_price": 99.0, "instrument": "BTC", "venue": "CME", "timeframe": "30m"}},
+        {"timestamp_seconds": 1200.0, "observation": {"chart_price": 98.0, "instrument": "BTC", "venue": "CME"}},
+    ]
+    attach_future_outcomes(rows, horizons=(300, 900))
+    assert rows[0]["future_outcomes"] == {}
+    assert rows[0]["future_outcome_status"] == "UNKNOWN"
+    assert rows[2]["future_outcomes"] == {}
+    assert rows[2]["future_outcome_status"] == "UNKNOWN"
+    cases = build_cases(rows, "6pYfEfZof3c", "test")
+    assert all(case["deterministic_analysis"] is None for case in cases)
+    assert cases[3]["series_identity_status"] == "UNKNOWN"

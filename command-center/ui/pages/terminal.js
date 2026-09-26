@@ -82,13 +82,37 @@ function buildRunPanel(ctx, roots) {
     } catch (e) { toastError(e, 'Не удалось проверить команду'); }
   };
 
-  const doRun = async (approved = false) => {
+  let runPending = false;
+  const doRun = async () => {
+    if (runPending) return;
     if (!cmdEl.value.trim()) { toast('Введите команду', { type: 'warn' }); return; }
+    runPending = true;
+    const body = { mode: termState.mode, command: cmdEl.value, cwd: cwdEl.value || undefined,
+      network: networkEl.checked };
     try {
-      const r = await api.raw('/api/terminal/run', {
-        method: 'POST',
-        body: { mode: termState.mode, command: cmdEl.value, cwd: cwdEl.value || undefined, approved, network: networkEl.checked },
-      });
+      let r;
+      let approvalId = 0;
+      try {
+        r = await api.raw('/api/terminal/run', { method: 'POST', body });
+        approvalId = Number(r?.error?.approval_id ?? r?.detail?.approval_id ?? r?.approval_id);
+      } catch (e) {
+        approvalId = Number(e?.detail?.approval_id);
+        if (e?.status !== 202 || !Number.isSafeInteger(approvalId) || approvalId <= 0) throw e;
+      }
+      if (Number.isSafeInteger(approvalId) && approvalId > 0) {
+        const ok = await confirmDialog({
+          title: 'Нужно ваше подтверждение', okText: 'Разрешить запуск', danger: true,
+          text: `Эта команда требует подтверждения: ${body.command}`,
+        });
+        const decision = await api.raw(`/api/approvals/${approvalId}`, {
+          method: 'POST', body: { approve: ok, by: 'ui' },
+        });
+        if (!ok) return;
+        if (decision?.status !== 'approved') throw new Error('Подтверждение уже обработано; команда не запущена');
+        r = await api.raw('/api/terminal/run', {
+          method: 'POST', body: { ...body, approval_id: approvalId },
+        });
+      }
       if (r && r.session_id) {
         toastOk('Команда запущена', `pid ${r.pid}`);
         cmdEl.value = ''; termState.command = ''; termState.preview = null;
@@ -96,14 +120,9 @@ function buildRunPanel(ctx, roots) {
         openSessionDetail(r.session_id, ctx);
         return;
       }
-      if (r && r.approval_id) {
-        const ok = await confirmDialog({
-          title: 'Нужно ваше подтверждение', okText: 'Запустить всё равно', danger: true,
-          text: `Эта команда требует подтверждения: ${cmdEl.value}`,
-        });
-        if (ok) await doRun(true);
-      }
+      throw new Error('Сервер не вернул запущенную сессию');
     } catch (e) { toastError(e, 'Команда запрещена или не запустилась'); }
+    finally { runPending = false; }
   };
 
   return panel('Запуск команды', h('div.stack.sm',
@@ -114,7 +133,7 @@ function buildRunPanel(ctx, roots) {
     decisionOut,
     h('div.row', h('div.spacer'),
       h('button.btn.btn-sm', { type: 'button', onClick: doPreview }, icon('search', 13), h('span', 'Проверить')),
-      actionButton('Запустить', () => doRun(false), { cls: 'btn btn-sm btn-primary', iconName: 'play' }))));
+      actionButton('Запустить', doRun, { cls: 'btn btn-sm btn-primary', iconName: 'play' }))));
 }
 
 function decisionLine(decision) {

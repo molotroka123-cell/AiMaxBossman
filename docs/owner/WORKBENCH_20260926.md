@@ -36,14 +36,16 @@ Important commits: `92f5d479`, `2c19cd88`, `1be504f3`, `60088d6b`, `4def95cf`, `
 - Last snapshot: root-ci/Core/PostgreSQL/ASTRA/Solana PASS; Command Center CI red.
 - Jeff/PIT: real local Qwen response, two-participant testing, no observed cross-user leak in tested sample, restart/idempotency/memory contracts, local-first routing, Qwen Vision live.
 - Owner preflight: real public YouTube source downloaded/transcribed; three Nemotron roles produced quarantined pilot material; local Qwen responded; verified paid spend USD 0.
+- Jeff media: a real 1024×1024 Studio image was generated and delivered in Telegram; see `docs/v1.7/evidence/JEFF_PHOTO_20260926.md`. This proves that one media path, not all 1.7 acceptance.
+- BossBlocks: a playable Godot ZIP passed headless launch, six game checks and a separate-process save/restart check; see `docs/v1.6/runs/BOSSBLOCKS-001-RESULT.md`. The owner emulator and Bossman-only boundary are still unproven.
 
 ## Not yet proven
-No final SHA/freeze, no complete one-click Windows product, current owner-PC Computer Use blocked, installed OpenHands/local sidecar not fully proven, 1.6 owner missions incomplete, scientific cycles 0/3, positive transfer 0, Qwen Image hardware output not fully proven, Jeff soak incomplete, no fresh final installed Windows artifact.
+No final SHA/freeze, no complete one-click Windows product, current owner-PC Computer Use blocked, installed OpenHands/local sidecar not fully proven, 1.6 owner missions incomplete, scientific cycles 0/3, positive transfer 0, Qwen Image hardware output not fully proven, Jeff soak incomplete, no fresh final installed Windows artifact. Jeff's OpenRouter chat key currently returns authenticated 401; a replacement key is required before cloud-only chat can pass. Instagram owner login and approval remain pending.
 
 ## Current blockers
-1. `command-center/bcc/pit/runtime.py` U+FEFF BOM. Fix and scan Python sources.
-2. Python 3.14 `ModuleNotFoundError: bossman_v3`. Fix package/install contract; no test-only sys.path hacks.
-3. Installed `bossman.apprentice.local_sidecar`: `ModuleNotFoundError: bossman`. Fix wheel/install/isolated subprocess.
+1. Command Center full regression on owner Windows finished with 4,988 passed, 44 failed and 75 skipped. Many failures are Windows test portability or dependencies and have already passed targeted reruns after fixes, but a clean full rerun is required before freeze.
+2. Owner scenarios still require a full clean rerun after the Windows reparse-point test fix. The installed package checks OS-81/83/84/85 passed targeted with `setuptools` installed.
+3. Jeff cloud-only chat is blocked by the expired OpenRouter key; the working Studio photo path does not replace chat acceptance.
 4. Computer Use native pipe unavailable / os error 2. Restore existing bridge; do not create a second stack.
 
 ## Aster P1 candidates
@@ -60,7 +62,7 @@ YOUTUBE-001 is PARTIAL: real source + local transcript + 3 Nemotron roles exist.
 
 INSTAGRAM-001 is OWNER LIVE PENDING: Fresh Vibes login/readback → owner approval → profile/avatar → 1 post → 1 Story → 1 Highlight → exactly 5 approved follows → fresh verification. Password/OTP/CAPTCHA = OWNER_REQUIRED.
 
-BOSSBLOCKS-001 is NOT STARTED: 4h max Bossman → Jev → local/free workers → bounded GLM orchestration → OpenHands → build → QA → Owner Emulator → verifier → repair → playable package.
+BOSSBLOCKS-001 is PARTIAL: real Godot game, portable ZIP and save/restart checks exist (`docs/v1.6/runs/BOSSBLOCKS-001-RESULT.md`). The coding-task stalled and a direct fallback produced part of the game; Bossman-only boundary, full Owner Emulator, Aster verdict and scientific learning are not proven. Keep the original 4h Bossman → Jev → local/free workers → bounded GLM orchestration → OpenHands → build → QA → Owner Emulator → verifier → repair gate before PASS.
 
 Scientific self-improvement is separate: minimum 3 cycles `hypothesis → baseline → candidate → same benchmark → verifier → restart → unseen transfer → PROMOTE/REJECT`; need >=1 positive transfer.
 

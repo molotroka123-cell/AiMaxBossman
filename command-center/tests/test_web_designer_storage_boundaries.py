@@ -20,7 +20,15 @@ def _link(source: Path, target: Path, *, directory=False):
         subprocess.run(['cmd', '/c', 'mklink', '/J', str(source), str(target)],
                        check=True, capture_output=True, text=True)
     else:
-        source.symlink_to(target, target_is_directory=directory)
+        try:
+            source.symlink_to(target, target_is_directory=directory)
+        except OSError as exc:
+            # GitHub's Windows runners and ordinary owner accounts need not have
+            # SeCreateSymbolicLinkPrivilege. The project/history junction cases
+            # still exercise the boundary on Windows; Linux covers file links.
+            if os.name == 'nt' and exc.winerror == 1314:
+                pytest.skip('Windows account cannot create file symlinks (WinError 1314)')
+            raise
 
 
 @pytest.mark.parametrize('member', ['project', 'current.html', 'project.json', 'history'])

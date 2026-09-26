@@ -1,7 +1,7 @@
 """Feature 01+13 — Missions + KPI: план, лимит воркеров, прогресс, KPI, защита."""
 import sqlalchemy as sa
 
-from bcc.db import missions as missions_t, tasks as tasks_t
+from bcc.db import missions as missions_t, task_runs as runs_t, tasks as tasks_t
 
 from .conftest import FakeAdapter, wait_for
 from .helpers import make_stack
@@ -61,7 +61,12 @@ async def test_worker_limit_and_progress_and_completion(env):
             max_active = max(max_active, active)
             mission = (await env.client.get(f"/api/missions/{m['id']}")).json()
             return mission["status"] == "completed"
-        await wait_for(check, timeout=15)
+        try:
+            await wait_for(check, timeout=15)
+        except AssertionError as exc:
+            async with env.svc.db.session() as s:
+                runs = (await s.execute(sa.select(runs_t.c.status, runs_t.c.error))).all()
+            raise AssertionError(f"{exc}; task runs={runs}") from exc
     finally:
         # Отменить мало: задача-воркер держит соединение с БД и, не будучи
         # дождавшейся своего CancelledError, доходит до commit уже на

@@ -40,17 +40,33 @@ class BehaviorController:
         self.behavior = BehaviorLedger(vault)
 
     def snapshot(self, person_key: str) -> BehaviorSnapshot:
+        # Security telemetry is advisory. A damaged Windows ACL on its file
+        # must not break the participant's conversation or alter consent/data.
+        try:
+            risk = self.risk.read(person_key)
+        except OSError:
+            risk = RiskState()
+        try:
+            behavior = self.behavior.read(person_key)
+        except OSError:
+            behavior = BehaviorScores()
         return BehaviorSnapshot(
-            risk=self.risk.read(person_key),
-            behavior=self.behavior.read(person_key),
+            risk=risk,
+            behavior=behavior,
         )
 
     def privacy_probe(self, person_key: str, *, kind: str, delta: int = 1) -> BehaviorSnapshot:
-        self.risk.add(person_key, delta=max(0, int(delta)), kind=kind)
+        try:
+            self.risk.add(person_key, delta=max(0, int(delta)), kind=kind)
+        except OSError:
+            pass
         return self.snapshot(person_key)
 
     def record(self, person_key: str, event: BehaviorEvent) -> BehaviorSnapshot:
-        self.behavior.apply(person_key, event)
+        try:
+            self.behavior.apply(person_key, event)
+        except OSError:
+            pass
         return self.snapshot(person_key)
 
     def choose_normal_discovery(

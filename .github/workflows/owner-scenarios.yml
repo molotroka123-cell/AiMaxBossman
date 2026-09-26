@@ -13,6 +13,7 @@ on:
       - 'claude/**'
       - 'night/**'
       - 'release/**'
+      - 'integrate/bossman-1.7-unified-20260925'
     paths:
       - 'tests/owner_scenarios/**'
       - 'tools/scenario_runner.py'

@@ -12,7 +12,7 @@ from bcc.pit.capabilities import LAPTOP_IMAGE_GENERATION_REPLY_RU
 from bcc.pit.models import ConsentState
 from bcc.pit.photo_edit import PhotoEditPipeline
 from bcc.pit.photo_commands import photo_intent
-from bcc.pit.photo_runtime import PhotoRuntimeConfig, photo_runtime_status
+from bcc.pit.photo_runtime import PhotoRuntimeConfig, build_photo_services, photo_runtime_status
 from bcc.pit.photo_pipeline import LAPTOP_PHOTO_REPLY_RU, PhotoPipeline, PhotoStore, visual_memory_candidates
 from bcc.pit.qwen_vision import QwenVisionBackend, QwenVisionConfig
 from bcc.pit.studio_image_edit import StudioImageEditBroker, StudioImageEditConfig
@@ -223,6 +223,47 @@ def test_studio_edit_broker_matches_v16_reference_job_run_contract():
     assert ("POST", "/api/studio/jobs") in seen
 
 
+def test_studio_generation_records_job_before_poll_and_resumes_without_new_post():
+    output_sha = hashlib.sha256(PNG).hexdigest()
+    seen = []
+
+    def world(request):
+        path = request.url.path
+        seen.append((request.method, path))
+        if path == "/api/studio/models":
+            return httpx.Response(200, json={"items": [{
+                "id": "sdcpp:z-image-turbo", "available": True,
+                "free": True, "provider": "sdcpp"}]})
+        if path == "/api/studio/jobs" and request.method == "POST":
+            return httpx.Response(200, json={"id": 51})
+        if path == "/api/studio/jobs/51":
+            assert ("recorded", "51") in seen[:-1]
+            return httpx.Response(200, json={"status": "completed"})
+        if path == "/api/studio/runs":
+            return httpx.Response(200, json={"items": [{
+                "id": "out-run", "job_id": 51, "sha256": output_sha}]})
+        if path == "/api/studio/runs/out-run/file":
+            return httpx.Response(200, content=PNG)
+        raise AssertionError((request.method, path))
+
+    async def go():
+        broker = StudioImageEditBroker(StudioImageEditConfig(
+            core_url="http://127.0.0.1:8800", core_token="fixture",
+            model_id="sdcpp:z-image-turbo", timeout_seconds=60),
+            transport=httpx.MockTransport(world))
+        try:
+            created = await broker.generate(
+                prompt="дом", on_job_created=lambda job_id:
+                    seen.append(("recorded", str(job_id))))
+            resumed = await broker.resume(51)
+            assert created.data == resumed.data == PNG
+        finally:
+            await broker.close()
+
+    asyncio.run(go())
+    assert seen.count(("POST", "/api/studio/jobs")) == 1
+
+
 def test_photo_edit_is_ai_max_only_and_per_user_latest(tmp_path):
     class Broker:
         async def edit(self, **kw):
@@ -276,3 +317,26 @@ def test_photo_runtime_ai_max_config(monkeypatch):
     assert status["ai_max_media_ready"] is True
     assert status["vision_configured"] is True
     assert status["image_edit_configured"] is True
+
+
+def test_persisted_generation_only_media_does_not_claim_vision_or_edit(tmp_path, monkeypatch):
+    for name in ("BOSSMAN_PIT_AI_MAX_MEDIA", "BOSSMAN_PIT_VISION_MODEL",
+                 "BOSSMAN_PIT_IMAGE_EDIT_MODEL", "BOSSMAN_PIT_IMAGE_GENERATION_MODEL",
+                 "BOSSMAN_PIT_IMAGE_LICENSE_MODE"):
+        monkeypatch.delenv(name, raising=False)
+    home = tmp_path / "pit-v1.7"
+    home.mkdir()
+    (home / "media.json").write_text(json.dumps({
+        "ai_max_media_ready": True,
+        "image_generation_model": "sdcpp:z-image-turbo",
+        "image_license_mode": "commercial_licensed",
+    }), encoding="utf-8")
+    services = build_photo_services(core_token="test", data_dir=tmp_path)
+    status = photo_runtime_status(services.config)
+    assert status["ai_max_media_ready"] is True
+    assert status["image_generation_configured"] is True
+    assert status["image_edit_configured"] is False
+    assert status["vision_configured"] is False
+    assert status["studio_endpoint"] == "LOOPBACK_CONFIGURED"
+    assert services.generate.config.model_id == "sdcpp:z-image-turbo"
+    assert services.edit is None

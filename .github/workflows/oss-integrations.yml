@@ -6,7 +6,7 @@ on:
     # задания было НОЛЬ прогонов на ней, и запасного пути не существовало:
     # триггера pull_request здесь нет вовсе, только push и ручной запуск.
     # Группа concurrency привязана к github.ref, своя на ветку.
-    branches: [claude/bossman-final-convergence-hu2702, 'release/**', 'night/**']
+    branches: [claude/bossman-final-convergence-hu2702, 'release/**', 'night/**', 'integrate/bossman-1.7-unified-20260925']
     paths:
       - 'command-center/bcc/**'
       - 'command-center/ui/**'

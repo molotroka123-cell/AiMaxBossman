@@ -33,6 +33,22 @@ def _live(mgr):
     return list(mgr.sessions.values())
 
 
+def _directory_link(link: Path, target: Path) -> None:
+    if os.name == "nt":
+        result = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)],
+                                capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+    else:
+        link.symlink_to(target, target_is_directory=True)
+
+
+def _remove_directory_link(link: Path) -> None:
+    if os.name == "nt":
+        link.rmdir()
+    else:
+        link.unlink()
+
+
 @pytest.mark.parametrize("mode", ["sandbox", "project_host", "system_admin"])
 async def test_repro_cwd_outside_roots_refused_in_every_mode(env, tmp_path, mode):
     """REPRO F-009: cwd вне корней → отказ до запуска (никакого процесса/контейнера)."""
@@ -53,16 +69,16 @@ async def test_variant_dotdot_and_symlink_escape_resolved_before_authz(env, tmp_
     root.mkdir(parents=True, exist_ok=True)
     outside = tmp_path.parent / "secrem_target"
     outside.mkdir(exist_ok=True)
+    link = root / "escape"
     try:
         # ../ из корня
         res = await tt._tool_run({"command": "echo x", "cwd": str(root / ".." / ".." / outside.name),
                                   "mode": "project_host"}, _ctx(env))
         assert res.error is True and "вне разрешённых корней" in res.content
         # symlink внутри корня → наружу
-        link = root / "escape"
         if link.exists() or link.is_symlink():
-            link.unlink()
-        os.symlink(outside, link, target_is_directory=True)
+            _remove_directory_link(link)
+        _directory_link(link, outside)
         res = await tt._tool_run({"command": "echo x", "cwd": str(link), "mode": "project_host"},
                                  _ctx(env))
         assert res.error is True and "вне разрешённых корней" in res.content
@@ -70,6 +86,8 @@ async def test_variant_dotdot_and_symlink_escape_resolved_before_authz(env, tmp_
         norm = tt.normalize_run_args({"command": "echo x", "cwd": str(link)})
         assert norm["cwd"] == str(outside.resolve()) and norm["mode"] == "sandbox"
     finally:
+        if link.exists() or link.is_symlink():
+            _remove_directory_link(link)
         shutil.rmtree(outside, ignore_errors=True)
 
 
@@ -224,7 +242,7 @@ async def test_ap001_a_planted_token_outside_the_roots_is_never_exfiltrated(
     link = scratch / "totally-innocent"
     if link.exists() or link.is_symlink():
         link.unlink()
-    os.symlink(vault, link, target_is_directory=True)
+    _directory_link(link, vault)
 
     attempts = [
         # read it by naming its directory as cwd
@@ -247,7 +265,7 @@ async def test_ap001_a_planted_token_outside_the_roots_is_never_exfiltrated(
             assert not _live(tt._mgr(env.svc)), args
     finally:
         if link.exists() or link.is_symlink():
-            link.unlink()
+            _remove_directory_link(link)
         shutil.rmtree(vault)
 
 
@@ -323,7 +341,9 @@ async def test_ap001_the_canary_is_readable_when_it_is_legitimately_in_scope(
     assert owned.is_dir(), located.content
     (owned / "mine.txt").write_text(f"API_KEY={TOKEN}\n", encoding="utf-8")
 
-    res = await tt._tool_run({"command": "cat mine.txt", "cwd": "scratch",
+    res = await tt._tool_run({"command": "python -c \"from pathlib import Path; "
+                                          "print(Path('mine.txt').read_text(encoding='utf-8'))\"",
+                              "cwd": "scratch",
                               "mode": "project_host", "timeout": 20}, ctx)
     assert res.error is False, res.content
     assert TOKEN in res.content, (

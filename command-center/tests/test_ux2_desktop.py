@@ -7,7 +7,6 @@ import json
 import os
 import sys
 import subprocess
-import tempfile
 import time
 from pathlib import Path
 
@@ -159,6 +158,7 @@ def test_real_chromium_app_window_renders_command_center(live, tmp_path):  # noq
     proc = desktop.open_window(
         browser, live.url + "/", profile,
         extra=("--headless=new", "--no-sandbox", "--disable-gpu",
+               "--edge-skip-compat-layer-relaunch",
                "--remote-debugging-address=127.0.0.1", "--remote-debugging-port=0"))
     try:
         port, ws_path = _devtools_endpoint(profile, proc)
@@ -167,7 +167,7 @@ def test_real_chromium_app_window_renders_command_center(live, tmp_path):  # noq
         with sync_playwright() as pw:
             b = pw.chromium.connect_over_cdp(f"ws://127.0.0.1:{port}{ws_path}")
             info = b.new_browser_cdp_session().send("Browser.getVersion")
-            assert "Chrome" in info.get("product", ""), info
+            assert any(name in info.get("product", "") for name in ("Chrome", "Edg/")), info
             pages = [p for c in b.contexts for p in c.pages]
             page = next((p for p in pages if p.url.startswith(live.url)), None)
             assert page is not None, [p.url for p in pages]
@@ -306,6 +306,25 @@ def test_identity_of_real_server(live):  # noqa: F811
     assert ident and ident["app"] == "bossman-command-center"
     assert ident.get("version")
     assert "token" not in str(ident).lower()
+
+
+def test_new_build_refuses_old_command_center_on_same_port(tmp_path, monkeypatch):
+    """An app-name match must not attach build B's window to build A's backend."""
+    from bcc import build_identity
+
+    monkeypatch.setattr(build_identity, "source_identity", lambda **kw: {
+        "build_sha": "b" * 40, "source_identity": "PASS"})
+    monkeypatch.setattr(desktop, "identify_server", lambda *a, **kw: {
+        "app": desktop.APP_IDENTITY, "build_sha": "a" * 40})
+    monkeypatch.setattr(desktop, "port_busy", lambda *a, **kw: True)
+    opened = []
+    out = io.StringIO()
+    code = desktop.run(["--port", "18927", "--browser", "/bin/true",
+                        "--profile", str(tmp_path / "profile"), "--no-show-token"],
+                       launcher=lambda *a, **kw: opened.append(True) or 0, out=out)
+    assert code == 4
+    assert opened == []
+    assert "SHA" in out.getvalue() or "сборк" in out.getvalue().lower()
 
 def test_second_window_refused_while_first_instance_alive(tmp_path, monkeypatch):
     """?????? ???? ?? ??? ?? ??????? Chrome ????? ??????????? (profile lock).
@@ -506,7 +525,7 @@ def test_tests_never_write_into_the_owner_data_dir(live, tmp_path):  # noqa: F81
                        launcher=lambda *a, **k: 0, out=out) == 0
     log = Path(settings.data_dir) / "desktop-run.log"
     assert log.exists(), "журнал ведётся"
-    assert str(log).startswith(str(Path(tempfile.gettempdir()))), log   # временный, не боевой
+    assert log.is_relative_to(tmp_path.parent), log  # pytest workspace, не боевой каталог
 
 
 def test_every_exit_path_leaves_a_matching_line_in_the_run_log(live, tmp_path, monkeypatch):  # noqa: F811
@@ -791,6 +810,8 @@ def test_runtime_window_timeout_is_passed_to_launcher(tmp_path, monkeypatch):
     """--window-timeout доходит до launcher'а (по умолчанию BCC_APP_STARTUP_TIMEOUT)."""
     from bcc.config import settings
     _use_temp_data_dir(monkeypatch, tmp_path / "data")
+    from .test_ux2_thinking_pane import _free_port
+    port = _free_port()
     monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: "/bin/true")
     seen = {}
 
@@ -799,7 +820,7 @@ def test_runtime_window_timeout_is_passed_to_launcher(tmp_path, monkeypatch):
         return 124
 
     out = io.StringIO()
-    code = desktop.run(["--host", "127.0.0.1", "--port", "0", "--browser", "/bin/true",
+    code = desktop.run(["--host", "127.0.0.1", "--port", str(port), "--browser", "/bin/true",
                         "--profile", str(tmp_path / "prof"), "--window-timeout", "3.5",
                         "--no-show-token"], launcher=fake_launcher, out=out)
     assert code == 124
@@ -811,6 +832,8 @@ def test_lock_records_window_opened_at(tmp_path, monkeypatch):
     """desktop.lock получает window_opened_at — диагностика для --status без CDP."""
     from bcc.config import settings
     _use_temp_data_dir(monkeypatch, tmp_path / "data")
+    from .test_ux2_thinking_pane import _free_port
+    port = _free_port()
     monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: "/bin/true")
     seen = {}
 
@@ -820,7 +843,7 @@ def test_lock_records_window_opened_at(tmp_path, monkeypatch):
         return 0
 
     out = io.StringIO()
-    desktop.run(["--host", "127.0.0.1", "--port", "0", "--browser", "/bin/true",
+    desktop.run(["--host", "127.0.0.1", "--port", str(port), "--browser", "/bin/true",
                  "--profile", str(tmp_path / "prof"), "--no-show-token"],
                 launcher=fake_launcher, out=out)
     assert "window_opened_at" in seen["lock"]
@@ -907,6 +930,9 @@ def test_server_backed_runs_survive_a_missing_repo_database(tmp_path, monkeypatc
     Ровно это ломало CI: там каталога `command-center/data` нет вовсе.
     """
     _use_temp_data_dir(monkeypatch, tmp_path / "data")
+    from .test_ux2_thinking_pane import _free_port
+
+    port = _free_port()
     monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: "/bin/true")
     seen = {}
 
@@ -914,7 +940,7 @@ def test_server_backed_runs_survive_a_missing_repo_database(tmp_path, monkeypatc
         seen["called"] = True
         return 0
 
-    code = desktop.run(["--host", "127.0.0.1", "--port", "0", "--browser", "/bin/true",
+    code = desktop.run(["--host", "127.0.0.1", "--port", str(port), "--browser", "/bin/true",
                         "--profile", str(tmp_path / "prof"), "--no-show-token"],
                        launcher=fake_launcher, out=io.StringIO())
 

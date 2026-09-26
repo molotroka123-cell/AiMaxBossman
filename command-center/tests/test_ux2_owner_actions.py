@@ -17,6 +17,7 @@ import sqlalchemy as sa
 
 from bcc.db import (agents as agents_t, approvals as approvals_t, task_runs as runs_t,
                     tasks as tasks_t, utcnow)
+from bcc.v2.tables import terminal_sessions as terminal_t
 
 from .browser_support import chromium_available, reason as browser_reason
 from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
@@ -36,6 +37,45 @@ def _row(srv, table, row_id: int) -> dict:
             r = res.first()
             return dict(r._mapping) if r else {}
     return _call(srv, go)
+
+
+def test_terminal_ask_uses_recorded_owner_approval_in_browser(live):
+    """A real UI click must approve the returned record before starting a command."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        _login(page, live)
+        page.goto(live.url + "/#/terminal", wait_until="domcontentloaded")
+        page.get_by_role("button", name="В проекте").click()
+        page.locator("button.on", has_text="В проекте").wait_for(timeout=10000)
+        page.locator("textarea[placeholder='git status']").fill("echo UX011_APPROVED")
+        page.get_by_role("button", name="Проверить").click()
+        page.get_by_text("Спросит подтверждение").wait_for(timeout=10000)
+        page.get_by_role("button", name="Запустить", exact=True).click()
+        page.locator(".modal").wait_for(timeout=15000)
+        assert "Нужно ваше подтверждение" in page.locator(".modal h2").inner_text()
+
+        async def pending():
+            async with live.svc.db.session() as s:
+                rows = (await s.execute(sa.select(approvals_t).where(
+                    approvals_t.c.kind == "terminal", approvals_t.c.status == "pending"))).fetchall()
+                return [dict(row._mapping) for row in rows]
+        approvals = _call(live, pending)
+        assert len(approvals) == 1
+        aid = approvals[0]["id"]
+        assert "UX011_APPROVED" in approvals[0]["preview"]
+        page.locator(".modal").get_by_role("button", name="Разрешить запуск").click()
+        _wait_row(live, approvals_t, aid, lambda row: row.get("status") == "consumed",
+                  "terminal approval consumed")
+
+        async def sessions():
+            async with live.svc.db.session() as s:
+                rows = (await s.execute(sa.select(terminal_t))).fetchall()
+                return [dict(row._mapping) for row in rows]
+        assert any("UX011_APPROVED" in row["command"] for row in _call(live, sessions))
+        browser.close()
 
 
 def _wait_row(srv, table, row_id: int, predicate, what: str, timeout: float = 15.0) -> dict:

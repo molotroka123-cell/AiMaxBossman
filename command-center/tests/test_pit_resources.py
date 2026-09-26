@@ -148,12 +148,12 @@ def test_refresh_catalog_drops_local_when_vram_busy(tmp_path, monkeypatch):
     assert "free/model:free" in endpoints
 
 
-def test_refresh_catalog_keeps_local_when_vram_free(tmp_path, monkeypatch):
+def test_refresh_catalog_reserves_local_for_learning_even_when_vram_free(tmp_path, monkeypatch):
     runtime = with_local(make_runtime(tmp_path))
     monkeypatch.setattr(res, "_read_free_vram_mb", lambda: 8192)
     runtime.capacity_guard = LocalCapacityGuard(min_free_mb=2000, ttl_seconds=0)
     endpoints = _run(runtime.refresh_catalog())
-    assert endpoints["bossman-fast-local:latest"].local is True
+    assert "bossman-fast-local:latest" not in endpoints
     assert endpoints["free/model:free"].local is False
 
 

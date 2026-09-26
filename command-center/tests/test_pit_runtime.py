@@ -196,6 +196,47 @@ def test_remote_model_never_receives_persona_without_opt_in(tmp_path):
     assert "АЛЬФА" not in joined  # remote_personalization_enabled=False -> memory withheld
 
 
+def test_personalization_off_excludes_prior_chat_history_from_remote_request(tmp_path):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    key = runtime.vault.key_for_telegram(person.user_id)
+    runtime.vault.set_consent(key, ConsentState(
+        memory_enabled=True, remote_processing_enabled=True,
+        remote_personalization_enabled=True))
+    runtime.catalog = {FREE_ENDPOINT.id: FREE_ENDPOINT}
+    runtime.catalog_checked_at = 1.0
+    asyncio.run(runtime.handle(person, message("PRIVATE_CHAT_MARKER_001", message_id=51)))
+    asyncio.run(runtime.handle(person, message("/privacy personalization off", message_id=52)))
+    asyncio.run(runtime.handle(person, message("Как дела?", message_id=53)))
+    assert "PRIVATE_CHAT_MARKER_001" not in json.dumps(runtime.adapter.calls[-1], ensure_ascii=False)
+
+
+def test_pause_memory_stops_durable_history_and_learning_log_across_restart(tmp_path):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    key = runtime.vault.key_for_telegram(person.user_id)
+    runtime.vault.set_consent(key, ConsentState(
+        memory_enabled=True, remote_processing_enabled=True,
+        remote_personalization_enabled=True))
+    runtime.catalog = {FREE_ENDPOINT.id: FREE_ENDPOINT}
+    runtime.catalog_checked_at = 1.0
+    asyncio.run(runtime.handle(person, message("first turn", message_id=54)))
+    before_history = runtime.store.db.execute("SELECT count(*) FROM history").fetchone()[0]
+    before_learning = runtime.store.db.execute("SELECT count(*) FROM learning_log").fetchone()[0]
+    asyncio.run(runtime.handle(person, message("/pause_memory", message_id=55)))
+    asyncio.run(runtime.handle(person, message("PAUSED_CHAT_MARKER_002", message_id=56)))
+    assert runtime.store.db.execute("SELECT count(*) FROM history").fetchone()[0] == before_history
+    assert runtime.store.db.execute("SELECT count(*) FROM learning_log").fetchone()[0] == before_learning
+    asyncio.run(runtime.close())
+
+    restarted = make_runtime(tmp_path)
+    restarted.catalog = {FREE_ENDPOINT.id: FREE_ENDPOINT}
+    restarted.catalog_checked_at = 1.0
+    asyncio.run(restarted.handle(person, message("What do you know?", message_id=57)))
+    assert "PAUSED_CHAT_MARKER_002" not in json.dumps(restarted.adapter.calls[-1], ensure_ascii=False)
+    asyncio.run(restarted.close())
+
+
 def test_chat_route_answers_with_local_placeholder_when_no_route(tmp_path):
     runtime = make_runtime(tmp_path)
     person = runtime.settings.people[0]
@@ -389,7 +430,7 @@ def test_open_allowlist_refuses_group_and_forwarded_material(tmp_path):
 
 
 # -- two-ID isolation through the runtime -----------------------------------------------------
-def test_local_route_is_preferred_and_remote_is_fallback(tmp_path, monkeypatch):
+def test_participant_chat_uses_free_cloud_even_when_local_model_is_available(tmp_path, monkeypatch):
     from bcc.pit import resources
     monkeypatch.setattr(resources, "_read_free_vram_mb", lambda: 8192)
     settings = dataclasses.replace(make_settings(tmp_path),
@@ -412,8 +453,8 @@ def test_local_route_is_preferred_and_remote_is_fallback(tmp_path, monkeypatch):
     person_key = runtime.vault.key_for_telegram(101)
     warm(runtime, person_key)
 
-    asyncio.run(runtime.handle(person, message("привет", message_id=80)))
-    assert len(local.calls) == 1 and len(runtime.adapter.calls) == 0   # local first
+    assert asyncio.run(runtime.handle(person, message("привет", message_id=80))) == "готово"
+    assert len(local.calls) == 0 and len(runtime.adapter.calls) == 1
 
     class FailingLocal:
         def __init__(self):
@@ -425,15 +466,15 @@ def test_local_route_is_preferred_and_remote_is_fallback(tmp_path, monkeypatch):
             return None
     runtime.local_adapter = FailingLocal()
     answer = asyncio.run(runtime.handle(person, message("привет ещё", message_id=81)))
-    assert answer == "готово"                                 # remote fallback answered
-    assert runtime.local_adapter.calls == 1 and len(runtime.adapter.calls) == 1
-    # route telemetry was written for both attempts
+    assert answer == "готово"
+    assert runtime.local_adapter.calls == 0 and len(runtime.adapter.calls) == 2
+    # Route telemetry contains only remote answer attempts.
     log_path = settings.data_dir / "pit-v1.7" / "logs" / "route_log.jsonl"
     rows = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()
             if line.strip()]
     assert rows
     assert rows[-1]["provider"] == "remote" and rows[-1]["ok"] is True
-    assert rows[-2]["provider"] == "local" and rows[-1 - 0].get("ok") in (True, False)
+    assert all(row["provider"] == "remote" for row in rows)
     assert "context_tokens_est" in rows[-1]
     assert all("привет" not in json.dumps(row, ensure_ascii=False) for row in rows)
 
@@ -465,7 +506,7 @@ def test_local_failure_does_not_send_private_turn_to_cloud_without_consent(tmp_p
     runtime.vault.set_consent(person_key, ConsentState(
         memory_enabled=True, remote_processing_enabled=False))
     answer = asyncio.run(runtime.handle(person, message("личный запрос", message_id=82)))
-    assert answer == rt.PROVIDER_DOWN_RU
+    assert answer == rt.NO_REMOTE_RU
     assert remote.calls == []
 
 
@@ -519,7 +560,7 @@ def test_photo_memory_starts_only_after_verified_telegram_delivery(tmp_path, mon
             raise asyncio.CancelledError
     monkeypatch.setattr(runtime.store, "claim", claim)
     monkeypatch.setattr(runtime.store, "finish", lambda *args: events.append("finish"))
-    async def handle(*args):
+    async def handle(*args, **kwargs):
         return "На фото кот."
     async def send(*args, **kwargs):
         events.append("send")
@@ -648,6 +689,8 @@ def test_generation_sends_verified_studio_bytes_only_when_licensed(tmp_path, mon
         image_license_mode="research_eval")
     monkeypatch.setattr(runtime.capacity_guard, "local_allowed", free_capacity)
     monkeypatch.setattr(runtime.telegram, "send_photo", fake_send_photo)
+    assert "Напиши, что" in asyncio.run(runtime._generate_image(person, "Генерацию фото"))
+    assert calls == []
     assert asyncio.run(runtime._generate_image(person, "кот")) == ""
     assert calls[0] == "кот" and calls[1][1] == JPEG_BYTES
 
@@ -662,6 +705,26 @@ def test_image_generation_intent_gets_placeholder(tmp_path):
     answer = asyncio.run(runtime.handle(runtime.settings.people[0],
                                         message("нарисуй кота", message_id=60)))
     assert answer == "Скоро научусь, малышка 😊"
+    assert asyncio.run(runtime.handle(runtime.settings.people[0],
+                                      message("генерацию фото", message_id=61))) == answer
+
+
+def test_unreadable_advisory_behavior_file_does_not_break_chat_or_memory(tmp_path, monkeypatch):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    key = runtime.vault.key_for_telegram(person.user_id)
+    warm(runtime, key)
+    runtime.catalog = {FREE_ENDPOINT.id: FREE_ENDPOINT}
+    runtime.catalog_checked_at = 1.0
+
+    def denied(*args, **kwargs):
+        raise PermissionError("advisory security telemetry denied")
+
+    monkeypatch.setattr(runtime.behavior.behavior, "read", denied)
+    monkeypatch.setattr(runtime.behavior.behavior, "apply", denied)
+    assert asyncio.run(runtime.handle(person, message("привет", message_id=62))) == "готово"
+    assert runtime.vault.consent(key).memory_enabled is True
+    assert runtime.store.history(person.key)
 
 
 def test_roleplay_requires_consent_then_persists(tmp_path):

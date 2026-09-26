@@ -30,7 +30,7 @@ for _part in (str(_ROOT), str(_ROOT / "bossman-core"), str(_ROOT / "command-cent
     if _part not in sys.path:
         sys.path.insert(0, _part)
 
-from scenario_runner import PRODUCT_CONTRACTS, scenario  # noqa: E402
+from scenario_runner import PRODUCT_CONTRACTS, file_escape_alias, scenario  # noqa: E402
 
 #: Потолок ожидания дочернего процесса. Это НЕ тайм-аут продукта, а защита
 #: сценария от вечного ожидания: настоящие команды здесь укладываются в доли
@@ -529,12 +529,12 @@ def os30_protected_paths_stay_immutable(ctx) -> None:
     ссылка = корень / "src" / "ссылка.py"
     подмена = область / "документы" / "подмена.pdf"
     try:
-        ссылка.symlink_to(снаружи / "чужое.py")
-        подмена.symlink_to(снаружи / "чужое.py")
+        ссылка = file_escape_alias(ссылка, снаружи / "чужое.py")
+        подмена = file_escape_alias(подмена, снаружи / "чужое.py")
     except (OSError, NotImplementedError) as exc:
-        ctx.not_proven(f"символические ссылки недоступны в этом прогоне: {exc}")
-    ctx.refused("запись через символическую ссылку наружу отвергается",
-                lambda: ws.write("src/ссылка.py", "подменено"), WorkspaceRefused)
+        ctx.not_proven(f"symlink/junction недоступен в этом прогоне: {exc}")
+    ctx.refused("запись через symlink/junction наружу отвергается",
+                lambda: ws.write(ссылка.relative_to(корень).as_posix(), "подменено"), WorkspaceRefused)
     ctx.negative("файл за пределами области не тронут",
                  (снаружи / "чужое.py").read_text(encoding="utf-8") == "секрет")
     try:

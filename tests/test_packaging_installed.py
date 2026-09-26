@@ -37,7 +37,7 @@ def test_installed_wheels_resolve_shared_contracts_without_the_checkout(tmp_path
     r = _run([sys.executable, "-m", "pip", "--python", str(py), "install", "-q", "--no-deps",
               *map(str, wheels.glob("*.whl"))], cwd=tmp_path, env=env)
     assert r.returncode == 0, r.stderr[-2000:]
-    probe = ("import bossman_shared.cache_observation as co, learning.trace as lt, bossman_schemas, json, pathlib;"
+    probe = ("import bossman_shared.cache_observation as co, learning.trace as lt, bossman_schemas, bossman_v3.feature_flags, json, pathlib;"
              "import bossman._shared as s; assert s.AVAILABLE, 'bossman._shared degraded';"
              "assert lt.SCHEMA_PATH.exists(), lt.SCHEMA_PATH;"
              "print(lt.SCHEMA_PATH, pathlib.Path(bossman_schemas.__path__[0]).exists())")

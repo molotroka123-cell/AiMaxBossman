@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integrate/bossman-1.6-owner-20260925
+      - integrate/bossman-1.7-unified-20260925
   pull_request:
     branches:
       - release/bossman-owner

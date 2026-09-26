@@ -60,7 +60,10 @@ def choose(tmp_path, support, encoders):
         "  encoder_checks: PREVIEW_FORMATS.map(f => [f.video_codec,\n"
         "    hasEncoder(encoders, f.video_codec), f.audio_codec, hasEncoder(encoders, f.audio_codec)]),\n"
         "}));\n", encoding="utf-8")
-    run = subprocess.run([_node(), str(driver)], capture_output=True, text=True, timeout=30,
+    # The product file is an ES module loaded by the browser. Node on Windows
+    # otherwise treats its .js extension as CommonJS without a package scope.
+    run = subprocess.run([_node(), "--experimental-default-type=module", str(driver)],
+                         capture_output=True, text=True, timeout=30,
                          env=dict(os.environ, SUPPORT=json.dumps(support),
                                   ENCODERS=json.dumps(encoders)), check=False)
     assert run.returncode == 0, run.stdout + run.stderr

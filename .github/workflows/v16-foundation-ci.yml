@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/bossman-1.6-bossnet-foundation-20260925
+      - integrate/bossman-1.7-unified-20260925
     paths:
       - 'command-center/bcc/features/*_v16.py'
       - 'command-center/bcc/features/economy_swarm.py'

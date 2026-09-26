@@ -6,6 +6,7 @@
 """
 import asyncio
 import json
+import sys
 
 import pytest
 
@@ -15,11 +16,9 @@ from bcc.v2.memory.memsearch_bridge import MemSearchBridge
 
 
 @pytest.fixture(autouse=True)
-def _mcp_allow_true_binary(monkeypatch):
-    """F-014: запуск MCP-сервера — только бинарник из allowlist. Тестовый spec
-    использует `true`; разрешаем именно его (owner-allowlist заменяет встроенный)."""
-    import shutil
-    monkeypatch.setenv("BCC_MCP_COMMAND_ALLOWLIST", shutil.which("true") or "/usr/bin/true")
+def _mcp_allow_test_binary(monkeypatch):
+    """F-014: разрешаем реальный бинарник и на Linux, и на Windows."""
+    monkeypatch.setenv("BCC_MCP_COMMAND_ALLOWLIST", sys.executable)
 
 
 # ---------------------------------------------------------------- мост memsearch
@@ -154,7 +153,7 @@ def _svc_with(text):
 async def test_mcp_answer_is_truncated():
     """Один вызов вроде search_code с limit=50 залил бы десятки килобайт
     прямо в контекст модели: у terminal.run лимит был, у MCP — не было."""
-    spec = MCPServerSpec(id="echo", name="echo", transport="stdio", command=["true"])
+    spec = MCPServerSpec(id="echo", name="echo", transport="stdio", command=[sys.executable])
     huge = "x" * (MCP_OUTPUT_LIMIT * 4)
     svc = _svc_with(huge)
     handler = _handler_for(svc, spec, "search_code")
@@ -169,7 +168,7 @@ async def test_mcp_answer_is_truncated():
 
 
 async def test_mcp_short_answer_is_not_touched():
-    spec = MCPServerSpec(id="echo", name="echo", transport="stdio", command=["true"])
+    spec = MCPServerSpec(id="echo", name="echo", transport="stdio", command=[sys.executable])
     svc = _svc_with("короткий ответ")
     handler = _handler_for(svc, spec, "echo")
 
@@ -180,7 +179,7 @@ async def test_mcp_short_answer_is_not_touched():
 
 
 async def test_mcp_empty_answer_is_explicit():
-    spec = MCPServerSpec(id="echo", name="echo", transport="stdio", command=["true"])
+    spec = MCPServerSpec(id="echo", name="echo", transport="stdio", command=[sys.executable])
     svc = _svc_with("")
     handler = _handler_for(svc, spec, "echo")
     result = await handler({}, _Ctx(svc))

@@ -6,6 +6,7 @@ on:
       - 'claude/**'
       - 'night/**'
       - 'release/**'
+      - 'integrate/bossman-1.7-unified-20260925'
     paths:
       - 'tools/windows_100_real.py'
       - 'tools/windows_100_plugin.py'

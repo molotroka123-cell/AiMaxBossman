@@ -14,6 +14,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from bcc.telegram_companion.config import CompanionError, Person
 from bcc.telegram_companion.store import single_instance
@@ -111,6 +112,22 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
     add("allowlist", len(settings.people) >= 1)
     add("bot_token_present", bool(settings.bot_token))
 
+    # The public model catalog is accessible even with an expired API key.
+    # Validate the credential separately so doctor cannot report chat ready
+    # when every participant request would fail with 401.
+    if urlsplit(settings.provider_base_url).hostname == "openrouter.ai":
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
+                response = await client.get(
+                    settings.provider_base_url.rstrip("/") + "/key",
+                    headers={"Authorization": f"Bearer {settings.provider_key}"},
+                )
+            add("provider_auth", response.status_code == 200,
+                f"HTTP {response.status_code}")
+        except Exception as exc:  # noqa: BLE001 — diagnostics must fail closed
+            add("provider_auth", False, type(exc).__name__)
+
     transport_ok = False
     try:
         from .runtime import _transport_settings
@@ -162,14 +179,13 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
     else:
         add("web", await _probe_web(settings), "keyless fallback")
 
-    media = photo_runtime_status(build_photo_services(core_token="").config)
-    # Photo ANALYSIS is the live 1.7 product surface: when AI Max media is
-    # enabled it must have a vision route. Photo EDIT is owner-deferred until
-    # a local Qwen image model is registered in Bossman Studio (AI Max phase);
-    # its absence is an honest capability gap, not a broken runtime, so it is
-    # reported in the detail without failing the doctor.
+    media = photo_runtime_status(build_photo_services(core_token="", data_dir=data_dir).config)
+    # AI Max can expose generation before vision/edit. Each capability remains
+    # separately reported so a generation-only launch cannot imply vision.
     media_ok = True
-    if media["ai_max_media_ready"] and not media["vision_configured"]:
+    if media["ai_max_media_ready"] and not any(
+        media[key] for key in ("vision_configured", "image_edit_configured", "image_generation_configured")
+    ):
         media_ok = False
     add("ai_max_media", media_ok, json.dumps(media, ensure_ascii=False))
 
@@ -246,7 +262,8 @@ def cmd_status(path: Path) -> int:
                 report["last_transport_error"] = transport_error
         except (ValueError, TypeError, CompanionError, OSError) as exc:
             report["config_error"] = str(exc)[:200]
-    report["media"] = photo_runtime_status(build_photo_services(core_token="").config)
+    report["media"] = photo_runtime_status(
+        build_photo_services(core_token="", data_dir=data_dir).config)
     report["queue"] = {"pending": _queue_pending(home)}
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if report["config_present"] else 2

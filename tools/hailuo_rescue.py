@@ -1,4 +1,4 @@
-﻿"""Hailuo rescue short — OpenRouter /api/v1/videos, minimax/hailuo-3-max.
+"""Hailuo rescue short — OpenRouter /api/v1/videos, minimax/hailuo-3-max.
 
 Story (user prompt, 2026-09-02): green-face guy + bandolier guy walk on Red Square;
 a scammer (chain necklace) rides up selling bracelets; a bunny-suit superhero flies

@@ -8,6 +8,7 @@ from __future__ import annotations
 import sqlalchemy as sa
 
 from bcc.db import models as models_t, task_runs as runs_t, tool_calls as tool_calls_t
+from bcc.tools import REGISTRY, ToolResult
 
 from .conftest import client_for, make_settings, start_app
 from .test_v21_tool_loop import FINISHED, ToolAdapter, _run_task
@@ -21,6 +22,14 @@ async def test_env_configured_openrouter_models_drive_the_same_tool_loop(tmp_pat
     settings = make_settings(tmp_path)
     app, svc = await start_app(settings, start_workers=False)
     try:
+        # This test isolates the provider-to-tool protocol. The real sandbox
+        # needs Docker, which is not installed on ordinary Windows owner PCs;
+        # terminal execution itself has separate acceptance tests.
+        async def terminal_double(args, ctx):
+            assert args["command"] == "echo hi"
+            return ToolResult(content="exit_code=0\nhi", one_line="terminal: hi")
+
+        monkeypatch.setattr(REGISTRY.get("terminal.run"), "handler", terminal_double)
         async with svc.db.session() as s:
             models = [dict(r._mapping) for r in (await s.execute(sa.select(models_t))).fetchall()]
         aliases = sorted(m["alias"] for m in models)
@@ -41,12 +50,14 @@ async def test_env_configured_openrouter_models_drive_the_same_tool_loop(tmp_pat
                                                          "agent_id": agent["id"], "run_now": True})).json()["task"]
             env = type("E", (), {"svc": svc, "client": client})()
             status = await _run_task(env, task["id"], timeout=30, until=FINISHED)
-        assert status == "completed", adapter.seen_messages
-        assert adapter.seen_tools[0] and any(t["function"]["name"] == "terminal_run" for t in adapter.seen_tools[0])
         async with svc.db.session() as s:
             run = dict((await s.execute(sa.select(runs_t).where(runs_t.c.task_id == task["id"]))).first()._mapping)
             calls = [dict(r._mapping) for r in (await s.execute(sa.select(tool_calls_t).where(
                 tool_calls_t.c.task_id == task["id"]))).fetchall()]
+        assert status == "completed", {"error": run["error"],
+                                       "calls": [(c["tool"], c["status"], c["effect"],
+                                                  c["result_preview"]) for c in calls]}
+        assert adapter.seen_tools[0] and any(t["function"]["name"] == "terminal_run" for t in adapter.seen_tools[0])
         assert run["model_alias"] == "or-z-ai-glm-4.5-air"                     # брокер выбрал env-модель
         assert [c["tool"] for c in calls] == ["terminal.run"] and calls[0]["status"] in ("executed", "error")
         assert FAKE_KEY not in str(await svc.bus.recent(100))
