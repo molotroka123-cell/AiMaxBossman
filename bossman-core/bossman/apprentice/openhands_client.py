@@ -724,6 +724,16 @@ class OpenHandsClient:
         if not isinstance(response, dict) or response.get("schema") != "bossman.openhands.v1" or response.get("status") not in {"completed", "failed"}:
             raise OpenHandsError("OpenHands sidecar returned an invalid response contract")
 
+        # Standard tool caches (pytest/ruff/mypy/pyc) are never reviewable
+        # content: the agent may legitimately run tests, and the cache it
+        # leaves behind is git-ignored noise that would otherwise look like a
+        # hidden change and refuse the whole run. Prune before evidence.
+        import shutil as _shutil
+        for cache_dir in (".pytest_cache", ".ruff_cache", ".mypy_cache"):
+            _shutil.rmtree(workspace / cache_dir, ignore_errors=True)
+        for pyc in workspace.rglob("__pycache__"):
+            _shutil.rmtree(pyc, ignore_errors=True)
+
         head_after = _git(workspace, "rev-parse", "HEAD").strip()
         if head_after != head_before:
             raise OpenHandsError("OpenHands may not commit/reset/rewrite sandbox HEAD")

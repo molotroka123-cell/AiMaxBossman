@@ -86,6 +86,12 @@ def _run(req: dict, out) -> int:
         Tool(name=TaskTrackerTool.name),
     ])
     instruction = str(req["instruction"])
+    # Uniform environment note for EVERY run (baseline and candidate alike):
+    # the terminal is Git Bash on Windows, so %VAR% never expands and Windows
+    # paths must stay inside the workspace. Fair comparison, no hidden hints.
+    instruction = ("Terminal: Git Bash on Windows. Use POSIX syntax; %VAR% is "
+                   "NOT expanded and must not appear in commands. Stay inside "
+                   "the workspace directory.\n\n" + instruction)
     max_iterations = int(req.get("max_iterations") or 30)
     # A mid-conversation serialization hiccup (model response shape the SDK's
     # pydantic models reject) must not fail the whole task: one fresh retry
