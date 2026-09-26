@@ -85,13 +85,25 @@ def _run(req: dict, out) -> int:
         Tool(name=FileEditorTool.name),
         Tool(name=TaskTrackerTool.name),
     ])
-    conversation = Conversation(agent=agent, workspace=str(workspace),
-                                visualizer=None,
-                                max_iteration_per_run=int(req.get("max_iterations") or 30))
-    conversation.send_message(str(req["instruction"]))
-    conversation.run()
-    _emit(out, "completed", model=str(model))
-    return 0
+    instruction = str(req["instruction"])
+    max_iterations = int(req.get("max_iterations") or 30)
+    # A mid-conversation serialization hiccup (model response shape the SDK's
+    # pydantic models reject) must not fail the whole task: one fresh retry
+    # with the SAME instruction in the SAME workspace.
+    for attempt in (1, 2):
+        try:
+            conversation = Conversation(agent=agent, workspace=str(workspace),
+                                        visualizer=None,
+                                        max_iteration_per_run=max_iterations)
+            conversation.send_message(instruction)
+            conversation.run()
+            _emit(out, "completed", model=str(model))
+            return 0
+        except Exception as exc:  # noqa: BLE001
+            if attempt == 2:
+                raise
+            print(f"sidecar: retrying after {type(exc).__name__}: {str(exc)[:120]}",
+                  file=sys.stderr, flush=True)
 
 
 def main() -> int:
