@@ -142,8 +142,10 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_argument("--json", action="store_const", const="stream-json", dest="output_format")
     e.add_argument("--detach", action="store_true", help="поставить задачу и сразу вернуть task_id")
     e.add_argument("--wait", action="store_true", help="ждать результат (по умолчанию)")
-    e.add_argument("--agent")
-    e.add_argument("--model")
+    # Keep values supplied before the subcommand unless they are explicitly
+    # overridden after it (argparse otherwise replaces them with None).
+    e.add_argument("--agent", default=argparse.SUPPRESS)
+    e.add_argument("--model", default=argparse.SUPPRESS)
     e.add_argument("--title")
     e.add_argument("--request-id", help="ключ идемпотентности (повтор = та же задача)")
     e.add_argument("--max-seconds", type=float, default=None)
