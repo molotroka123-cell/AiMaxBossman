@@ -63,3 +63,9 @@ def test_shortcut_is_separate_and_does_not_replace_bossman_shortcut():
 def test_login_handler_is_bound_before_session_check():
     js = _read(UI / "jeff.js")
     assert js.rfind("bindUi();") < js.rfind("if (hasSession())")
+
+def test_closing_jeff_does_not_kill_backend_used_by_bossman_window():
+    launcher = _read(ROOT / "command-center" / "bcc" / "jeff_desktop.py")
+    assert "_read_lock(data_dir)" in launcher
+    assert "bossman_window_alive" in launcher
+    assert "leaving shared backend running" in launcher
