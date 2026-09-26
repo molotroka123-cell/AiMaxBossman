@@ -26,6 +26,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import time
 from pathlib import Path
 import sys
 
@@ -93,6 +94,21 @@ def _run(req: dict, out) -> int:
                    "NOT expanded and must not appear in commands. Stay inside "
                    "the workspace directory.\n\n" + instruction)
     max_iterations = int(req.get("max_iterations") or 30)
+    started_at = time.time()
+    calls: list[dict] = []
+
+    def _on_event(event) -> None:
+        # Per-call telemetry for the lab's fairness/looping detectors: tool
+        # name + monotonic offset only; no arguments, no results, no secrets.
+        try:
+            from openhands.sdk.event import ActionEvent
+            if isinstance(event, ActionEvent):
+                name = str(getattr(event, "tool_name", "")
+                           or getattr(getattr(event, "action", None), "tool_name", ""))
+                calls.append({"tool": name, "t": round(time.time() - started_at, 3)})
+        except Exception:  # noqa: BLE001 — telemetry must never break the run
+            pass
+
     # A mid-conversation serialization hiccup (model response shape the SDK's
     # pydantic models reject) must not fail the whole task: one fresh retry
     # with the SAME instruction in the SAME workspace.
@@ -100,10 +116,13 @@ def _run(req: dict, out) -> int:
         try:
             conversation = Conversation(agent=agent, workspace=str(workspace),
                                         visualizer=None,
-                                        max_iteration_per_run=max_iterations)
+                                        max_iteration_per_run=max_iterations,
+                                        callbacks=[_on_event])
             conversation.send_message(instruction)
             conversation.run()
-            _emit(out, "completed", model=str(model))
+            _emit(out, "completed", model=str(model),
+                  tool_calls=calls, tool_calls_total=len(calls),
+                  elapsed_seconds=round(time.time() - started_at, 1))
             return 0
         except Exception as exc:  # noqa: BLE001
             if attempt == 2:
