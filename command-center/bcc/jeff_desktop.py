@@ -15,6 +15,8 @@ from .desktop import (
     _identity_label,
     _local_identity,
     _same_build,
+    _read_lock,
+    _pid_alive,
     access_banner,
     find_browser,
     identify_server,
@@ -90,7 +92,19 @@ def run(argv: Sequence[str] | None = None, *, launcher=launch_window, out=sys.st
         return launcher(browser, jeff_url, profile, window_size=args.window_size)
     finally:
         if started is not None:
-            started.stop()
+            # If the normal Bossman desktop attached while Jeff was open, it
+            # now depends on this exact backend. Do not tear that backend down
+            # under the owner window. Jeff itself never writes desktop.lock.
+            lock = _read_lock(data_dir)
+            try:
+                bossman_window_alive = bool(lock and _pid_alive(int(lock.get("pid", 0))))
+            except (TypeError, ValueError):
+                bossman_window_alive = False
+            if bossman_window_alive:
+                print("[jeff] Bossman desktop is attached; leaving shared backend running",
+                      file=out, flush=True)
+            else:
+                started.stop()
 
 
 def main(argv: Sequence[str] | None = None) -> int:
