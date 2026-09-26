@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ru" data-jeff-avatar="aurora">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark"><meta name="theme-color" content="#07111f">
+<title>Jeff · Bossman</title><link rel="icon" type="image/svg+xml" href="icon.svg"><link rel="stylesheet" href="jeff.css">
+</head>
+<body>
+<section id="login" class="login" hidden><form id="login-form" class="login-card" autocomplete="off">
+<div class="jeff-orb" aria-hidden="true"><span>J</span></div><h1>Jeff</h1>
+<p>Локальный интерфейс участника. Использует существующую сессию Bossman и не получает owner authority.</p>
+<label>Токен Bossman<input id="login-token" type="password" autocomplete="off" spellcheck="false"></label>
+<div id="login-error" class="error" hidden></div><button class="primary" type="submit">Войти</button></form></section>
+<div id="app" class="app" hidden>
+<header class="topbar">
+<a class="brand" href="/jeff.html"><span class="brand-mark">J</span><span><b>Jeff</b><small>by Bossman</small></span></a>
+<nav class="topnav"><button class="active">Чат</button><button data-scroll="#media">Медиа</button><button data-scroll="#personality">Личность</button></nav>
+<div id="connection-status" class="connection" data-tone="warn"><span class="status-dot"></span><span>Подключение…</span></div>
+<button id="open-command-center" class="ghost" type="button">Command Center</button><button id="logout" class="ghost" type="button">Выйти</button>
+</header>
+<aside class="leftbar">
+<section class="profile-card">
+<button id="avatar-open" class="avatar-button" type="button" aria-label="Выбрать аватар"><div class="avatar-art"><span>J</span></div><span class="edit-dot">✦</span></button>
+<h1>Jeff</h1><p>AI assistant</p><div class="safe-pill">● participant-safe</div>
+<small>Помогает общаться, искать, понимать изображения и создавать медиа. Не управляет вашим ПК.</small>
+</section>
+<nav class="side-nav"><button class="active">◈ Чаты</button><button>◇ Память</button><button>▧ Медиа</button><button>◎ Web</button><button>✦ Личность</button><button>⚙ Настройки</button></nav>
+<blockquote>«Больше идей. Меньше рутины. Без скрытых полномочий.»</blockquote>
+</aside>
+<main class="main">
+<section class="hero-row"><div><p class="eyebrow">JEFF PARTICIPANT UX · ISOLATED BRANCH</p><h2>Общайтесь естественно</h2>
+<p>Безопасный UX-слой. Живой participant transport пока остаётся Telegram до финального freeze 1.5–1.7.</p></div>
+<div class="hero-actions"><button id="speak-last" class="ghost" type="button">🔊 Озвучить Jeff</button><button id="clear-preview" class="ghost" type="button">Очистить preview</button></div></section>
+<section id="chat" class="chat" aria-live="polite"></section>
+<section class="capabilities">
+<button class="capability" data-prompt="Помоги разобрать идею"><span>✦</span><b>Чат и идеи</b><small>Обсуждение, планы, объяснения</small></button>
+<button class="capability" data-prompt="Найди свежую информацию по теме: "><span>◎</span><b>Web & Research</b><small>Поиск и сравнение источников</small></button>
+<button class="capability" data-prompt="Что изображено на этом фото?"><span>◉</span><b>Vision</b><small>Фото и скриншоты</small></button>
+<button class="capability" data-prompt="Сгенерируй изображение: "><span>▧</span><b>Image Generation</b><small>Через существующий Studio после интеграции</small></button>
+<button class="capability" data-prompt="Отредактируй это изображение: "><span>✎</span><b>Image Edit</b><small>Participant-safe media broker</small></button>
+<button class="capability locked" disabled><span>⌁</span><b>Computer Use</b><small>Недоступно Jeff · только owner control plane</small></button>
+</section>
+<form id="composer" class="composer">
+<div class="composer-mode"><span>UX preview</span><span>Telegram = live Jeff</span></div>
+<div class="composer-row"><button id="mic" class="icon-button" type="button">🎙</button><textarea id="message" rows="1" placeholder="Напишите Jeff…"></textarea><button class="send" type="submit">➜</button></div>
+<small id="voice-note">Диктовка использует системный Speech Recognition, если он доступен.</small></form>
+<section id="media" class="section-card"><div><p class="eyebrow">MEDIA</p><h3>Один интерфейс для фото и видео</h3>
+<p>UX готов под Vision, генерацию, edit/reference edit и будущий Kadr/Wan pipeline. Эта ветка не добавляет media backend.</p></div>
+<div class="media-grid"><div>Vision<small>existing PIT/Studio</small></div><div>Generate<small>existing Studio</small></div><div>Edit<small>existing Studio</small></div><div>Video<small>1.8 Kadr/Wan</small></div></div></section>
+<section id="personality" class="section-card personality"><div><p class="eyebrow">VOICE + AVATAR FOUNDATION</p><h3>Jeff может выглядеть и звучать по-разному</h3>
+<p>Настройки пока локальные и не меняют Bossman. После freeze их можно хранить в participant profile и синхронизировать с Telegram.</p></div>
+<div class="personality-controls">
+<label>Аватар <button id="avatar-open-secondary" type="button" class="ghost"><span id="avatar-label">Aurora</span> · изменить</button></label>
+<label>Голос<select id="voice-select"><option value="">Системный голос</option></select></label>
+<label>Скорость<input id="voice-rate" type="range" min="0.7" max="1.4" step="0.05" value="1"></label>
+<label>Тон<input id="voice-pitch" type="range" min="0.7" max="1.3" step="0.05" value="1"></label>
+<button id="voice-preview" class="primary" type="button">Прослушать голос</button></div></section>
+</main>
+<aside class="rightbar">
+<section class="panel"><div class="panel-title"><b>Routing</b><span class="green">● safe</span></div><strong id="route-label">Local-first / free fallback</strong><small>Имена внутренних моделей Jeff не раскрывает.</small></section>
+<section class="panel"><div class="panel-title"><b>AI Max</b><span id="backend-health">Проверка…</span></div>
+<div class="meter" data-meter="cpu"><label>CPU <span class="meter-value">—</span></label><div><i class="meter-fill"></i></div></div>
+<div class="meter" data-meter="ram"><label>RAM <span class="meter-value">—</span></label><div><i class="meter-fill"></i></div></div></section>
+<section class="panel"><div class="panel-title"><b>Privacy boundary</b></div><ul class="checks"><li>✓ собственная participant memory</li><li>✓ без owner-private context</li><li>✓ без shell</li><li>✓ без Computer Use</li><li>✓ без paid participant fallback</li></ul></section>
+<section class="panel build-panel"><span>Build</span><code id="build">…</code></section></aside>
+<footer><span>Jeff UX preview</span><span>Presentation layer only · Bossman remains source of truth</span></footer>
+</div>
+<dialog id="avatar-dialog" class="avatar-dialog">
+<div class="dialog-head"><div><p class="eyebrow">AVATAR</p><h3>Выберите образ Jeff</h3></div><button id="avatar-close" class="ghost" type="button">Закрыть</button></div>
+<div class="avatar-grid">
+<button class="avatar-choice" data-avatar="aurora" aria-pressed="true"><span class="avatar-preview aurora">J</span><b>Aurora</b><small>спокойный синий</small></button>
+<button class="avatar-choice" data-avatar="ember" aria-pressed="false"><span class="avatar-preview ember">J</span><b>Ember</b><small>тёплый янтарный</small></button>
+<button class="avatar-choice" data-avatar="mono" aria-pressed="false"><span class="avatar-preview mono">J</span><b>Mono</b><small>минималистичный</small></button>
+<button class="avatar-choice" data-avatar="cobalt" aria-pressed="false"><span class="avatar-preview cobalt">J</span><b>Cobalt</b><small>яркий цифровой</small></button>
+</div><p class="dialog-note">После freeze participant profile сможет хранить avatar_id + voice_id, а Telegram использовать те же настройки.</p></dialog>
+<script type="module" src="jeff.js"></script>
+</body></html>
