@@ -111,7 +111,7 @@ def _runtime() -> tuple[Any, Any, str]:
     return oc, wt, ""
 
 
-def _handshake(command: str) -> dict:
+def _handshake(command: str, env: dict[str, str] | None = None) -> dict:
     """Blocking: one handshake with the configured sidecar (cached briefly)."""
     now = time.monotonic()
     hit = _handshake_cache.get(command)
@@ -121,7 +121,7 @@ def _handshake(command: str) -> dict:
     if oc is None:
         return {"ok": False, "reason": reason}
     try:
-        resp = oc.OpenHandsClient().handshake(timeout_seconds=HANDSHAKE_TIMEOUT_S)
+        resp = oc.OpenHandsClient(env=env or None).handshake(timeout_seconds=HANDSHAKE_TIMEOUT_S)
         out = {"ok": True, "executor": resp.get("executor"), "model": resp.get("model"),
                "tools": resp.get("tools"), "tool_call_ok": resp.get("tool_call_ok"),
                "test_runners": resp.get("test_runners"), "isolation": resp.get("isolation"),
@@ -132,6 +132,21 @@ def _handshake(command: str) -> dict:
         out = {"ok": False, "reason": f"{type(exc).__name__}: {exc}"[:400]}
     _handshake_cache[command] = (now, out)
     return out
+
+
+async def _sidecar_env(svc) -> dict[str, str]:
+    """Explicit provider input for the sidecar (never inherited wholesale).
+
+    The OpenHands security contract keeps the Bossman process environment out
+    of the sidecar; only the resolved OpenRouter credential is forwarded, and
+    the sidecar itself pops it before the agent's terminal tool starts.
+    """
+    try:
+        from .plugins import resolve_cred
+        key = await resolve_cred("OPENROUTER_API_KEY", svc)
+    except Exception:  # noqa: BLE001 — a credential outage must not crash readiness
+        return {}
+    return {"OPENROUTER_API_KEY": key} if key else {}
 
 
 async def readiness(svc) -> dict[str, Any]:
@@ -146,7 +161,8 @@ async def readiness(svc) -> dict[str, Any]:
         out["reason"] = (f"команда сайдкара не настроена: задайте {COMMAND_ENV} "
                          "(путь к OpenHands-сайдкару) и перезапустите Bossman")
     else:
-        hs = await asyncio.to_thread(_handshake, command)
+        env = await _sidecar_env(svc)
+        hs = await asyncio.to_thread(_handshake, command, env)
         out["handshake"] = hs
         if hs.get("ok"):
             out["available"] = True
@@ -256,7 +272,8 @@ class _Cancelled(Exception):
     """The owner cancelled the task (STOP)."""
 
 
-def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None) -> dict:
+def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None,
+             env: dict[str, str] | None = None) -> dict:
     """Blocking: runs in a worker thread. Returns the terminal record."""
     oc, wt, reason = _runtime()
     if oc is None:
@@ -273,7 +290,8 @@ def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None
     try:
         if task_id in _CANCELLED:
             raise _Cancelled()
-        client = oc.OpenHandsClient(on_process=lambda tree: _ACTIVE.__setitem__(task_id, tree))
+        client = oc.OpenHandsClient(on_process=lambda tree: _ACTIVE.__setitem__(task_id, tree),
+                                    env=env or None)
         extra = {"context": context} if context else {}
         request = oc.OpenHandsRequest(body.instruction, root, tuple(body.allowed_paths),
                                       tuple(body.protected_paths), model=body.model,
@@ -420,7 +438,8 @@ async def _skills_context(svc, body: TaskIn) -> tuple[list[dict], dict]:
 
 async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None = None) -> None:
     try:
-        final = await asyncio.to_thread(_execute, record, repo, body, context)
+        env = await _sidecar_env(svc)
+        final = await asyncio.to_thread(_execute, record, repo, body, context, env)
     except Exception as exc:  # noqa: BLE001
         final = {**record, "status": "failed", "error": f"{type(exc).__name__}: {exc}"[:800],
                  "finished_at": time.time()}
