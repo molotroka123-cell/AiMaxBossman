@@ -356,6 +356,7 @@ const ModelsPage = {
           ctx.refresh();
         }, { iconName: 'retry', size: 'sm' }),
         ui.btn('Найти локальные', () => openDiscoveryModal(ctx), { iconName: 'search', size: 'sm' }),
+        ui.btn('Бесплатные облака', () => openFreeProvidersModal(ctx), { iconName: 'plus', size: 'sm' }),
         ui.btn('Добавить модель', () => openModelWizard(ctx), { variant: 'primary', iconName: 'plus', size: 'sm' }),
       ] });
 
@@ -530,6 +531,48 @@ async function openDiscoveryModal(ctx) {
     h('div.stack', epRows),
     h('div.section-title', { style: { margin: '8px 0 0' } }, 'Файлы моделей на диске'),
     fileRows));
+}
+
+// NVIDIA NIM / Groq: ключ проверяется каталогом на бэкенде, модели встают по 0/0 (free tier).
+async function openFreeProvidersModal(ctx) {
+  const modal = openModal({ title: 'Бесплатные облачные модели', wide: true, body: h('div'), footer: h('div') });
+  append(modal.footer, [h('div.spacer'),
+    h('button.btn', { type: 'button', onClick: () => modal.close() }, 'Закрыть')]);
+  let list = [];
+  try { list = listOf(await api.freeProviders(), 'providers'); }
+  catch (err) {
+    append(modal.body, h('div.small', (err && err.message) || 'Не удалось получить список'));
+    return;
+  }
+  const rows = list.map((p) => {
+    const keyEl = input({ type: 'password', placeholder: 'ключ API', class: 'input mono', autocomplete: 'new-password' });
+    const status = h('div.small.dim', p.has_key
+      ? `подключён (${p.key || '…'}), моделей: ${p.models_registered}`
+      : 'не подключён');
+    const connect = async () => {
+      const key = (keyEl.value || '').trim();
+      if (!key) { toast('Вставьте ключ', { type: 'warn' }); return; }
+      try {
+        const res = await api.connectFreeProvider(p.name, key);
+        keyEl.value = '';
+        toastOk(`${p.title}: ключ ${res.key || ''} сохранён, добавлено моделей: ${(res.models_added || []).length}`);
+        ctx.refresh();
+        modal.close();
+      } catch (err) {
+        toast((err && err.message) || 'Не удалось подключить', { type: 'warn', hint: err && err.hint });
+      }
+    };
+    return h('div.card', { style: { padding: '10px 12px' } },
+      h('div.row', h('div', { style: { flex: '1', minWidth: 0 } },
+        h('div', p.title, ' ', h('span.small.dim.mono', p.base_url)),
+        h('div.small.dim', p.free_terms), status)),
+      h('div.row', { style: { marginTop: '8px' } }, keyEl,
+        h('button.btn.btn-sm', { type: 'button', onClick: connect }, icon('plus', 12), h('span', 'Подключить')),
+        h('a.small', { href: p.signup_url, target: '_blank', rel: 'noopener noreferrer' }, 'получить ключ')));
+  });
+  append(modal.body, h('div.stack',
+    h('div.small.dim', 'Разгрузка OpenRouter: модели регистрируются с ценой 0/0 только для аккаунта без привязанной карты.'),
+    h('div.stack', rows)));
 }
 
 async function openModelWizard(ctx) {
