@@ -273,6 +273,8 @@ window.addEventListener('beforeunload', () => {
   clearInterval(refreshTimer);
 });
 
+bindUi();
+
 if (hasSession()) {
   $('#login').hidden = true;
   $('#app').hidden = false;
