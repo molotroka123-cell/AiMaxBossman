@@ -124,6 +124,34 @@ Per-model: calls, verified success, tokens/context, p50/p95 latency, retries, to
 Also measure owner time saved, frontier calls avoided, business impact and before/after improvements.
 Borrow-first: Langfuse and Arize Phoenix schemas/UX. Prefer extending Bossman telemetry to deploying redundant stacks.
 
+### Live cognitive-state UI — Thinking Orbs
+Canonical UI candidate:
+- `Jakubantalik/thinking-orbs`
+- License: MIT
+- Usefulness for Bossman UI: 9.5/10
+- Integration stance: lightweight visual state layer only; never a source of truth.
+
+The package provides nine tuned states rendered with plain Canvas 2D and no WebGL/filter dependency. Use it to make Bossman/Jev activity legible without adding another backend or telemetry path.
+
+Map orb states only from **real canonical task/telemetry state**:
+- `working` → executing a task/tool chain;
+- `searching` → Internet Radar/web/repository retrieval;
+- `solving` → planning/reasoning/rollout evaluation;
+- `listening` → voice/owner input capture;
+- `connecting` → provider/MCP/remote-node connection;
+- `weaving` → multi-agent/team/task-graph assembly;
+- `composing` → writing/code/media/artifact generation;
+- `breathing` → healthy idle/background wait;
+- `shaping` → skill compilation/distillation/evolution candidate formation.
+
+Requirements:
+- orb state must be derived from Observatory events, not invented by the frontend;
+- STOP/failure/OWNER_REQUIRED must override decorative animation with explicit textual status;
+- respect reduced-motion/accessibility behavior;
+- suspend/offscreen animation when hidden;
+- do not use the orb as evidence that work is actually progressing;
+- Command Center may use the 64px/inline variants; future phone/React-Native UI may reuse the project ports if they pass parity/UX tests.
+
 ## 11. Distillation Foundry
 Purpose: convert strong/expensive verified teacher behavior into cheaper local specialist capability.
 
@@ -507,6 +535,7 @@ Borrow its useful ideas:
 | Business optimizer | `facebook/Ax` | 9.3/10 | 9.5/10 | bounded optimizer adapter |
 | GenAI telemetry | `open-telemetry/semantic-conventions-genai` | 10/10 | 9.5/10 | canonical telemetry semantics |
 | AI video editor | `HelpFreedom/kadr` | 9.0/10 overall (higher after Windows adapter) | 9.8/10 | external MCP/adapter; keep GPL boundary |
+| Cognitive-state UI | `Jakubantalik/thinking-orbs` | 10/10 | 9.5/10 | presentation layer driven by real Observatory state |
 
 # Consolidated 1.8 architecture
 
