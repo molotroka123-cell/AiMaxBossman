@@ -2,6 +2,8 @@
 
 Status: THEORETICAL DESIGN. Do not implement before 1.5 + 1.6 + 1.7 freeze.
 
+Reference map for 14 implementation directions (two verified GitHub candidates each, read on demand): [BOSSMAN_18_OPEN_SOURCE_14X2_20260926.md](./BOSSMAN_18_OPEN_SOURCE_14X2_20260926.md). Candidate scores are architectural estimates; Windows AI Max readiness needs a live benchmark.
+
 ## North Star
 **Every verified task makes the next similar task cheaper, faster or better.**
 
