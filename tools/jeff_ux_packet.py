@@ -27,12 +27,14 @@ RUNTIME_FILES = (
     "command-center/ui/jeff.css",
     "command-center/ui/jeff.js",
     "command-center/bcc/jeff_desktop.py",
+    "command-center/bcc/pit/presentation_profile.py",
     "tools/desktop/install-jeff-shortcut.ps1",
 )
 
 TEST_FILES = (
     "command-center/tests/test_jeff_ux_isolation.py",
     "command-center/tests/test_jeff_ux_browser.py",
+    "command-center/tests/test_pit_presentation_profile.py",
 )
 
 HELPER_FILES = (
@@ -128,9 +130,9 @@ def scan_authority(paths: Iterable[str]) -> tuple[Finding, ...]:
 
 def recommended_tests() -> tuple[str, ...]:
     return (
-        "python -m py_compile command-center/bcc/jeff_desktop.py tools/jeff_ux_packet.py",
+        "python -m py_compile command-center/bcc/jeff_desktop.py command-center/bcc/pit/presentation_profile.py tools/jeff_ux_packet.py",
         "node --check command-center/ui/jeff.js",
-        "python -m pytest tests/test_jeff_ux_packet.py command-center/tests/test_jeff_ux_isolation.py -q --tb=short --maxfail=1",
+        "python -m pytest tests/test_jeff_ux_packet.py command-center/tests/test_jeff_ux_isolation.py command-center/tests/test_pit_presentation_profile.py -q --tb=short --maxfail=1",
         "python -m pytest command-center/tests/test_jeff_ux_browser.py -q --tb=short --maxfail=1",
         "python -m pytest command-center/tests/test_pit_foundation.py command-center/tests/test_pit_runtime.py command-center/tests/test_desktop_build_identity.py -q --tb=short --maxfail=1",
     )
