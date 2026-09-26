@@ -86,5 +86,39 @@ Then:
 `BOSSMAN_1_5_1_6_1_7=FROZEN`
 `READY_FOR_1_8=YES`
 
+
+## 1.8 research decisions already fixed in documentation
+
+Do NOT create separate planning files for these. The canonical 1.8 design lives in:
+`docs/v1.8/BOSSMAN_18_EVOLUTION_ENGINE.md`.
+
+After `READY_FOR_1_8=YES`, use the existing document and extend the current Bossman architecture rather than spawning new platforms.
+
+The validated borrow-first shortlist now includes:
+
+- Internet Radar → `unclecode/crawl4ai`
+- Capability Market → `modelcontextprotocol/registry`
+- Replay / Chaos Lab → `mockagents/mockagents`
+- Agent self-optimization → `gepa-ai/gepa`
+- External Agent Gym → `harbor-framework/harbor`
+- NPU Reflex Brain → `ROCm/FastFlowLM`
+- Qwen Windows/MTP acceleration → `olliehm/qwen-flash-next-windows`
+- Durable workflow semantics → `dbos-inc/dbos-transact-py`
+- Adaptive business experiments → `facebook/Ax`
+- GenAI telemetry semantics → `open-telemetry/semantic-conventions-genai`
+
+Also retained in the 1.8 design:
+- Distillation Foundry;
+- Streaming Giant Runtime with `FareedKhan-dev/kimi-k3-in-c` as reference;
+- ROCm/PyTorch side-by-side experimental lane;
+- latest supported Wan local-video benchmark through existing Studio/Model Market;
+- FreeToken as a strategic MoE/resource-management reference, not a production dependency until AMD/Windows owner-machine compatibility is proven.
+
+Implementation rule:
+**borrow working open-source components/patterns first; write Bossman-specific code only for authority, unified state, owner policy, hardware/resource integration, business logic or differentiated learning.**
+
+Do NOT interpret this shortlist as permission to install ten new daemons. All of it must converge through one Bossman control plane, one task state, one brain, one Jev/router, one Studio and one evidence system.
+
+
 ## Agent start rule
 Read this file first, fetch current unified HEAD, finish 1.5 + 1.6 + 1.7 on owner AI Max with real Computer Use/OpenHands evidence, freeze one exact SHA, and do not start 1.8 until `READY_FOR_1_8=YES`.
