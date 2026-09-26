@@ -59,3 +59,7 @@ def test_shortcut_is_separate_and_does_not_replace_bossman_shortcut():
     assert '"Jeff.lnk"' in script
     assert "-m bcc.jeff_desktop" in script
     assert "Bossman.lnk" not in script
+
+def test_login_handler_is_bound_before_session_check():
+    js = _read(UI / "jeff.js")
+    assert js.rfind("bindUi();") < js.rfind("if (hasSession())")
