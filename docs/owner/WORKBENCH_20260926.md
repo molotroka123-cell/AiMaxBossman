@@ -108,6 +108,7 @@ The validated borrow-first shortlist now includes:
 - Durable workflow semantics → `dbos-inc/dbos-transact-py`
 - Adaptive business experiments → `facebook/Ax`
 - GenAI telemetry semantics → `open-telemetry/semantic-conventions-genai`
+- Cognitive-state UI → `Jakubantalik/thinking-orbs` (MIT; UI-only, driven by real Observatory state)
 
 Also retained in the 1.8 design:
 - Distillation Foundry;
@@ -120,6 +121,20 @@ Implementation rule:
 **borrow working open-source components/patterns first; write Bossman-specific code only for authority, unified state, owner policy, hardware/resource integration, business logic or differentiated learning.**
 
 Do NOT interpret this shortlist as permission to install ten new daemons. All of it must converge through one Bossman control plane, one task state, one brain, one Jev/router, one Studio and one evidence system.
+
+
+
+### Thinking Orbs / live cognitive-state UI decision
+
+Bossman 1.8 may use `Jakubantalik/thinking-orbs` as a lightweight status visualization in Command Center/Observatory.
+
+Rules:
+- presentation only; canonical task/telemetry state remains in Bossman backend;
+- map real states to working/searching/solving/listening/connecting/weaving/composing/breathing/shaping;
+- explicit STOP/FAIL/OWNER_REQUIRED text always overrides decorative animation;
+- reduced-motion/accessibility and hidden/offscreen pause are mandatory;
+- do not infer progress merely because an orb is animated;
+- future phone UI may evaluate the React Native/native ports after parity tests.
 
 
 
