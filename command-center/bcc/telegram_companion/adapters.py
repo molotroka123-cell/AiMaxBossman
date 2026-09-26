@@ -370,7 +370,8 @@ class Telegram:
         return True
 
     async def send(self, person: Person, text: str, keyboard=None,
-                    reply_to_message_id: int | None = None):
+                    reply_to_message_id: int | None = None,
+                    parse_mode: str | None = None):
         clean = scrub(text, (self.settings.bot_token, self.settings.core_token,
                             self.settings.cloud_token, self.settings.local_token))
         from bossman.notifications.telegram_transport import _egress_guard_text
@@ -392,6 +393,14 @@ class Telegram:
                     }
                 if keyboard and index == len(parts) - 1:
                     payload["reply_markup"] = markup(keyboard)
+                if parse_mode:
+                    # Formatting is best-effort beauty: convert per part (after the
+                    # split, so entities are never cut in half) and fall back to the
+                    # plain part if Telegram refuses to parse. A reply is never lost
+                    # to a markup mistake.
+                    from .formatting import to_telegram_html
+                    payload["text"] = to_telegram_html(part)
+                    payload["parse_mode"] = parse_mode
                 try:
                     if not self.authorize_delivery(person):
                         raise CompanionError("IDENTITY_REVOKED")
@@ -399,6 +408,16 @@ class Telegram:
                 except RateLimited as exc:
                     # Only a definite 429 rejection is safe to retry, once.
                     await asyncio.sleep(exc.retry_after)
+                    if not self.authorize_delivery(person):
+                        raise CompanionError("IDENTITY_REVOKED")
+                    body = await self.call("sendMessage", payload)
+                except CompanionError as exc:
+                    if not parse_mode or str(exc) != "UPSTREAM_HTTP_ERROR":
+                        raise
+                    # Telegram refused the entities: one plain-text retry, so a
+                    # markup mistake can never lose the reply.
+                    payload.pop("parse_mode", None)
+                    payload["text"] = part
                     if not self.authorize_delivery(person):
                         raise CompanionError("IDENTITY_REVOKED")
                     body = await self.call("sendMessage", payload)

@@ -683,6 +683,7 @@ class ParticipantRuntime:
                 await self.telegram.send(
                     fresh, render_jeff_reply(answer),
                     reply_to_message_id=message.get("_message_id"),
+                    parse_mode="HTML",
                 )
                 self._finish_update(update_id, "done", fresh)
                 pending = self._pending_photo_memory.pop(
@@ -1418,4 +1419,5 @@ class ParticipantRuntime:
                 if person is not None:
                     with contextlib.suppress(Exception):
                         await self.telegram.send(person, render_jeff_reply(
-                            "Генерация прервалась при перезапуске. Повтори запрос, пожалуйста."))
+                            "Генерация прервалась при перезапуске. Повтори запрос, пожалуйста."),
+                            parse_mode="HTML")
