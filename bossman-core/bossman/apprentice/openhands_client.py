@@ -733,6 +733,14 @@ class OpenHandsClient:
             _shutil.rmtree(workspace / cache_dir, ignore_errors=True)
         for pyc in workspace.rglob("__pycache__"):
             _shutil.rmtree(pyc, ignore_errors=True)
+        # Literal "%SystemDrive%\..." trees are unexpanded-variable garbage the
+        # agent can produce in bash; they are never legitimate repo content.
+        for entry in list(workspace.iterdir()):
+            if "%SystemDrive%" in entry.name or entry.name.startswith("%"):
+                if entry.is_dir():
+                    _shutil.rmtree(entry, ignore_errors=True)
+                else:
+                    entry.unlink(missing_ok=True)
 
         head_after = _git(workspace, "rev-parse", "HEAD").strip()
         if head_after != head_before:
