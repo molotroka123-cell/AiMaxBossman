@@ -1,4 +1,4 @@
-# МАСТЕР-ПРОМТ — финальная приёмка 1.5–1.7 → freeze → 1.8 (Jeff Voice + chat-first UX) → freeze 1.8
+# МАСТЕР-ПРОМТ — один Боссман на ПК → финальная приёмка 1.5–1.7 → freeze → 1.8 (Jeff Voice + chat-first UX) → freeze 1.8
 
 Дата: 2026-09-27. Репозиторий: `molotroka123-cell/AiMaxBossman`.
 Исполнитель: coding-агент на машине владельца (Codex / Claude Code) + владелец для шагов, помеченных 👤.
@@ -20,6 +20,89 @@
 4. Секреты никогда не печатаются, не логируются, не коммитятся.
 5. Одна ветка на фазу. Никаких force-push, никакой переписанной истории.
 6. Каждый отчёт заканчивается блоком статусов (формат в конце каждой фазы).
+
+---
+
+## Карта веток и ссылок (состояние на 2026-09-27)
+
+Репозиторий: https://github.com/molotroka123-cell/AiMaxBossman
+Ссылка на ветку: `https://github.com/molotroka123-cell/AiMaxBossman/tree/<ветка>`.
+Перед началом всегда `git fetch --all --prune` и сверить SHA — таблица могла устареть.
+
+| Ветка | HEAD | В canonical? | Роль | Что делать |
+|---|---|---|---|---|
+| `integrate/bossman-1.7-unified-20260925` | `af1d5c0f` | — | **canonical**, единственная линия продукта | база всего |
+| `candidate/freeze-20260926` | `1eea0831` | нет (+7) | кандидат freeze 1.5–1.7 | принимает PR #84 |
+| `claude/bossman-freeze-closure-ohvmon` | `7c57fde6` (код `0292ae98`) | нет (+11) | **свежий кандидат**: descriptor-фикс, сведение с canonical, фикс утечки памяти H-1 | [PR #84](https://github.com/molotroka123-cell/AiMaxBossman/pull/84) → Фазы 1–3 |
+| `docs/voice-background-effects-spec-20260927` | — | нет | этот промт, спека голоса/UX | [PR #85](https://github.com/molotroka123-cell/AiMaxBossman/pull/85), мёрж документации в любой момент |
+| `feat/jeff-ux-voice-avatar-20260926` | `025834d6` | нет (+23) | исходники Jeff GUI/голос/аватар | только в Фазе 4, после freeze |
+| `feat/jeff-ux-integration-test-20260926` | `2a527b76` | нет (+3) | Jeff GUI (`jeff.html/js`, `jeff_desktop.py`, ярлык) + тесты изоляции | только в Фазе 4; `install-jeff-shortcut.ps1` ждёт `.venv` — не починено |
+| `docs/bossman-1.8-oss-14x2-20260926` | `c7644f82` | нет (+1) | обзор 28 OSS-кандидатов для 1.8 | прочитать в Фазе 4, мёрж документации |
+| `feat/bossman-1.6-*`, `feat/bossman-1.7-personal-identity-training-20260925` | — | **да** | уже внутри canonical | не мёржить повторно |
+| `release/bossman-owner` | `90a807b0` | нет (+1931) | старая линия 1.0 | **не использовать как базу** |
+| `main` | `e243fb67` | нет (+785) | старая линия | **не использовать как базу** |
+
+Открытые PR: #84 (freeze), #85 (документация). Остальные открытые PR (#70–#81, #4) —
+старые, не часть этого прогона; не мёржить без отдельного решения владельца.
+
+Мёрж Jeff-веток: только обычный `git merge` (не копирование файлов поверх) — они ответвились
+раньше и в диффе против canonical «откатывают» `test_session_touch_throttle.py` и
+`scripts/openhands_sidecar.py`; трёхсторонний merge сохранит обе стороны, копирование — сломает.
+
+---
+
+## ФАЗА 0 — Один рабочий Боссман на компьютере владельца
+
+Цель: на ПК ровно **один** Bossman — один checkout, один Python-env, одна папка данных,
+один backend, один Telegram-поллер. Приёмка (Фаза 1) идёт только на этой сборке.
+
+Известная проблема из `docs/owner/CONTINUE_20260926_CLAUDE.md` (ветка PR #84): живой `:8800` запущен из
+`C:\Users\asd\Documents\Default Project\AiMaxBossman-integrated` (старый `09f79275`) **без**
+`BCC_DATA_DIR` → ключи и агенты лежат в `...\AiMaxBossman-integrated\command-center\data`, а не
+во владельческой БД `%LOCALAPPDATA%\Bossman\CommandCenter`; системный Python имеет editable-установку
+того же старого checkout. Плюс worktree `C:\Users\asd\Bossman\wt-audit-0926`. Итого три копии кода.
+
+### 0.1 Инвентаризация (ничего не удалять)
+```powershell
+Get-Process python*, pythonw* -ErrorAction SilentlyContinue | Select-Object Id, Path, StartTime
+Get-CimInstance Win32_Process -Filter "Name like 'python%'" | Select-Object ProcessId, CommandLine
+netstat -ano | findstr :8800
+python -m pip list --editable
+```
+Записать: какие checkout'ы есть, какой процесс держит `:8800`, сколько Telegram-поллеров, куда указывает editable-установка.
+
+### 0.2 Один checkout на кандидате
+```powershell
+git clone https://github.com/molotroka123-cell/AiMaxBossman C:\Users\asd\Bossman\main   # если ещё нет
+cd C:\Users\asd\Bossman\main
+git fetch --all --prune
+git checkout claude/bossman-freeze-closure-ohvmon
+git rev-parse HEAD   # ожидается 7c57fde6… (или новее по PR #84)
+```
+
+### 0.3 Один Python-env
+Создать `.venv` внутри этого checkout и ставить только туда:
+`python -m venv .venv; .venv\Scripts\pip install -e . -e .\bossman-core -e ".\command-center[dev,mcp,browser]"`.
+Editable-установку старого checkout из системного Python — снять (`pip uninstall` соответствующих пакетов),
+после проверки, что `.venv` работает. Тот же `.venv` нужен `install-jeff-shortcut.ps1`.
+
+### 0.4 Одна папка данных
+Единственная: `%LOCALAPPDATA%\Bossman\CommandCenter` (`BCC_DATA_DIR`).
+Ключи провайдеров из старой `...\AiMaxBossman-integrated\command-center\data` — **не копировать файлы**,
+а завести заново через штатный vault (`bossman keys set <provider> --stdin` / UI «Бесплатные облака»).
+Ключи, которые владелец присылал в чат открытым текстом, — перевыпустить у провайдеров и завести новые.
+Старую папку данных не удалять, переименовать в `...-old-<дата>` после проверки.
+
+### 0.5 Один backend и один поллер
+Остановить старый `:8800` штатно (STOP), запустить из нового checkout с `BCC_DATA_DIR`.
+Telegram-поллер — ровно один (проверить по процессам). `bossman status --json` должен показать
+новый SHA и новую папку данных.
+
+### Гейт Фазы 0
+```
+ONE_CHECKOUT=  ONE_VENV=  ONE_DATA_DIR=  ONE_BACKEND=  ONE_POLLER=  KEYS_IN_VAULT=  BACKEND_SHA=
+```
+Старые копии не удаляются до окончания Фазы 3 — только переименовываются.
 
 ---
 
@@ -94,6 +177,19 @@ FREEZE_1_5_1_7=PASS   только если 1.1–1.3 все PASS и P0_OPEN=0, 
 
 Одна ветка от `FINAL_SHA`: `feat/bossman-1.8-jeff-voice-chat-ux`.
 Ветка freeze остаётся неизменной.
+
+### 4.0 Свести Jeff в ветку 1.8
+```powershell
+git checkout -b feat/bossman-1.8-jeff-voice-chat-ux <FINAL_SHA>
+git merge --no-ff origin/feat/jeff-ux-voice-avatar-20260926
+git merge --no-ff origin/feat/jeff-ux-integration-test-20260926
+git merge --no-ff origin/docs/bossman-1.8-oss-14x2-20260926
+```
+Конфликты решать явно (новее+строже побеждает), решение — в сообщении merge-коммита.
+Сразу после: `pytest command-center/tests/test_jeff_ux_isolation.py test_jeff_ux_browser.py`,
+починить `install-jeff-shortcut.ps1` под `.venv` из Фазы 0. Jeff — участник, не хозяин:
+никакого Computer Use, shell, GitHub-записи, owner-approval и доступа к приватной памяти владельца
+(роль из `docs/owner/WORKBENCH_20260926.md`).
 
 ### 4.1 Jeff Voice — локальный клон голоса владельца
 Исходная спецификация: `docs/v1.5/VOICE_AND_PHONE.md` §1–2, §2a (UX загрузки), §5a (фоновые эффекты).
@@ -193,9 +289,95 @@ Jeff принимает голосовое → транскрибирует → 
 
 ---
 
+## Библиотека промтов
+
+Каждый промт копируется целиком в соответствующего агента. Все они начинаются с одного и того же
+абзаца-шапки — он не даёт агенту уйти в сторону.
+
+**Шапка (вставлять первой строкой в любой промт ниже):**
+> Репозиторий https://github.com/molotroka123-cell/AiMaxBossman. Сначала прочитай
+> `docs/owner/MASTER_PROMPT_FINAL_ACCEPTANCE_AND_UX_20260927.md` (разделы 0 и «Карта веток»),
+> `AGENTS.md` и `docs/owner/CONTINUE_FREEZE_FINAL.md`. Выполняй только свою фазу. NO FAKE GREEN,
+> статусы только PASS/BLOCKED/NOT_TESTED/DEFERRED, без расширения полномочий, без второго поллера,
+> секреты не печатать. В конце — блок статусов своей фазы.
+
+### P0 — Сборщик «один Боссман» (Codex/Claude на ПК владельца)
+> Выполни ФАЗУ 0. Сначала только инвентаризация (0.1) и отчёт мне — ничего не останавливай и не
+> удаляй, пока я не подтвержу. Затем 0.2–0.5 по одному шагу, после каждого — проверка. Ключи заводи
+> только через штатный vault; ключи из чата считай скомпрометированными. Старые checkout'ы и папки
+> данных не удаляй — переименовывай. Итог: гейт Фазы 0.
+
+### P1 — Приёмщик 1.5–1.7 (Codex на ПК владельца)
+> Выполни ФАЗУ 1 на сборке из Фазы 0. Ты аудитор, не разработчик: код не правишь, тесты не
+> ослабляешь. По каждому пункту 1.3 — действие, ожидание, факт, доказательство (скрин/лог/message_id).
+> Упавший тест — воспроизведи и опиши причину, не называй флаком без доказательства.
+> Итог: `FREEZE_1_5_1_7=` и список дефектов P0/P1/P2 с шагами повтора.
+
+### P2 — Чинщик (Claude Code)
+> Выполни ФАЗУ 2 по списку дефектов из отчёта P1 (приложен). Для каждого: воспроизведи на текущем
+> коде → причина → минимальный фикс → тест, падавший до фикса → повтор затронутых пунктов 1.3 →
+> полная регрессия. Только P0/P1, никаких новых функций. Работай в PR #84 (ветка
+> `claude/bossman-freeze-closure-ohvmon`), не создавай новых веток. M-4 не трогай без моего решения.
+
+### P3 — Freeze-менеджер
+> Выполни ФАЗУ 3: только если отчёты P1 (и P2, если был) дают PASS на одном SHA. Смержи PR #84,
+> поставь тег, запиши `FINAL_SHA` и SHA-256 архива. Проверь exact-SHA CI именно на этом SHA —
+> результаты с других SHA не считаются.
+
+### P4a — Голос Jeff (Claude Code / Codex, после freeze)
+> Выполни ФАЗУ 4 (4.0–4.4) по `docs/voice/JEFF_ELITE_VOICE_SPEC.md`. Первым делом — отчёт
+> совместимости железа (ОС, GPU, gfx1151, ROCm, PyTorch, RAM, диск, ffmpeg, Python) и только потом
+> загрузка моделей, по одной, с замером. Лицензии — в `docs/voice/MODEL_LICENSE_MATRIX.md` до
+> выбора победителя. Победителя выбирай по замерам на голосе владельца, не по README.
+
+### P4b — Аудитор голоса (Codex, отдельный от P4a)
+> Проверь работу P4a, не переделывая её: сквозной сценарий 6.1, офлайн-тест, один поллер, STOP,
+> правильный получатель, играбельный OGG/Opus, что чужой голос не попадает в профиль, что сырой
+> голос не ушёл в облако без разрешения. Только доказательства, без правок кода.
+
+### P5a — UX-дизайнер/разработчик (Claude Code)
+> Выполни ФАЗУ 5 в ветке `feat/bossman-1.8-jeff-voice-chat-ux`. Сначала посмотри референсы в
+> `docs/ux/references/` и текущий UI (`command-center/ui/`, ~40 страниц в `pages/`). Предложи макет
+> главного экрана (чат) и список: какие страницы остаются в сайдбаре, какие уходят в «Инструменты» —
+> и жди моего «да» до кода. Меняешь только представление: API, права и approvals не трогаешь.
+> Каждый экран — проверка в Chromium на 1440px и 390px.
+
+### P5b — UX-аудитор (Aster, `ASTER_CODE_WRITES=0`)
+> Пройди новый интерфейс как владелец-непрограммист: новый чат, задача с approval, вложение MP3/MP4,
+> голосовое, STOP, переход в инструмент, мобильная версия. Каждая заминка — дефект с шагами и
+> скрином. Отдельно отметь всё, что всё ещё выглядит «AI-generated» (неон, градиенты, лишние бейджи,
+> жаргон). Код не пишешь.
+
+### P6 — Финальный приёмщик 1.8
+> Выполни ФАЗУ 6 и заполни итоговый отчёт целиком. Любая строка без доказательства — `NOT_TESTED`,
+> не PASS.
+
+### Существующие документы — что брать, что нет
+
+**Актуальные (опираться):**
+- `AGENTS.md`, `CLAUDE_NEXT_ACTION.md` — правила репозитория
+- `docs/owner/WORKBENCH_20260926.md` — роли агентов, маршрутизация моделей, что доказано
+- `docs/owner/CONTINUE_FREEZE_FINAL.md` (ветка PR #84) — итог Cloud-стороны freeze
+- `docs/owner/CONTINUE_20260926_CLAUDE.md` (ветка PR #84) — окружение на ПК, ключи, известные дефекты
+- `docs/terminal/TERMINAL_RUN_1_2_MASTER.md` — терминал как та же поверхность того же Bossman
+- `BOSSMAN_1_5_START_HERE.md`, `BOSSMAN_1_6_START_HERE.md`, `docs/v1.7/BOSSMAN_17_FULL_RC_MASTER_RUN_20260925.md` — требования 1.5/1.6/1.7
+- `docs/owner/BOSSMAN_15_17_ONE_WAVE_MASTER_20260925.md` — предыдущий сквозной прогон (для сверки)
+- `docs/acceptance/ASTRA_SUPERVISED_ACCEPTANCE_PROMPT.md` — формат приёмки
+- `docs/v1.5/VOICE_AND_PHONE.md`, `docs/voice/JEFF_ELITE_VOICE_SPEC.md` — голос
+- `docs/v1.8/BOSSMAN_18_EVOLUTION_ENGINE.md` + `docs/v1.8/BOSSMAN_18_OPEN_SOURCE_14X2_20260926.md` (ветка `docs/bossman-1.8-oss-14x2-20260926`) — 1.8
+- `docs/owner/TOMORROW_OPERATOR_RUNBOOK.md`, `docs/owner/ROLLBACK_RU.md` — эксплуатация и откат
+
+**Исторические (не использовать как задание):** `docs/v3/`, `docs/v6/`, `docs/v8/`, `docs/archive/`,
+`handoffs/`, `docs/night/`, `docs/handoffs/OPUS_*`, `docs/skills/OPUS_*`, `docs/final/MASTER_PROMPT_*`,
+`docs/convergence/`, `owner-repair/cloud-20260923/` — описывают прошлые линии и могут противоречить текущей.
+
+---
+
 ## Итоговый отчёт (заполняется в конце)
 
 ```
+ONE_CHECKOUT=   ONE_VENV=   ONE_DATA_DIR=   ONE_BACKEND=   ONE_POLLER=   KEYS_IN_VAULT=
+
 FREEZE_1_5_1_7=          FINAL_SHA_1_7=        ARCHIVE_1_7_SHA256=
 P0_OPEN=   P1_OPEN=
 
