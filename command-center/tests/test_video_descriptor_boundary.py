@@ -82,12 +82,26 @@ async def drive(response, *, headers=None):
     return start["status"], {k.decode().lower(): v.decode() for k, v in start["headers"]}, body
 
 
-def descriptors() -> int:
+def descriptors(path: Path | None = None) -> int:
+    """Count open descriptors for the owned media file, not the whole process.
+
+    ``num_handles()`` on Windows counts every kernel object the process holds --
+    threads, events and IOCP completion handles that ``asyncio.to_thread`` (used
+    by ``blocking()``) creates and tears down independently of any file. Those
+    fluctuate for reasons that have nothing to do with the descriptor under
+    test, so a whole-process count cannot tell a real leak of THIS file's
+    handle from ordinary runtime churn. When a target path is given, count only
+    handles that resolve to it; that is the resource the security invariant
+    (verified descriptor, never a re-open) actually claims is not leaked.
+    """
     if os.path.isdir("/proc/self/fd"):
         return len(os.listdir("/proc/self/fd"))
     import psutil
     process = psutil.Process()
     if os.name == "nt":
+        if path is not None:
+            target = str(Path(path).resolve())
+            return sum(1 for f in process.open_files() if f.path == target)
         return process.num_handles()   # num_fds() существует только на UNIX
     return process.num_fds()
 
@@ -384,13 +398,13 @@ async def test_repeated_requests_do_not_leak_descriptors(tmp_path, monkeypatch):
         return await drive(descriptor_response(fd, info, range_header=range_header))
 
     await once()                                    # warm caches, imports, pools
-    before = descriptors()
+    before = descriptors(path)
     for _ in range(25):
         status, _, body = await once()
         assert status == 200 and body == original
         assert (await once("bytes=0-3"))[0] == 206
         assert (await once("bytes=99999-"))[0] == 416   # 416 must close it too
-    assert descriptors() <= before + 2, (before, descriptors())
+    assert descriptors(path) <= before, (before, descriptors(path))
 
 
 @pytest.mark.asyncio
@@ -399,13 +413,13 @@ async def test_failed_verification_and_abandoned_handles_leak_nothing(tmp_path, 
     service = studio(tmp_path, item)
     handle, _ = await VideoService.media_file(service, "p", item["id"])
     handle.close()
-    before = descriptors()
+    before = descriptors(path)
     for _ in range(20):
         # A refused read must not keep the descriptor it opened to check.
         with pytest.raises(ValueError):
             await service.media.resolve_for_read({**item, "sha256": "c" * 64})
         (await VideoService.media_file(service, "p", item["id"]))[0].close()
-    assert descriptors() <= before + 2, (before, descriptors())
+    assert descriptors(path) <= before, (before, descriptors(path))
 
 
 @pytest.mark.asyncio
@@ -414,7 +428,7 @@ async def test_body_aborted_by_the_client_still_closes_the_descriptor(tmp_path):
     handle, _ = await VideoService.media_file(studio(tmp_path, item), "p", item["id"])
     fd, info = handle.detach()
     response = descriptor_response(fd, info)
-    before = descriptors()
+    before = descriptors(path)
 
     async def receive():
         await asyncio.Event().wait()
@@ -426,6 +440,6 @@ async def test_body_aborted_by_the_client_still_closes_the_descriptor(tmp_path):
 
     with pytest.raises(ConnectionResetError):
         await response({"type": "http", "method": "GET", "path": "/", "headers": []}, receive, send)
-    assert descriptors() <= before
+    assert descriptors(path) <= before
     with pytest.raises(OSError):
         os.fstat(fd)
