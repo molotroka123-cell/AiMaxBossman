@@ -262,7 +262,7 @@ class Telegram:
         try:
             async with asyncio.timeout(120):
                 response = await self.client.post(f"{TELEGRAM_API}/bot{self.settings.bot_token}/sendPhoto",
-                                                  data={"chat_id": str(person.chat_id), "caption": clean,
+                                                  data={"chat_id": str(person.chat_id), **({"caption": clean} if clean else {}),
                                                         **({"reply_markup": json.dumps(markup(keyboard))} if keyboard else {})},
                                                   files={"photo": (name, data, mime)})
             body = response.json()
