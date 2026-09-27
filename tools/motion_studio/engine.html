@@ -1,0 +1,451 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:'IBM Plex Mono';font-weight:400;src:url(../intro_video/fonts/IBMPlexMono-400.woff2) format('woff2');}
+@font-face{font-family:'IBM Plex Mono';font-weight:500;src:url(../intro_video/fonts/IBMPlexMono-500.woff2) format('woff2');}
+@font-face{font-family:'Onest';font-weight:500;src:url(../intro_video/fonts/Onest-500.woff2) format('woff2');}
+@font-face{font-family:'Onest';font-weight:800;src:url(../intro_video/fonts/Onest-800.woff2) format('woff2');}
+html,body{margin:0;background:#0a0c10}canvas{display:block}
+</style></head><body>
+<canvas id="out" width="1920" height="1080"></canvas>
+<script>
+// Motion Studio engine. Draws any valid scene spec (see spec.py) as a deterministic
+// timeline: renderFrame(t) -> PNG data URL, SUB sub-frames averaged for motion blur.
+// Owns all visuals; the spec only supplies scene types, texts, numbers and times.
+const W = 1920, H = 1080, CX = W / 2, CY = H / 2, FPS = 60, SUB = 3, BG = '#0a0c10';
+const CYAN = [53, 228, 255], BLUE = [58, 91, 255], VIOLET = [180, 76, 255], MINT = [70, 255, 190], PINK = [255, 110, 200];
+const ACCENTS = [CYAN, BLUE, VIOLET, PINK, MINT];
+let SPEC = null, DUR = 10, HITS = [];
+
+const out = document.getElementById('out'), octx = out.getContext('2d');
+const work = document.createElement('canvas'); work.width = W; work.height = H;
+const ctx = work.getContext('2d');
+const icon = new Image(); icon.src = '../../command-center/ui/icons/icon-1024.png';
+
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const eOutExpo = k => k >= 1 ? 1 : 1 - Math.pow(2, -10 * k);
+const eInExpo = k => k <= 0 ? 0 : Math.pow(2, 10 * k - 10);
+const eInOut = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+const eOutBack = k => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
+const rgba = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+const mix = (a, b, k) => a.map((v, i) => lerp(v, b[i], k));
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const fmt = n => Math.round(n).toLocaleString('en-US');
+const R2 = rng(42), DUST = Array.from({length: 80}, () => ({x: R2() * W, y: R2() * H, s: .6 + R2() * 1.8, sp: 8 + R2() * 26, ph: R2() * 6.28}));
+const R3 = rng(9), SPARK = Array.from({length: 140}, () => ({a: R3() * 6.283, v: 300 + R3() * 1300, s: 1.5 + R3() * 3.2, c: [CYAN, BLUE, VIOLET][Math.floor(R3() * 3)], life: .6 + R3() * 1.4}));
+const WAVE = (() => { const r = rng(77); return Array.from({length: 34}, (_, i) => .25 + .75 * Math.abs(Math.sin(i * .7 + r() * 2)) * (.4 + .6 * r())); })();
+
+function text(s, x, y, font, color, align = 'left', base = 'alphabetic', spacing = 0) {
+  ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = base;
+  if (!spacing) { ctx.fillText(s, x, y); return; }
+  let w = 0; for (const ch of s) w += ctx.measureText(ch).width + spacing; w -= spacing;
+  let px = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+  ctx.textAlign = 'left';
+  for (const ch of s) { ctx.fillText(ch, px, y); px += ctx.measureText(ch).width + spacing; }
+}
+function fitFont(s, weight, family, size, maxW) {       // shrink until the text fits
+  for (; size > 12; size -= 2) { ctx.font = `${weight} ${size}px ${family}`; if (ctx.measureText(s).width <= maxW) break; }
+  return `${weight} ${size}px ${family}`;
+}
+const beatLen = () => 60 / (SPEC.meta.bpm || 120);
+function beat(t) {                                       // decaying pulse on every beat after the first cut
+  const t0 = SPEC.scenes.length > 1 ? SPEC.scenes[1].start : 0;
+  if (t < t0) return 0; const p = ((t - t0) / beatLen()) % 1; return Math.exp(-p * 7);
+}
+
+// ------------------------------------------------------------------ background + HUD
+function background(t) {
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+  const on = eOutExpo(seg(t, 0, .8)) * (1 - eInExpo(seg(t, DUR - .7, DUR - .05))), b = beat(t);
+  const g = ctx.createRadialGradient(CX, CY, 0, CX, CY, 1000 * (1 + .05 * b));
+  g.addColorStop(0, rgba(BLUE.map(v => v * .55), (.5 + .18 * b) * on)); g.addColorStop(.5, `rgba(40,20,110,${.18 * on})`); g.addColorStop(1, 'rgba(10,12,16,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const drift = t * 20;
+  for (let y = 0; y < H + 48; y += 48) for (let x = -48; x < W + 48; x += 48) {
+    const px = x + (drift % 48), d = Math.hypot(px - CX, y - CY), a = (.07 + .05 * b) * on * (1 - clamp(d / 1150) * .75);
+    if (a < .004) continue; ctx.fillStyle = `rgba(150,175,255,${a})`; ctx.fillRect(px, y, 2, 2);
+  }
+  for (const p of DUST) {
+    const y = (p.y - t * p.sp + H * 10) % H, x = p.x + Math.sin(t * .8 + p.ph) * 12;
+    ctx.fillStyle = `rgba(170,200,255,${.3 * on * (.5 + .5 * Math.sin(t * 2 + p.ph))})`; ctx.beginPath(); ctx.arc(x, y, p.s, 0, 7); ctx.fill();
+  }
+}
+function hud(t) {
+  const a = eOutExpo(seg(t, .2, .8)) * (1 - seg(t, DUR - .6, DUR - .1)); if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = 'rgba(160,185,255,.55)'; ctx.lineWidth = 2;
+  const m = 56, L = 46;
+  for (const [x, y, sx, sy] of [[m, m, 1, 1], [W - m, m, -1, 1], [m, H - m, 1, -1], [W - m, H - m, -1, -1]]) { ctx.beginPath(); ctx.moveTo(x, y + sy * L); ctx.lineTo(x, y); ctx.lineTo(x + sx * L, y); ctx.stroke(); }
+  text(SPEC.meta.hud || (SPEC.meta.brand || 'BOSSMAN'), m + 22, m + 36, '400 20px "IBM Plex Mono"', 'rgba(160,185,255,.75)');
+  const f = Math.floor(t * 60); text(`00:00:${String(Math.floor(t)).padStart(2, '0')}:${String(f % 60).padStart(2, '0')}`, W - m - 22, m + 36, '400 20px "IBM Plex Mono"', 'rgba(160,185,255,.75)', 'right');
+  const i = SPEC.scenes.findIndex(s => t >= s.start && t < s.end), sc = SPEC.scenes[Math.max(0, i)];
+  text(`CH ${String(Math.max(0, i) + 1).padStart(2, '0')} ▸ ${sc.type.toUpperCase().replace('_', ' ')}`, m + 22, H - m - 18, '400 20px "IBM Plex Mono"', 'rgba(160,185,255,.75)');
+  ctx.fillStyle = 'rgba(160,185,255,.18)'; ctx.fillRect(W - m - 322, H - m - 26, 300, 2);
+  ctx.fillStyle = rgba(CYAN, .9); ctx.fillRect(W - m - 322, H - m - 26, 300 * clamp(t / DUR), 2);
+  ctx.restore();
+}
+
+// ------------------------------------------------------------------ scene: title
+function sTitle(sc, t) {
+  const s = sc.start, d = sc.end - sc.start, out1 = 1 - eInExpo(seg(t, sc.end - .25, sc.end + .05));
+  const lw = W * .8 * eOutExpo(seg(t, s + .05, s + .9));
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const lg = ctx.createLinearGradient(CX - lw / 2, 0, CX + lw / 2, 0);
+  lg.addColorStop(0, 'rgba(53,228,255,0)'); lg.addColorStop(.5, `rgba(200,240,255,${.55 * out1})`); lg.addColorStop(1, 'rgba(180,76,255,0)');
+  ctx.fillStyle = lg; ctx.fillRect(CX - lw / 2, CY + 150, lw, 2); ctx.restore();
+  const glyphs = [...sc.title];
+  ctx.save(); ctx.globalAlpha = out1;
+  const font = fitFont(sc.title, 800, 'Onest', 250, W - 300); ctx.font = font;
+  const widths = glyphs.map(g => ctx.measureText(g).width + 8), tw = widths.reduce((a, b) => a + b, 0);
+  let x = CX - tw / 2;
+  glyphs.forEach((gch, i) => {
+    const kk = eOutExpo(seg(t, s + .13 * d + i * .06, s + .32 * d + i * .06));
+    if (kk > 0 && gch !== ' ') {
+      ctx.save(); ctx.beginPath(); ctx.rect(x - 10, CY - 260, widths[i] + 20, 310); ctx.clip();
+      const grd = ctx.createLinearGradient(0, CY - 200, 0, CY + 20); grd.addColorStop(0, '#ffffff'); grd.addColorStop(1, '#b9c6ff');
+      ctx.font = font; ctx.fillStyle = grd; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillText(gch, x, CY + 20 + (1 - kk) * 260); ctx.restore();
+    }
+    x += widths[i];
+  });
+  if (sc.kicker) text(sc.kicker, CX, CY - 238, '500 34px "IBM Plex Mono"', rgba(CYAN, .85 * eOutExpo(seg(t, s + .3 * d, s + .43 * d))), 'center', 'alphabetic', 14);
+  if (sc.typed) {
+    const n = Math.floor(sc.typed.length * seg(t, s + .6 * d, s + .82 * d));
+    ctx.font = '500 30px "IBM Plex Mono"'; const full = ctx.measureText(sc.typed).width, tx = CX - full / 2 - (sc.chip ? 110 : 0);
+    if (n > 0) {
+      text(sc.typed.slice(0, n), tx, CY + 120, '500 30px "IBM Plex Mono"', '#9FB3DA');
+      if (n < sc.typed.length || Math.floor(t * 5) % 2 === 0) { ctx.font = '500 30px "IBM Plex Mono"'; ctx.fillStyle = rgba(CYAN, 1); ctx.fillRect(tx + ctx.measureText(sc.typed.slice(0, n)).width + 6, CY + 96, 14, 30); }
+    }
+    const hk = eOutBack(seg(t, s + .78 * d, s + .87 * d));
+    if (sc.chip && hk > 0) {
+      ctx.save(); ctx.translate(tx + full + 130, CY + 110); ctx.scale(hk, hk);
+      ctx.fillStyle = 'rgba(53,228,255,.12)'; ctx.strokeStyle = rgba(CYAN, .9); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.roundRect(-92, -24, 184, 46, 23); ctx.fill(); ctx.stroke();
+      text(sc.chip, 0, 1, '500 24px "IBM Plex Mono"', '#DDF7FF', 'center', 'middle'); ctx.restore();
+    }
+  }
+  const nk = eOutBack(seg(t, s + .7 * d, s + .82 * d));
+  if (nk > 0) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const nx = CX - W * .4 + 20, ny = CY + 151, flare = eOutExpo(seg(t, s + .7 * d, s + .97 * d));
+    ctx.fillStyle = rgba(CYAN, 1); ctx.shadowColor = rgba(CYAN, 1); ctx.shadowBlur = 40; ctx.beginPath(); ctx.arc(nx, ny, 9 * nk, 0, 7); ctx.fill();
+    ctx.strokeStyle = rgba(CYAN, .6 * (1 - flare)); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(nx, ny, 9 + 90 * flare, 0, 7); ctx.stroke(); ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ------------------------------------------------------------------ scene: bars (real data)
+function sBars(sc, t) {
+  const s = sc.start, d = sc.end - sc.start, V = sc.values, mx = Math.max(...V, 1);
+  const inK = eOutExpo(seg(t, s - .05, s + .3)), outK = eInExpo(seg(t, sc.end - .3, sc.end + .05));
+  const x0 = 170, x1 = W - 170, base = CY + 330, maxH = 430, bw = (x1 - x0) / V.length;
+  const prog = eInOut(seg(t, s + .05, s + .85 * d)) * V.length, b = beat(t);
+  ctx.save(); ctx.globalAlpha = inK * (1 - outK);
+  ctx.fillStyle = 'rgba(160,185,255,.25)'; ctx.fillRect(x0, base + 2, (x1 - x0) * eOutExpo(seg(t, s - .05, s + .4)), 2);
+  let shown = 0;
+  V.forEach((c, i) => {
+    const k = clamp(prog - i); if (k <= 0) return;
+    const h = Math.max(4, Math.sqrt(c / mx) * maxH) * eOutBack(k) * (1 - outK * .9);
+    shown += c * clamp(k * 1.25);
+    const x = x0 + i * bw + Math.min(3, bw * .1), w = bw - 2 * Math.min(3, bw * .1), top = mix(CYAN, VIOLET, clamp(c / mx * 1.5));
+    const g = ctx.createLinearGradient(0, base - h, 0, base); g.addColorStop(0, rgba(top, .95)); g.addColorStop(1, rgba(BLUE, .25));
+    ctx.fillStyle = g; ctx.shadowColor = rgba(top, .8); ctx.shadowBlur = 18 + 20 * b;
+    ctx.beginPath(); ctx.roundRect(x, base - h, w, h, Math.min(6, w / 3)); ctx.fill(); ctx.shadowBlur = 0;
+    if (sc.highlight && i === sc.highlight.index && k > .6) {
+      const lk = eOutBack(seg(k, .6, 1)); ctx.save(); ctx.translate(x + w / 2, base - h - 34); ctx.scale(lk, lk);
+      text(sc.highlight.text, 0, 0, '500 22px "IBM Plex Mono"', '#ffffff', 'center', 'alphabetic', 2); ctx.restore();
+    }
+  });
+  const head = Math.min(prog, V.length - .001);
+  if (prog > 0 && prog < V.length + .5) {
+    const hx = x0 + head * bw; ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const hg = ctx.createLinearGradient(0, base - maxH - 60, 0, base); hg.addColorStop(0, 'rgba(255,255,255,0)'); hg.addColorStop(1, rgba(CYAN, .8));
+    ctx.fillStyle = hg; ctx.fillRect(hx - 1, base - maxH - 60, 2, maxH + 60); ctx.restore();
+  }
+  const hxn = x0 + Math.min(prog, V.length) * bw;
+  if (sc.x_from && hxn - x0 > 140) text(sc.x_from, x0, base + 48, '400 20px "IBM Plex Mono"', 'rgba(160,185,255,.6)');
+  if (sc.x_to) text(sc.x_to, x1, base + 48, '400 20px "IBM Plex Mono"', x1 - hxn > 140 ? 'rgba(160,185,255,.6)' : rgba(CYAN, .95), 'right');
+  if (sc.headline_label) {
+    const dk = eOutExpo(seg(t, s + .05, s + .4)), n = Math.max(1, Math.round(clamp(prog / V.length) * V.length));
+    ctx.save(); ctx.translate(x0, 285 + (1 - dk) * 40); ctx.globalAlpha *= dk;
+    text(String(n).padStart(2, '0'), 0, 0, '800 150px Onest', '#ffffff'); ctx.font = '800 150px Onest';
+    text(sc.headline_label, ctx.measureText(String(V.length)).width + 24, -12, '500 34px "IBM Plex Mono"', rgba(CYAN, .9), 'left', 'alphabetic', 6); ctx.restore();
+  }
+  if (sc.counter_label) {
+    const ck = eOutExpo(seg(t, s + .38 * d, s + .5 * d));
+    if (ck > 0) { ctx.save(); ctx.translate(x1, 285 + (1 - ck) * 40); ctx.globalAlpha *= ck;
+      text(fmt(shown), 0, 0, '800 150px Onest', '#ffffff', 'right'); text(sc.counter_label, 0, 50, '500 34px "IBM Plex Mono"', rgba(VIOLET, 1), 'right', 'alphabetic', 6); ctx.restore(); }
+  }
+  ctx.restore();
+}
+
+// ------------------------------------------------------------------ scene: cards
+function drawIcon(kind, c, s) {
+  ctx.save(); ctx.strokeStyle = rgba(c, 1); ctx.fillStyle = rgba(c, 1); ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.shadowColor = rgba(c, .9); ctx.shadowBlur = 24; ctx.scale(s, s); ctx.beginPath();
+  if (kind === 'agents') { const P = [[0, -46], [-44, 30], [44, 30]]; P.forEach(([x, y], i) => { const [x2, y2] = P[(i + 1) % 3]; ctx.moveTo(x, y); ctx.lineTo(x2, y2); }); ctx.stroke(); P.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 15, 0, 7); ctx.fill(); }); }
+  else if (kind === 'memory') { for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(0, -30 + i * 30, 52, 16, 0, 0, 7); ctx.stroke(); } ctx.beginPath(); ctx.moveTo(-52, -30); ctx.lineTo(-52, 30); ctx.moveTo(52, -30); ctx.lineTo(52, 30); ctx.stroke(); }
+  else if (kind === 'cursor') { ctx.roundRect(-58, -44, 116, 76, 10); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-20, 50); ctx.lineTo(20, 50); ctx.stroke(); ctx.beginPath(); ctx.moveTo(4, -18); ctx.lineTo(4, 26); ctx.lineTo(14, 16); ctx.lineTo(24, 34); ctx.lineTo(30, 30); ctx.lineTo(20, 12); ctx.lineTo(34, 12); ctx.closePath(); ctx.fill(); }
+  else if (kind === 'play') { ctx.roundRect(-58, -42, 116, 84, 14); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-14, -22); ctx.lineTo(24, 0); ctx.lineTo(-14, 22); ctx.closePath(); ctx.fill(); }
+  else if (kind === 'plane') { ctx.moveTo(-54, -2); ctx.lineTo(52, -44); ctx.lineTo(30, 46); ctx.lineTo(4, 22); ctx.closePath(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(52, -44); ctx.lineTo(4, 22); ctx.lineTo(0, 44); ctx.stroke(); }
+  else if (kind === 'chart') { ctx.moveTo(-54, 44); ctx.lineTo(54, 44); ctx.stroke(); [[-40, 20], [-10, -10], [20, -40]].forEach(([x, h]) => { ctx.fillRect(x, h, 22, 44 - h); }); }
+  else if (kind === 'shield') { ctx.moveTo(0, -52); ctx.lineTo(46, -34); ctx.lineTo(40, 16); ctx.quadraticCurveTo(24, 42, 0, 54); ctx.quadraticCurveTo(-24, 42, -40, 16); ctx.lineTo(-46, -34); ctx.closePath(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-18, 0); ctx.lineTo(-4, 16); ctx.lineTo(22, -16); ctx.stroke(); }
+  else if (kind === 'bolt') { ctx.moveTo(10, -54); ctx.lineTo(-32, 8); ctx.lineTo(0, 8); ctx.lineTo(-10, 54); ctx.lineTo(32, -8); ctx.lineTo(0, -8); ctx.closePath(); ctx.fill(); }
+  else if (kind === 'mic') { ctx.roundRect(-18, -54, 36, 70, 18); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, 38, .15 * Math.PI, .85 * Math.PI); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, 38); ctx.lineTo(0, 54); ctx.stroke(); }
+  else if (kind === 'code') { ctx.moveTo(-24, -30); ctx.lineTo(-54, 0); ctx.lineTo(-24, 30); ctx.moveTo(24, -30); ctx.lineTo(54, 0); ctx.lineTo(24, 30); ctx.moveTo(10, -44); ctx.lineTo(-10, 44); ctx.stroke(); }
+  ctx.restore();
+}
+function sCards(sc, t) {
+  const n = sc.items.length, gap = 34, cw = Math.min(360, (W - 300 - gap * (n - 1)) / n), chh = 400, total = n * cw + (n - 1) * gap;
+  const outK = eInExpo(seg(t, sc.end - .2, sc.end + .12));
+  sc.items.forEach((f, i) => {
+    const k = seg(t, f.t - .06, f.t + .45); if (k <= 0) return;
+    const c = ACCENTS[i % ACCENTS.length], x = CX - total / 2 + i * (cw + gap) + cw / 2, y = CY + 20;
+    const pop = eOutBack(k), active = t >= f.t && (i === n - 1 || t < sc.items[i + 1].t), flash = Math.exp(-Math.max(0, t - f.t) * 6);
+    ctx.save(); const sc2 = lerp(1.35, 1, eOutExpo(k)) * (1 + outK * .6);
+    ctx.translate(x + outK * (i - (n - 1) / 2) * 900, y + (1 - pop) * 220 - outK * 60); ctx.scale(sc2, sc2);
+    ctx.globalAlpha = clamp(k * 3) * (1 - outK);
+    const g = ctx.createLinearGradient(0, -chh / 2, 0, chh / 2); g.addColorStop(0, rgba(c, active ? .22 : .10)); g.addColorStop(1, 'rgba(12,14,30,.55)');
+    ctx.fillStyle = g; ctx.strokeStyle = rgba(c, active ? .95 : .35); ctx.lineWidth = 2;
+    ctx.shadowColor = rgba(c, .7 * (active ? 1 : .2) + .5 * flash); ctx.shadowBlur = 40 + 60 * flash;
+    ctx.beginPath(); ctx.roundRect(-cw / 2, -chh / 2, cw, chh, 28); ctx.fill(); ctx.shadowBlur = 0; ctx.stroke();
+    const sh = ctx.createLinearGradient(-cw / 2, -chh / 2, cw / 2, 0); sh.addColorStop(0, `rgba(255,255,255,${.10 + .25 * flash})`); sh.addColorStop(.5, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sh; ctx.beginPath(); ctx.roundRect(-cw / 2, -chh / 2, cw, chh, 28); ctx.fill();
+    ctx.save(); ctx.translate(0, -62); drawIcon(f.icon, c, 1.25); ctx.restore();
+    text(String(i + 1).padStart(2, '0'), -cw / 2 + 24, -chh / 2 + 40, '500 20px "IBM Plex Mono"', rgba(c, .8));
+    text(f.title, 0, 96, fitFont(f.title, 800, 'Onest', 46, cw - 30), '#ffffff', 'center');
+    text(f.sub, 0, 140, fitFont(f.sub, 400, '"IBM Plex Mono"', 21, cw - 30), 'rgba(185,200,240,.85)', 'center');
+    ctx.restore();
+    if (flash > .02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = rgba(c, .8 * flash); ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.roundRect(x - cw / 2 - 30 * (1 - flash), y - chh / 2 - 30 * (1 - flash), cw + 60 * (1 - flash), chh + 60 * (1 - flash), 34); ctx.stroke(); ctx.restore(); }
+  });
+  if (sc.heading) text(sc.heading, CX, 190, '500 28px "IBM Plex Mono"', rgba(CYAN, .85 * eOutExpo(seg(t, sc.start - .05, sc.start + .3)) * (1 - outK)), 'center', 'alphabetic', 10);
+}
+
+// ------------------------------------------------------------------ scene: grid (count -> screen)
+function sGrid(sc, t) {
+  const s = sc.start, d = sc.end - sc.start, COLS = 104, ROWS = 50, N = sc.value;
+  const inK = eOutExpo(seg(t, s - .05, s + .3)), fill = eInOut(seg(t, s + .03 * d, s + .45 * d));
+  const morph = sc.then_title ? eInOut(seg(t, s + .53 * d, s + .72 * d)) : 0, suck = eInExpo(seg(t, s + .78 * d, s + .95 * d));
+  const gw = lerp(1560, 900, morph) * (1 - suck * .97), gh = lerp(750, 520, morph) * (1 - suck * .97);
+  const gx = CX - gw / 2, gy = lerp(CY - 375 + 70, CY - 280, morph) + suck * 260, cs = gw / COLS, rs = gh / ROWS;
+  ctx.save(); ctx.globalAlpha = inK;
+  const R = rng(5);
+  for (let i = 0; i < COLS * ROWS; i++) {
+    const c = i % COLS, r = Math.floor(i / COLS), key = (c * .8 + r * 1.2) / (COLS * .8 + ROWS * 1.2) + R() * .12;
+    const on = i < N && key < fill * 1.13, fresh = on ? clamp(1 - (fill * 1.13 - key) * 14) : 0;
+    ctx.fillStyle = on ? rgba(mix(MINT, [255, 255, 255], fresh), .55 + .45 * fresh) : 'rgba(120,140,200,.10)';
+    ctx.fillRect(gx + c * cs + .6, gy + r * rs + .6, Math.max(cs - 1.4, .5), Math.max(rs - 1.4, .5));
+  }
+  if (morph > 0 && suck < 1) {
+    const a = morph * (1 - suck); ctx.strokeStyle = `rgba(200,215,255,${.85 * a})`; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.roundRect(gx - 26, gy - 26, gw + 52, gh + 52, 22); ctx.stroke(); ctx.fillStyle = `rgba(200,215,255,${.75 * a})`;
+    ctx.fillRect(CX - 16 * (1 - suck), gy + gh + 26, 32 * (1 - suck), 70 * (1 - suck));
+    ctx.beginPath(); ctx.roundRect(CX - 150 * (1 - suck), gy + gh + 94 * (1 - suck), 300 * (1 - suck), 12, 6); ctx.fill();
+  }
+  const tk = eOutExpo(seg(t, s + .02 * d, s + .15 * d)) * (1 - morph) * (1 - suck);
+  if (tk > 0) { ctx.save(); ctx.globalAlpha = tk;
+    text(fmt(N * fill), CX - 16, 148, '800 118px Onest', '#ffffff', 'right');
+    text(sc.label, CX + 16, 124, '500 34px "IBM Plex Mono"', rgba(MINT, 1), 'left', 'alphabetic', 6);
+    if (sc.caption) text(sc.caption, CX + 16, 160, '400 18px "IBM Plex Mono"', 'rgba(160,185,255,.6)', 'left', 'alphabetic', 2);
+    ctx.restore(); }
+  const mk = eOutExpo(seg(t, s + .56 * d, s + .68 * d)) * (1 - suck);
+  if (sc.then_title && mk > 0) {
+    text(sc.then_title, CX, 150 + (1 - mk) * 30, '800 92px Onest', `rgba(255,255,255,${mk})`, 'center');
+    if (sc.then_sub) text(sc.then_sub, CX, 205 + (1 - mk) * 30, '500 24px "IBM Plex Mono"', rgba(CYAN, .9 * mk), 'center', 'alphabetic', 4);
+  }
+  ctx.restore();
+  if (t > s + .77 * d && t < sc.end) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; const k = seg(t, s + .77 * d, sc.end);
+    for (const p of SPARK) { const r = (1 - eInExpo(k)) * p.v * .9 + 6; ctx.fillStyle = rgba(p.c, .9 * k); ctx.beginPath(); ctx.arc(CX + Math.cos(p.a) * r, CY + Math.sin(p.a) * r * .75, p.s, 0, 7); ctx.fill(); }
+    ctx.restore();
+  }
+}
+
+// ------------------------------------------------------------------ scene: logo lockup
+function sLogo(sc, t) {
+  const T0 = sc.start, age = t - T0, last = sc === SPEC.scenes[SPEC.scenes.length - 1];
+  const ex = last ? 0 : eInExpo(seg(t, sc.end - .28, sc.end + .1));
+  ctx.save(); ctx.globalAlpha = 1 - ex; ctx.translate(CX, CY); ctx.scale(1 + .5 * ex, 1 + .5 * ex); ctx.translate(-CX, -CY);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const fk = seg(t, T0 - .03, T0 + .6), fa = fk < .1 ? fk / .1 : 1 - eOutExpo((fk - .1) / .9);
+  const g = ctx.createRadialGradient(CX, CY, 0, CX, CY, 200 + 1100 * eOutExpo(fk));
+  g.addColorStop(0, `rgba(255,255,255,${fa})`); g.addColorStop(.3, `rgba(120,220,255,${.5 * fa})`); g.addColorStop(1, 'rgba(60,40,200,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  for (const [dd, c, lw] of [[0, CYAN, 16], [.08, VIOLET, 8], [.16, BLUE, 4]]) {
+    const k = seg(t, T0 + dd, T0 + dd + 1.0); if (k <= 0 || k >= 1) continue;
+    ctx.strokeStyle = rgba(c, (1 - k) * .9); ctx.lineWidth = lw * (1 - k) + .5; ctx.shadowColor = rgba(c, 1); ctx.shadowBlur = 30;
+    const rr = 60 + 1150 * eOutExpo(k); ctx.beginPath(); ctx.ellipse(CX, CY, rr, rr * .8, 0, 0, 7); ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
+  for (const p of SPARK) {
+    if (age < 0 || age > p.life) continue; const k = age / p.life, dist = p.v * (1 - Math.exp(-age * 3.2)) / 3.2;
+    const x = CX + Math.cos(p.a) * dist, y = CY + Math.sin(p.a) * dist * .8; ctx.strokeStyle = rgba(p.c, 1 - k); ctx.lineWidth = p.s;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.cos(p.a) * 28 * (1 - k), y - Math.sin(p.a) * 28 * (1 - k) * .8); ctx.stroke();
+  }
+  ctx.restore();
+  const S = 250, gapx = 60, font = fitFont(sc.name, 800, 'Onest', 170, W - 300 - S - gapx); ctx.font = font;
+  const ww = ctx.measureText(sc.name).width, tw = S + gapx + ww, lx = CX - tw / 2;
+  const ik = eOutBack(seg(t, T0, T0 + .45)), glow = Math.exp(-Math.max(0, age) * 2.2);
+  if (ik > 0 && icon.complete && icon.naturalWidth) {
+    ctx.save(); ctx.translate(lx + S / 2, CY - 10); ctx.scale(ik, ik); ctx.rotate((1 - ik) * -.5);
+    ctx.shadowColor = rgba(CYAN, .55 + .4 * glow); ctx.shadowBlur = 60 + 80 * glow;
+    ctx.beginPath(); ctx.roundRect(-S / 2, -S / 2, S, S, S * .23); ctx.clip(); ctx.drawImage(icon, -S / 2, -S / 2, S, S); ctx.restore();
+  }
+  let x = lx + S + gapx;
+  [...sc.name].forEach((ch, i) => {
+    const k = eOutExpo(seg(t, T0 + .05 + i * .035, T0 + .5 + i * .035)); ctx.font = font; const cwid = ctx.measureText(ch).width;
+    if (k > 0) {
+      ctx.save(); ctx.beginPath(); ctx.rect(x - 5, CY - 150, cwid + 10, 220); ctx.clip();
+      const gg = ctx.createLinearGradient(0, CY - 110, 0, CY + 50); gg.addColorStop(0, '#ffffff'); gg.addColorStop(1, '#c3cdf8');
+      ctx.fillStyle = gg; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'; ctx.fillText(ch, x, CY + 52 + (1 - k) * 200);
+      const sk = seg(t, T0 + .75, T0 + 1.35);
+      if (sk > 0 && sk < 1) { const sxx = lerp(lx - 200, lx + tw + 200, eInOut(sk)), dd = (x + cwid / 2 - sxx) / 110;
+        ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(255,255,255,${.55 * Math.exp(-dd * dd)})`; ctx.fillText(ch, x, CY + 52 + (1 - k) * 200); }
+      ctx.restore();
+    }
+    x += cwid;
+  });
+  const uk = eOutExpo(seg(t, T0 + .35, T0 + .9));
+  if (uk > 0) { const ux = lx + S + gapx, ug = ctx.createLinearGradient(ux, 0, ux + ww, 0);
+    ug.addColorStop(0, rgba(CYAN, 1)); ug.addColorStop(.5, rgba(BLUE, 1)); ug.addColorStop(1, rgba(VIOLET, 1));
+    ctx.fillStyle = ug; ctx.shadowColor = rgba(BLUE, .9); ctx.shadowBlur = 18; ctx.fillRect(ux, CY + 88, ww * uk, 5); ctx.shadowBlur = 0; }
+  const tk2 = eOutExpo(seg(t, T0 + .6, T0 + 1.0));
+  if (sc.tagline && tk2 > 0) text(sc.tagline, lx + S + gapx, CY + 150 + (1 - tk2) * 16, '500 28px "IBM Plex Mono"', `rgba(159,179,218,${tk2})`, 'left', 'alphabetic', 3);
+  ctx.restore();
+}
+
+// ------------------------------------------------------------------ scene: voice (phone + status)
+function voiceBubble(x, y, w, mine, t0, t, dur) {
+  const k = eOutBack(seg(t, t0, t0 + .35)); if (k <= 0) return;
+  ctx.save(); ctx.translate(x + (mine ? w : 0), y); ctx.scale(k, k); ctx.translate(mine ? -w : 0, 0);
+  ctx.fillStyle = mine ? 'rgba(58,110,255,.95)' : 'rgba(40,46,70,.95)'; ctx.beginPath(); ctx.roundRect(0, 0, w, 74, 20); ctx.fill();
+  ctx.fillStyle = mine ? '#ffffff' : rgba(MINT, 1); ctx.beginPath(); ctx.arc(38, 37, 22, 0, 7); ctx.fill();
+  ctx.fillStyle = mine ? 'rgba(58,110,255,1)' : '#28304a'; ctx.beginPath(); ctx.moveTo(32, 26); ctx.lineTo(48, 37); ctx.lineTo(32, 48); ctx.closePath(); ctx.fill();
+  const prog = seg(t, t0 + .3, t0 + .3 + dur);
+  WAVE.forEach((a, i) => { const bh = 6 + a * 34, on = i / WAVE.length < prog;
+    ctx.fillStyle = on ? (mine ? '#ffffff' : rgba(MINT, 1)) : (mine ? 'rgba(255,255,255,.4)' : 'rgba(160,185,255,.35)'); ctx.fillRect(74 + i * 5.6, 37 - bh / 2, 3.2, bh); });
+  ctx.restore();
+}
+function sVoice(sc, t) {
+  const s = sc.start, d = sc.end - sc.start, inK = eOutExpo(seg(t, s, s + .45)), outK = eInExpo(seg(t, sc.end - .05, sc.end + .25));
+  ctx.save(); ctx.globalAlpha = inK * (1 - outK); ctx.translate(-outK * 500, 0);
+  const px = CX - 700, py = CY - 330 + (1 - inK) * 120, pw = 400, ph = 660;
+  ctx.fillStyle = 'rgba(14,17,30,.92)'; ctx.strokeStyle = 'rgba(200,215,255,.55)'; ctx.lineWidth = 3; ctx.shadowColor = rgba(BLUE, .6); ctx.shadowBlur = 60;
+  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 44); ctx.fill(); ctx.shadowBlur = 0; ctx.stroke();
+  ctx.fillStyle = 'rgba(40,46,70,.9)'; ctx.fillRect(px + 3, py + 60, pw - 6, 64);
+  ctx.fillStyle = rgba(MINT, 1); ctx.beginPath(); ctx.arc(px + 46, py + 92, 20, 0, 7); ctx.fill();
+  text(sc.name[0], px + 46, py + 99, '800 22px Onest', '#0a0c10', 'center');
+  text(sc.name[0] + sc.name.slice(1).toLowerCase(), px + 80, py + 88, '800 22px Onest', '#ffffff');
+  text('online', px + 80, py + 110, '400 15px "IBM Plex Mono"', rgba(MINT, .9));
+  sc.lines.forEach((line, i) => {
+    const t0 = s + (.1 + .45 * i) * d, y = py + 170 + i * 150;
+    voiceBubble(px + 120, y, 260, true, t0, t, .8);
+    const tr = eOutExpo(seg(t, t0 + .5, t0 + .8)); if (tr > 0) text(`“${line}”`, px + 380, y + 102, fitFont(`“${line}”`, 400, '"IBM Plex Mono"', 17, 360), `rgba(190,205,240,${tr})`, 'right');
+    voiceBubble(px + 20, y + 140 - (sc.lines.length > 1 ? 0 : 0), 280, false, t0 + .9, t, .8);
+  });
+  const hx = CX - 190, hk = eOutExpo(seg(t, s + .1, s + .5));
+  ctx.save(); ctx.globalAlpha *= hk; ctx.translate((1 - hk) * 60, 0);
+  text(sc.name, hx, CY - 150, fitFont(sc.name, 800, 'Onest', 150, 900), '#ffffff');
+  text('VOICE IN  →  VOICE OUT', hx + 6, CY - 80, '500 40px "IBM Plex Mono"', rgba(CYAN, 1), 'left', 'alphabetic', 2);
+  if (sc.sub) text(sc.sub, hx + 6, CY - 30, '500 30px "IBM Plex Mono"', 'rgba(185,200,240,.9)', 'left', 'alphabetic', 6);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 90; i++) { const a = Math.abs(Math.sin(i * .45 + t * 9) * Math.sin(i * .13 + t * 3.1)) * (0.25 + .75 * Math.exp(-Math.pow((i - 45) / 30, 2)));
+    ctx.fillStyle = rgba(mix(CYAN, VIOLET, i / 90), .85); ctx.fillRect(hx + 8 + i * 8.4, CY + 50 - a * 46, 4, a * 92 + 2); }
+  ctx.restore();
+  (sc.status || []).forEach((st, i) => {
+    const r = eOutExpo(seg(t, s + (.28 + .12 * i) * d, s + (.43 + .12 * i) * d)), live = st.state === 'live', c = live ? MINT : VIOLET, y = CY + 160 + i * 52;
+    ctx.save(); ctx.globalAlpha *= r; ctx.fillStyle = rgba(c, 1); ctx.strokeStyle = rgba(c, 1); ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(hx + 18, y, 8.5, 0, 7); live ? ctx.fill() : ctx.stroke();
+    text(st.text, hx + 40, y + 8, fitFont(st.text, 500, '"IBM Plex Mono"', 24, 860), rgba(c, 1)); ctx.restore();
+  });
+  ctx.restore(); ctx.restore();
+}
+
+// ------------------------------------------------------------------ scene: roadmap (projection)
+function sRoadmap(sc, t) {
+  const s = sc.start, n = sc.items.length, inK = eOutExpo(seg(t, s - .05, s + .3)), outK = eInExpo(seg(t, sc.end - .28, sc.end + .02));
+  ctx.save(); ctx.globalAlpha = inK * (1 - outK); ctx.translate(CX, CY); ctx.scale(1 + outK * .35, 1 + outK * .35); ctx.translate(-CX, -CY);
+  if (sc.heading) text(sc.heading, CX, 205, '800 64px Onest', '#ffffff', 'center', 'alphabetic', 6);
+  text(sc.disclaimer, CX, 252, '500 22px "IBM Plex Mono"', 'rgba(160,185,255,.75)', 'center', 'alphabetic', 3);
+  const x0 = 250, x1 = W - 250, y = CY + 60, span = x1 - x0;
+  ctx.fillStyle = 'rgba(160,185,255,.22)'; ctx.fillRect(x0, y - 1.5, span * eOutExpo(seg(t, s - .05, s + .4)), 3);
+  const xs = sc.items.map((_, i) => x0 + span * (i + .5) / n);
+  let reach = 0; sc.items.forEach((r, i) => { if (t >= r.t) reach = i; });
+  const growK = eOutExpo(seg(t, sc.items[reach].t, sc.items[reach].t + .4));
+  const reachX = t < sc.items[0].t ? x0 : lerp(reach ? xs[reach - 1] : x0, xs[reach], growK);
+  const g = ctx.createLinearGradient(x0, 0, x1, 0); g.addColorStop(0, rgba(CYAN, 1)); g.addColorStop(.5, rgba(VIOLET, 1)); g.addColorStop(1, rgba(PINK, 1));
+  ctx.fillStyle = g; ctx.shadowColor = rgba(CYAN, .9); ctx.shadowBlur = 20; ctx.fillRect(x0, y - 2.5, reachX - x0, 5); ctx.shadowBlur = 0;
+  sc.items.forEach((r, i) => {
+    const k = eOutBack(seg(t, r.t - .04, r.t + .38)); if (k <= 0) return;
+    const c = [CYAN, BLUE, VIOLET, PINK][Math.round(i * 3 / Math.max(1, n - 1))], x = xs[i], flash = Math.exp(-Math.max(0, t - r.t) * 5), big = i === n - 1;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = rgba(c, 1); ctx.shadowColor = rgba(c, 1); ctx.shadowBlur = 30 + 50 * flash;
+    ctx.beginPath(); ctx.arc(x, y, (big ? 16 : 12) * k, 0, 7); ctx.fill();
+    ctx.strokeStyle = rgba(c, .7 * flash); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 14 + 70 * (1 - flash), 0, 7); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.translate(x, y - 60); ctx.scale(k, k);
+    const vg = ctx.createLinearGradient(0, -130, 0, 0); vg.addColorStop(0, '#ffffff'); vg.addColorStop(1, rgba(c, 1));
+    ctx.font = `800 ${big ? 150 : 118}px Onest`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = vg; ctx.shadowColor = rgba(c, .6 + .4 * flash); ctx.shadowBlur = 30 + 40 * flash; ctx.fillText(r.version, 0, 0); ctx.restore();
+    const dk = eOutExpo(seg(t, r.t + .12, r.t + .5));
+    ctx.save(); ctx.globalAlpha *= dk; ctx.translate(0, (1 - dk) * 20);
+    text(r.when, x, y + 58, '500 26px "IBM Plex Mono"', rgba(c, 1), 'center', 'alphabetic', 4);
+    r.lines.forEach((ln, j) => text(ln, x, y + 104 + 32 * j, '400 22px "IBM Plex Mono"', 'rgba(210,220,250,.92)', 'center'));
+    ctx.restore();
+  });
+  const lastT = sc.items[n - 1].t;
+  if (t > lastT) { const p = (t - lastT) * 2.4; ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = `rgba(255,110,200,${.35 * (1 - (p % 1))})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(xs[n - 1], y - 110, 110 + 60 * (p % 1), 0, 7); ctx.stroke(); ctx.restore(); }
+  ctx.restore();
+}
+
+// ------------------------------------------------------------------ scene: end card
+function sEnd(sc, t) {
+  const s = sc.start, d = sc.end - sc.start, k = eOutExpo(seg(t, s, s + .5)), sp = lerp(2, 26, eOutExpo(seg(t, s, s + .9 * d)));
+  const glitch = Math.exp(-Math.max(0, t - s) * 7), font = fitFont(sc.text, 800, 'Onest', 118, W - 400);
+  ctx.save(); ctx.globalAlpha = k;
+  if (glitch > .03) for (const [dx, col] of [[-14 * glitch, 'rgba(53,228,255,.75)'], [14 * glitch, 'rgba(180,76,255,.75)']]) text(sc.text, CX + dx, CY + 30, font, col, 'center', 'alphabetic', sp);
+  ctx.save(); ctx.shadowColor = rgba(CYAN, .8); ctx.shadowBlur = 40; text(sc.text, CX, CY + 30, font, '#ffffff', 'center', 'alphabetic', sp); ctx.restore();
+  if (glitch > .05) for (let i = 0; i < 6; i++) { const yy = CY - 70 + i * 22; ctx.drawImage(work, 0, yy, W, 10, Math.sin(i * 12.9 + t * 60) * 40 * glitch, yy, W, 10); }
+  if (sc.sub) text(sc.sub, CX, CY + 100, '500 28px "IBM Plex Mono"', `rgba(159,179,218,${eOutExpo(seg(t, s + .25, s + .6))})`, 'center', 'alphabetic', 8);
+  const lw = 900 * eOutExpo(seg(t, s + .05, s + .6)), lg = ctx.createLinearGradient(CX - lw / 2, 0, CX + lw / 2, 0);
+  lg.addColorStop(0, 'rgba(53,228,255,0)'); lg.addColorStop(.5, 'rgba(200,240,255,.9)'); lg.addColorStop(1, 'rgba(180,76,255,0)');
+  ctx.fillStyle = lg; ctx.fillRect(CX - lw / 2, CY + 56, lw, 3); ctx.restore();
+}
+
+const DRAW = {title: sTitle, bars: sBars, cards: sCards, grid: sGrid, logo: sLogo, voice: sVoice, roadmap: sRoadmap, end_card: sEnd};
+
+// ------------------------------------------------------------------ frame
+function camera(t) {
+  let z = 1 + .03 * Math.sin(t * .4) + .012 * beat(t), sx = 0, sy = 0;
+  for (const h of HITS) { const age = t - h; if (age < 0 || age > .45) continue;
+    const big = SPEC.scenes.some(sc => sc.start === h && (sc.type === 'logo' || sc.type === 'end_card'));
+    const s = (big ? 22 : 9) * Math.exp(-age * 11); sx += Math.sin(age * 90 + h) * s; sy += Math.cos(age * 77 + h) * s; z += .02 * Math.exp(-age * 10); }
+  const nxt = SPEC.scenes.find(sc => sc.type === 'logo' && sc.start > t && sc.start - t < .7); if (nxt) z += .06 * eInExpo(seg(t, nxt.start - .7, nxt.start));
+  return {z, sx, sy};
+}
+function drawScene(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.shadowBlur = 0;
+  background(t);
+  const cam = camera(t); ctx.setTransform(cam.z, 0, 0, cam.z, CX - CX * cam.z + cam.sx, CY - CY * cam.z + cam.sy);
+  for (const sc of SPEC.scenes) if (t >= sc.start - .12 && t <= sc.end + .3) { ctx.save(); DRAW[sc.type](sc, t); ctx.restore(); }
+  ctx.setTransform(1, 0, 0, 1, 0, 0); hud(t);
+  SPEC.scenes.slice(1).forEach(sc => { const big = sc.type === 'logo' || sc.type === 'end_card', a0 = big ? .5 : .3, k = seg(t, sc.start - .04, sc.start + .3);
+    if (k > 0 && k < 1) { ctx.fillStyle = `rgba(220,240,255,${a0 * (k < .12 ? k / .12 : 1 - eOutExpo((k - .12) / .88))})`; ctx.fillRect(0, 0, W, H); } });
+  const vg = ctx.createRadialGradient(CX, CY, 500, CX, CY, 1250); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  const fo = seg(t, DUR - .2, DUR - .01); if (fo > 0) { ctx.fillStyle = `rgba(10,12,16,${fo})`; ctx.fillRect(0, 0, W, H); }
+  const fi = 1 - seg(t, 0, .25); if (fi > 0) { ctx.fillStyle = `rgba(10,12,16,${fi})`; ctx.fillRect(0, 0, W, H); }
+}
+window.loadSpec = function (spec, hits) { SPEC = spec; DUR = spec.meta.duration; HITS = hits; return true; };
+window.renderFrame = function (t) {
+  const acc = new Float32Array(W * H * 4);
+  for (let s = 0; s < SUB; s++) { drawScene(t + (s / SUB) * (1 / FPS)); const d = ctx.getImageData(0, 0, W, H).data; for (let i = 0; i < d.length; i++) acc[i] += d[i]; }
+  const img = octx.createImageData(W, H); for (let i = 0; i < acc.length; i++) img.data[i] = acc[i] / SUB;
+  octx.putImageData(img, 0, 0); return out.toDataURL('image/png');
+};
+window.ready = (async () => {
+  await Promise.all(['800 170px Onest', '500 30px "IBM Plex Mono"', '400 20px "IBM Plex Mono"'].map(f => document.fonts.load(f)));
+  if (!icon.complete) await new Promise(r => { icon.onload = r; icon.onerror = r; });
+  return true;
+})();
+</script></body></html>
