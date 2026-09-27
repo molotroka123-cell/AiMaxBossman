@@ -502,9 +502,10 @@ async def test_mission_03_terminal_command(env, project):
     assert "TERMINAL_FILE_ACTION" in {c.name for c in classify_all(prompt)}
 
     command = _python_command(
-        "import json, os; from pathlib import Path; "
+        "import json, os, psutil; from pathlib import Path; "
         "Path('proc.json').write_text(json.dumps({'pid': os.getpid(), "
-        "'ppid': os.getppid(), 'cwd': os.getcwd()}), encoding='utf-8')")
+        "'ppid': os.getppid(), 'parents': [p.pid for p in psutil.Process().parents()], "
+        "'cwd': os.getcwd()}), encoding='utf-8')")
     adapter = ToolAdapter([
         ("tool", "terminal_run", {"command": command, "mode": "project_host",
                                   "cwd": str(project), "timeout": 60}),
@@ -536,7 +537,9 @@ async def test_mission_03_terminal_command(env, project):
     session = sessions[0]
     assert session["status"] == "finished" and session["exit_code"] == 0
     assert session["command"] == command
-    assert session["pid"] in (data["pid"], data["ppid"]), (session["pid"], data)
+    # Windows may put cmd.exe and a Python launcher between the recorded shell
+    # and the worker. The recorded process must still descend from that shell.
+    assert session["pid"] in (data["pid"], *data["parents"]), (session["pid"], data)
     await _assert_verified_evidence(env, task_id, expectations=1)
 
 
