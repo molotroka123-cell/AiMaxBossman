@@ -126,6 +126,14 @@ def is_local_url(url: str) -> bool:
     Список намеренно широкий: `localhost`, петля, `.local`, приватные диапазоны
     RFC1918 и `host.docker.internal`. Ошибиться в сторону «не проксировать»
     безопасно — прокси для локального адреса не нужен никогда.
+
+    Link-local (169.254.0.0/16, fe80::/10) — единственное намеренное исключение
+    из `ipaddress.is_private`: это диапазон облачных metadata-эндпоинтов
+    (169.254.169.254 у AWS/GCP/Azure), а не адрес сервера владельца, и он не
+    должен считаться «локальным» здесь — этот же признак используют для
+    решения, можно ли передать провайдеру owner memory (`provider_governance`).
+    `discovery.py`/`model_router.py`/`browser_control.py` уже проводят эту
+    границу отдельно; `is_local_url` обязан совпадать с ними.
     """
     try:
         host = (urlparse(url).hostname or "").lower()
@@ -139,7 +147,8 @@ def is_local_url(url: str) -> bool:
         return True
     try:
         import ipaddress
-        return ipaddress.ip_address(host).is_private
+        ip = ipaddress.ip_address(host)
+        return ip.is_private and not (ip.is_link_local or ip.is_unspecified)
     except ValueError:
         return False
 
