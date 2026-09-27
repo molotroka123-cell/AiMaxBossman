@@ -1226,7 +1226,7 @@ class ParticipantRuntime:
             try:
                 if (self.home / STOP_FLAG).exists():
                     raise StopRequested("owner stop flag")
-                await self.telegram.send_photo(person, reply.image.data, render_jeff_reply("Готово:"))
+                await self.telegram.send_photo(person, reply.image.data, "")
                 return ""
             except CompanionError as exc:
                 return _failure_text(str(exc))
@@ -1273,7 +1273,7 @@ class ParticipantRuntime:
         try:
             if (self.home / STOP_FLAG).exists():
                 raise StopRequested("owner stop flag")
-            await self.telegram.send_photo(person, reply.image.data, render_jeff_reply("Готово:"))
+            await self.telegram.send_photo(person, reply.image.data, "")
             return ""
         except CompanionError as exc:
             return _failure_text(str(exc))
@@ -1331,8 +1331,7 @@ class ParticipantRuntime:
         if update_id is not None:
             self.store.begin_generation_delivery(update_id, person.key, output.job_id)
         try:
-            message_id = await self.telegram.send_photo(
-                person, output.data, render_jeff_reply("Готово:"))
+            message_id = await self.telegram.send_photo(person, output.data, "")
         except Exception:
             # Telegram has no sendPhoto idempotency key. A network exception
             # can arrive after Telegram accepted the upload, so never retry it.

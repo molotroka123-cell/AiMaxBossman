@@ -1024,7 +1024,7 @@ def test_generation_sends_verified_studio_bytes_only_when_licensed(tmp_path, mon
     assert "Напиши, что" in asyncio.run(runtime._generate_image(person, "Генерацию фото"))
     assert calls == []
     assert asyncio.run(runtime._generate_image(person, "кот")) == ""
-    assert calls[0] == "кот" and calls[1][1] == JPEG_BYTES
+    assert calls[0] == "кот" and calls[1][1] == JPEG_BYTES and calls[1][2] == ""
 
     runtime.settings = dataclasses.replace(runtime.settings, allowlist_open=True)
     assert "не включена" in asyncio.run(runtime._generate_image(person, "кот"))
