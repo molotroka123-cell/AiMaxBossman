@@ -8,7 +8,6 @@ import json
 import httpx
 import pytest
 
-from bcc.pit.capabilities import LAPTOP_IMAGE_GENERATION_REPLY_RU
 from bcc.pit.models import ConsentState
 from bcc.pit.photo_edit import PhotoEditPipeline
 from bcc.pit.photo_commands import photo_intent
@@ -291,7 +290,13 @@ def test_photo_edit_is_ai_max_only_and_per_user_latest(tmp_path):
 
         laptop = PhotoEditPipeline(vault, broker=Broker(), ai_max_ready=False)
         answer = await laptop.edit_latest(key, "убери фон")
-        assert answer.text == LAPTOP_IMAGE_GENERATION_REPLY_RU and answer.image is None
+        assert answer.text == "Фото получил. Сейчас не могу его изменить. Попробуй чуть позже."
+        assert answer.image is None
+
+        ai_max_without_editor = PhotoEditPipeline(vault, broker=None, ai_max_ready=True)
+        answer = await ai_max_without_editor.edit_latest(key, "убери фон")
+        assert answer.text == "Фото получил. Сейчас не могу его изменить. Попробуй чуть позже."
+        assert answer.image is None
 
         ai_max = PhotoEditPipeline(vault, broker=Broker(), ai_max_ready=True)
         answer = await ai_max.edit_latest(key, "убери фон")
@@ -304,6 +309,8 @@ def test_photo_intent_supports_simple_followup_edit_commands():
     assert edit.kind == "edit" and edit.prompt == "убери фон"
     caption = photo_intent("замени фон на ночной город", has_photo=True)
     assert caption.kind == "edit"
+    portrait = photo_intent("Нарисуй меня только я стою в центре Нью Йорка, 24 шага", has_photo=True)
+    assert portrait.kind == "edit" and "24 шага" in portrait.prompt
     assert photo_intent("что на фото?", has_photo=True).kind == "analyze"
 
 

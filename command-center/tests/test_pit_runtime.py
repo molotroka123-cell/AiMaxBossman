@@ -883,6 +883,20 @@ def test_photo_on_laptop_is_stored_but_not_claimed(tmp_path, monkeypatch):
     assert (runtime.vault.person_dir(person_key) / "media" / "latest.json").is_file()
 
 
+def test_attached_photo_with_draw_me_caption_routes_to_edit(tmp_path, monkeypatch):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+
+    async def fake_fetch(file_id, max_bytes=IMAGE_MAX_BYTES):
+        return JPEG_BYTES
+
+    monkeypatch.setattr(runtime.telegram, "fetch_file", fake_fetch)
+    answer = asyncio.run(runtime.handle(person, message(
+        "Нарисуй меня только я стою в центре Нью Йорка, 24 шага",
+        _photo="fileid", message_id=51)))
+    assert answer == "Фото получил. Сейчас не могу его изменить. Попробуй чуть позже."
+
+
 def test_paused_photo_is_analyzed_without_new_media_retention(tmp_path, monkeypatch):
     from bcc.pit.photo_pipeline import PhotoPipeline
 
@@ -994,7 +1008,7 @@ def test_photo_edit_unavailable_returns_text_instead_of_crashing(tmp_path, monke
     monkeypatch.setattr(runtime.telegram, "fetch_file", fake_fetch)
     answer = asyncio.run(runtime.handle(person, message(
         "убери фон", _photo="target", message_id=42)))
-    assert "Скоро" in answer
+    assert answer == "Фото получил. Сейчас не могу его изменить. Попробуй чуть позже."
 
 
 def test_generation_sends_verified_studio_bytes_only_when_licensed(tmp_path, monkeypatch):

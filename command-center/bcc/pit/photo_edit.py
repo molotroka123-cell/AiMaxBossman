@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Awaitable, Callable
 
-from .capabilities import LAPTOP_IMAGE_GENERATION_REPLY_RU
 from .photo_pipeline import PhotoStore
 from .studio_image_edit import EditedImage, StudioImageEditBroker
 from .vault import PersonaVault
@@ -82,7 +81,7 @@ class PhotoEditPipeline:
 
     async def _unavailable(self) -> str | None:
         if not self.ai_max_ready or self.broker is None:
-            return LAPTOP_IMAGE_GENERATION_REPLY_RU
+            return "Фото получил. Сейчас не могу его изменить. Попробуй чуть позже."
         if not self.image_use_allowed:
             return "Локальное редактирование пока не включено для этого режима использования."
         if self.vram_gate is not None and not await self.vram_gate():
