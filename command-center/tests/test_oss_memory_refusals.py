@@ -82,7 +82,7 @@ def oss_page(editor_server):
             watch = _Watch(page)
             login(page, server)
             page.goto(server.url + '/#/oss')
-            page.get_by_role('heading', name='Локальные инструменты', exact=True).wait_for(timeout=30000)
+            page.locator('#view').get_by_role('heading', name='Локальные инструменты', exact=True).wait_for(timeout=30000)
             watch.clear()          # загрузка страницы — не результат клика
             yield page, watch, server
         finally:
