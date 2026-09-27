@@ -126,7 +126,7 @@ def test_the_committed_lock_if_present_is_consistent():
     assert lock["python"]["version"].startswith("3.12.")
     # The build tools that build the sdists are pinned beside the lock.
     assert lock["_build_tools_txt"].is_file()
-    assert set(lock["build_tools"]["pins"]) == {"pip", "setuptools", "wheel"}
+    assert set(lock["build_tools"]["pins"]) == {"pip", "setuptools", "packaging", "wheel"}
     assert lock["build_tools"]["source_distributions_in_lock"], "the record names what needs building"
     for name in lock["build_tools"]["source_distributions_in_lock"]:
         assert lockmod.normalize(name) in lock["_pins"], name
