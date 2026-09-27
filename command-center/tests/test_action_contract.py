@@ -64,6 +64,8 @@ def test_classify_apps():
 
 def test_classify_code_and_github_are_distinct():
     assert ac.classify("Исправь баг в коде").name == "CODE_ACTION"
+    assert ac.classify("Make the smallest code change, then run the project tests").name == "CODE_ACTION"
+    assert ac.classify("How can I make the smallest code change?") is None
     assert ac.classify("Запушь изменения в git").name == "GITHUB_ACTION"
 
 
@@ -93,6 +95,17 @@ def test_classify_leaves_informational_and_browser_prompts_alone():
     ) is None
 
 
+async def test_informational_code_question_still_completes_as_text(env):
+    env.svc.registry.adapter_factory = lambda m, p: FakeAdapter(
+        "The HUD counter can be updated after placement and removal."
+    )
+    stack = await make_stack(
+        env.client, prompt="Explain how the Godot HUD block counter works", max_steps=1)
+
+    status = await _run_task(env, stack["task"]["id"], timeout=15, until=FINISHED)
+    assert status == "completed"
+
+
 # ------------------------------------------------------------------ TERMINAL_FILE
 
 async def _allow_root(env, path) -> None:
@@ -119,6 +132,30 @@ async def test_terminal_text_only_claim_does_not_complete(env, tmp_path):
     status = await _run_task(env, stack["task"]["id"], timeout=15, until=FINISHED)
     assert status == "failed"
     assert not (work / "hello.txt").exists()
+
+
+async def test_bossblocks_code_change_plan_without_tools_does_not_complete(env):
+    """Owner task #56: a prose tool plan cannot count as a Godot code edit."""
+    prompt = (
+        "BOSSBLOCKS-001 owner 10-minute free/local coding continuation. "
+        "Work only inside C:/owner-run/bossblocks-001-game. Use the existing Godot project. "
+        "Add one small, visible gameplay improvement: show the current number of "
+        "player-placeable blocks in the HUD, updating after block placement and removal. "
+        "Keep the existing controls, save/load, and boundary protections. "
+        "Make the smallest code change, then run the project tests and a real Godot "
+        "headless launch. Report exact changed files, tests, launch result, and limitations."
+    )
+    env.svc.registry.adapter_factory = lambda m, p: FakeAdapter(
+        "Plan: call terminal.run to edit main.gd, then run tests. Changed files: main.gd. PASS."
+    )
+    stack = await make_stack(env.client, prompt=prompt, max_steps=2)
+
+    status = await _run_task(env, stack["task"]["id"], timeout=15, until=FINISHED)
+    assert status == "failed"
+    async with env.svc.db.session() as s:
+        rows = (await s.execute(sa.select(dbm.tool_calls).where(
+            dbm.tool_calls.c.task_id == stack["task"]["id"]))).fetchall()
+    assert rows == []
 
 
 def test_terminal_tool_name_is_not_mistaken_for_file_evidence():

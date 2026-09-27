@@ -1,5 +1,124 @@
 # Рабочий стол — Bossman 1.5 → 1.6 → 1.7 closure
 
+## 2026-09-27 owner checkpoint — release candidate, not freeze
+
+The active acceptance line is PR #84, `claude/bossman-freeze-closure-ohvmon`.
+After `git fetch --all --prune`, local and remote HEAD matched at
+`7f90a197f0833d58bdb30b073f9a12cdd652b7c5`; the worktree was clean.
+The older `integrate/bossman-1.7-unified-20260925` reference below is historical.
+No 1.8 work is authorized until the mandatory 1.5–1.7 gate passes.
+
+- Exact-SHA Windows release archive was built locally from a clean tree:
+  `BOSSMAN-Windows-x64-7f90a197f083.zip`, 788,049,956 bytes,
+  SHA-256 `9d2f14bdc56189deef8ba927ad26a1232c3f78a317413c374bb743951d74217d`.
+  Its isolated archive verifier returned `BOSSMAN_BUNDLE_ACCEPTANCE=PASS` with
+  source SHA `7f90a197`, zero reported problems. The GitHub Windows `bundle`
+  job and the `owner-experience` job for this same SHA both passed. The latter
+  exercises the archive on a GitHub Windows runner; it is not a complete live
+  smoke on the owner's AI Max PC.
+- The live candidate backend on `127.0.0.1:8801` reports SHA `7f90a197`;
+  an older backend on `127.0.0.1:8800` reports `e76de12b`. The Jeff/PIT
+  poller is one logical process tree and points to 8801. `ONE_BACKEND=BLOCKED`:
+  the old elevated process refused a normal stop attempt (`Access denied`).
+  Installed Jeff `pit doctor` passed config, Telegram authentication, free
+  route, web, media configuration, and participant tool perimeter. This does
+  not prove media delivery. After the owner requested local uncensored
+  priority with a free cloud fallback, the installed PIT config was backed up
+  and set to use local `bossman-community-qwen-uncensored:latest` first, with a
+  22-second local timeout and free OpenRouter models as fallbacks. PIT was
+  restarted through its installed CLI, leaving one poller. A real incoming
+  message at 15:37:27 UTC took the local route (22,015 ms, failed), then a
+  free Nemotron fallback (4,640 ms, success) and received Telegram delivery
+  receipt `message_id=241`. Further fallback replies were delivered through
+  `message_id=252`. A later request failed on both local and cloud routes;
+  receipt `254` may be an error reply and was not counted as model success.
+  This proves some live replies, but route reliability remains a defect.
+  Existing private per-user conversation/route logs remain in the
+  canonical data directory; no chat contents or secrets are in Git.
+  The 8801 coding-task readiness endpoint reports that
+  `BOSSMAN_OPENHANDS_COMMAND` is unset. One live local-model task (#56) returned
+  a textual plan and was marked `PASS` without any tool call or file change;
+  this is a false task-success signal, not BOSSBLOCKS evidence.
+- The archive's isolated Python runtime imported installed `bcc`, opened the
+  canonical SQLite data read-only, decrypted 7/7 existing provider keys, and
+  loaded the existing PIT bot token, provider key and identity salt. No secret
+  values were printed. This is a compatibility check; migration and live
+  continuity still need proof. The pre-upgrade backup is PARTIAL because two
+  ACL-protected personality files were unreadable.
+- Exact-SHA CI at this check: root-ci, Bossman Core CI, ASTRA, PostgreSQL,
+  Solana, PIT, Economy, Local bundle, Shipped app contracts, Editors and Fable
+  PASS. Command Center CI was pending. `Intelligence Preservation` FAILS at
+  `Require current same-model evidence`: the committed measurement file is
+  absent. The owner initially kept this gate mandatory. The current corpus
+  has insufficient independent samples for the 95% retention lower bound;
+  do not fabricate evidence. A later owner request to defer optional tests
+  cannot turn a red required CI check green.
+- The owner deferred `YOUTUBE-001` and `INSTAGRAM-001` for this pass and allowed
+  a reduced BOSSBLOCKS-001 check: about ten minutes of real game coding via
+  free AI plus a concrete result. This changes the owner mission scope, not
+  the measured-intelligence gate or the requirement for honest live evidence.
+- That reduced game continuation now has a local Qwen-assisted HUD change,
+  isolated game commit `f285f95e1b1125ff71ad534b74b1ae28bb44e381`, fresh
+  Godot render, and 6/6 tests on a clean extraction. Artifact:
+  `docs/v1.6/runs/artifacts/BossBlocks-LOCAL-20260927.zip`, SHA-256
+  `EECCB1893014921F920522D2B7535AC9109E1D6BA3E6E1A1426E33E2B8A788DD`.
+  `REDUCED_GAME_CONTINUATION=PASS`; the full owner emulator and autonomous
+  Bossman-only game benchmark remain `DEFERRED`/`BLOCKED`. Details and observed
+  token/time counts are in `docs/v1.6/runs/BOSSBLOCKS-001-RESULT.md`.
+
+Current release status: `V15=NOT_TESTED`, `V16=BLOCKED`, `V17=BLOCKED`,
+`ALL_MANDATORY_CI=BLOCKED`, `OWNER_PC_ACCEPTANCE=BLOCKED`,
+`BOSSMAN_1_5_1_6_1_7=NOT_FROZEN`, `READY_FOR_1_8=NO`.
+
+An owner-PC UI observation was attempted, but the Computer Use session could
+not establish the active browser URL confidently and stopped before any UI
+interaction. `OWNER_UI_SMOKE=BLOCKED`; no click-through success is claimed.
+The old desktop shortcut still targets an older installed archive and connects
+to `:8800`. That legacy backend is an orphaned Session-0 process rather than a
+managed service or running scheduled task. No supported stop endpoint was
+found. The candidate backend on `:8801` latched `SOURCE_IDENTITY_UNKNOWN`
+while this worktree was dirty, so it must be restarted after a clean commit.
+An installed desktop built from the same final SHA is then needed for a valid
+same-build UI smoke; using the prior `7f90a197` bundle against a newer SHA
+would fail the identity check. No old data directory was deleted.
+Phase-0 gate at this checkpoint: `ONE_CHECKOUT=BLOCKED`, `ONE_VENV=BLOCKED`,
+`ONE_DATA_DIR=BLOCKED`, `ONE_BACKEND=BLOCKED`, `ONE_POLLER=PASS`,
+`KEYS_IN_VAULT=PASS` (7/7 existing provider keys opened),
+`BACKEND_SHA=BLOCKED` until clean restart and same-build verification.
+At 15:48 UTC legacy port `:8800` was closed; only `:8801` was listening.
+The old desktop process remained and is not evidence of the new installed UI.
+The source backend on `:8801` still reported `SOURCE_IDENTITY_UNKNOWN` because
+the audit/code worktree had pending edits. One PIT poller remained active.
+`ONE_BACKEND=PASS` as a listener count at that instant, while the full Phase-0
+gate remains `BLOCKED` until a same-build installed desktop and clean backend
+identity are observed.
+
+Local uncensored diagnosis: a direct cold Ollama load took 23.6 seconds;
+the model then answered a short prompt with `think=false` in 0.25 seconds.
+The installed PIT already sends `think=false`; its recent failures were at
+the 22-second local timeout with zero output. Its selected free Nemotron
+fallback succeeded for three requests but failed for the next one within
+the remaining eight-second budget. A warm model was present in `/api/ps` at
+the time of this checkpoint. These synthetic timing checks are not a fresh
+Telegram acceptance after the pending source changes.
+The source fixes now awaiting final build are: classify explicit `Make ... code
+change` requests as actions so a text-only pseudo-tool plan cannot close the
+task; retain the local Ollama Jeff model for 30 minutes after a call; and try
+the configured, catalog-eligible free cloud fallbacks in sequence within the
+existing 30-second deadline. No paid fallback or participant authority was
+added. The combined focused regression for these changes passed `143/143`
+on the owner PC. These are source test results, not installed Jeff/UX proof.
+
+Owner-directed code-lock status: `REDUCED_GAME_CONTINUATION=PASS`,
+`YOUTUBE_001=DEFERRED`, `INSTAGRAM_001=DEFERRED`,
+`FULL_REGRESSION=DEFERRED` (the owner stopped the local Command Center run at
+73%, so it has no final verdict). A clean tree and CI from the final commit
+are still required even for an operational candidate. The same-product
+Terminal Run contract remains in force: CLI, dashboard and Telegram must use
+the same backend, tasks, models, memory and approvals. Current North Star
+ladder: `SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT` is evidenced by code and
+tests; `SELF_REPAIR_SINGLE_CYCLE_PASS` and all later levels are `NOT_TESTED`.
+
 Date: 2026-09-26. Canonical operational handoff for Codex / OpenCode / other coding agents.
 
 ## Source truth

@@ -664,6 +664,61 @@ def test_cloud_refusal_falls_back_to_local_with_same_jeff_context(tmp_path, monk
     asyncio.run(runtime.close())
 
 
+def test_local_failure_tries_each_verified_free_cloud_with_bounded_time(tmp_path, monkeypatch):
+    from bcc.pit import resources
+    from bcc.providers import ProviderError
+
+    monkeypatch.setattr(resources, "_read_free_vram_mb", lambda: 8192)
+    settings = dataclasses.replace(
+        make_settings(tmp_path),
+        chat_models=("free/nemotron:free", "free/gemma:free", "paid/skip"),
+        local_url="http://127.0.0.1:11434/v1",
+        local_models=("community:latest",), local_share_percent=100)
+    runtime = make_runtime(tmp_path, settings=settings)
+    runtime.catalog_checked_at = 1.0
+    runtime.catalog = {
+        "community:latest": ModelEndpoint(
+            id="community:latest", provider="local", capabilities=frozenset({"chat"}),
+            local=True, zero_cost=True),
+        "free/nemotron:free": ModelEndpoint(
+            id="free/nemotron:free", provider="remote", capabilities=frozenset({"chat"}),
+            zero_cost=True),
+        "free/gemma:free": ModelEndpoint(
+            id="free/gemma:free", provider="remote", capabilities=frozenset({"chat"}),
+            zero_cost=True),
+        "paid/skip": ModelEndpoint(
+            id="paid/skip", provider="remote", capabilities=frozenset({"chat"}),
+            paid=True),
+    }
+
+    class FailingLocal(FakeAdapter):
+        async def chat(self, model, messages, **kw):
+            raise ProviderError("down", kind="network")
+
+    class Cloud(FakeAdapter):
+        def __init__(self):
+            super().__init__()
+            self.budgets = []
+
+        async def chat(self, model, messages, **kw):
+            self.calls.append((model, messages))
+            self.budgets.append(kw["timeout"])
+            if model == "free/nemotron:free":
+                raise TimeoutError("slow")
+            return ChatResult(text="Ответ Gemma.", model=model)
+
+    runtime.local_adapter = FailingLocal()
+    runtime.adapter = Cloud()
+    person = settings.people[0]
+    warm(runtime, runtime.vault.key_for_telegram(person.user_id))
+    assert asyncio.run(runtime.handle(person, message("Привет", message_id=887))) == "Ответ Gemma."
+    assert [model for model, _ in runtime.adapter.calls] == [
+        "free/nemotron:free", "free/gemma:free"]
+    assert runtime.adapter.budgets[0] <= settings.chat_deadline_seconds / 2
+    assert runtime.adapter.budgets[1] > runtime.adapter.budgets[0]
+    asyncio.run(runtime.close())
+
+
 def test_explicit_local_only_chat_uses_one_model_and_jeff_persona(tmp_path, monkeypatch):
     from bcc.pit import resources
 

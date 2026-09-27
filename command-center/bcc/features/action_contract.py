@@ -163,6 +163,15 @@ _OPENCLAW_TOPIC = (r"\bmessage\b|\bchannel\b|\bchat\b|"
                    r"сообщени\w*|канал\w*|чат\w*")
 _CODE_TOPIC = (r"\bbug\b|\bcode\b|\bcode\s*base\b|"
               r"баг\w*|код[ае]?\b|ошибк\w*")
+# An explicit request to make a code change is an action even when the verb is
+# "make" rather than "fix". Owner task #56 used this wording and otherwise
+# slipped through as a text-only task despite asking for a Godot edit.
+_CODE_CHANGE_RE = re.compile(r"(?:^|(?<=[.!?\n]))\s*(?:please\s+)?(?:make|apply)\b"
+                             r"[^.!?\n]{0,40}\bcode\s+changes?\b",
+                             re.I | re.U)
+_CODE_ACTION_RE = re.compile(
+    _clause_re(_FIX_VERB, _CODE_TOPIC).pattern + "|" + _CODE_CHANGE_RE.pattern,
+    re.I | re.U)
 _GITHUB_TOPIC = (r"\bgit\b|\bgithub\b|\bpull\s*request\b|\bpr\b|"
                  r"гит\b|коммит\w*|пуш\w*|pull[- ]?request\w*")
 _MCP_TOPIC = r"\bmcp\b"
@@ -419,7 +428,7 @@ CAPABILITIES: tuple[Capability, ...] = (
     Capability("TERMINAL_FILE_ACTION", _TERMINAL_FILE_RE, frozenset({"terminal"}),
               evidence=_terminal_evidence),
     Capability("APPS_ACTION", _clause_re(_OPEN_VERB, _APP_TOPIC), frozenset({"apps"})),
-    Capability("CODE_ACTION", _clause_re(_FIX_VERB, _CODE_TOPIC),
+    Capability("CODE_ACTION", _CODE_ACTION_RE,
               frozenset({"opencode", "terminal"}), call_filter=_is_code_mutation_call),
     Capability("GITHUB_ACTION", re.compile(
         _GIT_VERB_FUSED + "|" + _clause_re(_CREATE_VERB, _GITHUB_TOPIC).pattern,

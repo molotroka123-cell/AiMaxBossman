@@ -16,10 +16,11 @@ def test_native_ollama_disables_thinking_and_preserves_visible_answer():
             return httpx.Response(200, json={"data": [{"id": "community:latest"}]})
         body = json.loads(request.content)
         assert body["think"] is False and body["stream"] is False
+        assert body["keep_alive"] == "30m"
         assert body["options"]["num_predict"] == 128
         return httpx.Response(200, json={
             "model": "community:latest", "message": {"content": "Я Джефф. Могу помочь."},
-            "done": True, "prompt_eval_count": 23, "eval_count": 12,
+            "done": True, "done_reason": "stop", "prompt_eval_count": 23, "eval_count": 12,
             "total_duration": 1_500_000_000, "eval_duration": 1_000_000_000,
         })
 
@@ -32,6 +33,7 @@ def test_native_ollama_disables_thinking_and_preserves_visible_answer():
 
     result = asyncio.run(run())
     assert result.text == "Я Джефф. Могу помочь."
+    assert result.finish == "stop"
     assert result.tokens_in == 23 and result.tokens_out == 12
     assert [request.url.path for request in requests] == ["/v1/models", "/api/chat"]
 
@@ -39,6 +41,28 @@ def test_native_ollama_disables_thinking_and_preserves_visible_answer():
 def test_native_ollama_rejects_remote_host():
     with pytest.raises(ValueError):
         OllamaNativeChatAdapter("https://example.com/v1")
+
+
+def test_native_ollama_preserves_complete_response_without_clamping_budget():
+    answer = "Полный ответ. " * 80
+
+    def handler(request):
+        body = json.loads(request.content)
+        assert body["options"]["num_predict"] == 2048
+        return httpx.Response(200, json={
+            "model": "community:latest", "message": {"content": answer},
+            "done": True, "done_reason": "stop", "eval_count": 400,
+        })
+
+    async def run():
+        adapter = OllamaNativeChatAdapter(
+            "http://127.0.0.1:11434/v1", transport=httpx.MockTransport(handler))
+        return await adapter.chat("community:latest", [{"role": "user", "content": "Вопрос"}],
+                                  max_tokens=2048)
+
+    result = asyncio.run(run())
+    assert result.text == answer.strip()
+    assert result.finish == "stop"
 
 
 def test_native_ollama_preserves_length_stop_reason():

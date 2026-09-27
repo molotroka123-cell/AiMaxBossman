@@ -1,5 +1,15 @@
 # Freeze closure — final Cloud status, 2026-09-27
 
+> **Historical checkpoint, superseded for release decisions.** The SHA below
+> (`0292ae98`) is from an earlier Cloud session. The current PR #84 candidate
+> was `7f90a197f0833d58bdb30b073f9a12cdd652b7c5` before the owner-PC
+> evidence update; always fetch the branch and use its new exact HEAD.
+> Windows bundle creation succeeded for `7f90a197`, but local owner acceptance
+> is incomplete, Command Center CI was still running, and measured intelligence
+> retention was red for missing genuine current measurements. See
+> `docs/owner/WORKBENCH_20260926.md` for the current gate. Neither this older
+> report nor a green bundle job establishes `FREEZE=PASS`.
+
 Exact HEAD (this session's work): `0292ae984a304412bb0a44ce55e2f592d959c87a`
 Branch: `claude/bossman-freeze-closure-ohvmon` (PR #84, base `candidate/freeze-20260926`)
 Canonical HEAD used for convergence: `af1d5c0fb3b7289824aa5968aa571c461c45c845` (`integrate/bossman-1.7-unified-20260925`)

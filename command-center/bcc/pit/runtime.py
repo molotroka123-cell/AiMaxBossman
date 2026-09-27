@@ -540,19 +540,22 @@ class ParticipantRuntime:
             allow_paid=False, zero_cost_only=True, local_bonus=0.0)
         return decision.selected_model, decision.provider == "local"
 
-    def _route_fallback(self, failed_model: str) -> tuple[str, bool] | None:
-        """A remote free route to try after a local call failed."""
+    def _remote_fallbacks(self, failed_model: str) -> tuple[str, ...]:
+        """All remaining catalog-verified free remote chat routes, in rank order."""
         if self.settings.local_chat_only:
-            return None
-        remote = [(endpoint.id, endpoint.provider) for endpoint in self.catalog.values()
-                  if not endpoint.local and endpoint.id != failed_model]
+            return ()
+        remote = [endpoint for endpoint in self.catalog.values()
+                  if not endpoint.local and endpoint.id in self.settings.chat_models
+                  and endpoint.id != failed_model]
         if not remote:
-            return None
-        decision = choose_route(
-            RouteRequest(intent="chat", privacy=PrivacyClass.PERSONAL, max_cost_usd=0.0),
-            [e for e in self.catalog.values() if not e.local and e.id != failed_model],
-            allow_paid=False, zero_cost_only=True, local_bonus=0.3)
-        return decision.selected_model, False
+            return ()
+        try:
+            decision = choose_route(
+                RouteRequest(intent="chat", privacy=PrivacyClass.PERSONAL, max_cost_usd=0.0),
+                remote, allow_paid=False, zero_cost_only=True, local_bonus=0.0)
+        except NoEligibleRoute:
+            return ()
+        return (decision.selected_model, *decision.fallback_chain)
 
     def _recent_p95_ms(self) -> dict[str, int]:
         """Use the existing private route log as measured routing history."""
@@ -1207,19 +1210,18 @@ class ParticipantRuntime:
         local_fallback: str | None = None
         if is_local:
             attempts.append((model, self.local_adapter, "local"))
-            fallback = self._route_fallback(model) if consent.remote_processing_enabled else None
-            if fallback is not None:
-                attempts.append((fallback[0], self.adapter, "remote"))
+            if consent.remote_processing_enabled:
+                attempts.extend((fallback, self.adapter, "remote")
+                                for fallback in self._remote_fallbacks(model))
         else:
             attempts.append((model, self.adapter, "remote"))
             local_fallback = next((item.id for item in self.catalog.values() if item.local), None)
             if self.settings.local_fallback_on_cloud_refusal and local_fallback:
                 attempts.append((local_fallback, self.local_adapter, "local"))
             else:
-                fallback = self._route_fallback(model)
-                if fallback is not None:
-                    attempts.append((fallback[0], self.adapter, "remote"))
-        for route_model, adapter, provider in attempts:
+                attempts.extend((fallback, self.adapter, "remote")
+                                for fallback in self._remote_fallbacks(model))
+        for route_index, (route_model, adapter, provider) in enumerate(attempts):
             # The control lane can change consent while a local model is slow.
             # Rebuild the complete payload for each attempt, including fallback.
             route_consent = self.vault.consent(person_key)
@@ -1293,9 +1295,13 @@ class ParticipantRuntime:
                     break
                 timeout = min(self.settings.local_timeout if provider == "local"
                               else self.settings.remote_timeout, remaining)
+                if provider == "remote":
+                    remote_left = sum(kind == "remote" for _, _, kind in attempts[route_index:])
+                    timeout = min(timeout, remaining / remote_left)
+                route_deadline = started + timeout
                 for attempt_index, limit in enumerate((self.settings.max_tokens,
                                                        min(4096, self.settings.max_tokens * 2))):
-                    remaining = deadline - time.monotonic()
+                    remaining = route_deadline - time.monotonic()
                     if remaining < 1:
                         result = None
                         break

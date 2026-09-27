@@ -49,7 +49,7 @@ class OllamaNativeChatAdapter:
         response = await self.catalog._request(
             "POST", self.root + "/api/chat", timeout=float(kw.get("timeout") or 120),
             json={"model": model, "messages": native_messages, "stream": False,
-                  "think": False, "options": options},
+                  "think": False, "keep_alive": "30m", "options": options},
         )
         try:
             data = response.json()
