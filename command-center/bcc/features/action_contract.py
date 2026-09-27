@@ -169,8 +169,27 @@ _CODE_TOPIC = (r"\bbug\b|\bcode\b|\bcode\s*base\b|"
 _CODE_CHANGE_RE = re.compile(r"(?:^|(?<=[.!?\n]))\s*(?:please\s+)?(?:make|apply)\b"
                              r"[^.!?\n]{0,40}\bcode\s+changes?\b",
                              re.I | re.U)
+# The same request paraphrased ("внеси изменения в код игры", "update main.gd",
+# "implement a pause menu in the game") must not fall back to a text-only task
+# either: a plan without a code mutation is not a code change. Edit verbs and
+# code-bearing topics are kept separate from _FIX_VERB/_CODE_TOPIC, which other
+# capabilities share.
+_CODE_EDIT_VERB = (r"\b(update|change|modify|edit|add|refactor|rewrite)\b|"
+                   r"внеси\w*|измени\w*|добавь\w*|поправь\w*|правк\w*|"
+                   r"реализуй\w*|перепиши\w*|отрефактор\w*|доработай\w*")
+_CODE_EDIT_TOPIC = (_CODE_TOPIC + r"|"
+                    r"\b[\w-]+\.(py|gd|tscn|js|jsx|ts|tsx|cs|cpp|c|h|rs|go|java|kt|lua)\b|"
+                    r"\bfunction\b|функци\w*|\bgame\b|игр[аеуыой]\w*|"
+                    r"\bgodot\b|\bunity\b")
+# A question about making a change ("how can I change the code?") is not a
+# request to make it: the widened clauses count only when the sentence they sit
+# in does not end with "?".
+_NOT_A_QUESTION = r"(?![^.!?\n]*\?)"
 _CODE_ACTION_RE = re.compile(
-    _clause_re(_FIX_VERB, _CODE_TOPIC).pattern + "|" + _CODE_CHANGE_RE.pattern,
+    _clause_re(_FIX_VERB, _CODE_TOPIC).pattern + "|"
+    + "(?:" + _clause_re(_FIX_VERB, _CODE_EDIT_TOPIC).pattern + ")" + _NOT_A_QUESTION + "|"
+    + "(?:" + _clause_re(_CODE_EDIT_VERB, _CODE_EDIT_TOPIC).pattern + ")" + _NOT_A_QUESTION + "|"
+    + _CODE_CHANGE_RE.pattern,
     re.I | re.U)
 _GITHUB_TOPIC = (r"\bgit\b|\bgithub\b|\bpull\s*request\b|\bpr\b|"
                  r"гит\b|коммит\w*|пуш\w*|pull[- ]?request\w*")

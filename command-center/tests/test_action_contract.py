@@ -867,3 +867,34 @@ def test_a_local_file_that_looks_like_a_host_is_still_an_obligation():
     inside a URL/email span is excluded."""
     evidence = ac._terminal_evidence("Use terminal.run to create notes.com.")
     assert evidence is not None and evidence.target == "notes.com"
+
+
+# Task #56 paraphrased: the fix above must not hinge on one English wording.
+CODE_CHANGE_PARAPHRASES = [
+    "Внеси изменения в код игры: добавь HUD",
+    "Сделай правки в коде Godot-проекта, добавь счётчик очков",
+    "Update main.gd to show the score",
+    "Implement a pause menu in the game",
+    "Добавь в игру меню паузы",
+    "Измени функцию save в scripts/main.gd",
+]
+# Negative control: asking ABOUT code is still an informational text task.
+CODE_QUESTIONS = [
+    "Объясни, что делает этот код",
+    "What does main.gd do?",
+    "Как в Godot добавить меню паузы?",
+    "Расскажи про игру Tetris",
+    "Посчитай 17*23, не трогай код и файлы",
+    "Summarize the game design document in chat",
+    "Какая функция в Python сортирует список?",
+]
+
+
+@pytest.mark.parametrize("prompt", CODE_CHANGE_PARAPHRASES)
+def test_paraphrased_code_change_requests_require_a_code_action(prompt):
+    assert ac.classify(prompt).name == "CODE_ACTION"
+
+
+@pytest.mark.parametrize("prompt", CODE_QUESTIONS)
+def test_questions_about_code_stay_informational(prompt):
+    assert ac.classify(prompt) is None
