@@ -9,7 +9,8 @@ failed `git apply` on a repository with core.autocrlf=true.
   * an explicit, single-use owner approval bound to task id + evidence digest
     (the existing approvals queue, F-015 consume) is required every time;
   * immediately before applying: HEAD == base commit, touched paths clean,
-    protected paths untouched, `git apply --check` on the exact reviewed bytes;
+    protected paths untouched, `git apply --check` on the reviewed diff or its
+    EOL-only equivalent when a clean owner checkout uses different line endings;
   * the result is compared with the candidate's after-state; on any failure the
     canonical tree is restored; nothing is committed, pushed or merged.
 
@@ -198,6 +199,26 @@ async def test_crlf_candidates_apply_on_an_autocrlf_repository(env, monkeypatch,
     stat = git(repo, "diff", "--numstat").split()
     assert stat[:3] == ["1", "1", "calc.py"], stat       # one line, no whole-file EOL churn
     assert git(repo, "status", "--porcelain").strip() == "M calc.py"
+
+
+async def test_lf_owner_checkout_accepts_verified_crlf_patch(env, monkeypatch, tmp_path):
+    """A clean LF worktree can coexist with core.autocrlf=true on Windows.
+
+    The isolated clone then checks out CRLF and its verified patch has CRLF
+    context.  Approval must still apply only the independently verified result.
+    """
+    repo = make_repo(tmp_path, "lf")
+    git(repo, "config", "core.autocrlf", "true")
+    assert b"\r\n" not in (repo / "calc.py").read_bytes()
+    assert not git(repo, "status", "--porcelain").strip()
+
+    rec = await complete_task(env, repo, monkeypatch, tmp_path)
+    assert rec["status"] == "completed", rec.get("error")
+    assert "\r\n" in rec["diff"]
+    _aid, done = await approved_apply(env, rec["id"])
+    assert done.status_code == 200, done.text
+    assert (repo / "calc.py").read_bytes().replace(b"\r\n", b"\n") == b"def add(a, b):\n    return a + b\n"
+    assert git(repo, "diff", "--numstat").split()[:3] == ["1", "1", "calc.py"]
 
 
 # ------------------------------------------------------------------ refusals

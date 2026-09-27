@@ -650,6 +650,15 @@ def _preflight(rec: dict, repo: Path) -> tuple[bytes, list[str]]:
         raise _Refusal(409, "DIRTY_TARGET", "в проекте есть локальные изменения затрагиваемых файлов",
                        paths=dirty)
     check = _git_b(repo, "apply", "--check", "--whitespace=nowarn", "-", data=patch)
+    if check.returncode and b"\r\n" in patch:
+        # Git for Windows can clone a clean LF checkout as CRLF when the
+        # repository has core.autocrlf=true.  Keep the approved diff/digest
+        # untouched in the record, but try its EOL-equivalent bytes against
+        # the owner's checkout.  The after-state is still checked below.
+        lf_patch = _eol(patch)
+        lf_check = _git_b(repo, "apply", "--check", "--whitespace=nowarn", "-", data=lf_patch)
+        if not lf_check.returncode:
+            patch, check = lf_patch, lf_check
     if check.returncode:
         raise _Refusal(409, "APPLY_CHECK_FAILED", "git apply --check: " + _err(check))
     return patch, paths
