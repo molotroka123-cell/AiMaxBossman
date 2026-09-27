@@ -177,17 +177,20 @@ _CODE_CHANGE_RE = re.compile(r"(?:^|(?<=[.!?\n]))\s*(?:please\s+)?(?:make|apply)
 _CODE_EDIT_VERB = (r"\b(update|change|modify|edit|add|refactor|rewrite)\b|"
                    r"внеси\w*|измени\w*|добавь\w*|поправь\w*|правк\w*|"
                    r"реализуй\w*|перепиши\w*|отрефактор\w*|доработай\w*")
-_CODE_EDIT_TOPIC = (_CODE_TOPIC + r"|"
-                    r"\b[\w-]+\.(py|gd|tscn|js|jsx|ts|tsx|cs|cpp|c|h|rs|go|java|kt|lua)\b|"
-                    r"\bfunction\b|функци\w*|\bgame\b|игр[аеуыой]\w*|"
-                    r"\bgodot\b|\bunity\b")
+# Concrete code targets: a source file, the game or its engine. "Write a
+# function" alone stays a text answer (the function goes in the reply), so
+# write/fix verbs pair only with these, never with "function" by itself.
+_CODE_TARGET_TOPIC = (r"\b[\w-]+\.(py|gd|tscn|js|jsx|ts|tsx|cs|cpp|c|h|rs|go|java|kt|lua)\b|"
+                      r"\bgame\b|игр[аеуыой]\w*|\bgodot\b|\bunity\b")
+_CODE_EDIT_TOPIC = (_CODE_TOPIC + r"|" + _CODE_TARGET_TOPIC + r"|"
+                    r"\bfunction\b|функци\w*")
 # A question about making a change ("how can I change the code?") is not a
 # request to make it: the widened clauses count only when the sentence they sit
 # in does not end with "?".
 _NOT_A_QUESTION = r"(?![^.!?\n]*\?)"
 _CODE_ACTION_RE = re.compile(
     _clause_re(_FIX_VERB, _CODE_TOPIC).pattern + "|"
-    + "(?:" + _clause_re(_FIX_VERB, _CODE_EDIT_TOPIC).pattern + ")" + _NOT_A_QUESTION + "|"
+    + "(?:" + _clause_re(_FIX_VERB, _CODE_TARGET_TOPIC).pattern + ")" + _NOT_A_QUESTION + "|"
     + "(?:" + _clause_re(_CODE_EDIT_VERB, _CODE_EDIT_TOPIC).pattern + ")" + _NOT_A_QUESTION + "|"
     + _CODE_CHANGE_RE.pattern,
     re.I | re.U)

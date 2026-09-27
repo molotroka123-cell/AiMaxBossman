@@ -887,6 +887,8 @@ CODE_QUESTIONS = [
     "Посчитай 17*23, не трогай код и файлы",
     "Summarize the game design document in chat",
     "Какая функция в Python сортирует список?",
+    "напиши функцию",
+    "Write a function that reverses a string",
 ]
 
 
