@@ -119,6 +119,8 @@ NO_MODEL_RU = ("Сейчас у меня нет доступной беспла�
 NO_WEB_RU = "Веб-поиск сейчас недоступен, поэтому отвечаю без свежих источников."
 PROVIDER_DOWN_RU = ("Модель-провайдер недоступен. Платные маршруты у меня выключены; "
                     "попробуй позже.")
+INCOMPLETE_REPLY_RU = ("Ответ модели оборвался. Я не буду выдавать обрывок за полный ответ; "
+                       "повтори запрос или попроси ответить короче.")
 VOICE_REPLY_RU = "Голосовые пока не разбираю — напиши текстом, отвечу сразу 😊"
 FORBIDDEN_REPLY_RU = ("Такой команды у Jeff нет: управление компьютером и внутренностями "
                       "Bossman здесь недоступно.")
@@ -449,6 +451,7 @@ class ParticipantRuntime:
             vram_gate=self.capacity_guard.local_allowed,
         )
         self._pending_photo_memory: dict[tuple[str, str], tuple[object, str]] = {}
+        self._pending_chat_records: dict[int, tuple] = {}
         self._memory_epoch: dict[str, int] = {}
         self.adapter = build_adapter("openai_compat", settings.provider_base_url,
                                      api_key=settings.provider_key or None)
@@ -602,7 +605,7 @@ class ParticipantRuntime:
 
     def _log_route(self, *, person_key: str, model: str, provider: str, ok: bool,
                    latency_ms: int, context_chars: int, tokens_in: int = 0,
-                   tokens_out: int = 0, error: str = "") -> None:
+                   tokens_out: int = 0, error: str = "", finish: str = "") -> None:
         """Owner-visible internal route telemetry: no message content, no secrets."""
         try:
             _append_jsonl(self.home / "logs" / "route_log.jsonl", {
@@ -616,6 +619,7 @@ class ParticipantRuntime:
                 "context_tokens_est": int(context_chars // 4),
                 "tokens_in": int(tokens_in),
                 "tokens_out": int(tokens_out),
+                "finish": str(finish)[:32],
                 "error": str(error)[:80],
                 "schema": "bossman.pit.route-log/1",
             })
@@ -795,6 +799,19 @@ class ParticipantRuntime:
                             "person_key": self.vault.key_for_telegram(fresh.user_id)[:12] + "…",
                             "schema": "bossman.pit.delivery-log/1",
                         })
+                pending_chat = self._pending_chat_records.pop(update_id, None)
+                if pending_chat is not None:
+                    try:
+                        self._record_chat(*pending_chat)
+                    except Exception as exc:
+                        with contextlib.suppress(OSError):
+                            _append_jsonl(self.home / "logs" / "runtime_error.jsonl", {
+                                "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                "kind": type(exc).__name__,
+                                "stage": "post_delivery_memory",
+                                "update_id": update_id,
+                                "schema": "bossman.pit.runtime-error/1",
+                            })
                 self._finish_update(update_id, "done", fresh)
                 pending = self._pending_photo_memory.pop(
                     (fresh.key, str(message.get("_message_id") or "0")), None)
@@ -804,11 +821,13 @@ class ParticipantRuntime:
                         self.photo_pipeline.schedule_background_after_delivery(
                             asset, caption=caption)
             except asyncio.CancelledError:
+                self._pending_chat_records.pop(update_id, None)
                 self._pending_photo_memory.pop(
                     (fresh.key, str(message.get("_message_id") or "0")), None)
                 self.store.finish(update_id, "delivery_unknown")
                 raise
             except (CompanionError, Exception):
+                self._pending_chat_records.pop(update_id, None)
                 self._pending_photo_memory.pop(
                     (fresh.key, str(message.get("_message_id") or "0")), None)
                 self._finish_update(update_id, "delivery_unknown", fresh)
@@ -908,7 +927,7 @@ class ParticipantRuntime:
 
         return await self._chat_route(person, person_key, text, consent,
                                       message_id=str(message.get("_message_id") or "0"),
-                                      reply_to=message.get("_reply_to"))
+                                      reply_to=message.get("_reply_to"), update_id=update_id)
 
     # -- zero-start welcome / pending confirmations ----------------------------------------
     def _welcome_if_first_contact(self, person_key: str, consent: ConsentState) -> str | None:
@@ -1132,7 +1151,8 @@ class ParticipantRuntime:
     # -- chat route ----------------------------------------------------------------------------
     async def _chat_route(self, person: Person, person_key: str, text: str,
                           consent: ConsentState, message_id: str = "0",
-                          reply_to: dict | None = None) -> str:
+                          reply_to: dict | None = None,
+                          update_id: int | None = None) -> str:
         who = person.key
         memory_at_start = consent.memory_enabled
         memory_epoch = self._memory_epoch.get(person_key, 0)
@@ -1181,6 +1201,7 @@ class ParticipantRuntime:
 
         context = None
         result = None
+        incomplete_seen = False
         # local-first with remote fallback: every route here is zero-cost
         attempts: list[tuple[str, object, str]] = []
         local_fallback: str | None = None
@@ -1264,9 +1285,38 @@ class ParticipantRuntime:
                     break
                 timeout = min(self.settings.local_timeout if provider == "local"
                               else self.settings.remote_timeout, remaining)
-                result = await asyncio.wait_for(adapter.chat(
-                    route_model, messages, max_tokens=self.settings.max_tokens,
-                    timeout=timeout), timeout=timeout)
+                for attempt_index, limit in enumerate((self.settings.max_tokens,
+                                                       min(4096, self.settings.max_tokens * 2))):
+                    remaining = deadline - time.monotonic()
+                    if remaining < 1:
+                        result = None
+                        break
+                    call_timeout = min(timeout, remaining)
+                    result = await asyncio.wait_for(adapter.chat(
+                        route_model, messages, max_tokens=limit,
+                        timeout=call_timeout), timeout=call_timeout)
+                    finish = str(getattr(result, "finish", "stop") or "stop").lower()
+                    visible = result.text.strip()
+                    incomplete = (finish in {"length", "max_tokens", "max_output_tokens"}
+                                  or (provider == "local" and len(visible) >= 24
+                                      and len(visible.split()) >= 5
+                                      and visible[-1].isalpha()))
+                    if not incomplete:
+                        break
+                    incomplete_seen = True
+                    self._log_route(person_key=person_key, model=route_model,
+                                    provider=provider, ok=False,
+                                    latency_ms=int((time.monotonic() - started) * 1000),
+                                    context_chars=context_chars,
+                                    tokens_in=getattr(result, "tokens_in", 0),
+                                    tokens_out=getattr(result, "tokens_out", 0),
+                                    finish=finish, error="incomplete_reply")
+                    result = None
+                    if attempt_index == 0:
+                        messages = [*messages[:-1], {"role": "user", "content":
+                                    text + "\n\nОтветь кратко, закончи каждую мысль и завершай ответ точкой."}]
+                if result is None:
+                    continue
                 if (provider == "remote" and local_fallback
                         and (not result.text.strip() or _cloud_refusal(result.text))):
                     self._log_route(person_key=person_key, model=route_model,
@@ -1280,7 +1330,8 @@ class ParticipantRuntime:
                                 ok=True, latency_ms=int((time.monotonic() - started) * 1000),
                                 context_chars=context_chars,
                                 tokens_in=getattr(result, "tokens_in", 0),
-                                tokens_out=getattr(result, "tokens_out", 0))
+                                tokens_out=getattr(result, "tokens_out", 0),
+                                finish=getattr(result, "finish", ""))
                 break
             except Exception:
                 self._log_route(person_key=person_key, model=route_model, provider=provider,
@@ -1288,10 +1339,11 @@ class ParticipantRuntime:
                                 context_chars=context_chars, error="chat_failed")
                 result = None
         if result is None:
-            self.store.put("provider_last_error", "chat_failed")
+            self.store.put("provider_last_error",
+                           "reply_incomplete" if incomplete_seen else "chat_failed")
             if not is_local and not self.vault.consent(person_key).remote_processing_enabled:
                 return NO_REMOTE_RU
-            return PROVIDER_DOWN_RU
+            return INCOMPLETE_REPLY_RU if incomplete_seen else PROVIDER_DOWN_RU
         answer = render_jeff_reply(result.text)
         if not answer:
             return PROVIDER_DOWN_RU
@@ -1300,22 +1352,39 @@ class ParticipantRuntime:
         elif needs_web:
             answer += f"\n\n({NO_WEB_RU})"
 
-        # learning pipeline strictly after the answer
+        # The live worker records memory and learns only after Telegram accepts
+        # the reply. Direct handle() calls retain synchronous test semantics.
         record_turn = (memory_at_start and self._memory_epoch.get(person_key, 0) == memory_epoch
                        and self.vault.consent(person_key).memory_enabled)
+        question = (self._maybe_ask(person_key, text)
+                    if record_turn and not answer.rstrip().endswith("?") else None)
+        if question is not None:
+            answer += "\n\n" + question.question
         if record_turn:
-            self.store.remember(who, text, answer[:4000])
-            self.store.log(who, text, answer)
-            self.store.put(f"last_context:{who}", list(context.persona_items)[:20])
-            if web_block:
-                self.store.put(f"last_web:{who}", web_sources)
-            self._learn(person_key, text, message_id)
-            self.behavior.record(person_key, BehaviorEvent.CONTEXT_CONTINUED)
-
-        question = self._maybe_ask(person, person_key, text) if record_turn and not answer.rstrip().endswith("?") else ""
-        if question:
-            answer += "\n\n" + question
+            record = (who, person_key, text, answer, list(context.persona_items)[:20],
+                      web_sources if web_block else [], message_id, memory_epoch, question)
+            if update_id is None:
+                self._record_chat(*record)
+            else:
+                self._pending_chat_records[update_id] = record
         return answer
+
+    def _record_chat(self, who: str, person_key: str, text: str, answer: str,
+                     persona_items: list, web_sources: list[str], message_id: str,
+                     memory_epoch: int, question) -> None:
+        if (self._memory_epoch.get(person_key, 0) != memory_epoch
+                or not self.vault.consent(person_key).memory_enabled):
+            return
+        self.store.remember(who, text, answer[:4000])
+        self.store.log(who, text, answer)
+        self.store.put(f"last_context:{who}", persona_items)
+        if web_sources:
+            self.store.put(f"last_web:{who}", web_sources)
+        self._learn(person_key, text, message_id)
+        self.behavior.record(person_key, BehaviorEvent.CONTEXT_CONTINUED)
+        if question is not None and self.vault.consent(person_key).discovery_enabled:
+            self.store.put(f"discovery:{who}",
+                           {"key": question.category.value, "question": question.question})
 
     def _learn(self, person_key: str, text: str, message_id: str) -> None:
         consent = self.vault.consent(person_key)
@@ -1328,26 +1397,25 @@ class ParticipantRuntime:
         if result.accepted:
             self.behavior.record(person_key, BehaviorEvent.VOLUNTARY_PREFERENCE)
 
-    def _maybe_ask(self, person: Person, person_key: str, text: str) -> str:
+    def _maybe_ask(self, person_key: str, text: str):
         consent = self.vault.consent(person_key)
         if not consent.memory_enabled or not consent.discovery_enabled:
-            return ""
+            return None
+        intent = _intent_for(text)
+        if intent == "general":
+            return None
         known = {str(record.get("key")) for record in self.vault.iter_candidate_records(person_key)}
         skipped = self._skipped_set(person_key)
         state = load_roleplay(self.vault, person_key)
         question = self.behavior.choose_contextual_personal_question(
             person_key,
-            intent=_intent_for(text),
+            intent=intent,
             already_known=known,
             skipped=skipped,
             enabled=True,
             roleplay=state if state.enabled else None,
         )
-        if question is None:
-            return ""
-        self.store.put(f"discovery:{person.key}",
-                       {"key": question.category.value, "question": question.question})
-        return question.question
+        return question
 
     def _skipped_set(self, person_key: str) -> set[str]:
         path = self.vault.person_dir(person_key) / "discovery.json"

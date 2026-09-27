@@ -41,6 +41,22 @@ def test_native_ollama_rejects_remote_host():
         OllamaNativeChatAdapter("https://example.com/v1")
 
 
+def test_native_ollama_preserves_length_stop_reason():
+    def handler(request):
+        return httpx.Response(200, json={
+            "model": "community:latest", "message": {"content": "Оборвано на полусло"},
+            "done": True, "done_reason": "length", "eval_count": 128,
+        })
+
+    async def run():
+        adapter = OllamaNativeChatAdapter(
+            "http://127.0.0.1:11434/v1", transport=httpx.MockTransport(handler))
+        return await adapter.chat("community:latest", [{"role": "user", "content": "Вопрос"}],
+                                  max_tokens=128)
+
+    assert asyncio.run(run()).finish == "length"
+
+
 def test_native_ollama_never_places_system_context_after_first_message():
     captured = []
 

@@ -91,7 +91,7 @@ class PITSettings:
     chat_deadline_seconds: int = 30
     search_url: str = ""
     core_url: str = "http://127.0.0.1:8800"
-    max_tokens: int = 1024
+    max_tokens: int = 2048
     remote_timeout: float = 120.0
     local_timeout: float = 120.0
     catalog_refresh_seconds: int = 900

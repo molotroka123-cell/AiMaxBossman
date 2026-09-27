@@ -63,7 +63,8 @@ class OllamaNativeChatAdapter:
         return ChatResult(
             text=content, tokens_in=int(data.get("prompt_eval_count") or 0),
             tokens_out=int(data.get("eval_count") or 0),
-            finish="stop" if data.get("done") else "length", model=str(data.get("model") or model),
+            finish=str(data.get("done_reason") or ("stop" if data.get("done") else "length")),
+            model=str(data.get("model") or model),
             provider_meta={"total_duration_ns": int(data.get("total_duration") or 0),
                            "eval_duration_ns": int(data.get("eval_duration") or 0)},
         )

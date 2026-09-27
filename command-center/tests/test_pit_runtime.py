@@ -688,6 +688,61 @@ def test_explicit_local_only_chat_uses_one_model_and_jeff_persona(tmp_path, monk
     asyncio.run(runtime.close())
 
 
+def test_local_truncated_reply_is_retried_before_memory_or_delivery(tmp_path, monkeypatch):
+    from bcc.pit import resources
+
+    monkeypatch.setattr(resources, "_read_free_vram_mb", lambda: 8192)
+    settings = dataclasses.replace(
+        make_settings(tmp_path), local_url="http://127.0.0.1:11434/v1",
+        local_models=("community:latest",), local_chat_only=True,
+        max_tokens=2048)
+    runtime = make_runtime(tmp_path, settings=settings)
+
+    class TruncatingLocal(FakeAdapter):
+        def __init__(self):
+            super().__init__(pricing={"community:latest": {"prompt": 0.0, "completion": 0.0}})
+            self.limits = []
+
+        async def chat(self, model, messages, **kw):
+            self.limits.append(kw["max_tokens"])
+            if len(self.limits) == 1:
+                return ChatResult(text="Ответ оборвался на полусло", finish="length", model=model)
+            return ChatResult(text="Полный ответ по делу.", finish="stop", model=model)
+
+    local = TruncatingLocal()
+    runtime.local_adapter = local
+    person = settings.people[0]
+    warm(runtime, runtime.vault.key_for_telegram(person.user_id))
+    answer = asyncio.run(runtime.handle(person, message("Объясни подробно", message_id=885)))
+    assert answer == "Полный ответ по делу."
+    assert local.limits == [2048, 4096]
+    assert all("полусло" not in row["content"] for row in runtime.store.history(person.key))
+    asyncio.run(runtime.close())
+
+
+def test_local_stopped_mid_sentence_is_not_sent_as_complete(tmp_path, monkeypatch):
+    from bcc.pit import resources
+
+    monkeypatch.setattr(resources, "_read_free_vram_mb", lambda: 8192)
+    settings = dataclasses.replace(
+        make_settings(tmp_path), local_url="http://127.0.0.1:11434/v1",
+        local_models=("community:latest",), local_chat_only=True)
+    runtime = make_runtime(tmp_path, settings=settings)
+
+    class IncompleteLocal(FakeAdapter):
+        async def chat(self, model, messages, **kw):
+            return ChatResult(text="Смесь алкоголя и феназепама опасна потому", finish="stop", model=model)
+
+    runtime.local_adapter = IncompleteLocal(pricing={
+        "community:latest": {"prompt": 0.0, "completion": 0.0}})
+    person = settings.people[0]
+    warm(runtime, runtime.vault.key_for_telegram(person.user_id))
+    answer = asyncio.run(runtime.handle(person, message("Чем опасна смесь?", message_id=886)))
+    assert answer == rt.INCOMPLETE_REPLY_RU
+    assert runtime.store.history(person.key) == []
+    asyncio.run(runtime.close())
+
+
 def test_local_only_chat_has_no_cloud_fallback_on_model_failure(tmp_path, monkeypatch):
     from bcc.pit import resources
     from bcc.providers import ProviderError
@@ -876,6 +931,39 @@ def test_photo_memory_starts_only_after_verified_telegram_delivery(tmp_path, mon
                 (runtime.home / "logs" / "delivery_log.jsonl").read_text(encoding="utf-8").splitlines()]
     assert receipts[-1]["update_id"] == 101
     assert receipts[-1]["reply_message_id"] == 42
+    runtime.store.close()
+
+
+@pytest.mark.parametrize("delivery_succeeds", [True, False])
+def test_chat_learning_happens_after_telegram_delivery(tmp_path, monkeypatch, delivery_succeeds):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    key = runtime.vault.key_for_telegram(person.user_id)
+    warm(runtime, key)
+    runtime.catalog_checked_at = 1.0
+    runtime.catalog = {"free/model:free": FREE_ENDPOINT}
+    claims = iter([(210, message("я люблю горы", message_id=21))])
+
+    def claim(*args):
+        try:
+            return next(claims)
+        except StopIteration:
+            raise asyncio.CancelledError
+
+    async def send(*args, **kwargs):
+        assert runtime.store.history(person.key) == []
+        assert list(runtime.vault.iter_candidate_records(key)) == []
+        if not delivery_succeeds:
+            raise RuntimeError("Telegram send failed")
+        return 220
+
+    monkeypatch.setattr(runtime.store, "claim", claim)
+    monkeypatch.setattr(runtime.telegram, "send", send)
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(runtime._worker(person, "chat"))
+    assert bool(runtime.store.history(person.key)) is delivery_succeeds
+    assert bool(list(runtime.vault.iter_candidate_records(key))) is delivery_succeeds
+    assert runtime._pending_chat_records == {}
     runtime.store.close()
 
 
