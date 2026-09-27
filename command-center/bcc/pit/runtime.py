@@ -103,9 +103,7 @@ DISCOVERY_INTENT_HINTS = (
 )
 
 INTRO_RU = (
-    "Привет! Я Jeff — живой AI-ассистент из программы AiBossman (локальный ИИ-проект). "
-    "Понимаю текст, ищу в интернете, помогаю с кодом и переводами. Модели бесплатные. "
-    "Просто пиши — отвечу 🙂"
+    "Привет, я Джефф 🙂 Рад знакомству."
 )
 
 HELP_RU = (
@@ -1005,7 +1003,7 @@ class ParticipantRuntime:
         welcome = self._welcome_if_first_contact(person_key, consent)
         if welcome is not None:
             return welcome
-        return INTRO_RU + "\n\n" + HELP_RU
+        return INTRO_RU
 
     async def _memory_command(self, person: Person, person_key: str, text: str) -> str:
         command, _, argument = text.partition(" ")

@@ -190,7 +190,7 @@ def test_first_contact_gets_short_intro_and_silent_memory(tmp_path):
     person_key = runtime.vault.key_for_telegram(101)
 
     intro = asyncio.run(runtime.handle(person, message("/start")))
-    assert "Jeff" in intro and "AiBossman" in intro
+    assert intro == "Привет, я Джефф 🙂 Рад знакомству."
     assert "?" not in intro.split("🙂")[-1] or "да/нет" not in intro
     consent = runtime.vault.consent(person_key)
     assert consent.memory_enabled and consent.remote_processing_enabled
@@ -208,7 +208,7 @@ def test_chat_requires_remote_consent(tmp_path):
     person_key = runtime.vault.key_for_telegram(101)
     # first contact auto-enables memory and remote with a short intro
     intro = asyncio.run(runtime.handle(person, message("привет", message_id=2)))
-    assert "Jeff" in intro
+    assert "Джефф" in intro
     runtime.catalog = {}
     runtime.catalog_checked_at = 1.0
     answer = asyncio.run(runtime.handle(person, message("привет", message_id=3)))

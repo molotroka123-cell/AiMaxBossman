@@ -45,6 +45,30 @@ recorded here.
 - `FREEZE_1_5_1_7=BLOCKED`, `READY_FOR_1_8=NO`, `FINAL_SHA=NONE`. Do not start
   Unsloth/1.8 promotion or merge PR #84 as a certified release.
 
+Owner-only Jeff passport checkpoint was added after the shutdown handoff as
+`bossman pit passport-checkpoint`. It discovers participant IDs from the
+existing PIT inbox, reads only their consent-backed durable facts, uses the
+existing local native Ollama adapter with
+`bossman-community-qwen-uncensored:latest`, and writes a private review draft
+to `pit-v1.7/passport-checkpoints/latest.json` under the canonical data root.
+It does not read raw chats or owner memory, change Jeff's participant profiles,
+or message anyone. An initial installed TaskEngine probe (#60) using its
+OpenAI-compatible model route failed with a local 500 chat-template error; its
+temporary probe agent was disabled. The new source PIT command completed a
+real owner-PC run in 2.05 seconds: eight participant IDs, one draft from four
+saved visual-context facts, seven marked insufficient data. Telegram handles
+were not present in the stored metadata and remain unknown. The focused test
+passed; this command is **source code only** until a fresh Windows build
+installs it. The draft is not a verified personality passport and does not
+change the release gate.
+
+Owner follow-up for onboarding strangers: a Telegram data-use consent button
+is deferred until the owner supplies its wording. Current participants have
+already agreed according to the owner; the existing consent flow is unchanged.
+The source greeting is now simply `Привет, я Джефф 🙂 Рад знакомству.` with
+no capability list. This greeting change, like the checkpoint command, is not
+in the currently installed build.
+
 Resume with `git fetch --all --prune`, exact remote HEAD and CI, then one fresh
 Windows build and installed owner-PC acceptance. Preserve the canonical data
 and vault, one backend and one Telegram poller. Re-check Jeff's actual response

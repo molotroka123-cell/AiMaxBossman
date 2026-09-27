@@ -1,4 +1,4 @@
-"""``bossman pit setup|status|doctor|start|stop`` — owner launch surface.
+"""``bossman pit setup|status|doctor|start|stop|passport-checkpoint`` — owner surface.
 
 The owner launch contract (docs/v1.7): PIT starts from the existing ``bossman``
 CLI, secrets stay out of argv/logs/config, diagnostics are secret-free and
@@ -32,7 +32,7 @@ from .config import (
 from .photo_runtime import build_photo_services, photo_runtime_status
 from .runtime import STOP_FLAG, ParticipantRuntime, StopRequested
 
-COMMANDS = ("setup", "status", "doctor", "start", "stop")
+COMMANDS = ("setup", "status", "doctor", "start", "stop", "passport-checkpoint")
 
 
 def _resolve_path(argv: list[str]) -> Path:
@@ -466,6 +466,11 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_start(path)
     if command == "stop":
         return cmd_stop(path)
+    if command == "passport-checkpoint":
+        from .passport_checkpoint import run_checkpoint
+        report, checkpoint = run_checkpoint(load(path))
+        print(json.dumps({"checkpoint": str(checkpoint), **report}, ensure_ascii=False))
+        return 0 if all(row["status"] != "MODEL_ERROR" for row in report["participants"]) else 1
     return 2
 
 
