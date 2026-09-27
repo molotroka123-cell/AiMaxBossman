@@ -57,9 +57,13 @@ import json
 import os
 import re
 import secrets
+import shlex
 import subprocess
+import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +79,8 @@ router = APIRouter()
 RUNTIME_MODULE = "bossman.apprentice.openhands_client"
 WORKTREE_MODULE = "bossman.apprentice.isolated_worktree"
 COMMAND_ENV = "BOSSMAN_OPENHANDS_COMMAND"
+_OLLAMA_TAGS = "http://127.0.0.1:11434/api/tags"
+_LOCAL_CODING_MODELS = ("bossman-fast-qwen36-35b-a3b-q5:latest",)
 TERMINAL = ("completed", "failed", "blocked")
 _ID_RE = re.compile(r"^[a-z0-9]{12}$")
 #: Identifies THIS server process; a running record from another boot is orphaned.
@@ -109,6 +115,43 @@ def _runtime() -> tuple[Any, Any, str]:
         return None, None, (f"рантайм OpenHands (bossman-core) не установлен рядом с Command Center: "
                             f"{type(exc).__name__}: {exc}")
     return oc, wt, ""
+
+
+def _local_sidecar_command() -> str:
+    """Find a known local coding model without widening the configured route.
+
+    Only loopback Ollama is queried. Model names from its response are never
+    interpolated into a command; the command uses our fixed allowlist instead.
+    An unavailable model leaves the coding path visibly unavailable.
+    """
+    try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(_OLLAMA_TAGS, timeout=1.0) as response:
+            if response.status != 200:
+                return ""
+            raw = response.read(131_073)
+        if len(raw) > 131_072:
+            return ""
+        payload = json.loads(raw)
+        names = {item.get("name") for item in payload.get("models", [])
+                 if isinstance(item, dict) and isinstance(item.get("name"), str)}
+    except (OSError, ValueError, TypeError, AttributeError, urllib.error.URLError):
+        return ""
+    model = next((name for name in _LOCAL_CODING_MODELS if name in names), "")
+    if not model:
+        return ""
+    argv = [sys.executable, "-I", "-m", "bossman.apprentice.local_sidecar",
+            "--endpoint", "http://127.0.0.1:11434/v1", "--model", model]
+    return subprocess.list2cmdline(argv) if os.name == "nt" else shlex.join(argv)
+
+
+def _sidecar_command() -> str:
+    # An explicit value, including an empty disable, always wins. Once found,
+    # pin the local model for this backend process so readiness and tasks agree.
+    if COMMAND_ENV in os.environ:
+        return os.environ[COMMAND_ENV].strip()
+    auto = _local_sidecar_command()
+    return os.environ.setdefault(COMMAND_ENV, auto).strip() if auto else ""
 
 
 def _handshake(command: str, env: dict[str, str] | None = None) -> dict:
@@ -158,7 +201,7 @@ async def _sidecar_env(svc) -> dict[str, str]:
 
 async def readiness(svc) -> dict[str, Any]:
     oc, wt, reason = _runtime()
-    command = os.environ.get(COMMAND_ENV, "").strip()
+    command = _sidecar_command() if oc is not None else os.environ.get(COMMAND_ENV, "").strip()
     roots = [str(r) for r in await allowed_roots(svc)]
     out = {"available": False, "runtime": oc is not None, "sidecar_command": bool(command),
            "roots": roots, "reason": "", "handshake": None}
