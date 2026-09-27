@@ -115,7 +115,7 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
     # The public model catalog is accessible even with an expired API key.
     # Validate the credential separately so doctor cannot report chat ready
     # when every participant request would fail with 401.
-    if urlsplit(settings.provider_base_url).hostname == "openrouter.ai":
+    if not settings.local_chat_only and urlsplit(settings.provider_base_url).hostname == "openrouter.ai":
         try:
             import httpx
             async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
@@ -164,9 +164,10 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
         probe.catalog_checked_at = 0.0
         endpoints = await ParticipantRuntime.refresh_catalog(probe)
         local_ok = any(endpoint.local for endpoint in endpoints.values())
+        selected_models = settings.local_models if settings.local_chat_only else settings.chat_models
         rows = [{"model": model, "status": "ZERO_COST_OK" if model in endpoints else "NOT_ELIGIBLE"}
-                for model in settings.chat_models]
-        route_ok = bool(endpoints) or bool(settings.local_models)
+                for model in selected_models]
+        route_ok = bool(endpoints)
         detail = json.dumps(rows, ensure_ascii=False)
         if settings.local_models:
             detail += f"; local={'OK' if local_ok else 'DOWN'}"
@@ -256,6 +257,7 @@ def cmd_status(path: Path) -> int:
             report["pit_storage"] = {"participants": participants, "facts": facts, "root": str(home)}
             report["web"] = "SEARXNG" if settings.search_url else "KEYLESS_FALLBACK"
             report["local_models"] = list(settings.local_models) or "NONE"
+            report["chat_route_mode"] = "LOCAL_ONLY_TEST" if settings.local_chat_only else "CLOUD_FREE"
             report["route_stats"] = _route_stats(home)
             transport_error = _store_state(home, "transport_error")
             if transport_error:

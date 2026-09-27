@@ -52,6 +52,7 @@ from .photo_edit import PhotoEditPipeline
 from .photo_pipeline import PhotoPipeline
 from .photo_runtime import PhotoServices, build_photo_services
 from .presentation import render_jeff_reply
+from .ollama_native import OllamaNativeChatAdapter, is_native_ollama_url
 from .public_guard import public_guard
 from .roleplay import RolePlayMode, roleplay_prompt
 from .roleplay_commands import load_roleplay, parse_roleplay_command, set_roleplay
@@ -85,7 +86,7 @@ FORBIDDEN_COMMANDS = frozenset({
 })
 
 FRESH_INTENT = re.compile(
-    r"\b(новост|курс|погод|сегодня|сейчас|актуальн|свеж|последн|2025|2026|newest|latest|news|"
+    r"\b(новост|курс|погод|сегодня|актуальн|свеж|последн|2025|2026|newest|latest|news|"
     r"today|weather|currently|who won)\b", re.I)
 
 IMAGE_GENERATION_INTENT = re.compile(
@@ -136,6 +137,27 @@ def _intent_for(query: str) -> str:
         if any(marker in lowered for marker in markers):
             return name
     return "general"
+
+
+def _cloud_refusal(answer: str) -> bool:
+    """Recognize short provider refusals; substantive answers stay untouched."""
+    value = str(answer or "").strip().lower()
+    if not value or len(value) > 500:
+        return False
+    return value.startswith((
+        "i can't help with that", "i cannot help with that",
+        "i'm sorry, but i can't", "i’m sorry, but i can’t",
+        "я не могу помочь с этим", "извините, я не могу помочь",
+        "к сожалению, я не могу помочь",
+    ))
+
+
+def _is_complex_chat(text: str) -> bool:
+    lowered = text.lower()
+    return (len(text) > 400 or bool(FRESH_INTENT.search(text))
+            or any(word in lowered for word in (
+                "подробно", "сравни", "проанализируй", "пошагово",
+                "детально", "сложный вопрос", "in detail", "compare")))
 
 
 _EXTRACT_PATTERNS = (
@@ -430,10 +452,13 @@ class ParticipantRuntime:
         self._memory_epoch: dict[str, int] = {}
         self.adapter = build_adapter("openai_compat", settings.provider_base_url,
                                      api_key=settings.provider_key or None)
-        # Local models remain available to the separate collection/learning
-        # pipeline, but participant chat replies use verified free cloud only.
-        self.local_adapter = build_adapter(
-            "openai_compat", settings.local_url) if settings.local_url else None
+        # Local models remain reserved for collection/learning unless the owner
+        # explicitly enables a one-model, local-only participant chat test.
+        self.local_adapter = (
+            OllamaNativeChatAdapter(settings.local_url)
+            if is_native_ollama_url(settings.local_url)
+            else build_adapter("openai_compat", settings.local_url) if settings.local_url else None
+        )
         self.catalog: dict[str, ModelEndpoint] = {}
         self.catalog_checked_at = 0.0
         # Open allowlist (owner decision): every new private-chat human becomes a
@@ -457,10 +482,22 @@ class ParticipantRuntime:
     async def refresh_catalog(self) -> dict[str, ModelEndpoint]:
         """Verify the allowlist against live catalogs.
 
-        Participant chat may use only a listed, zero-priced remote model.
-        Local models are reserved for collection and learning work.
+        Participant chat uses listed, zero-priced remote models by default.
+        An explicit local-only test uses one installed local model and never
+        falls back to a remote provider.
         """
         endpoints: dict[str, ModelEndpoint] = {}
+        if self.settings.local_chat_only:
+            if self.local_adapter is not None and await self.capacity_guard.local_allowed():
+                rows = await self.local_adapter.list_model_info()
+                for model in self.settings.local_models:
+                    if any(isinstance(row, dict) and row.get("id") == model for row in rows):
+                        endpoints[model] = ModelEndpoint(
+                            id=model, provider="local", capabilities=frozenset({"chat"}),
+                            local=True, available=True, zero_cost=True, paid=False)
+            self.catalog = endpoints
+            self.catalog_checked_at = time.monotonic()
+            return endpoints
         rows = await self.adapter.list_model_info()
         pricing = await self.adapter.list_model_pricing()
         for model in self.settings.chat_models:
@@ -472,6 +509,19 @@ class ParticipantRuntime:
                     id=model, provider=self.settings.provider_base_url,
                     capabilities=frozenset({"chat"}), local=False, available=True,
                     zero_cost=True, paid=False)
+        if self.local_adapter is not None and self.settings.local_models:
+            try:
+                if await self.capacity_guard.local_allowed():
+                    local_rows = await self.local_adapter.list_model_info()
+                    for model in self.settings.local_models:
+                        if any(isinstance(row, dict) and row.get("id") == model
+                               for row in local_rows):
+                            endpoints[model] = ModelEndpoint(
+                                id=model, provider="local", capabilities=frozenset({"chat"}),
+                                local=True, available=True, zero_cost=True, paid=False)
+            except Exception:
+                # A local outage must not take down healthy verified free cloud.
+                pass
         self.catalog = endpoints
         self.catalog_checked_at = time.monotonic()
         return endpoints
@@ -483,12 +533,14 @@ class ParticipantRuntime:
     def _free_route(self) -> tuple[str, bool]:
         decision = choose_route(
             RouteRequest(intent="chat", privacy=PrivacyClass.PERSONAL, max_cost_usd=0.0),
-            [e for e in self.catalog.values() if not e.local],
+            [e for e in self.catalog.values() if e.local == self.settings.local_chat_only],
             allow_paid=False, zero_cost_only=True, local_bonus=0.0)
         return decision.selected_model, decision.provider == "local"
 
     def _route_fallback(self, failed_model: str) -> tuple[str, bool] | None:
         """A remote free route to try after a local call failed."""
+        if self.settings.local_chat_only:
+            return None
         remote = [(endpoint.id, endpoint.provider) for endpoint in self.catalog.values()
                   if not endpoint.local and endpoint.id != failed_model]
         if not remote:
@@ -498,6 +550,55 @@ class ParticipantRuntime:
             [e for e in self.catalog.values() if not e.local and e.id != failed_model],
             allow_paid=False, zero_cost_only=True, local_bonus=0.3)
         return decision.selected_model, False
+
+    def _recent_p95_ms(self) -> dict[str, int]:
+        """Use the existing private route log as measured routing history."""
+        path = self.home / "logs" / "route_log.jsonl"
+        if not path.is_file():
+            return {}
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()[-300:]
+        except OSError:
+            return {}
+        timings: dict[str, list[int]] = {}
+        for line in lines:
+            try:
+                item = json.loads(line)
+            except ValueError:
+                continue
+            latency = item.get("latency_ms")
+            if item.get("ok") and type(latency) is int and latency >= 0:
+                timings.setdefault(str(item.get("model")), []).append(latency)
+        return {model: sorted(values)[min(len(values) - 1, int(len(values) * .95))]
+                for model, values in timings.items() if values}
+
+    def _mixed_route(self, text: str, consent: ConsentState) -> tuple[str, bool]:
+        """70/30 simple-turn mix, with measured cloud speed and a local privacy route."""
+        local = [item for item in self.catalog.values() if item.local]
+        remote = [item for item in self.catalog.values() if not item.local]
+        if not consent.remote_processing_enabled:
+            if local:
+                return local[0].id, True
+            raise NoEligibleRoute("remote processing disabled and no local model")
+        turn = int(self.store.get("chat_route_counter", 0) or 0)
+        self.store.put("chat_route_counter", turn + 1)
+        simple = len(text) <= 320 and not FRESH_INTENT.search(text)
+        if local and simple and ((turn * 37 + 50) % 100) < self.settings.local_share_percent:
+            return local[0].id, True
+        if not remote:
+            if local:
+                return local[0].id, True
+            raise NoEligibleRoute("no live chat model")
+        p95 = self._recent_p95_ms()
+        fast = [item for item in remote if p95.get(item.id, 12_000) <= 25_000]
+        candidates = fast or remote
+        candidates.sort(key=lambda item: (p95.get(item.id, 12_000), item.id))
+        cloud_turn = int(self.store.get("cloud_route_counter", 0) or 0)
+        self.store.put("cloud_route_counter", cloud_turn + 1)
+        # Mostly the fastest; bounded exploration keeps the other verified free
+        # routes measured without forcing slow models on every participant.
+        selected = candidates[cloud_turn % len(candidates)] if cloud_turn % 4 == 3 else candidates[0]
+        return selected.id, False
 
     def _log_route(self, *, person_key: str, model: str, provider: str, ok: bool,
                    latency_ms: int, context_chars: int, tokens_in: int = 0,
@@ -642,7 +743,7 @@ class ParticipantRuntime:
                 self.store.scrub_inbox(update_id)
                 continue
             try:
-                answer = await self.handle(fresh, message, update_id=update_id)
+                answer = await self._handle_with_notice(fresh, message, update_id=update_id)
             except asyncio.CancelledError:
                 self.store.finish(update_id, "delivery_unknown")
                 raise
@@ -680,11 +781,20 @@ class ParticipantRuntime:
                 self._finish_update(update_id, "done", fresh)
                 continue
             try:
-                await self.telegram.send(
+                sent_id = await self.telegram.send(
                     fresh, render_jeff_reply(answer),
                     reply_to_message_id=message.get("_message_id"),
                     parse_mode="HTML",
                 )
+                if type(sent_id) is int and sent_id > 0:
+                    with contextlib.suppress(OSError):
+                        _append_jsonl(self.home / "logs" / "delivery_log.jsonl", {
+                            "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                            "update_id": update_id,
+                            "reply_message_id": sent_id,
+                            "person_key": self.vault.key_for_telegram(fresh.user_id)[:12] + "…",
+                            "schema": "bossman.pit.delivery-log/1",
+                        })
                 self._finish_update(update_id, "done", fresh)
                 pending = self._pending_photo_memory.pop(
                     (fresh.key, str(message.get("_message_id") or "0")), None)
@@ -702,6 +812,40 @@ class ParticipantRuntime:
                 self._pending_photo_memory.pop(
                     (fresh.key, str(message.get("_message_id") or "0")), None)
                 self._finish_update(update_id, "delivery_unknown", fresh)
+
+    async def _handle_with_notice(self, person: Person, message: dict, *,
+                                  update_id: int, delay: float = 18.0) -> str:
+        text = str(message.get("text") or "")
+        if (not text or text.startswith("/") or not _is_complex_chat(text)
+                or message.get("_photo") or message.get("_document") or message.get("_voice")):
+            return await self.handle(person, message, update_id=update_id)
+
+        sending = asyncio.Event()
+
+        async def notice() -> int | None:
+            await asyncio.sleep(delay)
+            if (self.home / STOP_FLAG).exists():
+                return None
+            sending.set()
+            return await self.telegram.send(
+                person, "Думаю…", reply_to_message_id=message.get("_message_id"))
+
+        task = asyncio.create_task(notice())
+        try:
+            return await self.handle(person, message, update_id=update_id)
+        finally:
+            if not sending.is_set() or asyncio.current_task().cancelling():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+            else:
+                try:
+                    message_id = await asyncio.wait_for(task, timeout=40)
+                    if type(message_id) is int and message_id > 0:
+                        await self.telegram.delete_message(person, message_id)
+                except Exception:
+                    # A temporary progress bubble may fail or be undeletable;
+                    # it must never swallow the substantive answer.
+                    pass
 
     def _finish_update(self, update_id: int, phase: str, person: Person) -> None:
         self.store.finish(update_id, phase)
@@ -993,17 +1137,27 @@ class ParticipantRuntime:
         memory_at_start = consent.memory_enabled
         memory_epoch = self._memory_epoch.get(person_key, 0)
         self._register_discovery_reply(person, person_key, text)
+        complex_request = _is_complex_chat(text)
+        deadline = time.monotonic() + (120 if complex_request else self.settings.chat_deadline_seconds)
 
         if self.catalog_checked_at == 0.0:
             await self.refresh_catalog_safe()
-        # Discard any cached local endpoint from a previous build/config.
-        self.catalog = {key: endpoint for key, endpoint in self.catalog.items()
-                        if not endpoint.local}
+        if self.settings.local_chat_only:
+            # Recheck installed model and owner resource headroom on every turn.
+            # Clear first so a catalog failure cannot leave a stale live route.
+            self.catalog = {}
+            await self.refresh_catalog_safe()
+        elif any(endpoint.local for endpoint in self.catalog.values()):
+            self.capacity_guard.reset()
+            if not await self.capacity_guard.local_allowed():
+                self.catalog = {key: endpoint for key, endpoint in self.catalog.items()
+                                if not endpoint.local}
+        consent = self.vault.consent(person_key)
         try:
-            model, is_local = self._free_route()
+            model, is_local = (self._free_route() if self.settings.local_chat_only
+                               else self._mixed_route(text, consent))
         except NoEligibleRoute:
             return NO_MODEL_RU
-        consent = self.vault.consent(person_key)
         if not is_local and not consent.remote_processing_enabled:
             return NO_REMOTE_RU
 
@@ -1029,6 +1183,7 @@ class ParticipantRuntime:
         result = None
         # local-first with remote fallback: every route here is zero-cost
         attempts: list[tuple[str, object, str]] = []
+        local_fallback: str | None = None
         if is_local:
             attempts.append((model, self.local_adapter, "local"))
             fallback = self._route_fallback(model) if consent.remote_processing_enabled else None
@@ -1036,6 +1191,13 @@ class ParticipantRuntime:
                 attempts.append((fallback[0], self.adapter, "remote"))
         else:
             attempts.append((model, self.adapter, "remote"))
+            local_fallback = next((item.id for item in self.catalog.values() if item.local), None)
+            if self.settings.local_fallback_on_cloud_refusal and local_fallback:
+                attempts.append((local_fallback, self.local_adapter, "local"))
+            else:
+                fallback = self._route_fallback(model)
+                if fallback is not None:
+                    attempts.append((fallback[0], self.adapter, "remote"))
         for route_model, adapter, provider in attempts:
             # The control lane can change consent while a local model is slow.
             # Rebuild the complete payload for each attempt, including fallback.
@@ -1051,12 +1213,35 @@ class ParticipantRuntime:
             route_context = build_participant_context(
                 query=text, vault=self.vault, person_key=person_key,
                 consent=context_consent, selected_model_is_remote=route_is_remote,
-                profile_stability=snapshot.profile_stability)
+                profile_stability=snapshot.profile_stability,
+                behavior_scales=self.settings.behavior_scales)
             messages = route_context.as_messages()
+            if provider == "local" and messages and messages[0]["role"] == "system":
+                # This community GGUF stopped mid-word with long conversation
+                # prompts on the owner host. Keep durable memory in the vault,
+                # but give the local chat only the last exchange and a bounded
+                # answer shape so it can finish within the reply budget.
+                messages[0] = dict(messages[0], content=(
+                    messages[0]["content"] + " Ответь законченным текстом до 180 слов. "
+                    "Сначала ответ по делу, затем короткое пояснение. "
+                    "Избегай таблиц и длинного вступления, если их не просили. "
+                    "На добровольную шутливую прожарку самого собеседника отвечай остро; "
+                    "если мат явно разрешён, не смягчай ответ морализаторством. "
+                    "При возможном отравлении или нарушении дыхания сразу дай "
+                    "конкретные признаки опасности и действия, не заменяй ответ отказом."
+                ))
+                if re.search(r"(?:прожарь\s+меня|roast\s+me)", text, re.I):
+                    messages[0]["content"] += (
+                        " Здесь сам собеседник просит прожарку: отвечай только шуткой, "
+                        "без заголовка, пояснения, советов, утешения и мягкой концовки. "
+                        "Если мат прямо разрешён, вставь одно-два разговорных матерных "
+                        "слова (например, «блядь») в саму шутку, не заменяй их эвфемизмами."
+                    )
             use_saved_context = memory_context_allowed and (
                 not route_is_remote or route_consent.remote_personalization_enabled)
             if use_saved_context:
-                messages += self.store.history(who)
+                history = self.store.history(who)
+                messages += history[-2:] if provider == "local" else history
             if use_saved_context and reply_to and isinstance(reply_to, dict):
                 author = "бот" if reply_to.get("from_bot") else "участник"
                 quoted = str(reply_to.get("text", "")).strip()
@@ -1074,11 +1259,22 @@ class ParticipantRuntime:
             context_chars = sum(len(str(m.get("content", ""))) for m in messages)
             started = time.monotonic()
             try:
-                timeout = self.settings.local_timeout if provider == "local" \
-                    else self.settings.remote_timeout
-                result = await adapter.chat(route_model, messages,
-                                            max_tokens=self.settings.max_tokens,
-                                            timeout=timeout)
+                remaining = deadline - started
+                if remaining < 1:
+                    break
+                timeout = min(self.settings.local_timeout if provider == "local"
+                              else self.settings.remote_timeout, remaining)
+                result = await asyncio.wait_for(adapter.chat(
+                    route_model, messages, max_tokens=self.settings.max_tokens,
+                    timeout=timeout), timeout=timeout)
+                if (provider == "remote" and local_fallback
+                        and (not result.text.strip() or _cloud_refusal(result.text))):
+                    self._log_route(person_key=person_key, model=route_model,
+                                    provider=provider, ok=False,
+                                    latency_ms=int((time.monotonic() - started) * 1000),
+                                    context_chars=context_chars, error="cloud_refusal")
+                    result = None
+                    continue
                 context = route_context
                 self._log_route(person_key=person_key, model=route_model, provider=provider,
                                 ok=True, latency_ms=int((time.monotonic() - started) * 1000),
@@ -1116,7 +1312,7 @@ class ParticipantRuntime:
             self._learn(person_key, text, message_id)
             self.behavior.record(person_key, BehaviorEvent.CONTEXT_CONTINUED)
 
-        question = self._maybe_ask(person, person_key, text) if record_turn else ""
+        question = self._maybe_ask(person, person_key, text) if record_turn and not answer.rstrip().endswith("?") else ""
         if question:
             answer += "\n\n" + question
         return answer

@@ -29,6 +29,15 @@ DEFAULT_FREE_CHAT_MODELS: tuple[str, ...] = (
     "nex-agi/nex-n2.5-pro:free",
 )
 
+BEHAVIOR_SCALE_NAMES = (
+    "initiative", "curiosity", "depth", "brevity",
+    "warmth", "humor", "directness", "creativity",
+)
+
+
+def default_behavior_scales() -> dict[str, int]:
+    return {name: 5 for name in BEHAVIOR_SCALE_NAMES}
+
 _SECRET_ENV = (
     ("bot_token", "BOSSMAN_PIT_BOT_TOKEN"),
     ("provider_key", "BOSSMAN_PIT_PROVIDER_KEY"),
@@ -76,6 +85,10 @@ class PITSettings:
     provider_base_url: str = "https://openrouter.ai/api/v1"
     local_url: str = ""
     local_models: tuple[str, ...] = ()
+    local_chat_only: bool = False
+    local_share_percent: int = 30
+    local_fallback_on_cloud_refusal: bool = False
+    chat_deadline_seconds: int = 30
     search_url: str = ""
     core_url: str = "http://127.0.0.1:8800"
     max_tokens: int = 1024
@@ -85,6 +98,7 @@ class PITSettings:
     discovery_mode: str = "collection_first"
     collection_mode: str = "high_recall"
     allowlist_open: bool = False
+    behavior_scales: dict[str, int] = field(default_factory=default_behavior_scales)
     bot_token: str = field(default="", repr=False)
     provider_key: str = field(default="", repr=False)
     core_token: str = field(default="", repr=False)
@@ -109,7 +123,8 @@ class PITSettings:
             loopback = False
         if url.scheme != "https" and not loopback:
             raise ValueError("remote provider endpoint must be https or loopback")
-        if not self.chat_models or any(not isinstance(m, str) or not 0 < len(m.strip()) <= 120 for m in self.chat_models):
+        if (not self.chat_models and not self.local_chat_only) or any(
+                not isinstance(m, str) or not 0 < len(m.strip()) <= 120 for m in self.chat_models):
             raise ValueError("chat model allowlist must be 1..N exact model ids")
         if len(set(self.chat_models)) != len(self.chat_models):
             raise ValueError("duplicate chat model ids")
@@ -122,6 +137,16 @@ class PITSettings:
                 raise ValueError("local model ids must be non-empty strings <=120 chars")
             if len(set(self.local_models)) != len(self.local_models):
                 raise ValueError("duplicate local model ids")
+        if type(self.local_chat_only) is not bool:
+            raise ValueError("local_chat_only must be a boolean")
+        if self.local_chat_only and len(self.local_models) != 1:
+            raise ValueError("local_chat_only needs exactly one configured local model")
+        if type(self.local_share_percent) is not int or not 0 <= self.local_share_percent <= 100:
+            raise ValueError("local_share_percent must be 0..100")
+        if type(self.local_fallback_on_cloud_refusal) is not bool:
+            raise ValueError("local_fallback_on_cloud_refusal must be a boolean")
+        if type(self.chat_deadline_seconds) is not int or not 10 <= self.chat_deadline_seconds <= 60:
+            raise ValueError("chat_deadline_seconds must be 10..60")
         if self.search_url:
             local_url(self.search_url)
         local_url(self.core_url)
@@ -140,6 +165,11 @@ class PITSettings:
             raise ValueError("invalid collection mode")
         if type(self.allowlist_open) is not bool:
             raise ValueError("allowlist_open must be a boolean")
+        if (not isinstance(self.behavior_scales, dict)
+                or set(self.behavior_scales) != set(BEHAVIOR_SCALE_NAMES)
+                or any(type(value) is not int or not 1 <= value <= 10
+                       for value in self.behavior_scales.values())):
+            raise ValueError("behavior_scales must contain exactly eight integer values from 1 to 10")
         if not self.identity_salt:
             raise ValueError("identity salt is required in credentials")
         try:
@@ -207,7 +237,8 @@ def load(path: Path) -> PITSettings:
         raise ValueError("PIT credentials missing identity_salt; run setup")
     for key in (*[k for k, _ in _SECRET_ENV], "identity_salt"):
         data[key] = secrets.get(key, "")
-    data["chat_models"] = tuple(data.get("chat_models") or DEFAULT_FREE_CHAT_MODELS)
+    data["chat_models"] = tuple(data["chat_models"] if "chat_models" in data
+                                else DEFAULT_FREE_CHAT_MODELS)
     # Non-secret runtime knobs may be overridden by the environment (owner run
     # helpers), exactly like the companion's env file contract.
     data["local_url"] = os.environ.get("BOSSMAN_PIT_LOCAL_URL", data.get("local_url", "")).strip()

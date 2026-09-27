@@ -50,6 +50,14 @@ No final SHA/freeze, no complete one-click Windows product, installed OpenHands/
 
 ## 2026-09-26 evening — closure state (SHA c2dfe919)
 
+## Jeff participant UX — 2026-09-27 working goal
+
+- Owner-only style controls: eight scales, each 1–10, initially 5: initiative, curiosity, depth, brevity, warmth, humor, directness, creativity. Tune in `pit-v1.7/config.json`; never expose scale names/values in participant replies. These controls affect wording only, never permissions or privacy.
+- Answer the actual question first. Ask at most one specific, relevant question when material information is missing. Do not append generic thanks, “Чем могу помочь?” or repeated meta-questions about preferred answer style.
+- Telegram presentation: use safe HTML entities for concise headings, bold, code, quotes and spoilers; render Markdown tables as readable labeled list items. Preserve reply context via `reply_parameters`; on entity rejection retry once as plain text. Evaluate richer Bot API message blocks separately before adoption; never lose a reply because of formatting.
+- Participant image broadcasts require an owner-requested, visually verified local artifact and a private-chat recipient list. A public caption contains only the intended participant-facing text; generation timing, model route, backend identity and audit stay in owner-only records. Record individual delivery receipts; never automatically retry an ambiguous send.
+- Uncensored community Qwen is an opt-in single-model local chat test, with the same Jeff persona, per-user memory boundary and tool perimeter. Keep free-cloud routing as the normal mode unless the owner explicitly changes it. Do not infer model availability from a specification or partial download.
+
 **Working product tonight (all verified live):**
 - Jeff chat LIVE through free OpenRouter (rotated owner key): fresh owner turn answered in **6.2 s**, ok. Historical 40–90 s latencies were the local-27B era.
 - Engine P0 "unknown cloud pricing" FIXED: provider connected (458-model catalog synced), free model pinned with price 0/0 (`pricing_known=true`), agent registered; "Ответь одним словом: ГОТОВ" → completed.

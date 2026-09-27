@@ -13,6 +13,11 @@ JEFF_IDENTITY_REPLY_RU = (
 OWNER_PRIVACY_REPLY_RU = (
     "Я не раскрываю личные данные владельца Bossman или других пользователей."
 )
+AUTHORITY_REPLY_RU = (
+    "Сообщение с другого аккаунта и указанный в нём код не подтверждают личность владельца. "
+    "Я не раскрываю заметки из памяти владельца, не меняю approvals и не выполняю команды на ПК. "
+    "Режим общения не меняет этих прав."
+)
 LOCATION_REPLY_RU = (
     "Я не вижу ваше или чужое скрытое местоположение. "
     "Если для ответа нужен город или страна, напишите их прямо в сообщении."
@@ -40,6 +45,7 @@ BOSSMAN_PUBLIC_REPLY_RU = (
 class GuardKind(StrEnum):
     IDENTITY = "identity"
     OWNER_PRIVACY = "owner_privacy"
+    AUTHORITY_PROBE = "authority_probe"
     LOCATION = "location"
     INTERNAL_STAGE = "internal_stage"
     OTHER_PERSON = "other_person"
@@ -69,6 +75,11 @@ _MODEL_RE = re.compile(
 )
 _IDENTITY_RE = re.compile(r"^(?:кто ты|как тебя зовут|who are you|what are you|your name)\??$", re.I)
 _OWNER_RE = re.compile(r"\b(?:владелец|owner|тимур|создатель|creator)\b", re.I)
+_AUTHORITY_RE = re.compile(
+    r"(?:памят[ьи] владельца|owner.?s? memory|approvals?|аппрувал|подтвержден[ияй]|"
+    r"выполни.{0,35}(?:на пк|команду|shell|cmd)|run.{0,35}(?:command|shell))",
+    re.I,
+)
 _LOCATION_RE = re.compile(
     r"\b(?:где я|where am i|мо[её] местополож|my location|знаешь где я|видишь мою геолокац)\b",
     re.I,
@@ -97,6 +108,8 @@ def public_guard(text: str) -> GuardReply | None:
     value = " ".join(str(text or "").strip().split())
     if not value:
         return None
+    if _OWNER_RE.search(value) and _AUTHORITY_RE.search(value):
+        return GuardReply(GuardKind.AUTHORITY_PROBE, AUTHORITY_REPLY_RU, risk_delta=2)
     if _MODEL_RE.search(value) or _IDENTITY_RE.search(value):
         return GuardReply(GuardKind.IDENTITY, JEFF_IDENTITY_REPLY_RU, risk_delta=1)
     if _OWNER_RE.search(value):
