@@ -59,6 +59,7 @@ from .roleplay_commands import load_roleplay, parse_roleplay_command, set_rolepl
 from .router import ModelEndpoint, NoEligibleRoute, PrivacyClass, RouteRequest, choose_route
 from .telegram_contract import USER_COMMANDS
 from .vault import PersonaVault, _append_jsonl, _atomic_json
+from .voice import VoiceError, transcribe_telegram_voice
 
 STOP_FLAG = "stop.flag"
 
@@ -119,7 +120,6 @@ PROVIDER_DOWN_RU = ("Модель-провайдер недоступен. Пл�
                     "попробуй позже.")
 INCOMPLETE_REPLY_RU = ("Ответ модели оборвался. Я не буду выдавать обрывок за полный ответ; "
                        "повтори запрос или попроси ответить короче.")
-VOICE_REPLY_RU = "Голосовые пока не разбираю — напиши текстом, отвечу сразу 😊"
 FORBIDDEN_REPLY_RU = ("Такой команды у Jeff нет: управление компьютером и внутренностями "
                       "Bossman здесь недоступно.")
 DELETE_CONFIRM_RU = ("Точно удалить всю твою память и профиль? Это необратимо. "
@@ -249,6 +249,11 @@ def _minimize_message(message: dict) -> dict:
     doc = None
     if isinstance(document, dict) and isinstance(document.get("file_id"), str):
         doc = {"file_id": document["file_id"], "file_name": str(document.get("file_name", ""))[:120]}
+    voice = message.get("voice")
+    voice_meta = None
+    if isinstance(voice, dict):
+        voice_meta = {key: voice[key] for key in
+                      ("file_id", "duration", "mime_type", "file_size") if key in voice}
     sticker = message.get("sticker")
     sticker_emoji = ""
     if isinstance(sticker, dict):
@@ -268,7 +273,7 @@ def _minimize_message(message: dict) -> dict:
         "text": str(message.get("text") or message.get("caption") or ""),
         "_photo": photo_file_id,
         "_document": doc,
-        "_voice": isinstance(message.get("voice"), dict),
+        "_voice": voice_meta,
         "_sticker": sticker_emoji,
         "_reply_to": reply_context,
     }
@@ -282,6 +287,15 @@ def _failure_text(code: str) -> str:
         "NETWORK_UNAVAILABLE": "Сеть недоступна. Повтори позже.",
         "SEARCH_NOT_CONFIGURED": "Веб-поиск сейчас недоступен.",
         "DOCUMENT_TOO_LARGE": "Файл слишком большой для разбора (лимит 10 МБ).",
+        "VOICE_TOO_LARGE": "Голосовое слишком большое — пришли запись короче 10 минут.",
+        "VOICE_DURATION_INVALID": "Пришли голосовое короче 10 минут.",
+        "VOICE_FORMAT_UNSUPPORTED": "Не удалось открыть голосовое. Пришли обычное голосовое Telegram.",
+        "VOICE_NO_SPEECH": "Не расслышал речь. Попробуй записать ещё раз.",
+        "VOICE_STT_UNAVAILABLE": "Сейчас не могу разобрать голосовое. Напиши текстом или повтори позже.",
+        "VOICE_DECODER_UNAVAILABLE": "Сейчас не могу разобрать голосовое. Напиши текстом или повтори позже.",
+        "VOICE_DECODE_FAILED": "Не удалось разобрать голосовое. Попробуй записать ещё раз.",
+        "VOICE_FETCH_FAILED": "Не удалось загрузить голосовое. Повтори отправку позже.",
+        "VOICE_INVALID": "Не удалось открыть голосовое. Пришли его ещё раз.",
     }
     return mapping.get(code, f"Технический сбой ({code}). Платные маршруты не включаю; повтори позже.")
 
@@ -881,8 +895,32 @@ class ParticipantRuntime:
             return await self._handle_photo(person, person_key, message, photo_file_id, text)
         if document := message.get("_document"):
             return await self._handle_document(person, person_key, message, text, document)
-        if message.get("_voice"):
-            return VOICE_REPLY_RU
+        if voice := message.get("_voice"):
+            try:
+                result = await transcribe_telegram_voice(
+                    self.telegram, voice,
+                    stopped=lambda: (self.home / STOP_FLAG).exists())
+            except VoiceError as exc:
+                if str(exc) == "VOICE_STOPPED":
+                    raise StopRequested("owner stop flag") from exc
+                return _failure_text(str(exc))
+            transcript = str(result["text"]).strip()
+            # A transcript is chat input, never an executable Telegram command.
+            if transcript.startswith("/"):
+                self.behavior.privacy_probe(person_key, kind="tool_probe")
+                return FORBIDDEN_REPLY_RU
+            consent = self.vault.consent(person_key)
+            welcome = self._welcome_if_first_contact(person_key, consent)
+            guard = public_guard(transcript)
+            if guard is not None:
+                self.behavior.privacy_probe(person_key, kind=guard.kind.value)
+                answer = guard.text
+            else:
+                answer = await self._chat_route(
+                    person, person_key, transcript, consent,
+                    message_id=str(message.get("_message_id") or "0"),
+                    reply_to=message.get("_reply_to"), update_id=update_id)
+            return f"{welcome}\n\n{answer}" if welcome else answer
         if not text and message.get("_sticker"):
             # The participant communicates with stickers: mirror with an emoji
             # sticker (bots cannot send arbitrary Telegram sticker packs).

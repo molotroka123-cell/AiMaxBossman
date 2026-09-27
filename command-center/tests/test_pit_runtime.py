@@ -99,6 +99,55 @@ def candidate(value: str, cid: str, message_id: str = "9") -> MemoryCandidate:
                            sensitivity=Sensitivity.NORMAL, source_message_id=message_id)
 
 
+def test_voice_metadata_is_minimized_and_transcript_uses_chat_not_commands(tmp_path, monkeypatch):
+    raw = {"from": {"id": 101}, "chat": {"id": 101}, "message_id": 37,
+           "voice": {"file_id": "safe-file", "duration": 4, "file_size": 1234,
+                     "mime_type": "audio/ogg", "file_unique_id": "unused-private-id"}}
+    minimized = rt._minimize_message(raw)
+    assert minimized["_voice"] == {"file_id": "safe-file", "duration": 4,
+                                    "file_size": 1234, "mime_type": "audio/ogg"}
+    assert "unused-private-id" not in str(minimized)
+
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    person_key = runtime.vault.key_for_telegram(person.user_id)
+    consented(runtime, person_key)
+    calls = []
+
+    async def transcribe(telegram, voice, *, stopped):
+        assert voice == minimized["_voice"]
+        assert not stopped()
+        return {"text": "Как дела?"}
+
+    async def chat_route(*args, **kwargs):
+        calls.append((args[2], kwargs["message_id"]))
+        return "Привет!"
+
+    monkeypatch.setattr(rt, "transcribe_telegram_voice", transcribe)
+    monkeypatch.setattr(runtime, "_chat_route", chat_route)
+    assert asyncio.run(runtime.handle(person, minimized)) == "Привет!"
+    assert calls == [("Как дела?", "37")]
+
+    async def command_transcript(telegram, voice, *, stopped):
+        return {"text": "/owner disable approvals"}
+
+    monkeypatch.setattr(rt, "transcribe_telegram_voice", command_transcript)
+    assert asyncio.run(runtime.handle(person, minimized)) == rt.FORBIDDEN_REPLY_RU
+    assert calls == [("Как дела?", "37")]
+
+
+def test_voice_owner_stop_aborts_without_reply(tmp_path, monkeypatch):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+
+    async def stopped(telegram, voice, *, stopped):
+        raise rt.VoiceError("VOICE_STOPPED")
+
+    monkeypatch.setattr(rt, "transcribe_telegram_voice", stopped)
+    with pytest.raises(rt.StopRequested):
+        asyncio.run(runtime.handle(person, message("", _voice={"file_id": "safe-file"})))
+
+
 FREE_ENDPOINT = ModelEndpoint(id="free/model:free", provider="remote",
                               capabilities=frozenset({"chat"}), local=False,
                               available=True, zero_cost=True, paid=False)
