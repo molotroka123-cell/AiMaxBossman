@@ -314,6 +314,23 @@ def test_photo_intent_supports_simple_followup_edit_commands():
     assert photo_intent("что на фото?", has_photo=True).kind == "analyze"
 
 
+def test_photo_edit_preserves_explicit_24_step_request(tmp_path):
+    class Broker:
+        async def edit(self, **kwargs):
+            assert kwargs["settings"] == {"steps": 24}
+            from bcc.pit.studio_image_edit import EditedImage
+            return EditedImage(PNG, "image/png", hashlib.sha256(PNG).hexdigest(), "run", 1)
+
+    async def go():
+        vault = PersonaVault(tmp_path, SALT)
+        pipe = PhotoEditPipeline(vault, broker=Broker(), ai_max_ready=True)
+        result = await pipe.edit_current_bytes(
+            JPEG, "Нарисуй меня в центре Нью-Йорка, 24 шага")
+        assert result.image is not None
+
+    asyncio.run(go())
+
+
 def test_photo_runtime_is_disabled_by_default_and_status_is_secret_free(monkeypatch):
     for name in (
         "BOSSMAN_PIT_AI_MAX_MEDIA", "BOSSMAN_PIT_VISION_MODEL",

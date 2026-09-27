@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Awaitable, Callable
 
@@ -12,6 +13,14 @@ from .vault import PersonaVault
 class PhotoEditReply:
     text: str
     image: EditedImage | None
+
+
+def _edit_settings(instruction: str) -> dict[str, int]:
+    match = re.search(r"(?<!\d)(\d{1,2})\s*шаг(?:а|ов)?\b", instruction, re.I)
+    if match is None:
+        return {}
+    steps = int(match.group(1))
+    return {"steps": steps} if 4 <= steps <= 50 else {}
 
 
 class PhotoEditPipeline:
@@ -55,7 +64,7 @@ class PhotoEditPipeline:
             mime=asset.mime,
             prompt=instruction,
             filename=asset.path.name,
-            settings={},
+            settings=_edit_settings(instruction),
             references=references,
         )
         return PhotoEditReply("Готово.", output)
@@ -74,7 +83,7 @@ class PhotoEditPipeline:
             mime=mime,
             prompt=instruction,
             filename="telegram-photo" + PhotoStore._suffix(mime),
-            settings={},
+            settings=_edit_settings(instruction),
             references=(),
         )
         return PhotoEditReply("Готово.", output)
