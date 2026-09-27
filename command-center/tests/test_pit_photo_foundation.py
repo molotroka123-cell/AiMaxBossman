@@ -73,6 +73,19 @@ def test_laptop_photo_path_is_honest_and_does_not_call_vision(tmp_path):
     asyncio.run(go())
 
 
+def test_ai_max_without_vision_does_not_claim_future_hardware_migration(tmp_path):
+    async def go():
+        vault = PersonaVault(tmp_path, SALT)
+        key = vault.key_for_telegram(5)
+        pipe = PhotoPipeline(vault, vision=None, ai_max_ready=True)
+        reply = await pipe.answer_photo(person_key=key, message_id=2, data=JPEG)
+        assert reply.text == LAPTOP_PHOTO_REPLY_RU
+        assert "AI Max" not in reply.text
+        assert "переезд" not in reply.text
+
+    asyncio.run(go())
+
+
 def test_fast_photo_reply_does_not_wait_for_background_memory(tmp_path):
     class Vision:
         def __init__(self):

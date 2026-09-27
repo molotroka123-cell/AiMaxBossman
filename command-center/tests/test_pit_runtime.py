@@ -879,7 +879,7 @@ def test_photo_on_laptop_is_stored_but_not_claimed(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.telegram, "fetch_file", fake_fetch)
 
     answer = asyncio.run(runtime.handle(person, message("", _photo="fileid", message_id=50)))
-    assert "AI Max" in answer
+    assert answer == "Фото получил. Сейчас не могу разобрать изображение. Попробуй чуть позже."
     assert (runtime.vault.person_dir(person_key) / "media" / "latest.json").is_file()
 
 
