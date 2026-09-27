@@ -24,6 +24,7 @@ the redirect is the guarantee, and disabling it is the tidy default.
 from __future__ import annotations
 
 import contextlib
+import inspect
 import json
 import os
 import time
@@ -114,10 +115,15 @@ def _run(req: dict, out) -> int:
     # with the SAME instruction in the SAME workspace.
     for attempt in (1, 2):
         try:
-            conversation = Conversation(agent=agent, workspace=str(workspace),
-                                        visualizer=None,
-                                        max_iteration_per_run=max_iterations,
-                                        callbacks=[_on_event])
+            conversation_kwargs = {
+                "agent": agent,
+                "workspace": str(workspace),
+                "visualizer": None,
+                "max_iteration_per_run": max_iterations,
+            }
+            if "callbacks" in inspect.signature(Conversation).parameters:
+                conversation_kwargs["callbacks"] = [_on_event]
+            conversation = Conversation(**conversation_kwargs)
             conversation.send_message(instruction)
             conversation.run()
             _emit(out, "completed", model=str(model),
