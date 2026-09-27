@@ -1,5 +1,55 @@
 # Freeze closure — final Cloud status, 2026-09-27
 
+## Owner-PC continuation — 2026-09-27 shutdown checkpoint
+
+This section supersedes the historical Cloud snapshots below. It is a handoff,
+not a freeze certificate. Fetch remote truth before resuming: the documentation
+commit carrying this section will itself advance the branch beyond the SHA
+recorded here.
+
+- Repository: `molotroka123-cell/AiMaxBossman`, PR #84, branch
+  `claude/bossman-freeze-closure-ohvmon`. The clean local checkout and remote
+  both pointed to `4989bfacf736671a79eb89cdd4300a03a16bef02` before this
+  handoff edit. Do not use an older SHA as release evidence.
+- Installed owner-PC product: `93f1f1c3441ac3f92092a765516c12a53225e97c`
+  on port 8801, with the canonical data root in `%LOCALAPPDATA%\Bossman\CommandCenter`.
+  Source identity reported `PASS`. This installed SHA is older than the branch;
+  it does not prove the later CRLF coding-apply fix is installed.
+- Jeff had one poller, cloud-free Nemotron Ultra with a 12-second remote timeout
+  and local Community Qwen fallback. A live reply and delivery receipt were
+  observed before shutdown without publishing participant content or IDs.
+  Owner requested shutdown: `bossman stop --all --json` was repeated after the
+  asynchronous PIT stop; the final call exited 0, returned `ok=true`, had zero
+  remaining work and zero errors, and the poller count was 0. The backend
+  remained idle on port 8801 for the owner's forthcoming PC shutdown; it was
+  not force-killed. The scheduled Jeff logon task points to installed `93f1f1c3`
+  and will need revalidation after the next sign-in.
+- Exact-`4989bfac` PR CI at this checkpoint: ten workflows succeeded;
+  Intelligence Preservation failed because
+  `docs/benchmark/intelligence-preservation-current.json` is absent;
+  Command Center CI, Bossman Core CI and Fable media/Fleet were still
+  pending/in progress. Re-fetch CI for the new SHA
+  after this document is pushed. A pending or cancelled run is not PASS.
+- The current measured-intelligence corpus has 220 tasks, 20 per metric across
+  11 metrics. The owner kept this gate mandatory; neither the sample count nor
+  three scientific cycles/positive transfer are proven. Do not waive it or
+  manufacture a scorecard.
+- The `4989bfac` Local bundle artifact is not the full Windows release ZIP.
+  A fresh exact-SHA Windows archive, hash, clean install, real owner UX smoke,
+  full regression and final installed coding-path retest remain open. BossBlocks
+  has real isolated local-model coding evidence and Godot checks, but its
+  candidate was not applied to the original game because the installed build
+  rejected CRLF patch context. Source fix `dbf9f9c9` passed focused tests and
+  needs a fresh installed retest. YouTube and Instagram live missions are not
+  certified. Jeff long soak/multiuser/media acceptance is incomplete.
+- `FREEZE_1_5_1_7=BLOCKED`, `READY_FOR_1_8=NO`, `FINAL_SHA=NONE`. Do not start
+  Unsloth/1.8 promotion or merge PR #84 as a certified release.
+
+Resume with `git fetch --all --prune`, exact remote HEAD and CI, then one fresh
+Windows build and installed owner-PC acceptance. Preserve the canonical data
+and vault, one backend and one Telegram poller. Re-check Jeff's actual response
+after startup; task registration or a config file alone is not delivery proof.
+
 > **Historical checkpoint, superseded for release decisions.** The SHA below
 > (`0292ae98`) is from an earlier Cloud session. The current PR #84 candidate
 > was `7f90a197f0833d58bdb30b073f9a12cdd652b7c5` before the owner-PC
