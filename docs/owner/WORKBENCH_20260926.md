@@ -34,6 +34,11 @@ informational coding question while preserving the coding route; local
 The Jev test correction and Jeff's concise high-risk reply style require
 exact-SHA CI and installed retest on their eventual candidate SHA. No
 participant message was sent during these tests.
+Concurrent remote commit `73d937ea1c9f633fb600605326d5f3864e1f77d8`
+also narrowed the action classifier: a bare request to write a function is
+chat code, while a concrete file/game edit still requires a verified action.
+It was merged without conflict. The combined Jev/action-contract suite passed
+92/92 locally; owner-acceptance/PIT suites passed 73 with one skip.
 
 Mandatory `Intelligence Preservation` remains `BLOCKED`: the current corpus
 has 20 items per metric, but a 98% lower-bound claim needs at least 189
