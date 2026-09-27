@@ -18,7 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SKIP_SUFFIX = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".pdf",
-               ".sqlite", ".sqlite3", ".db", ".gguf", ".safetensors", ".woff", ".woff2", ".ttf"}
+               ".sqlite", ".sqlite3", ".db", ".gguf", ".safetensors", ".woff", ".woff2", ".ttf", ".webm", ".mp4"}
 ZIP_SUFFIX = {".zip"}
 # Файлы, которым в индексе git не место, независимо от содержимого.
 FORBIDDEN_FILES = [re.compile(p) for p in (
