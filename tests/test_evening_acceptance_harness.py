@@ -174,6 +174,15 @@ def test_a_single_canonical_entrypoint_exists_for_each_platform():
     assert os.access(REPO / "start-bossman.sh", os.X_OK)
 
 
+def test_windows_launcher_preserves_owner_vault_across_source_upgrades():
+    script = (REPO / "start-bossman.ps1").read_text(encoding="utf-8")
+    assert 'Join-Path $LocalData "Bossman\\CommandCenter"' in script
+    assert '$env:BCC_DATA_DIR = $env:BOSSMAN_DATA_DIR' in script
+    assert '$env:BOSSMAN_DATA_DIR = $env:BCC_DATA_DIR' in script
+    assert 'BCC_DATA_DIR и BOSSMAN_DATA_DIR указывают на разные каталоги' in script
+    assert script.index('if (-not $env:BCC_DATA_DIR)') < script.index('bossman_doctor.py')
+
+
 def test_the_launcher_refuses_to_start_when_the_doctor_blocks():
     for script in ("start-bossman.ps1", "start-bossman.sh"):
         body = (REPO / script).read_text(encoding="utf-8")
