@@ -1,5 +1,47 @@
 # Рабочий стол — Bossman 1.5 → 1.6 → 1.7 closure
 
+## 2026-09-27 18:10 UTC — owner PC acceptance and CI blocker
+
+This is a release checkpoint, **not a freeze certificate**. On exact local
+commit `ea3f5a0d9a5215c5bc8a2b43e66289177d187add`, a fresh Windows release
+ZIP (`BOSSMAN-Windows-x64-ea3f5a0d9a52.zip`, SHA-256
+`8BE4AC8CD76B2EEC5F84B79E6C1BCF341F0203991B7576CBC69E6D81ECFF6AEC`)
+passed `tools/verify_windows_bundle.py` with
+`BOSSMAN_BUNDLE_ACCEPTANCE=PASS`. The extracted archive's own `python.exe -I`
+then passed genuine local-model `bcc.owner_acceptance`: `BOOT`,
+`CORE_LIVE_API`, `REAL_AGENT_TASK`, `RESTART_PERSISTENCE` all `PASS`,
+`fixture_adapter=false`, `source_dirty=false`, arithmetic task #1 and tool
+task #2 (`steps=2`, $0 model cost). Reports are retained outside Git in
+`C:\Users\asd\Bossman\owner-test-pack\bundle-ea3f5a0d-a\owner-bundle-verify.json`
+and `C:\Users\asd\Bossman\owner-test-pack\installed-ea3f5a0d\installed-live-acceptance.json`.
+The production e97 backend on :8801 and its single Jeff poller were not
+replaced by this isolated test. The complete interactive owner UI smoke and
+Jeff delivery on a final installed SHA remain unverified.
+
+The prior remote candidate `87477dc85d3d9588125bcca859a0d4547a0a4cb2`
+failed the same live acceptance because the private reasoning-model probes
+used 256/512 output tokens and returned an empty `finish=length` reply.
+The local `ea3f5a0d` fix uses 2048; 25 focused tests passed (one skipped)
+and the above installed retest passed. This is evidence for the fix, not for
+a future SHA containing later changes.
+
+Command Center CI on the prior remote SHA exposed three reproducible Jev
+test failures in Python 3.11/3.14: their fake adapter returned text for a
+request to *write* a function. The action contract correctly rejected
+`action_contract/no_verified_action`. The test fixture now asks an
+informational coding question while preserving the coding route; local
+`test_jev_feature.py` plus `test_action_contract.py` passed **90/90**.
+The Jev test correction and Jeff's concise high-risk reply style require
+exact-SHA CI and installed retest on their eventual candidate SHA. No
+participant message was sent during these tests.
+
+Mandatory `Intelligence Preservation` remains `BLOCKED`: the current corpus
+has 20 items per metric, but a 98% lower-bound claim needs at least 189
+independent items in each of four core metrics even with perfect results.
+The current evidence file is absent. The owner explicitly retained this as
+a blocker. `V15/V16/V17` are not collectively certified;
+`BOSSMAN_1_5_1_6_1_7=NOT_FROZEN`, `READY_FOR_1_8=NO`.
+
 ## 2026-09-27 owner checkpoint — release candidate, not freeze
 
 The active acceptance line is PR #84, `claude/bossman-freeze-closure-ohvmon`.
