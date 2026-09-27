@@ -223,6 +223,12 @@ Jeff принимает голосовое → транскрибирует → 
 громкость low по умолчанию. Эффекты, похожие на реальную экстренную ситуацию, — только для
 получателей из allow-list «знают, что это эффект». Эффект никогда не заменяет смысл сообщения.
 
+### 4.5 Web Designer: «живые» сайты по лучшим prompt-библиотекам
+Отдельный мастер-промт: `docs/owner/MASTER_PROMPT_WEB_DESIGN_LIBRARY_20260927.md` — топ библиотек с
+лицензиями (ui-ux-pro-max, anthropic frontend-design, superdesign, vividsites, MotionSites…), вендоринг
+открытых по существующему паттерну `docs/skills/`, платные — только в приватном хранилище владельца вне Git,
+бриф Web Designer v2, hero-видео через Studio, автоматическая проверка качества и честный замер на holdout.
+
 ---
 
 ## ФАЗА 5 — Переделка UX: chat-first, как ChatGPT / Claude
@@ -368,6 +374,7 @@ Jeff принимает голосовое → транскрибирует → 
 - `docs/acceptance/ASTRA_SUPERVISED_ACCEPTANCE_PROMPT.md` — формат приёмки
 - `docs/v1.5/VOICE_AND_PHONE.md`, `docs/voice/JEFF_ELITE_VOICE_SPEC.md` — голос
 - `docs/ux/BOSSMAN_UX_TRAINING.md`, `docs/ux/prototype/bossman-chat.html` — новый интерфейс
+- `docs/owner/MASTER_PROMPT_WEB_DESIGN_LIBRARY_20260927.md` — сайты по prompt-библиотекам (промты W1–W6)
 - `docs/v1.8/BOSSMAN_18_EVOLUTION_ENGINE.md` + `docs/v1.8/BOSSMAN_18_OPEN_SOURCE_14X2_20260926.md` (ветка `docs/bossman-1.8-oss-14x2-20260926`) — 1.8
 - `docs/owner/TOMORROW_OPERATOR_RUNBOOK.md`, `docs/owner/ROLLBACK_RU.md` — эксплуатация и откат
 
@@ -391,6 +398,7 @@ STOP_RESTART=            ONE_POLLER=    MEMORY_LINK_LOCAL_GUARD=
 AUDIO_CPP=   ROCM_GFX1151=   QWEN3_ASR=   QWEN3_TTS=   FISH_S2_PRO=   HIGGS_V3=   AUK_FLASH=   STABLE_AUDIO_SFX=
 VOICE_WINNER=   MP3_INGEST=   MP4_AUDIO_EXTRACT=   TELEGRAM_VOICE_IN=   TELEGRAM_VOICE_OUT=
 BACKGROUND_EFFECTS=   OFFLINE_GENERATION=   MODEL_LICENSE_MATRIX=
+WEB_LIB_VENDORED=   WEB_BRIEF_V2=   WEB_ANTI_SLOP=   WEB_HOLDOUT_V2_VS_V1=
 
 UX_CHAT_FIRST=   UX_APPROVALS_INLINE=   UX_STOP_ALWAYS_VISIBLE=   UX_MOBILE=   UX_OWNER_15MIN=
 
