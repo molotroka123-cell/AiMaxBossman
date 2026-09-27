@@ -31,9 +31,9 @@
 
 | Ветка | HEAD | В canonical? | Роль | Что делать |
 |---|---|---|---|---|
-| `integrate/bossman-1.7-unified-20260925` | `af1d5c0f` | — | **canonical**, единственная линия продукта | база всего |
+| `integrate/bossman-1.7-unified-20260925` | `85506854` | — | **canonical**, единственная линия продукта | база всего |
 | `candidate/freeze-20260926` | `1eea0831` | нет (+7) | кандидат freeze 1.5–1.7 | принимает PR #84 |
-| `claude/bossman-freeze-closure-ohvmon` | `7c57fde6` (код `0292ae98`) | нет (+11) | **свежий кандидат**: descriptor-фикс, сведение с canonical, фикс утечки памяти H-1 | [PR #84](https://github.com/molotroka123-cell/AiMaxBossman/pull/84) → Фазы 1–3 |
+| `claude/bossman-freeze-closure-ohvmon` | `1bbaf912` | нет (+13, 0 позади) | **свежий кандидат**: descriptor-фикс, сведение с canonical (вкл. `85506854` Jeff-фото), фикс утечки памяти H-1 | [PR #84](https://github.com/molotroka123-cell/AiMaxBossman/pull/84) → Фазы 1–3 |
 | `docs/voice-background-effects-spec-20260927` | — | нет | этот промт, спека голоса/UX | [PR #85](https://github.com/molotroka123-cell/AiMaxBossman/pull/85), мёрж документации в любой момент |
 | `feat/jeff-ux-voice-avatar-20260926` | `025834d6` | нет (+23) | исходники Jeff GUI/голос/аватар | только в Фазе 4, после freeze |
 | `feat/jeff-ux-integration-test-20260926` | `2a527b76` | нет (+3) | Jeff GUI (`jeff.html/js`, `jeff_desktop.py`, ярлык) + тесты изоляции | только в Фазе 4; `install-jeff-shortcut.ps1` ждёт `.venv` — не починено |
@@ -77,7 +77,7 @@ git clone https://github.com/molotroka123-cell/AiMaxBossman C:\Users\asd\Bossman
 cd C:\Users\asd\Bossman\main
 git fetch --all --prune
 git checkout claude/bossman-freeze-closure-ohvmon
-git rev-parse HEAD   # ожидается 7c57fde6… (или новее по PR #84)
+git rev-parse HEAD   # ожидается 1bbaf912… (или новее по PR #84)
 ```
 
 ### 0.3 Один Python-env
@@ -109,7 +109,7 @@ ONE_CHECKOUT=  ONE_VENV=  ONE_DATA_DIR=  ONE_BACKEND=  ONE_POLLER=  KEYS_IN_VAUL
 ## ФАЗА 1 — Реальная приёмка 1.5–1.7 на железе владельца
 
 **Кандидат:** ветка `claude/bossman-freeze-closure-ohvmon` (PR #84 → `candidate/freeze-20260926`),
-код-SHA `0292ae984a304412bb0a44ce55e2f592d959c87a` (последующий коммит `7c57fde6` — только документация).
+SHA `1bbaf9125f65f4538ee7768cf0b5ea533dd798f3` (фикс H-1 `0292ae98` + документация `7c57fde6` + merge canonical `85506854`).
 Что уже доказано из Cloud и **не переделывается**: см. `docs/owner/CONTINUE_FREEZE_FINAL.md`
 (descriptor-фикс, сведение с canonical, полная регрессия, exact-SHA CI, фикс утечки owner memory на link-local).
 
