@@ -1,0 +1,189 @@
+# Freeze closure — final Cloud status, 2026-09-27
+
+Exact HEAD (this session's work): `0292ae984a304412bb0a44ce55e2f592d959c87a`
+Branch: `claude/bossman-freeze-closure-ohvmon` (PR #84, base `candidate/freeze-20260926`)
+Canonical HEAD used for convergence: `af1d5c0fb3b7289824aa5968aa571c461c45c845` (`integrate/bossman-1.7-unified-20260925`)
+Merge base: `09f792755640a0767a897903d071567b5c1193b1`
+Freeze candidate is 0 commits behind / 9 ahead of canonical — fully converged, nothing missing.
+
+## What Cloud proved (real evidence, not claims)
+
+1. **Windows descriptor test (section 2 of the freeze task) — fixed and verified.**
+   `command-center/tests/test_video_descriptor_boundary.py::test_repeated_requests_do_not_leak_descriptors`
+   failed on Windows because it measured `psutil.Process().num_handles()` — every
+   kernel object the whole process holds (asyncio thread-pool threads/events),
+   not the media file descriptor under test. Inspected `DescriptorResponse`'s
+   fd lifecycle in `descriptor_stream.py`: no leak in the implementation.
+   Fixed the test to count only handles resolving to the exact owned media
+   path on Windows via `psutil.open_files()`. Verified 10/10 consecutive runs
+   and the full module (27/27) on Linux. **Still needs one real-Windows
+   re-run** — Cloud cannot execute Windows hardware.
+
+2. **Convergence (section 5) — done.** Merged canonical cleanly, no
+   conflicts, classified all 3 canonical-only commits
+   (`af1d5c0f`/`0438b0d6`/`83d57f65`) as REQUIRED_FOR_FREEZE/SAFE_DOC_ONLY,
+   no 1.8 work pulled in.
+
+3. **Full regression (section 3) — clean.** Two local Linux runs:
+   - 1st run (missing `ffmpeg`, `mcp`/`browser` pip extras in this sandbox):
+     32 failed + 7 errors — every single one root-caused to that missing
+     environment, not product code. Confirmed by installing the missing
+     pieces and re-running each failing file to green with zero code changes.
+   - 2nd run (correct environment): 1 failed, 5124 passed, 47 skipped. The
+     one failure (`test_real_chromium_app_window_renders_command_center`)
+     was a Playwright pip package (1.63.0, unpinned upper bound in
+     `pyproject.toml`) vs. this sandbox's pre-baked Chromium revision
+     mismatch (1243 expected vs. 1194 installed) — a sandbox artifact from
+     my own ad-hoc install, not a repo defect. Not touched.
+   - GitHub's own CI (real environment, not my sandbox): full matrix
+     (py3.11/3.12/3.14 + Windows paths + core runtime ubuntu/windows) —
+     **all green** on this exact SHA. One transient `sqlite3.OperationalError:
+     database is locked` appeared on the previous SHA (`8ce8421`) in
+     `test_rt_p2_engine_ask_survives_model_self_approval_and_uses_one_approval_once`;
+     it did **not** recur on this SHA's fresh CI run — confirmed one-off
+     CI-runner flake, not a repeatable concurrency bug (root-caused before
+     concluding this, per the no-fake-green rule; not just re-run and hoped).
+
+4. **Exact-SHA CI (section 8) — green**, on `0292ae98`:
+   root-ci, Bossman Core CI, Command Center CI (all matrix legs), ASTRA
+   acceptance, PostgreSQL run contracts, Solana safety gates, Windows-100
+   real checks, Economy CI, Editors user safety, internal benchmark, Fable
+   media/Fleet, Shipped app contracts, Local bundle — all `success`.
+   The only red check is `Intelligence Preservation / measured intelligence
+   retention` — a **pre-existing, fail-closed gate unrelated to this PR**:
+   `docs/benchmark/intelligence-preservation-current.json` has never existed
+   anywhere in this repo's history, including on canonical itself (verified
+   with `git log --all` and `git show` against canonical). It fails because
+   scientific self-improvement cycles are genuinely `0/3` (per
+   `docs/owner/WORKBENCH_20260926.md`) — fabricating that evidence file
+   would be exactly the fake-green this session is forbidden from doing.
+   Commented on the PR explaining this; not fixed, not fixable from here.
+
+5. **Prior freeze fixes reconfirmed by reading diffs** (section 4): CLI
+   `--agent`/`--model` precedence fix backed by a real regression test;
+   snapshot size-cap change is a test-local `monkeypatch` value, not a
+   production limit change — does not conceal real state growth; free
+   providers feature reviewed for secrets/SSRF handling, no concerns.
+
+6. **Security/authority review (section 7) — one real P1 found and fixed.**
+   `bcc/providers.py:is_local_url()` used `ipaddress.is_private` alone,
+   which is `True` for link-local addresses (169.254.0.0/16) including
+   `169.254.169.254` (the AWS/GCP/Azure cloud metadata address).
+   `provider_governance.py` reuses this exact function to decide whether
+   recalled **owner memory** (vault notes, lessons, facts) may be included
+   in a request to that provider — every other SSRF-sensitive check in this
+   codebase (`discovery.py`, `model_router.py`'s `derive_local`,
+   `browser_control.py`) already excludes link-local for exactly this
+   reason; this one function didn't. **Confirmed exploitable**: a test
+   proving owner memory reached `169.254.169.254` failed on the old code
+   and passes after excluding `is_link_local`/`is_unspecified`. Fixed,
+   tested with a negative control, committed as `0292ae98`, pushed.
+   No other P0/P1 found in the delta (no `shell=True`, `eval`/`exec`,
+   unsafe deserialization, hardcoded secrets).
+
+   Two more findings from an owner-supplied external audit (`bossman-snapshot/AUDIT_BUGS.md`,
+   not present in this checkout) were investigated but **not changed**:
+   - M-4 (Windows `RuntimeLock.stale()` PID-reuse edge case,
+     `command-center/bcc/file_intelligence/runtime_lock.py`): real but the
+     file explicitly documents matching upstream's exact
+     `AnalysisRuntimeLock.cpp:139` semantics line-for-line. Changing it here
+     alone is an architecture decision (risks disagreeing with the same
+     lock file upstream reads), not a bug fix — needs an owner decision, not
+     a silent patch.
+   - M-2 (Jeff allegedly not starting silently after a killed process +
+     leftover STOP_FLAG): could not reproduce by reading `cmd_start()` in
+     `bcc/pit/cli.py` — `STOP_FLAG` is explicitly cleared both before
+     `runtime.run()` and in the `finally` block. Did not touch code for an
+     unreproduced defect. Needs the audit's exact repro steps.
+   - M-1 (a "wt-nemo parser" test contradicting its implementation): no
+     module by that name exists in this checkout. Needs the exact file path.
+
+## What Cloud CANNOT prove — explicitly not claimed
+
+- Real Windows hardware execution of anything above (descriptor fix, full
+  regression, RuntimeLock behavior).
+- Windows release bundle build/clean-install/SHA-256 — attempted to trigger
+  `.github/workflows/windows-bundle.yml` via `workflow_dispatch` and got
+  `403: Resource not accessible by integration` (this session's GitHub
+  integration lacks Actions-dispatch write access). The workflow itself is
+  real (builds on `windows-latest`, verifies the archive on a clean machine,
+  runs installed-product tests) — it just needs the owner (or anyone with
+  Actions write access) to click **Run workflow** on it for branch
+  `claude/bossman-freeze-closure-ohvmon`, or it will fire automatically on
+  the next push that touches a listed product path.
+- Owner-hardware smoke: Computer Use, Telegram live send, STOP/resume,
+  voice/avatar, coding path from an installed archive on the owner's actual
+  AMD Ryzen AI Max+ 395 machine. None of this can be faked or approximated
+  from a generic Linux/cloud-Windows-runner sandbox.
+- Jeff: intentionally out of scope this session (source and integration
+  branches exist but weren't reviewed/merged — per the freeze task's own
+  instruction not to expand scope).
+
+## FREEZE_1_5_1_7 status
+
+```
+FINAL_SHA=0292ae984a304412bb0a44ce55e2f592d959c87a
+CANONICAL_SHA=af1d5c0fb3b7289824aa5968aa571c461c45c845
+MERGE_BASE=09f792755640a0767a897903d071567b5c1193b1
+BRANCH=claude/bossman-freeze-closure-ohvmon (PR #84 -> candidate/freeze-20260926)
+WINDOWS_ARTIFACT=NOT_BUILT (workflow exists, dispatch blocked by 403; owner action required)
+SHA256=N/A
+
+TESTS:
+ROOT=PASS
+CORE=PASS
+COMMAND_CENTER=PASS
+ASTRA=PASS
+POSTGRES=PASS
+SOLANA=PASS
+
+P0_OPEN=0
+P1_OPEN=0 (H-1 fixed and verified; M-4 flagged for owner decision, not blocking per upstream-mirror design; M-2/M-1 unreproduced, need exact repro from source audit)
+P2_OPEN=not enumerated beyond above
+
+WINDOWS_CLEAN_INSTALL=NOT_TESTED
+OWNER_SMOKE=NOT_TESTED
+COMPUTER_USE=NOT_TESTED
+TELEGRAM=NOT_TESTED
+JEFF=DEFERRED
+VOICE=DEFERRED
+AVATAR=NOT_TESTED
+STOP_RESTART=NOT_TESTED
+
+AUTHORITY_EXPANSION=NONE
+SECRETS_EXPOSED=NONE
+
+FREEZE_1_5_1_7=BLOCKED (on real-Windows-hardware owner acceptance only — every Cloud-provable gate is PASS)
+READY_FOR_1_8=NO
+```
+
+## Exact remaining commands for the owner
+
+```powershell
+# 1. Build & verify the Windows bundle on a clean GitHub-hosted Windows machine
+#    (Actions tab -> "One-download Windows application" -> Run workflow ->
+#    branch: claude/bossman-freeze-closure-ohvmon)
+#    Produces BOSSMAN-Windows-x64-<sha>.zip + SHA-256 + bundle-acceptance.json.
+
+# 2. On the owner's real AMD Ryzen AI Max+ 395 machine, after downloading that archive:
+git fetch origin claude/bossman-freeze-closure-ohvmon
+git checkout claude/bossman-freeze-closure-ohvmon
+# extract the built archive, then run the descriptor test for real on Windows:
+python -m pytest command-center/tests/test_video_descriptor_boundary.py -q
+# then the full regression:
+python -m pytest command-center/tests -q
+```
+
+If both come back clean (0 failed) and the owner smoke checklist in the
+original freeze task (sections 9-10) passes, freeze this exact SHA
+(`0292ae984a304412bb0a44ce55e2f592d959c87a`) as `FINAL_SHA` and declare
+`FREEZE_1_5_1_7=PASS`.
+
+## Merging PR #84
+
+PR #84 is still a draft. All CI is green except the pre-existing
+`Intelligence Preservation` gate (documented above, not a real blocker for
+this PR's own content). It can be marked ready for review and merged into
+`candidate/freeze-20260926` once the owner is satisfied with the Cloud-side
+evidence above; the real-Windows steps remain open regardless of merge
+status.
