@@ -16,7 +16,7 @@ import subprocess
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
-FPS, DUR = 60, 15.0
+FPS, DUR = 60, 22.0
 
 
 def main() -> None:

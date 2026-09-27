@@ -9,9 +9,9 @@ html,body{margin:0;background:#0a0c10}canvas{display:block}
 </style></head><body>
 <canvas id="out" width="1920" height="1080"></canvas>
 <script>
-// BOSSMAN — 32 days. 15 s deterministic motion piece, synced to the soundtrack from music.py
+// BOSSMAN — 32 days + what's next. 22 s deterministic motion piece, synced to the soundtrack from music.py
 // (120 BPM; drop 3.0 s; feature hits 6.0/6.75/7.5/8.25/9.0; impact 13.0 s).
-const W = 1920, H = 1080, CX = W / 2, CY = H / 2, DUR = 15.0, FPS = 60, SUB = 3;
+const W = 1920, H = 1080, CX = W / 2, CY = H / 2, DUR = 22.0, FPS = 60, SUB = 3;
 const BG = '#0a0c10';
 const CYAN = [53, 228, 255], BLUE = [58, 91, 255], VIOLET = [180, 76, 255], MINT = [70, 255, 190];
 // real per-day commit counts on the product line, 2026-08-27 .. 2026-09-27 (sum 2,469)
@@ -20,7 +20,7 @@ const TOTAL = COMMITS.reduce((a, b) => a + b, 0);
 const DAYS = COMMITS.map((_, i) => { const d = new Date(Date.UTC(2026, 7, 27 + i)); return d; });
 const MON = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const TESTS = 5179;
-const HITS = [3.0, 6.0, 6.75, 7.5, 8.25, 9.0, 13.0];
+const HITS = [3.0, 6.0, 6.75, 7.5, 8.25, 9.0, 13.0, 15.0, 17.0, 17.9, 18.8, 19.7, 21.0];
 
 const out = document.getElementById('out'), octx = out.getContext('2d');
 const work = document.createElement('canvas'); work.width = W; work.height = H;
@@ -59,7 +59,7 @@ function text(s, x, y, font, color, align = 'left', base = 'alphabetic', spacing
 // ------------------------------------------------------------------ background
 function background(t) {
   ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
-  const on = eOutExpo(seg(t, .0, .8)) * (1 - eInExpo(seg(t, 14.3, 14.95)));
+  const on = eOutExpo(seg(t, .0, .8)) * (1 - eInExpo(seg(t, 21.3, 21.95)));
   const b = beat(t);
   const hue = t < 6 ? mix(BLUE, BLUE, 0) : t < 10 ? mix(BLUE, VIOLET, seg(t, 6, 10) * .6) : t < 13 ? mix(VIOLET, [20, 150, 140], seg(t, 10, 12) * .5) : BLUE;
   let g = ctx.createRadialGradient(CX, CY, 0, CX, CY, 1000 * (1 + .05 * b));
@@ -344,7 +344,14 @@ function scene4(t) {
 
 // ------------------------------------------------------------------ scene 5: impact + logo
 function scene5(t) {
-  if (t < 12.95) return;
+  if (t < 12.95 || t > 15.15) return;
+  const ex = eInExpo(seg(t, 14.72, 15.1));
+  ctx.save(); ctx.globalAlpha = 1 - ex;
+  ctx.translate(CX, CY); ctx.scale(1 + .5 * ex, 1 + .5 * ex); ctx.translate(-CX, -CY);
+  scene5body(t);
+  ctx.restore();
+}
+function scene5body(t) {
   const T0 = 13.0, age = t - T0;
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   if (age > -.05) {
@@ -408,19 +415,166 @@ function scene5(t) {
   }
 }
 
+
+// ------------------------------------------------------------------ scene 6: Jeff voice in / voice out (15.0-17.2)
+const WAVE = (() => { const r = rng(77); return Array.from({length: 34}, (_, i) => .25 + .75 * Math.abs(Math.sin(i * .7 + r() * 2)) * (.4 + .6 * r())); })();
+function voiceBubble(x, y, w, mine, t0, t, dur) {
+  const k = eOutBack(seg(t, t0, t0 + .35)); if (k <= 0) return;
+  ctx.save(); ctx.translate(x + (mine ? w : 0), y); ctx.scale(k, k); ctx.translate(mine ? -w : 0, 0);
+  ctx.fillStyle = mine ? 'rgba(58,110,255,.95)' : 'rgba(40,46,70,.95)';
+  ctx.beginPath(); ctx.roundRect(0, 0, w, 74, 20); ctx.fill();
+  ctx.fillStyle = mine ? '#ffffff' : rgba(MINT, 1);
+  ctx.beginPath(); ctx.arc(38, 37, 22, 0, 7); ctx.fill();
+  ctx.fillStyle = mine ? 'rgba(58,110,255,1)' : '#28304a';
+  ctx.beginPath(); ctx.moveTo(32, 26); ctx.lineTo(48, 37); ctx.lineTo(32, 48); ctx.closePath(); ctx.fill();
+  const prog = seg(t, t0 + .3, t0 + .3 + dur);
+  WAVE.forEach((a, i) => {
+    const bx = 74 + i * 5.6, bh = 6 + a * 34, on = i / WAVE.length < prog;
+    ctx.fillStyle = on ? (mine ? '#ffffff' : rgba(MINT, 1)) : (mine ? 'rgba(255,255,255,.4)' : 'rgba(160,185,255,.35)');
+    ctx.fillRect(bx, 37 - bh / 2, 3.2, bh);
+  });
+  text(mine ? '0:04' : '0:06', w - 16, 64, '400 16px "IBM Plex Mono"', mine ? 'rgba(255,255,255,.8)' : 'rgba(180,200,240,.8)', 'right');
+  ctx.restore();
+}
+function scene6(t) {
+  if (t < 14.95 || t > 17.35) return;
+  const inK = eOutExpo(seg(t, 15.0, 15.45)), outK = eInExpo(seg(t, 16.95, 17.25));
+  ctx.save(); ctx.globalAlpha = inK * (1 - outK); ctx.translate(-outK * 500, 0);
+  // phone
+  const px = CX - 700, py = CY - 330 + (1 - inK) * 120, pw = 400, ph = 660;
+  ctx.fillStyle = 'rgba(14,17,30,.92)'; ctx.strokeStyle = 'rgba(200,215,255,.55)'; ctx.lineWidth = 3;
+  ctx.shadowColor = rgba(BLUE, .6); ctx.shadowBlur = 60;
+  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 44); ctx.fill(); ctx.shadowBlur = 0; ctx.stroke();
+  ctx.fillStyle = 'rgba(40,46,70,.9)'; ctx.fillRect(px + 3, py + 60, pw - 6, 64);
+  ctx.fillStyle = rgba(MINT, 1); ctx.beginPath(); ctx.arc(px + 46, py + 92, 20, 0, 7); ctx.fill();
+  text('J', px + 46, py + 99, '800 22px Onest', '#0a0c10', 'center');
+  text('Jeff', px + 80, py + 88, '800 22px Onest', '#ffffff');
+  text('online', px + 80, py + 110, '400 15px "IBM Plex Mono"', rgba(MINT, .9));
+  voiceBubble(px + 120, py + 170, 260, true, 15.2, t, .8);
+  const tr = eOutExpo(seg(t, 15.75, 16.05));
+  if (tr > 0) text('“Jeff, what’s new?”', px + 380, py + 272, '400 17px "IBM Plex Mono"', `rgba(190,205,240,${tr})`, 'right');
+  voiceBubble(px + 20, py + 310, 280, false, 16.1, t, .8);
+  // right: headline
+  const hx = CX - 190, hk = eOutExpo(seg(t, 15.1, 15.5));
+  ctx.save(); ctx.globalAlpha *= hk; ctx.translate((1 - hk) * 60, 0);
+  text('JEFF', hx, CY - 150, '800 150px Onest', '#ffffff');
+  text('VOICE IN  →  VOICE OUT', hx + 6, CY - 80, '500 40px "IBM Plex Mono"', rgba(CYAN, 1), 'left', 'alphabetic', 2);
+  text('ON TELEGRAM', hx + 6, CY - 30, '500 30px "IBM Plex Mono"', 'rgba(185,200,240,.9)', 'left', 'alphabetic', 6);
+  // live waveform
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 90; i++) {
+    const a = Math.abs(Math.sin(i * .45 + t * 9) * Math.sin(i * .13 + t * 3.1)) * (0.25 + .75 * Math.exp(-Math.pow((i - 45) / 30, 2)));
+    const c = mix(CYAN, VIOLET, i / 90);
+    ctx.fillStyle = rgba(c, .85); ctx.fillRect(hx + 8 + i * 8.4, CY + 50 - a * 46, 4, a * 92 + 2);
+  }
+  ctx.restore();
+  const r1 = eOutExpo(seg(t, 15.55, 15.85)), r2 = eOutExpo(seg(t, 15.8, 16.1));
+  ctx.globalAlpha = hk * (1 - outK) * r1;
+  ctx.fillStyle = rgba(MINT, 1); ctx.beginPath(); ctx.arc(hx + 18, CY + 160, 9, 0, 7); ctx.fill();
+  text('VOICE IN — LIVE SINCE SEP 27 · LOCAL WHISPER', hx + 40, CY + 168, '500 24px "IBM Plex Mono"', rgba(MINT, 1));
+  ctx.globalAlpha = hk * (1 - outK) * r2;
+  ctx.strokeStyle = rgba(VIOLET, 1); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(hx + 18, CY + 212, 8, 0, 7); ctx.stroke();
+  text('VOICE OUT — NEXT · v1.8', hx + 40, CY + 220, '500 24px "IBM Plex Mono"', rgba(VIOLET, 1));
+  ctx.restore();
+  ctx.restore();
+}
+
+// ------------------------------------------------------------------ scene 7: roadmap projection (17.0-21.0)
+const ROAD = [
+  {t: 17.0, v: '1.8', when: 'OCT 2026', a: 'freeze closed', b: 'Jeff talks back', c: CYAN},
+  {t: 17.9, v: '1.9', when: 'NOV 2026', a: 'learns across tasks', b: '48 h autonomous soak', c: BLUE},
+  {t: 18.8, v: '2.0', when: 'DEC 2026', a: 'week mode', b: 'first paid pilot', c: VIOLET},
+  {t: 19.7, v: '3.0', when: 'WINTER', a: 'own voice & phone', b: 'grows its own skills', c: [255, 110, 200]},
+];
+function scene7(t) {
+  if (t < 16.9 || t > 21.2) return;
+  const inK = eOutExpo(seg(t, 16.95, 17.3)), outK = eInExpo(seg(t, 20.72, 21.02));
+  ctx.save(); ctx.globalAlpha = inK * (1 - outK);
+  ctx.translate(CX, CY); ctx.scale(1 + outK * .35, 1 + outK * .35); ctx.translate(-CX, -CY);
+  text("WHAT'S NEXT", CX, 205, '800 64px Onest', '#ffffff', 'center', 'alphabetic', 6);
+  text('PROJECTION BY CLAUDE · TARGETS, NOT PROMISES', CX, 252, '500 22px "IBM Plex Mono"', 'rgba(160,185,255,.75)', 'center', 'alphabetic', 3);
+  const x0 = 250, x1 = W - 250, y = CY + 60, span = x1 - x0;
+  const lk = eOutExpo(seg(t, 16.95, 17.4));
+  ctx.fillStyle = 'rgba(160,185,255,.22)'; ctx.fillRect(x0, y - 1.5, span * lk, 3);
+  const xs = ROAD.map((_, i) => x0 + span * (i + .5) / ROAD.length);
+  let reach = 0;
+  ROAD.forEach((r, i) => { if (t >= r.t) reach = i; });
+  const growK = eOutExpo(seg(t, ROAD[reach].t, ROAD[reach].t + .4));
+  const reachX = t < ROAD[0].t ? x0 : lerp(reach ? xs[reach - 1] : x0, xs[reach], growK);
+  const g = ctx.createLinearGradient(x0, 0, x1, 0);
+  g.addColorStop(0, rgba(CYAN, 1)); g.addColorStop(.5, rgba(VIOLET, 1)); g.addColorStop(1, 'rgba(255,110,200,1)');
+  ctx.fillStyle = g; ctx.shadowColor = rgba(CYAN, .9); ctx.shadowBlur = 20; ctx.fillRect(x0, y - 2.5, reachX - x0, 5); ctx.shadowBlur = 0;
+  ROAD.forEach((r, i) => {
+    const k = eOutBack(seg(t, r.t - .04, r.t + .38)); if (k <= 0) return;
+    const x = xs[i], flash = Math.exp(-Math.max(0, t - r.t) * 5), big = i === 3;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = rgba(r.c, 1); ctx.shadowColor = rgba(r.c, 1); ctx.shadowBlur = 30 + 50 * flash;
+    ctx.beginPath(); ctx.arc(x, y, (big ? 16 : 12) * k, 0, 7); ctx.fill();
+    ctx.strokeStyle = rgba(r.c, .7 * flash); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 14 + 70 * (1 - flash), 0, 7); ctx.stroke();
+    ctx.restore();
+    ctx.save(); ctx.translate(x, y - 60); ctx.scale(k, k);
+    const vg = ctx.createLinearGradient(0, -130, 0, 0); vg.addColorStop(0, '#ffffff'); vg.addColorStop(1, rgba(r.c, 1));
+    ctx.font = `800 ${big ? 150 : 118}px Onest`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = vg; ctx.shadowColor = rgba(r.c, .6 + .4 * flash); ctx.shadowBlur = 30 + 40 * flash;
+    ctx.fillText(r.v, 0, 0); ctx.shadowBlur = 0;
+    ctx.restore();
+    const dk = eOutExpo(seg(t, r.t + .12, r.t + .5));
+    ctx.save(); ctx.globalAlpha *= dk; ctx.translate(0, (1 - dk) * 20);
+    text(r.when, x, y + 58, '500 26px "IBM Plex Mono"', rgba(r.c, 1), 'center', 'alphabetic', 4);
+    text(r.a, x, y + 104, '400 22px "IBM Plex Mono"', 'rgba(210,220,250,.92)', 'center');
+    text(r.b, x, y + 136, '400 22px "IBM Plex Mono"', 'rgba(210,220,250,.92)', 'center');
+    ctx.restore();
+  });
+  if (t > 19.7) {                                                   // 3.0 halo pulse
+    const p = (t - 19.7) * 2.4;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = `rgba(255,110,200,${.35 * (1 - (p % 1))})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(xs[3], y - 110, 110 + 60 * (p % 1), 0, 7); ctx.stroke(); ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ------------------------------------------------------------------ scene 8: to be continued (20.95-22)
+function scene8(t) {
+  if (t < 20.95) return;
+  const k = eOutExpo(seg(t, 21.0, 21.5)), sp = lerp(2, 26, eOutExpo(seg(t, 21.0, 21.9)));
+  const glitch = Math.exp(-Math.max(0, t - 21.0) * 7);
+  ctx.save(); ctx.globalAlpha = k;
+  for (const [dx, col] of [[-14 * glitch, 'rgba(53,228,255,.75)'], [14 * glitch, 'rgba(180,76,255,.75)']]) {
+    if (glitch < .03) continue;
+    text('TO BE CONTINUED', CX + dx, CY + 30, '800 118px Onest', col, 'center', 'alphabetic', sp);
+  }
+  ctx.save(); ctx.shadowColor = rgba(CYAN, .8); ctx.shadowBlur = 40;
+  text('TO BE CONTINUED', CX, CY + 30, '800 118px Onest', '#ffffff', 'center', 'alphabetic', sp);
+  ctx.restore();
+  if (glitch > .05) {                                               // slice displacement
+    for (let i = 0; i < 6; i++) {
+      const yy = CY - 70 + i * 22, off = Math.sin(i * 12.9 + t * 60) * 40 * glitch;
+      ctx.drawImage(work, 0, yy, W, 10, off, yy, W, 10);
+    }
+  }
+  const sk = eOutExpo(seg(t, 21.25, 21.6));
+  text('BOSSMAN · WINTER 2026', CX, CY + 100, '500 28px "IBM Plex Mono"', `rgba(159,179,218,${sk})`, 'center', 'alphabetic', 8);
+  const lw = 900 * eOutExpo(seg(t, 21.05, 21.6));
+  const lg = ctx.createLinearGradient(CX - lw / 2, 0, CX + lw / 2, 0);
+  lg.addColorStop(0, 'rgba(53,228,255,0)'); lg.addColorStop(.5, 'rgba(200,240,255,.9)'); lg.addColorStop(1, 'rgba(180,76,255,0)');
+  ctx.fillStyle = lg; ctx.fillRect(CX - lw / 2, CY + 56, lw, 3);
+  ctx.restore();
+}
+
 // ------------------------------------------------------------------ HUD
 function hud(t) {
-  const a = eOutExpo(seg(t, .2, .8)) * (1 - seg(t, 14.2, 14.7));
+  const a = eOutExpo(seg(t, .2, .8)) * (1 - seg(t, 21.45, 21.9));
   if (a <= 0) return;
   ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = 'rgba(160,185,255,.55)'; ctx.lineWidth = 2;
   const m = 56, L = 46;
   for (const [x, y, sx, sy] of [[m, m, 1, 1], [W - m, m, -1, 1], [m, H - m, 1, -1], [W - m, H - m, -1, -1]]) {
     ctx.beginPath(); ctx.moveTo(x, y + sy * L); ctx.lineTo(x, y); ctx.lineTo(x + sx * L, y); ctx.stroke();
   }
-  text('BOSSMAN // 32 DAYS', m + 22, m + 36, '400 20px "IBM Plex Mono"', 'rgba(160,185,255,.75)');
+  text(t < 15 ? 'BOSSMAN // 32 DAYS' : 'BOSSMAN // WHAT\'S NEXT', m + 22, m + 36, '400 20px "IBM Plex Mono"', 'rgba(160,185,255,.75)');
   const f = Math.floor(t * 60), tc = `00:00:${String(Math.floor(t)).padStart(2, '0')}:${String(f % 60).padStart(2, '0')}`;
   text(tc, W - m - 22, m + 36, '400 20px "IBM Plex Mono"', 'rgba(160,185,255,.75)', 'right');
-  const ch = t < 3 ? 'ORIGIN' : t < 6 ? 'VELOCITY' : t < 10 ? 'CAPABILITIES' : t < 13 ? 'PROOF' : 'BOSSMAN';
+  const ch = t < 3 ? 'ORIGIN' : t < 6 ? 'VELOCITY' : t < 10 ? 'CAPABILITIES' : t < 13 ? 'PROOF' : t < 15 ? 'BOSSMAN' : t < 17 ? 'JEFF · VOICE' : t < 21 ? 'ROADMAP · PROJECTION' : 'TO BE CONTINUED';
   text('CH ▸ ' + ch, m + 22, H - m - 18, '400 20px "IBM Plex Mono"', 'rgba(160,185,255,.75)');
   ctx.fillStyle = 'rgba(160,185,255,.18)'; ctx.fillRect(W - m - 322, H - m - 26, 300, 2);
   ctx.fillStyle = rgba(CYAN, .9); ctx.fillRect(W - m - 322, H - m - 26, 300 * clamp(t / DUR), 2);
@@ -432,7 +586,7 @@ function camera(t) {
   let z = 1 + .03 * Math.sin(t * .4) + .012 * beat(t), sx = 0, sy = 0;
   for (const h of HITS) {
     const age = t - h; if (age < 0 || age > .45) continue;
-    const s = (h === 13.0 ? 22 : h === 3.0 ? 14 : 7) * Math.exp(-age * 11);
+    const s = (h === 13.0 || h === 21.0 ? 22 : h === 3.0 || h === 15.0 ? 14 : 7) * Math.exp(-age * 11);
     sx += Math.sin(age * 90 + h) * s; sy += Math.cos(age * 77 + h) * s; z += .02 * Math.exp(-age * 10);
   }
   if (t > 12.3 && t < 13) z += .06 * eInExpo(seg(t, 12.3, 13));
@@ -443,18 +597,18 @@ function drawScene(t) {
   background(t);
   const cam = camera(t);
   ctx.setTransform(cam.z, 0, 0, cam.z, CX - CX * cam.z + cam.sx, CY - CY * cam.z + cam.sy);
-  scene1(t); scene2(t); scene3(t); scene4(t); scene5(t);
+  scene1(t); scene2(t); scene3(t); scene4(t); scene5(t); scene6(t); scene7(t); scene8(t);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   hud(t);
   // transition flashes on the drop and chapter cuts
-  for (const [h, a0] of [[3.0, .55], [6.0, .25], [10.0, .3]]) {
+  for (const [h, a0] of [[3.0, .55], [6.0, .25], [10.0, .3], [15.0, .45], [21.0, .6]]) {
     const k = seg(t, h - .04, h + .3); if (k <= 0 || k >= 1) continue;
     ctx.fillStyle = `rgba(220,240,255,${a0 * (k < .12 ? k / .12 : 1 - eOutExpo((k - .12) / .88))})`; ctx.fillRect(0, 0, W, H);
   }
   // vignette + final fade
   const vg = ctx.createRadialGradient(CX, CY, 500, CX, CY, 1250);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
-  const fo = seg(t, 14.45, 14.98); if (fo > 0) { ctx.fillStyle = `rgba(10,12,16,${fo})`; ctx.fillRect(0, 0, W, H); }
+  const fo = seg(t, 21.8, 21.99); if (fo > 0) { ctx.fillStyle = `rgba(10,12,16,${fo})`; ctx.fillRect(0, 0, W, H); }
   const fi = 1 - seg(t, 0, .25); if (fi > 0) { ctx.fillStyle = `rgba(10,12,16,${fi})`; ctx.fillRect(0, 0, W, H); }
 }
 window.renderFrame = function (t) {

@@ -1,5 +1,5 @@
-"""Original 15 s soundtrack for the Bossman promo, synthesized from scratch (no samples).
-120 BPM, D minor -> D major lift at the logo impact (13.0 s). Mixes the Kokoro VO with sidechain ducking."""
+"""Original 22 s soundtrack for the Bossman promo, synthesized from scratch (no samples).
+120 BPM, D minor -> D major lift at the logo impact (13.0 s), then an epic D-major chapter (15-21 s) and a final hit at 21.0 s. Mixes the Kokoro VO with sidechain ducking."""
 import json
 import sys
 from pathlib import Path
@@ -8,7 +8,7 @@ import soundfile as sf
 from scipy.signal import butter, sosfilt, fftconvolve, resample_poly
 
 WORK = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('.')   # dir holding voice/ from voice.py
-SR, DUR = 48000, 15.0
+SR, DUR = 48000, 22.0
 N = int(SR * DUR)
 rng = np.random.default_rng(7)
 L = np.zeros(N); R = np.zeros(N)
@@ -129,6 +129,70 @@ stereo(13.0, pad(CH['D'] + [69, 74], 2.0, bright=3800, g=0.32))
 stereo(13.0, sub(38, 1.9), 0.9)
 for k, m in enumerate([74, 78, 81, 86, 88]): stereo(13.08 + 0.12*k, bell(m), 0.7, pan=-0.5 + 0.25*k)
 
+# ---------- chapter 2 (15-22 s): epic projection section in D major
+def tom(f0=110, g=0.8):
+    n = int(0.5*SR); t = np.arange(n)/SR
+    f = f0*(1 + 0.8*np.exp(-t*30)); s = np.sin(2*np.pi*np.cumsum(f)/SR)*np.exp(-t*6)
+    return np.tanh(1.5*(s + 0.15*lp(rng.standard_normal(n), 900)*np.exp(-t*25)))*g
+def big_snare():
+    n = int(0.9*SR); t = np.arange(n)/SR
+    body = np.sin(2*np.pi*190*t)*np.exp(-t*18)*0.5
+    nz = bp(rng.standard_normal(n), 1200, 9000)*np.exp(-t*7)
+    return (body + nz)*0.6
+def choir(ms, dur, g=0.2):
+    n = int((dur + 1.0)*SR); t = np.arange(n)/SR; s = np.zeros(n)
+    for m in ms:
+        vib = 1 + 0.004*np.sin(2*np.pi*5.2*t + rng.random()*6)
+        ph = np.cumsum(hz(m)*vib)/SR
+        for d in (-0.005, 0.0, 0.006):
+            s += 2*((ph*(1 + d) + rng.random()) % 1.0) - 1
+    s = bp(s, 550, 900)*0.9 + bp(s, 1050, 1400)*0.6 + bp(s, 2300, 2900)*0.25   # "ah" formants
+    return s*env_adsr(n, 0.35, 0.3, 0.85, 1.0, dur)*g/len(ms)**0.5
+def brass(ms, dur=0.45, g=0.3):
+    n = int((dur + 0.4)*SR); t = np.arange(n)/SR; s = np.zeros(n)
+    for m in ms: s += saw(hz(m), n, (-0.004, 0.004))
+    y = np.zeros(n); cut = 900 + 4200*np.exp(-t*7); blk = 480
+    for k in range(0, n, blk): y[k:k+blk] = lp(s[k:k+blk], min(cut[k], 20000))
+    return hp(y, 120)*env_adsr(n, 0.012, 0.15, 0.7, 0.35, dur)*g/len(ms)**0.5
+
+CH2 = {'D': [50, 54, 57, 62], 'Bm': [47, 50, 54, 59], 'G': [43, 50, 55, 59], 'A': [45, 49, 52, 57]}
+prog2 = ['D', 'Bm', 'G', 'A', 'D', 'Bm']
+stereo(14.0, riser(1.0, 250, 9000, 0.3)); stereo(14.55, riser(0.45, 3000, 300, 0.18)[::-1])
+stereo(15.0, boom(), 0.75)
+for c, name in enumerate(prog2):                                   # 15.0 .. 21.0, one chord per second
+    tc = 15.0 + c; notes = CH2[name]
+    stereo(tc, choir([n + 12 for n in notes[1:]] + [notes[0] + 24], 1.0, 0.24))
+    stereo(tc, pad(notes, 1.0, bright=2600, g=0.16))
+    for e in range(8):
+        stereo(tc + 0.125*e, sub(notes[0] - 12, 0.11), 0.5 if e % 2 else 0.7)
+    arp = [notes[0] + 24, notes[2] + 24, notes[1] + 24, notes[3] + 24, notes[2] + 24, notes[1] + 36]
+    for s16 in range(8):
+        ts = tc + 0.125*s16
+        if ts < 20.9:
+            p = 0.5 if s16 % 2 else -0.5
+            stereo(ts, pluck(arp[s16 % 6], 0.16), 0.42, pan=p)
+for b in range(int((20.0 - 15.0)/0.5)):                             # half-time epic drums
+    tb = 15.0 + 0.5*b
+    stereo(tb, kick(1.0))
+    if b % 2 == 1: stereo(tb, big_snare(), 0.85)
+    for h in range(2): stereo(tb + 0.25*h + 0.125, hat(), 0.6, pan=0.3 if h else -0.3)
+    if b % 4 == 3:                                                  # taiko fill into each bar
+        for k, f0 in enumerate((140, 120, 100, 82)): stereo(tb + 0.125*k, tom(f0, 0.7), 1.0, pan=-0.4 + 0.27*k)
+for k, tv in enumerate([17.0, 17.9, 18.8, 19.7]):                  # brass hits on each version
+    name = ['G', 'A', 'D', 'Bm'][k]
+    stereo(tv, brass([n + 12 for n in CH2[name]], 0.4, 0.34), pan=(k - 1.5)*0.15)
+    stereo(tv, tom(70, 0.9)); stereo(tv - 0.1, whoosh(0.12, 0.16))
+roll_t = 20.0                                                       # build to the final hit
+while roll_t < 20.97:
+    step = 0.125 if roll_t < 20.5 else 0.0625
+    stereo(roll_t, big_snare(), 0.25 + 0.55*(roll_t - 20.0)); roll_t += step
+stereo(20.0, riser(1.0, 300, 11000, 0.32))
+stereo(21.0, boom(), 1.1)
+stereo(21.0, choir([62, 66, 69, 74, 78], 1.0, 0.34))
+stereo(21.0, pad([38, 50, 57, 62, 66, 69], 1.0, bright=4200, g=0.3))
+stereo(21.0, sub(38, 1.0), 0.9)
+for k, m in enumerate([74, 78, 81, 86, 90]): stereo(21.05 + 0.1*k, bell(m), 0.6, pan=-0.5 + 0.25*k)
+
 # ---------- reverb on the music bus
 n_ir = int(2.4*SR); ti = np.arange(n_ir)/SR
 irL = rng.standard_normal(n_ir)*np.exp(-ti*2.6); irR = rng.standard_normal(n_ir)*np.exp(-ti*2.6)
@@ -146,7 +210,8 @@ for arr in (mL, mR):
 
 # ---------- voice-over
 seg = json.load(open(WORK / 'voice' / 'seg.json'))
-starts = [0.45, 1.8, 3.05, 4.2, 6.0, 6.75, 7.5, 8.25, 9.0, 10.1, 11.65, 13.12]
+starts = [0.45, 1.8, 3.05, 4.2, 6.0, 6.75, 7.5, 8.25, 9.0, 10.1, 11.65, 13.12,
+          15.1, 17.0, 17.9, 18.8, 19.7, 21.02]
 vo = np.zeros(N)
 for s, st in zip(seg, starts):
     a, sr = sf.read(WORK / 'voice' / f"seg{s['i']:02d}.wav"); a = resample_poly(a, SR, sr)
@@ -161,7 +226,7 @@ duck = 1 - 0.55*np.clip(envv*3, 0, 1)
 mL *= duck; mR *= duck
 outL = 0.62*mL + 0.95*vo + 0.15*vo_rev
 outR = 0.62*mR + 0.95*vo + 0.15*vo_rev
-fade = np.ones(N); fi = int(14.4*SR); fade[fi:] = np.linspace(1, 0, N - fi)**1.5
+fade = np.ones(N); fi = int(21.55*SR); fade[fi:] = np.linspace(1, 0, N - fi)**1.5
 fade[:int(0.02*SR)] = np.linspace(0, 1, int(0.02*SR))
 st = np.stack([outL*fade, outR*fade], 1)
 st = np.tanh(st*1.2)/np.tanh(1.2)

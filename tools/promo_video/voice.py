@@ -14,7 +14,10 @@ k = Kokoro(str(MODELS / "kokoro-v1.0.onnx"), str(MODELS / "voices-v1.0.bin"),
            espeak_config=EspeakConfig(data_path=os.environ["ESPEAK_DATA_PATH"]))
 SEG = ["August twenty-seventh.", "The first commit.", "Thirty-two days.", "Nearly twenty-five hundred commits.",
        "Agents.", "Memory.", "Computer use.", "Video studio.", "Jeff, on Telegram.",
-       "Over five thousand tests.", "On your own machine.", "This is Bossman."]
+       "Over five thousand tests.", "On your own machine.", "This is Bossman.",
+       # 15-22 s: projection chapter
+       "Next: Jeff hears you, and talks back.", "One point eight.", "One point nine.",
+       "Two point oh.", "Three point oh, by winter.", "To be continued."]
 out = []
 for i, line in enumerate(SEG):
     a, sr = k.create(line, voice="am_fenrir", speed=1.05, lang="en-us")
