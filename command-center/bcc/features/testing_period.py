@@ -228,7 +228,7 @@ class SessionLog:
 # выглядит как «такого не случалось», хотя её просто нет в коде.
 LAUNCH_REASONS = ("start", "ok", "no-browser-found", "port-busy-foreign", "backend-build-mismatch",
                   "server-start-failed", "no-server-flag", "browser-launch-failed",
-                  "refused-second-window", "window-not-ready")
+                  "refused-second-window", "window-not-ready", "data-root-holder-silent")
 
 
 def mask_home(value: str) -> str:
