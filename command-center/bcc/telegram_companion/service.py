@@ -109,6 +109,8 @@ def failure_text(code: str) -> str:
         "IMAGE_GEN_FAILED": "Генерация не удалась в Bossman Studio. Подробности — в Студии, раздел «Картинки».",
         "IMAGE_GEN_CANCELLED": "Генерация отменена.",
         "IMAGE_GEN_TIMEOUT": "Генерация не уложилась в отведённое время и отменена.",
+        "IMAGE_GEN_CANCEL_UNCONFIRMED": "Bossman не подтвердил остановку: генерация, возможно, ещё идёт. "
+                                        "Проверьте Студию (раздел «Картинки») и остановите её там.",
         "VIDEO_TOO_LARGE_FOR_TELEGRAM": "Клип готов и проверен, но он больше 48 МБ — Telegram такой не примет. Он лежит в Bossman Studio (раздел «Картинки» → видео).",
         "ANIMATE_NO_SOURCE": "Пришлите фото с подписью /animate 5 или /animate 10 (можно добавить, как оно должно двигаться), или нажмите «Оживить» под картинкой.",
         "IMAGE_BYTES_UNVERIFIED":"Bossman отдал файл, который не прошёл проверку (хеш или формат не совпали). Картинку не отправляю.",
@@ -672,15 +674,13 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
                                          [[self.button(person, "✖️ Отмена", "/cancel")]])
             while True:
                 if self.image_job["cancel"]:
-                    with contextlib.suppress(CompanionError):
-                        await self.core.studio_cancel(job_id)
+                    stopped = await self.stop_studio_job(job_id)
                     await self.send_partial_video(person, job_id, prompt, video, "остановлено вами")
-                    raise CompanionError("IMAGE_GEN_CANCELLED")
+                    raise CompanionError("IMAGE_GEN_CANCELLED" if stopped else "IMAGE_GEN_CANCEL_UNCONFIRMED")
                 if time.monotonic() - started > deadline:
-                    with contextlib.suppress(CompanionError):
-                        await self.core.studio_cancel(job_id)
+                    stopped = await self.stop_studio_job(job_id)
                     await self.send_partial_video(person, job_id, prompt, video, "вышло время")
-                    raise CompanionError("IMAGE_GEN_TIMEOUT")
+                    raise CompanionError("IMAGE_GEN_TIMEOUT" if stopped else "IMAGE_GEN_CANCEL_UNCONFIRMED")
                 job = await self.core.studio_job(job_id)
                 status = job.get("status")
                 if status == "completed":
@@ -731,6 +731,21 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
             return None   # the media itself is the reply
         finally:
             self.image_job = None
+
+    async def stop_studio_job(self, job_id: int) -> bool:
+        """Остановить задание Студии. True — только если Bossman подтвердил, что оно больше не идёт.
+
+        Прежде ошибка отмены глоталась, а владелец всё равно читал «Генерация отменена»,
+        хотя задание на сервере продолжало работать."""
+        try:
+            await self.core.studio_cancel(job_id)
+            return True
+        except CompanionError:
+            pass
+        try:
+            return (await self.core.studio_job(job_id)).get("status") in {"cancelled", "failed", "completed"}
+        except CompanionError:
+            return False
 
     async def english_prompt(self, prompt: str) -> str:
         """Cyrillic prompt -> English via the local model; the original is kept if translation fails."""
