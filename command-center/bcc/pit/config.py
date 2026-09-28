@@ -98,6 +98,12 @@ class PITSettings:
     discovery_mode: str = "collection_first"
     collection_mode: str = "high_recall"
     allowlist_open: bool = False
+    # Zero-cost cloud requests per UTC day across all participants. Free tiers
+    # have daily caps; Jeff stops before hammering them (owner audit shows it).
+    cloud_daily_request_budget: int = 200
+    # Jeff window only (bossman pit web): no Telegram bot token at all, so this
+    # configuration can never start a poller. `bossman pit start` refuses it.
+    web_only: bool = False
     behavior_scales: dict[str, int] = field(default_factory=default_behavior_scales)
     bot_token: str = field(default="", repr=False)
     provider_key: str = field(default="", repr=False)
@@ -163,6 +169,9 @@ class PITSettings:
             raise ValueError("invalid discovery mode")
         if self.collection_mode not in {"off", "high_recall"}:
             raise ValueError("invalid collection mode")
+        if (type(self.cloud_daily_request_budget) is not int
+                or not 0 <= self.cloud_daily_request_budget <= 100_000):
+            raise ValueError("cloud_daily_request_budget must be 0..100000")
         if type(self.allowlist_open) is not bool:
             raise ValueError("allowlist_open must be a boolean")
         if (not isinstance(self.behavior_scales, dict)
@@ -178,7 +187,11 @@ class PITSettings:
             raise ValueError("identity salt must be hex") from None
         if len(raw) < 16:
             raise ValueError("identity salt must be at least 16 bytes")
-        if not self.bot_token:
+        if type(self.web_only) is not bool:
+            raise ValueError("web_only must be a boolean")
+        if self.web_only and self.bot_token:
+            raise ValueError("web_only configuration must not carry a Telegram bot token")
+        if not self.bot_token and not self.web_only:
             raise ValueError("bot token is required")
         if not self.provider_key and not self.local_models:
             raise ValueError("provider key is required without a local model")
@@ -248,6 +261,10 @@ def load(path: Path) -> PITSettings:
     else:
         data["local_models"] = tuple(data.get("local_models") or ())
     data["allowlist_open"] = bool(data.get("allowlist_open", False))
+    data["web_only"] = bool(data.get("web_only", False))
+    if data["web_only"]:
+        # A web-only data dir never holds a bot token, even from the environment.
+        data["bot_token"] = ""
     return PITSettings(**data)
 
 
@@ -262,6 +279,7 @@ def save_setup(
     local_url: str = "",
     local_models: list[str] | None = None,
     allowlist_open: bool = False,
+    web_only: bool = False,
     bot_token: str = "",
     provider_key: str = "",
     core_token: str = "",
@@ -271,7 +289,10 @@ def save_setup(
     """Create config + encrypted credentials atomically; refuses to overwrite."""
     if path.exists():
         raise CompanionError("CONFIG_EXISTS_EDIT_LOCALLY_WITH_BACKUP")
-    if not bot_token or bot_token.lower().startswith(("replace", "your")):
+    if web_only:
+        if bot_token:
+            raise CompanionError("WEB_ONLY_REFUSES_TELEGRAM_TOKEN")
+    elif not bot_token or bot_token.lower().startswith(("replace", "your")):
         raise CompanionError("TELEGRAM_TOKEN_REQUIRED")
     data: dict = {
         "data_dir": str(path.parent.parent),
@@ -283,6 +304,7 @@ def save_setup(
         "local_url": local_url,
         "local_models": list(local_models or ()),
         "allowlist_open": bool(allowlist_open),
+        "web_only": bool(web_only),
     }
     import secrets as _secrets
     credentials = {
@@ -309,6 +331,7 @@ def save_setup(
         local_url=parsed.get("local_url", ""),
         local_models=tuple(parsed.get("local_models") or ()),
         allowlist_open=bool(parsed.get("allowlist_open", False)),
+        web_only=bool(parsed.get("web_only", False)),
         bot_token=credentials["bot_token"],
         provider_key=credentials["provider_key"],
         core_token=credentials["core_token"],

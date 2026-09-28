@@ -1,4 +1,4 @@
-"""``bossman pit setup|status|doctor|start|stop|passport-checkpoint`` — owner surface.
+"""``bossman pit setup|status|doctor|start|stop|routes|web|passport-checkpoint`` — owner surface.
 
 The owner launch contract (docs/v1.7): PIT starts from the existing ``bossman``
 CLI, secrets stay out of argv/logs/config, diagnostics are secret-free and
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import getpass
 import json
 import os
@@ -32,7 +33,8 @@ from .config import (
 from .photo_runtime import build_photo_services, photo_runtime_status
 from .runtime import STOP_FLAG, ParticipantRuntime, StopRequested
 
-COMMANDS = ("setup", "status", "doctor", "start", "stop", "passport-checkpoint")
+COMMANDS = ("setup", "status", "doctor", "start", "stop", "routes", "web", "web-user",
+            "web-setup", "passport-checkpoint")
 
 
 def _resolve_path(argv: list[str]) -> Path:
@@ -40,6 +42,7 @@ def _resolve_path(argv: list[str]) -> Path:
     parser.add_argument("--data-dir", default="")
     parser.add_argument("command", choices=COMMANDS)
     ns, _ = parser.parse_known_args(argv)
+
     data_dir = Path(ns.data_dir) if ns.data_dir else default_data_dir()
     return config_path(data_dir)
 
@@ -341,6 +344,56 @@ def _route_stats(home: Path) -> dict:
     return {"turns": len(rows), "by_model": summary}
 
 
+ROUTE_AUDIT_FIELDS = ("at", "surface", "model", "provider", "ok", "latency_ms", "finish",
+                      "tokens_in", "tokens_out", "error", "route_reason", "local_gate",
+                      "context_tokens_est")
+
+
+def read_route_audit(home: Path, *, last: int = 20) -> list[dict]:
+    """Owner-only: which model answered each Jeff turn. Never message content."""
+    log_path = Path(home) / "logs" / "route_log.jsonl"
+    if not log_path.is_file():
+        return []
+    rows = []
+    for line in log_path.read_text(encoding="utf-8").splitlines()[-max(1, int(last)):]:
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict):
+            rows.append({key: row.get(key) for key in ROUTE_AUDIT_FIELDS if key in row})
+    return rows
+
+
+def cmd_routes(path: Path, argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="bossman pit routes")
+    parser.add_argument("--last", type=int, default=20)
+    parser.add_argument("--json", action="store_true")
+    ns, _ = parser.parse_known_args(argv[1:])
+    home = pit_home(_resolve_data_dir(path))
+    rows = read_route_audit(home, last=max(1, min(ns.last, 2000)))
+    budget = _store_state(home, "cloud_stop_reason")
+    day = time.strftime("%Y-%m-%d", time.gmtime())
+    used = _store_state(home, f"cloud_requests:{day}") or 0
+    cooldown = _store_state(home, "cloud_cooldown_until") or 0
+    summary = {"cloud_requests_today": used, "cloud_paused_reason": budget,
+               "cloud_cooldown_active": bool(cooldown and float(cooldown) > time.time())}
+    if ns.json:
+        print(json.dumps({"summary": summary, "routes": rows}, ensure_ascii=False, indent=2))
+        return 0
+    print("Jeff: кто отвечал (только для владельца; участникам модель не раскрывается)")
+    print(json.dumps(summary, ensure_ascii=False))
+    for row in rows:
+        status = "OK " if row.get("ok") else "ERR"
+        print(f"{row.get('at','?')} {status} {row.get('surface','telegram'):<8} "
+              f"{row.get('provider','?'):<6} {row.get('model','?')} "
+              f"{row.get('latency_ms','?')}ms finish={row.get('finish') or '-'} "
+              f"tok={row.get('tokens_in',0)}/{row.get('tokens_out',0)} "
+              f"reason={row.get('route_reason') or '-'} err={row.get('error') or '-'} "
+              f"gate={row.get('local_gate') or '-'}")
+    return 0
+
+
 def _queue_pending(home: Path) -> int:
     import sqlite3
     db_path = home / "companion.sqlite3"
@@ -407,14 +460,25 @@ def _keep_system_awake():
 def cmd_start(path: Path) -> int:
     from bcc.telegram_companion.store import single_instance
     settings = load(path)
+    if settings.web_only:
+        print("bossman pit: это web-only конфигурация окна Jeff; Telegram-бот здесь не настроен.",
+              file=sys.stderr)
+        return 2
     home = pit_home(_resolve_data_dir(path))
+    from .bot_guard import assert_not_companion_bot, token_poller_lock
+    locks = contextlib.ExitStack()
     try:
-        lock = single_instance(home)
+        # Jeff never polls the owner's «Пульт» companion bot, and one bot token
+        # has one poller on this machine even across different data dirs.
+        assert_not_companion_bot(settings.bot_token)
+        locks.enter_context(single_instance(home))
+        locks.enter_context(token_poller_lock(settings.bot_token))
     except CompanionError as exc:
+        locks.close()
         print(f"bossman pit: {exc}", file=sys.stderr)
         return 3
     (home / STOP_FLAG).unlink(missing_ok=True)
-    with lock, _keep_system_awake():
+    with locks, _keep_system_awake():
         runtime = ParticipantRuntime(settings)
         try:
             asyncio.run(runtime.run())
@@ -428,7 +492,6 @@ def cmd_start(path: Path) -> int:
             return 2
         finally:
             (home / STOP_FLAG).unlink(missing_ok=True)
-            import contextlib
             with contextlib.suppress(Exception):
                 asyncio.run(runtime.close())
 
@@ -466,6 +529,14 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_start(path)
     if command == "stop":
         return cmd_stop(path)
+    if command == "routes":
+        return cmd_routes(path, argv)
+    if command == "web-setup":
+        from . import web
+        return web.cmd_web_setup(path, argv)
+    if command in {"web", "web-user"}:
+        from . import web
+        return web.cli_main(path, argv)
     if command == "passport-checkpoint":
         from .passport_checkpoint import run_checkpoint
         report, checkpoint = run_checkpoint(load(path))
