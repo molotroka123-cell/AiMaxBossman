@@ -288,7 +288,9 @@ async def require_token(request: Request, x_bcc_token: str | None = Header(defau
     if sess is not None:
         if request.method not in SAFE_METHODS:
             sent = request.headers.get(CSRF_HEADER)
-            if not sent or not hmac.compare_digest(str(sent), str(sess["csrf"])):
+            # В байтах: compare_digest по str с не-ASCII бросает TypeError (500).
+            if not sent or not hmac.compare_digest(str(sent).encode("utf-8", "ignore"),
+                                                   str(sess["csrf"]).encode()):
                 # code="csrf": UI отличает «сессия есть, но CSRF-токен этой вкладки потерян/чужой»
                 # (лечится повторным входом) от политического 403 (сессия остаётся).
                 # Журнал тестового периода 51307af16b90: 4 таких 403 за 0 мс на POST
@@ -1322,8 +1324,15 @@ def _api_router() -> APIRouter:
         prepare = None
         if body.approve and body.lease is not None:
             async def prepare(session, approval):
-                lease = await _lease_from_parked_call(
-                    svc, approval, body.lease, body.by, session=session)
+                try:
+                    lease = await _lease_from_parked_call(
+                        svc, approval, body.lease, body.by, session=session)
+                except PermissionError as exc:
+                    # computer.act и т.п.: аренда запрещена политикой. Это ответ
+                    # владельцу (решение откатывается, вопрос остаётся), а не 500.
+                    raise ApiError(f"аренда не выдаётся: {exc}", status=409,
+                                   code="LEASE_NOT_ALLOWED",
+                                   hint="подтвердите без поля lease — одно действие") from None
                 if lease is None:
                     raise ApiError("аренду можно выдать только по ожидающему вызову "
                                    "этого подтверждения в активной задаче", status=409)
