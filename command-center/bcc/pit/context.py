@@ -20,6 +20,19 @@ def _tokens(text: str) -> set[str]:
     return {m.group(0).lower() for m in _WORD.finditer(str(text)) if len(m.group(0)) > 2}
 
 
+# The question words a participant uses for a fact rarely overlap its value
+# («Как меня зовут?» vs «Артём»). Each stored key carries its question words.
+_KEY_HINTS = {
+    "self_reported_relation_labels": "зовут имя звать name называть",
+    "hobbies": "люблю нравится хобби интерес увлечение like love",
+    "explanation_style": "отвечать стиль предпочитаю prefer",
+    "active_projects": "работа работаю проект work job",
+    "learning_goals": "учусь изучаю учёба learn",
+    "short_term": "нужно надо план цель need plan",
+    "devices": "пользуюсь устройство телефон компьютер device",
+}
+
+
 def select_persona_context(
     query: str,
     records: Iterable[dict[str, Any]],
@@ -39,7 +52,8 @@ def select_persona_context(
         value = str(row.get("value", ""))
         key = str(row.get("key", ""))
         category = str(row.get("category", ""))
-        overlap = len(q & (_tokens(value) | _tokens(key) | _tokens(category)))
+        overlap = len(q & (_tokens(value) | _tokens(key) | _tokens(category)
+                           | _tokens(_KEY_HINTS.get(key, ""))))
         confidence = float(row.get("confidence", 0.0) or 0.0)
         if confidence < float(min_confidence):
             continue

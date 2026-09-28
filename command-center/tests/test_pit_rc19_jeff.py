@@ -384,3 +384,16 @@ def test_window_persona_does_not_claim_to_be_in_telegram(tmp_path):
                                        consent=ConsentState(), selected_model_is_remote=True)
     assert "в Telegram" not in web_ctx.system and "окне Jeff" in web_ctx.system
     assert "в Telegram" in tg_ctx.system
+
+
+def test_name_fact_is_retrieved_when_asked_for_the_name():
+    """Live: 'Как меня зовут?' did not retrieve the stored name (no word overlap)."""
+    from bcc.pit.context import select_persona_context
+    records = [{"id": "turn:1:0", "category": "relationships", "key": "self_reported_relation_labels",
+                "value": "Артём", "confidence": 0.8, "evidence_kind": "explicit"},
+               {"id": "turn:2:1", "category": "interests", "key": "hobbies",
+                "value": "горные походы", "confidence": 0.8, "evidence_kind": "explicit"}]
+    picked = select_persona_context("Как меня зовут и в каком городе я живу?", records)
+    assert [item.text for item in picked][:1] == ["Артём"]
+    hobby = select_persona_context("Что я люблю?", records)
+    assert "горные походы" in [item.text for item in hobby]
