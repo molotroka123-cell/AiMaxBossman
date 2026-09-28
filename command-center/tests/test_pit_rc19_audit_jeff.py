@@ -244,3 +244,43 @@ def test_token_poller_lock_is_unlocked_before_close(monkeypatch, tmp_path):
     assert modes[-1] == unlock
     with bot_guard.token_poller_lock("123456:fixture-token"):   # immediately free again
         pass
+
+
+# -- rc19 core audit: a corrupt counter must not hand out a fresh budget ------------------
+def test_corrupt_budget_file_is_set_aside_and_today_counts_as_spent(tmp_path):
+    budget = CloudBudget(tmp_path, 100)
+    budget.spend()
+    budget.path.write_text("{\"date\": \"20", encoding="utf-8")        # torn / hand-edited
+    assert budget.blocked() == "daily_budget"                          # was "" (fresh 100)
+    assert budget.try_spend() == "daily_budget"
+    aside = list(tmp_path.glob("cloud_budget.corrupt-*.json"))
+    assert len(aside) == 1 and aside[0].read_text(encoding="utf-8") == "{\"date\": \"20"
+    # the exhausted state is persisted: a second reader does not start clean either
+    assert CloudBudget(tmp_path, 100).blocked() == "daily_budget"
+    assert CloudBudget(tmp_path, 100).status()["last_stop_reason"] == "budget_corrupt"
+
+
+def test_check_and_spend_are_one_step(tmp_path):
+    budget = CloudBudget(tmp_path, 2)
+    assert budget.try_spend() == "" and budget.try_spend() == ""
+    assert budget.try_spend() == "daily_budget"
+    assert budget.status()["used_today"] == 2                          # the refused one not counted
+    budget.stop("provider_daily_limit", until=time.time() + 3600)
+    assert CloudBudget(tmp_path, 100).try_spend() == "provider_daily_limit"
+
+
+def test_a_stale_budget_check_does_not_send_past_the_budget(tmp_path, monkeypatch):
+    """Two surfaces share one counter: the other one spent the last request after
+    this turn's check. Before, the turn still sent (check and spend were separate)."""
+    import dataclasses as _dc
+    from .test_pit_runtime import make_settings
+    settings = _dc.replace(make_settings(tmp_path), cloud_daily_request_budget=1)
+    adapter = FakeAdapter("Ок.")
+    runtime = make_runtime(tmp_path, adapter=adapter, settings=settings)
+    _started(runtime)
+    runtime.cloud.spend()                                               # the other surface
+    monkeypatch.setattr(runtime.cloud, "blocked", lambda: "")           # its stale check
+    answer = asyncio.run(runtime.handle(_person(runtime), message("вопрос", message_id=310)))
+    assert adapter.calls == []
+    assert answer == rt.CLOUD_PAUSED_RU
+    assert runtime.cloud_budget_status()["used_today"] == 1

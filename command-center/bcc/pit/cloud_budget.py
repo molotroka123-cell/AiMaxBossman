@@ -116,9 +116,27 @@ class CloudBudget:
             try:
                 data = json.loads(raw)
             except ValueError:
-                return {}                   # corrupt (hand-edited): start clean
-            return data if isinstance(data, dict) else {}
+                data = None
+            if isinstance(data, dict):
+                return data
+            return self._quarantine_corrupt()
         raise BudgetStateUnreadable("cloud budget unreadable") from last
+
+    def _quarantine_corrupt(self) -> dict:
+        """A corrupt counter is not "nothing spent today": starting clean handed
+        out a whole new daily budget (and dropped a provider pause). The bad file
+        is set aside for the owner and today's budget counts as exhausted; the
+        next UTC day starts normally. Called under the lock."""
+        aside = self.path.with_name(f"{self.path.stem}.corrupt-{int(time.time())}.json")
+        with contextlib.suppress(OSError):
+            os.replace(self.path, aside)
+        data = {"date": _day(), "used": max(0, self.daily_budget), "exhausted": True,
+                "cooldown_until": 0, "stop_reason": "budget_corrupt", "models": {}}
+        self._save(data)                    # persisted: the next read must not start clean either
+        return data
+
+    def _spent_out(self, data: dict) -> bool:
+        return bool(data.get("exhausted")) or int(data.get("used", 0)) >= self.daily_budget
 
     def _load(self) -> dict:
         data = self._read()
@@ -167,9 +185,28 @@ class CloudBudget:
             return "budget_unreadable"
         if float(data.get("cooldown_until", 0) or 0) > time.time():
             return str(data.get("stop_reason") or "rate_limited")
-        if int(data.get("used", 0)) >= self.daily_budget:
+        if self._spent_out(data):
             return "daily_budget"
         return ""
+
+    def try_spend(self) -> str:
+        """Check AND count one request under one lock ('' = counted, may send).
+
+        `blocked()` then `spend()` were two lock sections: concurrent turns (bot
+        and window, or two chats) all passed the check at budget-1 and all sent.
+        """
+        try:
+            with self._locked():
+                data = self._load()
+                if float(data.get("cooldown_until", 0) or 0) > time.time():
+                    return str(data.get("stop_reason") or "rate_limited")
+                if self._spent_out(data):
+                    return "daily_budget"
+                data["used"] = int(data.get("used", 0)) + 1
+                self._save(data)
+            return ""
+        except OSError:
+            return "budget_unreadable"
 
     def model_blocked(self, model: str) -> bool:
         try:
