@@ -79,7 +79,7 @@ used to rank candidates, never fabricated or probed as a paid side effect here.
             continue
         health = model_health.HealthRecord.from_dict(model.get("health"))
         if agent_id is None and (health.status not in {model_health.HEALTHY, model_health.UNMEASURED}
-                                 or model.get("status") in {"offline", "error"}):
+                                 or model.get("status") in {"offline", "error", "unavailable"}):
             reasons.append("У доступных агентов модель не отвечает. Проверьте модель или выберите её явно для повтора.")
             continue
         if agent_id is None and families and (model.get("caps") or {}).get("tools") is False:

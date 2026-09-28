@@ -26,8 +26,9 @@ PIT_CREDENTIALS_NAME = "credentials.enc"
 DEFAULT_FREE_CHAT_MODELS: tuple[str, ...] = (
     "typesafe/jev-1.5",
     "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "nex-agi/nex-n2.5-pro:free",
 )
+# RC19: `nex-agi/nex-n2.5-pro:free` was withdrawn from OpenRouter (2026-09-28)
+# and is no longer offered as a default candidate.
 
 BEHAVIOR_SCALE_NAMES = (
     "initiative", "curiosity", "depth", "brevity",

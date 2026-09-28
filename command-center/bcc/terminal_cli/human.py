@@ -410,6 +410,13 @@ class View:
         self.state.thinking_seen = True
         lines = sanitize(rec.get("delta")).strip().split("\n")
         self.state.blocks.append({"kind": "thinking", "text": "\n".join(lines)})
+        if not self.verbose:
+            # RC19: the owner saw a local Qwen's private thinking in CMD. The
+            # reasoning is kept in this session's blocks only; it is printed
+            # on request (/expand N) or with --verbose, never by default.
+            self._bossman([Text(f"{g.thinking} модель рассуждала ({len(lines)} строк скрыто, "
+                                f"/expand {len(self.state.blocks)})", style="muted")])
+            return
         shown = lines[:THINK_LINES]
         body = [Text(f"{g.thinking} " + shown[0], style="thinking")]
         body += [Text("  " + ln, style="thinking") for ln in shown[1:]]

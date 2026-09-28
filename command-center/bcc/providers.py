@@ -120,6 +120,27 @@ class ProviderAdapter(Protocol):
     async def list_models(self) -> list[str]: ...
 
 
+def is_ollama_v1_url(url: str) -> bool:
+    """Loopback Ollama's OpenAI-compatible endpoint (default port 11434, path /v1)."""
+    try:
+        parts = urlparse(url or "")
+        port = parts.port
+    except ValueError:
+        return False
+    return ((parts.hostname or "").lower() in ("127.0.0.1", "localhost", "::1")
+            and port == 11434 and parts.path.rstrip("/") == "/v1")
+
+
+def _wrong_service(exc: ProviderError) -> bool:
+    """/models answered, but not like a model server (404/405/HTML/foreign JSON).
+
+    401/403 stay a configuration error: the server is there, the key is not."""
+    text = str(exc)
+    if exc.kind == "protocol":
+        return True
+    return exc.kind == "http" and not any(f"({code})" in text for code in (401, 403, 429))
+
+
 def is_local_url(url: str) -> bool:
     """Адрес на этой же машине или в локальной сети.
 
@@ -258,6 +279,15 @@ class OpenAICompatAdapter(_BaseAdapter):
             payload["tool_choice"] = kw.get("tool_choice") or "auto"
         if kw.get("response_format") is not None:
             payload["response_format"] = kw["response_format"]
+        if kw.get("reasoning_effort") is not None:
+            payload["reasoning_effort"] = kw["reasoning_effort"]
+        elif is_ollama_v1_url(self.base_url):
+            # RC19: Ollama's /v1 returns a thinking model's private reasoning in
+            # `message.reasoning` (CMD showed it to the owner) and spends the
+            # answer budget on it. `think: false` is ignored on /v1;
+            # `reasoning_effort: "none"` switches thinking off (Ollama 0.34.4,
+            # owner host). A caller that wants reasoning asks for it explicitly.
+            payload["reasoning_effort"] = "none"
         delays = iter(TRANSIENT_RETRY_DELAYS)
         while True:
             resp = await self._request("POST", f"{self.base_url}/chat/completions",
@@ -305,7 +335,16 @@ class OpenAICompatAdapter(_BaseAdapter):
         try:
             models = await self.list_model_info()
         except ProviderError as exc:
-            return Health(status="offline" if exc.kind == "network" else "error", detail=str(exc))
+            if exc.kind == "network":
+                return Health(status="offline", detail=str(exc))
+            if is_local_url(self.base_url) and _wrong_service(exc):
+                # RC19: 127.0.0.1:8081 was taken by another app. A local port
+                # that answers, but not as an OpenAI-compatible model server, is
+                # as unusable as a closed one: «offline» (re-probed), not a model
+                # «error» that nothing re-checks.
+                return Health(status="offline",
+                              detail=f"на адресе {_host(self.base_url)} отвечает не сервер моделей: {exc}")
+            return Health(status="error", detail=str(exc))
         detail = model_catalog_problem(models)
         return Health(status="error" if detail else "ok", detail=detail,
                       latency_ms=int((time.perf_counter() - t0) * 1000))

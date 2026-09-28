@@ -124,8 +124,56 @@ async def _on_failure(svc):
     return on_failure
 
 
+LOCAL_PROBE_SECONDS = 60
+
+
+async def probe_local_models(svc, rules: dict | None = None) -> list[int]:
+    """RC19: a local endpoint's «online» is a measurement, not a memory.
+
+    Local llama.cpp servers on :8081/:8082 were stopped, yet their models kept
+    status «online» (only a failing run or a manual «Проверить» re-checked
+    them), so the UI and the Smart Router trusted endpoints that no longer
+    existed. Every local model whose online/offline status is older than
+    `local_probe_seconds` is re-checked through the same `check_model`
+    (GET /models of the local server: no inference, no load, no cloud).
+    A dead endpoint becomes «offline»; a revived one «online» again. Models in
+    «error»/«unknown» are left to their own paths (degraded re-check above,
+    an explicit test). Returns the ids that were probed.
+    """
+    from ..db import providers as providers_t
+    from ..v2.model_router import derive_local
+    rules = rules or {}
+    every = float(rules.get("local_probe_seconds", LOCAL_PROBE_SECONDS) or 0)
+    if every <= 0:
+        return []
+    now = utcnow()
+    async with svc.db.session() as s:
+        rows = (await s.execute(
+            sa.select(models_t.c.id, models_t.c.kind, models_t.c.last_check,
+                      providers_t.c.kind.label("provider_kind"),
+                      providers_t.c.base_url.label("provider_base_url"))
+            .select_from(models_t.join(providers_t, models_t.c.provider_id == providers_t.c.id))
+            .where(models_t.c.status.in_(("online", "offline"))))).fetchall()
+    probed: list[int] = []
+    for r in rows:
+        m = r._mapping
+        local, _why = derive_local(m["kind"], m["provider_kind"], m["provider_base_url"])
+        if not local:
+            continue
+        last = m["last_check"]               # naive UTC, like utcnow()
+        if last is not None and (now - last).total_seconds() < every:
+            continue
+        try:
+            await svc.registry.check_model(int(m["id"]))
+        except Exception:  # noqa: BLE001 — one broken row must not stop the others
+            continue
+        probed.append(int(m["id"]))
+    return probed
+
+
 async def _tick(svc):
     """Degraded-модели: периодический re-check; online → recovery.completed."""
+    await probe_local_models(svc, await _rules(svc))
     async with svc.db.session() as s:
         degraded = (await s.execute(sa.select(models_t.c.id).where(
             models_t.c.status == "error",

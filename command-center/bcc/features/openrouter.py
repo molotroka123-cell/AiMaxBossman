@@ -575,4 +575,32 @@ async def setup(svc) -> None:
             await svc.bus.emit("model.bootstrapped", provider_id=provider_id, aliases=aliases, source=ENV_MODELS)
 
 
-FEATURE = Feature(name="openrouter", router=router, setup=setup)
+CATALOG_CHECK_SECONDS = 900      # = DEFAULT_TTL_SECONDS: a tick never beats the sync TTL
+
+
+async def catalog_check(svc) -> dict | None:
+    """RC19: periodic live-catalog check of the installation's OpenRouter provider.
+
+    Without it the registry only learned about a withdrawn model when the owner
+    pressed «Обновить список», so `nex-n2.5-pro:free` stayed «online» for days.
+    The sync keeps its TTL (no extra traffic), marks models that left the
+    catalog «unavailable» and re-reads live prices. No key, a private context
+    or an outage leaves everything as it is — the reason goes to the event bus.
+    """
+    row = await identity.provider_row(svc.db, svc.vault)
+    if row is None or not svc.vault.decrypt(row.get("api_key_enc")):
+        return None
+    try:
+        result = await OpenRouterCatalogService(svc.db, svc.vault).sync(int(row["id"]))
+    except Exception as exc:  # noqa: BLE001 — a failed check changes no model status
+        await svc.bus.emit("openrouter.catalog_check_failed", provider_id=int(row["id"]),
+                           **{k: v for k, v in _catalog_failure(exc).items() if k != "catalog_status"})
+        return None
+    if result.get("unavailable"):
+        await svc.bus.emit("model.catalog_missing", provider_id=int(row["id"]),
+                           aliases=list(result["unavailable"]))
+    return result
+
+
+FEATURE = Feature(name="openrouter", router=router, setup=setup,
+                  tick=catalog_check, tick_seconds=CATALOG_CHECK_SECONDS)

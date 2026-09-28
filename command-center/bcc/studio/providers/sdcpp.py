@@ -609,8 +609,14 @@ def _argv(cfg: dict, model_id: str, plane: GenerationPlane, settings: dict,
                  "--llm", str(files["llm"]), "--cfg-scale", "1.0",
                  "--offload-to-cpu", "--diffusion-fa"]
     elif model_id == "sdcpp:qwen-image-2.1":
+        # RC19 job 11: text-to-image WITH --llm_vision sat 48 min at 5 % on the CPU
+        # (no GPU engine use); the same command WITHOUT it ran on Vulkan0 (512²,
+        # 20 steps, 295 s, correct image). The vision encoder is for reference
+        # images only, so plain generation omits it.
+        vision = (["--llm_vision", str(files["llm_vision"])]
+                  if any(item.get("role") == "reference" for item in plane.media) else [])
         argv += ["--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),
-                 "--llm", str(files["llm"]), "--llm_vision", str(files["llm_vision"]),
+                 "--llm", str(files["llm"]), *vision,
                  "--cfg-scale", "6.0", "--sampling-method", "euler", "--offload-to-cpu"]
     elif model_id == "sdcpp:qwen-image-edit-2509":
         argv += ["--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),

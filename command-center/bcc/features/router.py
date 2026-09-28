@@ -27,7 +27,8 @@ from ..v2.model_intelligence import TaskComplexityFeatures, classify_reasoning
 from ..v2.model_router import (MAX_CANDIDATES, ModelCandidate, RouteRequest,
                                candidate_digest, derive_local, disqualify, route,
                                shortlist)
-from ..v2.tables import model_capability_checks as caps_t
+from ..v2.openrouter_catalog_service import MISSING_STATUS
+from ..v2.tables import model_capability_checks as caps_t, provider_catalog_models as catalog_t
 from . import Feature
 
 RULES_KEY = "router.rules"
@@ -122,6 +123,48 @@ async def _verified_caps(svc) -> dict[int, tuple[set[str], set[str]]]:
     return out
 
 
+def _is_openrouter_url(base_url: str | None) -> bool:
+    from urllib.parse import urlsplit
+    try:
+        host = (urlsplit(base_url or "").hostname or "").lower()
+    except ValueError:
+        return False
+    return host == "openrouter.ai" or host.endswith(".openrouter.ai")
+
+
+async def _live_catalog(svc) -> dict[int, dict[str, tuple]]:
+    """{provider_id: {remote_id: (price_in, price_out)}} for catalog-priced providers.
+
+    A provider with its own synced catalog is priced by it. OpenRouter's
+    catalog is global (identical for every key), so an OpenRouter provider
+    that was never synced — e.g. a second «test key» provider — is priced by
+    the installation's synced OpenRouter catalog, not by a hand-typed 0/0 or a
+    `:free` suffix. Only rows seen in the latest successful sync (stale=False)
+    count as «in the catalog». Without any OpenRouter catalog there is no
+    live evidence and the registry's explicit price stands.
+    """
+    async with svc.db.session() as s:
+        rows = (await s.execute(sa.select(
+            catalog_t.c.provider_id, catalog_t.c.remote_id, catalog_t.c.stale,
+            catalog_t.c.price_in, catalog_t.c.price_out))).fetchall()
+        provs = (await s.execute(sa.select(providers_t.c.id, providers_t.c.base_url))).fetchall()
+    openrouter = {int(p._mapping["id"]) for p in provs if _is_openrouter_url(p._mapping["base_url"])}
+    out: dict[int, dict[str, tuple]] = {}
+    shared: dict[str, tuple] = {}
+    for r in rows:
+        m = r._mapping
+        pid = int(m["provider_id"])
+        live = out.setdefault(pid, {})
+        if not m["stale"]:
+            live[m["remote_id"]] = (m["price_in"], m["price_out"])
+            if pid in openrouter:
+                shared.setdefault(m["remote_id"], (m["price_in"], m["price_out"]))
+    if any(pid in openrouter for pid in out):
+        for pid in openrouter - set(out):
+            out[pid] = shared
+    return out
+
+
 async def _candidates(svc, rules: dict, *,
                       kind: str | None = None) -> list[ModelCandidate]:
     """Кандидаты из реестра + живой сигнал (health, bench, доля успехов, пробы).
@@ -163,6 +206,7 @@ async def _candidates(svc, rules: dict, *,
         if m["n"] >= CLASS_MIN_EPISODES:      # достаточная выборка по классу
             success[m["model_alias"]] = (m["ok"] or 0) / m["n"]
     probes = await _verified_caps(svc)
+    live_catalog = await _live_catalog(svc)
     role_scores = rules.get("role_scores") or {}
     out: list[ModelCandidate] = []
     for r in models:
@@ -173,16 +217,26 @@ async def _candidates(svc, rules: dict, *,
         verified, unsupported = probes.get(m["id"], (set(), set()))
         bench = m["bench"] if isinstance(m["bench"], dict) else {}
         local, _why = derive_local(m["kind"], m["provider_kind"], m["provider_base_url"])
+        online = m["status"] == "online"
+        price_in = (m["price_in"] if m.get("pricing_known") else None) if not local else (m["price_in"] or 0.0)
+        price_out = (m["price_out"] if m.get("pricing_known") else None) if not local else (m["price_out"] or 0.0)
+        live = live_catalog.get(m["provider_id"]) if not local else None
+        if live is not None:
+            # RC19: a catalog provider's price is the LIVE catalog price. A
+            # `:free` suffix or a hand-typed 0/0 is not evidence; a model the
+            # catalog no longer lists has no price and is not online.
+            price_in, price_out = live.get(m["name"], (None, None))
+            online = online and m["name"] in live
         out.append(ModelCandidate(
             id=m["id"], alias=m["alias"],
-            online=m["status"] == "online",
+            online=online,
             local=local,
             context_window=m["context_window"] or 8192,
             capabilities=advertised,
             verified_capabilities=set(verified),
             unsupported_capabilities=set(unsupported),
-            price_in=((m["price_in"] if m.get("pricing_known") else None) if not local else (m["price_in"] or 0.0)),
-            price_out=((m["price_out"] if m.get("pricing_known") else None) if not local else (m["price_out"] or 0.0)),
+            price_in=price_in,
+            price_out=price_out,
             latency_ms=bench.get("latency_ms"), gen_tps=bench.get("gen_tps"),
             memory_mb=(await _local_model_memory_mb(m, bench) if local else None),
             success_rate=success.get(m["alias"]),
@@ -408,20 +462,7 @@ async def check_forced_model(svc, model_id, *, meta: dict | None, agent: dict | 
     return bad
 
 
-async def _memory_pressure_fallback(svc, task: dict, agent: dict | None, meta: dict,
-                                    rules: dict, kind: str):
-    """Unrouted task whose local agent model does not fit into measured memory.
-
-    Switches this run to the agent's configured fallback model only when that
-    model passes the same hard policy as any forced model (cloud consent,
-    price, capabilities) AND costs nothing (local, or cloud priced 0/0).
-    Otherwise the agent model stays and the reason is emitted, so the owner
-    sees why nothing moved. Never changes the agent's configuration.
-    """
-    agent = agent or {}
-    fallback_id = agent.get("fallback_model_id")
-    if not fallback_id or not agent.get("model_id") or not rules.get("live_memory", True):
-        return None
+async def _agent_model_row(svc, model_id):
     async with svc.db.session() as s:
         row = (await s.execute(
             sa.select(models_t,
@@ -429,10 +470,71 @@ async def _memory_pressure_fallback(svc, task: dict, agent: dict | None, meta: d
                       providers_t.c.base_url.label("provider_base_url"))
             .select_from(models_t.outerjoin(
                 providers_t, models_t.c.provider_id == providers_t.c.id))
-            .where(models_t.c.id == int(agent["model_id"])))).first()
-    if row is None:
+            .where(models_t.c.id == int(model_id)))).first()
+    return row._mapping if row is not None else None
+
+
+def _is_free(c: ModelCandidate) -> bool:
+    """Free = local, or a cloud price KNOWN to be 0/0 (live catalog for catalog providers)."""
+    return c.local or (c.price_in is not None and c.price_out is not None
+                       and not c.price_in and not c.price_out)
+
+
+def _has_cloud_budget(meta: dict) -> bool:
+    budget = meta.get("cloud_budget_usd")
+    return isinstance(budget, (int, float)) and not isinstance(budget, bool) and budget > 0
+
+
+async def _switch_to_fallback(svc, task: dict, agent: dict, meta: dict, rules: dict,
+                              kind: str, *, own_alias: str, reason: str, event: str,
+                              extra: dict | None = None):
+    """Route this run to the agent's fallback model when policy allows it.
+
+    The fallback passes the same hard policy as any forced model (cloud
+    consent, price, capabilities, health) AND costs nothing (local, or cloud
+    priced 0/0), unless the task carries its own cloud budget. Otherwise the
+    agent model stays and the reason is emitted, so the owner sees why nothing
+    moved. Never changes the agent's configuration.
+    """
+    fallback_id = agent.get("fallback_model_id")
+    denied = await check_forced_model(svc, fallback_id, meta=meta, agent=agent, kind=kind)
+    fb = next((c for c in await _candidates(svc, rules, kind=kind)
+               if int(c.id) == int(fallback_id)), None)
+    if not denied and fb is not None and not _is_free(fb) and not _has_cloud_budget(meta):
+        denied = ["fallback is not free (price unknown or > 0) and no cloud budget"]
+    if denied or fb is None:
+        await svc.bus.emit(event, task_id=task["id"],
+                           outcome="kept_agent_model", reason=reason,
+                           fallback_model_id=int(fallback_id),
+                           denied="; ".join(denied or ["unknown fallback model"])[:300])
         return None
-    own = row._mapping
+    route_info = {"alias": fb.alias, "score": None, "task_type": kind,
+                  "reasons": [reason, f"{event} → agent fallback model"],
+                  "rejected": {own_alias: [reason]}, "considered": 1, "total": 1,
+                  "fallback_from": own_alias, **(extra or {})}
+    await svc.bus.emit(event, task_id=task["id"],
+                       outcome="switched_to_fallback", reason=reason,
+                       fallback_model_id=int(fallback_id))
+    await svc.bus.emit("router.route_selected", task_id=task["id"],
+                       model_id=int(fb.id), alias=fb.alias, reason=reason[:300])
+    return {"model_id": int(fb.id), "route": route_info}
+
+
+async def _memory_pressure_fallback(svc, task: dict, agent: dict | None, meta: dict,
+                                    rules: dict, kind: str):
+    """Unrouted task whose local agent model does not fit into measured memory.
+
+    Switches this run to the agent's configured fallback model under
+    `_switch_to_fallback`'s policy; otherwise the agent model stays with a
+    visible reason.
+    """
+    agent = agent or {}
+    fallback_id = agent.get("fallback_model_id")
+    if not fallback_id or not agent.get("model_id") or not rules.get("live_memory", True):
+        return None
+    own = await _agent_model_row(svc, agent["model_id"])
+    if own is None:
+        return None
     local, _why = derive_local(own["kind"], own["provider_kind"], own["provider_base_url"])
     if not local:
         return None
@@ -446,31 +548,77 @@ async def _memory_pressure_fallback(svc, task: dict, agent: dict | None, meta: d
     if available is None or need <= float(available):
         return None
     reason = f"memory {need:.0f}MB > available {float(available):.0f}MB for {own['alias']}"
-    denied = await check_forced_model(svc, fallback_id, meta=meta, agent=agent, kind=kind)
-    fb = next((c for c in await _candidates(svc, rules, kind=kind)
-               if int(c.id) == int(fallback_id)), None)
-    if not denied and fb is not None and not fb.local and (fb.price_in or fb.price_out
-                                                           or fb.price_in is None
-                                                           or fb.price_out is None):
-        budget = meta.get("cloud_budget_usd")
-        if not (isinstance(budget, (int, float)) and not isinstance(budget, bool) and budget > 0):
-            denied = ["fallback is not free (price unknown or > 0) and no cloud budget"]
-    if denied or fb is None:
-        await svc.bus.emit("router.memory_pressure", task_id=task["id"],
-                           outcome="kept_agent_model", reason=reason,
-                           fallback_model_id=int(fallback_id),
-                           denied="; ".join(denied or ["unknown fallback model"])[:300])
+    return await _switch_to_fallback(svc, task, agent, meta, rules, kind,
+                                     own_alias=own["alias"], reason=reason,
+                                     event="router.memory_pressure", extra={"memory": info})
+
+
+async def _unavailable_model_route(svc, task: dict, agent: dict | None, meta: dict,
+                                  rules: dict, kind: str):
+    """RC19: the agent's model cannot answer, so route BEFORE the call.
+
+    Two measured cases: the model left the live provider catalog (status
+    «unavailable»; calling it can only fail with «unknown cloud pricing»), or
+    it is a LOCAL model whose endpoint the health probe found dead or taken by
+    another app (status «offline», re-probed every minute by healing).
+    The agent's fallback model comes first (same policy as memory pressure);
+    without a usable fallback, the free ladder — local first, then cloud
+    models whose live catalog price is 0/0 (cloud only with explicit consent).
+    Paid models are never chosen here without a task cloud budget; the paid
+    GLM tier with its hard daily cap belongs to the learning supervisor's
+    ladder (tools/owner_journeys/route_ladder.py). Nothing eligible → None:
+    the engine keeps its existing path and names the error.
+    """
+    agent = agent or {}
+    if not agent.get("model_id"):
         return None
-    route_info = {"alias": fb.alias, "score": None, "task_type": kind,
-                  "reasons": [reason, "memory pressure → agent fallback model"],
-                  "rejected": {own["alias"]: [reason]}, "considered": 1, "total": 1,
-                  "fallback_from": own["alias"], "memory": info}
-    await svc.bus.emit("router.memory_pressure", task_id=task["id"],
-                       outcome="switched_to_fallback", reason=reason,
-                       fallback_model_id=int(fallback_id))
+    own = await _agent_model_row(svc, agent["model_id"])
+    if own is None:
+        return None
+    local, _why = derive_local(own["kind"], own["provider_kind"], own["provider_base_url"])
+    if own["status"] == MISSING_STATUS:
+        reason = f"{own['alias']}: нет в живом каталоге провайдера (модель снята)"
+        event = "router.model_withdrawn"
+    elif local and own["status"] == "offline":
+        detail = (own["status_detail"] or "endpoint не отвечает")[:160]
+        reason = f"{own['alias']}: локальный сервер модели недоступен ({detail})"
+        event = "router.model_offline"
+    else:
+        return None
+    if agent.get("fallback_model_id"):
+        switched = await _switch_to_fallback(svc, task, agent, meta, rules, kind,
+                                             own_alias=own["alias"], reason=reason, event=event)
+        if switched is not None:
+            return switched
+    cloud_allowed, cloud_why = cloud_policy(meta, agent, rules)
+    req = RouteRequest(
+        task_type=kind, requires=_requires(kind, rules),
+        min_context=int(meta.get("min_context") or 0),
+        cloud_allowed=cloud_allowed, max_price_out=meta.get("max_price_out"),
+        available_memory_mb=meta.get("available_memory_mb"), prefer_local=True,
+        max_candidates=int(rules.get("max_candidates") or MAX_CANDIDATES),
+        require_verified=bool(rules.get("require_verified", False)))
+    pool = [c for c in await _candidates(svc, rules, kind=kind)
+            if int(c.id) != int(own["id"]) and (_is_free(c) or _has_cloud_budget(meta))]
+    decision = route(req, pool)
+    if decision.model is None:
+        denied = "no free eligible model" + ("" if cloud_allowed else f"; cloud: {cloud_why}")
+        await svc.bus.emit(event, task_id=task["id"], outcome="kept_agent_model",
+                           reason=reason, denied=denied[:300])
+        return None
+    route_info = {"alias": decision.model.alias, "score": decision.score, "task_type": kind,
+                  "reasons": [reason, "free ladder: local → cloud 0/0 (live catalog)",
+                              *decision.reasons],
+                  "rejected": {own["alias"]: [reason], **decision.rejected},
+                  "considered": decision.considered, "total": decision.total,
+                  "fallback_from": own["alias"],
+                  "cloud_allowed": cloud_allowed, "cloud_policy": cloud_why}
+    await svc.bus.emit(event, task_id=task["id"], outcome="switched_to_ladder",
+                       reason=reason, model_id=int(decision.model.id))
     await svc.bus.emit("router.route_selected", task_id=task["id"],
-                       model_id=int(fb.id), alias=fb.alias, reason=reason[:300])
-    return {"model_id": int(fb.id), "route": route_info}
+                       model_id=int(decision.model.id), alias=decision.model.alias,
+                       reason=reason[:300])
+    return {"model_id": int(decision.model.id), "route": route_info}
 
 
 async def _make_pick_hook(svc):
@@ -481,6 +629,9 @@ async def _make_pick_hook(svc):
         # иначе оставляем модель агента (None) — не ломаем существующее поведение
         kind = task.get("kind") or "generic"
         if not (meta.get("route") or kind not in ("generic", None)):
+            rerouted = await _unavailable_model_route(svc, task, agent, meta, rules, kind)
+            if rerouted is not None:
+                return rerouted
             return await _memory_pressure_fallback(svc, task, agent, meta, rules, kind)
         # F-016: облако fail-closed — без явного разрешения кандидаты только местные
         cloud_allowed, cloud_why = cloud_policy(meta, agent, rules)
