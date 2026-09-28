@@ -340,3 +340,16 @@ async def test_cli_process_is_killed_on_stop(app, monkeypatch):
     v = await wait_for(c, rid, settled, timeout=20)
     assert agent(v, "slow")["status"] == "stopped"
     assert asyncio.get_running_loop().time() - t0 < 15               # not waiting out the 30 s child
+
+
+async def test_concurrent_stops_and_pause_never_leave_an_agent_half_stopped(app):
+    c, _ = app
+    rid = await start(c, ["mock:a?steps=40&delay=0.1", "mock:b?steps=40&delay=0.1"])
+    await wait_for(c, rid, lambda v: agent(v, "a")["step"] >= 1)
+    await asyncio.gather(c.post(f"/api/rave/{rid}/stop", json={"agent": "a"}),
+                         c.post(f"/api/rave/{rid}/stop", json={}),
+                         c.post(f"/api/rave/{rid}/pause", json={}),
+                         c.post(f"/api/rave/{rid}/stop", json={"agent": "a"}))
+    v = await wait_for(c, rid, settled)
+    assert {x["status"] for x in v["agents"]} == {"stopped"}, v
+    assert not any(x.get("finalizing") for x in v["agents"])

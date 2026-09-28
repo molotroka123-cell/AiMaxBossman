@@ -128,11 +128,15 @@ class RaveService:
     def lock(self, rid: str) -> asyncio.Lock:
         return self.locks.setdefault(rid, asyncio.Lock())
 
-    async def mutate(self, rid: str, name: str | None, **fields: Any) -> dict:
+    async def mutate(self, rid: str, name: str | None, *, live_only: bool = False, **fields: Any) -> dict:
+        """live_only: a control transition (pausing/paused/running/stopping) never
+        overwrites a final state written concurrently by the agent's own finish."""
         async with self.lock(rid):
             rec = self.load(rid)
             if name is not None:
                 agent = self._agent(rec, name)
+                if live_only and agent["status"] in TERMINAL:
+                    return rec
                 agent.update(fields)
             else:
                 rec.update(fields)
@@ -318,7 +322,9 @@ class RaveService:
             final = {"status": "failed", "error": f"{type(exc).__name__}: {exc}"[:1500]}
         finally:
             if final:
-                await self._finish(runner, final)
+                # shielded: a second STOP (or shutdown) arriving while the result is
+                # being committed must not leave the agent half-finalized
+                await asyncio.shield(self._finish(runner, final))
 
     async def _ensure_workspace(self, rid: str, name: str, rec: dict) -> None:
         agent = self._agent(rec, name)
@@ -454,7 +460,7 @@ class RaveService:
                 r.suspended = True
                 status = "paused"
                 await self.event(rid, "suspended", a["name"], processes=n)
-            await self.mutate(rid, a["name"], status=status, pause_reason="owner")
+            await self.mutate(rid, a["name"], live_only=True, status=status, pause_reason="owner")
             await self.event(rid, "agent_" + status, a["name"])
             changed.append(a["name"])
         return {"ok": True, "changed": changed, "rave": self.view(self.load(rid))}
@@ -471,7 +477,7 @@ class RaveService:
                     await asyncio.to_thread(_suspend, r.tree.pid, False)
                     r.suspended = False
                 r.gate.set()
-                await self.mutate(rid, a["name"], status="running", pause_reason=None)
+                await self.mutate(rid, a["name"], live_only=True, status="running", pause_reason=None)
                 await self.event(rid, "agent_resumed", a["name"])
                 changed.append(a["name"])
             elif not live and a["status"] == "paused":
@@ -494,8 +500,13 @@ class RaveService:
                 continue
             key = (rid, a["name"])
             r = self.runners.get(key)
-            await self.mutate(rid, a["name"], stop_requested=True, status="stopping")
+            await self.mutate(rid, a["name"], live_only=True, stop_requested=True, status="stopping")
             if r and r.task and not r.task.done():
+                if r.stop:                        # STOP already under way: just wait for it
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
+                        await asyncio.wait_for(asyncio.shield(r.task), timeout=30)
+                    changed.append(a["name"])
+                    continue
                 r.stop = True
                 r.gate.set()
                 if r.tree is not None:
@@ -668,12 +679,12 @@ class AgentCtx:
         if r.stop:
             raise _Stopped()
         if not r.gate.is_set():
-            await self.service.mutate(self.rid, self.name, status="paused")
+            await self.service.mutate(self.rid, self.name, live_only=True, status="paused")
             await self.service.event(self.rid, "agent_paused", self.name, at_step=True)
             await r.gate.wait()
             if r.stop:
                 raise _Stopped()
-            await self.service.mutate(self.rid, self.name, status="running", pause_reason=None)
+            await self.service.mutate(self.rid, self.name, live_only=True, status="running", pause_reason=None)
 
     def journal_state(self, step: int) -> str | None:
         return self.journal.get(str(step))
