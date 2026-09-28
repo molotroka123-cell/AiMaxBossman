@@ -1,6 +1,6 @@
 # Bossman 3D objects for games (voxel3d) — CANDIDATE, branch `rc19/h-3d`
 
-**Status (2026-09-28): CANDIDATE, not part of the 1.9 freeze.** Lead integrates after review.
+**Status (2026-09-28): owner GREEN LIGHT (пульт); `rc19/h-3d` @ 9a32b877 merged into `rc19/p-green` for the lead's integration into PR #84.**
 
 ## Кратко (для владельца)
 - `tools/voxel3d`: фраза («дубовое дерево») → локальная Qwen пишет компактный JSON-чертёж вокселей → детерминированный сборщик делает `.vox` (MagicaVoxel), `.glb` (жадное мешевание, цвета по материалам) и структуру BossBlocks (тот же формат записей, что и сохранение игры).

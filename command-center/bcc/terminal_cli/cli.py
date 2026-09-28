@@ -301,7 +301,7 @@ def build_parser() -> argparse.ArgumentParser:
     mk.add_argument("--headed", action="store_true")
     mk.add_argument("--keep-frames", type=int, default=0)
 
-    ct = sub.add_parser("collect", help="rc19/i-collector (не в релизе): человекоподобный сбор "
+    ct = sub.add_parser("collect", help="человекоподобный сбор "
                                         "данных из одобренных владельцем страниц — "
                                         "collect \"<тема>\" --sources <файл>")
     ct.add_argument("topic")
@@ -371,7 +371,7 @@ def cmd_collect(args) -> int:
     """rc19/i-collector: same dispatch shape as ``cmd_market`` above — a
     standalone Bossman command (its own STOP file, its own audit ledger)
     rather than an LLM-agent task, because nothing in the pipeline calls a
-    model. Not part of the release candidate; branch rc19/i-collector only."""
+    model. Owner GREEN LIGHT 2026-09-28 (merged via rc19/p-green)."""
     from bcc.collector.cli import main as collect_main
 
     argv = [args.topic, "--sources", args.sources, "--max-pages", str(args.max_pages),

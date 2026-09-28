@@ -1,8 +1,10 @@
 # Human-like data collector (rc19/i-collector)
 
-Status: **feature branch only** — `rc19/i-collector`, not merged into the release
-candidate, not activated, awaiting lead/owner GREEN LIGHT. Documentation here is
-not activation or certification.
+Status: owner GREEN LIGHT 2026-09-28 (пульт); `rc19/i-collector` merged into
+`rc19/p-green` for the lead's integration into PR #84. Runs only when the owner
+starts `bossman collect`; nothing is scheduled. Documentation here is not
+certification. Since 7f8de773 a sentence with an e-mail address or phone number
+is never a fact (found in the p-green live run).
 
 Workstream I builds a way for Bossman to gather information from the web the
 way a careful, considerate human researcher does — so it keeps working

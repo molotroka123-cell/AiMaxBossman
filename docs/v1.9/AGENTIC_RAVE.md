@@ -5,8 +5,8 @@ The owner watches them side by side in Bossman CMD and keeps pause / resume /
 STOP for every agent and for the whole rave. Nothing an agent does can reach
 the owner's project without the normal Bossman approval.
 
-Status: feature branch `rc19/g-rave`, NOT merged into the 1.9 freeze until the
-lead/owner gives an explicit GREEN LIGHT.
+Status: owner GREEN LIGHT 2026-09-28 (пульт); `rc19/g-rave` merged into
+`rc19/p-green` for the lead's integration into PR #84.
 
 ## 1. Bossman CMD (the `bossman` terminal)
 
