@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import html
 import re
 
 
@@ -30,6 +31,17 @@ def render_jeff_reply(answer: str) -> str:
         re.IGNORECASE,
     )
     return generic_tail.sub("", text).rstrip()
+
+
+def spoken_reply_text(answer: str) -> str:
+    """Turn visible answer formatting into text suitable for local TTS."""
+    value = render_jeff_reply(answer)
+    value = re.sub(r"<[^>]{1,120}>", "", value)
+    value = re.sub(r"\[([^\]]{1,200})\]\([^)]{1,500}\)", r"\1", value)
+    value = re.sub(r"(?m)^\s{0,3}#{1,6}\s+", "", value)
+    value = re.sub(r"(?m)^\s*[-*]\s+", "", value)
+    value = re.sub(r"[*_`]+", "", value)
+    return html.unescape(value).strip()
 
 
 def public_model_label() -> str:

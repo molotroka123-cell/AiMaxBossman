@@ -23,13 +23,16 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import os
 import re
+import shutil
 import time
 import traceback
 from dataclasses import replace
 from pathlib import Path
 
 from bcc.providers import build_adapter
+from bcc.oss.piper import PiperError, synthesize_ogg
 from bcc.telegram_companion.adapters import (
     IMAGE_MAX_BYTES,
     Models,
@@ -51,7 +54,7 @@ from .photo_commands import photo_intent
 from .photo_edit import PhotoEditPipeline
 from .photo_pipeline import PhotoPipeline
 from .photo_runtime import PhotoServices, build_photo_services
-from .presentation import render_jeff_reply
+from .presentation import render_jeff_reply, spoken_reply_text
 from .ollama_native import OllamaNativeChatAdapter, is_native_ollama_url
 from .public_guard import public_guard
 from .roleplay import RolePlayMode, roleplay_prompt
@@ -110,7 +113,7 @@ INTRO_RU = (
 HELP_RU = (
     "Команды Jeff: /memory — что помню; /forget <что>; /pause_memory; /resume_memory; "
     "/export_me; /delete_me; /privacy; /search <запрос>; /style <как отвечать>; "
-    "/roleplay и /parody — игровые режимы."
+    "/roleplay и /parody — игровые режимы; /voice on|off — голосовой ответ владельцу."
 )
 
 NO_MODEL_RU = ("Сейчас у меня нет доступной бесплатной модели для ответа. Это честный статус, "
@@ -800,20 +803,50 @@ class ParticipantRuntime:
                 self._finish_update(update_id, "done", fresh)
                 continue
             try:
-                sent_id = await self.telegram.send(
-                    fresh, render_jeff_reply(answer),
-                    reply_to_message_id=message.get("_message_id"),
-                    parse_mode="HTML",
+                rendered = render_jeff_reply(answer)
+                voice_mode = (
+                    fresh.role == "owner"
+                    and self.store.get("voice_reply:" + fresh.key, False) is True
+                    and not str(message.get("text") or "").startswith("/")
+                    and not message.get("_photo") and not message.get("_document")
                 )
-                if type(sent_id) is int and sent_id > 0:
-                    with contextlib.suppress(OSError):
-                        _append_jsonl(self.home / "logs" / "delivery_log.jsonl", {
-                            "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                            "update_id": update_id,
-                            "reply_message_id": sent_id,
-                            "person_key": self.vault.key_for_telegram(fresh.user_id)[:12] + "…",
-                            "schema": "bossman.pit.delivery-log/1",
-                        })
+                if voice_mode:
+                    async def make_voice(guarded_text: str) -> bytes:
+                        return await asyncio.to_thread(
+                            synthesize_ogg, guarded_text,
+                            piper_executable=os.environ.get("BOSSMAN_PIT_TTS_EXECUTABLE", ""),
+                            model_path=os.environ.get("BOSSMAN_PIT_TTS_MODEL_PATH", ""),
+                            ffmpeg_executable=shutil.which("ffmpeg") or "",
+                            stopped=lambda: (self.home / STOP_FLAG).exists(),
+                        )
+                    try:
+                        sent_id = await self.telegram.send_voice(
+                            fresh, spoken_reply_text(answer), make_voice,
+                            reply_to_message_id=message.get("_message_id"),
+                            stopped=lambda: (self.home / STOP_FLAG).exists(),
+                        )
+                    except PiperError as exc:
+                        if str(exc) == "VOICE_STOPPED":
+                            raise StopRequested("owner stop flag") from exc
+                        # Missing/failed optional local TTS leaves the chat usable.
+                        # A network or unverified voice delivery is NOT retried.
+                        sent_id = await self.telegram.send(
+                            fresh, rendered, reply_to_message_id=message.get("_message_id"),
+                            parse_mode="HTML")
+                else:
+                    sent_id = await self.telegram.send(
+                        fresh, rendered, reply_to_message_id=message.get("_message_id"),
+                        parse_mode="HTML")
+                if type(sent_id) is not int or sent_id <= 0:
+                    raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
+                with contextlib.suppress(OSError):
+                    _append_jsonl(self.home / "logs" / "delivery_log.jsonl", {
+                        "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "update_id": update_id,
+                        "reply_message_id": sent_id,
+                        "person_key": self.vault.key_for_telegram(fresh.user_id)[:12] + "…",
+                        "schema": "bossman.pit.delivery-log/1",
+                    })
                 pending_chat = self._pending_chat_records.pop(update_id, None)
                 if pending_chat is not None:
                     try:
@@ -839,6 +872,10 @@ class ParticipantRuntime:
                 self._pending_chat_records.pop(update_id, None)
                 self._pending_photo_memory.pop(
                     (fresh.key, str(message.get("_message_id") or "0")), None)
+                self.store.finish(update_id, "delivery_unknown")
+                raise
+            except StopRequested:
+                self._pending_chat_records.pop(update_id, None)
                 self.store.finish(update_id, "delivery_unknown")
                 raise
             except (CompanionError, Exception):
@@ -1029,6 +1066,16 @@ class ParticipantRuntime:
             return self._start(person_key, consent)
         if command == "/help":
             return HELP_RU
+        if command == "/voice":
+            if person.role != "owner":
+                return "Голосовой режим пока доступен только владельцу."
+            selection = argument.strip().lower()
+            if selection not in {"on", "off"}:
+                return "Голосовой режим: /voice on или /voice off."
+            self.store.put("voice_reply:" + person.key, selection == "on")
+            return ("Голосовой ответ включён для этого чата. Если локальная озвучка "
+                    "недоступна, отвечу текстом." if selection == "on" else
+                    "Голосовой ответ выключен для этого чата.")
         if command in USER_COMMANDS:
             return await self._memory_command(person, person_key, text)
         if command in {"/photoedit", "/editphoto"}:
@@ -1244,6 +1291,7 @@ class ParticipantRuntime:
         # local-first with remote fallback: every route here is zero-cost
         attempts: list[tuple[str, object, str]] = []
         local_fallback: str | None = None
+        prefer_local_after_refusal = False
         if is_local:
             attempts.append((model, self.local_adapter, "local"))
             if consent.remote_processing_enabled:
@@ -1252,12 +1300,13 @@ class ParticipantRuntime:
         else:
             attempts.append((model, self.adapter, "remote"))
             local_fallback = next((item.id for item in self.catalog.values() if item.local), None)
+            attempts.extend((fallback, self.adapter, "remote")
+                            for fallback in self._remote_fallbacks(model))
             if self.settings.local_fallback_on_cloud_refusal and local_fallback:
                 attempts.append((local_fallback, self.local_adapter, "local"))
-            else:
-                attempts.extend((fallback, self.adapter, "remote")
-                                for fallback in self._remote_fallbacks(model))
         for route_index, (route_model, adapter, provider) in enumerate(attempts):
+            if prefer_local_after_refusal and provider == "remote":
+                continue
             # The control lane can change consent while a local model is slow.
             # Rebuild the complete payload for each attempt, including fallback.
             route_consent = self.vault.consent(person_key)
@@ -1367,12 +1416,14 @@ class ParticipantRuntime:
                                     text + "\n\nОтветь кратко, закончи каждую мысль и завершай ответ точкой."}]
                 if result is None:
                     continue
-                if (provider == "remote" and local_fallback
-                        and (not result.text.strip() or _cloud_refusal(result.text))):
+                if (provider == "remote" and
+                        (not result.text.strip() or _cloud_refusal(result.text))):
                     self._log_route(person_key=person_key, model=route_model,
                                     provider=provider, ok=False,
                                     latency_ms=int((time.monotonic() - started) * 1000),
                                     context_chars=context_chars, error="cloud_refusal")
+                    prefer_local_after_refusal = bool(
+                        self.settings.local_fallback_on_cloud_refusal and local_fallback)
                     result = None
                     continue
                 context = route_context
