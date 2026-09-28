@@ -28,6 +28,8 @@ RUNTIME_FILES = (
     "command-center/ui/jeff.js",
     "command-center/bcc/jeff_desktop.py",
     "command-center/bcc/pit/presentation_profile.py",
+    "command-center/bcc/pit/web.py",
+    "command-center/bcc/pit/speech.py",
     "tools/desktop/install-jeff-shortcut.ps1",
 )
 
@@ -35,6 +37,7 @@ TEST_FILES = (
     "command-center/tests/test_jeff_ux_isolation.py",
     "command-center/tests/test_jeff_ux_browser.py",
     "command-center/tests/test_pit_presentation_profile.py",
+    "command-center/tests/test_pit_web.py",
 )
 
 HELPER_FILES = (
