@@ -122,7 +122,8 @@ function resultPanels(r) {
 }
 
 function personBlock(p) {
-  const status = p.status === 'OK' ? '' : ' · без согласия на память — не анализировался';
+  const status = { OK: '', BLOCKED: ' · в чёрном списке Jeff — не анализировался' }[p.status]
+    ?? ' · без согласия на память — не анализировался';
   const facts = (p.facts_added || []).map((f) => h('div.log-line',
     h('span.log-msg', h('b', f.value), ` — ${f.category}/${f.key}`,
       (f.evidence || []).slice(0, 2).map((e) => h('div.small.dim', `«${e.snippet}» · ${e.source} · ${e.at}`)))));
