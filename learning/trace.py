@@ -51,6 +51,31 @@ def _schema_dir() -> Path:
 SCHEMA_PATH = _schema_dir() / "learning_fix_case.schema.json"
 DATA_DIR = ROOT / "data" / "learning"
 DOCS_DIR = ROOT / "docs" / "learning" / "fix_logs"
+#: Explicit corpus location. Required when this package runs from an installed
+#: wheel: there ROOT is site-packages and the checkout defaults above would write
+#: learning data INTO the installed application.
+ENV_LEARNING_DIR = "BOSSMAN_LEARNING_DIR"
+
+
+class LearningStoreLocationError(RuntimeError):
+    """No safe default corpus location (installed package, no explicit directory)."""
+
+
+def _installed_package() -> bool:
+    return any(part.casefold() in ("site-packages", "dist-packages") for part in ROOT.parts)
+
+
+def default_dirs() -> tuple[Path, Path]:
+    """(data_dir, docs_dir) for a LearningStore built without explicit paths."""
+    env = os.environ.get(ENV_LEARNING_DIR, "").strip()
+    if env:
+        base = Path(env)
+        return base, base / "docs"
+    if _installed_package():
+        raise LearningStoreLocationError(
+            f"learning package is installed at {ROOT}; the checkout default would write into the "
+            f"installed application. Pass data_dir explicitly or set {ENV_LEARNING_DIR}.")
+    return DATA_DIR, DOCS_DIR
 
 STATUSES = ("VERIFIED", "FAILED_EXPERIMENT", "PARTIAL", "UNVERIFIED", "REJECTED")
 FORBIDDEN_FIELDS = frozenset({"chain_of_thought", "hidden_reasoning", "thoughts", "scratchpad",
@@ -449,8 +474,16 @@ class LearningStore:
 
     def __init__(self, data_dir: Path | None = None, docs_dir: Path | None = None,
                  schema: dict | None = None):
-        self.data_dir = Path(data_dir or DATA_DIR)
-        self.docs_dir = Path(docs_dir or DOCS_DIR)
+        default_data = default_docs = None
+        if not data_dir or not docs_dir:
+            try:
+                default_data, default_docs = default_dirs()
+            except LearningStoreLocationError:
+                if not data_dir:
+                    raise                                   # never fall back into the installed app
+                default_docs = Path(data_dir) / "docs"
+        self.data_dir = Path(data_dir or default_data)
+        self.docs_dir = Path(docs_dir or default_docs)
         self.schema = schema or load_schema()
         self.verified_path = self.data_dir / "fix_cases.jsonl"
         self.failed_path = self.data_dir / "failed_experiments.jsonl"
