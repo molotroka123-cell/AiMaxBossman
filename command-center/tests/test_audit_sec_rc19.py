@@ -184,3 +184,42 @@ def test_an_ask_rule_tightens_on_any_resource():
     from bcc.tools import decide_effect
     rules = [{"tool": "*", "resource": "*wallet*", "effect": "ask"}]
     assert decide_effect(_spec(), {"url": "https://x/wallet", "name": "ok"}, {}, rules)[0] == "ask"
+
+
+# ------------------------------------------------ P2-2 / P2-3: 500 вместо ответа
+
+async def test_lease_on_a_non_leasable_tool_is_a_409_and_keeps_the_question(env):
+    import sqlalchemy as sa
+    from bcc.db import approvals as approvals_t, task_runs, tool_calls, utcnow
+    from .helpers import make_stack
+    stack = await make_stack(env.client)
+    tid = stack["task"]["id"]
+    async with env.svc.db.session() as s:
+        run_id = (await s.execute(sa.select(task_runs.c.id)
+                                  .where(task_runs.c.task_id == tid))).scalar()
+        await s.execute(sa.update(task_runs).where(task_runs.c.id == run_id)
+                        .values(status="running"))
+        await s.commit()
+    appr = await env.svc.approvals.create(kind="tool", preview="p", task_id=tid, run_id=run_id)
+    async with env.svc.db.session() as s:
+        await s.execute(sa.insert(tool_calls).values(
+            run_id=run_id, task_id=tid, tool="computer.act", call_id="c1",
+            args={"action": "click"}, effect="ask", status="pending_approval",
+            approval_id=appr["id"], created_at=utcnow()))
+        await s.commit()
+    res = await env.client.post(f"/api/approvals/{appr['id']}",
+                                json={"approve": True, "lease": {"max_uses": 2, "ttl_seconds": 60}})
+    assert res.status_code == 409 and res.json()["error"]["code"] == "LEASE_NOT_ALLOWED"
+    async with env.svc.db.session() as s:
+        status = (await s.execute(sa.select(approvals_t.c.status)
+                                  .where(approvals_t.c.id == appr["id"]))).scalar()
+    assert status == "pending"
+
+
+def test_non_ascii_csrf_header_is_a_403_not_a_500(env):
+    from fastapi.testclient import TestClient
+    with TestClient(env.app, raise_server_exceptions=False) as client:
+        _login(client, env.svc)
+        res = client.post("/api/agents", json={"name": "x"},
+                          headers={"X-BCC-CSRF": "caf\xe9".encode("latin-1")})
+        assert res.status_code == 403 and res.json()["error"]["code"] == "csrf"
