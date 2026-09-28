@@ -1,0 +1,71 @@
+{
+ "meta": {
+  "title": "Weekly report",
+  "bpm": 116,
+  "key": "F",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // WEEKLY REPORT",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "WEEK 39",
+   "kicker": "SALES REPORT",
+   "start": 0.0,
+   "end": 2.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Week thirty-nine."
+    }
+   ]
+  },
+  {
+   "type": "bars",
+   "values": [
+    42,
+    51,
+    38,
+    66,
+    71,
+    94,
+    58
+   ],
+   "headline_label": "DAYS",
+   "counter_label": "ORDERS",
+   "x_from": "MON",
+   "x_to": "SUN",
+   "highlight": {
+    "index": 5,
+    "text": "BEST: SATURDAY"
+   },
+   "start": 2.0,
+   "end": 7.0,
+   "vo": [
+    {
+     "t": 2.1,
+     "text": "Four hundred twenty orders."
+    },
+    {
+     "t": 3.65,
+     "text": "Saturday was the best day."
+    }
+   ]
+  },
+  {
+   "type": "end_card",
+   "text": "SEE YOU MONDAY",
+   "sub": "WEEK 40 STARTS NOW",
+   "start": 7.0,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 7.1,
+     "text": "See you Monday."
+    }
+   ]
+  }
+ ]
+}

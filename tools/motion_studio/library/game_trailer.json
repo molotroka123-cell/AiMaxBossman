@@ -1,0 +1,79 @@
+{
+ "meta": {
+  "title": "Game trailer",
+  "bpm": 140,
+  "key": "A",
+  "brand": "BOSSBLOCKS",
+  "hud": "BOSSBLOCKS // GAME TRAILER",
+  "voice": "am_fenrir",
+  "duration": 12.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "PLAY",
+   "kicker": "BOSSBLOCKS · GODOT",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Bossblocks."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "FEATURES",
+   "items": [
+    {
+     "t": 2.75,
+     "title": "LEVELS",
+     "sub": "hand-built worlds",
+     "icon": "play"
+    },
+    {
+     "t": 3.7,
+     "title": "BOSS FIGHTS",
+     "sub": "learn the patterns",
+     "icon": "bolt"
+    },
+    {
+     "t": 4.45,
+     "title": "RESPAWN",
+     "sub": "press R, go again",
+     "icon": "cursor"
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "Hand-built levels."
+    },
+    {
+     "t": 3.7,
+     "text": "Boss fights."
+    },
+    {
+     "t": 4.45,
+     "text": "Instant respawn."
+    }
+   ],
+   "start": 2.5,
+   "end": 8.0
+  },
+  {
+   "type": "end_card",
+   "text": "COMING SOON",
+   "sub": "WISHLIST NOW",
+   "start": 8.0,
+   "end": 12.0,
+   "vo": [
+    {
+     "t": 8.1,
+     "text": "Coming soon."
+    }
+   ]
+  }
+ ]
+}

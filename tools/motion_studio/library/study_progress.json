@@ -1,0 +1,54 @@
+{
+ "meta": {
+  "title": "Study streak",
+  "bpm": 110,
+  "key": "F",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // STUDY STREAK",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "30 DAYS",
+   "kicker": "CZECH STREAK",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Thirty days of Czech."
+    }
+   ]
+  },
+  {
+   "type": "grid",
+   "value": 660,
+   "label": "MINUTES",
+   "caption": "30 DAYS × 22 MIN AVERAGE",
+   "start": 2.5,
+   "end": 7.0,
+   "vo": [
+    {
+     "t": 2.6,
+     "text": "Six hundred sixty minutes."
+    }
+   ]
+  },
+  {
+   "type": "sticker",
+   "lottie": "noto_trophy",
+   "text": "STREAK!",
+   "sub": "DAY 31 TOMORROW",
+   "start": 7.0,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 7.1,
+     "text": "Streak unlocked."
+    }
+   ]
+  }
+ ]
+}

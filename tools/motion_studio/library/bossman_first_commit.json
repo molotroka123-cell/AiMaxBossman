@@ -1,0 +1,45 @@
+{
+ "meta": {
+  "title": "First commit",
+  "bpm": 120,
+  "key": "D",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // FIRST COMMIT",
+  "voice": "am_fenrir",
+  "duration": 8.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "27 AUG",
+   "kicker": "2026",
+   "typed": "$ git commit -m \"Bossman Control v0.3\"",
+   "chip": "1e6c8c56",
+   "start": 0.0,
+   "end": 4.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "August twenty-seventh."
+    },
+    {
+     "t": 1.44,
+     "text": "The first commit."
+    }
+   ]
+  },
+  {
+   "type": "logo",
+   "name": "BOSSMAN",
+   "tagline": "DAY ONE · 27 AUG 2026",
+   "start": 4.0,
+   "end": 8.0,
+   "vo": [
+    {
+     "t": 4.1,
+     "text": "This is where it began."
+    }
+   ]
+  }
+ ]
+}

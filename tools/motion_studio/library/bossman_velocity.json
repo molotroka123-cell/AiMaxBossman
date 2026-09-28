@@ -1,0 +1,96 @@
+{
+ "meta": {
+  "title": "Velocity",
+  "bpm": 126,
+  "key": "D",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // VELOCITY",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "VELOCITY",
+   "kicker": "BOSSMAN · 32 DAYS",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Thirty-two days."
+    }
+   ]
+  },
+  {
+   "type": "bars",
+   "values": [
+    4,
+    124,
+    114,
+    60,
+    43,
+    22,
+    89,
+    61,
+    38,
+    110,
+    138,
+    120,
+    88,
+    75,
+    17,
+    71,
+    5,
+    2,
+    8,
+    72,
+    19,
+    19,
+    35,
+    82,
+    40,
+    123,
+    182,
+    108,
+    455,
+    71,
+    38,
+    36
+   ],
+   "headline_label": "DAYS",
+   "counter_label": "COMMITS",
+   "x_from": "AUG 27",
+   "x_to": "SEP 27",
+   "highlight": {
+    "index": 28,
+    "text": "455 IN ONE DAY"
+   },
+   "start": 2.5,
+   "end": 7.5,
+   "vo": [
+    {
+     "t": 2.6,
+     "text": "Nearly twenty-five hundred commits."
+    },
+    {
+     "t": 4.48,
+     "text": "Four hundred fifty-five in one day."
+    }
+   ]
+  },
+  {
+   "type": "logo",
+   "name": "BOSSMAN",
+   "tagline": "BUILT DAILY",
+   "start": 7.5,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 7.6,
+     "text": "Built daily."
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,44 @@
+{
+ "meta": {
+  "title": "Sale",
+  "bpm": 132,
+  "key": "C",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // SALE",
+  "voice": "am_fenrir",
+  "duration": 8.0
+ },
+ "scenes": [
+  {
+   "type": "sticker",
+   "lottie": "noto_fire",
+   "text": "30% OFF",
+   "sub": "THIS WEEKEND ONLY",
+   "start": 0.0,
+   "end": 3.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Thirty percent off."
+    }
+   ]
+  },
+  {
+   "type": "end_card",
+   "text": "SHOP NOW",
+   "sub": "ENDS SUNDAY NIGHT",
+   "start": 3.5,
+   "end": 8.0,
+   "vo": [
+    {
+     "t": 3.6,
+     "text": "This weekend only."
+    },
+    {
+     "t": 4.77,
+     "text": "Shop now."
+    }
+   ]
+  }
+ ]
+}
