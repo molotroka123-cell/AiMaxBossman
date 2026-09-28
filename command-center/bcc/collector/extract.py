@@ -39,6 +39,24 @@ _UNIT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("process_node", re.compile(r"\b\d+\s*nm\b", re.I)),
 )
 
+#: Personal contact details. A sentence carrying one is dropped whole, never
+#: redacted: a redacted quote would no longer be the page's exact text (the
+#: provenance promise), and a careful human researcher does not copy people's
+#: e-mail addresses or phone numbers into their notes in the first place.
+#: Deliberately narrow so spec numbers ("256 GB/s", "5.1 GHz", "2024-2026")
+#: never match.
+_PERSONAL_DATA_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"),                     # e-mail
+    re.compile(r"(?<![\w+])\+\d{1,3}[\s.-]?\(?\d{1,4}\)?(?:[\s.-]?\d{2,4}){2,4}(?!\d)"),  # +CC ...
+    re.compile(r"\(\d{2,4}\)\s?\d{3}[\s.-]?\d{3,4}(?!\d)"),                # (555) 123-4567
+    re.compile(r"(?<!\d)\d{3}[.-]\d{3}[.-]\d{4}(?!\d)"),                     # 555-123-4567
+)
+
+
+def has_personal_data(sentence: str) -> bool:
+    return any(p.search(sentence) for p in _PERSONAL_DATA_PATTERNS)
+
+
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?…])\s+(?=[A-ZА-ЯЁ0-9])|\n{1,}")
 
 
@@ -106,6 +124,8 @@ def candidate_facts(*, subject: str, text: str, topic: str, url: str,
     sentences = split_sentences(text)
     scored: list[tuple[float, Sentence, str]] = []
     for s in sentences:
+        if has_personal_data(s.text):
+            continue                     # no personal-data harvesting (see _PERSONAL_DATA_PATTERNS)
         base = score_sentence(s.text, topic_tokens)
         if base <= 0.0:
             continue

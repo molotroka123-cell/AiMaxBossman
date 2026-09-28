@@ -52,3 +52,24 @@ def test_page_hash_is_stable_sha256():
     assert h1 == h2
     assert h1 != h3
     assert len(h1) == 64
+
+
+def test_sentences_with_personal_contact_data_are_never_facts():
+    text = ("The Widget X200 memory bandwidth is 256 GB/s over a 256-bit bus. "
+           "Contact the author at jane.doe@example.com for Widget X200 questions. "
+           "Call +1 555 0100 about the Widget X200 memory bandwidth. "
+           "Widget X200 bandwidth questions: (555) 123-4567 or 555-123-4567.")
+    facts = extract.candidate_facts(subject="Widget X200", text=text,
+                                    topic="Widget X200 memory bandwidth",
+                                    url="https://example.test/p", retrieved_at_utc="t",
+                                    robots_allowed=True)
+    assert [f["quote"] for f in facts] == [
+        "The Widget X200 memory bandwidth is 256 GB/s over a 256-bit bus."]
+
+
+def test_spec_numbers_are_not_mistaken_for_phone_numbers():
+    for sentence in ("Peak bandwidth is 256 GB/s at 8000 MT/s.",
+                     "It shipped 2024-2026 with 16 cores at 5.1 GHz.",
+                     "LPDDR5X-8000 on a 256-bit bus gives 256 GB/s.",
+                     "Die size is 307 mm2 on TSMC N4P, 120 W TDP."):
+        assert not extract.has_personal_data(sentence), sentence
