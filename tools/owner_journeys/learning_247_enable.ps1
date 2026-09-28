@@ -20,6 +20,9 @@ param(
     [switch]$Uninstall,
     [string]$Repo = (Resolve-Path "$PSScriptRoot\..\..").Path,
     [string]$StateDir = "$env:USERPROFILE\Bossman\learning247",
+    # Live-test results (pause/STOP/restart/cap/free call). Default: <StateDir>\readiness_tests.json,
+    # else <StateDir>\readiness-tests\readiness_tests.json (where `live-tests` is documented to run).
+    [string]$TestsFile = "",
     [string]$OwnerDataRoot = "$env:LOCALAPPDATA\Bossman\CommandCenter",
     [string]$Python = (Get-Command python).Source,
     [string]$TaskName = "Bossman Learning 24-7 (supervised)"
@@ -28,7 +31,9 @@ $ErrorActionPreference = "Stop"
 $env:PYTHONPATH = "$Repo\command-center;$Repo\bossman-core;$Repo"
 
 function Test-Ready {
-    & $Python "$Repo\tools\owner_journeys\learning_247_readiness.py" --state-dir $StateDir
+    $gateArgs = @("$Repo\tools\owner_journeys\learning_247_readiness.py", "--state-dir", $StateDir)
+    if ($TestsFile) { $gateArgs += @("--tests-file", $TestsFile) }
+    & $Python @gateArgs
     return ($LASTEXITCODE -eq 0)
 }
 

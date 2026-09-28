@@ -28,6 +28,7 @@ import argparse
 import asyncio
 import json
 import os
+import subprocess
 import sys
 import time
 import urllib.request
@@ -94,6 +95,51 @@ def _append(path: Path, rec: dict[str, Any]) -> None:
         os.fsync(fh.fileno())
 
 
+UNKNOWN_CODE = "SOURCE_IDENTITY_UNKNOWN"
+
+
+def code_identity(root: Path = ROOT) -> dict[str, Any]:
+    """Which code wrote a record: ``code_sha`` (HEAD) and ``code_dirty``.
+
+    Stamped into every new record so a gate can tell records of the running
+    code from records written before a fix. Not provable -> UNKNOWN, never a
+    guess."""
+    def git(*args: str) -> Optional[str]:
+        try:
+            out = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True,
+                                 timeout=20)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return out.stdout if out.returncode == 0 else None
+
+    head = (git("rev-parse", "HEAD") or "").strip()
+    if len(head) != 40:
+        return {"code_sha": UNKNOWN_CODE, "code_dirty": None}
+    status = git("status", "--porcelain", "--untracked-files=no")
+    return {"code_sha": head, "code_dirty": None if status is None else bool(status.strip())}
+
+
+def repair_torn_tail(path: Path) -> int:
+    """Cut a last line that a kill left without its newline; return bytes cut.
+
+    ``_append`` writes one line per record. A kill mid-write leaves a partial
+    last line, and the NEXT append was glued onto it — two records lost and a
+    corrupt line forever. Only an unterminated tail is cut; complete lines are
+    never touched."""
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return 0
+    if not data or data.endswith(b"\n"):
+        return 0
+    keep = data.rfind(b"\n") + 1
+    with path.open("r+b") as fh:
+        fh.truncate(keep)
+        fh.flush()
+        os.fsync(fh.fileno())
+    return len(data) - keep
+
+
 def read_jsonl(path: Path) -> tuple[list[dict[str, Any]], int]:
     rows, bad = [], 0
     if path.is_file():
@@ -115,19 +161,42 @@ def _pid_alive(pid: int) -> bool:
         return True
 
 
+def _created(pid: int) -> Optional[float]:
+    try:
+        import psutil
+        return float(psutil.Process(pid).create_time())
+    except Exception:  # noqa: BLE001 - no psutil / no process / no access: no evidence
+        return None
+
+
 class Lock:
+    """PID lock ``<pid> <written_at> <pid_created>``.
+
+    The third field is the holder's process creation time: after a crash or a
+    reboot Windows hands the dead holder's PID to another process, and a PID
+    check alone refused every start (the logon task gave up after 3 retries).
+    A lock without the field (older writer) is judged by the PID, as before."""
+
     def __init__(self, path: Path):
         self.path = path
 
     def acquire(self) -> None:
         if self.path.is_file():
+            parts = self.path.read_text().split()
             try:
-                pid = int(self.path.read_text().split()[0])
+                pid = int(parts[0])
             except (ValueError, IndexError):
                 pid = -1
+            try:
+                created = float(parts[2]) if len(parts) > 2 else None
+            except ValueError:
+                created = None
             if pid > 0 and pid != os.getpid() and _pid_alive(pid):
-                raise RuntimeError(f"another supervisor holds the lock (pid {pid})")
-        self.path.write_text(f"{os.getpid()} {time.time()}\n")
+                actual = _created(pid) if created is not None else None
+                if created is None or actual is None or abs(actual - created) <= 1.0:
+                    raise RuntimeError(f"another supervisor holds the lock (pid {pid})")
+        me = _created(os.getpid())
+        self.path.write_text(f"{os.getpid()} {time.time()}" + (f" {me}" if me is not None else "") + "\n")
 
     def release(self) -> None:
         try:
@@ -160,6 +229,10 @@ class Store:
         _append(self.events, {"ts": time.time(), "kind": kind, **data})
 
     def recover(self) -> dict[str, Any]:
+        torn = {p.name: repair_torn_tail(p) for p in (self.cycles, self.events, self.lessons)}
+        for name, cut in torn.items():
+            if cut:
+                self.event("torn_tail_discarded", file=name, bytes=cut)
         st = self.state()
         rows, _ = read_jsonl(self.cycles)
         done = {r["cycle_id"] for r in rows}
@@ -167,7 +240,8 @@ class Store:
         if inflight and inflight.get("cycle_id") not in done:
             _append(self.cycles, {"cycle_id": inflight["cycle_id"], "kind": inflight.get("kind"),
                                   "status": "ABANDONED_ON_RESTART", "started": inflight.get("started"),
-                                  "finished": time.time(), "verifier": None})
+                                  "finished": time.time(), "verifier": None,
+                                  "code_sha": inflight.get("code_sha", UNKNOWN_CODE)})
             self.event("recovered_abandoned_cycle", cycle_id=inflight["cycle_id"])
         st["in_progress"] = None
         st["next_cycle_id"] = max([r["cycle_id"] for r in read_jsonl(self.cycles)[0]] + [0]) + 1
@@ -415,12 +489,13 @@ async def run(cfg: Config, *, max_hours: float = 0.0, max_cycles: int = 0) -> di
     lock = Lock(cfg.state_dir / "supervisor.lock")
     lock.acquire()
     started = time.time()
+    code = code_identity()
     try:
         st = store.recover()
         st.update({"pid": os.getpid(), "mode": "RUNNING", "session_started": started, "model": cfg.model,
-                   "priority": lower_priority(), "stop_reason": None})
+                   "priority": lower_priority(), "stop_reason": None, **code})
         store.save(st)
-        store.event("session_start", pid=os.getpid(), model=cfg.model)
+        store.event("session_start", pid=os.getpid(), model=cfg.model, **code)
         done_this_session = 0
         while True:
             why = stop_requested(cfg)
@@ -450,7 +525,8 @@ async def run(cfg: Config, *, max_hours: float = 0.0, max_cycles: int = 0) -> di
             index = st["cursor"].get(kind, 0)
             cycle_id = st["next_cycle_id"]
             work = cfg.state_dir / "cycles" / f"{cycle_id:06d}-{kind}"
-            st["in_progress"] = {"cycle_id": cycle_id, "kind": kind, "index": index, "started": time.time()}
+            st["in_progress"] = {"cycle_id": cycle_id, "kind": kind, "index": index, "started": time.time(),
+                                 "code_sha": code["code_sha"]}
             st["mode"] = "RUNNING"
             store.save(st)
             calls_before = CallCounter.calls
@@ -467,6 +543,11 @@ async def run(cfg: Config, *, max_hours: float = 0.0, max_cycles: int = 0) -> di
                         break
                 if status == "COMPLETED":
                     result = task.result()
+                    if result.get("task_status") == "NO_ROUTE":
+                        # No tier served the task: that is not a completed cycle
+                        # (it used to count toward the streak and put tier NONE
+                        # into the ladder telemetry as if it had run).
+                        status = "NO_ROUTE"
             except Exception as exc:  # noqa: BLE001 — a failed cycle is recorded, the loop survives
                 status, error = "ERROR", f"{type(exc).__name__}: {str(exc)[:300]}"
             wall = round(time.time() - t0, 2)
@@ -481,7 +562,7 @@ async def run(cfg: Config, *, max_hours: float = 0.0, max_cycles: int = 0) -> di
                    "rss_mb": rss_mb, "finished": time.time(), "wall_s": wall, "model_calls": calls,
                    "cloud_usd": route_info.get("usd", 0.0), "tier": route_info.get("tier"),
                    "tier_model": route_info.get("model"), "route_tried": route_info.get("tried"),
-                   "anthropic_attempts_total": rl.AnthropicBlock.attempts, "error": error, **result}
+                   "anthropic_attempts_total": rl.AnthropicBlock.attempts, "error": error, **code, **result}
             _append(store.cycles, rec)
             if result and not result.get("verifier", {}).get("pass", True):
                 _append(store.lessons, {"cycle_id": cycle_id, "kind": kind, "task": result.get("task"),
@@ -497,7 +578,7 @@ async def run(cfg: Config, *, max_hours: float = 0.0, max_cycles: int = 0) -> di
             day["wall_s"] = round(day["wall_s"] + wall, 1)
             st["in_progress"] = None
             st["next_cycle_id"] = cycle_id + 1
-            if status == "COMPLETED":
+            if status in ("COMPLETED", "NO_ROUTE"):   # the item was attempted: move on, as before
                 st["cursor"][kind] = index + 1
             st["last_cycle"] = {"cycle_id": cycle_id, "status": status, "pass": result.get("verifier", {}).get("pass")}
             store.save(st)
