@@ -47,6 +47,7 @@ def _stub(tmp_path: Path, canary: Path) -> Path:
     return stub
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="стаб-учитель запускается через shebang-скрипт — POSIX-механика; на Windows CreateProcess даёт WinError 193")
 def test_teacher_iso_001_teacher_sees_only_the_bundle(tmp_path, monkeypatch):
     workspace = tmp_path / "repo"; workspace.mkdir()
     canary = workspace / "canary.txt"; canary.write_text("owner-secret-canary", encoding="utf-8")
