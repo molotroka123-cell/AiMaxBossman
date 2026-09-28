@@ -277,9 +277,14 @@ class Telegram:
             body = response.json()
         except (httpx.HTTPError, OSError, TimeoutError, ValueError):
             raise CompanionError("NETWORK_UNAVAILABLE") from None
-        if not isinstance(body, dict) or body.get("ok") is not True:
+        result = body.get("result") if isinstance(body, dict) and body.get("ok") is True else None
+        message_id = result.get("message_id") if isinstance(result, dict) else None
+        video = result.get("video") if isinstance(result, dict) else None
+        if (type(message_id) is not int or message_id <= 0 or
+                not isinstance(video, dict) or not isinstance(video.get("file_id"), str)
+                or not video["file_id"]):
             raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
-        return (body.get("result") or {}).get("message_id")
+        return message_id
 
     async def send_document(self, person: Person, name: str, data: bytes, caption: str = ""):
         """Upload a text report (UTF-8 Markdown/JSON); the bytes pass the same egress guard
