@@ -223,3 +223,40 @@ def test_non_ascii_csrf_header_is_a_403_not_a_500(env):
         res = client.post("/api/agents", json={"name": "x"},
                           headers={"X-BCC-CSRF": "caf\xe9".encode("latin-1")})
         assert res.status_code == 403 and res.json()["error"]["code"] == "csrf"
+
+
+# ------------------------------------------------ P2-4: Edge «Сохранить пароль?»
+
+def test_login_token_field_is_not_a_password_field():
+    """Chromium игнорирует autocomplete=off у type=password и предлагает
+    сохранить токен как пароль. Поля пароля в форме входа быть не должно,
+    а токен остаётся скрытым CSS-маской."""
+    from html.parser import HTMLParser
+    from pathlib import Path
+    ui = Path(__file__).resolve().parents[1] / "ui"
+
+    class Inputs(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.in_login, self.inputs = False, []
+
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if tag == "form" and attrs.get("id") == "login-form":
+                self.in_login = True
+            elif tag == "input" and self.in_login:
+                self.inputs.append(attrs)
+
+        def handle_endtag(self, tag):
+            if tag == "form":
+                self.in_login = False
+
+    parser = Inputs()
+    parser.feed((ui / "index.html").read_text(encoding="utf-8"))
+    assert parser.inputs, "login form not found"
+    assert all((i.get("type") or "text") != "password" for i in parser.inputs)
+    token = next(i for i in parser.inputs if i.get("id") == "login-token")
+    assert token.get("autocomplete") not in ("current-password", "new-password", "username")
+    assert "token-mask" in (token.get("class") or "").split()
+    css = (ui / "style.css").read_text(encoding="utf-8")
+    assert ".token-mask { -webkit-text-security: disc; }" in css
