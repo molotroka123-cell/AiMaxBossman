@@ -72,6 +72,10 @@ def test_jeff_window_chats_for_real_and_stays_participant_safe(jeff_server):
             assert "Привет, я Джефф" in page.locator(".bubble.assistant").first.inner_text()
 
             assert page.locator(".capability.locked").is_disabled()
+            # the voice confirmation bar is hidden until a doubtful transcript
+            # (live finding: CSS display:flex overrode the hidden attribute)
+            assert not page.is_visible("#voice-confirm")
+            assert not page.is_visible("#login")
             # J4: Shift+Enter is a newline, Enter sends
             page.click("#message")
             page.keyboard.type("Как")

@@ -47,6 +47,7 @@ from .behavior_controller import BehaviorController
 from .behavior_scores import BehaviorEvent
 from .collector import HighRecallCollector
 from .config import PITSettings
+from .cloud_budget import CloudBudget, classify_rate_limit, next_utc_midnight
 from .resources import LocalCapacityGuard, ollama_resident_probe
 from .models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
 from .participant_context import build_participant_context
@@ -134,7 +135,6 @@ UNKNOWN_COMMAND_RU = "Такой команды у Jeff нет. Список —
 CLOUD_PAUSED_RU = ("Бесплатный облачный лимит на сейчас исчерпан, а локальная модель занята. "
                    "Не буду долбить сервис повторами — напиши чуть позже.")
 MAX_REMOTE_ATTEMPTS_PER_TURN = 3
-CLOUD_COOLDOWN_SECONDS = 900
 NO_REMOTE_RU = ("Удалённые модели отключены в твоих настройках приватности. "
                 "Чат-ответы приостановлены; команды работают. Включить: /privacy remote on.")
 
@@ -186,6 +186,12 @@ _EXTRACT_PATTERNS = (
 )
 
 
+_SENTENCE = re.compile(r"[^.!?…]+[.!?…]*")
+_QUESTION_START = re.compile(
+    r"^(?:а\s+|и\s+)?(?:как|кто|что|где|куда|откуда|почему|зачем|когда|сколько|какой|какая|какое|"
+    r"какие|ли|разве|what|who|where|when|why|how|which|do|does|did|is|are|can)\b", re.I)
+
+
 def extract_candidates(person_key: str, message_id: str, text: str) -> list[MemoryCandidate]:
     """Deterministic high-recall extraction from explicit self-statements.
 
@@ -195,6 +201,11 @@ def extract_candidates(person_key: str, message_id: str, text: str) -> list[Memo
     """
     rows: list[MemoryCandidate] = []
     value = " ".join(str(text or "").split())
+    # Questions are not self-statements: «Как меня зовут и где я живу?» must
+    # never become the name «и где я живу». Only declarative sentences count.
+    value = " ".join(sentence.strip() for sentence in _SENTENCE.findall(value)
+                     if sentence.strip() and not sentence.rstrip().endswith("?")
+                     and not _QUESTION_START.match(sentence.strip()))
     if not value:
         return rows
     for index, (pattern, category, key) in enumerate(_EXTRACT_PATTERNS):
@@ -457,6 +468,7 @@ class ParticipantRuntime:
             resident_probe=(ollama_resident_probe(settings.local_url, settings.local_models)
                             if settings.local_url else None))
         self.surface = "telegram"
+        self.cloud = CloudBudget(self.home, settings.cloud_daily_request_budget)
         self.photo_services: PhotoServices = build_photo_services(
             core_token=settings.core_token, data_dir=settings.data_dir)
         self.photo_pipeline = PhotoPipeline(
@@ -629,49 +641,29 @@ class ParticipantRuntime:
         selected = candidates[cloud_turn % len(candidates)] if cloud_turn % 4 == 3 else candidates[0]
         return selected.id, False
 
-    # -- free-cloud budget ------------------------------------------------------------------
-    def _cloud_day(self) -> str:
-        return time.strftime("%Y-%m-%d", time.gmtime())
-
+    # -- free-cloud budget (shared by the Telegram bot and the Jeff window) -----------------
     def cloud_budget_status(self) -> dict:
         """Owner-only: today's zero-cost cloud usage and why cloud is paused."""
-        day = self._cloud_day()
-        used = int(self.store.get(f"cloud_requests:{day}", 0) or 0)
-        until = float(self.store.get("cloud_cooldown_until", 0) or 0)
-        return {"date": day, "used_today": used,
-                "budget": int(self.settings.cloud_daily_request_budget),
-                "cooldown_active": until > time.time(),
-                "cooldown_until": (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(until))
-                                   if until else None),
-                "last_stop_reason": self.store.get("cloud_stop_reason", None)}
+        return self.cloud.status()
 
     def _cloud_blocked(self) -> str:
         """'' when a zero-cost cloud request may be sent now, else the stop reason."""
-        if float(self.store.get("cloud_cooldown_until", 0) or 0) > time.time():
-            return "rate_limited"
-        day = self._cloud_day()
-        if int(self.store.get(f"cloud_requests:{day}", 0) or 0) >= self.settings.cloud_daily_request_budget:
+        reason = self.cloud.blocked()
+        if reason == "daily_budget":
             self._cloud_stop("daily_budget")
-            return "daily_budget"
-        return ""
+        return reason
 
     def _cloud_spend(self) -> None:
-        key = f"cloud_requests:{self._cloud_day()}"
-        self.store.put(key, int(self.store.get(key, 0) or 0) + 1)
+        self.cloud.spend()
 
-    def _cloud_stop(self, reason: str) -> None:
-        marker = f"{reason}:{self._cloud_day()}"
-        self.store.put("cloud_stop_reason", reason)
-        if reason == "rate_limited":
-            self.store.put("cloud_cooldown_until", time.time() + CLOUD_COOLDOWN_SECONDS)
-        elif self.store.get("cloud_stop_logged", None) == marker:
+    def _cloud_stop(self, reason: str, *, until: float | None = None) -> None:
+        if not self.cloud.stop(reason, until=until):
             return
-        self.store.put("cloud_stop_logged", marker)
         with contextlib.suppress(OSError):
             _append_jsonl(self.home / "logs" / "cloud_budget.jsonl", {
                 "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "event": "cloud_paused", "reason": reason,
-                **{k: v for k, v in self.cloud_budget_status().items() if k != "last_stop_reason"},
+                **{k: v for k, v in self.cloud.status().items() if k != "last_stop_reason"},
                 "schema": "bossman.pit.cloud-budget/1"})
 
     def _log_route(self, *, person_key: str, model: str, provider: str, ok: bool,
@@ -1389,11 +1381,20 @@ class ParticipantRuntime:
                             for fallback in self._remote_fallbacks(model))
             if self.settings.local_fallback_on_cloud_refusal and local_fallback:
                 attempts.append((local_fallback, self.local_adapter, "local"))
-            if (local_fallback and self._cloud_blocked()
+            if (local_fallback and (self._cloud_blocked() or all(
+                    self.cloud.model_blocked(m) for m, _, kind in attempts if kind == "remote"))
                     and all(kind != "local" for _, _, kind in attempts)):
                 # Free cloud is paused (budget/rate limit): the local model
                 # answers instead of the participant waiting on a dead route.
                 attempts.append((local_fallback, self.local_adapter, "local"))
+
+        def ensure_local_fallback() -> None:
+            # A rate limit found mid-turn must not strand the participant while
+            # a verified local model is available in the catalog.
+            fallback = next((item.id for item in self.catalog.values() if item.local), None)
+            if fallback and self.local_adapter is not None and all(
+                    kind != "local" for _, _, kind in attempts):
+                attempts.append((fallback, self.local_adapter, "local"))
         cloud_stopped = ""
         remote_sent = 0
         fallback_reason = ""
@@ -1406,9 +1407,11 @@ class ParticipantRuntime:
             if provider == "remote" and not route_consent.remote_processing_enabled:
                 continue
             if provider == "remote":
-                blocked = self._cloud_blocked()
+                blocked = self._cloud_blocked() or (
+                    "rate_limited" if self.cloud.model_blocked(route_model) else "")
                 if blocked:
                     cloud_stopped = blocked
+                    ensure_local_fallback()
                     continue
                 if remote_sent >= MAX_REMOTE_ATTEMPTS_PER_TURN:
                     fallback_reason = fallback_reason or "remote_attempt_cap"
@@ -1424,7 +1427,8 @@ class ParticipantRuntime:
                 query=text, vault=self.vault, person_key=person_key,
                 consent=context_consent, selected_model_is_remote=route_is_remote,
                 profile_stability=snapshot.profile_stability,
-                behavior_scales=self.settings.behavior_scales)
+                behavior_scales=self.settings.behavior_scales,
+                surface=getattr(self, "surface", "telegram"))
             messages = route_context.as_messages()
             if provider == "local" and messages and messages[0]["role"] == "system":
                 # This community GGUF stopped mid-word with long conversation
@@ -1547,8 +1551,16 @@ class ParticipantRuntime:
                 rate_limited = provider == "remote" and (
                     getattr(exc, "kind", "") == "rate_limit" or "(429)" in str(exc))
                 if rate_limited:
-                    self._cloud_stop("rate_limited")
-                    cloud_stopped = "rate_limited"
+                    if classify_rate_limit(str(exc)) == "provider_daily_limit":
+                        # Account-wide free-tier cap: pause cloud until it resets.
+                        self._cloud_stop("provider_daily_limit", until=next_utc_midnight())
+                        cloud_stopped = "provider_daily_limit"
+                    else:
+                        # One upstream model is busy: cool only that model and
+                        # move on to the next verified free route.
+                        self.cloud.cool_model(route_model)
+                        cloud_stopped = cloud_stopped or "rate_limited"
+                    ensure_local_fallback()
                 self._log_route(person_key=person_key, model=route_model, provider=provider,
                                 ok=False, latency_ms=int((time.monotonic() - started) * 1000),
                                 context_chars=context_chars,

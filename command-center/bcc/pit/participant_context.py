@@ -93,6 +93,7 @@ def build_participant_context(
     max_items: int = 20,
     profile_stability: int = 50,
     behavior_scales: dict[str, int] | None = None,
+    surface: str = "telegram",
 ) -> ParticipantContext:
     """Build context from exactly one participant namespace.
 
@@ -100,6 +101,11 @@ def build_participant_context(
     companion profile is consulted here.
     """
     system = PIT_ASSISTANT_SYSTEM
+    if surface == "web":
+        # The Jeff window is not Telegram: the model must not tell the
+        # participant it is chatting in Telegram. Rules stay identical.
+        system = (system.replace("собеседника в Telegram", "собеседника в окне Jeff на компьютере")
+                  .replace("Для Telegram используй", "В окне чата используй"))
     if behavior_scales is not None:
         system += " " + behavior_system_text(behavior_scales)
     if not consent.memory_enabled:

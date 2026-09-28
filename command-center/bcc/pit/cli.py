@@ -384,12 +384,12 @@ def cmd_routes(path: Path, argv: list[str]) -> int:
     ns, _ = parser.parse_known_args(argv[1:])
     home = pit_home(_resolve_data_dir(path))
     rows = read_route_audit(home, last=max(1, min(ns.last, 2000)))
-    budget = _store_state(home, "cloud_stop_reason")
-    day = time.strftime("%Y-%m-%d", time.gmtime())
-    used = _store_state(home, f"cloud_requests:{day}") or 0
-    cooldown = _store_state(home, "cloud_cooldown_until") or 0
-    summary = {"cloud_requests_today": used, "cloud_paused_reason": budget,
-               "cloud_cooldown_active": bool(cooldown and float(cooldown) > time.time())}
+    from .cloud_budget import CloudBudget
+    try:
+        daily = load(path).cloud_daily_request_budget
+    except Exception:  # noqa: BLE001 — the audit must still print the route log
+        daily = 0
+    summary = CloudBudget(home, daily).status()
     if ns.json:
         print(json.dumps({"summary": summary, "routes": rows}, ensure_ascii=False, indent=2))
         return 0

@@ -33,3 +33,5 @@ footer{grid-area:foot;border-top:1px solid var(--line);display:flex;justify-cont
 .login-card input{width:100%}
 @media (max-width:900px){.app{grid-template-columns:1fr;grid-template-areas:"top" "main" "foot"}.leftbar,.rightbar{display:none}.fact{grid-template-columns:1fr auto auto}.fact-cat{grid-column:1/-1}}
 .privacy-switches{display:grid;gap:6px;margin-bottom:12px;color:#cfe3ff;font-size:13px}
+/* the hidden attribute always wins over component display rules */
+[hidden]{display:none!important}
