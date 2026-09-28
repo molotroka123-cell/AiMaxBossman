@@ -400,10 +400,16 @@ class LessonBook:
         now = time.time()
         observed = float(evidence.get("observed_at") or now)
         collected = float(evidence.get("collected_at") or max(observed, now))
+        if now - observed > _trace.EVIDENCE_TTL_S:
+            # Verification happens NOW: an observation older than the declared TTL is
+            # not fresh evidence, whatever collected_at the caller restates.
+            raise LessonError(f"{lesson_id}: evidence observed {int(now - observed)}s ago is older than "
+                              f"EVIDENCE_TTL_S ({_trace.EVIDENCE_TTL_S}s)")
         ev_rec = {"observed_at": observed, "collected_at": collected,
                   "source": str(evidence.get("source") or verifier.get("principal_id") or ""),
                   "principal_id": str(verifier.get("principal_id") or ""),
-                  "head_sha": str(evidence.get("head_sha") or "unknown"),
+                  # no placeholder: a missing revision is refused by the store, not bound to "unknown"
+                  "head_sha": str(evidence.get("head_sha") or ""),
                   "environment": str(evidence.get("environment") or rec.get("environment") or "unknown-env"),
                   "task_id": rec["task_id"], "run_id": rec.get("run_id") or "",
                   "expected": str(evidence.get("expected") or ""), "actual": str(evidence.get("actual") or "")}
