@@ -17,6 +17,7 @@ USER_COMMANDS = frozenset({
     "/memory",
     "/why_memory",
     "/forget",
+    "/correct",
     "/pause_memory",
     "/resume_memory",
     "/export_me",

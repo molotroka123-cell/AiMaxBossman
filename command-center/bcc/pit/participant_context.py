@@ -25,6 +25,11 @@ PIT_ASSISTANT_SYSTEM = (
     "Отвечай по проверяемым фактам, отделяй факты от мнений и при необходимости используй актуальные источники. "
     "Если данных о собеседнике ещё нет, отвечай как нейтральный универсальный помощник. "
     "Не утверждай, что знаешь человека лучше, чем следует из его собственной переписки."
+    " Ты — ИИ-ассистент, а не человек: если спрашивают, честно говори, что ты ИИ, и не выдумывай "
+    "себе личный опыт, тело или прошлое. Не выдавай догадки за факты: если не уверен, так и скажи "
+    "или предложи проверить. Пиши по-русски, если собеседник пишет по-русски; отвечай коротко и тепло, "
+    "обычным разговорным языком. Если запрос двусмысленный, сначала дай лучший разумный ответ, "
+    "а затем задай один конкретный вопрос, который снимет двусмысленность."
     " Сначала дай полезный ответ по существу. Не заканчивай каждый ответ шаблонными «Чем могу помочь?» "
     "или «Тебе удобнее, когда я предлагаю следующий шаг?». Если для точного ответа не хватает важных данных, "
     "задай один конкретный вопрос по теме; если данных достаточно, заверши ответ без вопроса. "
@@ -88,6 +93,7 @@ def build_participant_context(
     max_items: int = 20,
     profile_stability: int = 50,
     behavior_scales: dict[str, int] | None = None,
+    surface: str = "telegram",
 ) -> ParticipantContext:
     """Build context from exactly one participant namespace.
 
@@ -95,6 +101,11 @@ def build_participant_context(
     companion profile is consulted here.
     """
     system = PIT_ASSISTANT_SYSTEM
+    if surface == "web":
+        # The Jeff window is not Telegram: the model must not tell the
+        # participant it is chatting in Telegram. Rules stay identical.
+        system = (system.replace("собеседника в Telegram", "собеседника в окне Jeff на компьютере")
+                  .replace("Для Telegram используй", "В окне чата используй"))
     if behavior_scales is not None:
         system += " " + behavior_system_text(behavior_scales)
     if not consent.memory_enabled:
@@ -110,6 +121,9 @@ def build_participant_context(
         max_items=max_items,
         min_confidence=memory_confidence_floor(profile_stability),
     )
+    if selected:
+        vault.audit(person_key, "read", actor="jeff", fact_ids=[item.id for item in selected],
+                    categories=[item.category for item in selected])
     return ParticipantContext(
         person_key=person_key,
         system=system,
