@@ -252,6 +252,18 @@ def _identity_errors(case: dict) -> list[str]:
     return ["VERIFIED requires an independent verifier (different principal, run and model/tool/human)"]
 
 
+def _stamp(value: Any) -> float | None:
+    """Epoch seconds, 0.0 when absent, None when not a number at all."""
+    if value is None or value == "":
+        return 0.0
+    if isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _evidence_record_errors(case: dict) -> list[str]:
     recs = case.get("evidence_records")
     if not recs:
@@ -259,14 +271,19 @@ def _evidence_record_errors(case: dict) -> list[str]:
     for r in recs:
         if not isinstance(r, dict):
             return ["evidence_records entries must be objects"]
-        if not float(r.get("observed_at") or 0) > 0:
+        # A non-numeric stamp is an invalid record, not a crash: validate() also runs
+        # on every read (orphan adoption), and one bad line must not take the store down.
+        observed, collected = _stamp(r.get("observed_at")), _stamp(r.get("collected_at"))
+        if observed is None or collected is None:
+            return ["evidence_record timestamps must be numbers"]
+        if not observed > 0:
             return ["evidence_record without observed_at"]
-        if not float(r.get("collected_at") or 0) > 0:
+        if not collected > 0:
             return ["evidence_record without collected_at"]
-        if float(r["collected_at"]) < float(r["observed_at"]):
+        if collected < observed:
             return ["evidence_record collected_at before observed_at"]
         now = time.time()
-        if float(r["observed_at"]) > now + MAX_CLOCK_SKEW_S or float(r["collected_at"]) > now + MAX_CLOCK_SKEW_S:
+        if observed > now + MAX_CLOCK_SKEW_S or collected > now + MAX_CLOCK_SKEW_S:
             return ["evidence_record timestamp in the future (clock skew beyond tolerance)"]
         if not str(r.get("source") or "").strip():
             return ["evidence_record without source"]
@@ -367,14 +384,44 @@ def _release_file_lock(fh) -> None:
     msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
 
 
+#: os.replace onto a file another process holds open fails on Windows with
+#: WinError 5/32 (Python opens files without FILE_SHARE_DELETE). Readers hold the
+#: snapshot for milliseconds, so a short bounded retry is enough.
+_REPLACE_RETRIES = 40
+_REPLACE_BACKOFF_S = 0.05
+
+
+def replace_with_retry(src: "str | Path", dst: "str | Path") -> None:
+    """``os.replace`` that survives a transient foreign reader on Windows."""
+    for attempt in range(_REPLACE_RETRIES):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if os.name != "nt" or attempt == _REPLACE_RETRIES - 1:
+                raise
+            time.sleep(_REPLACE_BACKOFF_S)
+
+
 class ConflictError(RuntimeError):
     """CAS: ожидаемая версия записи не совпала с текущей."""
 
 
+def _as_int(value: Any, default: int = 0) -> int:
+    """A version/txn number from a snapshot line. A hand-edited or corrupt value
+    degrades to the default instead of making every read of the store raise."""
+    if not value or isinstance(value, bool):          # same as the old `int(value or default)`
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _history_ids(cases: "list[dict]") -> list[tuple[str, int, int]]:
     """Опознавательные признаки замещённых версий: кто, какая версия, чем замещена."""
-    return [(str(c.get("case_id") or ""), int(c.get("version") or 0),
-             int(c.get("superseded_by_version") or 0)) for c in cases]
+    return [(str(c.get("case_id") or ""), _as_int(c.get("version"), 0),
+             _as_int(c.get("superseded_by_version"), 0)) for c in cases]
 
 
 class LearningStore:
@@ -431,10 +478,20 @@ class LearningStore:
         with self._locked():
             self._ensure_consistent()
 
+    def _synced(self, *paths: Path) -> list[dict]:
+        """Sync AND read under the same lock. A snapshot read outside the lock held the
+        file open while another writer's os.replace ran — on Windows that replace fails
+        (WinError 5) and add() raised AFTER its journal commit."""
+        with self._locked():
+            self._ensure_consistent()
+            out: list[dict] = []
+            for path in paths:
+                out += self._read(path)
+            return out
+
     def current(self, cid: str) -> dict | None:
         """Текущая (authoritative) запись по case_id из любого корпуса."""
-        self._sync()
-        for c in self._read(self.verified_path) + self._read(self.failed_path):
+        for c in self._synced(self.verified_path, self.failed_path):
             if c.get("case_id") == cid and not c.get("tombstone"):
                 return c
         return None
@@ -450,7 +507,7 @@ class LearningStore:
             verified = self._read(self.verified_path)
             failed = self._read(self.failed_path)
             prev = next((c for c in verified + failed if c.get("case_id") == case["case_id"]), None)
-            cur_version = int(prev.get("version") or 1) if prev else 0
+            cur_version = _as_int(prev.get("version"), 1) if prev else 0
             if expected_version is not None and expected_version != cur_version:
                 raise ConflictError(f"case {case['case_id']}: expected version {expected_version}, "
                                     f"current is {cur_version}")
@@ -462,7 +519,14 @@ class LearningStore:
                 raise ValidationError(errors)
             # commit point — одна атомарная запись в журнал; snapshot'ы производные
             self._append_atomic(self.journal_path, {"txn": self._next_txn(), "case": case})
-            self._materialize()
+            try:
+                self._materialize()
+            except PermissionError:
+                # The journal is the authority and the case IS committed; a snapshot
+                # a foreign reader still holds (Windows sharing violation, after the
+                # replace retries) is rebuilt by the next _sync. Raising here made
+                # callers retry a committed write and mint a duplicate version.
+                pass
         if write_markdown:
             self.docs_dir.mkdir(parents=True, exist_ok=True)
             safe = re.sub(r"[^A-Za-z0-9_.\-]", "_", str(case["task_id"]))
@@ -499,7 +563,7 @@ class LearningStore:
         out: dict[str, int] = {}
         for c in self._read(self.verified_path) + self._read(self.failed_path):
             if c.get("case_id"):
-                out[str(c["case_id"])] = int(c.get("version") or 1)
+                out[str(c["case_id"])] = _as_int(c.get("version"), 1)
         return out
 
     def _materialize(self) -> None:
@@ -538,7 +602,11 @@ class LearningStore:
             cid = str(c.get("case_id") or "")
             if not cid or cid in known or c.get("tombstone"):
                 continue
-            if case_id(c) != cid or validate(c, schema=self.schema):
+            try:
+                rejected = case_id(c) != cid or bool(validate(c, schema=self.schema))
+            except Exception:  # noqa: BLE001 — a malformed foreign line is not adopted, never fatal
+                rejected = True
+            if rejected:
                 continue
             known.add(cid)
             adopted.append(dict(c))
@@ -572,7 +640,7 @@ class LearningStore:
         for t in entries:
             c = t["case"]
             cid = str(c.get("case_id") or "")
-            ver = int(c.get("version") or 1)
+            ver = _as_int(c.get("version"), 1)
             known.add((cid, ver))
             current[cid] = max(current.get(cid, 0), ver)
         pending: dict[str, list[dict]] = {}
@@ -583,9 +651,9 @@ class LearningStore:
             prev = dict(c)
             prev.pop("tombstone", None)
             # Замещённая версия = та, что стояла до superseded_by_version.
-            ver = int(prev.pop("superseded_by_version", 0) or 0) - 1
+            ver = _as_int(prev.pop("superseded_by_version", 0), 0) - 1
             if ver < 1:
-                ver = int(prev.get("version") or 0)
+                ver = _as_int(prev.get("version"), 0)
             if ver < 1 or ver >= current[cid] or (cid, ver) in known:
                 continue
             prev["version"] = ver
@@ -593,13 +661,13 @@ class LearningStore:
         if not pending:
             return False
         for lst in pending.values():
-            lst.sort(key=lambda c: int(c.get("version") or 1))
+            lst.sort(key=lambda c: _as_int(c.get("version"), 1))
         merged: list[dict] = []
         for t in entries:
             c = t["case"]
             queue = pending.get(str(c.get("case_id") or ""))
-            cur = int(c.get("version") or 1)
-            while queue and int(queue[0].get("version") or 1) < cur:
+            cur = _as_int(c.get("version"), 1)
+            while queue and _as_int(queue[0].get("version"), 1) < cur:
                 merged.append(queue.pop(0))
             merged.append(c)
         self._rewrite(self.journal_path, "".join(
@@ -625,7 +693,7 @@ class LearningStore:
             self._materialize()
             return
         latest, superseded = self._journal_state()
-        want = {cid: int(c.get("version") or 1) for cid, c in latest.items()}
+        want = {cid: _as_int(c.get("version"), 1) for cid, c in latest.items()}
         # history — такой же производный снимок: подменённый файл обязан
         # пересобраться, иначе history() отдаёт подложенные записи как свои.
         if want != self._snapshot_versions() or self._history_snapshot_ids() != _history_ids(superseded):
@@ -640,8 +708,15 @@ class LearningStore:
             return []
         out = []
         corrupt = 0
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
+        # Line by line from BYTES: a torn multi-byte tail or a line written in the
+        # host code page (cp1251) is one corrupt line, not a UnicodeDecodeError that
+        # makes every read of the store fail.
+        for raw in path.read_bytes().splitlines():
+            try:
+                line = raw.decode("utf-8").lstrip("﻿").strip()
+            except UnicodeDecodeError:
+                corrupt += 1
+                continue
             if not line:
                 continue
             try:
@@ -664,7 +739,7 @@ class LearningStore:
                 fh.write(text)
                 fh.flush()
                 os.fsync(fh.fileno())
-            os.replace(tmp, path)
+            replace_with_retry(tmp, path)
             # Windows does not permit opening a directory with os.open; rename
             # is still atomic there, while POSIX gets the stronger dir fsync.
             try:
@@ -696,17 +771,14 @@ class LearningStore:
         self._rewrite(path, existing + [rec])
 
     def verified(self) -> list[dict]:
-        self._sync()
-        return [c for c in self._read(self.verified_path)
+        return [c for c in self._synced(self.verified_path)
                 if c.get("learning_status") == "VERIFIED" and not c.get("tombstone")]
 
     def failed(self) -> list[dict]:
-        self._sync()
-        return [c for c in self._read(self.failed_path) if not c.get("tombstone")]
+        return [c for c in self._synced(self.failed_path) if not c.get("tombstone")]
 
     def history(self) -> list[dict]:
-        self._sync()
-        return self._read(self.history_path)
+        return self._synced(self.history_path)
 
     def retrieve(self, *, domain: str | None = None, bug_class: str | None = None,
                  component: str | None = None, severity: str | None = None,
