@@ -42,9 +42,50 @@ def known_prices(model):
                and math.isfinite(v) and v >= 0 for v in (model.get("price_in"), model.get("price_out")))
 
 
+#: Why a cloud price is unknown, as far as the provider's synchronized catalog
+#: can tell (Registry.adapter_for). The gate is the same in every case; the
+#: owner's next step is not — "refresh the catalog" cannot fix a model the
+#: catalog no longer lists (RC19 audit: a removed OpenRouter model).
+_UNKNOWN_PRICE_WHY = {
+    "stale": ("unknown cloud pricing: model {name} is no longer in the provider catalog "
+              "(removed by the provider?) — choose another model for this agent"),
+    "absent": ("unknown cloud pricing: model {name} is not in the synchronized provider "
+               "catalog — check the model id or choose another model"),
+}
+
+
+def is_governed_local(provider: dict, model: dict) -> bool:
+    """Local for the price gate: this machine / the local network."""
+    base = provider.get("base_url") or ""
+    local, _ = derive_local(model.get("kind", ""), provider["kind"], base)
+    return local or (provider["kind"] == "anthropic" and is_local_url(base))
+
+
+def priced(model: dict) -> bool:
+    return bool(model.get("pricing_known", False)) and known_prices(model)
+
+
+def refuses_unknown_price(provider: dict, model: dict) -> bool:
+    """Would GovernedAdapter refuse this model before any provider is asked?
+
+    Same rule as `GovernedAdapter.chat`, for callers that must not queue or
+    pick a model that is certain to be refused (admission, recovery)."""
+    from .fable_cap import paid_fable_boundary
+    return (not is_governed_local(provider, model) and not paid_fable_boundary(provider)
+            and not priced(model))
+
+
+def unknown_price_message(model: dict, catalog_state: str | None = None) -> str:
+    name = model.get("name") or model.get("alias") or "?"
+    template = _UNKNOWN_PRICE_WHY.get(catalog_state or "")
+    return (template.format(name=name) if template
+            else "unknown cloud pricing; refresh catalog before inference")
+
+
 class GovernedAdapter:
-    def __init__(self, adapter, provider, model):
+    def __init__(self, adapter, provider, model, *, catalog_state: str | None = None):
         self.adapter, self.provider, self.model = adapter, dict(provider), dict(model)
+        self.catalog_state = catalog_state
 
     def __getattr__(self, name):
         return getattr(self.adapter, name)
@@ -52,11 +93,10 @@ class GovernedAdapter:
     async def chat(self, *args, **kwargs):
         p, m = self.provider, self.model
         assert_provider_egress(p["kind"], p.get("base_url") or "")
-        local, _ = derive_local(m.get("kind", ""), p["kind"], p.get("base_url") or "")
-        local = local or (p["kind"] == "anthropic" and is_local_url(p.get("base_url") or ""))
+        local = is_governed_local(p, m)
         # CappedAdapter has its own canonical tariff and rejects unknown models before dispatch.
-        if not local and not isinstance(self.adapter, CappedAdapter) and (not m.get("pricing_known", False) or not known_prices(m)):
-            raise ProviderError("unknown cloud pricing; refresh catalog before inference", kind="budget")
+        if not local and not isinstance(self.adapter, CappedAdapter) and not priced(m):
+            raise ProviderError(unknown_price_message(m, self.catalog_state), kind="budget")
         # memory follows the actual destination: this machine / the local network
         memory_local = local or is_local_url(p.get("base_url") or "")
         if not memory_local and not memory_to_cloud_allowed.get():
