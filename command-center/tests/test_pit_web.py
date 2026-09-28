@@ -329,3 +329,20 @@ def test_web_only_config_has_no_token_and_cannot_start_a_poller(tmp_path, monkey
                    core_url="http://127.0.0.1:8800", web_only=True, bot_token="123456:" + "B" * 35)
     with pytest.raises(ValueError):
         dataclasses.replace(make_settings(tmp_path), web_only=True)   # carries a bot token
+
+
+def test_privacy_switches_use_the_participant_consent_commands(tmp_path):
+    app, adapter = make_app(tmp_path, RecordingAdapter("Ок."))
+    with client_for(app) as c:
+        signup(c)
+        assert c.get("/api/jeff/privacy").json() == {"memory_enabled": True,
+                                                     "cloud_context_enabled": False}
+        chat(c, "Меня зовут Артём")
+        chat(c, "Как меня зовут?")
+        assert "Артём" not in json.dumps(adapter.calls[-1][1], ensure_ascii=False)  # cloud: no context
+        on = c.post("/api/jeff/privacy", json={"cloud_context_enabled": True}, headers=H).json()
+        assert on["cloud_context_enabled"] is True
+        chat(c, "А сейчас как меня зовут?")
+        assert "Артём" in json.dumps(adapter.calls[-1][1], ensure_ascii=False)
+        off = c.post("/api/jeff/privacy", json={"memory_enabled": False}, headers=H).json()
+        assert off["memory_enabled"] is False

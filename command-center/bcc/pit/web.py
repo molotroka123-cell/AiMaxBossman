@@ -595,6 +595,35 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
     def own_key(uid: int) -> str:
         return rt.vault.key_for_telegram(uid)
 
+    @app.get("/api/jeff/privacy")
+    async def privacy(request: Request):
+        uid = user_of(request)
+        if uid is None:
+            return error(401, "AUTH_REQUIRED")
+        consent = rt.vault.consent(own_key(uid))
+        return {"memory_enabled": consent.memory_enabled,
+                "cloud_context_enabled": consent.remote_personalization_enabled}
+
+    @app.post("/api/jeff/privacy")
+    async def privacy_set(request: Request):
+        """The participant's own consent switches, via the same commands as Telegram."""
+        uid = user_of(request)
+        if uid is None:
+            return error(401, "AUTH_REQUIRED")
+        data = await body_json(request)
+        commands = []
+        if isinstance(data.get("cloud_context_enabled"), bool):
+            commands.append("/privacy personalization " + ("on" if data["cloud_context_enabled"] else "off"))
+        if isinstance(data.get("memory_enabled"), bool):
+            commands.append("/resume_memory" if data["memory_enabled"] else "/pause_memory")
+        if not commands:
+            return error(400, "NOTHING_TO_CHANGE")
+        replies = [(await run_turn(uid, base_message(uid, command)))["reply"] for command in commands]
+        consent = rt.vault.consent(own_key(uid))
+        return {"memory_enabled": consent.memory_enabled,
+                "cloud_context_enabled": consent.remote_personalization_enabled,
+                "notes": replies}
+
     @app.get("/api/jeff/memory")
     async def memory(request: Request):
         uid = user_of(request)

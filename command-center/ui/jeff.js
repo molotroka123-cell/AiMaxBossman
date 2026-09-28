@@ -363,6 +363,21 @@ async function refreshVoiceStatus() {
 const AUDIT_LABEL = { write: 'Jeff записал', read: 'Jeff прочитал для ответа', view: 'Вы посмотрели', correct: 'исправлено',
   delete: 'удалено', forget: 'забыто', export: 'выгрузка', owner_passport_read: 'владелец: паспорт' };
 
+async function refreshPrivacy() {
+  try {
+    const p = await call('/api/jeff/privacy');
+    $('#privacy-memory').checked = !!p.memory_enabled;
+    $('#privacy-context').checked = !!p.cloud_context_enabled;
+  } catch {}
+}
+
+async function setPrivacy(patch) {
+  try { await call('/api/jeff/privacy', { method: 'POST', json: patch }); }
+  catch { showError('Не удалось изменить настройку приватности.'); }
+  await refreshPrivacy();
+  refreshMemory();
+}
+
 async function refreshMemory() {
   let data;
   try { data = await call('/api/jeff/memory'); } catch { return; }
@@ -408,7 +423,7 @@ async function showApp(greeting) {
     const me = await call('/api/jeff/me');
     $('#whoami').textContent = me.name ? `Вы вошли как ${me.name}` : '';
   } catch {}
-  await Promise.all([loadIdentity(), refreshVoiceStatus(), loadHistory(greeting).catch(() => {}), refreshMemory()]);
+  await Promise.all([loadIdentity(), refreshVoiceStatus(), loadHistory(greeting).catch(() => {}), refreshMemory(), refreshPrivacy()]);
   hydrateVoiceList();
 }
 
@@ -446,6 +461,8 @@ function bindUi() {
   $$('.avatar-choice').forEach((btn) => btn.addEventListener('click', () => {
     prefs.avatar = btn.dataset.avatar || 'aurora'; savePrefs(); applyAvatar(); $('#avatar-dialog').close();
   }));
+  $('#privacy-memory').addEventListener('change', (ev) => setPrivacy({ memory_enabled: ev.target.checked }));
+  $('#privacy-context').addEventListener('change', (ev) => setPrivacy({ cloud_context_enabled: ev.target.checked }));
   $('#voice-auto').checked = !!prefs.speak;
   $('#voice-auto').addEventListener('change', (ev) => { prefs.speak = ev.target.checked; savePrefs(); });
   $('#voice-select').addEventListener('change', (ev) => { prefs.voice = ev.target.value; savePrefs(); });

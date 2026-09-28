@@ -113,7 +113,11 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
         return checks, False
 
     add("allowlist", len(settings.people) >= 1)
-    add("bot_token_present", bool(settings.bot_token))
+    if settings.web_only:
+        checks.append({"check": "telegram", "status": "SKIP",
+                       "detail": "web-only Jeff window: no Telegram bot by design"})
+    else:
+        add("bot_token_present", bool(settings.bot_token))
 
     # The public model catalog is accessible even with an expired API key.
     # Validate the credential separately so doctor cannot report chat ready
@@ -133,6 +137,8 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
 
     transport_ok = False
     try:
+        if settings.web_only:
+            raise _SkipTelegram
         from .runtime import _transport_settings
         transport = Telegram(_transport_settings(settings))
         try:
@@ -142,6 +148,8 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
             import contextlib
             with contextlib.suppress(Exception):
                 await transport.close()
+    except _SkipTelegram:
+        pass
     except CompanionError as exc:
         add("telegram_auth", False, str(exc))
     if transport_ok:
@@ -194,8 +202,12 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
     add("ai_max_media", media_ok, json.dumps(media, ensure_ascii=False))
 
     add("participant_tool_perimeter", _tool_perimeter(), "location/device/computer denied")
-    ok = all(item["status"] == "PASS" for item in checks)
+    ok = all(item["status"] in {"PASS", "SKIP"} for item in checks)
     return checks, ok
+
+
+class _SkipTelegram(Exception):
+    """Doctor path marker: a web-only configuration has no Telegram bot."""
 
 
 def with_suppressed_close(client) -> None:
