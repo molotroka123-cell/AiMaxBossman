@@ -101,9 +101,36 @@ def descriptors(path: Path | None = None) -> int:
     if os.name == "nt":
         if path is not None:
             target = str(Path(path).resolve())
-            return sum(1 for f in process.open_files() if f.path == target)
+            try:
+                return sum(1 for f in process.open_files() if f.path == target)
+            except (psutil.AccessDenied, PermissionError):
+                # In a long pytest process another test may leave a handle to a
+                # file pending deletion (C:\$Extend\$Deleted\...); open_files()
+                # then fails on os.stat of THAT path before reaching ours (RC19
+                # full regression). Fall back to asking the OS whether anything
+                # still holds the owned file: an exclusive open fails with a
+                # sharing violation exactly when a handle to it is open.
+                return _held_open_windows(target)
         return process.num_handles()   # num_fds() существует только на UNIX
     return process.num_fds()
+
+
+def _held_open_windows(target: str) -> int:
+    """1 when any handle to ``target`` is open (exclusive open refused), else 0."""
+    import ctypes
+    from ctypes import wintypes
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateFileW.restype = wintypes.HANDLE
+    k32.CreateFileW.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                                wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE)
+    k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    generic_read, no_sharing, open_existing = 0x80000000, 0, 3
+    handle = k32.CreateFileW(target, generic_read, no_sharing, None, open_existing, 0x80, None)
+    if handle in (None, ctypes.c_void_p(-1).value):
+        return 1 if ctypes.get_last_error() == 32 else 0      # ERROR_SHARING_VIOLATION
+    k32.CloseHandle(handle)
+    return 0
 
 
 def point_pathname_at(path: Path, attacker: Path) -> None:
