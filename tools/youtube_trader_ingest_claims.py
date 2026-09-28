@@ -370,6 +370,60 @@ def grab_frame(url: str, t: float, out: Path, local_video: Optional[Path] = None
     return out.is_file()
 
 
+def _num(v: Any) -> Optional[float]:
+    try:
+        return None if v in (None, "", "null") else float(str(v).replace(",", ""))
+    except ValueError:
+        return None
+
+
+def frame_checks(fields: dict[str, Any], instrument: Any, t_utc: Optional[float], market: Market) -> dict[str, Any]:
+    """Independent checks of what the vision model read on a frame (BTC charts only)."""
+    inst = str(instrument or "").lower()
+    if not t_utc or not any(k in inst for k in ("btc", "bitcoin", "xbt")):
+        why = "frame instrument is not BTC" if t_utc else "frame not aligned"
+        return {k: {"status": "UNKNOWN", "reason": why} for k in ("chart_price", *LEVELS_FOR_FRAMES)}
+    out: dict[str, Any] = {}
+    px = market.price(t_utc)
+    cp = _num(fields.get("chart_price"))
+    if cp is None or px is None:
+        out["chart_price"] = {"status": "UNKNOWN", "reason": "not readable" if cp is None else "no market price"}
+    else:
+        err = abs(cp - px) / px
+        out["chart_price"] = {"status": "VERIFIED" if err <= 0.01 else "REFUTED", "frame": cp, "binance": px,
+                              "rel_err": round(err, 5)}
+    levels = market.developing_levels(t_utc)
+    for k in LEVELS_FOR_FRAMES:
+        v, ref = _num(fields.get(k)), levels.get(k)
+        if v is None or ref is None:
+            out[k] = {"status": "UNKNOWN", "reason": "not readable" if v is None else "level not computable"}
+            continue
+        err = abs(v - ref) / ref
+        out[k] = {"status": "VERIFIED" if err <= 0.0035 else "REFUTED", "frame": v, "computed": ref,
+                  "rel_err": round(err, 5)}
+    return out
+
+
+LEVELS_FOR_FRAMES = ("dPOC", "dVAH", "dVAL", "dOpen")
+
+
+def recheck_frames(run: Path) -> dict[str, Any]:
+    """Recompute frame checks from stored vision readings (no model call)."""
+    res = json.loads((run / "frames.json").read_text(encoding="utf-8"))
+    rep_ = json.loads((run / "report.json").read_text(encoding="utf-8"))
+    epoch0 = (rep_.get("alignment") or {}).get("epoch_at_offset0")
+    mk = json.loads((run / "market.json").read_text(encoding="utf-8"))
+    market = Market(mk["klines"], mk["oi"])
+    for f in res["frames"]:
+        if "fields" not in f:
+            continue
+        t_utc = epoch0 + f["t_video_s"] if epoch0 else None
+        f["t_utc"] = t_utc
+        f["checks"] = frame_checks(f["fields"], f.get("instrument"), t_utc, market)
+    (run / "frames.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
+    return res
+
+
 def run_frames(run: Path, *, max_frames: int = 4, model: str = VISION_MODEL) -> dict[str, Any]:
     import base64
 
@@ -407,19 +461,8 @@ def run_frames(run: Path, *, max_frames: int = 4, model: str = VISION_MODEL) -> 
             continue
         fields = {k: obs.get(k) for k in ("chart_price", "cvd", "open_interest", "dPOC", "dVAH", "dVAL", "dOpen")}
         unknown = [k for k, v in fields.items() if v in (None, "", "null")]
-        check: dict[str, Any] = {}
         t_utc = r.get("t_utc")
-        px = market.price(t_utc) if t_utc else None
-        try:
-            cp = float(str(fields["chart_price"]).replace(",", "")) if fields["chart_price"] not in (None, "") else None
-        except ValueError:
-            cp = None
-        if cp is not None and px:
-            err = abs(cp - px) / px
-            check["chart_price_vs_binance"] = {"status": "VERIFIED" if err <= 0.01 else "REFUTED",
-                                               "frame": cp, "binance": px, "rel_err": round(err, 5)}
-        else:
-            check["chart_price_vs_binance"] = {"status": "UNKNOWN"}
+        check = frame_checks(fields, obs.get("instrument"), t_utc, market)
         out.append({"t_video_s": r["t_video_s"], "frame": f.name, "latency_s": round(dt, 1),
                     "instrument": obs.get("instrument"), "venue": obs.get("venue"),
                     "timeframe": obs.get("timeframe"), "fields": fields, "unknown_fields": unknown,
@@ -443,8 +486,9 @@ def aggregate(evidence_root: Path) -> dict[str, Any]:
             fr = json.loads(frames.read_text(encoding="utf-8"))["frames"]
             row["frames"] = {"n": len(fr), "fields_unknown": sum(len(f.get("unknown_fields", [])) for f in fr),
                              "fields_total": sum(len(f.get("fields", {})) for f in fr),
-                             "chart_price_checks": [f.get("checks", {}).get("chart_price_vs_binance", {}).get("status")
-                                                    for f in fr]}
+                             "checks": {k: [f.get("checks", {}).get(k, {}).get("status") for f in fr]
+                                        for k in ("chart_price", *LEVELS_FOR_FRAMES)},
+                             "instruments": [f.get("instrument") for f in fr]}
         audit = evidence_root / "audit" / f"{rep['video_id']}-precision-audit.json"
         if audit.is_file():
             a = json.loads(audit.read_text(encoding="utf-8"))
@@ -472,6 +516,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     f.add_argument("run_dir")
     f.add_argument("--max-frames", type=int, default=4)
     f.add_argument("--model", default=VISION_MODEL)
+    f.add_argument("--recheck", action="store_true", help="recompute checks from stored readings, no model")
     args = ap.parse_args(argv)
     if args.cmd == "report":
         agg = aggregate(Path(args.evidence_root))
@@ -485,7 +530,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         rep = run_video(Path(args.run_dir), role=args.role, model=args.model, max_windows=args.max_windows)
         print(json.dumps({k: rep[k] for k in ("video_id", "role", "summary", "runtime_s")}, ensure_ascii=False))
     else:
-        rep = run_frames(Path(args.run_dir), max_frames=args.max_frames, model=args.model)
+        rep = (recheck_frames(Path(args.run_dir)) if args.recheck
+               else run_frames(Path(args.run_dir), max_frames=args.max_frames, model=args.model))
+        rep.setdefault("video_id", Path(args.run_dir).name)
         print(json.dumps({"video_id": rep["video_id"], "frames": len(rep["frames"])}))
     return 0
 

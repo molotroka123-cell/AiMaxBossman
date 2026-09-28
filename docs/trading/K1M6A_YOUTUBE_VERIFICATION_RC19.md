@@ -90,6 +90,37 @@ STATE claims plus the non-verifiable kinds; the other columns hold FORECAST clai
 - **Nothing is promoted.** No lesson, rule or signal is promoted. Teacher claims stay quarantined
   as `UNVERIFIED_TEACHER_CLAIMS_SCORED`. No trading happens.
 
-## Frames
+## Frames (local vision, bounded pass)
 
-See the section appended after the vision pass (`frames.json` per video).
+Three frames per video were taken at claim times from the locally downloaded 720p public stream,
+9 frames in total. Model: `bossman-fast-qwen36-vision`, thinking off, about 50–70 s per frame.
+Remote seeking with ffmpeg or `--download-sections` hung on YouTube's throttled ranges, so the
+frame pass reads the local file.
+
+Each field the vision model read was then checked independently. Only BTC charts are checked;
+other instruments are `UNKNOWN`.
+
+| | frames | BTC charts | chart price V / R / U | dPOC, dVAH, dVAL, dOpen readings V / R / U |
+|---|---|---|---|---|
+| all 3 videos | 9 | 7 (the others were ETH and NVIDIA) | 5 / 2 / 2 | 5 / 23 / 8 |
+
+- **Chart price and instrument are readable.** Examples: Coinbase BTC/USD 30m close
+  79,863.45 against Binance 79,877.4; a CME frame within 0.9 %.
+- **Visible OI and CVD are mostly UNKNOWN.** The model returned null for OI on 8 of 9 frames.
+- **Level readings are not reliable.** Only 5 of 28 match the computed developing levels within
+  0.35 %. The model reads candle OHLC or the wrong line label, or the teacher's session and venue
+  differ from Binance UTC. Levels read by vision therefore stay evidence only; they are never
+  used as ground truth.
+- **Independent alignment check.** Frame `AD1t15oc7tk@1175s` shows the chart's UTC clock
+  18:20:17. The chat alignment predicts 18:20:24.6, about 7.6 s away. That is consistent with
+  stream latency.
+
+## Suggested marker
+
+`YOUTUBE_K1M6A=VERIFIED` for the **pipeline**. The known replay and two held-out replays ran end
+to end: local ASR, then chat-derived UTC alignment, then timestamped claims, then independent
+exchange verification at 1/5/15/30/60/240 min, plus frames. Missing fields are `UNKNOWN`.
+
+It is **not** a claim that the teacher's calls are right, and not a claim that the local
+extractor is accurate. Extraction precision measured at about 25–38 % is the blocker for
+learning from these videos.
