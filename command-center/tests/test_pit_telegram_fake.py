@@ -130,7 +130,10 @@ def test_voice_note_without_asr_model_degrades_to_text(tmp_path, monkeypatch):
     api = FakeBotAPI([update(1, "/start"), update(2, voice=note)])
     runtime = fake_runtime(tmp_path, api)
     run_until(runtime, api, replies=2)
-    assert api.sent[1]["text"] == rt._failure_text("VOICE_STT_UNAVAILABLE")
+    # /start (control lane) and the voice note (chat lane) run on separate workers, so the
+    # two replies may arrive in either order (py3.14 CI sent the voice reply first).
+    assert sorted(row["text"] for row in api.sent) == sorted(
+        [rt.INTRO_RU, rt._failure_text("VOICE_STT_UNAVAILABLE")])
     assert "getFile" in api.methods
 
 
