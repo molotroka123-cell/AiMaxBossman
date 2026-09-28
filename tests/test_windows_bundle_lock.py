@@ -301,12 +301,15 @@ def test_the_embedded_interpreter_must_see_exactly_the_locked_set(tmp_path, monk
     def probe(cmd, **kwargs):
         assert cmd[1] == "-I", "the embedded interpreter is asked in isolated mode"
         payload = {"distributions": seen, "bcc": str(runtime / "Lib" / "site-packages" / "bcc" / "__init__.py"),
-                   "executable": str(runtime / "python.exe"), "isolated": True}
+                   "executable": str(runtime / "python.exe"), "isolated": True,
+                   "computer_use": _computer_use_ok(runtime)}
         return subprocess.CompletedProcess(cmd, 0, json.dumps(payload) + "\n", "")
 
     monkeypatch.setattr(bundle.subprocess, "run", probe)
     result = bundle.verify_runtime(runtime, wheels, lock)
-    assert result == {"verified_by_embedded_python": True, "distribution_count": 3, "isolated": True, "matches_lock": True}
+    assert result == {"verified_by_embedded_python": True, "distribution_count": 3, "isolated": True,
+                      "computer_use": {"modules": sorted(bundle.COMPUTER_USE_MODULES), "preflight": "PASS"},
+                      "matches_lock": True}
     seen["gamma"] = ["0.1"]
     with pytest.raises(RuntimeError, match="extra=\\['gamma'\\]"):
         bundle.verify_runtime(runtime, wheels, lock)
@@ -328,6 +331,84 @@ def test_a_product_imported_from_outside_the_runtime_fails_the_build(tmp_path, m
                         lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, json.dumps(payload), ""))
     with pytest.raises(RuntimeError, match="outside the runtime"):
         bundle.verify_runtime(runtime, tmp_path, None)
+
+
+def _computer_use_ok(runtime: Path) -> dict:
+    site = runtime / "Lib" / "site-packages"
+    return {"modules": {name: str(site / name / "__init__.py") for name in bundle.COMPUTER_USE_MODULES},
+            "preflight": None}
+
+
+def _probe_with(runtime: Path, computer_use, *, create: tuple[str, ...] = ()):
+    def probe(cmd, **kwargs):
+        for rel in create:          # what importing pywinauto does: comtypes writes wrappers
+            target = runtime / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("# generated", encoding="utf-8")
+        payload = {"distributions": {}, "bcc": str(runtime / "Lib" / "site-packages" / "bcc" / "__init__.py"),
+                   "executable": str(runtime / "python.exe"), "isolated": True}
+        if computer_use is not ...:
+            payload["computer_use"] = computer_use
+        return subprocess.CompletedProcess(cmd, 0, json.dumps(payload) + "\n", "")
+    return probe
+
+
+def test_the_probe_asks_the_embedded_python_for_every_computer_use_module(tmp_path, monkeypatch):
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    seen = {}
+
+    def probe(cmd, **kwargs):
+        seen["code"] = cmd[cmd.index("-c") + 1]
+        return _probe_with(runtime, _computer_use_ok(runtime))(cmd, **kwargs)
+
+    monkeypatch.setattr(bundle.subprocess, "run", probe)
+    result = bundle.verify_runtime(runtime, tmp_path, None)
+    assert result["computer_use"] == {"modules": sorted(bundle.COMPUTER_USE_MODULES), "preflight": "PASS"}
+    for name in ("pywinauto", "pyautogui", "win32clipboard", "psutil"):
+        assert f"import {name}\n" in seen["code"]
+    assert "WindowsDesktop.preflight()" in seen["code"]
+
+
+@pytest.mark.parametrize("computer_use, message", [
+    (..., "no computer-use result"),
+    ({"error": "ModuleNotFoundError: No module named 'pywinauto'"}, "No module named 'pywinauto'"),
+    ({"error": "ImportError: DLL load failed while importing win32clipboard"}, "DLL load failed"),
+    ({"modules": {}, "preflight": "desktop backend dependencies missing: pyautogui"}, "preflight"),
+])
+def test_a_runtime_that_cannot_drive_the_desktop_fails_the_build(tmp_path, monkeypatch, computer_use, message):
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    monkeypatch.setattr(bundle.subprocess, "run", _probe_with(runtime, computer_use))
+    with pytest.raises(RuntimeError, match="computer use") as caught:
+        bundle.verify_runtime(runtime, tmp_path, None)
+    assert message in str(caught.value)
+
+
+def test_computer_use_modules_from_outside_the_runtime_fail_the_build(tmp_path, monkeypatch):
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    cu = _computer_use_ok(runtime)
+    cu["modules"]["pywinauto"] = str(REPO / "somewhere" / "pywinauto" / "__init__.py")
+    monkeypatch.setattr(bundle.subprocess, "run", _probe_with(runtime, cu))
+    with pytest.raises(RuntimeError, match=r"outside the runtime: \['pywinauto'\]"):
+        bundle.verify_runtime(runtime, tmp_path, None)
+
+
+def test_the_probe_leaves_the_shipped_runtime_exactly_as_installed(tmp_path, monkeypatch):
+    runtime = tmp_path / "runtime"
+    shipped = runtime / "Lib" / "site-packages" / "comtypes" / "__init__.py"
+    shipped.parent.mkdir(parents=True)
+    shipped.write_text("# shipped", encoding="utf-8")
+    before = sorted(p.relative_to(runtime).as_posix() for p in runtime.rglob("*"))
+    generated = ("Lib/site-packages/comtypes/gen/__init__.py",
+                 "Lib/site-packages/comtypes/gen/UIAutomationClient.py",
+                 "Lib/site-packages/comtypes/gen/__pycache__/stdole.cpython-312.pyc")
+    monkeypatch.setattr(bundle.subprocess, "run",
+                        _probe_with(runtime, _computer_use_ok(runtime), create=generated))
+    bundle.verify_runtime(runtime, tmp_path, None)
+    assert sorted(p.relative_to(runtime).as_posix() for p in runtime.rglob("*")) == before
+    assert shipped.read_text(encoding="utf-8") == "# shipped"
 
 
 def test_the_locked_browser_directory_must_be_the_one_the_lock_names(tmp_path, monkeypatch, lock):
