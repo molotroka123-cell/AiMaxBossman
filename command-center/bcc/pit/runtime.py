@@ -662,8 +662,13 @@ class ParticipantRuntime:
             self._cloud_stop("daily_budget")
         return reason
 
-    def _cloud_spend(self) -> None:
-        self.cloud.spend()
+    def _cloud_spend(self) -> str:
+        """Count one cloud request atomically with the budget check; a non-empty
+        reason means the request must NOT be sent."""
+        reason = self.cloud.try_spend()
+        if reason == "daily_budget":
+            self._cloud_stop("daily_budget")
+        return reason
 
     def _cloud_stop(self, reason: str, *, until: float | None = None) -> None:
         if not self.cloud.stop(reason, until=until):
@@ -1527,7 +1532,12 @@ class ParticipantRuntime:
                         break
                     call_timeout = min(timeout, remaining)
                     if provider == "remote":
-                        self._cloud_spend()
+                        refused = self._cloud_spend()
+                        if refused:
+                            cloud_stopped = refused
+                            ensure_local_fallback()
+                            result = None
+                            break
                     result = await asyncio.wait_for(adapter.chat(
                         route_model, messages, max_tokens=limit,
                         timeout=call_timeout), timeout=call_timeout)

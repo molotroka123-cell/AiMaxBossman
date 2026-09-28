@@ -155,3 +155,65 @@ def test_free_worker_retries_transient_rate_limit_without_paid_fallback(monkeypa
     assert adapter.calls == 3
     assert len(gw.retry_events) == 2
     assert gw.ledger.spent_usd == 0
+
+
+# ------------------------------------------------------------------ rc19 audit: ledger overrun
+
+def test_an_overrun_is_booked_and_locks_the_ledger():
+    """Regression: the over-budget charge raised BEFORE it was booked, so spent_usd
+    stayed below the cap and every following paid call passed `reserve` again —
+    5 calls of USD 0.02 against a USD 0.01 budget booked USD 0.00."""
+    ledger = SpendLedger(glm_budget_usd=0.01)
+    spec = ROLE_SPECS["glm_finalizer"]
+    msgs = [{"role": "user", "content": "x" * 100}]
+    est = ledger.reserve(spec, msgs)
+    with pytest.raises(BudgetExceeded):
+        ledger.record(spec, result(cost=0.02), reserved=est)
+    assert ledger.spent_usd == pytest.approx(0.02)          # the money the provider took
+    assert ledger.rows[-1]["cost_usd"] == pytest.approx(0.02)
+    assert ledger.reserved_usd == pytest.approx(0.0)
+    with pytest.raises(BudgetExceeded, match="locked"):
+        ledger.reserve(spec, msgs)                            # no further paid call
+
+
+def test_reservations_in_flight_count_against_the_budget():
+    spec = ROLE_SPECS["glm_finalizer"]
+    msgs = [{"role": "user", "content": "x"}]
+    one = SpendLedger(glm_budget_usd=1.0).reserve(spec, msgs)
+    ledger = SpendLedger(glm_budget_usd=one * 1.5)
+    ledger.reserve(spec, msgs)                                # first concurrent call
+    with pytest.raises(BudgetExceeded, match="in flight"):
+        ledger.reserve(spec, msgs)                            # second sees the first
+
+
+def test_reservation_covers_the_requested_max_tokens_and_tool_schemas():
+    spec = ROLE_SPECS["glm_finalizer"]
+    msgs = [{"role": "user", "content": "x"}]
+    base = SpendLedger().reserve(spec, msgs)
+    bigger = SpendLedger().reserve(spec, msgs, max_tokens=spec.max_tokens * 4)
+    assert bigger > base
+    tools = [{"type": "function", "function": {"name": "t", "parameters": {"d": "y" * 5000}}}]
+    assert SpendLedger().reserve(spec, msgs, tools=tools) > base
+    # Cyrillic is not undercounted as chars/4
+    ru = [{"role": "user", "content": "привет " * 1000}]
+    assert SpendLedger().reserve(spec, ru) >= 7000 * spec.price_in + spec.max_tokens * spec.price_out
+
+
+def test_a_free_role_that_charged_is_booked_before_the_violation():
+    ledger = SpendLedger()
+    with pytest.raises(PaidViolation):
+        ledger.record(ROLE_SPECS["nemotron_evidence"], result(cost=0.003))
+    assert ledger.spent_usd == pytest.approx(0.003) and ledger.locked
+
+
+def test_the_gateway_releases_the_reservation_it_booked(monkeypatch):
+    class Paid:
+        async def chat(self, *args, **kwargs):
+            return ChatResult(text="ok", tokens_in=10, tokens_out=2,
+                              provider_meta={"usage": {"cost": 0.0001}})
+
+    gw = BossmanOpenRouter(key="test", ledger=SpendLedger(glm_budget_usd=0.25))
+    monkeypatch.setattr(gw, "_adapter", lambda _spec: Paid())
+    asyncio.run(gw.chat("glm_finalizer", [{"role": "user", "content": "bundle"}]))
+    assert gw.ledger.reserved_usd == pytest.approx(0.0)
+    assert gw.ledger.spent_usd == pytest.approx(0.0001)

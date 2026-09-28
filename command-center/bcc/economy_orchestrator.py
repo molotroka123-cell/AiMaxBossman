@@ -127,9 +127,15 @@ def _openrouter_key() -> str:
     raise EconomyError("OpenRouter key is unavailable to Bossman")
 
 
-def _estimate_tokens(messages: Iterable[dict]) -> int:
-    chars = sum(len(str(msg.get("content") or "")) for msg in messages)
-    return max(1, (chars + 3) // 4)
+def _estimate_tokens(messages: Iterable[dict], tools: Any = None) -> int:
+    """Upper bound for the paid reservation: one token per character of what is
+    actually sent (content, tool calls, tool schemas). chars/4 undercounted
+    Cyrillic/JSON packets several times over, and an undercounted reservation
+    is exactly how the actual cost overtakes the budget."""
+    payload: list[Any] = [list(messages)]
+    if tools:
+        payload.append(tools)
+    return max(1, len(json.dumps(payload, ensure_ascii=False, default=str)))
 
 
 @dataclass
@@ -137,38 +143,65 @@ class SpendLedger:
     glm_budget_usd: float = 0.25
     spent_usd: float = 0.0
     rows: list[dict[str, Any]] = field(default_factory=list)
+    # Reservations of paid calls in flight: concurrent calls see each other's
+    # worst case, not only what has already been recorded.
+    reserved_usd: float = 0.0
+    # Money was spent past the budget (or by a "free" role): no further paid call.
+    locked: bool = False
 
-    def reserve(self, spec: ModelSpec, messages: list[dict]) -> float:
+    def reserve(self, spec: ModelSpec, messages: list[dict], *, tools: Any = None,
+                max_tokens: int | None = None) -> float:
         if spec.free:
             return 0.0
-        estimate = _estimate_tokens(messages) * spec.price_in + spec.max_tokens * spec.price_out
-        if self.spent_usd + estimate > self.glm_budget_usd + 1e-12:
+        if self.locked:
+            raise BudgetExceeded(
+                f"GLM budget is locked after an overrun: spent=USD {self.spent_usd:.6f} of "
+                f"USD {self.glm_budget_usd:.6f}"
+            )
+        out_tokens = max(int(max_tokens or 0), spec.max_tokens)
+        estimate = _estimate_tokens(messages, tools) * spec.price_in + out_tokens * spec.price_out
+        if self.spent_usd + self.reserved_usd + estimate > self.glm_budget_usd + 1e-12:
             raise BudgetExceeded(
                 f"GLM reservation USD {estimate:.6f} would exceed run budget "
-                f"USD {self.glm_budget_usd:.6f}; spent=USD {self.spent_usd:.6f}"
+                f"USD {self.glm_budget_usd:.6f}; spent=USD {self.spent_usd:.6f}, "
+                f"in flight=USD {self.reserved_usd:.6f}"
             )
+        self.reserved_usd += estimate
         return estimate
 
-    def record(self, spec: ModelSpec, result: ChatResult) -> float:
+    def record(self, spec: ModelSpec, result: ChatResult, *, reserved: float = 0.0) -> float:
+        """Book what the provider actually charged — ALWAYS, also when it is over
+        the budget: an unbooked overrun let every following call pass `reserve`
+        again. The overrun itself locks the ledger and is raised afterwards."""
         usage = result.provider_meta.get("usage") if isinstance(result.provider_meta, dict) else {}
         reported = usage.get("cost") if isinstance(usage, dict) else None
         calculated = result.tokens_in * spec.price_in + result.tokens_out * spec.price_out
+        self.reserved_usd = max(0.0, self.reserved_usd - float(reserved or 0.0))
+        violation: EconomyError | None = None
         if spec.free:
-            if reported not in (None, 0, 0.0):
-                raise PaidViolation(f"free role {spec.role} reported non-zero cost {reported}")
             actual = 0.0
+            if reported not in (None, 0, 0.0):
+                try:
+                    actual = max(0.0, float(reported))
+                except (TypeError, ValueError):
+                    actual = 0.0
+                self.locked = True
+                violation = PaidViolation(f"free role {spec.role} reported non-zero cost {reported}")
         else:
             actual = float(reported) if isinstance(reported, (int, float)) and reported >= 0 else calculated
             if self.spent_usd + actual > self.glm_budget_usd + 1e-12:
-                raise BudgetExceeded(
+                self.locked = True
+                violation = BudgetExceeded(
                     f"GLM actual cost USD {actual:.6f} exceeds remaining budget "
                     f"USD {self.glm_budget_usd - self.spent_usd:.6f}"
                 )
-            self.spent_usd += actual
+        self.spent_usd += actual
         self.rows.append({
             "role": spec.role, "model": spec.model, "tokens_in": result.tokens_in,
             "tokens_out": result.tokens_out, "cost_usd": round(actual, 8),
         })
+        if violation is not None:
+            raise violation
         return actual
 
 
@@ -198,7 +231,7 @@ class BossmanOpenRouter:
         spec = ROLE_SPECS[role]
         if spec.free and not spec.model.endswith(":free"):
             raise PaidViolation(f"free role {role} is not bound to a :free model")
-        self.ledger.reserve(spec, messages)
+        reserved = self.ledger.reserve(spec, messages, tools=tools, max_tokens=max_tokens)
         adapter = self._adapter(spec)
         delays = (2.0, 5.0, 15.0) if spec.free else ()
         attempt = 0
@@ -216,6 +249,8 @@ class BossmanOpenRouter:
                     marker in text for marker in ("(408)", "(429)", " 500", " 502", " 503", " 504", " 529")
                 )
                 if not transient or attempt > len(delays):
+                    # The reservation stays held: a failed/interrupted paid call
+                    # may still have been billed, and "probably not" is no evidence.
                     raise
                 wait = delays[attempt - 1]
                 self.retry_events.append({
@@ -223,7 +258,7 @@ class BossmanOpenRouter:
                     "wait_s": wait, "kind": exc.kind, "reason": text[:160],
                 })
                 await asyncio.sleep(wait)
-        self.ledger.record(spec, result)
+        self.ledger.record(spec, result, reserved=reserved)
         return result
 
 
