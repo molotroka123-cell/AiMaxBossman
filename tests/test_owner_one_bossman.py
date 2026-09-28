@@ -248,3 +248,20 @@ def test_a_backend_that_ignores_ctrl_c_is_not_killed_without_force(tmp_path, mon
     monkeypatch.setattr(ob.subprocess, "run", lambda *a, **k: killed.append(a))
     assert ob.stop_process({"pid": 7, "kind": "backend"}, tmp_path)["stopped"] == "NO"
     assert killed == []
+
+
+def test_companion_gets_only_its_own_secrets_from_companion_env(tmp_path, monkeypatch):
+    cfg_dir = tmp_path / "telegram-companion"; cfg_dir.mkdir()
+    (cfg_dir / "config.json").write_text("{}")
+    (cfg_dir / "companion.env").write_text(
+        "TG_COMPANION_BOT_TOKEN=123:abc" + chr(10) + "TG_COMPANION_CORE_TOKEN=core" + chr(10) + "OPENROUTER_API_KEY=nope" + chr(10))
+    monkeypatch.setenv("BOSSMAN_TELEGRAM_POLLER_LOCK_DIR", str(tmp_path / "pollers"))
+    seen = {}
+    monkeypatch.setattr(ob, "_spawn_hidden", lambda argv, cwd, env, log: seen.update(env) or 1)
+    monkeypatch.setattr(ob, "_pid_alive", lambda pid: True)
+    monkeypatch.setattr(ob.time, "sleep", lambda s: None)
+    monkeypatch.setattr(ob.time, "monotonic", iter(range(0, 10000, 20)).__next__)
+    assert ob.launch("companion", tmp_path / "home", tmp_path / "data", 8801, cfg_dir / "config.json",
+                     out=io.StringIO()) == 0
+    assert seen["TG_COMPANION_BOT_TOKEN"] == "123:abc" and seen["TG_COMPANION_CORE_TOKEN"] == "core"
+    assert "OPENROUTER_API_KEY" not in seen or seen["OPENROUTER_API_KEY"] == os.environ.get("OPENROUTER_API_KEY")
