@@ -173,3 +173,31 @@ def test_the_direct_client_reserves_on_the_canonical_cap_without_a_mission_budge
     assert b.remaining() < 3.0, "вызов не занял ни цента общего потолка"
     # обрыв — исход неизвестен, деньги остаются висеть до разбора
     assert [r["status"] for r in b._records] == ["RECONCILING"]
+
+
+def test_a_reader_holding_the_ledger_does_not_fail_a_spend(tmp_path: Path):
+    """Windows: пока другой процесс ЧИТАЕТ реестр (загрузка нового бюджета идёт
+    вне блокировки), os.replace получает PermissionError. Запись обязана
+    переждать читателя, а не уронить резервирование."""
+    import threading
+    import time as _time
+    from bossman_shared.fable_budget import DirectApiBudget as SharedBudget
+    path = tmp_path / "fable_hard_cap.json"
+    budget = SharedBudget(path, total_usd=3.0, mission_id="m1")
+    budget.reserve(0.5)
+    released = threading.Event()
+
+    def hold_open():
+        with open(path, "rb"):
+            _time.sleep(0.3)
+        released.set()
+
+    reader = threading.Thread(target=hold_open)
+    reader.start()
+    _time.sleep(0.05)
+    try:
+        assert budget.reserve(0.5).startswith("rsv-")
+    finally:
+        reader.join()
+    assert released.is_set()
+    assert len(json.loads(path.read_text(encoding="utf-8"))["reservations"]) == 2

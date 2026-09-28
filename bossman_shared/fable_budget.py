@@ -246,7 +246,17 @@ class DirectApiBudget:
         tmp.parent.mkdir(parents=True, exist_ok=True)
         tmp.write_text(json.dumps({"mission_id": self.mission_id, "total_usd": self.total,
                                    "reservations": self._records}, indent=1), encoding="utf-8")
-        os.replace(tmp, self.path)
+        # Windows: a reader outside the lock (a new ledger's __init__ load) holds
+        # the file without FILE_SHARE_DELETE, and os.replace fails with
+        # PermissionError for those milliseconds. Bounded retry, then raise.
+        for attempt in range(100):
+            try:
+                os.replace(tmp, self.path)
+                return
+            except PermissionError:
+                if attempt == 99:
+                    raise
+                time.sleep(0.02)
 
     @contextlib.contextmanager
     def _transaction(self) -> Iterator[None]:
