@@ -282,6 +282,11 @@ def _evidence_record_errors(case: dict) -> list[str]:
             return ["evidence_record without collected_at"]
         if collected < observed:
             return ["evidence_record collected_at before observed_at"]
+        # EVIDENCE_TTL_S was declared and never enforced: an observation a year old,
+        # re-collected today, verified a lesson. Freshness is judged when the evidence
+        # is collected (the VERIFIED transition), so a record keeps teaching after.
+        if collected - observed > EVIDENCE_TTL_S:
+            return ["evidence_record observation older than EVIDENCE_TTL_S when collected (stale)"]
         now = time.time()
         if observed > now + MAX_CLOCK_SKEW_S or collected > now + MAX_CLOCK_SKEW_S:
             return ["evidence_record timestamp in the future (clock skew beyond tolerance)"]
@@ -290,6 +295,8 @@ def _evidence_record_errors(case: dict) -> list[str]:
         for key in ("principal_id", "head_sha", "environment"):
             if not str(r.get(key) or "").strip():
                 return [f"evidence_record without {key}"]
+        if str(r.get("head_sha")).strip().lower() == "unknown":       # a placeholder binds to nothing
+            return ["evidence_record head_sha 'unknown' is not bound to a revision"]
         if str(r.get("task_id") or "") != str(case.get("task_id")):
             return ["evidence_record bound to another task"]
         if case.get("run_id") and str(r.get("run_id") or "") != str(case.get("run_id")):
