@@ -260,3 +260,27 @@ def test_login_token_field_is_not_a_password_field():
     assert "token-mask" in (token.get("class") or "").split()
     css = (ui / "style.css").read_text(encoding="utf-8")
     assert ".token-mask { -webkit-text-security: disc; }" in css
+
+
+# ------------------------------------------------ vault: ACL файла ключа
+
+def test_vault_key_file_gets_the_owner_only_acl(tmp_path, monkeypatch):
+    """Ключ Fernet получает тот же owner-only DACL, что и файл токена: и при
+    создании, и при загрузке файла, созданного старой версией. Ключ из env
+    на диск не пишется и ACL не трогает."""
+    from bcc import auth, secrets
+    calls = []
+    monkeypatch.setattr(auth, "_restrict_to_owner", lambda path: calls.append(path))
+    monkeypatch.delenv(secrets.KEY_ENV, raising=False)
+    secrets.Vault(tmp_path)
+    key = tmp_path / secrets.KEY_FILE
+    assert calls == [key]
+    secrets._ACL_HEALED.discard(key)          # «другой процесс»: файл от старой версии
+    secrets.Vault(tmp_path)
+    assert calls == [key, key]
+    secrets.Vault(tmp_path)                   # повторная загрузка — без icacls
+    assert calls == [key, key]
+    from cryptography.fernet import Fernet
+    monkeypatch.setenv(secrets.KEY_ENV, Fernet.generate_key().decode())
+    secrets.Vault(tmp_path / "env")
+    assert calls == [key, key]
