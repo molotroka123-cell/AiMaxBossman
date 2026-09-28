@@ -478,6 +478,7 @@ def create_app(settings: Settings | None = None, *, start_workers: bool = True,
 
     app = FastAPI(title="BOSSMAN Command Center", version="0.1", lifespan=lifespan)
     app.state.svc = svc
+    app.add_middleware(HostGuard, extra_hosts=_configured_hosts(svc.settings))
     _install_error_handlers(app)
     _install_testing_period_log(app)
     app.include_router(_health_router())
@@ -489,6 +490,73 @@ def create_app(settings: Settings | None = None, *, start_workers: bool = True,
                                dependencies=[Depends(require_token)])
     _mount_ui(app, svc.settings)
     return app
+
+
+#: Имена, которые публичный DNS не отдаёт: их не может «перепривязать» на
+#: 127.0.0.1 чужой сайт (DNS rebinding). *.ts.net — MagicDNS Tailscale, её
+#: записи задаёт Tailscale, а не владелец произвольного домена.
+_PRIVATE_NAME_SUFFIXES = (".localhost", ".local", ".ts.net")
+ALLOWED_HOSTS_ENV = "BCC_ALLOWED_HOSTS"
+
+
+def _configured_hosts(settings: Settings) -> frozenset[str]:
+    """Явно разрешённые имена: адрес привязки + BCC_ALLOWED_HOSTS (через запятую,
+    `*.example.org` — поддомены)."""
+    raw = [settings.host, *os.environ.get(ALLOWED_HOSTS_ENV, "").split(",")]
+    return frozenset(h.strip().strip("[]").lower().rstrip(".") for h in raw if h and h.strip())
+
+
+def host_allowed(host_header: str, extra_hosts: frozenset[str] = frozenset()) -> bool:
+    """Защита от DNS rebinding: Host должен быть адресом, а не чужим доменом.
+
+    Пропускаются IP-литералы (так ходят по 127.0.0.1, LAN и Tailscale-IP),
+    localhost и имена, которых нет в публичном DNS (одна метка, .local,
+    .localhost, .ts.net), плюс явно заданные владельцем. Имя вида
+    attacker.example, указывающее на 127.0.0.1, — отказ."""
+    value = (host_header or "").strip().lower()
+    if not value:
+        return True                    # HTTP/1.0 без Host — не браузер
+    if value.startswith("["):
+        name = value[1:value.find("]")] if "]" in value else value[1:]
+    else:
+        name = value.rsplit(":", 1)[0] if value.count(":") == 1 else value
+    name = name.rstrip(".")
+    import ipaddress
+    try:
+        ipaddress.ip_address(name)
+        return True
+    except ValueError:
+        pass
+    if name == "localhost" or "." not in name or name.endswith(_PRIVATE_NAME_SUFFIXES):
+        return True
+    for allowed in extra_hosts:
+        if name == allowed or (allowed.startswith("*.") and name.endswith(allowed[1:])):
+            return True
+    return False
+
+
+class HostGuard:
+    """ASGI-страж Host для HTTP и WebSocket (TrustedHost Starlette не знает
+    правила «любой IP-литерал», нужного для LAN/Tailscale по адресу)."""
+
+    def __init__(self, app, extra_hosts: frozenset[str] = frozenset()):
+        self.app = app
+        self.extra_hosts = extra_hosts
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            host = next((v.decode("latin-1") for k, v in scope.get("headers") or []
+                         if k == b"host"), "")
+            if not host_allowed(host, self.extra_hosts):
+                if scope["type"] == "websocket":
+                    await send({"type": "websocket.close", "code": 4421})
+                    return
+                await JSONResponse({"error": {
+                    "message": "недопустимый адрес сервера в заголовке Host",
+                    "hint": f"откройте Command Center по 127.0.0.1/localhost или добавьте имя "
+                            f"в {ALLOWED_HOSTS_ENV}"}}, status_code=421)(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
 
 
 def _install_testing_period_log(app: FastAPI) -> None:
