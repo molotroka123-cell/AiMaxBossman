@@ -165,3 +165,24 @@ def test_a_stale_backend_json_without_the_lock_is_ignored(tmp_path):
 def test_the_script_hardcodes_no_user_profile_path():
     text = SCRIPT.read_text(encoding="utf-8")
     assert "Users\\asd" not in text and "Users/asd" not in text
+
+
+def test_replace_owner_shortcuts_never_removes_one_before_the_install_is_proven(tmp_path):
+    """-ReplaceOwnerShortcuts backs up and replaces only after the RC install checks pass:
+    with no install the owner's shortcut must still be exactly where it was."""
+    shortcuts = tmp_path / "Desktop"
+    shortcuts.mkdir()
+    foreign = shortcuts / "Bossman.lnk"
+    create = (
+        "$ws = New-Object -ComObject WScript.Shell; "
+        f"$l = $ws.CreateShortcut('{foreign}'); $l.TargetPath = $env:ComSpec; "
+        "$l.Description = 'owner shortcut'; $l.Save()")
+    subprocess.run([_shell(), "-NoProfile", "-NonInteractive", "-Command", create], check=True, timeout=60)
+    before = foreign.read_bytes()
+    done = _run(tmp_path, "-Action", "Shortcuts", "-DataDir", str(tmp_path / "rc-data"),
+                "-ShortcutDir", str(shortcuts), "-Port", "8839", "-WindowName", "Bossman",
+                "-CmdName", "Bossman CMD", "-JeffName", "Bossman Jeff", "-ReplaceOwnerShortcuts")
+    assert done.returncode == 1, done.stdout + done.stderr          # install missing → Fail
+    assert "bundled runtime missing" in done.stdout
+    assert foreign.read_bytes() == before
+    assert not (tmp_path / "root" / "evidence" / "rc19" / "old-shortcuts").exists()

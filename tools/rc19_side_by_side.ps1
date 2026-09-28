@@ -60,7 +60,15 @@ param(
   [string]$PreviousInstalls = '',
   [string]$SourceRepo = '',
   [string]$BuildPython = '',
-  [int]$StartTimeoutSec = 180
+  [int]$StartTimeoutSec = 180,
+  # Owner-facing names (RC19 owner request: «Bossman», «Bossman Jeff», «Bossman CMD»).
+  [string]$WindowName = '',
+  [string]$CmdName = '',
+  [string]$JeffName = '',
+  [ValidateRange(1024, 65535)][int]$JeffPort = 8850,
+  # Replace existing shortcuts of those names that this script did NOT write (the owner's
+  # old ones). Each is copied to <Root>\evidence\rc19\old-shortcuts\ first; never deleted.
+  [switch]$ReplaceOwnerShortcuts
 )
 
 $ErrorActionPreference = 'Stop'
@@ -432,21 +440,46 @@ function Write-Wrapper([string]$name, [string[]]$tail) {
   return $path
 }
 
+function Shortcut-Names {
+  $w = if ($WindowName) { $WindowName } else { "Bossman $Label" }
+  $c = if ($CmdName) { $CmdName } else { "Bossman $Label CMD" }
+  $j = if ($JeffName) { $JeffName } else { "Bossman $Label Jeff" }
+  return @("$w.lnk", "$c.lnk", "$j.lnk")
+}
+
 function Do-Shortcuts {
   Assert-SafeDataDir
+  $names = Shortcut-Names
   # Collisions first: a shortcut of the same name that this script did not write (for example the
-  # owner's own) is never overwritten, whatever else is or is not installed.
+  # owner's own) is never overwritten silently. With -ReplaceOwnerShortcuts it is copied aside first.
   $wsCheck = New-Object -ComObject WScript.Shell
-  foreach ($n in @("Bossman $Label.lnk", "Bossman $Label CMD.lnk")) {
+  $foreign = @()
+  foreach ($n in $names) {
     $existing = Join-Path $ShortcutDir $n
     if ((Test-Path -LiteralPath $existing) -and
         -not $wsCheck.CreateShortcut($existing).Description.StartsWith('rc19-side-by-side ')) {
-      Refuse "$existing exists and was not written by this script: not touching it"
+      if (-not $ReplaceOwnerShortcuts) {
+        Refuse "$existing exists and was not written by this script: not touching it (use -ReplaceOwnerShortcuts to back it up and replace it)"
+      }
+      $foreign += $existing
     }
   }
   if (-not (Test-Path -LiteralPath $Python)) { Fail "bundled runtime missing: $Python (run -Action Install)" }
   $manifest = Get-Content -LiteralPath (Join-Path $Home_ 'MANIFEST.json') -Raw | ConvertFrom-Json
   if ($manifest.source_sha -ne $Sha) { Refuse "$Home_ holds $($manifest.source_sha), not $Sha" }
+  # Only now, with the install proven, move the owner's old shortcuts aside (copy, verify, remove).
+  $backupDir = Join-Path $Root 'evidence\rc19\old-shortcuts'
+  foreach ($existing in $foreign) {
+    New-Item -ItemType Directory -Force $backupDir | Out-Null
+    $saved = Join-Path $backupDir ("{0}-{1}" -f (Get-Date -Format 'yyyyMMdd-HHmmss'), (Split-Path -Leaf $existing))
+    Copy-Item -LiteralPath $existing -Destination $saved
+    if (-not (Test-Path -LiteralPath $saved) -or
+        (Get-FileHash -LiteralPath $saved).Hash -ne (Get-FileHash -LiteralPath $existing).Hash) {
+      Fail "could not back up $existing"
+    }
+    Remove-Item -LiteralPath $existing
+    Say "owner shortcut backed up: $existing -> $saved"
+  }
   New-Item -ItemType Directory -Force (Launcher-Dir), $ShortcutDir, $DataDir | Out-Null
   $ux = Write-Wrapper 'Bossman-RC-Window.cmd' @(
     "start """" ""%BOSSMAN_HOME%runtime\pythonw.exe"" -m bcc.desktop --host 127.0.0.1 --port $Port --no-show-token",
@@ -454,13 +487,19 @@ function Do-Shortcuts {
   $cli = Write-Wrapper 'Bossman-RC-Terminal.cmd' @(
     'call "%BOSSMAN_HOME%Bossman-Terminal.cmd" %*',
     'exit /b %ERRORLEVEL%')
+  # Jeff: the participant window's own small server on -JeffPort over the SAME data root
+  # (bcc.jeff_desktop never starts, attaches to or stops the Command Center backend).
+  $jeff = Write-Wrapper 'Bossman-RC-Jeff.cmd' @(
+    "start """" ""%BOSSMAN_HOME%runtime\pythonw.exe"" -m bcc.jeff_desktop --data-dir ""%BCC_DATA_DIR%"" --port $JeffPort",
+    'exit /b 0')
   $marker = "rc19-side-by-side $Sha port=$Port data=$(Full $DataDir)"
   $ws = New-Object -ComObject WScript.Shell
   $icon = (Join-Path $Home_ 'icons\bossman.ico') + ',0'
   $made = @()
   foreach ($spec in @(
-      @{ name = "Bossman $Label.lnk"; wrapper = $ux; style = 7; what = 'window' },
-      @{ name = "Bossman $Label CMD.lnk"; wrapper = $cli; style = 1; what = 'terminal' })) {
+      @{ name = $names[0]; wrapper = $ux; style = 7; what = 'window' },
+      @{ name = $names[1]; wrapper = $cli; style = 1; what = 'terminal' },
+      @{ name = $names[2]; wrapper = $jeff; style = 7; what = 'jeff' })) {
     $lnkPath = Join-Path $ShortcutDir $spec.name
     if (Test-Path -LiteralPath $lnkPath) {
       $old = $ws.CreateShortcut($lnkPath)
