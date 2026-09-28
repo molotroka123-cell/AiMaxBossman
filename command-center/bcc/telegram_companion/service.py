@@ -16,6 +16,7 @@ from .agent_bridge import AGENT_COMMANDS, AgentBridgeMixin
 from .console import CONSOLE_COMMANDS, CONSOLE_OFF, NO_DIRECT_SHELL, ConsoleMixin
 from .jev_bridge import JevBridgeMixin
 from .form_bridge import FORM_COMMANDS, FormBridgeMixin
+from .parse_bridge import PARSE_COMMANDS, ParseBridgeMixin
 from .store import Store
 from .secret_intake import (
     SecretField, SecretIntakeError, SecretIntakeManager, looks_like_secret_message, request_caption,
@@ -246,7 +247,7 @@ def model_name(model_id: str) -> str:
     return re.sub(r"-0*1-of-\d+$", "", name)[:80] or "модель"
 
 
-class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin):
+class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin, ParseBridgeMixin):
     def __init__(self, settings: Settings, store: Store, telegram: Telegram, core: Core, models: Models,
                  *, policy_provider=None, secret_executor=None):
         self.settings, self.store = settings, store
@@ -863,6 +864,8 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
             return await self.agent_command(person, command, arg, message)
         if command in FORM_COMMANDS:
             return await self.form_command(person, command, arg, message)
+        if command in PARSE_COMMANDS:
+            return await self.parse_command(person, command, arg, message)
         if command in REMOVED_DIRECT_COMMANDS:
             # Второй путь исполнения удалён: отказ даже владельцу и при включённом тумблере.
             return NO_DIRECT_SHELL if self.console_allowed(person) else CONSOLE_OFF

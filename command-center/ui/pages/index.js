@@ -108,6 +108,8 @@ export const FEATURE_PAGES = [
     () => import('./web_designer.js'), (m) => m.default),
   lazyPage({ id: 'objectives', title: 'Цели', icon: 'target', nav: 'more', section: 'work' },
     () => import('./objectives.js'), (m) => m.default),
+  lazyPage({ id: 'jeff-passports', title: 'Jeff · паспорта', icon: 'agents', nav: 'primary', section: 'brains' },
+    () => import('./jeff_passports.js'), (m) => m.default),
 ];
 
 /* Предзагрузка остальных страниц в простое: по одной, чтобы не отбирать сеть и
