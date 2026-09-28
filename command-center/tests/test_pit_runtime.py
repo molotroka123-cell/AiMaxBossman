@@ -827,7 +827,7 @@ def test_cloud_timeout_tries_second_free_route_before_busy_local(tmp_path, monke
             capabilities=frozenset({"chat"}), zero_cost=True),
     }
     monkeypatch.setattr(runtime, "_mixed_route",
-                        lambda text, consent: ("free/primary:free", False))
+                        lambda text, consent, **kw: ("free/primary:free", False))
 
     class Cloud(FakeAdapter):
         async def chat(self, model, messages, **kw):
