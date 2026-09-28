@@ -17,6 +17,11 @@ from bcc.studio import catalog
 from bcc.studio.tables import jobs, runs, config, budget
 from bcc.studio.provider import GenerationPlane, ProviderFailure, ProviderStatus
 
+# Owner stopped a job whose cloud request was already sent (same string as control_plane).
+PROVIDER_UNKNOWN_REASON='owner_stop_provider_unknown'
+# App restarted while a sent cloud request was in flight; the provider id is kept on the job.
+RECONCILE_REASON='needs_reconcile'
+
 class StudioError(ValueError):
     def __init__(self,reason,message,verdict='FAIL'):
         self.reason,self.verdict=reason,verdict
@@ -43,7 +48,15 @@ async def setup(svc):
         BEGIN SELECT RAISE(ABORT,'studio provenance is immutable'); END'''))
         await s.execute(sa.text('''CREATE TRIGGER IF NOT EXISTS studio_evidence_delete_guard
         BEFORE DELETE ON studio_runs BEGIN SELECT RAISE(ABORT,'use studio trash'); END'''))
-        active=list((await s.execute(sa.select(image_jobs.c.id).join(jobs,jobs.c.job_id==image_jobs.c.id).where(image_jobs.c.status=='running'))).scalars())
+        rows=(await s.execute(sa.select(jobs.c.job_id,jobs.c.plane,jobs.c.request_id,jobs.c.submit_started).join(image_jobs,jobs.c.job_id==image_jobs.c.id).where(image_jobs.c.status=='running'))).all()
+        # A cloud request that was already sent keeps running at the provider and may be charged:
+        # name it and its provider id, so the owner reconciles it instead of reading a bare failure.
+        sent={int(r.job_id):r.request_id for r in rows if r.submit_started and r.request_id and str((r.plane or {}).get('model','')).startswith('openrouter:')}
+        active=[int(r.job_id) for r in rows if int(r.job_id) not in sent]
+        for jid,request_id in sent.items():
+            await s.execute(sa.update(image_jobs).where(image_jobs.c.id==jid).values(status='failed',finished_at=utcnow(),
+                error=f'{RECONCILE_REASON}: provider request {request_id} was sent before the restart and may still finish and be charged; check it at the provider before retrying'))
+            await s.execute(sa.update(jobs).where(jobs.c.job_id==jid).values(reason=RECONCILE_REASON,verdict='OWNER_REQUIRED'))
         if active:
             await s.execute(sa.update(image_jobs).where(image_jobs.c.id.in_(active)).values(status='failed',error='interrupted_unknown: inspect provider before retry',finished_at=utcnow()))
             await s.execute(sa.update(jobs).where(jobs.c.job_id.in_(active)).values(reason='interrupted_unknown',verdict='OWNER_REQUIRED'))
