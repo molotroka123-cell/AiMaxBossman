@@ -33,7 +33,7 @@ meta: title, duration (3-60 s), bpm (70-170, default 120), key (C D E F G A B), 
 Scenes are contiguous: scene[i].start == scene[i-1].end, first starts at 0, last ends at meta.duration.
 Scene types and fields (keep texts SHORT, they must fit on screen):
 - title: title (<=12 chars, big), kicker (<=24), typed (<=48, a terminal line), chip (<=12)
-- bars: values (3..60 real numbers), headline_label (<=10), counter_label (<=12), x_from, x_to, highlight {index, text<=20}
+- bars: values (3..60 real numbers), headline_label (<=10), counter_label (<=12), x_from, x_to (axis labels <=12, e.g. "SEP 21"), highlight {index, text<=20}
 - cards: heading (<=32), items (1..5): {t, title<=14, sub<=24, icon in agents|memory|cursor|play|plane|chart|shield|bolt|mic|code}
 - grid: value (integer 1..5200), label (<=18), caption (<=44), then_title (<=16), then_sub (<=48)
 - voice: name (<=12), sub (<=44), lines (1..3 things the user says), status: [{text, state: live|next}]
@@ -118,6 +118,58 @@ def extract_json(text: str) -> dict | None:
     return obj if isinstance(obj, dict) else None
 
 
+_TIMING_KEYS = {"t", "start", "end", "duration", "bpm", "index"}
+_NUM = re.compile(r"\d+(?:[.,]\d+)*")
+
+
+def _numbers_in(value) -> set[float]:
+    out: set[float] = set()
+    if isinstance(value, dict):
+        for k, v in value.items():
+            out |= _numbers_in(k) | _numbers_in(v)
+    elif isinstance(value, list):
+        for v in value:
+            out |= _numbers_in(v)
+    elif isinstance(value, (int, float)) and not isinstance(value, bool):
+        out.add(float(value))
+    elif isinstance(value, str):
+        for m in _NUM.findall(value):
+            if m.count(".") <= 1:
+                out.add(float(m.replace(",", "")))
+            out |= {float(part) for part in re.split(r"[.,]", m) if part}   # "1.8" also allows 1 and 8
+    return out
+
+
+def unsupported_numbers(spec: dict, facts: dict | None, brief: str) -> list[str]:
+    """Numbers shown or spoken in the spec that appear neither in FACTS nor in the brief.
+
+    The prompt forbids invented statistics; the rc19 owner-PC run showed the local model still adds
+    them (a roadmap "Q4 2026", a one-cell grid). Timing fields are not content and are skipped.
+    Advisory, not a validator error: ordinals such as "WEEK 1" or "STEP 2" are legitimate and appear
+    in 15 of the 46 dataset rows, so the owner reviews the flags before a render is approved."""
+    allowed = _numbers_in(facts or {}) | _numbers_in(brief)
+    found: list[str] = []
+
+    def walk(value, where: str) -> None:
+        if isinstance(value, dict):
+            for k, v in value.items():
+                if k not in _TIMING_KEYS and not (where == "meta" and k in ("key", "voice")):
+                    walk(v, f"{where}.{k}")
+        elif isinstance(value, list):
+            for i, v in enumerate(value):
+                walk(v, f"{where}[{i}]")
+        else:
+            for n in sorted(_numbers_in(value) - allowed):
+                found.append(f"{where}: the number {n:g} is not in FACTS or the brief; use only numbers from "
+                             f"FACTS or remove it")
+
+    if isinstance(spec.get("meta"), dict):
+        walk(spec["meta"], "meta")
+    for i, sc in enumerate(spec.get("scenes") or []):
+        walk(sc, f"scenes[{i}]")
+    return found
+
+
 def generate(brief: str, facts: dict | None, chat: Callable[[list[dict]], str], tries: int = 4,
              example: dict | None = None) -> tuple[dict | None, list[str], list[dict]]:
     """Returns (spec or None, remaining errors, transcript)."""
@@ -145,16 +197,21 @@ def generate(brief: str, facts: dict | None, chat: Callable[[list[dict]], str], 
         _log(f"try {attempt}: {len(raw)} chars in {time.monotonic() - t0:.0f} s")
         messages.append({"role": "assistant", "content": raw})
         draft = extract_json(raw)
+        repeated = draft is not None and draft == best
         if draft is None:
             errors = ["the reply was not a single JSON object"]
         else:
             errors = spec_mod.validate(draft)
             best = draft
-            _log(f"try {attempt}: {'VALID' if not errors else f'{len(errors)} validator errors'}")
+            _log(f"try {attempt}: {'VALID' if not errors else f'{len(errors)} validator errors'}"
+                 + (" (unchanged draft)" if repeated else ""))
             if not errors:
                 return draft, [], messages
-        messages.append({"role": "user", "content": "Fix these problems and reply with the full corrected JSON only:\n- "
-                                                    + "\n- ".join(errors[:25])})
+        # rc19 owner-PC run: the model re-sent the identical JSON three times; say so explicitly
+        head = ("Your reply repeated the previous JSON without any change. Edit exactly the fields named below "
+                "and reply with the full corrected JSON only:\n- " if repeated else
+                "Fix these problems and reply with the full corrected JSON only:\n- ")
+        messages.append({"role": "user", "content": head + "\n- ".join(errors[:25])})
     return best, errors, messages
 
 
@@ -191,10 +248,14 @@ def main() -> None:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     if spec is not None:
         args.out.write_text(json.dumps(spec, ensure_ascii=False, indent=1), encoding="utf-8")
+    flags = unsupported_numbers(spec, facts, args.brief) if isinstance(spec, dict) else []
     args.out.with_suffix(".transcript.json").write_text(json.dumps(
         {"brief": args.brief, "facts": facts, "model": args.model, "valid": not errors, "errors": errors,
-         "calls": calls, "messages": transcript}, ensure_ascii=False, indent=1), encoding="utf-8")
+         "numbers_not_in_facts": flags, "calls": calls, "messages": transcript}, ensure_ascii=False, indent=1),
+        encoding="utf-8")
     print("VALID" if not errors else "INVALID:\n  " + "\n  ".join(errors))
+    if flags:   # advisory: the owner checks these before approving a render
+        print("CHECK NUMBERS (not in FACTS or the brief):\n  " + "\n  ".join(flags))
     raise SystemExit(0 if not errors else 1)
 
 

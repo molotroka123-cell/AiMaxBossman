@@ -210,3 +210,71 @@ def test_a_reply_cut_at_max_tokens_is_reported_as_truncation_and_retried(monkeyp
     replies = iter([{"message": {"content": "{"}, "eval_count": 100, "done_reason": "length"}] * 2)
     result, errors, _ = generate_spec.generate("x", None, chat, tries=2)
     assert result is None and errors[0].startswith("reply cut off at max_tokens=100")
+
+
+def test_length_errors_carry_a_fitting_candidate_and_vo_overlaps_a_concrete_time():
+    # rc19 owner-PC run: Qwen stayed at 11-12 chars for a 10-char field for three retries and moved
+    # voice lines by 0.1 s per retry; the feedback now names a text that fits and the earliest valid t.
+    good = _load("jeff_voice_12s.json")
+    bad = copy.deepcopy(good)
+    bad["scenes"][0]["title"] = "COMMITS · 7D WEEK"
+    bad["scenes"][1]["vo"][1]["t"] = 3.0          # first line "Send a voice note on Telegram." starts at 2.6
+    errors = spec.validate(bad)
+    assert any('e.g. "COMMITS · 7D"' in e for e in errors), errors
+    assert spec.shorten("COMMITS · 7D", 10) == "COMMITS"
+    assert all(len(spec.shorten(x, 12)) <= 12 for x in ("A" * 40, "BOSSMAN · MOTION STUDIO", "x y"))
+    overlap = [e for e in errors if "voice-over overlaps" in e]
+    assert overlap and "set its t to 4.00 or later" in overlap[0]       # 2.6 + 0.3 + 30/24 - 0.15
+    fixed = copy.deepcopy(bad); fixed["scenes"][0]["title"] = "VOICE"; fixed["scenes"][1]["vo"][1]["t"] = 4.0
+    fixed["scenes"][1]["vo"][1]["text"] = "Local."
+    assert spec.validate(fixed) == []
+
+
+def test_axis_labels_must_be_short_text_not_numbers():
+    spec_obj = json.loads((ROOT / "library" / "bossman_velocity.json").read_text(encoding="utf-8"))
+    bars = next(i for i, s in enumerate(spec_obj["scenes"]) if s["type"] == "bars")
+    spec_obj["scenes"][bars]["x_from"] = 0          # what the local model wrote in the rc19 run
+    assert any("'x_from' must be a non-empty string" in e for e in spec.validate(spec_obj))
+
+
+def test_generate_tells_the_model_when_it_repeats_the_same_draft():
+    good = _load("jeff_voice_12s.json")
+    bad = copy.deepcopy(good); bad["scenes"][0]["title"] = "A" * 30
+    replies = iter([json.dumps(bad), json.dumps(bad), json.dumps(good)])
+    seen = []
+
+    def chat(messages):
+        seen.append(messages[-1]["content"])
+        return next(replies)
+
+    result, errors, _ = generate_spec.generate("x", None, chat, tries=3)
+    assert result == good and errors == []
+    assert seen[1].startswith("Fix these problems") and "repeated the previous JSON" in seen[2]
+
+
+def test_numbers_not_in_facts_are_flagged_for_the_owner():
+    good = _load("jeff_voice_12s.json")
+    flags = generate_spec.unsupported_numbers(good, {"voice_in": "live"}, "12 s clip about Jeff voice")
+    assert any("items[2].sub: the number 1.8" in f for f in flags)          # "next · v1.8"
+    assert any("tagline: the number 2026" in f for f in flags)              # "SEP 2026"
+    assert not any(".t:" in f or "start" in f for f in flags)               # timings are not content
+    ok = generate_spec.unsupported_numbers(good, {"voice_out": "next in v1.8", "month": "SEP 2026"}, "12 s clip")
+    assert ok == []
+
+
+def test_errors_name_the_offending_value_and_say_when_a_scene_has_no_room_left():
+    # rc19 owner-PC run: with only "'line' is 23 chars" the model shortened the other line of the item,
+    # and it kept "lottie:noto_mic" (not in the catalog) for three retries.
+    good = _load("jeff_voice_12s.json")
+    bad = copy.deepcopy(good)
+    bad["scenes"][2]["items"][2]["icon"] = "lottie:noto_mic"
+    bad["scenes"][2]["items"][0]["title"] = "HEARS YOU WELL"  # 14 chars: fits
+    bad["scenes"][2]["items"][1]["sub"] = "audio stays on your own PC"
+    bad["scenes"][3]["vo"][0]["text"] = "This is Jeff, and this line is far too long for its own scene."
+    bad["scenes"][3]["vo"].append({"t": 11.9, "text": "Bye."})
+    errors = spec.validate(bad)
+    assert any("'icon' 'lottie:noto_mic' is not allowed" in e for e in errors), errors
+    assert any("'sub' \"audio stays on your own PC\" is 26 chars" in e for e in errors), errors
+    assert any("scenes[3].vo[1]" in e and "no room left before this scene ends at 12.0" in e for e in errors), errors
+    early = copy.deepcopy(good); early["scenes"][1]["vo"][0]["t"] = 1.0
+    assert any("must be inside the scene [2.5, 6.0)" in e for e in spec.validate(early))
