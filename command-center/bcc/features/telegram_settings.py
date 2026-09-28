@@ -433,6 +433,7 @@ async def rotate_token(body: TokenIn):
     if token == secrets["bot_token"]:
         raise HTTPException(422, "Это тот же самый токен. Сначала выпустите новый в @BotFather.")
     await asyncio.to_thread(_stop)              # старый токен больше не опрашивает Telegram
+    _still_polling()                            # …и это проверено, а не предположено
     _write_secrets(home, {**secrets, "bot_token": token})
     return {"rotated": True, "bot_token_masked": _mask(token), "status": _status(),
             "next": "Старый токен отзовите в @BotFather (/revoke) — это делается вне Bossman. "
@@ -458,9 +459,13 @@ async def revoke_token():
     if cfg:
         cfg["enabled"] = False
         _atomic_write(path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
+    still_polling = _holder() is not None
     return {"revoked": True, "bot_token_masked": "", "status": _status(),
-            "next": "Токен стёрт локально. Обязательно отзовите его и в @BotFather (/revoke): "
-                    "пока он там жив, им может пользоваться тот, кто его видел."}
+            "poller_running": still_polling,
+            "next": ("Мост Telegram, запущенный не этим сервером, ещё работает со старым токеном: "
+                     "остановите его в Диспетчере задач. " if still_polling else "")
+                    + "Токен стёрт локально. Обязательно отзовите его и в @BotFather (/revoke): "
+                      "пока он там жив, им может пользоваться тот, кто его видел."}
 
 
 @router.post("/telegram/commands")
@@ -631,8 +636,24 @@ def _last_code(log: Path | None) -> str:
     return codes[-1] if codes else ""
 
 
+def _holder() -> dict | None:
+    """A companion holding this config's poller lock, whoever started it."""
+    from ..telegram_companion.store import instance_holder
+    try:
+        return instance_holder(config_path().parent)
+    except OSError:
+        return None
+
+
 def _status() -> dict:
     proc = _PROC["proc"]
+    if proc is None or proc.poll() is not None:
+        # _PROC lives in memory: after a Command Center restart the companion
+        # it launched keeps running (own process group). Report it honestly.
+        holder = _holder()
+        if holder is not None:
+            return {"state": "running", "managed": False, "pid": holder.get("pid"),
+                    "last_error": _last_code(_PROC["log"])}
     if proc is None:
         return {"state": "stopped", "managed": False, "last_error": _last_code(_PROC["log"])}
     code = proc.poll()
@@ -646,6 +667,7 @@ def _status() -> dict:
 def _stop() -> None:
     proc = _PROC["proc"]
     if proc is None or proc.poll() is not None:
+        _stop_unmanaged()
         return
     proc.terminate()
     try:
@@ -653,6 +675,41 @@ def _stop() -> None:
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait(timeout=5)
+
+
+def _stop_unmanaged() -> None:
+    """Stop a companion this server did not start (e.g. before a restart).
+
+    Only the process that provably holds the poller lock is touched: its pid
+    AND creation time from poller.json must match a live process, so a reused
+    pid of an unrelated program is never terminated.
+    """
+    holder = _holder()
+    if not holder:
+        return
+    import psutil
+    try:
+        pid, created = int(holder.get("pid")), float(holder.get("created"))
+        target = psutil.Process(pid)
+        if abs(target.create_time() - created) > 1.0:
+            return
+        target.terminate()
+        try:
+            target.wait(timeout=5)
+        except psutil.TimeoutExpired:
+            target.kill()
+            target.wait(timeout=5)
+    except (psutil.Error, TypeError, ValueError):
+        return
+    deadline = time.monotonic() + 5
+    while _holder() is not None and time.monotonic() < deadline:
+        time.sleep(0.1)
+
+
+def _still_polling() -> None:
+    if _holder() is not None:
+        raise HTTPException(409, "Мост Telegram запущен не этим сервером и не остановился. "
+                                 "Остановите его в Диспетчере задач (python … telegram_companion) и повторите.")
 
 
 @router.get("/telegram/status")
@@ -674,6 +731,8 @@ async def start():
         raise HTTPException(409, "Не сохранён токен бота.")
     if _PROC["proc"] is not None and _PROC["proc"].poll() is None:
         return _status()
+    if _holder() is not None:
+        return _status()          # already running, started before a restart: no duplicate
     log = path.parent / "companion.log"
     flags = 0
     if os.name == "nt":
