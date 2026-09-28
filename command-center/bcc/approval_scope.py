@@ -226,6 +226,12 @@ def _match_clause(scope: Scope):
         leases_t.c.agent_id == scope.agent_id,
         leases_t.c.used < leases_t.c.max_uses,
         leases_t.c.expires_at > utcnow(),
+        # Аренда живёт, пока живо решение, которое её выдало: отозванное или
+        # отклонённое одобрение не покрывает вызовы, даже если строку аренды
+        # забыли погасить. approved/consumed — нормальная жизнь выданного «да».
+        sa.or_(leases_t.c.approval_id.is_(None), sa.exists().where(
+            approvals_t.c.id == leases_t.c.approval_id,
+            approvals_t.c.status.in_(("approved", "consumed")))),
     )
 
 
