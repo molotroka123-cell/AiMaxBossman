@@ -299,13 +299,16 @@ class RaveService:
                                    f"Рабочая копия сохранена. Повторить шаг поверх неё — решение владельца: "
                                    f"bossman rave resume {rid} --agent {name}")}
                 return
+            # login/runtime first: asking the owner to opt in to a CLI that is not
+            # even logged in would be a decision about nothing
+            await conn.preflight(ctx)
             if conn.optin:
                 await self._require_optin(conn.optin)
-            await conn.preflight(ctx)
             outcome = await conn.run(ctx)
             final = {"status": "done", "answer": outcome.answer[:20000], "meta": outcome.meta}
         except Blocked as exc:
-            final = {"status": "blocked", "error": exc.reason, "meta": {k: v for k, v in exc.extra.items()}}
+            reason = exc.reason.replace("<id>", rid).replace("<имя>", name)   # the exact command to type
+            final = {"status": "blocked", "error": reason, "meta": {k: v for k, v in exc.extra.items()}}
         except (_Stopped, asyncio.CancelledError) as exc:
             if not runner.stop:                   # backend shutdown: leave durable state for recovery
                 if isinstance(exc, asyncio.CancelledError):

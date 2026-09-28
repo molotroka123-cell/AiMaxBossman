@@ -77,6 +77,8 @@ export const FEATURE_PAGES = [
     () => import('./browser.js'), (m) => m.default),
   lazyPage({ id: 'coding', title: 'Coding-сессии', icon: 'edit', nav: 'more', section: 'studio' },
     () => import('./coding.js'), (m) => m.default),
+  lazyPage({ id: 'rave', title: 'Agentic Rave', icon: 'agents', nav: 'more', section: 'studio' },
+    () => import('./rave.js'), (m) => m.default),
   lazyPage({ id: 'agentmap', title: 'Карта агентов', icon: 'agents', nav: 'more', section: 'brains' },
     () => import('./agentmap.js'), (m) => m.default),
   lazyPage({ id: 'orchestras', title: 'Команды агентов', icon: 'plus', nav: 'more', section: 'brains' },

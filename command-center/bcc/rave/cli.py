@@ -149,6 +149,9 @@ def render(rave: dict, pr: Printer) -> None:
             else (a.get("answer") or a.get("step_label") or "")
         pr.say(f"{a['name']:<8} {_cut(prov, 40):<40} {_cut(a.get('auth') or '-', 27):<27} {status:<11} {step:<6} "
                f"{len(a.get('changed_files') or []):<5} {t:<6} {_cut(text, 70)}")
+        if a["status"] in ("blocked", "failed", "interrupted") and len(str(a.get("error") or "")) > 70:
+            # what the owner has to do (login step, approval id) must not be cut off
+            pr.say(f"         ↳ {_cut(a['error'], 600)}")
     if any(a.get("pause_reason") == "recovered_after_restart" for a in rave["agents"]):
         pr.say("* пауза после перезапуска Bossman: состояние восстановлено; продолжить — "
                f"bossman rave resume {rave['id']}")
