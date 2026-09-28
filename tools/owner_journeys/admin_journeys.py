@@ -273,13 +273,16 @@ def fv_booking_journey(brand: str, *, approve: bool = True) -> Journey:
     service = dom.BRANDS[brand]["services"][1]
     slot = "2026-10-06T10:00:00"
     name = "Test Client D" if brand == "dental" else "Test Client E"
-    contact = f"test.{brand}@example.invalid"
+    contact = f"test.{brand}{'' if approve else '.reject'}@example.invalid"
 
     def checks(out: TaskOutcome, store: dom.Journal) -> list[dict[str, Any]]:
+        # scope every check to THIS journey's lead(s); the journal is shared by all journeys
         leads = [r for r in store.rows() if r["kind"] == "lead" and r["data"]["brand"] == brand
                  and r["data"]["contact"] == contact]
-        bookings = [r for r in store.rows() if r["kind"] == "booking" and r["data"]["brand"] == brand]
-        drafts = [r for r in store.rows() if r["kind"] == "reminder_draft" and r["data"]["brand"] == brand]
+        lead_ids = {r["data"]["lead_id"] for r in leads}
+        bookings = [r for r in store.rows() if r["kind"] == "booking" and r["data"]["lead_id"] in lead_ids]
+        booking_ids = {r["data"]["booking_id"] for r in bookings}
+        drafts = [r for r in store.rows() if r["kind"] == "reminder_draft" and r["data"]["booking_id"] in booking_ids]
         booking_appr = [a for a in out.approvals if a.get("kind") == "tool"]
         steps = [
             _step("lead_captured", bool(leads), [r["data"]["lead_id"] for r in leads]),
