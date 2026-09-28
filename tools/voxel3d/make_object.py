@@ -22,8 +22,9 @@ if __package__ in (None, ""):
     __package__ = "voxel3d"
 
 from voxel3d import bossblocks, mesh, vox  # noqa: E402
-from voxel3d.generate import DEFAULT_ENDPOINT, DEFAULT_MODEL, chat_ollama, generate, wait_if_paused  # noqa: E402
-from voxel3d.spec import build, check_grid, repair_spec, validate  # noqa: E402
+from voxel3d.generate import (DEFAULT_ENDPOINT, DEFAULT_MODEL, FEW_SHOT_REPLIES, chat_ollama, generate,  # noqa: E402
+                               wait_if_paused)
+from voxel3d.spec import build, check_grid, lint, repair_spec, validate  # noqa: E402
 
 VISION_MODEL = "bossman-fast-qwen36-vision:latest"
 
@@ -34,7 +35,7 @@ def slug(text: str) -> str:
 
 def make(prompt: str, out: Path, spec: dict | None = None, model: str = DEFAULT_MODEL,
          endpoint: str = DEFAULT_ENDPOINT, tries: int = 3, vision: bool = False, target_label: str | None = None,
-         labels: list[str] | None = None) -> dict:
+         labels: list[str] | None = None, name: str | None = None) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     report: dict = {"prompt": prompt, "model": None if spec else model, "started": time.strftime("%Y-%m-%dT%H:%M:%S")}
     t0 = time.monotonic()
@@ -42,7 +43,7 @@ def make(prompt: str, out: Path, spec: dict | None = None, model: str = DEFAULT_
         spec, errors, fixes, transcript = generate(
             prompt, lambda m: chat_ollama(m, model=model, endpoint=endpoint), tries=tries)
         (out / "transcript.json").write_text(json.dumps(transcript, ensure_ascii=False, indent=1), encoding="utf-8")
-        report["tries"] = sum(1 for m in transcript if m["role"] == "assistant") - 1  # minus the few-shot
+        report["tries"] = sum(1 for m in transcript if m["role"] == "assistant") - FEW_SHOT_REPLIES
     else:
         spec, fixes = repair_spec(spec)
         errors = validate(spec)
@@ -56,12 +57,13 @@ def make(prompt: str, out: Path, spec: dict | None = None, model: str = DEFAULT_
         report["ok"] = False
         (out / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
         return report
-    name = slug(spec.get("name") or prompt)
+    name = slug(name or spec.get("name") or prompt)
     grid, build_fixes, build_errors = build(spec)
     report["name"] = name
     report["build_repairs"] = build_fixes
     report["size"] = list(grid.size)
     report["grid"] = check_grid(grid, bool(spec.get("allow_floating")))
+    report["lint"] = lint(grid)
     paths = {"vox": out / f"{name}.vox", "glb": out / f"{name}.glb", "structure": out / f"{name}.bbstruct.json",
              "preview": out / f"{name}.preview.png"}
     vox.write(grid, paths["vox"])

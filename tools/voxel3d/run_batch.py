@@ -46,7 +46,8 @@ def main(argv: list[str] | None = None) -> int:
         spec_path = out / "spec.json"
         spec = json.loads(spec_path.read_text(encoding="utf-8")) if args.reuse_specs and spec_path.is_file() else None
         t0 = time.monotonic()
-        rep = make(it["prompt"], out, spec=spec, vision=args.vision, target_label=it["label"], labels=labels)
+        rep = make(it["prompt"], out, spec=spec, vision=args.vision, target_label=it["label"], labels=labels,
+                   name=it["id"])
         g = rep.get("glb_check", {})
         rows.append({
             "id": it["id"], "prompt": it["prompt"], "ok": rep.get("ok"), "tries": rep.get("tries"),
@@ -54,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
             "components": (rep.get("grid") or {}).get("components"),
             "glb_vertices": g.get("vertices"), "glb_faces": g.get("faces"),
             "checks": rep.get("checks"), "repairs": (rep.get("spec_repairs") or []) + (rep.get("build_repairs") or []),
-            "errors": rep.get("spec_errors"), "fits_world": (rep.get("structure") or {}).get("fits_world_at_origin"),
+            "errors": rep.get("spec_errors"), "lint": rep.get("lint"), "fits_world": (rep.get("structure") or {}).get("fits_world_at_origin"),
             "preview": (rep.get("paths") or {}).get("preview"), "vision": rep.get("vision"),
             "seconds": round(time.monotonic() - t0, 1),
         })

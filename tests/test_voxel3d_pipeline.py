@@ -83,7 +83,8 @@ def test_build_grounds_and_clips_with_logged_repairs():
             "ops": [{"op": "box", "from": [1, 3, 1], "to": [2, 9, 2], "mat": "a"}]}
     grid, fixes, errors = build(spec)
     assert errors == [] and check_grid(grid)["grounded"]
-    assert any("clipped" in f for f in fixes) and any("stands on y=0" in f for f in fixes)
+    assert grid.size == (4, 10, 4)  # grown to fit y=9 (<= 32), then grounded
+    assert any("grid fitted" in f for f in fixes) and any("stands on y=0" in f for f in fixes)
 
 
 def test_repair_spec_fixes_common_model_slips():
@@ -199,3 +200,84 @@ def test_generate_loop_feeds_validator_errors_back_to_the_model():
 def test_extract_json_tolerates_fences_and_think_blocks():
     assert extract_json('<think>hm</think>```json\n{"a": 1}\n```') == {"a": 1}
     assert extract_json("no json here") is None
+
+
+def test_roof_op_gable_and_pyramid_shapes():
+    base = {"name": "r", "size": [7, 6, 5], "palette": {"a": "#aa3333"}}
+    gable = dict(base, ops=[{"op": "roof", "from": [0, 0, 0], "to": [6, 0, 4], "style": "gable", "axis": "x", "mat": "a"}])
+    grid, _ = _grid(gable)
+    assert sorted({c[1] for c in grid.cells}) == [0, 1, 2]  # z 0..4 shrinks by 1 per layer
+    assert {c[2] for c in grid.cells if c[1] == 2} == {2} and {c[0] for c in grid.cells if c[1] == 2} == set(range(7))
+    pyramid = dict(base, ops=[{"op": "roof", "from": [0, 0, 0], "to": [6, 0, 4], "style": "pyramid", "mat": "a"}])
+    grid, _ = _grid(pyramid)
+    assert {(c[0], c[2]) for c in grid.cells if c[1] == 2} == {(2, 2), (3, 2), (4, 2)}
+    assert any("'style'" in e for e in validate(dict(base, ops=[{"op": "roof", "from": [0, 0, 0], "to": [1, 0, 1],
+                                                                  "style": "dome", "mat": "a"}])))
+
+
+def test_grid_is_fitted_when_shapes_reach_past_the_declared_size():
+    # the real run-1 house failure: a roof above the declared height used to be "entirely outside"
+    spec = {"name": "h", "size": [5, 4, 5], "palette": {"w": "#888888", "r": "#cc3333"},
+            "ops": [{"op": "box", "from": [0, 0, 0], "to": [4, 3, 4], "mat": "w", "hollow": True},
+                    {"op": "roof", "from": [0, 4, 0], "to": [4, 4, 4], "style": "pyramid", "mat": "r"},
+                    {"op": "box", "from": [-2, 0, 2], "to": [-1, 0, 2], "mat": "w"}]}
+    assert validate(spec) == []
+    grid, fixes, errors = build(spec)
+    assert errors == [] and grid.size == (7, 7, 5)
+    assert any("grid fitted" in f and "shifted by [2, 0, 0]" in f for f in fixes)
+    too_big = {"name": "b", "size": [4, 4, 4], "palette": {"w": "#888888"},
+               "ops": [{"op": "box", "from": [0, 0, 0], "to": [40, 0, 0], "mat": "w"}]}
+    grid, fixes, errors = build(too_big)
+    assert grid.size[0] == 4 and any("clipped" in f for f in fixes)  # > 32: clip, never grow past MAX_DIM
+
+
+def test_long_voxel_lists_are_rejected_with_guidance():
+    spec = {"name": "v", "size": [30, 1, 1], "palette": {"a": "#777777"},
+            "ops": [{"op": "voxels", "at": [[x, 0, 0] for x in range(30)], "mat": "a"}]}
+    assert any("at most 24 per voxels op" in e for e in validate(spec))
+
+
+def test_lint_flags_solid_blocks_and_generate_gives_one_improvement_turn():
+    from voxel3d.spec import lint
+
+    solid = {"name": "bridge", "size": [11, 4, 5], "palette": {"w": "#9c6b3c"},
+             "ops": [{"op": "box", "from": [0, 0, 0], "to": [10, 3, 4], "mat": "w"}]}
+    assert lint(build(solid)[0]) and not lint(build(TABLE)[0])
+    open_bridge = dict(solid, ops=[{"op": "box", "from": [0, 0, 0], "to": [10, 0, 4], "mat": "w"},
+                                   {"op": "box", "from": [0, 1, 0], "to": [10, 2, 0], "mat": "w"},
+                                   {"op": "box", "from": [0, 1, 4], "to": [10, 2, 4], "mat": "w"}])
+    replies = iter([json.dumps(solid), json.dumps(open_bridge)])
+    prompts = []
+
+    def chat(messages):
+        prompts.append(messages[-1]["content"])
+        return next(replies)
+
+    spec, errors, _, _ = generate("a bridge", chat, tries=3, log=lambda m: None)
+    assert errors == [] and spec == open_bridge and "solid block" in prompts[1]
+    # an invalid improvement keeps the first valid draft
+    replies = iter([json.dumps(solid), "garbage"])
+    spec, errors, _, _ = generate("a bridge", chat, tries=3, log=lambda m: None)
+    assert errors == [] and spec["ops"] == solid["ops"]
+
+
+def test_cut_off_replies_get_specific_feedback():
+    from voxel3d.generate import CUT_OFF
+
+    replies = iter(['{"name": "house", "ops": [' + '{"op": "voxels"}, ' * 200, json.dumps(TABLE)])
+    seen = []
+
+    def chat(messages):
+        seen.append(messages[-1]["content"])
+        return next(replies)
+
+    spec, errors, _, _ = generate("a house", chat, tries=2, log=lambda m: None)
+    assert errors == [] and CUT_OFF in seen[1]
+
+
+def test_generate_survives_all_calls_failing():
+    def chat(messages):
+        raise TimeoutError("busy")
+
+    spec, errors, _, _ = generate("x", chat, tries=2, log=lambda m: None)
+    assert spec is None and "model call failed" in errors[0]

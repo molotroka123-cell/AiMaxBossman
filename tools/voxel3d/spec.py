@@ -16,6 +16,8 @@ Ops (applied in order; later ops overwrite; mat "air" carves):
   line      from, to, mat                     3-D line of voxels
   voxels    at: [[x,y,z], ...], mat
   layer     y, rows: ["..tt..", ...], key: {"t": "trunk"}  row i = z i, char j = x j, "." = skip
+  roof      from, to, mat [, style gable|pyramid, axis x|z]  stepped roof over the from..to footprint,
+            first layer at from.y; gable ridge runs along `axis`
   mirror    axis x|z|y                        copy everything so far to the mirrored side
 
 `validate(spec)` returns human-readable errors (empty = valid); the same messages are sent back
@@ -46,8 +48,10 @@ OPS: dict[str, dict[str, list[str]]] = {
     "line": {"required": ["from", "to", "mat"], "optional": []},
     "voxels": {"required": ["at", "mat"], "optional": []},
     "layer": {"required": ["y", "rows", "key"], "optional": []},
+    "roof": {"required": ["from", "to", "mat"], "optional": ["style", "axis"]},
     "mirror": {"required": ["axis"], "optional": []},
 }
+MAX_VOXELS_PER_OP = 24
 COMMON = {"op", "note", "comment", "part"}
 FLOATER_MAX_SHARE = 0.05  # disconnected bits up to 5 % of the object are dropped by repair
 
@@ -182,7 +186,7 @@ def validate(spec: Any) -> list[str]:
         if "mat" in OPS[kind]["required"] and "mat" in op and mat != AIR and mat not in names:
             errors.append(f"{where}: mat {mat!r} is not in the palette (or 'air' to carve)")
         big = 2 * MAX_DIM
-        if kind in ("box", "line"):
+        if kind in ("box", "line", "roof"):
             for key in ("from", "to"):
                 if key in op:
                     _vec(errors, where, key, op[key])
@@ -195,6 +199,11 @@ def validate(spec: Any) -> list[str]:
                     errors.append(f"{where}: 'radius' list must be [rx, ry, rz], each 0.5..{MAX_DIM}")
             elif "radius" in op:
                 _num(errors, where, "radius", r, 0.5, MAX_DIM)
+        if kind == "roof":
+            if op.get("style", "gable") not in ("gable", "pyramid"):
+                errors.append(f"{where}: 'style' must be gable or pyramid")
+            if op.get("axis", "x") not in ("x", "z"):
+                errors.append(f"{where}: 'axis' must be x or z (direction of the ridge)")
         elif kind in ("cylinder", "cone"):
             if "base" in op:
                 _vec(errors, where, "base", op["base"])
@@ -208,8 +217,11 @@ def validate(spec: Any) -> list[str]:
                 errors.append(f"{where}: 'direction' must be up or down")
         elif kind == "voxels":
             at = op.get("at")
-            if not isinstance(at, list) or not at or len(at) > MAX_DIM ** 2:
+            if not isinstance(at, list) or not at:
                 errors.append(f"{where}: 'at' must be a non-empty list of [x, y, z]")
+            elif len(at) > MAX_VOXELS_PER_OP:
+                errors.append(f"{where}: {len(at)} cells; at most {MAX_VOXELS_PER_OP} per voxels op - "
+                              "use box, line, layer or mirror for runs and walls")
             else:
                 for i, c in enumerate(at[:50]):
                     if not _vec(errors, f"{where}.at[{i}]", "cell", c):
@@ -309,6 +321,19 @@ def _op_cells(op: dict, size: tuple[int, int, int]) -> list[tuple[Cell, str]]:
         out = [(c, mat) for c in _line(_ints(op["from"]), _ints(op["to"]))]
     elif kind == "voxels":
         out = [(_ints(c), mat) for c in op["at"]]
+    elif kind == "roof":
+        a, b = _ints(op["from"]), _ints(op["to"])
+        x0, x1 = sorted((a[0], b[0]))
+        z0, z1 = sorted((a[2], b[2]))
+        pyramid, along_x = op.get("style", "gable") == "pyramid", op.get("axis", "x") == "x"
+        k = 0
+        while True:
+            lx, hx = (x0 + k, x1 - k) if pyramid or not along_x else (x0, x1)
+            lz, hz = (z0 + k, z1 - k) if pyramid or along_x else (z0, z1)
+            if lx > hx or lz > hz or k > MAX_DIM:
+                break
+            out += [((x, a[1] + k, z), mat) for x in range(lx, hx + 1) for z in range(lz, hz + 1)]
+            k += 1
     elif kind == "layer":
         y, key = int(op["y"]), op["key"]
         for z, row in enumerate(op["rows"]):
@@ -318,15 +343,54 @@ def _op_cells(op: dict, size: tuple[int, int, int]) -> list[tuple[Cell, str]]:
     return out
 
 
+def _fit(spec: dict, size: tuple[int, int, int], fixes: list[str]) -> tuple[tuple[int, int, int], list[int]]:
+    """Grow the grid and/or shift the object when ops reach past the declared size, as long as the
+    object still fits in MAX_DIM. The model's `size` is a hint; its shapes are the intent.
+    Axes that are mirrored keep their size (the mirror plane depends on it)."""
+    raw = [c for op in spec["ops"] if op["op"] != "mirror" for c, m in _op_cells(op, size) if m != AIR]
+    if not raw:
+        return size, [0, 0, 0]
+    mirrored = {"xyz".index(op["axis"]) for op in spec["ops"] if op["op"] == "mirror"}
+    new, shift = list(size), [0, 0, 0]
+    for i in range(3):
+        if i in mirrored:
+            continue
+        lo, hi = min(c[i] for c in raw), max(c[i] for c in raw)
+        if hi - lo + 1 > MAX_DIM:
+            continue  # cannot fit: clipping below reports it
+        if lo < 0:
+            shift[i] = -lo
+        new[i] = max(new[i], hi + shift[i] + 1)
+    if new != list(size) or any(shift):
+        fixes.append(f"grid fitted to the shapes: size {list(size)} -> {new}" + (f", shifted by {shift}" if any(shift) else ""))
+    return tuple(new), shift  # type: ignore[return-value]
+
+
+def lint(grid: Grid) -> list[str]:
+    """Soft, heuristic quality hints for the model (never block a valid object on their own)."""
+    bb = grid.bbox()
+    if not bb:
+        return []
+    vol = 1
+    for i in range(3):
+        vol *= bb[1][i] - bb[0][i] + 1
+    fill = len(grid.cells) / vol
+    if vol >= 150 and fill >= 0.95:
+        return [f"the object is an almost completely solid block ({fill:.0%} of its bounding box is filled). "
+                "If the real object has open space (walkway, rooms, gaps between railings, legs, windows) "
+                "carve it with mat 'air' or build only the parts; if it really is a solid block, reply with the same JSON"]
+    return []
+
+
 def build(spec: dict) -> tuple[Grid, list[str], list[str]]:
     """Deterministic spec -> Grid. Returns (grid, repairs made, errors the model must fix).
 
     Assumes the structural checks in validate() passed (call validate() or use generate)."""
-    size = tuple(int(a) for a in spec["size"])
+    fixes: list[str] = []
+    size, shift = _fit(spec, tuple(int(a) for a in spec["size"]), fixes)  # type: ignore[arg-type]
     palette_items = [(k, normalize_color(v) or "#808080") for k, v in spec["palette"].items()]
     index = {k: i + 1 for i, (k, _) in enumerate(palette_items)}
     grid = Grid(size=size, palette=palette_items)  # type: ignore[arg-type]
-    fixes: list[str] = []
     errors: list[str] = []
     for n, op in enumerate(spec["ops"]):
         if op["op"] == "mirror":
@@ -339,6 +403,7 @@ def build(spec: dict) -> tuple[Grid, list[str], list[str]]:
         cells = _op_cells(op, size)
         clipped = 0
         for c, mat in cells:
+            c = (c[0] + shift[0], c[1] + shift[1], c[2] + shift[2])
             if not grid.inside(c):
                 clipped += 1
                 continue
