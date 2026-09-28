@@ -28,9 +28,33 @@ const CodingPage = {
     /* Путь «поручить задачу агенту» (аудит владельца 2026-09-08, F4): раньше
        страница управляла только worktree, и до OpenHands из интерфейса было
        не дотянуться. Готовность читается с сервера и показывается честно. */
-    let ready = { available: false, reason: 'готовность не прочитана' }; let tasks = [];
-    try { ready = await api.raw('/api/coding-tasks/readiness'); } catch (e) { ready = { available: false, reason: e.message || String(e) }; }
-    try { tasks = listOf(await api.raw('/api/coding-tasks'), 'items'); } catch (e) { tasks = []; }
+    /* Готовность — это рукопожатие с сайдкаром (живой вызов модели, до 150 с на
+       холодной модели). Страница ждала его целиком и всё это время стояла на
+       скелете (RC 1.9 soak: > 25 с после каждого перезапуска). Теперь ждём
+       недолго, а поздний ответ дописываем на месте. */
+    let tasks = [];
+    const readyP = api.raw('/api/coding-tasks/readiness')
+      .catch((e) => ({ available: false, reason: e.message || String(e) }));
+    const [early] = await Promise.all([
+      Promise.race([readyP, new Promise((r) => setTimeout(() => r(null), READINESS_WAIT_MS))]),
+      api.raw('/api/coding-tasks').then((d) => { tasks = listOf(d, 'items'); }, () => { tasks = []; }),
+    ]);
+    let ready = early || { available: false, pending: true, reason: 'проверяю готовность OpenHands…' };
+
+    const newTask = h('button.btn.btn-primary', { type: 'button', id: 'coding-new-task',
+      onClick: () => taskModal(ctx, ready) }, icon('bolt', 14), h('span', 'Новая задача агенту'));
+    const applyReady = () => {
+      newTask.disabled = !ready.available;
+      newTask.title = ready.available ? 'Поручить задачу агенту OpenHands' : (ready.reason || 'OpenHands недоступен');
+    };
+    applyReady();
+    if (!early) {
+      readyP.then((late) => {
+        ready = late;
+        applyReady();
+        if (readinessSlot.isConnected) readinessSlot.replaceChildren(readinessLine(ready));
+      });
+    }
 
     const active = sessions.filter((s) => (s.status || 'active') === 'active').length;
     const head = pageHead('Coding-сессии', active
@@ -39,18 +63,14 @@ const CodingPage = {
       actions: [
         h('button.btn', { type: 'button', title: 'Обновить', 'aria-label': 'Обновить', onClick: () => ctx.refresh() }, icon('retry', 14)),
         h('button.btn', { type: 'button', onClick: () => createModal(ctx) }, icon('plus', 14), h('span', 'Новая сессия')),
-        h('button.btn.btn-primary', { type: 'button', id: 'coding-new-task', disabled: !ready.available,
-          title: ready.available ? 'Поручить задачу агенту OpenHands' : (ready.reason || 'OpenHands недоступен'),
-          onClick: () => taskModal(ctx, ready) }, icon('bolt', 14), h('span', 'Новая задача агенту')),
+        newTask,
       ],
     });
 
+    const readinessSlot = h('div', readinessLine(ready));
     const agentBlock = h('div.stack', { id: 'coding-tasks' },
       h('div.section-title', 'Задачи агенту (OpenHands)'),
-      ready.available
-        ? h('div.small.dim', `Агент работает в одноразовой копии репозитория без remote; результат — патч и доказательства. Push/merge/deploy у агента нет. Корни: ${(ready.roots || []).join(', ') || '—'}`)
-        : h('div.small', { style: { color: 'var(--warn,#d99a2b)' }, id: 'coding-readiness' },
-          `OpenHands сейчас недоступен: ${ready.reason || 'причина не названа'}`),
+      readinessSlot,
       tasks.length
         ? h('div.grid.auto-lg', tasks.map((t) => taskCard(t, ctx)))
         : h('div.small.dim', 'Задач агенту пока не было.'));
@@ -69,6 +89,18 @@ const CodingPage = {
 
   onEvent(ev) { return typeof ev.kind === 'string' && (ev.kind.startsWith('coding.session') || ev.kind.startsWith('coding.task')); },
 };
+
+const READINESS_WAIT_MS = 1500;
+
+function readinessLine(ready) {
+  if (ready.pending) {
+    return h('div.small.dim', { id: 'coding-readiness', 'aria-busy': 'true' }, ready.reason);
+  }
+  return ready.available
+    ? h('div.small.dim', `Агент работает в одноразовой копии репозитория без remote; результат — патч и доказательства. Push/merge/deploy у агента нет. Корни: ${(ready.roots || []).join(', ') || '—'}`)
+    : h('div.small', { style: { color: 'var(--warn,#d99a2b)' }, id: 'coding-readiness' },
+      `OpenHands сейчас недоступен: ${ready.reason || 'причина не названа'}`);
+}
 
 const TASK_LABEL = { running: 'выполняется', completed: 'выполнено', failed: 'сбой', blocked: 'заблокировано' };
 
