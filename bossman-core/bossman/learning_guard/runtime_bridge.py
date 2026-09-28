@@ -55,7 +55,10 @@ def default_episodes_path() -> Path | None:
     lt = _learning()
     if lt is None:
         return None
-    return lt.LearningStore().data_dir / EPISODES_FILE
+    try:
+        return lt.LearningStore().data_dir / EPISODES_FILE
+    except RuntimeError:     # LearningStoreLocationError: installed package, no explicit corpus dir
+        return None
 
 
 # ---------------------------------------------------------------- trainer
