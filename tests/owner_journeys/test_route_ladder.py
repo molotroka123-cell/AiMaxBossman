@@ -2,6 +2,7 @@ import asyncio
 import socket
 
 import pytest
+pytest.importorskip("bcc.api", reason="owner journeys drive the real bcc task engine; root-ci installs no Command Center — they run in command-center-ci core-runtime")
 
 from tools.owner_journeys import learning_supervisor as sup
 from tools.owner_journeys import route_ladder as rl

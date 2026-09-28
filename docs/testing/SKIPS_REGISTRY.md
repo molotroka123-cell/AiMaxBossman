@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 325. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 329. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -266,6 +266,10 @@
 | `bossman-core/tests/test_v3_command_center_adapters.py:19` | importorskip | `—` | Command Center (bcc) не установлен рядом с ядром | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_v3_organization_command_center.py:18` | importorskip | `—` | Command Center (bcc) не установлен рядом с ядром | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_video_factory.py:30` | skipif | `not ffmpeg_available()` | ffmpeg binary not available | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/owner_journeys/test_admin_journeys.py:14` | importorskip | `—` | owner journeys drive the real bcc task engine; root-ci installs no Command Center — they run in command-center-ci core-runtime | root (shared/tools) | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/owner_journeys/test_learning_lab.py:5` | importorskip | `—` | owner journeys drive the real bcc task engine; root-ci installs no Command Center — they run in command-center-ci core-runtime | root (shared/tools) | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/owner_journeys/test_learning_supervisor.py:6` | importorskip | `—` | owner journeys drive the real bcc task engine; root-ci installs no Command Center — they run in command-center-ci core-runtime | root (shared/tools) | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/owner_journeys/test_route_ladder.py:5` | importorskip | `—` | owner journeys drive the real bcc task engine; root-ci installs no Command Center — they run in command-center-ci core-runtime | root (shared/tools) | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_context_slice.py:97` | skip | `—` | f"symlink privilege missing: {exc}" | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_context_slice.py:116` | skip | `—` | SKIP_HOST: Windows account lacks symlink creation privilege | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evening_acceptance_harness.py:205` | skip | `—` | POSIX-оболочка недоступна — синтаксис start-bossman.sh проверяется на POSIX/CI | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

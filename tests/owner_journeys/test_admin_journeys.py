@@ -11,6 +11,7 @@ import json
 from decimal import Decimal
 
 import pytest
+pytest.importorskip("bcc.api", reason="owner journeys drive the real bcc task engine; root-ci installs no Command Center — they run in command-center-ci core-runtime")
 
 from bcc.providers import ChatResult, Health, ToolCall
 from tools.owner_journeys import admin_domain as dom
