@@ -1,0 +1,65 @@
+{
+ "meta": {
+  "title": "Fitness",
+  "bpm": 128,
+  "key": "D",
+  "brand": "YOU",
+  "hud": "YOU // FITNESS",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "8 WEEKS",
+   "kicker": "TRAINING RECAP",
+   "start": 0.0,
+   "end": 2.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Eight weeks."
+    }
+   ]
+  },
+  {
+   "type": "bars",
+   "values": [
+    2,
+    3,
+    3,
+    4,
+    3,
+    4,
+    5,
+    5
+   ],
+   "headline_label": "WEEKS",
+   "counter_label": "WORKOUTS",
+   "x_from": "WEEK 1",
+   "x_to": "WEEK 8",
+   "start": 2.0,
+   "end": 7.0,
+   "vo": [
+    {
+     "t": 2.1,
+     "text": "Twenty-nine workouts."
+    }
+   ]
+  },
+  {
+   "type": "sticker",
+   "lottie": "noto_flexed_biceps",
+   "text": "KEEP GOING",
+   "sub": "WEEK 9 STARTS",
+   "start": 7.0,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 7.1,
+     "text": "Keep going."
+    }
+   ]
+  }
+ ]
+}

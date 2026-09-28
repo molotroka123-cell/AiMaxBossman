@@ -1,0 +1,66 @@
+{
+ "meta": {
+  "title": "Newsletter",
+  "bpm": 118,
+  "key": "G",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // NEWSLETTER",
+  "voice": "am_fenrir",
+  "duration": 8.0
+ },
+ "scenes": [
+  {
+   "type": "cards",
+   "heading": "ISSUE 41",
+   "items": [
+    {
+     "t": 0.25,
+     "title": "LOCAL AI",
+     "sub": "what runs at home",
+     "icon": "bolt"
+    },
+    {
+     "t": 1.0,
+     "title": "PRIVACY",
+     "sub": "what leaks and why",
+     "icon": "shield"
+    },
+    {
+     "t": 1.75,
+     "title": "TOOLS",
+     "sub": "five new picks",
+     "icon": "code"
+    }
+   ],
+   "vo": [
+    {
+     "t": 0.25,
+     "text": "Local AI."
+    },
+    {
+     "t": 1.0,
+     "text": "Privacy."
+    },
+    {
+     "t": 1.75,
+     "text": "New tools."
+    }
+   ],
+   "start": 0.0,
+   "end": 5.0
+  },
+  {
+   "type": "end_card",
+   "text": "READ IT",
+   "sub": "LINK IN BIO",
+   "start": 5.0,
+   "end": 8.0,
+   "vo": [
+    {
+     "t": 5.1,
+     "text": "Read it now."
+    }
+   ]
+  }
+ ]
+}

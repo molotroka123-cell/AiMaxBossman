@@ -1,0 +1,39 @@
+{
+ "meta": {
+  "title": "Channel intro",
+  "bpm": 128,
+  "key": "D",
+  "brand": "BUILDLOG",
+  "hud": "BUILDLOG // CHANNEL INTRO",
+  "voice": "am_fenrir",
+  "duration": 6.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "BUILDLOG",
+   "kicker": "WEEKLY DEV LOGS",
+   "start": 0.0,
+   "end": 3.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Welcome to Buildlog."
+    }
+   ]
+  },
+  {
+   "type": "logo",
+   "name": "BUILDLOG",
+   "tagline": "NEW EVERY FRIDAY",
+   "start": 3.0,
+   "end": 6.0,
+   "vo": [
+    {
+     "t": 3.1,
+     "text": "New every Friday."
+    }
+   ]
+  }
+ ]
+}

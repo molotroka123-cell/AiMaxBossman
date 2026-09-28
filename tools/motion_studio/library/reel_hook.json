@@ -1,0 +1,40 @@
+{
+ "meta": {
+  "title": "Hook",
+  "bpm": 130,
+  "key": "B",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // HOOK",
+  "voice": "am_fenrir",
+  "duration": 8.0
+ },
+ "scenes": [
+  {
+   "type": "sticker",
+   "lottie": "noto_face_screaming_in_fear",
+   "text": "9 OF 10",
+   "sub": "NOTES ARE NEVER REOPENED",
+   "start": 0.0,
+   "end": 4.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Nine out of ten notes are never reopened."
+    }
+   ]
+  },
+  {
+   "type": "end_card",
+   "text": "HERE'S WHY",
+   "sub": "WATCH TO THE END",
+   "start": 4.0,
+   "end": 8.0,
+   "vo": [
+    {
+     "t": 4.1,
+     "text": "Here is why."
+    }
+   ]
+  }
+ ]
+}
