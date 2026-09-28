@@ -130,6 +130,16 @@ class JeffServer:
         self.thread.join(timeout=10)
 
 
+def default_voice_env(data_dir: Path, environ=os.environ) -> None:
+    """A shortcut cannot set environment variables: use the Piper voice kept in
+    ``<data>/voice`` (where Bossman already stores it) unless explicitly set."""
+    voice = Path(data_dir) / "voice"
+    exe, model = voice / "piper" / "piper.exe", voice / "ru_RU-denis-medium.onnx"
+    if exe.is_file() and model.is_file() and (voice / "ru_RU-denis-medium.onnx.json").is_file():
+        environ.setdefault("BOSSMAN_PIT_TTS_EXECUTABLE", str(exe))
+        environ.setdefault("BOSSMAN_PIT_TTS_MODEL_PATH", str(model))
+
+
 def run(argv: Sequence[str] | None = None, *, launcher=None, out=sys.stdout) -> int:
     from .pit.config import config_path, default_data_dir, load
 
@@ -147,6 +157,7 @@ def run(argv: Sequence[str] | None = None, *, launcher=None, out=sys.stdout) -> 
               file=out, flush=True)
         return 3
 
+    default_voice_env(data_dir)
     local = local_identity()
     running = _get_json(identity_url)
     started = None

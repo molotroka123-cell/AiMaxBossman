@@ -102,3 +102,17 @@ def test_profile_in_use_detects_an_exclusively_held_lockfile(tmp_path):
     finally:
         kernel32.CloseHandle(handle)
     assert jeff_desktop.profile_in_use(profile) is False
+
+
+def test_shortcut_launch_finds_the_data_root_piper_voice(tmp_path):
+    env = {}
+    jeff_desktop.default_voice_env(tmp_path, env)
+    assert env == {}                                   # nothing there: text/system voice fallback
+    voice = tmp_path / "voice"
+    (voice / "piper").mkdir(parents=True)
+    for name in ("piper/piper.exe", "ru_RU-denis-medium.onnx", "ru_RU-denis-medium.onnx.json"):
+        (voice / name).write_bytes(b"x")
+    env = {"BOSSMAN_PIT_TTS_MODEL_PATH": "explicit.onnx"}
+    jeff_desktop.default_voice_env(tmp_path, env)
+    assert env["BOSSMAN_PIT_TTS_EXECUTABLE"].endswith("piper.exe")
+    assert env["BOSSMAN_PIT_TTS_MODEL_PATH"] == "explicit.onnx"    # explicit setting wins
