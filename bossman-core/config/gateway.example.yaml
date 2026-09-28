@@ -38,6 +38,18 @@ backends:
     prompt_cache_ttl: 5m  # set 1h for long human-in-loop sessions
     session_affinity_enabled: true
 
+  # NVIDIA API (Nemotron, Kimi, etc.) — OpenAI-совместимый.
+  # Ключ в .env: NVIDIA_API_KEY
+  nvidia:
+    base_url: https://integrate.api.nvidia.com
+    kind: openai
+    cloud: true
+    api_key_env: NVIDIA_API_KEY
+    health_path: /v1/models
+    timeout_seconds: 180
+    max_concurrency: 4
+    enabled: false
+
 aliases:
   bossman-fast:
     targets:
@@ -86,6 +98,21 @@ aliases:
         price_usd_per_million_cache_read_tokens: "0.5"
         price_usd_per_million_cache_write_tokens_5m: "6.25"
         price_usd_per_million_cache_write_tokens_1h: "10"
+  # Kimi K3 через NVIDIA API — мультимодальная модель для кодирования и рассуждений.
+  # Цены ориентировочные для NVIDIA NIM; уточняйте в актуальном каталоге перед продом.
+  bossman-kimi-k3:
+    targets:
+      - backend: nvidia
+        model: moonshotai/kimi-k3
+        priority: 10
+        capabilities: [text, tools, code, vision, reasoning]
+        context_window: 131072
+        max_output_tokens: 16384
+        price_usd_per_million_input_tokens: "0.15"
+        price_usd_per_million_output_tokens: "0.60"
+        price_usd_per_million_cache_read_tokens: "0.015"
+        price_usd_per_million_cache_write_tokens_5m: "0.18"
+        price_usd_per_million_cache_write_tokens_1h: "0.30"
   bossman-vision:
     required_capabilities: [vision]
     targets:
