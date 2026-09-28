@@ -40,11 +40,12 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tools.owner_journeys import route_ladder as rl  # noqa: E402
 from tools.owner_journeys.runtime_guard import PAUSE_FILE, lower_priority  # noqa: E402
 
 OLLAMA = "http://127.0.0.1:11434"
 DEFAULT_MODEL = "bossman-fast-qwen36-35b-a3b-q5:latest"
-ALLOWED_RESIDENT = {DEFAULT_MODEL, "bossman-fast-qwen36-vision:latest"}
+ALLOWED_RESIDENT = {DEFAULT_MODEL, "bossman-fast-qwen36-vision:latest", "bossman-main-qwen38-27b-q5:latest"}
 CYCLE_KINDS = ("triage", "journey", "k1m6a_verify")
 FORBIDDEN_TOOL_WORDS = ("computer", "send", "post", "publish", "transfer", "telegram", "email", "permission")
 
@@ -66,6 +67,7 @@ class Config:
     poll_s: float = 5.0
     idle_between_cycles_s: float = 10.0
     k1m6a_root: Path = Path(r"C:\Users\asd\Bossman\evidence\rc19\d\yt\raw")
+    force_tier: str = ""          # tests only: restrict the ladder to one tier
 
     def validate(self) -> None:
         host = self.base_url.split("//", 1)[-1].split("/", 1)[0].split(":")[0]
@@ -214,17 +216,35 @@ def _today() -> str:
 
 class CallCounter:
     calls = 0
+    tokens_in = 0
+    tokens_out = 0
 
 
-def _counting_factory(cfg: Config):
+def _route_factory(route: "rl.Route"):
+    from bcc.providers import OpenAICompatAdapter
     from tools.owner_journeys.bcc_harness import LocalOllamaAdapter
 
-    class Counting(LocalOllamaAdapter):
+    base = LocalOllamaAdapter if route.tier == "local" else OpenAICompatAdapter
+
+    class Counting(base):  # type: ignore[misc, valid-type]
         async def chat(self, model, messages, **kw):
             CallCounter.calls += 1
-            return await super().chat(model, messages, **kw)
+            if route.tier != "local":
+                kw.setdefault("max_tokens", 800)
+            res = await super().chat(model, messages, **kw)
+            CallCounter.tokens_in += int(res.tokens_in or 0)
+            CallCounter.tokens_out += int(res.tokens_out or 0)
+            return res
 
-    return lambda model, provider: Counting(base_url=cfg.base_url, api_key=None)
+    return lambda model, provider: Counting(base_url=route.base_url, api_key=route.api_key)
+
+
+def _route_meta(route: "rl.Route", ladder: "rl.LadderConfig") -> dict[str, Any]:
+    if route.tier == "local":
+        return {"cloud_allowed": False, "privacy": "private", "learning247_tier": "local"}
+    # fake, privacy-safe tasks only; bcc cloud_policy needs strict True and a positive budget
+    return {"cloud_allowed": True, "cloud_budget_usd": max(ladder.per_cycle_cap_usd, 1e-6), "privacy": "public",
+            "learning247_tier": route.tier}
 
 
 def _policy_violations(tool_calls: list[dict[str, Any]], allowed: list[str]) -> list[str]:
@@ -239,18 +259,20 @@ def _policy_violations(tool_calls: list[dict[str, Any]], allowed: list[str]) -> 
     return out
 
 
-async def cycle_triage(cfg: Config, work: Path, index: int) -> dict[str, Any]:
+async def cycle_triage(cfg: Config, work: Path, index: int, route: "rl.Route", ladder: "rl.LadderConfig"
+                       ) -> dict[str, Any]:
     from tools.owner_journeys import learning_lab as lab
     from tools.owner_journeys import triage_dataset as ds
     from tools.owner_journeys.bcc_harness import BccHarness
 
     item = ds.HELD_OUT[index % len(ds.HELD_OUT)]
-    async with BccHarness(work / "bcc", adapter_factory=_counting_factory(cfg)) as h:
+    async with BccHarness(work / "bcc", adapter_factory=_route_factory(route)) as h:
         agent = await h.agent(name="triage-baseline", system_prompt=lab.system_prompt("baseline", []), tools=[],
-                              model_name=cfg.model, max_steps=2)
+                              model_name=route.model, base_url=route.base_url, max_steps=2,
+                              api_key=route.api_key or "local-no-key")
         out = await h.run_task(agent_id=agent["id"], title="learning247-triage",
                                prompt=f"Inbound message:\n{item['text']}\nReturn only the JSON.",
-                               allowed_tools=[], timeout=cfg.cycle_timeout_s)
+                               allowed_tools=[], timeout=cfg.cycle_timeout_s, meta=_route_meta(route, ladder))
     got = lab.parse_answer(out.result)
     sc = ds.score(item, got)
     return {"task": {"item": index % len(ds.HELD_OUT), "text": item["text"]}, "task_status": out.status,
@@ -259,13 +281,15 @@ async def cycle_triage(cfg: Config, work: Path, index: int) -> dict[str, Any]:
             "violations": _policy_violations(out.tool_calls, []), "seconds": out.seconds}
 
 
-async def cycle_journey(cfg: Config, work: Path, index: int) -> dict[str, Any]:
+async def cycle_journey(cfg: Config, work: Path, index: int, route: "rl.Route", ladder: "rl.LadderConfig"
+                        ) -> dict[str, Any]:
     from tools.owner_journeys import admin_journeys as aj
 
     journeys = aj.all_journeys()
     j = journeys[index % len(journeys)]
-    rep = await aj.run_journeys(work, [j], adapter_factory=_counting_factory(cfg), model=cfg.model,
-                                timeout=cfg.cycle_timeout_s)
+    rep = await aj.run_journeys(work, [j], adapter_factory=_route_factory(route), model=route.model,
+                                timeout=cfg.cycle_timeout_s, base_url=route.base_url, api_key=route.api_key,
+                                meta=_route_meta(route, ladder))
     r = rep["journeys"][0]
     allowed = aj.SWAPME_TOOLS if j.business == "swapme" else aj.FV_TOOLS
     calls = [{"tool": t, "status": s} for t, s in r["tool_sequence"]]
@@ -276,7 +300,8 @@ async def cycle_journey(cfg: Config, work: Path, index: int) -> dict[str, Any]:
             "violations": _policy_violations(calls, allowed), "seconds": r["seconds"]}
 
 
-async def cycle_k1m6a(cfg: Config, work: Path, index: int) -> dict[str, Any]:
+async def cycle_k1m6a(cfg: Config, work: Path, index: int, route: "rl.Route" = None,
+                      ladder: "rl.LadderConfig" = None) -> dict[str, Any]:
     """Deterministic re-verification of stored K1m6a claims against cached exchange data (no model)."""
     from learning.claim_verification import Claim, Market, verify_claim
 
@@ -302,6 +327,53 @@ async def cycle_k1m6a(cfg: Config, work: Path, index: int) -> dict[str, Any]:
 
 
 RUNNERS = {"triage": cycle_triage, "journey": cycle_journey, "k1m6a_verify": cycle_k1m6a}
+NEEDS_LLM = {"triage": True, "journey": True, "k1m6a_verify": False}
+
+
+async def run_ladder(cfg: Config, kind: str, work: Path, index: int, cycle_id: int, ladder: "rl.LadderConfig",
+                     cap: "rl.CapLedger") -> dict[str, Any]:
+    """Try routes cheapest-first; stop at the first route that SERVES the task (not at a right answer)."""
+    needs = NEEDS_LLM.get(kind, True)
+    routes = rl.plan(ladder, needs_llm=needs, skip_local=cfg.force_tier in ("free_cloud", "max_cloud"))
+    if cfg.force_tier and needs:
+        routes = [r for r in routes if r.tier == cfg.force_tier]
+    tried: list[dict[str, Any]] = []
+    result: dict[str, Any] = {}
+    served = None
+    for route in routes:
+        if route.tier == "max_cloud":
+            free_failed = any(t["tier"] == "free_cloud" for t in tried)
+            if not (free_failed or cfg.force_tier == "max_cloud"):
+                tried.append({"tier": route.tier, "model": route.model, "status": "SKIPPED_FREE_NOT_TRIED"})
+                continue
+            ok, why = cap.reserve(cycle_id, route.reserve_usd)
+            if not ok:
+                tried.append({"tier": route.tier, "model": route.model, "status": "CAP_BLOCKED", "why": why})
+                continue
+        t_in, t_out = CallCounter.tokens_in, CallCounter.tokens_out
+        try:
+            result = await RUNNERS[kind](cfg, work / route.tier, index, route, ladder)
+            status = result.get("task_status")
+        except Exception as exc:  # noqa: BLE001 - a failed tier falls through to the next tier
+            status, result = f"ERROR:{type(exc).__name__}", {}
+        usd = rl.actual_cost(route, CallCounter.tokens_in - t_in, CallCounter.tokens_out - t_out)
+        if route.tier == "max_cloud":
+            cap.settle(cycle_id, route.reserve_usd, usd)
+        if route.tier in ("free_cloud", "max_cloud"):
+            import shutil
+            shutil.rmtree(work / route.tier / "bcc", ignore_errors=True)  # the provider key lived in that vault
+        tried.append({"tier": route.tier, "model": route.model, "status": status, "usd": usd})
+        if status in ("completed", "skipped") or route.tier == "deterministic":
+            served = route
+            break
+    result = dict(result)
+    result["route"] = {"tier": served.tier if served else "NONE", "model": served.model if served else None,
+                       "tried": tried, "usd": round(sum(t.get("usd", 0.0) for t in tried), 9)}
+    if served is None:
+        result["verifier"] = {"pass": False, "safety_ok": True, "note": "no tier could serve"}
+        result.setdefault("violations", [])
+        result["task_status"] = "NO_ROUTE"
+    return result
 
 
 # ------------------------------------------------------------------ main loop
@@ -325,7 +397,10 @@ async def _wait_while_paused(cfg: Config, store: Store) -> Optional[str]:
 
 async def run(cfg: Config, *, max_hours: float = 0.0, max_cycles: int = 0) -> dict[str, Any]:
     cfg.validate()
+    rl.AnthropicBlock.install()
     store = Store(cfg.state_dir)
+    ladder = rl.LadderConfig.load(cfg.state_dir)
+    cap = rl.CapLedger(cfg.state_dir / "cloud_cap.json", ladder)
     lock = Lock(cfg.state_dir / "supervisor.lock")
     lock.acquire()
     started = time.time()
@@ -370,7 +445,7 @@ async def run(cfg: Config, *, max_hours: float = 0.0, max_cycles: int = 0) -> di
             calls_before = CallCounter.calls
             t0 = time.time()
             status, result, error = "COMPLETED", {}, None
-            task = asyncio.create_task(RUNNERS[kind](cfg, work, index))
+            task = asyncio.create_task(run_ladder(cfg, kind, work, index, cycle_id, ladder, cap))
             try:
                 while not task.done():
                     await asyncio.wait({task}, timeout=cfg.poll_s)
@@ -390,10 +465,12 @@ async def run(cfg: Config, *, max_hours: float = 0.0, max_cycles: int = 0) -> di
                 rss_mb = round(psutil.Process().memory_info().rss / 2**20, 1)
             except ImportError:  # pragma: no cover
                 rss_mb = None
+            route_info = result.pop("route", None) or {"tier": "NONE", "tried": [], "usd": 0.0}
             rec = {"cycle_id": cycle_id, "kind": kind, "index": index, "status": status, "started": t0,
-                   "rss_mb": rss_mb,
-                   "finished": time.time(), "wall_s": wall, "model_calls": calls, "cloud_usd": 0.0,
-                   "route": f"local:{cfg.model}", "error": error, **result}
+                   "rss_mb": rss_mb, "finished": time.time(), "wall_s": wall, "model_calls": calls,
+                   "cloud_usd": route_info.get("usd", 0.0), "tier": route_info.get("tier"),
+                   "tier_model": route_info.get("model"), "route_tried": route_info.get("tried"),
+                   "anthropic_attempts_total": rl.AnthropicBlock.attempts, "error": error, **result}
             _append(store.cycles, rec)
             if result and not result.get("verifier", {}).get("pass", True):
                 _append(store.lessons, {"cycle_id": cycle_id, "kind": kind, "task": result.get("task"),
@@ -405,6 +482,7 @@ async def run(cfg: Config, *, max_hours: float = 0.0, max_cycles: int = 0) -> di
                                                                    "cloud_usd": 0.0})
             day["cycles"] += 1
             day["model_calls"] += calls
+            day["cloud_usd"] = round(day.get("cloud_usd", 0.0) + rec["cloud_usd"], 9)
             day["wall_s"] = round(day["wall_s"] + wall, 1)
             st["in_progress"] = None
             st["next_cycle_id"] = cycle_id + 1
@@ -442,12 +520,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--max-model-calls-day", type=int, default=3000)
     ap.add_argument("--idle-s", type=float, default=10.0)
     ap.add_argument("--poll-s", type=float, default=5.0)
+    ap.add_argument("--force-tier", default="", choices=("", "local", "free_cloud", "max_cloud"))
     args = ap.parse_args(argv)
     cfg = Config(state_dir=Path(args.state_dir), model=args.model,
                  owner_data_root=Path(args.owner_data_root) if args.owner_data_root else None,
                  kinds=tuple(k for k in args.kinds.split(",") if k in RUNNERS), min_free_gb=args.min_free_gb,
                  max_cycles_day=args.max_cycles_day, max_model_calls_day=args.max_model_calls_day,
-                 idle_between_cycles_s=args.idle_s, poll_s=args.poll_s)
+                 idle_between_cycles_s=args.idle_s, poll_s=args.poll_s, force_tier=args.force_tier)
     st = asyncio.run(run(cfg, max_hours=args.max_hours, max_cycles=args.max_cycles))
     print(json.dumps({"mode": st.get("mode"), "next_cycle_id": st.get("next_cycle_id")}))
     return 0

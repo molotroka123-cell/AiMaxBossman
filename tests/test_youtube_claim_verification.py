@@ -164,3 +164,35 @@ def test_history_long_term_and_off_scale_targets_are_unknown():
     assert lt["t0"]["status"] == "UNKNOWN"
     far = verify_claim(_claim(value=180_000, quote="180k this year", t_utc=DAY + 600), m, horizons=(15,))
     assert far["15m"]["status"] == "UNKNOWN"
+
+
+def test_pipeline_validation_gate_and_aggregate(tmp_path):
+    import json as _json
+
+    from tools.youtube_trader_ingest_claims import aggregate, validate_claims
+
+    window = [(0, {"start": 10.0, "text": "we are sitting at 72.5 right now"}),
+              (1, {"start": 14.0, "text": "open interest is dropping hard"})]
+    raw = {"claims": [
+        {"seg": 0, "quote": "sitting at 72.5 right now", "metric": "PRICE", "kind": "STATE", "direction": "AT",
+         "value": 72.5, "asset": "BTC"},
+        {"seg": 1, "quote": "open interest is dropping", "metric": "OI", "kind": "STATE", "direction": "DOWN",
+         "value": 99, "asset": None},                                  # number not in quote -> dropped
+        {"seg": 1, "quote": "funding is exploding", "metric": "OI", "kind": "STATE", "direction": "UP"},  # not verbatim
+        {"seg": 0, "quote": "sitting at 72.5 right now", "metric": "VOLUME", "kind": "STATE"},           # bad schema
+    ]}
+    claims, st = validate_claims(raw, window, video_id="vid", source="test", epoch0=1000.0)
+    assert [c.metric for c in claims] == ["PRICE", "OI"]
+    assert claims[0].t_utc == 1010.0 and claims[0].instrument == "BTC" and claims[1].instrument == "UNSTATED"
+    assert claims[1].value is None and st == {"proposed": 4, "rejected_quote": 1, "rejected_schema": 1,
+                                              "value_dropped": 1}
+    for vid, role in (("a", "known"), ("b", "held_out"), ("c", "held_out")):
+        d = tmp_path / "raw" / vid
+        d.mkdir(parents=True)
+        (d / "report.json").write_text(_json.dumps({
+            "video_id": vid, "role": role, "title": "", "duration_s": 1, "transcript_source": "x",
+            "alignment": {"status": "ALIGNED"}, "model_route": {}, "gate": {"model_errors": 0},
+            "latency_s": {}, "runtime_s": 1, "summary": {}}))
+    assert aggregate(tmp_path)["suggested_marker_pipeline"] == "VERIFIED"
+    (tmp_path / "raw" / "c" / "report.json").unlink()
+    assert aggregate(tmp_path)["suggested_marker_pipeline"] == "PARTIAL"

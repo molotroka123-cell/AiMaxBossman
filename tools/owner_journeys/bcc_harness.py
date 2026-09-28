@@ -113,13 +113,16 @@ class BccHarness:
             self._registered.append(spec.name)
 
     async def agent(self, *, name: str, system_prompt: str, tools: list[str], model_name: str = DEFAULT_MODEL,
-                    base_url: str = OLLAMA_V1, max_steps: int = 12) -> dict[str, Any]:
-        r = await self.client.post("/api/providers", json={"name": f"ollama-{name}", "kind": "openai_compat",
-                                                           "base_url": base_url, "api_key": "local-no-key"})
+                    base_url: str = OLLAMA_V1, max_steps: int = 12, api_key: str = "local-no-key",
+                    price_in: float | None = None, price_out: float | None = None) -> dict[str, Any]:
+        r = await self.client.post("/api/providers", json={"name": f"provider-{name}", "kind": "openai_compat",
+                                                           "base_url": base_url, "api_key": api_key})
         r.raise_for_status()
         provider = r.json()
-        r = await self.client.post("/api/models", json={"provider_id": provider["id"], "name": model_name,
-                                                        "alias": f"{name}-model"})
+        body = {"provider_id": provider["id"], "name": model_name, "alias": f"{name}-model"}
+        if price_in is not None and price_out is not None:
+            body.update(price_in=price_in, price_out=price_out)
+        r = await self.client.post("/api/models", json=body)
         r.raise_for_status()
         model = r.json()
         r = await self.client.post("/api/agents", json={"name": name, "system_prompt": system_prompt,
@@ -133,13 +136,13 @@ class BccHarness:
     # ------------------------------------------------------------ run
     async def run_task(self, *, agent_id: int, title: str, prompt: str, allowed_tools: list[str],
                        approve: Optional[ApprovalPolicy] = None, timeout: float = 600.0,
-                       max_approvals: int = 6) -> TaskOutcome:
+                       max_approvals: int = 6, meta: Optional[dict[str, Any]] = None) -> TaskOutcome:
         started = time.time()
         r = await self.client.post("/api/tasks", json={"title": title, "prompt": prompt, "agent_id": agent_id,
                                                        "run_now": False, "max_retries": 0})
         r.raise_for_status()
         task_id = int(r.json()["task"]["id"])
-        await self._merge_meta(task_id, {"allowed_tools": list(allowed_tools)})
+        await self._merge_meta(task_id, {"allowed_tools": list(allowed_tools), **(meta or {})})
         r = await self.client.post(f"/api/tasks/{task_id}/run")
         r.raise_for_status()
         decided: set[int] = set()
