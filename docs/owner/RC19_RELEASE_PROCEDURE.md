@@ -142,8 +142,16 @@ A NO_GO or INSUFFICIENT result is the answer, not a reason to lower the bar or s
 Script: `tools/rc19_side_by_side.ps1` (Windows PowerShell 5.1 or pwsh 7). It refuses (exit 2) a data dir
 that is, contains or lies in `%LOCALAPPDATA%\Bossman\CommandCenter`, a junction in the data-dir path,
 a busy port, an install folder that holds another build, an archive whose SHA-256 differs from
-`-ArchiveSha256`, and any shortcut of the same name that it did not write. Regression tests:
-`tests/test_rc19_side_by_side_refusals.py` (23 cases, Windows).
+`-ArchiveSha256`, any shortcut of the same name that it did not write, and a data dir already served
+by another backend (builds with `bcc/backend_lock.py`: `<data>\backend.lock` held, holder read from
+`<data>\backend.json`, or `bcc.app` exit code 5; the same port + build is reported `ALREADY RUNNING`,
+exit 0). Regression tests: `tests/test_rc19_side_by_side_refusals.py` (26 cases, Windows).
+
+`tools/build_windows_bundle.py` `verify_runtime` now also makes the embedded `python -I` import the
+computer-use modules (`pywinauto`, `pyautogui`, `win32clipboard`, `psutil`) from the runtime and requires
+`WindowsDesktop.preflight()` to report no gap; the files comtypes generates during that probe are removed,
+so the archive is unchanged. On the real 762e96d2 runtime on this PC (Smart App Control ON): preflight PASS,
+all four modules from the runtime, runtime tree unchanged (`evidence\rc19\a\verify-runtime-cu-real.txt`).
 
 ```powershell
 $S    = "$PWD\tools\rc19_side_by_side.ps1"

@@ -94,6 +94,74 @@ def test_a_busy_port_is_refused_before_anything_starts(tmp_path):
     assert not (tmp_path / "rc-data" / "_rc19").exists()
 
 
+def _fake_install(tmp_path: Path) -> None:
+    runtime = tmp_path / "root" / "rc19-install" / SHA[:8] / f"BOSSMAN-Windows-x64-{SHA[:12]}" / "runtime"
+    runtime.mkdir(parents=True, exist_ok=True)
+    (runtime / "python.exe").write_bytes(b"")      # never executed: every case refuses first
+
+
+def _hold_backend_lock(data_dir: Path, info: dict):
+    """What bcc/backend_lock.py does in the serving process: byte-range lock + holder info."""
+    import json
+    import msvcrt
+    data_dir.mkdir(parents=True, exist_ok=True)
+    handle = open(data_dir / "backend.lock", "a+b")
+    if handle.seek(0, os.SEEK_END) == 0:
+        handle.write(b"\0")
+        handle.flush()
+    handle.seek(0)
+    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+    (data_dir / "backend.json").write_text(json.dumps(info), encoding="utf-8")
+    return handle
+
+
+def test_a_data_dir_served_by_another_backend_is_refused(tmp_path):
+    _fake_install(tmp_path)
+    data = tmp_path / "rc-data"
+    handle = _hold_backend_lock(data, {"pid": 4242, "host": "127.0.0.1", "port": 8835,
+                                       "build_sha": "f" * 40, "kind": "server"})
+    try:
+        done = _run(tmp_path, "-Action", "Start", "-DataDir", str(data), "-Port", "8836")
+    finally:
+        handle.close()
+    assert done.returncode == 2, done.stdout + done.stderr
+    assert "ALREADY RUNNING" in done.stdout and "pid 4242" in done.stdout and ":8835" in done.stdout
+    assert "held by another backend" in done.stdout
+    assert not (data / "_rc19").exists()
+
+
+def test_the_same_backend_already_serving_is_reported_not_restarted(tmp_path):
+    _fake_install(tmp_path)
+    data = tmp_path / "rc-data"
+    handle = _hold_backend_lock(data, {"pid": 4243, "host": "127.0.0.1", "port": 8837,
+                                       "build_sha": SHA, "kind": "desktop"})
+    try:
+        done = _run(tmp_path, "-Action", "Start", "-DataDir", str(data), "-Port", "8837")
+    finally:
+        handle.close()
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "ALREADY RUNNING" in done.stdout and "attach to it" in done.stdout
+    assert not (data / "_rc19").exists()
+
+
+def test_a_stale_backend_json_without_the_lock_is_ignored(tmp_path):
+    import socket
+
+    _fake_install(tmp_path)
+    data = tmp_path / "rc-data"
+    _hold_backend_lock(data, {"pid": 1, "port": 8838, "build_sha": SHA}).close()   # holder gone
+    with socket.socket() as busy:
+        busy.bind(("127.0.0.1", 0))
+        busy.listen(1)
+        port = busy.getsockname()[1]
+        if port < 1024:
+            pytest.skip("ephemeral port below the script's range")
+        done = _run(tmp_path, "-Action", "Start", "-DataDir", str(data), "-Port", str(port))
+    assert done.returncode == 2, done.stdout + done.stderr
+    assert "ALREADY RUNNING" not in done.stdout
+    assert f"port {port} already has a listener" in done.stdout
+
+
 def test_the_script_hardcodes_no_user_profile_path():
     text = SCRIPT.read_text(encoding="utf-8")
     assert "Users\\asd" not in text and "Users/asd" not in text
