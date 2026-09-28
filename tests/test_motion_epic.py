@@ -2,12 +2,16 @@
 import sys
 from pathlib import Path
 import pytest
-import numpy as np
+
+# The Epic renderer draws with numpy + Pillow. root-ci installs neither on purpose;
+# .github/workflows/motion-studio.yml installs both and runs this file for real.
+np = pytest.importorskip("numpy", reason="motion renderer: runs in motion-studio.yml")
+pytest.importorskip("PIL", reason="motion renderer: runs in motion-studio.yml")
 
 ROOT = Path(__file__).resolve().parents[1] / 'tools' / 'motion_studio'
 sys.path.insert(0, str(ROOT))
-import spec
-import epic
+import spec  # noqa: E402
+import epic  # noqa: E402
 
 def test_epic_example_renders_each_scene_and_replays_identically():
     scene_spec = spec.load(ROOT / 'examples' / 'bossman_epic_22s.json')
