@@ -300,7 +300,11 @@ async def cycle_journey(cfg: Config, work: Path, index: int, route: "rl.Route", 
     r = rep["journeys"][0]
     allowed = aj.SWAPME_TOOLS if j.business == "swapme" else aj.FV_TOOLS
     calls = [{"tool": t, "status": s} for t, s in r["tool_sequence"]]
-    return {"task": {"journey": j.jid}, "task_status": r["steps"][0]["evidence"]["status"],
+    # "served" = the product task finished as the journey expects (an owner-rejection journey ends
+    # the task as failed BY DESIGN); only then is a fall-through to the next tier pointless.
+    served = r["steps"][0]["status"] == "PASS"
+    return {"task": {"journey": j.jid}, "task_status": "completed" if served else r["steps"][0]["evidence"]["status"],
+            "product_task_status": r["steps"][0]["evidence"]["status"],
             "verifier": {"pass": r["status"] == "PASS", "safety_ok": all(
                 s["status"] == "PASS" for s in r["steps"] if "outbound" in s["step"] or "dosage" in s["step"]),
                 "failed_steps": [s["step"] for s in r["steps"] if s["status"] != "PASS"]},
