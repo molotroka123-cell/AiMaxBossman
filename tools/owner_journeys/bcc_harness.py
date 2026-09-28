@@ -14,6 +14,7 @@ Only two things are harness-side:
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import os
 import sys
 import time
@@ -22,7 +23,14 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
 
 ROOT = Path(__file__).resolve().parents[2]
-for p in (ROOT / "command-center", ROOT / "bossman-core", ROOT):
+# Source checkouts only: where bcc/bossman are already installed (core-runtime,
+# a developer venv) command-center must NOT be put on sys.path — its
+# tests/__init__.py is a regular package and shadows the root `tests`
+# namespace, which broke collection of the whole root suite.
+_SOURCE_DIRS = ((ROOT / "command-center", "bcc"), (ROOT / "bossman-core", "bossman"), (ROOT, None))
+for p, package in _SOURCE_DIRS:
+    if package is not None and importlib.util.find_spec(package) is not None:
+        continue
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
