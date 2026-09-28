@@ -239,6 +239,13 @@ def _route_factory(route: "rl.Route"):
     return lambda model, provider: Counting(base_url=route.base_url, api_key=route.api_key)
 
 
+def _route_prices(route: "rl.Route") -> dict[str, float]:
+    """bcc provider governance refuses cloud inference without known prices (per 1M tokens)."""
+    if route.tier == "local":
+        return {}
+    return {"price_in": float(route.price_in_per_m), "price_out": float(route.price_out_per_m)}
+
+
 def _route_meta(route: "rl.Route", ladder: "rl.LadderConfig") -> dict[str, Any]:
     if route.tier == "local":
         return {"cloud_allowed": False, "privacy": "private", "learning247_tier": "local"}
@@ -269,7 +276,7 @@ async def cycle_triage(cfg: Config, work: Path, index: int, route: "rl.Route", l
     async with BccHarness(work / "bcc", adapter_factory=_route_factory(route)) as h:
         agent = await h.agent(name="triage-baseline", system_prompt=lab.system_prompt("baseline", []), tools=[],
                               model_name=route.model, base_url=route.base_url, max_steps=2,
-                              api_key=route.api_key or "local-no-key")
+                              api_key=route.api_key or "local-no-key", **_route_prices(route))
         out = await h.run_task(agent_id=agent["id"], title="learning247-triage",
                                prompt=f"Inbound message:\n{item['text']}\nReturn only the JSON.",
                                allowed_tools=[], timeout=cfg.cycle_timeout_s, meta=_route_meta(route, ladder))
@@ -289,7 +296,7 @@ async def cycle_journey(cfg: Config, work: Path, index: int, route: "rl.Route", 
     j = journeys[index % len(journeys)]
     rep = await aj.run_journeys(work, [j], adapter_factory=_route_factory(route), model=route.model,
                                 timeout=cfg.cycle_timeout_s, base_url=route.base_url, api_key=route.api_key,
-                                meta=_route_meta(route, ladder))
+                                meta=_route_meta(route, ladder), prices=_route_prices(route))
     r = rep["journeys"][0]
     allowed = aj.SWAPME_TOOLS if j.business == "swapme" else aj.FV_TOOLS
     calls = [{"tool": t, "status": s} for t, s in r["tool_sequence"]]

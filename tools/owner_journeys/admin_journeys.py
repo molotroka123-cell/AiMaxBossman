@@ -347,8 +347,9 @@ def all_journeys() -> list[Journey]:
 
 async def run_journeys(data_dir: Path, journeys: list[Journey], *, adapter_factory=None,
                        model: str = DEFAULT_MODEL, timeout: float = 600.0, base_url: Optional[str] = None,
-                       api_key: Optional[str] = None, meta: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-    conn: dict[str, Any] = {}
+                       api_key: Optional[str] = None, meta: Optional[dict[str, Any]] = None,
+                       prices: Optional[dict[str, float]] = None) -> dict[str, Any]:
+    conn: dict[str, Any] = dict(prices or {})
     if base_url:
         conn["base_url"] = base_url
     if api_key:
