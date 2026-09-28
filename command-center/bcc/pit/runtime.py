@@ -863,14 +863,20 @@ class ParticipantRuntime:
                 if voice_mode:
                     async def make_voice(guarded_text: str) -> bytes:
                         if os.environ.get("BOSSMAN_PIT_TTS_BACKEND", "piper").lower() == "chatterbox":
-                            return await asyncio.to_thread(
-                                synthesize_cloned_ogg, guarded_text,
-                                python_executable=os.environ.get("BOSSMAN_PIT_TTS_CLONE_PYTHON", ""),
-                                model_dir=os.environ.get("BOSSMAN_PIT_TTS_CLONE_MODEL_DIR", ""),
-                                reference_path=os.environ.get("BOSSMAN_PIT_TTS_CLONE_REFERENCE", ""),
-                                ffmpeg_executable=shutil.which("ffmpeg") or "",
-                                stopped=lambda: (self.home / STOP_FLAG).exists(),
-                            )
+                            try:
+                                return await asyncio.to_thread(
+                                    synthesize_cloned_ogg, guarded_text,
+                                    python_executable=os.environ.get("BOSSMAN_PIT_TTS_CLONE_PYTHON", ""),
+                                    model_dir=os.environ.get("BOSSMAN_PIT_TTS_CLONE_MODEL_DIR", ""),
+                                    reference_path=os.environ.get("BOSSMAN_PIT_TTS_CLONE_REFERENCE", ""),
+                                    ffmpeg_executable=shutil.which("ffmpeg") or "",
+                                    stopped=lambda: (self.home / STOP_FLAG).exists(),
+                                )
+                            except PiperError as exc:
+                                # Optional clone missing/busy/slow/too long: the
+                                # configured Piper voice answers instead. STOP wins.
+                                if str(exc) == "VOICE_STOPPED":
+                                    raise
                         return await asyncio.to_thread(
                             synthesize_ogg, guarded_text,
                             piper_executable=os.environ.get("BOSSMAN_PIT_TTS_EXECUTABLE", ""),
