@@ -68,6 +68,10 @@ class Settings:
     local_url: str = "http://127.0.0.1:8080/v1"
     local_model: str = ""
     core_url: str = "http://127.0.0.1:8800"
+    # Data root of the Command Center that issued core_token. When set, the
+    # backend holding its backend.lock is used (its port wins over core_url)
+    # and the token is never sent while nobody serves that root.
+    core_data_dir: str = ""
     search_url: str = ""  # existing local SearXNG, not a new search daemon
     cloud_model: str = ""  # exact anthropic/claude-* OpenRouter model id
     cloud_daily_usd: float = 0.0
@@ -136,6 +140,8 @@ class Settings:
             raise ValueError("duplicate Telegram identity")
         for url in (self.local_url, self.core_url):
             local_url(url)
+        if not isinstance(self.core_data_dir, str) or len(self.core_data_dir) > 1024:
+            raise ValueError("core_data_dir must be a path string")
         if self.search_url:
             local_url(self.search_url)
         if bool(self.fast_url) != bool(self.fast_model):

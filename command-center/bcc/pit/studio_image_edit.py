@@ -53,8 +53,11 @@ class StudioImageEditBroker:
     media engine.
     """
 
-    def __init__(self, config: StudioImageEditConfig, *, transport=None):
+    def __init__(self, config: StudioImageEditConfig, *, transport=None, backend=None):
         self.config = config
+        # A VerifiedBackend (bcc.telegram_companion.backend_target): the owner
+        # token goes only to the identity-checked Command Center of the data root.
+        self.backend = backend
         self.client = httpx.AsyncClient(
             timeout=config.timeout_seconds,
             trust_env=False,
@@ -69,11 +72,13 @@ class StudioImageEditBroker:
     def _headers(self) -> dict[str, str]:
         return {"X-BCC-Token": self.config.core_token} if self.config.core_token else {}
 
-    def _url(self, path: str) -> str:
-        return self.config.core_url.rstrip("/") + path
+    async def _url(self, path: str) -> str:
+        if self.backend is None:
+            return self.config.core_url.rstrip("/") + path
+        return await self.backend.base_url(self.client) + path
 
     async def available(self) -> bool:
-        body = await json_request(self.client, "GET", self._url("/api/studio/models"), headers=self._headers)
+        body = await json_request(self.client, "GET", await self._url("/api/studio/models"), headers=self._headers)
         rows = body.get("items") if isinstance(body, dict) else None
         if not isinstance(rows, list):
             return False
@@ -124,7 +129,7 @@ class StudioImageEditBroker:
                 raise ValueError("unverified reference image")
             reference_bytes, reference_name = self._reference_bytes(data, kind, name)
             reference = await json_request(
-                self.client, "POST", self._url("/api/studio/references"),
+                self.client, "POST", await self._url("/api/studio/references"),
                 headers=self._headers,
                 payload={"filename": reference_name[:120],
                          "data_base64": base64.b64encode(reference_bytes).decode("ascii")},
@@ -151,7 +156,7 @@ class StudioImageEditBroker:
         job = await json_request(
             self.client,
             "POST",
-            self._url("/api/studio/jobs"),
+            await self._url("/api/studio/jobs"),
             headers=self._headers,
             payload={
                 "model": self.config.model_id,
@@ -182,7 +187,7 @@ class StudioImageEditBroker:
             # PIT STOP must not orphan a Studio request that was already admitted.
             with __import__("contextlib").suppress(Exception):
                 await asyncio.wait_for(json_request(
-                    self.client, "POST", self._url(f"/api/studio/jobs/{job_id}/cancel"),
+                    self.client, "POST", await self._url(f"/api/studio/jobs/{job_id}/cancel"),
                     headers=self._headers, timeout=5), timeout=6)
             raise
 
@@ -193,7 +198,7 @@ class StudioImageEditBroker:
             current = await json_request(
                 self.client,
                 "GET",
-                self._url(f"/api/studio/jobs/{job_id}"),
+                await self._url(f"/api/studio/jobs/{job_id}"),
                 headers=self._headers,
                 timeout=30,
             )
@@ -207,7 +212,7 @@ class StudioImageEditBroker:
                     await json_request(
                         self.client,
                         "POST",
-                        self._url(f"/api/studio/jobs/{job_id}/cancel"),
+                        await self._url(f"/api/studio/jobs/{job_id}/cancel"),
                         headers=self._headers,
                         timeout=20,
                     )
@@ -217,7 +222,7 @@ class StudioImageEditBroker:
         runs = await json_request(
             self.client,
             "GET",
-            self._url("/api/studio/runs"),
+            await self._url("/api/studio/runs"),
             headers=self._headers,
             params={"job_id": job_id, "surface": "image"},
             timeout=30,
@@ -233,7 +238,7 @@ class StudioImageEditBroker:
 
         try:
             response = await self.client.get(
-                self._url(f"/api/studio/runs/{out_id}/file"),
+                await self._url(f"/api/studio/runs/{out_id}/file"),
                 headers=self._headers,
                 timeout=60,
             )

@@ -274,6 +274,8 @@ def test_cached_local_route_is_demoted_when_capacity_becomes_unknown(tmp_path, m
             return ChatResult(text="ok", tokens_in=1, tokens_out=1, model=model)
     remote = ChatAdapter()
     runtime.adapter = remote
+    local = ChatAdapter()
+    runtime.local_adapter = local
     monkeypatch.setattr(res, "_read_free_vram_mb", lambda: None)
     monkeypatch.setattr(res, "_read_amd_unified_free_mb", lambda: None)
     person = runtime.settings.people[0]
@@ -283,4 +285,7 @@ def test_cached_local_route_is_demoted_when_capacity_becomes_unknown(tmp_path, m
     answer = _run(runtime.handle(person, {"text": "hello", "_message_id": 1}))
     assert answer == "ok"
     assert remote.calls == 1
-    assert all(not endpoint.local for endpoint in runtime.catalog.values())
+    # Demoted for THIS turn: the local model is never called. The shared
+    # catalog keeps it (rc19 audit P1-1) so the next turn measures again.
+    assert local.calls == 0
+    assert "bossman-fast-local:latest" in runtime.catalog
