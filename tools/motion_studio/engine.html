@@ -8,6 +8,7 @@
 html,body{margin:0;background:#0a0c10}canvas{display:block}
 </style></head><body>
 <canvas id="out" width="1920" height="1080"></canvas>
+<script src="vendor/lottie-web/lottie_canvas.min.js"></script>
 <script>
 // Motion Studio engine. Draws any valid scene spec (see spec.py) as a deterministic
 // timeline: renderFrame(t) -> PNG data URL, SUB sub-frames averaged for motion blur.
@@ -212,7 +213,8 @@ function sCards(sc, t) {
     ctx.beginPath(); ctx.roundRect(-cw / 2, -chh / 2, cw, chh, 28); ctx.fill(); ctx.shadowBlur = 0; ctx.stroke();
     const sh = ctx.createLinearGradient(-cw / 2, -chh / 2, cw / 2, 0); sh.addColorStop(0, `rgba(255,255,255,${.10 + .25 * flash})`); sh.addColorStop(.5, 'rgba(255,255,255,0)');
     ctx.fillStyle = sh; ctx.beginPath(); ctx.roundRect(-cw / 2, -chh / 2, cw, chh, 28); ctx.fill();
-    ctx.save(); ctx.translate(0, -62); drawIcon(f.icon, c, 1.25); ctx.restore();
+    if (f.icon.startsWith('lottie:')) drawLottie(f.icon.slice(7), f.t, t, 0, -62, 190);
+    else { ctx.save(); ctx.translate(0, -62); drawIcon(f.icon, c, 1.25); ctx.restore(); }
     text(String(i + 1).padStart(2, '0'), -cw / 2 + 24, -chh / 2 + 40, '500 20px "IBM Plex Mono"', rgba(c, .8));
     text(f.title, 0, 96, fitFont(f.title, 800, 'Onest', 46, cw - 30), '#ffffff', 'center');
     text(f.sub, 0, 140, fitFont(f.sub, 400, '"IBM Plex Mono"', 21, cw - 30), 'rgba(185,200,240,.85)', 'center');
@@ -413,7 +415,40 @@ function sEnd(sc, t) {
   ctx.fillStyle = lg; ctx.fillRect(CX - lw / 2, CY + 56, lw, 3); ctx.restore();
 }
 
-const DRAW = {title: sTitle, bars: sBars, cards: sCards, grid: sGrid, logo: sLogo, voice: sVoice, roadmap: sRoadmap, end_card: sEnd};
+// ------------------------------------------------------------------ Lottie (lottie-web, MIT; assets pinned in lottie/catalog.json)
+const LOTTIE = {};
+window.loadLottie = function (map) {
+  for (const [id, data] of Object.entries(map)) {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+    const anim = lottie.loadAnimation({renderer: 'canvas', loop: false, autoplay: false, animationData: data,
+      rendererSettings: {context: c.getContext('2d'), clearCanvas: true, preserveAspectRatio: 'xMidYMid meet'}});
+    LOTTIE[id] = {c, anim, fr: data.fr, frames: Math.max(1, Math.floor(data.op - data.ip))};
+  }
+  return Object.keys(LOTTIE).length;
+};
+function drawLottie(id, t0, t, x, y, size, alpha = 1) {
+  const L = LOTTIE[id]; if (!L) return false;
+  const f = Math.max(0, (t - t0) * L.fr) % L.frames;               // deterministic: frame from time
+  L.anim.goToAndStop(f, true);
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.drawImage(L.c, x - size / 2, y - size / 2, size, size); ctx.restore();
+  return true;
+}
+
+// ------------------------------------------------------------------ scene: sticker (one big Lottie + caption)
+function sSticker(sc, t) {
+  const s = sc.start, inK = eOutBack(seg(t, s, s + .5)), outK = eInExpo(seg(t, sc.end - .25, sc.end + .05));
+  const bob = Math.sin((t - s) * 3) * 10, size = 520 * inK * (1 + outK * .3);
+  ctx.save(); ctx.globalAlpha = 1 - outK;
+  const g = ctx.createRadialGradient(CX, CY - 90, 0, CX, CY - 90, 420); g.addColorStop(0, rgba(VIOLET, .35 * inK)); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  drawLottie(sc.lottie, s, t, CX, CY - 110 + bob, size);
+  const tk = eOutExpo(seg(t, s + .2, s + .6));
+  text(sc.text, CX, CY + 250 + (1 - tk) * 30, fitFont(sc.text, 800, 'Onest', 96, W - 300), `rgba(255,255,255,${tk})`, 'center');
+  if (sc.sub) text(sc.sub, CX, CY + 305 + (1 - tk) * 30, '500 26px "IBM Plex Mono"', rgba(CYAN, .9 * tk), 'center', 'alphabetic', 4);
+  ctx.restore();
+}
+
+const DRAW = {sticker: sSticker, title: sTitle, bars: sBars, cards: sCards, grid: sGrid, logo: sLogo, voice: sVoice, roadmap: sRoadmap, end_card: sEnd};
 
 // ------------------------------------------------------------------ frame
 function camera(t) {

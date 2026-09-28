@@ -1,0 +1,79 @@
+{
+ "meta": {
+  "title": "Meetup",
+  "bpm": 128,
+  "key": "A",
+  "brand": "MEETUP",
+  "hud": "MEETUP // MEETUP",
+  "voice": "am_fenrir",
+  "duration": 12.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "NOV 3",
+   "kicker": "PRAGUE · AGENTS MEETUP",
+   "start": 0.0,
+   "end": 3.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "November third, Prague."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "THREE TALKS",
+   "items": [
+    {
+     "t": 3.25,
+     "title": "LOCAL LLMS",
+     "sub": "on your own PC",
+     "icon": "bolt"
+    },
+    {
+     "t": 4.0,
+     "title": "AGENTS",
+     "sub": "that verify work",
+     "icon": "agents"
+    },
+    {
+     "t": 4.99,
+     "title": "VOICE",
+     "sub": "bots that listen",
+     "icon": "mic"
+    }
+   ],
+   "vo": [
+    {
+     "t": 3.25,
+     "text": "Local models."
+    },
+    {
+     "t": 4.0,
+     "text": "Agents that verify."
+    },
+    {
+     "t": 4.99,
+     "text": "Voice bots."
+    }
+   ],
+   "start": 3.0,
+   "end": 8.5
+  },
+  {
+   "type": "end_card",
+   "text": "SAVE THE DATE",
+   "sub": "FREE ENTRY · LIMITED SEATS",
+   "start": 8.5,
+   "end": 12.0,
+   "vo": [
+    {
+     "t": 8.6,
+     "text": "Save the date."
+    }
+   ]
+  }
+ ]
+}

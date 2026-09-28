@@ -28,6 +28,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import lottie_assets  # noqa: E402
 import score as score_mod  # noqa: E402
 import spec as spec_mod  # noqa: E402
 
@@ -83,6 +84,9 @@ def render_frames(spec: dict, hits: list[float], work: Path, chromium: str | Non
         page.goto((HERE / "engine.html").as_uri())
         page.evaluate("window.ready")
         page.evaluate("([s, h]) => window.loadSpec(s, h)", [spec, hits])
+        used = lottie_assets.used_ids(spec)
+        if used:
+            page.evaluate("m => window.loadLottie(m)", lottie_assets.load(used))
         all_times = times or [i / FPS for i in range(int(round(FPS * spec["meta"]["duration"])))]
         for i, t in enumerate(all_times):
             data = page.evaluate(f"renderFrame({t})")
@@ -121,7 +125,9 @@ def main() -> None:
     out = args.work / "video.mp4"
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(FPS), "-i", str(args.work / "frames" / "f%05d.png"),
                     "-i", str(args.work / "soundtrack.wav"), "-c:v", "libx264", "-preset", "slow", "-crf", "17",
-                    "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "256k", "-shortest", "-movflags", "+faststart", str(out)],
+                    "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "256k", "-shortest", "-movflags", "+faststart",
+                    *(["-metadata", "comment=" + lottie_assets.catalog()["attribution"]] if lottie_assets.used_ids(spec) else []),
+                    str(out)],
                    check=True)
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(out), "-vf", "scale=1280:720:flags=lanczos",
                     "-c:v", "libx264", "-preset", "slow", "-crf", "22", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",

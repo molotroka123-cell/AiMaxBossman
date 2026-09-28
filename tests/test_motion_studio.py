@@ -83,3 +83,59 @@ def test_generate_reports_failure_honestly_when_the_model_never_fixes_it():
     replies = iter(["not json", "still not json"])
     result, errors, _ = generate_spec.generate("x", None, lambda m: next(replies), tries=2)
     assert result is None and errors == ["the reply was not a single JSON object"]
+
+
+# ---------------------------------------------------------------- library, Lottie catalog
+import lottie_assets  # noqa: E402
+
+LIBRARY = sorted((ROOT / "library").glob("*.json"))
+
+
+def test_library_has_44_valid_scenarios_and_all_are_in_the_dataset():
+    assert len(LIBRARY) == 44
+    rows = {json.loads(x)["id"]: json.loads(x) for x in
+            (ROOT / "dataset" / "brief_to_spec.jsonl").read_text(encoding="utf-8").splitlines() if x}
+    for path in LIBRARY:
+        spec_obj = json.loads(path.read_text(encoding="utf-8"))
+        assert spec.validate(spec_obj) == [], path.name
+        assert rows[f"lib_{path.stem}"]["spec"] == spec_obj              # dataset matches the file
+
+
+def test_lottie_catalog_pins_100_licensed_files():
+    cat = lottie_assets.catalog()
+    assert cat["license"] == "CC-BY-4.0" and "Noto" in cat["attribution"]
+    items = cat["items"]
+    assert len(items) == 100 and len({i["id"] for i in items}) == 100
+    for i in items:
+        assert i["url"].startswith("https://fonts.gstatic.com/s/e/notoemoji/")
+        assert len(i["sha256"]) == 64 and i["frames"] > 0
+
+
+def test_lottie_icons_and_stickers_accept_catalog_ids_and_reject_unknown_ones():
+    good = _load("jeff_voice_12s.json")
+    ok = copy.deepcopy(good)
+    ok["scenes"][2]["items"][0]["icon"] = "lottie:noto_rocket"
+    assert spec.validate(ok) == []
+    assert lottie_assets.used_ids(ok) == {"noto_rocket"}
+    bad = copy.deepcopy(good)
+    bad["scenes"][2]["items"][0]["icon"] = "lottie:definitely_not_in_catalog"
+    assert any("lottie:<catalog id>" in e for e in spec.validate(bad))
+    sticker = copy.deepcopy(good)
+    sticker["scenes"][3] = {"type": "sticker", "start": 9.5, "end": 12.0, "lottie": "noto_fire", "text": "HOT"}
+    assert spec.validate(sticker) == []
+    sticker["scenes"][3]["lottie"] = "made_up"
+    assert any("'lottie' must be an id" in e for e in spec.validate(sticker))
+
+
+def test_fetch_rejects_a_file_whose_hash_changed(tmp_path, monkeypatch):
+    item = lottie_assets.catalog()["items"][0]
+
+    class Resp:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self): return b'{"tampered": true}'
+
+    monkeypatch.setattr(lottie_assets.urllib.request, "urlopen", lambda *a, **k: Resp())
+    status = lottie_assets.fetch(tmp_path, {item["id"]})
+    assert "sha256 mismatch" in status[item["id"]]
+    assert not (tmp_path / f"{item['id']}.json").exists()

@@ -23,6 +23,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import spec as spec_mod  # noqa: E402
 
+import lottie_assets  # noqa: E402
+
 SYSTEM = """You write scene specs for Bossman Motion Studio. Output ONE JSON object and nothing else.
 
 Format: {"meta": {...}, "scenes": [...]}
@@ -37,11 +39,14 @@ Scene types and fields (keep texts SHORT, they must fit on screen):
 - roadmap: heading, disclaimer (REQUIRED, e.g. "PROJECTION · TARGETS, NOT PROMISES"), items (1..4): {t, version<=5, when<=10, lines: 1..2 strings <=22}
 - logo: name (<=12), tagline (<=44)
 - end_card: text (<=18), sub (<=44)
+- sticker: lottie (an id from LOTTIE), text (<=18, big caption), sub (<=44)
+Card icons may also be "lottie:<id>" with an id from LOTTIE (animated emoji).
 Every scene may have vo: [{t, text}] - plain English voice-over, numbers spelled out, inside the scene,
 not overlapping (a line lasts about 0.3 s + characters/24 s). Item times are >= 0.5 s apart.
 Rules: use only numbers given in FACTS; never invent statistics. Anything not shipped is 'next'
 or goes on a roadmap with a disclaimer. Put the logo near the end; an end_card may close the video.
 """
+SYSTEM += "LOTTIE ids: " + ", ".join(sorted(lottie_assets.ids())) + "\n"
 
 
 def _chat(endpoint: str, model: str, messages: list[dict], timeout: float = 300.0) -> str:

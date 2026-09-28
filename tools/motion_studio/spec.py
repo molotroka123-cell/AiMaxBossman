@@ -25,6 +25,7 @@ SCENE_TYPES = {
     "roadmap":   {"required": ["items"], "optional": ["heading", "disclaimer"]},
     "logo":      {"required": ["name"], "optional": ["tagline"]},
     "end_card":  {"required": ["text"], "optional": ["sub"]},
+    "sticker":   {"required": ["lottie", "text"], "optional": ["sub"]},
 }
 ICONS = {"agents", "memory", "cursor", "play", "plane", "chart", "shield", "bolt", "mic", "code"}
 LIMITS = {"title": 12, "kicker": 24, "typed": 48, "chip": 12, "headline_label": 10, "counter_label": 12,
@@ -33,6 +34,11 @@ LIMITS = {"title": 12, "kicker": 24, "typed": 48, "chip": 12, "headline_label": 
 MAX_DURATION = 60.0
 # Kokoro am_fenrir at speed 1.05: measured duration ~= 0.3 s + chars / 24 (within 0.15 s on 12 lines)
 VO_BASE_SECONDS, VO_CHARS_PER_SECOND = 0.3, 24.0
+
+
+def _lottie_ids() -> set[str]:
+    path = Path(__file__).resolve().parent / "lottie" / "catalog.json"
+    return {i["id"] for i in json.loads(path.read_text(encoding="utf-8"))["items"]}
 
 
 def _err(errors: list[str], where: str, msg: str) -> None:
@@ -136,8 +142,10 @@ def validate(spec: Any) -> list[str]:
                     if kind == "cards":
                         _text(errors, w, "title", it.get("title"), 14)
                         _text(errors, w, "sub", it.get("sub"), 24)
-                        if it.get("icon") not in ICONS:
-                            _err(errors, w, f"'icon' must be one of {sorted(ICONS)}")
+                        icon = it.get("icon")
+                        if not (icon in ICONS or (isinstance(icon, str) and icon.startswith("lottie:")
+                                                  and icon[7:] in _lottie_ids())):
+                            _err(errors, w, f"'icon' must be one of {sorted(ICONS)} or lottie:<catalog id>")
                     else:
                         _text(errors, w, "version", it.get("version"), 5)
                         _text(errors, w, "when", it.get("when"), 10)
@@ -149,6 +157,8 @@ def validate(spec: Any) -> list[str]:
                                 _text(errors, w, "line", line, 22)
             if kind == "roadmap" and "disclaimer" not in sc:
                 _err(errors, where, "a roadmap is a projection: 'disclaimer' is required (e.g. 'targets, not promises')")
+        if kind == "sticker" and sc.get("lottie") not in _lottie_ids():
+            _err(errors, where, "'lottie' must be an id from tools/motion_studio/lottie/catalog.json")
         if kind == "grid" and (not isinstance(sc.get("value"), int) or not (1 <= sc["value"] <= 5200)):
             _err(errors, where, "'value' must be an integer 1..5200 (one cell per unit)")
         if kind == "voice":
