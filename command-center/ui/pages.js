@@ -1265,9 +1265,13 @@ async function loadTaskDetail(id, bodyEl, ctx) {
         h('pre.block', String(task.prompt))) : null,
       info,
       actions,
+      /* У выполненной задачи `error` прогона — сбой ДО ответа (например, модель
+         была недоступна и ответила запасная, см. Live-лог). Красная «Ошибка» над
+         готовым результатом читалась как провал (RC 1.9 soak). */
       error ? h('div',
-        h('div.section-title', 'Ошибка'),
-        h('pre.block', { style: { color: 'var(--err)' } }, String(error))) : null,
+        h('div.section-title', status === 'completed' ? 'Сбои до ответа' : 'Ошибка'),
+        h('pre.block', { style: { color: status === 'completed' ? 'var(--warn)' : 'var(--err)' } },
+          String(error))) : null,
       result ? h('div',
         h('div.section-title', 'Результат'),
         h('pre.block', String(result))) : null,
