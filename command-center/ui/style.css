@@ -148,6 +148,8 @@ a:hover { text-decoration: underline; }
   font-size: 13px;
 }
 .login-card .btn-block { margin-top: 20px; }
+/* Токен скрыт маской, но поле не type=password — менеджер паролей его не трогает. */
+.token-mask { -webkit-text-security: disc; }
 
 /* ============================================================
    Оболочка
