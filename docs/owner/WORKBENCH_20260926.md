@@ -1,5 +1,81 @@
 # Рабочий стол — Bossman 1.5 → 1.6 → 1.7 closure
 
+## 2026-09-28 01:42 UTC — owner PC / autonomous earning checkpoint
+
+This checkpoint records observation, not a freeze or an income claim. Fetch the
+remote branch again before acting: the last observed PR #84 head was
+`681c10a29e48b7180380a29e29cc0c7cb30c4702`. Exact-head workflows were
+mostly queued or in progress at observation time; Intelligence Preservation
+remains mandatory and has no qualifying measured corpus. A local evidence
+transport patch exists separately, but does not turn that gate green.
+
+The owner selected three source lanes for a future two-admin workflow:
+SwapMe materials in the owner's Telegram, `freshvibes.cz`, and
+`freshvibesbeauty.cz`. The first site advertises Prague dental care; the
+second advertises aesthetic services. SwapMe's visible Telegram channel
+describes a Prague crypto exchange. We read source context only; no private
+transaction records, participant identifiers, chat texts, tokens, or owner
+photos are copied into Git. No exchange, financial transfer, publication, or
+outbound proposal occurred in this checkpoint.
+
+Installed product is still split: backend/UI `93f1f1c3` on loopback :8800 and
+one Jeff/PIT poller from `0d5d1d4d`. A controlled cold migration to a single
+`0d5d1d4d` bundle was attempted only after zero active tasks and approvals.
+The full backup failed because three protected PIT data files were unreadable
+to the owner account. The new bundle was never started; the previous backend,
+desktop and single poller were restored. The partial copy is explicitly
+marked incomplete and must not be used for restore. Canonical data/vault were
+left in place. This is a data-preservation blocker, not a migration PASS.
+
+`bossman status --json` on the restored installed bundle worked, but reported
+`ready=false`, 87 model rows, zero active tasks and approvals. The public
+health endpoint returned 503 for model/provider health. Ollama has five
+installed tags; Bossman's Ollama registry has four. The models folder holds
+28 GGUF files, including components and incomplete shards: file count is not
+an inference readiness result. Local endpoints configured on :8082/:8083 did
+not listen. Jeff's doctor reported 10/10 checks PASS, including a free route,
+while the separate CMD OpenRouter model list reported unavailable. A real
+CLI coding handshake had previously reached a local model and tool call, but
+an isolated third-party repository under `%TEMP%` was rejected because the
+owner's configured code roots are Python's library and the BossBlocks game.
+Do not move a client repo into either root as a workaround. A dedicated
+market sandbox needs an explicit narrow root update and fresh CMD retest.
+
+A source-only model-discovery fix was tested and committed in this checkout:
+CMD now includes live Ollama tags as display-only when unregistered and marks
+configured but unreachable local endpoints unavailable. Nineteen targeted
+tests passed. It is not in the currently installed `93f1f1c3` bundle and it
+does not turn all GGUF files into running models. An exact-SHA rebuild and
+owner-PC CMD retest remain required.
+
+The autonomous earning claim is **NOT_TESTED**. Two local, isolated coding
+cases were prepared from the public MIT `jpvanhal/inflection` repository at
+commit `88eefaacf7d0caaa701af7c8ab2d0ab3f17086f1`: the existing suite is
+455/455 green, and the new medium and hard acceptance cases reproduce red.
+Their hypothetical values are $10 and $20, not quotes, earnings, or orders.
+Actual Bossman authoring, independent verifier, persistent lesson, restart and
+unseen transfer must be recorded before calling them learned capabilities.
+No Upwork proposal has been sent, and no paid work has been won.
+
+The reusable `tools/coding_value_sim.py` rehearsal then ran in a *private
+synthetic* Bossman backend with real local Qwen. Its $20 hard case completed in
+97.8 seconds and passed independent host verification (three repeats plus a
+hidden check). The $10 medium case produced a correct diff that passed the
+same independent checks, but its Bossman sidecar hit `model_error` at the
+artificial 120-second task limit before its own tests/finish: task status is
+**BLOCKED**, not PASS. Overall real-model rehearsal is **BLOCKED**. The same
+script with a deterministic model passed on the installed `0d5d1d4d` runtime
+as `PLUMBING_PASS`; installed runtime with a real model is **NOT_TESTED**.
+The private report is under `%LOCALAPPDATA%\Bossman\owner-run\coding-value-sim\`
+and contains no public customer data. This rehearsal is separate from the
+public MIT repository red cases above; those two external-repo cases remain
+unrun by Bossman because the live configured code roots rejected `%TEMP%`.
+
+Current gate: `ONE_RUNTIME=BLOCKED`, `ALL_LOCAL_MODELS_VISIBLE=BLOCKED`,
+`AUTONOMOUS_CODING=BLOCKED`, `MEASURED_RETENTION=BLOCKED`,
+`REAL_PROPOSAL=NOT_TESTED`, `INCOME=NOT_TESTED`, `FREEZE=BLOCKED`,
+`READY_FOR_1_8=NO`. Continue only with real observed changes on a final SHA.
+
 ## 2026-09-27 18:10 UTC — owner PC acceptance and CI blocker
 
 This is a release checkpoint, **not a freeze certificate**. On exact local
