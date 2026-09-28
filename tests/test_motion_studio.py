@@ -139,3 +139,34 @@ def test_fetch_rejects_a_file_whose_hash_changed(tmp_path, monkeypatch):
     status = lottie_assets.fetch(tmp_path, {item["id"]})
     assert "sha256 mismatch" in status[item["id"]]
     assert not (tmp_path / f"{item['id']}.json").exists()
+
+
+def test_generate_survives_a_timed_out_call_and_reports_it():
+    good = _load("jeff_voice_12s.json")
+    calls = iter([TimeoutError("timed out"), json.dumps(good)])
+
+    def chat(messages):
+        item = next(calls)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    result, errors, _ = generate_spec.generate("x", None, chat, tries=2)
+    assert result == good and errors == []
+    only_timeouts = iter([TimeoutError("timed out")] * 2)
+    result, errors, _ = generate_spec.generate("x", None, lambda m: (_ for _ in ()).throw(next(only_timeouts)), tries=2)
+    assert result is None and errors[0].startswith("model call failed: TimeoutError")
+
+
+def test_ollama_native_call_disables_thinking(monkeypatch):
+    sent = {}
+
+    def fake_post(url, payload, timeout):
+        sent.update(url=url, payload=payload)
+        return {"message": {"content": "{}"}}
+
+    monkeypatch.setattr(generate_spec, "_post", fake_post)
+    assert generate_spec._chat_ollama("http://127.0.0.1:11434/v1", "m", [], 5, 100) == "{}"
+    assert sent["url"] == "http://127.0.0.1:11434/api/chat"
+    assert sent["payload"]["think"] is False and sent["payload"]["format"] == "json"
+    assert sent["payload"]["options"]["num_predict"] == 100

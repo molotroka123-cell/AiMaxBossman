@@ -15,6 +15,7 @@ import argparse
 import json
 import re
 import sys
+import time
 import urllib.request
 from pathlib import Path
 from typing import Callable
@@ -49,13 +50,37 @@ or goes on a roadmap with a disclaimer. Put the logo near the end; an end_card m
 SYSTEM += "LOTTIE ids: " + ", ".join(sorted(lottie_assets.ids())) + "\n"
 
 
-def _chat(endpoint: str, model: str, messages: list[dict], timeout: float = 300.0) -> str:
-    body = json.dumps({"model": model, "messages": messages, "temperature": 0.4,
-                       "response_format": {"type": "json_object"}}).encode()
-    req = urllib.request.Request(endpoint.rstrip("/") + "/chat/completions", data=body,
-                                 headers={"Content-Type": "application/json"})
+def _post(url: str, payload: dict, timeout: float) -> dict:
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read())["choices"][0]["message"]["content"]
+        return json.loads(resp.read())
+
+
+def _chat(endpoint: str, model: str, messages: list[dict], timeout: float = 240.0, max_tokens: int = 3000) -> str:
+    """OpenAI-compatible /chat/completions (llama-swap, LM Studio, vLLM)."""
+    data = _post(endpoint.rstrip("/") + "/chat/completions",
+                 {"model": model, "messages": messages, "temperature": 0.4, "max_tokens": max_tokens,
+                  "response_format": {"type": "json_object"}}, timeout)
+    return data["choices"][0]["message"]["content"]
+
+
+def _chat_ollama(endpoint: str, model: str, messages: list[dict], timeout: float = 240.0, max_tokens: int = 3000) -> str:
+    """Native Ollama /api/chat with think:false and JSON mode.
+
+    Owner-PC audit 2026-09-27: through the OpenAI-compatible endpoint the local Qwen3.6
+    did not return a spec within the run (thinking models spend the budget reasoning).
+    The product's Jeff route already uses native `think: false` for the same reason
+    (bcc/pit/ollama_native.py)."""
+    base = re.sub(r"/v1/?$", "", endpoint.rstrip("/"))
+    data = _post(base + "/api/chat",
+                 {"model": model, "messages": messages, "stream": False, "think": False, "format": "json",
+                  "keep_alive": "30m", "options": {"temperature": 0.4, "num_predict": max_tokens, "num_ctx": 16384}},
+                 timeout)
+    return (data.get("message") or {}).get("content", "")
+
+
+def _log(msg: str) -> None:
+    print(f"[generate_spec] {msg}", file=sys.stderr, flush=True)
 
 
 def extract_json(text: str) -> dict | None:
@@ -78,13 +103,20 @@ def generate(brief: str, facts: dict | None, chat: Callable[[list[dict]], str], 
     """Returns (spec or None, remaining errors, transcript)."""
     messages = [{"role": "system", "content": SYSTEM}]
     if example is not None:
-        messages += [{"role": "user", "content": "BRIEF: 22 s launch recap for Bossman with a roadmap.\nFACTS: see the numbers used."},
+        messages += [{"role": "user", "content": "BRIEF: a short clip in this style.\nFACTS: see the values used."},
                      {"role": "assistant", "content": json.dumps(example, ensure_ascii=False)}]
     messages.append({"role": "user", "content": f"BRIEF: {brief}\nFACTS: {json.dumps(facts or {}, ensure_ascii=False)}"})
     errors: list[str] = ["no attempt"]
     best = None
-    for _ in range(max(1, tries)):
-        raw = chat(messages)
+    for attempt in range(1, max(1, tries) + 1):
+        t0 = time.monotonic()
+        try:
+            raw = chat(messages)
+        except Exception as exc:  # timeout / connection: report per try, keep the loop honest
+            errors = [f"model call failed: {exc.__class__.__name__}: {str(exc)[:160]}"]
+            _log(f"try {attempt}: {errors[0]} after {time.monotonic() - t0:.0f} s")
+            continue
+        _log(f"try {attempt}: {len(raw)} chars in {time.monotonic() - t0:.0f} s")
         messages.append({"role": "assistant", "content": raw})
         draft = extract_json(raw)
         if draft is None:
@@ -92,6 +124,7 @@ def generate(brief: str, facts: dict | None, chat: Callable[[list[dict]], str], 
         else:
             errors = spec_mod.validate(draft)
             best = draft
+            _log(f"try {attempt}: {'VALID' if not errors else f'{len(errors)} validator errors'}")
             if not errors:
                 return draft, [], messages
         messages.append({"role": "user", "content": "Fix these problems and reply with the full corrected JSON only:\n- "
@@ -108,10 +141,21 @@ def main() -> None:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--tries", type=int, default=4)
     ap.add_argument("--no-example", action="store_true", help="zero-shot (to measure a fine-tuned model)")
+    ap.add_argument("--example", type=Path, default=HERE / "examples" / "jeff_voice_12s.json",
+                    help="few-shot spec (default: the short 12 s example; the 22 s one doubles the prompt)")
+    ap.add_argument("--api", choices=["auto", "ollama", "openai"], default="auto",
+                    help="auto = native Ollama (think:false) when the endpoint is :11434, else OpenAI-compatible")
+    ap.add_argument("--timeout", type=float, default=240.0, help="seconds per model call")
+    ap.add_argument("--max-tokens", type=int, default=3000)
     args = ap.parse_args()
     facts = json.loads(args.facts.read_text(encoding="utf-8")) if args.facts else None
-    example = None if args.no_example else json.loads((HERE / "examples" / "bossman_32_days.json").read_text(encoding="utf-8"))
-    spec, errors, transcript = generate(args.brief, facts, lambda m: _chat(args.endpoint, args.model, m),
+    example = None if args.no_example else json.loads(args.example.read_text(encoding="utf-8"))
+    api = args.api if args.api != "auto" else ("ollama" if ":11434" in args.endpoint else "openai")
+    call = _chat_ollama if api == "ollama" else _chat
+    _log(f"model={args.model} api={api} timeout={args.timeout:.0f}s max_tokens={args.max_tokens} "
+         f"example={'none' if example is None else args.example.name}")
+    spec, errors, transcript = generate(args.brief, facts,
+                                        lambda m: call(args.endpoint, args.model, m, args.timeout, args.max_tokens),
                                         args.tries, example)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     if spec is not None:

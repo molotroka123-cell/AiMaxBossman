@@ -59,6 +59,9 @@ PHASE 3 — TESTS (each one = PASS/FAIL + evidence)
     python tools/motion_studio/generate_spec.py "<brief>" --model <installed local model, e.g. the
       Qwen3.6-35B-A3B used by the product> --endpoint http://127.0.0.1:11434/v1
       --facts <facts.json with REAL numbers only> --out <evidence>\gen\<n>.json --tries 4
+    (since 2026-09-28 this uses native Ollama /api/chat with think:false, a 240 s per-call timeout and
+    progress lines on stderr; on 2026-09-27 the OpenAI-compatible path never returned. Keep the stderr log
+    as evidence; if a call times out, report the logged seconds, do not raise the timeout silently.)
     Record per brief: VALID/INVALID, tries used, seconds, errors left. Then preview-render each valid spec:
     make_video.py <spec> --work <evidence>\gen\<n> --preview 1 3 5 7 --chromium <path>
     and fully render the best one. Numbers on screen must come from facts.json — flag any invented number.
