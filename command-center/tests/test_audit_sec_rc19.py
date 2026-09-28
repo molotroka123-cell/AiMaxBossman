@@ -95,3 +95,55 @@ def test_ws_with_rebinding_host_is_closed(env):
             with client.websocket_connect("ws://attacker.example/api/events") as ws:
                 ws.receive_json()
         assert exc.value.code == 4421
+
+
+# ------------------------------------------------ P1-2: аренда после отзыва решения
+
+async def _approved_lease(env, *, uses=50):
+    from bcc import approval_scope as scope
+    from .helpers import make_stack
+    stack = await make_stack(env.client)
+    tid, aid = stack["task"]["id"], stack["agent"]["id"]
+    appr = await env.svc.approvals.create(kind="tool", preview="p", task_id=tid)
+    await env.svc.approvals.decide(appr["id"], True, "owner")
+    sc = scope.Scope(tool="terminal.run", effect_class=scope.WRITE, scope_key="sandbox",
+                     agent_id=aid, task_id=tid)
+    lease = await scope.grant(env.svc, approval=appr, scope=sc, max_uses=uses, ttl_seconds=3600)
+    return appr, sc, lease
+
+
+async def test_revoking_the_approval_revokes_the_lease_it_granted(env):
+    from bcc import approval_scope as scope
+    appr, sc, lease = await _approved_lease(env)
+    res = await env.client.post(f"/api/approvals/{appr['id']}/revoke", json={})
+    assert res.status_code == 200 and res.json()["status"] == "revoked"
+    assert await scope.consume(env.svc, sc) is None
+    rows = await scope.listing(env.svc, task_id=sc.task_id, active_only=False)
+    assert [r["status"] for r in rows if r["id"] == lease["id"]] == ["revoked"]
+
+
+async def test_a_lease_whose_approval_is_no_longer_live_is_not_spendable(env):
+    """Защита в глубину: даже непогашенная строка аренды не работает, если
+    её одобрение отозвано/отклонено в обход Approvals.revoke."""
+    import sqlalchemy as sa
+    from bcc import approval_scope as scope
+    from bcc.db import approvals as approvals_t
+    appr, sc, _ = await _approved_lease(env)
+    async with env.svc.db.session() as s:
+        await s.execute(sa.update(approvals_t).where(approvals_t.c.id == appr["id"])
+                        .values(status="consumed"))
+        await s.commit()
+    assert await scope.consume(env.svc, sc) is not None      # consumed — нормальная жизнь
+    async with env.svc.db.session() as s:
+        await s.execute(sa.update(approvals_t).where(approvals_t.c.id == appr["id"])
+                        .values(status="revoked"))
+        await s.commit()
+    assert await scope.consume(env.svc, sc) is None
+
+
+async def test_stopping_a_task_revokes_its_leases(env):
+    from bcc import approval_scope as scope
+    _appr, sc, _ = await _approved_lease(env)
+    await env.client.post(f"/api/tasks/{sc.task_id}/stop")
+    assert await scope.consume(env.svc, sc) is None
+    assert await scope.listing(env.svc, task_id=sc.task_id) == []

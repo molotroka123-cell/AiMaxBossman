@@ -1159,6 +1159,10 @@ def _api_router() -> APIRouter:
             run_id = await svc.engine.enqueue(task_id, only_if_idle=True)
             return await svc.engine.admission_result(task_id, run_id)
         if action == "stop":
+            # «Вся власть, выданная внутри миссии, умирает вместе с ней»: аренды
+            # задачи гасятся до остановки, чтобы retry не унаследовал старое «да».
+            from . import approval_scope as scope
+            await scope.revoke_for_task(svc, task_id)
             return await svc.engine.stop(task_id)
         if action == "pause":
             return await svc.engine.pause(task_id)
