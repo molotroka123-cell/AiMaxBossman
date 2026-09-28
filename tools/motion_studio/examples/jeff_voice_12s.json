@@ -1,0 +1,22 @@
+{
+  "meta": {"title": "Jeff hears you", "duration": 12.0, "bpm": 128, "key": "A",
+           "brand": "BOSSMAN", "hud": "BOSSMAN // JEFF VOICE", "voice": "am_fenrir"},
+  "scenes": [
+    {"type": "title", "start": 0.0, "end": 2.5, "kicker": "BOSSMAN · JEFF", "title": "VOICE",
+     "typed": "$ jeff --voice-notes on",
+     "vo": [{"t": 0.4, "text": "Jeff can hear you now."}]},
+    {"type": "voice", "start": 2.5, "end": 6.0, "name": "JEFF", "sub": "ON TELEGRAM",
+     "lines": ["Jeff, plan my evening"],
+     "status": [{"text": "VOICE IN — LIVE · LOCAL WHISPER", "state": "live"},
+                {"text": "VOICE OUT — NEXT", "state": "next"}],
+     "vo": [{"t": 2.6, "text": "Send a voice note on Telegram."}, {"t": 4.4, "text": "He transcribes it locally."}]},
+    {"type": "cards", "start": 6.0, "end": 9.5, "heading": "HOW IT WORKS",
+     "items": [
+       {"t": 6.1, "title": "HEARS YOU", "sub": "local Whisper", "icon": "mic"},
+       {"t": 7.0, "title": "PRIVATE", "sub": "audio stays on your PC", "icon": "shield"},
+       {"t": 7.9, "title": "TALKS BACK", "sub": "next · v1.8", "icon": "plane"}],
+     "vo": [{"t": 6.1, "text": "Hears you."}, {"t": 7.0, "text": "Stays private."}, {"t": 7.9, "text": "Talks back, next."}]},
+    {"type": "logo", "start": 9.5, "end": 12.0, "name": "JEFF", "tagline": "VOICE ON TELEGRAM · SEP 2026",
+     "vo": [{"t": 9.65, "text": "This is Jeff."}]}
+  ]
+}

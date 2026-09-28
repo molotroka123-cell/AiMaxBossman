@@ -1,0 +1,100 @@
+{
+ "meta": {
+  "title": "Roadmap",
+  "bpm": 120,
+  "key": "D",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // ROADMAP",
+  "voice": "am_fenrir",
+  "duration": 14.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "NEXT",
+   "kicker": "BOSSMAN ROADMAP",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "What comes next."
+    }
+   ]
+  },
+  {
+   "type": "roadmap",
+   "heading": "WHAT'S NEXT",
+   "disclaimer": "PROJECTION · TARGETS, NOT PROMISES",
+   "items": [
+    {
+     "t": 2.75,
+     "version": "1.8",
+     "when": "OCT 2026",
+     "lines": [
+      "freeze closed",
+      "Jeff talks back"
+     ]
+    },
+    {
+     "t": 3.62,
+     "version": "1.9",
+     "when": "NOV 2026",
+     "lines": [
+      "learns across tasks"
+     ]
+    },
+    {
+     "t": 4.44,
+     "version": "2.0",
+     "when": "DEC 2026",
+     "lines": [
+      "week mode",
+      "first paid pilot"
+     ]
+    },
+    {
+     "t": 5.19,
+     "version": "3.0",
+     "when": "WINTER",
+     "lines": [
+      "own voice & phone"
+     ]
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "One point eight."
+    },
+    {
+     "t": 3.62,
+     "text": "One point nine."
+    },
+    {
+     "t": 4.44,
+     "text": "Two point oh."
+    },
+    {
+     "t": 5.19,
+     "text": "Three point oh, by winter."
+    }
+   ],
+   "start": 2.5,
+   "end": 10.5
+  },
+  {
+   "type": "end_card",
+   "text": "TO BE CONTINUED",
+   "sub": "BOSSMAN · WINTER 2026",
+   "start": 10.5,
+   "end": 14.0,
+   "vo": [
+    {
+     "t": 10.6,
+     "text": "To be continued."
+    }
+   ]
+  }
+ ]
+}

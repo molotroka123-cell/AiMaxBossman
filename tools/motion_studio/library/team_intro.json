@@ -1,0 +1,89 @@
+{
+ "meta": {
+  "title": "Team",
+  "bpm": 122,
+  "key": "G",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // TEAM",
+  "voice": "am_fenrir",
+  "duration": 12.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "THE TEAM",
+   "kicker": "WHO BUILDS IT",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Meet the team."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "FOUR OF US",
+   "items": [
+    {
+     "t": 2.75,
+     "title": "FOUNDER",
+     "sub": "vision & grit",
+     "icon": "bolt"
+    },
+    {
+     "t": 3.5,
+     "title": "ENGINEER",
+     "sub": "ships daily",
+     "icon": "code"
+    },
+    {
+     "t": 4.25,
+     "title": "DESIGNER",
+     "sub": "makes it clear",
+     "icon": "play"
+    },
+    {
+     "t": 5.0,
+     "title": "JEFF",
+     "sub": "the bot",
+     "icon": "plane"
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "The founder."
+    },
+    {
+     "t": 3.5,
+     "text": "The engineer."
+    },
+    {
+     "t": 4.25,
+     "text": "The designer."
+    },
+    {
+     "t": 5.0,
+     "text": "And Jeff, the bot."
+    }
+   ],
+   "start": 2.5,
+   "end": 9.0
+  },
+  {
+   "type": "end_card",
+   "text": "SAY HI",
+   "sub": "WE READ EVERYTHING",
+   "start": 9.0,
+   "end": 12.0,
+   "vo": [
+    {
+     "t": 9.1,
+     "text": "Say hi."
+    }
+   ]
+  }
+ ]
+}

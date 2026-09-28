@@ -1,0 +1,40 @@
+{
+ "meta": {
+  "title": "Rating",
+  "bpm": 120,
+  "key": "C",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // RATING",
+  "voice": "am_fenrir",
+  "duration": 8.0
+ },
+ "scenes": [
+  {
+   "type": "sticker",
+   "lottie": "noto_white_medium_star",
+   "text": "4.8 STARS",
+   "sub": "2300 REVIEWS",
+   "start": 0.0,
+   "end": 4.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Four point eight stars."
+    }
+   ]
+  },
+  {
+   "type": "end_card",
+   "text": "THANK YOU",
+   "sub": "KEEP THE FEEDBACK COMING",
+   "start": 4.0,
+   "end": 8.0,
+   "vo": [
+    {
+     "t": 4.1,
+     "text": "Thank you for the feedback."
+    }
+   ]
+  }
+ ]
+}
