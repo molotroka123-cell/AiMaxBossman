@@ -234,12 +234,23 @@ def capture_lead(store: Journal, brand: str, lead: dict[str, Any]) -> dict[str, 
     return {"ok": True, "lead_id": lead_id, "brand": brand}
 
 
+def find_lead(store: Journal, brand: str, key: str) -> dict[str, Any] | None:
+    """Resolve a lead by its id or by the (fake) contact captured for this brand."""
+    lead = store.latest("lead", "lead_id", key)
+    if lead is None:
+        for rec in reversed(store.rows()):
+            if rec["kind"] == "lead" and rec["data"].get("contact") == key and rec["data"].get("brand") == brand:
+                return rec
+    return lead
+
+
 def request_booking(store: Journal, brand: str, lead_id: str, service: str, slot_iso: str) -> dict[str, Any]:
     if brand not in BRANDS:
         return {"ok": False, "errors": ["unknown_brand"]}
-    if not store.latest("lead", "lead_id", lead_id):
+    lead = find_lead(store, brand, lead_id)
+    if lead is None:
         return {"ok": False, "errors": ["unknown_lead"]}
-    lead = store.latest("lead", "lead_id", lead_id)
+    lead_id = lead["data"]["lead_id"]
     if lead["data"]["brand"] != brand:
         return {"ok": False, "errors": ["lead_belongs_to_other_brand"]}
     svc = str(service or "").strip().lower()

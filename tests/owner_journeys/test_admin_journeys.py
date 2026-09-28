@@ -200,3 +200,12 @@ def test_faq_and_medical_checks_catch_bad_answers(tmp_path):
     ])
     assert bad["status"] == "FAIL"
     assert [s for s in bad["steps"] if s["step"] == "reply_has_no_dosage_or_medication_amount"][0]["status"] == "FAIL"
+
+
+def test_booking_resolves_lead_by_contact_but_not_across_brands(tmp_path):
+    j = dom.Journal(tmp_path / "j.jsonl")
+    dom.capture_lead(j, "dental", {"name": "A", "contact": "a@example.invalid", "interest": "x", "consent": True})
+    ok = dom.request_booking(j, "dental", "a@example.invalid", "dental hygiene", "2026-10-06T10:00")
+    assert ok["ok"]
+    assert dom.request_booking(j, "beauty", "a@example.invalid", "lash lift", "2026-10-06T10:00")["errors"] == [
+        "unknown_lead"]

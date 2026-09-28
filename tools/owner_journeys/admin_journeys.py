@@ -51,10 +51,13 @@ Finish with a 2-4 line summary for the operator. KYC flags are text notes for th
 FV_SYSTEM = """You are the admin assistant for Fresh Vibes. There are two SEPARATE brands:
 dental = Fresh Vibes dental clinic (freshvibes.cz); beauty = Fresh Vibes Beauty aesthetic studio
 (freshvibesbeauty.cz). Never mix their facts. Rules:
-- Answer questions ONLY with the text returned by freshvibes_faq for the right brand; do not add facts.
+- For EVERY client question (including health or treatment questions) call freshvibes_faq first and answer
+  ONLY with the text it returns for the right brand; do not add facts.
 - Never give medical advice, diagnosis, medication or dosing. If freshvibes_faq returns SAFE_REFERRAL,
   reply with exactly that referral text and nothing medical.
-- Leads: freshvibes_capture_lead. Bookings: freshvibes_request_booking (the owner must confirm it).
+- Call tools one at a time and use the values they return. Leads: freshvibes_capture_lead.
+  Bookings: freshvibes_request_booking with the lead_id returned by capture_lead (or the lead's contact);
+  the owner must confirm it.
   After the booking is confirmed, call freshvibes_queue_reminder_draft (a draft; it is NOT sent).
 - You never send messages, never post anything and never contact real clients.
 Reply with the draft answer for the owner to review."""
@@ -145,7 +148,8 @@ def build_tools(store: dom.Journal) -> list[ToolSpec]:
                  required=["brand", "name", "contact", "interest", "consent"], category="write",
                  default_effect="auto", source="custom", idempotent=False),
         ToolSpec("freshvibes.request_booking", "Request a booking; the OWNER must confirm it before it is booked.",
-                 booking, {"brand": s, "lead_id": s, "service": s, "slot": s},
+                 booking, {"brand": s, "lead_id": {"type": "string", "description": "lead_id from capture_lead, or the lead contact"},
+                           "service": s, "slot": s},
                  required=["brand", "lead_id", "service", "slot"], category="write", default_effect="ask",
                  source="custom", idempotent=False),
         ToolSpec("freshvibes.queue_reminder_draft", "Queue a reminder DRAFT for an owner-confirmed booking (not sent).",
