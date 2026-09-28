@@ -104,6 +104,9 @@ class PITSettings:
     # Jeff window only (bossman pit web): no Telegram bot token at all, so this
     # configuration can never start a poller. `bossman pit start` refuses it.
     web_only: bool = False
+    # Path of the owner's private Telegram block rule (outside Git). Empty uses
+    # the default private location; see bcc.pit.blocklist. Never holds IDs.
+    blocked_ids_file: str = ""
     behavior_scales: dict[str, int] = field(default_factory=default_behavior_scales)
     bot_token: str = field(default="", repr=False)
     provider_key: str = field(default="", repr=False)
@@ -189,6 +192,10 @@ class PITSettings:
             raise ValueError("identity salt must be at least 16 bytes")
         if type(self.web_only) is not bool:
             raise ValueError("web_only must be a boolean")
+        if not isinstance(self.blocked_ids_file, str) or len(self.blocked_ids_file) > 1024:
+            raise ValueError("blocked_ids_file must be a path string")
+        if self.blocked_ids_file.strip() and looks_like_repo(Path(self.blocked_ids_file).parent):
+            raise ValueError("blocked_ids_file must live outside any Git checkout")
         if self.web_only and self.bot_token:
             raise ValueError("web_only configuration must not carry a Telegram bot token")
         if not self.bot_token and not self.web_only:

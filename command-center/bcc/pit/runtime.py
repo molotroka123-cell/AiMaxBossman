@@ -45,6 +45,7 @@ from bcc.telegram_companion.store import Store
 from . import capabilities as pit_capabilities
 from .behavior_controller import BehaviorController
 from .behavior_scores import BehaviorEvent
+from .blocklist import PrivateBlocklist
 from .collector import HighRecallCollector
 from .config import PITSettings
 from .cloud_budget import CloudBudget, classify_rate_limit, next_utc_midnight
@@ -460,6 +461,8 @@ class ParticipantRuntime:
         self.home = Path(settings.data_dir) / "pit-v1.7"
         self.vault = PersonaVault(Path(settings.data_dir), bytes.fromhex(settings.identity_salt))
         self.store = PITStore(self.home)
+        # Owner's private block rule: fail closed before any transport exists.
+        self.blocklist = PrivateBlocklist.from_settings(settings)
         self.telegram = Telegram(_transport_settings(settings))
         self.models = Models(_transport_settings(settings), self.home)
         self.behavior = BehaviorController(self.vault)
@@ -499,12 +502,42 @@ class ParticipantRuntime:
         )
         self.catalog: dict[str, ModelEndpoint] = {}
         self.catalog_checked_at = 0.0
-        # Open allowlist (owner decision): every new private-chat human becomes a
-        # zero-start participant. Ingest already filters who may reach handle().
-        if settings.allowlist_open:
-            self.telegram.authorize_delivery = lambda person: True
         self._spawned_workers: set[str] = {p.key for p in settings.people}
         self._dynamic_tasks: set[asyncio.Task] = set()
+
+    # -- egress guard ------------------------------------------------------------------------
+    @property
+    def telegram(self):
+        return self._telegram
+
+    @telegram.setter
+    def telegram(self, adapter) -> None:
+        """Every transport Jeff ever sends through carries the private block rule.
+
+        Open allowlist (owner decision): every new private-chat human becomes a
+        zero-start participant, but the owner's block rule beats the allowlist,
+        a configured person entry and every role. The guard is installed on
+        whichever adapter is assigned, so a replaced transport cannot skip it.
+        """
+        base = getattr(adapter, "authorize_delivery", None) or (lambda person: False)
+        blocklist = self.__dict__.get("blocklist")
+
+        def authorize(person, _base=base) -> bool:
+            if (blocklist is not None and getattr(self, "surface", "telegram") == "telegram"
+                    and blocklist.blocks_person(person)):
+                return False
+            # Read at call time: the transport may be assigned before settings.
+            settings = self.__dict__.get("settings")
+            if settings is not None and settings.allowlist_open:
+                return True
+            return bool(_base(person))
+        adapter.authorize_delivery = authorize
+        self._telegram = adapter
+
+    def _blocked(self, user_id, chat_id=None) -> bool:
+        blocklist = self.__dict__.get("blocklist")
+        return (blocklist is not None and getattr(self, "surface", "telegram") == "telegram"
+                and blocklist.blocks_user(user_id, chat_id))
 
     async def close(self) -> None:
         # Provider adapters create a per-request client and need no close;
@@ -786,6 +819,11 @@ class ParticipantRuntime:
         user_id, chat_id = body.get("_user_id"), body.get("_chat_id")
         if type(user_id) is not int or type(chat_id) is not int:
             return
+        if self._blocked(user_id, chat_id):
+            # Acknowledge the offset, keep no body, never answer. No log line
+            # names the account: the rule itself is private.
+            self.store.ingest(update_id, None, None)
+            return
         person = self.settings.participant(user_id, chat_id)
         if person is None and self.settings.allowlist_open:
             sender = message.get("from") or {}
@@ -809,7 +847,8 @@ class ParticipantRuntime:
                 friend_user = message.get("_user_id")
                 if type(friend_user) is int:
                     fresh = Person(user_id=friend_user, chat_id=friend_user, role="guest")
-            if fresh is None:
+            if fresh is None or self._blocked(fresh.user_id, fresh.chat_id):
+                # Also covers messages queued before the owner added the block.
                 self.store.finish(update_id, "failed")
                 self.store.scrub_inbox(update_id)
                 continue
