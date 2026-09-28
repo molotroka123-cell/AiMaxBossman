@@ -149,12 +149,15 @@ class CappedAdapter:
         if spent is None:
             await asyncio.to_thread(_hold, budget, rid)     # нет свидетельства расхода
         else:
-            # min: если провайдер отчитался ДОРОЖЕ, чем мы удержали, значит наша
-            # оценка худшего случая оказалась мала. Списываем весь резерв —
-            # занизить расход до «сколько удержали» безопаснее, чем оставить
-            # разницу неучтённой, а сам факт виден по исчерпанию потолка.
-            await asyncio.to_thread(_settle, budget, rid, min(spent, worst),
-                                    str((result.provider_meta or {}).get("id") or ""))
+            # Провайдер отчитался ДОРОЖЕ, чем мы удержали: оценка худшего случая
+            # оказалась мала. Резерв списывается целиком, а разница — отдельной
+            # записью: раньше она не учитывалась вовсе, и потолок пробивался
+            # суммой таких недооценок. Не помещается в остаток — списывается весь
+            # остаток: потолок закрыт, следующий платный вызов не пройдёт.
+            request_id = str((result.provider_meta or {}).get("id") or "")
+            await asyncio.to_thread(_settle, budget, rid, min(spent, worst), request_id)
+            if spent > worst:
+                await asyncio.to_thread(_book_overflow, budget, spent - worst, request_id)
         return result
 
     # health/list_models у Anthropic бьют в /v1/models — токены там не тратятся,
@@ -195,6 +198,19 @@ def _settle(budget, rid: str, cost: float, request_id: str) -> None:
         budget.commit(rid, cost, request_id=request_id)
     except Exception:  # noqa: BLE001
         _hold(budget, rid)
+
+
+def _book_overflow(budget, overflow: float, request_id: str) -> None:
+    for _ in range(3):
+        take = round(min(float(overflow), budget.remaining()), 6)
+        if take <= 0:
+            return
+        try:
+            rid = budget.reserve(take, purpose="overflow: provider billed above the worst case")
+        except BudgetExhausted:
+            continue                    # остаток занял другой процесс — пересчитать
+        _settle(budget, rid, take, request_id)
+        return
 
 
 def capped(adapter: ProviderAdapter, provider: dict, model: dict) -> ProviderAdapter:

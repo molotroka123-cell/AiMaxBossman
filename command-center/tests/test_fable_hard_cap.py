@@ -311,3 +311,39 @@ async def test_health_and_list_models_do_not_eat_the_cap(env):
     assert (await adapter.health()).status == "ok"
     assert await adapter.list_models() == [PAID_MODEL]
     assert ledger().remaining() == pytest.approx(3.0)
+
+
+# ---------------------------------------------------------------- rc19 audit: перерасход сверх резерва
+
+async def test_a_charge_above_the_reservation_is_booked_in_full(env):
+    """Регрессия: при отчёте дороже резерва списывался только резерв
+    (min(spent, worst)), разница терялась, и потолок пробивался суммой таких
+    недооценок. Теперь разница — отдельная запись."""
+    inner = CountingAdapter(result=ChatResult(text="ок", tokens_in=1000, tokens_out=500,
+                                              model=PAID_MODEL))
+    env.svc.registry.adapter_factory = lambda m, p: inner
+    model_id = await seed_paid_model(env)
+    adapter, model = await env.svc.registry.adapter_for(model_id)
+
+    # худший случай для max_tokens=10 ≈ 0.0002 USD, провайдер отчитался о 0.0105
+    await adapter.chat(model["name"], [{"role": "user", "content": "привет"}], max_tokens=10)
+    b = ledger()
+    assert b._committed_total() == pytest.approx(0.0105, abs=1e-6)
+    assert b.remaining() == pytest.approx(3.0 - 0.0105, abs=1e-6)
+
+
+async def test_an_overrun_that_does_not_fit_closes_the_cap(env):
+    """Перерасход больше остатка: списывается весь остаток — следующий платный
+    вызов до адаптера не доходит."""
+    inner = CountingAdapter(result=ChatResult(text="ок", tokens_in=1_000_000,
+                                              tokens_out=100_000, model=PAID_MODEL))
+    env.svc.registry.adapter_factory = lambda m, p: inner
+    model_id = await seed_paid_model(env)
+    adapter, model = await env.svc.registry.adapter_for(model_id)
+
+    await adapter.chat(model["name"], [{"role": "user", "content": "привет"}], max_tokens=10)
+    assert ledger().remaining() == pytest.approx(0.0, abs=1e-6)
+    assert round(ledger()._committed_total(), 6) <= 3.0
+    with pytest.raises(fable_cap.BudgetRefused):
+        await adapter.chat(model["name"], [{"role": "user", "content": "ещё"}], max_tokens=10)
+    assert inner.calls == 1
