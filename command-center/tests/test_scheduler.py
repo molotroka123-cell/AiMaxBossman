@@ -1,7 +1,7 @@
 """Scheduler: catch-up после простоя срабатывает один раз, once — самоотключается."""
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from bcc.db import utcnow
 
@@ -69,5 +69,34 @@ async def test_daily_next_run_is_tomorrow_when_time_passed(tmp_path):
 
     now = utcnow().replace(hour=12, minute=0, second=0, microsecond=0)
     sched = {"kind": "daily", "daily_time": "09:30"}
-    assert first_run_at(sched, now).day == (now + timedelta(days=1)).day
-    assert next_run_at(sched, now).hour == 9 and next_run_at(sched, now).minute == 30
+    # daily_time is the owner's wall clock; with the clock at UTC the old
+    # expectations hold exactly (other zones: tests below).
+    utc = timezone.utc
+    assert first_run_at(sched, now, tz=utc).day == (now + timedelta(days=1)).day
+    assert next_run_at(sched, now, tz=utc).hour == 9 and next_run_at(sched, now, tz=utc).minute == 30
+
+
+def test_daily_time_is_the_owners_local_clock_not_utc():
+    """RC19 lifecycle audit P1-7: the web form sends the owner's «09:00»; it was
+    read as UTC, so at UTC+3 it fired at 12:00 local."""
+    from bcc.scheduler import first_run_at, next_run_at
+
+    msk = timezone(timedelta(hours=3))
+    now = datetime(2026, 9, 28, 12, 0)                      # naive UTC = 15:00 at UTC+3
+    daily = {"kind": "daily", "daily_time": "09:30"}
+    assert next_run_at(daily, now, tz=msk) == datetime(2026, 9, 29, 6, 30)   # tomorrow 09:30 local
+    evening = {"kind": "daily", "daily_time": "18:00"}
+    assert first_run_at(evening, now, tz=msk) == datetime(2026, 9, 28, 15, 0)  # today 18:00 local
+    # the stored UTC instant reads back as the entered wall-clock time
+    back = next_run_at(daily, now, tz=msk).replace(tzinfo=timezone.utc).astimezone(msk)
+    assert (back.hour, back.minute) == (9, 30)
+
+
+def test_daily_time_defaults_to_this_machines_clock():
+    from bcc.scheduler import next_run_at
+
+    now = utcnow().replace(second=0, microsecond=0)
+    nxt = next_run_at({"kind": "daily", "daily_time": "07:45"}, now)
+    local = nxt.replace(tzinfo=timezone.utc).astimezone()
+    assert (local.hour, local.minute) == (7, 45)
+    assert timedelta(0) < nxt - now <= timedelta(days=1, hours=1)

@@ -2,6 +2,12 @@
 
 Пропущенное за время простоя срабатывает ОДИН раз: next_run_at считается от «сейчас»,
 а не догоняется по всем пропущенным слотам.
+
+Время: next_run_at хранится наивным UTC (как всё в системе), а daily_time — это
+«ЧЧ:ММ» на часах владельца (форма в вебе отправляет то, что он ввёл, и так же
+показывает «Ежедневно в ЧЧ:ММ»). Поэтому daily_time переводится из местного
+времени машины в UTC. Раньше оно читалось как UTC, и «09:00» у владельца в
+UTC+3 срабатывало в 12:00.
 """
 from __future__ import annotations
 
@@ -9,7 +15,7 @@ import asyncio
 
 from .lifecycle import sleep_or_stop, stopping
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone, tzinfo
 
 import sqlalchemy as sa
 
@@ -132,8 +138,8 @@ class Scheduler:
         return task_id
 
 
-def first_run_at(schedule: dict, now: datetime) -> datetime | None:
-    """Первое срабатывание при создании расписания."""
+def first_run_at(schedule: dict, now: datetime, *, tz: tzinfo | None = None) -> datetime | None:
+    """Первое срабатывание при создании расписания (наивный UTC)."""
     kind = schedule.get("kind")
     if kind == "once":
         return schedule.get("at_time") or now
@@ -141,11 +147,11 @@ def first_run_at(schedule: dict, now: datetime) -> datetime | None:
         minutes = int(schedule.get("interval_minutes") or 0)
         return now + timedelta(minutes=minutes) if minutes > 0 else None
     if kind == "daily":
-        return _next_daily(schedule.get("daily_time") or "09:00", now)
+        return _next_daily(schedule.get("daily_time") or "09:00", now, tz=tz)
     return None
 
 
-def next_run_at(schedule: dict, now: datetime) -> datetime | None:
+def next_run_at(schedule: dict, now: datetime, *, tz: tzinfo | None = None) -> datetime | None:
     """Следующее срабатывание после текущего (catch-up: считаем от now)."""
     kind = schedule.get("kind")
     if kind == "once":
@@ -154,13 +160,22 @@ def next_run_at(schedule: dict, now: datetime) -> datetime | None:
         minutes = int(schedule.get("interval_minutes") or 0)
         return now + timedelta(minutes=minutes) if minutes > 0 else None
     if kind == "daily":
-        return _next_daily(schedule.get("daily_time") or "09:00", now, strictly_after=True)
+        return _next_daily(schedule.get("daily_time") or "09:00", now, strictly_after=True, tz=tz)
     return None
 
 
-def _next_daily(daily_time: str, now: datetime, strictly_after: bool = False) -> datetime:
+def _next_daily(daily_time: str, now: datetime, strictly_after: bool = False, *,
+                tz: tzinfo | None = None) -> datetime:
+    """Ближайшее «ЧЧ:ММ» по местным часам (``tz``; по умолчанию часы машины)
+    после наивного UTC ``now``; результат — наивный UTC."""
     hour, _, minute = daily_time.partition(":")
-    target = now.replace(hour=int(hour or 0), minute=int(minute or 0), second=0, microsecond=0)
-    if target < now or (strictly_after and target <= now):
+    utc_now = now.replace(tzinfo=timezone.utc)
+    # Без tz: часовой пояс машины, со сменой летнего времени — наивная местная
+    # дата переводится в UTC через astimezone(), а не фиксированным сдвигом.
+    local_now = utc_now.astimezone(tz) if tz is not None else utc_now.astimezone()
+    wall_now = local_now.replace(tzinfo=None)
+    target = wall_now.replace(hour=int(hour or 0), minute=int(minute or 0), second=0, microsecond=0)
+    if target < wall_now or (strictly_after and target <= wall_now):
         target += timedelta(days=1)
-    return target
+    aware = target.replace(tzinfo=tz) if tz is not None else target.astimezone()
+    return aware.astimezone(timezone.utc).replace(tzinfo=None)
