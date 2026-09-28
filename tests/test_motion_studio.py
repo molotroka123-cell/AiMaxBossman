@@ -170,3 +170,43 @@ def test_ollama_native_call_disables_thinking(monkeypatch):
     assert sent["url"] == "http://127.0.0.1:11434/api/chat"
     assert sent["payload"]["think"] is False and sent["payload"]["format"] == "json"
     assert sent["payload"]["options"]["num_predict"] == 100
+
+
+def test_ollama_call_keeps_the_loaded_context_size_and_records_tokens(monkeypatch):
+    # rc19 owner-PC audit: the shared model runs with num_ctx 32768; a fixed 16384 forced Ollama to
+    # reload ~27 GB (and evict the instance Jeff uses) on every generation run.
+    sent = {}
+
+    def fake_post(url, payload, timeout):
+        sent.update(payload=payload)
+        return {"message": {"content": "{}"}, "prompt_eval_count": 2100, "eval_count": 640,
+                "load_duration": 150_000_000, "total_duration": 9_000_000_000, "done_reason": "stop"}
+
+    monkeypatch.setattr(generate_spec, "_post", fake_post)
+    stats = []
+    generate_spec._chat_ollama("http://127.0.0.1:11434", "m", [], 5, 100, stats=stats)
+    assert "num_ctx" not in sent["payload"]["options"]
+    assert stats == [{"prompt_tokens": 2100, "output_tokens": 640, "load_s": 0.15, "total_s": 9.0,
+                      "done_reason": "stop"}]
+    generate_spec._chat_ollama("http://127.0.0.1:11434", "m", [], 5, 100, num_ctx=32768)
+    assert sent["payload"]["options"]["num_ctx"] == 32768                # only when explicitly asked
+
+
+def test_a_reply_cut_at_max_tokens_is_reported_as_truncation_and_retried(monkeypatch):
+    good = _load("jeff_voice_12s.json")
+    replies = iter([{"message": {"content": '{"meta": {"title": "Jeff'}, "eval_count": 100, "done_reason": "length"},
+                    {"message": {"content": json.dumps(good)}, "eval_count": 400, "done_reason": "stop"}])
+    monkeypatch.setattr(generate_spec, "_post", lambda url, payload, timeout: next(replies))
+    stats = []
+    seen = []
+
+    def chat(messages):
+        seen.append(messages[-1]["content"])
+        return generate_spec._chat_ollama("http://127.0.0.1:11434", "m", messages, 5, 100, stats=stats)
+
+    result, errors, _ = generate_spec.generate("x", None, chat, tries=2)
+    assert result == good and errors == []
+    assert "cut off" in seen[1] and [s["done_reason"] for s in stats] == ["length", "stop"]
+    replies = iter([{"message": {"content": "{"}, "eval_count": 100, "done_reason": "length"}] * 2)
+    result, errors, _ = generate_spec.generate("x", None, chat, tries=2)
+    assert result is None and errors[0].startswith("reply cut off at max_tokens=100")

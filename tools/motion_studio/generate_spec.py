@@ -64,18 +64,38 @@ def _chat(endpoint: str, model: str, messages: list[dict], timeout: float = 240.
     return data["choices"][0]["message"]["content"]
 
 
-def _chat_ollama(endpoint: str, model: str, messages: list[dict], timeout: float = 240.0, max_tokens: int = 3000) -> str:
+class ReplyTruncated(RuntimeError):
+    """The model hit max_tokens: the reply is an unfinished JSON object."""
+
+
+def _chat_ollama(endpoint: str, model: str, messages: list[dict], timeout: float = 240.0, max_tokens: int = 3000,
+                 num_ctx: int | None = None, stats: list[dict] | None = None) -> str:
     """Native Ollama /api/chat with think:false and JSON mode.
 
     Owner-PC audit 2026-09-27: through the OpenAI-compatible endpoint the local Qwen3.6
     did not return a spec within the run (thinking models spend the budget reasoning).
     The product's Jeff route already uses native `think: false` for the same reason
-    (bcc/pit/ollama_native.py)."""
+    (bcc/pit/ollama_native.py).
+
+    num_ctx is sent only when asked for: Ollama reloads a model whose loaded context size
+    differs from the request, and the shared product model on the owner PC runs at 32768.
+    A fixed 16384 here evicted and reloaded ~27 GB on every generation run (rc19 audit)."""
     base = re.sub(r"/v1/?$", "", endpoint.rstrip("/"))
+    options: dict = {"temperature": 0.4, "num_predict": max_tokens}
+    if num_ctx:
+        options["num_ctx"] = int(num_ctx)
     data = _post(base + "/api/chat",
                  {"model": model, "messages": messages, "stream": False, "think": False, "format": "json",
-                  "keep_alive": "30m", "options": {"temperature": 0.4, "num_predict": max_tokens, "num_ctx": 16384}},
+                  "keep_alive": "30m", "options": options},
                  timeout)
+    info = {"prompt_tokens": data.get("prompt_eval_count"), "output_tokens": data.get("eval_count"),
+            "load_s": round((data.get("load_duration") or 0) / 1e9, 2),
+            "total_s": round((data.get("total_duration") or 0) / 1e9, 2), "done_reason": data.get("done_reason")}
+    if stats is not None:
+        stats.append(info)
+    _log("ollama: " + " ".join(f"{k}={v}" for k, v in info.items()))
+    if data.get("done_reason") == "length":
+        raise ReplyTruncated(f"reply cut off at max_tokens={max_tokens} ({info['output_tokens']} tokens)")
     return (data.get("message") or {}).get("content", "")
 
 
@@ -112,6 +132,12 @@ def generate(brief: str, facts: dict | None, chat: Callable[[list[dict]], str], 
         t0 = time.monotonic()
         try:
             raw = chat(messages)
+        except ReplyTruncated as exc:   # an unfinished object teaches nothing; ask for a shorter one
+            errors = [f"{exc}: reply with a complete, shorter JSON (fewer scenes, items or voice lines)"]
+            _log(f"try {attempt}: {errors[0]} after {time.monotonic() - t0:.0f} s")
+            messages.append({"role": "user", "content": "Your previous reply was cut off before the JSON ended. "
+                                                        "Reply with the full JSON only, shorter."})
+            continue
         except Exception as exc:  # timeout / connection: report per try, keep the loop honest
             errors = [f"model call failed: {exc.__class__.__name__}: {str(exc)[:160]}"]
             _log(f"try {attempt}: {errors[0]} after {time.monotonic() - t0:.0f} s")
@@ -147,22 +173,27 @@ def main() -> None:
                     help="auto = native Ollama (think:false) when the endpoint is :11434, else OpenAI-compatible")
     ap.add_argument("--timeout", type=float, default=240.0, help="seconds per model call")
     ap.add_argument("--max-tokens", type=int, default=3000)
+    ap.add_argument("--num-ctx", type=int, default=None,
+                    help="Ollama context size; default: the loaded model's own (a different value forces a reload)")
     args = ap.parse_args()
     facts = json.loads(args.facts.read_text(encoding="utf-8")) if args.facts else None
     example = None if args.no_example else json.loads(args.example.read_text(encoding="utf-8"))
     api = args.api if args.api != "auto" else ("ollama" if ":11434" in args.endpoint else "openai")
-    call = _chat_ollama if api == "ollama" else _chat
     _log(f"model={args.model} api={api} timeout={args.timeout:.0f}s max_tokens={args.max_tokens} "
          f"example={'none' if example is None else args.example.name}")
-    spec, errors, transcript = generate(args.brief, facts,
-                                        lambda m: call(args.endpoint, args.model, m, args.timeout, args.max_tokens),
-                                        args.tries, example)
+    calls: list[dict] = []
+    if api == "ollama":
+        chat = lambda m: _chat_ollama(args.endpoint, args.model, m, args.timeout, args.max_tokens,  # noqa: E731
+                                      args.num_ctx, calls)
+    else:
+        chat = lambda m: _chat(args.endpoint, args.model, m, args.timeout, args.max_tokens)  # noqa: E731
+    spec, errors, transcript = generate(args.brief, facts, chat, args.tries, example)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     if spec is not None:
         args.out.write_text(json.dumps(spec, ensure_ascii=False, indent=1), encoding="utf-8")
     args.out.with_suffix(".transcript.json").write_text(json.dumps(
         {"brief": args.brief, "facts": facts, "model": args.model, "valid": not errors, "errors": errors,
-         "messages": transcript}, ensure_ascii=False, indent=1), encoding="utf-8")
+         "calls": calls, "messages": transcript}, ensure_ascii=False, indent=1), encoding="utf-8")
     print("VALID" if not errors else "INVALID:\n  " + "\n  ".join(errors))
     raise SystemExit(0 if not errors else 1)
 
