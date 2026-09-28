@@ -61,7 +61,7 @@ def client_for(app) -> TestClient:
     return TestClient(app, base_url=BASE)
 
 
-def signup(client, name="alice", password="correct horse 1"):
+def signup(client, name="alice", password="correct horse 1"):  # ci-secret-scan: allow — throwaway test passphrase for a temp data dir
     return client.post("/api/jeff/signup", json={"username": name, "password": password}, headers=H)
 
 
