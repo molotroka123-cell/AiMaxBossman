@@ -108,3 +108,17 @@ def test_ladder_serves_locally_when_local_works(tmp_path, monkeypatch):
     res = asyncio.run(sup.run_ladder(sup.Config(state_dir=tmp_path), "t", tmp_path / "w", 0, 1, ladder,
                                      rl.CapLedger(tmp_path / "cap.json", ladder)))
     assert seen == ["local"] and res["route"]["tier"] == "local" and res["route"]["usd"] == 0.0
+
+
+def test_owner_rejection_journey_counts_as_served_not_as_a_tier_failure(tmp_path, monkeypatch):
+    from tools.owner_journeys import admin_journeys as aj
+
+    async def fake_run_journeys(work, journeys, **kw):
+        return {"journeys": [{"status": "PASS", "seconds": 1.0, "tool_sequence": [],
+                              "steps": [{"step": "task_finished_on_product_path", "status": "PASS",
+                                         "evidence": {"status": "failed", "approve": False}}]}]}
+    monkeypatch.setattr(aj, "run_journeys", fake_run_journeys)
+    ladder = _ladder()
+    route = rl.Route("local", "m", "http://127.0.0.1:11434/v1")
+    res = asyncio.run(sup.cycle_journey(sup.Config(state_dir=tmp_path), tmp_path, 8, route, ladder))
+    assert res["task_status"] == "completed" and res["product_task_status"] == "failed"
