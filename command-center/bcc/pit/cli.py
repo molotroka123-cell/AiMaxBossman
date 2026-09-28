@@ -113,6 +113,12 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
         return checks, False
 
     add("allowlist", len(settings.people) >= 1)
+    from .blocklist import BlocklistError, PrivateBlocklist
+    try:
+        block_status = PrivateBlocklist.from_settings(settings).status()
+        add("private_blocklist", True, f"entries={block_status['entries']}")
+    except BlocklistError as exc:
+        add("private_blocklist", False, str(exc))
     if settings.web_only:
         checks.append({"check": "telegram", "status": "SKIP",
                        "detail": "web-only Jeff window: no Telegram bot by design"})
@@ -268,6 +274,11 @@ def cmd_status(path: Path) -> int:
                         facts += sum(1 for line in marker.read_text(encoding="utf-8").splitlines()
                                      if line.strip())
             report["allowlist"] = len(settings.people)
+            from .blocklist import BlocklistError, PrivateBlocklist
+            try:
+                report["blocklist"] = PrivateBlocklist.from_settings(settings).status()
+            except BlocklistError as exc:
+                report["blocklist"] = {"error": str(exc)}
             report["chat_models"] = len(settings.chat_models)
             report["pit_storage"] = {"participants": participants, "facts": facts, "root": str(home)}
             report["web"] = "SEARXNG" if settings.search_url else "KEYLESS_FALLBACK"
@@ -475,6 +486,13 @@ def cmd_start(path: Path) -> int:
     if settings.web_only:
         print("bossman pit: это web-only конфигурация окна Jeff; Telegram-бот здесь не настроен.",
               file=sys.stderr)
+        return 2
+    from .blocklist import BlocklistError, PrivateBlocklist
+    try:
+        # The owner's private block rule must be readable before any poller exists.
+        PrivateBlocklist.from_settings(settings)
+    except BlocklistError as exc:
+        print(f"bossman pit: {exc}", file=sys.stderr)
         return 2
     home = pit_home(_resolve_data_dir(path))
     from .bot_guard import assert_not_companion_bot, token_poller_lock
