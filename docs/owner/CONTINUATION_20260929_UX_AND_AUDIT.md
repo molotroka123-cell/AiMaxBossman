@@ -34,9 +34,9 @@
 7. [ ] Коммит + пуш ветки + PR (мерж — только по команде владельца).
 
 ## Часть 2 — хвосты аудита RC19
-1. [ ] Вписать финальные числа полного Command Center этой сессии
-       (`wt19-audit-int\artifacts\audit-rc19\cc_full_junit.xml`) в отчёт
-       `AUDIT_RC19_REPORT_20260928.md` (сейчас там «в процессе»).
+1. [x] Вписать финальные числа полного Command Center этой сессии — ГОТОВО
+       (5490 passed / 59 skipped / **0 failed** за 49:06, зелёный;
+       `wt19-audit-int\artifacts\audit-rc19\cc_full_junit.xml`).
 2. [ ] Решение владельца по `test_v3_cross_layer_e2e` (недозаполненная
        ActionReceipt: `compound.py::_action_receipt` + `action_receipt.py::fresh/verified`).
 3. [ ] Перенос в PR #84 (ветка уже запушена: `claude/rc19-audit-integration` @
