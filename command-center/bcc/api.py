@@ -585,7 +585,7 @@ def _public_router() -> APIRouter:
         SOURCE_IDENTITY_UNKNOWN, а не подставляется догадкой."""
         from .build_identity import DESKTOP_APP_IDENTITY, source_identity
         return {"app": DESKTOP_APP_IDENTITY, "version": __version__,
-                "started_at": svc.started_at, **source_identity()}
+                "started_at": svc.started_at, "pid": os.getpid(), **source_identity()}
 
     @router.get("/login-hint")
     async def login_hint(request: Request, svc: Services = Depends(services)):
