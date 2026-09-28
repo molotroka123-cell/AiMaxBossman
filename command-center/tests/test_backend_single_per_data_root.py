@@ -140,3 +140,45 @@ def test_real_processes_second_server_exits_5_and_crash_frees_the_root(tmp_path)
     finally:
         third.kill()
         third.communicate(timeout=30)
+
+
+def test_relaunch_after_launcher_crash_adopts_the_live_window(tmp_path, monkeypatch):
+    """F soak: launcher died, its window lives on the profile → no second window."""
+    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    same = {"app": desktop.APP_IDENTITY, "version": "0.1.0", "source_identity": "PASS",
+            "build_sha": "a" * 40}
+    monkeypatch.setattr(desktop, "_local_identity", lambda: same)
+    monkeypatch.setattr(desktop, "identify_server", lambda *a, **k: same)
+    profile = tmp_path / "profile"
+    profile.mkdir()
+    # stale desktop.lock of the dead launcher
+    (tmp_path / "desktop.lock").write_text('{"pid": 999999, "port": 18041}', encoding="utf-8")
+    # stand-in for the orphaned browser window holding our --user-data-dir
+    window = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(3)",
+                               f"--user-data-dir={profile}"])
+    opened = []
+    try:
+        t0 = time.monotonic()
+        code = desktop.run(["--port", "18041", "--browser", "dummy-browser",
+                            "--profile", str(profile), "--no-show-token"],
+                           launcher=lambda *a, **k: opened.append(a) or 0, out=io.StringIO())
+        waited = time.monotonic() - t0
+    finally:
+        window.kill()
+        window.wait(timeout=10)
+    assert code == 0 and opened == []
+    assert waited >= 1.0            # it lived as long as the adopted window
+    assert "adopt-existing-window" in (tmp_path / "desktop-run.log").read_text(encoding="utf-8")
+
+
+def test_no_live_window_still_opens_one(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    same = {"app": desktop.APP_IDENTITY, "version": "0.1.0", "source_identity": "PASS",
+            "build_sha": "a" * 40}
+    monkeypatch.setattr(desktop, "_local_identity", lambda: same)
+    monkeypatch.setattr(desktop, "identify_server", lambda *a, **k: same)
+    opened = []
+    code = desktop.run(["--port", "18042", "--browser", "dummy-browser",
+                        "--profile", str(tmp_path / "profile"), "--no-show-token"],
+                       launcher=lambda *a, **k: opened.append(a) or 0, out=io.StringIO())
+    assert code == 0 and len(opened) == 1

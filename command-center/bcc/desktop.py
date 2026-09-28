@@ -643,6 +643,37 @@ class _RelaunchTakeover:
                  f"profile={self.profile_dir}")
 
 
+class _OrphanWindow:
+    """A live browser window on our profile that no launcher owns any more."""
+
+    def __init__(self, profile_dir: Path, holders: list):
+        self.profile_dir = Path(profile_dir)
+        self.scanner = _ProfileScanner(self.profile_dir)
+        self.holders = holders
+
+    def holder_pids(self) -> list[int]:
+        return [p.pid for p in self.holders]
+
+    def wait(self) -> None:
+        while True:
+            self.holders = [p for p in self.holders if _is_running(p)] or self.scanner.scan()
+            if not self.holders and not _profile_lock_held(self.profile_dir):
+                return
+            time.sleep(_HOLDER_POLL_S)
+
+
+def _orphan_window(profile_dir: Path) -> "_OrphanWindow | None":
+    """The profile is held by a live browser (its own lockfile or a process with
+    our --user-data-dir): that is the window of a launcher that died."""
+    try:
+        holders = _ProfileScanner(profile_dir).scan()
+    except Exception:  # noqa: BLE001 — diagnosis failure means "no signal", never a block
+        holders = []
+    if holders or _profile_lock_held(profile_dir):
+        return _OrphanWindow(profile_dir, holders)
+    return None
+
+
 def _is_running(p) -> bool:
     try:
         return p.is_running() and p.status() != "zombie"
@@ -1192,8 +1223,22 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             if _accepts_kwarg(launcher, "log"):
                 # Перехват окна перезапустившимся браузером — отдельной строкой в журнал.
                 launch_kwargs["log"] = lambda msg: _append_run_log(data_dir, msg)
-            code = launcher(browser, url, profile_dir, extra=tuple(args.browser_arg),
-                            window_size=args.window_size, **launch_kwargs)
+            orphan = _orphan_window(profile_dir)
+            if orphan is not None:
+                # RC19 (F soak): the previous launcher died (its desktop.lock was
+                # stale) but its window lives on this profile and shows «Нет связи».
+                # Launching again made Chromium open a SECOND --app window. The
+                # server is back now, so the old window reconnects by itself: adopt
+                # it and live as long as it does, instead of opening another.
+                print("[bcc-desktop] окно BOSSMAN уже открыто — сервер снова работает, "
+                      "окно переподключится само; второе окно не открываю", file=out, flush=True)
+                _append_run_log(data_dir, f"adopt-existing-window holders={orphan.holder_pids()} "
+                                          f"profile={profile_dir}")
+                orphan.wait()
+                code = 0
+            else:
+                code = launcher(browser, url, profile_dir, extra=tuple(args.browser_arg),
+                                window_size=args.window_size, **launch_kwargs)
         except OSError as exc:
             # Раньше это улетало трейсбеком и консоль закрывалась вместе с ним:
             # владелец видел «открылась только командная строка» без причины.
