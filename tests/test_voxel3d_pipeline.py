@@ -281,3 +281,20 @@ def test_generate_survives_all_calls_failing():
 
     spec, errors, _, _ = generate("x", chat, tries=2, log=lambda m: None)
     assert spec is None and "model call failed" in errors[0]
+
+
+def test_mesh_voxelization_keeps_colours_and_height(tmp_path):
+    trimesh = pytest.importorskip("trimesh")
+    pytest.importorskip("scipy")
+    import numpy as np
+
+    from voxel3d.from_mesh import voxelize
+
+    box = trimesh.creation.box(extents=[1.0, 2.0, 1.0])
+    box.visual.vertex_colors = np.tile([200, 30, 30, 255], (len(box.vertices), 1))
+    path = tmp_path / "box.obj"
+    box.export(path)
+    grid, notes = voxelize(path, height=8, colors=4)
+    info = check_grid(grid)
+    assert info["connected"] and info["grounded"] and 8 <= grid.size[1] <= 9
+    assert len(grid.palette) == 1 and grid.palette[0][1] in ("#c81e1e", "#c81f1f")
