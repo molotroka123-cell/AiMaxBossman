@@ -846,6 +846,22 @@ class _BackgroundServer:
             self.error = self._explain(exc)
 
     def start(self, url: str, timeout: float = 30.0) -> bool:
+        # One backend per data root: the window's in-process server takes the
+        # same lock as `bcc`, so a terminal-started server and this one can
+        # never write the same data at once.
+        from urllib.parse import urlsplit
+
+        from .backend_lock import BackendAlreadyRunning, acquire
+        from .build_identity import source_identity
+        from .config import settings
+        parts = urlsplit(url)
+        try:
+            self._data_lock = acquire(settings.data_dir, host=parts.hostname or "127.0.0.1",
+                                      port=parts.port or 0, kind="desktop",
+                                      build_sha=source_identity().get("build_sha"))
+        except BackendAlreadyRunning as exc:
+            self.error = str(exc)
+            return False
         self.thread.start()
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
@@ -863,8 +879,13 @@ class _BackgroundServer:
 
     def stop(self) -> None:
         self.server.should_exit = True
-        self.thread.join(timeout=10)
+        if self.thread.is_alive():
+            self.thread.join(timeout=10)
         self._log.removeHandler(self._cause)
+        lock = getattr(self, "_data_lock", None)
+        if lock is not None:
+            lock.release()
+            self._data_lock = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1030,6 +1051,19 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             _record_launch(data_dir, launch_id, "refused-second-window", code=0)
             _pause_console(out)
             return 0
+
+    from .backend_lock import running_backend
+    holder = running_backend(data_dir)
+    if holder and holder.get("port") and int(holder["port"]) != port:
+        # This data root is already served on another port (for example the
+        # terminal started it). Attach to THAT server; never start a second
+        # one on the window's default port over the same data.
+        port = int(holder["port"])
+        host = str(holder.get("host") or host)
+        url = f"http://{host}:{port}/"
+        print(f"[bcc-desktop] Bossman для этих данных уже работает: {url} — подключаюсь к нему",
+              file=out, flush=True)
+        _append_run_log(data_dir, f"attach-data-root-backend port={port} pid={holder.get('pid')}")
 
     started: _BackgroundServer | None = None
     ident = identify_server(url)
