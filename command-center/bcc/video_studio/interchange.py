@@ -19,13 +19,26 @@ def _plain(value):
     return deepcopy(value)
 
 
+def unavailable_reason(exc):
+    """Owner-facing reason for a failed OpenTimelineIO import.
+
+    Windows Smart App Control / Application Control blocks the package's native module:
+    the import then fails with "DLL load failed ... Application Control policy", and
+    "not installed" would send the owner to reinstall something that is installed."""
+    text=str(exc)
+    if "Application Control" in text or "DLL load failed" in text:
+        return ("OpenTimelineIO is installed, but Windows blocked its native module (Smart App Control / "
+                "Application Control policy). Allow it in Windows Security or use the Shotcut export.")
+    return "OpenTimelineIO is not installed: install the video-interchange extra or use the Shotcut export."
+
+
 def available():
     try:
         import opentimelineio
         return {"available":True,"version":opentimelineio.__version__,"formats":["otio"],
                 "render_backend":False}
-    except ImportError:
-        return {"available":False,"reason":"Install the video-interchange extra (OpenTimelineIO)"}
+    except ImportError as exc:
+        return {"available":False,"reason":unavailable_reason(exc)}
 
 
 def export_otio(project):

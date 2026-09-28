@@ -137,6 +137,9 @@ async def capabilities(request: Request):
                            "reason":"Host local model configured" if model and Path(model).is_file() else "No host-approved local ASR model configured"}
     from ..studio.runtime import generation_status as studio_generation_status
     data["generation"]=await studio_generation_status(request.app.state.svc)
+    import asyncio
+    from ..video_studio.interchange import available as interchange_available
+    data["interchange"]=await asyncio.to_thread(interchange_available)
     translation=os.environ.get("BOSSMAN_VIDEO_TRANSLATION_MODEL","")
     runtime=os.environ.get("BOSSMAN_VIDEO_TRANSLATION_PYTHON","")
     configured=bool(translation and (Path(translation)/"config.json").is_file() and runtime and Path(runtime).is_file())
@@ -253,22 +256,23 @@ async def caption_export(project_id: str,request: Request,format: str="srt"):
 
 @router.post("/otio/import")
 async def otio_import(body: OtioImport,request: Request):
+    from ..video_studio.interchange import unavailable_reason
     try:
         return await guarded(service(request).import_otio(body.model_dump()))
-    except ImportError:
-        raise HTTPException(409,"OpenTimelineIO is not installed") from None
+    except ImportError as exc:
+        raise HTTPException(409,unavailable_reason(exc)) from None
 
 @router.get("/projects/{project_id}/otio")
 async def otio_export(project_id: str,request: Request,revision: int | None=None):
     import asyncio,json
-    from ..video_studio.interchange import export_otio
+    from ..video_studio.interchange import export_otio, unavailable_reason
     from fastapi.responses import Response
     store=service(request).store
     project=await guarded(store.get(project_id) if revision is None else store.version(project_id,revision))
     try:
         result=await asyncio.to_thread(export_otio,project)
-    except ImportError:
-        raise HTTPException(409,"OpenTimelineIO is not installed") from None
+    except ImportError as exc:
+        raise HTTPException(409,unavailable_reason(exc)) from None
     return Response(result["data"],media_type="application/json",headers={
         "Content-Disposition":f'attachment; filename="{result["filename"]}"',
         "X-Bossman-Interchange-Warnings":str(len(result["warnings"])),

@@ -17,6 +17,11 @@ from bcc.studio import catalog
 from bcc.studio.tables import jobs, runs, config, budget
 from bcc.studio.provider import GenerationPlane, ProviderFailure, ProviderStatus
 
+# Owner stopped a job whose cloud request was already sent (same string as control_plane).
+PROVIDER_UNKNOWN_REASON='owner_stop_provider_unknown'
+# App restarted while a sent cloud request was in flight; the provider id is kept on the job.
+RECONCILE_REASON='needs_reconcile'
+
 class StudioError(ValueError):
     def __init__(self,reason,message,verdict='FAIL'):
         self.reason,self.verdict=reason,verdict
@@ -43,7 +48,15 @@ async def setup(svc):
         BEGIN SELECT RAISE(ABORT,'studio provenance is immutable'); END'''))
         await s.execute(sa.text('''CREATE TRIGGER IF NOT EXISTS studio_evidence_delete_guard
         BEFORE DELETE ON studio_runs BEGIN SELECT RAISE(ABORT,'use studio trash'); END'''))
-        active=list((await s.execute(sa.select(image_jobs.c.id).join(jobs,jobs.c.job_id==image_jobs.c.id).where(image_jobs.c.status=='running'))).scalars())
+        rows=(await s.execute(sa.select(jobs.c.job_id,jobs.c.plane,jobs.c.request_id,jobs.c.submit_started).join(image_jobs,jobs.c.job_id==image_jobs.c.id).where(image_jobs.c.status=='running'))).all()
+        # A cloud request that was already sent keeps running at the provider and may be charged:
+        # name it and its provider id, so the owner reconciles it instead of reading a bare failure.
+        sent={int(r.job_id):r.request_id for r in rows if r.submit_started and r.request_id and str((r.plane or {}).get('model','')).startswith('openrouter:')}
+        active=[int(r.job_id) for r in rows if int(r.job_id) not in sent]
+        for jid,request_id in sent.items():
+            await s.execute(sa.update(image_jobs).where(image_jobs.c.id==jid).values(status='failed',finished_at=utcnow(),
+                error=f'{RECONCILE_REASON}: provider request {request_id} was sent before the restart and may still finish and be charged; check it at the provider before retrying'))
+            await s.execute(sa.update(jobs).where(jobs.c.job_id==jid).values(reason=RECONCILE_REASON,verdict='OWNER_REQUIRED'))
         if active:
             await s.execute(sa.update(image_jobs).where(image_jobs.c.id.in_(active)).values(status='failed',error='interrupted_unknown: inspect provider before retry',finished_at=utcnow()))
             await s.execute(sa.update(jobs).where(jobs.c.job_id.in_(active)).values(reason='interrupted_unknown',verdict='OWNER_REQUIRED'))
@@ -234,12 +247,30 @@ async def verify_file(path,surface,*,mock=False):
         meta={'width':info['width'],'height':info['height'],'duration_ms':info['duration_ticks']/1000,'mime':{'.jpg':'image/jpeg','.mp4':'video/mp4','.mkv':'video/x-matroska','.avi':'video/x-msvideo','.mp3':'audio/mpeg','.wav':'audio/wav','.flac':'audio/flac','.ogg':'audio/ogg'}[extension]}
     return {**meta,'path':str(path),'sha256':await asyncio.to_thread(digest_file,path),'bytes':path.stat().st_size}
 
+def check_requested_shape(settings,output,*,partial=False):
+    """Облачные видеопланы (Seedance, Hailuo) задают длительность и пропорции, а не пиксели.
+
+    Аудит 2026-09-28: клип 320x180 на 2 с принимался как PASS для плана «10 с, 9:16».
+    Размеры берутся после поворота (probe учитывает матрицу отображения). Неполный
+    выход по определению короче — для него проверяются только пропорции."""
+    import re
+    width,height,ms=output.get('width') or 0,output.get('height') or 0,output.get('duration_ms')
+    want=settings.get('duration')
+    if not partial and ms is not None and type(want) in (int,float) and abs(ms/1000-want)>max(0.6,want*0.05):
+        raise StudioError('malformed',f'Output lasts {ms/1000:.1f} s; requested {want:g} s')
+    ratio=settings.get('aspect_ratio')
+    if isinstance(ratio,str) and re.fullmatch(r'[1-9]\d*:[1-9]\d*',ratio) and width and height:
+        a,b=map(int,ratio.split(':'))
+        if abs(width*b-height*a)>0.03*height*a:
+            raise StudioError('malformed',f'Output is {width}x{height}; requested aspect {ratio}')
+
 async def persist(svc,jid,plane,model,path,*,mock=False,request_id=None,cost='NOT_CAPTURED:provider_did_not_report',legacy=None,effective_settings=None,partial=None):
     # Байты проходят ту же проверку, что и полный выход: без верификации нет выхода,
     # неполный он или нет. Повреждённые байты не сохраняются никогда.
     output=await verify_file(path,model['surface'],mock=mock)
     if plane['settings'].get('width') and output['width']!=plane['settings']['width']: raise ValueError('output.width mismatch')
     if plane['settings'].get('height') and output['height']!=plane['settings']['height']: raise ValueError('output.height mismatch')
+    if model['surface']=='video':check_requested_shape(plane['settings'],output,partial=partial is not None)
     rid=uuid4().hex
     provenance={'plane':plane,'settings_resolved':effective_settings or plane['settings'],'provider':model['provider'],'model':model['id'],'mock':mock,'output':output,'inputs':plane['media'],'provider_request_id':request_id,'cost_usd':cost,'finished_at':utcnow().isoformat(),'harness':{'repository_sha':os.environ.get('BCC_ACCEPTANCE_SOURCE_SHA','NOT_CAPTURED:development'),'catalog_sha256':digest(catalog.load())}}
     if partial is not None:
