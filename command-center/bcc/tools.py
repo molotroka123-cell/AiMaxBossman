@@ -276,7 +276,7 @@ def decide_effect(spec: ToolSpec, args: dict, agent: dict,
     import fnmatch
     from .permissions import agent_allowed, is_dangerous
 
-    resource = _resource_of(args)
+    resources = _resources_of(args)
     effect: Effect = spec.default_effect
     reason = f"по умолчанию для {spec.name}"
 
@@ -315,8 +315,14 @@ def decide_effect(spec: ToolSpec, args: dict, agent: dict,
     for rule in (policy_rules or []):
         pat_tool = str(rule.get("tool") or rule.get("action") or "*")
         pat_res = str(rule.get("resource") or "*")
-        if fnmatch.fnmatch(spec.name, pat_tool) and fnmatch.fnmatch(resource, pat_res):
-            wanted = str(rule.get("effect") or effect)
+        if not fnmatch.fnmatch(spec.name, pat_tool):
+            continue
+        wanted = str(rule.get("effect") or effect)
+        # Аргументы пишет модель: лишний ключ (`cmd` рядом с `url`) не должен
+        # подменять ресурс. Ужесточающее правило срабатывает, если под него
+        # попадает ЛЮБОЙ ресурс вызова; ослабляющее — только если ВСЕ.
+        hits = (fnmatch.fnmatch(r, pat_res) for r in resources)
+        if any(hits) if _strictness(wanted) > _strictness(effect) else all(hits):
             if _strictness(wanted) < _strictness(floor):
                 reason = (f"правило {pat_tool}/{pat_res} просит {wanted}, но пол политики — {floor}: "
                           f"нижний слой не может ослабить решение верхнего")
@@ -340,13 +346,18 @@ def _strictness(effect: Effect) -> int:
     return {"auto": 0, "ask": 1, "deny": 2}.get(effect, 1)
 
 
+_RESOURCE_KEYS = ("command", "cmd", "url", "path", "file", "target", "query", "name")
+
+
 def _resource_of(args: dict) -> str:
     """Строка-ресурс для сопоставления правил: команда, url, путь."""
-    for key in ("command", "cmd", "url", "path", "file", "target", "query", "name"):
-        value = args.get(key)
-        if isinstance(value, str) and value:
-            return value
-    return "*"
+    return _resources_of(args)[0]
+
+
+def _resources_of(args: dict) -> list[str]:
+    """ВСЕ строки-ресурсы вызова (команда, url, путь…), а не первая попавшаяся."""
+    found = [v for v in (args.get(k) for k in _RESOURCE_KEYS) if isinstance(v, str) and v]
+    return found or ["*"]
 
 
 def agent_policy_rules(agent: dict) -> list[dict]:

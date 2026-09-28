@@ -147,3 +147,40 @@ async def test_stopping_a_task_revokes_its_leases(env):
     await env.client.post(f"/api/tasks/{sc.task_id}/stop")
     assert await scope.consume(env.svc, sc) is None
     assert await scope.listing(env.svc, task_id=sc.task_id) == []
+
+
+# ------------------------------------------------ P1-3: ресурс политики и лишний ключ
+
+def _spec(name="web.open"):
+    from bcc.tools import ToolSpec
+
+    async def handler(args, ctx):
+        return None
+    return ToolSpec(name=name, description="", handler=handler, default_effect="auto")
+
+
+@pytest.mark.parametrize("decoy", ["cmd", "command"])
+def test_a_decoy_argument_does_not_dodge_an_owner_deny(decoy):
+    """Модель добавляла `cmd: ok` к web.open — ресурсом становилось «ok», и
+    DENY владельца на *secret* молча не срабатывал."""
+    from bcc.tools import decide_effect
+    rules = [{"tool": "*", "resource": "*secret*", "effect": "deny"}]
+    assert decide_effect(_spec(), {"url": "https://x/secret"}, {}, rules)[0] == "deny"
+    assert decide_effect(_spec(), {"url": "https://x/secret", decoy: "ok"}, {}, rules)[0] == "deny"
+
+
+def test_a_decoy_argument_does_not_borrow_an_owner_auto():
+    """Ослабляющее правило требует, чтобы под него попал КАЖДЫЙ ресурс вызова."""
+    from bcc.tools import decide_effect
+    spec = _spec("browser.open")
+    spec.default_effect = "ask"
+    rules = [{"tool": "browser.open", "resource": "https://docs.example/*", "effect": "auto"}]
+    assert decide_effect(spec, {"url": "https://docs.example/a"}, {}, rules)[0] == "auto"
+    assert decide_effect(spec, {"url": "https://evil.example/", "cmd": "https://docs.example/x"},
+                         {}, rules)[0] == "ask"
+
+
+def test_an_ask_rule_tightens_on_any_resource():
+    from bcc.tools import decide_effect
+    rules = [{"tool": "*", "resource": "*wallet*", "effect": "ask"}]
+    assert decide_effect(_spec(), {"url": "https://x/wallet", "name": "ok"}, {}, rules)[0] == "ask"
