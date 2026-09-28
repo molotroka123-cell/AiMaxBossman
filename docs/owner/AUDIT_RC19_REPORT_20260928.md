@@ -21,7 +21,7 @@
 | Узкие Fable-тесты (с PYTHONPATH на worktree) | 8003d75+ | **12 passed + 1 flaky** (cross-process: 1 сбой из 4 запусков, затем 3/3 зелёных) | консоль |
 | **Полный bossman-core** | wt19-audit-int @ 8003d75+ | **22 failed, 3292 passed, 136 skipped, 2 errors** за 9:39 | `artifacts/audit-rc19/core_full_junit.xml`, `core_full_console.log` |
 | Целевой перезапуск затронутых файлов (после фиксов) | тот же | **183 passed, 21 skipped, 1 failed** (только cross_layer) | консоль |
-| Полный Command Center | wt19-audit-int @ 8003d75+ | В процессе на момент среза; отдельный BCC_DATA_DIR/basetemp | `artifacts/audit-rc19/cc_full_*.log/xml` |
+| **Полный Command Center** | wt19-audit-int @ 8003d75+ | **5490 passed, 59 skipped, 0 failed, 0 errors** за 49:06 — ПОЛНОСТЬЮ ЗЕЛЁНЫЙ; бывшая точка зависания (psutil descriptor-тест) пройдена | `artifacts/audit-rc19/cc_full_junit.xml`, `cc_full_console.log` |
 
 Сравнение с заявленным прошлым прогоном (3284/27/136/2): passed +8, failed −5.
 Точный список прошлых падений на диске НЕ существовал (лог не сохранялся) —
