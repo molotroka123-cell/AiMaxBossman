@@ -62,6 +62,12 @@ MAX_LEASE_TTL_SECONDS = 4 * 3600
 
 READ, WRITE = "read", "write"
 
+#: Tools whose every effect is its own owner decision (rc19 CU-ONESHOT). A lease
+#: would pre-authorize up to MAX_LEASE_USES desktop actions the owner never saw;
+#: the computer.act handler refuses lease-driven calls anyway, so offering or
+#: granting one would only mislead the owner about what they are consenting to.
+NON_LEASABLE_TOOLS = frozenset({"computer.act"})
+
 
 @dataclass(frozen=True, slots=True)
 class Scope:
@@ -165,6 +171,8 @@ async def grant(svc, *, approval: dict, scope: Scope, max_uses: int, ttl_seconds
     API; when an approval id is provided it must be live, approved, scoped to
     the task, and not already associated with any lease (including spent ones).
     """
+    if scope.tool in NON_LEASABLE_TOOLS:
+        raise PermissionError(f"{scope.tool}: each action needs its own owner approval; no lease")
     uses = max(1, min(int(max_uses), MAX_LEASE_USES))
     ttl = max(1, min(int(ttl_seconds), MAX_LEASE_TTL_SECONDS))
 
@@ -313,6 +321,9 @@ def lease_offer(scope: Scope) -> str:
     """The sentence appended to an approval preview so the owner knows a scoped
     answer is available. Naming the exact scope is the point: an owner who
     cannot see what a lease would cover cannot consent to it."""
+    if scope.tool in NON_LEASABLE_TOOLS:
+        return ("\nОдобрение одноразовое: только это действие на рабочем столе; "
+                "аренда для него не выдаётся.")
     return ("\nМожно ответить один раз на всю область: "
             + scope.describe()
             + f" — не более {MAX_LEASE_USES} вызовов и не дольше "
