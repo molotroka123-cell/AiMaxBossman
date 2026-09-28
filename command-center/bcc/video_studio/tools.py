@@ -42,8 +42,11 @@ async def _handler(name,args,ctx):
             from .shotcut import export_shotcut
             result=await asyncio.to_thread(export_shotcut,project,video.root)
         elif format=="otio":
-            from .interchange import export_otio
-            result=await asyncio.to_thread(export_otio,project)
+            from .interchange import export_otio, unavailable_reason
+            try:
+                result=await asyncio.to_thread(export_otio,project)
+            except ImportError as exc:
+                raise ValueError(unavailable_reason(exc)) from None
         else:
             raise ValueError("supported interchange formats: shotcut, otio")
         value={"project_id":pid,"revision":project["revision"],"download_url":f"/api/video-studio/projects/{pid}/{format}?revision={project['revision']}",
