@@ -61,6 +61,26 @@ def _port_answers(url: str) -> bool:
         return False
 
 
+def profile_in_use(profile: Path) -> bool:
+    """Is a browser window still running on this Jeff profile?
+
+    Chromium keeps ``<user-data-dir>/lockfile`` open without sharing while the
+    profile is in use (Windows). Opening it then fails; a stale file left by a
+    crashed browser opens fine. Elsewhere the ``SingletonLock`` symlink exists
+    only while a browser holds the profile.
+    """
+    if os.name != "nt":
+        return os.path.islink(profile / "SingletonLock")
+    lock = profile / "lockfile"
+    if not lock.exists():
+        return False
+    try:
+        with open(lock, "a+b"):
+            return False
+    except OSError:
+        return True
+
+
 def local_identity() -> dict:
     from .build_identity import source_identity
     from .pit.web import WEB_APP_ID
@@ -155,6 +175,14 @@ def run(argv: Sequence[str] | None = None, *, launcher=None, out=sys.stdout) -> 
         if args.no_window:
             while started is not None and started.thread.is_alive():
                 time.sleep(0.5)
+            return 0
+        if profile_in_use(profile):
+            # Relaunch while the Jeff window is open (e.g. the previous launcher
+            # died): never open a second window on the same profile. Keep the
+            # server this launcher ensured alive for as long as that window lives.
+            print("[jeff] окно Jeff уже открыто — второе не открываю", file=out, flush=True)
+            while started is not None and profile_in_use(profile):
+                time.sleep(1.0)
             return 0
         from .desktop import find_browser, launch_window
         browser = args.browser or find_browser()

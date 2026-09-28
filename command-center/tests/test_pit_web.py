@@ -346,3 +346,50 @@ def test_privacy_switches_use_the_participant_consent_commands(tmp_path):
         assert "Артём" in json.dumps(adapter.calls[-1][1], ensure_ascii=False)
         off = c.post("/api/jeff/privacy", json={"memory_enabled": False}, headers=H).json()
         assert off["memory_enabled"] is False
+
+
+# -- J3: the Jeff window never carries owner authority -------------------------------------
+OWNER_ROUTES = ("/api/tasks", "/api/identity", "/api/control-plane/status", "/api/terminal/sessions",
+                "/api/approvals", "/index.html", "/app.js")
+
+
+def test_jeff_session_reaches_no_owner_route_on_the_jeff_server(tmp_path):
+    app, _ = make_app(tmp_path)
+    with client_for(app) as c:
+        signup(c)
+        assert c.cookies.get(web.SESSION_COOKIE)
+        for path in OWNER_ROUTES:
+            assert c.get(path).status_code == 404, path
+            assert c.post(path, json={}, headers=H).status_code in {404, 405}, path
+
+
+async def test_jeff_session_cookie_is_rejected_by_the_command_center(tmp_path):
+    import httpx
+
+    from .conftest import make_settings as cc_settings
+    from .conftest import start_app
+
+    jeff_app, _ = make_app(tmp_path / "jeff")
+    with client_for(jeff_app) as c:
+        signup(c)
+        jeff_cookie = c.cookies.get(web.SESSION_COOKIE)
+    cc_app, svc = await start_app(cc_settings(tmp_path / "cc"), start_workers=False)
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=cc_app),
+                                     base_url="http://127.0.0.1:8800",
+                                     cookies={web.SESSION_COOKIE: jeff_cookie}) as cc:
+            for path in ("/api/tasks", "/api/approvals"):
+                response = await cc.get(path)
+                assert response.status_code in {401, 403}, (path, response.status_code)
+            create = await cc.post("/api/tasks", json={"text": "jeff tries owner task"})
+            assert create.status_code in {401, 403}
+    finally:
+        await svc.stop()
+
+
+def test_jeff_page_has_no_command_center_entry():
+    ui = Path(__file__).resolve().parents[1] / "ui"
+    html = (ui / "jeff.html").read_text(encoding="utf-8")
+    js = (ui / "jeff.js").read_text(encoding="utf-8")
+    assert "open-command-center" not in html and "open-command-center" not in js
+    assert "location.href = '/'" not in js and 'href="/"' not in html

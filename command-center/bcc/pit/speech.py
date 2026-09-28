@@ -55,6 +55,13 @@ def tts_status() -> dict:
             "reason_code": None if ok else "VOICE_ENGINE_UNAVAILABLE"}
 
 
+def _asr_threads() -> int:
+    try:
+        return max(1, min(16, int(os.environ.get("BOSSMAN_PIT_ASR_THREADS", "4"))))
+    except ValueError:
+        return 4
+
+
 def _recogniser(model_path: Path):
     key = str(model_path)
     with _model_lock:
@@ -64,7 +71,7 @@ def _recogniser(model_path: Path):
                 from faster_whisper import WhisperModel
             except (ImportError, OSError) as exc:
                 raise SpeechError("VOICE_STT_UNAVAILABLE") from exc
-            model = WhisperModel(key, device="cpu", compute_type="int8", cpu_threads=4,
+            model = WhisperModel(key, device="cpu", compute_type="int8", cpu_threads=_asr_threads(),
                                  num_workers=1, local_files_only=True)
             _model_cache.clear()
             _model_cache[key] = model

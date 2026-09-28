@@ -72,8 +72,14 @@ def test_jeff_window_chats_for_real_and_stays_participant_safe(jeff_server):
             assert "Привет, я Джефф" in page.locator(".bubble.assistant").first.inner_text()
 
             assert page.locator(".capability.locked").is_disabled()
+            # J4: Shift+Enter is a newline, Enter sends
+            page.click("#message")
+            page.keyboard.type("Как")
+            page.keyboard.press("Shift+Enter")
+            assert page.input_value("#message") == "Как\n"
+            assert page.locator(".bubble.user").count() == 0
             page.fill("#message", "Как дела?")
-            page.click("#send")
+            page.press("#message", "Enter")
             # the page CSP forbids eval, so waits use locators, not wait_for_function
             page.locator(".bubble.assistant:not(.pending)").nth(1).wait_for()
             last = page.locator(".bubble.assistant").last
