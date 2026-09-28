@@ -36,7 +36,7 @@ retrying at all.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Sequence
+from typing import Any, Iterable, Sequence
 
 from .. import model_health as mh
 
@@ -48,6 +48,7 @@ UNAUTHORIZED = "unauthorized"    # 401/403 — the owner's key or config
 CAPABILITY = "capability"        # the model cannot do what was asked
 CONTEXT = "context"              # prompt too long for this model
 SILENT = "silent"                # 2xx with nothing usable in it
+POLICY = "policy"                # our own gate refused (price unknown, router policy)
 UNKNOWN = "unknown"
 
 # --- rungs -----------------------------------------------------------------
@@ -74,6 +75,10 @@ LADDERS: dict[str, tuple[str, ...]] = {
     CONTEXT: (ALTERNATE_MODEL, HUMAN),
     # Silence repeats. Another model first, then a simpler request shape.
     SILENT: (ALTERNATE_MODEL, DEGRADED_PATH, HUMAN),
+    # Our own gate refused before any provider was asked (unknown cloud price,
+    # router policy). The same request is refused the same way every time, so
+    # repeating it only delays the owner; another model may be admissible.
+    POLICY: (ALTERNATE_MODEL, HUMAN),
     # Unclassified: one cautious repeat, then change something, then ask.
     UNKNOWN: (RETRY_SAME, ALTERNATE_MODEL, HUMAN),
 }
@@ -104,12 +109,20 @@ _MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
+#: ProviderError kinds raised by Bossman's own gates, not by a provider.
+POLICY_KINDS = frozenset({"budget", "policy"})
+
+
 def classify_failure(error: str, *, kind: str | None = None) -> str:
     """Name the failure so the ladder can pick a remedy that fits it.
 
     Ordered most-specific first: a 429 mentioning "connection pool" is
     throttling, not a transport blip, and treating it as the latter would
     prescribe exactly the retry that keeps the limit exhausted."""
+    if kind in POLICY_KINDS:
+        # A refusal of our own gate is deterministic whatever its text says:
+        # "unknown cloud pricing" must not be read as a blip worth repeating.
+        return POLICY
     text = str(error or "").lower()
     for label, markers in _MARKERS:
         if any(marker in text for marker in markers):
@@ -220,7 +233,8 @@ class Rung:
 def next_rung(ladder: Ladder, *, current_model_id: int | None,
               fallback_model_id: int | None = None,
               healthy_models: Sequence[tuple[int, mh.HealthRecord]] = (),
-              retries_left: int = 0, max_retries: int | None = None) -> Rung:
+              retries_left: int = 0, max_retries: int | None = None,
+              tried: Iterable[int] = ()) -> Rung:
     """Pick the next rung, or escalate to the owner when nothing is left.
 
     Escalation is a real answer, not a failure of this function: handing a
@@ -229,7 +243,12 @@ def next_rung(ladder: Ladder, *, current_model_id: int | None,
     Two bounds hold regardless of how the failure classes alternate: the spent
     rungs persist across classes (see `Ladder.from_dict`), and the total number
     of transitions may not exceed `recovery_budget(max_retries)`. The second is
-    the belt to the first's braces — no sequence of labels can exceed it."""
+    the belt to the first's braces — no sequence of labels can exceed it.
+
+    `tried` names models the caller already attempted in this failure (the
+    engine calls the agent's declared fallback itself on every provider
+    error). Offering one of them as the "different" model repeats the path
+    that just failed under a new name."""
     budget = recovery_budget(max_retries if max_retries is not None else retries_left)
     if ladder.transitions > budget or ladder.strategy_changes >= MAX_STRATEGY_CHANGES and retries_left <= 0:
         return Rung(HUMAN, _escalation_reason(ladder, retries_left=retries_left,
@@ -242,7 +261,8 @@ def next_rung(ladder: Ladder, *, current_model_id: int | None,
             return Rung(RETRY_SAME, "повтор того же маршрута: сбой похож на разовый",
                         ladder.spend(RETRY_SAME))
         if candidate == ALTERNATE_MODEL:
-            model_id = _pick_alternate(current_model_id, fallback_model_id, healthy_models)
+            model_id = _pick_alternate(current_model_id, fallback_model_id, healthy_models,
+                                       tried=tried)
             if model_id is None:
                 continue                       # nothing else to switch to
             return Rung(ALTERNATE_MODEL,
@@ -282,10 +302,15 @@ def _escalation_reason(ladder: Ladder, *, retries_left: int = 0,
 
 
 def _pick_alternate(current: int | None, fallback: int | None,
-                    healthy: Sequence[tuple[int, mh.HealthRecord]]) -> int | None:
+                    healthy: Sequence[tuple[int, mh.HealthRecord]],
+                    *, tried: Iterable[int] = ()) -> int | None:
     """The agent's declared fallback first — the owner configured it — then the
-    best measured-healthy model that is not the one that just failed."""
-    if fallback is not None and fallback != current:
+    best measured-healthy model that is not the one that just failed, nor one
+    already tried for this failure."""
+    skip = {int(m) for m in tried if m is not None}
+    if current is not None:
+        skip.add(int(current))
+    if fallback is not None and int(fallback) not in skip:
         return int(fallback)
-    pool = [(mid, rec) for mid, rec in healthy if mid != current]
+    pool = [(mid, rec) for mid, rec in healthy if mid not in skip]
     return mh.select_fallback(pool) if pool else None
