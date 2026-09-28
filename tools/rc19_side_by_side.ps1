@@ -27,6 +27,9 @@
   Refusals (exit code 2), by construction and not by convention:
     * the data dir is, contains, or lies inside %LOCALAPPDATA%\Bossman\CommandCenter (owner data);
     * something already listens on -Port when Start is requested;
+    * the data dir is already served by a backend on another port or build (<data>\backend.lock held,
+      holder named by <data>\backend.json, or bcc.app exit code 5); the same port and build is
+      reported as ALREADY RUNNING and exits 0;
     * the install folder exists and holds a DIFFERENT build than -Sha;
     * the archive's SHA-256 differs from -ArchiveSha256 when one is given;
     * the backend reports a build SHA different from -Sha.
@@ -206,9 +209,39 @@ function Do-Install {
   Say "SHA256SUMS verified: $n files"
 }
 
+function Holder {
+  # One backend per data root (bcc/backend_lock.py): <data>\backend.lock is held with an OS
+  # byte-range lock by the serving process and <data>\backend.json names it. The info is
+  # trusted only while the lock is really held: if we can take the byte lock ourselves,
+  # nobody serves this data dir and backend.json is stale.
+  $lockPath = Join-Path $DataDir 'backend.lock'
+  if (-not (Test-Path -LiteralPath $lockPath)) { return $null }
+  $fs = $null
+  try {
+    $fs = [IO.File]::Open($lockPath, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::ReadWrite)
+    try { $fs.Lock(0, 1); $fs.Unlock(0, 1); return $null } catch [IO.IOException] { }
+  } catch { return $null } finally { if ($fs) { $fs.Dispose() } }
+  $info = Join-Path $DataDir 'backend.json'
+  if (-not (Test-Path -LiteralPath $info)) { return @{ pid = '?'; port = '?'; build_sha = '?' } }
+  try { return (Get-Content -LiteralPath $info -Raw | ConvertFrom-Json) } catch { return @{ pid = '?'; port = '?'; build_sha = '?' } }
+}
+
+function Report-Holder($h, [string]$why) {
+  Say ("ALREADY RUNNING ({0}): data dir {1} is served by pid {2} on {3}:{4}, build {5}, kind {6}" -f $why,
+       (Full $DataDir), $h.pid, $(if ($h.host) { $h.host } else { '127.0.0.1' }), $h.port, $h.build_sha,
+       $(if ($h.kind) { $h.kind } else { '?' }))
+  if ("$($h.port)" -eq "$Port" -and "$($h.build_sha)" -eq $Sha) {
+    Say 'same port and same build: nothing to start, attach to it'
+    exit 0
+  }
+  Refuse "the data dir is held by another backend (port $($h.port), build $($h.build_sha)); stop it first or use another -DataDir"
+}
+
 function Do-Start {
   Assert-SafeDataDir
   if (-not (Test-Path -LiteralPath $Python)) { Fail "bundled runtime missing: $Python (run -Action Install)" }
+  $held = Holder
+  if ($held) { Report-Holder $held 'backend.lock is held' }
   $busy = @(Listeners $Port)
   if ($busy.Count) { Refuse "port $Port already has a listener (PID $($busy -join ','))" }
   New-Item -ItemType Directory -Force (Log-Dir) | Out-Null
@@ -250,13 +283,26 @@ print(p.pid)
     foreach ($k in $saved.Keys) { [Environment]::SetEnvironmentVariable($k, $saved[$k], 'Process') }
   }
   $p = Get-Process -Id $backendPid -ErrorAction SilentlyContinue
-  if (-not $p) { Get-Content -LiteralPath $err -Tail 30; Fail "backend PID $backendPid exited immediately" }
+  if ($p) { $null = $p.Handle }   # keep a handle so ExitCode is readable after exit
+  if (-not $p) {
+    $held = Holder
+    if ($held) { Report-Holder $held 'backend exited at start' }
+    Get-Content -LiteralPath $err -Tail 30; Fail "backend PID $backendPid exited immediately"
+  }
   Set-Content -LiteralPath (Pid-File) -Value $backendPid -Encoding ascii
   Say "started PID $backendPid on 127.0.0.1:$Port (logs $out)"
   $deadline = (Get-Date).AddSeconds($StartTimeoutSec)
   $h = $null
   while ((Get-Date) -lt $deadline) {
-    if ($p.HasExited) { Get-Content -LiteralPath $err -Tail 30; Fail "backend PID $backendPid exited" }
+    if ($p.HasExited) {
+      if ($p.ExitCode -eq 5) {
+        # bcc.app: "a backend already serves this data root" (bcc/backend_lock.py)
+        $held = Holder
+        if ($held) { Report-Holder $held 'backend exit code 5' }
+        Refuse 'backend exit code 5 (data root already served) but no live holder in backend.json'
+      }
+      Get-Content -LiteralPath $err -Tail 30; Fail "backend PID $backendPid exited with code $($p.ExitCode)"
+    }
     $h = Health
     if ($h) { break }
     Start-Sleep -Milliseconds 500
