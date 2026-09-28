@@ -307,6 +307,21 @@ async def require_token(request: Request, x_bcc_token: str | None = Header(defau
     raise ApiError("нужна аутентификация", status=401, hint=hint)
 
 
+def _same_origin(origin: str, host: str) -> bool:
+    """Origin браузера — тот же адрес, по которому пришёл запрос (схема http/https).
+
+    WebSocket не защищён CORS, а SameSite не различает порты: страница с
+    http://127.0.0.1:<другой порт> несёт cookie владельца. Поэтому источник
+    сверяется явно; `null` (sandbox-iframe, file://) не совпадает ни с чем."""
+    from urllib.parse import urlsplit
+    try:
+        parts = urlsplit(origin)
+    except ValueError:
+        return False
+    return (parts.scheme in ("http", "https") and bool(host)
+            and parts.netloc.lower() == host.strip().lower())
+
+
 # ---------- модели запросов ----------
 
 class LoginIn(BaseModel):
@@ -641,6 +656,13 @@ def _public_router() -> APIRouter:
     @router.websocket("/events")
     async def events_ws(ws: WebSocket, token: str | None = Query(default=None)):
         svc: Services = ws.app.state.svc
+        # Cross-site WebSocket hijacking: браузер всегда шлёт Origin, и чужая
+        # страница (другой порт того же 127.0.0.1) не должна читать ленту
+        # владельца его же cookie. Клиент без Origin (CLI, скрипт) — не браузер.
+        origin = ws.headers.get("origin")
+        if origin is not None and not _same_origin(origin, ws.headers.get("host", "")):
+            await ws.close(code=4403)
+            return
         # cookie — основной путь: секрет не попадает ни в URL, ни в логи прокси
         sess = await svc.sessions.get(ws.cookies.get(COOKIE_NAME))
         if sess is None and not (svc.settings.legacy_token_auth and svc.auth.check(token)):
