@@ -899,6 +899,9 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
         if command == "/cloud":
             if arg not in {"on", "off"}:
                 return "Для резерва Claude: /cloud on. При сбое локальной модели только новое ваше сообщение будет передано OpenRouter/Claude. Локальная история, результаты задач и файлы не передаются. Плата — в пределах локально заданного бюджета. /cloud off — отключить."
+            if arg == "on" and person.role != "owner":
+                # Paid cloud spends the owner's budget: only the owner opts in.
+                return "Облачный резерв включает только владелец."
             if arg == "on" and (self.settings.cloud_daily_usd <= 0 or not self.settings.cloud_token):
                 raise CompanionError("CLOUD_NOT_CONFIGURED")
             self.store.put("cloud:" + person.key, arg == "on")

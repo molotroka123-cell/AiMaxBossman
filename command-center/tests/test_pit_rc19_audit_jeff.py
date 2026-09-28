@@ -174,3 +174,73 @@ def test_spent_daily_budget_is_logged_once_not_every_turn(tmp_path):
     log = runtime.home / "logs" / "cloud_budget.jsonl"
     rows = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
     assert [row["reason"] for row in rows] == ["daily_budget"]
+
+
+# -- P2-4: first-run signup cannot create two accounts ------------------------------------
+def test_simultaneous_first_signups_create_exactly_one_account(tmp_path):
+    import httpx
+
+    from bcc.pit import web
+    from .test_pit_runtime import make_settings
+
+    settings = make_settings(tmp_path)
+    runtime = web.WebParticipantRuntime(settings, tmp_path / "pit-v1.7" / "web")
+    runtime.adapter = FakeAdapter("Привет.")
+    app = web.create_app(settings, port=8850, runtime=runtime)
+    headers = {"X-Jeff-Request": "1"}
+
+    async def race():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8850") as client:
+            return await asyncio.gather(*[
+                client.post("/api/jeff/signup", headers=headers,
+                            json={"username": name, "password": "correct horse 1"})  # ci-secret-scan: allow — throwaway test passphrase
+                for name in ("alice", "mallory")])
+
+    responses = asyncio.run(race())
+    assert sorted(r.status_code for r in responses) == [200, 403]
+    assert web.WebAccounts(tmp_path / "pit-v1.7" / "web").count() == 1
+
+
+# -- P2-3: a broken local ASR model is "unavailable", not an HTTP 500 ------------------------
+def test_asr_model_load_failure_is_a_stable_voice_code(monkeypatch, tmp_path):
+    from bcc.pit import speech
+
+    monkeypatch.setattr(speech.whisper, "_validated_wav", lambda audio: (audio, 1.0))
+    monkeypatch.setattr(speech.whisper, "_model_directory", lambda: tmp_path)
+
+    def broken(model_path):
+        raise RuntimeError("Unable to open file 'model.bin' in model")   # ctranslate2 style
+
+    monkeypatch.setattr(speech, "_recogniser", broken)
+    try:
+        speech.transcribe_wav(b"RIFF")
+    except speech.SpeechError as exc:
+        assert str(exc) == "VOICE_STT_UNAVAILABLE"
+    else:
+        raise AssertionError("expected SpeechError")
+
+
+# -- poller lock: unlocked before the handle closes ----------------------------------------
+def test_token_poller_lock_is_unlocked_before_close(monkeypatch, tmp_path):
+    import os
+
+    from bcc.pit import bot_guard
+
+    monkeypatch.setenv("BOSSMAN_TELEGRAM_POLLER_LOCK_DIR", str(tmp_path))
+    modes = []
+    if os.name == "nt":
+        import msvcrt
+        real = msvcrt.locking
+        monkeypatch.setattr(msvcrt, "locking", lambda fd, mode, n: (modes.append(mode), real(fd, mode, n))[1])
+        unlock = msvcrt.LK_UNLCK
+    else:
+        import fcntl
+        real = fcntl.flock
+        monkeypatch.setattr(fcntl, "flock", lambda f, op: (modes.append(op), real(f, op))[1])
+        unlock = fcntl.LOCK_UN
+    with bot_guard.token_poller_lock("123456:fixture-token"):
+        pass
+    assert modes[-1] == unlock
+    with bot_guard.token_poller_lock("123456:fixture-token"):   # immediately free again
+        pass

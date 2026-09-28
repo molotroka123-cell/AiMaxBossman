@@ -333,6 +333,20 @@ def single_instance(home: Path):
                 fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError:
             raise CompanionError("ANOTHER_COMPANION_IS_RUNNING") from None
-        yield
+        try:
+            yield
+        finally:
+            # Unlock before close: Windows releases a lock left on a closed
+            # handle only later, and a quick restart would be refused.
+            try:
+                file.seek(0)
+                if os.name == "nt":
+                    import msvcrt
+                    msvcrt.locking(file.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(file, fcntl.LOCK_UN)
+            except OSError:
+                pass
     finally:
         file.close()
