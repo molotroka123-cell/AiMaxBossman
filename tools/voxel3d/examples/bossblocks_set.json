@@ -1,0 +1,10 @@
+[
+ {"id": "oak_tree", "label": "tree", "prompt": "an oak tree with a brown trunk and a leafy green crown"},
+ {"id": "small_house", "label": "house", "prompt": "a small house with stone walls, a wooden door, two windows and a pitched red roof"},
+ {"id": "torch", "label": "torch", "prompt": "a standing torch: a wooden stick with a glowing flame on top"},
+ {"id": "chest", "label": "chest", "prompt": "a wooden treasure chest with a lid, metal bands and a golden lock"},
+ {"id": "creature", "label": "creature", "prompt": "a simple pink pig-like creature (a game mob) with four legs, a snout and eyes"},
+ {"id": "crystal", "label": "crystal", "prompt": "a purple crystal cluster growing from a stone base"},
+ {"id": "bridge", "label": "bridge", "prompt": "a short wooden bridge with railings on both sides and stone pillars at each end"},
+ {"id": "lamp_post", "label": "lamp post", "prompt": "a street lamp post: a dark metal pole on a small base with a glowing lamp on top"}
+]
