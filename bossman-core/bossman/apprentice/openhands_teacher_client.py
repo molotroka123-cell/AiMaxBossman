@@ -15,21 +15,25 @@ import subprocess
 import tempfile
 from typing import Any, Mapping
 
-from .openhands_client import OpenHandsClient, OpenHandsError, OpenHandsRequest
+from .openhands_client import GIT_TIMEOUT_S, OpenHandsClient, OpenHandsError, OpenHandsRequest
 
 _CONTRACT = ".bossman/OPENHANDS_TASK.json"
 
 
 def _git(workspace: Path, *args: str) -> None:
-    proc = subprocess.run(
-        ["git", "-C", str(workspace), *args],
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(workspace), *args],
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=GIT_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise OpenHandsError(f"sanitized git {' '.join(args)} timed out after {GIT_TIMEOUT_S}s") from exc
     if proc.returncode:
         raise OpenHandsError(f"sanitized git {' '.join(args)} failed: {proc.stderr.strip()}")
 
