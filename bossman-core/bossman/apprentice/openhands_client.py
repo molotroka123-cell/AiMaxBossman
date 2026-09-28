@@ -80,6 +80,9 @@ _MAX_FILE_BYTES = 8 * 1024 * 1024        # per CHANGED file; unchanged files are
 _MAX_CHANGED_BYTES = 32 * 1024 * 1024
 # Owner's Bossman repo (2026-09-23): 3,523 tracked files, 74.1 MB — well inside.
 _MAX_SNAPSHOT_FILES = 10000
+#: Every git call on the sidecar-touched workspace is bounded: a stalled git (a
+#: filesystem/AV stall, a lock) must fail the run, not hang the verifier forever.
+GIT_TIMEOUT_S = 120
 
 
 @contextmanager
@@ -312,15 +315,19 @@ def _command_digest(path: Path) -> str:
 
 
 def _git(workspace: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", "-C", str(workspace), *args],
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(workspace), *args],
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=GIT_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise OpenHandsError(f"git {' '.join(args)} timed out after {GIT_TIMEOUT_S}s") from exc
     if proc.returncode:
         raise OpenHandsError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
     return proc.stdout
@@ -419,11 +426,14 @@ def _ignored_untracked(workspace: Path, untracked: Sequence[str]) -> set[str]:
     only when they were not touched by the run (the caller checks that)."""
     if not untracked:
         return set()
-    proc = subprocess.run(
-        ["git", "-C", str(workspace), "-c", "core.excludesFile=", "check-ignore", "--no-index",
-         "--stdin", "-z"],
-        input="\0".join(untracked) + "\0", text=True, encoding="utf-8", errors="replace",
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(workspace), "-c", "core.excludesFile=", "check-ignore", "--no-index",
+             "--stdin", "-z"],
+            input="\0".join(untracked) + "\0", text=True, encoding="utf-8", errors="replace",
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=GIT_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        return set()                              # same as any other failure: do not filter
     if proc.returncode not in (0, 1):          # 1 = nothing ignored; anything else: do not filter
         return set()
     return {p.replace("\\", "/") for p in proc.stdout.split("\0") if p}
@@ -452,10 +462,13 @@ def _filtered_blob_ids(workspace: Path, rels: Sequence[str]) -> dict[str, str]:
     hashing, which can only over-report, never hide."""
     if not rels:
         return {}
-    proc = subprocess.run(
-        ["git", "-C", str(workspace), "hash-object", "--stdin-paths"],
-        input="\n".join(rels) + "\n", text=True, encoding="utf-8", errors="replace",
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(workspace), "hash-object", "--stdin-paths"],
+            input="\n".join(rels) + "\n", text=True, encoding="utf-8", errors="replace",
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=GIT_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        return {}                                 # caller falls back to raw hashing
     if proc.returncode:
         return {}
     ids = proc.stdout.split()
