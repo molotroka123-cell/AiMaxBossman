@@ -262,6 +262,17 @@ def read_env_file(path: Path) -> dict[str, str]:
     return out
 
 
+COMPANION_ENV_KEYS = ("TG_COMPANION_BOT_TOKEN", "TG_COMPANION_CORE_TOKEN", "TG_COMPANION_LOCAL_TOKEN",
+                      "TG_COMPANION_CLOUD_TOKEN", "TG_COMPANION_PROXY")
+
+
+def companion_env(config: Path) -> dict[str, str]:
+    """The «Пульт» reads its secrets from TG_COMPANION_* (scripts/Start-TelegramCompanion.ps1
+    imports them from companion.env beside the config); only those names pass."""
+    values = read_env_file(Path(config).parent / "companion.env")
+    return {k: v for k, v in values.items() if k in COMPANION_ENV_KEYS and v}
+
+
 def companion_fingerprint(config: Path) -> str | None:
     token = read_env_file(Path(config).parent / "companion.env").get("TG_COMPANION_BOT_TOKEN", "")
     return token_fingerprint(token) if token else None
@@ -419,6 +430,8 @@ def launch(kind: str, home: Path, data_dir: Path, port: int, companion_config: P
     env = child_env(home, data_dir)
     if kind in ("jeff", "jeff-window"):
         env.update(jeff_voice_env(data_dir))
+    if kind == "companion":
+        env.update(companion_env(Path(companion_config)))
     argv = command_for(kind, home, data_dir, port, companion_config)
     if kind == "jeff-window":
         # The participant window: its own small server + browser window (bcc.jeff_desktop
@@ -429,6 +442,7 @@ def launch(kind: str, home: Path, data_dir: Path, port: int, companion_config: P
                                  stdout=log, stderr=subprocess.STDOUT)
         say(f"started pid {p.pid}")
         return 0
+    state.mkdir(parents=True, exist_ok=True)
     pid = _spawn_hidden(argv, home, env, state / f"{kind}-{stamp}.log")
     (state / f"{kind}.pid").write_text(str(pid), encoding="ascii")
     say(f"started pid {pid}: {' '.join(argv[1:])}")
