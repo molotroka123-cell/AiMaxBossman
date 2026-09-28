@@ -417,8 +417,18 @@ async def run_lesson_ab(cfg: Config, hooks: Any, lesson: dict[str, Any], ladder:
                       "tried": [{"tier": "local", "model": model, "status": "completed", "usd": 0.0}]}}
 
 
-RUNNERS = {"triage": cycle_triage, "journey": cycle_journey, "k1m6a_verify": cycle_k1m6a}
-NEEDS_LLM = {"triage": True, "journey": True, "k1m6a_verify": False}
+async def cycle_probe(cfg: Config, work: Path, index: int, route: "rl.Route" = None,
+                      ladder: "rl.LadderConfig" = None) -> dict[str, Any]:
+    """Readiness probe only (``--kinds selftest_sleep``): a model-free cycle that takes a few
+    seconds, so the kill/restart and STOP tests land inside a running cycle without the GPU."""
+    await asyncio.sleep(8.0)
+    return {"task": {"probe": index}, "task_status": "completed",
+            "verifier": {"pass": True, "safety_ok": True}, "violations": [], "seconds": 8.0}
+
+
+RUNNERS = {"triage": cycle_triage, "journey": cycle_journey, "k1m6a_verify": cycle_k1m6a,
+           "selftest_sleep": cycle_probe}
+NEEDS_LLM = {"triage": True, "journey": True, "k1m6a_verify": False, "selftest_sleep": False}
 
 
 async def run_ladder(cfg: Config, kind: str, work: Path, index: int, cycle_id: int, ladder: "rl.LadderConfig",

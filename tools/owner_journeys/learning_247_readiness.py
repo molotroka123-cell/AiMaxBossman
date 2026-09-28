@@ -37,6 +37,7 @@ MIN_CYCLES = 12
 MIN_HOURS = 1.0
 MAX_PAUSE_S = 120.0
 MAX_STOP_S = 60.0
+PROBE_KIND = "selftest_sleep"
 AB_REPORT = Path(r"C:\Users\asd\Bossman\evidence\rc19\d\learning\ab-report.json")
 
 
@@ -231,8 +232,14 @@ def live_tests(state: Path, kinds: str = "k1m6a_verify,triage", key_file: str = 
         (state / "PAUSE").unlink()
         out["resume_s"] = _wait(lambda: completed() > n_paused, 600)
         peak = max(peak, psutil.Process(p.pid).memory_info().rss / 2**20)
-        # 2) kill mid-cycle; a model-free cycle can finish between the observation and the kill,
-        #    so the kill is repeated until it really lands inside a cycle (bounded attempts)
+        # 2) kill mid-cycle. Journaling does not depend on the cycle kind; the probe kind
+        #    (model-free, 8 s) makes the kill land inside a running cycle even while the owner's
+        #    GPU is busy. The kill is repeated if a cycle still finished first (bounded attempts).
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True)
+        p.wait(30)
+        p = _spawn(state, log, ["--kinds", PROBE_KIND])
+        _wait(lambda: _state(state).get("pid") == p.pid, 120, 0.2)
+        out["kill_probe_kind"] = PROBE_KIND
         inflight = None
         for attempt in range(1, 8):
             _wait(lambda: bool(_state(state).get("in_progress")), 600, 0.02)
@@ -242,13 +249,13 @@ def live_tests(state: Path, kinds: str = "k1m6a_verify,triage", key_file: str = 
             out["kill_attempts"] = attempt
             if not any(r["cycle_id"] == inflight for r in read_jsonl(state / "cycles.jsonl")[0]):
                 break                       # killed while the cycle was running
-            p = _spawn(state, log, ["--kinds", kinds])
+            p = _spawn(state, log, ["--kinds", PROBE_KIND])
             _wait(lambda: _state(state).get("pid") == p.pid, 120, 0.2)
     finally:
         if p.poll() is None:
             p.kill()
     # 3) restart and STOP during a running cycle
-    p = _spawn(state, log, ["--kinds", kinds])
+    p = _spawn(state, log, ["--kinds", PROBE_KIND])
     try:
         _wait(lambda: _state(state).get("in_progress") is None and _state(state).get("pid") == p.pid, 120, 0.2)
         rows = read_jsonl(state / "cycles.jsonl")[0]
