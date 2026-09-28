@@ -324,3 +324,14 @@ def test_logo_build_never_gets_a_negative_length():
     assert spec.logo_build_seconds(json.loads((ROOT / "examples" / "bossman_32_days.json").read_text(encoding="utf-8"))) == 2.5
     assert spec.logo_build_seconds(_load("jeff_voice_12s.json")) == 2.5
     assert spec.logo_build_seconds({"meta": {"duration": 5.0}, "scenes": [{"type": "title", "start": 0, "end": 5}]}) == 0.0
+
+
+def test_bars_headline_label_is_placed_after_the_counter_it_follows():
+    # rc19 owner-PC render (7 daily values): the counter is drawn zero-padded ("05") but the label
+    # offset measured the unpadded length ("7"), so "COMMITS" overlapped the second digit. Library
+    # specs have 10+ values, where both strings have two digits, which hid it. Source-level guard:
+    # the offset must measure the same padded string the counter draws.
+    html = (ROOT / "engine.html").read_text(encoding="utf-8")
+    body = html[html.index("function sBars"):html.index("function drawIcon")]
+    assert "text(String(n).padStart(2, '0'), 0, 0, '800 150px Onest'" in body
+    assert "ctx.measureText(String(V.length).padStart(2, '0')).width + 24" in body
