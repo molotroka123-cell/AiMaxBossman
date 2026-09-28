@@ -247,6 +247,12 @@ class SettingsIn(BaseModel):
     enabled: bool = True
 
 
+def _serving_data_dir(request: Request) -> str:
+    svc = getattr(request.app.state, "svc", None)
+    data_dir = getattr(getattr(svc, "settings", None), "data_dir", None)
+    return str(Path(data_dir).resolve()) if data_dir else ""
+
+
 @router.get("/telegram/settings")
 async def get_settings():
     path = config_path()
@@ -329,7 +335,13 @@ async def put_settings(body: SettingsIn, request: Request):
                      if k.isdigit() and int(k) in {body.owner_id, *body.guest_ids}},
         "retention_days": body.retention_days, "owner_priority": body.owner_priority,
         "enabled": body.enabled,
-        "core_url": existing.get("core_url", DEFAULTS["core_url"]),
+        # The companion talks to THIS Command Center (the one issuing core_token):
+        # its real port, and its data root so the companion finds it again via
+        # backend.lock after a restart on another port (RC19 audit: an RC on
+        # 8820 had core_url 8800 and sent its token to a different backend).
+        "core_url": (f"http://127.0.0.1:{request.url.port}" if request.url.port
+                     else existing.get("core_url", DEFAULTS["core_url"])),
+        "core_data_dir": _serving_data_dir(request) or existing.get("core_data_dir", ""),
         # Telegram never falls back to a cloud model from this section.
         "cloud_daily_usd": 0.0, "cloud_model": "",
     })
