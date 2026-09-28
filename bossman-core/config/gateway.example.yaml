@@ -39,6 +39,8 @@ backends:
     session_affinity_enabled: true
 
   # NVIDIA API (Nemotron, Kimi, etc.) — OpenAI-совместимый.
+  # БЕСПЛАТНЫЙ ключ: https://build.nvidia.com → Get API Key (нужен NVIDIA аккаунт)
+  # Лимиты бесплатного тиера: см. документацию NVIDIA NIM на build.nvidia.com
   # Ключ в .env: NVIDIA_API_KEY
   nvidia:
     base_url: https://integrate.api.nvidia.com

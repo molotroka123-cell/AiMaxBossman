@@ -48,6 +48,9 @@ VENDORS: dict[str, Vendor] = {
     "gemini": Vendor("gemini", "Google Gemini", "openai_compat",
                      "https://generativelanguage.googleapis.com/v1beta/openai",
                      ("GEMINI_API_KEY", "GOOGLE_API_KEY")),
+    "nvidia": Vendor("nvidia", "NVIDIA (Nemotron, Kimi, etc.)", "openai_compat",
+                     "https://integrate.api.nvidia.com/v1",
+                     ("NVIDIA_API_KEY",)),
 }
 ALIASES = {"claude": "anthropic", "google": "gemini"}
 
