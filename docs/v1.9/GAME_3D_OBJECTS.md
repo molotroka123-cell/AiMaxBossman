@@ -30,6 +30,7 @@ Evidence: `C:\Users\asd\Bossman\evidence\rc19\h\objects-run1\`, `objects-run2\` 
 | triposr_chair (image→3D→voxel) | 465 | 10×17×9 | 1368/684 | PASS | – | – | – | prop |
 
 Checks = non-empty, within bounds, grounded, one connected part, `.vox` re-read voxel-for-voxel by py-vox-io, GLB re-read by pygltflib + trimesh (bounds = voxel bbox, area = exposed faces, winding correct).
+Determinism: rebuilding all 8 from the saved specs (`run_batch.py --reuse-specs`, no model) gave 24/24 byte-identical `.vox`/`.glb`/structure files.
 Vision forced choice: 6/8 (run 1: 6/7). Honest quality notes: the house is solid inside (a prop, not enterable); the crystal is a single pillar rather than a cluster; the pig's legs are barely visible.
 
 **Game sandbox** (`C:\Users\asd\Bossman\rc19-game-sandbox\bossblocks`, a copy; the original is untouched; custom user dir so the owner's save is never touched):
