@@ -37,7 +37,7 @@ ERROR_EXIT = {"disconnected": EXIT_DISCONNECTED, "auth": EXIT_DISCONNECTED,
 
 TERMINAL_COMMANDS = ("chat", "exec", "status", "events", "result", "resume", "approve", "deny",
                      "pause", "stop", "continue", "list", "keys", "code", "evolution", "repair",
-                     "run", "evolve", "start", "version", "approvals", "tasks", "market")
+                     "run", "evolve", "start", "version", "approvals", "tasks", "market", "collect")
 
 
 class UsageError(Exception):
@@ -300,6 +300,20 @@ def build_parser() -> argparse.ArgumentParser:
     mk.add_argument("--headed", action="store_true")
     mk.add_argument("--keep-frames", type=int, default=0)
 
+    ct = sub.add_parser("collect", help="rc19/i-collector (не в релизе): человекоподобный сбор "
+                                        "данных из одобренных владельцем страниц — "
+                                        "collect \"<тема>\" --sources <файл>")
+    ct.add_argument("topic")
+    ct.add_argument("--sources", required=True)
+    ct.add_argument("--max-pages", type=int, default=10)
+    ct.add_argument("--data-dir")
+    ct.add_argument("--min-delay", type=float, default=8.0)
+    ct.add_argument("--daily-cap", type=int, default=50)
+    ct.add_argument("--headed", action="store_true")
+    ct.add_argument("--attributes", default="")
+    ct.add_argument("--memory", action="store_true")
+    ct.add_argument("--json", action="store_true")
+
     sub.add_parser("version", help="версия клиента")
     return p
 
@@ -347,6 +361,28 @@ def cmd_market(args) -> int:
         if args.headed:
             argv.append("--headed")
     return collector_main(argv)
+
+
+def cmd_collect(args) -> int:
+    """rc19/i-collector: same dispatch shape as ``cmd_market`` above — a
+    standalone Bossman command (its own STOP file, its own audit ledger)
+    rather than an LLM-agent task, because nothing in the pipeline calls a
+    model. Not part of the release candidate; branch rc19/i-collector only."""
+    from bcc.collector.cli import main as collect_main
+
+    argv = [args.topic, "--sources", args.sources, "--max-pages", str(args.max_pages),
+           "--min-delay", str(args.min_delay), "--daily-cap", str(args.daily_cap)]
+    if args.data_dir:
+        argv += ["--data-dir", args.data_dir]
+    if args.headed:
+        argv.append("--headed")
+    if args.attributes:
+        argv += ["--attributes", args.attributes]
+    if args.memory:
+        argv.append("--memory")
+    if args.json:
+        argv.append("--json")
+    return collect_main(argv)
 
 
 # ----------------------------------------------------------------- exec / -p
