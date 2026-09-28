@@ -197,6 +197,11 @@ def validate(spec: Any) -> list[str]:
                 continue
             if not re.fullmatch(r"[A-Za-z0-9 ,.'!?:;\-]+", vo["text"]):
                 _err(errors, w, "voice-over must be plain English text (TTS reads it literally; spell numbers out)")
+            elif re.search(r"\d", vo["text"]):
+                # rc19 owner-PC run: "960 commits in the last 7 days." passed, was estimated at 1.6 s, spoke
+                # for 2.6 s and make_video stopped on a real overlap. Digits are spoken far longer than written.
+                _err(errors, w, "voice-over must be plain English with numbers spelled out in words "
+                                "(e.g. 'nine hundred sixty', not '960'): digits are read much longer than the timing estimate")
             est = VO_BASE_SECONDS + len(vo["text"]) / VO_CHARS_PER_SECOND
             if not (start <= vo["t"] < end):
                 _err(errors, w, f"t={vo['t']} must be inside the scene [{start}, {end})")

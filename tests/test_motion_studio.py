@@ -278,3 +278,13 @@ def test_errors_name_the_offending_value_and_say_when_a_scene_has_no_room_left()
     assert any("scenes[3].vo[1]" in e and "no room left before this scene ends at 12.0" in e for e in errors), errors
     early = copy.deepcopy(good); early["scenes"][1]["vo"][0]["t"] = 1.0
     assert any("must be inside the scene [2.5, 6.0)" in e for e in spec.validate(early))
+
+
+def test_voice_over_digits_are_rejected_because_they_break_the_timing_estimate():
+    # rc19 owner-PC run: a VALID spec with "960 commits in the last 7 days." (estimated 1.6 s, spoken 2.6 s)
+    # stopped make_video on a real voice-over overlap after the model and validator had accepted it.
+    good = _load("jeff_voice_12s.json")
+    digits = copy.deepcopy(good); digits["scenes"][0]["vo"][0]["text"] = "960 commits in the last 7 days."
+    assert any("numbers spelled out in words" in e for e in spec.validate(digits))
+    words = copy.deepcopy(good); words["scenes"][0]["vo"][0]["text"] = "Nine hundred sixty commits."
+    assert spec.validate(words) == []
