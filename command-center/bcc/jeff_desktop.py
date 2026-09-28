@@ -211,10 +211,19 @@ def run(argv: Sequence[str] | None = None, *, launcher=None, out=sys.stdout) -> 
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    # RC19 owner run: the «Bossman Jeff» desktop shortcut starts pythonw (no
+    # console). sys.stdout/sys.stderr are then None and the launcher exited 1
+    # before any window appeared — silently. Bind them to a log file in the
+    # data dir first, exactly as the Command Center window does.
+    if sys.stdout is None or sys.stderr is None:
+        from .desktop import bind_missing_std_streams
+        from .pit.config import default_data_dir
+        args, _ = build_parser().parse_known_args(list(argv) if argv is not None else None)
+        bind_missing_std_streams(Path(args.data_dir) if args.data_dir else default_data_dir())
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
-    return run(argv)
+    return run(argv, out=sys.stdout)
 
 
 if __name__ == "__main__":
