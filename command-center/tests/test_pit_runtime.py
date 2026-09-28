@@ -163,6 +163,14 @@ def test_voice_turn_learns_only_after_verified_delivery_and_stays_person_scoped(
     runtime.catalog = {FREE_ENDPOINT.id: FREE_ENDPOINT}
     runtime.catalog_checked_at = 1.0
     heard = []
+    synthesized = []
+    monkeypatch.setenv("BOSSMAN_PIT_TTS_BACKEND", "chatterbox")
+
+    def cloned(text, **kwargs):
+        synthesized.append((text, kwargs))
+        return b"OggS" + b"x" * 64
+
+    monkeypatch.setattr(rt, "synthesize_cloned_ogg", cloned)
 
     async def transcribe(_telegram, _voice, *, stopped):
         assert not stopped()
@@ -171,6 +179,7 @@ def test_voice_turn_learns_only_after_verified_delivery_and_stays_person_scoped(
     async def send_voice(person, source_text, _synthesize, **kwargs):
         heard.append((person.key, source_text, kwargs.get("reply_to_message_id")))
         assert runtime.store.history(owner.key) == []
+        assert (await _synthesize(source_text)).startswith(b"OggS")
         return receipt
 
     claims = iter([(305, message("", message_id=31,
@@ -187,6 +196,8 @@ def test_voice_turn_learns_only_after_verified_delivery_and_stays_person_scoped(
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(runtime._worker(owner, "chat"))
     assert heard and heard[0][0] == owner.key and heard[0][2] == 31
+    assert len(synthesized) == 1
+    assert synthesized[0][0] == heard[0][1]
     assert bool(runtime.store.history(owner.key)) is (receipt is not None)
     assert bool(list(runtime.vault.iter_candidate_records(owner_key))) is (receipt is not None)
     assert runtime.store.history(guest.key) == []
