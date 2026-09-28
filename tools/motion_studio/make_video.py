@@ -104,12 +104,20 @@ def main() -> None:
     ap.add_argument("--tts-models", type=Path, help="dir with kokoro-v1.0.onnx and voices-v1.0.bin")
     ap.add_argument("--no-voice", action="store_true")
     ap.add_argument("--chromium")
+    ap.add_argument("--style", choices=("classic", "epic"), default="classic",
+                    help="epic: offline neon trailer renderer; requires Pillow, no Chromium")
     ap.add_argument("--preview", nargs="*", type=float, default=[])
     args = ap.parse_args()
     spec = spec_mod.load(args.spec)
     hits = spec_mod.hits(spec)
     args.work.mkdir(parents=True, exist_ok=True)
+    if args.style == "epic":
+        import epic
+        epic.Renderer(spec)  # Reject unsupported scenes before voice/music generation.
     if args.preview:
+        if args.style == "epic":
+            epic.render(spec, args.work, None, previews=args.preview)
+            return
         render_frames(spec, hits, args.work, args.chromium, args.preview)
         print("preview frames:", args.work / "frames")
         return
@@ -119,6 +127,14 @@ def main() -> None:
             raise SystemExit("--tts-models is required (or pass --no-voice)")
         vo, report = synth_voice(spec, args.tts_models, args.work)
         print(f"voice: {len(report)} lines")
+    if args.style == "epic":
+        from scipy.io import wavfile
+        audio = score_mod.compose(spec, hits, vo)
+        wavfile.write(args.work / "soundtrack.wav", score_mod.SR,
+                      (np.clip(audio, -1, 1) * 32767).astype(np.int16))
+        out = epic.render(spec, args.work, args.work / "soundtrack.wav")
+        print("video:", out)
+        return
     import soundfile as sf
     sf.write(args.work / "soundtrack.wav", score_mod.compose(spec, hits, vo).astype(np.float32), score_mod.SR)
     render_frames(spec, hits, args.work, args.chromium, [])
