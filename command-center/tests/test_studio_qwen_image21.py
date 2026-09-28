@@ -32,7 +32,10 @@ def test_qwen_catalog_declares_local_unverified_generation_and_three_references(
     model = _model()
     assert model["provider"] == "sdcpp" and model["surface"] == "image"
     assert model["free"] is True and model["price"]["usd"] == 0
+    # Declarations stay disabled (availability comes from MANIFEST.json at runtime);
+    # the label must say non-commercial where the owner picks the model.
     assert model["enabled"] is False and model["answers"]["VERIFIED"] is False
+    assert "НЕкоммерческое" in model["label"]
     assert model["roles"] == {"reference": 3}
     assert "non-commercial" in model["license"]
 
