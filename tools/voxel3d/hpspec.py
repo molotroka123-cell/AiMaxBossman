@@ -16,9 +16,10 @@ Per part (all optional): color "#rrggbb", color_top (vertical gradient over the 
 (tint on up-facing surfaces), variation 0..0.3, cavities 0..0.5 (dark noise patches), material
 matte|gloss|glow, shading smooth|flat, detail high|low (high = dense and decimated to the budget,
 low = kept as built: crisp hard-surface pieces), surface {bumps (m), scale (m), ridged, grooves
-{axis x|y|z, every (m), depth (m)}}, mirror_x true (adds the mirrored copy), repeat {count, start_deg}
-(copies rotated around the vertical axis x=z=0), scatter {on: part name, count, min_up, seed}
-(copies placed on another part's surface, e.g. spots on a mushroom cap).
+{axis x|y|z, every (m), depth (m)}}, rotate [rx, ry, rz] degrees about the part's own center/base,
+mirror_x true (adds the mirrored copy), repeat {count, start_deg, axis [x,y,z] (default vertical),
+center [x,y,z] (default origin)} (evenly rotated copies: roots, spokes, sails), scatter {on: part
+name, count, min_up, seed} (copies placed on another part's surface, e.g. spots on a mushroom cap).
 """
 from __future__ import annotations
 
@@ -223,6 +224,28 @@ def _shape(p: dict, dense: int) -> trimesh.Trimesh:
                     twist=float(p.get("twist", 0.0)))
 
 
+def _anchor(p: dict) -> list[float]:
+    for k in ("center", "base", "from"):
+        if _vec(p.get(k)) is not None:
+            return _vec(p[k])
+    return [0.0, 0.0, 0.0]
+
+
+def _rotate(m: trimesh.Trimesh, p: dict) -> trimesh.Trimesh:
+    """rotate [rx, ry, rz] degrees (applied x, then y, then z) about the part's own anchor
+    (center / base / from): tilted roof planks, windmill sails, leaning posts."""
+    r = _vec(p.get("rotate"))
+    if not r or not any(r):
+        return m
+    R = trimesh.transformations.euler_matrix(*np.radians(r), axes="sxyz")
+    a = np.asarray(_anchor(p))
+    m = m.copy()
+    m.apply_translation(-a)
+    m.apply_transform(R)
+    m.apply_translation(a)
+    return m
+
+
 def _surface(m: trimesh.Trimesh, p: dict, seed: int) -> trimesh.Trimesh:
     sf = p.get("surface") or {}
     g = sf.get("grooves")
@@ -243,10 +266,12 @@ def _copies(m: trimesh.Trimesh, p: dict, placed: dict[str, trimesh.Trimesh]) -> 
     if isinstance(rep, dict):
         n = max(1, min(int(rep.get("count", 1)), 16))
         start = np.radians(float(rep.get("start_deg", 0.0)))
+        axis = _vec(rep.get("axis")) or [0.0, 1.0, 0.0]
+        pivot = _vec(rep.get("center")) or [0.0, 0.0, 0.0]
         outs = []
         for k in range(n):
             c = m.copy()
-            c.apply_transform(trimesh.transformations.rotation_matrix(start + 2 * np.pi * k / n, [0, 1, 0]))
+            c.apply_transform(trimesh.transformations.rotation_matrix(start + 2 * np.pi * k / n, axis, pivot))
             outs.append(c)
     if p.get("mirror_x"):
         mirrored = []
@@ -291,6 +316,7 @@ def to_model(spec: dict, dense: int = 1) -> mg.Model:
         hi = dense if p.get("detail", "high") != "low" else 0
         m = _shape(p, hi)
         m = _surface(m, p, seed=idx + 3)
+        m = _rotate(m, p)
         copies = _copies(m, p, placed)
         placed[p["name"]] = trimesh.util.concatenate(copies) if len(copies) > 1 else copies[0]
         for k, c in enumerate(copies):
@@ -324,6 +350,20 @@ def connectivity(model: mg.Model, gap: float = 0.04) -> list[str]:
     return [f"part {boxes[i][0]} floats: it does not touch any other part" for i in range(n) if i not in seen][:8]
 
 
+def duplicates(model: mg.Model, tol: float = 0.01) -> list[str]:
+    """Two parts (or two repeat/mirror copies) in exactly the same place make coincident shells:
+    invisible duplicates that also break the watertight check."""
+    boxes = [(p.name, np.asarray(p.mesh.bounds), len(p.mesh.faces)) for p in model.parts]
+    out: list[str] = []
+    for i in range(len(boxes)):
+        for j in range(i + 1, len(boxes)):
+            if np.abs(boxes[i][1] - boxes[j][1]).max() < tol:
+                out.append(f"parts {boxes[i][0]} and {boxes[j][0]} are in exactly the same place (a duplicate); "
+                           "remove one, or move it (use mirror_x for left/right pairs; repeat only for copies "
+                           "arranged around an axis that does NOT pass through the part itself)")
+    return out[:6]
+
+
 def build(spec: dict) -> tuple[bytes | None, dict, list[str]]:
     """spec -> (glb bytes, stats, errors). Raises density when the result is under the budget."""
     from . import hipoly
@@ -334,7 +374,7 @@ def build(spec: dict) -> tuple[bytes | None, dict, list[str]]:
     stats: dict = {}
     for dense in (1, 2, 3):
         model = to_model(spec, dense)
-        errs = connectivity(model)
+        errs = duplicates(model) + connectivity(model)
         if errs:
             return None, {}, errs
         glb, stats = hipoly.build_model(model)
