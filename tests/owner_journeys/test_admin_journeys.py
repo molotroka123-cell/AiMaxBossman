@@ -178,7 +178,7 @@ def test_booking_journey_owner_confirms(tmp_path, brand):
 def test_booking_journey_owner_rejects(tmp_path):
     j = aj.fv_booking_journey("beauty", approve=False)
     res, _ = _run(tmp_path, j, [
-        ("tool", "freshvibes_capture_lead", {"brand": "beauty", "name": "Test", "contact": "test.beauty@example.invalid",
+        ("tool", "freshvibes_capture_lead", {"brand": "beauty", "name": "Test", "contact": "test.beauty.reject@example.invalid",
                                              "interest": "facial treatment", "consent": True}),
         ("tool", "freshvibes_request_booking", {"brand": "beauty", "lead_id": "beauty-lead-001",
                                                 "service": "facial treatment", "slot": "2026-10-06T10:00:00"}),
@@ -209,3 +209,25 @@ def test_booking_resolves_lead_by_contact_but_not_across_brands(tmp_path):
     assert ok["ok"]
     assert dom.request_booking(j, "beauty", "a@example.invalid", "lash lift", "2026-10-06T10:00")["errors"] == [
         "unknown_lead"]
+
+
+def test_rejection_check_is_scoped_to_its_own_lead(tmp_path):
+    """An earlier approved booking of the same brand must not fail the rejection journey."""
+    confirm = aj.fv_booking_journey("beauty")
+    reject = aj.fv_booking_journey("beauty", approve=False)
+    adapter = ScriptAdapter([
+        ("tool", "freshvibes_capture_lead", {"brand": "beauty", "name": "T", "contact": "test.beauty@example.invalid",
+                                             "interest": "facial treatment", "consent": True}),
+        ("tool", "freshvibes_request_booking", {"brand": "beauty", "lead_id": "beauty-lead-001",
+                                                "service": "facial treatment", "slot": "2026-10-06T10:00:00"}),
+        ("tool", "freshvibes_queue_reminder_draft", {"booking_id": "beauty-bk-001"}),
+        ("text", "confirmed"),
+        ("tool", "freshvibes_capture_lead", {"brand": "beauty", "name": "T",
+                                             "contact": "test.beauty.reject@example.invalid",
+                                             "interest": "facial treatment", "consent": True}),
+        ("tool", "freshvibes_request_booking", {"brand": "beauty", "lead_id": "beauty-lead-002",
+                                                "service": "facial treatment", "slot": "2026-10-07T10:00:00"}),
+        ("text", "declined"),
+    ])
+    rep = asyncio.run(aj.run_journeys(tmp_path, [confirm, reject], adapter_factory=lambda m, p: adapter, timeout=60))
+    assert [j["status"] for j in rep["journeys"]] == ["PASS", "PASS"], rep["journeys"]
