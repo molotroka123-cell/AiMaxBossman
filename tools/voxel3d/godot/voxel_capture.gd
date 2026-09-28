@@ -19,31 +19,40 @@ func _run() -> void:
 		if file.ends_with(".json"):
 			names.append(file.get_basename())
 	names.sort()
-	# lay the props out in rows on and behind the world, left to right
-	var x := -8.0
-	var z := -4.0
-	var row_depth := 0.0
-	var tallest := 0.0
+	# two centred rows: the shorter half of the props in front, the taller half behind
+	var items := []
 	var stamped := ""
 	for name in names:
 		var data := VS.load_structure("res://structures/%s.json" % name)
 		var size: Array = data.get("size", [1, 1, 1])
+		items.append({"name": name, "w": float(size[0]), "h": float(size[1]), "d": float(size[2])})
 		if stamped == "" and bool(data.get("fits_world_at_origin", false)):
-			VS.stamp(game, data, Vector3i(5, 0, 5))
+			VS.stamp(game, data, Vector3i(0, 0, 4))
 			stamped = name
-		if x + float(size[0]) > 9.0:
-			x = -8.0
-			z -= row_depth + 2.0
-			row_depth = 0.0
-		VS.spawn_prop(game, "res://assets/voxel/%s.glb" % name, Vector3(x + size[0] / 2.0, -0.5, z - size[2] / 2.0))
-		x += float(size[0]) + 1.5
-		row_depth = maxf(row_depth, float(size[2]))
-		tallest = maxf(tallest, float(size[1]))
+	items.sort_custom(func(a, b): return a["h"] < b["h"])
+	var half := int(ceil(items.size() / 2.0))
+	var rows := [items.slice(0, half), items.slice(half)]
+	var z := -2.0
+	var tallest := 0.0
+	var widest := 0.0
+	for row in rows:
+		var width := 0.0
+		var depth := 0.0
+		for it in row:
+			width += it["w"] + 2.0
+			depth = maxf(depth, it["d"])
+			tallest = maxf(tallest, it["h"])
+		widest = maxf(widest, width)
+		var x := -width / 2.0 + 1.0
+		for it in row:
+			VS.spawn_prop(game, "res://assets/voxel/%s.glb" % it["name"], Vector3(x + it["w"] / 2.0, -0.5, z - depth / 2.0))
+			x += it["w"] + 2.0
+		z -= depth + 4.0
 	var cam := Camera3D.new()
 	root.add_child(cam)
-	cam.position = Vector3(0, tallest + 6.0, 16.0)
-	cam.look_at(Vector3(0, tallest * 0.35, z * 0.55))
-	cam.fov = 62.0
+	cam.position = Vector3(0, tallest * 0.9 + 6.0, 13.0 + widest * 0.45)
+	cam.look_at(Vector3(0, tallest * 0.3, z * 0.5))
+	cam.fov = 55.0
 	cam.current = true
 	game.hud.text = "BossBlocks + Bossman voxel3d props (%d) · stamped structure: %s" % [names.size(), stamped]
 	for i in range(20):
