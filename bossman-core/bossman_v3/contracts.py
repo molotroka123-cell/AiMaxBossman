@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -8,6 +9,24 @@ from typing import Any, Mapping, Protocol, Sequence
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def utcnow_after(instant: datetime, *, limit_s: float = 0.25) -> datetime:
+    """A wall-clock reading strictly after ``instant`` (an execution start).
+
+    The Windows wall clock advances in ticks (0.5-15.6 ms), so a fast action and
+    its observation can share one reading, and ActionReceipt.fresh() rightly
+    refuses "observed before/at execution start". An observer calls this BEFORE
+    it reads the post-state, so the observation genuinely happens later. Nothing
+    is back-dated or bumped: if the clock does not move within ``limit_s`` the
+    last reading is returned and freshness fails closed.
+    """
+    now = utcnow()
+    deadline = time.monotonic() + limit_s
+    while now <= instant and time.monotonic() < deadline:
+        time.sleep(0.001)
+        now = utcnow()
+    return now
 
 
 class SideEffectClass(str, Enum):
