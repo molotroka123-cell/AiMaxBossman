@@ -25,7 +25,7 @@ from pathlib import Path
 TERMINAL_COMMANDS = frozenset({
     "chat", "exec", "status", "events", "result", "resume", "approve", "deny", "pause", "stop",
     "continue", "list", "keys", "code", "evolution", "repair", "run", "evolve", "start",
-    "version", "approvals", "tasks", "market",
+    "version", "approvals", "tasks", "market", "collect",
 })
 TERMINAL_FLAGS = ("-p", "--print", "--version", "--url", "--data-dir", "--plain", "--agent",
                   "--cwd", "--verbose", "--output-format", "--model", "--max-seconds",
