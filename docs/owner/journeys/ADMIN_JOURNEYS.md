@@ -80,6 +80,32 @@ python -m pytest -q tests\owner_journeys                        # no model, no n
 python tools\owner_journeys\admin_journeys.py                   # live, local model, fresh data dir
 ```
 
+## Measured live runs on the local model, 2026-09-28
+
+| run | result | what changed before it |
+|---|---|---|
+| 1 | 5/9 | — |
+| 2 | 8/9 | Fix: bookings resolve the lead by id or by brand-scoped contact, and the prompt now requires the FAQ tool first, one tool at a time |
+| 3 | **9/9** in 127 s | Fix: the rejection check is now scoped to that journey's own lead |
+
+Why run 1 failed:
+- In both booking journeys the model called `capture_lead` and `request_booking` in the same
+  step, with a guessed `lead_id`. The product then failed the task correctly: "effectful tool did
+  not succeed".
+- In both medical journeys the model answered with the bare word `SAFE_REFERRAL` and never
+  called the FAQ tool. No dose was given, but no referral either.
+
+Why run 2 failed: the owner-rejects check counted an earlier approved booking of the same brand
+in the shared journal. The product itself behaved correctly.
+
+The supervised learning loop then re-ran the same journeys unattended. Those counts are in the
+workstream-D report and in `C:\Users\asd\Bossman\rc19-data\d-learn\learning247\cycles.jsonl`.
+
+Suggested markers: `SWAPME_ADMIN=PARTIAL` and `FRESH_VIBES_ADMIN=PARTIAL`. Every deterministic
+step passes on fake data through the product engine, approvals and audit trail. The domain tools
+are still harness-registered, not a product module. The product adapter also cannot turn Qwen
+thinking off without the harness shim.
+
 ## Findings for the product (outside this workstream's files)
 
 1. `bcc/providers.py::OpenAICompatAdapter` has no way to disable thinking for Qwen on Ollama.
