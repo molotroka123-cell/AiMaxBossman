@@ -111,6 +111,9 @@ def test_ladder_serves_locally_when_local_works(tmp_path, monkeypatch):
 
 
 def test_owner_rejection_journey_counts_as_served_not_as_a_tier_failure(tmp_path, monkeypatch):
+    # admin_journeys imports the bcc harness (SQLAlchemy); root-ci has no Command Center stack,
+    # so this one runs in command-center-ci -> core-runtime.
+    pytest.importorskip("sqlalchemy", reason="bcc harness: runs in command-center-ci core-runtime")
     from tools.owner_journeys import admin_journeys as aj
 
     async def fake_run_journeys(work, journeys, **kw):

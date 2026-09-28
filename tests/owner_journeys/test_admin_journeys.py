@@ -12,9 +12,16 @@ from decimal import Decimal
 
 import pytest
 
-from bcc.providers import ChatResult, Health, ToolCall
-from tools.owner_journeys import admin_domain as dom
-from tools.owner_journeys import admin_journeys as aj
+# The bcc task path needs the Command Center stack (FastAPI, SQLAlchemy, aiosqlite).
+# root-ci installs none of it on purpose (see root-ci.yml), so the suite runs in
+# command-center-ci -> core-runtime, where everything is installed.
+pytest.importorskip("fastapi", reason="bcc task path: runs in command-center-ci core-runtime")
+pytest.importorskip("sqlalchemy", reason="bcc task path: runs in command-center-ci core-runtime")
+pytest.importorskip("aiosqlite", reason="bcc task path: runs in command-center-ci core-runtime")
+
+from tools.owner_journeys import admin_domain as dom  # noqa: E402  (bcc_harness puts command-center on sys.path)
+from tools.owner_journeys import admin_journeys as aj  # noqa: E402
+from bcc.providers import ChatResult, Health, ToolCall  # noqa: E402
 
 
 class ScriptAdapter:
