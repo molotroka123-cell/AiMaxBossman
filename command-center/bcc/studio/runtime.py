@@ -150,8 +150,12 @@ async def validate_plane(svc,payload):
 async def create_job(svc,payload):
     model,plane=await validate_plane(svc,payload)
     # All side effects go through this queue; unknown/disabled providers fail before dispatch.
+    # The job row is what the owner sees in Studio; it used to keep the table
+    # defaults (e.g. 30 steps) while the engine ran the requested 40.
+    shown={k:v for k,v in plane['settings'].items()
+           if k in ('width','height','steps','seed') and isinstance(v,int) and not isinstance(v,bool)}
     async with svc.db.session() as s:
-        result=await s.execute(sa.insert(image_jobs).values(prompt=plane['prompt'],model_alias=model['id'],count=plane['count'],collection_id=plane['collection_id'],options={'studio':True},status='queued',created_at=utcnow(),updated_at=utcnow()))
+        result=await s.execute(sa.insert(image_jobs).values(prompt=plane['prompt'],model_alias=model['id'],count=plane['count'],collection_id=plane['collection_id'],options={'studio':True},status='queued',created_at=utcnow(),updated_at=utcnow(),**shown))
         jid=int(result.inserted_primary_key[0])
         await s.execute(sa.insert(jobs).values(job_id=jid,plane=plane,surface=model['surface'],cost_usd='NOT_CAPTURED:not_dispatched'))
         await s.commit()
