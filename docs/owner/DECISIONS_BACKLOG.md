@@ -53,3 +53,15 @@ owner, not code.
     (see `docs/owner/RC19_RELEASE_PROCEDURE.md`); the current 20 items/metric cannot
     pass even when perfect. Decision: grow the corpus (cost: authoring + many hours of
     local model time) or change the gate definition (owner decision, never silently).
+
+## UX soak findings (workstream F)
+
+18. **Apps page polls whatever answers on an app's port.** The soak ran Bossman on :8870,
+    the ai-webcam-vision default port; the Apps page polled `/readyz` and `/api/v1/metrics`
+    on Bossman itself (~740 × 404 in the testing-period journal). Benefit: a clear
+    "port conflict: this port is Bossman, not the app" state instead of silent 404 noise.
+    Cost: S (identity check before health polling). Risk: low. Test: app port answered by a
+    Command Center identity → Apps card shows the conflict and polling stops.
+19. **ASTRA UI sweep starts a live `bcc.market.collector` (twitch k1m6a)** by clicking
+    «▶ Запустить 1.5»; the child outlives the sweep and locks its temp dir (WinError 32).
+    Cost: S. Test: sweep finishes with no collector processes left.
