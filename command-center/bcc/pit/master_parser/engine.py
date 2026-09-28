@@ -585,7 +585,8 @@ class MasterParser:
     async def run(self) -> dict:
         started = time.perf_counter()
         report: dict[str, Any] = {"schema": SCHEMA, "run_id": self.run_id, "started_at": _now(),
-                                  "dry_run": self.options.dry_run, "model": self.options.model,
+                                  "dry_run": self.options.dry_run, "use_llm": self.options.use_llm,
+                                  "model": self.options.model if self.options.use_llm else None,
                                   "participant_filter": self.options.participant or None,
                                   "since": _iso(self.options.since) if self.options.since else None}
         corpus = self._open_corpus()

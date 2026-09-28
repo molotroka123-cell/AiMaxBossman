@@ -109,7 +109,8 @@ function resultPanels(r) {
     stat('Фактов добавлено', t.facts_added ?? 0),
     stat('Конфликтов на проверку', t.conflicts ?? 0));
   const meta = h('div.small.dim',
-    `${r.dry_run ? 'Пробный прогон — ничего не записано. ' : ''}Запуск ${r.run_id} · `
+    `${r.dry_run ? 'Пробный прогон — ничего не записано. ' : ''}`
+    + `${r.use_llm === false ? 'Без модели (только правила Jeff). ' : ''}Запуск ${r.run_id} · `
     + `проанализировано ${t.messages_analyzed ?? 0} сообщений за ${r.analysis_seconds ?? 0} с `
     + `(${t.messages_per_second ?? 0} сообщ/с) · уже было в паспортах: ${t.facts_known ?? 0}`
     + ` · не возвращено по воле участника: ${t.blocked_by_participant ?? 0}`);

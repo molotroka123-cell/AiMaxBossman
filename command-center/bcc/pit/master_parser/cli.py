@@ -65,6 +65,7 @@ def summary_ru(report: dict) -> str:
     t = report.get("totals", {})
     lines = [
         ("Пробный прогон (ничего не записано)" if report.get("dry_run") else "Master Parser готов")
+        + (" · без модели" if report.get("use_llm") is False else "")
         + f" · запуск {report.get('run_id')}",
         f"Участников: {t.get('participants', 0)} · новых сообщений собрано: {t.get('collected_new', 0)}"
         f" · всего в корпусе: {report.get('corpus_messages', 0)}",
