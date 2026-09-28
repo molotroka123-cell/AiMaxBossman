@@ -9,7 +9,8 @@ from tools.owner_journeys import learning_supervisor as sup
 
 
 def _cfg(tmp_path, **kw):
-    base = dict(state_dir=tmp_path, kinds=("fake",), poll_s=0.05, idle_between_cycles_s=0.0, min_free_gb=0.0)
+    base = dict(state_dir=tmp_path, kinds=("fake",), poll_s=0.05, idle_between_cycles_s=0.0, min_free_gb=0.0,
+                check_busy=False, report="off", approvals=None)
     base.update(kw)
     return sup.Config(**base)
 

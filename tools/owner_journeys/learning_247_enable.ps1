@@ -40,11 +40,9 @@ if ($Uninstall) {
 if ($Check) { if (Test-Ready) { exit 0 } else { exit 1 } }
 if ($Install) {
     if (-not (Test-Ready)) { Write-Error "readiness gate is NOT_READY; refusing to install"; exit 1 }
-    $argLine = "-c `"import os,sys;os.environ['PYTHONPATH']=r'$Repo\command-center;$Repo\bossman-core;$Repo';" +
-            "sys.path[:0]=os.environ['PYTHONPATH'].split(';');import runpy;sys.argv=['learning_supervisor'," +
-            "'--state-dir',r'$StateDir','--owner-data-root',r'$OwnerDataRoot'];" +
-            "runpy.run_path(r'$Repo\tools\owner_journeys\learning_supervisor.py',run_name='__main__')`""
-    $action = New-ScheduledTaskAction -Execute $Python -Argument $argLine -WorkingDirectory $Repo
+    $argLine = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$Repo\tools\owner_journeys\start_learning_247.ps1`" " +
+            "-Foreground -StateDir `"$StateDir`" -OwnerDataRoot `"$OwnerDataRoot`" -Python `"$Python`""
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $argLine -WorkingDirectory $Repo
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
     $settings = New-ScheduledTaskSettingsSet -Priority 7 -MultipleInstances IgnoreNew `
         -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 5) -ExecutionTimeLimit ([TimeSpan]::Zero) `

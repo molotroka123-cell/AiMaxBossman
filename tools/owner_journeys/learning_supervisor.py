@@ -9,10 +9,13 @@ promoted, no permission is changed, nothing is sent or published, no Computer
 Use tool is granted.
 
 Guards checked before every cycle and while waiting:
-* STOP  : ``<state>/STOP`` or the owner's durable Computer-Use STOP file
-          (``<owner-data-root>/computer/STOP``) -> finish/abort and exit;
+* STOP  : ``<state>/STOP`` -> abort the running cycle and exit;
+* owner STOP: the owner's durable Computer-Use STOP file (``<owner-data-root>/computer/STOP``,
+          written by /stop or /pause in the пульт and by «СТОП» in Bossman) -> abort the running
+          cycle and hold (no model calls) until the owner presses «Продолжить»;
 * PAUSE : ``C:\\Users\\asd\\Bossman\\rc19-owner-test.PAUSE`` or ``<state>/PAUSE`` -> wait;
-* owner busy: another (non-allowed) model is resident in Ollama -> wait;
+* owner busy: another (non-allowed) model is resident in Ollama, Ollama is unreachable, or an
+          owner GPU job (``sd-cli.exe`` Studio render) runs -> only model-free cycles run;
 * memory headroom below ``--min-free-gb`` -> wait;
 * daily budget (cycles, model calls, wall seconds; cloud $0) -> sleep to next day.
 State is restart-safe: an exclusive PID lock, atomic ``state.json``, fsync'd
@@ -43,6 +46,8 @@ if str(ROOT) not in sys.path:
 from tools.owner_journeys import route_ladder as rl  # noqa: E402
 from tools.owner_journeys.runtime_guard import PAUSE_FILE, lower_priority  # noqa: E402
 
+AB_ASK = None   # tests inject a fake ask(variant, system, text); default = local Ollama
+
 OLLAMA = "http://127.0.0.1:11434"
 DEFAULT_MODEL = "bossman-fast-qwen36-35b-a3b-q5:latest"
 ALLOWED_RESIDENT = {DEFAULT_MODEL, "bossman-fast-qwen36-vision:latest", "bossman-main-qwen38-27b-q5:latest"}
@@ -68,6 +73,11 @@ class Config:
     idle_between_cycles_s: float = 10.0
     k1m6a_root: Path = Path(r"C:\Users\asd\Bossman\evidence\rc19\d\yt\raw")
     force_tier: str = ""          # tests only: restrict the ladder to one tier
+    report: str = "off"           # library/test default; the CLI (autostart) passes "telegram" (пульт)
+    approvals: Any = None         # Bossman approval backend for lessons; the CLI passes "auto" (local core)
+    check_busy: bool = True
+    owner_stop_baseline: float = 0.0   # set at start: owner STOPs older than the first run are ignored
+    busy_processes: tuple[str, ...] = ("sd-cli.exe",)
 
     def validate(self) -> None:
         host = self.base_url.split("//", 1)[-1].split("/", 1)[0].split(":")[0]
@@ -181,15 +191,32 @@ class Store:
 def stop_requested(cfg: Config) -> Optional[str]:
     if (cfg.state_dir / "STOP").is_file():
         return "state_stop_file"
-    if cfg.owner_data_root and (cfg.owner_data_root / "computer" / "STOP").is_file():
-        return "owner_computer_stop"
     return None
 
 
-def pause_reason(cfg: Config) -> Optional[str]:
-    for p in [PAUSE_FILE, cfg.state_dir / "PAUSE", *cfg.pause_files]:
-        if p.is_file():
-            return f"pause_file:{p.name}"
+def _owner_stop_file(cfg: Config) -> Optional[Path]:
+    return (cfg.owner_data_root / "computer" / "STOP") if cfg.owner_data_root else None
+
+
+def owner_halt(cfg: Config) -> Optional[str]:
+    """An owner STOP pressed after this state dir was first used halts learning until «Продолжить».
+
+    The Computer-Use STOP file can persist for days (CU deliberately off); a STOP that already
+    existed before the learning loop was first started is not a new owner decision about learning.
+    Every new STOP rewrites the file (new mtime), so it is honored, also across restarts."""
+    path = _owner_stop_file(cfg)
+    try:
+        if path is not None and path.stat().st_mtime >= cfg.owner_stop_baseline:
+            return "owner_computer_stop"
+    except OSError:
+        pass
+    return None
+
+
+def busy_reason(cfg: Config) -> Optional[str]:
+    """Soft guard: the owner uses the GPU/model -> no LLM cycles (model-free cycles continue)."""
+    if not cfg.check_busy:
+        return None
     try:
         with urllib.request.urlopen(f"{OLLAMA}/api/ps", timeout=5) as resp:  # noqa: S310
             resident = [m.get("name") for m in json.loads(resp.read().decode()).get("models", [])]
@@ -198,6 +225,23 @@ def pause_reason(cfg: Config) -> Optional[str]:
             return f"owner_model_resident:{','.join(foreign)}"
     except OSError:
         return "ollama_unreachable"
+    if cfg.busy_processes:
+        try:
+            import psutil
+            want = {p.lower() for p in cfg.busy_processes}
+            for proc in psutil.process_iter(["name"]):
+                if (proc.info.get("name") or "").lower() in want:
+                    return f"owner_gpu_job:{proc.info['name']}"
+        except ImportError:  # pragma: no cover
+            pass
+    return None
+
+
+def pause_reason(cfg: Config) -> Optional[str]:
+    """Hard guard: PAUSE files and memory headroom -> no cycles at all."""
+    for p in [PAUSE_FILE, cfg.state_dir / "PAUSE", *cfg.pause_files]:
+        if p.is_file():
+            return f"pause_file:{p.name}"
     try:
         import psutil
         free_gb = psutil.virtual_memory().available / 2**30
@@ -272,9 +316,19 @@ async def cycle_triage(cfg: Config, work: Path, index: int, route: "rl.Route", l
     from tools.owner_journeys import triage_dataset as ds
     from tools.owner_journeys.bcc_harness import BccHarness
 
+    from tools.owner_journeys import lesson_pipeline as lp
+
+    active = lp.Registry(cfg.state_dir).active()        # owner-approved lessons only
+    taught = {lp._norm(a["text"]) for a in active}
+    for step in range(len(ds.HELD_OUT)):                # never score an item whose answer is in the prompt
+        if lp._norm(ds.HELD_OUT[(index + step) % len(ds.HELD_OUT)]["text"]) not in taught:
+            index += step
+            break
     item = ds.HELD_OUT[index % len(ds.HELD_OUT)]
+    system = lab.system_prompt("candidate", active) if active else lab.system_prompt("baseline", [])
     async with BccHarness(work / "bcc", adapter_factory=_route_factory(route)) as h:
-        agent = await h.agent(name="triage-baseline", system_prompt=lab.system_prompt("baseline", []), tools=[],
+        agent = await h.agent(name="triage-lessons" if active else "triage-baseline", system_prompt=system,
+                              tools=[],
                               model_name=route.model, base_url=route.base_url, max_steps=2,
                               api_key=route.api_key or "local-no-key", **_route_prices(route))
         out = await h.run_task(agent_id=agent["id"], title="learning247-triage",
@@ -284,7 +338,7 @@ async def cycle_triage(cfg: Config, work: Path, index: int, route: "rl.Route", l
     sc = ds.score(item, got)
     return {"task": {"item": index % len(ds.HELD_OUT), "text": item["text"]}, "task_status": out.status,
             "verifier": {"pass": sc["exact"], "safety_ok": sc["safety_ok"], "fields": sc["fields"]},
-            "expected": {k: item[k] for k in ds.FIELDS}, "got": got,
+            "expected": {k: item[k] for k in ds.FIELDS}, "got": got, "lessons_active": len(active),
             "violations": _policy_violations(out.tool_calls, []), "seconds": out.seconds}
 
 
@@ -335,6 +389,32 @@ async def cycle_k1m6a(cfg: Config, work: Path, index: int, route: "rl.Route" = N
     return {"task": {"k1m6a": run.name, "claims": len(rows)}, "task_status": "completed",
             "verifier": {"pass": mismatch == 0, "safety_ok": True, "mismatches": mismatch},
             "violations": [], "seconds": round(time.time() - t, 2)}
+
+
+async def run_lesson_ab(cfg: Config, hooks: Any, lesson: dict[str, Any], ladder: "rl.LadderConfig"
+                        ) -> dict[str, Any]:
+    """Offline A/B of ONE quarantined lesson on held-out items: local model only, $0, no promotion."""
+    from tools.owner_journeys import lesson_pipeline as lp
+
+    model = ladder.local_models[0] if ladder.local_models else cfg.model
+    ask = AB_ASK or lp.ollama_ask(model)
+    ab_cfg = hooks.goal["ab"]
+    t = time.time()
+    ab = await lp.run_ab(lesson, hooks.registry.active(), ask, repeats=int(ab_cfg["repeats"]),
+                         min_gain_items=int(ab_cfg["min_gain_items"]))
+    calls = sum(2 * r["n"] for r in ab["repeats"])
+    CallCounter.calls += calls
+    errors = sum(r["errors"] for r in ab["repeats"])
+    if errors > calls // 4:
+        verdict = "INCOMPLETE"          # model unavailable: the lesson stays quarantined for a later A/B
+    else:
+        verdict = hooks.ab_finished(lesson["id"], ab)
+    return {"task": {"lesson": lesson["id"]}, "task_status": "completed",
+            "verifier": {"pass": True, "safety_ok": True, "ab_verdict": verdict,
+                         "deltas": [r["delta"] for r in ab["repeats"]], "n": ab["n"], "errors": errors},
+            "violations": [], "seconds": round(time.time() - t, 2),
+            "route": {"tier": "local", "model": model, "usd": 0.0,
+                      "tried": [{"tier": "local", "model": model, "status": "completed", "usd": 0.0}]}}
 
 
 RUNNERS = {"triage": cycle_triage, "journey": cycle_journey, "k1m6a_verify": cycle_k1m6a}
@@ -389,20 +469,39 @@ async def run_ladder(cfg: Config, kind: str, work: Path, index: int, cycle_id: i
 
 # ------------------------------------------------------------------ main loop
 
-async def _wait_while_paused(cfg: Config, store: Store) -> Optional[str]:
-    reason = pause_reason(cfg)
+async def _hooks_tick(hooks: Any, force: Optional[str] = None) -> None:
+    if hooks is not None:
+        await asyncio.to_thread(hooks.tick, force)
+
+
+async def _wait_while_paused(cfg: Config, store: Store, hooks: Any = None) -> Optional[str]:
+    halt = owner_halt(cfg)
+    reason = halt or pause_reason(cfg)
     if reason:
         st = store.state()
-        st["mode"], st["pause_reason"] = "PAUSED", reason
+        st["mode"], st["pause_reason"] = ("HALTED_BY_OWNER" if halt else "PAUSED"), reason
         store.save(st)
-        store.event("paused", reason=reason)
+        store.event("owner_halt" if halt else "paused", reason=reason)
+        await _hooks_tick(hooks, "owner_stop" if halt else None)
+    was_halt = bool(halt)
     while reason:
         if stop_requested(cfg):
             return "stop"
         await asyncio.sleep(cfg.poll_s)
-        reason = pause_reason(cfg)
+        await _hooks_tick(hooks)
+        halt = owner_halt(cfg)
+        reason = halt or pause_reason(cfg)
         if not reason:
-            store.event("resumed")
+            store.event("owner_resumed" if was_halt else "resumed")
+    return None
+
+
+def _choose_kind(cfg: Config, next_cycle_id: int, busy: Optional[str]) -> Optional[str]:
+    n = len(cfg.kinds)
+    for step in range(n):
+        kind = cfg.kinds[(next_cycle_id - 1 + step) % n]
+        if not busy or not NEEDS_LLM.get(kind, True):
+            return kind
     return None
 
 
@@ -415,12 +514,23 @@ async def run(cfg: Config, *, max_hours: float = 0.0, max_cycles: int = 0) -> di
     lock = Lock(cfg.state_dir / "supervisor.lock")
     lock.acquire()
     started = time.time()
+    hooks = None
+    try:
+        from tools.owner_journeys.goal_reporter import LoopHooks
+        hooks = LoopHooks(cfg.state_dir, transport=cfg.report, approvals=cfg.approvals, event=store.event)
+    except Exception as exc:  # noqa: BLE001 - learning continues without reports
+        store.event("hooks_error", error=f"{type(exc).__name__}: {str(exc)[:200]}")
     try:
         st = store.recover()
+        if "owner_stop_baseline" not in st:
+            path = _owner_stop_file(cfg)
+            st["owner_stop_baseline"] = (path.stat().st_mtime + 0.001) if path and path.is_file() else 0.0
+        cfg.owner_stop_baseline = float(st["owner_stop_baseline"])
         st.update({"pid": os.getpid(), "mode": "RUNNING", "session_started": started, "model": cfg.model,
                    "priority": lower_priority(), "stop_reason": None})
         store.save(st)
-        store.event("session_start", pid=os.getpid(), model=cfg.model)
+        store.event("session_start", pid=os.getpid(), model=cfg.model, report=cfg.report)
+        await _hooks_tick(hooks)
         done_this_session = 0
         while True:
             why = stop_requested(cfg)
@@ -429,14 +539,20 @@ async def run(cfg: Config, *, max_hours: float = 0.0, max_cycles: int = 0) -> di
                 st.update({"mode": "STOPPED", "stop_reason": why})
                 store.save(st)
                 store.event("stopped", reason=why)
+                await _hooks_tick(hooks, "stop")
                 break
             if max_hours and time.time() - started >= max_hours * 3600:
                 break
             if max_cycles and done_this_session >= max_cycles:
                 break
-            if await _wait_while_paused(cfg, store) == "stop":
+            if await _wait_while_paused(cfg, store, hooks) == "stop":
                 continue
             st = store.state()
+            busy = await asyncio.to_thread(busy_reason, cfg)
+            if busy != st.get("busy_reason"):
+                store.event("owner_busy" if busy else "owner_free", reason=busy or st.get("busy_reason"))
+                st["busy_reason"] = busy
+                store.save(st)
             budget = st.setdefault("budget", {})
             day = budget.setdefault(_today(), {"cycles": 0, "model_calls": 0, "wall_s": 0.0, "cloud_usd": 0.0})
             if (day["cycles"] >= cfg.max_cycles_day or day["model_calls"] >= cfg.max_model_calls_day
@@ -446,21 +562,33 @@ async def run(cfg: Config, *, max_hours: float = 0.0, max_cycles: int = 0) -> di
                 store.event("budget_exhausted", day=_today(), **day)
                 await asyncio.sleep(cfg.poll_s)
                 continue
-            kind = cfg.kinds[(st["next_cycle_id"] - 1) % len(cfg.kinds)]
+            lesson = hooks.ab_due(st["next_cycle_id"]) if (hooks is not None and not busy) else None
+            kind = "lesson_ab" if lesson else _choose_kind(cfg, st["next_cycle_id"], busy)
+            if kind is None:                     # owner busy and every kind needs the model
+                if st.get("mode") != "BUSY":
+                    st["mode"] = "BUSY"
+                    store.save(st)
+                await asyncio.sleep(cfg.poll_s)
+                await _hooks_tick(hooks)
+                continue
             index = st["cursor"].get(kind, 0)
             cycle_id = st["next_cycle_id"]
             work = cfg.state_dir / "cycles" / f"{cycle_id:06d}-{kind}"
             st["in_progress"] = {"cycle_id": cycle_id, "kind": kind, "index": index, "started": time.time()}
-            st["mode"] = "RUNNING"
+            st["mode"] = "BUSY" if busy else "RUNNING"
             store.save(st)
             calls_before = CallCounter.calls
             t0 = time.time()
             status, result, error = "COMPLETED", {}, None
-            task = asyncio.create_task(run_ladder(cfg, kind, work, index, cycle_id, ladder, cap))
+            if lesson:
+                hooks.ab_started(cycle_id)
+                task = asyncio.create_task(run_lesson_ab(cfg, hooks, lesson, ladder))
+            else:
+                task = asyncio.create_task(run_ladder(cfg, kind, work, index, cycle_id, ladder, cap))
             try:
                 while not task.done():
                     await asyncio.wait({task}, timeout=cfg.poll_s)
-                    if stop_requested(cfg) and not task.done():
+                    if (stop_requested(cfg) or owner_halt(cfg)) and not task.done():
                         task.cancel()
                         await asyncio.gather(task, return_exceptions=True)
                         status = "ABORTED_BY_STOP"
@@ -497,13 +625,14 @@ async def run(cfg: Config, *, max_hours: float = 0.0, max_cycles: int = 0) -> di
             day["wall_s"] = round(day["wall_s"] + wall, 1)
             st["in_progress"] = None
             st["next_cycle_id"] = cycle_id + 1
-            if status == "COMPLETED":
+            if status == "COMPLETED" and kind != "lesson_ab":
                 st["cursor"][kind] = index + 1
             st["last_cycle"] = {"cycle_id": cycle_id, "status": status, "pass": result.get("verifier", {}).get("pass")}
             store.save(st)
             done_this_session += 1
             print(json.dumps({"cycle": cycle_id, "kind": kind, "status": status,
                               "pass": result.get("verifier", {}).get("pass"), "s": wall, "calls": calls}), flush=True)
+            await _hooks_tick(hooks)
             if status == "ABORTED_BY_STOP":
                 continue
             await asyncio.sleep(cfg.idle_between_cycles_s)
@@ -532,12 +661,17 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--idle-s", type=float, default=10.0)
     ap.add_argument("--poll-s", type=float, default=5.0)
     ap.add_argument("--force-tier", default="", choices=("", "local", "free_cloud", "max_cloud"))
+    ap.add_argument("--report", default="telegram", choices=("telegram", "off"),
+                    help="goal reports to the owner's пульт (companion bot); off = send nothing")
+    ap.add_argument("--no-busy-check", action="store_true", help="tests only: ignore the owner-busy guard")
     args = ap.parse_args(argv)
     cfg = Config(state_dir=Path(args.state_dir), model=args.model,
                  owner_data_root=Path(args.owner_data_root) if args.owner_data_root else None,
                  kinds=tuple(k for k in args.kinds.split(",") if k in RUNNERS), min_free_gb=args.min_free_gb,
                  max_cycles_day=args.max_cycles_day, max_model_calls_day=args.max_model_calls_day,
-                 idle_between_cycles_s=args.idle_s, poll_s=args.poll_s, force_tier=args.force_tier)
+                 idle_between_cycles_s=args.idle_s, poll_s=args.poll_s, force_tier=args.force_tier,
+                 report=args.report, check_busy=not args.no_busy_check,
+                 approvals="auto" if args.report == "telegram" else None)
     st = asyncio.run(run(cfg, max_hours=args.max_hours, max_cycles=args.max_cycles))
     print(json.dumps({"mode": st.get("mode"), "next_cycle_id": st.get("next_cycle_id")}))
     return 0

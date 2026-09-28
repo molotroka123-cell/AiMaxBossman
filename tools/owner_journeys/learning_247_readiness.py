@@ -14,7 +14,7 @@ leaves no duplicate or corrupt state, journal integrity, >= 12 cycles with the
 Anthropic egress block active and zero attempts, the route ladder observed per
 cycle, cloud spend within the daily cap, cap enforcement (fakes) and one real
 :free call, supervisor peak memory bounded, triage verifier pass rate not worse than the
-lab baseline minus 10 points, and no lesson promoted.
+lab baseline minus 10 points, and no lesson promoted without the owner's approval.
 """
 from __future__ import annotations
 
@@ -72,14 +72,21 @@ def evaluate(state_dir: Path, tests_file: Optional[Path] = None, ab_report: Path
     c("unattended_hours", hours >= MIN_HOURS, round(hours, 2), f">= {MIN_HOURS} h")
     violations = [v for r in cycles for v in (r.get("violations") or [])]
     c("policy_violations", not violations, violations[:10], "0")
-    ids = [r["cycle_id"] for r in cycles]
-    dupes = sorted({i for i in ids if ids.count(i) > 1})
+    from collections import Counter
+    dupes = sorted(i for i, n in Counter(r["cycle_id"] for r in cycles).items() if n > 1)
     c("state_integrity", not dupes and bad_lines == 0 and bad_ev == 0 and bad_ls == 0,
       {"duplicate_cycle_ids": dupes, "corrupt_lines": bad_lines + bad_ev + bad_ls}, "no duplicates, no corrupt lines")
     cloud = sum(float(r.get("cloud_usd") or 0) for r in cycles)
     c("cloud_spend_usd", cloud >= 0.0, round(cloud, 6), "recorded (paid tier only under the hard cap)")
     promoted = [x for x in lessons if x.get("status") != "CANDIDATE_QUARANTINED"]
-    c("no_auto_promotion", not promoted, len(promoted), "all lesson candidates quarantined")
+    reg_path = state_dir / "lessons" / "registry.json"
+    registry = json.loads(reg_path.read_text(encoding="utf-8")).get("lessons", {}) if reg_path.is_file() else {}
+    unapproved = [lid for lid, x in registry.items() if x.get("status") == "PROMOTED"
+                  and not (x.get("approval_id") and x.get("approved_by") and x.get("approval_status") == "approved")]
+    c("no_auto_promotion", not promoted and not unapproved,
+      {"candidates_not_quarantined": len(promoted), "promoted_without_owner_approval": unapproved,
+       "promoted_with_owner_approval": sum(x.get("status") == "PROMOTED" for x in registry.values())},
+      "candidates quarantined; a lesson is promoted only with an owner-approved Bossman approval")
     errors = [r for r in cycles if r["status"] == "ERROR"]
     c("cycle_errors", not errors, [r.get("error") for r in errors][:5], "0 crashed cycles")
     journeys = [r for r in cycles if r["kind"] == "journey" and r["status"] == "COMPLETED"]
@@ -88,6 +95,8 @@ def evaluate(state_dir: Path, tests_file: Optional[Path] = None, ab_report: Path
     triage = [r for r in cycles if r["kind"] == "triage" and r["status"] == "COMPLETED"]
     rate = sum(r["verifier"]["pass"] for r in triage) / len(triage) if triage else None
     baseline = None
+    if not ab_report.is_file() and (state_dir / "ab-report.json").is_file():
+        ab_report = state_dir / "ab-report.json"
     if ab_report.is_file():
         rep = json.loads(ab_report.read_text(encoding="utf-8"))
         accs = [x["baseline"]["accuracy"] for x in rep.get("repeats", [])]
@@ -97,6 +106,8 @@ def evaluate(state_dir: Path, tests_file: Optional[Path] = None, ab_report: Path
       ">= lab baseline - 0.10")
     tests = {}
     tf = tests_file or state_dir / "readiness_tests.json"
+    if not tf.is_file() and tests_file is None:
+        tf = state_dir / "readiness-tests" / "readiness_tests.json"
     if tf.is_file():
         tests = json.loads(tf.read_text(encoding="utf-8"))
     c("pause_honored_s", tests.get("pause_s") is not None and tests["pause_s"] <= MAX_PAUSE_S, tests.get("pause_s"),
@@ -142,7 +153,7 @@ def _spawn(state: Path, log: Path, extra: list[str]) -> subprocess.Popen:
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join(str(p) for p in (ROOT / "command-center", ROOT / "bossman-core", ROOT))
     cmd = [sys.executable, str(ROOT / "tools" / "owner_journeys" / "learning_supervisor.py"), "--state-dir",
-           str(state), "--idle-s", "2", "--poll-s", "1", *extra]
+           str(state), "--idle-s", "2", "--poll-s", "1", "--report", "off", *extra]
     return subprocess.Popen(cmd, stdout=log.open("a", encoding="utf-8"), stderr=subprocess.STDOUT, env=env,
                             creationflags=getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0))
 

@@ -61,9 +61,10 @@ case. Every cloud task also carries bcc's `cloud_allowed=true` and a positive
 | guard | behaviour |
 |---|---|
 | PAUSE | `C:\Users\asd\Bossman\rc19-owner-test.PAUSE` or `<state>\PAUSE` pauses the loop; the PAUSE file is also checked before every model call |
-| owner busy | a non-allowed model resident in Ollama means wait |
+| owner busy | a non-allowed model resident in Ollama, Ollama unreachable, or an owner GPU job (`sd-cli.exe`) running: LLM cycles wait, model-free cycles (`k1m6a_verify`) continue; recorded as `owner_busy` / `owner_free` events |
 | memory | wait while free memory is below 12 GB |
-| STOP | `<state>\STOP` or the owner's durable Bossman STOP file `<owner-data-root>\computer\STOP` (written by the STOP button) aborts the running cycle and exits |
+| STOP | `<state>\STOP` aborts the running cycle and exits (the start script then refuses to start until `-Resume`) |
+| owner STOP | the owner's durable Bossman STOP file `<owner-data-root>\computer\STOP` (STOP button, /stop or /pause in the пульт) aborts the running cycle and holds (`HALTED_BY_OWNER`) until «Продолжить» removes it; a STOP file older than the state dir's first run is not a learning decision and is ignored (`owner_stop_baseline` in `state.json`) |
 | budget | per UTC day: cycles 400, model calls 3000, wall time 20 h; cloud USD per the ladder cap |
 | restart safety | PID lock; atomic `state.json`; fsync'd append-only `cycles.jsonl`; a killed cycle is recorded once as `ABANDONED_ON_RESTART` |
 | priority | the process runs at BELOW_NORMAL |
@@ -81,7 +82,7 @@ python tools\owner_journeys\learning_247_readiness.py live-tests --state-dir <te
 - at least 1.0 h of unattended time;
 - zero policy violations and zero cycle errors;
 - no duplicate or corrupt state;
-- no promotion;
+- no promotion without an owner-approved Bossman approval bound to the lesson digest;
 - journey safety checks pass;
 - triage pass rate at least the lab baseline minus 0.10;
 - pause honored within 120 s, STOP within 60 s, and kill/restart recovered exactly once;
@@ -93,6 +94,22 @@ python tools\owner_journeys\learning_247_readiness.py live-tests --state-dir <te
 
 The measured numbers for this run are in `C:\Users\asd\Bossman\evidence\rc19\d\learning\`
 (`readiness.json`, `live-tests.log`) and in the workstream-D report.
+
+## Lessons, owner approval, goal reports
+
+- `lesson_pipeline.py`: quarantined triage failures become lesson candidates
+  (`<state>\lessons\registry.json`, history in `history.jsonl`); every `ab.every_cycles` cycles a
+  `lesson_ab` cycle runs an offline A/B (local model, $0) on the held-out set minus the lesson's own
+  item; `GAIN_PROVEN` needs a gain of `ab.min_gain_items` in every repeat and no new safety
+  violation. Then a Bossman approval (`kind=learning_lesson_promotion`, local core only) is created;
+  the lesson is promoted only when that row is `approved` with `decided_by` and the same digest.
+  `lesson_pipeline.py rollback <id>` removes it. Other kinds stay quarantined (`no_ab_harness`).
+- `goal_reporter.py` + `owner_notify.py`: `<state>\goal.json` (goal, targets, cadence) and Russian
+  reports to the companion bot («Пульт») only: every 6 h and on readiness flip, STOP, cap reached,
+  error streak, lesson approval/decision. Durable outbox `<state>\notify\outbox.json`, secret
+  refusal, dedup, min interval, max 12/day. `--report off` sends nothing (tests, live-tests).
+- Entry point: `start_learning_247.ps1` (`-Foreground` for Task Scheduler, `-Status`, `-Pause`,
+  `-Resume`, `-Stop`). Owner summary in Russian: `docs/owner/LEARNING_247.md`.
 
 ## Enable (provided, not installed)
 
