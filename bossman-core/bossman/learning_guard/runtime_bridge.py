@@ -94,7 +94,7 @@ def _read_episodes(path: Path) -> list[Episode]:
     if not path.exists():
         return []
     out: list[Episode] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         line = line.strip()
         if not line:
             continue
@@ -125,18 +125,28 @@ def observe_learning_record(rec: dict, *, episodes_path: Path | None = None) -> 
     ep = episode_from_learning_record(rec)
     if ep is None:
         return None
-    prior = [e for e in _read_episodes(path) if e.action_type == ep.action_type]
     store = lt.LearningStore(path.parent)
-    store._append_atomic(path, lt.redact_obj(asdict(ep)))            # sanitized, atomic, same store mechanics
+    # Read and append in ONE critical section under the corpus lock: two concurrent
+    # observers each rewrote the file from their own read and one episode was lost.
+    with store._locked():
+        known = _read_episodes(path)
+        # Every stored VERSION of a case (dedup bump, verify, withdraw) used to become
+        # another episode of the same task. A known task is not a new episode.
+        repeat = any(e.task_id == ep.task_id for e in known)
+        if not repeat:
+            store._append_atomic(path, lt.redact_obj(asdict(ep)))    # sanitized, atomic, same store mechanics
+    prior = [e for e in known if e.action_type == ep.action_type]
     cand = AutonomyCandidate(candidate_id=f"class:{ep.action_type}", kind="context",
                              scope={"task_class": ep.action_type, "risky": False},
                              hypothesis=f"verified episodes of {ep.action_type} generalise into a reusable method",
                              rollback_ref=f"learning_guard.autonomy_trainer.rollback_candidate:{path.name}")
-    evaluated = evaluate_candidate(cand, prior + [ep], baseline_success=measured_baseline(prior))
+    evaluated = evaluate_candidate(cand, prior if repeat else prior + [ep],
+                                   baseline_success=measured_baseline(prior))
     out = record_candidate(evaluated)
     if out is not None:
         out["reasons"] = list(evaluated.reasons)
         out["baseline_episodes"] = len(prior)
+        out["repeated_task"] = repeat
         out["flag"] = TRAINER_FLAG
     return out
 
