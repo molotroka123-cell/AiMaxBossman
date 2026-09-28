@@ -346,17 +346,25 @@ def all_journeys() -> list[Journey]:
 
 
 async def run_journeys(data_dir: Path, journeys: list[Journey], *, adapter_factory=None,
-                       model: str = DEFAULT_MODEL, timeout: float = 600.0) -> dict[str, Any]:
+                       model: str = DEFAULT_MODEL, timeout: float = 600.0, base_url: Optional[str] = None,
+                       api_key: Optional[str] = None, meta: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    conn: dict[str, Any] = {}
+    if base_url:
+        conn["base_url"] = base_url
+    if api_key:
+        conn["api_key"] = api_key
     store = dom.Journal(data_dir / "business" / "journal.jsonl")
     results = []
     async with BccHarness(data_dir / "bcc", adapter_factory=adapter_factory) as h:
         h.register(build_tools(store))
-        sw = await h.agent(name="swapme-admin", system_prompt=SWAPME_SYSTEM, tools=SWAPME_TOOLS, model_name=model)
-        fv = await h.agent(name="freshvibes-admin", system_prompt=FV_SYSTEM, tools=FV_TOOLS, model_name=model)
+        sw = await h.agent(name="swapme-admin", system_prompt=SWAPME_SYSTEM, tools=SWAPME_TOOLS, model_name=model,
+                           **conn)
+        fv = await h.agent(name="freshvibes-admin", system_prompt=FV_SYSTEM, tools=FV_TOOLS, model_name=model,
+                           **conn)
         for j in journeys:
             agent, tools = (sw, SWAPME_TOOLS) if j.business == "swapme" else (fv, FV_TOOLS)
             out = await h.run_task(agent_id=agent["id"], title=j.jid, prompt=j.prompt, allowed_tools=tools,
-                                   approve=(lambda a, ok=j.approve: ok), timeout=timeout)
+                                   approve=(lambda a, ok=j.approve: ok), timeout=timeout, meta=meta)
             steps = j.checks(out, store)
             # An owner rejection ends the product task as failed/stopped by design; the journey
             # then only requires a clean finish (no timeout) plus the rejection-specific checks.

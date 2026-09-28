@@ -353,16 +353,20 @@ chart_price, instrument, venue, timeframe, cvd, open_interest, dPOC, dVAH, dVAL,
 Use null for anything not clearly readable. Never guess digits. Numbers as plain numbers."""
 
 
-def grab_frame(url: str, t: float, out: Path) -> bool:
-    ytdlp, ffmpeg = shutil.which("yt-dlp"), shutil.which("ffmpeg")
-    if not ytdlp or not ffmpeg:
+def grab_frame(url: str, t: float, out: Path, local_video: Optional[Path] = None) -> bool:
+    """First frame at t from the locally downloaded public stream (yt-dlp native download).
+
+    Remote seeking with ffmpeg / --download-sections hung on YouTube's throttled ranges
+    (measured 2026-09-28), so the frame pass needs the video file in the run dir.
+    """
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg or local_video is None or not local_video.is_file():
         return False
-    stream = subprocess.run([ytdlp, "-g", "-f", "bv[height<=1080][ext=mp4]/bv", url], capture_output=True,
-                            text=True, timeout=120).stdout.strip().splitlines()
-    if not stream:
+    try:
+        subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-ss", f"{t:.1f}", "-i", str(local_video),
+                        "-frames:v", "1", "-q:v", "2", str(out)], capture_output=True, timeout=120)
+    except subprocess.TimeoutExpired:
         return False
-    subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-ss", f"{t:.1f}", "-i", stream[0], "-frames:v", "1",
-                    "-q:v", "2", str(out)], timeout=180)
     return out.is_file()
 
 
@@ -386,10 +390,11 @@ def run_frames(run: Path, *, max_frames: int = 4, model: str = VISION_MODEL) -> 
             break
     fdir = run / "frames"
     fdir.mkdir(exist_ok=True)
+    local_video = next((p for p in sorted(run.glob("video.*")) if p.suffix in (".mp4", ".webm", ".mkv")), None)
     out = []
     for r in chosen:
         f = fdir / f"t{int(r['t_video_s']):06d}.jpg"
-        if not f.is_file() and not grab_frame(url, r["t_video_s"], f):
+        if not f.is_file() and not grab_frame(url, r["t_video_s"], f, local_video):
             out.append({"t_video_s": r["t_video_s"], "status": "UNKNOWN", "reason": "frame not retrievable"})
             continue
         img = base64.b64encode(f.read_bytes()).decode()
@@ -425,9 +430,39 @@ def run_frames(run: Path, *, max_frames: int = 4, model: str = VISION_MODEL) -> 
     return res
 
 
+def aggregate(evidence_root: Path) -> dict[str, Any]:
+    """Collect per-video reports (+ frames and manual precision audits when present)."""
+    videos = []
+    for rep_path in sorted((evidence_root / "raw").glob("*/report.json")):
+        rep = json.loads(rep_path.read_text(encoding="utf-8"))
+        row = {k: rep[k] for k in ("video_id", "role", "title", "duration_s", "transcript_source", "alignment",
+                                   "model_route", "gate", "latency_s", "runtime_s")}
+        row["summary"] = rep["summary"]
+        frames = rep_path.parent / "frames.json"
+        if frames.is_file():
+            fr = json.loads(frames.read_text(encoding="utf-8"))["frames"]
+            row["frames"] = {"n": len(fr), "fields_unknown": sum(len(f.get("unknown_fields", [])) for f in fr),
+                             "fields_total": sum(len(f.get("fields", {})) for f in fr),
+                             "chart_price_checks": [f.get("checks", {}).get("chart_price_vs_binance", {}).get("status")
+                                                    for f in fr]}
+        audit = evidence_root / "audit" / f"{rep['video_id']}-precision-audit.json"
+        if audit.is_file():
+            a = json.loads(audit.read_text(encoding="utf-8"))
+            row["manual_precision_audit"] = {k: a.get(k) for k in ("decided_claims", "valid", "precision_estimate",
+                                                                   "valid_verified", "valid_refuted")}
+        videos.append(row)
+    roles = {v["role"] for v in videos}
+    complete = all(v["alignment"].get("status") == "ALIGNED" and v["gate"]["model_errors"] == 0 for v in videos)
+    held_out = [v for v in videos if v["role"] == "held_out"]
+    marker = ("VERIFIED" if "known" in roles and len(held_out) >= 2 and complete else "PARTIAL")
+    return {"videos": videos, "suggested_marker_pipeline": marker}
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+    g = sub.add_parser("report")
+    g.add_argument("evidence_root")
     r = sub.add_parser("run")
     r.add_argument("run_dir")
     r.add_argument("--role", choices=("known", "held_out"), required=True)
@@ -438,6 +473,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     f.add_argument("--max-frames", type=int, default=4)
     f.add_argument("--model", default=VISION_MODEL)
     args = ap.parse_args(argv)
+    if args.cmd == "report":
+        agg = aggregate(Path(args.evidence_root))
+        out = Path(args.evidence_root) / "k1m6a-summary.json"
+        out.write_text(json.dumps(agg, indent=2, ensure_ascii=False), encoding="utf-8")
+        print(json.dumps({"out": str(out), "videos": len(agg["videos"]),
+                          "marker": agg["suggested_marker_pipeline"]}))
+        return 0
     print(json.dumps({"priority": lower_priority()}), flush=True)
     if args.cmd == "run":
         rep = run_video(Path(args.run_dir), role=args.role, model=args.model, max_windows=args.max_windows)

@@ -18,7 +18,7 @@ def _cfg(tmp_path, **kw):
 def fake_runner(monkeypatch):
     calls = []
 
-    async def fake(cfg, work, index):
+    async def fake(cfg, work, index, *rest):
         calls.append(index)
         await asyncio.sleep(0.01)
         return {"task": {"i": index}, "task_status": "completed",
@@ -65,7 +65,7 @@ def test_stop_file_exits_and_abandoned_cycle_recovered_once(tmp_path, fake_runne
 
 
 def test_stop_aborts_a_running_cycle(tmp_path, monkeypatch):
-    async def slow(cfg, work, index):
+    async def slow(cfg, work, index, *rest):
         (cfg.state_dir / "STOP").write_text("x")
         await asyncio.sleep(30)
         return {}
@@ -102,11 +102,14 @@ def test_budget_exhaustion_blocks_new_cycles(tmp_path, fake_runner):
 
 def test_readiness_verdict_from_recorded_state(tmp_path):
     cycles = [{"cycle_id": i, "kind": "triage", "status": "COMPLETED", "violations": [], "cloud_usd": 0.0,
-               "verifier": {"pass": True, "safety_ok": True}, "rss_mb": 300} for i in range(1, 14)]
+               "verifier": {"pass": True, "safety_ok": True}, "rss_mb": 300, "tier": "local",
+               "anthropic_attempts_total": 0, "started": 1790000000} for i in range(1, 14)]
     (tmp_path / "cycles.jsonl").write_text("".join(json.dumps(c) + "\n" for c in cycles))
     (tmp_path / "events.jsonl").write_text(json.dumps({"ts": 0, "kind": "session_start"}) + "\n"
                                            + json.dumps({"ts": 4000, "kind": "session_end"}) + "\n")
-    (tmp_path / "readiness_tests.json").write_text(json.dumps({"pause_s": 12, "stop_s": 3, "restart_safe": True}))
+    (tmp_path / "readiness_tests.json").write_text(json.dumps({"pause_s": 12, "stop_s": 3, "restart_safe": True, "cap_fake_test": True,
+                                                                "free_call": {"tier": "free_cloud", "status": "COMPLETED",
+                                                                              "usd": 0.0}}))
     ab = tmp_path / "ab.json"
     ab.write_text(json.dumps({"repeats": [{"baseline": {"accuracy": 0.8}}]}))
     rep = rd.evaluate(tmp_path, ab_report=ab)
@@ -114,3 +117,7 @@ def test_readiness_verdict_from_recorded_state(tmp_path):
     cycles[3]["violations"] = ["executed_outside_allowlist:x"]
     (tmp_path / "cycles.jsonl").write_text("".join(json.dumps(c) + "\n" for c in cycles))
     assert rd.evaluate(tmp_path, ab_report=ab)["verdict"] == "NOT_READY"
+    cycles[3]["violations"] = []
+    cycles[5]["anthropic_attempts_total"] = 1   # any attempted Anthropic call blocks readiness
+    (tmp_path / "cycles.jsonl").write_text("".join(json.dumps(c) + "\n" for c in cycles))
+    assert rd.evaluate(tmp_path, ab_report=ab)["criteria"]["claude_free_cycles"]["pass"] is False
