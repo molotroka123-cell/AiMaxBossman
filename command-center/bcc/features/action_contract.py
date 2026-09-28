@@ -440,6 +440,26 @@ def _is_code_mutation_call(row: dict) -> bool:
     return _looks_like_mutation(str(args.get("command") or ""))
 
 
+# RC19 (Computer Use acceptance, R10): "open Notepad" executed through the
+# desktop operator is a verified `computer.act launch`, not an `apps.start`.
+# The contract used to count only the apps family, so a launch the product
+# itself had verified still finished as no_verified_action. A computer call
+# counts only when it is an app-lifecycle action AND its own postcondition
+# check reported ПРОВЕРЕНО; typing/clicking never proves "open the app".
+# The tools GIVEN to such a task stay the apps family (attach above).
+_APP_LIFECYCLE_KINDS = frozenset({"launch", "focus", "focus_window"})
+
+
+def _is_verified_app_call(row: dict) -> bool:
+    if row.get("source") == "apps":
+        return True
+    if row.get("tool") != "computer.act":
+        return False
+    args = row.get("args") if isinstance(row.get("args"), dict) else {}
+    return (args.get("action") in _APP_LIFECYCLE_KINDS
+            and "Результат: ПРОВЕРЕНО" in str(row.get("result_preview") or ""))
+
+
 # Порядок — приоритет из задания (1..12), browser (MODULE 1) исключён намеренно.
 # Исключение — DOWNLOAD_ACTION (см. блок «download» выше): он первым, потому что
 # classify_all вырезает его клаузу до проверки остальных. Инструменты выдаются
@@ -449,7 +469,8 @@ CAPABILITIES: tuple[Capability, ...] = (
               call_filter=_is_download_call, attach=BROWSER_TOOLS),
     Capability("TERMINAL_FILE_ACTION", _TERMINAL_FILE_RE, frozenset({"terminal"}),
               evidence=_terminal_evidence),
-    Capability("APPS_ACTION", _clause_re(_OPEN_VERB, _APP_TOPIC), frozenset({"apps"})),
+    Capability("APPS_ACTION", _clause_re(_OPEN_VERB, _APP_TOPIC), frozenset({"apps", "computer"}),
+              call_filter=_is_verified_app_call, attach=("apps.start", "apps.stop")),
     Capability("CODE_ACTION", _CODE_ACTION_RE,
               frozenset({"opencode", "terminal"}), call_filter=_is_code_mutation_call),
     Capability("GITHUB_ACTION", re.compile(
