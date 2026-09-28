@@ -45,23 +45,31 @@ def synth_voice(spec: dict, models: Path, work: Path) -> tuple[np.ndarray, list[
     track = np.zeros(n)
     report = []
     (work / "voice").mkdir(parents=True, exist_ok=True)
+    clips = []
     for sc in spec["scenes"]:
         for vo in sc.get("vo", []):
             a, sr = tts.create(vo["text"], voice=spec["meta"].get("voice", "am_fenrir"), speed=1.05, lang="en-us")
             idx = np.where(np.abs(a) > 0.012)[0]
+            if not len(idx):
+                raise SystemExit(f"TTS returned silence for '{vo['text']}' (check ESPEAK_DATA_PATH and the Kokoro models)")
             a = a[max(idx[0] - 240, 0):idx[-1] + 1500]
             a = resample_poly(a, score_mod.SR, sr)
             a = a / (np.abs(a).max() + 1e-9) * .9
-            i = int(vo["t"] * score_mod.SR)
-            j = min(i + len(a), n)
-            track[i:j] += a[:j - i]
-            report.append({"t": vo["t"], "text": vo["text"], "seconds": round(len(a) / score_mod.SR, 3)})
-            sf.write(work / "voice" / f"{len(report):02d}.wav", a, score_mod.SR)
-    report.sort(key=lambda r: r["t"])
-    for a, b in zip(report, report[1:]):
-        if b["t"] < a["t"] + a["seconds"] - .15:
-            raise SystemExit(f"voice-over overlap: '{a['text']}' ends at {a['t'] + a['seconds']:.2f} s, "
-                             f"'{b['text']}' starts at {b['t']} s - move it or shorten it")
+            clips.append(a)
+            report.append({"t": vo["t"], "text": vo["text"], "seconds": round(len(a) / score_mod.SR, 3),
+                           "scene_end": sc["end"], "clip": len(clips) - 1})
+            sf.write(work / "voice" / f"{len(clips):02d}.wav", a, score_mod.SR)
+    try:   # measured lengths: small overlaps the estimate missed are cleared by a short delay
+        report = spec_mod.schedule_voice(report, spec["meta"]["duration"])
+    except ValueError as exc:
+        raise SystemExit(str(exc))
+    for r in report:
+        a = clips[r.pop("clip")]
+        i = int(r["t"] * score_mod.SR)
+        j = min(i + len(a), n)
+        track[i:j] += a[:j - i]
+        if r["shift"]:
+            print(f"voice: '{r['text']}' delayed {r['shift']:.2f} s to clear a measured overlap")
     (work / "voice" / "report.json").write_text(json.dumps(report, indent=1), encoding="utf-8")
     return track, report
 

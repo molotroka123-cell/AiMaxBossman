@@ -222,6 +222,50 @@ def validate(spec: Any) -> list[str]:
     return errors
 
 
+VO_TAIL = 0.15            # Kokoro clips end with ~0.1-0.15 s of near-silence; a next line may start there
+VO_MAX_SHIFT = 0.5        # the most a line may be delayed to clear a measured overlap (stays in sync with its item)
+
+
+def schedule_voice(lines: list[dict], duration: float) -> list[dict]:
+    """Place synthesized voice lines using their MEASURED lengths.
+
+    `lines`: {t, seconds, scene_end, text}. The validator can only estimate speech length
+    (0.3 s + chars/24); on the owner PC Kokoro ran up to 0.27 s longer, and two VALID
+    generated specs stopped make_video on a 0.17-0.34 s overlap. A line that would overlap
+    the previous one is delayed to the earliest free moment if that is at most VO_MAX_SHIFT
+    later and still inside its scene; otherwise ValueError (the spec must change).
+    Returns the lines sorted by time with `t` (placed), `t_spec` and `shift`."""
+    out: list[dict] = []
+    prev = None
+    for ln in sorted(lines, key=lambda x: x["t"]):
+        t = float(ln["t"])
+        if prev is not None and t < prev["t"] + prev["seconds"] - VO_TAIL:
+            earliest = math.ceil((prev["t"] + prev["seconds"] - VO_TAIL) * 100 - 1e-9) / 100
+            if earliest - t > VO_MAX_SHIFT or earliest >= ln["scene_end"]:
+                raise ValueError(f"voice-over overlap: '{prev['text']}' ends at {prev['t'] + prev['seconds']:.2f} s, "
+                                 f"'{ln['text']}' starts at {ln['t']} s - move it or shorten it")
+            t = earliest
+        if t + ln["seconds"] - VO_TAIL > duration + 0.1:   # a short trailing breath may be cut
+            raise ValueError(f"voice-over '{ln['text']}' runs past the end of the video "
+                             f"({t + ln['seconds']:.2f} s > {duration} s) - start it earlier or shorten it")
+        item = dict(ln, t=round(t, 3), t_spec=ln["t"], shift=round(t - float(ln["t"]), 3))
+        out.append(item)
+        prev = item
+    return out
+
+
+def logo_build_seconds(spec: dict) -> float:
+    """Length of the musical build (snare roll + riser) into the logo hit: at most 2.5 s, and only
+    the time between the first cut and the logo. 0 when the logo is the first or second scene
+    (rc19 owner-PC run: a VALID 5 s title->logo spec crashed score.py on a negative-length riser)."""
+    scenes = spec["scenes"]
+    logo = next((s for s in scenes if s["type"] == "logo"), None)
+    if logo is None:
+        return 0.0
+    t_drop = scenes[1]["start"] if len(scenes) > 1 else float(spec["meta"]["duration"])
+    return max(0.0, min(2.5, float(logo["start"]) - float(t_drop)))
+
+
 def hits(spec: dict) -> list[float]:
     """Accent times shared by picture and score: scene cuts and per-item pops."""
     out: set[float] = set()

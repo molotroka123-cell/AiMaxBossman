@@ -13,6 +13,8 @@ from __future__ import annotations
 import numpy as np
 from scipy.signal import butter, fftconvolve, sosfilt
 
+import spec as spec_mod
+
 SR = 48000
 KEY_OFFSET = {"C": -2, "D": 0, "E": 2, "F": 3, "G": 5, "A": 7, "B": 9}
 MINOR = [[50, 53, 57, 62], [46, 50, 53, 58], [45, 48, 53, 57], [48, 52, 55, 60]]   # Dm Bb F C
@@ -209,7 +211,8 @@ class Score:
             step = beat / 2 if rt < t_hit - 1.0 else beat / 4
             self.put(rt, self.clap(), .35 + .5 * (rt - start) / length)
             rt += step
-        self.put(start, self.riser(length - .4, 300, 9000, .3))
+        if length - .4 > .05:              # no room for a build (logo right after the intro): hit only
+            self.put(start, self.riser(length - .4, 300, 9000, .3))
         self.put(t_hit - .5, self.riser(.5, 2000, 200, .2)[::-1])
         self.put(t_hit, self.boom(), 1.0)
         chord = [x + k for x in (MAJOR[0] if major else MINOR[0])]
@@ -260,7 +263,7 @@ def compose(spec: dict, hits: list[float], vo: np.ndarray | None = None, seed: i
     main_end = logo["start"] - .5 if logo else (end_card["start"] if end_card else dur)
     if logo:
         sc.groove(t_drop, max(t_drop, main_end - 1.0), beat, MINOR, k)
-        sc.build_and_hit(logo["start"], beat, k, major=True, length=min(2.5, logo["start"] - t_drop))
+        sc.build_and_hit(logo["start"], beat, k, major=True, length=spec_mod.logo_build_seconds(spec))
     elif t_drop < main_end:
         sc.groove(t_drop, main_end, beat, MINOR, k)
     # after the logo: epic major section

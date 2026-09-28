@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1] / "tools" / "motion_studio"
 sys.path.insert(0, str(ROOT))
 
@@ -288,3 +290,37 @@ def test_voice_over_digits_are_rejected_because_they_break_the_timing_estimate()
     assert any("numbers spelled out in words" in e for e in spec.validate(digits))
     words = copy.deepcopy(good); words["scenes"][0]["vo"][0]["text"] = "Nine hundred sixty commits."
     assert spec.validate(words) == []
+
+
+def _vo(t, seconds, end, text="x"):
+    return {"t": t, "seconds": seconds, "scene_end": end, "text": text}
+
+
+def test_measured_voice_overlaps_are_cleared_by_a_short_delay_or_reported():
+    # rc19 owner-PC renders: two VALID generated specs stopped on 0.17 s and 0.34 s overlaps that the
+    # character estimate missed (Kokoro ran up to 0.27 s longer). make_video now places lines by their
+    # measured length with a bounded delay; a real clash still stops with the old message.
+    placed = spec.schedule_voice([_vo(3.0, 1.0, 6.0, "b"), _vo(0.3, 3.02, 3.0, "a")], 10.0)
+    assert [p["text"] for p in placed] == ["a", "b"]
+    assert placed[1]["t"] == 3.17 and placed[1]["t_spec"] == 3.0 and placed[1]["shift"] == 0.17
+    assert placed[0]["shift"] == 0
+    with pytest.raises(ValueError, match="voice-over overlap: 'a' ends at 3.90 s"):
+        spec.schedule_voice([_vo(0.3, 3.6, 3.0, "a"), _vo(3.0, 1.0, 6.0, "b")], 10.0)     # 0.6 s > max shift
+    with pytest.raises(ValueError, match="voice-over overlap"):
+        spec.schedule_voice([_vo(0.3, 3.0, 3.0, "a"), _vo(3.0, 1.0, 3.1, "b")], 10.0)     # would leave its scene
+    with pytest.raises(ValueError, match="runs past the end"):
+        spec.schedule_voice([_vo(9.0, 1.6, 10.0, "late")], 10.0)
+
+
+def test_logo_build_never_gets_a_negative_length():
+    # rc19 owner-PC render: VALID 5 s spec title(0-2.5) -> logo(2.5-5) crashed score.py
+    # ("negative dimensions are not allowed") because the build into the logo had 0 s.
+    two = {"meta": {"duration": 5.0}, "scenes": [{"type": "title", "start": 0.0, "end": 2.5},
+                                                 {"type": "logo", "start": 2.5, "end": 5.0}]}
+    assert spec.logo_build_seconds(two) == 0.0
+    first = {"meta": {"duration": 5.0}, "scenes": [{"type": "logo", "start": 0.0, "end": 2.5},
+                                                   {"type": "end_card", "start": 2.5, "end": 5.0}]}
+    assert spec.logo_build_seconds(first) == 0.0
+    assert spec.logo_build_seconds(json.loads((ROOT / "examples" / "bossman_32_days.json").read_text(encoding="utf-8"))) == 2.5
+    assert spec.logo_build_seconds(_load("jeff_voice_12s.json")) == 2.5
+    assert spec.logo_build_seconds({"meta": {"duration": 5.0}, "scenes": [{"type": "title", "start": 0, "end": 5}]}) == 0.0
