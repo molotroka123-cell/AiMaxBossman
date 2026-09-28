@@ -312,6 +312,24 @@ def test_approve_needs_fresh_observation_and_refuses_when_stopped(tmp_path):
     run(app, scenario)
 
 
+def test_learning_lesson_approval_needs_no_screen_but_only_without_a_task(tmp_path):
+    """Урок обучения 24/7 не действует на рабочий стол: решается и при СТОП управления."""
+    lesson = approval(9, kind='learning_lesson_promotion', preview='Урок L1 digest abc', task_id=None)
+    disguised = approval(10, kind='learning_lesson_promotion', preview='Урок в задаче', task_id=3)
+    bossman = Bossman([lesson, disguised], stopped=True)
+    app = build(tmp_path, bossman)
+
+    async def scenario():
+        listing = await app.handle(OWNER, msg(text='/approvals'))
+        reply = await app.handle(OWNER, msg(text=press(app, listing, 'Разрешить #9'), update_id=3))
+        assert 'Разрешено' in reply and bossman.rows[9]['status'] == 'approved'
+        assert bossman.rows[9]['decided_by'] == ACTOR
+        with pytest.raises(CompanionError, match='COMPUTER_STOPPED'):
+            await app.handle(OWNER, msg(text=press(app, listing, 'Разрешить #10'), update_id=4))
+        assert bossman.rows[10]['status'] == 'pending'
+    run(app, scenario)
+
+
 def test_approve_refuses_stale_observation_but_reject_does_not_need_a_screen(tmp_path):
     bossman = Bossman([approval(), approval(8, preview='Отправить письмо наружу')], observe_age=600)
     app = build(tmp_path, bossman)

@@ -231,11 +231,19 @@ def live_tests(state: Path, kinds: str = "k1m6a_verify,triage", key_file: str = 
         (state / "PAUSE").unlink()
         out["resume_s"] = _wait(lambda: completed() > n_paused, 600)
         peak = max(peak, psutil.Process(p.pid).memory_info().rss / 2**20)
-        # 2) kill mid-cycle
-        _wait(lambda: bool(_state(state).get("in_progress")), 600, 0.2)
-        inflight = (_state(state).get("in_progress") or {}).get("cycle_id")
-        subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True)
-        p.wait(30)
+        # 2) kill mid-cycle; a model-free cycle can finish between the observation and the kill,
+        #    so the kill is repeated until it really lands inside a cycle (bounded attempts)
+        inflight = None
+        for attempt in range(1, 8):
+            _wait(lambda: bool(_state(state).get("in_progress")), 600, 0.02)
+            inflight = (_state(state).get("in_progress") or {}).get("cycle_id")
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True)
+            p.wait(30)
+            out["kill_attempts"] = attempt
+            if not any(r["cycle_id"] == inflight for r in read_jsonl(state / "cycles.jsonl")[0]):
+                break                       # killed while the cycle was running
+            p = _spawn(state, log, ["--kinds", kinds])
+            _wait(lambda: _state(state).get("pid") == p.pid, 120, 0.2)
     finally:
         if p.poll() is None:
             p.kill()

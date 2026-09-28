@@ -67,6 +67,18 @@ STOPPED_NOTE = ("Уже совершённые внешние действия �
                 "что ещё можно остановить.")
 
 
+# Подтверждения, чей эффект не на рабочем столе: урок обучения 24/7 меняет только
+# реестр уроков (пример в подсказке разбора). Свежий экран для них ничего не
+# доказывает, а долгий СТОП управления компьютером не должен запрещать владельцу
+# решать их из пульта. Только точный вид и только без задачи/прогона.
+SCREENLESS_KINDS = frozenset({"learning_lesson_promotion"})
+
+
+def screenless(row: dict) -> bool:
+    return (row.get("kind") in SCREENLESS_KINDS and row.get("task_id") is None
+            and row.get("run_id") is None)
+
+
 def _short(value, limit: int = 300) -> str:
     return str(value or "").replace("\r", " ").strip()[:limit]
 
@@ -396,7 +408,7 @@ class ConsoleMixin:
             # Цель, аргументы, контекст — те же, что владелец видел.
             if row.get("kind") != gate["kind"] or approval_digest(row) != gate["digest"]:
                 raise CompanionError("APPROVAL_CHANGED_REVIEW_AGAIN")
-            if approve:
+            if approve and not screenless(row):
                 await self.fresh_screen()      # отказ — до эффекта, не после
             decided = await self.core.decide_approval(gate["approval_id"], approve, actor)
         except (CompanionError, asyncio.CancelledError):

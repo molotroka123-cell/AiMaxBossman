@@ -548,7 +548,8 @@ async def run(cfg: Config, *, max_hours: float = 0.0, max_cycles: int = 0) -> di
             if await _wait_while_paused(cfg, store, hooks) == "stop":
                 continue
             st = store.state()
-            busy = await asyncio.to_thread(busy_reason, cfg)
+            # a forced cloud tier (the readiness free-call test) does not touch the local GPU
+            busy = None if cfg.force_tier in ("free_cloud", "max_cloud") else await asyncio.to_thread(busy_reason, cfg)
             if busy != st.get("busy_reason"):
                 store.event("owner_busy" if busy else "owner_free", reason=busy or st.get("busy_reason"))
                 st["busy_reason"] = busy
