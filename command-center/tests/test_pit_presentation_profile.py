@@ -9,28 +9,32 @@ from bcc.pit.presentation_profile import (
 )
 from bcc.pit.vault import PersonaVault
 
+SALT = bytes.fromhex("ab" * 32)
+A = "a" * 64  # PersonaVault only accepts derived 64-hex person keys
+B = "b" * 64
+
 
 def test_defaults_are_safe_and_text_only(tmp_path):
-    vault = PersonaVault(tmp_path)
-    p = load_presentation(vault, "person-a")
+    vault = PersonaVault(tmp_path, SALT)
+    p = load_presentation(vault, A)
     assert p == PresentationProfile()
     assert p.voice_reply_mode == "TEXT_ONLY"
     assert p.avatar_id == "aurora"
 
 
 def test_profile_persists_per_participant_without_cross_user_leak(tmp_path):
-    vault = PersonaVault(tmp_path)
+    vault = PersonaVault(tmp_path, SALT)
     save_presentation(
-        vault, "person-a", avatar_id="ember", voice_id="Voice A",
+        vault, A, avatar_id="ember", voice_id="Voice A",
         voice_rate=1.1, voice_reply_mode="VOICE_ON_REQUEST",
     )
     save_presentation(
-        vault, "person-b", avatar_id="cobalt", voice_id="Voice B",
+        vault, B, avatar_id="cobalt", voice_id="Voice B",
         voice_pitch=0.9, voice_reply_mode="VOICE_AUTO",
     )
 
-    a = load_presentation(vault, "person-a")
-    b = load_presentation(vault, "person-b")
+    a = load_presentation(vault, A)
+    b = load_presentation(vault, B)
     assert (a.avatar_id, a.voice_id, a.voice_reply_mode) == (
         "ember", "Voice A", "VOICE_ON_REQUEST")
     assert (b.avatar_id, b.voice_id, b.voice_reply_mode) == (
@@ -56,8 +60,8 @@ def test_invalid_values_fail_to_safe_defaults():
 
 
 def test_clear_only_removes_presentation_profile(tmp_path):
-    vault = PersonaVault(tmp_path)
-    person_key = "person-a"
+    vault = PersonaVault(tmp_path, SALT)
+    person_key = A
     person_dir = vault.ensure(person_key)
     keep = person_dir / "keep.txt"
     keep.write_text("participant memory fixture", encoding="utf-8")
