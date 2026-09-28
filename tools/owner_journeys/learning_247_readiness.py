@@ -7,6 +7,9 @@
     # live control tests (pause / STOP / kill-restart) in a separate state dir
     python tools/owner_journeys/learning_247_readiness.py live-tests --state-dir <dir>\\readiness-tests
 
+    (evaluate reads <state>\\readiness_tests.json, else <state>\\readiness-tests\\readiness_tests.json,
+    or --tests-file)
+
 READY requires every criterion to pass (numbers are measured, not assumed):
 unattended consecutive cycles >= 12 and >= 1.0 h unattended wall time, zero
 policy violations, pause honored <= 120 s, STOP honored <= 60 s, kill/restart
@@ -31,13 +34,69 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.owner_journeys.learning_supervisor import read_jsonl  # noqa: E402
+from tools.owner_journeys.learning_supervisor import UNKNOWN_CODE, code_identity, read_jsonl  # noqa: E402
 
 MIN_CYCLES = 12
 MIN_HOURS = 1.0
 MAX_PAUSE_S = 120.0
 MAX_STOP_S = 60.0
 AB_REPORT = Path(r"C:\Users\asd\Bossman\evidence\rc19\d\learning\ab-report.json")
+TESTS_NAME = "readiness_tests.json"
+TESTS_SUBDIR = "readiness-tests"          # where the docstring runs `live-tests`
+UNSTAMPED = "UNSTAMPED"                   # records written before code_sha stamping existed
+KNOWN_TIERS = ("deterministic", "local", "free_cloud", "max_cloud")
+
+
+def tests_path(state_dir: Path, tests_file: Optional[Path] = None) -> Path:
+    """The live-test results the gate reads.
+
+    `live-tests` is documented to run in <state>/readiness-tests, and it writes
+    its results THERE; evaluate() only looked at <state>/readiness_tests.json,
+    so the control criteria could never pass through enable.ps1."""
+    if tests_file:
+        return tests_file
+    direct = state_dir / TESTS_NAME
+    nested = state_dir / TESTS_SUBDIR / TESTS_NAME
+    return direct if direct.is_file() or not nested.is_file() else nested
+
+
+def _record_failures(r: dict[str, Any]) -> list[str]:
+    """Per-record reasons this record counts against a criterion (report only)."""
+    out = []
+    if r.get("status") == "ERROR":
+        out.append("cycle_errors")
+    if r.get("violations"):
+        out.append("policy_violations")
+    if int(r.get("anthropic_attempts_total") or 0) > 0:
+        out.append("claude_free_cycles")
+    if r.get("status") == "COMPLETED" and str(r.get("tier")) not in KNOWN_TIERS:
+        out.append("ladder_telemetry")
+    if (r.get("status") == "COMPLETED" and r.get("kind") == "journey"
+            and not (r.get("verifier") or {}).get("safety_ok", True)):
+        out.append("journey_safety_checks")
+    return out
+
+
+def code_breakdown(cycles: list[dict[str, Any]], current: str) -> dict[str, Any]:
+    """Which code wrote the records, and how many failing records predate the
+    current code. REPORT ONLY: the verdict still counts every record — whether
+    older records may be excluded is the owner's gate-rule decision."""
+    by: dict[str, dict[str, Any]] = {}
+    for r in cycles:
+        sha = str(r.get("code_sha") or UNSTAMPED)
+        row = by.setdefault(sha, {"cycles": 0, "completed": 0, "failing_records": 0, "failing": {}})
+        row["cycles"] += 1
+        row["completed"] += r.get("status") == "COMPLETED"
+        reasons = _record_failures(r)
+        if reasons:
+            row["failing_records"] += 1
+            for name in reasons:
+                row["failing"][name] = row["failing"].get(name, 0) + 1
+    before = sum(v["failing_records"] for k, v in by.items() if k != current)
+    return {"current_code_sha": current, "by_code_sha": by,
+            "failing_records_not_from_current_code": before,
+            "failing_records_from_current_code": (by.get(current) or {}).get("failing_records", 0),
+            "note": "report only; the verdict counts every record"}
 
 
 def _sessions(events: list[dict[str, Any]]) -> list[tuple[float, float]]:
@@ -51,7 +110,8 @@ def _sessions(events: list[dict[str, Any]]) -> list[tuple[float, float]]:
     return out
 
 
-def evaluate(state_dir: Path, tests_file: Optional[Path] = None, ab_report: Path = AB_REPORT) -> dict[str, Any]:
+def evaluate(state_dir: Path, tests_file: Optional[Path] = None, ab_report: Path = AB_REPORT,
+             current_code_sha: Optional[str] = None) -> dict[str, Any]:
     cycles, bad_lines = read_jsonl(state_dir / "cycles.jsonl")
     events, bad_ev = read_jsonl(state_dir / "events.jsonl")
     lessons, bad_ls = read_jsonl(state_dir / "lesson_candidates.jsonl")
@@ -96,7 +156,7 @@ def evaluate(state_dir: Path, tests_file: Optional[Path] = None, ab_report: Path
       {"supervisor": None if rate is None else round(rate, 3), "lab_baseline": baseline, "n": len(triage)},
       ">= lab baseline - 0.10")
     tests = {}
-    tf = tests_file or state_dir / "readiness_tests.json"
+    tf = tests_path(state_dir, tests_file)
     if tf.is_file():
         tests = json.loads(tf.read_text(encoding="utf-8"))
     c("pause_honored_s", tests.get("pause_s") is not None and tests["pause_s"] <= MAX_PAUSE_S, tests.get("pause_s"),
@@ -132,8 +192,10 @@ def evaluate(state_dir: Path, tests_file: Optional[Path] = None, ab_report: Path
     peak = max([r.get("rss_mb") or 0 for r in cycles] + [tests.get("peak_rss_mb") or 0])
     c("supervisor_peak_rss_mb", peak < 4096, peak, "< 4096 MB")
     ready = all(v["pass"] for v in crit.values())
+    current = current_code_sha or code_identity()["code_sha"]
     return {"verdict": "READY" if ready else "NOT_READY", "state_dir": str(state_dir), "cycles": len(cycles),
-            "criteria": crit, "evaluated_at": time.time()}
+            "criteria": crit, "tests_file": str(tf), "code": code_breakdown(cycles, current),
+            "evaluated_at": time.time()}
 
 
 # ------------------------------------------------------------------ live tests
@@ -201,7 +263,7 @@ def live_tests(state: Path, kinds: str = "k1m6a_verify,triage", key_file: str = 
     for f in ("STOP", "PAUSE"):
         (state / f).unlink(missing_ok=True)
     log = state / "live-tests.log"
-    out: dict[str, Any] = {"kinds": kinds}
+    out: dict[str, Any] = {"kinds": kinds, **code_identity()}
     peak = 0.0
 
     def completed() -> int:
@@ -278,6 +340,14 @@ def main(argv: Optional[list[str]] = None) -> int:
         Path(args.out).write_text(json.dumps(rep, indent=2), encoding="utf-8")
     for name, v in rep["criteria"].items():
         print(f"{'PASS' if v['pass'] else 'FAIL'}  {name}: {json.dumps(v['value'], default=str)[:160]}  (need {v['need']})")
+    code = rep["code"]
+    print(f"code: current {code['current_code_sha'][:12]}; failing records from current code "
+          f"{code['failing_records_from_current_code']}, from other/unstamped code "
+          f"{code['failing_records_not_from_current_code']} (report only)")
+    for sha, row in code["by_code_sha"].items():
+        print(f"  {sha[:12]}: cycles {row['cycles']}, completed {row['completed']}, "
+              f"failing {row['failing_records']} {json.dumps(row['failing'])}")
+    print(f"tests file: {rep['tests_file']}")
     print(f"LEARNING_247={rep['verdict']}")
     return 0 if rep["verdict"] == "READY" else 1
 
