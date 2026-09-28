@@ -1,0 +1,12 @@
+{"name": "hp_treasure_chest", "label": "Treasure Chest", "prompt": "a wooden treasure chest with gold bands and a lock", "height": 1.05, "target": 7000,
+ "parts": [
+  {"name": "body", "shape": "box", "center": [0, 0.29, 0], "size": [1.2, 0.58, 0.8], "round": 0.04, "color": "#8b5a2b", "variation": 0.1, "cavities": 0.25, "surface": {"grooves": {"axis": "y", "every": 0.145, "depth": 0.012}, "bumps": 0.006, "scale": 0.05}},
+  {"name": "lid", "shape": "tube", "from": [-0.59, 0.58, 0], "to": [0.59, 0.58, 0], "radius": 0.4, "sections": 96, "color": "#94622f", "variation": 0.1, "cavities": 0.25, "surface": {"grooves": {"axis": "z", "every": 0.16, "depth": 0.01}, "bumps": 0.006, "scale": 0.05}},
+  {"name": "band", "shape": "box", "center": [0.42, 0.29, 0], "size": [0.09, 0.6, 0.83], "round": 0.02, "mirror_x": true, "color": "#e8b53a", "color_top": "#f7d56a", "material": "gloss"},
+  {"name": "lid_band", "shape": "tube", "from": [0.375, 0.58, 0], "to": [0.465, 0.58, 0], "radius": 0.415, "sections": 64, "detail": "low", "mirror_x": true, "color": "#e8b53a", "material": "gloss"},
+  {"name": "corner_front", "shape": "box", "center": [0.6, 0.1, 0.4], "size": [0.14, 0.2, 0.14], "round": 0.03, "mirror_x": true, "color": "#e8b53a", "material": "gloss"},
+  {"name": "corner_back", "shape": "box", "center": [0.6, 0.1, -0.4], "size": [0.14, 0.2, 0.14], "round": 0.03, "mirror_x": true, "color": "#e8b53a", "material": "gloss"},
+  {"name": "lock", "shape": "box", "center": [0, 0.58, 0.43], "size": [0.2, 0.24, 0.07], "round": 0.025, "color": "#e8b53a", "color_top": "#f7d56a", "material": "gloss"},
+  {"name": "keyhole", "shape": "tube", "from": [0, 0.54, 0.46], "to": [0, 0.54, 0.472], "radius": 0.025, "detail": "low", "color": "#241a12"},
+  {"name": "handle", "shape": "torus", "center": [0.62, 0.38, 0], "radius": 0.09, "thickness": 0.018, "axis": [1, 0, 0], "mirror_x": true, "color": "#e8b53a", "material": "gloss"}
+ ]}

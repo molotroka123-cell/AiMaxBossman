@@ -1,0 +1,17 @@
+{"name": "hp_tree", "label": "Oak Tree", "prompt": "a big leafy oak tree", "height": 4.4, "target": 8600,
+ "parts": [
+  {"name": "trunk", "shape": "lathe", "profile": [[0.62, 0], [0.46, 0.12], [0.34, 0.45], [0.29, 1.2], [0.27, 2.0], [0.22, 2.7], [0, 2.9]], "sections": 48,
+   "color": "#7a5230", "variation": 0.1, "cavities": 0.35, "surface": {"bumps": 0.05, "scale": 0.1, "ridged": true}},
+  {"name": "root", "shape": "tube", "from": [0.1, 0.35, 0], "to": [0.85, -0.02, 0], "radius": 0.14, "radius_end": 0.05, "repeat": {"count": 4, "start_deg": 20},
+   "color": "#7a5230", "cavities": 0.35, "surface": {"bumps": 0.02, "scale": 0.11}},
+  {"name": "branch_a", "shape": "tube", "from": [0.1, 2.0, 0.0], "to": [0.95, 2.75, 0.3], "radius": 0.11, "radius_end": 0.06, "color": "#7a5230", "surface": {"bumps": 0.015, "scale": 0.08}},
+  {"name": "branch_b", "shape": "tube", "from": [-0.1, 2.2, 0.0], "to": [-0.85, 2.85, -0.4], "radius": 0.11, "radius_end": 0.06, "color": "#7a5230", "surface": {"bumps": 0.015, "scale": 0.08}},
+  {"name": "branch_c", "shape": "tube", "from": [0.0, 2.3, -0.1], "to": [0.2, 2.9, -0.95], "radius": 0.11, "radius_end": 0.06, "color": "#7a5230", "surface": {"bumps": 0.015, "scale": 0.08}},
+  {"name": "leaves_top", "shape": "ellipsoid", "center": [0.0, 3.3, 0.0], "radii": [1.35, 1.0, 1.35], "color": "#3f8a2e", "color_top": "#86c24f", "variation": 0.12, "cavities": 0.35, "surface": {"bumps": 0.28, "scale": 0.45, "octaves": 5}},
+  {"name": "leaves_e", "shape": "ellipsoid", "center": [1.0, 2.9, 0.35], "radii": [0.95, 0.8, 0.9], "color": "#3f8a2e", "color_top": "#86c24f", "variation": 0.12, "cavities": 0.35, "surface": {"bumps": 0.28, "scale": 0.45, "octaves": 5}},
+  {"name": "leaves_w", "shape": "ellipsoid", "center": [-0.95, 3.0, -0.4], "radii": [0.95, 0.8, 0.95], "color": "#3f8a2e", "color_top": "#86c24f", "variation": 0.12, "cavities": 0.35, "surface": {"bumps": 0.28, "scale": 0.45, "octaves": 5}},
+  {"name": "leaves_n", "shape": "ellipsoid", "center": [0.25, 2.95, -1.0], "radii": [0.9, 0.75, 0.85], "color": "#3f8a2e", "color_top": "#86c24f", "variation": 0.12, "cavities": 0.35, "surface": {"bumps": 0.28, "scale": 0.45, "octaves": 5}},
+  {"name": "leaves_crown", "shape": "ellipsoid", "center": [-0.35, 3.85, 0.35], "radii": [0.85, 0.65, 0.8], "color": "#3f8a2e", "color_top": "#86c24f", "variation": 0.12, "cavities": 0.35, "surface": {"bumps": 0.28, "scale": 0.45, "octaves": 5}},
+  {"name": "leaves_s", "shape": "ellipsoid", "center": [0.55, 3.65, 0.8], "radii": [0.8, 0.65, 0.75], "color": "#3f8a2e", "color_top": "#86c24f", "variation": 0.12, "cavities": 0.35, "surface": {"bumps": 0.28, "scale": 0.45, "octaves": 5}},
+  {"name": "leaves_sw", "shape": "ellipsoid", "center": [-0.6, 2.85, 0.75], "radii": [0.75, 0.6, 0.7], "color": "#3f8a2e", "color_top": "#86c24f", "variation": 0.12, "cavities": 0.35, "surface": {"bumps": 0.28, "scale": 0.45, "octaves": 5}}
+ ]}

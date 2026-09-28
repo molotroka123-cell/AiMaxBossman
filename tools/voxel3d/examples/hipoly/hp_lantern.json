@@ -1,0 +1,12 @@
+{"name": "hp_lantern", "label": "Street Lantern", "prompt": "an old iron street lantern on a stone base", "height": 2.45, "target": 6000,
+ "parts": [
+  {"name": "plinth", "shape": "lathe", "profile": [[0.42, 0], [0.42, 0.14], [0.34, 0.2], [0.3, 0.34], [0.22, 0.42], [0, 0.42]], "sections": 8, "color": "#8e8a84", "moss": "#6b8f45", "variation": 0.12, "cavities": 0.3, "surface": {"bumps": 0.02, "scale": 0.16}},
+  {"name": "post", "shape": "lathe", "profile": [[0.12, 0.35], [0.12, 0.5], [0.085, 0.56], [0.07, 0.62], [0.065, 1.55], [0.09, 1.6], [0.1, 1.66], [0.075, 1.72], [0, 1.72]], "sections": 24, "detail": "low", "color": "#3b4048", "color_top": "#4a5058", "material": "gloss"},
+  {"name": "scroll", "shape": "torus", "center": [0.099, 1.6, 0.099], "radius": 0.09, "thickness": 0.014, "axis": [-0.707, 0, 0.707], "repeat": {"count": 4}, "color": "#3b4048", "material": "gloss"},
+  {"name": "plate", "shape": "lathe", "profile": [[0.24, 1.7], [0.26, 1.74], [0.22, 1.78], [0, 1.78]], "sections": 6, "detail": "low", "color": "#3b4048", "material": "gloss"},
+  {"name": "glass", "shape": "lathe", "profile": [[0.19, 1.77], [0.23, 2.12], [0, 2.12]], "sections": 6, "detail": "low", "color": "#ffd27a", "color_top": "#fff0b0", "material": "glow", "shading": "flat"},
+  {"name": "bar", "shape": "tube", "from": [0.2, 1.76, 0], "to": [0.245, 2.13, 0], "radius": 0.016, "sections": 10, "detail": "low", "repeat": {"count": 6}, "color": "#3b4048", "material": "gloss"},
+  {"name": "roof", "shape": "lathe", "profile": [[0.33, 2.1], [0.34, 2.13], [0.12, 2.36], [0.05, 2.38], [0, 2.38]], "sections": 6, "detail": "low", "color": "#3b4048", "material": "gloss", "shading": "flat"},
+  {"name": "finial", "shape": "ellipsoid", "center": [0, 2.4, 0], "radii": [0.035, 0.05, 0.035], "color": "#3b4048", "material": "gloss"},
+  {"name": "ring", "shape": "torus", "center": [0, 2.44, 0], "radius": 0.03, "thickness": 0.008, "axis": [1, 0, 0], "detail": "low", "color": "#3b4048", "material": "gloss"}
+ ]}
