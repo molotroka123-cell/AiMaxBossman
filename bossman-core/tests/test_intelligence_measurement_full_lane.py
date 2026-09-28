@@ -26,7 +26,7 @@ def test_runner_records_observed_identity_prompts_config_and_exact_sha(source_re
     # This uses the genuine FULL production lane with a labelled synthetic
     # HTTP server. It tests evidence serialization, not intelligence retention.
     assert runner.main(args) == 2  # one item/metric is insufficient, even here
-    result = json.loads((tmp_path / "synthetic-result.json").read_text())
+    result = json.loads((tmp_path / "synthetic-result.json").read_text(encoding="utf-8"))
     assert result["evaluated_sha"] == git(source_repo, "rev-parse", "HEAD")
     assert result["provider"] == "ollama" and result["model"] == "fixture:1"
     assert result["model_version"] == "sha256:" + "1" * 64
