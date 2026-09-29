@@ -419,7 +419,8 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
         async with lock_for(uid):
             event = stop_event(uid)
             event.clear()
-            had_history = bool(rt.store.history(person.key))
+            had_history = bool(rt.vault.consent(rt.vault.key_for_telegram(uid)).memory_enabled
+                               and rt.store.history(person.key))
             token_box, token_up = _outbox.set(box), _uploads.set(uploads or {})
             try:
                 task = asyncio.create_task(rt.handle(person, message))

@@ -72,6 +72,9 @@ from .voice import VoiceError, transcribe_telegram_voice
 STOP_FLAG = "stop.flag"
 
 
+MEMORY_PAUSED_WRITE_RU = "Память на паузе: ничего не записываю и не меняю. Включить — /resume_memory."
+
+
 class StopRequested(RuntimeError):
     """Raised by the poll loop when the owner asked for a clean shutdown.
 
@@ -1276,6 +1279,8 @@ class ParticipantRuntime:
             if not argument.strip():
                 return "Напиши /forget и что забыть, например: /forget люблю кофе"
             return self._forget(person_key, argument.strip())
+        if command in {"/correct", "/style"} and not consent.memory_enabled:
+            return MEMORY_PAUSED_WRITE_RU
         if command == "/correct":
             return self._correct(person_key, argument.strip())
         if command == "/pause_memory":
