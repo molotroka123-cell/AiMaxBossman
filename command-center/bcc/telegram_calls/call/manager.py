@@ -140,6 +140,11 @@ class CallsManager:
     def active_call(self) -> dict | None:
         return dict(self._active_call) if self._active_call else None
 
+    @property
+    def dial_pending(self) -> bool:
+        """A dial was requested and the worker has not answered yet (engines loading, client connecting, phone ringing)."""
+        return bool(self._dial_pending)
+
     def settings(self) -> CallSettings:
         return load_settings(self.home)          # fresh, never cached
 
@@ -490,10 +495,14 @@ class CallsManager:
 
     async def stop(self, by: str = "owner") -> dict:
         """STOP: the durable file first, then the fast op, then (no ack in time / hangup unconfirmed) the process."""
-        self.state.set_stop(by[:40] or "owner")
+        persisted = True
+        try:
+            self.state.set_stop(by[:40] or "owner")
+        except OSError:
+            persisted = False                                       # reported below; the hangup must not wait for the disk
         with contextlib.suppress(Exception):
             await asyncio.to_thread(self.heal_permissions)
-        out: dict[str, Any] = {"stop_flag": True, "worker": "not_running", "hangup_confirmed": None, "terminated": False}
+        out: dict[str, Any] = {"stop_flag": persisted, "worker": "not_running", "hangup_confirmed": None, "terminated": False}
         self._event("stop", by=by[:40])
         if not self.running:
             return out

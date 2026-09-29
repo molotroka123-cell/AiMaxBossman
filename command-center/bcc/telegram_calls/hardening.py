@@ -115,7 +115,7 @@ def configure_worker_logging(home: Path, secrets: Callable[[], Iterable[str]] = 
     for noisy in ("telethon", "pytgcalls", "ntgcalls", "aiohttp", "asyncio", "httpx", "httpcore"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
     try:
-        from ..auth import _restrict_to_owner
+        from ...auth import _restrict_to_owner
         _restrict_to_owner(path)
     except Exception:  # noqa: BLE001 - best effort, the doctor re-checks
         pass

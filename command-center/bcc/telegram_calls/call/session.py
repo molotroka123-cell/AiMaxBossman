@@ -16,6 +16,7 @@ Rules that are enforced here (each has a test):
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import re
 import time
 from collections import deque
@@ -196,6 +197,8 @@ class CallSession:
 
     # ================================================================== connect / converse / teardown
     async def _connect(self) -> None:
+        if self._outcome is not None:                # STOP / hangup before anything was requested: nothing is dialled
+            return
         try:
             await self.transport.start()
         except CallError as exc:                     # nothing was requested yet: a provable failure
@@ -206,8 +209,10 @@ class CallSession:
             self.emit("error", code="INTERNAL", detail=type(exc).__name__)
             self._finish(Outcome.FAILED, "INTERNAL")
             return
+        if self._outcome is not None:                # STOP raced the transport start: the phone must not ring
+            return
         try:
-            await self.transport.dial(self.peer, ring_timeout=self.cfg.ring_timeout_s)   # exactly once, never retried
+            await self._dial_until_done()            # exactly once, never retried; STOP / hangup interrupt the ringing
         except CallError as exc:
             mapping = {"CALL_DECLINED": Outcome.DECLINED, "CALL_BUSY": Outcome.BUSY, "CALL_NO_ANSWER": Outcome.NO_ANSWER,
                        "PEER_PRIVACY": Outcome.FAILED, "DEPENDENCIES_MISSING": Outcome.FAILED, "NOT_LOGGED_IN": Outcome.FAILED}
@@ -223,6 +228,25 @@ class CallSession:
             return
         self._active_since = self._clock()
         self._set_state(CallState.ACTIVE)
+
+    async def _dial_until_done(self) -> None:
+        """``transport.dial`` raced against the end of the call: a STOP or hangup while the phone rings cancels the dial, and the
+        teardown then hangs up through the transport (a terminated worker could never leave the call)."""
+        loop = asyncio.get_running_loop()
+        dial = loop.create_task(self.transport.dial(self.peer, ring_timeout=self.cfg.ring_timeout_s), name="calls-dial")
+        ended = loop.create_task(self._done.wait(), name="calls-dial-ended")
+        try:
+            await asyncio.wait({dial, ended}, return_when=asyncio.FIRST_COMPLETED)
+            if not dial.done():
+                dial.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await dial
+                return
+            dial.result()                            # re-raises the dial's own CallError for the caller's mapping
+        finally:
+            for task in (dial, ended):
+                if not task.done():
+                    task.cancel()
 
     async def _converse(self) -> None:
         self.playout.start()

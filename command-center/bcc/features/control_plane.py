@@ -41,7 +41,7 @@ async def _active_owner_work(svc) -> tuple[dict[str, list], list[dict[str, str]]
     active: dict[str, list] = {name: [] for name in (
         "tasks", "terminal", "coding", "command_bar", "browser",
         "evolution", "v15_economy", "v15_owner_run", "pit", "studio",
-        "studio_provider_unknown")}
+        "studio_provider_unknown", "calls")}
     errors: list[dict[str, str]] = []
 
     def inspect(plane: str, fn) -> None:
@@ -64,6 +64,12 @@ async def _active_owner_work(svc) -> tuple[dict[str, list], list[dict[str, str]]
     inspect("terminal", lambda: [sid for sid, item in (terminal.sessions.items() if terminal else ())
                                  if not item.finished and item.proc.returncode is None])
     inspect("browser", lambda: list(browser._sessions) if browser else [])
+
+    def calls_plane():
+        # Telegram calls: a live call or a dial in progress (an idle logged-in worker is not work). Never creates the runtime.
+        manager = getattr(getattr(svc, "_calls", None), "manager", None)
+        return ["call"] if manager is not None and (manager.active_call is not None or manager.dial_pending) else []
+    inspect("calls", calls_plane)
     from ..pit import cli as pit_cli
     from ..pit.config import pit_home
     inspect("pit", lambda: ["Jeff"] if pit_cli._is_running(pit_home(svc.settings.data_dir)) else [])
@@ -175,6 +181,10 @@ async def stop_all_owner_work(request: Request) -> dict[str, Any]:
             if task is None or task.get("state") not in ("stopped", "done", "failed"):
                 raise RuntimeError("command bar task stop was not confirmed")
         await attempt("command_bar", task_id, stop_command_bar)
+
+    if active["calls"]:
+        # hangup + durable calls STOP (same path as POST /api/telegram/calls/stop); no redial afterwards
+        await attempt("calls", "call", lambda: svc._calls.manager.stop("owner_stop_all"))
 
     from .browser import _mgr as browser_manager, _record as browser_record
     for session_id in active["browser"]:

@@ -50,6 +50,8 @@ class Worker:
                  engines_factory: EnginesFactory | None = None, transport_factory: TransportFactory | None = None,
                  account: TelegramAccount | None = None, mode: str | None = None):
         self.home = home or calls_home()
+        self._dial_arming = False
+        self._stop_requested = False
         self._write = write
         self.mode = mode if mode is not None else os.environ.get(MODE_ENV, "")
         self.offline = self.mode == OFFLINE_MODE
@@ -163,6 +165,15 @@ class Worker:
 
     # ------------------------------------------------------------ ops: call
     async def op_dial(self, args: dict) -> dict:
+        if self._dial_arming:                                    # a second dial while the first one is still starting
+            raise CallError("CALL_IN_PROGRESS")
+        self._dial_arming = True
+        try:
+            return await self._dial(args)
+        finally:
+            self._dial_arming = False
+
+    async def _dial(self, args: dict) -> dict:
         settings = load_settings(self.home)                      # fresh, never cached
         ctx = DialContext(account=self.account.state(), me_id=self.account.me_id(), active_call=self.session is not None,
                           stop_active=self.state.stop_is_set() or bool(args.get("global_stop")),
@@ -174,6 +185,8 @@ class Worker:
         engines = await self._engines(settings)
         call_id = "c-" + uuid.uuid4().hex[:12]
         transport = await self._build_transport(engines)
+        if self.state.stop_is_set() or self._stop_requested:     # STOP arrived while the models loaded / the client connected
+            raise CallError("STOP_ACTIVE")
         cfg = SessionConfig(ring_timeout_s=float(settings.ring_timeout_s), max_call_s=float(settings.max_call_s),
                             idle_prompt_s=float(settings.idle_prompt_s), idle_hangup_s=float(settings.idle_hangup_s),
                             barge_in=settings.barge_in, echo_mode=settings.echo_mode, greeting=settings.greeting)
@@ -181,6 +194,9 @@ class Worker:
                               brain=engines.brain, vad=engines.vad, cfg=cfg, on_event=self._on_session_event,
                               recorder=engines.recorder)
         self.session = session
+        if self.state.stop_is_set() or self._stop_requested:     # ... or between the check above and here: never ring
+            self.session = None
+            raise CallError("STOP_ACTIVE")
         self.state.note_call_started(call_id)                    # BEFORE the phone can ring: a crash leaves it 'uncertain'
         self._call_task = asyncio.get_running_loop().create_task(self._run_call(session), name="calls-call")
         return {"call_id": call_id, "accepted": True, "transport": transport.name, "models": dict(session.record.models),
@@ -234,7 +250,11 @@ class Worker:
 
     # ``stop`` is also reachable through the fast path (``stop_now``), so it must be safe to call from a bare callback.
     def stop_now(self, reason: str = "owner_stop") -> None:
-        self.state.set_stop(reason)                                # durable first: survives a crash right after
+        self._stop_requested = True                                # seen by a dial that is still arming
+        try:
+            self.state.set_stop(reason)                            # durable first: survives a crash right after
+        except OSError:
+            log.exception("STOP flag could not be written")        # the hangup below must still happen
         if self.session is not None:
             self.session.stop(reason)
 
@@ -250,6 +270,7 @@ class Worker:
         return {"stopped": True, "hangup_confirmed": confirmed, "stop_flag": True}
 
     async def op_resume(self, args: dict) -> dict:
+        self._stop_requested = False
         self.state.clear_stop()
         return {"stop_flag": False}
 

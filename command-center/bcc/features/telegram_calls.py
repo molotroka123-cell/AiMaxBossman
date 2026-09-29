@@ -5,7 +5,7 @@ call engine live in the calls worker process (``bcc.telegram_calls``), which ``C
 Nothing here registers an agent tool: an agent cannot place a call.
 
 CONTRACT (fixed by the coordinator; do not rename): routes are /api/telegram/calls/*, bus events are telegram_call.state /
-telegram_call.ended. /api/calls/* and calls.state / calls.ended exist ONLY as compatibility aliases (see "mounting" below).
+telegram_call.ended. There is ONE prefix and ONE event family: no /api/calls alias and no calls.* events.
 
 Endpoints (paths below are relative to /api/telegram; the normal auth applies):
   GET  /calls/status                      merged local facts + worker status (never starts the worker)
@@ -26,8 +26,9 @@ Endpoints (paths below are relative to /api/telegram; the normal auth applies):
   GET|POST /calls/install                 add-on dependencies: status / start (owner-triggered)
 
 STOP: the durable calls STOP file is written first, then the call is hung up. The bus event ``computer.stop`` (the global
-Bossman STOP) does the same, and dialing is refused while the global STOP is set. Bus events: ``calls.state`` /
-``calls.ended`` (no text, no phone numbers, no secrets, at most ~5 per second).
+Bossman STOP) does the same, ``POST /api/control-plane/stop-all`` stops the ``calls`` plane, and dialing is refused while the
+global STOP is set. Bus events: ``telegram_call.state`` / ``telegram_call.ended`` (no text, no phone numbers, no secrets, at most
+~5 per second).
 """
 from __future__ import annotations
 
@@ -163,17 +164,15 @@ class _Runtime:
         task.add_done_callback(self.manager._bg.discard)
 
     async def _emit(self, kind: str, data: dict) -> None:
-        # CONTRACT NAME first (telegram_call.state / telegram_call.ended); the shorter calls.* name is a compatibility alias
-        # for clients written against it. Both carry the same text-free payload.
-        for prefix in ("telegram_call", "calls"):
-            with contextlib.suppress(Exception):
-                if kind in ("calls.state", "telegram_call.state"):
-                    await self.svc.bus.emit(f"{prefix}.state", state=data.get("state"), phase=data.get("phase"),
-                                            call_id=data.get("call_id"), transport=data.get("transport"))
-                else:
-                    await self.svc.bus.emit(f"{prefix}.ended", call_id=data.get("call_id"), outcome=data.get("outcome"),
-                                            error_code=data.get("error_code"), transport=data.get("transport"),
-                                            turns=data.get("turns"), latency_p50_ms=data.get("latency_p50_ms"))
+        # telegram_call.state / telegram_call.ended: text-free payload (no transcript, phone number or secret)
+        with contextlib.suppress(Exception):
+            if kind == "telegram_call.state":
+                await self.svc.bus.emit("telegram_call.state", state=data.get("state"), phase=data.get("phase"),
+                                        call_id=data.get("call_id"), transport=data.get("transport"))
+            else:
+                await self.svc.bus.emit("telegram_call.ended", call_id=data.get("call_id"), outcome=data.get("outcome"),
+                                        error_code=data.get("error_code"), transport=data.get("transport"),
+                                        turns=data.get("turns"), latency_p50_ms=data.get("latency_p50_ms"))
 
     async def _on_record(self, rec: dict) -> None:
         try:
@@ -559,7 +558,7 @@ async def _watch_global_stop(svc: Any, rt: _Runtime) -> None:
                 if not svc.bus.is_subscribed(q):
                     q = svc.bus.subscribe()
                 msg = None
-                if global_stop_active(svc) and (rt.manager.active_call is not None or rt.manager.running):
+                if global_stop_active(svc) and (rt.manager.active_call is not None or rt.manager.dial_pending):
                     await rt.manager.stop("computer_stop")
                 continue
             if msg.get("kind") == "computer.stop":
@@ -578,11 +577,9 @@ async def _setup(svc: Any) -> None:
 
 
 # ---------------------------------------------------------------- mounting
-# CONTRACT PATH: /api/telegram/calls/*  (the docs, the CLI global STOP and the command-bar block name it).
-# COMPATIBILITY ALIAS: /api/calls/*     (same handlers, hidden from the schema). Both are blocked in the command bar.
+# ONE PREFIX: /api/telegram/calls/*  (the docs, the panel, the CLI and the command-bar block all name it). No alias.
 _calls_router = router
 router = APIRouter()
 router.include_router(_calls_router, prefix="/telegram")
-router.include_router(_calls_router, include_in_schema=False)
 
 FEATURE = Feature(name="telegram_calls", router=router, setup=_setup)

@@ -348,3 +348,36 @@ async def test_a_failing_brain_hook_never_takes_the_call_down():
     assert s.record.state == CallState.ACTIVE
     s.hangup(); rec = await task
     assert rec.outcome == Outcome.COMPLETED and any(e.kind == "error" and e.data.get("detail", "").startswith("brain_hook") for e in s.events)
+
+
+# ---- STOP / hangup while the phone is still ringing (audit finding): the dial is cancelled and the transport hangs up
+
+async def test_stop_while_ringing_cancels_the_dial_and_hangs_up_at_once():
+    tr = LoopbackTransport(ring_s=30.0)
+    s, *_ = build(transport=tr, ring_timeout_s=60.0)
+    task = asyncio.create_task(s.run())
+    assert await until(lambda: tr.dial_calls == 1, 3)
+    t0 = time.monotonic()
+    assert await s.stop_and_wait("owner_stop", timeout=3.0), "teardown did not start while ringing"
+    rec = await asyncio.wait_for(task, 3)
+    assert time.monotonic() - t0 < 2.5 and rec.outcome == Outcome.STOPPED
+    assert tr.hangup_calls >= 1, "the ringing call must be left through the transport, not by killing the process"
+    assert tr.dial_calls == 1
+
+
+async def test_hangup_while_ringing_ends_the_call_without_waiting_for_the_ring_timeout():
+    tr = LoopbackTransport(ring_s=30.0)
+    s, *_ = build(transport=tr, ring_timeout_s=60.0)
+    task = asyncio.create_task(s.run())
+    assert await until(lambda: tr.dial_calls == 1, 3)
+    s.hangup("owner_hangup")
+    rec = await asyncio.wait_for(task, 3)
+    assert rec.outcome == Outcome.COMPLETED and tr.hangup_calls >= 1 and tr.dial_calls == 1
+
+
+async def test_stop_before_run_never_rings_the_phone():
+    tr = LoopbackTransport()
+    s, *_ = build(transport=tr)
+    s.stop("owner_stop")
+    rec = await asyncio.wait_for(s.run(), 3)
+    assert rec.outcome == Outcome.STOPPED and tr.dial_calls == 0
