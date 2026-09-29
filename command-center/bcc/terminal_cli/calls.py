@@ -25,7 +25,7 @@ from .keys import read_secret
 from .records import (EXIT_BLOCKED, EXIT_FAIL, EXIT_INTERRUPTED, EXIT_NOT_SUPPORTED, EXIT_OK, EXIT_PARTIAL,
                       EXIT_STOPPED, EXIT_USAGE, record)
 
-BASE = "/api/telegram/calls"   # CONTRACT path (coordinator spec, do not rename); /api/calls/* is only a backend alias
+BASE = "/api/telegram/calls"   # the one API prefix (coordinator spec, do not rename)
 TEST_LABEL = "ТЕСТ БЕЗ TELEGRAM"
 
 #: refusals of the guard / of the account state: kind=blocked (exit 5), never "auth" (that is Bossman's own token)

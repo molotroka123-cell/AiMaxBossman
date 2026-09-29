@@ -1,15 +1,11 @@
 # CONTINUE — one next action
 
-> **STATUS 2026-09-29 — частично устарел.** Верно то, что сказано в `CLAUDE_MASTER_1_9.md` (главнее этого файла): база — линия 1.9 (`feat/bossman-1.9-freeze-20260929`), мозг звонка — Jeff (`bcc/pit/call_surface.py`, не telegram_companion), секреты — Vault в каталоге данных Bossman, API — `/api/telegram/calls/*` (алиас `/api/calls/*`). Реальный двусторонний звонок: NOT_RUN.
+Branch: `claude/telegram-live-calls-ah9gwl` (draft PR #87, base `feat/bossman-1.9-freeze-20260929`). Authority: `CLAUDE_MASTER_1_9.md`.
 
+**Next action (owner):** local login on the Telegram-calls screen (api_id/api_hash, phone, code, 2FA are typed ONLY by the owner, locally),
+choose the second account through the UX with a confirmation, allow calls, one «Позвонить». No auto-redial. Then the measurements of
+`ACCEPTANCE.md` rows 12-16 (latency p50/p95 over >=10 turns, echo, >=5 minutes, intelligibility 1-5).
 
-Branch: `claude/telegram-live-calls-ah9gwl` (base `release/bossman-owner` @ `90a807b`). Master prompt: `CLAUDE_MASTER_1_9.md`.
-
-**Next action:** implement `call/pytgcalls_transport.py` (real private-call transport) and the speech adapters (`speech/stt.py`, `speech/tts.py`,
-`speech/brain.py`), then `call/worker.py` + `call/manager.py`, then API/UI/CLI — in that order (see section 3 of the master prompt).
-
-Checkpoint 1 state: audio core, session state machine, loopback transport, credentials/guard/login layer — **140 unit tests passing** (fakes; no real Telegram).
-Not done: everything in `ACCEPTANCE.md` rows 6–14.
-
-Tracks against the same-product Terminal Run contract: nothing here creates a second brain, memory, task queue or secret store.
-North Star ladder: unchanged by this module.
+Done and covered by tests: audio core, session state machine, py-tgcalls transport, worker/manager/API/panel/`bossman call`, Vault credentials,
+add-on installer, Jeff call brain (S1-S5), doctor row (S6), calls plane in owner STOP-all (S7), one API prefix, browser acceptance of the panel.
+Not done: any real Telegram call (NOT_RUN / BLOCKED on the owner). Nothing here advances the North Star ladder.

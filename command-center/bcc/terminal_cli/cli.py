@@ -892,8 +892,8 @@ def cmd_stop(args) -> int:
     return _task_action(args, "stop")
 
 
-#: CONTRACT PATH of the calls API (fixed by the coordinator's spec; do not rename). `/api/calls/*` exists only as a
-#: compatibility alias on the backend. The global STOP below and `bossman call` use THIS path.
+#: The ONE prefix of the calls API (fixed by the coordinator's spec; do not rename). The global STOP below and
+#: `bossman call` use it.
 CALLS_API = "/api/telegram/calls"
 
 

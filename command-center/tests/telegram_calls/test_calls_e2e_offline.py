@@ -74,7 +74,11 @@ class Backend:
             kids = psutil.Process(self.proc.pid).children(recursive=True)
         except psutil.NoSuchProcess:
             return []
-        return [k for k in kids if "bcc.telegram_calls" in " ".join(_cmdline(k))]
+        found = [k for k in kids if "bcc.telegram_calls" in " ".join(_cmdline(k))]
+        # a Windows venv python.exe is a launcher that re-executes the base interpreter: count the
+        # real worker (the leaf), not the launcher and the interpreter it started as two workers
+        pids = {k.pid for k in found}
+        return [k for k in found if not any(c.pid in pids for c in k.children())]
 
 
 def _cmdline(p: psutil.Process) -> list[str]:
@@ -422,7 +426,7 @@ def test_restart_keeps_the_vault_stop_and_uncertainty_and_a_lost_key_is_reported
     assert cli(b, "call", "stop", "--json").returncode == 0
     snapshot = b.root / "restart-data"
     stop_backend(b)
-    shutil.copytree(b.data, snapshot)
+    shutil.copytree(b.data, snapshot, ignore=shutil.ignore_patterns("backend.lock"))  # held open by the running backend on Windows
     lost_key = b.root / "lost-key-data"
     shutil.copytree(b.data, lost_key)
 

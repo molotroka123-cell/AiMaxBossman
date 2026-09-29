@@ -32,8 +32,8 @@ test('the page exports exactly the manifest shape the lazy registry expects', ()
 });
 
 test('onEvent never re-renders the page (typed code and 2FA must survive bus events)', () => {
-  assert.equal(mod.default.onEvent({ kind: 'calls.state' }), false);
-  assert.equal(mod.default.onEvent({ kind: 'calls.ended' }), false);
+  assert.equal(mod.default.onEvent({ kind: 'telegram_call.state' }), false);
+  assert.equal(mod.default.onEvent({ kind: 'telegram_call.ended' }), false);
   assert.equal(mod.default.onEvent({ kind: 'task.created' }), false);
   assert.equal(mod.default.onEvent(undefined), false);
 });

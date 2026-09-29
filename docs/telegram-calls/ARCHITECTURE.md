@@ -1,9 +1,6 @@
 # Telegram live calls — architecture
 
-> **STATUS 2026-09-29 — частично устарел.** Верно то, что сказано в `CLAUDE_MASTER_1_9.md` (главнее этого файла): база — линия 1.9 (`feat/bossman-1.9-freeze-20260929`), мозг звонка — Jeff (`bcc/pit/call_surface.py`, не telegram_companion), секреты — Vault в каталоге данных Bossman, API — `/api/telegram/calls/*` (алиас `/api/calls/*`). Реальный двусторонний звонок: NOT_RUN.
-
-
-Status: **IMPLEMENTATION IN A FEATURE BRANCH. NOT INTEGRATED INTO `release/bossman-owner`, NOT CERTIFIED.**
+Status: **feature branch on the 1.9 line (`feat/bossman-1.9-freeze-20260929`), draft PR #87. NOT CERTIFIED.** `CLAUDE_MASTER_1_9.md` is the authority.
 A real two-way Telegram call has **not** been verified yet (see `ACCEPTANCE.md` for the PASS / FAIL / BLOCKED / NOT_RUN table).
 
 ## Same-product contract (Terminal Run 1.2 rule)
@@ -13,11 +10,11 @@ database, model fleet, task queue or secret store:
 
 | Need | Reused existing component |
 |---|---|
-| local LLM routes, persona, owner conversation context | `bcc.telegram_companion` (`config.load`, `Models` routes main/fast, `Store.history/profile`) |
+| brain of the call: Jeff as one more SURFACE (`surface="call"`): public_guard, consent, zero-start, per-participant memory, local models | `bcc/pit/call_surface.py` (`CallParticipantRuntime`) + `speech/jeff_engines.py` (`JeffSTT/JeffTTS/JeffBrain`); NOT `telegram_companion`, NOT Jev |
 | secrets at rest (api_id/api_hash/session) | `bcc.secrets.Vault` (Fernet, key file 0600 / `BOSSMAN_VAULT_KEY`) + `bcc.auth._restrict_to_owner` |
-| STT engine | `faster-whisper` (already the optional `speech` extra, `bcc.oss.whisper` model directory convention) |
+| STT / TTS | Jeff's voice path: `bcc.pit.speech.transcribe_wav` (Whisper) and `bcc.oss.piper.synthesize_pcm` (external Piper process) |
 | memory of the call outcome | the existing memory path (see `MEMORY.md` section below) |
-| STOP | existing global STOP (`/api/computer/stop`, `bossman stop --all`, Telegram `/stop`) + call-local STOP |
+| STOP | existing owner STOP: `/api/computer/stop` (bus `computer.stop`), `POST /api/control-plane/stop-all` (plane `calls`, S7), `bossman stop --all`, Telegram owner channel + the call-local STOP file |
 | UI / CLI | dashboard panel + `bossman call …` (thin client of the Command Center API) |
 
 ## Why a separate worker process
@@ -30,10 +27,10 @@ The Command Center (`CallsManager`, in the API feature) starts/stops the worker 
 ```
 Dashboard panel ─┐                                   ┌─ Telethon (MTProto user session, StringSession in Vault)
 bossman call … ──┼─► /api/telegram/calls/* ─► CallsManager ══ stdio JSON-lines ══► worker ──┤
-Telegram /stop ──┘   (auth + CSRF, no peer param)    │                              └─ py-tgcalls/ntgcalls (P2P call, external PCM)
+owner STOP ──────┘   (auth + CSRF, no peer param)    │                              └─ py-tgcalls/ntgcalls (P2P call, external PCM)
 global STOP  ────────► bus computer.stop ────────────┘
                                                         worker audio path:
-  transport RX PCM ─► resample 16k ─► VAD/endpointer ─► streaming STT ─► Brain (companion local LLM, streamed)
+  transport RX PCM ─► resample 16k ─► VAD/endpointer ─► streaming STT ─► Brain (Jeff call surface)
         ▲                    │ barge-in / echo guard                                  │ sentence chunks
         │                    ▼                                                        ▼
   transport TX PCM ◄─ paced playout queue (generation-tagged, flush on barge-in/STOP) ◄─ streaming TTS
@@ -68,4 +65,10 @@ Loopback transport = plumbing/latency test **without Telegram**; every record ca
 labels it «ТЕСТ БЕЗ TELEGRAM». Fake STT/TTS/LLM in unit tests prove control flow only. Only a real call between
 the two real accounts, on the owner's machine, can produce the PASS for the real two-way conversation.
 
-(Sections `MEMORY`, `OSS`, `LATENCY`, `ACCEPTANCE` are completed as the implementation lands.)
+## API and events
+
+ONE prefix: `/api/telegram/calls/*` (panel, CLI, docs, command-bar block). There is no `/api/calls` alias. Bus events:
+`telegram_call.state` / `telegram_call.ended` (text-free, at most ~5 per second). The live call is the `calls` plane of
+`/api/control-plane/active` and `/api/control-plane/stop-all`; a running idle worker is not counted as work.
+
+(Sections `MEMORY`, `OSS`, `LATENCY` are completed with the owner-live measurements; see `ACCEPTANCE.md`.)

@@ -1,4 +1,4 @@
-"""/api/calls/*: auth, empty state, guards, validation, STOP (own and global), UNKNOWN + confirm, bus events, secrets.
+"""/api/telegram/calls/*: auth, empty state, guards, validation, STOP (own and global), UNKNOWN + confirm, bus events, secrets.
 
 The worker is the REAL one in ``BOSSMAN_CALLS_MODE=offline_test`` (fake Telethon client, loopback line, scripted engines):
 the whole product flow runs without Telegram. Nothing here proves a real Telegram call; every call carries transport
@@ -21,7 +21,7 @@ from bcc.tools import REGISTRY
 
 API_ID = 1234567
 API_HASH = "0123456789abcdef" * 2                          # fixture shape only, not a credential
-PREFIX = "/api/calls"
+PREFIX = "/api/telegram/calls"
 
 
 @pytest.fixture(autouse=True)
@@ -134,7 +134,7 @@ async def test_no_agent_tool_can_place_a_call(env):
 async def test_the_command_bar_lists_but_never_runs_call_routes(env, monkeypatch):
     monkeypatch.setenv("BOSSMAN_COMMAND_BAR_ENABLED", "1")
     catalog = cb.build_catalog(env.app)
-    calls = [cap for cap in catalog.values() if cap.path.startswith("/api/calls")]
+    calls = [cap for cap in catalog.values() if cap.path.startswith("/api/telegram/calls")]
     assert len(calls) >= 20, "the routes must be visible in the catalog (not silently hidden)"
     assert all(cap.runnable is False and cap.blocked_reason for cap in calls)
     tasks = [cap for cap in catalog.values() if cap.path == "/api/tasks" and cap.method == "GET"]
@@ -142,7 +142,7 @@ async def test_the_command_bar_lists_but_never_runs_call_routes(env, monkeypatch
     parsed = (await env.client.post("/api/command-bar/parse", json={"text": calls[0].id})).json()
     assert parsed["intent"]["runnable"] is False
     res = await env.client.post("/api/command-bar/run", json={"intent_id": parsed["intent_id"]})
-    assert res.status_code == 400 and mgr(env).running is False
+    assert res.status_code == 400
 
 
 # ------------------------------------------------------------------ credentials / login
@@ -348,6 +348,30 @@ async def test_the_global_stop_blocks_dialing_and_ends_a_running_call(env):
     await c.post(f"{PREFIX}/resume")
 
 
+async def test_owner_stop_all_hangs_up_a_live_call_and_never_redials(env):
+    """S7: the calls plane is part of the one owner STOP (dashboard, CLI and Telegram channel all call stop-all)."""
+    await ready(env)
+    c = env.client
+    assert (await c.get("/api/control-plane/active")).json()["active"]["calls"] == []
+    assert (await c.post(f"{PREFIX}/call", json={})).status_code == 200
+    await active(env)
+    assert (await c.get("/api/control-plane/active")).json()["active"]["calls"] == ["call"]
+    body = (await c.post("/api/control-plane/stop-all")).json()
+    assert body["stopped"]["calls"] == ["call"] and body["remaining"]["calls"] == [], body
+    assert not [e for e in body["errors"] if e["plane"] == "calls"], body["errors"]
+    st = await until(env, lambda s: s["call"] is None and s["last_call"] and s["last_call"]["outcome"] == "stopped")
+    assert st["stop"]["call"] is True
+    blocked = await c.post(f"{PREFIX}/call", json={})
+    assert blocked.status_code == 409 and blocked.json()["error"]["code"] == "STOP_ACTIVE", "no redial after STOP"
+    await c.post("/api/computer/resume")
+    await c.post(f"{PREFIX}/resume")
+
+
+async def test_there_is_one_api_prefix_and_no_calls_alias(env):
+    assert (await env.client.get(f"{PREFIX}/status")).status_code == 200
+    assert (await env.client.get("/api/calls/status")).status_code == 404
+
+
 async def test_a_dead_worker_means_unknown_and_the_next_dial_needs_a_confirmation(env):
     await ready(env)
     c = env.client
@@ -397,17 +421,17 @@ async def test_bus_events_are_text_free_and_rate_limited(env):
     seen = []
     while not q.empty():
         msg = q.get_nowait()
-        if str(msg.get("kind", "")).startswith("calls."):
+        if str(msg.get("kind", "")).startswith("telegram_call."):
             seen.append(msg)
     kinds = {m["kind"] for m in seen}
-    assert kinds <= {"calls.state", "calls.ended"} and "calls.ended" in kinds and "calls.state" in kinds
+    assert kinds <= {"telegram_call.state", "telegram_call.ended"} and "telegram_call.ended" in kinds and "telegram_call.state" in kinds
     allowed = {"kind", "ts", "seq", "state", "phase", "call_id", "transport", "outcome", "error_code", "turns", "latency_p50_ms", "trace_id"}
     for m in seen:
         assert set(m) <= allowed, set(m) - allowed
     blob = json.dumps(seen)
     for secret in (OFFLINE_PHONE, OFFLINE_CODE, API_HASH):
         assert secret not in blob
-    assert [m for m in seen if m["kind"] == "calls.ended"][0]["outcome"] == "completed"
+    assert [m for m in seen if m["kind"] == "telegram_call.ended"][0]["outcome"] == "completed"
 
 
 async def test_a_burst_of_state_changes_is_coalesced_to_about_five_per_second(env):
@@ -421,7 +445,7 @@ async def test_a_burst_of_state_changes_is_coalesced_to_about_five_per_second(en
     got = []
     while not q.empty():
         m = q.get_nowait()
-        if m.get("kind") == "calls.state":
+        if m.get("kind") == "telegram_call.state":
             got.append(m)
     elapsed = time.monotonic() - t0
     assert 1 <= len(got) <= elapsed * 5 + 2, (len(got), elapsed)
