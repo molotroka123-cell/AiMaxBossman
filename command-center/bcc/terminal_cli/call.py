@@ -5,12 +5,17 @@ The terminal owns no state: every subcommand is one (or a few) API requests to t
 * api_id, api_hash, phone, login code and 2FA password are asked ONLY with getpass (no echo) and are never
   accepted in argv, never printed, never written to a file by the terminal. No terminal -> refusal.
 * `dial` has NO peer argument: the only callee is the confirmed second account stored in Bossman.
+* `peer --yes` and `dial --confirm-unknown` are safety confirmations that only the owner may give: they need an
+  interactive TTY answer; a script/agent must set BOSSMAN_CALL_NONINTERACTIVE_OWNER=1 to say "the owner authorised this".
+* every `dial` carries a fresh request_id (idempotency: a replayed request is rejected, never rings twice).
 * `stop` = the same STOP as the web page (hangs up, sets the call-STOP flag); `resume` clears only that flag.
 """
 from __future__ import annotations
 
 import getpass
+import os
 import sys
+import uuid
 from typing import Any
 
 from .api_client import BossmanError, Client
@@ -39,6 +44,25 @@ def _ask(prompt: str) -> str:
     if not (sys.stdin and sys.stdin.isatty()):
         return ""
     return input(prompt).strip()
+
+
+OWNER_ENV = "BOSSMAN_CALL_NONINTERACTIVE_OWNER"
+_YES = ("y", "yes", "д", "да")
+
+
+class NeedsOwner(BossmanError):
+    def __init__(self, what: str):
+        super().__init__(f"{what}: нужно подтверждение владельца в интерактивном терминале", kind="usage",
+                         hint=f"запустите команду в обычном окне терминала или задайте {OWNER_ENV}=1 (владелец разрешил)")
+
+
+def _owner_confirm(what: str, prompt: str) -> bool:
+    """A safety confirmation is the OWNER's: interactive TTY answer, or the explicit env override for scripts."""
+    if os.environ.get(OWNER_ENV) == "1":
+        return True
+    if not (sys.stdin and sys.stdin.isatty()):
+        raise NeedsOwner(what)
+    return _ask(prompt).lower() in _YES
 
 
 def _say(out, text: str) -> None:
@@ -127,11 +151,14 @@ def _peer(client: Client, out, args) -> int:
         text = (f"собеседник: {sanitize(peer.get('label') or '')} #{peer.get('user_id')}"
                 f" ({'подтверждён' if s.get('peer_confirmed') else 'НЕ подтверждён'})") if peer else "собеседник не выбран"
         return _emit(out, "call_peer", True, text, peer=peer or None, confirmed=bool(s.get("peer_confirmed")))
+    yes_ok = False
+    if args.yes:
+        yes_ok = _owner_confirm("peer --yes", "Подтвердить собеседника без дополнительных вопросов? [y/N] ")   # refuses before any request
     res = client.post(f"{BASE}/peer", {"user_id": args.user_id}) or {}
     peer = res.get("peer") or {}
     label = sanitize(peer.get("label") or peer.get("user_id") or args.user_id)
     confirmed = False
-    if args.yes or (not out.machine and _ask(f"Разрешить звонки ТОЛЬКО этому аккаунту: {label}? [y/N] ").lower() in ("y", "yes", "д", "да")):
+    if yes_ok or (not args.yes and not out.machine and _ask(f"Разрешить звонки ТОЛЬКО этому аккаунту: {label}? [y/N] ").lower() in ("y", "yes", "д", "да")):
         client.post(f"{BASE}/peer/confirm", {"user_id": args.user_id})
         confirmed = True
     return _emit(out, "call_peer", True,
@@ -154,7 +181,11 @@ def run_call(client: Client, out, args) -> int:
     if sub == "peer":
         return _peer(client, out, args)
     if sub == "dial":
-        res = client.post(f"{BASE}/dial", {"confirm_unknown": bool(args.confirm_unknown)}) or {}
+        if args.confirm_unknown and not _owner_confirm(
+                "dial --confirm-unknown", "Исход прошлого звонка неизвестен. Всё равно позвонить? [y/N] "):
+            return _emit(out, "call_dial", False, "Звонок отменён.", cancelled=True)
+        res = client.post(f"{BASE}/dial", {"confirm_unknown": bool(args.confirm_unknown),
+                                           "request_id": uuid.uuid4().hex}) or {}
         return _emit(out, "call_dial", bool(res.get("accepted")),
                      "Звонок запущен." if res.get("accepted") else "Звонок не принят.", **res)
     if sub in ("hangup", "stop"):

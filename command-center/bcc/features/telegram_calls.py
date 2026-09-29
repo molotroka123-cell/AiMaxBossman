@@ -29,7 +29,7 @@ from . import Feature
 router = APIRouter(prefix="/telegram/calls")
 
 _STATUS = {
-    "NOT_ENABLED": 409, "STOP_ACTIVE": 409, "CALL_IN_PROGRESS": 409, "UNCERTAIN_PREVIOUS_CALL": 409,
+    "NOT_ENABLED": 409, "STOP_ACTIVE": 409, "CALL_IN_PROGRESS": 409, "DUPLICATE_DIAL_REQUEST": 409, "FEATURE_NOT_AVAILABLE": 501, "UNCERTAIN_PREVIOUS_CALL": 409,
     "PEER_NOT_SELECTED": 409, "PEER_NOT_ALLOWED": 409, "NO_CREDENTIALS": 409, "NOT_LOGGED_IN": 409,
     "LOGIN_NOT_PENDING": 409, "SESSION_REVOKED": 409, "BRAIN_NOT_CONFIGURED": 409,
     "LOGIN_PHONE_INVALID": 400, "LOGIN_CODE_INVALID": 400, "LOGIN_CODE_EXPIRED": 400,
@@ -75,6 +75,7 @@ class PeerIn(Strict):
 class DialIn(Strict):
     """No peer field on purpose: unknown keys (peer, user_id, phone, username...) are rejected."""
     confirm_unknown: bool = False
+    request_id: str | None = Field(default=None, min_length=1, max_length=100)   # idempotency key (fresh per click)
 
 
 class InstallIn(Strict):
@@ -207,6 +208,8 @@ async def clear_peer(request: Request):
 
 @router.post("/dial")
 async def dial(body: DialIn, request: Request):
+    if body.request_id:
+        return await _run(request, "dial", body.confirm_unknown, request_id=body.request_id)
     return await _run(request, "dial", body.confirm_unknown)
 
 

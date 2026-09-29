@@ -65,7 +65,11 @@ async def test_two_turns_keep_context_and_measure_latency():
     task = await start(s)
     await say(t, 900); await hush(t, 900)
     assert await until(lambda: len(s.record.turns) >= 1 and s.playout.frames_sent > 5)
-    await until(lambda: s.phase.value == "listening" and s.playout.frames_sent > 20, 6)
+    # deterministic under CPU load: the first reply must be fully played out, we must be listening again and the
+    # echo hold-off after our last transmitted frame must have passed before the person speaks a second time
+    assert await until(lambda: s.phase.value == "listening" and not s.playout.busy and s.playout.frames_sent > 5, 15)
+    echo_tail_s = s.cfg.echo_tail_ms / 1000.0
+    assert await until(lambda: time.monotonic() - s._last_tx_at > echo_tail_s + 0.3, 5)
     await say(t, 900, seed=2); await hush(t, 900)
     assert await until(lambda: len(brain.calls) == 2)
     s.hangup()

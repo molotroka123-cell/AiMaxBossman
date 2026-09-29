@@ -31,6 +31,25 @@ const OUTCOME_TEXT = {
 };
 
 /** Почему «Позвонить» недоступна (пустая строка — можно). */
+/* Fresh idempotency key per click: a replayed POST /dial is rejected by the server, never rings twice. */
+export function newRequestId() {
+  try {
+    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') return globalThis.crypto.randomUUID();
+  } catch (e) { /* fall through */ }
+  return `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+}
+
+/* record_audio is not implemented yet: the switch is shown but disabled (the API refuses true as well). */
+export function recordAudioToggle() {
+  const title = 'Запись звука пока не реализована';
+  const el = toggle(false, () => {}, title);
+  const inp = el.querySelector && el.querySelector('input');
+  if (inp) { inp.disabled = true; inp.checked = false; }
+  el.setAttribute('aria-disabled', 'true');
+  el.title = title;
+  return el;
+}
+
 export function dialBlockReason(st) {
   const s = (st && st.settings) || {};
   const stop = (st && st.stop) || {};
@@ -226,7 +245,7 @@ class CallsView {
         text: `Реальный звонок пойдёт на ${label}.${uncertain ? ' Исход предыдущего звонка неизвестен: убедитесь, что второй аккаунт не занят.' : ''}`,
       });
       if (!ok) return;
-      const res = await this.call('Звонок не начат', () => api.raw(`${BASE}/dial`, { method: 'POST', body: { confirm_unknown: uncertain } }));
+      const res = await this.call('Звонок не начат', () => api.raw(`${BASE}/dial`, { method: 'POST', body: { confirm_unknown: uncertain, request_id: newRequestId() } }));
       if (res) toastOk('Звонок запущен');
       await this.reload();
     }, { variant: 'primary', iconName: 'play', disabled: Boolean(reason), title: reason || 'Позвонить выбранному второму аккаунту' });
@@ -267,8 +286,8 @@ class CallsView {
         toggle(Boolean(s.keep_transcript), (v) => patch({ keep_transcript: v }), 'Хранить текст разговора'),
         h('span', 'Хранить текст разговора (по умолчанию выключено)')),
       h('div.row',
-        toggle(Boolean(s.record_audio), (v) => patch({ record_audio: v }), 'Записывать звук'),
-        h('span', 'Записывать звук (по умолчанию выключено)')),
+        recordAudioToggle(),
+        h('span.dim', 'Записывать звук (пока не реализовано)')),
       h('div.row', field('Максимум, секунд', max), btn('Сохранить', () => patch({ max_call_s: Number(max.value) }, 'Сохранено'),
         { size: 'sm', iconName: 'check' }))));
   }

@@ -128,6 +128,7 @@ class CallsManager:
         self._ids = itertools.count(1)
         self._start_lock = asyncio.Lock()
         self._dial_lock = asyncio.Lock()
+        self._last_request_id: str | None = None
         self._active = False                       # a call may be live (dial in flight or running)
         self._active_call_id: str | None = None
         self._active_started: float | None = None
@@ -236,16 +237,19 @@ class CallsManager:
             await self.start_worker()
         handle = self._handle
         if handle is None:
-            raise CallError("WORKER_UNAVAILABLE")
+            raise CallError("WORKER_UNAVAILABLE", detail="not_sent")     # nothing was written
         rid = next(self._ids)
         fut: asyncio.Future = asyncio.get_running_loop().create_future()
         self._pending[rid] = fut
         try:
             try:
                 handle.write(json.dumps({"id": rid, "op": op, "args": args or {}}, ensure_ascii=False).encode("utf-8") + b"\n")
+            except (OSError, ConnectionError, RuntimeError):
+                raise CallError("WORKER_UNAVAILABLE", detail="not_sent") from None     # write itself failed
+            try:
                 await handle.drain()
             except (OSError, ConnectionError, RuntimeError):
-                raise CallError("WORKER_UNAVAILABLE") from None
+                raise CallError("WORKER_UNAVAILABLE") from None                        # may have been delivered
             try:
                 resp = await asyncio.wait_for(fut, timeout)
             except asyncio.TimeoutError:
@@ -339,6 +343,8 @@ class CallsManager:
 
     # ================================================================== settings / account
     def set_settings(self, patch: dict) -> dict:
+        if isinstance(patch, dict) and patch.get("record_audio") is True:
+            raise CallError("FEATURE_NOT_AVAILABLE", detail="record_audio")     # not implemented yet
         return self.settings_store.update(patch).as_dict()
 
     def login_credentials(self, api_id: Any, api_hash: Any) -> dict:
@@ -415,9 +421,13 @@ class CallsManager:
         s: CallsSettings = self.settings_store.load()
         check_dial(s, self.creds.self_id(), self.stopflag, s.last_outcome, self._active, confirm_unknown is True)
 
-    async def dial(self, confirm_unknown: bool = False) -> dict:
+    async def dial(self, confirm_unknown: bool = False, request_id: str | None = None) -> dict:
         async with self._dial_lock:
             self._guard(confirm_unknown)                     # 1st check (the worker repeats it from a fresh read)
+            if request_id:                                   # idempotency: a replayed click/command never rings twice
+                if request_id == self._last_request_id:
+                    raise CallError("DUPLICATE_DIAL_REQUEST")
+                self._last_request_id = request_id
             await self.start_worker()
             self._record_seen.clear()
             self._active, self._active_started, self._active_call_id = True, self._clock(), None
@@ -426,8 +436,9 @@ class CallsManager:
             except CallError as exc:
                 if exc.code == "WORKER_TIMEOUT":
                     await self._hard_kill()                  # cannot prove the phone did not ring -> UNKNOWN record
-                elif exc.code != "WORKER_UNAVAILABLE":
-                    self._active, self._active_started = False, None    # refused before any ring
+                elif exc.code != "WORKER_UNAVAILABLE" or exc.detail == "not_sent":
+                    # refused before any ring, or the worker was dead before anything was written
+                    self._active, self._active_started = False, None
                 raise
             self._active_call_id = (res or {}).get("call_id")
             return {"call_id": self._active_call_id, "accepted": True}

@@ -98,12 +98,15 @@ def test_status_and_history_are_plain_gets(fake, capsys):
     assert ("GET", "/api/telegram/calls/history", {"limit": 5}) in c.sent
 
 
-def test_dial_sends_no_peer_and_the_parser_refuses_one(fake, capsys):
+def test_dial_sends_no_peer_and_the_parser_refuses_one(fake, capsys, monkeypatch):
+    monkeypatch.setenv("BOSSMAN_CALL_NONINTERACTIVE_OWNER", "1")
     c = fake(FakeClient(routes={("POST", "/api/telegram/calls/dial"): {"call_id": "c1", "accepted": True}}))
     assert run(["call", "dial"], capsys)[0] == 0
-    assert c.sent[-1] == ("POST", "/api/telegram/calls/dial", {"confirm_unknown": False})
+    body = c.sent[-1][2]
+    assert c.sent[-1][:2] == ("POST", "/api/telegram/calls/dial") and body["confirm_unknown"] is False
     assert run(["call", "dial", "--confirm-unknown"], capsys)[0] == 0
-    assert c.sent[-1][2] == {"confirm_unknown": True}
+    assert c.sent[-1][2]["confirm_unknown"] is True
+    assert c.sent[-1][2]["request_id"] and c.sent[-1][2]["request_id"] != body["request_id"]     # fresh per command
     n = len(c.sent)
     for bad in (["call", "dial", "4242"], ["call", "dial", "--peer", "4242"], ["call", "dial", "--phone", PHONE]):
         assert run(bad, capsys)[0] != 0
@@ -133,6 +136,7 @@ def test_peer_select_confirms_only_with_yes_or_an_interactive_answer(fake, capsy
     run(["call", "peer", "4242"], capsys)
     assert ("POST", "/api/telegram/calls/peer/confirm", {"user_id": 4242}) in c.sent
     c.sent.clear()
+    monkeypatch.setenv("BOSSMAN_CALL_NONINTERACTIVE_OWNER", "1")
     run(["call", "peer", "4242", "--yes"], capsys)
     assert ("POST", "/api/telegram/calls/peer/confirm", {"user_id": 4242}) in c.sent
     run(["call", "peer", "--clear"], capsys)

@@ -29,9 +29,11 @@ from ..audio.playout import Playout
 from ..audio.vad import VAD, WINDOW_BYTES, WINDOW_MS
 from ..speech.text import SentenceChunker
 from ..types import (ANALYSIS_RATE, Brain, CallError, CallEvent, CallRecord, CallState, CallSummary,
-                     CallTransport, CancelToken, Outcome, PeerRef, Phase, STTEngine, STTStream,
+                     CallTransport, CancelToken, Outcome,
+                     UNCERTAIN_OUTCOMES, PeerRef, Phase, STTEngine, STTStream,
                      TransportEvent, TransportEventKind, TTSEngine, Turn, TurnMetrics)
 
+_CALL_NEVER_LIVE = frozenset({Outcome.DECLINED, Outcome.BUSY, Outcome.NO_ANSWER})
 _WORD = re.compile(r"\w", re.UNICODE)
 
 
@@ -128,6 +130,7 @@ class CallSession:
         self._end_call_after_speech = False
         self._loop: asyncio.AbstractEventLoop | None = None
         self._used = False
+        self._dialed = False
 
     # ================================================================== public
     @property
@@ -205,8 +208,29 @@ class CallSession:
             self.emit("error", code="INTERNAL", detail=type(exc).__name__)
             self._finish(Outcome.FAILED, "INTERNAL")
             return
+        self._dialed = True
+        dial_task = asyncio.ensure_future(self.transport.dial(self.peer, ring_timeout=self.cfg.ring_timeout_s))  # exactly once
+        stop_wait = asyncio.ensure_future(self._done.wait())
         try:
-            await self.transport.dial(self.peer, ring_timeout=self.cfg.ring_timeout_s)   # exactly once, never retried
+            await asyncio.wait({dial_task, stop_wait}, return_when=asyncio.FIRST_COMPLETED)
+        except asyncio.CancelledError:
+            dial_task.cancel()
+            stop_wait.cancel()
+            raise
+        stop_wait.cancel()
+        if not dial_task.done():                     # STOP / hangup while ringing: do not wait for the ring timeout
+            try:
+                await asyncio.wait_for(self.transport.hangup("local"), self.cfg.hangup_timeout_s)
+            except Exception:  # noqa: BLE001 - teardown hangs up again and reports it
+                pass
+            dial_task.cancel()
+            try:
+                await dial_task
+            except BaseException:  # noqa: BLE001 - the cancelled dial
+                pass
+            return
+        try:
+            dial_task.result()
         except CallError as exc:
             mapping = {"CALL_DECLINED": Outcome.DECLINED, "CALL_BUSY": Outcome.BUSY, "CALL_NO_ANSWER": Outcome.NO_ANSWER,
                        "PEER_PRIVACY": Outcome.FAILED, "DEPENDENCIES_MISSING": Outcome.FAILED, "NOT_LOGGED_IN": Outcome.FAILED}
@@ -256,6 +280,8 @@ class CallSession:
                 self.record.counters["hangup_confirmed"] = 1
             except Exception:  # noqa: BLE001 - reported, never raised; UI shows "hangup unconfirmed"
                 self.emit("error", code="CONNECTION_LOST", detail="hangup_unconfirmed")
+                if self._dialed and self._outcome not in _CALL_NEVER_LIVE and self._outcome not in UNCERTAIN_OUTCOMES:
+                    self._outcome, self._error_code = Outcome.UNKNOWN, "CONNECTION_LOST"   # the line may still be open
             try:
                 await asyncio.wait_for(self.transport.close(), self.cfg.hangup_timeout_s)
             except Exception:  # noqa: BLE001
@@ -286,7 +312,7 @@ class CallSession:
             text=(f"Звонок Босмана на выбранный аккаунт: {user_turns} реплик собеседника, {dur:.0f} с, "
                   f"исход: {self._outcome.value if self._outcome else 'unknown'}. Содержание не сохранялось."),
             agreed_tasks=[], generated_by="mechanical")
-        if user_turns == 0 or self._outcome in (Outcome.STOPPED,):      # STOP starts no new model call
+        if user_turns == 0 or self._stopping or self._outcome in (Outcome.STOPPED,):      # STOP starts no new model call
             return mechanical
         try:
             result = await asyncio.wait_for(self.brain.summarize(turns), self.cfg.summary_timeout_s)

@@ -103,3 +103,26 @@ def test_page_is_lazy_and_registered_in_the_studio_section(live):  # noqa: F811
             assert row["title"] == "Telegram-звонки" and row["section"] == "studio"
         finally:
             browser.close()
+
+
+def test_record_audio_switch_is_disabled_with_a_title_and_other_switches_stay_live(live):  # noqa: F811
+    from playwright.sync_api import sync_playwright
+    mgr = live.svc.calls_manager
+    mgr.creds.save_api(123456, API_HASH)
+    mgr.creds.save_session("SESSION-FIXTURE", 111)
+    errors: list[str] = []
+    bad: list = []
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            _open(page, live, errors, bad)
+            page.wait_for_selector("[data-testid=calls-enable]", timeout=15000)
+            record = page.locator("label.switch[title*='Запись звука']")
+            assert record.count() == 1
+            assert record.locator("input[type=checkbox]").is_disabled()
+            assert page.locator("[data-testid=calls-enable] input[type=checkbox]").is_enabled()   # legit switch untouched
+            assert mgr.get_settings()["record_audio"] is False
+        finally:
+            browser.close()
+    assert not errors, errors

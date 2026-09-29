@@ -306,9 +306,9 @@ def build_parser() -> argparse.ArgumentParser:
     # `call peer <user_id>` — единственный позиционный аргумент; у `dial` собеседника НЕТ вообще.
     cl.add_argument("user_id", nargs="?", type=int, help="peer: id второго аккаунта (см. `call contacts`)")
     cl.add_argument("--clear", action="store_true", help="peer: сбросить собеседника")
-    cl.add_argument("--yes", action="store_true", help="peer/install/logout: подтвердить без вопроса")
+    cl.add_argument("--yes", action="store_true", help="peer/install/logout: подтвердить без вопроса (peer: нужен TTY или BOSSMAN_CALL_NONINTERACTIVE_OWNER=1)")
     cl.add_argument("--confirm-unknown", action="store_true", dest="confirm_unknown",
-                    help="dial: подтвердить звонок после звонка с неизвестным исходом")
+                    help="dial: подтвердить звонок после неизвестного исхода (нужен TTY или BOSSMAN_CALL_NONINTERACTIVE_OWNER=1)")
     cl.add_argument("--limit", type=int, default=20, help="history: сколько записей")
     _fmt(cl)
 

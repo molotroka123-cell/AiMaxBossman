@@ -8,19 +8,9 @@ Record verified sha256 hashes for `telethon==1.45.0`, `pyaes`, `rsa` and `pyasn1
 no unpinned entry. Until then `bossman call install` refuses to install anything (by design) and no real call can be
 attempted.
 
-## Needed change outside this line's files (Line A owns them)
+## Done since
 
-The worker runs as `python -I -m bcc.telegram_calls`, so `PYTHONPATH` and user site are ignored and the add-on
-directory is not importable. Minimal change in `command-center/bcc/telegram_calls/__main__.py`, right after
-`_data_dir()` is known and BEFORE `.call.worker` / the transport are imported:
-
-```python
-from .addons import activate
-activate(data_dir)      # idempotent; puts <data_dir>/addons/telegram-calls/packages on sys.path
-```
-
-`manager.py` already passes `BCC_DATA_DIR` to the worker, so nothing else is needed there. The Command Center process
-itself never imports the add-on (doctor reads package versions from metadata and loads ntgcalls only in a `-I` subprocess).
+The `activate(data_dir)` call is now in `__main__.py`; independent audit findings (STOP while ringing, dial idempotency, unconfirmed hangup, record_audio, CLI confirm) are fixed with tests.
 
 ## State
 
