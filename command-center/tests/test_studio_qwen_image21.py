@@ -37,16 +37,31 @@ def test_qwen_catalog_declares_local_unverified_generation_and_three_references(
     assert "non-commercial" in model["license"]
 
 
-def test_qwen_argv_uses_pinned_vision_encoder_and_no_cloud(tmp_path):
-    files = {role: tmp_path / role for role in sdcpp.REQUIRED_ROLES[MODEL_ID]}
+@pytest.mark.parametrize("model_id", [MODEL_ID, "sdcpp:qwen-image-edit-2509"])
+def test_qwen_text_to_image_argv_omits_the_vision_encoder(tmp_path, model_id):
+    # RC19: txt2img WITH --llm_vision <mmproj> sat 48 min at 5 % on the CPU (no GPU use);
+    # the same argv WITHOUT it ran on Vulkan0 (512x512, 20 steps, 13.2 s/it, correct image).
+    # The vision encoder only encodes reference images, so plain generation must omit it.
+    files = {role: tmp_path / role for role in sdcpp.REQUIRED_ROLES[model_id]}
     settings = {"width": 256, "height": 256, "steps": 4, "seed": 7}
-    argv = sdcpp._argv({"bin": tmp_path / "sd-cli"}, MODEL_ID,
-                       GenerationPlane(MODEL_ID, "a blue cube", settings), settings,
+    argv = sdcpp._argv({"bin": tmp_path / "sd-cli"}, model_id,
+                       GenerationPlane(model_id, "a blue cube", settings), settings,
                        files, tmp_path / "out.png", None)
-    assert argv[argv.index("--llm_vision") + 1] == str(files["llm_vision"])
+    assert "--llm_vision" not in argv and str(files["llm_vision"]) not in argv
     assert argv[argv.index("--diffusion-model") + 1] == str(files["diffusion"])
     assert argv[argv.index("--llm") + 1] == str(files["llm"])
     assert "--offload-to-cpu" in argv and "-r" not in argv
+
+
+@pytest.mark.parametrize("model_id", [MODEL_ID, "sdcpp:qwen-image-edit-2509"])
+def test_qwen_reference_argv_uses_pinned_vision_encoder(tmp_path, model_id):
+    files = {role: tmp_path / role for role in sdcpp.REQUIRED_ROLES[model_id]}
+    settings = {"width": 256, "height": 256, "steps": 4, "seed": 7}
+    argv = sdcpp._argv({"bin": tmp_path / "sd-cli"}, model_id,
+                       GenerationPlane(model_id, "change blue to green", settings, (_reference(),)),
+                       settings, files, tmp_path / "out.png", None)
+    assert argv[argv.index("--llm_vision") + 1] == str(files["llm_vision"])
+    assert "--offload-to-cpu" in argv
 
 
 @pytest.mark.asyncio

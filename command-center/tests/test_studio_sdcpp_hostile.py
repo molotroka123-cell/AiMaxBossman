@@ -943,7 +943,7 @@ def test_qwen_edit_2509_catalog_and_argv_accept_verified_references():
              ("diffusion", "vae", "llm", "llm_vision")}
     argv = sdcpp._argv(
         {"bin": Path("sd-cli.exe")}, model["id"],
-        GenerationPlane(model["id"], "edit portrait", settings), settings,
+        GenerationPlane(model["id"], "edit portrait", settings, ({"role": "reference"},)), settings,
         files, Path("/w/out.png"), None)
     assert argv[argv.index("--steps") + 1] == "24"
     assert argv[argv.index("--cfg-scale") + 1] == "2.5"
