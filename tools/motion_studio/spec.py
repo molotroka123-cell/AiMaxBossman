@@ -11,6 +11,7 @@ same messages are fed back to the model by generate_spec.py when it retries.
 from __future__ import annotations
 
 import json
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,7 @@ SCENE_TYPES = {
 }
 ICONS = {"agents", "memory", "cursor", "play", "plane", "chart", "shield", "bolt", "mic", "code"}
 LIMITS = {"title": 12, "kicker": 24, "typed": 48, "chip": 12, "headline_label": 10, "counter_label": 12,
+          "x_from": 12, "x_to": 12,
           "heading": 32, "label": 18, "caption": 44, "then_title": 16, "then_sub": 48, "name": 12,
           "tagline": 44, "text": 18, "sub": 44, "disclaimer": 52}
 MAX_DURATION = 60.0
@@ -45,13 +47,29 @@ def _err(errors: list[str], where: str, msg: str) -> None:
     errors.append(f"{where}: {msg}")
 
 
+def shorten(value: str, limit: int) -> str:
+    """A fitting candidate for an over-long text: whole words up to the limit, no dangling separator.
+
+    Local models cannot count characters reliably (rc19 owner-PC run: 3 retries stuck at 11-12
+    chars for a 10-char field); a concrete candidate lets them converge instead of guessing."""
+    words, out = value.split(), ""
+    for w in words:
+        cand = f"{out} {w}".strip()
+        if len(cand) > limit:
+            break
+        out = cand
+    out = out.rstrip(" ·,;:-—/|&+").strip()
+    return out or value[:limit].rstrip()
+
+
 def _text(errors: list[str], where: str, key: str, value: Any, limit: int | None = None) -> None:
     if not isinstance(value, str) or not value.strip():
         _err(errors, where, f"'{key}' must be a non-empty string")
         return
     limit = limit or LIMITS.get(key)
     if limit and len(value) > limit:
-        _err(errors, where, f"'{key}' is {len(value)} chars, max {limit} (it will not fit on screen)")
+        _err(errors, where, f"'{key}' {json.dumps(value, ensure_ascii=False)} is {len(value)} chars, max {limit} (it will not fit on screen); "
+                            f"use at most {limit} chars, e.g. {json.dumps(shorten(value, limit), ensure_ascii=False)}")
 
 
 def _item_times(errors: list[str], where: str, items: list, start: float, end: float) -> None:
@@ -90,7 +108,7 @@ def validate(spec: Any) -> list[str]:
         _err(errors, "scenes", "non-empty list required")
         return errors
     prev_end = 0.0
-    vo_spans: list[tuple[float, float, str]] = []
+    vo_spans: list[tuple[float, float, str, float]] = []
     for n, sc in enumerate(scenes):
         where = f"scenes[{n}]"
         if not isinstance(sc, dict):
@@ -116,7 +134,8 @@ def validate(spec: Any) -> list[str]:
         for key in sc:
             if key not in allowed:
                 _err(errors, where, f"unknown field '{key}' for type {kind}")
-        for key in ("title", "kicker", "typed", "chip", "headline_label", "counter_label", "heading", "label",
+        for key in ("title", "kicker", "typed", "chip", "headline_label", "counter_label", "x_from", "x_to",
+                    "heading", "label",
                     "caption", "then_title", "then_sub", "name", "tagline", "text", "sub", "disclaimer"):
             if key in sc:
                 _text(errors, where, key, sc[key])
@@ -145,7 +164,8 @@ def validate(spec: Any) -> list[str]:
                         icon = it.get("icon")
                         if not (icon in ICONS or (isinstance(icon, str) and icon.startswith("lottie:")
                                                   and icon[7:] in _lottie_ids())):
-                            _err(errors, w, f"'icon' must be one of {sorted(ICONS)} or lottie:<catalog id>")
+                            _err(errors, w, f"'icon' {icon!r} is not allowed: use one of {sorted(ICONS)} or lottie:<catalog id> "
+                                            f"with an exact id from the LOTTIE list")
                     else:
                         _text(errors, w, "version", it.get("version"), 5)
                         _text(errors, w, "when", it.get("when"), 10)
@@ -158,7 +178,8 @@ def validate(spec: Any) -> list[str]:
             if kind == "roadmap" and "disclaimer" not in sc:
                 _err(errors, where, "a roadmap is a projection: 'disclaimer' is required (e.g. 'targets, not promises')")
         if kind == "sticker" and sc.get("lottie") not in _lottie_ids():
-            _err(errors, where, "'lottie' must be an id from tools/motion_studio/lottie/catalog.json")
+            _err(errors, where, f"'lottie' must be an id from tools/motion_studio/lottie/catalog.json (the LOTTIE list); "
+                               f"{sc.get('lottie')!r} is not one")
         if kind == "grid" and (not isinstance(sc.get("value"), int) or not (1 <= sc["value"] <= 5200)):
             _err(errors, where, "'value' must be an integer 1..5200 (one cell per unit)")
         if kind == "voice":
@@ -176,17 +197,73 @@ def validate(spec: Any) -> list[str]:
                 continue
             if not re.fullmatch(r"[A-Za-z0-9 ,.'!?:;\-]+", vo["text"]):
                 _err(errors, w, "voice-over must be plain English text (TTS reads it literally; spell numbers out)")
+            elif re.search(r"\d", vo["text"]):
+                # rc19 owner-PC run: "960 commits in the last 7 days." passed, was estimated at 1.6 s, spoke
+                # for 2.6 s and make_video stopped on a real overlap. Digits are spoken far longer than written.
+                _err(errors, w, "voice-over must be plain English with numbers spelled out in words "
+                                "(e.g. 'nine hundred sixty', not '960'): digits are read much longer than the timing estimate")
             est = VO_BASE_SECONDS + len(vo["text"]) / VO_CHARS_PER_SECOND
             if not (start <= vo["t"] < end):
-                _err(errors, w, f"t={vo['t']} must be inside the scene")
-            vo_spans.append((vo["t"], vo["t"] + est, w))
+                _err(errors, w, f"t={vo['t']} must be inside the scene [{start}, {end})")
+            vo_spans.append((vo["t"], vo["t"] + est, w, end))
     if isinstance(dur, (int, float)) and abs(prev_end - dur) > 1e-6:
         _err(errors, "scenes", f"the last scene must end at meta.duration ({dur}), got {prev_end}")
     vo_spans.sort()
-    for (a0, a1, wa), (b0, _b1, wb) in zip(vo_spans, vo_spans[1:]):
+    for (a0, a1, wa, _e), (b0, _b1, wb, b_end) in zip(vo_spans, vo_spans[1:]):
         if b0 < a1 - 0.15:                  # TTS clips carry ~0.1 s of trailing silence
-            _err(errors, wb, f"voice-over overlaps {wa} (estimated end {a1:.2f} s); move it later or shorten it")
+            # the earliest start that passes, rounded up to 0.05 s: a concrete target, not "move it later"
+            earliest = math.ceil((a1 - 0.15) * 20 - 1e-9) / 20
+            if earliest < b_end:
+                _err(errors, wb, f"voice-over overlaps {wa} (estimated end {a1:.2f} s); set its t to {earliest:.2f} "
+                                 f"or later (it must stay inside its scene), or shorten the earlier line")
+            else:                           # moving it would leave the scene: the text itself is too long
+                _err(errors, wb, f"voice-over overlaps {wa} (estimated end {a1:.2f} s) and there is no room left "
+                                 f"before this scene ends at {b_end}: shorten {wa} or this line, or drop one")
     return errors
+
+
+VO_TAIL = 0.15            # Kokoro clips end with ~0.1-0.15 s of near-silence; a next line may start there
+VO_MAX_SHIFT = 0.5        # the most a line may be delayed to clear a measured overlap (stays in sync with its item)
+
+
+def schedule_voice(lines: list[dict], duration: float) -> list[dict]:
+    """Place synthesized voice lines using their MEASURED lengths.
+
+    `lines`: {t, seconds, scene_end, text}. The validator can only estimate speech length
+    (0.3 s + chars/24); on the owner PC Kokoro ran up to 0.27 s longer, and two VALID
+    generated specs stopped make_video on a 0.17-0.34 s overlap. A line that would overlap
+    the previous one is delayed to the earliest free moment if that is at most VO_MAX_SHIFT
+    later and still inside its scene; otherwise ValueError (the spec must change).
+    Returns the lines sorted by time with `t` (placed), `t_spec` and `shift`."""
+    out: list[dict] = []
+    prev = None
+    for ln in sorted(lines, key=lambda x: x["t"]):
+        t = float(ln["t"])
+        if prev is not None and t < prev["t"] + prev["seconds"] - VO_TAIL:
+            earliest = math.ceil((prev["t"] + prev["seconds"] - VO_TAIL) * 100 - 1e-9) / 100
+            if earliest - t > VO_MAX_SHIFT or earliest >= ln["scene_end"]:
+                raise ValueError(f"voice-over overlap: '{prev['text']}' ends at {prev['t'] + prev['seconds']:.2f} s, "
+                                 f"'{ln['text']}' starts at {ln['t']} s - move it or shorten it")
+            t = earliest
+        if t + ln["seconds"] - VO_TAIL > duration + 0.1:   # a short trailing breath may be cut
+            raise ValueError(f"voice-over '{ln['text']}' runs past the end of the video "
+                             f"({t + ln['seconds']:.2f} s > {duration} s) - start it earlier or shorten it")
+        item = dict(ln, t=round(t, 3), t_spec=ln["t"], shift=round(t - float(ln["t"]), 3))
+        out.append(item)
+        prev = item
+    return out
+
+
+def logo_build_seconds(spec: dict) -> float:
+    """Length of the musical build (snare roll + riser) into the logo hit: at most 2.5 s, and only
+    the time between the first cut and the logo. 0 when the logo is the first or second scene
+    (rc19 owner-PC run: a VALID 5 s title->logo spec crashed score.py on a negative-length riser)."""
+    scenes = spec["scenes"]
+    logo = next((s for s in scenes if s["type"] == "logo"), None)
+    if logo is None:
+        return 0.0
+    t_drop = scenes[1]["start"] if len(scenes) > 1 else float(spec["meta"]["duration"])
+    return max(0.0, min(2.5, float(logo["start"]) - float(t_drop)))
 
 
 def hits(spec: dict) -> list[float]:

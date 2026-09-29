@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1] / "tools" / "motion_studio"
 sys.path.insert(0, str(ROOT))
 
@@ -170,3 +172,166 @@ def test_ollama_native_call_disables_thinking(monkeypatch):
     assert sent["url"] == "http://127.0.0.1:11434/api/chat"
     assert sent["payload"]["think"] is False and sent["payload"]["format"] == "json"
     assert sent["payload"]["options"]["num_predict"] == 100
+
+
+def test_ollama_call_keeps_the_loaded_context_size_and_records_tokens(monkeypatch):
+    # rc19 owner-PC audit: the shared model runs with num_ctx 32768; a fixed 16384 forced Ollama to
+    # reload ~27 GB (and evict the instance Jeff uses) on every generation run.
+    sent = {}
+
+    def fake_post(url, payload, timeout):
+        sent.update(payload=payload)
+        return {"message": {"content": "{}"}, "prompt_eval_count": 2100, "eval_count": 640,
+                "load_duration": 150_000_000, "total_duration": 9_000_000_000, "done_reason": "stop"}
+
+    monkeypatch.setattr(generate_spec, "_post", fake_post)
+    stats = []
+    generate_spec._chat_ollama("http://127.0.0.1:11434", "m", [], 5, 100, stats=stats)
+    assert "num_ctx" not in sent["payload"]["options"]
+    assert stats == [{"prompt_tokens": 2100, "output_tokens": 640, "load_s": 0.15, "total_s": 9.0,
+                      "done_reason": "stop"}]
+    generate_spec._chat_ollama("http://127.0.0.1:11434", "m", [], 5, 100, num_ctx=32768)
+    assert sent["payload"]["options"]["num_ctx"] == 32768                # only when explicitly asked
+
+
+def test_a_reply_cut_at_max_tokens_is_reported_as_truncation_and_retried(monkeypatch):
+    good = _load("jeff_voice_12s.json")
+    replies = iter([{"message": {"content": '{"meta": {"title": "Jeff'}, "eval_count": 100, "done_reason": "length"},
+                    {"message": {"content": json.dumps(good)}, "eval_count": 400, "done_reason": "stop"}])
+    monkeypatch.setattr(generate_spec, "_post", lambda url, payload, timeout: next(replies))
+    stats = []
+    seen = []
+
+    def chat(messages):
+        seen.append(messages[-1]["content"])
+        return generate_spec._chat_ollama("http://127.0.0.1:11434", "m", messages, 5, 100, stats=stats)
+
+    result, errors, _ = generate_spec.generate("x", None, chat, tries=2)
+    assert result == good and errors == []
+    assert "cut off" in seen[1] and [s["done_reason"] for s in stats] == ["length", "stop"]
+    replies = iter([{"message": {"content": "{"}, "eval_count": 100, "done_reason": "length"}] * 2)
+    result, errors, _ = generate_spec.generate("x", None, chat, tries=2)
+    assert result is None and errors[0].startswith("reply cut off at max_tokens=100")
+
+
+def test_length_errors_carry_a_fitting_candidate_and_vo_overlaps_a_concrete_time():
+    # rc19 owner-PC run: Qwen stayed at 11-12 chars for a 10-char field for three retries and moved
+    # voice lines by 0.1 s per retry; the feedback now names a text that fits and the earliest valid t.
+    good = _load("jeff_voice_12s.json")
+    bad = copy.deepcopy(good)
+    bad["scenes"][0]["title"] = "COMMITS · 7D WEEK"
+    bad["scenes"][1]["vo"][1]["t"] = 3.0          # first line "Send a voice note on Telegram." starts at 2.6
+    errors = spec.validate(bad)
+    assert any('e.g. "COMMITS · 7D"' in e for e in errors), errors
+    assert spec.shorten("COMMITS · 7D", 10) == "COMMITS"
+    assert all(len(spec.shorten(x, 12)) <= 12 for x in ("A" * 40, "BOSSMAN · MOTION STUDIO", "x y"))
+    overlap = [e for e in errors if "voice-over overlaps" in e]
+    assert overlap and "set its t to 4.00 or later" in overlap[0]       # 2.6 + 0.3 + 30/24 - 0.15
+    fixed = copy.deepcopy(bad); fixed["scenes"][0]["title"] = "VOICE"; fixed["scenes"][1]["vo"][1]["t"] = 4.0
+    fixed["scenes"][1]["vo"][1]["text"] = "Local."
+    assert spec.validate(fixed) == []
+
+
+def test_axis_labels_must_be_short_text_not_numbers():
+    spec_obj = json.loads((ROOT / "library" / "bossman_velocity.json").read_text(encoding="utf-8"))
+    bars = next(i for i, s in enumerate(spec_obj["scenes"]) if s["type"] == "bars")
+    spec_obj["scenes"][bars]["x_from"] = 0          # what the local model wrote in the rc19 run
+    assert any("'x_from' must be a non-empty string" in e for e in spec.validate(spec_obj))
+
+
+def test_generate_tells_the_model_when_it_repeats_the_same_draft():
+    good = _load("jeff_voice_12s.json")
+    bad = copy.deepcopy(good); bad["scenes"][0]["title"] = "A" * 30
+    replies = iter([json.dumps(bad), json.dumps(bad), json.dumps(good)])
+    seen = []
+
+    def chat(messages):
+        seen.append(messages[-1]["content"])
+        return next(replies)
+
+    result, errors, _ = generate_spec.generate("x", None, chat, tries=3)
+    assert result == good and errors == []
+    assert seen[1].startswith("Fix these problems") and "repeated the previous JSON" in seen[2]
+
+
+def test_numbers_not_in_facts_are_flagged_for_the_owner():
+    good = _load("jeff_voice_12s.json")
+    flags = generate_spec.unsupported_numbers(good, {"voice_in": "live"}, "12 s clip about Jeff voice")
+    assert any("items[2].sub: the number 1.8" in f for f in flags)          # "next · v1.8"
+    assert any("tagline: the number 2026" in f for f in flags)              # "SEP 2026"
+    assert not any(".t:" in f or "start" in f for f in flags)               # timings are not content
+    ok = generate_spec.unsupported_numbers(good, {"voice_out": "next in v1.8", "month": "SEP 2026"}, "12 s clip")
+    assert ok == []
+
+
+def test_errors_name_the_offending_value_and_say_when_a_scene_has_no_room_left():
+    # rc19 owner-PC run: with only "'line' is 23 chars" the model shortened the other line of the item,
+    # and it kept "lottie:noto_mic" (not in the catalog) for three retries.
+    good = _load("jeff_voice_12s.json")
+    bad = copy.deepcopy(good)
+    bad["scenes"][2]["items"][2]["icon"] = "lottie:noto_mic"
+    bad["scenes"][2]["items"][0]["title"] = "HEARS YOU WELL"  # 14 chars: fits
+    bad["scenes"][2]["items"][1]["sub"] = "audio stays on your own PC"
+    bad["scenes"][3]["vo"][0]["text"] = "This is Jeff, and this line is far too long for its own scene."
+    bad["scenes"][3]["vo"].append({"t": 11.9, "text": "Bye."})
+    errors = spec.validate(bad)
+    assert any("'icon' 'lottie:noto_mic' is not allowed" in e for e in errors), errors
+    assert any("'sub' \"audio stays on your own PC\" is 26 chars" in e for e in errors), errors
+    assert any("scenes[3].vo[1]" in e and "no room left before this scene ends at 12.0" in e for e in errors), errors
+    early = copy.deepcopy(good); early["scenes"][1]["vo"][0]["t"] = 1.0
+    assert any("must be inside the scene [2.5, 6.0)" in e for e in spec.validate(early))
+
+
+def test_voice_over_digits_are_rejected_because_they_break_the_timing_estimate():
+    # rc19 owner-PC run: a VALID spec with "960 commits in the last 7 days." (estimated 1.6 s, spoken 2.6 s)
+    # stopped make_video on a real voice-over overlap after the model and validator had accepted it.
+    good = _load("jeff_voice_12s.json")
+    digits = copy.deepcopy(good); digits["scenes"][0]["vo"][0]["text"] = "960 commits in the last 7 days."
+    assert any("numbers spelled out in words" in e for e in spec.validate(digits))
+    words = copy.deepcopy(good); words["scenes"][0]["vo"][0]["text"] = "Nine hundred sixty commits."
+    assert spec.validate(words) == []
+
+
+def _vo(t, seconds, end, text="x"):
+    return {"t": t, "seconds": seconds, "scene_end": end, "text": text}
+
+
+def test_measured_voice_overlaps_are_cleared_by_a_short_delay_or_reported():
+    # rc19 owner-PC renders: two VALID generated specs stopped on 0.17 s and 0.34 s overlaps that the
+    # character estimate missed (Kokoro ran up to 0.27 s longer). make_video now places lines by their
+    # measured length with a bounded delay; a real clash still stops with the old message.
+    placed = spec.schedule_voice([_vo(3.0, 1.0, 6.0, "b"), _vo(0.3, 3.02, 3.0, "a")], 10.0)
+    assert [p["text"] for p in placed] == ["a", "b"]
+    assert placed[1]["t"] == 3.17 and placed[1]["t_spec"] == 3.0 and placed[1]["shift"] == 0.17
+    assert placed[0]["shift"] == 0
+    with pytest.raises(ValueError, match="voice-over overlap: 'a' ends at 3.90 s"):
+        spec.schedule_voice([_vo(0.3, 3.6, 3.0, "a"), _vo(3.0, 1.0, 6.0, "b")], 10.0)     # 0.6 s > max shift
+    with pytest.raises(ValueError, match="voice-over overlap"):
+        spec.schedule_voice([_vo(0.3, 3.0, 3.0, "a"), _vo(3.0, 1.0, 3.1, "b")], 10.0)     # would leave its scene
+    with pytest.raises(ValueError, match="runs past the end"):
+        spec.schedule_voice([_vo(9.0, 1.6, 10.0, "late")], 10.0)
+
+
+def test_logo_build_never_gets_a_negative_length():
+    # rc19 owner-PC render: VALID 5 s spec title(0-2.5) -> logo(2.5-5) crashed score.py
+    # ("negative dimensions are not allowed") because the build into the logo had 0 s.
+    two = {"meta": {"duration": 5.0}, "scenes": [{"type": "title", "start": 0.0, "end": 2.5},
+                                                 {"type": "logo", "start": 2.5, "end": 5.0}]}
+    assert spec.logo_build_seconds(two) == 0.0
+    first = {"meta": {"duration": 5.0}, "scenes": [{"type": "logo", "start": 0.0, "end": 2.5},
+                                                   {"type": "end_card", "start": 2.5, "end": 5.0}]}
+    assert spec.logo_build_seconds(first) == 0.0
+    assert spec.logo_build_seconds(json.loads((ROOT / "examples" / "bossman_32_days.json").read_text(encoding="utf-8"))) == 2.5
+    assert spec.logo_build_seconds(_load("jeff_voice_12s.json")) == 2.5
+    assert spec.logo_build_seconds({"meta": {"duration": 5.0}, "scenes": [{"type": "title", "start": 0, "end": 5}]}) == 0.0
+
+
+def test_bars_headline_label_is_placed_after_the_counter_it_follows():
+    # rc19 owner-PC render (7 daily values): the counter is drawn zero-padded ("05") but the label
+    # offset measured the unpadded length ("7"), so "COMMITS" overlapped the second digit. Library
+    # specs have 10+ values, where both strings have two digits, which hid it. Source-level guard:
+    # the offset must measure the same padded string the counter draws.
+    html = (ROOT / "engine.html").read_text(encoding="utf-8")
+    body = html[html.index("function sBars"):html.index("function drawIcon")]
+    assert "text(String(n).padStart(2, '0'), 0, 0, '800 150px Onest'" in body
+    assert "ctx.measureText(String(V.length).padStart(2, '0')).width + 24" in body

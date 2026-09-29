@@ -171,7 +171,7 @@ function sBars(sc, t) {
     const dk = eOutExpo(seg(t, s + .05, s + .4)), n = Math.max(1, Math.round(clamp(prog / V.length) * V.length));
     ctx.save(); ctx.translate(x0, 285 + (1 - dk) * 40); ctx.globalAlpha *= dk;
     text(String(n).padStart(2, '0'), 0, 0, '800 150px Onest', '#ffffff'); ctx.font = '800 150px Onest';
-    text(sc.headline_label, ctx.measureText(String(V.length)).width + 24, -12, '500 34px "IBM Plex Mono"', rgba(CYAN, .9), 'left', 'alphabetic', 6); ctx.restore();
+    text(sc.headline_label, ctx.measureText(String(V.length).padStart(2, '0')).width + 24, -12, '500 34px "IBM Plex Mono"', rgba(CYAN, .9), 'left', 'alphabetic', 6); ctx.restore();
   }
   if (sc.counter_label) {
     const ck = eOutExpo(seg(t, s + .38 * d, s + .5 * d));
