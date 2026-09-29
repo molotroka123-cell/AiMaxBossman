@@ -43,17 +43,18 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
-      - name: Require current same-model evidence
-        run: |
-          if [ ! -f docs/benchmark/intelligence-preservation-current.json ]; then
-            echo 'INTELLIGENCE_PRESERVATION=INSUFFICIENT_EVIDENCE'
-            echo 'Missing docs/benchmark/intelligence-preservation-current.json'
-            exit 2
-          fi
+      - name: Fetch owner-attested redacted evidence for this commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          python tools/intelligence_evidence_transport.py fetch
+          --repo "$GITHUB_REPOSITORY"
+          --expect-sha "$BOSSMAN_ACCEPTANCE_SHA"
+          --out "$RUNNER_TEMP/intelligence-preservation-summary.json"
       - name: Evaluate current measured benchmark
         run: >-
           python tools/intelligence_preservation_gate.py
-          docs/benchmark/intelligence-preservation-current.json
+          "$RUNNER_TEMP/intelligence-preservation-summary.json"
           --output intelligence-preservation-report.json
           --core-retention-min 0.98
           --tool-retention-min 1.0

@@ -23,9 +23,9 @@ class CloudPolicyDenied(RuntimeError):
 
 # Прямая адресация провайдера идентификатором модели, без алиаса в yaml.
 # Владелец называет модель так, как она называется у провайдера, и это и есть
-# маршрут: «openrouter/<id>» — через OpenRouter, «glm-5.3» (GLM_MODEL_ID) —
-# напрямую в Z.ai. Алиасы остаются главнее: их правила писал оператор.
-DIRECT_BACKEND_PREFIXES = {"openrouter/": "openrouter"}
+# маршрут: «openrouter/<id>» — через OpenRouter, «nvidia/<id>» — через NVIDIA,
+# «glm-5.3» (GLM_MODEL_ID) — напрямую в Z.ai. Алиасы остаются главнее: их правила писал оператор.
+DIRECT_BACKEND_PREFIXES = {"openrouter/": "openrouter", "nvidia/": "nvidia"}
 
 
 def direct_target(alias: str) -> tuple[str, str] | None:

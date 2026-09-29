@@ -587,6 +587,23 @@ def _public_router() -> APIRouter:
         return {"app": DESKTOP_APP_IDENTITY, "version": __version__,
                 "started_at": svc.started_at, **source_identity()}
 
+    @router.get("/login-hint")
+    async def login_hint(request: Request, svc: Services = Depends(services)):
+        """Where the access token lives, for the login screen (RC19 owner run).
+
+        The desktop shortcut starts the server without a console, so «токен
+        напечатан в консоли» sent the owner to a console that does not exist.
+        This returns only the PATH of the token file (never the token), and
+        only to a loopback client — the same machine that can open the file.
+        """
+        from pathlib import Path
+
+        from .auth import TOKEN_FILE
+        host = request.client.host if request.client else ""
+        if host not in ("127.0.0.1", "::1", "localhost"):
+            return {"token_file": None}
+        return {"token_file": str(Path(svc.settings.data_dir) / TOKEN_FILE)}
+
     @router.post("/login")
     async def login(body: LoginIn, request: Request, response: Response,
                     svc: Services = Depends(services)):

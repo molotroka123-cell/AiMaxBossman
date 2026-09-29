@@ -148,6 +148,95 @@ def test_voice_owner_stop_aborts_without_reply(tmp_path, monkeypatch):
         asyncio.run(runtime.handle(person, message("", _voice={"file_id": "safe-file"})))
 
 
+@pytest.mark.parametrize("receipt", [77, None])
+def test_voice_turn_learns_only_after_verified_delivery_and_stays_person_scoped(
+        tmp_path, monkeypatch, receipt):
+    guest = Person(user_id=202, chat_id=202, role="guest")
+    runtime = make_runtime(tmp_path, settings=make_settings(tmp_path, people=(
+        Person(user_id=101, chat_id=101, role="owner"), guest)))
+    owner = runtime.settings.people[0]
+    owner_key = runtime.vault.key_for_telegram(owner.user_id)
+    guest_key = runtime.vault.key_for_telegram(guest.user_id)
+    warm(runtime, owner_key)
+    warm(runtime, guest_key)
+    runtime.store.put("voice_reply:" + owner.key, True)
+    runtime.catalog = {FREE_ENDPOINT.id: FREE_ENDPOINT}
+    runtime.catalog_checked_at = 1.0
+    heard = []
+
+    async def transcribe(_telegram, _voice, *, stopped):
+        assert not stopped()
+        return {"text": "я люблю горы", "cloud_used": False}
+
+    async def send_voice(person, source_text, _synthesize, **kwargs):
+        heard.append((person.key, source_text, kwargs.get("reply_to_message_id")))
+        assert runtime.store.history(owner.key) == []
+        return receipt
+
+    claims = iter([(305, message("", message_id=31,
+                                 _voice={"file_id": "voice-id", "duration": 3}))])
+    def claim(*_args):
+        try:
+            return next(claims)
+        except StopIteration:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(rt, "transcribe_telegram_voice", transcribe)
+    monkeypatch.setattr(runtime.telegram, "send_voice", send_voice)
+    monkeypatch.setattr(runtime.store, "claim", claim)
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(runtime._worker(owner, "chat"))
+    assert heard and heard[0][0] == owner.key and heard[0][2] == 31
+    assert bool(runtime.store.history(owner.key)) is (receipt is not None)
+    assert bool(list(runtime.vault.iter_candidate_records(owner_key))) is (receipt is not None)
+    assert runtime.store.history(guest.key) == []
+    assert list(runtime.vault.iter_candidate_records(guest_key)) == []
+    if receipt is not None:
+        assert any("горы" in str(row.get("value", "")).lower()
+                   for row in runtime.vault.iter_candidate_records(owner_key))
+        assert "1 (interests: 1)" in asyncio.run(runtime.handle(owner, message("/memory")))
+        guest_summary = asyncio.run(runtime.handle(guest,
+            message("/memory", user_id=guest.user_id)))
+        assert "interests" not in guest_summary and "горы" not in guest_summary
+    runtime.store.close()
+
+
+def test_paused_memory_voice_reply_does_not_learn(tmp_path, monkeypatch):
+    runtime = make_runtime(tmp_path)
+    owner = runtime.settings.people[0]
+    owner_key = runtime.vault.key_for_telegram(owner.user_id)
+    warm(runtime, owner_key)
+    assert asyncio.run(runtime.handle(owner, message("/pause_memory")))
+    assert runtime.vault.consent(owner_key).memory_enabled is False
+    runtime.catalog = {FREE_ENDPOINT.id: FREE_ENDPOINT}
+    runtime.catalog_checked_at = 1.0
+    async def transcribe(*_args, **_kwargs):
+        return {"text": "я люблю горы"}
+    monkeypatch.setattr(rt, "transcribe_telegram_voice", transcribe)
+    asyncio.run(runtime.handle(owner, message("", message_id=45,
+                                      _voice={"file_id": "voice-id", "duration": 3})))
+    assert runtime.store.history(owner.key) == []
+    assert list(runtime.vault.iter_candidate_records(owner_key)) == []
+    runtime.store.close()
+
+
+def test_voice_reply_preference_is_owner_only(tmp_path):
+    guest = Person(user_id=202, chat_id=202, role="guest")
+    runtime = make_runtime(tmp_path, settings=make_settings(tmp_path, people=(
+        Person(user_id=101, chat_id=101, role="owner"), guest)))
+    owner = runtime.settings.people[0]
+    warm(runtime, runtime.vault.key_for_telegram(owner.user_id))
+    warm(runtime, runtime.vault.key_for_telegram(guest.user_id))
+    assert "доступен только владельцу" in asyncio.run(runtime.handle(guest,
+        message("/voice on", user_id=guest.user_id)))
+    assert runtime.store.get("voice_reply:" + guest.key) is None
+    assert "включён" in asyncio.run(runtime.handle(owner, message("/voice on")))
+    assert runtime.store.get("voice_reply:" + owner.key) is True
+    assert "выключен" in asyncio.run(runtime.handle(owner, message("/voice off")))
+    assert runtime.store.get("voice_reply:" + owner.key) is False
+    runtime.store.close()
+
+
 FREE_ENDPOINT = ModelEndpoint(id="free/model:free", provider="remote",
                               capabilities=frozenset({"chat"}), local=False,
                               available=True, zero_cost=True, paid=False)
@@ -710,6 +799,54 @@ def test_cloud_refusal_falls_back_to_local_with_same_jeff_context(tmp_path, monk
     assert asyncio.run(runtime.handle(person, message("Помоги с планом", message_id=883))) == "Вот полезный ответ."
     assert len(remote.calls) == len(local.calls) == 1
     assert "Твоё публичное имя — Jeff" in local.calls[0][1][0]["content"]
+    asyncio.run(runtime.close())
+
+
+def test_cloud_timeout_tries_second_free_route_before_busy_local(tmp_path, monkeypatch):
+    from bcc.pit import resources
+
+    monkeypatch.setattr(resources, "_read_free_vram_mb", lambda: 8192)
+    settings = dataclasses.replace(
+        make_settings(tmp_path),
+        chat_models=("free/primary:free", "free/backup:free"),
+        local_url="http://127.0.0.1:11434/v1",
+        local_models=("community:latest",), local_share_percent=0,
+        local_fallback_on_cloud_refusal=True)
+    runtime = make_runtime(tmp_path, settings=settings)
+    runtime.catalog_checked_at = 1.0
+    runtime.catalog = {
+        "community:latest": ModelEndpoint(
+            id="community:latest", provider="local",
+            capabilities=frozenset({"chat"}), local=True,
+            available=True, zero_cost=True, paid=False),
+        "free/primary:free": ModelEndpoint(
+            id="free/primary:free", provider="remote",
+            capabilities=frozenset({"chat"}), zero_cost=True),
+        "free/backup:free": ModelEndpoint(
+            id="free/backup:free", provider="remote",
+            capabilities=frozenset({"chat"}), zero_cost=True),
+    }
+    monkeypatch.setattr(runtime, "_mixed_route",
+                        lambda text, consent: ("free/primary:free", False))
+
+    class Cloud(FakeAdapter):
+        async def chat(self, model, messages, **kw):
+            self.calls.append((model, messages))
+            if model == "free/primary:free":
+                raise TimeoutError("slow")
+            return ChatResult(text="Ответ из облачного резерва.", model=model)
+
+    runtime.adapter = Cloud()
+    local = FakeAdapter(text="Локальный ответ.")
+    runtime.local_adapter = local
+    person = settings.people[0]
+    warm(runtime, runtime.vault.key_for_telegram(person.user_id))
+
+    answer = asyncio.run(runtime.handle(person, message("Привет", message_id=884)))
+    assert answer == "Ответ из облачного резерва."
+    assert [model for model, _ in runtime.adapter.calls] == [
+        "free/primary:free", "free/backup:free"]
+    assert local.calls == []
     asyncio.run(runtime.close())
 
 

@@ -5,7 +5,8 @@ the owner's data root, authenticates with that data root's token (read from
 the token file — never from argv, never printed) and talks to the same API the
 web UI and Telegram use.
 
-Discovery order: --url / BOSSMAN_URL, then the port in <data>/desktop.lock, then
+Discovery order: --url / BOSSMAN_URL, then the port of the backend holding
+<data>/backend.lock, then the port in <data>/desktop.lock, then
 BCC_PORT (default 8800). A port that answers but is not Command Center is
 refused (identity check), never "reused".
 """
@@ -65,6 +66,16 @@ def _lock_port(data_dir: Path) -> int | None:
         return None
 
 
+def _holder_port(data_dir: Path) -> int | None:
+    """Port of the backend that holds this data root's lock (bcc/backend_lock)."""
+    from ..backend_lock import running_backend
+    try:
+        holder = running_backend(data_dir)
+        return int(holder["port"]) if holder and holder.get("port") else None
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
+
+
 def candidate_urls(url: str | None, data_dir: Path) -> list[str]:
     if url:
         return [url.rstrip("/")]
@@ -73,7 +84,7 @@ def candidate_urls(url: str | None, data_dir: Path) -> list[str]:
         return [env.rstrip("/")]
     out: list[str] = []
     host = os.environ.get("BCC_HOST", "127.0.0.1").strip() or "127.0.0.1"
-    for port in (_lock_port(data_dir), default_port()):
+    for port in (_holder_port(data_dir), _lock_port(data_dir), default_port()):
         if port:
             candidate = f"http://{host}:{port}"
             if candidate not in out:

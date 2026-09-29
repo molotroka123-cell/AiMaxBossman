@@ -32,6 +32,15 @@ def start_backend(*, url: str | None = None, data_dir: str | None = None, port: 
     for candidate in candidate_urls(url, base):
         if identify(candidate):
             return {"url": candidate, "already_running": True, "data_dir": str(base)}
+    from ..backend_lock import running_backend
+    holder = running_backend(base)
+    if holder:
+        # Another process already serves this data root (maybe still starting):
+        # a second server on the same data is never started.
+        raise BossmanError(
+            f"Bossman для этих данных уже запущен (порт {holder.get('port', '?')}, "
+            f"pid {holder.get('pid', '?')}), но не отвечает", kind="disconnected",
+            hint="подождите запуска или остановите его и повторите")
     port = port or default_port()
     target = f"http://127.0.0.1:{port}"
     if _port_busy(target):

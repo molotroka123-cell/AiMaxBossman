@@ -32,9 +32,9 @@
     <p class="login-sub">Локальный control plane. Доступ по токену.</p>
     <label class="field">
       <span class="field-label">Токен доступа</span>
-      <input id="login-token" type="password" class="input mono" placeholder="вставьте токен" autocomplete="off" spellcheck="false">
+      <input id="login-token" type="text" class="input mono secret-mask" placeholder="вставьте токен" autocomplete="one-time-code" autocapitalize="off" autocorrect="off" spellcheck="false" style="-webkit-text-security: disc" data-lpignore="true" data-1p-ignore="true">
     </label>
-    <p class="login-hint">Токен напечатан в консоли сервера при старте.</p>
+    <p class="login-hint" id="login-hint">Токен напечатан в консоли сервера при старте.</p>
     <div id="login-error" class="login-error" hidden></div>
     <button type="submit" class="btn btn-primary btn-block" id="login-submit">Войти</button>
   </form>

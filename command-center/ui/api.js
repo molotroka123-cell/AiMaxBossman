@@ -227,6 +227,7 @@ export const api = {
   // Личность работающего кода. Отдельный вызов, а не поле /api/system: владелец
   // должен видеть SHA сразу после входа, до того как поедут метрики.
   identity: (opts) => GET('/api/identity', opts),
+  loginHint: (opts) => GET('/api/login-hint', opts),
   cacheEconomics: (opts) => GET('/api/cache/economics', opts),
   cacheIntelligence: (opts) => GET('/api/cache/intelligence', opts),
 

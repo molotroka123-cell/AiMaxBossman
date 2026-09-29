@@ -643,6 +643,37 @@ class _RelaunchTakeover:
                  f"profile={self.profile_dir}")
 
 
+class _OrphanWindow:
+    """A live browser window on our profile that no launcher owns any more."""
+
+    def __init__(self, profile_dir: Path, holders: list):
+        self.profile_dir = Path(profile_dir)
+        self.scanner = _ProfileScanner(self.profile_dir)
+        self.holders = holders
+
+    def holder_pids(self) -> list[int]:
+        return [p.pid for p in self.holders]
+
+    def wait(self) -> None:
+        while True:
+            self.holders = [p for p in self.holders if _is_running(p)] or self.scanner.scan()
+            if not self.holders and not _profile_lock_held(self.profile_dir):
+                return
+            time.sleep(_HOLDER_POLL_S)
+
+
+def _orphan_window(profile_dir: Path) -> "_OrphanWindow | None":
+    """The profile is held by a live browser (its own lockfile or a process with
+    our --user-data-dir): that is the window of a launcher that died."""
+    try:
+        holders = _ProfileScanner(profile_dir).scan()
+    except Exception:  # noqa: BLE001 — diagnosis failure means "no signal", never a block
+        holders = []
+    if holders or _profile_lock_held(profile_dir):
+        return _OrphanWindow(profile_dir, holders)
+    return None
+
+
 def _is_running(p) -> bool:
     try:
         return p.is_running() and p.status() != "zombie"
@@ -846,6 +877,22 @@ class _BackgroundServer:
             self.error = self._explain(exc)
 
     def start(self, url: str, timeout: float = 30.0) -> bool:
+        # One backend per data root: the window's in-process server takes the
+        # same lock as `bcc`, so a terminal-started server and this one can
+        # never write the same data at once.
+        from urllib.parse import urlsplit
+
+        from .backend_lock import BackendAlreadyRunning, acquire
+        from .build_identity import source_identity
+        from .config import settings
+        parts = urlsplit(url)
+        try:
+            self._data_lock = acquire(settings.data_dir, host=parts.hostname or "127.0.0.1",
+                                      port=parts.port or 0, kind="desktop",
+                                      build_sha=source_identity().get("build_sha"))
+        except BackendAlreadyRunning as exc:
+            self.error = str(exc)
+            return False
         self.thread.start()
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
@@ -863,8 +910,13 @@ class _BackgroundServer:
 
     def stop(self) -> None:
         self.server.should_exit = True
-        self.thread.join(timeout=10)
+        if self.thread.is_alive():
+            self.thread.join(timeout=10)
         self._log.removeHandler(self._cause)
+        lock = getattr(self, "_data_lock", None)
+        if lock is not None:
+            lock.release()
+            self._data_lock = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1031,6 +1083,19 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             _pause_console(out)
             return 0
 
+    from .backend_lock import running_backend
+    holder = running_backend(data_dir)
+    if holder and holder.get("port") and int(holder["port"]) != port:
+        # This data root is already served on another port (for example the
+        # terminal started it). Attach to THAT server; never start a second
+        # one on the window's default port over the same data.
+        port = int(holder["port"])
+        host = str(holder.get("host") or host)
+        url = f"http://{host}:{port}/"
+        print(f"[bcc-desktop] Bossman для этих данных уже работает: {url} — подключаюсь к нему",
+              file=out, flush=True)
+        _append_run_log(data_dir, f"attach-data-root-backend port={port} pid={holder.get('pid')}")
+
     started: _BackgroundServer | None = None
     ident = identify_server(url)
     if ident:
@@ -1158,8 +1223,22 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             if _accepts_kwarg(launcher, "log"):
                 # Перехват окна перезапустившимся браузером — отдельной строкой в журнал.
                 launch_kwargs["log"] = lambda msg: _append_run_log(data_dir, msg)
-            code = launcher(browser, url, profile_dir, extra=tuple(args.browser_arg),
-                            window_size=args.window_size, **launch_kwargs)
+            orphan = _orphan_window(profile_dir)
+            if orphan is not None:
+                # RC19 (F soak): the previous launcher died (its desktop.lock was
+                # stale) but its window lives on this profile and shows «Нет связи».
+                # Launching again made Chromium open a SECOND --app window. The
+                # server is back now, so the old window reconnects by itself: adopt
+                # it and live as long as it does, instead of opening another.
+                print("[bcc-desktop] окно BOSSMAN уже открыто — сервер снова работает, "
+                      "окно переподключится само; второе окно не открываю", file=out, flush=True)
+                _append_run_log(data_dir, f"adopt-existing-window holders={orphan.holder_pids()} "
+                                          f"profile={profile_dir}")
+                orphan.wait()
+                code = 0
+            else:
+                code = launcher(browser, url, profile_dir, extra=tuple(args.browser_arg),
+                                window_size=args.window_size, **launch_kwargs)
         except OSError as exc:
             # Раньше это улетало трейсбеком и консоль закрывалась вместе с ним:
             # владелец видел «открылась только командная строка» без причины.

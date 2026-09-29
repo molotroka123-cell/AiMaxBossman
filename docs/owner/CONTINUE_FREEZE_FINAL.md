@@ -1,5 +1,60 @@
 # Freeze closure — final Cloud status, 2026-09-27
 
+## 2026-09-28 owner handoff and next-session execution prompt
+
+Read `docs/owner/WORKBENCH_20260926.md` first. Fetch the GitHub branch
+`claude/bossman-freeze-closure-ohvmon`; last observed remote head was
+`681c10a29e48b7180380a29e29cc0c7cb30c4702`, not a trusted final SHA.
+Run `git status --short`, read the new exact SHA and its Actions runs, and
+compare installed backend/UI/PIT identities before changing anything.
+
+The owner wants one installed Bossman that can operate tomorrow from CMD,
+using local models and bounded free OpenRouter routes, with Codex only
+observing, correcting and coding. Execute in this order:
+
+1. Preserve canonical data and encrypted vault. Diagnose three PIT files that
+   prevented a complete cold backup; do not restore from the incomplete copy.
+   Only after a verifiable backup, use normal STOP/start to install one exact
+   build. Prove one backend, one UI, one Telegram poller and a live Jeff reply.
+2. Reconcile live model discovery with the registry. `ollama list` had five
+   tags while the installed Ollama registry had four; GGUF file names alone
+   are not runnable-model evidence. Probe each local endpoint; mark stale
+   endpoints offline. Verify CMD and GUI show the same actually available
+   models, and test one local and one free route without revealing keys.
+3. Run a real, scoped Bossman coding task from CMD in a dedicated third-party
+   sandbox, then the $10 medium and $20 hard *simulations* using independent
+   red tests. Do not weaken code roots by placing outside repos inside the
+   Python standard library or the active game project. Save model route,
+   duration, tests, verifier, changed files, failure reason and private
+   lesson. Restart Bossman and give it a disjoint analogous task; compare
+   with the same model and no memory before claiming learning.
+   The reproducible synthetic CMD rehearsal is documented in
+   `docs/benchmark/CODING_VALUE_SIM.md` and run as
+   `python tools\coding_value_sim.py --installed-python <fresh-bundle>\runtime\python.exe --model bossman-fast-qwen36-35b-a3b-q5:latest`.
+   Its previous 120-second real-model run had one hard-case PASS in 97.8 s
+   and a medium-case timeout/model_error; do not misreport the latter as PASS.
+   This private synthetic rehearsal is not a third-party GitHub job or an
+   installed real-model acceptance test.
+4. Keep the two admin briefs distinct: SwapMe Telegram context, dental
+   `freshvibes.cz`, aesthetic `freshvibesbeauty.cz`. User-owned source data
+   stays private. No trading, financial authority, medical claims, or
+   external publication from a model draft. A single specific Upwork proposal
+   may be prepared after coding proof, with scope, acceptance, price and
+   customer-facing copy reviewed at action time; do not claim a bid was sent
+   without a receipt.
+5. Run targeted/full regression and exact-SHA CI. The owner's mandatory
+   measured intelligence retention gate still needs genuine corpus and three
+   independent scientific cycles. Log `PASS/BLOCKED/NOT_TESTED/DEFERRED` only.
+   Do not set `FREEZE` or `READY_FOR_1_8` based on source code or smoke alone.
+
+At each step write a private evidence checkpoint under the canonical owner-run
+data root and a sanitized summary in the existing workbench. Never put keys,
+chat text, participant IDs, financial records, photos or raw transcripts in
+Git. Finish with the exact SHA, installed SHA, one-runtime state, model table,
+simulation outcomes, CI, real proposal receipt (if any), unresolved blockers
+and the next command a human can run. The final review and push must be
+fast-forward on the one existing PR #84 branch; no force-push.
+
 ## Owner-PC continuation — 2026-09-27 shutdown checkpoint
 
 This section supersedes the historical Cloud snapshots below. It is a handoff,
