@@ -16,7 +16,8 @@ from pathlib import Path
 from bcc.auth import _restrict_to_owner
 
 from .config import PITSettings, pit_home
-from .ollama_native import OllamaNativeChatAdapter
+from .ollama_native import EmptyAnswer, OllamaNativeChatAdapter
+from .resilient_chat import ResilientChat
 from .vault import PersonaVault, _atomic_json
 
 LOCAL_MODEL = "bossman-community-qwen-uncensored:latest"
@@ -67,18 +68,30 @@ def _parse_summary(text: str) -> tuple[str, str]:
     return context[:400], tag[:60]
 
 
-async def build_checkpoint(settings: PITSettings, *, adapter=None) -> dict:
-    """Gather every known participant and summarize only persisted opted-in facts."""
+async def build_checkpoint(settings: PITSettings, *, adapter=None, chat: ResilientChat | None = None,
+                           narratives: dict[int, dict] | None = None) -> dict:
+    """Gather every known participant; summarize opted-in facts and, when given, the narrative.
+
+    The model call goes through ``ResilientChat`` (the same empty-answer detection and
+    bounded runner recovery as the Master Parser); ``chat`` may be the parser's own route.
+    ``narratives`` maps a Telegram id to that participant's own narrative (2.0).
+    """
     started = time.perf_counter()
     home = pit_home(settings.data_dir)
     vault = PersonaVault(settings.data_dir, bytes.fromhex(settings.identity_salt))
-    model = adapter or OllamaNativeChatAdapter(LOCAL_URL)
+    chat = chat or ResilientChat(adapter or OllamaNativeChatAdapter(LOCAL_URL), LOCAL_MODEL, timeout=120)
+    narratives = narratives or {}
     rows = []
     for user_id in _participant_ids(settings, home):
         facts = _consented_facts(vault, user_id)
         row = {"telegram_id": user_id, "fact_count": len(facts),
                "status": "INSUFFICIENT_DATA", "context": "Нет сохранённых фактов",
                "topic_tag": "не определён", "telegram_handle": None}
+        story = narratives.get(user_id)
+        if story and story.get("status") == "OK":
+            row["narrative"] = {"context": story["paragraphs"]["context"][:450],
+                                "personality": story["paragraphs"]["personality"][:450],
+                                "provenance": story.get("provenance")}
         if facts:
             prompt = ("Кратко обобщи эти сохранённые факты участника для "
                       "проверки владельцем. "
@@ -86,20 +99,25 @@ async def build_checkpoint(settings: PITSettings, *, adapter=None) -> dict:
                       "{\"context\":\"...\",\"topic_tag\":\"...\"}.\n"
                       + json.dumps(facts, ensure_ascii=False))
             try:
-                answer = await model.chat(LOCAL_MODEL, [{"role": "user", "content": prompt}],
-                                          max_tokens=512, timeout=120)
+                answer = await chat.chat([{"role": "user", "content": prompt}],
+                                         scope=vault.key_for_telegram(user_id) + "|checkpoint",
+                                         max_tokens=512, timeout=120)
                 if answer.finish == "length":
                     raise ValueError("model answer was truncated")
                 row["context"], row["topic_tag"] = _parse_summary(answer.text)
                 row["status"] = "DRAFT_REVIEW"
             except Exception as exc:  # one bad local call must not erase others
-                row["status"] = "MODEL_ERROR"
+                row["status"] = "EMPTY_ANSWER" if isinstance(exc, EmptyAnswer) else "MODEL_ERROR"
                 row["error_type"] = type(exc).__name__
                 row["context"] = "Локальная модель не дала проверяемый ответ"
+        elif row.get("narrative"):
+            row["status"] = "DRAFT_REVIEW"
+            row["context"] = row["narrative"]["context"][:400]
+            row["topic_tag"] = "по переписке"
         rows.append(row)
     return {"schema": "bossman.jeff.passport-checkpoint.v1",
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "model": LOCAL_MODEL, "source": "PIT consent-backed facts only",
+            "model": chat.model, "source": "PIT consent-backed facts and narratives only",
             "participants": rows, "duration_seconds": round(time.perf_counter() - started, 2)}
 
 

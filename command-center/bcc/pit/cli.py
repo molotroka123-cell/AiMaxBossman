@@ -577,7 +577,7 @@ def main(argv: list[str] | None = None) -> int:
         from .passport_checkpoint import run_checkpoint
         report, checkpoint = run_checkpoint(load(path))
         print(json.dumps({"checkpoint": str(checkpoint), **report}, ensure_ascii=False))
-        return 0 if all(row["status"] != "MODEL_ERROR" for row in report["participants"]) else 1
+        return 0 if all(row["status"] not in {"MODEL_ERROR", "EMPTY_ANSWER"} for row in report["participants"]) else 1
     return 2
 
 

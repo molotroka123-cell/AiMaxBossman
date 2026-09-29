@@ -155,6 +155,9 @@ class Options:
     model: str = DEFAULT_MODEL
     local_url: str = DEFAULT_LOCAL_URL
     timeout: float = 180.0
+    settle: float = 0.5           # seconds to let Ollama finish unloading before the retry
+    narrative: bool = True        # 2.0: two mini paragraphs per consenting participant
+    speed_report: str = ""        # optional path for the speed report JSON
     extra_roots: list[str] = field(default_factory=list)
 
 
@@ -185,6 +188,17 @@ class ModelRoute:
         self._cloud = cloud_adapter
         self._budget = budget
         self.calls = {"local": 0, "cloud": 0, "errors": 0}
+        self._resilient = None
+
+    def resilient(self):
+        """The local route with empty-answer detection and bounded runner recovery."""
+        if self._resilient is None:
+            from ..resilient_chat import ResilientChat
+            self._resilient = ResilientChat(
+                self.local(), self.options.model, timeout=self.options.timeout,
+                settle=self.options.settle,
+                on_call=lambda: self.calls.__setitem__("local", self.calls["local"] + 1))
+        return self._resilient
 
     def local(self):
         if self._local is None:
@@ -208,11 +222,11 @@ class ModelRoute:
                                        self.settings.cloud_daily_request_budget)
         return self._budget
 
-    async def complete(self, messages: list[dict], *, remote_ok: bool) -> tuple[str, str]:
+    async def complete(self, messages: list[dict], *, remote_ok: bool, scope: str = "",
+                       max_tokens: int = 1536) -> tuple[str, str]:
         try:
-            self.calls["local"] += 1
-            answer = await self.local().chat(self.options.model, messages, max_tokens=1536,
-                                             temperature=0.1, timeout=self.options.timeout)
+            answer = await self.resilient().chat(messages, scope=scope, max_tokens=max_tokens,
+                                                 temperature=0.1)
             if getattr(answer, "finish", "stop") == "length":
                 raise ValueError("local answer truncated")
             return str(answer.text), "local"
@@ -307,6 +321,7 @@ class MasterParser:
             "llm_calls": 0, "facts_added": 0, "conflicts": 0, "rate_msgs_per_s": 0.0}
         self._last_status = 0.0
         self._analysis_started = 0.0
+        self._narratives_by_uid: dict[int, dict] = {}
         self._sem = asyncio.Semaphore(max(1, min(4, int(options.concurrency))))
 
     # -- plumbing --------------------------------------------------------------------------
@@ -404,8 +419,31 @@ class MasterParser:
         self._analysis_started = time.perf_counter()
         self._emit(force=True, phase="analyze", persons_total=len(plans),
                    messages_total=sum(len(plan["pending"]) for plan in plans))
-        rows = await asyncio.gather(*(self._analyze_person(corpus, plan) for plan in plans))
+        rows = await asyncio.gather(*(self._analyze_guarded(corpus, plan) for plan in plans))
         return list(rows)
+
+    async def _analyze_guarded(self, corpus: Corpus, plan: dict) -> dict:
+        """One participant's crash must not lose the others' work."""
+        row = plan["row"]
+        try:
+            await self._analyze_person(corpus, plan)
+        except Exception as exc:  # noqa: BLE001
+            row["status"] = "ERROR"
+            row["last_error"] = type(exc).__name__
+            row["requeued"] = row["messages_pending"] - row["analyzed"]
+            self._emit(persons_done=self.status["persons_done"] + 1)
+        self._finish_row(row)
+        return row
+
+    def _finish_row(self, row: dict) -> None:
+        """Honest per-participant status: failed batches are never reported as OK."""
+        stats = self.route._resilient.stats if self.route._resilient else {}
+        for name, st in stats.items():
+            if name == row["person_key"] or name.startswith(row["person_key"] + "|"):
+                for field_name, value in st.as_dict().items():
+                    row["llm"][field_name] += value
+        if row["status"] == "OK" and row["llm_errors"]:
+            row["status"] = "PARTIAL" if row["analyzed"] else "LLM_FAILED"
 
     def _plan(self, corpus: Corpus, person: dict) -> dict:
         key = person["person_key"]
@@ -424,9 +462,11 @@ class MasterParser:
                            "remote": consent.remote_processing_enabled,
                            "sensitive": consent.sensitive_memory_enabled},
                "status": "OK", "analyzed": 0, "facts_added": [], "facts_known": 0,
-               "conflicts": [], "blocked": 0, "rejected": 0, "llm_errors": 0}
+               "conflicts": [], "blocked": 0, "rejected": 0, "llm_errors": 0,
+               "requeued": 0, "llm": {"calls": 0, "empty_answers": 0, "recoveries": 0}}
         if not allowed:
             row["status"] = status
+            row["messages_pending"] = 0   # not admitted: nothing is queued or analysed
             pending = []
         return {"row": row, "timeline": timeline, "pending": pending,
                 "remote_ok": allowed and self.sink.remote_allowed(key)}
@@ -503,10 +543,12 @@ class MasterParser:
         uids = list(labels.values())
         try:
             async with self._sem:
-                text, route = await self.route.complete(prompt, remote_ok=remote_ok)
+                text, route = await self.route.complete(prompt, remote_ok=remote_ok,
+                                                        scope=row["person_key"])
             facts = _parse_facts(text)
-        except Exception as exc:  # noqa: BLE001 — this batch is retried next run
+        except Exception as exc:  # noqa: BLE001 — this batch stays queued for the next run
             row["llm_errors"] += 1
+            row["requeued"] += len(uids)
             row["last_error"] = type(exc).__name__
             self._emit(messages_done=self.status["messages_done"] + len(uids))
             return
@@ -635,13 +677,9 @@ class MasterParser:
 
     async def _checkpoint(self) -> dict:
         from ..passport_checkpoint import build_checkpoint, save_checkpoint
-        route = self.route
-
-        class _SameModel:   # the checkpoint reuses the already-loaded local model
-            async def chat(self_inner, _model, messages, **kw):
-                return await route.local().chat(route.options.model, messages, **kw)
         try:
-            summary = await build_checkpoint(self.settings, adapter=_SameModel())
+            summary = await build_checkpoint(self.settings, chat=self.route.resilient(),
+                                             narratives=self._narratives_by_uid)
             summary["model"] = self.options.model
             path = save_checkpoint(self.settings, summary)
             return {"status": "saved", "path": str(path),

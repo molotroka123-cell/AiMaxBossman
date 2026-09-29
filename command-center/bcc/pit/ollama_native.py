@@ -19,6 +19,19 @@ def is_native_ollama_url(url: str) -> bool:
             and not parsed.username and not parsed.password and not parsed.query)
 
 
+class EmptyAnswer(ProviderError):
+    """The runner finished with no visible text (eval_count<=1): retryable, never success.
+
+    A long-lived Ollama runner can degrade so that every /api/chat returns an empty
+    answer until the model is unloaded and loaded again.
+    """
+
+    def __init__(self, message: str = "Ollama returned an empty answer", *, eval_count: int = 0):
+        super().__init__(message, kind="empty",
+                         hint="выгрузите модель (keep_alive=0) и повторите")
+        self.eval_count = eval_count
+
+
 class OllamaNativeChatAdapter:
     def __init__(self, base_url: str, *, transport=None):
         if not is_native_ollama_url(base_url):
@@ -28,6 +41,11 @@ class OllamaNativeChatAdapter:
 
     async def list_model_info(self):
         return await self.catalog.list_model_info()
+
+    async def unload(self, model: str) -> None:
+        """Drop the model from memory (keep_alive=0); the next chat loads it afresh."""
+        await self.catalog._request("POST", self.root + "/api/generate", timeout=60.0,
+                                    json={"model": model, "keep_alive": 0})
 
     async def chat(self, model: str, messages: list[dict], **kw) -> ChatResult:
         # Some GGUF chat templates reject any system message after the first.
@@ -58,8 +76,10 @@ class OllamaNativeChatAdapter:
         if not isinstance(data, dict) or not isinstance(data.get("message"), dict):
             raise ProviderError("Ollama returned no message", kind="protocol")
         content = str(data["message"].get("content") or "").strip()
-        if not content:
-            raise ProviderError("Ollama returned no visible answer", kind="protocol")
+        reported = data.get("eval_count")
+        eval_count = int(reported) if isinstance(reported, (int, float)) else None
+        if not content or (eval_count is not None and eval_count <= 1):
+            raise EmptyAnswer("Ollama returned no visible answer", eval_count=eval_count or 0)
         return ChatResult(
             text=content, tokens_in=int(data.get("prompt_eval_count") or 0),
             tokens_out=int(data.get("eval_count") or 0),
