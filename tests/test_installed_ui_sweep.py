@@ -214,7 +214,9 @@ def test_loading_the_driver_does_not_repoint_the_top_level_tests_package():
     before = list(sys.path)
     assert _driver().page_routes('') == []
     assert sys.path == before, 'загрузка драйвера изменила sys.path'
-    assert importlib.util.find_spec('tests.test_learning_trace') is not None
+    _t = sys.modules.get('tests')
+    assert importlib.util.find_spec('tests.test_learning_trace') is not None, (
+        'DEBUG tests=%r file=%r path=%r sys.path=%r' % (_t, getattr(_t, '__file__', None), list(getattr(_t, '__path__', [])), sys.path[:12]))
 
 
 def test_review_names_survive_a_windows_locale_console(tmp_path):
