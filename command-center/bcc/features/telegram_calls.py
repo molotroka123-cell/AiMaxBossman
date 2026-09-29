@@ -549,22 +549,33 @@ async def install_start(request: Request):
 # ---------------------------------------------------------------- global STOP -> calls STOP
 
 async def _watch_global_stop(svc: Any, rt: _Runtime) -> None:
-    """``computer.stop`` (the global Bossman STOP) ends the call too. A lost event is caught by the periodic check."""
+    """``computer.stop`` (the global Bossman STOP) ends the call too. A lost event is caught by the periodic check.
+
+    One explicit ``q.get()`` future waited with ``asyncio.wait``: ``wait_for(q.get(), t)`` can swallow a cancellation on
+    Python 3.11 when an event arrives at the same moment, and the watcher would then outlive the backend, still subscribed."""
     q = svc.bus.subscribe()
+    getter: asyncio.Future | None = None          # one pending q.get(); always cancelled on the way out
     try:
         while True:
-            try:
-                msg = await asyncio.wait_for(q.get(), 5.0)
-            except asyncio.TimeoutError:
-                if not svc.bus.is_subscribed(q):
-                    q = svc.bus.subscribe()
-                msg = None
+            if not svc.bus.is_subscribed(q):      # dropped as a lagging reader (or the bus was cleared): subscribe again
+                if getter is not None and not getter.done():
+                    getter.cancel()
+                getter = None
+                q = svc.bus.subscribe()
+            if getter is None:
+                getter = asyncio.ensure_future(q.get())
+            done, _ = await asyncio.wait({getter}, timeout=5.0)
+            if not done:
                 if global_stop_active(svc) and (rt.manager.active_call is not None or rt.manager.running):
                     await rt.manager.stop("computer_stop")
                 continue
-            if msg.get("kind") == "computer.stop":
+            msg = getter.result()
+            getter = None
+            if isinstance(msg, dict) and msg.get("kind") == "computer.stop":
                 await rt.manager.stop("computer_stop")
     finally:
+        if getter is not None and not getter.done():
+            getter.cancel()
         svc.bus.unsubscribe(q)
         with contextlib.suppress(BaseException):
             await rt.manager.shutdown()
