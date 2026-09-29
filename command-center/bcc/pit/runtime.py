@@ -52,6 +52,7 @@ from .config import PITSettings
 from .cloud_budget import CloudBudget, classify_rate_limit, next_utc_midnight
 from .resources import LocalCapacityGuard, ollama_resident_probe
 from .models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
+from . import participant_profile
 from .participant_context import build_participant_context
 from .photo_commands import photo_intent
 from .photo_edit import PhotoEditPipeline
@@ -917,14 +918,18 @@ class ParticipantRuntime:
             try:
                 rendered = render_jeff_reply(answer)
                 voice_mode = (
-                    fresh.role == "owner"
-                    and self.store.get("voice_reply:" + fresh.key, False) is True
+                    (fresh.role == "owner"
+                     and self.store.get("voice_reply:" + fresh.key, False) is True
+                     or participant_profile.read_profile(
+                         self.vault.data_dir, self.vault.key_for_telegram(fresh.user_id))[0]["voice_reply"])
                     and not str(message.get("text") or "").startswith("/")
                     and not message.get("_photo") and not message.get("_document")
                 )
                 if voice_mode:
                     async def make_voice(guarded_text: str) -> bytes:
-                        if os.environ.get("BOSSMAN_PIT_TTS_BACKEND", "piper").lower() == "chatterbox":
+                        if (fresh.role == "owner"
+                                and os.environ.get("BOSSMAN_PIT_TTS_BACKEND", "piper").lower() == "chatterbox"):
+                            # The cloned voice is the owner's own: guests get the stock Piper voice.
                             try:
                                 return await asyncio.to_thread(
                                     synthesize_cloned_ogg, guarded_text,
@@ -1054,6 +1059,12 @@ class ParticipantRuntime:
     async def handle(self, person: Person, message: dict, *, update_id: int | None = None) -> str | None:
         person_key = self.vault.key_for_telegram(person.user_id)
         text = str(message.get("text", "")).strip()
+
+        # Jeff Admin: the owner's revoke / Telegram-off switch beats every other path.
+        blocked_reason = participant_profile.gate_reply(
+            self.vault.data_dir, person_key, getattr(self, "surface", "telegram"))
+        if blocked_reason is not None:
+            return blocked_reason
 
         if photo_file_id := message.get("_photo"):
             return await self._handle_photo(person, person_key, message, photo_file_id, text)
