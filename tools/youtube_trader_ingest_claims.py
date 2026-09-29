@@ -47,6 +47,7 @@ from learning.claim_verification import (  # noqa: E402
     DIRECTIONS, HORIZONS_MIN, KINDS, METRICS, Claim, Market, align_from_chat, overall_status,
     summarize, value_supported_by_quote, verify_claim,
 )
+from tools.route_guard import assert_free_or_local  # noqa: E402
 from tools.owner_journeys.runtime_guard import lower_priority, wait_if_paused  # noqa: E402
 
 OLLAMA = "http://127.0.0.1:11434"
@@ -149,6 +150,7 @@ def ollama_chat(model: str, messages: list[dict], *, fmt: Optional[str] = "json"
                 timeout: int = 300) -> tuple[str, float]:
     # num_ctx is deliberately NOT overridden: a different context size forces Ollama
     # to reload the shared model and evicts it for the other workstreams.
+    assert_free_or_local(OLLAMA, model)   # local only; refused before any I/O
     wait_if_paused(log=lambda s: print(s, flush=True))
     body: dict[str, Any] = {"model": model, "messages": messages, "stream": False, "think": False,
                             "keep_alive": "10m", "options": {"temperature": 0}}
