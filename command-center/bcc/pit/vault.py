@@ -75,7 +75,10 @@ class PersonaVault:
 
     def set_consent(self, person_key: str, state: ConsentState) -> None:
         target = self.ensure(person_key)
+        before = self.consent(person_key)
         _atomic_json(target / "consent.json", state.to_dict())
+        from . import passport
+        passport.note_consent_change(target, before, state)
 
     def append_raw_event(self, person_key: str, event: dict[str, Any]) -> bool:
         state = self.consent(person_key)
@@ -98,6 +101,8 @@ class PersonaVault:
             payload["value"], redacted = redact_secrets(payload["value"])
             if redacted:
                 return False
+        from . import passport
+        payload["passport"] = passport.build_envelope(payload, consent=state)
         _append_jsonl(target / "facts.jsonl", payload)
         self.audit(person_key, "write", actor="jeff", fact_ids=[str(payload.get("id", ""))],
                    categories=[str(payload.get("category", ""))])
@@ -106,7 +111,8 @@ class PersonaVault:
     # -- participant-visible memory audit / correction ---------------------------------
     AUDIT_FILE = "memory_audit.jsonl"
     AUDIT_ACTIONS = frozenset({"write", "read", "view", "correct", "delete", "forget",
-                               "export", "delete_all", "owner_passport_read"})
+                               "export", "delete_all", "owner_passport_read",
+                               "consent", "passport_view"})
 
     def audit(self, person_key: str, action: str, *, actor: str,
               fact_ids: Iterable[str] = (), categories: Iterable[str] = (),
@@ -168,10 +174,13 @@ class PersonaVault:
         hit = [row for row in rows if str(row.get("id", "")) == str(fact_id)]
         if not hit:
             return False
+        from . import passport
         for row in hit:
+            old_value = row.get("value")
             row["value"] = clean
             row["evidence_kind"] = "confirmed"
             row["confidence"] = max(float(row.get("confidence", 0.0) or 0.0), 0.95)
+            passport.apply_correction(row, old_value, actor=actor, surface=surface)
         self._rewrite_facts(person_key, rows)
         self.append_correction(person_key, {"action": "correct", "candidate_id": str(fact_id),
                                             "actor": actor})

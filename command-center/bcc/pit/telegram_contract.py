@@ -24,6 +24,9 @@ USER_COMMANDS = frozenset({
     "/delete_me",
     "/style",
     "/privacy",
+    "/passport",
+    "/personalization",
+    "/revoke_consent",
 })
 
 
