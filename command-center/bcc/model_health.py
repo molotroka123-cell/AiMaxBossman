@@ -122,21 +122,29 @@ class HealthRecord:
 
     @property
     def stale(self) -> bool:
+        return self.stale_at()
+
+    def stale_at(self, now: datetime | None = None) -> bool:
         if self.checked_at is None:
             return True
-        return (_now() - _aware(self.checked_at)).total_seconds() > STALE_AFTER_SECONDS
+        return ((now or _now()) - _aware(self.checked_at)).total_seconds() > STALE_AFTER_SECONDS
 
     def in_cooldown(self, now: datetime | None = None) -> bool:
         until = _aware(self.cooldown_until)
         return until is not None and (now or _now()) < until
 
     def usable(self, now: datetime | None = None) -> bool:
-        """Route to this model? Only a measured success, outside its cooldown.
+        """Route to this model? Only a RECENT measured success, outside its cooldown.
 
         `unmeasured` is NOT usable here — but see `rank_key`: it is still
         preferred over a model measured to be broken, so a fresh install is not
-        deadlocked waiting for probes it never runs."""
-        return self.status == HEALTHY and not self.in_cooldown(now)
+        deadlocked waiting for probes it never runs.
+
+        A success older than STALE_AFTER_SECONDS is history, not health: a
+        llama.cpp port that answered days ago and is dead now must not outrank
+        a live model nobody has probed yet (RC19 audit, :8082)."""
+        return (self.status == HEALTHY and not self.in_cooldown(now)
+                and not self.stale_at(now))
 
     def rank_key(self, now: datetime | None = None) -> tuple[int, float]:
         """Lower sorts first: measured-healthy, then unmeasured, then broken.
@@ -147,8 +155,9 @@ class HealthRecord:
         tried and health never gets measured."""
         if self.usable(now):
             tier = 0
-        elif self.status == UNMEASURED:
-            tier = 1
+        elif self.status == UNMEASURED or (self.status == HEALTHY
+                                           and not self.in_cooldown(now)):
+            tier = 1                            # never measured, or measured long ago
         elif self.in_cooldown(now):
             tier = 3
         else:

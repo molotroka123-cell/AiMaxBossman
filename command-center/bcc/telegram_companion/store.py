@@ -314,15 +314,13 @@ class Store:
             self.db.execute("DELETE FROM gates WHERE phase!='pending' AND expires<?", (cutoff,))
 
 
-@contextmanager
-def single_instance(home: Path):
-    """Kernel-owned lock: released on process death, no stale lockfile guessing."""
-    home.mkdir(parents=True, exist_ok=True, mode=0o700)
-    file = (home / "poller.lock").open("a+b")
-    try:
-        if file.seek(0, 2) == 0:
-            file.write(b"0")
-            file.flush()
+INSTANCE_INFO = "poller.json"
+_LOCK_RETRY_SECONDS = 1.5
+
+
+def _lock_byte(file, *, blocking_for: float = 0.0) -> bool:
+    deadline = time.monotonic() + blocking_for
+    while True:
         file.seek(0)
         try:
             if os.name == "nt":
@@ -331,8 +329,89 @@ def single_instance(home: Path):
             else:
                 import fcntl
                 fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return True
         except OSError:
-            raise CompanionError("ANOTHER_COMPANION_IS_RUNNING") from None
-        yield
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.05)
+
+
+def _unlock_byte(file) -> None:
+    try:
+        file.seek(0)
+        if os.name == "nt":
+            import msvcrt
+            msvcrt.locking(file.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(file, fcntl.LOCK_UN)
+    except OSError:
+        pass
+
+
+def _process_created(pid: int) -> float | None:
+    try:
+        import psutil
+        return float(psutil.Process(pid).create_time())
+    except Exception:  # noqa: BLE001 — optional evidence only
+        return None
+
+
+@contextmanager
+def single_instance(home: Path):
+    """Kernel-owned lock: released on process death, no stale lockfile guessing.
+
+    The holder also writes ``poller.json`` (pid + process creation time) so a
+    Command Center restarted after launching it can still see and stop it
+    (RC19 audit: an orphaned companion kept polling a revoked token).
+    """
+    home.mkdir(parents=True, exist_ok=True, mode=0o700)
+    file = (home / "poller.lock").open("a+b")
+    try:
+        if file.seek(0, 2) == 0:
+            file.write(b"0")
+            file.flush()
+        # A short retry: a status probe may hold the byte for a moment, and
+        # Windows frees a crashed holder's lock slightly after its exit.
+        if not _lock_byte(file, blocking_for=_LOCK_RETRY_SECONDS):
+            raise CompanionError("ANOTHER_COMPANION_IS_RUNNING")
+        info = home / INSTANCE_INFO
+        try:
+            info.write_text(json.dumps({"pid": os.getpid(), "created": _process_created(os.getpid())}),
+                            encoding="utf-8")
+        except OSError:
+            pass
+        try:
+            yield
+        finally:
+            try:
+                info.unlink(missing_ok=True)
+            except OSError:
+                pass
+            # Unlock before close: Windows releases a lock left on a closed
+            # handle only later, and a quick restart would be refused.
+            _unlock_byte(file)
     finally:
         file.close()
+
+
+def instance_holder(home: Path) -> dict | None:
+    """Who holds ``home``'s poller lock: its poller.json (maybe {}), or None if free."""
+    lock = Path(home) / "poller.lock"
+    if not lock.exists():
+        return None
+    try:
+        file = lock.open("a+b")
+    except OSError:
+        return None
+    try:
+        if _lock_byte(file):
+            _unlock_byte(file)
+            return None
+    finally:
+        file.close()
+    try:
+        data = json.loads((Path(home) / INSTANCE_INFO).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}

@@ -93,7 +93,12 @@ def transcribe_wav(audio: bytes, *, language: str = "ru",
         raise SpeechError("VOICE_STT_UNAVAILABLE") from exc
     if stopped():
         raise SpeechError("VOICE_STOPPED")
-    model = _recogniser(model_path)
+    try:
+        model = _recogniser(model_path)
+    except SpeechError:
+        raise
+    except Exception as exc:  # noqa: BLE001 — a broken model is "unavailable", not a 500
+        raise SpeechError("VOICE_STT_UNAVAILABLE") from exc
     if not whisper._work_lock.acquire(blocking=False):
         raise SpeechError("VOICE_BUSY")
     try:

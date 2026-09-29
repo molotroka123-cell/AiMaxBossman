@@ -64,6 +64,23 @@ async def reserve(svc,model,jid,count,inputs):
     state.add_cloud_spend(amount)
     return {'upper_bound_usd':amount,'policy_digest':digest(p),'policy':p,'day':day,'inputs':inputs}
 
+async def release_unsubmitted(svc,jid,reservation):
+    """Вернуть резерв задания, которое так и не начало отправку провайдеру.
+
+    Резерв не возвращается после отправки: провайдер вправе списать деньги (см. reserve).
+    Но до неё списать нечего, а задания, упавшие на проверке баланса или референса,
+    запирали дневной бюджет, не сделав ни одного платного вызова (аудит 2026-09-28).
+    Граница — submit_started в базе: он пишется ДО вызова submit."""
+    amount=reservation['upper_bound_usd']
+    async with svc.db.session() as s:
+        released=await s.execute(sa.update(jobs).where(jobs.c.job_id==jid,jobs.c.reserved_usd>0,
+            sa.or_(jobs.c.submit_started.is_(None),jobs.c.submit_started==False)).values(reserved_usd=0))  # noqa: E712
+        if released.rowcount:
+            await s.execute(sa.update(budget).where(budget.c.day==reservation['day']).values(
+                committed_usd=sa.func.max(budget.c.committed_usd-amount,0)))
+        await s.commit()
+    return bool(released.rowcount)
+
 async def check_current(svc,reservation):
     if reservation.get('inputs'):
         key='egress:'+digest({'provider':'openrouter','inputs':reservation['inputs']})

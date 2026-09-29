@@ -11,6 +11,7 @@ from decimal import Decimal, ROUND_CEILING
 from urllib.parse import urlsplit
 
 import httpx
+from .backend_target import VerifiedBackend
 from .config import CompanionError, Person, Settings
 
 # Who is waiting for the single local model: 0 = owner first (if enabled), 1 = everyone else.
@@ -493,17 +494,38 @@ class Telegram:
 
 
 class Core:
-    """Only deterministic operations; all task effects remain in Bossman's engine."""
-    def __init__(self, settings: Settings, *, transport=None):
+    """Only deterministic operations; all task effects remain in Bossman's engine.
+
+    The token goes only to the Command Center that serves the owner's data
+    root, found through ``bcc.backend_lock`` and identity-checked first
+    (``backend_target``). An injected ``transport`` is a test double of that
+    backend, so verification is off unless ``verify_backend=True``.
+    """
+    def __init__(self, settings: Settings, *, transport=None, verify_backend: bool | None = None):
         self.settings = settings
         self.client = httpx.AsyncClient(timeout=10, trust_env=False, follow_redirects=False, transport=transport)
+        verify = transport is None if verify_backend is None else verify_backend
+        self.backend = (VerifiedBackend(settings.core_url, settings.core_data_dir or None,
+                                        strict=bool(settings.core_data_dir))
+                        if verify else None)
 
     async def close(self):
         await self.client.aclose()
 
+    async def base_url(self) -> str:
+        if self.backend is None:
+            return self.settings.core_url
+        return await self.backend.base_url(self.client)
+
     async def _request(self, method, path, payload=None, timeout=10):
-        return await json_request(self.client, method, self.settings.core_url + path, payload=payload,
-                                  headers={"X-BCC-Token": self.settings.core_token}, timeout=timeout)
+        base = await self.base_url()
+        try:
+            return await json_request(self.client, method, base + path, payload=payload,
+                                      headers={"X-BCC-Token": self.settings.core_token}, timeout=timeout)
+        except CompanionError as exc:
+            if self.backend is not None and str(exc) in {"AUTH_DENIED", "NETWORK_UNAVAILABLE"}:
+                self.backend.forget()       # restarted elsewhere: look again next time
+            raise
 
     async def evolution(self, action: str) -> dict:
         """Only the fixed owner actions are forwarded; no arbitrary URL or command."""
@@ -565,7 +587,7 @@ class Core:
         return body if isinstance(body, dict) else {}
 
     async def studio_runs(self, job_id: int, surface: str = "image") -> list:
-        body = await json_request(self.client, "GET", self.settings.core_url + "/api/studio/runs",
+        body = await json_request(self.client, "GET", await self.base_url() + "/api/studio/runs",
                                   params={"job_id": int(job_id), "surface": surface},
                                   headers={"X-BCC-Token": self.settings.core_token}, timeout=10)
         rows = body.get("items") if isinstance(body, dict) else None
@@ -577,7 +599,7 @@ class Core:
         data = bytearray()
         try:
             async with asyncio.timeout(60):
-                async with self.client.stream("GET", self.settings.core_url + f"/api/studio/runs/{run_id}/file",
+                async with self.client.stream("GET", await self.base_url() + f"/api/studio/runs/{run_id}/file",
                                               headers={"X-BCC-Token": self.settings.core_token}) as response:
                     if response.status_code != 200:
                         raise CompanionError("STUDIO_FILE_UNAVAILABLE")
@@ -592,7 +614,7 @@ class Core:
     # ---- approvals, Computer Use and lessons: the ONLY route from Telegram to an effect
     async def approvals(self, status: str = "pending") -> list:
         """Bossman's own approval queue. Read-only; a decision is a separate call."""
-        body = await json_request(self.client, "GET", self.settings.core_url + "/api/approvals",
+        body = await json_request(self.client, "GET", await self.base_url() + "/api/approvals",
                                   params={"status": status},
                                   headers={"X-BCC-Token": self.settings.core_token}, timeout=10)
         if not isinstance(body, list):
@@ -683,7 +705,7 @@ class Core:
         try:
             async with asyncio.timeout(30):
                 async with self.client.stream(
-                    "GET", self.settings.core_url + f"/api/browser/login-receipts/{receipt_id}/screenshot",
+                    "GET", await self.base_url() + f"/api/browser/login-receipts/{receipt_id}/screenshot",
                     headers={"X-BCC-Token": self.settings.core_token}) as response:
                     if response.status_code != 200:
                         raise CompanionError("LOGIN_SCREENSHOT_UNAVAILABLE")

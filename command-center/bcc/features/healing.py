@@ -125,11 +125,17 @@ async def _on_failure(svc):
 
 
 async def _tick(svc):
-    """Degraded-модели: периодический re-check; online → recovery.completed."""
+    """Degraded-модели и модели, до которых не достучался настоящий вызов
+    (engine → registry.mark_runtime_offline): периодический re-check;
+    online → recovery.completed. Без второго условия модель, упавшая во время
+    задачи, оставалась offline до ручной проверки."""
+    from ..registry import RUNTIME_OFFLINE_PREFIX
     async with svc.db.session() as s:
-        degraded = (await s.execute(sa.select(models_t.c.id).where(
-            models_t.c.status == "error",
-            models_t.c.status_detail.like("degraded%")))).fetchall()
+        degraded = (await s.execute(sa.select(models_t.c.id, models_t.c.status).where(sa.or_(
+            sa.and_(models_t.c.status == "error",
+                    models_t.c.status_detail.like("degraded%")),
+            sa.and_(models_t.c.status == "offline",
+                    models_t.c.status_detail.like(RUNTIME_OFFLINE_PREFIX + "%")))))).fetchall()
     for r in degraded:
         mid = r._mapping["id"]
         try:
@@ -140,6 +146,12 @@ async def _tick(svc):
             _error_window.pop(mid, None)
             _attempts.pop(f"model:{mid}", None)
             await _attempt(svc, "model", mid, "endpoint восстановлен", "retry", "completed")
+        elif r._mapping["status"] == "offline":
+            # check_model wrote the probe's own detail; keep the runtime mark so
+            # the next tick looks again instead of forgetting the model.
+            await svc.registry._set_status(
+                mid, health.get("status") or "offline",
+                f"{RUNTIME_OFFLINE_PREFIX}{health.get('detail') or ''}"[:500])
 
 
 @router.post("/healing/report")

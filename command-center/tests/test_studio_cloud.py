@@ -192,7 +192,9 @@ async def test_video_completion_downloads_decodes_and_keeps_key_off_cdn(env,monk
     from bcc.studio.governance import save_policy
     from bcc.video_studio.media import binary,process
     path=tmp_path/'video.mp4'
-    await process([binary('ffmpeg'),'-v','error','-f','lavfi','-i','color=c=blue:s=256x256:r=10:d=0.2','-c:v','libx264','-pix_fmt','yuv420p',str(path)])
+    # The catalog orders Hailuo at 10 s, 16:9; since the 2026-09-28 audit the delivered clip must
+    # match that order (a 0.2 s square clip is now rejected — see test_studio_video_contract_audit).
+    await process([binary('ffmpeg'),'-v','error','-f','lavfi','-i','color=c=blue:s=256x144:r=5:d=10','-c:v','libx264','-pix_fmt','yuv420p',str(path)])
     cls=openrouter.OpenRouterProvider;seen=[]
     def serve(r):
         seen.append((r.method,r.url.host,r.url.path))

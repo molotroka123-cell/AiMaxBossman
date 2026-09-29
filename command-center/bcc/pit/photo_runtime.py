@@ -110,6 +110,13 @@ def build_photo_services(
         else None
     )
 
+    # The owner token only reaches the Command Center serving this data root
+    # (backend.lock), identity-checked first; a stale studio_url of 8800 is not
+    # trusted blindly (RC19 audit). An injected transport is a test double.
+    backend = None
+    if studio_transport is None:
+        from bcc.telegram_companion.backend_target import VerifiedBackend
+        backend = VerifiedBackend(cfg.studio_url, data_dir)
     edit = (
         StudioImageEditBroker(
             StudioImageEditConfig(
@@ -118,6 +125,7 @@ def build_photo_services(
                 model_id=cfg.image_edit_model,
             ),
             transport=studio_transport,
+            backend=backend,
         )
         if cfg.image_edit_model
         else None
@@ -131,6 +139,7 @@ def build_photo_services(
                 model_id=cfg.image_generation_model,
             ),
             transport=studio_transport,
+            backend=backend,
         ) if cfg.image_generation_model else None
     )
     return PhotoServices(cfg, vision, edit, generate)

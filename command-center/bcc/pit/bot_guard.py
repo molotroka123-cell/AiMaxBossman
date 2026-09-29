@@ -52,9 +52,28 @@ def token_poller_lock(token: str):
                 fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError:
             raise CompanionError("ANOTHER_POLLER_FOR_THIS_BOT_TOKEN") from None
-        yield
+        try:
+            yield
+        finally:
+            release_byte_lock(file)
     finally:
         file.close()
+
+
+def release_byte_lock(file) -> None:
+    """Unlock byte 0 BEFORE closing: Windows frees a lock left on a closed
+    handle only "when system resources allow", so an immediate restart could
+    still be refused as a second poller."""
+    try:
+        file.seek(0)
+        if os.name == "nt":
+            import msvcrt
+            msvcrt.locking(file.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(file, fcntl.LOCK_UN)
+    except OSError:
+        pass
 
 
 def companion_config_path() -> Path:

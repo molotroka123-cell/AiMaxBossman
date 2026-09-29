@@ -24,6 +24,18 @@ from typing import Any
 LOCK_NAME = "backend.lock"
 INFO_NAME = "backend.json"
 
+#: Сколько `acquire` ждёт байт замка, прежде чем назвать root занятым. Зонд
+#: `running_backend` (терминал, окно, ps1-скрипт) держит тот же байт микросекунды:
+#: без ожидания старт сервера, совпавший с чужим зондом, выходил кодом 5
+#: «уже запущен», хотя не было запущено ничего. Настоящий держатель держит
+#: замок всю жизнь процесса, так что короткое ожидание его не обходит.
+ACQUIRE_GRACE_S = 0.5
+#: Сколько `_write_info` повторяет замену backend.json. На Windows замена
+#: падает WinError 5, пока кто-то читает этот файл (обычный open не даёт
+#: FILE_SHARE_DELETE) — а читают его именно зонды при старте окна и терминала.
+REPLACE_GRACE_S = 2.0
+_RETRY_STEP_S = 0.02
+
 
 class BackendAlreadyRunning(RuntimeError):
     def __init__(self, info: dict[str, Any] | None):
@@ -110,7 +122,28 @@ class BackendLock:
 def _write_info(data_dir: Path, info: dict[str, Any]) -> None:
     tmp = data_dir / (INFO_NAME + ".tmp")
     tmp.write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
-    os.replace(tmp, data_dir / INFO_NAME)
+    deadline = time.monotonic() + REPLACE_GRACE_S
+    while True:
+        try:
+            os.replace(tmp, data_dir / INFO_NAME)
+            return
+        except PermissionError:
+            # Читатель держит backend.json открытым — это миллисекунды.
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(_RETRY_STEP_S)
+
+
+def connect_host(host: Any) -> str:
+    """Адрес, по которому к держателю можно ПОДКЛЮЧИТЬСЯ.
+
+    Сервер, слушающий 0.0.0.0 или ::, пишет в backend.json адрес привязки; на
+    Windows подключение к 0.0.0.0 не работает, и окно с терминалом не находили
+    живой сервер своих же данных."""
+    value = str(host or "").strip().strip("[]")
+    if value in ("", "0.0.0.0", "::", "*"):
+        return "127.0.0.1"
+    return value
 
 
 def acquire(data_dir: str | Path, *, host: str, port: int,
@@ -118,17 +151,39 @@ def acquire(data_dir: str | Path, *, host: str, port: int,
     """Take the data-root lock or raise BackendAlreadyRunning with the holder's info."""
     base = Path(data_dir)
     handle = _open(base)
-    if not _try_lock(handle):
-        handle.close()
-        raise BackendAlreadyRunning(_read_info(base))
+    deadline = time.monotonic() + ACQUIRE_GRACE_S
+    while not _try_lock(handle):
+        if time.monotonic() >= deadline:
+            handle.close()
+            raise BackendAlreadyRunning(_read_info(base))
+        time.sleep(_RETRY_STEP_S)
     info = {"pid": os.getpid(), "host": host, "port": int(port), "build_sha": build_sha,
             "kind": kind, "started_at": time.time()}
-    _write_info(base, info)
+    try:
+        _write_info(base, info)
+    except BaseException:
+        # Замок без backend.json — держатель, которого никто не может назвать.
+        _unlock(handle)
+        handle.close()
+        raise
     return BackendLock(base, handle, info)
 
 
+def _pid_exists(pid: Any) -> bool:
+    try:
+        import psutil
+        return isinstance(pid, int) and pid > 0 and psutil.pid_exists(pid)
+    except Exception:  # noqa: BLE001 — не смогли проверить: верим файлу, как раньше
+        return True
+
+
 def running_backend(data_dir: str | Path) -> dict[str, Any] | None:
-    """Who serves this data root right now, or None (lock free or no info)."""
+    """Who serves this data root right now, or None (lock free).
+
+    A held lock whose backend.json is missing or still names a previous (dead)
+    holder is a server that is starting right now: it has the lock and has not
+    written its info yet. That is reported as ``{"starting": True}`` without a
+    port, never as "free" and never with the dead holder's port."""
     base = Path(data_dir)
     if not (base / LOCK_NAME).exists():
         return None
@@ -140,6 +195,13 @@ def running_backend(data_dir: str | Path) -> dict[str, Any] | None:
         if _try_lock(handle):
             _unlock(handle)
             return None                  # nobody holds it: any backend.json is stale
-        return _read_info(base)
     finally:
         handle.close()
+    deadline = time.monotonic() + ACQUIRE_GRACE_S
+    while True:
+        info = _read_info(base)
+        if info is not None and _pid_exists(info.get("pid")):
+            return info
+        if time.monotonic() >= deadline:
+            return {"pid": None, "host": None, "port": None, "starting": True}
+        time.sleep(_RETRY_STEP_S)

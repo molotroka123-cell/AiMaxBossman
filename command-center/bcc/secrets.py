@@ -15,6 +15,8 @@ from cryptography.fernet import Fernet, InvalidToken
 KEY_FILE = "secret.key"
 KEY_ENV = "BOSSMAN_VAULT_KEY"
 _log = logging.getLogger("bcc.secrets")
+#: Файлы ключа, чей ACL уже выправлен этим процессом.
+_ACL_HEALED: set[Path] = set()
 
 
 class Vault:
@@ -41,13 +43,24 @@ class Vault:
         if env_key:
             # Ключ из внешнего секрет-стора/env — не персистим на диск.
             return env_key.encode()
+        # Windows: режим 0600 из os.open ACL не создаёт — ключ, расшифровывающий
+        # все ключи провайдеров, наследовал права каталога (на D:\ это
+        # Authenticated Users). Тот же owner-only DACL, что у файла токена;
+        # существующий файл лечится при первой загрузке в процессе (Vault
+        # создаётся и на запрос — icacls на каждый вызов не нужен).
+        from .auth import _restrict_to_owner
         if self.path.exists():
+            if self.path not in _ACL_HEALED:
+                _restrict_to_owner(self.path)
+                _ACL_HEALED.add(self.path)
             return self.path.read_bytes().strip()
         key = Fernet.generate_key()
         # O_EXCL + 0600: файл создаётся сразу с правами владельца, без окна гонки
         fd = os.open(self.path, os.O_CREAT | os.O_WRONLY | os.O_EXCL, 0o600)
         with os.fdopen(fd, "wb") as f:
             f.write(key)
+        _restrict_to_owner(self.path)
+        _ACL_HEALED.add(self.path)
         return key
 
     def encrypt(self, value: str | None) -> str | None:

@@ -418,11 +418,11 @@ async def test_engine_lease_cannot_drive_the_desktop(env, desk):
     tid = stack["task"]["id"]
     assert await _run_task(env, tid) == "waiting_approval"
     aid = await _pending_approval(env, tid)
-    # production answers 500 (generic handler); the in-process client re-raises it
-    with pytest.raises(PermissionError):
-        await env.client.post("/api/approvals/" + str(aid),
-                              json={"approve": True, "by": "owner",
-                                    "lease": {"max_uses": 10, "ttl_seconds": 600}})
+    # the refusal is an explicit 409 to the owner (was a bare 500 PermissionError)
+    res = await env.client.post("/api/approvals/" + str(aid),
+                                json={"approve": True, "by": "owner",
+                                      "lease": {"max_uses": 10, "ttl_seconds": 600}})
+    assert res.status_code == 409 and res.json()["error"]["code"] == "LEASE_NOT_ALLOWED"
     # the refused lease rolled the decision back: the question is still pending
     row = next(a for a in (await env.client.get("/api/approvals?status=all")).json() if a["id"] == aid)
     assert row["status"] == "pending"

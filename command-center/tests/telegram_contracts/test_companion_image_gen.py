@@ -144,6 +144,31 @@ def test_cancel_stops_the_studio_job(tmp_path):
     assert reply == 'ERR:IMAGE_GEN_CANCELLED' and studio.cancelled and tg.photos() == []
 
 
+class CancelRefusedStudio(FakeStudio):
+    """Bossman did not accept the stop (backend down/erroring); the job keeps running."""
+    def __call__(self, request):
+        if request.url.path == '/api/studio/jobs/7/cancel':
+            self.requests.append((request.method, request.url.path))
+            return httpx.Response(503, json={'detail': 'unavailable'})
+        return super().__call__(request)
+
+
+def test_unconfirmed_cancel_is_not_reported_as_cancelled(tmp_path):
+    """Audit 2026-09-28: a failed studio_cancel was swallowed and the owner still read
+    «Генерация отменена» while the server job kept running."""
+    studio = CancelRefusedStudio(polls=10_000)
+    async def cancel(app, person):
+        for _ in range(200):
+            if app.image_job and app.image_job['id']:
+                break
+            await asyncio.sleep(0.01)
+        app.image_job['cancel'] = True
+    reply, _, tg = run(tmp_path, studio, during=cancel)
+    assert reply == 'ERR:IMAGE_GEN_CANCEL_UNCONFIRMED' and not studio.cancelled and tg.photos() == []
+    from bcc.telegram_companion.service import failure_text
+    assert 'не подтвердил' in failure_text('IMAGE_GEN_CANCEL_UNCONFIRMED')
+
+
 def test_one_at_a_time_and_ram_and_llm_guards(tmp_path):
     async def second(app, person):
         for _ in range(200):

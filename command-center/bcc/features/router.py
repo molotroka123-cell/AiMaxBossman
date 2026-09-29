@@ -23,6 +23,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from ..db import (models as models_t, providers as providers_t, settings_kv,
                   task_runs as runs_t, tasks as tasks_t)
+from ..model_health import HealthRecord
 from ..v2.model_intelligence import TaskComplexityFeatures, classify_reasoning
 from ..v2.model_router import (MAX_CANDIDATES, ModelCandidate, RouteRequest,
                                candidate_digest, derive_local, disqualify, route,
@@ -175,7 +176,11 @@ async def _candidates(svc, rules: dict, *,
         local, _why = derive_local(m["kind"], m["provider_kind"], m["provider_base_url"])
         out.append(ModelCandidate(
             id=m["id"], alias=m["alias"],
-            online=m["status"] == "online",
+            # `status` is the last probe; a real call that failed since then
+            # put the model into a measured cooldown (engine records it), and
+            # routing onto it again inside that window repeats the failure.
+            online=(m["status"] == "online"
+                    and not HealthRecord.from_dict(m.get("health")).in_cooldown()),
             local=local,
             context_window=m["context_window"] or 8192,
             capabilities=advertised,
@@ -446,7 +451,11 @@ async def _memory_pressure_fallback(svc, task: dict, agent: dict | None, meta: d
     if available is None or need <= float(available):
         return None
     reason = f"memory {need:.0f}MB > available {float(available):.0f}MB for {own['alias']}"
-    denied = await check_forced_model(svc, fallback_id, meta=meta, agent=agent, kind=kind)
+    # The fallback is held to the SAME measured memory: a local fallback that
+    # does not fit either is not relief (check_forced_model otherwise sees only
+    # task.meta, which is empty when memory was measured live).
+    denied = await check_forced_model(svc, fallback_id, agent=agent, kind=kind,
+                                      meta={**meta, "available_memory_mb": float(available)})
     fb = next((c for c in await _candidates(svc, rules, kind=kind)
                if int(c.id) == int(fallback_id)), None)
     if not denied and fb is not None and not fb.local and (fb.price_in or fb.price_out

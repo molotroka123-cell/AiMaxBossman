@@ -135,6 +135,11 @@ UNKNOWN_COMMAND_RU = "Такой команды у Jeff нет. Список —
 CLOUD_PAUSED_RU = ("Бесплатный облачный лимит на сейчас исчерпан, а локальная модель занята. "
                    "Не буду долбить сервис повторами — напиши чуть позже.")
 MAX_REMOTE_ATTEMPTS_PER_TURN = 3
+# Part of a turn's deadline kept for the local fallback after the cloud tries.
+LOCAL_FALLBACK_RESERVE_SECONDS = 10.0
+# A configured local model missing from the catalog (busy when it was built) is
+# looked for again after this long, also in the Jeff window (no poll loop).
+LOCAL_RECHECK_SECONDS = 120.0
 NO_REMOTE_RU = ("Удалённые модели отключены в твоих настройках приватности. "
                 "Чат-ответы приостановлены; команды работают. Включить: /privacy remote on.")
 
@@ -575,11 +580,13 @@ class ParticipantRuntime:
             allow_paid=False, zero_cost_only=True, local_bonus=0.0)
         return decision.selected_model, decision.provider == "local"
 
-    def _remote_fallbacks(self, failed_model: str) -> tuple[str, ...]:
+    def _remote_fallbacks(self, failed_model: str, *,
+                          catalog: dict[str, ModelEndpoint] | None = None) -> tuple[str, ...]:
         """All remaining catalog-verified free remote chat routes, in rank order."""
         if self.settings.local_chat_only:
             return ()
-        remote = [endpoint for endpoint in self.catalog.values()
+        catalog = self.catalog if catalog is None else catalog
+        remote = [endpoint for endpoint in catalog.values()
                   if not endpoint.local and endpoint.id in self.settings.chat_models
                   and endpoint.id != failed_model]
         if not remote:
@@ -613,10 +620,12 @@ class ParticipantRuntime:
         return {model: sorted(values)[min(len(values) - 1, int(len(values) * .95))]
                 for model, values in timings.items() if values}
 
-    def _mixed_route(self, text: str, consent: ConsentState) -> tuple[str, bool]:
+    def _mixed_route(self, text: str, consent: ConsentState, *,
+                     catalog: dict[str, ModelEndpoint] | None = None) -> tuple[str, bool]:
         """70/30 simple-turn mix, with measured cloud speed and a local privacy route."""
-        local = [item for item in self.catalog.values() if item.local]
-        remote = [item for item in self.catalog.values() if not item.local]
+        catalog = self.catalog if catalog is None else catalog
+        local = [item for item in catalog.values() if item.local]
+        remote = [item for item in catalog.values() if not item.local]
         if not consent.remote_processing_enabled:
             if local:
                 return local[0].id, True
@@ -653,8 +662,13 @@ class ParticipantRuntime:
             self._cloud_stop("daily_budget")
         return reason
 
-    def _cloud_spend(self) -> None:
-        self.cloud.spend()
+    def _cloud_spend(self) -> str:
+        """Count one cloud request atomically with the budget check; a non-empty
+        reason means the request must NOT be sent."""
+        reason = self.cloud.try_spend()
+        if reason == "daily_budget":
+            self._cloud_stop("daily_budget")
+        return reason
 
     def _cloud_stop(self, reason: str, *, until: float | None = None) -> None:
         if not self.cloud.stop(reason, until=until):
@@ -1323,22 +1337,34 @@ class ParticipantRuntime:
         complex_request = _is_complex_chat(text)
         deadline = time.monotonic() + (120 if complex_request else self.settings.chat_deadline_seconds)
 
+        now = time.monotonic()
         if self.catalog_checked_at == 0.0:
+            await self.refresh_catalog_safe()
+        elif (not self.settings.local_chat_only and self.settings.local_models
+              and self.local_adapter is not None
+              and not any(endpoint.local for endpoint in self.catalog.values())
+              and now - self.catalog_checked_at > LOCAL_RECHECK_SECONDS):
+            # A local model that was busy when the catalog was built comes back
+            # here too: the Jeff window has no poll loop that would refresh it.
             await self.refresh_catalog_safe()
         if self.settings.local_chat_only:
             # Recheck installed model and owner resource headroom on every turn.
             # Clear first so a catalog failure cannot leave a stale live route.
             self.catalog = {}
             await self.refresh_catalog_safe()
-        elif any(endpoint.local for endpoint in self.catalog.values()):
+        turn_catalog = self.catalog
+        if not self.settings.local_chat_only and any(
+                endpoint.local for endpoint in turn_catalog.values()):
             self.capacity_guard.reset()
             if not await self.capacity_guard.local_allowed():
-                self.catalog = {key: endpoint for key, endpoint in self.catalog.items()
+                # Busy for THIS turn only: the shared catalog keeps the local
+                # route, so the next turn (or a concurrent one) re-measures.
+                turn_catalog = {key: endpoint for key, endpoint in turn_catalog.items()
                                 if not endpoint.local}
         consent = self.vault.consent(person_key)
         try:
             model, is_local = (self._free_route() if self.settings.local_chat_only
-                               else self._mixed_route(text, consent))
+                               else self._mixed_route(text, consent, catalog=turn_catalog))
         except NoEligibleRoute:
             return NO_MODEL_RU
         if not is_local and not consent.remote_processing_enabled:
@@ -1376,30 +1402,33 @@ class ParticipantRuntime:
                                 for fallback in self._remote_fallbacks(model))
         else:
             attempts.append((model, self.adapter, "remote"))
-            local_fallback = next((item.id for item in self.catalog.values() if item.local), None)
+            local_fallback = next((item.id for item in turn_catalog.values() if item.local), None)
             attempts.extend((fallback, self.adapter, "remote")
-                            for fallback in self._remote_fallbacks(model))
-            if self.settings.local_fallback_on_cloud_refusal and local_fallback:
-                attempts.append((local_fallback, self.local_adapter, "local"))
-            if (local_fallback and (self._cloud_blocked() or all(
-                    self.cloud.model_blocked(m) for m, _, kind in attempts if kind == "remote"))
-                    and all(kind != "local" for _, _, kind in attempts)):
-                # Free cloud is paused (budget/rate limit): the local model
-                # answers instead of the participant waiting on a dead route.
+                            for fallback in self._remote_fallbacks(model, catalog=turn_catalog))
+            if local_fallback and self.local_adapter is not None:
+                # Any cloud failure — pause, rate limit, timeout, 5xx — ends on
+                # the verified local model instead of "provider down"/"limit".
+                # Its share of the turn deadline is reserved below.
                 attempts.append((local_fallback, self.local_adapter, "local"))
 
         def ensure_local_fallback() -> None:
             # A rate limit found mid-turn must not strand the participant while
-            # a verified local model is available in the catalog.
-            fallback = next((item.id for item in self.catalog.values() if item.local), None)
+            # a verified local model is available for this turn.
+            fallback = next((item.id for item in turn_catalog.values() if item.local), None)
             if fallback and self.local_adapter is not None and all(
                     kind != "local" for _, _, kind in attempts):
                 attempts.append((fallback, self.local_adapter, "local"))
         cloud_stopped = ""
         remote_sent = 0
         fallback_reason = ""
+        cloud_refused = False
         for route_index, (route_model, adapter, provider) in enumerate(attempts):
             if prefer_local_after_refusal and provider == "remote":
+                continue
+            if (provider == "local" and route_index > 0 and cloud_refused and not cloud_stopped
+                    and not self.settings.local_fallback_on_cloud_refusal):
+                # The owner did not allow the local model to answer what the
+                # cloud refused; the generic local fallback does not bypass that.
                 continue
             # The control lane can change consent while a local model is slow.
             # Rebuild the complete payload for each attempt, including fallback.
@@ -1488,7 +1517,12 @@ class ParticipantRuntime:
                               else self.settings.remote_timeout, remaining)
                 if provider == "remote":
                     remote_left = sum(kind == "remote" for _, _, kind in attempts[route_index:])
-                    timeout = min(timeout, remaining / remote_left)
+                    # A slow cloud must not eat the local fallback's turn:
+                    # keep part of the deadline for the local attempt after it.
+                    reserve = (min(LOCAL_FALLBACK_RESERVE_SECONDS, remaining / 3)
+                               if any(kind == "local" for _, _, kind in attempts[route_index + 1:])
+                               else 0.0)
+                    timeout = min(timeout, max(1.0, remaining - reserve) / remote_left)
                 route_deadline = started + timeout
                 for attempt_index, limit in enumerate((self.settings.max_tokens,
                                                        min(4096, self.settings.max_tokens * 2))):
@@ -1498,7 +1532,12 @@ class ParticipantRuntime:
                         break
                     call_timeout = min(timeout, remaining)
                     if provider == "remote":
-                        self._cloud_spend()
+                        refused = self._cloud_spend()
+                        if refused:
+                            cloud_stopped = refused
+                            ensure_local_fallback()
+                            result = None
+                            break
                     result = await asyncio.wait_for(adapter.chat(
                         route_model, messages, max_tokens=limit,
                         timeout=call_timeout), timeout=call_timeout)
@@ -1534,6 +1573,7 @@ class ParticipantRuntime:
                                     context_chars=context_chars, error="cloud_refusal",
                                     route_reason=fallback_reason)
                     fallback_reason = "cloud_refusal"
+                    cloud_refused = cloud_refused or bool(result.text.strip())
                     prefer_local_after_refusal = bool(
                         self.settings.local_fallback_on_cloud_refusal and local_fallback)
                     result = None

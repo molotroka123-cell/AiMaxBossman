@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 from pathlib import Path
@@ -23,7 +24,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from learning.trace import LearningStore, case_id  # noqa: E402
-from tests.test_learning_trace import _case  # noqa: E402
+# By file, not as `tests.test_learning_trace`: a regular `tests` package on
+# sys.path (command-center/tests) shadows the root namespace package.
+_trace_spec = importlib.util.spec_from_file_location(
+    "_root_test_learning_trace", Path(__file__).with_name("test_learning_trace.py"))
+_trace = importlib.util.module_from_spec(_trace_spec)
+_trace_spec.loader.exec_module(_trace)
+_case = _trace._case
 
 
 def _store(tmp_path: Path) -> LearningStore:

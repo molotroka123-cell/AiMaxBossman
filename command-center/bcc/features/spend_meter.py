@@ -193,7 +193,32 @@ async def _ledger(svc) -> Ledger:
         # незавершённый прогон уже стоил денег — относим его на день старта
         ts = r["finished_at"] or r["started_at"] or utcnow()
         ledger.add(r["mission_id"], r["model_alias"] or "unknown", ts.date().isoformat(), usd)
+    await _studio_spend(svc, ledger)
     return ledger
+
+
+async def _studio_spend(svc, ledger: Ledger) -> None:
+    """Второй источник — облачная генерация Студии (аудит 2026-09-28).
+
+    Её платные вызовы (Seedance, Hailuo через OpenRouter) идут мимо движка и в
+    task_runs не попадают вовсе, поэтому это не второй журнал того же расхода, а
+    единственная запись другого: studio_jobs.cost_usd — цена, которую назвал
+    провайдер. Ячейка может быть строкой NOT_CAPTURED:… — такая трата не выдумывается."""
+    from ..studio.tables import jobs as studio_jobs
+    from ..v2.images_tables import image_jobs
+    async with svc.db.session() as s:
+        rows = (await s.execute(
+            sa.select(studio_jobs.c.cost_usd, image_jobs.c.model_alias, image_jobs.c.started_at,
+                      image_jobs.c.finished_at, image_jobs.c.created_at, tasks_t.c.mission_id)
+            .select_from(studio_jobs.join(image_jobs, image_jobs.c.id == studio_jobs.c.job_id)
+                         .outerjoin(tasks_t, tasks_t.c.id == studio_jobs.c.task_id))
+            .where(studio_jobs.c.cost_usd.is_not(None)))).fetchall()
+    for row in rows:
+        r = row._mapping
+        if type(r["cost_usd"]) not in (int, float) or _usd(r["cost_usd"]) <= 0:
+            continue
+        ts = r["finished_at"] or r["started_at"] or r["created_at"] or utcnow()
+        ledger.add(r["mission_id"], r["model_alias"] or "unknown", ts.date().isoformat(), _usd(r["cost_usd"]))
 
 
 async def _mission_budgets(svc) -> dict[int, float]:
@@ -325,7 +350,7 @@ async def spend(request: Request, mission_id: int | None = None):
     return {
         "enabled": True,
         "day": day,
-        "source": "task_runs.cost_usd (учёт движка; второго журнала нет)",
+        "source": "task_runs.cost_usd (учёт движка) + studio_jobs.cost_usd (облачная генерация Студии, мимо движка)",
         "limits": limits.payload(),
         "spent": {
             "total_usd": ledger.total_usd,
