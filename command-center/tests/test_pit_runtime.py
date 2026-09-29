@@ -163,6 +163,14 @@ def test_voice_turn_learns_only_after_verified_delivery_and_stays_person_scoped(
     runtime.catalog = {FREE_ENDPOINT.id: FREE_ENDPOINT}
     runtime.catalog_checked_at = 1.0
     heard = []
+    synthesized = []
+    monkeypatch.setenv("BOSSMAN_PIT_TTS_BACKEND", "chatterbox")
+
+    def cloned(text, **kwargs):
+        synthesized.append((text, kwargs))
+        return b"OggS" + b"x" * 64
+
+    monkeypatch.setattr(rt, "synthesize_cloned_ogg", cloned)
 
     async def transcribe(_telegram, _voice, *, stopped):
         assert not stopped()
@@ -171,6 +179,7 @@ def test_voice_turn_learns_only_after_verified_delivery_and_stays_person_scoped(
     async def send_voice(person, source_text, _synthesize, **kwargs):
         heard.append((person.key, source_text, kwargs.get("reply_to_message_id")))
         assert runtime.store.history(owner.key) == []
+        assert (await _synthesize(source_text)).startswith(b"OggS")
         return receipt
 
     claims = iter([(305, message("", message_id=31,
@@ -187,6 +196,8 @@ def test_voice_turn_learns_only_after_verified_delivery_and_stays_person_scoped(
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(runtime._worker(owner, "chat"))
     assert heard and heard[0][0] == owner.key and heard[0][2] == 31
+    assert len(synthesized) == 1
+    assert synthesized[0][0] == heard[0][1]
     assert bool(runtime.store.history(owner.key)) is (receipt is not None)
     assert bool(list(runtime.vault.iter_candidate_records(owner_key))) is (receipt is not None)
     assert runtime.store.history(guest.key) == []
@@ -235,6 +246,99 @@ def test_voice_reply_preference_is_owner_only(tmp_path):
     assert "выключен" in asyncio.run(runtime.handle(owner, message("/voice off")))
     assert runtime.store.get("voice_reply:" + owner.key) is False
     runtime.store.close()
+
+
+def _voice_reply_turn(tmp_path, monkeypatch, *, speaker_role, clone, piper):
+    """One text turn with voice replies on, through the real worker delivery path."""
+    guest = Person(user_id=202, chat_id=202, role="guest")
+    runtime = make_runtime(tmp_path, settings=make_settings(tmp_path, people=(
+        Person(user_id=101, chat_id=101, role="owner"), guest)))
+    speaker = runtime.settings.people[0] if speaker_role == "owner" else guest
+    warm(runtime, runtime.vault.key_for_telegram(speaker.user_id))
+    runtime.store.put("voice_reply:" + speaker.key, True)
+    runtime.catalog = {FREE_ENDPOINT.id: FREE_ENDPOINT}
+    runtime.catalog_checked_at = 1.0
+    monkeypatch.setenv("BOSSMAN_PIT_TTS_BACKEND", "chatterbox")
+    engines = []
+
+    def fake_clone(text, **kwargs):
+        engines.append("clone")
+        return clone(kwargs)
+
+    def fake_piper(text, **kwargs):
+        engines.append("piper")
+        return piper(kwargs)
+
+    monkeypatch.setattr(rt, "synthesize_cloned_ogg", fake_clone)
+    monkeypatch.setattr(rt, "synthesize_ogg", fake_piper)
+    delivered = []
+
+    async def send_voice(person, source_text, synthesize, **kwargs):
+        audio = await synthesize(source_text)
+        delivered.append(("voice", person.key, audio))
+        return 77
+
+    async def send(person, text, **kwargs):
+        delivered.append(("text", person.key, text))
+        return 78
+
+    claims = iter([(501, message("Как дела?", user_id=speaker.user_id, message_id=41))])
+
+    def claim(*_args):
+        try:
+            return next(claims)
+        except StopIteration:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(runtime.telegram, "send_voice", send_voice)
+    monkeypatch.setattr(runtime.telegram, "send", send)
+    monkeypatch.setattr(runtime.store, "claim", claim)
+    try:
+        asyncio.run(runtime._worker(speaker, "chat"))
+    except asyncio.CancelledError:
+        pass
+    finally:
+        runtime.store.close()
+    return speaker, engines, delivered
+
+
+def _fails(code):
+    def synthesize(_kwargs):
+        raise rt.PiperError(code)
+    return synthesize
+
+
+def test_failed_voice_clone_falls_back_to_piper_voice(tmp_path, monkeypatch):
+    piper_audio = b"OggS" + b"p" * 64
+    owner, engines, delivered = _voice_reply_turn(
+        tmp_path, monkeypatch, speaker_role="owner",
+        clone=_fails("VOICE_MODEL_INVALID"), piper=lambda _kwargs: piper_audio)
+    assert engines == ["clone", "piper"]
+    assert delivered == [("voice", owner.key, piper_audio)]
+
+
+def test_failed_clone_and_piper_fall_back_to_text(tmp_path, monkeypatch):
+    owner, engines, delivered = _voice_reply_turn(
+        tmp_path, monkeypatch, speaker_role="owner",
+        clone=_fails("VOICE_BUSY"), piper=_fails("VOICE_ENGINE_UNAVAILABLE"))
+    assert engines == ["clone", "piper"]
+    assert [(kind, key) for kind, key, _ in delivered] == [("text", owner.key)]
+
+
+def test_stop_during_voice_clone_does_not_fall_back_or_reply(tmp_path, monkeypatch):
+    with pytest.raises(rt.StopRequested):
+        _voice_reply_turn(tmp_path, monkeypatch, speaker_role="owner",
+                          clone=_fails("VOICE_STOPPED"),
+                          piper=lambda _kwargs: pytest.fail("piper after STOP"))
+
+
+def test_guest_never_gets_the_cloned_voice_even_with_a_forced_flag(tmp_path, monkeypatch):
+    guest, engines, delivered = _voice_reply_turn(
+        tmp_path, monkeypatch, speaker_role="guest",
+        clone=lambda _kwargs: pytest.fail("clone for a guest"),
+        piper=lambda _kwargs: pytest.fail("voice for a guest"))
+    assert engines == []
+    assert [(kind, key) for kind, key, _ in delivered] == [("text", guest.key)]
 
 
 FREE_ENDPOINT = ModelEndpoint(id="free/model:free", provider="remote",
