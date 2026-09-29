@@ -10,7 +10,9 @@ Schema `bossman.events.v1` — every record has "v": 1 and "type":
   task               submitted | replayed | status   (task_id, run_id, status)
   step               task.progress: step/max_steps/model/tool_calls
   thinking           ONLY reasoning the provider actually returned (never made up)
-  assistant          text that accompanied tool calls in a step
+  assistant          text that accompanied tool calls in a step; with `partial: true`
+                     a LIVE piece of the answer (append-only; `attempt`+`idx` order it)
+  assistant_reset    the live answer of a failed attempt is void (a retry follows)
   assistant_message  the model's final answer text of a step
   tool_use           id, name, input (redacted by the backend), step
   tool_result        tool_use_id, name, is_error, summary, content (preview), duration_ms
@@ -164,8 +166,15 @@ def _normalize(msg: dict, *, verbose: bool) -> list[dict]:
     if kind == "run.assistant_delta":
         return [record("assistant", delta=_text(msg.get("text")), step=msg.get("step"),
                        run_id=rid, **common)]
+    if kind == "run.answer_delta":
+        return [record("assistant", delta=_text(msg.get("text")), partial=True, step=msg.get("step"),
+                       attempt=msg.get("attempt"), idx=msg.get("idx"), run_id=rid, **common)]
+    if kind == "run.answer_reset":
+        return [record("assistant_reset", step=msg.get("step"), attempt=msg.get("attempt"),
+                       run_id=rid, **common)]
     if kind == "run.assistant_message":
         return [record("assistant_message", text=_text(msg.get("text")), step=msg.get("step"),
+                       streamed=bool(msg.get("streamed")) or None,
                        model=_text(msg.get("model"), 200) or None, run_id=rid, **common)]
     if kind == "run.tool_use":
         return [record("tool_use", id=sanitize(msg.get("call_id")), name=sanitize(msg.get("tool")),

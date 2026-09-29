@@ -740,12 +740,12 @@ def _public_router() -> APIRouter:
             return
         await ws.accept()
         queue = svc.bus.subscribe()
-        from .events import STREAM_ONLY
+        from .events import STREAM_ONLY, WEB_LIVE
         try:
             await ws.send_json({"kind": "hello", "ts": utcnow().isoformat()})
             while True:
                 msg = await queue.get()
-                if msg.get("kind") in STREAM_ONLY:
+                if msg.get("kind") in STREAM_ONLY and msg.get("kind") not in WEB_LIVE:
                     # Построчный вывод модели/инструментов — для терминала
                     # (/api/events/stream); панели веба его не рисуют.
                     continue
