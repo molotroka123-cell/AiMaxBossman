@@ -629,13 +629,32 @@ def check_telemetry_corpus() -> Check:
                  facts={"path": str(path), "records": existing, "env": tm.ENV_ROOT})
 
 
+def check_telegram_calls() -> Check:
+    """Telegram-звонки (опционально, выключены по умолчанию) — только WARN, никогда BLOCKED.
+
+    Звонки — дополнение, а не условие запуска Bossman: без аддона `calls` (telethon, py-tgcalls,
+    ntgcalls) приложение работает, а `bossman call doctor` назовёт недостающее по пунктам."""
+    mods = ("telethon", "pytgcalls", "ntgcalls")
+    facts: dict[str, Any] = {"module": _importable("bcc.telegram_calls"),
+                             "packages": {m: _importable(m) for m in mods}}
+    if not facts["module"]:
+        return Check("telegram_calls", WARN, "модуль звонков bcc.telegram_calls не импортируется",
+                     "pip install -e ./command-center рядом с bossman-core", facts)
+    missing = [m for m, ok in facts["packages"].items() if not ok]
+    if missing:
+        return Check("telegram_calls", WARN, "звонки выключены: нет пакетов аддона " + ", ".join(missing),
+                     "bossman call install (или пропустите: звонки не нужны для остальной работы)", facts)
+    return Check("telegram_calls", PASS, "пакеты звонков на месте (сами звонки выключены, пока владелец не включит)",
+                 facts=facts)
+
+
 CHECKS: list[Callable[[], Check]] = [
     check_build_identity,
     check_python, check_python_packages, check_bossman_packages, check_node, check_ffmpeg,
     check_state_dir, check_evidence_key, check_journal_anchor, check_browser_runtime,
     check_model_endpoint, check_openai_endpoints, check_media_engine, check_openhands, check_hardware,
     check_windows_specific, check_computer_operator_deps,
-    check_gateway_url, check_cloud_providers, check_telemetry_corpus,
+    check_gateway_url, check_cloud_providers, check_telemetry_corpus, check_telegram_calls,
 ]
 
 
