@@ -34,7 +34,7 @@ from .photo_runtime import build_photo_services, photo_runtime_status
 from .runtime import STOP_FLAG, ParticipantRuntime, StopRequested
 
 COMMANDS = ("setup", "status", "doctor", "start", "stop", "routes", "web", "web-user",
-            "web-setup", "passport-checkpoint")
+            "web-setup", "passport-checkpoint", "master-parse")
 
 
 def _resolve_path(argv: list[str]) -> Path:
@@ -567,6 +567,9 @@ def main(argv: list[str] | None = None) -> int:
     if command in {"web", "web-user"}:
         from . import web
         return web.cli_main(path, argv)
+    if command == "master-parse":
+        from .master_parser.cli import cli_main as master_parse
+        return master_parse(path, argv)
     if command == "passport-checkpoint":
         from .passport_checkpoint import run_checkpoint
         report, checkpoint = run_checkpoint(load(path))
