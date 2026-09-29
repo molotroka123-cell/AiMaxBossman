@@ -31,7 +31,13 @@ class CallState:
 
     def set_stop(self, by: str = "owner") -> None:
         self.home.mkdir(parents=True, exist_ok=True, mode=0o700)
-        self.stop_path.write_text(json.dumps({"by": by, "at": time.time()}), encoding="utf-8")
+        payload = json.dumps({"by": by, "at": time.time()})
+        try:
+            self.stop_path.write_text(payload, encoding="utf-8")
+        except PermissionError:
+            # a STOP file left with an empty ACL by an older build: it cannot be written, but the owner may delete and recreate it
+            self.stop_path.unlink(missing_ok=True)
+            self.stop_path.write_text(payload, encoding="utf-8")
 
     def clear_stop(self) -> None:
         try:

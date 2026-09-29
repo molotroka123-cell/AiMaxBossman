@@ -225,3 +225,22 @@ def test_peer_candidates_that_are_not_a_real_other_person_are_refused(user, code
 
 def test_peer_candidate_label_is_normalised():
     assert check_peer_candidate({"id": 5, "label": "  Вторая \n  учётка "}, me_id=1).label == "Вторая учётка"
+
+
+def test_the_stop_flag_is_replaced_when_the_old_file_cannot_be_written(tmp_path, monkeypatch):
+    """An older build left files with an empty DACL (unreadable, unwritable): STOP must still become durable."""
+    from pathlib import Path
+    from bcc.telegram_calls.account.stopflag import CallState
+    state = CallState(tmp_path / "telegram-calls")
+    state.set_stop("first")
+    real = Path.write_text
+    denied = {"n": 0}
+
+    def write_text(self, *a, **kw):
+        if self == state.stop_path and denied["n"] == 0:
+            denied["n"] += 1
+            raise PermissionError(13, "Permission denied")
+        return real(self, *a, **kw)
+    monkeypatch.setattr(Path, "write_text", write_text)
+    state.set_stop("second")
+    assert denied["n"] == 1 and state.stop_is_set() and "second" in state.stop_path.read_text(encoding="utf-8")
