@@ -327,4 +327,3 @@ def test_titles_repeated_inside_the_model_text_are_removed():
     assert parsed == {"context": "Пишет о походах.", "personality": "Судя по формулировкам, прямой."}
     final = narr.finalize(parsed)
     assert final["personality"].startswith("Судя по формулировкам") and "Личность и манера" not in final["personality"]
-
