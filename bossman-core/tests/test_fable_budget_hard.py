@@ -15,7 +15,11 @@ CORE = Path(__file__).resolve().parents[1]
 
 
 _WORKER = """import json, sys
-sys.path.insert(0, sys.argv[3])
+sys.path[:0] = [sys.argv[4], sys.argv[3]]
+import bossman_shared
+from pathlib import Path
+# the worker must exercise THIS checkout, not a stale editable install (RC19 audit)
+assert Path(sys.argv[4]).resolve() in Path(bossman_shared.__file__).resolve().parents, bossman_shared.__file__
 from bossman.apprentice.errors import BudgetExhausted
 from bossman.apprentice.fable_direct import DirectApiBudget
 try:
@@ -32,10 +36,15 @@ def test_cross_process_concurrent_reserve_never_exceeds_cap(tmp_path: Path):
     path = str(tmp_path / "budget.json")
     worker = tmp_path / "worker.py"
     worker.write_text(_WORKER, encoding="utf-8")
-    env = {**os.environ, "PYTHONPATH": str(CORE)}
-    procs = [subprocess.Popen([sys.executable, str(worker), path, "1.0", str(CORE)],
-                              stdout=subprocess.PIPE, text=True, env=env) for _ in range(5)]
-    outcomes = [p.communicate(timeout=60)[0].strip().splitlines()[-1] for p in procs]
+    root = str(CORE.parent)
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join((root, str(CORE)))}
+    procs = [subprocess.Popen([sys.executable, str(worker), path, "1.0", str(CORE), root],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+             for _ in range(5)]
+    results = [p.communicate(timeout=60) for p in procs]
+    # a crashed worker is a failure with its traceback, never an IndexError on empty stdout
+    assert all(p.returncode == 0 and out.strip() for p, (out, _) in zip(procs, results)),         [err[-800:] for p, (out, err) in zip(procs, results) if p.returncode or not out.strip()]
+    outcomes = [out.strip().splitlines()[-1] for out, _ in results]
     granted = [o for o in outcomes if o != "REFUSED" and o.startswith("rsv-")]
     assert len(granted) == 3, outcomes                       # exactly $3.00 of $3.00 granted
     final = DirectApiBudget(path, total_usd=3.0, mission_id="m1")
@@ -201,3 +210,40 @@ def test_a_reader_holding_the_ledger_does_not_fail_a_spend(tmp_path: Path):
         reader.join()
     assert released.is_set()
     assert len(json.loads(path.read_text(encoding="utf-8"))["reservations"]) == 2
+
+
+def test_opening_a_ledger_while_another_process_replaces_it_does_not_crash(monkeypatch, tmp_path: Path):
+    """Windows (RC19 audit flake): a new ledger reads the file OUTSIDE the lock; if
+    another process's os.replace is in flight, the open fails with PermissionError
+    and the caller crashed with nothing reserved or refused. The read waits it out."""
+    from bossman_shared import fable_budget as fb
+    path = tmp_path / "fable_hard_cap.json"
+    fb.DirectApiBudget(path, total_usd=3.0, mission_id="m1").reserve(1.0)
+    real_read, fails = Path.read_text, [3]
+
+    def racing_read(self, *a, **k):
+        if self == path and fails[0]:
+            fails[0] -= 1
+            raise PermissionError(13, "Permission denied", str(self))
+        return real_read(self, *a, **k)
+
+    monkeypatch.setattr(Path, "read_text", racing_read)
+    monkeypatch.setattr(fb.time, "sleep", lambda _s: None)
+    b = fb.DirectApiBudget(path, total_usd=3.0, mission_id="m1")
+    assert fails[0] == 0 and b.remaining() == 2.0            # the existing hold is seen, not lost
+
+
+def test_a_ledger_that_stays_unreadable_is_not_treated_as_empty(monkeypatch, tmp_path: Path):
+    """The bounded wait never turns into "no reservations": a persistent
+    PermissionError still raises, so nothing is spent on an unread ledger."""
+    from bossman_shared import fable_budget as fb
+    path = tmp_path / "fable_hard_cap.json"
+    fb.DirectApiBudget(path, total_usd=3.0, mission_id="m1").reserve(3.0)
+
+    def locked(self, *a, **k):
+        raise PermissionError(13, "Permission denied", str(self))
+
+    monkeypatch.setattr(Path, "read_text", locked)
+    monkeypatch.setattr(fb.time, "sleep", lambda _s: None)
+    with pytest.raises(PermissionError):
+        fb.DirectApiBudget(path, total_usd=3.0, mission_id="m1")
