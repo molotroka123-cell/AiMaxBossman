@@ -65,3 +65,22 @@ Not measured: real Qwen3.6-35B-A3B latency, real narrative quality and paragraph
 real Ollama unload/reload behaviour and its timing (`settle` default 0.5 s is a guess), throughput
 of a real corpus. All speed numbers in the tests come from fake models and mean nothing. The
 integrator's first real run produces the first real numbers.
+
+## Measured on 2026-09-29 (owner machine, real data, local model only)
+
+Run `20260929T220610Z-375c99`: `bossman pit master-parse --profile uncensored` with `bossman-community-qwen-uncensored:latest`
+(Qwen3.6-35B-A3B abliterated, Q8, native Ollama, think:false). Sanitized numbers: `MASTER_PARSER_2_0_SPEED_RUN_20260929.json`
+(participants as P1..P9; no ids, labels, text or dates). Personal paragraphs stay on the owner's machine and are not in git.
+
+| Measure | Value |
+|---|---|
+| Participants / messages analysed | 9 / 294 (13,054 characters of participant text) |
+| Wall time | 421.5 s (map 448.8 s + reduce 398.1 s are summed over participants; participants ran one at a time, model calls are sequential inside a participant) |
+| Time to first paragraph | 300.5 s (includes cold load of the 37 GB model and a facts pass over 42 queued messages) |
+| Delivery (write of results) | 0.125 s |
+| LLM calls | 34; latency p50 7.3 s, p95 23.7 s |
+| Empty answers / unload recoveries | 0 / 0 in this run (the earlier run on the same data had 3 analysis errors and 8 of 8 checkpoint failures from empty answers) |
+| Paragraphs | 7 saved, 1 rejected by the sensitive-category guard, 1 insufficient data |
+| Partial | 1 participant: 42 messages re-queued after one failed batch (no message lost; exit code 4) |
+
+Not measured: narrative quality against a human reference; behaviour on corpora above the merge cap; repeatability of the unload/reload timing (no recovery was needed).
