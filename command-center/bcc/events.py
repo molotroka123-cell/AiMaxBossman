@@ -26,8 +26,12 @@ from .trace import get_trace_id
 #: every emit goes through `redact(..., scrub_text=True)` below.
 STREAM_ONLY = frozenset({
     "run.reasoning_delta", "run.assistant_delta", "run.assistant_message",
+    "run.answer_delta", "run.answer_reset",
     "run.usage", "run.tool_use", "run.tool_result",
 })
+#: The live answer text is the one STREAM_ONLY pair the web panel also draws
+#: (the "process" pane shows the first tokens while the model is still going).
+WEB_LIVE = frozenset({"run.answer_delta", "run.answer_reset"})
 #: The model's reasoning is shown live and never stored: no durable copy of a
 #: chain of thought, so a replayed task history has none (honestly absent).
 NOT_PERSISTED_STREAM = frozenset({"run.reasoning_delta"})

@@ -1052,10 +1052,13 @@ class TaskEngine:
                     and not messages[-1].get("tool_calls"):
                 # финальный ответ уже есть (например, сохранён до паузы) — модель не дёргаем
                 break
+            answer_stream = _AnswerStream(self, task["id"], run_id, step + 1)
             try:
                 result, model = await self._call_model(task, agent, messages, run_id,
                                                        tools=tool_schemas,
-                                                       model_override=recovery_model)
+                                                       model_override=recovery_model,
+                                                       on_delta=answer_stream)
+                await answer_stream.flush()
             except ProviderError as exc:
                 # `kind` carries what the adapter knew about the failure; the
                 # text alone cannot always tell a network blip from a refusal.
@@ -1155,7 +1158,8 @@ class TaskEngine:
             # and finalize below still decide that (task.completed / failed).
             await self._emit_stream("run.assistant_message", task_id=task["id"], run_id=run_id,
                                     step=step, model=alias, text=_clip_stream(answer),
-                                    chars=len(answer or ""))
+                                    chars=len(answer or ""),
+                                    streamed=bool(result.provider_meta.get("streamed")))
             await self._log(run_id, "info", "run.step",
                             f"шаг {step}/{max_steps}: ответ модели {alias} "
                             f"({result.tokens_out} токенов)")
@@ -1327,7 +1331,8 @@ class TaskEngine:
 
     async def _call_model(self, task: dict, agent: dict, messages: list[dict],
                           run_id: int, *, tools: list[dict] | None = None,
-                          model_override: int | None = None) -> tuple[ChatResult, dict]:
+                          model_override: int | None = None,
+                          on_delta: Any = None) -> tuple[ChatResult, dict]:
         from bossman_shared.privacy import execution_privacy
         from .provider_governance import memory_to_cloud_allowed, memory_withheld
         meta = task.get("meta") or {}
@@ -1337,7 +1342,8 @@ class TaskEngine:
         try:
             with execution_privacy(meta.get("privacy", "public")):
                 return await self._call_model_scoped(task, agent, messages, run_id, tools=tools,
-                                                     model_override=model_override)
+                                                     model_override=model_override,
+                                                     on_delta=on_delta)
         finally:
             memory_withheld.reset(sink)
             memory_to_cloud_allowed.reset(allow)
@@ -1350,13 +1356,16 @@ class TaskEngine:
 
     async def _call_model_scoped(self, task: dict, agent: dict, messages: list[dict],
                           run_id: int, *, tools: list[dict] | None = None,
-                          model_override: int | None = None) -> tuple[ChatResult, dict]:
+                          model_override: int | None = None,
+                          on_delta: Any = None) -> tuple[ChatResult, dict]:
         """Вызов модели: сначала pick_model-хук (Smart Router) может перекрыть выбор;
         при ошибке маршрута — модель агента; при её ошибке — fallback_model.
         `tools` — схемы ТОЛЬКО выданных этому run'у инструментов."""
         kw: dict[str, Any] = {"max_tokens": agent.get("max_tokens")}
         if tools:
             kw["tools"] = tools
+        if on_delta is not None:
+            kw["on_delta"] = on_delta       # adapters that cannot stream ignore it
         meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
         kind = task.get("kind") or "generic"
         routed = bool(meta.get("route") or meta.get("force_model_id")
@@ -2734,7 +2743,8 @@ class TaskEngine:
         if reasoning:
             await self._emit_stream("run.reasoning_delta", **base, text=_clip_stream(reasoning),
                                     chars=len(reasoning), source="provider_message")
-        if result.has_tool_calls and (result.text or "").strip():
+        if (result.has_tool_calls and (result.text or "").strip()
+                and not result.provider_meta.get("streamed")):     # streamed text was shown live
             await self._emit_stream("run.assistant_delta", **base, text=_clip_stream(result.text),
                                     chars=len(result.text))
         context_window = model.get("context_window")
@@ -2772,6 +2782,57 @@ STREAM_TEXT_CHARS = 16_000
 #: How much of a tool's output the terminal may show (it already went through
 #: the tool's own truncation and is redacted here and again by the bus).
 STREAM_PREVIEW_CHARS = 2_000
+
+
+class _AnswerStream:
+    """Live answer text of ONE model call -> `run.answer_delta` events.
+
+    Passed to the adapter as `on_delta`: `await stream(text)` per piece,
+    `await stream(None)` = "discard what was shown" (the call failed mid-answer
+    and will be retried). Events are durable (cursor replay) and append-only:
+    `attempt` + `idx` order them. The first piece goes out at once; later ones
+    are coalesced to at most ~10 events/s so a fast model does not write a row
+    per token. The final answer is still saved once, by the run itself."""
+
+    INTERVAL_S = 0.1
+    MAX_BUFFER = 200
+
+    def __init__(self, engine: "Engine", task_id: int, run_id: int, step: int):
+        self.engine, self.task_id, self.run_id, self.step = engine, task_id, run_id, step
+        self.attempt = 0
+        self.idx = 0
+        self._buf: list[str] = []
+        self._size = 0
+        self._last = 0.0
+        self._sent = False
+
+    async def __call__(self, text: str | None) -> None:
+        if text is None:
+            self._buf, self._size = [], 0
+            if self._sent:
+                await self.engine._emit_stream("run.answer_reset", task_id=self.task_id,
+                                               run_id=self.run_id, step=self.step,
+                                               attempt=self.attempt)
+                self.attempt += 1
+                self.idx = 0
+                self._sent = False
+            return
+        self._buf.append(text)
+        self._size += len(text)
+        if (not self._sent or self._size >= self.MAX_BUFFER
+                or time.monotonic() - self._last >= self.INTERVAL_S):
+            await self.flush()
+
+    async def flush(self) -> None:
+        if not self._buf:
+            return
+        text, self._buf, self._size = "".join(self._buf), [], 0
+        await self.engine._emit_stream("run.answer_delta", task_id=self.task_id, run_id=self.run_id,
+                                       step=self.step, attempt=self.attempt, idx=self.idx,
+                                       text=_clip_stream(text))
+        self.idx += 1
+        self._sent = True
+        self._last = time.monotonic()
 
 
 def _clip_stream(text: str | None) -> str:
