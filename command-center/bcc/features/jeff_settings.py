@@ -430,20 +430,6 @@ async def restore_participant(person_key: str, request: Request):
     return {"ok": True, "access": "active"}
 
 
-def _store_state(home: Path, name: str):
-    """One value of a Jeff conversation store, read-only; never raises."""
-    import sqlite3
-    db_path = home / "companion.sqlite3"
-    if not db_path.is_file():
-        return None
-    try:
-        with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True, timeout=1) as db:
-            row = db.execute("SELECT value FROM state WHERE key=?", (name,)).fetchone()
-        return json.loads(row[0]) if row else None
-    except Exception:  # noqa: BLE001
-        return None
-
-
 def _tail_jsonl(path: Path, last: int, fields: tuple[str, ...]) -> list[dict]:
     try:
         lines = path.read_text(encoding="utf-8").splitlines()[-last:]
@@ -463,6 +449,7 @@ def _tail_jsonl(path: Path, last: int, fields: tuple[str, ...]) -> list[dict]:
 @router.get("/jeff-settings/status")
 async def jeff_status(request: Request):
     """Readiness, errors and recent events for the owner. No secrets, prompts or message text."""
+    from ..pit import heartbeat as hb
     from ..pit import speech
     from ..pit.cloud_budget import CloudBudget
     path, jeff_dir, cfg = _paths(request)
@@ -489,6 +476,7 @@ async def jeff_status(request: Request):
         errors.append({"where": "settings", "error": error})
     if creds_error:
         errors.append({"where": "credentials", "error": creds_error})
+    from ..pit.cli import _queue_pending, _store_state
     for name in ("transport_error", "provider_last_error"):
         value = _store_state(home, name)
         if value:
@@ -511,6 +499,8 @@ async def jeff_status(request: Request):
             "cloud_budget": budget, "ready": bool(cfg) and valid and not creds_error,
         },
         "isolation": isolation,
+        "heartbeat": {"telegram": hb.read(home), "window": hb.read(home / "web"),
+                      "poller_processes": hb.jeff_process_count(), "queue": _queue_pending(home)},
         "errors": errors,
         "events": {"owner": pa.recent_owner_events(jeff_dir, 20),
                    "replies": _tail_jsonl(home / "logs" / "delivery_log.jsonl", 10, ("at", "update_id"))},

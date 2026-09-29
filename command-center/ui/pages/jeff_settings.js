@@ -84,6 +84,24 @@ const CLEAR_SCOPES = [
 
 function list(text) { return String(text || '').split(/[\n,;]+/).map((t) => t.trim()).filter(Boolean); }
 
+function heartbeatRow(hb) {
+  /* Пульс Jeff: доступность, задержка ответа, выбранные LLM/STT/TTS, очередь, число процессов опроса. */
+  const one = (label, b) => {
+    if (!b) return h('div.small.dim', `${label}: пульса нет (Jeff не запускался)`);
+    const tone = b.availability === 'up' ? 'ok' : (b.availability === 'stopped' ? 'idle' : 'warn');
+    const llm = b.llm && b.llm.model ? `${b.llm.model} (${b.llm.provider === 'local' ? 'локально' : 'бесплатное облако'})` : 'модель ещё не выбиралась';
+    return h('div.row.tight', { style: { gap: '8px', flexWrap: 'wrap' } },
+      pill(`${label}: ${{ up: 'на связи', stale: 'нет пульса', stopped: 'остановлен' }[b.availability] || b.availability}`, { tone }),
+      h('span.small.dim', `ответ ${b.last_reply_latency_ms ?? '—'} мс · последний ${b.last_reply_at || '—'} · LLM ${llm} · `
+        + `STT ${b.stt && b.stt.available ? 'да' : 'нет'} · TTS ${b.tts && b.tts.available ? 'да' : 'нет'} · очередь ${b.queue}`
+        + (b.last_error ? ` · ошибка ${b.last_error.kind}` : '')));
+  };
+  if (!hb) return null;
+  return h('div.stack.sm', { dataset: { testid: 'jeff-heartbeat' } },
+    one('Telegram', hb.telegram), one('Окно', hb.window),
+    h('div.xsmall.dim', `Процессов опроса Telegram: ${hb.poller_processes} (должен быть 0 или 1)`));
+}
+
 function statusPanel(st) {
   const r = st.readiness || {};
   const voice = (v) => (v && v.available ? pill('готов', { tone: 'ok' }) : pill('недоступен', { tone: 'warn' }));
@@ -103,6 +121,7 @@ function statusPanel(st) {
       h('span.small', 'Распознавание речи:'), voice(r.voice_asr),
       h('span.small', 'Озвучка:'), voice(r.voice_tts),
       h('span.small.dim', budget.used_today !== undefined ? `Облачных запросов сегодня: ${budget.used_today}/${budget.budget}` : '')),
+    heartbeatRow(st.heartbeat),
     iso ? h('div.small', { dataset: { testid: 'jeff-isolation' } },
       (iso.ok ? 'Изоляция памяти: включена и не отключается. ' : 'Изоляция памяти: ПРОБЛЕМА. ') + iso.statement
       + (iso.problems && iso.problems.length ? ` (${iso.problems.join('; ')})` : '')) : null,
