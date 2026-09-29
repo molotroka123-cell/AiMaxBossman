@@ -259,3 +259,67 @@ async def test_api_admin_is_owner_only(env, pit_setup):  # noqa: F811
         for method, url, body in urls:
             assert (await anon.request(method, url, json=body)).status_code == 401, (method, url)
     assert (await env.client.get("/api/jeff-settings/participants/12345")).status_code == 422
+
+
+# -- UI (real Chromium, same harness as the settings page test) ------------------------------------
+def test_ui_admin_panel_edits_profile_shows_context_and_revokes(tmp_path):
+    from .browser_support import chromium_available, reason as browser_reason
+    if not chromium_available():
+        pytest.skip(browser_reason())
+    from playwright.sync_api import sync_playwright
+    from bcc.features.jeff_settings import _salt
+    from bcc.pit.config import config_path, save_setup
+    from .test_ux2_thinking_pane import LiveServer, _launch, _login
+
+    srv = LiveServer(tmp_path).start()
+    data = Path(srv.settings.data_dir)
+    save_setup(config_path(data), people=[Person(TG_A, TG_A, "owner"), Person(TG_B, TG_B, "guest")],
+               chat_models=["free/model:free"], provider_base_url="http://127.0.0.1:9/v1",
+               core_url="http://127.0.0.1:8800", bot_token="fixture-bot-token", provider_key="fixture-key")
+    salt = _salt(data)
+    key_a, key_b = seed(data, salt)
+    errors: list[str] = []
+    try:
+        with sync_playwright() as pw:
+            browser = _launch(pw)
+            try:
+                page = browser.new_page(viewport={"width": 1440, "height": 1200})
+                page.on("pageerror", lambda e: errors.append(str(e)))
+                _login(page, srv)
+                page.goto(srv.url + "/#/jeff-settings", wait_until="domcontentloaded")
+                page.wait_for_selector("[data-testid=jeff-status]", timeout=20000)
+                assert "Изоляция памяти" in page.inner_text("[data-testid=jeff-isolation]")
+                page.select_option("[name=ja-user]", key_a)
+                page.wait_for_selector("[name=ja-name]", timeout=10000)
+                assert "фактов 1" in page.inner_text("[data-testid=ja-context]")
+                assert MARK_A in page.inner_text("[data-testid=jeff-settings]")
+                assert MARK_B not in page.inner_text("[data-testid=jeff-settings]")
+                page.fill("[name=ja-name]", "Анна")
+                page.fill("[name=ja-allowed]", "кактусы, юг")
+                page.get_by_role("button", name="Сохранить профиль").click()
+                deadline = 60
+                while deadline and not pp.profile_path(data, key_a).is_file():
+                    page.wait_for_timeout(100)
+                    deadline -= 1
+                saved, _ = pp.read_profile(data, key_a)
+                assert saved["display_name"] == "Анна" and saved["allowed_topics"] == ["кактусы", "юг"]
+                assert pp.read_profile(data, key_b)[0] == pp.default_profile()   # the other person is untouched
+                # the page re-renders after saving: wait until the list shows the new name
+                page.wait_for_function(
+                    "() => [...document.querySelectorAll('[name=ja-user] option')].some(o => o.textContent.includes('Анна'))",
+                    timeout=15000)
+                page.select_option("[name=ja-user]", key_a)
+                page.wait_for_selector("[name=ja-name]", timeout=10000)
+                page.get_by_role("button", name="Закрыть доступ и стереть данные").click()
+                page.get_by_role("button", name="Закрыть и стереть").click()
+                deadline = 60
+                while deadline and not pp.is_revoked(data, key_a):
+                    page.wait_for_timeout(100)
+                    deadline -= 1
+                assert pp.is_revoked(data, key_a) and not pp.is_revoked(data, key_b)
+                assert PersonaVault(data, salt).list_facts(key_b)
+            finally:
+                browser.close()
+    finally:
+        srv.stop()
+    assert not errors, errors
