@@ -46,6 +46,20 @@ owner, not code.
 14. Make the invented-number check blocking; neutral numbers in the few-shot example.
 15. Fact-check non-numeric claims in specs.
 16. Chromium in CI so engine tests run there.
+16a. **Epic trailer style** (`dfaaaa3f` + CI fix `ecf6ef34` on
+    `feat/bossman-1.8-unrestricted-motion-studio`): a new reusable style (`epic.py`, a 22 s
+    example, a new `motion-studio.yml` workflow, numpy + Pillow). Pushed after the freeze
+    was declared; new scope, so it is not in the final line. Test before any adoption:
+    `tests/test_motion_epic.py` + one full 22 s render + owner review.
+16b. **Motion Studio in the Command Center** (a "make a video" task with preview and
+    approval before the full render). Today Motion Studio is a CLI in the source checkout:
+    its MP4 already imports into the existing Video Studio (`POST /api/video-studio/media`)
+    and passes the existing Telegram `send_video` check (cv/g evidence); there is no
+    button or API that starts a render. Cost: M (job worker, isolated venv, UI).
+16c. **Package Motion Studio into the Windows ZIP.** `tools/motion_studio` is not in the
+    bundle allowlist (`tools/build_windows_bundle.py`), and it needs its own venv (numpy,
+    scipy, soundfile, playwright, kokoro-onnx), Kokoro models, ffmpeg and Chromium.
+    Cost: M. Test: clean install -> render `jeff_voice_12s` from the installed app.
 
 ## Learning / intelligence preservation
 
