@@ -166,3 +166,21 @@ def test_post_reply_can_adjust_the_final_text(tmp_path):
     runtime.j2.register(Sign())
     _started(runtime)
     assert run(runtime.handle(_person(runtime), message("вопрос", message_id=7))).endswith("(проверено)")
+
+
+def test_augment_knows_whether_the_route_is_remote(tmp_path):
+    runtime = make_runtime(tmp_path, adapter=FakeAdapter("ответ"))
+    seen: list = []
+
+    class Spy(BaseModule):
+        name = "route_spy"
+
+        async def augment(self, c):
+            seen.append(c.extra.get("route_remote"))
+            return None
+
+    runtime.j2.register(Spy())
+    _started(runtime)
+    run(runtime.handle(_person(runtime), message("расскажи про мосты", message_id=8)))
+    assert seen and all(isinstance(v, bool) for v in seen)
+

@@ -1808,7 +1808,8 @@ class ParticipantRuntime:
                     messages.append({"role": "system", "content": roleplay_prompt(state)})
             messages.append({"role": "user", "content": text})
             if j2_ctx is not None:
-                messages = await self.j2.augment(j2_ctx, messages)
+                messages = await self.j2.augment(
+                    replace(j2_ctx, extra={**j2_ctx.extra, "route_remote": bool(route_is_remote)}), messages)
             context_chars = sum(len(str(m.get("content", ""))) for m in messages)
             started = time.monotonic()
             try:
