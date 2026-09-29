@@ -15,7 +15,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из push;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-24-bossman-1.0-final-6",
-  "declared_for": "release/bossman-owner + feat/jev-twitch-collector-20260924",
-  "note": "Bossman 1.0 final certification candidate 6. Reverts the post-freeze 1.5 feature-scope expansion (market levels, multi-horizon analysis, YouTube learning primitives, CASE-003 and owner market_deep) from the 1.0 release tree while preserving those commits in repository history/feature work. Product tree returns to the frozen candidate-4 line: candidate-3 /export ENAMETOOLONG fix, converged concise market Telegram output, Jev/Twitch collector and prior owner-run fixes. This marker re-raises every mandatory exact-SHA workflow. No new 1.0 feature scope is authorized after this commit."
+  "candidate_label": "rc-2026-09-28-bossman-1.9-rc19-1",
+  "declared_for": "claude/bossman-freeze-closure-ohvmon",
+  "note": "Bossman 1.9 RC19 owner-test candidate: PR #84 base 762e96d2 plus the RC19 integration (one backend per data root, Computer Use hardening, real Jeff window and voice, UX soak fixes, admin journeys, K1m6a verification, learning lab). This marker requests all mandatory workflows on this exact push. Candidate status is not release approval: Intelligence Preservation stays mandatory and is BLOCKED on corpus size; owner live acceptance is separate."
 }

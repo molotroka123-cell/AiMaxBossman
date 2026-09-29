@@ -15,14 +15,16 @@ def test_catalog_is_unverified_and_disabled():
     models = catalog.load()['models']
     # The exact shipped set, so a model added to the registry is an explicit decision here
     # (FLUX.1-schnell and SDXL: 5d3fd551; FLUX.2-klein-4B: d15e6531;
-    # Seedance 2.5 for the owner-approved Bossfield 30 s run: 981f61ef).
+    # Seedance 2.5 for the owner-approved Bossfield 30 s run: 981f61ef;
+    # Qwen-Image-2.1 is the local-only research/evaluation image path;
+    # Qwen-Image-Edit-2509 is Jeff's local photo-edit route: 036cae10).
     assert [m['id'] for m in models] == [
         'comfyui:*', 'openrouter:google/gemini-2.5-flash-image', 'openrouter:google/gemini-3.1-flash-image',
         'openrouter:minimax/hailuo-3-max', 'openrouter:bytedance/seedance-2.0-mini',
         'openrouter:bytedance/seedance-2.5', 'higgsfield:owner-required',
-        'sdcpp:wan2.2-ti2v-5b', 'sdcpp:z-image-turbo', 'sdcpp:flux1-schnell', 'sdcpp:flux2-klein-4b',
+        'sdcpp:wan2.2-ti2v-5b', 'sdcpp:qwen-image-2.1', 'sdcpp:qwen-image-edit-2509', 'sdcpp:z-image-turbo', 'sdcpp:flux1-schnell', 'sdcpp:flux2-klein-4b',
         'sdcpp:sdxl-base']
-    assert len(models) == 12
+    assert len(models) == 14
     assert all(not m['answers']['VERIFIED'] and not m['enabled'] for m in models)
     # A local free engine legitimately carries usd==0 (see load(): free is a
     # required boolean and auto_eligible stays False even at zero). Keep the
@@ -30,7 +32,11 @@ def test_catalog_is_unverified_and_disabled():
     # zero price is only honest when the model is actually declared free.
     assert all(m['price']['usd'] in (None, 0) for m in models)
     assert all(m['price']['usd'] is None or m['free'] for m in models)
-    assert catalog.summary(catalog.load()) == 'BOSSMAN_STUDIO_CATALOG=12 verified=0 unverified=12'
+    assert catalog.summary(catalog.load()) == 'BOSSMAN_STUDIO_CATALOG=14 verified=0 unverified=14'
+    qwen = next(m for m in models if m['id'] == 'sdcpp:qwen-image-2.1')
+    assert qwen['provider'] == 'sdcpp' and qwen['free'] is True
+    assert qwen['answers']['VERIFIED'] is False and qwen['enabled'] is False
+    assert not catalog.auto_eligible(qwen)
 
 @pytest.mark.parametrize('field,value', [('width',512),('height',1024),('steps',30),('seed',0)])
 def test_local_settings_accept(field,value):

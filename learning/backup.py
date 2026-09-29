@@ -53,12 +53,16 @@ class RestoreReport:
     learning_txns_skipped: int
     facts_restored: int
     hash_mismatches: list[str]
+    #: merge: backup transactions refused because they claim VERIFIED without the
+    #: store's identity/evidence invariants (a backup file is not a verifier).
+    learning_txns_rejected: int = 0
 
     def as_dict(self) -> dict:
         return {"mode": self.mode, "notes_restored": self.notes_restored,
                 "notes_skipped": self.notes_skipped,
                 "learning_txns_applied": self.learning_txns_applied,
                 "learning_txns_skipped": self.learning_txns_skipped,
+                "learning_txns_rejected": self.learning_txns_rejected,
                 "facts_restored": self.facts_restored,
                 "hash_mismatches": list(self.hash_mismatches)}
 
@@ -164,9 +168,9 @@ def restore(backup_dir: Path | str, *, notes_root: Path | str | None = None,
             shutil.copy2(src, target)
             notes_restored += 1
 
-    applied = skipped = 0
+    applied = skipped = rejected = 0
     if learning_dir is not None and (backup_dir / LEARNING_DIR / "journal.jsonl").is_file():
-        applied, skipped = _restore_learning(backup_dir / LEARNING_DIR, Path(learning_dir), mode)
+        applied, skipped, rejected = _restore_learning(backup_dir / LEARNING_DIR, Path(learning_dir), mode)
 
     facts_restored = 0
     if facts_writer is not None and (backup_dir / FACTS_FILE).is_file():
@@ -177,10 +181,11 @@ def restore(backup_dir: Path | str, *, notes_root: Path | str | None = None,
 
     return RestoreReport(mode=mode, notes_restored=notes_restored, notes_skipped=notes_skipped,
                          learning_txns_applied=applied, learning_txns_skipped=skipped,
-                         facts_restored=facts_restored, hash_mismatches=mismatches)
+                         facts_restored=facts_restored, hash_mismatches=mismatches,
+                         learning_txns_rejected=rejected)
 
 
-def _restore_learning(src_dir: Path, dest_dir: Path, mode: str) -> tuple[int, int]:
+def _restore_learning(src_dir: Path, dest_dir: Path, mode: str) -> tuple[int, int, int]:
     """The journal is append-only and authoritative, so restore is a journal operation.
 
     ``clean``: copy the journal, then let the store rebuild its snapshots from it.
@@ -201,19 +206,70 @@ def _restore_learning(src_dir: Path, dest_dir: Path, mode: str) -> tuple[int, in
             if name != "journal.jsonl" and (src_dir / name).is_file():
                 shutil.copy2(src_dir / name, dest_dir / name)
         _rebuild_snapshots(dest_dir)
-        return len(src_txns), 0
+        return len(src_txns), 0, 0
 
-    have = {_txn_identity(t) for t in _read_jsonl(dest_journal)}
-    applied = skipped = 0
-    with open(dest_journal, "a", encoding="utf-8") as handle:
+    from .trace import LearningStore
+    store = LearningStore(dest_dir, dest_dir / "docs")
+    applied = skipped = rejected = 0
+    # Under the store's own lock and as ONE atomic rewrite: an unlocked append raced
+    # a concurrent add() (its read-rewrite dropped the merged transactions), and a
+    # crash mid-append left a torn tail in the authoritative journal.
+    with store._locked():
+        have = {_txn_identity(t) for t in _read_jsonl(dest_journal)}
+        lines: list[str] = []
         for txn in src_txns:
             if _txn_identity(txn) in have:
                 skipped += 1
                 continue
-            handle.write(json.dumps(txn, ensure_ascii=False) + "\n")
+            if _unverifiable(txn):
+                rejected += 1
+                continue
+            have.add(_txn_identity(txn))
+            lines.append(json.dumps(txn, ensure_ascii=False) + "\n")
             applied += 1
+        if lines:
+            # Existing bytes verbatim (even a corrupt line stays exactly as it was).
+            existing = dest_journal.read_bytes() if dest_journal.is_file() else b""
+            if existing and not existing.endswith(b"\n"):
+                existing += b"\n"
+            _atomic_write_bytes(dest_journal, existing + "".join(lines).encode("utf-8"))
     _rebuild_snapshots(dest_dir)
-    return applied, skipped
+    return applied, skipped, rejected
+
+
+def _atomic_write_bytes(dest: Path, data: bytes) -> None:
+    import os
+    import tempfile
+    from .trace import replace_with_retry
+    fd, tmp = tempfile.mkstemp(prefix=dest.name + ".", suffix=".tmp", dir=str(dest.parent))
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        replace_with_retry(tmp, dest)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def _unverifiable(txn: dict) -> bool:
+    """A backup transaction that claims VERIFIED must carry the same typed independent
+    verifier and bound evidence the store demands of add(); a backup file is not a
+    verifier, and the merge would otherwise make it authoritative unchecked."""
+    case = txn.get("case")
+    if not isinstance(case, dict):
+        return True
+    if case.get("learning_status") != "VERIFIED":
+        return False
+    from .trace import _evidence_record_errors, _identity_errors
+    try:
+        return bool(_identity_errors(case) or _evidence_record_errors(case))
+    except Exception:  # noqa: BLE001 — malformed is unverifiable
+        return True
 
 
 def _rebuild_snapshots(learning_dir: Path) -> None:
@@ -224,20 +280,23 @@ def _rebuild_snapshots(learning_dir: Path) -> None:
 
 
 def _txn_identity(txn: dict) -> tuple:
+    from .trace import _as_int
     case = txn.get("case") or {}
-    return (str(case.get("case_id") or ""), int(case.get("version") or 0))
+    if not isinstance(case, dict):
+        return ("", 0)
+    return (str(case.get("case_id") or ""), _as_int(case.get("version"), 0))
 
 
 def _read_jsonl(path: Path):
     if not Path(path).is_file():
         return
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
+    for raw in Path(path).read_bytes().splitlines():
         try:
+            line = raw.decode("utf-8").strip()
+            if not line:
+                continue
             row = json.loads(line)
-        except json.JSONDecodeError:
+        except (UnicodeDecodeError, json.JSONDecodeError):
             continue                      # a corrupt tail is skipped, never authoritative
         if isinstance(row, dict):
             yield row

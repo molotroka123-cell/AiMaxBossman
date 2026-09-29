@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -59,6 +60,15 @@ async def _approved(ws, selected=None):
     assert job.state == JobState.REVIEW_REQUIRED.value, job.detail
     chosen = selected if selected is not None else [str(f) for f in ws.files]
     return await ws.service.apply(job.job_id, chosen)
+
+
+def _file_symlink_or_skip(source: Path, target: Path) -> None:
+    try:
+        source.symlink_to(target)
+    except OSError as exc:
+        if os.name == "nt" and exc.winerror == 1314:
+            pytest.skip("Windows account cannot create file symlinks (WinError 1314)")
+        raise
 
 
 # ------------------------------------------------------------------ §31 флаг
@@ -163,7 +173,8 @@ def test_argv_is_a_list_so_a_filename_is_never_a_command(workspace):
     # Одно целое значение. Сравнение через str(Path): на Windows тот же путь
     # пишется с обратными косыми, а предмет проверки — что имя не разрезано.
     assert str(hostile) in argv
-    assert "; rm -rf ~/$(whoami)`id`" in str(hostile)
+    assert "; rm -rf ~" in str(hostile)
+    assert "$(whoami)`id`" in str(hostile)
 
 
 def test_job_id_cannot_smuggle_a_flag():
@@ -375,7 +386,7 @@ async def test_source_replaced_by_a_symlink_pointing_inside_is_stale(workspace):
     inside.write_text("still inside the root\n", encoding="utf-8")
     victim = ws.files[0]
     victim.unlink()
-    victim.symlink_to(inside)
+    _file_symlink_or_skip(victim, inside)
     with pytest.raises(Denied) as denied:
         await ws.service.apply(job.job_id, [str(f) for f in ws.files])
     assert denied.value.refusal is Refusal.STALE_REVIEW_PLAN
@@ -391,7 +402,7 @@ async def test_source_replaced_by_a_symlink_pointing_outside_is_contained(worksp
     outside.write_text("elsewhere\n", encoding="utf-8")
     victim = ws.files[0]
     victim.unlink()
-    victim.symlink_to(outside)
+    _file_symlink_or_skip(victim, outside)
     with pytest.raises(Denied) as denied:
         await ws.service.apply(job.job_id, [str(f) for f in ws.files])
     assert denied.value.refusal in (Refusal.STALE_REVIEW_PLAN,

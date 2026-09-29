@@ -1,0 +1,40 @@
+{
+ "meta": {
+  "title": "Milestone",
+  "bpm": 126,
+  "key": "D",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // MILESTONE",
+  "voice": "am_fenrir",
+  "duration": 8.0
+ },
+ "scenes": [
+  {
+   "type": "grid",
+   "value": 1000,
+   "label": "FOLLOWERS",
+   "caption": "THANK YOU ALL",
+   "start": 0.0,
+   "end": 4.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "One thousand followers."
+    }
+   ]
+  },
+  {
+   "type": "sticker",
+   "lottie": "noto_heavy_black_heart",
+   "text": "THANK YOU",
+   "start": 4.5,
+   "end": 8.0,
+   "vo": [
+    {
+     "t": 4.6,
+     "text": "Thank you."
+    }
+   ]
+  }
+ ]
+}

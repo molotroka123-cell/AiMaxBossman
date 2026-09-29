@@ -30,7 +30,12 @@ class WhisperError(ValueError):
 def _model_directory() -> Path:
     configured = os.environ.get("BOSSMAN_WHISPER_MODEL_PATH", "").strip()
     if not configured:
-        raise WhisperError("Configure BOSSMAN_WHISPER_MODEL_PATH with an installed local model directory")
+        local_app_data = os.environ.get("LOCALAPPDATA", "").strip()
+        if local_app_data:
+            configured = str(Path(local_app_data) / "Bossman" / "tool-cache" /
+                             "whisper-base-multilingual")
+        else:
+            raise WhisperError("Configure BOSSMAN_WHISPER_MODEL_PATH with an installed local model directory")
     path = Path(configured)
     if not path.is_absolute() or not path.is_dir():
         raise WhisperError("Whisper model must be an existing absolute local directory")

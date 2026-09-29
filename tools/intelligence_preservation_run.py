@@ -796,7 +796,8 @@ def ollama_identity(endpoint: str, model: str) -> dict[str, Any]:
 
 def ollama_client(endpoint: str, model: str, *, timeout: float = 120.0,
                   temperature: float = TEMPERATURE,
-                  request_digests: list[str] | None = None) -> ModelCall:
+                  request_digests: list[str] | None = None,
+                  think: bool | None = None) -> ModelCall:
     """Клиент к локальной модели.
 
     temperature=0 и seed фиксируют сэмплер. Средой они не управляют: сборка
@@ -806,6 +807,12 @@ def ollama_client(endpoint: str, model: str, *, timeout: float = 120.0,
     def call(messages: list[dict[str, str]], tools: list[dict] | None = None) -> ModelReply:
         payload: dict[str, Any] = {"model": model, "messages": messages, "stream": False,
                                    "options": {"temperature": temperature, "seed": SEED}}
+        if think is not None:
+            # Ollama's native reasoning switch. None keeps the model default (the
+            # historical request, byte for byte); the choice is recorded in the
+            # measurement and applies to EVERY lane, FULL included, since all lanes
+            # share this one client.
+            payload["think"] = think
         if tools:
             payload["tools"] = tools
         if request_digests is not None:
@@ -1053,6 +1060,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--gate-report", type=Path,
                         help="evaluate the genuine result with the unchanged gate and return its exit code")
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--think", choices=("model-default", "off", "on"), default="model-default",
+                        help="reasoning mode sent to Ollama for every lane (recorded in the result)")
+    parser.add_argument("--request-timeout", type=float, default=MODEL_TIMEOUT_SECONDS,
+                        help="seconds per model request (recorded in the result)")
     args = parser.parse_args(argv)
     try:
         return _run(args)
@@ -1094,7 +1105,9 @@ def _run(args: argparse.Namespace) -> int:
     full.reset_stats()          # счётчики описывают измерение, а не пробу
     lanes = build_lanes(full=full)
     request_digests: list[str] = []
-    call = ollama_client(args.endpoint, observed_model["model"], request_digests=request_digests)
+    think = {"model-default": None, "off": False, "on": True}[args.think]
+    call = ollama_client(args.endpoint, observed_model["model"], request_digests=request_digests,
+                         timeout=args.request_timeout, think=think)
 
     done = {"n": 0}
     total = len(tasks) * len(MODES)
@@ -1124,7 +1137,8 @@ def _run(args: argparse.Namespace) -> int:
                         "tasks": [asdict(t) for t in tasks],
                         "independence_status": "REQUIRES_CORPUS_REVIEW; exact duplicates refused"},
              "configuration": {"temperature": TEMPERATURE, "seed": SEED,
-                               "model_timeout_seconds": MODEL_TIMEOUT_SECONDS,
+                               "model_timeout_seconds": args.request_timeout,
+                               "think": args.think,
                                "endpoint_origin": urllib.parse.urlunsplit(
                                    (endpoint.scheme, endpoint.netloc.rsplit("@", 1)[-1], "", "", "")),
                                "endpoint_sha256": _sha(args.endpoint),
@@ -1133,7 +1147,8 @@ def _run(args: argparse.Namespace) -> int:
              "prompt_templates": {"system": SYSTEM_PROMPT, "full_system": full.system_prompt},
              "request_sha256": request_digests,
              "diagnostic_only": args.allow_insufficient_samples,
-             "decoding": "greedy(temperature=0,seed=7)",
+             "decoding": "greedy(temperature=0,seed=7)" + ("" if args.think == "model-default"
+                                                            else f",think={args.think}"),
              "determinism_note": ("a fixed seed pins the sampler, not the environment "
                                   "(server build, driver, quantization, batching); "
                                   "repeatability must be shown by a repeat run")}

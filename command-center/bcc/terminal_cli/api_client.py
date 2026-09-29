@@ -5,9 +5,15 @@ the owner's data root, authenticates with that data root's token (read from
 the token file — never from argv, never printed) and talks to the same API the
 web UI and Telegram use.
 
-Discovery order: --url / BOSSMAN_URL, then the port in <data>/desktop.lock, then
+Discovery order: --url / BOSSMAN_URL, then the port of the backend holding
+<data>/backend.lock, then the port in <data>/desktop.lock, then
 BCC_PORT (default 8800). A port that answers but is not Command Center is
 refused (identity check), never "reused".
+
+A Command Center that answers is used only when it IS the server of this data
+root (its pid is the holder of <data>/backend.lock) and not a proven different
+build. RC19 owner run: an old backend of ANOTHER data root sat on 8800, the
+terminal attached to it silently and every call came back 401.
 """
 from __future__ import annotations
 
@@ -23,7 +29,9 @@ from typing import Any, Iterator
 
 import httpx
 
-APP_IDENTITY = "bossman-command-center"
+from ..build_identity import DESKTOP_APP_IDENTITY
+
+APP_IDENTITY = DESKTOP_APP_IDENTITY
 HEADER = "X-BCC-Token"
 CSRF_HEADER = "X-BCC-CSRF"
 _APPROVAL_DECISION = re.compile(r"^/api/approvals/\d+/?$")
@@ -63,12 +71,51 @@ def _lock_port(data_dir: Path) -> int | None:
         return None
 
 
+#: Сколько терминал ждёт сервер своих данных, который ещё стартует (держит
+#: backend.lock, но пока не отвечает): второй ярлык, окно, автозапуск.
+HOLDER_WAIT_S = 30.0
+_HEX40 = re.compile(r"[0-9a-f]{40}\Z")
+
+
+def _holder(data_dir: Path) -> dict | None:
+    """Who holds this data root's lock (bcc/backend_lock), or None."""
+    from ..backend_lock import running_backend
+    try:
+        return running_backend(data_dir)
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def _holder_url(holder: dict | None) -> str | None:
+    from ..backend_lock import connect_host
+    try:
+        port = int((holder or {}).get("port") or 0)
+    except (TypeError, ValueError):
+        return None
+    return f"http://{connect_host(holder.get('host'))}:{port}" if port else None
+
+
+def _holder_port(data_dir: Path) -> int | None:
+    """Port of the backend that holds this data root's lock (bcc/backend_lock)."""
+    try:
+        holder = _holder(data_dir)
+        return int(holder["port"]) if holder and holder.get("port") else None
+    except (ValueError, TypeError, KeyError):
+        return None
+
+
 def candidate_urls(url: str | None, data_dir: Path) -> list[str]:
     if url:
         return [url.rstrip("/")]
     env = os.environ.get("BOSSMAN_URL", "").strip()
     if env:
         return [env.rstrip("/")]
+    holder = _holder(data_dir)
+    if holder:
+        # Данные уже обслуживает сервер: только он и годится. Порт по умолчанию
+        # может занимать Bossman чужой папки данных.
+        own = _holder_url(holder)
+        return [own] if own else []
     out: list[str] = []
     host = os.environ.get("BCC_HOST", "127.0.0.1").strip() or "127.0.0.1"
     for port in (_lock_port(data_dir), default_port()):
@@ -77,6 +124,58 @@ def candidate_urls(url: str | None, data_dir: Path) -> list[str]:
             if candidate not in out:
                 out.append(candidate)
     return out
+
+
+def _is_local(url: str) -> bool:
+    from urllib.parse import urlsplit
+    try:
+        host = (urlsplit(url).hostname or "").lower()
+    except ValueError:
+        return False
+    return host in ("localhost", "::1", "0.0.0.0", "") or host.startswith("127.")
+
+
+def _local_build() -> dict:
+    from ..build_identity import source_identity
+    return source_identity()
+
+
+def backend_mismatch(ident: dict, holder: dict | None, data_dir: Path, url: str, *,
+                     local: dict | None = None) -> BossmanError | None:
+    """Why the Command Center at `url` is NOT this terminal's backend, or None.
+
+    * a proven different build (both SHAs proven, and they differ);
+    * another data root: the server is not the process holding
+      <data>/backend.lock, or nobody holds it and the address is local.
+    A remote address without a local holder is left to the token check."""
+    local = _local_build() if local is None else local
+    l_sha, s_sha = local.get("build_sha"), ident.get("build_sha")
+    if (local.get("source_identity") == "PASS" and isinstance(l_sha, str) and isinstance(s_sha, str)
+            and _HEX40.match(l_sha) and _HEX40.match(s_sha) and l_sha != s_sha):
+        return BossmanError(
+            f"на {url} работает другая сборка Bossman: сервер {s_sha[:12]}, терминал {l_sha[:12]} — "
+            "не подключаюсь", kind="disconnected", code="foreign_backend",
+            hint="перезапустите Bossman этой сборки или откройте терминал той же сборки, что и сервер")
+    if holder:
+        if ident.get("pid") is None:
+            return BossmanError(
+                f"на {url} работает другая (прежняя) сборка Bossman: она не называет свой процесс — "
+                "не подключаюсь", kind="disconnected", code="foreign_backend",
+                hint="закройте старый Bossman и запустите эту сборку")
+        if ident.get("pid") != holder.get("pid"):
+            return BossmanError(
+                f"на {url} работает Bossman другой папки данных: {data_dir} обслуживает pid "
+                f"{holder.get('pid') or '?'} (порт {holder.get('port') or '?'}) — не подключаюсь",
+                kind="disconnected", code="foreign_backend",
+                hint="укажите --data-dir той папки, с которой работает этот Bossman, или --url своего")
+        return None
+    if _is_local(url):
+        return BossmanError(
+            f"на {url} работает Bossman другой папки данных: {data_dir} сейчас никто не обслуживает — "
+            "не подключаюсь", kind="disconnected", code="foreign_backend",
+            hint="запустите Bossman для этой папки (`bossman start --port <свободный>`) "
+                 "или укажите --data-dir той папки, с которой он работает")
+    return None
 
 
 def identify(url: str, timeout: float = 2.0) -> dict | None:
@@ -108,13 +207,34 @@ class Target:
     identity: dict = field(default_factory=dict)
 
 
-def discover(url: str | None = None, data_dir: str | Path | None = None) -> Target:
+def discover(url: str | None = None, data_dir: str | Path | None = None, *,
+             wait_holder: float | None = None) -> Target:
     base = Path(data_dir).expanduser() if data_dir else default_data_dir()
-    tried = candidate_urls(url, base)
-    for candidate in tried:
-        ident = identify(candidate)
-        if ident is not None:
-            return Target(url=candidate, data_dir=base, identity=ident)
+    deadline = time.monotonic() + (HOLDER_WAIT_S if wait_holder is None else wait_holder)
+    while True:
+        holder = _holder(base)
+        tried = candidate_urls(url, base)
+        refusal: BossmanError | None = None
+        for candidate in tried:
+            ident = identify(candidate)
+            if ident is None:
+                continue
+            problem = backend_mismatch(ident, holder, base, candidate)
+            if problem is None:
+                return Target(url=candidate, data_dir=base, identity=ident)
+            refusal = refusal or problem
+        if refusal is not None:
+            raise refusal
+        # Никто не ответил. Держатель данных, который ещё стартует, — ждём его,
+        # а не идём на порт по умолчанию.
+        if not holder or time.monotonic() >= deadline:
+            break
+        time.sleep(0.3)
+    if holder:
+        raise BossmanError(
+            f"Bossman для {base} запущен (pid {holder.get('pid') or '?'}, порт {holder.get('port') or '?'}), "
+            "но не отвечает", kind="disconnected",
+            hint="подождите запуска или остановите его и повторите")
     raise BossmanError("Bossman не отвечает: " + (", ".join(tried) or "адрес не задан"),
                        kind="disconnected",
                        hint="запустите Bossman (Start-Bossman.cmd или `bossman start`) "

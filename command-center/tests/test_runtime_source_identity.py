@@ -84,16 +84,41 @@ def test_a_short_or_malformed_sha_is_refused(monkeypatch):
         assert found["source_identity"] == build_identity.UNKNOWN, bogus
 
 
-def test_the_cache_expires_so_a_moved_head_becomes_visible(monkeypatch):
+def test_moved_head_cannot_impersonate_the_running_backend(monkeypatch):
     from bcc import run_provenance
     monkeypatch.setattr(run_provenance, "repository_sha", lambda: "a" * 40)
     assert build_identity.source_identity(fresh=True)["build_sha"] == "a" * 40
     monkeypatch.setattr(run_provenance, "repository_sha", lambda: "b" * 40)
     # в пределах TTL — прежний ответ, это осознанная цена дешёвого /health
     assert build_identity.source_identity()["build_sha"] == "a" * 40
-    # ...но TTL короткий, и сдвинутый HEAD обязан стать видимым
+    # По истечении TTL новый HEAD виден, но не приписывается загруженному коду.
     monkeypatch.setattr(build_identity, "_TTL_SECONDS", 0.0)
-    assert build_identity.source_identity()["build_sha"] == "b" * 40
+    moved = build_identity.source_identity()
+    assert moved["build_sha"] == "a" * 40
+    assert moved["checkout_sha"] == "b" * 40
+    assert moved["source_identity"] == build_identity.STALE
+    assert "перезапустите" in moved["detail"]
+
+
+def test_dirty_checkout_after_start_is_not_still_pass(monkeypatch):
+    from bcc import run_provenance
+    monkeypatch.setattr(run_provenance, "repository_sha", lambda: "a" * 40)
+    assert build_identity.source_identity(fresh=True)["source_identity"] == "PASS"
+    monkeypatch.setattr(run_provenance, "repository_sha",
+                        lambda: run_provenance.NOT_CAPTURED)
+    changed = build_identity.source_identity(fresh=True)
+    assert changed["source_identity"] == build_identity.STALE
+    assert changed["build_sha"] == "a" * 40
+    assert changed["checkout_sha"] is None
+
+
+def test_unproven_start_cannot_become_pass_without_restart(monkeypatch):
+    from bcc import run_provenance
+    monkeypatch.setattr(run_provenance, "repository_sha",
+                        lambda: run_provenance.NOT_CAPTURED)
+    assert build_identity.source_identity(fresh=True)["source_identity"] == build_identity.UNKNOWN
+    monkeypatch.setattr(run_provenance, "repository_sha", lambda: "a" * 40)
+    assert build_identity.source_identity(fresh=True)["source_identity"] == build_identity.UNKNOWN
 
 
 # ------------------------------------------------------------------ эндпоинты
@@ -106,13 +131,36 @@ async def test_identity_and_health_report_the_same_source(tmp_path):
         async with client_for(app, svc) as client:
             identity = (await client.get("/api/identity")).json()
             api_health = (await client.get("/api/health")).json()
-        assert identity["app"] == "bossman-command-center"
+        assert identity["app"] == build_identity.DESKTOP_APP_IDENTITY
+        assert api_health["app"] == "bossman-command-center"
         for key in ("build_sha", "source_identity", "source"):
             assert key in identity, key
             assert identity[key] == api_health[key], key
         assert identity["source_identity"] in ("PASS", build_identity.UNKNOWN)
         if identity["source_identity"] == "PASS":
             assert HEX40.match(identity["build_sha"])
+    finally:
+        await svc.stop()
+
+
+async def test_identity_endpoint_refuses_new_head_without_backend_restart(tmp_path, monkeypatch):
+    from bcc import run_provenance
+    monkeypatch.setattr(run_provenance, "repository_sha", lambda: "a" * 40)
+    build_identity.reset_cache()
+    app, svc = await start_app(make_settings(tmp_path), start_workers=False)
+    try:
+        async with client_for(app, svc) as client:
+            before = (await client.get("/api/identity")).json()
+            assert before["source_identity"] == "PASS"
+            assert before["build_sha"] == "a" * 40
+            monkeypatch.setattr(run_provenance, "repository_sha", lambda: "b" * 40)
+            monkeypatch.setattr(build_identity, "_TTL_SECONDS", 0.0)
+            after = (await client.get("/api/identity")).json()
+            health = (await client.get("/api/health")).json()
+        for response in (after, health):
+            assert response["source_identity"] == build_identity.STALE
+            assert response["build_sha"] == "a" * 40
+            assert response["checkout_sha"] == "b" * 40
     finally:
         await svc.stop()
 

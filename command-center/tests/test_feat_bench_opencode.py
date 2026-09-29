@@ -65,10 +65,14 @@ async def test_benchmark_failed_endpoint(env):
 class _PacedAdapter(FakeAdapter):
     """Generation takes time proportional to the tokens asked for. An instant fake
     made the differential speed window (N-token minus 1-token latency) pure timer
-    noise: sometimes <= 0, the run became "unavailable" and based_on was 0."""
+    noise: sometimes <= 0, the run became "unavailable" and based_on was 0.
+    5 ms/token gives a ~635 ms window for the 128-token probe; at 2 ms (~254 ms) a
+    single CI runner stall of the size seen on PR #84 (up to ~214 ms, reproduced
+    with 300 ms) landed on the 1-token leg, turned one of the three runs
+    "unavailable", and median_of() rightly keeps the worst method."""
 
     async def chat(self, model, messages, **kw):
-        await asyncio.sleep(0.002 * int(kw.get("max_tokens") or 1))
+        await asyncio.sleep(0.005 * int(kw.get("max_tokens") or 1))
         return await super().chat(model, messages, **kw)
 
 

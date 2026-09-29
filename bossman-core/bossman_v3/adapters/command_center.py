@@ -40,7 +40,7 @@ from typing import Any, Mapping
 
 from ..computer_agent.agent import UniversalComputerAgent
 from ..contracts import (ApprovalDecision, ExecutionReceipt, Observation, PolicyDecision,
-                         TypedAction, VerificationResult)
+                         TypedAction, VerificationResult, utcnow_after)
 
 APPROVAL_KIND = "tool"
 
@@ -251,6 +251,10 @@ class CommandCenterObserver:
                 "evidence": [f"{r.expected.kind}:{r.expected.target}={r.status}" for r in results]}
 
     def observe_fresh(self, action: TypedAction, receipt: ExecutionReceipt) -> Observation:
+        # Read the post-state only after the wall clock moved past the execution
+        # start: on Windows a fast tool call and this read can share one clock
+        # tick, and the receipt would then be refused as stale (RC19 audit).
+        utcnow_after(receipt.started_at)
         raw = dict(action.args).get("expect")
         state = self.rt.call(self._verify(raw)) if raw is not None else \
             {"status": "UNVERIFIED", "reason": "шаг не объявил проверяемого ожидания"}

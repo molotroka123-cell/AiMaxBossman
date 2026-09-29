@@ -1,0 +1,53 @@
+{
+ "meta": {
+  "title": "Partner",
+  "bpm": 118,
+  "key": "E",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // PARTNER",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "PARTNERS",
+   "kicker": "BOSSMAN × HOMELAB",
+   "start": 0.0,
+   "end": 3.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "A new partnership."
+    }
+   ]
+  },
+  {
+   "type": "sticker",
+   "lottie": "noto_thumbs_up_sign",
+   "text": "ONE CLICK",
+   "sub": "LOCAL AI BOXES",
+   "start": 3.0,
+   "end": 6.5,
+   "vo": [
+    {
+     "t": 3.1,
+     "text": "One-click local AI boxes."
+    }
+   ]
+  },
+  {
+   "type": "logo",
+   "name": "BOSSMAN",
+   "tagline": "× HOMELAB CO",
+   "start": 6.5,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 6.6,
+     "text": "Together."
+    }
+   ]
+  }
+ ]
+}

@@ -163,6 +163,37 @@ _OPENCLAW_TOPIC = (r"\bmessage\b|\bchannel\b|\bchat\b|"
                    r"сообщени\w*|канал\w*|чат\w*")
 _CODE_TOPIC = (r"\bbug\b|\bcode\b|\bcode\s*base\b|"
               r"баг\w*|код[ае]?\b|ошибк\w*")
+# An explicit request to make a code change is an action even when the verb is
+# "make" rather than "fix". Owner task #56 used this wording and otherwise
+# slipped through as a text-only task despite asking for a Godot edit.
+_CODE_CHANGE_RE = re.compile(r"(?:^|(?<=[.!?\n]))\s*(?:please\s+)?(?:make|apply)\b"
+                             r"[^.!?\n]{0,40}\bcode\s+changes?\b",
+                             re.I | re.U)
+# The same request paraphrased ("внеси изменения в код игры", "update main.gd",
+# "implement a pause menu in the game") must not fall back to a text-only task
+# either: a plan without a code mutation is not a code change. Edit verbs and
+# code-bearing topics are kept separate from _FIX_VERB/_CODE_TOPIC, which other
+# capabilities share.
+_CODE_EDIT_VERB = (r"\b(update|change|modify|edit|add|refactor|rewrite)\b|"
+                   r"внеси\w*|измени\w*|добавь\w*|поправь\w*|правк\w*|"
+                   r"реализуй\w*|перепиши\w*|отрефактор\w*|доработай\w*")
+# Concrete code targets: a source file, the game or its engine. "Write a
+# function" alone stays a text answer (the function goes in the reply), so
+# write/fix verbs pair only with these, never with "function" by itself.
+_CODE_TARGET_TOPIC = (r"\b[\w-]+\.(py|gd|tscn|js|jsx|ts|tsx|cs|cpp|c|h|rs|go|java|kt|lua)\b|"
+                      r"\bgame\b|игр[аеуыой]\w*|\bgodot\b|\bunity\b")
+_CODE_EDIT_TOPIC = (_CODE_TOPIC + r"|" + _CODE_TARGET_TOPIC + r"|"
+                    r"\bfunction\b|функци\w*")
+# A question about making a change ("how can I change the code?") is not a
+# request to make it: the widened clauses count only when the sentence they sit
+# in does not end with "?".
+_NOT_A_QUESTION = r"(?![^.!?\n]*\?)"
+_CODE_ACTION_RE = re.compile(
+    _clause_re(_FIX_VERB, _CODE_TOPIC).pattern + "|"
+    + "(?:" + _clause_re(_FIX_VERB, _CODE_TARGET_TOPIC).pattern + ")" + _NOT_A_QUESTION + "|"
+    + "(?:" + _clause_re(_CODE_EDIT_VERB, _CODE_EDIT_TOPIC).pattern + ")" + _NOT_A_QUESTION + "|"
+    + _CODE_CHANGE_RE.pattern,
+    re.I | re.U)
 _GITHUB_TOPIC = (r"\bgit\b|\bgithub\b|\bpull\s*request\b|\bpr\b|"
                  r"гит\b|коммит\w*|пуш\w*|pull[- ]?request\w*")
 _MCP_TOPIC = r"\bmcp\b"
@@ -409,6 +440,26 @@ def _is_code_mutation_call(row: dict) -> bool:
     return _looks_like_mutation(str(args.get("command") or ""))
 
 
+# RC19 (Computer Use acceptance, R10): "open Notepad" executed through the
+# desktop operator is a verified `computer.act launch`, not an `apps.start`.
+# The contract used to count only the apps family, so a launch the product
+# itself had verified still finished as no_verified_action. A computer call
+# counts only when it is an app-lifecycle action AND its own postcondition
+# check reported ПРОВЕРЕНО; typing/clicking never proves "open the app".
+# The tools GIVEN to such a task stay the apps family (attach above).
+_APP_LIFECYCLE_KINDS = frozenset({"launch", "focus", "focus_window"})
+
+
+def _is_verified_app_call(row: dict) -> bool:
+    if row.get("source") == "apps":
+        return True
+    if row.get("tool") != "computer.act":
+        return False
+    args = row.get("args") if isinstance(row.get("args"), dict) else {}
+    return (args.get("action") in _APP_LIFECYCLE_KINDS
+            and "Результат: ПРОВЕРЕНО" in str(row.get("result_preview") or ""))
+
+
 # Порядок — приоритет из задания (1..12), browser (MODULE 1) исключён намеренно.
 # Исключение — DOWNLOAD_ACTION (см. блок «download» выше): он первым, потому что
 # classify_all вырезает его клаузу до проверки остальных. Инструменты выдаются
@@ -418,8 +469,9 @@ CAPABILITIES: tuple[Capability, ...] = (
               call_filter=_is_download_call, attach=BROWSER_TOOLS),
     Capability("TERMINAL_FILE_ACTION", _TERMINAL_FILE_RE, frozenset({"terminal"}),
               evidence=_terminal_evidence),
-    Capability("APPS_ACTION", _clause_re(_OPEN_VERB, _APP_TOPIC), frozenset({"apps"})),
-    Capability("CODE_ACTION", _clause_re(_FIX_VERB, _CODE_TOPIC),
+    Capability("APPS_ACTION", _clause_re(_OPEN_VERB, _APP_TOPIC), frozenset({"apps", "computer"}),
+              call_filter=_is_verified_app_call, attach=("apps.start", "apps.stop")),
+    Capability("CODE_ACTION", _CODE_ACTION_RE,
               frozenset({"opencode", "terminal"}), call_filter=_is_code_mutation_call),
     Capability("GITHUB_ACTION", re.compile(
         _GIT_VERB_FUSED + "|" + _clause_re(_CREATE_VERB, _GITHUB_TOPIC).pattern,

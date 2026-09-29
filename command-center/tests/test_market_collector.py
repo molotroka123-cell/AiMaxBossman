@@ -462,20 +462,42 @@ def test_labels_exist_only_after_the_horizon_has_passed():
     assert s["status"] == "DATA_COLLECTION" and s["trading_model_ready"] is False
 
 
-def test_split_is_by_day_and_chronological_never_random():
+def test_split_is_by_day_purged_and_holdout_hidden_by_default():
     from datetime import datetime, timezone
     from bcc.market import research
     rows = [r for d in range(5) for r in _rows(0, 10, day_offset=d)]
     table = research.build_table(rows, datetime(2026, 10, 1, tzinfo=timezone.utc))
     info = research.split_by_day(table)
-    assert info["status"] == "SPLIT_BY_DAY"
-    splits_per_day = {}
-    for r in table:
-        splits_per_day.setdefault(r["day"], set()).add(r["split"])
-    assert all(len(v) == 1 for v in splits_per_day.values())          # a day never straddles splits
+    assert info["status"] == "PURGED_SPLIT_BY_DAY"
+    assert info["embargo_minutes"] == max(research.HORIZONS_MIN)
     assert max(info["train"]) < min(info["valid"]) <= max(info["valid"]) < min(info["holdout"])
+    summary = research.summarize(table)
+    assert summary["holdout_rows"] > 0 and summary["holdout_revealed"] is False
+    revealed = research.summarize(table, reveal_holdout=True)
+    assert revealed["analysis_rows"] == summary["analysis_rows"] + summary["holdout_rows"]
     one_day = research.build_table(_rows(0, 10), datetime(2026, 10, 1, tzinfo=timezone.utc))
     assert research.split_by_day(one_day)["status"] == "INSUFFICIENT_DAYS"
+
+
+def test_split_purges_future_label_overlap_and_embargo_rows():
+    from bcc.market import research
+    table = [
+        {"t": "2026-09-24T12:00:00Z", "day": "2026-09-24"},
+        {"t": "2026-09-25T12:00:00Z", "day": "2026-09-25"},
+        {"t": "2026-09-26T23:50:00Z", "day": "2026-09-26"},
+        {"t": "2026-09-27T00:10:00Z", "day": "2026-09-27"},
+        {"t": "2026-09-27T12:00:00Z", "day": "2026-09-27"},
+        {"t": "2026-09-28T00:10:00Z", "day": "2026-09-28"},
+        {"t": "2026-09-28T12:00:00Z", "day": "2026-09-28"},
+    ]
+    info = research.split_by_day(table)
+    assert info["status"] == "PURGED_SPLIT_BY_DAY"
+    by_t = {r["t"]: r["split"] for r in table}
+    assert by_t["2026-09-26T23:50:00Z"] == "purged"
+    assert by_t["2026-09-27T00:10:00Z"] == "purged"
+    assert by_t["2026-09-28T00:10:00Z"] == "purged"
+    assert by_t["2026-09-27T12:00:00Z"] == "valid"
+    assert by_t["2026-09-28T12:00:00Z"] == "holdout"
 
 
 def test_price_badge_band_tolerates_a_dark_compression_row():

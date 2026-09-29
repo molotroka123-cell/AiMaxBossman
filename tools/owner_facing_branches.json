@@ -31,8 +31,9 @@
     "чужую ветку и не был объявлен нигде: прогонов на release/bossman-owner",
     "ровно ноль, то есть сертификат не мог быть выдан НИКОГДА."
   ],
-  "canonical": "release/bossman-owner",
+  "canonical": "integrate/bossman-1.7-unified-20260925",
   "must_be_covered": [
+    "integrate/bossman-1.7-unified-20260925",
     "release/bossman-owner",
     "claude/bossman-final-convergence-hu2702",
     "night/v7-convergence-20260908"

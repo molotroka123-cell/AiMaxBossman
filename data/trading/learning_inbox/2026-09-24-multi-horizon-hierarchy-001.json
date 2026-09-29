@@ -1,0 +1,69 @@
+{
+  "lesson_id": "LEARNING-2026-09-24-MULTI-HORIZON-HIERARCHY-001",
+  "date": "2026-09-24",
+  "market": "BTC",
+  "learning_status": "UNVERIFIED",
+  "purpose": "Teach Bossman to preserve nested market regimes across multiple horizons instead of collapsing everything into one label.",
+  "reference_points": {
+    "case_003_fomc_2026_09_16": {
+      "price_approx": 75700,
+      "cvd_billion": 51.06,
+      "oi_billion": 18.11
+    },
+    "current_2026_09_24": {
+      "price_approx": 84450,
+      "cvd_billion": 71.93,
+      "oi_billion": 19.48
+    },
+    "latest_local_prior": {
+      "price": 84715,
+      "cvd_billion": 75.08,
+      "oi_billion": 19.39
+    }
+  },
+  "derived_context": {
+    "seven_day": {
+      "price_change_pct_approx": 11.6,
+      "cvd_change_billion_approx": 20.87,
+      "oi_change_billion_approx": 1.37,
+      "interpretation": "Broad recovery / leverage rebuild relative to the FOMC deleveraging area."
+    },
+    "local_now": {
+      "price_direction": "DOWN",
+      "cvd_direction": "DOWN",
+      "oi_direction": "UP",
+      "candidate_regime": "BEARISH_LEVERAGE_EXPANSION",
+      "interpretation": "Local deterioration inside a stronger higher-horizon recovery."
+    }
+  },
+  "core_rule": "Never collapse conflicting horizons into one market regime. A bearish short-term regime can coexist with a bullish higher-horizon recovery.",
+  "required_hierarchy": [
+    "NOW",
+    "15m",
+    "30m",
+    "60m",
+    "4h",
+    "24h",
+    "7D"
+  ],
+  "output_rule": "Telegram deep analysis should display one regime per available horizon, then summarize whether short-term flow is aligned with or counter-trend to the higher-horizon structure.",
+  "structural_context": {
+    "decision_level": "dPOC",
+    "decision_level_approx": 84410,
+    "upper_visible_structure_approx": 84893,
+    "lower_visible_structure_approx": 83864
+  },
+  "training_lessons": [
+    "Short-term bearish leverage expansion does not automatically invalidate a 7D recovery structure.",
+    "Higher-horizon recovery is supported when price, CVD and OI are materially above prior event-deleveraging baselines.",
+    "Use the nearest structural level to distinguish correction from broader regime failure.",
+    "A dPOC hold/reclaim can preserve higher-horizon bullish structure even during local bearish flow.",
+    "A dPOC loss plus failed reclaim and continued CVD deterioration/OI expansion increases evidence that the correction is broadening.",
+    "Do not compare incompatible CVD/OI series across providers or settings."
+  ],
+  "future_implementation": {
+    "multi_horizon_engine": "Extend horizons from 15m/30m/60m to NOW/15m/30m/60m/4h/24h/7D where sufficient compatible history exists.",
+    "deep_report": "Include alignment field such as ALIGNED_BULLISH, ALIGNED_BEARISH, or COUNTER_TREND_PULLBACK.",
+    "promotion_rule": "Promote after current screenshot values and 7D comparison are independently verified from compatible stored observations."
+  }
+}

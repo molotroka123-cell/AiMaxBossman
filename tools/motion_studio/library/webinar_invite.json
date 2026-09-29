@@ -1,0 +1,54 @@
+{
+ "meta": {
+  "title": "Webinar",
+  "bpm": 112,
+  "key": "G",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // WEBINAR",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "LIVE",
+   "kicker": "FREE WEBINAR · OCT 22",
+   "typed": "$ join --at 18:00",
+   "start": 0.0,
+   "end": 3.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Free webinar, live."
+    }
+   ]
+  },
+  {
+   "type": "sticker",
+   "lottie": "noto_electric_light_bulb",
+   "text": "SMART HOME",
+   "sub": "LEARN IT IN ONE HOUR",
+   "start": 3.0,
+   "end": 6.5,
+   "vo": [
+    {
+     "t": 3.1,
+     "text": "Learn home automation in an hour."
+    }
+   ]
+  },
+  {
+   "type": "end_card",
+   "text": "OCT 22 · 18:00",
+   "sub": "REGISTER FREE",
+   "start": 6.5,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 6.6,
+     "text": "Register free."
+    }
+   ]
+  }
+ ]
+}

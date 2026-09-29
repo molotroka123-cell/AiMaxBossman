@@ -49,3 +49,28 @@ https://github.com/molotroka123-cell/AiMaxBossman/blob/010d19076951d2911dc1bade4
 ## Источники состояния внутри repo
 
 Перед каждым merge обновить refs и читать AGENTS, CLAUDE_NEXT_ACTION, owner FINAL-1.0 evidence, docs/terminal, docs/evo, docs/owner/JEV_TOMORROW.md, docs/owner/SKILLS.md и docs/media. Если файл отсутствует в текущем TARGET, читать его из конкретного source SHA, не подменять это памятью чата. Upstream claims, documentation, code presence, mock tests и live evidence имеют разные уровни доверия.
+
+---
+
+## SAME-RUN HANDOFF: 1.5 → 1.6
+
+После закрытия 1.5 или достижения `V1_5_NEAR_COMPLETE` тот же owner-run сразу продолжает работу в ветке:
+https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-secret-intake-20260925
+
+Цель одного прогона: `BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED`.
+
+---
+
+## Immediate handoff to Bossman 1.6
+
+As soon as Bossman 1.5 reaches OWNER_READY closure — or only explicitly non-blocking P2 / optional OWNER_REQUIRED items remain — continue the SAME owner run in:
+
+[Bossman 1.6 self-evolution branch](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-self-evolution-20260925)
+
+Start with `BOSSMAN_1_6_START_HERE.md`.
+
+One-run objective:
+
+`BOSSMAN_1_5_OWNER_READY -> 1.6 HANDOFF -> BOSSMAN_SELF_EVOLUTION_RUNNING`
+
+Do not use this handoff to hide an open 1.5 P0 or release-blocking P1. The goal is to close both stages in one continuous owner run whenever the critical 1.5 gates allow it.

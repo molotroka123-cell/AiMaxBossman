@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+import subprocess
 
 import pytest
 
@@ -82,10 +83,39 @@ def test_records_survive_reopening_the_vault(tmp_path):
 def test_key_file_is_created_with_owner_only_permissions(tmp_path):
     key = load_master_key(tmp_path, env={})
     assert len(key) == 32
-    mode = stat.S_IMODE(os.stat(tmp_path / "vault.key").st_mode)
-    assert mode == 0o600, f"ключ создан с правами {oct(mode)}"
+    if os.name == "nt":
+        from social_farm.browser.isolation import _windows_acl_problems
+        assert not _windows_acl_problems(tmp_path)
+        assert not _windows_acl_problems(tmp_path / "vault.key")
+    else:
+        mode = stat.S_IMODE(os.stat(tmp_path / "vault.key").st_mode)
+        assert mode == 0o600, f"ключ создан с правами {oct(mode)}"
     # Повторный вызов берёт тот же ключ, а не создаёт второй.
     assert load_master_key(tmp_path, env={}) == key
+
+
+@pytest.mark.skipif(os.name != "nt", reason="real NTFS ACL check")
+def test_existing_key_with_explicit_users_grant_is_closed_before_read(tmp_path):
+    from social_farm.browser.isolation import _windows_acl_problems
+
+    key = load_master_key(tmp_path, env={})
+    path = tmp_path / "vault.key"
+    widened = subprocess.run(
+        ["icacls", str(path), "/grant", "*S-1-5-32-545:R"],
+        capture_output=True, check=False, timeout=30)
+    assert widened.returncode == 0
+    assert _windows_acl_problems(path)
+    assert load_master_key(tmp_path, env={}) == key
+    assert not _windows_acl_problems(path)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="real NTFS ACL check")
+def test_written_vault_records_inherit_owner_only_acl(tmp_path):
+    from social_farm.browser.isolation import _windows_acl_problems
+
+    vault = LocalEncryptedVault(tmp_path, master_key=b"k" * 32)
+    vault.store(TOKEN, kind="oauth_access_token", owner_account_id="acct_a")
+    assert not _windows_acl_problems(tmp_path / "secrets.json")
 
 
 def test_environment_key_wins_over_the_file(tmp_path):

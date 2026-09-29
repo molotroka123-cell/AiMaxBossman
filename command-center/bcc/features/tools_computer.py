@@ -42,16 +42,30 @@ wiring-дефект продукта, а не ограничение среды.
      ВИДУ последствия и перепроверяется по свежему экрану перед эффектом.
      Заявление модели (`semantic`, любой служебный аргумент) разрешением
      не является.
+  7. rc19: КАЖДОЕ действие, кроме `wait`, — отдельное одобрение владельца
+     (строка approvals, принятая движком к исполнению, моложе APPROVAL_TTL_S,
+     не использованная раньше; журнал переживает перезапуск). Право агента,
+     правило политики и аренда его не заменяют. Одобренное действие
+     исполняется по наблюдению, о котором спрашивали, если оно ещё
+     действительно, окно то же и цель находится на свежем экране.
+  8. rc19: ввод и focus_window — только в окна процессов из allowlist
+     (Блокнот, Калькулятор); Win-клавиши, платежи и учётные данные (включая
+     поле пароля по UIA IsPassword) не исполняются ни с каким одобрением.
 """
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
+import os
 import platform
+import re
 import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
+from datetime import datetime, timedelta, timezone
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -71,6 +85,16 @@ MAX_OBS_AGE_S = 45.0
 # держать замок рабочего стола вечно: исход шага объявляется НЕИЗВЕСТНЫМ, замок
 # освобождается, следующий шаг обязан перечитать экран.
 ACT_TIMEOUT_S = 60.0
+# Набор текста должен уложиться в ACT_TIMEOUT_S с запасом: по таймауту поток
+# ввода (asyncio.to_thread) сам не останавливается, и «исход неизвестен» при
+# живом печатающем потоке — это ввод параллельно со следующим действием.
+# Оценка: интервал между клавишами (как у адаптера: по умолчанию 0.05 с, не
+# больше 0.2 с) + накладные расходы pyautogui на символ. Длиннее — по частям.
+TYPE_INTERVAL_DEFAULT_S = 0.05
+TYPE_INTERVAL_MAX_S = 0.2
+TYPE_OVERHEAD_S = 0.01
+# Бюджет времени на набор — с запасом меньше ACT_TIMEOUT_S (проверяется тестом).
+TYPE_BUDGET_S = 45.0
 LAUNCH_WAIT_S = 5.0
 KINDS = ("focus", "click", "double_click", "type", "hotkey", "scroll", "invoke", "launch", "wait",
          "focus_window")
@@ -81,7 +105,7 @@ KINDS = ("focus", "click", "double_click", "type", "hotkey", "scroll", "invoke",
 INPUT_KINDS = frozenset({"focus", "click", "double_click", "type", "hotkey", "scroll", "invoke"})
 # Постусловия, которые умеет проверять verify(). Всё остальное — invalid.
 EXPECT_KEYS = frozenset({"window_title_contains", "contains_text", "absent_text",
-                         "file_exists", "file_contains"})
+                         "file_exists", "file_contains", "file_sha256"})
 MIN_EXPECT_CHARS = 2
 # Служебные аргументы, которые модель писать не может: приходят только из кода.
 RESERVED_ARGS = frozenset({"_approved_consequence", "_approval_id", "_approved_kind"})
@@ -90,6 +114,51 @@ STOP_FILE = "STOP"
 # всего и погибает именно на зависшем действии, и вернуться с чистой памятью —
 # значит поверить, что рабочий стол в известном состоянии, ничего не проверив.
 UNKNOWN_FILE = "OUTCOME_UNKNOWN"
+
+# ------------------------------------------------------------------ rc19 hardening
+# CU-ONESHOT: каждое действие на рабочем столе, кроме пассивного `wait`, требует
+# СВОЕГО одобрения владельца — строки approvals, которую движок принял к
+# исполнению (approved → consumed). Право агента `computer.control`, правило
+# `tool_rules`, аренда (lease) одобрением не являются.
+MUTATION_FREE_KINDS = frozenset({"wait"})
+APPROVAL_ROW_KINDS = frozenset({"tool", "effect_reconciliation"})
+# Одобрение живёт ограниченно: от создания вопроса до эффекта. Переменная
+# окружения может только СОКРАТИТЬ срок (приёмочный прогон), но не продлить.
+APPROVAL_TTL_S = 300.0
+APPROVAL_TTL_ENV = "BCC_COMPUTER_APPROVAL_TTL_S"
+MIN_APPROVAL_TTL_S = 5.0
+# Однажды использованное одобрение не предъявляется второй раз даже в обход
+# движка; журнал переживает перезапуск backend.
+USED_APPROVALS_FILE = "USED_APPROVALS.json"
+USED_APPROVALS_MAX = 5000
+# Одобрение, выданное до «Продолжить» или до старта этого процесса backend, не
+# исполняется: оно дано по экрану, которого больше нет (в т.ч. для `launch`,
+# у которого нет generation). Модуль импортируется при старте backend.
+PROCESS_STARTED = datetime.now(timezone.utc).replace(tzinfo=None)
+# Наблюдения, по которым владелец мог одобрить действие. «Продолжить»,
+# неизвестный исход и перезапуск их обнуляют — одобренное по старому экрану
+# после этого не исполняется.
+OBS_HISTORY = 16
+# CU-ALLOWLIST: ввод идёт только в окна процессов из allowlist приложений
+# (bossman.computer_operator.applist) — Блокнот и проверенный Калькулятор.
+# Окно оболочки (cmd/PowerShell/Terminal), браузер, мессенджер — не цель.
+HOSTED_FRAME_PROCESS = "applicationframehost.exe"
+# Клавиши, которые открывают оболочку Windows поверх любого окна (Win+R, Win+X,
+# меню «Пуск», диспетчер задач): ни одна из них не нужна для работы в окне.
+REFUSED_HOTKEY_KEYS = frozenset({"win", "winleft", "winright", "lwin", "rwin", "super",
+                                 "cmd", "command", "meta", "apps"})
+REFUSED_HOTKEY_COMBOS = (frozenset({"ctrl", "esc"}), frozenset({"ctrl", "escape"}),
+                         frozenset({"ctrl", "shift", "esc"}), frozenset({"ctrl", "shift", "escape"}),
+                         frozenset({"ctrl", "alt", "delete"}), frozenset({"ctrl", "alt", "del"}))
+# Деньги и учётные данные Computer Use не трогает вовсе — ни с одобрением, ни без:
+# для них есть отдельные пути с собственными стенами (browser.confirmed_*,
+# secret_executor), а не набор с клавиатуры по выбору модели.
+HARD_REFUSED_CONSEQUENCES = frozenset({"pay", "purchase", "transfer", "secret_entry",
+                                       "account_change", "security_change"})
+CREDENTIAL_TARGET_TOKENS = ("password", "passwd", "пароль", "passcode", "passphrase", "pin-код",
+                            "pin code", "пин-код", "cvv", "cvc", "card number", "номер карты",
+                            "секретн", "secret", "api key", "api-key", "token", "токен", "otp",
+                            "одноразов")
 
 
 def _core():
@@ -140,6 +209,7 @@ def _element_with_rect(c) -> dict[str, Any]:
             pass
         if secret:
             item["value"] = "(секретное поле — значение скрыто)"
+            item["is_password"] = True
         else:
             try:
                 item["value"] = str(c.iface_value.CurrentValue or "")[:MAX_VALUE_CHARS]
@@ -171,11 +241,54 @@ class ComputerState:
     # R6: растёт на каждом «Стоп» и «Продолжить». Действие, начатое в одной
     # эпохе, не делает ни шага по рабочему столу в другой.
     stop_epoch: int = 0
+    # generation -> наблюдение, по которому владелец мог одобрить действие.
+    history: dict[int, dict[str, Any]] = field(default_factory=dict)
+    # id строк approvals, уже потраченных на эффект (переживает перезапуск).
+    used_approvals: list[int] = field(default_factory=list)
+    # Журнал использованных одобрений не прочитался: действия запрещены до
+    # «Продолжить» владельца — свежее наблюдение этот замок НЕ снимает.
+    journal_corrupt: bool = False
+    # Последнее «Продолжить» (наивный UTC): одобрения старше него недействительны.
+    resumed_at: datetime | None = None
 
     @property
     def unknown_path(self) -> Path | None:
         """Lives next to STOP: one owner directory, one lifetime."""
         return None if self.stop_path is None else self.stop_path.with_name(UNKNOWN_FILE)
+
+    @property
+    def used_path(self) -> Path | None:
+        return None if self.stop_path is None else self.stop_path.with_name(USED_APPROVALS_FILE)
+
+    def remember(self, obs: dict[str, Any]) -> None:
+        self.history[int(obs["generation"])] = obs
+        while len(self.history) > OBS_HISTORY:
+            self.history.pop(next(iter(self.history)))
+
+    def spend_approval(self, approval_id: int) -> bool:
+        """Отметить одобрение использованным ДО эффекта. False — уже было."""
+        if self.journal_corrupt:
+            # Перезапись повреждённого журнала стёрла бы память о потраченных
+            # одобрениях — ровно то, от чего он защищает.
+            raise ActRefused("журнал использованных одобрений повреждён — действия запрещены до "
+                             "разбора владельцем («Продолжить»)")
+        if approval_id in self.used_approvals:
+            return False
+        self.used_approvals.append(approval_id)
+        del self.used_approvals[:-USED_APPROVALS_MAX]
+        path = self.used_path
+        if path is not None:
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                tmp = path.with_suffix(".tmp")
+                tmp.write_text(json.dumps(self.used_approvals), encoding="utf-8")
+                tmp.replace(path)
+            except OSError as exc:
+                # Журнал не записан — повтор после перезапуска не исключён: отказ.
+                self.used_approvals.remove(approval_id)
+                raise ActRefused(f"журнал использованных одобрений не записан ({type(exc).__name__}) "
+                                 f"— действие не выполнено") from exc
+        return True
 
     def stopped(self) -> bool:
         return self.stop.is_set()
@@ -183,6 +296,7 @@ class ComputerState:
     def mark_outcome_unknown(self, text: str) -> None:
         self.outcome_unknown = text
         self.last = {}
+        self.history.clear()
         path = self.unknown_path
         if path is not None:
             try:
@@ -192,7 +306,10 @@ class ComputerState:
                 pass
 
     def clear_outcome_unknown(self) -> None:
-        """Only a fresh observation may do this: the screen has been re-read."""
+        """Only a fresh observation may do this: the screen has been re-read.
+        A corrupted used-approvals journal is not a screen question: it stays."""
+        if self.journal_corrupt:
+            return
         self.outcome_unknown = ""
         path = self.unknown_path
         if path is not None:
@@ -214,6 +331,16 @@ class ComputerState:
                                             or "исход прошлого действия неизвестен")
             except OSError:
                 pass
+        used = self.used_path
+        if used is not None and used.is_file():
+            try:
+                raw = json.loads(used.read_text(encoding="utf-8"))
+                self.used_approvals = [int(x) for x in raw if isinstance(x, int) and not isinstance(x, bool)]
+            except (OSError, ValueError, TypeError):
+                # Повреждённый журнал нельзя принять за «ничего не использовано»:
+                # до ручного разбора владельцем действия запрещены.
+                self.journal_corrupt = True
+                self.outcome_unknown = "журнал использованных одобрений повреждён — проверьте data_dir/computer"
 
     def set_stop(self, by: str) -> None:
         self.stop.set()
@@ -234,9 +361,77 @@ class ComputerState:
             except OSError:
                 pass
         # «Продолжить» ≠ «доиграть очередь»: всё, что планировалось по экрану
-        # до «Стоп», обесценивается — модель обязана перечитать экран.
+        # до «Стоп», обесценивается — модель обязана перечитать экран. Это
+        # касается и уже одобренных, но не исполненных действий.
         self.generation += 1
         self.last = {}
+        self.history.clear()
+        self.resumed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        if self.journal_corrupt:
+            # Владелец разобрался и нажал «Продолжить»: повреждённый журнал
+            # откладывается в сторону (не затирается), а все одобрения старше
+            # этого момента и так недействительны (resumed_at) — повтор по ним
+            # невозможен и без старого списка.
+            used = self.used_path
+            if used is not None and used.is_file():
+                try:
+                    used.replace(used.with_name(f"{used.stem}.corrupt-{int(time.time())}.json"))
+                except OSError:
+                    return                  # не отложили — замок остаётся
+            self.journal_corrupt = False
+            self.used_approvals = []
+            self.outcome_unknown = ""
+            path = self.unknown_path
+            if path is not None:
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+    def approval_floor(self) -> datetime:
+        """Одобрения, созданные раньше этого момента, недействительны."""
+        return max(PROCESS_STARTED, self.resumed_at or PROCESS_STARTED)
+
+
+def _desktop_busy(st: ComputerState) -> bool:
+    """Эффект прошлого действия ещё идёт в потоке адаптера (брошен по таймауту)."""
+    probe = getattr(st.desktop, "busy", None)
+    try:
+        return bool(probe()) if callable(probe) else False
+    except Exception:  # noqa: BLE001 — не смогли узнать: считаем занятым
+        return True
+
+
+def _abort_inflight(st: ComputerState) -> None:
+    abort = getattr(st.desktop, "abort_inflight", None)
+    if callable(abort):
+        try:
+            abort()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+class _EffectLock:
+    """Замок рабочего стола. Действие, оборванное посреди (таймаут инструмента в
+    движке, отмена задачи), — НЕИЗВЕСТНЫЙ исход, а не «ничего не было»: поток
+    адаптера мог успеть часть эффекта и ещё продолжать его."""
+
+    def __init__(self, st: ComputerState):
+        self.st = st
+
+    async def __aenter__(self):
+        await self.st.lock.acquire()
+        return self
+
+    async def __aexit__(self, et, exc, tb):
+        try:
+            if et is not None and issubclass(et, asyncio.CancelledError):
+                _abort_inflight(self.st)
+                self.st.mark_outcome_unknown("действие прервано посреди (таймаут инструмента или отмена) "
+                                             "— исход неизвестен")
+        finally:
+            self.st.lock.release()
+        return False
 
 
 def _state(svc) -> ComputerState:
@@ -254,6 +449,9 @@ def _state(svc) -> ComputerState:
 
         class _Desktop(core["WindowsDesktop"]):
             _element = staticmethod(_element_with_rect)
+            # Идентичность окна и тип поля — с настоящей ОС, в момент действия.
+            window_process_allowed = staticmethod(window_allowlisted)
+            focused_is_password = staticmethod(uia_focused_is_password)
 
         st.desktop = _Desktop()
         st.desktop.set_interrupt(st.stop)
@@ -280,7 +478,10 @@ async def observe(svc, *, screenshot: bool = True) -> dict[str, Any]:
     if screenshot:
         shot, _ = await st.shots.capture()
     st.generation += 1
-    st.clear_outcome_unknown()
+    if not _desktop_busy(st):
+        # Поток прошлого действия ещё жив (брошен по таймауту): экран ещё
+        # меняется, и перечитывание не делает исход известным.
+        st.clear_outcome_unknown()
     elements = list((tree or {}).get("elements") or [])[:MAX_ELEMENTS]
     for i, el in enumerate(elements):
         el["i"] = i
@@ -288,6 +489,7 @@ async def observe(svc, *, screenshot: bool = True) -> dict[str, Any]:
            "window": {k: fg.get(k) for k in ("title", "app", "handle", "pid", "error") if k in fg},
            "elements": elements, "screenshot": shot, "stopped": st.stopped()}
     st.last = obs
+    st.remember(obs)
     await svc.bus.emit("computer.observe", generation=st.generation,
                        window=str(fg.get("title") or "")[:200], elements=len(elements),
                        screenshot=shot)
@@ -358,13 +560,19 @@ def verify(obs: dict, expect: Any, *, started_at: float | None = None) -> tuple[
         ok &= hit
         checks += 1
         notes.append(f"«{cleaned['absent_text']}» {'отсутствует' if hit else 'ВСЁ ЕЩЁ на экране'}")
-    if "file_exists" in cleaned or "file_contains" in cleaned:
+    if "file_exists" in cleaned or "file_contains" in cleaned or "file_sha256" in cleaned:
         raw = cleaned.get("file_exists") or ""
         target = Path(raw) if raw else None
-        if "file_contains" in cleaned and target is None:
+        want_sha = cleaned.get("file_sha256")
+        if want_sha is not None and not re.fullmatch(r"[0-9a-fA-F]{64}", want_sha):
             ok = False
             checks += 1
-            notes.append("file_contains требует file_exists с путём к файлу")
+            notes.append("file_sha256: ожидается 64 шестнадцатеричных символа — не проверено")
+            want_sha = None
+        if ("file_contains" in cleaned or "file_sha256" in cleaned) and target is None:
+            ok = False
+            checks += 1
+            notes.append("file_contains/file_sha256 требуют file_exists с путём к файлу")
         elif target is not None:
             checks += 1
             if not target.is_absolute():
@@ -383,16 +591,30 @@ def verify(obs: dict, expect: Any, *, started_at: float | None = None) -> tuple[
                     fresh = started_at is None or mtime >= started_at - 1.0
                     ok &= fresh
                     notes.append(f"файл «{raw}» {'записан после действия' if fresh else 'СТАРЕЕ действия (не сохранён им)'}")
-                    if "file_contains" in cleaned:
+                    wants_body = "file_contains" in cleaned or want_sha is not None
+                    if wants_body and not fresh:
+                        # Содержимое файла, который НЕ писало это действие, не
+                        # читается: иначе `expect` — оракул по любому файлу диска
+                        # (ключи, токены) через безобидный `wait`.
+                        notes.append("содержимое не проверялось: файл записан не этим действием")
+                    elif wants_body:
                         try:
-                            body = target.read_text(encoding="utf-8", errors="replace")
+                            data = target.read_bytes()
                         except OSError as exc:
                             ok = False
                             notes.append(f"файл «{raw}» не читается: {type(exc).__name__}")
                         else:
-                            hit = cleaned["file_contains"] in body
-                            ok &= hit
-                            notes.append(f"в файле {'есть' if hit else 'НЕТ'} «{cleaned['file_contains']}»")
+                            if "file_contains" in cleaned:
+                                body = data.decode("utf-8", errors="replace")
+                                hit = cleaned["file_contains"] in body
+                                ok &= hit
+                                notes.append(f"в файле {'есть' if hit else 'НЕТ'} «{cleaned['file_contains']}»")
+                            if want_sha is not None:
+                                got = hashlib.sha256(data).hexdigest()
+                                hit = got == want_sha.lower()
+                                ok &= hit
+                                notes.append(f"SHA-256 файла {'совпадает' if hit else 'НЕ совпадает'} "
+                                             f"({got[:16]}…)")
     if checks == 0:
         return None, ["ни одна проверка не выполнена — результат не проверен"]
     return bool(ok), notes
@@ -465,8 +687,42 @@ def _expected_exes(app: str) -> set[str]:
         return set()
 
 
+def _is_hosted_calculator_exe(path: str) -> bool:
+    """Windows Calculator's real UWP executable, beneath its package directory."""
+    exe = PureWindowsPath(path)
+    return (exe.name.casefold() == "calculatorapp.exe"
+            and exe.parent.name.casefold().startswith("microsoft.windowscalculator_")
+            and exe.parent.parent.name.casefold() == "windowsapps")
+
+
+def _hosted_calculator_window(handle: int) -> bool:
+    """Verify the app process inside an ApplicationFrameHost window.
+
+    Windows Calculator's top-level UIA PID belongs to the shared frame host,
+    not to CalculatorApp.exe. The newly created window is attributable only
+    when its direct CoreWindow child belongs to the Calculator package.
+    """
+    try:
+        import psutil
+        from pywinauto import Desktop
+
+        window = Desktop(backend="uia").window(handle=handle)
+        if window.class_name() != "ApplicationFrameWindow":
+            return False
+        for child in window.children():
+            if child.class_name() != "Windows.UI.Core.CoreWindow":
+                continue
+            if _is_hosted_calculator_exe(psutil.Process(int(child.process_id())).exe()):
+                return True
+    except Exception:  # noqa: BLE001 — uncertain identity is a refusal
+        return False
+    return False
+
+
 def attribute_new_window(new: list[tuple[int, str, int]], *, launched_pid: int | None,
-                         expected_exes: set[str], process_name=_process_name) -> tuple[int, str] | None:
+                         expected_exes: set[str], process_name=_process_name,
+                         hosted_app: str | None = None,
+                         hosted_window_matcher=_hosted_calculator_window) -> tuple[int, str] | None:
     """Какое из НОВЫХ окон принадлежит запущенному приложению.
 
     Первое попавшееся новое окно — не ответ: за 5 с могло всплыть чужое
@@ -481,6 +737,11 @@ def attribute_new_window(new: list[tuple[int, str, int]], *, launched_pid: int |
     for h, title, pid in new:
         if pid and expected_exes and process_name(pid) in expected_exes:
             return h, title
+    if hosted_app == "calculator":
+        for h, title, pid in new:
+            if (pid and process_name(pid) == "applicationframehost.exe"
+                    and hosted_window_matcher(h)):
+                return h, title
     return None
 
 
@@ -523,6 +784,25 @@ async def _focus(st: "ComputerState", handle: int) -> bool:
     return int(fg.get("handle") or 0) == int(handle)
 
 
+async def _window_allowed(st: "ComputerState", handle: Any) -> tuple[bool, str]:
+    probe = getattr(st.desktop, "window_process_allowed", None)
+    if probe is None:            # бэкенд не умеет назвать процесс окна — не угадываем
+        return False, "бэкенд не подтверждает приложение окна"
+    try:
+        allowed, who = await asyncio.to_thread(probe, handle)
+    except Exception as exc:  # noqa: BLE001
+        return False, f"проверка окна упала: {type(exc).__name__}"
+    return bool(allowed), str(who)
+
+
+async def _require_allowlisted_window(st: "ComputerState", obs: dict | None) -> None:
+    window = (obs or {}).get("window") or {}
+    allowed, who = await _window_allowed(st, window.get("handle"))
+    if not allowed:
+        raise ActRefused(f"окно «{window.get('title') or '?'}» (процесс {who}) вне allowlist Computer Use "
+                         f"(Блокнот, Калькулятор) — ввод не отправлен")
+
+
 def _stop_check(st: ComputerState, phase: str, epoch: int | None = None) -> None:
     if st.stopped():
         raise ActRefused(f"владелец нажал «Стоп» ({phase}): действия на рабочем столе "
@@ -531,6 +811,183 @@ def _stop_check(st: ComputerState, phase: str, epoch: int | None = None) -> None
         raise ActRefused(f"владелец нажимал «Стоп», пока действие ждало очереди или шло ({phase}) — "
                          f"действие отменено; вызовите computer.observe и решите заново "
                          f"по свежему экрану")
+
+
+def _window_pid(handle: int) -> int:
+    import ctypes
+    from ctypes import wintypes
+    pid = wintypes.DWORD(0)
+    ctypes.windll.user32.GetWindowThreadProcessId(wintypes.HWND(int(handle)), ctypes.byref(pid))
+    return int(pid.value)
+
+
+def _allowed_process_names() -> set[str]:
+    from bossman.computer_operator.applist import APP_ALLOWLIST
+    return {str(n).lower() for spec in APP_ALLOWLIST.values() for n in spec.get("windows", ())}
+
+
+def window_allowlisted(handle: Any, *, pid_of=None, name_of=None,
+                       hosted_matcher=None) -> tuple[bool, str]:
+    """(можно ли слать ввод в это окно, имя процесса). Любое сомнение — отказ.
+
+    Окно принадлежит процессу из allowlist приложений (Блокнот; его диалоги
+    «Сохранить как» — тот же процесс) либо это окно ApplicationFrameHost, в
+    котором проверенно живёт пакет Калькулятора. Оболочки (cmd, PowerShell,
+    Terminal), браузер, мессенджеры и сам Bossman сюда не попадают.
+    """
+    try:
+        h = int(handle or 0)
+    except (TypeError, ValueError):
+        h = 0
+    if not h:
+        return False, "окно не определено"
+    try:
+        pid = (pid_of or _window_pid)(h)
+    except Exception:  # noqa: BLE001
+        return False, "процесс окна не определён"
+    name = str((name_of or _process_name)(pid) or "").lower() if pid else ""
+    if name and name in _allowed_process_names():
+        return True, name
+    if name == HOSTED_FRAME_PROCESS and (hosted_matcher or _hosted_calculator_window)(h):
+        return True, "calculator"
+    return False, name or "процесс не определён"
+
+
+def uia_focused_is_password() -> bool | None:
+    """Поле с клавиатурным фокусом — секретное? None — не удалось узнать."""
+    try:
+        from pywinauto.uia_defines import IUIA
+        element = IUIA().iuia.GetFocusedElement()
+        return bool(element.CurrentIsPassword)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _hotkey_keys(keys: Any) -> set[str]:
+    if isinstance(keys, str):
+        keys = re.split(r"[+\s,]+", keys)
+    if not isinstance(keys, (list, tuple)):
+        return set()
+    return {str(k).strip().lower() for k in keys if str(k).strip()}
+
+
+def hotkey_refusal(keys: Any) -> str | None:
+    ks = _hotkey_keys(keys)
+    if ks & REFUSED_HOTKEY_KEYS or any(combo <= ks for combo in REFUSED_HOTKEY_COMBOS):
+        return (f"комбинация {'+'.join(sorted(ks))} открывает оболочку Windows (Win/Пуск/Выполнить/"
+                f"диспетчер задач) — Computer Use её не нажимает")
+    return None
+
+
+def credential_target(name: str | None) -> bool:
+    n = str(name or "").lower()
+    return bool(n) and any(tok in n for tok in CREDENTIAL_TARGET_TOKENS)
+
+
+def type_budget_refusal(args: dict) -> str | None:
+    """Текст, который нельзя набрать за отведённое действию время, — отказ до
+    эффекта: иначе таймаут бросает поток ввода печатать дальше без присмотра."""
+    raw = args.get("interval", TYPE_INTERVAL_DEFAULT_S)
+    try:
+        interval = float(raw)
+    except (TypeError, ValueError):
+        return "interval: число секунд между клавишами"
+    if interval != interval:                            # NaN
+        return "interval: число секунд между клавишами"
+    interval = min(TYPE_INTERVAL_MAX_S, max(0.0, interval))
+    n = len(str(args.get("text") or ""))
+    budget = TYPE_BUDGET_S
+    if n * (interval + TYPE_OVERHEAD_S) > budget:
+        most = int(budget / (interval + TYPE_OVERHEAD_S))
+        return (f"текст из {n} символов не набирается за {budget:.0f} с при интервале {interval:.2f} с — "
+                f"разбейте его на части не длиннее {most} символов")
+    return None
+
+
+def hard_refusal(args: dict) -> str | None:
+    """Отказ, который не снимает никакое одобрение (виден уже по аргументам)."""
+    from bossman.computer_operator.applist import canonical_app
+    from bossman.computer_operator.policy import ComputerPolicy
+    args = dict(args or {})
+    kind = str(args.get("action") or "").strip().lower()
+    target = str(args.get("target") or "").strip()
+    if kind == "launch" and canonical_app(target) is None:
+        return f"«{target[:80]}» вне allowlist запуска (только notepad/calculator)"
+    if kind == "hotkey":
+        refusal = hotkey_refusal(args.get("keys"))
+        if refusal:
+            return refusal
+    for claim in (ComputerPolicy.declared_consequence(args),
+                  ComputerPolicy.declared_consequence({"semantic": target}) if target else None):
+        if claim in HARD_REFUSED_CONSEQUENCES:
+            return (f"последствие «{claim}»: платежи и учётные данные Computer Use не выполняет "
+                    f"ни с одобрением, ни без")
+    if kind == "type" and credential_target(target):
+        return f"ввод в поле «{target[:80]}» — это учётные данные; Computer Use их не вводит"
+    return None
+
+
+def _approval_ttl_s() -> float:
+    raw = os.environ.get(APPROVAL_TTL_ENV, "").strip()
+    try:
+        value = float(raw) if raw else APPROVAL_TTL_S
+    except ValueError:
+        value = APPROVAL_TTL_S
+    if value != value:                                  # NaN
+        value = APPROVAL_TTL_S
+    return max(MIN_APPROVAL_TTL_S, min(APPROVAL_TTL_S, value))
+
+
+async def claim_approval(svc, approval_id: Any, task: dict | None = None) -> dict:
+    """Одноразовое одобрение владельца для ЭТОГО эффекта, иначе ActRefused.
+
+    Действительно только: строка approvals существует, её вид — вопрос движка
+    о вызове инструмента, движок уже принял её к исполнению (consumed — CAS
+    approved→consumed в `_authorization_at_effect_time`), она относится к этой
+    задаче, моложе APPROVAL_TTL_S и НЕ была использована раньше (журнал в
+    data_dir/computer, пишется до эффекта).
+    """
+    if approval_id is None or isinstance(approval_id, bool):
+        raise ActRefused("каждое действие на рабочем столе требует отдельного одобрения владельца; "
+                         "право агента, правило политики или аренда (lease) его не заменяют")
+    try:
+        aid = int(approval_id)
+    except (TypeError, ValueError):
+        raise ActRefused("ссылка на одобрение некорректна") from None
+    import sqlalchemy as sa
+    from ..db import approvals as approvals_t, utcnow
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(approvals_t).where(approvals_t.c.id == aid))).first()
+    row = dict(row._mapping) if row is not None else None
+    if row is None:
+        raise ActRefused(f"одобрение #{aid} не найдено — действие не выполнено")
+    if row.get("kind") not in APPROVAL_ROW_KINDS:
+        raise ActRefused(f"одобрение #{aid} другого вида ({row.get('kind')}) — не относится к этому вызову")
+    if row.get("status") != "consumed":
+        raise ActRefused(f"одобрение #{aid} не принято движком к исполнению "
+                         f"(статус {row.get('status')}) — действие не выполнено")
+    task_id = (task or {}).get("id")
+    if row.get("task_id") is not None and task_id is not None and int(row["task_id"]) != int(task_id):
+        raise ActRefused(f"одобрение #{aid} выдано другой задаче — не переносится")
+    created = row.get("created_at")
+    if created is None:
+        raise ActRefused(f"у одобрения #{aid} нет времени создания — срок не проверить")
+    if getattr(created, "tzinfo", None) is not None:
+        created = created.replace(tzinfo=None) - (created.utcoffset() or timedelta(0))
+    age = (utcnow() - created).total_seconds()
+    ttl = _approval_ttl_s()
+    if age > ttl:
+        raise ActRefused(f"одобрение #{aid} истекло: {age:.0f} с с момента вопроса при сроке "
+                         f"{ttl:.0f} с — нужен новый вопрос владельцу по свежему экрану")
+    st = _owner_state(svc)
+    if aid in st.used_approvals:
+        raise ActRefused(f"одобрение #{aid} уже использовано — повтор действия по нему запрещён")
+    if created < st.approval_floor():
+        raise ActRefused(f"одобрение #{aid} выдано до «Продолжить» или до перезапуска backend — оно "
+                         f"недействительно; нужен новый computer.observe и новый вопрос владельцу")
+    if not st.spend_approval(aid):
+        raise ActRefused(f"одобрение #{aid} уже использовано — повтор действия по нему запрещён")
+    return row
 
 
 def _policy_observation(core, obs: dict, generation: int):
@@ -543,6 +1000,7 @@ async def _bounded(st: ComputerState, coro, what: str):
     try:
         return await asyncio.wait_for(coro, timeout=ACT_TIMEOUT_S)
     except asyncio.TimeoutError:
+        _abort_inflight(st)
         st.mark_outcome_unknown(f"{what} не ответил за {ACT_TIMEOUT_S:.0f} с — исход неизвестен")
         raise ActRefused(f"{st.outcome_unknown}; перечитайте экран (computer.observe) "
                          f"прежде чем действовать дальше")
@@ -565,30 +1023,64 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
     kind = str(args.get("action") or "").strip().lower()
     if kind not in KINDS:
         raise ActRefused(f"action: одно из {', '.join(KINDS)}")
+    if kind == "hotkey":
+        refusal = hotkey_refusal(args.get("keys"))
+        if refusal:
+            raise ActRefused(refusal)
+    if kind == "type":
+        refusal = type_budget_refusal(args)
+        if refusal:
+            raise ActRefused(refusal)
     # R6: эпоха стопа фиксируется при входе; любой «Стоп» (и «Продолжить») после
     # этого момента отменяет оставшиеся шаги действия.
     epoch = st.stop_epoch
     _stop_check(st, "до очереди", epoch)
     target = str(args.get("target") or "").strip()
     started_at = time.time()
-    async with st.lock:                            # один рабочий стол — одно действие за раз
+    async with _EffectLock(st):                    # один рабочий стол — одно действие за раз
         # «Стоп» мог прийти, пока действие ждало замок: очередь из двух действий,
         # STOP между ними — второе не исполняется.
         _stop_check(st, "после ожидания очереди", epoch)
+        if _desktop_busy(st):
+            raise ActRefused("прошлое действие ещё выполняется в фоне (брошено по таймауту) — "
+                             "подождите и вызовите computer.observe")
         if st.outcome_unknown:
             raise ActRefused(f"исход прошлого действия неизвестен ({st.outcome_unknown}) — "
                              f"сначала computer.observe")
         if kind not in ("launch", "wait"):
             gen = args.get("generation")
-            if (not st.last or not isinstance(gen, int) or isinstance(gen, bool)
-                    or gen != st.generation):
-                raise ActRefused(
-                    f"наблюдение устарело (generation={gen!r}, текущее {st.generation}): "
-                    f"вызовите computer.observe и действуйте по свежему экрану")
-            age = time.time() - float(st.last.get("observed_at") or 0)
-            if age > MAX_OBS_AGE_S:
-                raise ActRefused(f"наблюдение старше {MAX_OBS_AGE_S:.0f} с ({age:.0f} с) — "
-                                 f"перечитайте экран (computer.observe)")
+            valid_gen = isinstance(gen, int) and not isinstance(gen, bool)
+            if approval_ref is not None:
+                # Одобренное действие: владелец отвечал не мгновенно, и за это время
+                # экран могли перечитать (кнопка «Разрешить» в Пульте сама делает
+                # свежее наблюдение). Поэтому не «generation == текущему», а:
+                # наблюдение, по которому спрашивали, ещё действительно (не было
+                # «Продолжить»/перезапуска/неизвестного исхода), окно — ТО ЖЕ на
+                # свежем экране, а цель ищется заново по свежему экрану ниже.
+                # Срок одобрения проверен в claim_approval.
+                seen = st.history.get(gen) if valid_gen else None
+                if seen is None:
+                    raise ActRefused(
+                        f"наблюдение generation={gen!r}, по которому одобрено действие, больше "
+                        f"недействительно (перезапуск, «Стоп»/«Продолжить» или неизвестный исход) — "
+                        f"одобрение не применено; нужен новый computer.observe и новый вопрос владельцу")
+                _stop_check(st, "перечитывание экрана после одобрения", epoch)
+                fresh = await _bounded(st, observe(svc, screenshot=False), "наблюдение")
+                was = seen.get("window") or {}
+                now = fresh.get("window") or {}
+                if not was.get("handle") or int(now.get("handle") or 0) != int(was.get("handle") or 0):
+                    raise ActRefused(
+                        f"окно сменилось с момента вопроса владельцу: одобрено для «{was.get('title')}», "
+                        f"сейчас впереди «{now.get('title')}» — одобрение не применено")
+            else:
+                if not st.last or not valid_gen or gen != st.generation:
+                    raise ActRefused(
+                        f"наблюдение устарело (generation={gen!r}, текущее {st.generation}): "
+                        f"вызовите computer.observe и действуйте по свежему экрану")
+                age = time.time() - float(st.last.get("observed_at") or 0)
+                if age > MAX_OBS_AGE_S:
+                    raise ActRefused(f"наблюдение старше {MAX_OBS_AGE_S:.0f} с ({age:.0f} с) — "
+                                     f"перечитайте экран (computer.observe)")
         before = st.last
         if kind in INPUT_KINDS:
             _stop_check(st, "проверка окна", epoch)
@@ -639,6 +1131,18 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
         if not decision.allow:
             raise ActRefused(f"политика запретила действие: {decision.reason}")
         required = (decision.approval_kind or "").removeprefix("computer_") if decision.requires_approval else None
+        if required in HARD_REFUSED_CONSEQUENCES:
+            raise ActRefused(f"последствие «{required}» ({decision.reason}): платежи и учётные данные "
+                             f"Computer Use не выполняет ни с одобрением, ни без")
+        if kind in INPUT_KINDS:
+            # CU-ALLOWLIST: окно из наблюдения (оно же сейчас впереди — проверено
+            # выше) обязано принадлежать разрешённому приложению.
+            await _require_allowlisted_window(st, before)
+        if kind == "type":
+            if credential_target(target):
+                raise ActRefused(f"ввод в поле «{target}» — это учётные данные; Computer Use их не вводит")
+            if target and any(e.get("is_password") for e in _find(before, target, index)):
+                raise ActRefused(f"поле «{target}» секретное (пароль) — Computer Use учётные данные не вводит")
         if required and approved_kind != required:
             if approved_kind:
                 raise ActRefused(
@@ -678,6 +1182,10 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
             # модель обязана назвать target сама.
             editable = [e for e in (before or {}).get("elements") or []
                         if e.get("control_type") in ("Document", "Edit") and e.get("name")]
+            if kind == "type" and len(editable) == 1 and (editable[0].get("is_password")
+                                                          or credential_target(editable[0].get("name"))):
+                raise ActRefused(f"единственное поле окна «{editable[0].get('name')}» секретное — "
+                                 f"Computer Use учётные данные не вводит")
             if len(editable) == 1:
                 _stop_check(st, "фокус поля", epoch)
                 await _bounded(st, st.desktop.execute(
@@ -706,6 +1214,14 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                     int((before.get("window") or {}).get("handle") or 0):
                 raise ActRefused("окно сменилось после одобрения — одобрение не применено")
             before = fresh
+        if kind == "type":
+            # Истина о поле — у ОС в момент ввода, а не у подписи в наблюдении:
+            # фокус на поле пароля (или невозможность это проверить) — отказ.
+            probe = getattr(st.desktop, "focused_is_password", None)
+            secret = await asyncio.to_thread(probe) if probe is not None else None
+            if secret is not False:
+                raise ActRefused("поле с фокусом секретное (пароль) или его тип не удалось проверить — "
+                                 "ничего не введено")
         # Последняя проверка «Стоп» — непосредственно перед эффектом.
         _stop_check(st, "перед эффектом", epoch)
         if kind == "type" and args.get("replace"):
@@ -713,7 +1229,13 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                 AK.HOTKEY, args={"keys": ["ctrl", "a"]}), None), "выделение")
         t0 = time.perf_counter()
         if kind == "wait":
-            await asyncio.sleep(min(10.0, max(0.0, float(args.get("seconds") or 1))))
+            deadline = time.monotonic() + min(10.0, max(0.0, float(args.get("seconds") or 1)))
+            while True:
+                _stop_check(st, "ожидание", epoch)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                await asyncio.sleep(min(0.1, remaining))
         elif kind == "launch":
             from bossman.computer_operator.applist import canonical_app
             app = canonical_app(target)
@@ -729,7 +1251,8 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                 await asyncio.sleep(0.25)
                 seen_new = [w for w in await asyncio.to_thread(_top_windows) if w[0] not in known]
                 chosen = attribute_new_window(seen_new, launched_pid=st.launched_pid,
-                                              expected_exes=_expected_exes(app or ""))
+                                              expected_exes=_expected_exes(app or ""),
+                                              hosted_app=app)
                 if chosen:
                     break
             if not chosen:
@@ -744,16 +1267,27 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
         elif kind == "focus_window":
             if not target:
                 raise ActRefused("focus_window: нужен target — часть заголовка окна")
-            wins = [(h, t) for h, t, _ in await asyncio.to_thread(_top_windows)
-                    if target.lower() in t.lower()]
+            matching = [(h, t) for h, t, _ in await asyncio.to_thread(_top_windows)
+                        if target.lower() in t.lower()]
+            wins, foreign = [], []
+            for h, t in matching:
+                allowed, who = await _window_allowed(st, h)
+                (wins if allowed else foreign).append((h, t) if allowed else f"«{t[:60]}» ({who})")
             if len(wins) != 1:
-                raise ActRefused(f"окон с «{target}» в заголовке: {len(wins)} — "
-                                 + ("уточните заголовок" if wins else "такого окна нет"))
+                raise ActRefused(f"разрешённых окон с «{target}» в заголовке: {len(wins)} — "
+                                 + ("уточните заголовок" if wins else "такого окна нет")
+                                 + (f"; вне allowlist Computer Use и не трогаются: {', '.join(foreign[:4])}"
+                                    if foreign else ""))
             _stop_check(st, "фокус окна", epoch)
             if not await _focus(st, wins[0][0]):
                 raise ActRefused(f"не удалось вывести «{wins[0][1]}» на передний план")
         else:
             _stop_check(st, "действие", epoch)
+            if kind == "type":
+                # Адаптер сверяет окно переднего плана перед КАЖДОЙ порцией ввода.
+                want = int((before.get("window") or {}).get("handle") or 0)
+                if want:
+                    a.args["foreground_handle"] = want
             await _bounded(st, st.desktop.execute(a, None), "действие")
         await asyncio.sleep(SETTLE_S)
         after = await _bounded(st, observe(svc), "наблюдение")
@@ -805,7 +1339,24 @@ def approved_consequence(args: dict, ctx) -> tuple[str | None, int | None]:
 
 async def _t_act(args, ctx):
     args = {k: v for k, v in dict(args or {}).items() if k not in RESERVED_ARGS}
+    kind = str(args.get("action") or "").strip().lower()
+    try:
+        refusal = hard_refusal(args)
+        if refusal:
+            raise ActRefused(refusal)
+        if kind not in MUTATION_FREE_KINDS:
+            # CU-ONESHOT: одно одобрение владельца — один эффект. Проверяется
+            # здесь, на входе в обработчик, для ЛЮБОГО пути сюда (AUTO по праву
+            # агента, правило политики, аренда, прямой вызов).
+            await claim_approval(ctx.svc, getattr(ctx, "approval_id", None), getattr(ctx, "task", None))
+    except ActRefused as exc:
+        await ctx.svc.bus.emit("computer.refused", action=kind[:40], reason=str(exc)[:300],
+                               approval_id=getattr(ctx, "approval_id", None))
+        return ToolResult(content=f"действие не выполнено: {exc}", one_line="computer.act: отказ",
+                          error=True)
     approved_kind, approval_ref = approved_consequence(args, ctx)
+    if kind in MUTATION_FREE_KINDS:
+        approval_ref = None            # `wait` ничего не меняет: одобрение не привязывает экран
     try:
         res = await act(ctx.svc, args, approved_kind=approved_kind, approval_ref=approval_ref)
     except ActRefused as exc:
@@ -826,11 +1377,20 @@ async def _t_act(args, ctx):
 
 def _act_effect(args: dict):
     from bossman.computer_operator.policy import ComputerPolicy
+    # Пол политики (hook_is_floor): ни право агента, ни правило владельца не
+    # опускают его до AUTO. DENY — то, что не исполняется ни с каким одобрением.
+    refusal = hard_refusal(args or {})
+    if refusal:
+        return ("deny", refusal)
     # semantic ЛИБО подпись цели/текста: «click» на «Delete account» тоже ASK.
     declared = ComputerPolicy.ask_consequence(args or {})
     if declared:
         return ("ask", f"последствийное действие на рабочем столе: {declared}")
-    return None
+    kind = str((args or {}).get("action") or "").strip().lower()
+    if kind in MUTATION_FREE_KINDS:
+        return None
+    # CU-ONESHOT: любое изменение на рабочем столе владельца — отдельный вопрос.
+    return ("ask", "действие на рабочем столе владельца: одно одобрение — одно действие")
 
 
 SPECS = [
@@ -847,11 +1407,12 @@ SPECS = [
                          "Цель — имя элемента (target); при двух одинаковых именах укажите index "
                          "из наблюдения. Координаты x,y только с coordinate_fallback=true и target. "
                          "expect: {window_title_contains, contains_text, absent_text, file_exists "
-                         "(абсолютный путь), file_contains} проверяется по новому экрану/диску; "
-                         "неизвестные поля делают результат НЕ подтверждённым. launch: только "
-                         "notepad/calculator. Последствийное (удалить/оплатить/отправить) — "
-                         "semantic=<вид>, пойдёт через подтверждение владельца; само слово "
-                         "semantic разрешением не является.",
+                         "(абсолютный путь), file_contains, file_sha256} проверяется по новому "
+                         "экрану/диску; неизвестные поля делают результат НЕ подтверждённым. "
+                         "launch: только notepad/calculator; ввод — только в их окна. Каждое "
+                         "действие, кроме wait, — отдельное одобрение владельца. Последствийное "
+                         "(удалить/отправить) — semantic=<вид>; платежи и учётные данные не "
+                         "выполняются вовсе; само слово semantic разрешением не является.",
              handler=_t_act,
              input_schema={"action": {"type": "string", "enum": list(KINDS)},
                            "generation": {"type": "integer"},

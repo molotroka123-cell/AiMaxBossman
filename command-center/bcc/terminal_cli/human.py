@@ -254,6 +254,7 @@ class ViewState:
     run_id: int | None = None
     model: str | None = None
     verdict: str | None = None
+    last_verdict_shown: tuple | None = None
     pending_approval: int | None = None
 
 
@@ -507,9 +508,21 @@ class View:
         self.state.usage = rec
 
     def _r_evaluation(self, rec: dict) -> None:
+        # The engine emits one record per gate hook; for an ordinary answer most say
+        # NOT_APPLICABLE. Printing each (with the warning glyph) buried every reply under
+        # identical lines (RC 1.9 soak). The machine stream keeps them all; here a
+        # meaningful verdict is shown once, NOT_APPLICABLE only with --verbose, and the
+        # closing line reports the last meaningful verdict.
         g = glyphs()
         verdict = sanitize(rec.get("verdict"))
-        self.state.verdict = verdict
+        if verdict != "NOT_APPLICABLE" or self.state.verdict in (None, "NOT_APPLICABLE"):
+            self.state.verdict = verdict
+        if verdict == "NOT_APPLICABLE" and not self.verbose:
+            return
+        key = (verdict, sanitize(rec.get("reasons") or ""), rec.get("run_id"))
+        if key == self.state.last_verdict_shown:
+            return
+        self.state.last_verdict_shown = key
         ok = verdict == "PASS"
         t = Text(f"{g.ok if ok else g.approval} проверка: {verdict}", style="tool.ok" if ok else "value.warn")
         if rec.get("reasons"):

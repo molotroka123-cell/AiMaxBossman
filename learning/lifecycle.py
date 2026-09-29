@@ -457,13 +457,16 @@ def _effect_id(effect: dict) -> str:
 def _atomic_write_json(dest: Path, payload: dict) -> None:
     """Write completely or not at all. A truncated checkpoint would send a resumed task
     down a path that never existed, which is worse than having no checkpoint."""
-    tmp = dest.with_name(dest.name + f".tmp-{os.getpid()}")
+    from .trace import replace_with_retry
+    import threading
+    # pid AND thread: two threads checkpointing the same task shared one temp name.
+    tmp = dest.with_name(dest.name + f".tmp-{os.getpid()}-{threading.get_ident()}")
     try:
         with open(tmp, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, ensure_ascii=False, indent=1)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(tmp, dest)
+        replace_with_retry(tmp, dest)       # a concurrent load_checkpoint must not fail the write
     finally:
         if tmp.exists():
             try:

@@ -55,6 +55,38 @@ class VaultError(RuntimeError):
     """Общая ошибка хранилища секретов."""
 
 
+def _secure_owner_path(path: Path, *, directory: bool) -> None:
+    """Close and verify the real NTFS ACL before a secret reaches this path."""
+    if os.name != "nt":
+        return
+    from social_farm.browser.isolation import (  # noqa: PLC0415
+        _owner_principal, _parse_icacls, _run_icacls, _windows_acl_problems,
+    )
+    owner = _owner_principal()
+    if not owner:
+        raise VaultError("cannot identify the Windows owner for vault ACL")
+    rights = "(OI)(CI)F" if directory else "F"
+    try:
+        code, _ = _run_icacls(["icacls", str(path), "/inheritance:r", "/grant:r",
+                               f"{owner}:{rights}"])
+        if code != 0:
+            raise VaultError("cannot set owner-only vault ACL")
+        code, acl = _run_icacls(["icacls", str(path)])
+        if code != 0:
+            raise VaultError("cannot inspect vault ACL")
+        owner_names = {owner.casefold(), owner.rsplit("\\", 1)[-1].casefold()}
+        for principal, ace_rights in _parse_icacls(acl, str(path)):
+            if principal.casefold() in owner_names or "(DENY)" in ace_rights.upper():
+                continue
+            removed, _ = _run_icacls(["icacls", str(path), "/remove:g", principal])
+            if removed != 0:
+                raise VaultError("cannot remove non-owner vault ACL entry")
+    except (OSError, TimeoutError) as exc:
+        raise VaultError(f"cannot secure vault ACL: {type(exc).__name__}") from exc
+    if _windows_acl_problems(path):
+        raise VaultError("vault ACL is not restricted to the Windows owner")
+
+
 class SecretNotFound(VaultError):
     """Ссылки нет. Это не «пустой токен», это отсутствующая запись."""
 
@@ -267,9 +299,11 @@ def load_master_key(data_dir: Path | str, *, env: dict[str, str] | None = None) 
     directory = Path(data_dir)
     directory.mkdir(parents=True, exist_ok=True)
     os.chmod(directory, stat.S_IRWXU)
+    _secure_owner_path(directory, directory=True)
     key_path = directory / "vault.key"
     if key_path.exists():
         os.chmod(key_path, stat.S_IRUSR | stat.S_IWUSR)
+        _secure_owner_path(key_path, directory=False)
         return _decode_key(key_path.read_text(encoding="ascii").strip())
 
     generated = _secrets.token_bytes(_KEY_BYTES)
@@ -277,6 +311,10 @@ def load_master_key(data_dir: Path | str, *, env: dict[str, str] | None = None) 
     # существовать с правами по умолчанию.
     handle = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL,
                      stat.S_IRUSR | stat.S_IWUSR)
+    if os.name == "nt":
+        os.close(handle)
+        _secure_owner_path(key_path, directory=False)
+        handle = os.open(key_path, os.O_WRONLY | os.O_TRUNC)
     with os.fdopen(handle, "w", encoding="ascii") as stream:
         stream.write(_b64(generated))
     return generated
@@ -313,6 +351,7 @@ class LocalEncryptedVault:
         self._dir = Path(data_dir)
         self._dir.mkdir(parents=True, exist_ok=True)
         os.chmod(self._dir, stat.S_IRWXU)
+        _secure_owner_path(self._dir, directory=True)
         self._path = self._dir / "secrets.json"
         self._master = master_key or load_master_key(self._dir, env=env)
         self._records: dict[str, dict[str, Any]] = self._read()
@@ -321,6 +360,7 @@ class LocalEncryptedVault:
     def _read(self) -> dict[str, dict[str, Any]]:
         if not self._path.exists():
             return {}
+        _secure_owner_path(self._path, directory=False)
         try:
             raw = json.loads(self._path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
@@ -331,12 +371,19 @@ class LocalEncryptedVault:
         payload = json.dumps({"version": _RECORD_VERSION, "records": self._records},
                              ensure_ascii=False, indent=2, sort_keys=True)
         temp = self._path.with_suffix(".tmp")
+        if temp.exists():
+            _secure_owner_path(temp, directory=False)
         handle = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
                          stat.S_IRUSR | stat.S_IWUSR)
+        if os.name == "nt":
+            os.close(handle)
+            _secure_owner_path(temp, directory=False)
+            handle = os.open(temp, os.O_WRONLY | os.O_TRUNC)
         with os.fdopen(handle, "w", encoding="utf-8") as stream:
             stream.write(payload)
         os.replace(temp, self._path)
         os.chmod(self._path, stat.S_IRUSR | stat.S_IWUSR)
+        _secure_owner_path(self._path, directory=False)
 
     # -- операции ---------------------------------------------------------
     @staticmethod

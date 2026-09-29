@@ -57,9 +57,13 @@ import json
 import os
 import re
 import secrets
+import shlex
 import subprocess
+import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +79,8 @@ router = APIRouter()
 RUNTIME_MODULE = "bossman.apprentice.openhands_client"
 WORKTREE_MODULE = "bossman.apprentice.isolated_worktree"
 COMMAND_ENV = "BOSSMAN_OPENHANDS_COMMAND"
+_OLLAMA_TAGS = "http://127.0.0.1:11434/api/tags"
+_LOCAL_CODING_MODELS = ("bossman-fast-qwen36-35b-a3b-q5:latest",)
 TERMINAL = ("completed", "failed", "blocked")
 _ID_RE = re.compile(r"^[a-z0-9]{12}$")
 #: Identifies THIS server process; a running record from another boot is orphaned.
@@ -111,7 +117,44 @@ def _runtime() -> tuple[Any, Any, str]:
     return oc, wt, ""
 
 
-def _handshake(command: str) -> dict:
+def _local_sidecar_command() -> str:
+    """Find a known local coding model without widening the configured route.
+
+    Only loopback Ollama is queried. Model names from its response are never
+    interpolated into a command; the command uses our fixed allowlist instead.
+    An unavailable model leaves the coding path visibly unavailable.
+    """
+    try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(_OLLAMA_TAGS, timeout=1.0) as response:
+            if response.status != 200:
+                return ""
+            raw = response.read(131_073)
+        if len(raw) > 131_072:
+            return ""
+        payload = json.loads(raw)
+        names = {item.get("name") for item in payload.get("models", [])
+                 if isinstance(item, dict) and isinstance(item.get("name"), str)}
+    except (OSError, ValueError, TypeError, AttributeError, urllib.error.URLError):
+        return ""
+    model = next((name for name in _LOCAL_CODING_MODELS if name in names), "")
+    if not model:
+        return ""
+    argv = [sys.executable, "-I", "-m", "bossman.apprentice.local_sidecar",
+            "--endpoint", "http://127.0.0.1:11434/v1", "--model", model]
+    return subprocess.list2cmdline(argv) if os.name == "nt" else shlex.join(argv)
+
+
+def _sidecar_command() -> str:
+    # An explicit value, including an empty disable, always wins. Once found,
+    # pin the local model for this backend process so readiness and tasks agree.
+    if COMMAND_ENV in os.environ:
+        return os.environ[COMMAND_ENV].strip()
+    auto = _local_sidecar_command()
+    return os.environ.setdefault(COMMAND_ENV, auto).strip() if auto else ""
+
+
+def _handshake(command: str, env: dict[str, str] | None = None) -> dict:
     """Blocking: one handshake with the configured sidecar (cached briefly)."""
     now = time.monotonic()
     hit = _handshake_cache.get(command)
@@ -121,7 +164,7 @@ def _handshake(command: str) -> dict:
     if oc is None:
         return {"ok": False, "reason": reason}
     try:
-        resp = oc.OpenHandsClient().handshake(timeout_seconds=HANDSHAKE_TIMEOUT_S)
+        resp = oc.OpenHandsClient(env=env or None).handshake(timeout_seconds=HANDSHAKE_TIMEOUT_S)
         out = {"ok": True, "executor": resp.get("executor"), "model": resp.get("model"),
                "tools": resp.get("tools"), "tool_call_ok": resp.get("tool_call_ok"),
                "test_runners": resp.get("test_runners"), "isolation": resp.get("isolation"),
@@ -134,9 +177,31 @@ def _handshake(command: str) -> dict:
     return out
 
 
+async def _sidecar_env(svc) -> dict[str, str]:
+    """Explicit provider input for the sidecar (never inherited wholesale).
+
+    The OpenHands security contract keeps the Bossman process environment out
+    of the sidecar; only the resolved OpenRouter credential and the configured
+    executor model are forwarded, and the sidecar itself pops the key before
+    the agent's terminal tool starts.
+    """
+    env: dict[str, str] = {}
+    try:
+        from .plugins import resolve_cred
+        key = await resolve_cred("OPENROUTER_API_KEY", svc)
+    except Exception:  # noqa: BLE001 — a credential outage must not crash readiness
+        key = None
+    if key:
+        env["OPENROUTER_API_KEY"] = key
+    model = os.environ.get("BOSSMAN_OPENHANDS_MODEL", "").strip()
+    if model:
+        env["BOSSMAN_OPENHANDS_MODEL"] = model
+    return env
+
+
 async def readiness(svc) -> dict[str, Any]:
     oc, wt, reason = _runtime()
-    command = os.environ.get(COMMAND_ENV, "").strip()
+    command = _sidecar_command() if oc is not None else os.environ.get(COMMAND_ENV, "").strip()
     roots = [str(r) for r in await allowed_roots(svc)]
     out = {"available": False, "runtime": oc is not None, "sidecar_command": bool(command),
            "roots": roots, "reason": "", "handshake": None}
@@ -146,7 +211,8 @@ async def readiness(svc) -> dict[str, Any]:
         out["reason"] = (f"команда сайдкара не настроена: задайте {COMMAND_ENV} "
                          "(путь к OpenHands-сайдкару) и перезапустите Bossman")
     else:
-        hs = await asyncio.to_thread(_handshake, command)
+        env = await _sidecar_env(svc)
+        hs = await asyncio.to_thread(_handshake, command, env)
         out["handshake"] = hs
         if hs.get("ok"):
             out["available"] = True
@@ -230,7 +296,8 @@ async def _confined_repo(svc, raw: str) -> Path:
 
 SIDECAR_FIELDS = ("schema", "status", "summary", "tests", "notes", "steps", "stop_reason", "tool_calls",
                   "recipes_applied", "executor", "model", "deterministic_test_model", "model_kind", "profile",
-                  "memory_used", "skills_used", "endpoint", "elapsed_seconds", "tool_calls_total")
+                  "memory_used", "skills_used", "endpoint", "elapsed_seconds", "tool_calls_total",
+                  "error_type", "stderr_tail")
 
 
 def _verify_in_sandbox(root: Path, tests: list[str], timeout: int) -> dict:
@@ -256,7 +323,8 @@ class _Cancelled(Exception):
     """The owner cancelled the task (STOP)."""
 
 
-def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None) -> dict:
+def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None,
+             env: dict[str, str] | None = None) -> dict:
     """Blocking: runs in a worker thread. Returns the terminal record."""
     oc, wt, reason = _runtime()
     if oc is None:
@@ -273,7 +341,8 @@ def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None
     try:
         if task_id in _CANCELLED:
             raise _Cancelled()
-        client = oc.OpenHandsClient(on_process=lambda tree: _ACTIVE.__setitem__(task_id, tree))
+        client = oc.OpenHandsClient(on_process=lambda tree: _ACTIVE.__setitem__(task_id, tree),
+                                    env=env or None)
         extra = {"context": context} if context else {}
         request = oc.OpenHandsRequest(body.instruction, root, tuple(body.allowed_paths),
                                       tuple(body.protected_paths), model=body.model,
@@ -420,7 +489,8 @@ async def _skills_context(svc, body: TaskIn) -> tuple[list[dict], dict]:
 
 async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None = None) -> None:
     try:
-        final = await asyncio.to_thread(_execute, record, repo, body, context)
+        env = await _sidecar_env(svc)
+        final = await asyncio.to_thread(_execute, record, repo, body, context, env)
     except Exception as exc:  # noqa: BLE001
         final = {**record, "status": "failed", "error": f"{type(exc).__name__}: {exc}"[:800],
                  "finished_at": time.time()}
@@ -580,6 +650,15 @@ def _preflight(rec: dict, repo: Path) -> tuple[bytes, list[str]]:
         raise _Refusal(409, "DIRTY_TARGET", "в проекте есть локальные изменения затрагиваемых файлов",
                        paths=dirty)
     check = _git_b(repo, "apply", "--check", "--whitespace=nowarn", "-", data=patch)
+    if check.returncode and b"\r\n" in patch:
+        # Git for Windows can clone a clean LF checkout as CRLF when the
+        # repository has core.autocrlf=true.  Keep the approved diff/digest
+        # untouched in the record, but try its EOL-equivalent bytes against
+        # the owner's checkout.  The after-state is still checked below.
+        lf_patch = _eol(patch)
+        lf_check = _git_b(repo, "apply", "--check", "--whitespace=nowarn", "-", data=lf_patch)
+        if not lf_check.returncode:
+            patch, check = lf_patch, lf_check
     if check.returncode:
         raise _Refusal(409, "APPLY_CHECK_FAILED", "git apply --check: " + _err(check))
     return patch, paths

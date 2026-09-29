@@ -11,6 +11,7 @@ import sqlalchemy as sa
 from . import db as dbm, model_health
 from .features.action_contract import classify_all
 from .features.action_router import CAPABILITY_BROWSER, classify as browser_classify
+from .provider_governance import refuses_unknown_price
 from .providers import ADAPTERS
 from .tools import REGISTRY, agent_policy_rules, decide_effect
 
@@ -81,6 +82,12 @@ used to rank candidates, never fabricated or probed as a paid side effect here.
         if agent_id is None and (health.status not in {model_health.HEALTHY, model_health.UNMEASURED}
                                  or model.get("status") in {"offline", "error"}):
             reasons.append("У доступных агентов модель не отвечает. Проверьте модель или выберите её явно для повтора.")
+            continue
+        if agent_id is None and refuses_unknown_price(provider, model):
+            # Provider governance refuses this model before any request, on
+            # every attempt: choosing it automatically only queues a failure.
+            reasons.append("У модели агента неизвестна облачная цена (модель удалена из каталога "
+                           "провайдера или каталог не синхронизирован). Выберите другую модель.")
             continue
         if agent_id is None and families and (model.get("caps") or {}).get("tools") is False:
             reasons.append("Модель агента не поддерживает вызов инструментов для этой задачи.")

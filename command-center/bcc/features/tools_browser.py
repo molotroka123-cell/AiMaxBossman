@@ -15,11 +15,14 @@ Resume модель обязана перечитать DOM — старое с�
 """
 from __future__ import annotations
 
+import json
+import threading
+import time
 import uuid
 from pathlib import Path
 
 import sqlalchemy as sa
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from ..db import settings_kv, utcnow
 from ..tools import REGISTRY, ToolResult, ToolSpec
@@ -34,6 +37,8 @@ from . import Feature
 # Модель называет ИМЯ учётки, пароль подставляет рантайм. В аргументах
 # инструмента, в `tool_calls.args` и в контексте модели пароля нет никогда.
 CREDENTIALS_KEY = "browser.credentials"
+LOGIN_RECEIPTS_REL = Path("browser") / "login-receipts.json"
+_LOGIN_RECEIPTS_LOCK = threading.Lock()
 
 # Действия, которые нельзя одобрить в принципе (совпадает с HARD_DENY_ACTIONS
 # рантайма — дублируем осознанно: инструмент не должен зависеть от того,
@@ -316,6 +321,60 @@ async def credentials_map(svc) -> dict:
     return {}
 
 
+
+
+def _login_receipts_path(svc) -> Path:
+    path = Path(svc.settings.data_dir) / LOGIN_RECEIPTS_REL
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _login_receipts_read(svc) -> dict:
+    path = _login_receipts_path(svc)
+    try:
+        body = json.loads(path.read_text(encoding="utf-8"))
+        return body if isinstance(body, dict) else {"receipts": {}}
+    except (OSError, ValueError):
+        return {"receipts": {}}
+
+
+def _login_receipts_write(svc, data: dict) -> None:
+    path = _login_receipts_path(svc)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(path)
+
+
+def _login_receipt_public(row: dict) -> dict:
+    return {k: v for k, v in row.items() if k not in {"screenshot_path"}}
+
+
+def _login_receipt_put(svc, row: dict) -> dict:
+    with _LOGIN_RECEIPTS_LOCK:
+        data = _login_receipts_read(svc)
+        data.setdefault("receipts", {})[row["id"]] = row
+        _login_receipts_write(svc, data)
+    return _login_receipt_public(row)
+
+
+def _login_receipt_update(svc, rid: str, **changes) -> dict | None:
+    with _LOGIN_RECEIPTS_LOCK:
+        data = _login_receipts_read(svc)
+        row = (data.get("receipts") or {}).get(rid)
+        if not isinstance(row, dict):
+            return None
+        row.update(changes)
+        _login_receipts_write(svc, data)
+        return _login_receipt_public(row)
+
+
+def _login_receipts_pending(svc) -> list[dict]:
+    with _LOGIN_RECEIPTS_LOCK:
+        rows = list((_login_receipts_read(svc).get("receipts") or {}).values())
+    out = [_login_receipt_public(dict(r)) for r in rows if isinstance(r, dict)
+           and r.get("phase") in {"PRE_LOGIN", "SUCCESS", "FAILED", "UNVERIFIED_POST_SUBMIT"}]
+    return sorted(out, key=lambda r: float(r.get("created_at") or 0.0))
+
 async def save_credentials(svc, data: dict) -> None:
     import json
     enc = svc.vault.encrypt(json.dumps(data, ensure_ascii=False))
@@ -323,6 +382,40 @@ async def save_credentials(svc, data: dict) -> None:
         await s.execute(sa.delete(settings_kv).where(settings_kv.c.key == CREDENTIALS_KEY))
         await s.execute(sa.insert(settings_kv).values(key=CREDENTIALS_KEY, value_enc=enc))
         await s.commit()
+
+
+async def _require_local_secret_agent(ctx) -> None:
+    """Secret/login page reasoning must use only a local model route.
+
+    The secret itself is never model-visible, but the login page can contain
+    account metadata. Main and fallback models must both resolve to local
+    providers; otherwise the secret flow is refused before page reasoning.
+    """
+    task = ctx.task if isinstance(ctx.task, dict) else {}
+    agent_id = task.get("agent_id")
+    if type(agent_id) is not int:
+        raise PermissionError("secret/login flow requires an explicitly bound local agent")
+    from ..db import agents as agents_t, models as models_t, providers as providers_t
+    from ..v2.model_router import derive_local
+    async with ctx.svc.db.session() as s:
+        agent = (await s.execute(sa.select(agents_t.c.model_id, agents_t.c.fallback_model_id)
+                                 .where(agents_t.c.id == agent_id))).first()
+        if agent is None:
+            raise PermissionError("secret/login agent no longer exists")
+        mids = [agent._mapping.get("model_id"), agent._mapping.get("fallback_model_id")]
+        for mid in [m for m in mids if type(m) is int]:
+            row = (await s.execute(
+                sa.select(models_t.c.kind, providers_t.c.kind.label("provider_kind"),
+                          providers_t.c.base_url)
+                .select_from(models_t.join(providers_t, models_t.c.provider_id == providers_t.c.id))
+                .where(models_t.c.id == mid))).first()
+            if row is None:
+                raise PermissionError("secret/login model route is unresolved")
+            m = row._mapping
+            local, _why = derive_local(str(m["kind"] or ""), str(m["provider_kind"] or ""),
+                                       str(m["base_url"] or ""))
+            if not local:
+                raise PermissionError("secret/login flow refuses cloud or non-local model routes")
 
 
 def public_credential(cid: str, cred: dict) -> dict:
@@ -334,6 +427,7 @@ def public_credential(cid: str, cred: dict) -> dict:
 
 
 async def _login(args, ctx):
+    await _require_local_secret_agent(ctx)
     """Вход по ССЫЛКЕ на учётку. Пароль модель не видит и не передаёт.
 
     Раньше `password` был обычным строковым аргументом инструмента: модель
@@ -360,6 +454,18 @@ async def _login(args, ctx):
 
     secret = str(cred.get("password") or "")
     login_value = str(cred.get("login") or "")
+    next_fields = [str(x)[:120] for x in (args.get("next_fields") or [])
+                   if isinstance(x, (str, int, float))][:16]
+    receipt_id = uuid.uuid4().hex[:12]
+    receipt = {
+        "id": receipt_id, "phase": "PRE_LOGIN", "created_at": time.time(),
+        "task_id": ctx.task.get("id"), "credential_id": cid, "login": login_value[:320],
+        "domain": str(cred.get("domain") or "")[:240], "next_fields": next_fields,
+        "session_id": None, "verified_by": None, "post_login_url": None,
+        "screenshot_path": None,
+    }
+    _login_receipt_put(ctx.svc, receipt)
+    observed: dict = {}
 
     async def run(m, sid):
         # Проверка домена: учётка, привязанная к домену, не подставляется на
@@ -376,13 +482,33 @@ async def _login(args, ctx):
         await m.fill_secret(sid, str(args.get("password_selector") or ""), secret=secret,
                             ref=str(args.get("password_ref") or ""),
                             actor="agent", approved=True)
+        receipt["session_id"] = sid
         if args.get("submit_selector") or args.get("submit_ref"):
-            return await m.click(sid, str(args.get("submit_selector") or ""),
-                                 ref=str(args.get("submit_ref") or ""),
-                                 actor="agent", approved=True)
+            before = await m.status(sid)
+            pre_url = str(before.get("url") or "")
+            clicked = await m.click(sid, str(args.get("submit_selector") or ""),
+                                    ref=str(args.get("submit_ref") or ""),
+                                    actor="agent", approved=True)
+            expected = str(args.get("success_url_contains") or "").strip()
+            status = await m.status(sid)
+            post_url = str(status.get("url") or "")
+            observed["pre_url"] = pre_url
+            observed["post_url"] = post_url
+            # A model-supplied "/" or the unchanged login URL is not proof.
+            # Controlled owner tests can provide a concrete dashboard/account fragment.
+            verified = (len(expected) >= 4 and expected in post_url and
+                        bool(pre_url) and bool(post_url) and pre_url != post_url)
+            observed["verified"] = verified
+            if verified:
+                observed["png"] = await m.screenshot(sid, actor="agent", approved=True)
+            return clicked
         return await m.snapshot(sid, actor="agent", approved=True)
 
-    result = await _act(ctx, args, "login", run)
+    try:
+        result = await _act(ctx, args, "login", run)
+    except Exception:
+        _login_receipt_update(ctx.svc, receipt_id, phase="FAILED", finished_at=time.time())
+        raise
     # Последняя страховка: что бы ни попало в результат, секрета там не будет.
     # `data` чистим наравне с текстом: туда кладётся `url`, а форма входа с
     # `method=GET` уносит пароль именно в адрес.
@@ -390,7 +516,162 @@ async def _login(args, ctx):
         result.content = redact_secrets(result.content, {secret})
         result.one_line = redact_secrets(result.one_line, {secret})
         result.data = redact_secrets(result.data, {secret})
+    if args.get("submit_selector") or args.get("submit_ref"):
+        if observed.get("verified"):
+            shots = Path(ctx.svc.settings.data_dir) / "browser" / "login-receipts"
+            shots.mkdir(parents=True, exist_ok=True)
+            shot = shots / f"{receipt_id}.png"
+            shot.write_bytes(observed["png"])
+            _login_receipt_update(
+                ctx.svc, receipt_id, phase="SUCCESS", finished_at=time.time(),
+                verified_by="success_url_contains", post_login_url=observed.get("post_url"),
+                screenshot_path=str(shot))
+            if isinstance(result.data, dict):
+                result.data["login_receipt_id"] = receipt_id
+                result.data["login_verified"] = True
+        else:
+            _login_receipt_update(
+                ctx.svc, receipt_id, phase="UNVERIFIED_POST_SUBMIT",
+                finished_at=time.time(), post_login_url=observed.get("post_url"))
     return result
+
+
+async def _request_owner_fields(args, ctx):
+    await _require_local_secret_agent(ctx)
+    """Ask the owner for missing form values without exposing the answer to the model."""
+    store = getattr(ctx.svc, "owner_input", None)
+    if store is None:
+        return ToolResult(content="owner-input store is unavailable",
+                          one_line="browser.owner_input: unavailable", error=True)
+    try:
+        sid = await _session_for(ctx, args)
+        current = await _mgr(ctx.svc).jev_current(sid, actor="agent", approved=True)
+        refs = set(current.get("refs") or [])
+        fields = args.get("fields")
+        if not isinstance(fields, list):
+            raise ValueError("fields must be a list")
+        for field in fields:
+            if not isinstance(field, dict):
+                raise ValueError("every field must be an object")
+            ref = str(field.get("ref") or "")
+            selector = str(field.get("selector") or "")
+            if ref and ref not in refs:
+                raise ValueError(f"stale/unknown ref: {ref}")
+            if not ref and not selector:
+                raise ValueError("field needs ref or selector")
+        row = store.create(
+            task_id=ctx.task.get("id"), session_id=sid, fields=fields,
+            context=str(args.get("context") or "missing form data"), source="browser",
+            initial_url=str(current.get("url") or ""), success=args.get("success"))
+        await ctx.svc.bus.emit("owner.input_requested", request_id=row["id"],
+                               task_id=ctx.task.get("id"), session_id=sid,
+                               fields=[f["key"] for f in row["fields"]])
+        return ToolResult(
+            content=(f"нужны данные владельца: request_id={row['id']}. "
+                     f"Значения придут через owner-input/Telegram и модели не показываются. "
+                     f"После ответа вызовите browser.fill_owner_fields с этим request_id."),
+            one_line=f"owner input {row['id']}: ожидает владельца",
+            data={"request_id": row["id"], "needs_owner_input": True,
+                  "field_labels": [f["label"] for f in row["fields"]]},
+            external=True)
+    except Exception as exc:
+        return ToolResult(content=f"не удалось создать запрос владельцу: {type(exc).__name__}: {exc}",
+                          one_line="browser.owner_input: ошибка", error=True)
+
+
+async def _fill_owner_fields(args, ctx):
+    await _require_local_secret_agent(ctx)
+    """Fill an answered request; plaintext values never enter tool/model output."""
+    store = getattr(ctx.svc, "owner_input", None)
+    request_id = str(args.get("request_id") or "").strip()
+    if store is None or not request_id:
+        return ToolResult(content="нужен answered owner-input request_id",
+                          one_line="browser.fill_owner_fields: нет request", error=True)
+    try:
+        row, values = store.values_for_fill(request_id, task_id=ctx.task.get("id"))
+        sid = await _session_for(ctx, {"session_id": row["session_id"]})
+        mgr = _mgr(ctx.svc)
+        filled = []
+        for field in row.get("fields") or []:
+            key = str(field["key"])
+            if key not in values:
+                raise ValueError(f"answer missing field {key}")
+            selector, ref = str(field.get("selector") or ""), str(field.get("ref") or "")
+            if field.get("secret"):
+                await mgr.fill_secret(sid, selector, secret=values[key], ref=ref,
+                                      actor="agent", approved=True)
+            else:
+                await mgr.type_text(sid, selector, values[key], ref=ref,
+                                    actor="agent", approved=True)
+            filled.append(key)
+        store.mark_filled(request_id)
+        await ctx.svc.bus.emit("owner.input_filled", request_id=request_id,
+                               task_id=ctx.task.get("id"), session_id=sid, fields=filled)
+        return ToolResult(
+            content=(f"заполнены поля из owner-input {request_id}: {', '.join(filled)}. "
+                     "Значения не раскрыты модели. Перечитайте DOM перед следующим действием. "
+                     "Отправка формы/регистрация остаётся отдельным ASK-действием."),
+            one_line=f"browser.fill_owner_fields: {len(filled)} полей",
+            data={"request_id": request_id, "session_id": sid, "filled": filled,
+                  "needs_fresh_snapshot": True})
+    except Exception as exc:
+        return ToolResult(content=f"поля не заполнены: {type(exc).__name__}: {exc}",
+                          one_line="browser.fill_owner_fields: ошибка", error=True)
+
+
+async def _verify_owner_input_success(args, ctx):
+    """Fresh deterministic post-login/post-registration verification.
+
+    The local model chooses the request only. Success conditions were frozen
+    when the request was created; this tool cannot weaken them afterwards.
+    """
+    await _require_local_secret_agent(ctx)
+    store = getattr(ctx.svc, "owner_input", None)
+    request_id = str(args.get("request_id") or "").strip()
+    if store is None or not request_id:
+        return ToolResult(content="нужен owner-input request_id",
+                          one_line="browser.verify_owner_input_success: нет request", error=True)
+    try:
+        row = store.get(request_id)
+        if not isinstance(row, dict) or row.get("status") != "FILLED":
+            raise ValueError("owner-input must be FILLED before success verification")
+        sid = await _session_for(ctx, {"session_id": row["session_id"]})
+        snap = await _mgr(ctx.svc).snapshot(sid, actor="agent", approved=True)
+        url = str(snap.get("url") or "")
+        text = str(snap.get("text") or "")
+        rules = row.get("success") if isinstance(row.get("success"), dict) else {}
+        checks, ok = [], True
+        if rules.get("url_changed"):
+            hit = bool(row.get("initial_url")) and url != str(row.get("initial_url"))
+            checks.append(f"url_changed={hit}"); ok = ok and hit
+        if rules.get("url_contains"):
+            hit = str(rules["url_contains"]) in url
+            checks.append(f"url_contains={hit}"); ok = ok and hit
+        if rules.get("contains_text"):
+            hit = str(rules["contains_text"]).casefold() in text.casefold()
+            checks.append(f"contains_text={hit}"); ok = ok and hit
+        if rules.get("absent_text"):
+            hit = str(rules["absent_text"]).casefold() not in text.casefold()
+            checks.append(f"absent_text={hit}"); ok = ok and hit
+        if not checks:
+            raise ValueError("request has no deterministic success criteria")
+        if not ok:
+            return ToolResult(content="успех входа/регистрации НЕ подтверждён: " + ", ".join(checks),
+                              one_line="browser.verify_owner_input_success: не подтверждено",
+                              error=True, data={"request_id": request_id, "verified": False,
+                                                "checks": checks, "session_id": sid})
+        verified = store.mark_verified(request_id, evidence={"verified": True, "url": url, "checks": checks})
+        await ctx.svc.bus.emit("owner.input_verified", request_id=request_id,
+                               task_id=ctx.task.get("id"), session_id=sid, checks=checks)
+        return ToolResult(content="успех входа/регистрации подтверждён свежей страницей; "
+                                  "секретная Telegram-сессия может показать финальный кадр и очиститься.",
+                          one_line="browser.verify_owner_input_success: VERIFIED",
+                          data={"request_id": request_id, "verified": True,
+                                "checks": checks, "session_id": sid,
+                                "status": verified.get("status")})
+    except Exception as exc:
+        return ToolResult(content=f"успех не подтверждён: {type(exc).__name__}: {exc}",
+                          one_line="browser.verify_owner_input_success: ошибка", error=True)
 
 
 async def _screenshot(args, ctx):
@@ -465,6 +746,41 @@ SPECS = [
              required=["selector", "value"], category="write", permission="browser.control",
              source="browser", default_effect="auto", timeout_seconds=60.0, idempotent=False,
              external_output=True),
+    ToolSpec(
+        name="browser.request_owner_fields",
+        description=("Если форме не хватает данных владельца: создать запрос с названиями полей "
+                     "и ref/selector. Bossman пришлёт запрос владельцу в Telegram; ответ хранится "
+                     "зашифрованно и не показывается модели."),
+        handler=_request_owner_fields,
+        input_schema={
+            "session_id": {"type": "integer"},
+            "context": {"type": "string"},
+            "fields": {"type": "array", "items": {"type": "object"}},
+            "success": {"type": "object"},
+        },
+        required=["fields"], category="read", permission="browser.control",
+        source="browser", default_effect="auto", timeout_seconds=30.0,
+        external_output=True),
+    ToolSpec(
+        name="browser.verify_owner_input_success",
+        description=("После заполнения и submit/login перечитать страницу и проверить "
+                     "ЗАРАНЕЕ зафиксированные success-критерии owner-input. "
+                     "Только VERIFIED запускает финальный Telegram-скрин и очистку сессии."),
+        handler=_verify_owner_input_success,
+        input_schema={"request_id": {"type": "string"}},
+        required=["request_id"], category="read", permission="browser.read",
+        source="browser", default_effect="auto", timeout_seconds=45.0,
+        external_output=True),
+    ToolSpec(
+        name="browser.fill_owner_fields",
+        description=("Заполнить ранее запрошенные поля ответом владельца по request_id. "
+                     "Значения получает рантайм напрямую; модель их не видит. "
+                     "Не отправляет форму и не создаёт аккаунт."),
+        handler=_fill_owner_fields,
+        input_schema={"request_id": {"type": "string"}},
+        required=["request_id"], category="write", permission="browser.control",
+        source="browser", default_effect="auto", timeout_seconds=90.0,
+        idempotent=False, external_output=True),
     ToolSpec(name="browser.back", description="Назад по истории браузера.", handler=_back,
              input_schema={}, category="read", permission="browser.read", source="browser",
              default_effect="auto", external_output=True),
@@ -490,7 +806,11 @@ SPECS = [
                            "password_selector": {"type": "string"},
                            "password_ref": {"type": "string"},
                            "submit_selector": {"type": "string"},
-                           "submit_ref": {"type": "string"}},
+                           "submit_ref": {"type": "string"},
+                           "success_url_contains": {"type": "string",
+                                                    "description": "конкретный ожидаемый фрагмент НОВОГО post-login URL (минимум 4 символа); нужен для verified Telegram receipt"},
+                           "next_fields": {"type": "array", "items": {"type": "string"},
+                                           "description": "только названия несекретных полей, которые владелец должен подготовить после входа"}},
              required=["credential_id"], category="send",
              permission="browser.control", source="browser", default_effect="ask",
              idempotent=False, external_output=True,
@@ -501,6 +821,43 @@ SPECS = [
 # ------------------------------------------------- API учётных данных браузера
 
 router = APIRouter()
+
+
+@router.get("/browser/login-receipts")
+async def http_login_receipts(request: Request):
+    """Safe metadata only: account/login and field labels, never password."""
+    return {"receipts": _login_receipts_pending(request.app.state.svc)}
+
+
+@router.get("/browser/login-receipts/{receipt_id}/screenshot")
+async def http_login_receipt_screenshot(receipt_id: str, request: Request):
+    if not __import__("re").fullmatch(r"[0-9a-f]{12}", receipt_id):
+        raise HTTPException(404, {"message": "login receipt not found"})
+    data = _login_receipts_read(request.app.state.svc)
+    row = (data.get("receipts") or {}).get(receipt_id)
+    path = Path(str((row or {}).get("screenshot_path") or ""))
+    if not isinstance(row, dict) or row.get("phase") != "SUCCESS" or not path.is_file():
+        raise HTTPException(404, {"message": "verified login screenshot unavailable"})
+    raw = path.read_bytes()
+    if not raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise HTTPException(409, {"message": "login receipt screenshot invalid"})
+    return Response(content=raw, media_type="image/png")
+
+
+@router.post("/browser/login-receipts/{receipt_id}/consumed")
+async def http_consume_login_receipt(receipt_id: str, request: Request):
+    row = _login_receipt_update(request.app.state.svc, receipt_id, phase="CONSUMED", consumed_at=time.time())
+    if row is None:
+        raise HTTPException(404, {"message": "login receipt not found"})
+    data = _login_receipts_read(request.app.state.svc)
+    stored = (data.get("receipts") or {}).get(receipt_id) or {}
+    path = Path(str(stored.get("screenshot_path") or ""))
+    if path.is_file():
+        try:
+            path.unlink()
+        except OSError:
+            pass
+    return {"id": receipt_id, "phase": "CONSUMED"}
 
 
 @router.get("/browser/credentials")

@@ -166,8 +166,22 @@ def evaluate_candidate(cand: AutonomyCandidate, episodes: Iterable[Episode], *,
         return replace(cand, security_regression=True, status="QUARANTINED", reasons=("security regression observed",))
     if any(e.false_success for e in eps):
         return replace(cand, status="REJECTED", reasons=("false success observed",))
-    usable = [e for e in eps if not episode_rejection(e, holdout)]
+    usable: list[Episode] = []
+    seen_tasks: set[str] = set()
+    repeats = 0
+    for e in eps:
+        if episode_rejection(e, holdout):
+            continue
+        # One task counts once: a repeated known task is not new evidence (AGENTS.md).
+        # Three copies of one episode used to reach SHADOW on their own.
+        if e.task_id in seen_tasks:
+            repeats += 1
+            continue
+        seen_tasks.add(e.task_id)
+        usable.append(e)
     rejected = [episode_rejection(e, holdout) for e in eps if episode_rejection(e, holdout)]
+    if repeats:
+        rejected.append(f"{repeats} repeated episode(s) of an already counted task")
     envs = {e.environment_fingerprint for e in usable}
     versions = {e.model_version for e in usable}
     need = risky_min_samples if (cand.kind in RISKY_KINDS or cand.scope.get("risky")) else min_samples

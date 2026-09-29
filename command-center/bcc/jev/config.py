@@ -130,20 +130,29 @@ class JevConfig:
     killed: bool
 
     @property
+    def zero_cost_confirmed(self) -> bool:
+        """Jev has no reported USD bill: unknown pricing is never free."""
+        return (_flag("BOSSMAN_JEV_ZERO_COST_CONFIRMED", False)
+                and self.price_per_call_usd == 0
+                and self.price_per_1k_input_usd == 0
+                and self.price_per_1k_output_usd == 0)
+
+    @property
     def active(self) -> bool:
         return self.enabled and not self.killed
 
     def public(self) -> dict:
         out = asdict(self)
         out["key_present"] = bool(api_key())
+        out["zero_cost_confirmed"] = self.zero_cost_confirmed
         return out
 
 
 def load() -> JevConfig:
     return JevConfig(
         enabled=_flag(FLAG, False),
-        # Phase 1: shadow is forced. Setting BOSSMAN_JEV_SHADOW=false is recorded
-        # but does NOT give Jev authority — phase 2 is not implemented yet.
+        # Phase 2 still leaves Smart Router, policy, STOP and budget authoritative.
+        # Live routing also requires explicit public egress and zero-cost evidence.
         shadow=_flag(SHADOW_FLAG, True),
         endpoint=os.environ.get(ENDPOINT_ENV, "").strip() or DEFAULT_ENDPOINT,
         model=os.environ.get(MODEL_ENV, "").strip() or DEFAULT_MODEL,

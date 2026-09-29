@@ -162,3 +162,64 @@ async def test_build_adapter_unknown_kind():
         build_adapter("magic")
     assert isinstance(build_adapter("openai_compat", "http://x/v1"), OpenAICompatAdapter)
     assert isinstance(build_adapter("anthropic"), AnthropicAdapter)
+
+
+# Owner run 2026-09-24: OpenRouter's free Nemotron endpoint answered HTTP 200 with
+# {"error": {"code": 503, "message": "Upstream error from Nvidia: Service temporarily
+# overloaded"}} about half of the time. Bossman reported that as «пустой ответ (нет
+# choices)» — the owner was told the model is silent when the provider was busy.
+OVERLOADED = {"id": "gen-1", "error": {"message": "Upstream error from Nvidia: Service temporarily overloaded",
+                                       "code": 503, "metadata": {"error_type": "provider_overloaded"}}}
+OK_ANSWER = {"choices": [{"message": {"role": "assistant", "content": "да"}, "finish_reason": "stop"}],
+             "usage": {"prompt_tokens": 5, "completion_tokens": 1}}
+
+
+async def test_in_body_upstream_error_is_named_not_reported_as_empty(monkeypatch):
+    monkeypatch.setattr("bcc.providers.TRANSIENT_RETRY_DELAYS", ())
+    adapter = OpenAICompatAdapter(base_url="https://openrouter.ai/api/v1", api_key="k",
+                                  transport=httpx.MockTransport(lambda r: httpx.Response(200, json=OVERLOADED)))
+    with pytest.raises(ProviderError) as info:
+        await adapter.chat("m:free", [{"role": "user", "content": "x"}])
+    assert "overloaded" in str(info.value) and "503" in str(info.value)
+    assert "нет choices" not in str(info.value)
+    assert info.value.kind == "rate_limit"          # transient: back off, not "model is silent"
+
+
+async def test_transient_in_body_error_is_retried_a_bounded_number_of_times(monkeypatch):
+    monkeypatch.setattr("bcc.providers.TRANSIENT_RETRY_DELAYS", (0, 0))
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(200, json=OVERLOADED if len(calls) < 3 else OK_ANSWER)
+
+    adapter = OpenAICompatAdapter(base_url="https://openrouter.ai/api/v1", transport=httpx.MockTransport(handler))
+    result = await adapter.chat("m:free", [{"role": "user", "content": "x"}])
+    assert result.text == "да" and len(calls) == 3
+
+    calls.clear()
+    adapter = OpenAICompatAdapter(base_url="https://openrouter.ai/api/v1",
+                                  transport=httpx.MockTransport(lambda r: (calls.append(1),
+                                                                           httpx.Response(200, json=OVERLOADED))[1]))
+    with pytest.raises(ProviderError):
+        await adapter.chat("m:free", [{"role": "user", "content": "x"}])
+    assert len(calls) == 3                          # 1 + 2 retries, never unbounded
+
+
+async def test_non_transient_in_body_error_is_not_retried(monkeypatch):
+    monkeypatch.setattr("bcc.providers.TRANSIENT_RETRY_DELAYS", (0, 0))
+    calls = []
+    body = {"error": {"message": "invalid model", "code": 400}}
+    adapter = OpenAICompatAdapter(base_url="https://openrouter.ai/api/v1",
+                                  transport=httpx.MockTransport(lambda r: (calls.append(1),
+                                                                           httpx.Response(200, json=body))[1]))
+    with pytest.raises(ProviderError) as info:
+        await adapter.chat("m", [{"role": "user", "content": "x"}])
+    assert len(calls) == 1 and "invalid model" in str(info.value) and info.value.kind == "http"
+
+
+async def test_truly_empty_choices_is_still_empty(monkeypatch):
+    adapter = OpenAICompatAdapter(base_url="http://127.0.0.1:8080/v1",
+                                  transport=httpx.MockTransport(lambda r: httpx.Response(200, json={"choices": []})))
+    with pytest.raises(ProviderError, match="нет choices"):
+        await adapter.chat("m", [{"role": "user", "content": "x"}])

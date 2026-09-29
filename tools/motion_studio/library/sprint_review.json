@@ -1,0 +1,92 @@
+{
+ "meta": {
+  "title": "Sprint",
+  "bpm": 124,
+  "key": "A",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // SPRINT",
+  "voice": "am_fenrir",
+  "duration": 12.0
+ },
+ "scenes": [
+  {
+   "type": "bars",
+   "values": [
+    3,
+    5,
+    4,
+    7,
+    6,
+    2,
+    8,
+    9,
+    5,
+    6
+   ],
+   "headline_label": "DAYS",
+   "counter_label": "TICKETS",
+   "x_from": "DAY 1",
+   "x_to": "DAY 10",
+   "start": 0.0,
+   "end": 4.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Fifty-five tickets closed."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "SHIPPED",
+   "items": [
+    {
+     "t": 4.75,
+     "title": "LOGIN",
+     "sub": "passkeys",
+     "icon": "shield"
+    },
+    {
+     "t": 5.53,
+     "title": "EXPORT",
+     "sub": "CSV & PDF",
+     "icon": "code"
+    },
+    {
+     "t": 6.28,
+     "title": "ALERTS",
+     "sub": "real time",
+     "icon": "bolt"
+    }
+   ],
+   "vo": [
+    {
+     "t": 4.75,
+     "text": "Passkey login."
+    },
+    {
+     "t": 5.53,
+     "text": "Export."
+    },
+    {
+     "t": 6.28,
+     "text": "Live alerts."
+    }
+   ],
+   "start": 4.5,
+   "end": 9.5
+  },
+  {
+   "type": "end_card",
+   "text": "NEXT SPRINT",
+   "start": 9.5,
+   "end": 12.0,
+   "vo": [
+    {
+     "t": 9.6,
+     "text": "Next sprint."
+    }
+   ]
+  }
+ ]
+}

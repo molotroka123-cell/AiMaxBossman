@@ -52,6 +52,29 @@ async def _attempt(svc, target_kind: str, target_id, failure: str, action: str,
     return rid
 
 
+async def _escalate(svc, preview: str) -> int:
+    """One open escalation per target. Every failure past the limit used to create
+    ANOTHER identical pending approval (RC 1.9 soak: nine «Модель 4 не восстанавливается»
+    in ten minutes). While one is pending the owner already has the question; the
+    attempt is still recorded by the caller. After a decision a new one may be raised."""
+    from ..db import approvals as approvals_t
+    async with svc.db.session() as s:
+        open_id = (await s.execute(sa.select(approvals_t.c.id).where(
+            approvals_t.c.kind == "healing_escalation", approvals_t.c.status == "pending",
+            approvals_t.c.preview == preview).limit(1))).scalar()
+    if open_id is not None:
+        return int(open_id)
+    return int((await svc.approvals.create(kind="healing_escalation", preview=preview))["id"])
+
+
+async def _model_label(svc, model_id: int) -> str:
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(models_t.c.alias, models_t.c.name)
+                               .where(models_t.c.id == model_id))).first()
+    name = (row and (row[0] or row[1])) or ""
+    return f"Модель «{name}» (#{model_id})" if name else f"Модель {model_id}"
+
+
 def _within_limit(target: str, rules: dict) -> bool:
     now = time.monotonic()
     window = rules.get("window_seconds", 300)
@@ -85,8 +108,7 @@ async def _on_failure(svc):
         target = f"model:{model_id}"
         if not _within_limit(target, rules):
             await _attempt(svc, "model", model_id, error, "escalate", "escalated")
-            await svc.approvals.create(kind="healing_escalation",
-                                       preview=f"Модель {model_id} не восстанавливается")
+            await _escalate(svc, f"{await _model_label(svc, model_id)} не восстанавливается")
             return
         await _attempt(svc, "model", model_id, error, "retry", "started")
         try:
@@ -103,11 +125,17 @@ async def _on_failure(svc):
 
 
 async def _tick(svc):
-    """Degraded-модели: периодический re-check; online → recovery.completed."""
+    """Degraded-модели и модели, до которых не достучался настоящий вызов
+    (engine → registry.mark_runtime_offline): периодический re-check;
+    online → recovery.completed. Без второго условия модель, упавшая во время
+    задачи, оставалась offline до ручной проверки."""
+    from ..registry import RUNTIME_OFFLINE_PREFIX
     async with svc.db.session() as s:
-        degraded = (await s.execute(sa.select(models_t.c.id).where(
-            models_t.c.status == "error",
-            models_t.c.status_detail.like("degraded%")))).fetchall()
+        degraded = (await s.execute(sa.select(models_t.c.id, models_t.c.status).where(sa.or_(
+            sa.and_(models_t.c.status == "error",
+                    models_t.c.status_detail.like("degraded%")),
+            sa.and_(models_t.c.status == "offline",
+                    models_t.c.status_detail.like(RUNTIME_OFFLINE_PREFIX + "%")))))).fetchall()
     for r in degraded:
         mid = r._mapping["id"]
         try:
@@ -118,6 +146,12 @@ async def _tick(svc):
             _error_window.pop(mid, None)
             _attempts.pop(f"model:{mid}", None)
             await _attempt(svc, "model", mid, "endpoint восстановлен", "retry", "completed")
+        elif r._mapping["status"] == "offline":
+            # check_model wrote the probe's own detail; keep the runtime mark so
+            # the next tick looks again instead of forgetting the model.
+            await svc.registry._set_status(
+                mid, health.get("status") or "offline",
+                f"{RUNTIME_OFFLINE_PREFIX}{health.get('detail') or ''}"[:500])
 
 
 @router.post("/healing/report")
@@ -134,8 +168,7 @@ async def report(request: Request):
     if not _within_limit(target, rules):
         rid = await _attempt(svc, target_kind, target_id, body.get("failure", ""),
                              "escalate", "escalated")
-        await svc.approvals.create(kind="healing_escalation",
-                                   preview=f"{target} не восстанавливается")
+        await _escalate(svc, f"{target} не восстанавливается")
         return {"attempt_id": rid, "status": "escalated"}
     rid = await _attempt(svc, target_kind, target_id, body.get("failure", ""), action, "started")
     return {"attempt_id": rid, "status": "started", "action": action}

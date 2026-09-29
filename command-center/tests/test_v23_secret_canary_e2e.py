@@ -81,7 +81,8 @@ async def _real_ctx(env, run_id: int = 1) -> ToolContext:
     stack = await make_stack(env.client)
     return ToolContext(
         svc=env.svc,
-        task={"id": stack["task"]["id"], "mission_id": None},
+        task={"id": stack["task"]["id"], "mission_id": None,
+              "agent_id": stack["agent"]["id"]},
         run_id=run_id,
         agent={"id": stack["agent"]["id"],
                "permissions": {"browser.control": True, "browser.read": True}},

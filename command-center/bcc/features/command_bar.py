@@ -852,7 +852,9 @@ async def execute(app: Any, svc: Any, cap: Capability, args: dict[str, Any],
     query = {k: v for k, v in args.items() if k in cap.query_params}
     body = {k: v for k, v in args.items() if k in cap.body_fields}
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://command-bar.internal",
+    # Host — loopback: запрос не покидает процесс, а защита от DNS rebinding
+    # (api.host_allowed) пропускает только адреса и непубличные имена.
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1",
                                  timeout=httpx.Timeout(RUN_TIMEOUT_SECONDS),
                                  headers=headers) as client:
         response = await client.request(cap.method, _fill_path(cap, args),

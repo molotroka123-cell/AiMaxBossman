@@ -1,4 +1,4 @@
-"""Девять провайдеров main и автомат защиты ветки — вместе, а не вместо.
+"""Десять провайдеров main и автомат защиты ветки — вместе, а не вместо.
 
 Слияние с main выглядело как выбор между двумя шлюзами. Выбором оно не было:
 шлюз main не импортируется на самом main (`app.py` просит `CircuitOpenError`,
@@ -6,7 +6,7 @@
 которого нет в его же `config.py`). Работающей частью там был ровно один файл —
 набор провайдеров.
 
-Поэтому здесь проверяется композиция: провайдеров стало девять, и КАЖДЫЙ из них
+Поэтому здесь проверяется композиция: провайдеров стало десять, и КАЖДЫЙ из них
 живёт под тем же автоматом защиты, теми же таймаутами и той же честной
 диагностикой, что и два исходных. Ни один не получил собственную копию
 машинерии, потому что девять копий — это девять мест, где однажды забудут
@@ -26,7 +26,7 @@ from bossman.gateway.config import (AVAILABLE_PROVIDERS, ENV_BACKENDS,
 
 # То, что владелец ожидал получить от main.
 EXPECTED = {"openai", "anthropic", "zai", "openrouter", "google", "groq",
-            "mistral", "together", "ollama"}
+            "mistral", "together", "nvidia", "ollama"}
 
 
 def test_every_provider_main_had_is_reachable():
@@ -67,7 +67,7 @@ def test_a_provider_without_a_key_is_unavailable_not_broken():
 
 
 def test_only_anthropic_needs_its_own_class():
-    """Остальные восемь говорят на диалекте OpenAI и класса не требуют."""
+    """Остальные девять говорят на диалекте OpenAI и класса не требуют."""
     special = {name for name in AVAILABLE_PROVIDERS
                if type(build_backend(load_provider_config(name))) is not OpenAIBackend}
     assert special == {"anthropic", "openrouter", "zai"}

@@ -1,15 +1,106 @@
 # BOSSMAN
 
+**Обновлено 26 сентября 2026 года.** Текущий статус выпуска и доказательства: [рабочая ведомость владельца](docs/owner/WORKBENCH_20260926.md).
+
 ### Один компьютер. Одна программа. Проверяемый результат.
 
 Локальное AI-рабочее пространство: модели, агенты, память, управление компьютером, файлы, сайты, изображения, видео и связь через Telegram. Владелец задаёт результат обычным языком; Bossman должен выполнить работу, запросить нужные разрешения и проверить итог.
 
-> **Текущее направление: общая сборка Bossman, самоулучшение 1.1 и этап 1.2 — Terminal Run.**
-> Каноническая линия — **`release/bossman-owner`**; интеграционные PR сверяются по актуальному remote.
+> **Текущее направление: одна интеграция Bossman 1.5 + 1.6 + 1.7.**
+> Единая ветка закрытия — **`integrate/bossman-1.7-unified-20260925`**. Версии 1.5–1.7 ещё проходят живую приёмку, полный повтор регрессии и exact-SHA CI; финальный SHA не заморожен.
 > Этот README — карта продукта и направления, **не сертификат готовности**.
-> Версия считается принятой только по конкретному TESTED_SHA, Windows-архиву и проверяемым owner-evidence.
+> Версия считается принятой только по конкретному TESTED_SHA, Windows-архиву, owner-evidence и независимой проверке.
 
-[Открыть каноническую ветку](https://github.com/molotroka123-cell/AiMaxBossman/tree/release/bossman-owner) · [Установка](INSTALL.md) · [Первый прогон](OWNER_ACCEPTANCE.md) · [Задание интегратору](CLAUDE_NEXT_ACTION.md)
+[Полный аудит и Plan Maximum 1.6](docs/v1.6/FULL_AUDIT_PLAN_MAX_20260925.md) · [Мастер-прогон 1.6](docs/owner/BOSSMAN_16_MASTER_RUN_20260925.md) · [Карта 1.6](docs/v1.6/README.md) · [Установка](INSTALL.md) · [Приёмка](OWNER_ACCEPTANCE.md)
+
+## Суть Bossman 1.6
+
+**Владелец ставит цель и наблюдает. Bossman сам планирует работу, выбирает ресурсы, выполняет, воспроизводит ошибки, чинит себя в изолированном кандидате, проверяет результат, откатывает плохое изменение и сохраняет только подтверждённый опыт.**
+
+Целевой цикл:
+
+**цель владельца → план и команда → выполнение → наблюдаемый результат → ошибка/проверка → self-repair → независимый verifier → skill/workflow/memory → следующая задача дешевле, быстрее или надёжнее.**
+
+Владелец не должен сидеть у компьютера для обычных уточнений. Если системе не хватает поля, ключа, 2FA, CAPTCHA, регистрации аккаунта, внешнего разрешения или другого действия, которое должен сделать человек, Bossman отправляет в Telegram конкретный `OWNER_REQUIRED`: что открыть, что заполнить и куда безопасно передать результат. После ответа продолжается **тот же task**, а не новая ручная сессия разработки.
+
+Bossman сам не регистрирует внешние аккаунты, не принимает ToS за владельца, не обходит CAPTCHA/2FA и не расширяет собственные права. Автономность означает самостоятельную работу внутри разрешённых границ, а не обход owner authority.
+
+### План максимума на ближайший owner-run
+
+Один интеграционный прогон должен одновременно доказать:
+
+- совместимость 1.0 + 1.5 + 1.6;
+- реальный self-improvement процесс;
+- YouTube learning vertical;
+- Instagram business vertical;
+- автономный Game Dev vertical;
+- persistent roles, skills, structured operating graph и resource routing;
+- перенос подтверждённого опыта после restart;
+- одну точную Windows-сборку и финальный exact-SHA.
+
+Главный критерий успеха — не количество агентов или model calls, а **verified useful result per dollar, per owner intervention and per unit of time**.
+
+
+## Bossman 1.5 — автономный персональный оператор
+
+**Суть закрытия 1.5:** владелец ставит цель, а Bossman сам владеет циклом выполнения до проверенного результата, честного BLOCKED или запроса конкретного человеческого ввода. Ошибка не должна автоматически превращаться в ручную сессию с внешним coding-агентом: Bossman сам воспроизводит проблему, создаёт кандидат, тестирует, откатывает плохое изменение, сохраняет подтверждённый урок и пробует снова в разрешённых границах.
+
+Это направление можно описывать как **AGI-style personal operator**, но README не объявляет научное достижение AGI. Критерий практический: система становится заметно самостоятельнее, лучше на повторяющихся классах задач и удобнее владельцу для работы и коммерческих проектов.
+
+Пять обязательных контуров 1.5:
+
+1. **Scientific Self-Improvement** — hypothesis → experiment → baseline/candidate benchmark → evidence → independent verifier → unseen transfer → promote/reject. Stable не переписывается только потому, что модель сказала DONE.
+2. **Persistent Agent Society** — постоянные локальные роли со своей skill-memory и измеренной статистикой по классам задач. Команда собирается по историческому качеству, а не случайно.
+3. **Skill Compiler** — подтверждённый сложный workflow компилируется в переиспользуемый skill-кандидат и проходит shadow/reliability gates вместо повторного решения с нуля.
+4. **Personal Operating Graph** — локальная структурированная карта проектов, компаний, людей, файлов, задач, денег, моделей, workflows, рынков, веток, агентов, benchmark и skill-связей с provenance и историей изменений.
+5. **Autonomous Resource Manager** — выбирает самый выгодный достаточный маршрут по качеству, цене, задержке, энергозатратам и реальной памяти машины; неизвестная облачная цена не считается бесплатной.
+
+**Владелец наблюдает, а не микроменеджит.** Bossman присылает статус, BLOCKED и запросы недостающих полей в Telegram. Владелец может заполнить их с телефона, после чего тот же task продолжается. Регистрация новых внешних аккаунтов, принятие ToS и создание API-ключей самим Bossman запрещены: это всегда OWNER_REQUIRED. Наличие аккаунта или ключа не расширяет never/ask/allowed и не даёт автоматического права на оплату или внешний эффект.
+
+Внешний аудитор **не является зависимостью Bossman 1.5**. Нормальная эксплуатация, self-repair, обучение, тесты и работа владельца должны идти без него. Внешний red-team можно подключить перед крупным релизом как дополнительную независимую проверку, но повседневный цикл принадлежит самому Bossman и владельцу.
+
+[1.5 Economy Orchestrator](docs/v1.5/ECONOMY_ORCHESTRATOR.md) · [Open-source autonomy reuse](docs/v1.5/OPEN_SOURCE_AGI_REUSE_20260924.md) · [Self-improvement bootstrap](tools/bossman_15_self_improve.py)
+
+### Фактический статус пяти автономных контуров
+
+На текущей 1.5-ветке код уже существует для всех пяти контуров, но статус
+**IMPLEMENTED/CONTRACT_TESTED не равен OWNER_LIVE_PASS**:
+
+- Scientific Self-Improvement: `bossman_v3/self_improvement/scientist.py` поверх
+  существующего bounded evolution loop; promote требует benchmark gain, regression,
+  independent verifier, unseen transfer и security non-regression.
+- Persistent Agent Society: `bossman_v3/society.py`; восемь постоянных ролей,
+  skill/memory refs и verifier-backed статистика переживают restart.
+- Skill Compiler: `bossman_v3/skill_factory/compiler.py`; verified trace без unseen
+  transfer не компилируется, новый skill начинает с EXPERIMENTAL.
+- Personal Operating Graph: `bossman_v3/operating_graph.py`; локальные temporal
+  nodes/edges, provenance, supersession и as-of history без хранения секретов.
+- Autonomous Resource Manager: `bossman_v3/resource_manager.py`; quality/cost/latency/
+  energy/RAM routing, unknown-price cloud fail-closed.
+
+Контрактные проверки находятся в
+`bossman-core/tests/test_v15_autonomy_core.py` и
+`command-center/tests/test_v15_autonomy_feature.py`. Финальное закрытие требует
+завтрашний owner-live прогон: один реальный scientific cycle, restart continuity,
+skill transfer, operating-graph continuity, measured routing и работу после
+отключения внешнего аудитора.
+
+### Критерий закрытия 1.5
+
+1. Одна команда из **UX или CMD** запускает параллельно self-improvement и read-only market observation; STOP останавливает оба контура штатно.
+2. Обычная code/harness ошибка автоматически попадает в durable repair inbox и превращается в **изолированный локальный repair-candidate**. Модель не может объявить DONE без хотя бы одного executable green test.
+3. Candidate проходит независимую техническую проверку и unseen-transfer до того, как его урок/skill считается улучшением. Stable/release не переписывается напрямую учеником.
+4. Если задаче не хватает обычных данных формы, Bossman просит их в **Telegram**, владелец отвечает с телефона, runtime сам подставляет значения в поля, а модель значения не получает. Submit, login, ToS, регистрация, платежи и иные consequential effects остаются отдельными approval/owner-required границами.
+5. Сбор рыночных данных и обучение могут идти параллельно с self-repair. Рыночный контур остаётся READ-ONLY/PAPER: наблюдение и исследование не дают права на реальные сделки.
+6. Внешние аккаунты и API-ключи Bossman сам не создаёт. Он может подготовить форму, заполнить уже полученные от владельца поля и прислать в Telegram точный список того, что остаётся сделать человеку.
+7. Цель оптимизации — **verified useful result per dollar / per owner intervention**, а не количество вызовов моделей.
+
+Рабочий интерфейс владельца после закрытия 1.5:
+- `Bossman-1.5.cmd start|status|stop`;
+- страница **Bossman 1.5** в Command Center;
+- Telegram `/inputs` и `/input ...` для missing form data;
+- обычные `/approvals`, STOP и owner console для consequential действий.
+
 
 ## Главный продуктовый приоритет — Money MVP
 

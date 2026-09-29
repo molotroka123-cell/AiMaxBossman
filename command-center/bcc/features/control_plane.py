@@ -28,6 +28,254 @@ CACHE_SECONDS = 2.0
 # TRUTH-003 §14: ограниченное хранение событий — по возрасту и по числу строк
 RETENTION_DAYS = int(os.environ.get("BOSSMAN_EVENTS_RETENTION_DAYS", "14"))
 RETENTION_MAX_ROWS = int(os.environ.get("BOSSMAN_EVENTS_MAX_ROWS", "200000"))
+STUDIO_UNKNOWN_REASON = "owner_stop_provider_unknown"
+
+
+async def _active_owner_work(svc) -> tuple[dict[str, list], list[dict[str, str]]]:
+    """Live handles and durable task state for the one owner STOP control.
+
+    A database row alone is not a live Terminal or Browser process after a
+    restart. Conversely, a live handle must be stopped even if its row has not
+    yet been refreshed by a status poll.
+    """
+    active: dict[str, list] = {name: [] for name in (
+        "tasks", "terminal", "coding", "command_bar", "browser",
+        "evolution", "v15_economy", "v15_owner_run", "pit", "studio",
+        "studio_provider_unknown")}
+    errors: list[dict[str, str]] = []
+
+    def inspect(plane: str, fn) -> None:
+        try:
+            active[plane] = fn()
+        except Exception as exc:  # noqa: BLE001 — one broken plane cannot hide another
+            errors.append({"plane": plane, "id": "inventory",
+                           "error": f"{type(exc).__name__}: {exc}"[:300]})
+
+    try:
+        async with svc.db.session() as s:
+            rows = (await s.execute(sa.select(tasks_t.c.id).where(tasks_t.c.status.in_(
+                ("queued", "running", "waiting_approval", "paused"))))).fetchall()
+        active["tasks"] = [int(r[0]) for r in rows]
+    except Exception as exc:  # noqa: BLE001
+        errors.append({"plane": "tasks", "id": "inventory",
+                       "error": f"{type(exc).__name__}: {exc}"[:300]})
+    terminal = getattr(svc, "terminal", None)
+    browser = getattr(svc, "browser", None)
+    inspect("terminal", lambda: [sid for sid, item in (terminal.sessions.items() if terminal else ())
+                                 if not item.finished and item.proc.returncode is None])
+    inspect("browser", lambda: list(browser._sessions) if browser else [])
+    from ..pit import cli as pit_cli
+    from ..pit.config import pit_home
+    inspect("pit", lambda: ["Jeff"] if pit_cli._is_running(pit_home(svc.settings.data_dir)) else [])
+    try:
+        from ..studio.tables import jobs as studio_jobs
+        from ..v2.images_tables import image_jobs
+        async with svc.db.session() as s:
+            ids = (await s.execute(sa.select(studio_jobs.c.job_id).join(
+                image_jobs, image_jobs.c.id == studio_jobs.c.job_id).where(
+                image_jobs.c.status.in_(("queued", "running"))))).scalars().all()
+        handles = getattr(svc, "_studio_active_tasks", {})
+        active["studio"] = sorted(set(ids) | {jid for jid, task in handles.items() if not task.done()})
+        async with svc.db.session() as s:
+            unresolved = (await s.execute(sa.select(studio_jobs.c.job_id).where(
+                studio_jobs.c.reason == STUDIO_UNKNOWN_REASON))).scalars().all()
+        active["studio_provider_unknown"] = sorted(set(unresolved))
+    except Exception as exc:  # noqa: BLE001
+        errors.append({"plane": "studio", "id": "inventory",
+                       "error": f"{type(exc).__name__}: {exc}"[:300]})
+    from . import coding_tasks, command_bar, evolution, v15_economy, v15_owner_run
+    inspect("coding", lambda: [r["id"] for r in coding_tasks._list(svc)
+                               if r.get("status") in ("queued", "running")])
+    inspect("command_bar", lambda: [sid for sid, item in command_bar.store_for(svc).tasks.items()
+                                    if item.get("state") in ("queued", "running")]
+            if command_bar.enabled() else [])
+
+    def economy():
+        root = v15_economy._root(svc)
+        saved = v15_economy._state(root)
+        live = (root in v15_economy._ACTIVE or
+                (saved.get("status") in ("RUNNING", "STARTING") and
+                 v15_economy._pid_alive(saved.get("pid"))))
+        return ["run"] if live else []
+    inspect("v15_economy", economy)
+
+    owner_root = svc.settings.data_dir / "v1.5" / "owner-run"
+    if (owner_root / "state.json").is_file():
+        inspect("v15_owner_run", lambda: ["run"] if v15_owner_run._call(svc, "status").get("running") else [])
+
+    def evolution_campaign():
+        work = evolution._work(svc)
+        live = work in evolution._ACTIVE
+        if not live and (work / "loop-state.json").is_file():
+            live = bool(evolution._loop().status(work).get("loop_running"))
+        return ["campaign"] if live else []
+    inspect("evolution", evolution_campaign)
+    return active, errors
+
+
+@router.get("/control-plane/active")
+async def active_owner_work(request: Request) -> dict[str, Any]:
+    """Read-only preview for the shared UI/CLI owner STOP action."""
+    active, errors = await _active_owner_work(request.app.state.svc)
+    return {"active": active, "count": sum(map(len, active.values())), "errors": errors}
+
+
+@router.post("/control-plane/stop-all")
+async def stop_all_owner_work(request: Request) -> dict[str, Any]:
+    """Owner STOP across the existing execution planes; never certify a request
+    as a completed stop until the plane's current state confirms it.
+    """
+    svc = request.app.state.svc
+    stopped: dict[str, list] = {}
+    requested: dict[str, list] = {}
+    errors: list[dict[str, str]] = []
+
+    async def attempt(plane: str, ident, operation, *, confirmed: bool = True) -> None:
+        try:
+            await operation()
+            (stopped if confirmed else requested)[plane].append(ident)
+        except Exception as exc:  # noqa: BLE001 — continue stopping independent planes
+            errors.append({"plane": plane, "id": str(ident),
+                           "error": f"{type(exc).__name__}: {exc}"[:300]})
+
+    # Set the existing durable Computer Use STOP first, so an in-flight UI
+    # action cannot begin another step while the other planes are being stopped.
+    from .tools_computer import http_stop
+    computer = None
+    try:
+        computer = await http_stop(request)
+        if not computer.get("persisted"):
+            errors.append({"plane": "computer", "id": "STOP", "error": "STOP was not persisted"})
+    except Exception as exc:  # noqa: BLE001
+        errors.append({"plane": "computer", "id": "STOP",
+                       "error": f"{type(exc).__name__}: {exc}"[:300]})
+
+    active, inspection_errors = await _active_owner_work(svc)
+    errors.extend(inspection_errors)
+    stopped = {name: [] for name in active}
+    requested = {name: [] for name in active}
+
+    for task_id in active["tasks"]:
+        await attempt("tasks", task_id, lambda task_id=task_id: svc.engine.stop(task_id))
+
+    from .terminal import kill as kill_terminal
+    for session_id in active["terminal"]:
+        await attempt("terminal", session_id,
+                      lambda session_id=session_id: kill_terminal(session_id, request))
+
+    from .coding_tasks import cancel_task
+    for task_id in active["coding"]:
+        await attempt("coding", task_id,
+                      lambda task_id=task_id: cancel_task(task_id, request), confirmed=False)
+
+    from .command_bar import store_for
+    for task_id in active["command_bar"]:
+        async def stop_command_bar(task_id=task_id):
+            task = await store_for(svc).stop(task_id)
+            if task is None or task.get("state") not in ("stopped", "done", "failed"):
+                raise RuntimeError("command bar task stop was not confirmed")
+        await attempt("command_bar", task_id, stop_command_bar)
+
+    from .browser import _mgr as browser_manager, _record as browser_record
+    for session_id in active["browser"]:
+        async def stop_browser(session_id=session_id):
+            await browser_manager(svc).stop(session_id)
+            await browser_record(svc, session_id, status="stopped", finished_at=utcnow())
+            if browser_manager(svc).is_live(session_id):
+                raise RuntimeError("browser session is still live")
+        await attempt("browser", session_id, stop_browser)
+
+    from . import evolution, v15_economy, v15_owner_run
+    if active["evolution"]:
+        await attempt("evolution", "campaign", lambda: evolution.stop(request), confirmed=False)
+    if active["v15_economy"]:
+        await attempt("v15_economy", "run", lambda: v15_economy.stop(request), confirmed=False)
+    if active["v15_owner_run"]:
+        await attempt("v15_owner_run", "run", lambda: v15_owner_run.stop(request), confirmed=False)
+
+    if active["pit"]:
+        from ..pit.config import pit_home
+        from ..pit.runtime import STOP_FLAG
+        try:
+            (pit_home(svc.settings.data_dir) / STOP_FLAG).write_text(
+                time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), encoding="utf-8")
+        except OSError as exc:
+            errors.append({"plane": "pit", "id": "Jeff",
+                           "error": f"{type(exc).__name__}: {exc}"[:300]})
+
+    from .studio import cancel as cancel_studio
+    cancelled_studio: list[int] = []
+    studio_before: dict[int, tuple[str, str]] = {}
+    studio_handles = getattr(svc, "_studio_active_tasks", {})
+    studio_had_handle = {jid for jid in active["studio"]
+                         if jid in studio_handles and not studio_handles[jid].done()}
+    if active["studio"]:
+        from ..v2.images_tables import image_jobs
+        try:
+            async with svc.db.session() as s:
+                rows = (await s.execute(sa.select(
+                    image_jobs.c.id, image_jobs.c.status, image_jobs.c.model_alias).where(
+                    image_jobs.c.id.in_(active["studio"])))).all()
+            studio_before = {int(jid): (status, model) for jid, status, model in rows}
+        except Exception as exc:  # noqa: BLE001
+            errors.append({"plane": "studio", "id": "pre_stop_inventory",
+                           "error": f"{type(exc).__name__}: {exc}"[:300]})
+    for job_id in active["studio"]:
+        try:
+            result = await cancel_studio(job_id, request)
+            if result.get("status") != "cancelled":
+                raise RuntimeError(f"Studio job ended as {result.get('status')} before cancellation")
+            cancelled_studio.append(job_id)
+        except Exception as exc:  # noqa: BLE001
+            errors.append({"plane": "studio", "id": str(job_id),
+                           "error": f"{type(exc).__name__}: {exc}"[:300]})
+    pending_studio = [studio_handles[jid] for jid in cancelled_studio
+                      if jid in studio_handles and not studio_handles[jid].done()]
+    if pending_studio:
+        # The existing Studio worker checks the cancelled DB row every 250 ms
+        # and owns cancellation of its provider task. Wait briefly for that
+        # cleanup; a survivor stays in inventory and prevents a false PASS.
+        await asyncio.wait(pending_studio, timeout=1.0)
+
+    provider_outcome_unknown: list[int] = []
+    for ident in cancelled_studio:
+        prior_status, model = studio_before.get(ident, ("unknown", "unknown"))
+        local_managed = (model in ("mock:image", "local:reframe") or
+                         model.startswith("sdcpp:"))
+        if prior_status != "queued" and (not local_managed or ident not in studio_had_handle):
+            provider_outcome_unknown.append(ident)
+    if provider_outcome_unknown:
+        # OpenRouter/ComfyUI cancel only local polling. Persist the unknown
+        # outcome in existing Studio metadata so a later STOP (or restart)
+        # cannot turn green merely because the queue row says "cancelled".
+        from ..studio.tables import jobs as studio_jobs
+        try:
+            async with svc.db.session() as s:
+                await s.execute(sa.update(studio_jobs).where(
+                    studio_jobs.c.job_id.in_(provider_outcome_unknown)).values(
+                    reason=STUDIO_UNKNOWN_REASON, verdict="OWNER_REQUIRED"))
+                await s.commit()
+        except Exception as exc:  # noqa: BLE001
+            errors.append({"plane": "studio", "id": "provider_outcome_persist",
+                           "error": f"{type(exc).__name__}: {exc}"[:300]})
+
+    remaining, final_inspection_errors = await _active_owner_work(svc)
+    errors.extend(final_inspection_errors)
+    for ident in active["pit"]:
+        if not any(e["plane"] == "pit" and e["id"] == ident for e in errors):
+            (requested if ident in remaining["pit"] else stopped)["pit"].append(ident)
+    for ident in cancelled_studio:
+        (requested if ident in remaining["studio"] or ident in provider_outcome_unknown
+         else stopped)["studio"].append(ident)
+    provider_outcome_unknown = remaining["studio_provider_unknown"]
+    ok = (not errors and not any(remaining.values()) and not any(requested.values())
+          and bool(computer and computer.get("persisted")))
+    await svc.bus.emit("owner.stop_all", ok=ok, stopped={k: len(v) for k, v in stopped.items()},
+                       requested={k: len(v) for k, v in requested.items()}, errors=len(errors),
+                       remaining={k: len(v) for k, v in remaining.items()})
+    return {"ok": ok, "computer": computer, "stopped": stopped, "requested": requested,
+            "remaining": remaining, "provider_outcome_unknown": provider_outcome_unknown,
+            "errors": errors}
 
 
 def _pct(values: list[float], q: float) -> float | None:

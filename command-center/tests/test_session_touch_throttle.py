@@ -5,13 +5,25 @@
 запросы ждали не своих данных, а чужого коммита."""
 from __future__ import annotations
 
+import types
+from datetime import datetime, timedelta
+
 import sqlalchemy as sa
 
 from bcc.db import sessions as sessions_t
 
 
-async def test_repeated_requests_write_last_seen_once(env):
+async def test_repeated_requests_write_last_seen_once(env, monkeypatch):
     store = env.svc.sessions
+    # Управляемые часы: под полной регрессией процесс мог подвиснуть дольше
+    # TOUCH_INTERVAL_S между двумя соседними touch, и троттл честно сработал бы.
+    # Тест меряет семантику троттла, а не удачу планировщика, поэтому идём
+    # по заведомо внутрииинтервальным шагам.
+    clock = {"t": 1000.0}
+    wall = {"t": datetime(2026, 1, 1)}
+    fake_time = types.SimpleNamespace(monotonic=lambda: clock["t"])
+    monkeypatch.setattr("bcc.sessions.time", fake_time)
+    monkeypatch.setattr("bcc.sessions.utcnow", lambda: wall["t"])
     sess = await store.create("тест")
     sid = sess["id"]
 
@@ -24,11 +36,13 @@ async def test_repeated_requests_write_last_seen_once(env):
     await store.touch(sid)
     first = await stamp()
     for _ in range(30):                      # столько же, сколько даёт одна загрузка панели
+        clock["t"] += 1.0                    # шаг 1с << TOUCH_INTERVAL_S
         await store.touch(sid)
     assert await stamp() == first, "каждый запрос всё ещё пишет в БД"
 
     # интервал прошёл — отметка обновляется, поле не «замерзает» навсегда
     store._touched[sid] = store._touched[sid] - store.TOUCH_INTERVAL_S - 1
+    wall["t"] += timedelta(seconds=store.TOUCH_INTERVAL_S + 1)
     await store.touch(sid)
     assert await stamp() > first
 

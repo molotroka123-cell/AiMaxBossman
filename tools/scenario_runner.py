@@ -39,6 +39,8 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
+import subprocess
 import sys
 import time
 import traceback
@@ -55,6 +57,36 @@ from ci_ai_provider import (BUDGET_EXCEEDED, CIAIProvider, INVALID_RESPONSE,  # 
 ROOT = Path(__file__).resolve().parents[1]
 SCENARIO_DIR = ROOT / "tests" / "owner_scenarios"
 REGISTRY_FILE = SCENARIO_DIR / "owner_scenarios.json"
+
+
+def file_escape_alias(link: Path, target: Path) -> Path:
+    """Create a real filesystem escape for owner-scenario negative controls.
+
+    Windows without symlink privilege uses an NTFS directory junction instead.
+    Both paths resolve outside the authorised root; neither is a mocked policy.
+    If the junction cannot be created or does not resolve to the target, the
+    scenario stays unproven instead of silently dropping its escape check.
+    """
+    try:
+        link.symlink_to(target)
+        return link
+    except OSError as exc:
+        if os.name != "nt" or getattr(exc, "winerror", None) != 1314:
+            raise
+    junction = link.with_name(link.stem + "-junction")
+    if junction.exists() or not target.is_file():
+        raise OSError("junction escape target is unavailable or link already exists")
+    script = SCENARIO_DIR / "create_junction.ps1"
+    done = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-File",
+         str(script), str(junction), str(target.parent)],
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    alias = junction / target.name
+    if done.returncode or not alias.is_file() or alias.resolve() != target.resolve():
+        raise OSError("NTFS junction escape could not be verified: "
+                      + (done.stderr or done.stdout)[-300:])
+    return alias
 
 # --------------------------------------------------------------- уровни улик
 CI_PROVEN = "CI_PROVEN"

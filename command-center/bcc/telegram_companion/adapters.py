@@ -11,6 +11,7 @@ from decimal import Decimal, ROUND_CEILING
 from urllib.parse import urlsplit
 
 import httpx
+from .backend_target import VerifiedBackend
 from .config import CompanionError, Person, Settings
 
 # Who is waiting for the single local model: 0 = owner first (if enabled), 1 = everyone else.
@@ -192,7 +193,70 @@ def markup(keyboard) -> dict:
 
 class Telegram:
     METHODS = frozenset({"getMe", "getWebhookInfo", "getUpdates", "sendMessage", "sendChatAction", "getFile",
-                         "answerCallbackQuery", "setMyCommands"})
+                         "answerCallbackQuery", "setMyCommands", "deleteMessage"})
+
+    async def send_voice(self, person: Person, source_text: str, synthesize,
+                         *, reply_to_message_id: int | None = None,
+                         stopped=None) -> int:
+        """Guard text before local TTS, then upload a verified private voice reply.
+
+        ``synthesize`` is an async local callable that receives only the text
+        accepted by the existing Telegram egress guard. No audio is generated
+        when delivery identity or egress approval fails.
+        """
+        from bossman.notifications.telegram_transport import _egress_guard_text
+
+        if not self.settings.bot_token:
+            raise CompanionError("TELEGRAM_NOT_CONFIGURED")
+        if not self.authorize_delivery(person):
+            raise CompanionError("IDENTITY_REVOKED")
+        if not isinstance(source_text, str) or not source_text.strip():
+            raise CompanionError("VOICE_TEXT_INVALID")
+        if stopped is not None and stopped():
+            raise CompanionError("VOICE_STOPPED")
+        safe_text = _egress_guard_text(scrub(source_text, (
+            self.settings.bot_token, self.settings.core_token,
+            self.settings.cloud_token, self.settings.local_token)))
+        if safe_text != source_text:
+            raise CompanionError("VOICE_TEXT_BLOCKED")
+        audio = await synthesize(safe_text)
+        if stopped is not None and stopped():
+            raise CompanionError("VOICE_STOPPED")
+        if not self.authorize_delivery(person):
+            raise CompanionError("IDENTITY_REVOKED")
+        if not isinstance(audio, bytes) or not audio.startswith(b"OggS") or not 32 < len(audio) <= 4 * 1024 * 1024:
+            raise CompanionError("VOICE_AUDIO_UNVERIFIED")
+        payload = {"chat_id": str(person.chat_id)}
+        if type(reply_to_message_id) is int and reply_to_message_id > 0:
+            payload["reply_parameters"] = json.dumps({"message_id": reply_to_message_id})
+        lock = self._send_locks.setdefault(person.chat_id, asyncio.Lock())
+        async with lock:
+            now = asyncio.get_running_loop().time()
+            await asyncio.sleep(max(0, self._sent_at.get(person.chat_id, 0) + 1.05 - now))
+            if stopped is not None and stopped():
+                raise CompanionError("VOICE_STOPPED")
+            if not self.authorize_delivery(person):
+                raise CompanionError("IDENTITY_REVOKED")
+            try:
+                async with asyncio.timeout(120):
+                    response = await self.client.post(
+                        f"{TELEGRAM_API}/bot{self.settings.bot_token}/sendVoice",
+                        data=payload, files={"voice": ("bossman.ogg", audio, "audio/ogg")})
+                body = response.json()
+            except (httpx.HTTPError, OSError, TimeoutError, ValueError):
+                raise CompanionError("NETWORK_UNAVAILABLE") from None
+            finally:
+                self._sent_at[person.chat_id] = asyncio.get_running_loop().time()
+        if response.status_code == 429:
+            raise RateLimited((body.get("parameters") or {}).get("retry_after", 1) if isinstance(body, dict) else 1)
+        result = body.get("result") if isinstance(body, dict) and body.get("ok") is True else None
+        message_id = result.get("message_id") if isinstance(result, dict) else None
+        voice = result.get("voice") if isinstance(result, dict) else None
+        if (type(message_id) is not int or message_id <= 0 or
+                not isinstance(voice, dict) or not isinstance(voice.get("file_id"), str)
+                or not voice["file_id"]):
+            raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
+        return message_id
 
     async def send_video(self, person: Person, data: bytes, caption: str, keyboard=None):
         """Upload a verified MP4; same identity check and caption egress guard as photos."""
@@ -262,7 +326,7 @@ class Telegram:
         try:
             async with asyncio.timeout(120):
                 response = await self.client.post(f"{TELEGRAM_API}/bot{self.settings.bot_token}/sendPhoto",
-                                                  data={"chat_id": str(person.chat_id), "caption": clean,
+                                                  data={"chat_id": str(person.chat_id), **({"caption": clean} if clean else {}),
                                                         **({"reply_markup": json.dumps(markup(keyboard))} if keyboard else {})},
                                                   files={"photo": (name, data, mime)})
             body = response.json()
@@ -296,6 +360,23 @@ class Telegram:
         if not isinstance(body, dict) or body.get("ok") is not True or "result" not in body:
             raise CompanionError("TELEGRAM_API_REJECTED")
         return body["result"]
+
+    async def delete_message(self, person: Person, message_id: int) -> bool:
+        """Best-effort privacy cleanup for owner secret-input messages.
+
+        Telegram necessarily receives an inbound message before the bot can
+        delete it. This method verifies identity and a concrete message id; it
+        never treats an unverified API response as deletion.
+        """
+        if type(message_id) is not int or message_id <= 0:
+            raise CompanionError("TELEGRAM_MESSAGE_ID_INVALID")
+        if not self.authorize_delivery(person):
+            raise CompanionError("IDENTITY_REVOKED")
+        result = await self.call("deleteMessage", {"chat_id": person.chat_id,
+                                                   "message_id": message_id})
+        if result is not True:
+            raise CompanionError("TELEGRAM_DELETE_UNVERIFIED")
+        return True
 
     async def fetch_file(self, file_id: str, max_bytes: int = IMAGE_MAX_BYTES) -> bytes:
         """getFile + download into memory only, capped; the URL (with token) is never exposed."""
@@ -337,7 +418,24 @@ class Telegram:
             raise CompanionError("WEBHOOK_CONFLICT_USE_SEPARATE_COMPANION_BOT")
         return {"status": "AUTH_AND_POLLING_CONFIG_OK_NOT_E2E", "username": me.get("username", "")}
 
-    async def send(self, person: Person, text: str, keyboard=None):
+    async def delete_message(self, person: Person, message_id: int) -> bool:
+        """Delete one message in the exact bound private chat.
+
+        A True Bot API result proves Telegram accepted the deletion request. It
+        is not a claim that Telegram infrastructure never retained a copy.
+        """
+        if type(message_id) is not int or message_id <= 0:
+            raise CompanionError("TELEGRAM_MESSAGE_ID_INVALID")
+        if not self.authorize_delivery(person):
+            raise CompanionError("IDENTITY_REVOKED")
+        result = await self.call("deleteMessage", {"chat_id": person.chat_id, "message_id": message_id})
+        if result is not True:
+            raise CompanionError("TELEGRAM_DELETE_UNVERIFIED")
+        return True
+
+    async def send(self, person: Person, text: str, keyboard=None,
+                    reply_to_message_id: int | None = None,
+                    parse_mode: str | None = None):
         clean = scrub(text, (self.settings.bot_token, self.settings.core_token,
                             self.settings.cloud_token, self.settings.local_token))
         from bossman.notifications.telegram_transport import _egress_guard_text
@@ -352,8 +450,21 @@ class Telegram:
                 if index:
                     await asyncio.sleep(1.05)   # stay under Telegram's per-chat rate
                 payload = {"chat_id": person.chat_id, "text": part, "disable_web_page_preview": True}
+                if index == 0 and type(reply_to_message_id) is int and reply_to_message_id > 0:
+                    payload["reply_parameters"] = {
+                        "message_id": reply_to_message_id,
+                        "allow_sending_without_reply": True,
+                    }
                 if keyboard and index == len(parts) - 1:
                     payload["reply_markup"] = markup(keyboard)
+                if parse_mode:
+                    # Formatting is best-effort beauty: convert per part (after the
+                    # split, so entities are never cut in half) and fall back to the
+                    # plain part if Telegram refuses to parse. A reply is never lost
+                    # to a markup mistake.
+                    from .formatting import to_telegram_html
+                    payload["text"] = to_telegram_html(part)
+                    payload["parse_mode"] = parse_mode
                 try:
                     if not self.authorize_delivery(person):
                         raise CompanionError("IDENTITY_REVOKED")
@@ -361,6 +472,16 @@ class Telegram:
                 except RateLimited as exc:
                     # Only a definite 429 rejection is safe to retry, once.
                     await asyncio.sleep(exc.retry_after)
+                    if not self.authorize_delivery(person):
+                        raise CompanionError("IDENTITY_REVOKED")
+                    body = await self.call("sendMessage", payload)
+                except CompanionError as exc:
+                    if not parse_mode or str(exc) != "UPSTREAM_HTTP_ERROR":
+                        raise
+                    # Telegram refused the entities: one plain-text retry, so a
+                    # markup mistake can never lose the reply.
+                    payload.pop("parse_mode", None)
+                    payload["text"] = part
                     if not self.authorize_delivery(person):
                         raise CompanionError("IDENTITY_REVOKED")
                     body = await self.call("sendMessage", payload)
@@ -373,17 +494,38 @@ class Telegram:
 
 
 class Core:
-    """Only deterministic operations; all task effects remain in Bossman's engine."""
-    def __init__(self, settings: Settings, *, transport=None):
+    """Only deterministic operations; all task effects remain in Bossman's engine.
+
+    The token goes only to the Command Center that serves the owner's data
+    root, found through ``bcc.backend_lock`` and identity-checked first
+    (``backend_target``). An injected ``transport`` is a test double of that
+    backend, so verification is off unless ``verify_backend=True``.
+    """
+    def __init__(self, settings: Settings, *, transport=None, verify_backend: bool | None = None):
         self.settings = settings
         self.client = httpx.AsyncClient(timeout=10, trust_env=False, follow_redirects=False, transport=transport)
+        verify = transport is None if verify_backend is None else verify_backend
+        self.backend = (VerifiedBackend(settings.core_url, settings.core_data_dir or None,
+                                        strict=bool(settings.core_data_dir))
+                        if verify else None)
 
     async def close(self):
         await self.client.aclose()
 
+    async def base_url(self) -> str:
+        if self.backend is None:
+            return self.settings.core_url
+        return await self.backend.base_url(self.client)
+
     async def _request(self, method, path, payload=None, timeout=10):
-        return await json_request(self.client, method, self.settings.core_url + path, payload=payload,
-                                  headers={"X-BCC-Token": self.settings.core_token}, timeout=timeout)
+        base = await self.base_url()
+        try:
+            return await json_request(self.client, method, base + path, payload=payload,
+                                      headers={"X-BCC-Token": self.settings.core_token}, timeout=timeout)
+        except CompanionError as exc:
+            if self.backend is not None and str(exc) in {"AUTH_DENIED", "NETWORK_UNAVAILABLE"}:
+                self.backend.forget()       # restarted elsewhere: look again next time
+            raise
 
     async def evolution(self, action: str) -> dict:
         """Only the fixed owner actions are forwarded; no arbitrary URL or command."""
@@ -445,7 +587,7 @@ class Core:
         return body if isinstance(body, dict) else {}
 
     async def studio_runs(self, job_id: int, surface: str = "image") -> list:
-        body = await json_request(self.client, "GET", self.settings.core_url + "/api/studio/runs",
+        body = await json_request(self.client, "GET", await self.base_url() + "/api/studio/runs",
                                   params={"job_id": int(job_id), "surface": surface},
                                   headers={"X-BCC-Token": self.settings.core_token}, timeout=10)
         rows = body.get("items") if isinstance(body, dict) else None
@@ -457,7 +599,7 @@ class Core:
         data = bytearray()
         try:
             async with asyncio.timeout(60):
-                async with self.client.stream("GET", self.settings.core_url + f"/api/studio/runs/{run_id}/file",
+                async with self.client.stream("GET", await self.base_url() + f"/api/studio/runs/{run_id}/file",
                                               headers={"X-BCC-Token": self.settings.core_token}) as response:
                     if response.status_code != 200:
                         raise CompanionError("STUDIO_FILE_UNAVAILABLE")
@@ -472,7 +614,7 @@ class Core:
     # ---- approvals, Computer Use and lessons: the ONLY route from Telegram to an effect
     async def approvals(self, status: str = "pending") -> list:
         """Bossman's own approval queue. Read-only; a decision is a separate call."""
-        body = await json_request(self.client, "GET", self.settings.core_url + "/api/approvals",
+        body = await json_request(self.client, "GET", await self.base_url() + "/api/approvals",
                                   params={"status": status},
                                   headers={"X-BCC-Token": self.settings.core_token}, timeout=10)
         if not isinstance(body, list):
@@ -520,6 +662,72 @@ class Core:
             raise CompanionError("LESSONS_RESPONSE_INVALID")
         return [r for r in body if isinstance(r, dict)]
 
+    async def owner_inputs(self) -> list:
+        """Pending owner-input requests. Labels only; values never come back here."""
+        body = await self._request("GET", "/api/owner-input/pending")
+        rows = body.get("requests") if isinstance(body, dict) else None
+        if not isinstance(rows, list):
+            raise CompanionError("OWNER_INPUT_RESPONSE_INVALID")
+        return [r for r in rows if isinstance(r, dict) and isinstance(r.get("id"), str)]
+
+    async def owner_input(self, request_id: str) -> dict:
+        if not re.fullmatch(r"[0-9a-f]{12}", str(request_id or "")):
+            raise CompanionError("OWNER_INPUT_ID_INVALID")
+        body = await self._request("GET", f"/api/owner-input/{request_id}")
+        if not isinstance(body, dict) or body.get("id") != request_id:
+            raise CompanionError("OWNER_INPUT_RESPONSE_INVALID")
+        return body
+
+    async def answer_owner_input(self, request_id: str, values: dict, actor: str) -> dict:
+        if not re.fullmatch(r"[0-9a-f]{12}", str(request_id or "")):
+            raise CompanionError("OWNER_INPUT_ID_INVALID")
+        body = await self._request(
+            "POST", f"/api/owner-input/{request_id}/answer",
+            {"values": values, "actor": actor})
+        if not isinstance(body, dict) or body.get("id") != request_id or body.get("status") != "ANSWERED":
+            raise CompanionError("OWNER_INPUT_ANSWER_UNKNOWN")
+        return body
+
+
+    async def login_receipts(self) -> list:
+        """Pending safe login receipts: login/account labels only, never passwords."""
+        body = await self._request("GET", "/api/browser/login-receipts")
+        rows = body.get("receipts") if isinstance(body, dict) else None
+        if not isinstance(rows, list):
+            raise CompanionError("LOGIN_RECEIPTS_INVALID")
+        return [r for r in rows if isinstance(r, dict) and
+                re.fullmatch(r"[0-9a-f]{12}", str(r.get("id") or ""))]
+
+    async def login_receipt_screenshot(self, receipt_id: str, max_bytes: int = IMAGE_MAX_BYTES) -> bytes:
+        if not re.fullmatch(r"[0-9a-f]{12}", str(receipt_id or "")):
+            raise CompanionError("LOGIN_RECEIPT_ID_INVALID")
+        data = bytearray()
+        try:
+            async with asyncio.timeout(30):
+                async with self.client.stream(
+                    "GET", await self.base_url() + f"/api/browser/login-receipts/{receipt_id}/screenshot",
+                    headers={"X-BCC-Token": self.settings.core_token}) as response:
+                    if response.status_code != 200:
+                        raise CompanionError("LOGIN_SCREENSHOT_UNAVAILABLE")
+                    async for part in response.aiter_bytes():
+                        data.extend(part)
+                        if len(data) > max_bytes:
+                            raise CompanionError("IMAGE_TOO_LARGE")
+        except (httpx.HTTPError, OSError, TimeoutError):
+            raise CompanionError("NETWORK_UNAVAILABLE") from None
+        raw = bytes(data)
+        if image_mime(raw) != "image/png":
+            raise CompanionError("LOGIN_SCREENSHOT_INVALID")
+        return raw
+
+    async def consume_login_receipt(self, receipt_id: str) -> dict:
+        if not re.fullmatch(r"[0-9a-f]{12}", str(receipt_id or "")):
+            raise CompanionError("LOGIN_RECEIPT_ID_INVALID")
+        body = await self._request("POST", f"/api/browser/login-receipts/{receipt_id}/consumed", {})
+        if not isinstance(body, dict) or body.get("id") != receipt_id or body.get("phase") != "CONSUMED":
+            raise CompanionError("LOGIN_RECEIPT_CONSUME_UNKNOWN")
+        return body
+
     async def status(self):
         data = await self._request("GET", "/health/live")
         if not isinstance(data, dict) or data.get("app") != "bossman-command-center" or data.get("alive") is not True:
@@ -539,15 +747,19 @@ class Core:
         keys = ("id", "enabled", "model_id", "fallback_model_id", "tools", "permissions", "budget_usd")
         return fingerprint({k: row.get(k) for k in keys})
 
-    async def delegate(self, person: Person, prompt: str, expected_fingerprint: str, *, before_submit=None):
+    async def delegate(self, person: Person, prompt: str, expected_fingerprint: str, *,
+                       before_submit=None, client_request_id: str | None = None):
         if await self.executor(person) != expected_fingerprint:
             raise CompanionError("EXECUTOR_CHANGED_REVIEW_AGAIN")
         if before_submit is not None:
             before_submit()
-        body = await self._request("POST", "/api/tasks", {
+        payload = {
             "prompt": prompt, "title": "Telegram: " + prompt[:60],
             "agent_id": person.agent_id, "run_now": True, "max_retries": 0,
-        })
+        }
+        if client_request_id:
+            payload["client_request_id"] = client_request_id
+        body = await self._request("POST", "/api/tasks", payload)
         task = body.get("task") if isinstance(body, dict) else None
         if (not isinstance(task, dict) or task.get("agent_id") != person.agent_id or
                 task.get("prompt") != prompt):

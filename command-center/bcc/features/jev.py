@@ -164,6 +164,8 @@ async def _setup(svc) -> None:
     jev_config.set_default_kill_dir(Path(svc.settings.data_dir))   # env path still wins
     state = _State(svc.settings.data_dir)
     svc.jev = state
+    if not state.cfg.shadow:
+        return  # Smart Router consults state synchronously; no shadow hook/job.
     svc.engine.add_hook("pick_model", _make_hook(svc, state), critical=False)
     task = asyncio.create_task(_consume(svc, state), name="bcc-jev-shadow-consumer")
     if hasattr(svc, "_tasks"):
@@ -177,7 +179,7 @@ async def status(request: Request):
     out: dict[str, Any] = {
         "decision": jev_config.load().public(),
         "browser": jev_config.load_browser().public(),
-        "phase": "shadow",
+        "phase": "shadow" if state is None or state.cfg.shadow else "bounded_routing",
         "authoritative": False,
         "wired": state is not None,
         "upstream": {"repo": upstream.UPSTREAM_REPO, "commit": upstream.UPSTREAM_COMMIT,

@@ -142,8 +142,10 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_argument("--json", action="store_const", const="stream-json", dest="output_format")
     e.add_argument("--detach", action="store_true", help="поставить задачу и сразу вернуть task_id")
     e.add_argument("--wait", action="store_true", help="ждать результат (по умолчанию)")
-    e.add_argument("--agent")
-    e.add_argument("--model")
+    # Keep values supplied before the subcommand unless they are explicitly
+    # overridden after it (argparse otherwise replaces them with None).
+    e.add_argument("--agent", default=argparse.SUPPRESS)
+    e.add_argument("--model", default=argparse.SUPPRESS)
     e.add_argument("--title")
     e.add_argument("--request-id", help="ключ идемпотентности (повтор = та же задача)")
     e.add_argument("--max-seconds", type=float, default=None)
@@ -808,39 +810,26 @@ def cmd_stop(args) -> int:
 
 
 def global_stop(client: Client, out: Out) -> int:
-    """Global STOP: every active task, the computer-control STOP flag, running
-    coding tasks. Each result is the backend's answer, reported one by one."""
-    stopped, errors = [], []
-    tasks = client.get("/api/tasks", params={"status": "queued,running,waiting_approval,paused",
-                                             "limit": 500}) or []
-    for t in tasks:
-        try:
-            client.post(f"/api/tasks/{t['id']}/stop")
-            stopped.append(t["id"])
-        except BossmanError as exc:
-            errors.append({"task_id": t["id"], "error": exc.message})
-    computer = None
-    try:
-        computer = client.post("/api/computer/stop")
-    except BossmanError as exc:
-        errors.append({"computer": exc.message})
-    coding = []
-    try:
-        for item in (client.get("/api/coding-tasks") or {}).get("items", []):
-            if item.get("status") == "running":
-                client.post(f"/api/coding-tasks/{item['id']}/cancel")
-                coding.append(item["id"])
-    except BossmanError as exc:
-        if exc.kind != "not_supported":
-            errors.append({"coding": exc.message})
-    rec = record("stop_all", ok=not errors, stopped_tasks=stopped, computer_stopped=bool(
-        (computer or {}).get("stopped")), cancelled_coding_tasks=coding, errors=errors or None,
-        exit_code=EXIT_OK if not errors else EXIT_FAIL)
+    """Use the same backend owner STOP as the Command Center palette."""
+    result = client.post("/api/control-plane/stop-all") or {}
+    confirmed = result.get("ok") is True
+    rec = record("stop_all", ok=confirmed, result=result,
+                 exit_code=EXIT_OK if confirmed else EXIT_FAIL)
     if out.machine:
         out.json(rec)
     else:
-        out.say(f"STOP: задач {len(stopped)}, компьютер {'остановлен' if rec['computer_stopped'] else '—'},"
-                f" coding {len(coding)}" + (f"; ошибки: {len(errors)}" if errors else ""))
+        stopped = sum(len(ids) for ids in (result.get("stopped") or {}).values())
+        remaining = sum(len(ids) for ids in (result.get("remaining") or {}).values())
+        out.say(f"STOP: подтверждено {stopped}, ещё активны {remaining}, "
+                f"ошибки {len(result.get('errors') or [])}; "
+                + ("полностью подтверждён" if confirmed else "требует проверки"))
+        unknown = result.get("provider_outcome_unknown") or []
+        if unknown:
+            ids = ", ".join(str(jid) for jid in unknown[:10])
+            suffix = "…" if len(unknown) > 10 else ""
+            out.say(f"OWNER_REQUIRED: проверьте исход внешнего Studio-провайдера "
+                    f"для {len(unknown)} заданий (job ID {ids}{suffix}). "
+                    "Повтор STOP не подтверждает внешний результат.")
     return rec["exit_code"]
 
 
@@ -867,10 +856,41 @@ def list_items(client: Client, what: str, *, limit: int = 20) -> list[dict]:
         cat = Catalog.load(client)
         from .ops import locality
         from .records import model_kind
-        return [{"id": m.get("id"), "alias": sanitize(m.get("alias")), "name": sanitize(m.get("name")),
+        rows = [{"id": m.get("id"), "alias": sanitize(m.get("alias")), "name": sanitize(m.get("name")),
                  "locality": locality(cat.provider(m.get("provider_id")), m),
-                 "context_window": m.get("context_window"), "model_kind": model_kind(m.get("name"))}
+                 "context_window": m.get("context_window"), "model_kind": model_kind(m.get("name")),
+                 "registered": True, "provider_id": m.get("provider_id")}
                 for m in cat.models]
+        try:
+            found = client.post("/api/models/discover", {}) or {}
+        except BossmanError:
+            return rows  # older backend: the stored registry is still usable
+        endpoints = {str(e.get("base_url") or "").rstrip("/"): e
+                     for e in found.get("endpoints") or [] if isinstance(e, dict)}
+        for row in rows:
+            provider = cat.provider(row["provider_id"])
+            if row["locality"] != "local" or not provider:
+                continue
+            endpoint = endpoints.get(str(provider.get("base_url") or "").rstrip("/"))
+            if endpoint is not None:
+                # A catalog listing only proves presence, never inference quality.
+                row["catalog_status"] = ("listed" if endpoint.get("ok") and
+                                         row["name"] in (endpoint.get("models") or []) else "unavailable")
+        for endpoint in found.get("endpoints") or []:
+            if (not isinstance(endpoint, dict) or not endpoint.get("ok") or
+                    not str(endpoint.get("label", "")).startswith("Ollama")):
+                continue
+            provider = next((p for p in cat.providers if str(p.get("base_url") or "").rstrip("/") ==
+                             str(endpoint.get("base_url") or "").rstrip("/")), None)
+            for name in endpoint.get("models") or []:
+                if not isinstance(name, str) or not name or any(
+                        r["name"] == name and r["provider_id"] == (provider or {}).get("id") for r in rows):
+                    continue
+                rows.append({"id": None, "alias": sanitize(name), "name": sanitize(name),
+                             "locality": "local", "context_window": None,
+                             "model_kind": model_kind(name), "registered": False,
+                             "provider_id": (provider or {}).get("id"), "catalog_status": "listed"})
+        return rows
     if what == "agents":
         cat = Catalog.load(client)
         return [{"id": a.get("id"), "name": sanitize(a.get("name")), "enabled": a.get("enabled"),

@@ -97,10 +97,26 @@ def main(argv: list[str] | None = None) -> None:
                     help="опросить всех провайдеров, у которых есть ключ")
     pm.add_argument("--json", action="store_true", dest="as_json")
 
+    pit = sub.add_parser("pit",
+                         help="PIT-режим 1.7 (Jeff): setup | status | doctor | start | stop | "
+                              "routes | web-setup | web-user | passport-checkpoint …")
+    pit.add_argument("pit_args", nargs=argparse.REMAINDER)
+
+    raw = list(sys.argv[1:] if argv is None else argv)
+    if raw and raw[0] == "pit" and not ({"-h", "--help"} & set(raw[1:2])):
+        # The PIT CLI owns its own commands and flags (`routes --last 10`,
+        # `web-setup`, …): pass them through instead of re-listing a subset here.
+        from bcc.pit.cli import main as pit_main
+        sys.exit(int(pit_main(raw) or 0))
     args = p.parse_args(argv)
     if args.cmd == "serve":
         from .api import main as serve
         serve()
+    elif args.cmd == "pit":
+        # Bossman 1.7 PIT participant runtime (docs/v1.7): the owner launch
+        # surface lives in the existing `bossman` CLI, not a private script.
+        from bcc.pit.cli import main as pit_main
+        sys.exit(int(pit_main(argv) or 0))
     elif args.cmd == "task":
         asyncio.run(_task(args))
     elif args.cmd == "project":

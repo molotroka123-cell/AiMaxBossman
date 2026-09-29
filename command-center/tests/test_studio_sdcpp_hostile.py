@@ -934,6 +934,23 @@ def test_observe_backend_pure(lines, expect):
 
 # --------------------------------------------------------------------------- MEDIA-PRESET
 
+def test_qwen_edit_2509_catalog_and_argv_accept_verified_references():
+    model = _model("sdcpp:qwen-image-edit-2509")
+    assert model["license"] == "Apache-2.0"
+    assert model["roles"]["reference"] == 3
+    settings = catalog.validate_settings(model, {"steps": 24, "seed": 1})
+    files = {role: Path(f"/m/{role}.gguf") for role in
+             ("diffusion", "vae", "llm", "llm_vision")}
+    argv = sdcpp._argv(
+        {"bin": Path("sd-cli.exe")}, model["id"],
+        GenerationPlane(model["id"], "edit portrait", settings, ({"role": "reference"},)), settings,
+        files, Path("/w/out.png"), None)
+    assert argv[argv.index("--steps") + 1] == "24"
+    assert argv[argv.index("--cfg-scale") + 1] == "2.5"
+    assert "--llm_vision" in argv and "--diffusion-fa" in argv
+    assert sdcpp.ENGINES[model["id"]] == "qwen-image-edit-2509"
+
+
 def test_catalog_default_video_duration_at_least_3s_and_argv_matches():
     model = _model("sdcpp:wan2.2-ti2v-5b")
     settings = catalog.validate_settings(model, {"seed": 1})

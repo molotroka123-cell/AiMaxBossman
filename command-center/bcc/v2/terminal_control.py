@@ -5,6 +5,7 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -220,6 +221,7 @@ class TerminalManager:
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
+                **({"start_new_session": True} if os.name != "nt" else {}),
             )
         else:
             shell = host_shell()
@@ -231,6 +233,7 @@ class TerminalManager:
                 proc = await asyncio.create_subprocess_shell(
                     cmd, cwd=str(cwd),
                     **({"executable": shell[0]} if is_cmd else {}),
+                    **({"start_new_session": True} if os.name != "nt" else {}),
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT,
@@ -238,6 +241,7 @@ class TerminalManager:
             else:
                 proc = await asyncio.create_subprocess_exec(
                     *shell, cmd, cwd=str(cwd),
+                    **({"start_new_session": True} if os.name != "nt" else {}),
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT,
@@ -312,7 +316,21 @@ class TerminalManager:
     async def kill(self, session_id: str) -> None:
         s = self.sessions[session_id]
         if not s.finished:
-            s.proc.kill()
+            # A host shell can have an active child. Killing only cmd.exe/sh
+            # leaves that child running after the owner sees "stopped".
+            if os.name == "nt" and s.proc.returncode is None:
+                killer = await asyncio.create_subprocess_exec(
+                    "taskkill", "/PID", str(s.proc.pid), "/T", "/F",
+                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+                output, _ = await killer.communicate()
+                if killer.returncode and s.proc.returncode is None:
+                    raise RuntimeError(f"process tree stop failed: {output.decode(errors='replace')[:200]}")
+            elif s.proc.returncode is None:
+                # POSIX starts each session in its own process group above.
+                try:
+                    os.killpg(s.proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
             await s.proc.wait()
             s.finished = True
             s.exit_code = s.proc.returncode

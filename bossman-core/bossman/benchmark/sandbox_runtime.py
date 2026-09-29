@@ -78,7 +78,7 @@ def workspace_patch_rollback(seed: int) -> dict:
         (root / "app").mkdir(); (root / "tests").mkdir()
         (root / "app" / "calc.py").write_text("def add(a, b):\n    return a - b\n", encoding="utf-8")
         (root / "tests" / "test_calc.py").write_text("from app.calc import add\n\n\ndef test_add():\n    assert add(2, 2) == 4\n", encoding="utf-8")
-        subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=root, check=True, timeout=60)
         ws = LiveWorkspace(root, allowed_paths=("app/",), protected_paths=("tests/test_calc.py",))
         token = ws.snapshot()
         diff = ("--- a/app/calc.py\n+++ b/app/calc.py\n@@ -1,2 +1,2 @@\n def add(a, b):\n-    return a - b\n+    return a + b\n")

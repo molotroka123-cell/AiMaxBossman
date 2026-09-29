@@ -356,6 +356,7 @@ const ModelsPage = {
           ctx.refresh();
         }, { iconName: 'retry', size: 'sm' }),
         ui.btn('Найти локальные', () => openDiscoveryModal(ctx), { iconName: 'search', size: 'sm' }),
+        ui.btn('Бесплатные облака', () => openFreeProvidersModal(ctx), { iconName: 'plus', size: 'sm' }),
         ui.btn('Добавить модель', () => openModelWizard(ctx), { variant: 'primary', iconName: 'plus', size: 'sm' }),
       ] });
 
@@ -530,6 +531,48 @@ async function openDiscoveryModal(ctx) {
     h('div.stack', epRows),
     h('div.section-title', { style: { margin: '8px 0 0' } }, 'Файлы моделей на диске'),
     fileRows));
+}
+
+// NVIDIA NIM / Groq: ключ проверяется каталогом на бэкенде, модели встают по 0/0 (free tier).
+async function openFreeProvidersModal(ctx) {
+  const modal = openModal({ title: 'Бесплатные облачные модели', wide: true, body: h('div'), footer: h('div') });
+  append(modal.footer, [h('div.spacer'),
+    h('button.btn', { type: 'button', onClick: () => modal.close() }, 'Закрыть')]);
+  let list = [];
+  try { list = listOf(await api.freeProviders(), 'providers'); }
+  catch (err) {
+    append(modal.body, h('div.small', (err && err.message) || 'Не удалось получить список'));
+    return;
+  }
+  const rows = list.map((p) => {
+    const keyEl = input({ type: 'password', placeholder: 'ключ API', class: 'input mono', autocomplete: 'new-password' });
+    const status = h('div.small.dim', p.has_key
+      ? `подключён (${p.key || '…'}), моделей: ${p.models_registered}`
+      : 'не подключён');
+    const connect = async () => {
+      const key = (keyEl.value || '').trim();
+      if (!key) { toast('Вставьте ключ', { type: 'warn' }); return; }
+      try {
+        const res = await api.connectFreeProvider(p.name, key);
+        keyEl.value = '';
+        toastOk(`${p.title}: ключ ${res.key || ''} сохранён, добавлено моделей: ${(res.models_added || []).length}`);
+        ctx.refresh();
+        modal.close();
+      } catch (err) {
+        toast((err && err.message) || 'Не удалось подключить', { type: 'warn', hint: err && err.hint });
+      }
+    };
+    return h('div.card', { style: { padding: '10px 12px' } },
+      h('div.row', h('div', { style: { flex: '1', minWidth: 0 } },
+        h('div', p.title, ' ', h('span.small.dim.mono', p.base_url)),
+        h('div.small.dim', p.free_terms), status)),
+      h('div.row', { style: { marginTop: '8px' } }, keyEl,
+        h('button.btn.btn-sm', { type: 'button', onClick: connect }, icon('plus', 12), h('span', 'Подключить')),
+        h('a.small', { href: p.signup_url, target: '_blank', rel: 'noopener noreferrer' }, 'получить ключ')));
+  });
+  append(modal.body, h('div.stack',
+    h('div.small.dim', 'Разгрузка OpenRouter: модели регистрируются с ценой 0/0 только для аккаунта без привязанной карты.'),
+    h('div.stack', rows)));
 }
 
 async function openModelWizard(ctx) {
@@ -1222,9 +1265,13 @@ async function loadTaskDetail(id, bodyEl, ctx) {
         h('pre.block', String(task.prompt))) : null,
       info,
       actions,
+      /* У выполненной задачи `error` прогона — сбой ДО ответа (например, модель
+         была недоступна и ответила запасная, см. Live-лог). Красная «Ошибка» над
+         готовым результатом читалась как провал (RC 1.9 soak). */
       error ? h('div',
-        h('div.section-title', 'Ошибка'),
-        h('pre.block', { style: { color: 'var(--err)' } }, String(error))) : null,
+        h('div.section-title', status === 'completed' ? 'Сбои до ответа' : 'Ошибка'),
+        h('pre.block', { style: { color: status === 'completed' ? 'var(--warn)' : 'var(--err)' } },
+          String(error))) : null,
       result ? h('div',
         h('div.section-title', 'Результат'),
         h('pre.block', String(result))) : null,
@@ -1286,26 +1333,40 @@ function appendLiveLog(ev) {
   if (nearBottom) taskState.logEl.scrollTop = taskState.logEl.scrollHeight;
 }
 
-/** Остановить все активные задачи (используется в командной палитре). */
+/** Общий STOP владельца (используется в командной палитре). */
 export async function stopAllRunning(ctx) {
-  let tasks = [];
-  try { tasks = listOf(await api.tasks(), 'tasks'); }
-  catch (e) { toastError(e, 'Не удалось получить список задач'); return; }
-
-  const active = tasks.filter((t) => ['running', 'queued', 'paused'].includes(String(t.status)));
-  if (!active.length) { toast('Активных задач нет', { type: 'info' }); return; }
+  let preview = null;
+  try { preview = await api.activeOwnerWork(); }
+  catch (e) { toastError(e, 'Не удалось получить полный список активных операций'); }
+  const unresolvedStudio = preview?.active?.studio_provider_unknown || [];
+  const count = Math.max(0, (Number(preview?.count) || 0) - unresolvedStudio.length);
+  const parts = Object.entries(preview?.active || {})
+    .filter(([plane, ids]) => plane !== 'studio_provider_unknown' && Array.isArray(ids) && ids.length)
+    .map(([plane, ids]) => `${plane}: ${ids.length}`);
 
   const ok = await confirmDialog({
-    title: 'Остановить все активные задачи?',
-    text: `Будут остановлены: ${active.map((t) => pick(t, ['title'], `#${pick(t, ['id'])}`)).slice(0, 8).join(', ')}${active.length > 8 ? ` и ещё ${active.length - 8}` : ''}.`,
-    okText: `Остановить (${active.length})`, danger: true,
+    title: 'Остановить все активные операции?',
+    text: `${count ? `Активно: ${parts.join(', ')}. ` : 'Активные операции не обнаружены. '}`
+      + 'STOP управления компьютером сохранится после перезапуска. '
+      + (unresolvedStudio.length ? `Studio: исход внешнего провайдера не подтверждён для ${unresolvedStudio.length} заданий. ` : '')
+      + (preview?.errors?.length ? 'Часть источников состояния недоступна; результат покажет ошибки. ' : '')
+      + 'Новые действия на компьютере потребуют «Продолжить».',
+    okText: 'Остановить всё', danger: true,
   });
   if (!ok) return;
 
-  const results = await Promise.allSettled(active.map((t) => api.taskAction(pick(t, ['id']), 'stop')));
-  const failed = results.filter((r) => r.status === 'rejected').length;
-  if (failed) toast(`Остановлено ${results.length - failed} из ${results.length}`, { type: 'warn', hint: 'Часть задач не приняла команду — обновите список.' });
-  else toastOk(`Остановлено задач: ${results.length}`);
+  let result;
+  try { result = await api.stopAllOwnerWork(); }
+  catch (e) { toastError(e, 'Глобальный STOP не подтверждён'); return; }
+  const stopped = Object.values(result.stopped || {}).reduce((n, ids) => n + ids.length, 0);
+  const remaining = Object.values(result.remaining || {}).reduce((n, ids) => n + ids.length, 0);
+  const requested = Object.values(result.requested || {}).reduce((n, ids) => n + ids.length, 0);
+  const unknown = result.provider_outcome_unknown || [];
+  if (result.ok === true) toastOk(`STOP подтверждён: завершено ${stopped} операций`);
+  else if (unknown.length) toast(`STOP частично подтверждён: завершено ${stopped}, ожидают проверки ${remaining || requested}, ошибок ${(result.errors || []).length}; исход Studio не подтверждён для ${unknown.length} заданий`,
+    { type: 'warn', hint: `OWNER_REQUIRED: проверьте результат у внешнего Studio-провайдера для job ID ${unknown.slice(0, 10).join(', ')}${unknown.length > 10 ? '…' : ''}. Повтор STOP не подтверждает внешний результат.` });
+  else toast(`STOP частично подтверждён: завершено ${stopped}, ожидают остановки ${remaining || requested}, ошибок ${(result.errors || []).length}`,
+    { type: 'warn', hint: 'Проверьте состояние операций и повторите STOP, если они ещё активны.' });
   ctx.refresh();
 }
 

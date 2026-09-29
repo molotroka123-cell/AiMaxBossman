@@ -1,5 +1,5 @@
 from __future__ import annotations
-import asyncio,platform
+import asyncio,platform,threading
 from ..models import ActionKind
 
 # Между порциями ввода проверяется команда владельца. Меньше — чаще проверки и
@@ -39,7 +39,42 @@ class UiaTargetError(RuntimeError):
 
 class WindowsDesktop:
     name="windows"
-    def __init__(self): self.is_windows=platform.system().lower()=="windows"
+    def __init__(self):
+        self.is_windows=platform.system().lower()=="windows"
+        # Эффект идёт в потоке (asyncio.to_thread), а отмена/таймаут вызывающего
+        # поток НЕ останавливает: без учёта «живых» потоков сироту, который ещё
+        # печатает, не видно, и следующее действие идёт с ним одновременно.
+        self._guard=threading.Lock()
+        self._running=0
+        self._aborts=set()
+        self._tls=threading.local()
+
+    def busy(self):
+        """Идёт ли ещё эффект в потоке (в том числе брошенный вызывающим)."""
+        with self._guard:
+            return self._running>0
+
+    def abort_inflight(self):
+        """Оборвать эффекты, от которых вызывающий уже отказался (таймаут/отмена):
+        ввод остановится на следующей порции, ещё не начавшийся — не начнётся."""
+        with self._guard:
+            tokens=list(self._aborts); self._aborts.clear()
+        for t in tokens: t.set()
+
+    def _effect_token(self):
+        token=threading.Event()
+        with self._guard: self._aborts.add(token)
+        return token
+
+    def _enter_effect(self,token):
+        with self._guard: self._running+=1
+        self._tls.abort=token
+
+    def _leave_effect(self,token):
+        self._tls.abort=None
+        with self._guard:
+            self._running-=1
+            self._aborts.discard(token)
     def _req(self):
         if not self.is_windows: raise RuntimeError("Windows backend requires Windows")
 
@@ -162,7 +197,14 @@ class WindowsDesktop:
             raise UiaTargetError(f"uia target {a.target!r} failed: {reason}")
         await self._input(a)
     async def _uia(self,a):
+        token=self._effect_token()
         def f():
+            self._enter_effect(token)
+            try:
+                if token.is_set(): return False,"aborted before start (caller gave up)"
+                return g()
+            finally: self._leave_effect(token)
+        def g():
             try:
                 w=self._active_window()
                 cands=w.descendants(title=a.target)
@@ -224,6 +266,29 @@ class WindowsDesktop:
         """
         if self._interrupted():
             raise RuntimeError(f"owner interrupted typing after {typed} of {total} characters")
+        # Вызывающий уже отказался от этого шага (таймаут/отмена): поток-сирота
+        # не допечатывает текст параллельно со следующим действием.
+        abort=getattr(getattr(self,"_tls",None),"abort",None)
+        if abort is not None and abort.is_set():
+            raise RuntimeError(f"typing aborted after {typed} of {total} characters (caller gave up)")
+
+    @staticmethod
+    def _foreground_hwnd():
+        try:
+            import ctypes
+            return int(ctypes.windll.user32.GetForegroundWindow() or 0)
+        except Exception:
+            return 0
+
+    def _check_foreground(self,want,typed,total):
+        """Ввод идёт ровно в то окно, которое проверил вызывающий. Фокус ушёл
+        посреди печати (всплывающее окно, клик владельца) — остальное не
+        печатается: иначе хвост текста уходит в чужое окно, хоть в терминал."""
+        if not want: return
+        now=self._foreground_hwnd()
+        if now!=int(want):
+            raise RuntimeError(f"foreground window changed after {typed} of {total} characters — "
+                               f"typing stopped")
 
     @staticmethod
     def _typeable(text,pyautogui):
@@ -304,7 +369,15 @@ class WindowsDesktop:
             except Exception: pass
 
     async def _input(self,a):
+        token=self._effect_token()
         def f():
+            self._enter_effect(token)
+            try:
+                if token.is_set() and a.kind is not ActionKind.TYPE:
+                    raise RuntimeError("input aborted before start (caller gave up)")
+                g()
+            finally: self._leave_effect(token)
+        def g():
             try: import pyautogui
             except ImportError as e: raise RuntimeError("pyautogui missing") from e
             pyautogui.FAILSAFE=True
@@ -313,7 +386,12 @@ class WindowsDesktop:
             elif a.kind is ActionKind.DOUBLE_CLICK: pyautogui.doubleClick(*self._xy(a))
             elif a.kind is ActionKind.TYPE:
                 text=a.text or ""
-                interval=min(.2,max(0,float(a.args.get("interval",.01))))
+                # On the owner Win11 Notepad, 10 ms inter-key spacing dropped
+                # letters in ordinary ASCII text; 50 ms survived fresh UIA
+                # readback and file verification. Explicit callers may still
+                # request a different pacing for a known target.
+                interval=min(.2,max(0,float(a.args.get("interval",.05))))
+                want=a.args.get("foreground_handle")
                 if self._typeable(text,pyautogui):
                     # Порциями, а не одним вызовом: длинный текст с задержкой в
                     # 0.2 с на символ — это минуты, в течение которых команда
@@ -321,6 +399,7 @@ class WindowsDesktop:
                     self._stop_if_interrupted(0,len(text))
                     for start in range(0,len(text),_TYPE_CHUNK):
                         chunk=text[start:start+_TYPE_CHUNK]
+                        self._check_foreground(want,start,len(text))
                         try: pyautogui.write(chunk,interval=interval)
                         except failsafe as e:
                             # typewrite проверяет угол МЕЖДУ символами: обрыв
@@ -335,10 +414,12 @@ class WindowsDesktop:
                         # Порциями и через буфер: «Стоп» владельца действует и здесь.
                         self._stop_if_interrupted(0,len(text))
                         for start in range(0,len(text),_TYPE_CHUNK*4):
+                            self._check_foreground(want,start,len(text))
                             self._type_via_clipboard(text[start:start+_TYPE_CHUNK*4],pyautogui)
                             self._stop_if_interrupted(min(start+_TYPE_CHUNK*4,len(text)),len(text))
                     except RuntimeError as e:
-                        if "owner interrupted typing" in str(e): raise
+                        if any(m in str(e) for m in ("owner interrupted typing","typing aborted",
+                                                      "foreground window changed")): raise
                         raise RuntimeError(
                             "text contains characters this keyboard layout cannot type and "
                             f"the clipboard path failed: {type(e).__name__}: {e}") from e

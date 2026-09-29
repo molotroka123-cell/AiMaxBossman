@@ -224,12 +224,10 @@ class TeacherVerdict:
 def patch_paths(patch: dict[str, str] | str) -> list[str]:
     if isinstance(patch, dict):
         return list(patch)
-    paths: list[str] = []
-    for line in patch.splitlines():
-        if line.startswith("+++ "):
-            value = line[4:].strip().split("\t", 1)[0]
-            if value != "/dev/null": paths.append(value[2:] if value.startswith("b/") else value)
-    return paths
+    # Old AND new side of every file: a deletion (`+++ /dev/null`), the source of a
+    # rename/copy and a binary patch never appear on a `+++` line.
+    from .live_workspace import diff_target_paths
+    return diff_target_paths(patch)
 
 
 def security_findings(patch: dict[str, str] | str, *, allowed_paths: tuple[str, ...]) -> list[str]:
@@ -291,46 +289,52 @@ class PatchVerifier:
             return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_QUARANTINED.value, reasons, [
                 self._evidence(binding, "security_scan", False, "no policy weakening / secrets / protected paths", "; ".join(sec)[:500])],
                 "security regression: patch not applied", violation_type=sec[0].split(" in ")[0].split(":")[0], rolled_back=True, attempt=attempt)
-        # 3. apply, then check the hash binding again (a patch could rewrite tests indirectly)
+        # Any exception from here on (a hung test run, an undecodable log, a crashed
+        # verifier) must not leave the teacher's patch applied in the verifier worktree.
         try:
-            workspace.apply(obs.patch)
-        except Exception as exc:  # noqa: BLE001
-            workspace.restore(token)
-            return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_REJECTED.value, reasons + [f"patch does not apply: {exc!r}"],
-                                  [self._evidence(binding, "apply", False, "patch applies", repr(exc)[:300])],
-                                  f"patch does not apply cleanly: {exc!r}"[:500], rolled_back=True, attempt=attempt)
-        tampered = acceptance.tampered(workspace)
-        if tampered:
-            workspace.restore(token); acceptance.restore(workspace)
-            return TeacherVerdict(TeacherStatus.ACCEPTANCE_TAMPERING.value, reasons + [f"acceptance tests changed after apply: {tampered}"],
-                                  [self._evidence(binding, "diff_review", False, "acceptance hashes unchanged", f"changed {tampered}")],
-                                  "acceptance tests restored from hash-bound copy", violation_type="acceptance_tampering",
-                                  rolled_back=True, tests_restored=True, attempt=attempt)
-        # 4. independent tests (acceptance) + regressions
-        passed, failed, excerpt = workspace.run_tests(bundle.acceptance_tests)
-        ev = [self._evidence(binding, "test", passed, f"{list(bundle.acceptance_tests)} pass", excerpt[:300] or ("pass" if passed else "fail"))]
-        if not passed:
-            workspace.restore(token)
-            return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_REJECTED.value, reasons + [f"acceptance tests failing: {failed}"], ev,
-                                  f"tests still failing after the patch: {failed}; excerpt: {excerpt[:200]}", rolled_back=True,
-                                  files_changed=sorted(patch_paths(obs.patch)), attempt=attempt)
-        if regression_tests:
-            rp, rf, rex = workspace.run_tests(regression_tests)
-            ev.append(self._evidence(binding, "regression", rp, f"{list(regression_tests)} still pass", rex[:300] or ("pass" if rp else "fail")))
-            if not rp:
+            # 3. apply, then check the hash binding again (a patch could rewrite tests indirectly)
+            try:
+                workspace.apply(obs.patch)
+            except Exception as exc:  # noqa: BLE001
                 workspace.restore(token)
-                return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_REJECTED.value, reasons + [f"new regressions: {rf}"], ev,
-                                      f"patch fixes the target but breaks {rf}", rolled_back=True, files_changed=sorted(patch_paths(obs.patch)), attempt=attempt)
-        # 5. evidence freshness + binding (task / run / HEAD / environment)
-        now = self.clock()
-        for e in ev:
-            err = e.freshness_error(run=binding, now=now)
-            if err:
+                return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_REJECTED.value, reasons + [f"patch does not apply: {exc!r}"],
+                                      [self._evidence(binding, "apply", False, "patch applies", repr(exc)[:300])],
+                                      f"patch does not apply cleanly: {exc!r}"[:500], rolled_back=True, attempt=attempt)
+            tampered = acceptance.tampered(workspace)
+            if tampered:
+                workspace.restore(token); acceptance.restore(workspace)
+                return TeacherVerdict(TeacherStatus.ACCEPTANCE_TAMPERING.value, reasons + [f"acceptance tests changed after apply: {tampered}"],
+                                      [self._evidence(binding, "diff_review", False, "acceptance hashes unchanged", f"changed {tampered}")],
+                                      "acceptance tests restored from hash-bound copy", violation_type="acceptance_tampering",
+                                      rolled_back=True, tests_restored=True, attempt=attempt)
+            # 4. independent tests (acceptance) + regressions
+            passed, failed, excerpt = workspace.run_tests(bundle.acceptance_tests)
+            ev = [self._evidence(binding, "test", passed, f"{list(bundle.acceptance_tests)} pass", excerpt[:300] or ("pass" if passed else "fail"))]
+            if not passed:
                 workspace.restore(token)
-                return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_REJECTED.value, reasons + [f"evidence rejected: {err}"], ev,
-                                      f"evidence not fresh/bound: {err}", rolled_back=True, attempt=attempt)
-        return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_ACCEPTED.value, reasons + ["independent tests, diff review, security scan, freshness and binding passed"],
-                              ev, "", files_changed=sorted(patch_paths(obs.patch)), attempt=attempt)
+                return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_REJECTED.value, reasons + [f"acceptance tests failing: {failed}"], ev,
+                                      f"tests still failing after the patch: {failed}; excerpt: {excerpt[:200]}", rolled_back=True,
+                                      files_changed=sorted(patch_paths(obs.patch)), attempt=attempt)
+            if regression_tests:
+                rp, rf, rex = workspace.run_tests(regression_tests)
+                ev.append(self._evidence(binding, "regression", rp, f"{list(regression_tests)} still pass", rex[:300] or ("pass" if rp else "fail")))
+                if not rp:
+                    workspace.restore(token)
+                    return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_REJECTED.value, reasons + [f"new regressions: {rf}"], ev,
+                                          f"patch fixes the target but breaks {rf}", rolled_back=True, files_changed=sorted(patch_paths(obs.patch)), attempt=attempt)
+            # 5. evidence freshness + binding (task / run / HEAD / environment)
+            now = self.clock()
+            for e in ev:
+                err = e.freshness_error(run=binding, now=now)
+                if err:
+                    workspace.restore(token)
+                    return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_REJECTED.value, reasons + [f"evidence rejected: {err}"], ev,
+                                          f"evidence not fresh/bound: {err}", rolled_back=True, attempt=attempt)
+            return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_ACCEPTED.value, reasons + ["independent tests, diff review, security scan, freshness and binding passed"],
+                                  ev, "", files_changed=sorted(patch_paths(obs.patch)), attempt=attempt)
+        except BaseException:
+            workspace.restore(token)
+            raise
 
     def _evidence(self, b: EvidenceBinding, kind: str, passed: bool, expected: str, actual: str) -> Evidence:
         at = self.clock()

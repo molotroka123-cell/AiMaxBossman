@@ -93,7 +93,11 @@ async def serve(path: Path):
     if not settings.enabled:
         raise CompanionError("COMPANION_DISABLED_IN_SETTINGS")
     from bcc.auth import _restrict_to_owner
-    with single_instance(path.parent):
+    from bcc.pit.bot_guard import token_poller_lock
+    # One poller per bot TOKEN machine-wide (the same kernel lock Jeff takes):
+    # «Пульт» configured with Jeff's token, or a second companion from another
+    # folder, is refused instead of stealing updates from the running poller.
+    with single_instance(path.parent), token_poller_lock(settings.bot_token):
         store = Store(path.parent)
         _restrict_to_owner(store.path)
         _restrict_to_owner(store.vault.path)

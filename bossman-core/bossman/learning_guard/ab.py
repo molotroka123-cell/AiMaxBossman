@@ -5,7 +5,7 @@ verified-успех, не self-score.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Iterable
 
 from .models import ABResult
@@ -41,12 +41,27 @@ def _retention(raw: float, guarded: float) -> float:
     return round(guarded / raw, 4)
 
 
+def _one_row_per_task(results: Iterable[ABResult]) -> list[ABResult]:
+    """One task counts once (AGENTS.md: repeated known tasks are not learning).
+    Twenty copies of one row were twenty "episodes". Rows of the same task are
+    merged conservatively: guarded verified only if EVERY row was, raw if ANY was."""
+    merged: dict[str, ABResult] = {}
+    for r in results:
+        prev = merged.get(r.task_id)
+        if prev is None:
+            merged[r.task_id] = r
+        else:
+            merged[r.task_id] = replace(prev, raw_verified=prev.raw_verified or r.raw_verified,
+                                        guarded_verified=prev.guarded_verified and r.guarded_verified)
+    return list(merged.values())
+
+
 def evaluate_ab(results: Iterable[ABResult], *,
                 degradation_max_pp: float = DEGRADATION_MAX_PP,
                 retention_min: float = RETENTION_MIN,
                 min_episodes: int = MIN_EPISODES) -> ABVerdict:
     """Свести A/B в вердикт. Использует ТОЛЬКО verified-поля (req.6)."""
-    rs = list(results)
+    rs = _one_row_per_task(results)
     n = len(rs)
     raw = _rate(rs, "raw_verified")
     guarded = _rate(rs, "guarded_verified")
@@ -72,8 +87,13 @@ def evaluate_ab(results: Iterable[ABResult], *,
         reasons.append(f"degradation {degradation_pp}pp > {degradation_max_pp}pp")
     if retention < retention_min:
         reasons.append(f"retention {retention} < {retention_min}")
+    # 0/0: neither arm verified a single task. "No degradation" there is the absence
+    # of a measurement, not evidence — retention reads 1.0 only by definition.
+    no_signal = n > 0 and raw == 0.0 and guarded == 0.0
+    if no_signal:
+        reasons.append("no verified success in either arm (0/0 is not evidence of non-degradation)")
 
-    passing = bool(enough and per_class_ok
+    passing = bool(enough and per_class_ok and not no_signal
                    and degradation_pp <= degradation_max_pp
                    and retention >= retention_min)
     return ABVerdict(n, round(raw, 4), round(guarded, 4), degradation_pp, retention,

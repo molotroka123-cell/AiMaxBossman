@@ -68,7 +68,7 @@ class IsolatedWorktree:
                 ['git', 'symbolic-ref', 'refs/remotes/origin/HEAD'],
                 cwd=str(self.source_repo),
                 capture_output=True,
-                text=True,
+                text=True, encoding='utf-8', errors='replace',
                 timeout=10
             )
             if result.returncode == 0:
@@ -87,7 +87,7 @@ class IsolatedWorktree:
                 ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
                 cwd=str(self.source_repo),
                 capture_output=True,
-                text=True,
+                text=True, encoding='utf-8', errors='replace',
                 timeout=10
             )
             branch = current.stdout.strip()
@@ -138,13 +138,13 @@ class IsolatedWorktree:
             eol_config: List[str] = []
             for key in ('core.autocrlf', 'core.eol'):
                 probe = subprocess.run(['git', 'config', '--get', key], cwd=str(self.source_repo),
-                                       capture_output=True, text=True, timeout=30)
+                                       capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30)
                 value = probe.stdout.strip() if probe.returncode == 0 else ''
                 if value:
                     eol_config += ['-c', f'{key}={value}']
             result = subprocess.run(
                 ['git', 'clone', '--local', *eol_config, str(self.source_repo), str(worktree_path)],
-                capture_output=True, text=True, timeout=300)
+                capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=300)
             if result.returncode != 0:
                 raise RuntimeError(f"Failed to clone sandbox: {result.stderr}")
 
@@ -156,11 +156,11 @@ class IsolatedWorktree:
             for base in (f'origin/{self.base_branch}', self.base_branch, 'HEAD'):
                 checkout = subprocess.run(
                     ['git', 'checkout', '-q', '-b', branch, base],
-                    cwd=str(worktree_path), capture_output=True, text=True, timeout=60)
+                    cwd=str(worktree_path), capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=60)
                 if checkout.returncode == 0:
                     break
                 subprocess.run(['git', 'branch', '-D', branch], cwd=str(worktree_path),
-                               capture_output=True, text=True, timeout=30)
+                               capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30)
             if checkout is None or checkout.returncode != 0:
                 raise RuntimeError(
                     f"Failed to check out a sandbox branch: "
@@ -170,11 +170,11 @@ class IsolatedWorktree:
             # After this the sandbox has nowhere to push and nothing to fetch.
             remove = subprocess.run(['git', 'remote', 'remove', 'origin'],
                                     cwd=str(worktree_path), capture_output=True,
-                                    text=True, timeout=30)
+                                    text=True, encoding='utf-8', errors='replace', timeout=30)
             if remove.returncode != 0:
                 raise RuntimeError(f"Failed to detach the sandbox remote: {remove.stderr}")
             remaining = subprocess.run(['git', 'remote'], cwd=str(worktree_path),
-                                       capture_output=True, text=True, timeout=30)
+                                       capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30)
             if remaining.stdout.strip():
                 raise RuntimeError(
                     f"sandbox still has remotes: {remaining.stdout.strip()!r}")
@@ -208,17 +208,17 @@ class IsolatedWorktree:
                 ['git', 'rev-parse', 'HEAD'],
                 cwd=str(self.root),
                 capture_output=True,
-                text=True,
+                text=True, encoding='utf-8', errors='replace',
                 timeout=10
             )
             if result.returncode == 0:
                 state['head'] = result.stdout.strip()
 
             result = subprocess.run(
-                ['git', 'status', '--porcelain'],
+                ['git', '-c', 'core.quotepath=off', 'status', '--porcelain'],
                 cwd=str(self.root),
                 capture_output=True,
-                text=True,
+                text=True, encoding='utf-8', errors='replace',
                 timeout=10
             )
             if result.returncode == 0:
@@ -248,17 +248,17 @@ class IsolatedWorktree:
                 ['git', 'rev-parse', 'HEAD'],
                 cwd=str(self.root),
                 capture_output=True,
-                text=True,
+                text=True, encoding='utf-8', errors='replace',
                 timeout=10
             )
             if result.returncode == 0:
                 evidence['head_after'] = result.stdout.strip()
 
             result = subprocess.run(
-                ['git', 'diff', '--name-status', 'HEAD'],
+                ['git', '-c', 'core.quotepath=off', 'diff', '--name-status', 'HEAD'],
                 cwd=str(self.root),
                 capture_output=True,
-                text=True,
+                text=True, encoding='utf-8', errors='replace',
                 timeout=30
             )
 
@@ -271,7 +271,14 @@ class IsolatedWorktree:
                         status = parts[0]
                         file_path = parts[1]
 
-                        if status == 'M' or status.startswith('M'):
+                        if status.startswith('R') and len(parts) >= 3:
+                            # A rename is a deletion of the old path AND a new file;
+                            # reading only parts[1] dropped the change entirely.
+                            evidence['deleted_files'].append(file_path)
+                            evidence['added_files'].append(parts[2])
+                        elif status.startswith('C') and len(parts) >= 3:
+                            evidence['added_files'].append(parts[2])
+                        elif status == 'M' or status.startswith('M'):
                             evidence['modified_files'].append(file_path)
                         elif status == 'A' or status.startswith('A'):
                             evidence['added_files'].append(file_path)
@@ -279,10 +286,10 @@ class IsolatedWorktree:
                             evidence['deleted_files'].append(file_path)
 
             result = subprocess.run(
-                ['git', 'ls-files', '--others', '--exclude-standard'],
+                ['git', '-c', 'core.quotepath=off', 'ls-files', '--others', '--exclude-standard'],
                 cwd=str(self.root),
                 capture_output=True,
-                text=True,
+                text=True, encoding='utf-8', errors='replace',
                 timeout=30
             )
             if result.returncode == 0 and result.stdout.strip():
@@ -293,7 +300,7 @@ class IsolatedWorktree:
                     ['git', 'diff', 'HEAD', '--', file_path],
                     cwd=str(self.root),
                     capture_output=True,
-                    text=True,
+                    text=True, encoding='utf-8', errors='replace',
                     timeout=30
                 )
                 if result.returncode == 0:

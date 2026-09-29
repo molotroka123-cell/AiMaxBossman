@@ -348,9 +348,28 @@ async def discover(extra_urls: list[str] | None = None,
     """Полный проход: параллельный опрос endpoint'ов + скан диска.
 
     known_providers — уже зарегистрированные провайдеры: их base_url помечаются,
-    чтобы UI не предлагал добавить дубль.
+    чтобы UI не предлагал добавить дубль; локальные loopback endpoints также
+    проверяются на доступность.
     """
     targets = list(endpoints if endpoints is not None else KNOWN_ENDPOINTS)
+    # The owner's configured llama-server ports need the same live probe as the
+    # defaults. A saved provider row alone is not evidence that it is serving.
+    seen_urls = {url.rstrip("/") for _, url in targets}
+    for provider in known_providers or []:
+        url = str(provider.get("base_url") or "").strip().rstrip("/")
+        try:
+            parsed = urlsplit(url)
+            hostname = parsed.hostname
+        except ValueError:
+            continue
+        if (provider.get("kind") != "openai_compat" or
+                parsed.scheme not in ALLOWED_SCHEMES or
+                hostname not in ("127.0.0.1", "localhost", "::1") or
+                parsed.username is not None or parsed.password is not None or
+                url in seen_urls):
+            continue
+        targets.append((str(provider.get("name") or "local provider"), url))
+        seen_urls.add(url)
     rejected: list[dict] = []
     for url in extra_urls or []:
         url = str(url).strip().rstrip("/")

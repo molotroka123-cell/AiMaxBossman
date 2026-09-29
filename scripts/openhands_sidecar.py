@@ -24,8 +24,10 @@ the redirect is the guarantee, and disabling it is the tidy default.
 from __future__ import annotations
 
 import contextlib
+import inspect
 import json
 import os
+import time
 from pathlib import Path
 import sys
 
@@ -85,19 +87,71 @@ def _run(req: dict, out) -> int:
         Tool(name=FileEditorTool.name),
         Tool(name=TaskTrackerTool.name),
     ])
-    conversation = Conversation(agent=agent, workspace=str(workspace),
-                                visualizer=None,
-                                max_iteration_per_run=int(req.get("max_iterations") or 30))
-    conversation.send_message(str(req["instruction"]))
-    conversation.run()
-    _emit(out, "completed", model=str(model))
-    return 0
+    instruction = str(req["instruction"])
+    # Uniform environment note for EVERY run (baseline and candidate alike):
+    # the terminal is Git Bash on Windows, so %VAR% never expands and Windows
+    # paths must stay inside the workspace. Fair comparison, no hidden hints.
+    instruction = ("Terminal: Git Bash on Windows. Use POSIX syntax; %VAR% is "
+                   "NOT expanded and must not appear in commands. Stay inside "
+                   "the workspace directory.\n\n" + instruction)
+    max_iterations = int(req.get("max_iterations") or 30)
+    started_at = time.time()
+    calls: list[dict] = []
+
+    def _on_event(event) -> None:
+        # Per-call telemetry for the lab's fairness/looping detectors: tool
+        # name + monotonic offset only; no arguments, no results, no secrets.
+        try:
+            from openhands.sdk.event import ActionEvent
+            if isinstance(event, ActionEvent):
+                name = str(getattr(event, "tool_name", "")
+                           or getattr(getattr(event, "action", None), "tool_name", ""))
+                calls.append({"tool": name, "t": round(time.time() - started_at, 3)})
+        except Exception:  # noqa: BLE001 — telemetry must never break the run
+            pass
+
+    # A mid-conversation serialization hiccup (model response shape the SDK's
+    # pydantic models reject) must not fail the whole task: one fresh retry
+    # with the SAME instruction in the SAME workspace.
+    for attempt in (1, 2):
+        try:
+            conversation_kwargs = {
+                "agent": agent,
+                "workspace": str(workspace),
+                "visualizer": None,
+                "max_iteration_per_run": max_iterations,
+            }
+            if "callbacks" in inspect.signature(Conversation).parameters:
+                conversation_kwargs["callbacks"] = [_on_event]
+            conversation = Conversation(**conversation_kwargs)
+            conversation.send_message(instruction)
+            conversation.run()
+            _emit(out, "completed", model=str(model),
+                  tool_calls=calls, tool_calls_total=len(calls),
+                  elapsed_seconds=round(time.time() - started_at, 1))
+            return 0
+        except Exception as exc:  # noqa: BLE001
+            if attempt == 2:
+                raise
+            print(f"sidecar: retrying after {type(exc).__name__}: {str(exc)[:120]}",
+                  file=sys.stderr, flush=True)
+
+
+def _sanitize(obj):
+    """Strip lone surrogates: the SDK's pydantic serialization refuses them."""
+    if isinstance(obj, str):
+        return obj.encode("utf-8", "replace").decode("utf-8")
+    if isinstance(obj, dict):
+        return {_sanitize(k): _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize(v) for v in obj]
+    return obj
 
 
 def main() -> int:
     with _stdout_reserved() as out:
         try:
-            req = json.load(sys.stdin)
+            req = _sanitize(json.load(sys.stdin))
         except Exception as exc:  # noqa: BLE001 — тип наружу, детали в stderr
             _emit(out, "failed", error_type=type(exc).__name__)
             return 1

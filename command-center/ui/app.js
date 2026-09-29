@@ -688,6 +688,22 @@ function showLogin(message = '') {
   el.loginError.hidden = !message;
   el.loginError.textContent = message;
   setTimeout(() => el.loginToken.focus(), 40);
+  showTokenFileHint();
+}
+
+// RC19 owner run: the desktop shortcut starts the server without a console, so
+// «токен напечатан в консоли» pointed at nothing. Show where the token FILE is
+// (the path only; the token itself never reaches the page before login).
+async function showTokenFileHint() {
+  const hint = document.getElementById('login-hint');
+  if (!hint) return;
+  try {
+    const info = await api.loginHint();
+    if (info && info.token_file) {
+      hint.textContent = `Токен лежит в файле ${info.token_file}. Откройте его Блокнотом, `
+        + 'скопируйте строку и вставьте сюда (Ctrl+V). Входить нужно один раз — окно запомнит вход.';
+    }
+  } catch { /* keep the default hint */ }
 }
 
 function showShell() {
@@ -720,7 +736,7 @@ el.loginForm.addEventListener('submit', async (e) => {
     clearCsrf();
     el.loginError.hidden = false;
     el.loginError.textContent = err && err.status === 401
-      ? 'Токен не подошёл. Скопируйте его из консоли сервера.'
+      ? 'Токен не подошёл. Скопируйте его целиком из файла token (путь выше).'
       : (err && err.message) || 'Не удалось войти.';
   } finally {
     el.loginSubmit.classList.remove('busy');

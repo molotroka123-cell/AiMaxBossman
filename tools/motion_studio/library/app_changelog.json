@@ -1,0 +1,79 @@
+{
+ "meta": {
+  "title": "Update 2.4",
+  "bpm": 122,
+  "key": "D",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // UPDATE 2.4",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "v2.4",
+   "kicker": "WHAT'S NEW",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Version two point four."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "IN THIS UPDATE",
+   "items": [
+    {
+     "t": 2.75,
+     "title": "DARK MODE",
+     "sub": "easy on the eyes",
+     "icon": "bolt"
+    },
+    {
+     "t": 3.5,
+     "title": "FAST SEARCH",
+     "sub": "twice as quick",
+     "icon": "cursor"
+    },
+    {
+     "t": 4.28,
+     "title": "BUG FIXES",
+     "sub": "smoother overall",
+     "icon": "shield"
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "Dark mode."
+    },
+    {
+     "t": 3.5,
+     "text": "Faster search."
+    },
+    {
+     "t": 4.28,
+     "text": "Bug fixes."
+    }
+   ],
+   "start": 2.5,
+   "end": 7.5
+  },
+  {
+   "type": "end_card",
+   "text": "UPDATE NOW",
+   "sub": "AVAILABLE TODAY",
+   "start": 7.5,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 7.6,
+     "text": "Update now."
+    }
+   ]
+  }
+ ]
+}
