@@ -103,6 +103,22 @@ def _fable_ledger_off_the_real_machine(tmp_path, monkeypatch):
         monkeypatch.setattr(fable_budget, "LEDGER_PATH", tmp_path / "fable_hard_cap.json")
 
 
+@pytest.fixture(autouse=True)
+def _jeff_blocklist_off_the_real_machine(tmp_path, monkeypatch):
+    """No test reads the owner's private Jeff block rule.
+
+    The real file holds personal Telegram IDs outside Git; tests use a
+    synthetic rule in their own tmp directory (bcc.pit.blocklist).
+    """
+    monkeypatch.delenv("BOSSMAN_PIT_BLOCKED_IDS_FILE", raising=False)
+    try:
+        from bcc.pit import blocklist
+    except ImportError:  # pragma: no cover — PIT extras not installed
+        return
+    monkeypatch.setattr(blocklist, "default_blocklist_path",
+                        lambda: tmp_path / "private-test" / blocklist.DEFAULT_FILE_NAME)
+
+
 @pytest.fixture
 async def env(tmp_path, request):
     """Приложение без фоновых worker-циклов; тесты сами дёргают engine/scheduler.
