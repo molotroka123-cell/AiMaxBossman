@@ -85,6 +85,21 @@ class Endpointer:
     def utterance_ms(self) -> int:
         return self._total_windows * WINDOW_MS if self.in_speech else 0
 
+    def abandon(self) -> None:
+        """Forget any utterance in progress (keeps the speech-run statistics barge-in reads).
+
+        Called for every window while incoming audio is gated (we are speaking): what arrives then is mostly our own
+        echo, and its silences must not later be mistaken for the end of the interrupting person's utterance.
+        """
+        self.in_speech = False
+        self._speech_windows = self._silence_windows = self._total_windows = 0
+
+    def resume(self, seed_windows: int) -> None:
+        """Barge-in confirmed: the utterance starts NOW with ``seed_windows`` windows of already-heard speech."""
+        self.in_speech = True
+        self._speech_windows = self._total_windows = max(1, seed_windows)
+        self._silence_windows = 0
+
     # ------------------------------------------------------------ input
     def push(self, pcm16k: bytes) -> list[EPEvent]:
         events: list[EPEvent] = []

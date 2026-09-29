@@ -40,7 +40,7 @@ class EchoPath:
 @dataclass
 class Verdict:
     real_speech: bool
-    reason: str      # "no_tx_recent" | "double_talk" | "echo" | "uncalibrated_loud" | "uncalibrated_quiet"
+    reason: str      # "no_tx_recent" | "no_echo_path" | "double_talk" | "echo" | "uncalibrated_loud" | "uncalibrated_quiet"
 
 
 class EchoGuard:
@@ -57,7 +57,10 @@ class EchoGuard:
         self.min_confidence, self.excess_ratio, self.margin, self.strict_level = min_confidence, excess_ratio, margin, strict_level
         self.min_fit_slots = 16                       # >= 512 ms of our own audio inside the fit window
         self.gain_range = (0.02, 1.5)
+        self.no_echo_below = 0.3
         self.path: EchoPath | None = None
+        self.no_echo = False                          # concluded: our audio does not come back at all (the good case)
+        self._no_echo_votes = 0
         self.last_tx_slot = -10**9
         self.tx_energy_floor = 0.004
 
@@ -123,7 +126,16 @@ class EchoGuard:
                 var = float(tx.var())
                 g = float(np.cov(rx, tx, bias=True)[0, 1] / var) if var > 0 else 0.0
                 best = (c, lag, g, float(rx.mean() - g * tx.mean()))
-        if best and best[0] >= self.min_confidence and self.gain_range[0] <= best[2] <= self.gain_range[1]:
+        active_slots = int((self._series(self._tx_acc, end, n) > self.tx_energy_floor).sum())
+        if (best is None or best[0] < self.no_echo_below) and active_slots >= 2 * self.min_fit_slots:
+            # We have been transmitting for >= 1 s and nothing of it correlates with what comes back: no echo path.
+            self._no_echo_votes += 1
+            if self._no_echo_votes >= 2:                    # two consecutive looks (~1 s apart), not one unlucky window
+                self.no_echo = True
+        elif best and best[0] >= (0.75 if self.no_echo else self.min_confidence):
+            self._no_echo_votes, self.no_echo = 0, False
+        need = 0.75 if self.no_echo else self.min_confidence      # leaving the 'no echo' verdict takes strong evidence
+        if best and best[0] >= need and self.gain_range[0] <= best[2] <= self.gain_range[1]:
             c, lag, g, b = best
             if self.path is None:
                 self.path = EchoPath(lag, g, max(b, 0.0), c)
@@ -150,8 +162,10 @@ class EchoGuard:
         if not self.tx_recent(end - n_slots + 1):
             return Verdict(True, "no_tx_recent")
         rx = self._series(self._rx_acc, end, n_slots)
-        if self.path is None:
+        if self.path is None and not self.no_echo:
             self.update()
+        if self.path is None and self.no_echo:
+            return Verdict(True, "no_echo_path")
         if self.path is None:
             # No echo path yet. An echo can never be louder than the source, so demand input that is both
             # absolutely loud and a clear fraction of our own recent output level.

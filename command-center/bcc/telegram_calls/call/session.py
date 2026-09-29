@@ -422,6 +422,7 @@ class CallSession:
             self._last_user_speech = now
             self._prompted_idle = False
         if self._gated(now):
+            self.ep.abandon()                            # our own echo must not define where the next utterance ends
             if self.cfg.barge_in and self._barge_in_wanted(now):
                 self._barge_in()
                 # the window that confirmed the barge-in is already in the seed; later windows flow normally
@@ -481,6 +482,7 @@ class CallSession:
         self._set_phase(Phase.LISTENING)
         # 3) the interruption is the start of the next utterance: seed it with what we already heard
         seed_windows = list(self._recent)[-(windows + self.cfg.endpoint.preroll_ms // WINDOW_MS):]
+        self.ep.resume(windows)
         self._open_utterance(b"".join(seed_windows))
 
     async def _clear_transport(self) -> None:

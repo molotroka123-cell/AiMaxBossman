@@ -106,3 +106,37 @@ def test_text_echo_detection_and_its_negative_control():
     assert is_text_echo("а завтра будет дождь?", said) is False          # new content, must be answered
     assert is_text_echo("да", ["Да, конечно, сейчас сделаю."]) is False   # short answers are never dropped
     assert is_text_echo("сегодня облачно", []) is False
+
+
+def test_no_echo_path_is_concluded_after_a_second_of_our_own_speech_and_then_quiet_speakers_can_cut_in():
+    """Regression: with NO echo at all (the good case) the guard used to stay conservative forever and a quiet person could never barge in."""
+    tx = speaking_envelope(140)
+    rng = np.random.default_rng(4)
+    rx = np.abs(rng.normal(0, 0.002, 140))                      # the far end is silent: nothing of ours comes back
+    g = EchoGuard()
+    feed(g, tx, rx)
+    for _ in range(3):
+        g.update()
+    assert g.path is None and g.no_echo is True
+    talk = 0.05 * (0.8 + 0.2 * np.sin(np.linspace(0, 20, 12)))  # a quiet voice, below strict_level
+    feed(g, speaking_envelope(12, seed=8), talk, start=140)
+    v = g.assess(8)
+    assert v.real_speech is True and v.reason == "no_echo_path"
+
+
+def test_before_one_second_of_evidence_the_guard_stays_conservative_negative_control():
+    tx = speaking_envelope(20)
+    g = EchoGuard()
+    feed(g, tx, np.full(20, 0.04))
+    g.update(); g.update()
+    assert g.no_echo is False and g.assess(6).real_speech is False
+
+
+def test_a_real_echo_never_becomes_no_echo():
+    tx = speaking_envelope(200)
+    g = EchoGuard()
+    feed(g, tx, echo_of(tx, 8, 0.35))
+    for _ in range(4):
+        g.update()
+    assert g.path is not None and g.no_echo is False
+    assert g.assess(8).real_speech is False
