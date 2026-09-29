@@ -17,6 +17,7 @@ import httpx
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 
+from ..probe_cache import probes
 from ..v2.opencode_bridge import assistant_text, diff_summary
 from ..v2.tables import opencode_sessions as oc_t
 from . import Feature
@@ -50,7 +51,8 @@ def _unavailable(exc: Exception) -> HTTPException:
 @router.get("/opencode/health")
 async def health(request: Request):
     """Доступен ли opencode serve. Недоступен → honest unavailable (не 500)."""
-    return await _bridge(request.app.state.svc).health(5)
+    svc = request.app.state.svc
+    return await probes(svc).get("opencode.health", lambda: _bridge(svc).health(5), ttl=20.0)
 
 
 @router.get("/opencode/roots")

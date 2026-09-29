@@ -18,6 +18,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from ..probe_cache import probes
 from . import Feature
 
 router = APIRouter(prefix="/music", tags=["music-studio"])
@@ -69,8 +70,7 @@ async def _json(client: httpx.AsyncClient, method: str, path: str, **kwargs):
     return body.get("data")
 
 
-@router.get("/health")
-async def health():
+async def _probe_health() -> dict:
     try:
         _loopback_only(_base())
         async with httpx.AsyncClient(timeout=5.0, trust_env=False) as client:
@@ -81,6 +81,11 @@ async def health():
     except Exception as exc:  # health endpoint must explain, not crash the UI
         return {"status": "NEEDS_ATTENTION", "provider": "ACE-Step 1.5",
                 "local": True, "reason": f"{type(exc).__name__}: {exc}"}
+
+
+@router.get("/health")
+async def health(request: Request):
+    return await probes(request.app.state.svc).get("music.health", _probe_health, ttl=20.0)
 
 
 @router.post("/generate")

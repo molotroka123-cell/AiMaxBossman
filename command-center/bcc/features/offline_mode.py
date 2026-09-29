@@ -345,6 +345,11 @@ async def _external_state(rows: list[dict], provs: ProvidersView) -> dict:
 @router.get("/offline")
 async def offline_report(request: Request):
     svc = request.app.state.svc
+    from ..probe_cache import probes
+    return await probes(svc).get("offline.report", lambda: _offline_report(svc), ttl=15.0)
+
+
+async def _offline_report(svc) -> dict:
     provs = await _providers_view(svc)
     rows = [resolve(name, provs) for name in _capability_names(svc)]
     loopback = await probe_loopback()

@@ -448,7 +448,18 @@ def _tail_jsonl(path: Path, last: int, fields: tuple[str, ...]) -> list[dict]:
 
 @router.get("/jeff-settings/status")
 async def jeff_status(request: Request):
-    """Readiness, errors and recent events for the owner. No secrets, prompts or message text."""
+    """Readiness, errors and recent events for the owner. No secrets, prompts or message text.
+
+    The collection walks processes, files and the speech probes (about a second): it runs in a worker thread and the
+    answer is cached for a few seconds, so opening the panel never blocks the event loop."""
+    import asyncio
+
+    from ..probe_cache import probes
+    return await probes(request.app.state.svc).get(
+        "jeff.status", lambda: asyncio.to_thread(_jeff_status_sync, request), ttl=8.0, stale_ttl=45.0)
+
+
+def _jeff_status_sync(request: Request) -> dict:
     from ..pit import heartbeat as hb
     from ..pit import speech
     from ..pit.cloud_budget import CloudBudget

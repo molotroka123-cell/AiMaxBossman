@@ -104,6 +104,12 @@ def _fable_ledger_off_the_real_machine(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _probe_cache_off(monkeypatch):
+    """Health probes are cached in the product (bcc.probe_cache); every test measures its own mocked state."""
+    monkeypatch.setenv("BCC_PROBE_CACHE", "off")
+
+
+@pytest.fixture(autouse=True)
 def _legacy_paid_cloud_mock_contracts(monkeypatch):
     """Older contract tests register MOCK priced cloud models (cost/price math).
 
