@@ -52,7 +52,7 @@ from .config import PITSettings
 from .cloud_budget import CloudBudget, classify_rate_limit, next_utc_midnight
 from .resources import LocalCapacityGuard, ollama_resident_probe
 from .models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
-from . import participant_profile
+from . import participant_profile, speech
 from .heartbeat import Heartbeat, INTERVAL_SECONDS as HEARTBEAT_SECONDS
 from .participant_context import build_participant_context
 from .photo_commands import photo_intent
@@ -60,7 +60,12 @@ from .photo_edit import PhotoEditPipeline
 from .photo_pipeline import PhotoPipeline
 from .photo_runtime import PhotoServices, build_photo_services
 from .presentation import render_jeff_reply, spoken_reply_text
-from .ollama_native import OllamaNativeChatAdapter, is_native_ollama_url
+from .model_route import (JEFF_MODEL_ROUTE_SCHEMA, PAYMENT_BLOCK_SECONDS, PAYMENT_REQUIRED,
+                          PRICE_RECHECK_SECONDS, is_payment_required, route_verdict)
+from .ollama_native import LocalOpenAICompatChat, OllamaNativeChatAdapter, is_native_ollama_url
+from .latency import ReplyMetrics
+from .reply_stream import EditPacer, TelegramDraft, TurnStream, reply_sink
+from .resilient_chat import ResilientChat
 from .public_guard import public_guard
 from .roleplay import RolePlayMode, roleplay_prompt
 from .roleplay_commands import load_roleplay, parse_roleplay_command, set_roleplay
@@ -525,10 +530,21 @@ class ParticipantRuntime:
         self.local_adapter = (
             OllamaNativeChatAdapter(settings.local_url)
             if is_native_ollama_url(settings.local_url)
-            else build_adapter("openai_compat", settings.local_url) if settings.local_url else None
+            else LocalOpenAICompatChat(base_url=settings.local_url) if settings.local_url else None
         )
+        self.local_settle_seconds = 0.5
+        # Progressive Telegram replies: at most one edit per interval, first draft after N chars.
+        self.stream_edit_interval = 1.5
+        self.stream_min_chars = 24
+        self.stream_first_chars = 40
+        self._resilient: dict[tuple[str, int], ResilientChat] = {}
         self.catalog: dict[str, ModelEndpoint] = {}
         self.catalog_checked_at = 0.0
+        self.reply_metrics = ReplyMetrics()
+        self.prices_verified_at = 0.0
+        self.route_rejections: dict[str, str] = {}
+        self.route_refusal = ""
+        self._payment_blocked_until: dict[str, float] = {}
         self._spawned_workers: set[str] = {p.key for p in settings.people}
         self._dynamic_tasks: set[asyncio.Task] = set()
 
@@ -598,17 +614,24 @@ class ParticipantRuntime:
             return endpoints
         rows = await self.adapter.list_model_info()
         pricing = await self.adapter.list_model_pricing()
+        rejected: dict[str, str] = {}
         for model in self.settings.chat_models:
             listed = any(row.get("id") == model for row in rows)
-            prices = pricing.get(model)
-            zero = bool(prices and prices.get("prompt") == 0.0 and prices.get("completion") == 0.0)
-            # Owner rule: remote Jeff answers only via OpenRouter ':free' models; the live
-            # zero price is verified on top of the name, so a renamed paid model never gets in.
-            if listed and zero and str(model).endswith(":free"):
-                endpoints[model] = ModelEndpoint(
-                    id=model, provider=self.settings.provider_base_url,
-                    capabilities=frozenset({"chat"}), local=False, available=True,
-                    zero_cost=True, paid=False)
+            # Owner rule: remote Jeff answers only via a model whose LIVE catalog price is
+            # 0/0; the ':free' id is required on top, so a renamed paid model never gets in.
+            verdict = route_verdict(model, listed, pricing.get(model))
+            if not verdict and self._payment_blocked(model):
+                verdict = PAYMENT_REQUIRED
+            if verdict or not str(model).endswith(":free"):   # belt and braces
+                rejected[model] = verdict or "not_free_id"
+                continue
+            endpoints[model] = ModelEndpoint(
+                id=model, provider=self.settings.provider_base_url,
+                capabilities=frozenset({"chat"}), local=False, available=True,
+                zero_cost=True, paid=False)
+        self.route_rejections = rejected
+        self.route_refusal = ""
+        self.prices_verified_at = time.monotonic()
         if self.local_adapter is not None and self.settings.local_models:
             try:
                 if await self.capacity_guard.local_allowed():
@@ -627,8 +650,46 @@ class ParticipantRuntime:
         return endpoints
 
     async def refresh_catalog_safe(self) -> None:
-        with contextlib.suppress(Exception):
+        try:
             await self.refresh_catalog()
+        except Exception:  # noqa: BLE001 — an unreadable live catalog is not a price guarantee
+            self._fail_closed_remote()
+
+    def _fail_closed_remote(self) -> None:
+        """Live prices could not be read: keep only local routes, never a stale free one."""
+        self.catalog = {key: e for key, e in self.catalog.items() if e.local}
+        self.route_refusal = "catalog_unreachable"
+
+    def _payment_blocked(self, model: str) -> bool:
+        until = self._payment_blocked_until.get(model, 0.0)
+        if until and time.monotonic() >= until:
+            self._payment_blocked_until.pop(model, None)
+            return False
+        return bool(until)
+
+    def _block_for_payment(self, model: str) -> None:
+        self._payment_blocked_until[model] = time.monotonic() + PAYMENT_BLOCK_SECONDS
+        self.catalog = {key: e for key, e in self.catalog.items() if key != model}
+        self.route_rejections = {**self.route_rejections, model: PAYMENT_REQUIRED}
+
+    async def _ensure_live_prices(self) -> None:
+        """Prices are re-read at most every PRICE_RECHECK_SECONDS; a flip to paid ends the route."""
+        if (self.settings.local_chat_only or not self.settings.chat_models
+                or self.prices_verified_at == 0.0
+                or time.monotonic() - self.prices_verified_at < PRICE_RECHECK_SECONDS):
+            return
+        await self.refresh_catalog_safe()
+
+    def model_route_status(self) -> dict:
+        """Owner-visible route state: which routes are live and why others were refused."""
+        remote = sorted(e.id for e in self.catalog.values() if not e.local)
+        local = sorted(e.id for e in self.catalog.values() if e.local)
+        refusal = "" if (remote or local) else (self.route_refusal or "no_free_route")
+        age = (int(time.monotonic() - self.prices_verified_at)
+               if self.prices_verified_at else None)
+        return {"schema": JEFF_MODEL_ROUTE_SCHEMA, "free_remote": remote, "local": local,
+                "rejected": dict(self.route_rejections), "refusal": refusal,
+                "price_checked_age_s": age, "paid_routes_allowed": False}
 
     def _max_cost_usd(self) -> float:
         """Owner panel budget as a stricter cap only: min(configured $0, panel)."""
@@ -664,6 +725,19 @@ class ParticipantRuntime:
         except NoEligibleRoute:
             return ()
         return (decision.selected_model, *decision.fallback_chain)
+
+    async def _local_chat(self, adapter, model: str, messages: list[dict], scope: str, **kw):
+        """Local chat with empty-answer detection: one unload+reload+retry per turn, shared
+        across concurrent turns (``ResilientChat``); a still-empty answer is an error."""
+        key = (model, id(adapter))
+        chat = self._resilient.get(key)
+        if chat is None:
+            chat = self._resilient[key] = ResilientChat(
+                adapter, model, settle=self.local_settle_seconds)
+        try:
+            return await chat.chat(messages, scope=scope, **kw)
+        finally:
+            chat.end_scope(scope)
 
     def _recent_p95_ms(self) -> dict[str, int]:
         """Use the existing private route log as measured routing history."""
@@ -808,14 +882,18 @@ class ParticipantRuntime:
 
     def heartbeat_snapshot(self, state: str | None = None) -> dict:
         """Secret-free availability record (also served by /api/jeff/health)."""
-        from . import speech
         try:
             queue = int(self.store.db.execute(
                 "SELECT count(*) FROM inbox WHERE phase IN ('pending','processing')").fetchone()[0])
         except Exception:  # noqa: BLE001
             queue = -1
-        return self.heartbeat.snapshot(queue=queue, stt=speech.asr_status(), tts=speech.tts_status(),
-                                       state=state)
+        snapshot = self.heartbeat.snapshot(queue=queue, stt=speech.asr_status(),
+                                           tts=speech.tts_status(), state=state)
+        snapshot["stt"] = {**snapshot["stt"], "latency": speech.latency_snapshot("stt")}
+        snapshot["tts"] = {**snapshot["tts"], "latency": speech.latency_snapshot("tts")}
+        snapshot["reply_latency"] = self.reply_metrics.snapshot()
+        snapshot["route"] = self.model_route_status()
+        return snapshot
 
     async def _heartbeat_loop(self) -> None:
         """A failed beat never stops Jeff (the store is bound to this loop thread)."""
@@ -932,6 +1010,8 @@ class ParticipantRuntime:
                 self.store.finish(update_id, "failed")
                 self.store.scrub_inbox(update_id)
                 continue
+            draft = self._start_draft(fresh, message)
+            sink_token = reply_sink.set(draft.sink if draft is not None else None)
             try:
                 answer = await self._handle_with_notice(fresh, message, update_id=update_id)
             except asyncio.CancelledError:
@@ -957,10 +1037,14 @@ class ParticipantRuntime:
                         "schema": "bossman.pit.runtime-error/1",
                     })
                 answer = "Произошла ошибка внутри Bossman. Она записана локально; повтор безопасен."
+            finally:
+                reply_sink.reset(sink_token)
             if (self.home / STOP_FLAG).exists():
                 self.store.finish(update_id, "delivery_unknown")
                 raise StopRequested("owner stop flag")
             if not answer:
+                if draft is not None:
+                    await draft.discard()
                 photo_phase = self.store.generation_phase(update_id)
                 if photo_phase in {"sending", "delivery_unknown"}:
                     # Empty is also the success reply. Never let the ordinary
@@ -972,15 +1056,10 @@ class ParticipantRuntime:
                 continue
             try:
                 rendered = render_jeff_reply(answer)
-                voice_mode = (
-                    (fresh.role == "owner"
-                     and self.store.get("voice_reply:" + fresh.key, False) is True
-                     or participant_profile.read_profile(
-                         self.vault.data_dir, self.vault.key_for_telegram(fresh.user_id))[0]["voice_reply"])
-                    and not str(message.get("text") or "").startswith("/")
-                    and not message.get("_photo") and not message.get("_document")
-                )
+                voice_mode = self._voice_reply_wanted(fresh, message)
                 if voice_mode:
+                    if draft is not None:
+                        await draft.discard()
                     async def make_voice(guarded_text: str) -> bytes:
                         if (fresh.role == "owner"
                                 and os.environ.get("BOSSMAN_PIT_TTS_BACKEND", "piper").lower() == "chatterbox"):
@@ -999,12 +1078,13 @@ class ParticipantRuntime:
                                 # configured Piper voice answers instead. STOP wins.
                                 if str(exc) == "VOICE_STOPPED":
                                     raise
+                        # Piper by default; the CosyVoice candidate only when the owner's
+                        # flag, files and consent are all present (bcc.pit.tts_engines).
                         return await asyncio.to_thread(
-                            synthesize_ogg, guarded_text,
-                            piper_executable=os.environ.get("BOSSMAN_PIT_TTS_EXECUTABLE", ""),
-                            model_path=os.environ.get("BOSSMAN_PIT_TTS_MODEL_PATH", ""),
-                            ffmpeg_executable=shutil.which("ffmpeg") or "",
+                            speech.run_engines, guarded_text,
                             stopped=lambda: (self.home / STOP_FLAG).exists(),
+                            piper_synth=synthesize_ogg,
+                            allow_candidate=fresh.role == "owner",
                         )
                     try:
                         sent_id = await self.telegram.send_voice(
@@ -1021,9 +1101,14 @@ class ParticipantRuntime:
                             fresh, rendered, reply_to_message_id=message.get("_message_id"),
                             parse_mode="HTML")
                 else:
-                    sent_id = await self.telegram.send(
-                        fresh, rendered, reply_to_message_id=message.get("_message_id"),
-                        parse_mode="HTML")
+                    # A progressive preview becomes the final message by one last edit;
+                    # otherwise (or if that edit fails) exactly one ordinary send.
+                    sent_id = (draft.message_id if draft is not None
+                               and await draft.finalize(rendered) else None)
+                    if sent_id is None:
+                        sent_id = await self.telegram.send(
+                            fresh, rendered, reply_to_message_id=message.get("_message_id"),
+                            parse_mode="HTML")
                 if type(sent_id) is not int or sent_id <= 0:
                     raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
                 with contextlib.suppress(OSError):
@@ -1070,6 +1155,36 @@ class ParticipantRuntime:
                 self._pending_photo_memory.pop(
                     (fresh.key, str(message.get("_message_id") or "0")), None)
                 self._finish_update(update_id, "delivery_unknown", fresh)
+
+    def _voice_reply_wanted(self, fresh: Person, message: dict) -> bool:
+        return bool(
+            (fresh.role == "owner"
+             and self.store.get("voice_reply:" + fresh.key, False) is True
+             or participant_profile.read_profile(
+                 self.vault.data_dir, self.vault.key_for_telegram(fresh.user_id))[0]["voice_reply"])
+            and not str(message.get("text") or "").startswith("/")
+            and not message.get("_photo") and not message.get("_document"))
+
+    def _start_draft(self, person: Person, message: dict) -> TelegramDraft | None:
+        """Progressive reply (edit-in-place) for a plain text chat turn, if the transport can
+        edit messages and the owner has not switched it off (BOSSMAN_JEFF_TELEGRAM_STREAM=0)."""
+        if os.environ.get("BOSSMAN_JEFF_TELEGRAM_STREAM", "1").strip().lower() in {
+                "0", "false", "no", "off"}:
+            return None
+        if not callable(getattr(self.telegram, "edit_message", None)):
+            return None
+        text = str(message.get("text") or "")
+        if (not text or text.startswith("/") or message.get("_photo") or message.get("_document")
+                or message.get("_voice") or message.get("_sticker")):
+            return None
+        with contextlib.suppress(Exception):
+            if self._voice_reply_wanted(person, message):
+                return None
+        reply_to = message.get("_message_id")
+        return TelegramDraft(
+            self.telegram, person, reply_to=reply_to if type(reply_to) is int and reply_to > 0 else None,
+            pacer=EditPacer(self.stream_edit_interval, self.stream_min_chars),
+            first_chars=self.stream_first_chars)
 
     async def _handle_with_notice(self, person: Person, message: dict, *,
                                   update_id: int, delay: float = 18.0) -> str:
@@ -1511,6 +1626,9 @@ class ParticipantRuntime:
                                reply_to: dict | None = None,
                                update_id: int | None = None, j2_ctx=None) -> str:
         who = person.key
+        turn_started = time.perf_counter()
+        turn_stream = TurnStream(reply_sink.get())
+        served_by = "local"
         memory_at_start = consent.memory_enabled
         memory_epoch = self._memory_epoch.get(person_key, 0)
         self._register_discovery_reply(person, person_key, text)
@@ -1527,6 +1645,8 @@ class ParticipantRuntime:
             # A local model that was busy when the catalog was built comes back
             # here too: the Jeff window has no poll loop that would refresh it.
             await self.refresh_catalog_safe()
+        else:
+            await self._ensure_live_prices()
         if self.settings.local_chat_only:
             # Recheck installed model and owner resource headroom on every turn.
             # Clear first so a catalog failure cannot leave a stale live route.
@@ -1720,9 +1840,18 @@ class ParticipantRuntime:
                             ensure_local_fallback()
                             result = None
                             break
-                    result = await asyncio.wait_for(adapter.chat(
-                        route_model, messages, max_tokens=limit,
-                        timeout=call_timeout), timeout=call_timeout)
+                    await turn_stream.reset()   # a previous attempt's preview is not this answer
+                    stream_kw = ({"on_delta": turn_stream.on_delta}
+                                 if provider == "local" or turn_stream.sink is not None else {})
+                    if provider == "local":
+                        result = await asyncio.wait_for(self._local_chat(
+                            adapter, route_model, messages, f"{person_key}:{message_id}",
+                            max_tokens=limit, timeout=call_timeout, **stream_kw),
+                            timeout=call_timeout)
+                    else:
+                        result = await asyncio.wait_for(adapter.chat(
+                            route_model, messages, max_tokens=limit,
+                            timeout=call_timeout, **stream_kw), timeout=call_timeout)
                     finish = str(getattr(result, "finish", "stop") or "stop").lower()
                     visible = result.text.strip()
                     incomplete = (finish in {"length", "max_tokens", "max_output_tokens"}
@@ -1761,6 +1890,7 @@ class ParticipantRuntime:
                     result = None
                     continue
                 context = route_context
+                served_by = provider
                 self._log_route(person_key=person_key, model=route_model, provider=provider,
                                 ok=True, latency_ms=int((time.monotonic() - started) * 1000),
                                 context_chars=context_chars,
@@ -1770,6 +1900,10 @@ class ParticipantRuntime:
                                 route_reason=fallback_reason or "primary")
                 break
             except Exception as exc:
+                if provider == "remote" and is_payment_required(exc):
+                    # The route asks for money: it is no longer a free route, whatever
+                    # the catalog said. Never continue to a paid route.
+                    self._block_for_payment(route_model)
                 rate_limited = provider == "remote" and (
                     getattr(exc, "kind", "") == "rate_limit" or "(429)" in str(exc))
                 if rate_limited:
@@ -1790,6 +1924,8 @@ class ParticipantRuntime:
                                 route_reason=fallback_reason)
                 fallback_reason = "rate_limited" if rate_limited else "chat_failed"
                 result = None
+        if result is None:
+            await turn_stream.reset()
         if result is None and cloud_stopped:
             self.store.put("provider_last_error", "cloud_" + cloud_stopped)
             return CLOUD_PAUSED_RU
@@ -1801,7 +1937,11 @@ class ParticipantRuntime:
             return INCOMPLETE_REPLY_RU if incomplete_seen else PROVIDER_DOWN_RU
         answer = render_jeff_reply(result.text)
         if not answer:
+            await turn_stream.reset()
             return PROVIDER_DOWN_RU
+        total_ms = (time.perf_counter() - turn_started) * 1000.0
+        self.reply_metrics.record(served_by, ttft_ms=turn_stream.ttft_ms or total_ms,
+                                  total_ms=total_ms, streamed=turn_stream.shown)
         if needs_web and web_sources:
             answer += "\n\nИсточники:\n" + "\n".join(f"• {source}" for source in web_sources)
         elif needs_web:

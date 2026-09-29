@@ -193,7 +193,7 @@ def markup(keyboard) -> dict:
 
 class Telegram:
     METHODS = frozenset({"getMe", "getWebhookInfo", "getUpdates", "sendMessage", "sendChatAction", "getFile",
-                         "answerCallbackQuery", "setMyCommands", "deleteMessage"})
+                         "answerCallbackQuery", "setMyCommands", "deleteMessage", "editMessageText"})
 
     async def send_voice(self, person: Person, source_text: str, synthesize,
                          *, reply_to_message_id: int | None = None,
@@ -431,6 +431,59 @@ class Telegram:
         result = await self.call("deleteMessage", {"chat_id": person.chat_id, "message_id": message_id})
         if result is not True:
             raise CompanionError("TELEGRAM_DELETE_UNVERIFIED")
+        return True
+
+    async def edit_message(self, person: Person, message_id: int, text: str,
+                           parse_mode: str | None = None, final: bool = False) -> bool:
+        """Edit one earlier bot message in place (Jeff's progressive replies).
+
+        Same guards and pacing as ``send``: identity, token scrub, egress guard, one
+        message per chat at a time and the per-chat rate gap. A live (non-final) edit
+        that Telegram rate-limits is given up on (the caller stops previewing); the final
+        edit waits once and retries. One message only: text must fit a single message.
+        """
+        if type(message_id) is not int or message_id <= 0:
+            raise CompanionError("TELEGRAM_MESSAGE_ID_INVALID")
+        clean = scrub(text, (self.settings.bot_token, self.settings.core_token,
+                            self.settings.cloud_token, self.settings.local_token))
+        from bossman.notifications.telegram_transport import _egress_guard_text
+        clean = _egress_guard_text(clean)
+        if not clean.strip() or len(clean) > 4000:
+            raise CompanionError("TELEGRAM_EDIT_TEXT_INVALID")
+        lock = self._send_locks.setdefault(person.chat_id, asyncio.Lock())
+        async with lock:
+            now = asyncio.get_running_loop().time()
+            await asyncio.sleep(max(0, self._sent_at.get(person.chat_id, 0) + 1.05 - now))
+            payload = {"chat_id": person.chat_id, "message_id": message_id, "text": clean,
+                       "disable_web_page_preview": True}
+            if parse_mode:
+                from .formatting import to_telegram_html
+                payload["text"] = to_telegram_html(clean)
+                payload["parse_mode"] = parse_mode
+            try:
+                if not self.authorize_delivery(person):
+                    raise CompanionError("IDENTITY_REVOKED")
+                try:
+                    body = await self.call("editMessageText", payload)
+                except RateLimited as exc:
+                    if not final:
+                        raise
+                    await asyncio.sleep(exc.retry_after)
+                    if not self.authorize_delivery(person):
+                        raise CompanionError("IDENTITY_REVOKED")
+                    body = await self.call("editMessageText", payload)
+                except CompanionError as exc:
+                    if not parse_mode or str(exc) != "UPSTREAM_HTTP_ERROR":
+                        raise
+                    payload.pop("parse_mode", None)
+                    payload["text"] = clean
+                    if not self.authorize_delivery(person):
+                        raise CompanionError("IDENTITY_REVOKED")
+                    body = await self.call("editMessageText", payload)
+            finally:
+                self._sent_at[person.chat_id] = asyncio.get_running_loop().time()
+        if not (body is True or (isinstance(body, dict) and body.get("message_id") == message_id)):
+            raise CompanionError("TELEGRAM_EDIT_UNVERIFIED")
         return True
 
     async def send(self, person: Person, text: str, keyboard=None,

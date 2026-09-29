@@ -14,12 +14,15 @@ import math
 import os
 import shutil
 import threading
+import time
 from pathlib import Path
 from typing import Callable
 
 from bcc.oss import whisper
 from bcc.oss.piper import PiperError, synthesize_ogg
 
+from . import tts_engines
+from .latency import LatencyStats
 from .presentation import spoken_reply_text
 
 #: Below this estimated confidence Jeff asks "I heard: «…» — send?" first.
@@ -30,6 +33,23 @@ MAX_TTS_CHARS = 900
 
 _model_lock = threading.Lock()
 _model_cache: dict[str, object] = {}
+
+#: STT/TTS latency of this process (milliseconds of the real call, no text), served by
+#: the heartbeat/status. ``tts_last`` names the engine that produced the last audio.
+_stats = {"stt": LatencyStats(), "tts": LatencyStats()}
+_tts_state = {"last_engine": "", "fallbacks": 0}
+
+
+def latency_snapshot(kind: str) -> dict:
+    snap = _stats[kind].snapshot()
+    if kind == "tts":
+        snap = {**snap, **_tts_state}
+    return snap
+
+
+def record_latency(kind: str, started: float, *, ok: bool = True) -> None:
+    """``started`` is a ``time.perf_counter()`` value taken before the call."""
+    _stats[kind].add((time.perf_counter() - started) * 1000.0, ok=ok)
 
 
 class SpeechError(ValueError):
@@ -51,8 +71,12 @@ def tts_paths() -> tuple[str, str, str]:
 def tts_status() -> dict:
     exe, model, ffmpeg = tts_paths()
     ok = all(value and Path(value).is_file() for value in (exe, model, ffmpeg))
+    # `available`/`engine`/`reason_code` are the long-standing contract (Piper is the
+    # default and the fallback); `backend` and `candidate` are the Jeff 1.8 additions.
     return {"available": ok, "engine": "local",
-            "reason_code": None if ok else "VOICE_ENGINE_UNAVAILABLE"}
+            "reason_code": None if ok else "VOICE_ENGINE_UNAVAILABLE",
+            "backend": tts_engines.selected_engine_name(),
+            "candidate": tts_engines.CosyVoiceCandidate().status()}
 
 
 def _asr_threads() -> int:
@@ -81,6 +105,20 @@ def _recogniser(model_path: Path):
 def transcribe_wav(audio: bytes, *, language: str = "ru",
                    stopped: Callable[[], bool] = lambda: False) -> dict:
     """PCM16 WAV -> {text, confidence, needs_confirm, ...}. Raises SpeechError."""
+    started = time.perf_counter()
+    try:
+        result = _transcribe_wav(audio, language=language, stopped=stopped)
+    except SpeechError as exc:
+        # A deliberate STOP or a busy engine says nothing about how fast STT is.
+        if str(exc) not in {"VOICE_STOPPED", "VOICE_BUSY", "VOICE_NO_SPEECH"}:
+            record_latency("stt", started, ok=False)
+        raise
+    record_latency("stt", started)
+    return result
+
+
+def _transcribe_wav(audio: bytes, *, language: str = "ru",
+                    stopped: Callable[[], bool] = lambda: False) -> dict:
     try:
         clean, duration = whisper._validated_wav(audio)
         model_path = whisper._model_directory()
@@ -150,9 +188,31 @@ def synthesize(answer: str, *, stopped: Callable[[], bool] = lambda: False) -> b
     text = tts_text(answer)
     if not text:
         raise SpeechError("VOICE_TEXT_INVALID")
-    exe, model, ffmpeg = tts_paths()
     try:
-        return synthesize_ogg(text, piper_executable=exe, model_path=model,
-                              ffmpeg_executable=ffmpeg, stopped=stopped)
+        return run_engines(text, stopped=stopped)
     except PiperError as exc:
         raise SpeechError(str(exc)) from exc
+
+
+def run_engines(text: str, *, stopped: Callable[[], bool] = lambda: False,
+                piper_synth: Callable[..., bytes] | None = None,
+                allow_candidate: bool = True) -> bytes:
+    """Speak ``text`` (already guarded) with the selected engine, Piper as the fallback.
+    Records TTS latency. Raises ``PiperError`` with a stable code."""
+    chain = tts_engines.engine_chain(piper_synth, allow_candidate=allow_candidate)
+    started = time.perf_counter()
+    for index, engine in enumerate(chain):
+        try:
+            audio = engine.synthesize(text, stopped=stopped)
+        except PiperError as exc:
+            code = str(exc)
+            if index + 1 < len(chain) and code not in {"VOICE_STOPPED", "VOICE_TEXT_INVALID"}:
+                _tts_state["fallbacks"] += 1     # candidate failed: Piper answers instead
+                continue
+            if code not in {"VOICE_STOPPED", "VOICE_TEXT_INVALID"}:
+                record_latency("tts", started, ok=False)
+            raise
+        _tts_state["last_engine"] = engine.name
+        record_latency("tts", started)
+        return audio
+    raise PiperError("VOICE_ENGINE_UNAVAILABLE")
