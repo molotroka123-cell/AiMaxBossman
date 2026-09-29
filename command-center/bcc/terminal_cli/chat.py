@@ -724,6 +724,11 @@ class Chat:
             self.view.print(Text(f"  факт #{f.get('id')}: {sanitize(f.get('statement') or '')[:200]}",
                                  style="text"))
 
+    def cmd_rave(self, p) -> None:
+        # Agentic Rave 1.9: the same `bossman rave …` commands on this connection.
+        from ..rave.cli import chat_command
+        chat_command(self.client, list(p.args), lambda text: self.view.print(Text(text)))
+
     def cmd_diff(self, p) -> None:
         ctid = p.args[0] if p.args else self.last_coding_id
         if not ctid:
