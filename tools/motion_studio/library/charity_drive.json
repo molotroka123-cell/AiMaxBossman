@@ -1,0 +1,64 @@
+{
+ "meta": {
+  "title": "Charity",
+  "bpm": 112,
+  "key": "F",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // CHARITY",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "4 WEEKS",
+   "kicker": "WINTER COATS DRIVE",
+   "start": 0.0,
+   "end": 2.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Four weeks in."
+    }
+   ]
+  },
+  {
+   "type": "bars",
+   "values": [
+    800,
+    1200,
+    950,
+    1600
+   ],
+   "headline_label": "WEEKS",
+   "counter_label": "EUR RAISED",
+   "x_from": "WEEK 1",
+   "x_to": "WEEK 4",
+   "highlight": {
+    "index": 3,
+    "text": "BEST WEEK"
+   },
+   "start": 2.0,
+   "end": 6.5,
+   "vo": [
+    {
+     "t": 2.1,
+     "text": "Four thousand five hundred fifty euro."
+    }
+   ]
+  },
+  {
+   "type": "end_card",
+   "text": "ALMOST THERE",
+   "sub": "GOAL 5000 EUR",
+   "start": 6.5,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 6.6,
+     "text": "Almost there."
+    }
+   ]
+  }
+ ]
+}

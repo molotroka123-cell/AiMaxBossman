@@ -1,0 +1,40 @@
+{
+ "meta": {
+  "title": "Birthday",
+  "bpm": 120,
+  "key": "C",
+  "brand": "MAX",
+  "hud": "MAX // BIRTHDAY",
+  "voice": "am_fenrir",
+  "duration": 8.0
+ },
+ "scenes": [
+  {
+   "type": "sticker",
+   "lottie": "noto_birthday_cake",
+   "text": "HAPPY 30TH",
+   "sub": "MAX",
+   "start": 0.0,
+   "end": 4.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Happy birthday, Max."
+    }
+   ]
+  },
+  {
+   "type": "end_card",
+   "text": "CHEERS",
+   "sub": "TO THE NEXT THIRTY",
+   "start": 4.0,
+   "end": 8.0,
+   "vo": [
+    {
+     "t": 4.1,
+     "text": "Cheers to the next thirty."
+    }
+   ]
+  }
+ ]
+}

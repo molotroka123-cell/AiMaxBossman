@@ -1,0 +1,19 @@
+{
+  "meta": {"title":"Bossman: built to evolve", "duration":22, "bpm":120, "key":"D", "brand":"BOSSMAN", "hud":"BOSSMAN / THE JOURNEY"},
+  "scenes": [
+    {"type":"title","start":0,"end":3,"kicker":"27 AUGUST 2026","title":"DAY ONE.","typed":"One idea. Your own intelligence.","chip":"FIRST COMMIT","vo":[{"t":0.35,"text":"It started with one idea."}]},
+    {"type":"title","start":3,"end":6,"kicker":"27 AUGUST - 28 SEPTEMBER","title":"32 DAYS.","typed":"From an agent core to a local-first system.","chip":"THE JOURNEY","vo":[{"t":3.15,"text":"Thirty-two days of building."}]},
+    {"type":"cards","start":6,"end":10,"heading":"ONE CONNECTED SYSTEM","items":[
+      {"t":6,"title":"AGENTS","sub":"plan / act / verify","icon":"agents"},
+      {"t":6.6,"title":"MEMORY","sub":"retain / retrieve","icon":"memory"},
+      {"t":7.2,"title":"COMPUTER USE","sub":"observe / approve","icon":"cursor"},
+      {"t":7.8,"title":"MOTION","sub":"design / render","icon":"play"},
+      {"t":8.4,"title":"JEFF","sub":"voice / context","icon":"mic"}],
+      "vo":[{"t":6.1,"text":"Agents. Memory. Tools. Motion. Jeff."}]},
+    {"type":"grid","start":10,"end":13,"value":26,"label":"OF 27 CI RUNS","caption":"28 SEP SNAPSHOT / LEARNING GATE STILL OPEN","vo":[{"t":10.1,"text":"A release candidate. Evidence, not promises."}]},
+    {"type":"logo","start":13,"end":15.5,"name":"BOSSMAN","tagline":"YOUR MACHINE. YOUR INTELLIGENCE.","vo":[{"t":13.1,"text":"This is Bossman."}]},
+    {"type":"voice","start":15.5,"end":18.5,"name":"JEFF","sub":"VOICE / CONTEXT / PRESENCE","lines":["Ready when you are."],"status":[{"text":"LOCAL VOICE AND CONTEXT","state":"live"},{"text":"OWNER ACCEPTANCE REMAINS OPEN","state":"next"}],"vo":[{"t":15.6,"text":"A companion built around you."}]},
+    {"type":"roadmap","start":18.5,"end":20.5,"heading":"THE NEXT CHAPTER","disclaimer":"DIRECTION ONLY / NOT A RELEASE CERTIFICATE","items":[{"t":18.5,"version":"1.8","when":"MOTION","lines":["Create and verify"]},{"t":19,"version":"1.9","when":"TRANSFER","lines":["Prove what it learns"]},{"t":19.5,"version":"NEXT","when":"OWNER RUN","lines":["Useful real work"]}],"vo":[{"t":18.55,"text":"Build. Verify. Evolve."}]},
+    {"type":"end_card","start":20.5,"end":22,"text":"JUST THE BEGINNING","sub":"BOSSMAN / BUILT TO EVOLVE","vo":[{"t":20.55,"text":"Just the beginning."}]}
+  ]
+}

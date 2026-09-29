@@ -1,0 +1,39 @@
+{
+ "meta": {
+  "title": "Teaser",
+  "bpm": 90,
+  "key": "B",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // TEASER",
+  "voice": "am_fenrir",
+  "duration": 6.0
+ },
+ "scenes": [
+  {
+   "type": "sticker",
+   "lottie": "noto_eyes",
+   "text": "SOON",
+   "start": 0.0,
+   "end": 3.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Something is coming."
+    }
+   ]
+  },
+  {
+   "type": "end_card",
+   "text": "COMING SOON",
+   "sub": "IT TALKS BACK",
+   "start": 3.0,
+   "end": 6.0,
+   "vo": [
+    {
+     "t": 3.1,
+     "text": "It talks back."
+    }
+   ]
+  }
+ ]
+}

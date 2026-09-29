@@ -1,0 +1,79 @@
+{
+ "meta": {
+  "title": "Local vs cloud",
+  "bpm": 124,
+  "key": "D",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // LOCAL VS CLOUD",
+  "voice": "am_fenrir",
+  "duration": 12.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "LOCAL",
+   "kicker": "VS CLOUD",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Local versus cloud."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "WHY LOCAL",
+   "items": [
+    {
+     "t": 2.75,
+     "title": "PRIVATE",
+     "sub": "data stays home",
+     "icon": "shield"
+    },
+    {
+     "t": 3.5,
+     "title": "OFFLINE",
+     "sub": "no internet needed",
+     "icon": "bolt"
+    },
+    {
+     "t": 4.28,
+     "title": "NO RENT",
+     "sub": "no subscription",
+     "icon": "chart"
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "Private."
+    },
+    {
+     "t": 3.5,
+     "text": "Works offline."
+    },
+    {
+     "t": 4.28,
+     "text": "No subscription."
+    }
+   ],
+   "start": 2.5,
+   "end": 8.5
+  },
+  {
+   "type": "logo",
+   "name": "BOSSMAN",
+   "tagline": "LOCAL-FIRST AI",
+   "start": 8.5,
+   "end": 12.0,
+   "vo": [
+    {
+     "t": 8.6,
+     "text": "Go local."
+    }
+   ]
+  }
+ ]
+}

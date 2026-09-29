@@ -1,0 +1,53 @@
+{
+ "meta": {
+  "title": "Special",
+  "bpm": 108,
+  "key": "G",
+  "brand": "BISTRO",
+  "hud": "BISTRO // SPECIAL",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "SPECIAL",
+   "kicker": "THIS WEEK",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "This week's special."
+    }
+   ]
+  },
+  {
+   "type": "sticker",
+   "lottie": "noto_jack_o_lantern",
+   "text": "PUMPKIN SOUP",
+   "sub": "6 EUR · MON–FRI",
+   "start": 2.5,
+   "end": 6.5,
+   "vo": [
+    {
+     "t": 2.6,
+     "text": "Pumpkin soup, six euro."
+    }
+   ]
+  },
+  {
+   "type": "end_card",
+   "text": "SEE YOU",
+   "sub": "OPEN DAILY 11–22",
+   "start": 6.5,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 6.6,
+     "text": "See you soon."
+    }
+   ]
+  }
+ ]
+}
