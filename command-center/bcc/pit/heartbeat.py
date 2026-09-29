@@ -16,10 +16,20 @@ from collections import deque
 from pathlib import Path
 from typing import Any
 
+from .version import JEFF_VERSION
+
 FILE_NAME = "heartbeat.json"
 INTERVAL_SECONDS = 15
 STALE_AFTER_SECONDS = 60
 SCHEMA = "bossman.pit.heartbeat/1"
+
+
+def _build_sha() -> str | None:
+    try:
+        from bcc.build_identity import source_identity
+        return source_identity().get("build_sha")
+    except Exception:  # noqa: BLE001 - a heartbeat never fails on identity
+        return None
 
 
 def _iso(ts: float | None) -> str | None:
@@ -75,6 +85,7 @@ class Heartbeat:
         avg = int(sum(self._latencies) / len(self._latencies)) if self._latencies else None
         return {
             "schema": SCHEMA, "surface": self.surface, "pid": os.getpid(),
+            "jeff_version": JEFF_VERSION, "build_sha": _build_sha(),
             "state": state or self.state, "at": _iso(now), "at_epoch": int(now),
             "started_at": _iso(self.started), "uptime_s": int(now - self.started),
             "replies_ok": self.replies_ok, "replies_failed": self.replies_failed,

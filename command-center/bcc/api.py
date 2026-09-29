@@ -668,9 +668,11 @@ def _public_router() -> APIRouter:
         SHA здесь обязателен: владелец не должен гонять брейкер по одному
         чекауту, думая, что запущен другой. Недоказанный источник называется
         SOURCE_IDENTITY_UNKNOWN, а не подставляется догадкой."""
-        from .build_identity import DESKTOP_APP_IDENTITY, source_identity
+        from .build_identity import DESKTOP_APP_IDENTITY, data_dir_fingerprint, source_identity
         return {"app": DESKTOP_APP_IDENTITY, "version": __version__,
-                "started_at": svc.started_at, "pid": os.getpid(), **source_identity()}
+                "started_at": svc.started_at, "pid": os.getpid(),
+                "data_dir_fingerprint": data_dir_fingerprint(svc.settings.data_dir),
+                **source_identity()}
 
     @router.get("/login-hint")
     async def login_hint(request: Request, svc: Services = Depends(services)):

@@ -113,6 +113,8 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
         return checks, False
 
     add("allowlist", len(settings.people) >= 1)
+    from .doctor_identity import identity_checks
+    checks.extend(await asyncio.to_thread(identity_checks, settings, home, data_dir))
     from .blocklist import BlocklistError, PrivateBlocklist
     try:
         block_status = PrivateBlocklist.from_settings(settings).status()
@@ -249,7 +251,9 @@ def _tool_perimeter() -> bool:
 
 def cmd_doctor(path: Path) -> int:
     checks, ok = asyncio.run(_doctor_checks(path))
-    print(json.dumps({"ok": ok, "checks": checks}, ensure_ascii=False, indent=2))
+    from .version import JEFF_VERSION
+    print(json.dumps({"ok": ok, "jeff_version": JEFF_VERSION, "checks": checks},
+                     ensure_ascii=False, indent=2))
     return 0 if ok else 2
 
 
@@ -257,7 +261,11 @@ def cmd_doctor(path: Path) -> int:
 def cmd_status(path: Path) -> int:
     data_dir = _resolve_data_dir(path)
     home = pit_home(data_dir)
-    report: dict = {"surface": "bossman-pit", "secret_free": True,
+    from bcc.build_identity import source_identity
+
+    from .version import JEFF_VERSION
+    report: dict = {"surface": "bossman-pit", "secret_free": True, "jeff_version": JEFF_VERSION,
+                    "build_sha": source_identity().get("build_sha"),
                     "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     report["config_present"] = path.is_file()
     report["process"] = "RUNNING" if _is_running(home) else "STOPPED"
