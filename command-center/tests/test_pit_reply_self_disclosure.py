@@ -42,6 +42,10 @@ LEGIT = [
     "Для обучения ребёнка чтению лучше начинать с коротких слов и обратной связи от учителя.",
     "Меня зовут Jeff, я AI-помощник.",
     "Обратная связь от пользователей помогает разработчикам улучшать продукты.",
+    "Языковые модели вроде Llama и Gemma можно запускать локально на своём ноутбуке.",
+    "Claude и GPT хорошо пишут код, а Nemotron сильнее в рассуждениях.",
+    "Модель Gemma создана Google и распространяется с открытыми весами.",
+    "Мы учим детей читать, и обратная связь родителей помогает.",
 ]
 
 
@@ -78,3 +82,73 @@ def test_a_normal_model_reply_is_delivered_unchanged(tmp_path):
     answer, _ = _ask(tmp_path, normal)
     assert answer.startswith("Я бы точнее отвечал")
     assert answer != pg.JEFF_SELF_DISCLOSURE_REPLY_RU
+
+
+# ---- red team: many phrasings, the responding model's own name, poisoned history ------------------------------------------
+
+RED_LEAKS = [
+    "Если честно, я построен на базе Llama 3.",
+    "Под капотом у меня Qwen, а разработала его Alibaba.",
+    "Мой разработчик — Google, я модель Gemma.",
+    "I'm powered by GPT-4, made by OpenAI.",
+    "I was trained by Anthropic. My name is Claude.",
+    "Меня зовут Qwen, я языковая модель.",
+    "Я работаю на модели Gemma 3 от Google.",
+    "Under the hood I am Claude, built by Anthropic.",
+    "Я нейросеть Nemotron от NVIDIA, обученная на больших данных.",
+    "Я — LFM-2.5, компактная модель от Liquid AI.",
+    "Я использую модель DeepSeek для ответов.",
+    "Моя модель называется Mistral, ее создала французская компания Mistral AI.",
+    "Ты говоришь с языковой моделью Grok, разработанной xAI.",
+    "I'm a large language model trained by Meta.",
+    "Мой создатель — компания OpenAI, я работаю на GPT.",
+    "Я основан на архитектуре Llama и дообучаюсь на ваших диалогах.",
+    "Мы учимся на данных пользователей, чтобы улучшать ответы.",
+    "I learn from your messages to get better.",
+    "Я развиваюсь благодаря отзывам пользователей и обучаюсь на них.",
+]
+
+
+@pytest.mark.parametrize("text", RED_LEAKS)
+def test_red_team_leak_phrasings_are_caught(text):
+    assert pg.reply_discloses_model(text), text
+
+
+def test_the_responding_model_own_name_counts_even_when_it_is_not_in_the_fixed_list():
+    reply = "Я — Zorblax, меня создала небольшая лаборатория."
+    assert not pg.reply_discloses_model(reply), "unknown name, no route id: nothing to compare with"
+    assert pg.reply_discloses_model(reply, "acme/zorblax-2:free")
+    assert not pg.reply_discloses_model(reply, "liquid/lfm-2.5-2.6b:free"), "only the responding model's own name is added"
+
+
+def test_model_name_tokens_drop_sizes_numbers_and_generic_words():
+    assert pg.model_name_tokens("liquid/lfm-2.5-2.6b:free") == ("liquid", "lfm")
+    assert pg.model_name_tokens("nvidia/nemotron-3-ultra-550b-a55b:free") == ("nvidia", "nemotron")
+    assert pg.model_name_tokens("bossman-community-qwen-uncensored:latest") == ("qwen",)
+    assert pg.model_name_tokens("") == ()
+    assert not pg.reply_discloses_model("Я ultra быстрый помощник и отвечаю на free-вопросы.", "nvidia/nemotron-3-ultra-550b-a55b:free")
+
+
+def test_a_leaked_turn_is_dropped_from_the_prompt_history():
+    from bcc.pit import runtime as rt
+    history = [
+        {"role": "user", "content": "Привет"}, {"role": "assistant", "content": "Привет! Чем помочь?"},
+        {"role": "user", "content": "Кто тебя создал?"}, {"role": "assistant", "content": REPORTED},
+        {"role": "user", "content": "Ок"}, {"role": "assistant", "content": "Хорошо."},
+    ]
+    kept = rt._without_self_disclosure(history, "liquid/lfm-2.5-2.6b:free")
+    assert [m["content"] for m in kept] == ["Привет", "Привет! Чем помочь?", "Ок", "Хорошо."]
+
+
+def test_the_identity_reminder_is_the_last_system_message_before_the_question(tmp_path):
+    answer, runtime = _ask(tmp_path, "Я бы отвечал точнее.")
+    messages = runtime.adapter.calls[-1][1]
+    assert messages[-1]["role"] == "user"
+    assert messages[-2]["role"] == "system" and "ты Jeff" in messages[-2]["content"]
+    assert "веса не меняются" in messages[-2]["content"]
+
+
+@pytest.mark.parametrize("model_reply", RED_LEAKS)
+def test_no_red_team_leak_reaches_the_participant_through_the_runtime(tmp_path, model_reply):
+    answer, _ = _ask(tmp_path, model_reply)
+    assert answer == pg.JEFF_SELF_DISCLOSURE_REPLY_RU, model_reply

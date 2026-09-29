@@ -254,33 +254,72 @@ def _probe_kind(value: str) -> GuardKind | None:
 # Vendor / model-family names are legitimate topics («Anthropic выпустила...», «Qwen хорош для кода»). They are a leak only
 # when the reply is about the ASSISTANT: first person + a name, or the model's own maker / training claimed as Jeff's.
 _VENDORS = (r"openai|anthropic|google|deepmind|meta|mistral|alibaba|qwen|deepseek|liquid(?:\s*ai)?|lfm\d*(?:[.-]\d+)?|"
-            r"microsoft|xai|x\.ai|zhipu|glm|moonshot|kimi|nvidia|cohere|llama|gemma|gemini|gpt[-\w.]*|claude")
+            r"microsoft|xai|x\.ai|zhipu|glm|moonshot|kimi|nvidia|nemotron|cohere|command\s*r|llama|gemma|gemini|gpt[-\w.]*|"
+            r"claude|phi[-\d]*|grok|olmo|minimax|hunyuan|ernie|baidu|tencent|bytedance|doubao|yandex|gigachat|sber|"
+            r"stepfun|xiaomi|mimo|ollama|openrouter")
 _SENT = r"[^.!?\n]"
-_SELF_MODEL_RE = re.compile(
-    r"(?:\b(?:я|мы|меня|мо[яйеё]|i am|i'm|as an?|как)\b" + _SENT + r"{0,60}?\b(?:" + _VENDORS + r")\b)|"
-    r"(?:\b(?:" + _VENDORS + r")\b" + _SENT + r"{0,40}?\b(?:меня|я был|я была|мо[яйеё]|создал\w*|разработал\w*|обучил\w*)\b)|"
-    r"(?:\b(?:меня|я)\b" + _SENT + r"{0,40}?\b(?:создал\w*|разработал\w*|обучил\w*|обучен\w*|создан\w*|разработан\w*)"
-    + _SENT + r"{0,30}?\b(?:компани\w*|команд\w*|" + _VENDORS + r")\b)",
-    re.I,
-)
-_SELF_LEARNING_RE = re.compile(
-    r"(?:\b(?:я|мы|мои модели|моя модель|модель)\b" + _SENT + r"{0,50}?\b(?:обуча\w+|дообуча\w+|учусь|развива\w+|улучша\w+)\b"
-    + _SENT + r"{0,60}?\b(?:обратн\w+ связ\w+|данн\w+ пользовател\w+|ваш\w+ (?:сообщени|диалог|запрос)\w*|отзыв\w+))|"
-    r"(?:\b(?:i|we)\b" + _SENT + r"{0,40}?\b(?:learn|train|improve)\w*\b" + _SENT + r"{0,40}?\b(?:from|on)\b" + _SENT + r"{0,30}?"
-    r"\b(?:user feedback|your messages|users? data)\b)",
-    re.I,
-)
+# Words of a route id that are not a name («free», «instruct», «ultra»...): never a leak on their own.
+_GENERIC_ID_WORDS = frozenset({
+    "free", "instruct", "chat", "mini", "code", "coder", "ultra", "main", "fast", "community", "uncensored", "latest", "vision",
+    "preview", "base", "large", "small", "pro", "max", "plus", "turbo", "flash", "lite", "thinking", "reasoning", "abl", "test",
+    "bossman", "local", "remote", "model", "the"})
 
 
-def reply_discloses_model(reply: str) -> bool:
+def model_name_tokens(model_id: str) -> tuple[str, ...]:
+    """Name-like words of a route id: ``liquid/lfm-2.5-2.6b:free`` -> (liquid, lfm); numbers, sizes and generic words are dropped."""
+    words = re.split(r"[/:_\-. ]+", str(model_id or "").lower())
+    return tuple(dict.fromkeys(w for w in words if len(w) >= 3 and w.isalpha() and w not in _GENERIC_ID_WORDS))
+
+
+def _self_model_regexes(vendors: str) -> tuple[re.Pattern, re.Pattern]:
+    model = re.compile(
+        r"(?:\b(?:я|мы|меня|мо[яйеё]|i am|i'm|as an?|как)\b" + _SENT + r"{0,60}?\b(?:" + vendors + r")\b)|"
+        r"(?:\b(?:" + vendors + r")\b" + _SENT + r"{0,40}?\b(?:меня|я был|я была|мо[яйеё]|создал\w*|разработал\w*|обучил\w*)\b)|"
+        r"(?:\b(?:меня|я)\b" + _SENT + r"{0,40}?\b(?:создал\w*|разработал\w*|обучил\w*|обучен\w*|создан\w*|разработан\w*)"
+        + _SENT + r"{0,30}?\b(?:компани\w*|команд\w*|" + vendors + r")\b)|"
+        # «My name is Claude», «меня зовут Qwen»
+        r"(?:\b(?:my name is|меня зовут|зовут меня|мо[её] имя)\b" + _SENT + r"{0,20}?\b(?:" + vendors + r")\b)|"
+        # «trained / built / created / powered by|on <vendor>», «работаю на <vendor>»
+        r"(?:\b(?:trained|created|built|developed|made|powered|based)\s+(?:by|on)\b" + _SENT + r"{0,25}?\b(?:" + vendors + r")\b)|"
+        r"(?:\b(?:работаю|построен\w*|основан\w*|запущен\w*)\s+на\b" + _SENT + r"{0,30}?\b(?:" + vendors + r")\b)|"
+        # «Ты говоришь с языковой моделью X», «you are talking to X»
+        r"(?:\b(?:говоришь|общаешься|беседуешь|разговариваешь)\s+с\b" + _SENT + r"{0,40}?\b(?:" + vendors + r")\b)|"
+        r"(?:\byou(?:'re| are)\s+(?:talking|speaking|chatting)\s+(?:to|with)\b" + _SENT + r"{0,40}?\b(?:" + vendors + r")\b)",
+        re.I)
+    learning = re.compile(
+        r"(?:\b(?:я|мы|мои модели|моя модель|модель)\b" + _SENT + r"{0,50}?\b(?:обуча\w+|дообуча\w+|уч(?:усь|имся)|развива\w+|улучша\w+)\b"
+        + _SENT + r"{0,60}?\b(?:обратн\w+ связ\w+|данн\w+ пользовател\w+|ваш\w+ (?:сообщени|диалог|запрос)\w*|отзыв\w+))|"
+        r"(?:\b(?:i|we)\b" + _SENT + r"{0,40}?\b(?:learn|train|improve)\w*\b" + _SENT + r"{0,40}?\b(?:from|on)\b" + _SENT
+        + r"{0,30}?\b(?:user feedback|your messages|users? data)\b)",
+        re.I)
+    return model, learning
+
+
+_BASE_REGEXES = _self_model_regexes(_VENDORS)
+_EXTRA_REGEXES: dict[tuple[str, ...], tuple[re.Pattern, re.Pattern]] = {}
+
+
+def reply_discloses_model(reply: str, model_id: str = "") -> bool:
     """True when a MODEL reply names the assistant's own model/vendor or claims it learns from user feedback.
 
-    Pure and deterministic; the runtime replaces such a reply with ``JEFF_SELF_DISCLOSURE_REPLY_RU``.
+    ``model_id`` is the route that produced the reply: its own name words (``lfm``, ``nemotron``...) count as vendors too,
+    so a model that is not in the fixed list is still caught when it names itself. Pure and deterministic; the runtime
+    replaces such a reply with ``JEFF_SELF_DISCLOSURE_REPLY_RU``.
     """
     value = " ".join(str(reply or "").split())
     if not value:
         return False
-    return bool(_SELF_MODEL_RE.search(value) or _SELF_LEARNING_RE.search(value))
+    model_re, learning_re = _BASE_REGEXES
+    if model_re.search(value) or learning_re.search(value):
+        return True
+    tokens = model_name_tokens(model_id)
+    if not tokens:
+        return False
+    if tokens not in _EXTRA_REGEXES:
+        if len(_EXTRA_REGEXES) > 64:
+            _EXTRA_REGEXES.clear()
+        _EXTRA_REGEXES[tokens] = _self_model_regexes("|".join(re.escape(t) for t in tokens))
+    return bool(_EXTRA_REGEXES[tokens][0].search(value))
 
 
 def public_guard(text: str) -> GuardReply | None:

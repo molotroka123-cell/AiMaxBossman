@@ -213,6 +213,24 @@ def _intent_for(query: str) -> str:
     return "general"
 
 
+IDENTITY_REMINDER_RU = (
+    "Напоминание: ты Jeff. Не называй свою модель, разработчика или компанию и не говори, что обучаешься на сообщениях "
+    "или на обратной связи пользователей: твои веса не меняются. Если спрашивают о тебе, отвечай, что ты Jeff, AI-помощник Bossman."
+)
+
+
+def _without_self_disclosure(history: list[dict], model_id: str = "") -> list[dict]:
+    """Drop turns whose assistant reply spoke as the model (and the question it answered)."""
+    kept: list[dict] = []
+    for item in history:
+        if item.get("role") == "assistant" and reply_discloses_model(str(item.get("content", "")), model_id):
+            if kept and kept[-1].get("role") == "user":
+                kept.pop()
+            continue
+        kept.append(item)
+    return kept
+
+
 def _cloud_refusal(answer: str) -> bool:
     """Recognize short provider refusals; substantive answers stay untouched."""
     value = str(answer or "").strip().lower()
@@ -2349,6 +2367,8 @@ class ParticipantRuntime:
                         keep_newest=True)
                 else:
                     history = self.store.history(who)
+                # A past reply that spoke as the model must not stay in the prompt: a small model repeats what it "said" before.
+                history = _without_self_disclosure(history, route_model)
                 messages += history
                 pairs_sent = len(history) // 2
             elif memory_context_allowed and route_is_remote and cloud_session:
@@ -2360,6 +2380,7 @@ class ParticipantRuntime:
                     max_age_seconds=SESSION_CONTEXT_MAX_AGE_SECONDS)
                 window = [{"role": item["role"], "content": redact_secrets(item["content"])[0]}
                           for item in window]
+                window = _without_self_disclosure(window, route_model)
                 messages += window
                 pairs_sent = len(window) // 2
             if session_history:
@@ -2380,10 +2401,16 @@ class ParticipantRuntime:
                     messages.append({"role": "system", "content": roleplay_prompt(state)})
             if math_hint:
                 messages.append({"role": "system", "content": math_hint})
+            messages.append({"role": "system", "content": IDENTITY_REMINDER_RU})   # last word before the question (small models)
             messages.append({"role": "user", "content": text})
             if j2_ctx is not None:
                 messages = await self.j2.augment(
                     replace(j2_ctx, extra={**j2_ctx.extra, "route_remote": bool(route_is_remote)}), messages)
+                # Jeff 2.0 adds its own system notes; the identity reminder stays the last word before the question.
+                reminder = {"role": "system", "content": IDENTITY_REMINDER_RU}
+                if messages and messages[-1].get("role") == "user" and messages[-2:-1] != [reminder]:
+                    messages = [m for m in messages if m != reminder]
+                    messages.insert(len(messages) - 1, reminder)
             context_chars = sum(len(str(m.get("content", ""))) for m in messages)
             started = time.monotonic()
             try:
@@ -2526,6 +2553,14 @@ class ParticipantRuntime:
                 return NO_REMOTE_RU
             return INCOMPLETE_REPLY_RU if incomplete_seen else PROVIDER_DOWN_RU
         answer = render_jeff_reply(result.text)
+        # Raw model text first: a reply that speaks as the model is replaced whole, before any rewriting guard.
+        if reply_discloses_model(answer, route_model):
+            # The model spoke as itself (vendor / "LFM от Liquid AI" / "учусь на обратной связи"): never shown to the participant.
+            self._log_route(person_key=person_key, model=route_model, provider=provider, ok=False,
+                            latency_ms=int((time.monotonic() - started) * 1000), context_chars=context_chars,
+                            error="self_disclosure_replaced", route_reason=fallback_reason or "primary")
+            await turn_stream.reset()  # a streamed draft of it must not stay in the chat either
+            return JEFF_SELF_DISCLOSURE_REPLY_RU
         # Before memory, history or delivery: the base model's identity, the system prompt and
         # internals never leave, whatever the (optional) Jeff 2.0 modules do afterwards.
         answer = self.guard_outgoing(answer, system_texts=tuple(
@@ -2535,13 +2570,6 @@ class ParticipantRuntime:
             self._set_provider_error("chat_failed")
             self._mark_catalog_dirty()
             return PROVIDER_DOWN_RU
-        if reply_discloses_model(answer):
-            # The model spoke as itself (vendor / "LFM от Liquid AI" / "учусь на обратной связи"): never shown to the participant.
-            self._log_route(person_key=person_key, model=route_model, provider=provider, ok=False,
-                            latency_ms=int((time.monotonic() - started) * 1000), context_chars=context_chars,
-                            error="self_disclosure_replaced", route_reason=fallback_reason or "primary")
-            await turn_stream.reset()  # a streamed draft of it must not stay in the chat either
-            return JEFF_SELF_DISCLOSURE_REPLY_RU
         self._set_provider_error(None)                      # a model answered: the outage is over
         total_ms = (time.perf_counter() - turn_started) * 1000.0
         self.reply_metrics.record(served_by, ttft_ms=turn_stream.ttft_ms or total_ms,
