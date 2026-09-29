@@ -296,7 +296,7 @@ class Turn:
 
 @runtime_checkable
 class Brain(Protocol):
-    """The SAME local Bossman model routes the Telegram companion uses."""
+    """Jeff/Bossman's existing reply path (context, memory, rules, local model routes) — never a second brain."""
 
     route: str                  # "main" | "fast"
     model: str

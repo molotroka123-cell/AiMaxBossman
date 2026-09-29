@@ -25,6 +25,11 @@ def version_of(dist: str) -> str | None:
 
 def probe() -> dict:
     """{module: {"installed", "version", "required"}, "missing_required": [...], "ready_for_telegram_call": bool}."""
+    try:
+        from . import addon
+        addon.activate()                     # an installed add-on becomes importable without restarting anything
+    except Exception:  # noqa: BLE001 - no add-on is a valid state
+        pass
     out: dict = {}
     missing: list[str] = []
     for module, (dist, required) in PACKAGES.items():

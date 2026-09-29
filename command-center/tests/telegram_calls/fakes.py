@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import asyncio
 import time
+import zlib
 
 import numpy as np
 
 from bcc.telegram_calls.audio.pcm import to_pcm
+from bcc.telegram_calls.speech.scripted import speechlike_envelope
 from bcc.telegram_calls.types import CallError, CallSummary, CancelToken, STTResult, Turn
 
 
@@ -67,9 +69,8 @@ class ToneTTS:
         total_ms = max(200, len(text) * self.ms_per_char)
         n = self.sample_rate * total_ms // 1000
         t = np.arange(n) / self.sample_rate
-        env = 0.55 + 0.45 * np.sin(2 * np.pi * 4 * t) ** 2
-        x = sum(np.sin(2 * np.pi * 140 * k * t) / k for k in range(1, 10)) * env
-        x = x / np.abs(x).max() * self.amp
+        x = sum(np.sin(2 * np.pi * 140 * k * t) / k for k in range(1, 10)) * speechlike_envelope(n, self.sample_rate, zlib.crc32(text.encode()))
+        x = x / max(1e-9, np.abs(x).max()) * self.amp
         pcm = to_pcm(x)
         step = self.sample_rate * self.chunk_ms // 1000 * 2
         for i in range(0, len(pcm), step):

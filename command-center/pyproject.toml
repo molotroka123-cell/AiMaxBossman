@@ -67,6 +67,11 @@ video-interchange = ["opentimelineio>=0.18,<0.19"]
 # paste). Both universal wheels are pinned by SHA256 in the Windows bundle lock;
 # the Windows hash-checking install and actual archive smoke remain release gates.
 terminal = ["prompt_toolkit==3.0.52"]
+# Telegram live calls (bcc.telegram_calls). OPTIONAL and deliberately NOT part of `runtime`: the Windows bundle is hash-locked
+# (tools/windows_bundle_lock.txt, recorded only on the Windows runner). On the embedded runtime `bossman call install`
+# installs the exact hash-verified add-on from bcc/telegram_calls/addon_lock.json instead. Voice reuses Jeff's tract
+# (faster-whisper from `speech`, the external Piper executable); numpy is already in the bundle.
+calls = ["telethon==1.45.0", "py-tgcalls==3.0.0", "ntgcalls==3.0.0", "pysilero-vad==3.4.0", "soxr==1.1.0", "numpy>=1.26", "faster-whisper==1.2.1"]
 
 [project.scripts]
 bcc = "bcc.app:main"
@@ -84,7 +89,7 @@ include = ["bcc*"]
 # Imported third-party skills are read-only DATA (text + provenance + licences),
 # discovered by bcc.v2.skill_catalog; they must ship inside the wheel.
 [tool.setuptools.package-data]
-bcc = ["skills_catalog/*/LICENSE", "skills_catalog/*/*/SKILL.md",
+bcc = ["telegram_calls/addon_lock.json", "skills_catalog/*/LICENSE", "skills_catalog/*/*/SKILL.md",
        "skills_catalog/*/*/provenance.json", "skills_catalog/*/*/LICENSE.txt"]
 
 [tool.pytest.ini_options]

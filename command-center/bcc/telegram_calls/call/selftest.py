@@ -158,10 +158,10 @@ def _verdict(name: str, checks: dict[str, bool], metrics: dict, rig: Rig | None,
 
 async def scenario_basic(engines_factory: Callable[[list[str] | None], Any]) -> dict:
     t0 = time.monotonic()
-    engines = engines_factory(["Привет! Я тебя слышу, чем могу помочь?", "Меня зовут Босман."])
+    engines = engines_factory(["Привет! Я тебя слышу, чем могу помочь?", "Меня зовут Джефф."])
     rig = await make_rig(engines)
     task = await _start(rig)
-    q1, q2 = "Привет, Босман. Ты меня слышишь?", "А как тебя зовут?"
+    q1, q2 = "Привет. Ты меня слышишь?", "А как тебя зовут?"
     await rig.say(q1)
     await rig.hush(700)
     rig.mark()
@@ -316,7 +316,7 @@ async def run_selftest(settings: CallSettings, scenario: str = "all", *, real: b
 
 def default_conversation_script(stt: Any | None = None, engines: Any | None = None):
     """The synthetic interlocutor's part of an offline-mode dial: a short scripted conversation ending with a goodbye."""
-    lines = ["Привет, Босман. Ты меня слышишь?", "Расскажи, что ты умеешь.", "Спасибо, пока."]
+    lines = ["Привет. Ты меня слышишь?", "Расскажи, что ты умеешь.", "Спасибо, пока."]
 
     async def script(transport: LoopbackTransport) -> None:
         await asyncio.sleep(1.0)

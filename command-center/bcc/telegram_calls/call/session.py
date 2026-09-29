@@ -39,7 +39,7 @@ _WORD = re.compile(r"\w", re.UNICODE)
 class SessionConfig:
     ring_timeout_s: float = 45.0
     max_call_s: float = 900.0
-    greeting: str = "Привет! Это Босман. Ты меня слышишь?"
+    greeting: str = "Привет! Это Джефф, ИИ-ассистент. Ты меня слышишь?"
     greet_wait_s: float = 1.5             # let the callee say «алло» first
     idle_prompt_s: float = 25.0
     idle_prompt_text: str = "Ты ещё здесь?"
@@ -283,7 +283,7 @@ class CallSession:
         user_turns = sum(1 for t in turns if t.role == "user")
         dur = (self.record.ended_at or self._wall()) - self.record.started_at
         mechanical = CallSummary(
-            text=(f"Звонок Босмана на выбранный аккаунт: {user_turns} реплик собеседника, {dur:.0f} с, "
+            text=(f"Звонок ассистента на выбранный аккаунт: {user_turns} реплик собеседника, {dur:.0f} с, "
                   f"исход: {self._outcome.value if self._outcome else 'unknown'}. Содержание не сохранялось."),
             agreed_tasks=[], generated_by="mechanical")
         if user_turns == 0 or self._outcome in (Outcome.STOPPED,):      # STOP starts no new model call

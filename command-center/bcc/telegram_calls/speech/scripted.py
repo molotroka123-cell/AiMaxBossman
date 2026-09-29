@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import shutil
+import zlib
 import subprocess
 import tempfile
 import wave
@@ -15,6 +16,24 @@ import numpy as np
 
 from ..audio.pcm import StreamResampler, to_pcm
 from ..types import CallSummary, CancelToken, STTResult, Turn
+
+
+
+def speechlike_envelope(n: int, rate: int, seed: int) -> np.ndarray:
+    """Irregular syllable/word rhythm (100-220 ms syllables, 30-90 ms gaps, longer word gaps): a strictly periodic
+    envelope makes echo-delay estimation ambiguous and is nothing like speech, so test/offline audio must not use one."""
+    rng = np.random.default_rng(seed)
+    out = np.zeros(n)
+    i = 0
+    while i < n:
+        syl = int(rng.uniform(0.10, 0.22) * rate)
+        level = rng.uniform(0.5, 1.0)
+        m = min(syl, n - i)
+        out[i:i + m] = level * np.sin(np.linspace(0, np.pi, m)) ** 0.7
+        i += syl + int(rng.uniform(0.03, 0.09) * rate)
+        if rng.random() < 0.22:
+            i += int(rng.uniform(0.15, 0.35) * rate)
+    return out
 
 
 class ScriptedSTT:
@@ -62,9 +81,8 @@ class ToneTTS:
     async def synthesize(self, text: str, cancel: CancelToken) -> AsyncIterator[bytes]:
         n = self.sample_rate * max(200, len(text) * self.ms_per_char) // 1000
         t = np.arange(n) / self.sample_rate
-        env = 0.55 + 0.45 * np.sin(2 * np.pi * 4 * t) ** 2
-        x = sum(np.sin(2 * np.pi * 140 * k * t) / k for k in range(1, 10)) * env
-        pcm = to_pcm((x / np.abs(x).max() * self.amp).astype(np.float32))
+        x = sum(np.sin(2 * np.pi * 140 * k * t) / k for k in range(1, 10)) * speechlike_envelope(n, self.sample_rate, zlib.crc32(text.encode()))
+        pcm = to_pcm((x / max(1e-9, np.abs(x).max()) * self.amp).astype(np.float32))
         step = self.sample_rate * self.chunk_ms // 1000 * 2
         for i in range(0, len(pcm), step):
             if cancel.cancelled:
@@ -124,6 +142,5 @@ def tone_speech(ms: int, *, rate_hz: int = 16000, seed: int = 1, amp: float = 0.
     n = rate_hz * ms // 1000
     t = np.arange(n) / rate_hz
     sig = sum(np.sin(2 * np.pi * 140 * k * t + rng.uniform(0, 6.28)) / k for k in range(1, 12))
-    env = 0.55 + 0.45 * np.sin(2 * np.pi * 4 * t) ** 2
-    x = sig * env
-    return to_pcm((x / np.abs(x).max() * amp).astype(np.float32))
+    x = sig * speechlike_envelope(n, rate_hz, seed)
+    return to_pcm((x / max(1e-9, np.abs(x).max()) * amp).astype(np.float32))

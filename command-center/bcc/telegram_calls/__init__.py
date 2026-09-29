@@ -1,8 +1,8 @@
 """Telegram live calls: real two-way voice with Bossman over a personal 1:1 call.
 
 Same product, additional control surface: the dashboard panel, ``bossman call``
-and the worker all use the ONE Command Center backend, the companion's local
-model routes and persona, the existing Vault for secrets and the existing memory.
+and the worker all use the ONE Command Center backend, Jeff's existing context/voice/rules, the local model
+routes of the Bossman product, the existing Vault for secrets and the existing memory.
 See docs/telegram-calls/ARCHITECTURE.md.
 
 Heavy/native dependencies (Telethon, py-tgcalls/ntgcalls, onnxruntime, ...) are the

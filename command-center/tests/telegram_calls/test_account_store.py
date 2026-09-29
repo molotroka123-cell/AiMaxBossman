@@ -99,6 +99,7 @@ def test_undecryptable_credentials_do_not_crash_status_and_are_never_treated_as_
 def test_settings_default_to_calls_off_and_persist_without_secrets(home):
     d = load_settings(home)
     assert d.enabled is False and d.peer is None and d.record_audio is False and d.barge_in is True
+    assert d.auto_save_to_bossman_memory is False                       # nothing reaches the owner's memory/tasks without a click
     save_settings(CallSettings(enabled=True, peer_user_id=42, peer_label="Второй"), home)
     text = (home / "config.json").read_text(encoding="utf-8")
     assert load_settings(home).peer.user_id == 42
@@ -106,9 +107,9 @@ def test_settings_default_to_calls_off_and_persist_without_secrets(home):
         assert forbidden not in text.lower().replace("peer_user_id", "")
 
 
-@pytest.mark.parametrize("kw", [dict(max_call_s=5), dict(ring_timeout_s=500), dict(echo_mode="loud"), dict(llm_route="cloud"),
+@pytest.mark.parametrize("kw", [dict(max_call_s=5), dict(ring_timeout_s=500), dict(echo_mode="loud"), dict(vad="cloud"),
                                 dict(idle_prompt_s=50, idle_hangup_s=40), dict(peer_user_id=-1), dict(enabled="yes"),
-                                dict(record_audio=1), dict(stt_model_path="a\x00b")])
+                                dict(record_audio=1), dict(auto_save_to_bossman_memory="no"), dict(stt_model_path="a\x00b")])
 def test_invalid_settings_are_rejected(kw):
     with pytest.raises(ValueError):
         CallSettings(**kw)

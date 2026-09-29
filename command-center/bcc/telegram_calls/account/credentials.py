@@ -2,8 +2,8 @@
 
 * Everything is in ONE Vault-encrypted file (``credentials.enc``), never in ``config.json``, Git, logs, events,
   API responses or model prompts. Only masks leave this module (``public()``).
-* The Vault key is the Telegram companion's (``secret.key`` / ``BOSSMAN_VAULT_KEY``): the existing protected
-  storage, not a new one. The file gets the same owner-only ACL treatment as the companion's secrets.
+* The Vault is Bossman's own (``bcc.secrets.Vault`` over the data dir: ``secret.key`` / ``BOSSMAN_VAULT_KEY``), the one
+  that already protects provider keys: the existing protected storage, not a new one. The file gets the owner-only ACL.
 * ``Credentials.__repr__`` never prints a secret.
 """
 from __future__ import annotations

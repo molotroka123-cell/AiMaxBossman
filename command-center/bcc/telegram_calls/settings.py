@@ -1,7 +1,8 @@
 """Paths and owner-tunable settings of the calls module.
 
-Storage reuses the Telegram companion's home directory (same Vault key file, same ACL rules) and keeps
-everything of this module in its ``calls/`` subdirectory. ``config.json`` holds NO secrets: api_id/api_hash
+Storage reuses Bossman's own data directory and its existing Fernet Vault (``bcc.secrets.Vault``, the one that protects
+provider keys) and keeps everything of this module in the ``telegram-calls/`` subdirectory. Not the Telegram companion's
+directory, not Jeff's: the calls module is a surface of Bossman, not of either of them. ``config.json`` holds NO secrets: api_id/api_hash
 and the session live only in ``credentials.enc`` (see ``account.credentials``).
 """
 from __future__ import annotations
@@ -18,29 +19,21 @@ HOME_ENV = "BOSSMAN_TELEGRAM_CALLS_HOME"
 _MAX_CONFIG_BYTES = 65536
 
 
-def companion_home() -> Path:
-    """The Telegram companion's data directory (its config path decides, like the settings API does)."""
-    override = os.environ.get("BOSSMAN_TELEGRAM_CONFIG")
-    if override:
-        return Path(override).parent
-    base = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local" / "share")))
-    return base / "Bossman" / "telegram-companion"
-
-
-def companion_config_path() -> Path:
-    override = os.environ.get("BOSSMAN_TELEGRAM_CONFIG")
-    return Path(override) if override else companion_home() / "config.json"
+def data_dir() -> Path:
+    """Bossman's own data directory (``BCC_DATA_DIR``): the SAME directory and Vault the backend uses — no separate store."""
+    from ..config import Settings
+    return Path(Settings().data_dir)
 
 
 def calls_home() -> Path:
     override = os.environ.get(HOME_ENV)
-    return Path(override) if override else companion_home() / "calls"
+    return Path(override) if override else data_dir() / "telegram-calls"
 
 
 def secret_home() -> Path:
-    """Directory whose ``secret.key`` (Vault) encrypts credentials: the companion's own, one key for Telegram."""
+    """Directory whose ``secret.key`` (the existing Fernet Vault) encrypts credentials: Bossman's data dir."""
     override = os.environ.get(HOME_ENV)
-    return Path(override).parent if override else companion_home()
+    return Path(override).parent if override else data_dir()
 
 
 @dataclass(frozen=True)
@@ -54,18 +47,17 @@ class CallSettings:
     idle_hangup_s: int = 60
     barge_in: bool = True
     echo_mode: str = "guard"                   # guard | half_duplex
-    llm_route: str = "fast"                    # fast | main  (routes of the Telegram companion settings)
-    stt_model_path: str = ""                   # local CTranslate2 dir; empty = BOSSMAN_WHISPER_MODEL_PATH
-    tts_voice_path: str = ""                   # local Piper .onnx voice; empty = BOSSMAN_TTS_VOICE_PATH
-    greeting: str = "Привет! Это Босман. Ты меня слышишь?"
+    stt_model_path: str = ""                   # override of Jeff's Whisper model dir; empty = BOSSMAN_WHISPER_MODEL_PATH (as Jeff)
+    greeting: str = "Привет! Это Джефф, ИИ-ассистент. Ты меня слышишь?"
     record_audio: bool = False                 # OFF by default; needs the owner's explicit choice
+    auto_save_to_bossman_memory: bool = False  # OFF: the owner saves the summary / drafts tasks with one click (Jeff must not write owner data)
     vad: str = "auto"                          # auto | silero | energy
     extra: dict = field(default_factory=dict)  # forward-compatible, ignored keys are kept, never executed
 
     def __post_init__(self):
         def bad(msg):
             raise ValueError(msg)
-        for name in ("enabled", "barge_in", "record_audio"):
+        for name in ("enabled", "barge_in", "record_audio", "auto_save_to_bossman_memory"):
             if type(getattr(self, name)) is not bool:
                 bad(f"{name} must be a boolean")
         if self.peer_user_id is not None:
@@ -79,13 +71,11 @@ class CallSettings:
                 bad(f"{name} must be an integer {lo}..{hi}")
         if self.idle_hangup_s <= self.idle_prompt_s:
             bad("idle_hangup_s must exceed idle_prompt_s")
-        if self.echo_mode not in {"guard", "half_duplex"} or self.llm_route not in {"fast", "main"} \
-                or self.vad not in {"auto", "silero", "energy"}:
+        if self.echo_mode not in {"guard", "half_duplex"} or self.vad not in {"auto", "silero", "energy"}:
             bad("invalid enum value")
-        for name in ("stt_model_path", "tts_voice_path"):
-            v = getattr(self, name)
-            if not isinstance(v, str) or len(v) > 500 or "\x00" in v:
-                bad(f"{name} invalid")
+        v = self.stt_model_path
+        if not isinstance(v, str) or len(v) > 500 or "\x00" in v:
+            bad("stt_model_path invalid")
         if not isinstance(self.greeting, str) or len(self.greeting) > 200:
             bad("greeting too long")
         if not isinstance(self.extra, dict):
