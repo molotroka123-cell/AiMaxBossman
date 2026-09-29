@@ -69,12 +69,12 @@ def _parse_summary(text: str) -> tuple[str, str]:
 
 
 async def build_checkpoint(settings: PITSettings, *, adapter=None, chat: ResilientChat | None = None,
-                           narratives: dict[int, dict] | None = None) -> dict:
+                           narratives: dict[str, dict] | None = None) -> dict:
     """Gather every known participant; summarize opted-in facts and, when given, the narrative.
 
     The model call goes through ``ResilientChat`` (the same empty-answer detection and
     bounded runner recovery as the Master Parser); ``chat`` may be the parser's own route.
-    ``narratives`` maps a Telegram id to that participant's own narrative (2.0).
+    ``narratives`` maps a person key to that participant's own narrative (2.0).
     """
     started = time.perf_counter()
     home = pit_home(settings.data_dir)
@@ -87,7 +87,7 @@ async def build_checkpoint(settings: PITSettings, *, adapter=None, chat: Resilie
         row = {"telegram_id": user_id, "fact_count": len(facts),
                "status": "INSUFFICIENT_DATA", "context": "Нет сохранённых фактов",
                "topic_tag": "не определён", "telegram_handle": None}
-        story = narratives.get(user_id)
+        story = narratives.get(vault.key_for_telegram(user_id))
         if story and story.get("status") == "OK":
             row["narrative"] = {"context": story["paragraphs"]["context"][:450],
                                 "personality": story["paragraphs"]["personality"][:450],

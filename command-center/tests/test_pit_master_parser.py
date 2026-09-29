@@ -116,6 +116,7 @@ class FakeModel:
 
 
 def run(settings, adapter, **kw):
+    kw.setdefault("narrative", False)   # 2.0 default is on; these tests cover fact extraction
     options = Options(checkpoint=False, cloud=False, **kw)
     return asyncio.run(run_master_parse(settings, options, adapter=adapter))
 

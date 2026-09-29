@@ -35,7 +35,7 @@ def run(settings, adapter, **kw):
     return asyncio.run(run_master_parse(settings, options, adapter=adapter))
 
 
-def build_many(root: Path, uid: int, count: int) -> str:
+def build_many(root: Path, uid: int, count: int, start: int = 0) -> str:
     """A synthetic participant with ``count`` messages and memory consent."""
     home = root / "pit-v1.7"
     store = Store(home)
@@ -43,7 +43,7 @@ def build_many(root: Path, uid: int, count: int) -> str:
     for n in range(count):
         store.db.execute(
             "INSERT INTO inbox(id,who,body,lane,phase,created) VALUES(?,?,?,?,?,?)",
-            (n + 1, f"{uid}:{uid}", store.seal({"_user_id": uid, "_message_id": n + 1,
+            (start + n + 1, f"{uid}:{uid}", store.seal({"_user_id": uid, "_message_id": start + n + 1,
                                                  "text": f"Сообщение номер {n + 1} про гитару"}),
              "chat", "done", t0 + n))
     store.close()
