@@ -408,3 +408,183 @@ def outcome_from_exception(exc: BaseException) -> StreamOutcome:
                          error=f"{name}: {exc}"[:300],
                          detail="transport failure before or during the stream",
                          completion=TIMEOUT if is_timeout else PROVIDER_ERROR)
+
+
+# --- live answer assembly (the main run path) ----------------------------------
+#
+# `_Folder` above classifies a probe. The engine needs more: the streamed turn
+# rebuilt as an ordinary non-stream response (content, tool calls, usage), with
+# the visible ANSWER text handed on as it arrives. Reasoning is assembled for
+# the run's transient reasoning event but is never passed to `on_text`.
+
+class _ThinkGate:
+    """Hide inline `<think>...</think>` (local models that do not split
+    reasoning into its own field) from the live answer text."""
+
+    def __init__(self) -> None:
+        self.buf = ""
+        self.inside = False
+
+    def feed(self, text: str) -> str:
+        self.buf += text
+        out: list[str] = []
+        while True:
+            tag = "</think>" if self.inside else "<think>"
+            i = self.buf.find(tag)
+            if i >= 0:
+                if not self.inside:
+                    out.append(self.buf[:i])
+                self.buf = self.buf[i + len(tag):]
+                self.inside = not self.inside
+                continue
+            keep = 0
+            for n in range(min(len(tag) - 1, len(self.buf)), 0, -1):
+                if tag.startswith(self.buf[-n:]):
+                    keep = n
+                    break
+            cut = len(self.buf) - keep
+            if not self.inside:
+                out.append(self.buf[:cut])
+            self.buf = self.buf[cut:]
+            return "".join(out)
+
+    def flush(self) -> str:
+        rest, self.buf = ("" if self.inside else self.buf), ""
+        return rest
+
+
+@dataclass(slots=True)
+class ChatStream:
+    """One streamed chat turn, shaped like a non-stream `/chat/completions` body."""
+    content: str = ""
+    reasoning: str = ""
+    tool_calls: dict[int, dict[str, Any]] = field(default_factory=dict)
+    usage: dict[str, Any] | None = None
+    finish_reason: str | None = None
+    model: str = ""
+    id: str = ""
+    error: str = ""
+    terminated: bool = False       # [DONE] seen (finish_reason alone is not enough: usage follows it)
+    malformed: int = 0
+    emitted: bool = False          # visible text was handed to on_text
+
+    @property
+    def message(self) -> dict[str, Any]:
+        msg: dict[str, Any] = {"role": "assistant", "content": self.content}
+        if self.reasoning:
+            msg["reasoning_content"] = self.reasoning
+        if self.tool_calls:
+            msg["tool_calls"] = [
+                {"id": c.get("id") or f"call_{i}", "type": "function",
+                 "function": {"name": c.get("name", ""), "arguments": c.get("arguments", "")}}
+                for i, c in sorted(self.tool_calls.items())]
+        return msg
+
+    def body(self) -> dict[str, Any]:
+        out: dict[str, Any] = {"choices": [{"message": self.message,
+                                            "finish_reason": self.finish_reason or "stop"}]}
+        if self.usage:
+            out["usage"] = self.usage
+        if self.model:
+            out["model"] = self.model
+        if self.id:
+            out["id"] = self.id
+        return out
+
+    @property
+    def has_output(self) -> bool:
+        return bool(self.content or self.tool_calls)
+
+
+def _fold_chat_frame(cs: ChatStream, payload: str) -> str:
+    """One SSE payload into `cs`; returns the new answer text (content only)."""
+    body = payload.strip()
+    if not body:
+        return ""
+    if body == DONE:
+        cs.terminated = True
+        return ""
+    try:
+        chunk = json.loads(body)
+    except json.JSONDecodeError:
+        cs.malformed += 1
+        return ""
+    if not isinstance(chunk, dict):
+        cs.malformed += 1
+        return ""
+    error = frame_error(chunk)
+    if error:
+        cs.error = error
+        return ""
+    cs.id = cs.id or str(chunk.get("id") or "")
+    cs.model = cs.model or str(chunk.get("model") or "")
+    usage = chunk.get("usage")
+    if isinstance(usage, dict) and usage:
+        cs.usage = dict(usage)
+    choices = chunk.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return ""
+    choice = choices[0]
+    if choice.get("finish_reason"):
+        cs.finish_reason = str(choice["finish_reason"])
+    text = ""
+    delta = choice.get("delta")
+    if isinstance(delta, dict):
+        text = _content_text(delta.get("content"))
+        for key in _REASONING_KEYS:
+            r = _content_text(delta.get(key))
+            if r:
+                cs.reasoning += r
+                break
+        for tc in delta.get("tool_calls") or []:
+            if not isinstance(tc, dict):
+                continue
+            slot = cs.tool_calls.setdefault(int(tc.get("index") or 0), {"arguments": ""})
+            if tc.get("id"):
+                slot["id"] = str(tc["id"])
+            fn = tc.get("function") or {}
+            if fn.get("name"):
+                slot["name"] = slot.get("name", "") + str(fn["name"])
+            if isinstance(fn.get("arguments"), str):
+                slot["arguments"] += fn["arguments"]
+    message = choice.get("message")
+    if isinstance(message, dict) and not cs.has_output:      # whole-message frame
+        text = _content_text(message.get("content"))
+        for i, tc in enumerate(message.get("tool_calls") or []):
+            fn = (tc or {}).get("function") or {}
+            cs.tool_calls[i] = {"id": (tc or {}).get("id"), "name": fn.get("name", ""),
+                                "arguments": fn.get("arguments") or ""}
+    cs.content += text
+    return text
+
+
+async def read_chat_stream(lines: AsyncIterator[str], on_text: Any = None) -> ChatStream:
+    """Fold a LIVE SSE line iterator into a `ChatStream`, awaiting
+    `on_text(visible_answer_text)` as each piece arrives. Reads until `[DONE]`
+    or EOF (the usage frame follows finish_reason). Exceptions from `lines`
+    (cancellation included) propagate; the caller owns closing the connection."""
+    sse = _SseLines()
+    cs = ChatStream()
+    gate = _ThinkGate()
+
+    async def push(text: str) -> None:
+        visible = gate.feed(text) if text else ""
+        if visible and on_text is not None:
+            cs.emitted = True
+            await on_text(visible)
+
+    async for raw in lines:
+        payload = sse.feed(raw)
+        if payload is not None:
+            await push(_fold_chat_frame(cs, payload))
+            if cs.terminated or cs.error:
+                break
+    if not (cs.terminated or cs.error):
+        tail = sse.flush()
+        if tail is not None:
+            await push(_fold_chat_frame(cs, tail))
+    rest = gate.flush()
+    if rest and on_text is not None:
+        cs.emitted = True
+        await on_text(rest)
+    return cs

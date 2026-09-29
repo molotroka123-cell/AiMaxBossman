@@ -1,0 +1,91 @@
+{
+ "meta": {
+  "title": "Motion Studio",
+  "bpm": 128,
+  "key": "G",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // MOTION STUDIO",
+  "voice": "am_fenrir",
+  "duration": 12.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "MOTION",
+   "kicker": "BOSSMAN STUDIO",
+   "typed": "$ bossman video --brief launch.txt",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Bossman makes videos now."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "BRIEF TO VIDEO",
+   "items": [
+    {
+     "t": 2.75,
+     "title": "BRIEF",
+     "sub": "you describe it",
+     "icon": "code"
+    },
+    {
+     "t": 3.7,
+     "title": "SCENES",
+     "sub": "model writes JSON",
+     "icon": "agents"
+    },
+    {
+     "t": 4.78,
+     "title": "VOICE",
+     "sub": "local Kokoro",
+     "icon": "mic"
+    },
+    {
+     "t": 5.53,
+     "title": "VIDEO",
+     "sub": "rendered locally",
+     "icon": "play"
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "You write a brief."
+    },
+    {
+     "t": 3.7,
+     "text": "It writes the scenes."
+    },
+    {
+     "t": 4.78,
+     "text": "Adds a voice."
+    },
+    {
+     "t": 5.53,
+     "text": "And renders it."
+    }
+   ],
+   "start": 2.5,
+   "end": 8.5
+  },
+  {
+   "type": "sticker",
+   "lottie": "noto_rocket",
+   "text": "100 ANIMATIONS",
+   "sub": "BUILT IN · CC BY 4.0",
+   "start": 8.5,
+   "end": 12.0,
+   "vo": [
+    {
+     "t": 8.6,
+     "text": "A hundred animations built in."
+    }
+   ]
+  }
+ ]
+}

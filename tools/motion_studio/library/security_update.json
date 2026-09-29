@@ -1,0 +1,69 @@
+{
+ "meta": {
+  "title": "Security",
+  "bpm": 108,
+  "key": "E",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // SECURITY",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "SECURITY",
+   "kicker": "UPDATE 3.1.2",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "A security update."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "WHAT CHANGED",
+   "items": [
+    {
+     "t": 2.75,
+     "title": "SESSIONS",
+     "sub": "expire after 30 min",
+     "icon": "shield"
+    },
+    {
+     "t": 3.66,
+     "title": "PASSWORDS",
+     "sub": "stronger rules",
+     "icon": "shield"
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "Shorter sessions."
+    },
+    {
+     "t": 3.66,
+     "text": "Stronger passwords."
+    }
+   ],
+   "start": 2.5,
+   "end": 7.0
+  },
+  {
+   "type": "end_card",
+   "text": "UPDATE NOW",
+   "sub": "TAKES ONE MINUTE",
+   "start": 7.0,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 7.1,
+     "text": "Please update now."
+    }
+   ]
+  }
+ ]
+}

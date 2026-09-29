@@ -113,14 +113,38 @@ class Journal:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
-    def rows(self) -> list[dict[str, Any]]:
+    def _read(self) -> tuple[list[dict[str, Any]], int]:
+        """(rows, byte length of the intact prefix). A torn FINAL line (crash mid-append)
+        is dropped; an unparsable line anywhere else is corruption and raises."""
         if not self.path.is_file():
-            return []
-        return [json.loads(x) for x in self.path.read_text(encoding="utf-8").splitlines() if x.strip()]
+            return [], 0
+        raw = self.path.read_bytes()
+        rows: list[dict[str, Any]] = []
+        good = 0
+        pos = 0
+        lines = raw.split(b"\n")
+        for i, line in enumerate(lines):
+            end = pos + len(line) + (1 if i < len(lines) - 1 else 0)
+            if line.strip():
+                try:
+                    rows.append(json.loads(line.decode("utf-8")))
+                except (ValueError, UnicodeDecodeError):
+                    if any(x.strip() for x in lines[i + 1:]):
+                        raise ValueError(f"journal corrupted before its end (line {i + 1})") from None
+                    return rows, good            # torn tail: ignore, keep the prefix
+            good = end
+            pos = end
+        return rows, good
+
+    def rows(self) -> list[dict[str, Any]]:
+        return self._read()[0]
 
     def append(self, kind: str, data: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
-            rows = self.rows()
+            rows, good = self._read()
+            if self.path.is_file() and good < self.path.stat().st_size:
+                with self.path.open("r+b") as fh:   # heal a torn tail before appending
+                    fh.truncate(good)
             prev = rows[-1]["hash"] if rows else "0" * 64
             rec = {"seq": len(rows) + 1, "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                    "kind": kind, "data": data, "prev": prev}
@@ -134,7 +158,11 @@ class Journal:
 
     def verify_chain(self) -> bool:
         prev = "0" * 64
-        for i, rec in enumerate(self.rows(), start=1):
+        try:
+            rows = self.rows()
+        except ValueError:
+            return False
+        for i, rec in enumerate(rows, start=1):
             body = {k: rec[k] for k in ("seq", "ts", "kind", "data", "prev")}
             if rec["seq"] != i or rec["prev"] != prev:
                 return False

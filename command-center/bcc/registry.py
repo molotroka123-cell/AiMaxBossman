@@ -11,12 +11,49 @@ import sqlalchemy as sa
 
 from .db import Database, fetch_one, models as models_t, providers as providers_t, rows_dicts, utcnow
 from .events import EventBus
-from .providers import ADAPTERS, ChatResult, ProviderAdapter, ProviderError, build_adapter
+from .providers import (ADAPTERS, ChatResult, Health, ProviderAdapter, ProviderError,
+                        build_adapter)
 from .fable_cap import capped
 from .secrets import Vault, mask
 
 BENCH_PROMPT = "Ответь одним словом: работаешь?"
+#: status_detail prefix of an `offline` set by a failed real call (not a probe).
+RUNTIME_OFFLINE_PREFIX = "runtime: "
 REASONING_PROBE_TOKENS = 1024
+
+
+def _same_model(served: str, wanted: str) -> bool:
+    if served == wanted:
+        return True
+    # Ollama: `qwen3` and `qwen3:latest` are one tag.
+    return served.removesuffix(":latest") == wanted.removesuffix(":latest")
+
+
+async def served_model_problem(adapter: Any, name: str) -> str:
+    """"" when the endpoint lists `name`, else why it does not.
+
+    Only OpenAI-compatible catalogs (`list_model_info`) are held to this: a
+    cloud API that accepts aliases it does not list (Anthropic) is not.
+    Lenient for a single-model llama.cpp server (or a single-model catalog that
+    does not say who owns it): it answers under whatever id it was started
+    with — often the GGUF path — and serves every request with that one model.
+    A server that lists several models, or names another owner, must list this
+    one. A catalog we cannot read here says nothing new: health() already did."""
+    info = getattr(adapter, "list_model_info", None)
+    if not callable(info):
+        return ""
+    try:
+        served = await info()
+    except ProviderError:
+        return ""
+    ids = [str(m.get("id") or "") for m in served if isinstance(m, dict)]
+    if any(_same_model(i, name) for i in ids):
+        return ""
+    if len(served) == 1 and served[0].get("owned_by") in (None, "llamacpp"):
+        return ""
+    shown = ", ".join(ids[:5]) + (" …" if len(ids) > 5 else "")
+    return (f"сервер отвечает, но модели {name} в его списке нет ({shown or 'пусто'}): "
+            f"на этом порту другая модель или другой сервер")
 
 
 class Registry:
@@ -133,8 +170,36 @@ class Registry:
         # проверка и тест модели, — и обойти обёртку значит обойти потолок.
         # Обёртка ставится ПОСЛЕ фабрики, поэтому подменённая фабрика (тесты,
         # плагины) от потолка тоже не освобождает.
-        from .provider_governance import GovernedAdapter
-        return GovernedAdapter(capped(self.adapter_factory(model, provider), provider, model), provider, model), model
+        from .provider_governance import FreeOnlyAdapter, GovernedAdapter, free_only_refusal
+        catalog_state = (None if model.get("pricing_known")
+                         else await self._catalog_state(model))
+        inner = capped(self.adapter_factory(model, provider), provider, model)
+        # Free-only product runtime: a cloud model that is not provably free
+        # (owner-registered direct provider, priced OpenRouter model) is refused
+        # on chat; health and catalog reads still work.
+        refusal = free_only_refusal(provider, model)
+        if refusal:
+            inner = FreeOnlyAdapter(inner, refusal)
+        return GovernedAdapter(inner, provider, model, catalog_state=catalog_state), model
+
+    async def _catalog_state(self, model: dict) -> str | None:
+        """Why the price is unknown, from the provider's synchronized catalog.
+
+        Only names the reason in the governance refusal; it never admits a
+        model. None when there is nothing to say (no catalog table, local)."""
+        try:
+            from .v2.tables import provider_catalog_models as catalog_t
+            async with self.db.session() as s:
+                rows = (await s.execute(sa.select(catalog_t.c.remote_id, catalog_t.c.stale).where(
+                    catalog_t.c.provider_id == model["provider_id"]))).fetchall()
+        except Exception:  # noqa: BLE001 — a diagnostic, never a reason to fail the call
+            return None
+        if not rows:
+            return None                     # no catalog for this provider: nothing to add
+        mine = [r for r in rows if r[0] == model.get("name")]
+        if not mine:
+            return "absent"
+        return "stale" if mine[0][1] else None
 
     # ---------- проверки ----------
 
@@ -148,6 +213,13 @@ class Registry:
         измеряет `test_model`, и только оно ставит health=healthy."""
         adapter, model = await self.adapter_for(model_id)
         health = await adapter.health()
+        if health.status == "ok":
+            # A live catalog proves the SERVER, not that it serves THIS model:
+            # an unrelated process on the port, or llama.cpp/Ollama holding a
+            # different model, answered "online" (RC19 audit, :8081/:8082).
+            problem = await served_model_problem(adapter, model["name"])
+            if problem:
+                health = Health(status="error", detail=problem, latency_ms=health.latency_ms)
         status = {"ok": "online"}.get(health.status, health.status)
         await self._set_status(model_id, status, health.detail)
         if health.status != "ok":
@@ -266,6 +338,14 @@ class Registry:
         await self.bus.emit("model.status", id=model_id, alias=model["alias"],
                             status="online", detail="", bench=bench)
         return {"id": model_id, "bench": bench, "health": record.to_dict()}
+
+    async def mark_runtime_offline(self, model_id: int, detail: str) -> None:
+        """A real call could not reach this model's endpoint.
+
+        The `runtime:` prefix is what features/healing re-checks, so the model
+        returns to `online` by itself once the endpoint answers again."""
+        await self._set_status(model_id, "offline", f"{RUNTIME_OFFLINE_PREFIX}{detail}"[:500])
+        await self.bus.emit("model.status", id=model_id, status="offline", detail=detail[:300])
 
     async def _set_status(self, model_id: int, status: str, detail: str) -> None:
         async with self.db.session() as s:

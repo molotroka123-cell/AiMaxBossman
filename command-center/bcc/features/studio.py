@@ -47,18 +47,33 @@ async def job(jid:int,request:Request):return await guard(rt.get_job(request.app
 @router.post('/jobs/{jid}/cancel')
 async def cancel(jid:int,request:Request):
     svc=request.app.state.svc
-    await guard(rt.get_job(svc,jid))
+    job=await guard(rt.get_job(svc,jid))
     async with svc.db.session() as s:
-        await s.execute(sa.update(image_jobs).where(image_jobs.c.id==jid,image_jobs.c.status.in_(['queued','running'])).values(status='cancelled',finished_at=utcnow()))
+        stopped=await s.execute(sa.update(image_jobs).where(image_jobs.c.id==jid,image_jobs.c.status.in_(['queued','running'])).values(status='cancelled',finished_at=utcnow()))
+        if stopped.rowcount and job['studio']['plane']['model'].startswith('openrouter:'):
+            # OpenRouter has no cancel endpoint: a request already sent keeps running and may be
+            # charged. Same marking as the global STOP (control_plane), so Retry cannot look safe.
+            # submit_started is written before the request and the provider gate rereads the
+            # cancelled row before sending, so a False read here means nothing was sent.
+            await s.execute(sa.update(jobs).where(jobs.c.job_id==jid,jobs.c.submit_started==True).values(  # noqa: E712
+                reason=rt.PROVIDER_UNKNOWN_REASON,verdict='OWNER_REQUIRED'))
         await s.commit()
     await svc.bus.emit('studio.job.cancelled',job_id=jid)
     return await rt.get_job(svc,jid)
+class Retry(Strict):
+    confirm_resubmit:bool=False
 @router.post('/jobs/{jid}/retry')
-async def retry(jid:int,request:Request):
+async def retry(jid:int,request:Request,body:Retry|None=None):
     old=await guard(rt.get_job(request.app.state.svc,jid))
     if old['status'] not in ('failed','cancelled'):raise HTTPException(409,'Only stopped jobs may be retried')
-    if old['studio']['reason'] in ('interrupted_unknown','owner_stop_provider_unknown'):
+    if old['studio']['reason'] in ('interrupted_unknown',rt.PROVIDER_UNKNOWN_REASON,rt.RECONCILE_REASON):
         raise HTTPException(409,'Inspect external request before creating a fresh job')
+    if old['studio']['submit_started'] and old['studio']['plane']['model'].startswith('openrouter:') and not (body and body.confirm_resubmit):
+        # Audit 2026-09-28: a poll error after a paid submit, then Retry, paid twice without a word.
+        raise HTTPException(409,{'reason':'resubmit_requires_confirmation','verdict':'OWNER_REQUIRED',
+            'message':'The provider already received this request and may have charged for it. '
+                      'Retry with {"confirm_resubmit": true} to pay for a new generation.',
+            'provider_request_id':old['studio']['request_id']})
     plane=old['studio']['plane']
     return await guard(rt.create_job(request.app.state.svc,{**plane,'media':[{'run_id':m['run_id'],'role':m['role']} for m in plane['media']]}))
 @router.get('/runs')

@@ -223,11 +223,25 @@ class DirectApiBudget:
         self._load()
 
     # ------------------------------------------------------------ persistence
+    def _read_text(self) -> str:
+        # Windows: while another process's os.replace swaps the ledger in, opening
+        # it fails with PermissionError for a few milliseconds (a new ledger reads
+        # outside the lock). Bounded wait, then raise: an unread ledger is never
+        # treated as empty.
+        for attempt in range(100):
+            try:
+                return self.path.read_text(encoding="utf-8")
+            except PermissionError:
+                if attempt == 99:
+                    raise
+                time.sleep(0.02)
+        raise AssertionError("unreachable")
+
     def _load(self) -> None:
         self._records = []
         if self.path.exists():
             try:
-                data = json.loads(self.path.read_text(encoding="utf-8"))
+                data = json.loads(self._read_text())
                 if isinstance(data, dict) and isinstance(data.get("reservations"), list):
                     if data.get("mission_id") not in (None, self.mission_id):
                         raise BudgetExhausted("budget ledger belongs to another mission")
@@ -246,7 +260,17 @@ class DirectApiBudget:
         tmp.parent.mkdir(parents=True, exist_ok=True)
         tmp.write_text(json.dumps({"mission_id": self.mission_id, "total_usd": self.total,
                                    "reservations": self._records}, indent=1), encoding="utf-8")
-        os.replace(tmp, self.path)
+        # Windows: a reader outside the lock (a new ledger's __init__ load) holds
+        # the file without FILE_SHARE_DELETE, and os.replace fails with
+        # PermissionError for those milliseconds. Bounded retry, then raise.
+        for attempt in range(100):
+            try:
+                os.replace(tmp, self.path)
+                return
+            except PermissionError:
+                if attempt == 99:
+                    raise
+                time.sleep(0.02)
 
     @contextlib.contextmanager
     def _transaction(self) -> Iterator[None]:

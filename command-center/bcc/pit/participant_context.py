@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from . import jeff_settings, participant_profile
 from .context import select_persona_context
 from .models import ConsentState
 from .vault import PersonaVault
@@ -106,6 +107,16 @@ def build_participant_context(
         # participant it is chatting in Telegram. Rules stay identical.
         system = (system.replace("собеседника в Telegram", "собеседника в окне Jeff на компьютере")
                   .replace("Для Telegram используй", "В окне чата используй"))
+    # Owner overlay (jeff-settings.json, Bossman Command v0.1): re-read per
+    # message through an mtime cache. Style only; absent/invalid = stock Jeff.
+    style = jeff_settings.style_for(vault.data_dir, person_key)
+    if style.system_extra:
+        system += " " + jeff_settings.owner_extra_text(style.system_extra)
+    behavior_scales = jeff_settings.effective_scales(behavior_scales, style)
+    # Owner's per-participant profile (Jeff Admin): this person's own file only.
+    profile_text = participant_profile.system_text_for(vault.data_dir, person_key)
+    if profile_text:
+        system += " " + profile_text
     if behavior_scales is not None:
         system += " " + behavior_system_text(behavior_scales)
     if not consent.memory_enabled:

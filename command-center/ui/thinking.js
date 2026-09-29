@@ -109,6 +109,7 @@ export function mountThinking({ bus, api, button }) {
         h('span', 'ожидание'), h('b', r.waiting ? (r.waiting_for ? `решение владельца (${r.waiting_for})` : 'решение владельца') : 'нет'),
         h('span', 'повторы'), h('b', String(r.retries)),
         h('span', 'ошибки'), h('b', String(r.errors))),
+      r.live ? h('div.bx-think-note.bx-think-live', { 'data-live': '1' }, r.live) : null,
       r.note ? h('div.bx-think-note', r.note) : null);
   }
 
@@ -166,7 +167,7 @@ export function mountThinking({ bus, api, button }) {
     // что его превратил сервер. Сравнивать надо момент, а не запись о нём.
     const at = parseTs(ev.ts);
     return [ev.kind, at ? at.getTime() : String(ev.ts ?? ''), ev.run_id ?? '',
-            ev.task_id ?? '', ev.step ?? '', ev.tool ?? '', ev.message ?? ''].join('|');
+            ev.task_id ?? '', ev.step ?? '', ev.tool ?? '', ev.message ?? '', ev.attempt ?? '', ev.idx ?? ''].join('|');
   }
 
   function remember(ev) {
@@ -185,7 +186,17 @@ export function mountThinking({ bus, api, button }) {
     const kind = String(ev.kind || '');
     if (kind.startsWith('ws.')) { conn = kind.slice(3); renderConn(); return; }
     if (kind === 'system.metrics' || kind === 'hello') return;
-    if (!remember(ev)) return;          // уже учтено из истории — не считаем второй раз
+    if (kind === 'run.answer_delta' || kind === 'run.answer_reset') {
+      // Живой ответ модели: дописывается в карточку прогона, в ленту не пишется.
+      if (!remember(ev)) return;
+      const r = run(ev);
+      if (r) {
+        r.live = kind === 'run.answer_reset' ? '' : (String(r.live || '') + String(ev.text || '')).slice(-600);
+        if (open) scheduleRender();
+      }
+      return;
+    }
+    if (!remember(ev)) return;        // уже учтено из истории — не считаем второй раз
     events.unshift(ev);
     if (events.length > MAX_EVENTS) events.length = MAX_EVENTS;
     applyFacts(ev);
@@ -203,6 +214,7 @@ export function mountThinking({ bus, api, button }) {
       if (kind === 'task.paused') r.state = 'paused';
       if (kind === 'task.stopped') { r.state = 'stopped'; r.finished_at = Date.now(); }
       if (kind === 'task.progress') {
+        r.live = '';                    // шаг закончен: ответ уже в результате/истории
         if (ev.step != null) r.step = ev.step;
         if (ev.max_steps != null) r.max_steps = ev.max_steps;
         if (ev.model) r.model = ev.model;

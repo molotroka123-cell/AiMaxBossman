@@ -27,6 +27,7 @@ from pathlib import Path
 import sqlalchemy as sa
 
 from ..db import settings_kv, utcnow
+from .. import clip_guard as _clip_guard
 from ..tools import REGISTRY, ToolResult, ToolSpec
 from ..v2 import scratch
 from ..v2.scratch import base_dir as _scratch_base_dir
@@ -141,6 +142,11 @@ def hard_deny_reason(command: str) -> str:
     for pattern, reason in HARD_DENY:
         if pattern.search(command or ""):
             return reason
+    # ClickFix-style payloads (encoded PowerShell, iex download cradles, mshta,
+    # certutil/bitsadmin downloads, ...) are never run, approved or not.
+    clickfix = _clip_guard.dangerous_command_reason(command or "")
+    if clickfix:
+        return f"ClickFix-подобная команда: {clickfix}"
     return ""
 
 

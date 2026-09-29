@@ -16,6 +16,7 @@ from .agent_bridge import AGENT_COMMANDS, AgentBridgeMixin
 from .console import CONSOLE_COMMANDS, CONSOLE_OFF, NO_DIRECT_SHELL, ConsoleMixin
 from .jev_bridge import JevBridgeMixin
 from .form_bridge import FORM_COMMANDS, FormBridgeMixin
+from .parse_bridge import PARSE_COMMANDS, ParseBridgeMixin
 from .store import Store
 from .secret_intake import (
     SecretField, SecretIntakeError, SecretIntakeManager, looks_like_secret_message, request_caption,
@@ -109,6 +110,8 @@ def failure_text(code: str) -> str:
         "IMAGE_GEN_FAILED": "Генерация не удалась в Bossman Studio. Подробности — в Студии, раздел «Картинки».",
         "IMAGE_GEN_CANCELLED": "Генерация отменена.",
         "IMAGE_GEN_TIMEOUT": "Генерация не уложилась в отведённое время и отменена.",
+        "IMAGE_GEN_CANCEL_UNCONFIRMED": "Bossman не подтвердил остановку: генерация, возможно, ещё идёт. "
+                                        "Проверьте Студию (раздел «Картинки») и остановите её там.",
         "VIDEO_TOO_LARGE_FOR_TELEGRAM": "Клип готов и проверен, но он больше 48 МБ — Telegram такой не примет. Он лежит в Bossman Studio (раздел «Картинки» → видео).",
         "ANIMATE_NO_SOURCE": "Пришлите фото с подписью /animate 5 или /animate 10 (можно добавить, как оно должно двигаться), или нажмите «Оживить» под картинкой.",
         "IMAGE_BYTES_UNVERIFIED":"Bossman отдал файл, который не прошёл проверку (хеш или формат не совпали). Картинку не отправляю.",
@@ -246,7 +249,7 @@ def model_name(model_id: str) -> str:
     return re.sub(r"-0*1-of-\d+$", "", name)[:80] or "модель"
 
 
-class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin):
+class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin, ParseBridgeMixin):
     def __init__(self, settings: Settings, store: Store, telegram: Telegram, core: Core, models: Models,
                  *, policy_provider=None, secret_executor=None):
         self.settings, self.store = settings, store
@@ -672,15 +675,13 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
                                          [[self.button(person, "✖️ Отмена", "/cancel")]])
             while True:
                 if self.image_job["cancel"]:
-                    with contextlib.suppress(CompanionError):
-                        await self.core.studio_cancel(job_id)
+                    stopped = await self.stop_studio_job(job_id)
                     await self.send_partial_video(person, job_id, prompt, video, "остановлено вами")
-                    raise CompanionError("IMAGE_GEN_CANCELLED")
+                    raise CompanionError("IMAGE_GEN_CANCELLED" if stopped else "IMAGE_GEN_CANCEL_UNCONFIRMED")
                 if time.monotonic() - started > deadline:
-                    with contextlib.suppress(CompanionError):
-                        await self.core.studio_cancel(job_id)
+                    stopped = await self.stop_studio_job(job_id)
                     await self.send_partial_video(person, job_id, prompt, video, "вышло время")
-                    raise CompanionError("IMAGE_GEN_TIMEOUT")
+                    raise CompanionError("IMAGE_GEN_TIMEOUT" if stopped else "IMAGE_GEN_CANCEL_UNCONFIRMED")
                 job = await self.core.studio_job(job_id)
                 status = job.get("status")
                 if status == "completed":
@@ -731,6 +732,21 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
             return None   # the media itself is the reply
         finally:
             self.image_job = None
+
+    async def stop_studio_job(self, job_id: int) -> bool:
+        """Остановить задание Студии. True — только если Bossman подтвердил, что оно больше не идёт.
+
+        Прежде ошибка отмены глоталась, а владелец всё равно читал «Генерация отменена»,
+        хотя задание на сервере продолжало работать."""
+        try:
+            await self.core.studio_cancel(job_id)
+            return True
+        except CompanionError:
+            pass
+        try:
+            return (await self.core.studio_job(job_id)).get("status") in {"cancelled", "failed", "completed"}
+        except CompanionError:
+            return False
 
     async def english_prompt(self, prompt: str) -> str:
         """Cyrillic prompt -> English via the local model; the original is kept if translation fails."""
@@ -863,6 +879,8 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
             return await self.agent_command(person, command, arg, message)
         if command in FORM_COMMANDS:
             return await self.form_command(person, command, arg, message)
+        if command in PARSE_COMMANDS:
+            return await self.parse_command(person, command, arg, message)
         if command in REMOVED_DIRECT_COMMANDS:
             # Второй путь исполнения удалён: отказ даже владельцу и при включённом тумблере.
             return NO_DIRECT_SHELL if self.console_allowed(person) else CONSOLE_OFF
@@ -899,6 +917,9 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin)
         if command == "/cloud":
             if arg not in {"on", "off"}:
                 return "Для резерва Claude: /cloud on. При сбое локальной модели только новое ваше сообщение будет передано OpenRouter/Claude. Локальная история, результаты задач и файлы не передаются. Плата — в пределах локально заданного бюджета. /cloud off — отключить."
+            if arg == "on" and person.role != "owner":
+                # Paid cloud spends the owner's budget: only the owner opts in.
+                return "Облачный резерв включает только владелец."
             if arg == "on" and (self.settings.cloud_daily_usd <= 0 or not self.settings.cloud_token):
                 raise CompanionError("CLOUD_NOT_CONFIGURED")
             self.store.put("cloud:" + person.key, arg == "on")

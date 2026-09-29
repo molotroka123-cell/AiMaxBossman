@@ -186,3 +186,40 @@ def test_replace_owner_shortcuts_never_removes_one_before_the_install_is_proven(
     assert "bundled runtime missing" in done.stdout
     assert foreign.read_bytes() == before
     assert not (tmp_path / "root" / "evidence" / "rc19" / "old-shortcuts").exists()
+
+
+def _shells() -> list[str]:
+    return [s for s in (shutil.which("pwsh"), shutil.which("powershell")) if s] or ["missing"]
+
+
+@pytest.mark.parametrize("shell", _shells())
+@pytest.mark.parametrize("running", [0, 1])
+def test_stop_rc_counts_zero_and_one_process_under_strict_mode(tmp_path, shell, running):
+    """-Action StopRC crashed with PropertyNotFoundStrict ('Count') when the RC install had
+    no process (an empty function result is $null) or exactly one (a scalar under
+    Windows PowerShell 5.1). Both must stop what is there and exit 0."""
+    if shell == "missing":
+        pytest.skip("no PowerShell on this machine")
+    import sys
+    import time
+    launchers = tmp_path / "root" / "rc19-install" / SHA[:8] / "rc-launchers"
+    launchers.mkdir(parents=True)
+    sleeper = launchers / "sleeper.py"
+    sleeper.write_bytes(b"import time\ntime.sleep(120)\n")
+    procs = [subprocess.Popen([sys.executable, str(sleeper)]) for _ in range(running)]
+    try:
+        time.sleep(1.0)
+        done = subprocess.run([shell, "-NoProfile", "-NonInteractive", "-File", str(SCRIPT),
+                               "-Action", "StopRC", "-Sha", SHA, "-Root", str(tmp_path / "root"),
+                               "-DataDir", str(tmp_path / "rc-data"), "-Port", "8839"],
+                              capture_output=True, text=True, encoding="utf-8", errors="replace",
+                              timeout=120)
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert f"StopRC: stopped {running} process(es)" in done.stdout
+        assert "left: 0" in done.stdout
+        for p in procs:
+            assert p.wait(timeout=10) is not None
+    finally:
+        for p in procs:
+            if p.poll() is None:
+                p.kill()

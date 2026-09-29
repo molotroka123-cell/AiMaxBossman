@@ -77,6 +77,8 @@ export const FEATURE_PAGES = [
     () => import('./browser.js'), (m) => m.default),
   lazyPage({ id: 'coding', title: 'Coding-сессии', icon: 'edit', nav: 'more', section: 'studio' },
     () => import('./coding.js'), (m) => m.default),
+  lazyPage({ id: 'rave', title: 'Agentic Rave', icon: 'agents', nav: 'more', section: 'studio' },
+    () => import('./rave.js'), (m) => m.default),
   lazyPage({ id: 'agentmap', title: 'Карта агентов', icon: 'agents', nav: 'more', section: 'brains' },
     () => import('./agentmap.js'), (m) => m.default),
   lazyPage({ id: 'orchestras', title: 'Команды агентов', icon: 'plus', nav: 'more', section: 'brains' },
@@ -108,6 +110,12 @@ export const FEATURE_PAGES = [
     () => import('./web_designer.js'), (m) => m.default),
   lazyPage({ id: 'objectives', title: 'Цели', icon: 'target', nav: 'more', section: 'work' },
     () => import('./objectives.js'), (m) => m.default),
+  lazyPage({ id: 'jeff-settings', title: 'Настройки Jeff', icon: 'agents', nav: 'more', section: 'brains' },
+    () => import('./jeff_settings.js'), (m) => m.default),
+  lazyPage({ id: 'motion-studio', title: 'Motion Studio', icon: 'bolt', nav: 'more', section: 'studio' },
+    () => import('./motion_studio.js'), (m) => m.default),
+  lazyPage({ id: 'jeff-passports', title: 'Jeff · паспорта', icon: 'agents', nav: 'primary', section: 'brains' },
+    () => import('./jeff_passports.js'), (m) => m.default),
 ];
 
 /* Предзагрузка остальных страниц в простое: по одной, чтобы не отбирать сеть и

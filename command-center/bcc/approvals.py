@@ -11,7 +11,8 @@ from collections.abc import Awaitable, Callable
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .db import Database, approvals as approvals_t, fetch_one, rows_dicts, utcnow
+from .db import (Database, approval_leases as leases_t, approvals as approvals_t,
+                 fetch_one, rows_dicts, utcnow)
 from .events import EventBus
 
 
@@ -123,9 +124,21 @@ class Approvals:
                 approvals_t.c.id == approval_id,
                 approvals_t.c.status == "approved").values(
                 status="revoked", decided_by=by, decided_at=utcnow()))
+            leases = 0
+            if res.rowcount:
+                # Аренда, выданная этим решением, — та же власть владельца: отзыв
+                # решения гасит и её, в той же транзакции. Иначе отозванное
+                # «да» продолжало покрывать до MAX_LEASE_USES вызовов задачи.
+                gone = await s.execute(sa.update(leases_t).where(
+                    leases_t.c.approval_id == approval_id,
+                    leases_t.c.status == "active").values(status="revoked"))
+                leases = int(gone.rowcount or 0)
             await s.commit()
             row = await fetch_one(s, approvals_t, approval_id)
         if res.rowcount and row is not None:
+            if leases:
+                await self.bus.emit("approval.lease_revoked", approval_id=approval_id,
+                                    count=leases, by=by)
             await self.bus.emit("approval.revoked", id=approval_id, by=by, approval_kind=row.get("kind"))
             await self.bus.emit("approval.decided", id=approval_id, status="revoked", by=by)
         return row

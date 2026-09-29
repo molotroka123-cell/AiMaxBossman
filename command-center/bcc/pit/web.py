@@ -95,7 +95,7 @@ class WebAccounts:
     def count(self) -> int:
         return len(self._load().get("users", {}))
 
-    def create(self, name: str, password: str) -> int:
+    def create(self, name: str, password: str, *, only_if_empty: bool = False) -> int:
         name = str(name or "").strip()
         if not _USERNAME.fullmatch(name):
             raise ValueError("USERNAME_INVALID")
@@ -104,6 +104,10 @@ class WebAccounts:
         with self._lock:
             data = self._load()
             users = data.setdefault("users", {})
+            if only_if_empty and users:
+                # First-run web signup: checked under the lock, so two
+                # simultaneous signups cannot both create an account.
+                raise ValueError("SIGNUP_CLOSED_USE_CLI")
             if name.lower() in users:
                 raise ValueError("USERNAME_TAKEN")
             if len(users) >= 50:
@@ -254,6 +258,8 @@ class WebParticipantRuntime(ParticipantRuntime):
         salt = self.vault.identity_salt
         self.vault.key_for_telegram = lambda uid: derive_web_person_key(uid, salt)
         self.surface = "web"
+        from .heartbeat import Heartbeat
+        self.heartbeat = Heartbeat(Path(web_home), "web")
 
     async def close(self) -> None:
         with_suppressed_async = [self._telegram_client.close, self.models.close,
@@ -482,7 +488,12 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
 
     @app.get("/api/jeff/health")
     async def health():
-        return {"ok": True, "voice": {"asr": speech.asr_status(), "tts": speech.tts_status()}}
+        try:
+            beat = rt.heartbeat_snapshot("running")
+        except Exception:  # noqa: BLE001 — health must answer even without a live runtime
+            beat = None
+        return {"ok": True, "voice": {"asr": speech.asr_status(), "tts": speech.tts_status()},
+                "heartbeat": beat}
 
     # -- auth -------------------------------------------------------------------------------
     @app.get("/api/jeff/me")
@@ -499,9 +510,11 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
             return error(403, "SIGNUP_CLOSED_USE_CLI")
         data = await body_json(request)
         try:
-            uid = accounts.create(str(data.get("username", "")), str(data.get("password", "")))
+            uid = await asyncio.to_thread(
+                accounts.create, str(data.get("username", "")), str(data.get("password", "")),
+                only_if_empty=True)
         except ValueError as exc:
-            return error(400, str(exc))
+            return error(403 if str(exc) == "SIGNUP_CLOSED_USE_CLI" else 400, str(exc))
         greeting = (await run_turn(uid, base_message(uid, "/start")))["reply"]
         return session_response(uid, {"ok": True, "greeting": greeting})
 
@@ -672,7 +685,8 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
             result = await asyncio.to_thread(speech.transcribe_wav, raw, stopped=event.is_set)
         except speech.SpeechError as exc:
             code = str(exc)
-            status = 409 if code == "VOICE_STOPPED" else 503 if "UNAVAILABLE" in code else 422
+            status = (409 if code in {"VOICE_STOPPED", "VOICE_BUSY"}
+                      else 503 if "UNAVAILABLE" in code else 422)
             return error(status, code)
         result["latency_ms"] = int((time.perf_counter() - started) * 1000)
         return result

@@ -1,0 +1,79 @@
+{
+ "meta": {
+  "title": "Quill launch",
+  "bpm": 124,
+  "key": "C",
+  "brand": "QUILL",
+  "hud": "QUILL // QUILL LAUNCH",
+  "voice": "am_fenrir",
+  "duration": 12.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "QUILL",
+   "kicker": "LAUNCHING OCT 15",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Meet Quill."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "WHY QUILL",
+   "items": [
+    {
+     "t": 2.75,
+     "title": "OFFLINE SYNC",
+     "sub": "works anywhere",
+     "icon": "bolt"
+    },
+    {
+     "t": 3.53,
+     "title": "AI SUMMARIES",
+     "sub": "notes in seconds",
+     "icon": "agents"
+    },
+    {
+     "t": 4.52,
+     "title": "ENCRYPTED",
+     "sub": "end to end",
+     "icon": "shield"
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "Works offline."
+    },
+    {
+     "t": 3.53,
+     "text": "Summarizes for you."
+    },
+    {
+     "t": 4.52,
+     "text": "Fully encrypted."
+    }
+   ],
+   "start": 2.5,
+   "end": 8.5
+  },
+  {
+   "type": "logo",
+   "name": "QUILL",
+   "tagline": "OCTOBER 15",
+   "start": 8.5,
+   "end": 12.0,
+   "vo": [
+    {
+     "t": 8.6,
+     "text": "October fifteenth."
+    }
+   ]
+  }
+ ]
+}

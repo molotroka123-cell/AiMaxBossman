@@ -1,0 +1,79 @@
+{
+ "meta": {
+  "title": "Course",
+  "bpm": 120,
+  "key": "C",
+  "brand": "AGENTS 101",
+  "hud": "AGENTS 101 // COURSE",
+  "voice": "am_fenrir",
+  "duration": 12.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "AGENTS 101",
+   "kicker": "FREE COURSE",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Agents one oh one."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "THREE MODULES",
+   "items": [
+    {
+     "t": 2.75,
+     "title": "PROMPTS",
+     "sub": "say what you mean",
+     "icon": "code"
+    },
+    {
+     "t": 3.5,
+     "title": "TOOLS",
+     "sub": "let it act",
+     "icon": "agents"
+    },
+    {
+     "t": 4.25,
+     "title": "VERIFY",
+     "sub": "trust but check",
+     "icon": "shield"
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "Prompts."
+    },
+    {
+     "t": 3.5,
+     "text": "Tools."
+    },
+    {
+     "t": 4.25,
+     "text": "Verification."
+    }
+   ],
+   "start": 2.5,
+   "end": 8.0
+  },
+  {
+   "type": "end_card",
+   "text": "START FREE",
+   "sub": "ENROLL TODAY",
+   "start": 8.0,
+   "end": 12.0,
+   "vo": [
+    {
+     "t": 8.1,
+     "text": "Start free today."
+    }
+   ]
+  }
+ ]
+}

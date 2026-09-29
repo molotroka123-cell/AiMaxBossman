@@ -534,7 +534,9 @@ function RC-Processes {
 }
 
 function Do-StopRC {
-  $procs = RC-Processes
+  # @(...) again at the call site: a function's empty array comes back as $null and a single
+  # item as a scalar, and StrictMode refuses .Count on either (PowerShell 5.1: on both).
+  $procs = @(RC-Processes)
   foreach ($p in $procs) {
     Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
   }

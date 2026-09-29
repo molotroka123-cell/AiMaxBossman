@@ -1,0 +1,89 @@
+{
+ "meta": {
+  "title": "Trip",
+  "bpm": 118,
+  "key": "G",
+  "brand": "TRIP",
+  "hud": "TRIP // TRIP",
+  "voice": "am_fenrir",
+  "duration": 12.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "10 DAYS",
+   "kicker": "FOUR CITIES",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Ten days, four cities."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "THE ROUTE",
+   "items": [
+    {
+     "t": 2.75,
+     "title": "VIENNA",
+     "sub": "coffee & opera",
+     "icon": "plane"
+    },
+    {
+     "t": 3.5,
+     "title": "PRAGUE",
+     "sub": "bridges & beer",
+     "icon": "plane"
+    },
+    {
+     "t": 4.25,
+     "title": "BERLIN",
+     "sub": "art & techno",
+     "icon": "plane"
+    },
+    {
+     "t": 5.0,
+     "title": "KRAKOW",
+     "sub": "old town nights",
+     "icon": "plane"
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "Vienna."
+    },
+    {
+     "t": 3.5,
+     "text": "Prague."
+    },
+    {
+     "t": 4.25,
+     "text": "Berlin."
+    },
+    {
+     "t": 5.0,
+     "text": "Krakow."
+    }
+   ],
+   "start": 2.5,
+   "end": 8.5
+  },
+  {
+   "type": "sticker",
+   "lottie": "noto_earth_globe_europe_africa",
+   "text": "WHERE NEXT?",
+   "start": 8.5,
+   "end": 12.0,
+   "vo": [
+    {
+     "t": 8.6,
+     "text": "Where next?"
+    }
+   ]
+  }
+ ]
+}

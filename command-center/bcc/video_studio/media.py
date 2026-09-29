@@ -195,8 +195,15 @@ async def probe(path: Path) -> dict:
         fps = Fraction(video.get("avg_frame_rate", "0/1"))
     except (ValueError, ZeroDivisionError):
         fps = Fraction(0)
-    return {"duration_ticks": round(duration * TICKS), "width": int(video.get("width", 0)),
-        "height": int(video.get("height", 0)), "fps": {"num": fps.numerator, "den": fps.denominator},
+    # A phone's vertical clip is usually stored 1920x1080 with a display matrix of
+    # ±90°; ffmpeg auto-rotates on decode, so every consumer sees the DISPLAY size.
+    # Reporting the coded size called a 9:16 clip 16:9.
+    rotation = display_rotation(video)
+    width, height = int(video.get("width", 0)), int(video.get("height", 0))
+    if rotation % 180 == 90:
+        width, height = height, width
+    return {"duration_ticks": round(duration * TICKS), "width": width,
+        "height": height, "fps": {"num": fps.numerator, "den": fps.denominator},
         "has_video": bool(video), "has_audio": bool(audio), "sample_rate": int(audio.get("sample_rate", 0)),
         "channels": int(audio.get("channels", 0)), "metadata": {"format": data.get("format", {}).get("format_name"),
             "video_codec": video.get("codec_name"), "audio_codec": audio.get("codec_name"),
@@ -204,7 +211,26 @@ async def probe(path: Path) -> dict:
             "color_space": video.get("color_space"), "color_transfer": video.get("color_transfer"),
             "avg_frame_rate": video.get("avg_frame_rate"), "r_frame_rate": video.get("r_frame_rate"),
             "video_start": video.get("start_time"), "audio_start": audio.get("start_time"),
-            "video_duration": video.get("duration"), "audio_duration": audio.get("duration")}}
+            "video_duration": video.get("duration"), "audio_duration": audio.get("duration"),
+            "rotation": rotation}}
+
+
+def display_rotation(stream: dict) -> int:
+    """Display rotation in degrees modulo 360, as ffprobe reports it for the stream.
+
+    Current ffprobe gives it as side data (`rotation`, e.g. -90), older builds as the
+    `rotate` tag. Only whether it is an odd multiple of 90° matters for the frame size."""
+    value = None
+    for item in stream.get("side_data_list") or ():
+        if isinstance(item, dict) and item.get("rotation") is not None:
+            value = item["rotation"]
+            break
+    if value is None:
+        value = (stream.get("tags") or {}).get("rotate")
+    try:
+        return round(float(value or 0)) % 360
+    except (TypeError, ValueError):
+        return 0
 
 
 def digest_file(path: Path) -> str:

@@ -587,6 +587,18 @@ def duration_mismatch(observed_ms, settings: dict, *, segments: int = 1) -> str 
     return None
 
 
+def _qwen_vision(plane: GenerationPlane, files: dict[str, Path]) -> list[str]:
+    """The Qwen vision encoder (mmproj) only encodes reference images.
+
+    Live RC19 (Radeon 8060S, Vulkan): text-to-image WITH `--llm_vision` sat 48 min
+    at 5 % on the CPU with no GPU use; the same argv WITHOUT it ran on Vulkan0
+    (512x512, 20 steps, 13.2 s/it, correct image). Plain generation omits it.
+    """
+    if any(item.get("role") == "reference" for item in plane.media or ()):
+        return ["--llm_vision", str(files["llm_vision"])]
+    return []
+
+
 def _argv(cfg: dict, model_id: str, plane: GenerationPlane, settings: dict,
           files: dict[str, Path], out: Path, init: Path | None) -> list[str]:
     argv = [str(cfg["bin"])]
@@ -610,11 +622,11 @@ def _argv(cfg: dict, model_id: str, plane: GenerationPlane, settings: dict,
                  "--offload-to-cpu", "--diffusion-fa"]
     elif model_id == "sdcpp:qwen-image-2.1":
         argv += ["--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),
-                 "--llm", str(files["llm"]), "--llm_vision", str(files["llm_vision"]),
+                 "--llm", str(files["llm"]), *_qwen_vision(plane, files),
                  "--cfg-scale", "6.0", "--sampling-method", "euler", "--offload-to-cpu"]
     elif model_id == "sdcpp:qwen-image-edit-2509":
         argv += ["--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),
-                 "--llm", str(files["llm"]), "--llm_vision", str(files["llm_vision"]),
+                 "--llm", str(files["llm"]), *_qwen_vision(plane, files),
                  "--cfg-scale", "2.5", "--sampling-method", "euler", "--flow-shift", "3",
                  "--offload-to-cpu", "--diffusion-fa"]
     elif model_id == "sdcpp:sdxl-base":

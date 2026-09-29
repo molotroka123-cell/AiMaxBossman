@@ -33,6 +33,7 @@ from pathlib import Path
 
 from bcc.providers import build_adapter
 from bcc.oss.piper import PiperError, synthesize_ogg
+from bcc.oss.chatterbox_clone import synthesize_ogg as synthesize_cloned_ogg
 from bcc.telegram_companion.adapters import (
     IMAGE_MAX_BYTES,
     Models,
@@ -45,11 +46,14 @@ from bcc.telegram_companion.store import Store
 from . import capabilities as pit_capabilities
 from .behavior_controller import BehaviorController
 from .behavior_scores import BehaviorEvent
+from .blocklist import PrivateBlocklist
 from .collector import HighRecallCollector
 from .config import PITSettings
 from .cloud_budget import CloudBudget, classify_rate_limit, next_utc_midnight
 from .resources import LocalCapacityGuard, ollama_resident_probe
 from .models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
+from . import participant_profile
+from .heartbeat import Heartbeat, INTERVAL_SECONDS as HEARTBEAT_SECONDS
 from .participant_context import build_participant_context
 from .photo_commands import photo_intent
 from .photo_edit import PhotoEditPipeline
@@ -135,6 +139,11 @@ UNKNOWN_COMMAND_RU = "Такой команды у Jeff нет. Список —
 CLOUD_PAUSED_RU = ("Бесплатный облачный лимит на сейчас исчерпан, а локальная модель занята. "
                    "Не буду долбить сервис повторами — напиши чуть позже.")
 MAX_REMOTE_ATTEMPTS_PER_TURN = 3
+# Part of a turn's deadline kept for the local fallback after the cloud tries.
+LOCAL_FALLBACK_RESERVE_SECONDS = 10.0
+# A configured local model missing from the catalog (busy when it was built) is
+# looked for again after this long, also in the Jeff window (no poll loop).
+LOCAL_RECHECK_SECONDS = 120.0
 NO_REMOTE_RU = ("Удалённые модели отключены в твоих настройках приватности. "
                 "Чат-ответы приостановлены; команды работают. Включить: /privacy remote on.")
 
@@ -460,6 +469,8 @@ class ParticipantRuntime:
         self.home = Path(settings.data_dir) / "pit-v1.7"
         self.vault = PersonaVault(Path(settings.data_dir), bytes.fromhex(settings.identity_salt))
         self.store = PITStore(self.home)
+        # Owner's private block rule: fail closed before any transport exists.
+        self.blocklist = PrivateBlocklist.from_settings(settings)
         self.telegram = Telegram(_transport_settings(settings))
         self.models = Models(_transport_settings(settings), self.home)
         self.behavior = BehaviorController(self.vault)
@@ -468,6 +479,7 @@ class ParticipantRuntime:
             resident_probe=(ollama_resident_probe(settings.local_url, settings.local_models)
                             if settings.local_url else None))
         self.surface = "telegram"
+        self.heartbeat = Heartbeat(self.home, "telegram")
         self.cloud = CloudBudget(self.home, settings.cloud_daily_request_budget)
         self.photo_services: PhotoServices = build_photo_services(
             core_token=settings.core_token, data_dir=settings.data_dir)
@@ -499,12 +511,42 @@ class ParticipantRuntime:
         )
         self.catalog: dict[str, ModelEndpoint] = {}
         self.catalog_checked_at = 0.0
-        # Open allowlist (owner decision): every new private-chat human becomes a
-        # zero-start participant. Ingest already filters who may reach handle().
-        if settings.allowlist_open:
-            self.telegram.authorize_delivery = lambda person: True
         self._spawned_workers: set[str] = {p.key for p in settings.people}
         self._dynamic_tasks: set[asyncio.Task] = set()
+
+    # -- egress guard ------------------------------------------------------------------------
+    @property
+    def telegram(self):
+        return self._telegram
+
+    @telegram.setter
+    def telegram(self, adapter) -> None:
+        """Every transport Jeff ever sends through carries the private block rule.
+
+        Open allowlist (owner decision): every new private-chat human becomes a
+        zero-start participant, but the owner's block rule beats the allowlist,
+        a configured person entry and every role. The guard is installed on
+        whichever adapter is assigned, so a replaced transport cannot skip it.
+        """
+        base = getattr(adapter, "authorize_delivery", None) or (lambda person: False)
+        blocklist = self.__dict__.get("blocklist")
+
+        def authorize(person, _base=base) -> bool:
+            if (blocklist is not None and getattr(self, "surface", "telegram") == "telegram"
+                    and blocklist.blocks_person(person)):
+                return False
+            # Read at call time: the transport may be assigned before settings.
+            settings = self.__dict__.get("settings")
+            if settings is not None and settings.allowlist_open:
+                return True
+            return bool(_base(person))
+        adapter.authorize_delivery = authorize
+        self._telegram = adapter
+
+    def _blocked(self, user_id, chat_id=None) -> bool:
+        blocklist = self.__dict__.get("blocklist")
+        return (blocklist is not None and getattr(self, "surface", "telegram") == "telegram"
+                and blocklist.blocks_user(user_id, chat_id))
 
     async def close(self) -> None:
         # Provider adapters create a per-request client and need no close;
@@ -542,7 +584,9 @@ class ParticipantRuntime:
             listed = any(row.get("id") == model for row in rows)
             prices = pricing.get(model)
             zero = bool(prices and prices.get("prompt") == 0.0 and prices.get("completion") == 0.0)
-            if listed and zero:
+            # Owner rule: remote Jeff answers only via OpenRouter ':free' models; the live
+            # zero price is verified on top of the name, so a renamed paid model never gets in.
+            if listed and zero and str(model).endswith(":free"):
                 endpoints[model] = ModelEndpoint(
                     id=model, provider=self.settings.provider_base_url,
                     capabilities=frozenset({"chat"}), local=False, available=True,
@@ -568,25 +612,36 @@ class ParticipantRuntime:
         with contextlib.suppress(Exception):
             await self.refresh_catalog()
 
+    def _max_cost_usd(self) -> float:
+        """Owner panel budget as a stricter cap only: min(configured $0, panel)."""
+        try:
+            return min(0.0, self.cloud.max_cost_usd_per_job())
+        except Exception:  # noqa: BLE001 — a bad overlay never widens or breaks routing
+            return 0.0
+
     def _free_route(self) -> tuple[str, bool]:
         decision = choose_route(
-            RouteRequest(intent="chat", privacy=PrivacyClass.PERSONAL, max_cost_usd=0.0),
+            RouteRequest(intent="chat", privacy=PrivacyClass.PERSONAL,
+                         max_cost_usd=self._max_cost_usd()),
             [e for e in self.catalog.values() if e.local == self.settings.local_chat_only],
             allow_paid=False, zero_cost_only=True, local_bonus=0.0)
         return decision.selected_model, decision.provider == "local"
 
-    def _remote_fallbacks(self, failed_model: str) -> tuple[str, ...]:
+    def _remote_fallbacks(self, failed_model: str, *,
+                          catalog: dict[str, ModelEndpoint] | None = None) -> tuple[str, ...]:
         """All remaining catalog-verified free remote chat routes, in rank order."""
         if self.settings.local_chat_only:
             return ()
-        remote = [endpoint for endpoint in self.catalog.values()
+        catalog = self.catalog if catalog is None else catalog
+        remote = [endpoint for endpoint in catalog.values()
                   if not endpoint.local and endpoint.id in self.settings.chat_models
                   and endpoint.id != failed_model]
         if not remote:
             return ()
         try:
             decision = choose_route(
-                RouteRequest(intent="chat", privacy=PrivacyClass.PERSONAL, max_cost_usd=0.0),
+                RouteRequest(intent="chat", privacy=PrivacyClass.PERSONAL,
+                             max_cost_usd=self._max_cost_usd()),
                 remote, allow_paid=False, zero_cost_only=True, local_bonus=0.0)
         except NoEligibleRoute:
             return ()
@@ -613,10 +668,12 @@ class ParticipantRuntime:
         return {model: sorted(values)[min(len(values) - 1, int(len(values) * .95))]
                 for model, values in timings.items() if values}
 
-    def _mixed_route(self, text: str, consent: ConsentState) -> tuple[str, bool]:
+    def _mixed_route(self, text: str, consent: ConsentState, *,
+                     catalog: dict[str, ModelEndpoint] | None = None) -> tuple[str, bool]:
         """70/30 simple-turn mix, with measured cloud speed and a local privacy route."""
-        local = [item for item in self.catalog.values() if item.local]
-        remote = [item for item in self.catalog.values() if not item.local]
+        catalog = self.catalog if catalog is None else catalog
+        local = [item for item in catalog.values() if item.local]
+        remote = [item for item in catalog.values() if not item.local]
         if not consent.remote_processing_enabled:
             if local:
                 return local[0].id, True
@@ -653,8 +710,13 @@ class ParticipantRuntime:
             self._cloud_stop("daily_budget")
         return reason
 
-    def _cloud_spend(self) -> None:
-        self.cloud.spend()
+    def _cloud_spend(self) -> str:
+        """Count one cloud request atomically with the budget check; a non-empty
+        reason means the request must NOT be sent."""
+        reason = self.cloud.try_spend()
+        if reason == "daily_budget":
+            self._cloud_stop("daily_budget")
+        return reason
 
     def _cloud_stop(self, reason: str, *, until: float | None = None) -> None:
         if not self.cloud.stop(reason, until=until):
@@ -692,6 +754,9 @@ class ParticipantRuntime:
             })
         except OSError:
             pass
+        with contextlib.suppress(Exception):
+            self.heartbeat.note_route(model=model, provider=provider, ok=ok,
+                                      latency_ms=latency_ms, error=error)
 
     # -- update loop ----------------------------------------------------------------
     async def run(self) -> None:
@@ -703,6 +768,7 @@ class ParticipantRuntime:
         tasks.append(asyncio.create_task(self._reconcile_generations()))
         tasks.append(asyncio.create_task(self._poll()))
         tasks.append(asyncio.create_task(self._stop_watcher()))
+        tasks.append(asyncio.create_task(self._heartbeat_loop()))
         if self.settings.allowlist_open:
             tasks.append(asyncio.create_task(self._worker_spawner()))
         try:
@@ -719,6 +785,27 @@ class ParticipantRuntime:
             await self.photo_pipeline.cancel_background()
             with contextlib.suppress(OSError):
                 (self.home / STOP_FLAG).unlink(missing_ok=True)
+            with contextlib.suppress(Exception):
+                self.heartbeat.write(state="stopped", queue=0)
+
+    def heartbeat_snapshot(self, state: str | None = None) -> dict:
+        """Secret-free availability record (also served by /api/jeff/health)."""
+        from . import speech
+        try:
+            queue = int(self.store.db.execute(
+                "SELECT count(*) FROM inbox WHERE phase IN ('pending','processing')").fetchone()[0])
+        except Exception:  # noqa: BLE001
+            queue = -1
+        return self.heartbeat.snapshot(queue=queue, stt=speech.asr_status(), tts=speech.tts_status(),
+                                       state=state)
+
+    async def _heartbeat_loop(self) -> None:
+        """A failed beat never stops Jeff (the store is bound to this loop thread)."""
+        from .heartbeat import write_file
+        while True:
+            with contextlib.suppress(Exception):
+                write_file(self.heartbeat.path, self.heartbeat_snapshot())
+            await asyncio.sleep(HEARTBEAT_SECONDS)
 
     async def _stop_watcher(self) -> None:
         """Interrupt a held provider or Telegram call without waiting for long polling."""
@@ -767,10 +854,12 @@ class ParticipantRuntime:
                 for update in updates:
                     self._ingest_update(update)
                 delay = 1.0
+                self.heartbeat.note_poll(True)
                 if time.monotonic() - self.catalog_checked_at > self.settings.catalog_refresh_seconds:
                     await self.refresh_catalog_safe()
             except CompanionError as exc:
                 self.store.put("transport_error", str(exc))
+                self.heartbeat.note_poll(False, str(exc))
                 if str(exc) in {"AUTH_DENIED", "CONFLICT"}:
                     raise
                 wait = exc.retry_after if isinstance(exc, RateLimited) else delay
@@ -785,6 +874,11 @@ class ParticipantRuntime:
         body = _minimize_message(message)
         user_id, chat_id = body.get("_user_id"), body.get("_chat_id")
         if type(user_id) is not int or type(chat_id) is not int:
+            return
+        if self._blocked(user_id, chat_id):
+            # Acknowledge the offset, keep no body, never answer. No log line
+            # names the account: the rule itself is private.
+            self.store.ingest(update_id, None, None)
             return
         person = self.settings.participant(user_id, chat_id)
         if person is None and self.settings.allowlist_open:
@@ -809,7 +903,8 @@ class ParticipantRuntime:
                 friend_user = message.get("_user_id")
                 if type(friend_user) is int:
                     fresh = Person(user_id=friend_user, chat_id=friend_user, role="guest")
-            if fresh is None:
+            if fresh is None or self._blocked(fresh.user_id, fresh.chat_id):
+                # Also covers messages queued before the owner added the block.
                 self.store.finish(update_id, "failed")
                 self.store.scrub_inbox(update_id)
                 continue
@@ -854,13 +949,32 @@ class ParticipantRuntime:
             try:
                 rendered = render_jeff_reply(answer)
                 voice_mode = (
-                    fresh.role == "owner"
-                    and self.store.get("voice_reply:" + fresh.key, False) is True
+                    (fresh.role == "owner"
+                     and self.store.get("voice_reply:" + fresh.key, False) is True
+                     or participant_profile.read_profile(
+                         self.vault.data_dir, self.vault.key_for_telegram(fresh.user_id))[0]["voice_reply"])
                     and not str(message.get("text") or "").startswith("/")
                     and not message.get("_photo") and not message.get("_document")
                 )
                 if voice_mode:
                     async def make_voice(guarded_text: str) -> bytes:
+                        if (fresh.role == "owner"
+                                and os.environ.get("BOSSMAN_PIT_TTS_BACKEND", "piper").lower() == "chatterbox"):
+                            # The cloned voice is the owner's own: guests get the stock Piper voice.
+                            try:
+                                return await asyncio.to_thread(
+                                    synthesize_cloned_ogg, guarded_text,
+                                    python_executable=os.environ.get("BOSSMAN_PIT_TTS_CLONE_PYTHON", ""),
+                                    model_dir=os.environ.get("BOSSMAN_PIT_TTS_CLONE_MODEL_DIR", ""),
+                                    reference_path=os.environ.get("BOSSMAN_PIT_TTS_CLONE_REFERENCE", ""),
+                                    ffmpeg_executable=shutil.which("ffmpeg") or "",
+                                    stopped=lambda: (self.home / STOP_FLAG).exists(),
+                                )
+                            except PiperError as exc:
+                                # Optional clone missing/busy/slow/too long: the
+                                # configured Piper voice answers instead. STOP wins.
+                                if str(exc) == "VOICE_STOPPED":
+                                    raise
                         return await asyncio.to_thread(
                             synthesize_ogg, guarded_text,
                             piper_executable=os.environ.get("BOSSMAN_PIT_TTS_EXECUTABLE", ""),
@@ -976,6 +1090,12 @@ class ParticipantRuntime:
     async def handle(self, person: Person, message: dict, *, update_id: int | None = None) -> str | None:
         person_key = self.vault.key_for_telegram(person.user_id)
         text = str(message.get("text", "")).strip()
+
+        # Jeff Admin: the owner's revoke / Telegram-off switch beats every other path.
+        blocked_reason = participant_profile.gate_reply(
+            self.vault.data_dir, person_key, getattr(self, "surface", "telegram"))
+        if blocked_reason is not None:
+            return blocked_reason
 
         if photo_file_id := message.get("_photo"):
             return await self._handle_photo(person, person_key, message, photo_file_id, text)
@@ -1323,22 +1443,34 @@ class ParticipantRuntime:
         complex_request = _is_complex_chat(text)
         deadline = time.monotonic() + (120 if complex_request else self.settings.chat_deadline_seconds)
 
+        now = time.monotonic()
         if self.catalog_checked_at == 0.0:
+            await self.refresh_catalog_safe()
+        elif (not self.settings.local_chat_only and self.settings.local_models
+              and self.local_adapter is not None
+              and not any(endpoint.local for endpoint in self.catalog.values())
+              and now - self.catalog_checked_at > LOCAL_RECHECK_SECONDS):
+            # A local model that was busy when the catalog was built comes back
+            # here too: the Jeff window has no poll loop that would refresh it.
             await self.refresh_catalog_safe()
         if self.settings.local_chat_only:
             # Recheck installed model and owner resource headroom on every turn.
             # Clear first so a catalog failure cannot leave a stale live route.
             self.catalog = {}
             await self.refresh_catalog_safe()
-        elif any(endpoint.local for endpoint in self.catalog.values()):
+        turn_catalog = self.catalog
+        if not self.settings.local_chat_only and any(
+                endpoint.local for endpoint in turn_catalog.values()):
             self.capacity_guard.reset()
             if not await self.capacity_guard.local_allowed():
-                self.catalog = {key: endpoint for key, endpoint in self.catalog.items()
+                # Busy for THIS turn only: the shared catalog keeps the local
+                # route, so the next turn (or a concurrent one) re-measures.
+                turn_catalog = {key: endpoint for key, endpoint in turn_catalog.items()
                                 if not endpoint.local}
         consent = self.vault.consent(person_key)
         try:
             model, is_local = (self._free_route() if self.settings.local_chat_only
-                               else self._mixed_route(text, consent))
+                               else self._mixed_route(text, consent, catalog=turn_catalog))
         except NoEligibleRoute:
             return NO_MODEL_RU
         if not is_local and not consent.remote_processing_enabled:
@@ -1376,30 +1508,33 @@ class ParticipantRuntime:
                                 for fallback in self._remote_fallbacks(model))
         else:
             attempts.append((model, self.adapter, "remote"))
-            local_fallback = next((item.id for item in self.catalog.values() if item.local), None)
+            local_fallback = next((item.id for item in turn_catalog.values() if item.local), None)
             attempts.extend((fallback, self.adapter, "remote")
-                            for fallback in self._remote_fallbacks(model))
-            if self.settings.local_fallback_on_cloud_refusal and local_fallback:
-                attempts.append((local_fallback, self.local_adapter, "local"))
-            if (local_fallback and (self._cloud_blocked() or all(
-                    self.cloud.model_blocked(m) for m, _, kind in attempts if kind == "remote"))
-                    and all(kind != "local" for _, _, kind in attempts)):
-                # Free cloud is paused (budget/rate limit): the local model
-                # answers instead of the participant waiting on a dead route.
+                            for fallback in self._remote_fallbacks(model, catalog=turn_catalog))
+            if local_fallback and self.local_adapter is not None:
+                # Any cloud failure — pause, rate limit, timeout, 5xx — ends on
+                # the verified local model instead of "provider down"/"limit".
+                # Its share of the turn deadline is reserved below.
                 attempts.append((local_fallback, self.local_adapter, "local"))
 
         def ensure_local_fallback() -> None:
             # A rate limit found mid-turn must not strand the participant while
-            # a verified local model is available in the catalog.
-            fallback = next((item.id for item in self.catalog.values() if item.local), None)
+            # a verified local model is available for this turn.
+            fallback = next((item.id for item in turn_catalog.values() if item.local), None)
             if fallback and self.local_adapter is not None and all(
                     kind != "local" for _, _, kind in attempts):
                 attempts.append((fallback, self.local_adapter, "local"))
         cloud_stopped = ""
         remote_sent = 0
         fallback_reason = ""
+        cloud_refused = False
         for route_index, (route_model, adapter, provider) in enumerate(attempts):
             if prefer_local_after_refusal and provider == "remote":
+                continue
+            if (provider == "local" and route_index > 0 and cloud_refused and not cloud_stopped
+                    and not self.settings.local_fallback_on_cloud_refusal):
+                # The owner did not allow the local model to answer what the
+                # cloud refused; the generic local fallback does not bypass that.
                 continue
             # The control lane can change consent while a local model is slow.
             # Rebuild the complete payload for each attempt, including fallback.
@@ -1488,7 +1623,12 @@ class ParticipantRuntime:
                               else self.settings.remote_timeout, remaining)
                 if provider == "remote":
                     remote_left = sum(kind == "remote" for _, _, kind in attempts[route_index:])
-                    timeout = min(timeout, remaining / remote_left)
+                    # A slow cloud must not eat the local fallback's turn:
+                    # keep part of the deadline for the local attempt after it.
+                    reserve = (min(LOCAL_FALLBACK_RESERVE_SECONDS, remaining / 3)
+                               if any(kind == "local" for _, _, kind in attempts[route_index + 1:])
+                               else 0.0)
+                    timeout = min(timeout, max(1.0, remaining - reserve) / remote_left)
                 route_deadline = started + timeout
                 for attempt_index, limit in enumerate((self.settings.max_tokens,
                                                        min(4096, self.settings.max_tokens * 2))):
@@ -1498,7 +1638,12 @@ class ParticipantRuntime:
                         break
                     call_timeout = min(timeout, remaining)
                     if provider == "remote":
-                        self._cloud_spend()
+                        refused = self._cloud_spend()
+                        if refused:
+                            cloud_stopped = refused
+                            ensure_local_fallback()
+                            result = None
+                            break
                     result = await asyncio.wait_for(adapter.chat(
                         route_model, messages, max_tokens=limit,
                         timeout=call_timeout), timeout=call_timeout)
@@ -1534,6 +1679,7 @@ class ParticipantRuntime:
                                     context_chars=context_chars, error="cloud_refusal",
                                     route_reason=fallback_reason)
                     fallback_reason = "cloud_refusal"
+                    cloud_refused = cloud_refused or bool(result.text.strip())
                     prefer_local_after_refusal = bool(
                         self.settings.local_fallback_on_cloud_refusal and local_fallback)
                     result = None

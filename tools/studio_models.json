@@ -433,7 +433,7 @@
       "id": "sdcpp:qwen-image-2.1",
       "provider": "sdcpp",
       "surface": "image",
-      "label": "Qwen-Image-2.1 — локальная генерация и редактирование (оценочный режим)",
+      "label": "Qwen-Image-2.1 — локально, только НЕкоммерческое использование (Qwen Research License)",
       "settings": {
         "width": {"type": "range", "min": 256, "max": 2048, "default": 1024, "integer": true, "multiple_of": 32},
         "height": {"type": "range", "min": 256, "max": 2048, "default": 1024, "integer": true, "multiple_of": 32},

@@ -1,0 +1,40 @@
+{
+ "meta": {
+  "title": "Talk",
+  "bpm": 116,
+  "key": "D",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // TALK",
+  "voice": "am_fenrir",
+  "duration": 8.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "VERIFIED",
+   "kicker": "DEVDAYS · MAIN STAGE",
+   "typed": "$ talk --title 'Verified agents'",
+   "start": 0.0,
+   "end": 4.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Verified agents."
+    }
+   ]
+  },
+  {
+   "type": "logo",
+   "name": "BOSSMAN",
+   "tagline": "DEVDAYS 2026",
+   "start": 4.0,
+   "end": 8.0,
+   "vo": [
+    {
+     "t": 4.1,
+     "text": "By the Bossman team."
+    }
+   ]
+  }
+ ]
+}

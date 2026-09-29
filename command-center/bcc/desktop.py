@@ -404,6 +404,28 @@ def _pid_alive(pid: int) -> bool:
     return True
 
 
+def _process_created(pid: int) -> float | None:
+    """Время создания процесса (секунды эпохи) или None, если узнать нельзя."""
+    try:
+        import psutil
+        return float(psutil.Process(pid).create_time())
+    except Exception:  # noqa: BLE001 — нет psutil/процесса/прав: признака просто нет
+        return None
+
+
+def _same_process(pid: int, created: object) -> bool:
+    """Тот ли это процесс, что записал замок, а не новый с тем же pid.
+
+    Windows быстро раздаёт pid заново: замок убитого запуска с живым чужим pid
+    запирал окно навсегда («окно уже запущено», а окна нет). Замок без отметки
+    (прежние сборки) и процесс, чьё время создания узнать нельзя, судим по pid,
+    как раньше."""
+    if not isinstance(created, (int, float)):
+        return True
+    actual = _process_created(pid)
+    return actual is None or abs(actual - float(created)) <= 1.0
+
+
 def _read_lock(data_dir: Path) -> dict | None:
     try:
         data = json.loads(_desktop_lock_path(data_dir).read_text(encoding="utf-8"))
@@ -846,17 +868,19 @@ class _BackgroundServer:
     """uvicorn в потоке — ровно тот же app, что у ``bcc``; останавливается вместе с окном."""
 
     def __init__(self, host: str, port: int) -> None:
-        import uvicorn
-
-        from .app import create
         from .config import settings
 
         settings.ensure_dirs()
-        self.server = uvicorn.Server(uvicorn.Config(create(), host=host, port=port, log_level="warning"))
+        self.host, self.port = host, port
+        # Приложение строится в start(), ПОСЛЕ замка данных: его конструктор
+        # заводит токен и ключ хранилища, и второй ярлык, проигравший гонку за
+        # замок, не должен успеть переписать токен победителя.
+        self.server = None
         self.error: str | None = None
+        #: Кто держит данные, если start() проиграл замок (иначе None).
+        self.holder: dict | None = None
         self._cause = _StartupCause()
         self._log = logging.getLogger("uvicorn.error")
-        self._log.addHandler(self._cause)
         self.thread = threading.Thread(target=self._serve, name="bcc-desktop-server", daemon=True)
 
     def _explain(self, exc: BaseException) -> str:
@@ -892,7 +916,25 @@ class _BackgroundServer:
                                       build_sha=source_identity().get("build_sha"))
         except BackendAlreadyRunning as exc:
             self.error = str(exc)
+            self.holder = dict(exc.info)
             return False
+        except OSError as exc:
+            # Замок данных не удалось занять и не удалось назвать держателя
+            # (например, backend.json заблокирован дольше отведённого).
+            self.error = f"не удалось занять замок данных {settings.data_dir}: {type(exc).__name__}: {exc}"
+            return False
+        try:
+            import uvicorn
+
+            from .app import create
+            self.server = uvicorn.Server(uvicorn.Config(create(), host=self.host, port=self.port,
+                                                        log_level="warning"))
+        except Exception as exc:  # noqa: BLE001 — причина уходит владельцу, а не трейсбеком в никуда
+            self.error = f"{type(exc).__name__}: {exc}"
+            return False
+        # После uvicorn.Config: он перенастраивает журналы uvicorn и снял бы
+        # обработчик, повешенный раньше.
+        self._log.addHandler(self._cause)
         self.thread.start()
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
@@ -909,7 +951,8 @@ class _BackgroundServer:
         return False
 
     def stop(self) -> None:
-        self.server.should_exit = True
+        if self.server is not None:
+            self.server.should_exit = True
         if self.thread.is_alive():
             self.thread.join(timeout=10)
         self._log.removeHandler(self._cause)
@@ -917,6 +960,44 @@ class _BackgroundServer:
         if lock is not None:
             lock.release()
             self._data_lock = None
+
+
+#: Сколько окно ждёт, пока держатель данных начнёт отвечать. Держатель может
+#: стартовать прямо сейчас: второй ярлык, нажатый одновременно с первым,
+#: терминал или автозапуск. Раньше окно в эту секунду поднимало свой сервер,
+#: проигрывало замок и показывало «сервер не поднялся» вместо окна.
+HOLDER_WAIT_S = 60.0
+
+
+def _await_holder(data_dir: Path, timeout: float | None = None) -> dict:
+    """Дождаться, пока сервер, держащий эти данные, ответит как Command Center.
+
+    ``state``: ``answering`` (есть ``url``/``host``/``port``/``ident``), ``gone``
+    (замок освободился — держателя больше нет) или ``silent`` (держит, но не
+    ответил за отведённое время)."""
+    from .backend_lock import connect_host, running_backend
+
+    deadline = time.monotonic() + (HOLDER_WAIT_S if timeout is None else timeout)
+    holder: dict = {}
+    while True:
+        current = running_backend(data_dir)
+        if not current:
+            return {"state": "gone", "holder": holder}
+        holder = current
+        try:
+            h_port = int(current.get("port") or 0)
+        except (TypeError, ValueError):
+            h_port = 0
+        if h_port:
+            h_host = connect_host(current.get("host"))
+            h_url = f"http://{h_host}:{h_port}/"
+            ident = identify_server(h_url)
+            if ident:
+                return {"state": "answering", "url": h_url, "host": h_host, "port": h_port,
+                        "ident": ident, "holder": current}
+        if time.monotonic() >= deadline:
+            return {"state": "silent", "holder": holder}
+        time.sleep(0.3)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1064,7 +1145,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         # Убитый запуск (Stop-Process, закрытая консоль) не проходит finally и
         # оставляет замок с мёртвым pid. Одной проверки порта мало: на порту
         # может сидеть посторонний сервер, и тогда guard запирал бы окно навсегда.
-        owner_alive = _pid_alive(lock_pid)
+        owner_alive = _pid_alive(lock_pid) and _same_process(lock_pid, lock.get("pid_created"))
         if not owner_alive:
             _append_run_log(data_dir, f"stale-lock-cleared pid={lock_pid} port={lock_port}")
             try:
@@ -1084,32 +1165,55 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             return 0
 
     from .backend_lock import running_backend
-    holder = running_backend(data_dir)
-    if holder and holder.get("port") and int(holder["port"]) != port:
-        # This data root is already served on another port (for example the
-        # terminal started it). Attach to THAT server; never start a second
-        # one on the window's default port over the same data.
-        port = int(holder["port"])
-        host = str(holder.get("host") or host)
-        url = f"http://{host}:{port}/"
-        print(f"[bcc-desktop] Bossman для этих данных уже работает: {url} — подключаюсь к нему",
+
+    def build_mismatch(ident: dict) -> int:
+        own = _identity_label(local_identity)
+        running = _identity_label(ident)
+        print(f"[bcc-desktop] порт {port} занят Command Center другой сборки: "
+              f"окно {own}, сервер {running}. Закройте старый сервер или укажите другой --port.",
               file=out, flush=True)
-        _append_run_log(data_dir, f"attach-data-root-backend port={port} pid={holder.get('pid')}")
+        _append_run_log(data_dir, f"exit code=7 backend-build-mismatch port={port} "
+                                  f"window={own} server={running}")
+        _record_launch(data_dir, launch_id, "backend-build-mismatch", code=7)
+        _pause_console(out)
+        return 7
+
+    def attach(found: dict) -> None:
+        nonlocal host, port, url
+        if found["port"] != port or found["host"] != host:
+            # This data root is already served on another port (for example the
+            # terminal started it). Attach to THAT server; never start a second
+            # one on the window's default port over the same data.
+            print(f"[bcc-desktop] Bossman для этих данных уже работает: {found['url']} — подключаюсь к нему",
+                  file=out, flush=True)
+            _append_run_log(data_dir, f"attach-data-root-backend port={found['port']} "
+                                      f"pid={found['holder'].get('pid')}")
+        host, port, url = found["host"], found["port"], found["url"]
+
+    held_ident: dict | None = None
+    if running_backend(data_dir):
+        # Держатель есть, но может ещё стартовать: ждём его, а не поднимаем свой.
+        found = _await_holder(data_dir)
+        if found["state"] == "silent":
+            h = found["holder"]
+            print(f"[bcc-desktop] Bossman для этих данных уже запущен (pid {h.get('pid') or '?'}, "
+                  f"порт {h.get('port') or '?'}), но не ответил за {HOLDER_WAIT_S:.0f} с — второй "
+                  "сервер на тех же данных не запускаю. Подождите и запустите BOSSMAN снова.",
+                  file=out, flush=True)
+            _append_run_log(data_dir, f"exit code=3 data-root-holder-silent pid={h.get('pid')} "
+                                      f"port={h.get('port')}")
+            _record_launch(data_dir, launch_id, "data-root-holder-silent", code=3)
+            _pause_console(out)
+            return 3
+        if found["state"] == "answering":
+            attach(found)
+            held_ident = found["ident"]
 
     started: _BackgroundServer | None = None
-    ident = identify_server(url)
+    ident = held_ident if held_ident is not None else identify_server(url)
     if ident:
         if not _same_build(local_identity, ident):
-            own = _identity_label(local_identity)
-            running = _identity_label(ident)
-            print(f"[bcc-desktop] порт {port} занят Command Center другой сборки: "
-                  f"окно {own}, сервер {running}. Закройте старый сервер или укажите другой --port.",
-                  file=out, flush=True)
-            _append_run_log(data_dir, f"exit code=7 backend-build-mismatch port={port} "
-                                      f"window={own} server={running}")
-            _record_launch(data_dir, launch_id, "backend-build-mismatch", code=7)
-            _pause_console(out)
-            return 7
+            return build_mismatch(ident)
         print(f"[bcc-desktop] Command Center уже работает: {url} "
               f"(версия {ident.get('version', '?')}, сборка {_identity_label(ident)}) — подключаюсь к нему",
               file=out, flush=True)
@@ -1142,14 +1246,32 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     else:
         started = _BackgroundServer(host, port)
         if not started.start(url):
-            reason = started.error or "причина неизвестна"
-            print(f"[bcc-desktop] сервер не поднялся на {url}: {reason}", file=out, flush=True)
-            _append_run_log(data_dir, f"exit code=3 server-start-failed {reason}")
-            _record_launch(data_dir, launch_id, "server-start-failed", code=3, detail=reason)
-            started.stop()
-            _pause_console(out)
-            return 3
-        print(f"[bcc-desktop] сервер запущен: {url}", file=out, flush=True)
+            found = None
+            lost_to = getattr(started, "holder", None)
+            if lost_to is not None:
+                # Замок данных занял другой запуск (второй ярлык в ту же
+                # секунду): подключаемся к его серверу, а не падаем.
+                started.stop()
+                _append_run_log(data_dir, f"lost-data-root-race holder-pid={lost_to.get('pid')}")
+                found = _await_holder(data_dir)
+            if found is None or found["state"] != "answering":
+                reason = started.error or "причина неизвестна"
+                print(f"[bcc-desktop] сервер не поднялся на {url}: {reason}", file=out, flush=True)
+                _append_run_log(data_dir, f"exit code=3 server-start-failed {reason}")
+                _record_launch(data_dir, launch_id, "server-start-failed", code=3, detail=reason)
+                started.stop()
+                _pause_console(out)
+                return 3
+            started = None
+            attach(found)
+            ident = found["ident"]
+            if not _same_build(local_identity, ident):
+                return build_mismatch(ident)
+            print(f"[bcc-desktop] Command Center уже работает: {url} "
+                  f"(версия {ident.get('version', '?')}, сборка {_identity_label(ident)}) — подключаюсь к нему",
+                  file=out, flush=True)
+        else:
+            print(f"[bcc-desktop] сервер запущен: {url}", file=out, flush=True)
 
     if args.show_token:
         # Консоль принадлежит приложению только когда сервер поднят этим же
@@ -1195,7 +1317,8 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     try:
         try:
             _desktop_lock_path(data_dir).write_text(
-                json.dumps({"pid": os.getpid(), "port": port,
+                json.dumps({"pid": os.getpid(), "pid_created": _process_created(os.getpid()),
+                            "port": port,
                             "window_opened_at": time.strftime("%Y-%m-%dT%H:%M:%S")}),
                 encoding="utf-8")
             wrote_lock = True

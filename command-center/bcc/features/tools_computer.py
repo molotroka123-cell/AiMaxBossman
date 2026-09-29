@@ -64,7 +64,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
@@ -85,6 +85,16 @@ MAX_OBS_AGE_S = 45.0
 # держать замок рабочего стола вечно: исход шага объявляется НЕИЗВЕСТНЫМ, замок
 # освобождается, следующий шаг обязан перечитать экран.
 ACT_TIMEOUT_S = 60.0
+# Набор текста должен уложиться в ACT_TIMEOUT_S с запасом: по таймауту поток
+# ввода (asyncio.to_thread) сам не останавливается, и «исход неизвестен» при
+# живом печатающем потоке — это ввод параллельно со следующим действием.
+# Оценка: интервал между клавишами (как у адаптера: по умолчанию 0.05 с, не
+# больше 0.2 с) + накладные расходы pyautogui на символ. Длиннее — по частям.
+TYPE_INTERVAL_DEFAULT_S = 0.05
+TYPE_INTERVAL_MAX_S = 0.2
+TYPE_OVERHEAD_S = 0.01
+# Бюджет времени на набор — с запасом меньше ACT_TIMEOUT_S (проверяется тестом).
+TYPE_BUDGET_S = 45.0
 LAUNCH_WAIT_S = 5.0
 KINDS = ("focus", "click", "double_click", "type", "hotkey", "scroll", "invoke", "launch", "wait",
          "focus_window")
@@ -121,6 +131,10 @@ MIN_APPROVAL_TTL_S = 5.0
 # движка; журнал переживает перезапуск backend.
 USED_APPROVALS_FILE = "USED_APPROVALS.json"
 USED_APPROVALS_MAX = 5000
+# Одобрение, выданное до «Продолжить» или до старта этого процесса backend, не
+# исполняется: оно дано по экрану, которого больше нет (в т.ч. для `launch`,
+# у которого нет generation). Модуль импортируется при старте backend.
+PROCESS_STARTED = datetime.now(timezone.utc).replace(tzinfo=None)
 # Наблюдения, по которым владелец мог одобрить действие. «Продолжить»,
 # неизвестный исход и перезапуск их обнуляют — одобренное по старому экрану
 # после этого не исполняется.
@@ -231,6 +245,11 @@ class ComputerState:
     history: dict[int, dict[str, Any]] = field(default_factory=dict)
     # id строк approvals, уже потраченных на эффект (переживает перезапуск).
     used_approvals: list[int] = field(default_factory=list)
+    # Журнал использованных одобрений не прочитался: действия запрещены до
+    # «Продолжить» владельца — свежее наблюдение этот замок НЕ снимает.
+    journal_corrupt: bool = False
+    # Последнее «Продолжить» (наивный UTC): одобрения старше него недействительны.
+    resumed_at: datetime | None = None
 
     @property
     def unknown_path(self) -> Path | None:
@@ -248,6 +267,11 @@ class ComputerState:
 
     def spend_approval(self, approval_id: int) -> bool:
         """Отметить одобрение использованным ДО эффекта. False — уже было."""
+        if self.journal_corrupt:
+            # Перезапись повреждённого журнала стёрла бы память о потраченных
+            # одобрениях — ровно то, от чего он защищает.
+            raise ActRefused("журнал использованных одобрений повреждён — действия запрещены до "
+                             "разбора владельцем («Продолжить»)")
         if approval_id in self.used_approvals:
             return False
         self.used_approvals.append(approval_id)
@@ -282,7 +306,10 @@ class ComputerState:
                 pass
 
     def clear_outcome_unknown(self) -> None:
-        """Only a fresh observation may do this: the screen has been re-read."""
+        """Only a fresh observation may do this: the screen has been re-read.
+        A corrupted used-approvals journal is not a screen question: it stays."""
+        if self.journal_corrupt:
+            return
         self.outcome_unknown = ""
         path = self.unknown_path
         if path is not None:
@@ -312,6 +339,7 @@ class ComputerState:
             except (OSError, ValueError, TypeError):
                 # Повреждённый журнал нельзя принять за «ничего не использовано»:
                 # до ручного разбора владельцем действия запрещены.
+                self.journal_corrupt = True
                 self.outcome_unknown = "журнал использованных одобрений повреждён — проверьте data_dir/computer"
 
     def set_stop(self, by: str) -> None:
@@ -338,6 +366,72 @@ class ComputerState:
         self.generation += 1
         self.last = {}
         self.history.clear()
+        self.resumed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        if self.journal_corrupt:
+            # Владелец разобрался и нажал «Продолжить»: повреждённый журнал
+            # откладывается в сторону (не затирается), а все одобрения старше
+            # этого момента и так недействительны (resumed_at) — повтор по ним
+            # невозможен и без старого списка.
+            used = self.used_path
+            if used is not None and used.is_file():
+                try:
+                    used.replace(used.with_name(f"{used.stem}.corrupt-{int(time.time())}.json"))
+                except OSError:
+                    return                  # не отложили — замок остаётся
+            self.journal_corrupt = False
+            self.used_approvals = []
+            self.outcome_unknown = ""
+            path = self.unknown_path
+            if path is not None:
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+    def approval_floor(self) -> datetime:
+        """Одобрения, созданные раньше этого момента, недействительны."""
+        return max(PROCESS_STARTED, self.resumed_at or PROCESS_STARTED)
+
+
+def _desktop_busy(st: ComputerState) -> bool:
+    """Эффект прошлого действия ещё идёт в потоке адаптера (брошен по таймауту)."""
+    probe = getattr(st.desktop, "busy", None)
+    try:
+        return bool(probe()) if callable(probe) else False
+    except Exception:  # noqa: BLE001 — не смогли узнать: считаем занятым
+        return True
+
+
+def _abort_inflight(st: ComputerState) -> None:
+    abort = getattr(st.desktop, "abort_inflight", None)
+    if callable(abort):
+        try:
+            abort()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+class _EffectLock:
+    """Замок рабочего стола. Действие, оборванное посреди (таймаут инструмента в
+    движке, отмена задачи), — НЕИЗВЕСТНЫЙ исход, а не «ничего не было»: поток
+    адаптера мог успеть часть эффекта и ещё продолжать его."""
+
+    def __init__(self, st: ComputerState):
+        self.st = st
+
+    async def __aenter__(self):
+        await self.st.lock.acquire()
+        return self
+
+    async def __aexit__(self, et, exc, tb):
+        try:
+            if et is not None and issubclass(et, asyncio.CancelledError):
+                _abort_inflight(self.st)
+                self.st.mark_outcome_unknown("действие прервано посреди (таймаут инструмента или отмена) "
+                                             "— исход неизвестен")
+        finally:
+            self.st.lock.release()
+        return False
 
 
 def _state(svc) -> ComputerState:
@@ -384,7 +478,10 @@ async def observe(svc, *, screenshot: bool = True) -> dict[str, Any]:
     if screenshot:
         shot, _ = await st.shots.capture()
     st.generation += 1
-    st.clear_outcome_unknown()
+    if not _desktop_busy(st):
+        # Поток прошлого действия ещё жив (брошен по таймауту): экран ещё
+        # меняется, и перечитывание не делает исход известным.
+        st.clear_outcome_unknown()
     elements = list((tree or {}).get("elements") or [])[:MAX_ELEMENTS]
     for i, el in enumerate(elements):
         el["i"] = i
@@ -787,6 +884,26 @@ def credential_target(name: str | None) -> bool:
     return bool(n) and any(tok in n for tok in CREDENTIAL_TARGET_TOKENS)
 
 
+def type_budget_refusal(args: dict) -> str | None:
+    """Текст, который нельзя набрать за отведённое действию время, — отказ до
+    эффекта: иначе таймаут бросает поток ввода печатать дальше без присмотра."""
+    raw = args.get("interval", TYPE_INTERVAL_DEFAULT_S)
+    try:
+        interval = float(raw)
+    except (TypeError, ValueError):
+        return "interval: число секунд между клавишами"
+    if interval != interval:                            # NaN
+        return "interval: число секунд между клавишами"
+    interval = min(TYPE_INTERVAL_MAX_S, max(0.0, interval))
+    n = len(str(args.get("text") or ""))
+    budget = TYPE_BUDGET_S
+    if n * (interval + TYPE_OVERHEAD_S) > budget:
+        most = int(budget / (interval + TYPE_OVERHEAD_S))
+        return (f"текст из {n} символов не набирается за {budget:.0f} с при интервале {interval:.2f} с — "
+                f"разбейте его на части не длиннее {most} символов")
+    return None
+
+
 def hard_refusal(args: dict) -> str | None:
     """Отказ, который не снимает никакое одобрение (виден уже по аргументам)."""
     from bossman.computer_operator.applist import canonical_app
@@ -863,6 +980,11 @@ async def claim_approval(svc, approval_id: Any, task: dict | None = None) -> dic
         raise ActRefused(f"одобрение #{aid} истекло: {age:.0f} с с момента вопроса при сроке "
                          f"{ttl:.0f} с — нужен новый вопрос владельцу по свежему экрану")
     st = _owner_state(svc)
+    if aid in st.used_approvals:
+        raise ActRefused(f"одобрение #{aid} уже использовано — повтор действия по нему запрещён")
+    if created < st.approval_floor():
+        raise ActRefused(f"одобрение #{aid} выдано до «Продолжить» или до перезапуска backend — оно "
+                         f"недействительно; нужен новый computer.observe и новый вопрос владельцу")
     if not st.spend_approval(aid):
         raise ActRefused(f"одобрение #{aid} уже использовано — повтор действия по нему запрещён")
     return row
@@ -878,6 +1000,7 @@ async def _bounded(st: ComputerState, coro, what: str):
     try:
         return await asyncio.wait_for(coro, timeout=ACT_TIMEOUT_S)
     except asyncio.TimeoutError:
+        _abort_inflight(st)
         st.mark_outcome_unknown(f"{what} не ответил за {ACT_TIMEOUT_S:.0f} с — исход неизвестен")
         raise ActRefused(f"{st.outcome_unknown}; перечитайте экран (computer.observe) "
                          f"прежде чем действовать дальше")
@@ -904,16 +1027,23 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
         refusal = hotkey_refusal(args.get("keys"))
         if refusal:
             raise ActRefused(refusal)
+    if kind == "type":
+        refusal = type_budget_refusal(args)
+        if refusal:
+            raise ActRefused(refusal)
     # R6: эпоха стопа фиксируется при входе; любой «Стоп» (и «Продолжить») после
     # этого момента отменяет оставшиеся шаги действия.
     epoch = st.stop_epoch
     _stop_check(st, "до очереди", epoch)
     target = str(args.get("target") or "").strip()
     started_at = time.time()
-    async with st.lock:                            # один рабочий стол — одно действие за раз
+    async with _EffectLock(st):                    # один рабочий стол — одно действие за раз
         # «Стоп» мог прийти, пока действие ждало замок: очередь из двух действий,
         # STOP между ними — второе не исполняется.
         _stop_check(st, "после ожидания очереди", epoch)
+        if _desktop_busy(st):
+            raise ActRefused("прошлое действие ещё выполняется в фоне (брошено по таймауту) — "
+                             "подождите и вызовите computer.observe")
         if st.outcome_unknown:
             raise ActRefused(f"исход прошлого действия неизвестен ({st.outcome_unknown}) — "
                              f"сначала computer.observe")
@@ -1153,6 +1283,11 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                 raise ActRefused(f"не удалось вывести «{wins[0][1]}» на передний план")
         else:
             _stop_check(st, "действие", epoch)
+            if kind == "type":
+                # Адаптер сверяет окно переднего плана перед КАЖДОЙ порцией ввода.
+                want = int((before.get("window") or {}).get("handle") or 0)
+                if want:
+                    a.args["foreground_handle"] = want
             await _bounded(st, st.desktop.execute(a, None), "действие")
         await asyncio.sleep(SETTLE_S)
         after = await _bounded(st, observe(svc), "наблюдение")
