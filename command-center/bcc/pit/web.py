@@ -41,6 +41,7 @@ from fastapi import Request  # module level: route annotations resolve against g
 from bcc.telegram_companion.config import CompanionError, Person
 
 from .config import PITSettings, load, pit_home
+from .reply_stream import reply_sink
 from .runtime import FORBIDDEN_REPLY_RU, ParticipantRuntime, PITStore
 
 WEB_APP_ID = "bossman-jeff-web-v1"
@@ -332,6 +333,7 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
     ui = Path(ui_dir) if ui_dir else _ui_dir()
     locks: dict[int, asyncio.Lock] = {}
     inflight: dict[int, asyncio.Task] = {}
+    background: set[asyncio.Task] = set()
     stop_events: dict[int, threading.Event] = {}
     login_failures: dict[str, list[float]] = {}
     allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
@@ -413,7 +415,7 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
             notes.append("Проверил свежие источники в интернете")
         return notes
 
-    async def run_turn(uid: int, message: dict, uploads: dict | None = None) -> dict:
+    async def run_turn(uid: int, message: dict, uploads: dict | None = None, sink=None) -> dict:
         person = person_for(uid)
         box: list = []
         async with lock_for(uid):
@@ -421,6 +423,7 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
             event.clear()
             had_history = bool(rt.store.history(person.key))
             token_box, token_up = _outbox.set(box), _uploads.set(uploads or {})
+            token_sink = reply_sink.set(sink)
             try:
                 task = asyncio.create_task(rt.handle(person, message))
                 inflight[uid] = task
@@ -455,6 +458,7 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
             finally:
                 _outbox.reset(token_box)
                 _uploads.reset(token_up)
+                reply_sink.reset(token_sink)
         reply = str(reply or "")
         attachments = [item for item in box if item.get("kind") != "text"]
         texts = [item["text"] for item in box if item.get("kind") == "text"]
@@ -566,6 +570,51 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
             return {"reply": FORBIDDEN_REPLY_RU, "stopped": False, "attachments": [],
                     "disclosure": []}
         return await run_turn(uid, base_message(uid, text))
+
+    def sse(event: str, payload: dict) -> bytes:
+        body = json.dumps(payload, ensure_ascii=False)
+        return f"event: {event}\ndata: {body}\n\n".encode("utf-8")
+
+    @app.post("/api/jeff/chat/stream")
+    async def chat_stream(request: Request):
+        """Same turn as /api/jeff/chat, delivered as server-sent events: ``delta`` (visible text
+        so far arrives in pieces), ``reset`` (drop what was shown: that attempt was discarded),
+        then exactly one ``final`` with the authoritative reply. STOP works as before."""
+        from fastapi.responses import StreamingResponse
+        uid = user_of(request)
+        if uid is None:
+            return error(401, "AUTH_REQUIRED")
+        data = await body_json(request)
+        text = str(data.get("text", "")).strip()
+        if not text or len(text) > MAX_TEXT_CHARS:
+            return error(400, "TEXT_REQUIRED")
+        queue: asyncio.Queue = asyncio.Queue()
+        if data.get("via") == "voice" and text.startswith("/"):
+            queue.put_nowait(("final", {"reply": FORBIDDEN_REPLY_RU, "stopped": False,
+                                        "attachments": [], "disclosure": []}))
+        else:
+            async def sink(piece):
+                queue.put_nowait(("reset", {}) if piece is None else ("delta", {"t": piece}))
+
+            async def turn():
+                try:
+                    queue.put_nowait(("final", await run_turn(uid, base_message(uid, text),
+                                                              sink=sink)))
+                except Exception:  # noqa: BLE001 — the stream always ends with a final event
+                    queue.put_nowait(("final", {"reply": "Не получилось ответить. Повторите чуть позже.",
+                                                "stopped": False, "attachments": [],
+                                                "disclosure": []}))
+            background.add(task := asyncio.create_task(turn()))
+            task.add_done_callback(background.discard)
+
+        async def body():
+            while True:
+                kind, payload = await queue.get()
+                yield sse(kind, payload)
+                if kind == "final":
+                    return
+        return StreamingResponse(body(), media_type="text/event-stream",
+                                 headers={"X-Accel-Buffering": "no"})
 
     @app.post("/api/jeff/stop")
     async def stop(request: Request):
