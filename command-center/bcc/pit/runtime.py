@@ -1480,10 +1480,36 @@ class ParticipantRuntime:
         return preview + "Включить? (да/нет)"
 
     # -- chat route ----------------------------------------------------------------------------
+    @property
+    def j2(self) -> "J2Pipeline":
+        """Jeff 2.0 module layer (bcc/pit/j2): loaded once, isolated from the chat route by the pipeline."""
+        pipeline = self.__dict__.get("_j2_pipeline")
+        if pipeline is None:
+            from .j2 import J2Pipeline
+            pipeline = self.__dict__["_j2_pipeline"] = J2Pipeline.discover(self)
+        return pipeline
+
     async def _chat_route(self, person: Person, person_key: str, text: str,
                           consent: ConsentState, message_id: str = "0",
                           reply_to: dict | None = None,
                           update_id: int | None = None) -> str:
+        from .j2 import TurnContext
+        ctx = TurnContext(person_key=person_key, who=person.key, text=text,
+                          surface=getattr(self, "surface", "telegram"), message_id=str(message_id),
+                          memory_enabled=bool(consent.memory_enabled),
+                          personalization_enabled=bool(getattr(consent, "personalization_enabled", True)),
+                          remote_processing_enabled=bool(consent.remote_processing_enabled))
+        early = await self.j2.pre_route(ctx)
+        if early is not None:
+            return early
+        reply = await self._chat_route_core(person, person_key, text, consent, message_id=message_id,
+                                            reply_to=reply_to, update_id=update_id, j2_ctx=ctx)
+        return await self.j2.post_reply(ctx, reply)
+
+    async def _chat_route_core(self, person: Person, person_key: str, text: str,
+                               consent: ConsentState, message_id: str = "0",
+                               reply_to: dict | None = None,
+                               update_id: int | None = None, j2_ctx=None) -> str:
         who = person.key
         memory_at_start = consent.memory_enabled
         memory_epoch = self._memory_epoch.get(person_key, 0)
@@ -1661,6 +1687,8 @@ class ParticipantRuntime:
                 if state.enabled:
                     messages.append({"role": "system", "content": roleplay_prompt(state)})
             messages.append({"role": "user", "content": text})
+            if j2_ctx is not None:
+                messages = await self.j2.augment(j2_ctx, messages)
             context_chars = sum(len(str(m.get("content", ""))) for m in messages)
             started = time.monotonic()
             try:
