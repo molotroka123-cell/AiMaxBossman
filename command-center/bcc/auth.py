@@ -27,7 +27,8 @@ def _restrict_to_owner(path: Path) -> None:
     атрибут «только чтение», и токен — весь контроль доступа к Command Center —
     читается любым процессом сессии пользователя. Явный owner-only DACL ставит
     icacls: `/inheritance:r` снимает унаследованные разрешения, `/grant:r
-    <user>:F` оставляет доступ только владельцу.
+    <user>:F` оставляет доступ только владельцу (для каталога — `(OI)(CI)F`,
+    иначе дочерние файлы теряют унаследованные права и становятся нечитаемыми).
 
     Близнец bossman_shared/evidence.py::restrict_to_owner; здесь он повторён
     намеренно — auth стартует раньше всего и не должен тянуть чужой пакет.
@@ -39,7 +40,10 @@ def _restrict_to_owner(path: Path) -> None:
     user = os.environ.get("USERNAME") or ""
     domain = os.environ.get("USERDOMAIN") or ""
     principal = f"{domain}\\{user}" if domain and user else (user or "%USERNAME%")
-    argv = ["icacls", str(path), "/inheritance:r", "/grant:r", f"{principal}:F"]
+    # A directory needs an INHERITABLE grant. `/inheritance:r` + a plain `:F` makes Windows strip the inherited entries from
+    # every child that has not been restricted itself yet: those files end up with an empty DACL, unreadable even by the owner.
+    rights = "(OI)(CI)F" if Path(path).is_dir() else "F"
+    argv = ["icacls", str(path), "/inheritance:r", "/grant:r", f"{principal}:{rights}"]
     try:
         proc = subprocess.run(  # noqa: S603 — argv, без строки для оболочки
             argv, capture_output=True, text=True, encoding="utf-8",
