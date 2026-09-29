@@ -138,3 +138,11 @@ def test_health_serves_reply_latency_and_route_status(tmp_path):
     assert beat["reply_latency"]["replies"] == 1
     assert beat["route"]["schema"] == "bossman.pit.model-route/1"
     assert "latency" in beat["stt"] and "latency" in beat["tts"]
+
+
+def test_jeff_window_streams_replies_and_keeps_stop_and_a_plain_fallback():
+    from pathlib import Path
+    js = (Path(__file__).resolve().parents[1] / "ui" / "jeff.js").read_text(encoding="utf-8")
+    assert "/api/jeff/chat/stream" in js and "chatStream(" in js
+    assert "await call('/api/jeff/chat'" in js, "plain endpoint stays as the fallback"
+    assert "chatAbort.abort()" in js and "/api/jeff/stop" in js

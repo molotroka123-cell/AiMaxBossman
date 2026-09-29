@@ -64,7 +64,7 @@ from .model_route import (JEFF_MODEL_ROUTE_SCHEMA, PAYMENT_BLOCK_SECONDS, PAYMEN
                           PRICE_RECHECK_SECONDS, is_payment_required, route_verdict)
 from .ollama_native import LocalOpenAICompatChat, OllamaNativeChatAdapter, is_native_ollama_url
 from .latency import ReplyMetrics
-from .reply_stream import TurnStream, reply_sink
+from .reply_stream import EditPacer, TelegramDraft, TurnStream, reply_sink
 from .resilient_chat import ResilientChat
 from .public_guard import public_guard
 from .roleplay import RolePlayMode, roleplay_prompt
@@ -515,6 +515,10 @@ class ParticipantRuntime:
             else LocalOpenAICompatChat(base_url=settings.local_url) if settings.local_url else None
         )
         self.local_settle_seconds = 0.5
+        # Progressive Telegram replies: at most one edit per interval, first draft after N chars.
+        self.stream_edit_interval = 1.5
+        self.stream_min_chars = 24
+        self.stream_first_chars = 40
         self._resilient: dict[tuple[str, int], ResilientChat] = {}
         self.catalog: dict[str, ModelEndpoint] = {}
         self.catalog_checked_at = 0.0
@@ -982,6 +986,8 @@ class ParticipantRuntime:
                 self.store.finish(update_id, "failed")
                 self.store.scrub_inbox(update_id)
                 continue
+            draft = self._start_draft(fresh, message)
+            sink_token = reply_sink.set(draft.sink if draft is not None else None)
             try:
                 answer = await self._handle_with_notice(fresh, message, update_id=update_id)
             except asyncio.CancelledError:
@@ -1007,10 +1013,14 @@ class ParticipantRuntime:
                         "schema": "bossman.pit.runtime-error/1",
                     })
                 answer = "Произошла ошибка внутри Bossman. Она записана локально; повтор безопасен."
+            finally:
+                reply_sink.reset(sink_token)
             if (self.home / STOP_FLAG).exists():
                 self.store.finish(update_id, "delivery_unknown")
                 raise StopRequested("owner stop flag")
             if not answer:
+                if draft is not None:
+                    await draft.discard()
                 photo_phase = self.store.generation_phase(update_id)
                 if photo_phase in {"sending", "delivery_unknown"}:
                     # Empty is also the success reply. Never let the ordinary
@@ -1022,15 +1032,10 @@ class ParticipantRuntime:
                 continue
             try:
                 rendered = render_jeff_reply(answer)
-                voice_mode = (
-                    (fresh.role == "owner"
-                     and self.store.get("voice_reply:" + fresh.key, False) is True
-                     or participant_profile.read_profile(
-                         self.vault.data_dir, self.vault.key_for_telegram(fresh.user_id))[0]["voice_reply"])
-                    and not str(message.get("text") or "").startswith("/")
-                    and not message.get("_photo") and not message.get("_document")
-                )
+                voice_mode = self._voice_reply_wanted(fresh, message)
                 if voice_mode:
+                    if draft is not None:
+                        await draft.discard()
                     async def make_voice(guarded_text: str) -> bytes:
                         if (fresh.role == "owner"
                                 and os.environ.get("BOSSMAN_PIT_TTS_BACKEND", "piper").lower() == "chatterbox"):
@@ -1071,9 +1076,14 @@ class ParticipantRuntime:
                             fresh, rendered, reply_to_message_id=message.get("_message_id"),
                             parse_mode="HTML")
                 else:
-                    sent_id = await self.telegram.send(
-                        fresh, rendered, reply_to_message_id=message.get("_message_id"),
-                        parse_mode="HTML")
+                    # A progressive preview becomes the final message by one last edit;
+                    # otherwise (or if that edit fails) exactly one ordinary send.
+                    sent_id = (draft.message_id if draft is not None
+                               and await draft.finalize(rendered) else None)
+                    if sent_id is None:
+                        sent_id = await self.telegram.send(
+                            fresh, rendered, reply_to_message_id=message.get("_message_id"),
+                            parse_mode="HTML")
                 if type(sent_id) is not int or sent_id <= 0:
                     raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
                 with contextlib.suppress(OSError):
@@ -1120,6 +1130,36 @@ class ParticipantRuntime:
                 self._pending_photo_memory.pop(
                     (fresh.key, str(message.get("_message_id") or "0")), None)
                 self._finish_update(update_id, "delivery_unknown", fresh)
+
+    def _voice_reply_wanted(self, fresh: Person, message: dict) -> bool:
+        return bool(
+            (fresh.role == "owner"
+             and self.store.get("voice_reply:" + fresh.key, False) is True
+             or participant_profile.read_profile(
+                 self.vault.data_dir, self.vault.key_for_telegram(fresh.user_id))[0]["voice_reply"])
+            and not str(message.get("text") or "").startswith("/")
+            and not message.get("_photo") and not message.get("_document"))
+
+    def _start_draft(self, person: Person, message: dict) -> TelegramDraft | None:
+        """Progressive reply (edit-in-place) for a plain text chat turn, if the transport can
+        edit messages and the owner has not switched it off (BOSSMAN_JEFF_TELEGRAM_STREAM=0)."""
+        if os.environ.get("BOSSMAN_JEFF_TELEGRAM_STREAM", "1").strip().lower() in {
+                "0", "false", "no", "off"}:
+            return None
+        if not callable(getattr(self.telegram, "edit_message", None)):
+            return None
+        text = str(message.get("text") or "")
+        if (not text or text.startswith("/") or message.get("_photo") or message.get("_document")
+                or message.get("_voice") or message.get("_sticker")):
+            return None
+        with contextlib.suppress(Exception):
+            if self._voice_reply_wanted(person, message):
+                return None
+        reply_to = message.get("_message_id")
+        return TelegramDraft(
+            self.telegram, person, reply_to=reply_to if type(reply_to) is int and reply_to > 0 else None,
+            pacer=EditPacer(self.stream_edit_interval, self.stream_min_chars),
+            first_chars=self.stream_first_chars)
 
     async def _handle_with_notice(self, person: Person, message: dict, *,
                                   update_id: int, delay: float = 18.0) -> str:

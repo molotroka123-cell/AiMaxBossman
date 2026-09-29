@@ -76,3 +76,91 @@ class EditPacer:
 
     def mark(self, length: int) -> None:
         self.last_at, self.last_len = self.clock(), length
+
+
+CURSOR = " ▍"
+DRAFT_LIMIT = 3900          # below Telegram's 4096; longer replies are delivered the normal way
+FIRST_DRAFT_MIN_CHARS = 40
+
+
+class TelegramDraft:
+    """Edit-in-place preview of one reply in a private chat.
+
+    * the first visible text becomes ONE message (plain text plus a cursor mark);
+    * later text edits that same message, rate limited by ``EditPacer``;
+    * ``finalize`` turns the draft into the final message with one last edit, so the
+      chat shows a single message and the worker records/delivers it exactly once;
+    * every failure degrades to the ordinary path: a preview error disables previews,
+      a failed final edit deletes the draft so the caller can send normally.
+
+    The preview never carries anything the final reply would not: it is the model's
+    visible text (reasoning is filtered upstream) and goes through the same transport
+    egress guard as any other message.
+    """
+
+    def __init__(self, telegram, person, *, reply_to: int | None, pacer: EditPacer | None = None,
+                 first_chars: int = FIRST_DRAFT_MIN_CHARS):
+        self.telegram, self.person, self.reply_to = telegram, person, reply_to
+        self.pacer = pacer or EditPacer()
+        self.first_chars = first_chars
+        self.message_id: int | None = None
+        self.text = ""
+        self.shown = ""
+        self.disabled = False
+        self.sends = 0
+        self.edits = 0
+
+    async def sink(self, piece: str | None) -> None:
+        if self.disabled:
+            return
+        if piece is None:
+            self.text = ""
+            return
+        self.text += piece
+        visible = self.text[:DRAFT_LIMIT]
+        if len(self.text) > DRAFT_LIMIT:
+            self.disabled = True   # too long for one message: final delivery is the normal path
+            return
+        try:
+            if self.message_id is None:
+                if len(visible) < self.first_chars:
+                    return
+                sent = await self.telegram.send(self.person, visible + CURSOR,
+                                                reply_to_message_id=self.reply_to)
+                if type(sent) is not int or sent <= 0:
+                    self.disabled = True
+                    return
+                self.message_id, self.shown, self.sends = sent, visible, self.sends + 1
+                self.pacer.mark(len(visible))
+            elif visible != self.shown and self.pacer.due(len(visible)):
+                await self.telegram.edit_message(self.person, self.message_id, visible + CURSOR)
+                self.shown, self.edits = visible, self.edits + 1
+                self.pacer.mark(len(visible))
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 — previews are best effort; never break the reply
+            self.disabled = True
+
+    async def finalize(self, rendered: str) -> bool:
+        """True when the draft message now holds ``rendered`` (nothing else to send)."""
+        if self.message_id is None:
+            return False
+        if len(rendered) <= DRAFT_LIMIT:
+            try:
+                await self.telegram.edit_message(self.person, self.message_id, rendered,
+                                                 parse_mode="HTML", final=True)
+                self.edits += 1
+                return True
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001
+                pass
+        await self.discard()
+        return False
+
+    async def discard(self) -> None:
+        """Remove the preview so the ordinary send does not leave a duplicate behind."""
+        message_id, self.message_id = self.message_id, None
+        if message_id is not None:
+            with contextlib.suppress(Exception):
+                await self.telegram.delete_message(self.person, message_id)
