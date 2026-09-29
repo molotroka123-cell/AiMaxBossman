@@ -478,7 +478,7 @@ def os75_failover_is_not_a_hole_in_the_cloud_policy(ctx) -> None:
         aliases={"умная": AliasConfig(name="умная", targets=[
             ModelTarget("местный", "qwen-местный", 10, set()),
             ModelTarget("запасной", "qwen-запасной", 20, set()),
-            ModelTarget("облако", "cloud-big:free", 90, set())])},
+            ModelTarget("openrouter", "cloud-big:free", 90, set())])},
     )
     backends = {name: OpenAIBackend(cfg, transport=httpx.MockTransport(handler))
                 for name, cfg in config.backends.items()}
