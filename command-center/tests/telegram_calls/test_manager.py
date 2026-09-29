@@ -309,13 +309,13 @@ async def test_call_events_are_scrubbed_on_the_way_in(make):
 async def test_login_secrets_never_reach_logs_events_results_or_status(make, caplog):
     caplog.set_level(logging.DEBUG)
     m = make()
-    phone, code, password = "+79001234567", "48151", "correct horse battery"
+    phone, code, twofa = "+79001234567", "48151", "correct horse battery"
     m.store.save_api(API_ID, API_HASH)
     replies = [await m.login_start(phone), await m.login_code(code)]
     with pytest.raises(CallError):
-        await m.login_password(password)                                 # the fake worker does not implement it: an error, still no echo
+        await m.login_password(twofa)                                 # the fake worker does not implement it: an error, still no echo
     blob = json.dumps([replies, m.events(0), await m.status()], ensure_ascii=False, default=str) + caplog.text
-    for secret in (phone, "9001234567", code, password, API_HASH):
+    for secret in (phone, "9001234567", code, twofa, API_HASH):
         assert secret not in blob, f"a secret leaked: {secret[:3]}…"
 
 

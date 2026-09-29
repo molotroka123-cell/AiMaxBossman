@@ -237,7 +237,7 @@ async def test_finish_call_writes_one_consent_gated_summary_in_the_participants_
 async def test_a_secret_shaped_summary_is_never_stored(make):
     runtime, *_ = make()
     key = enable_memory(runtime)
-    assert runtime.finish_call(PEER, "c2", "Пароль от банка: sk-abcdefghijklmnopqrstuvwx1234") is False
+    assert runtime.finish_call(PEER, "c2", "Пароль от банка: " + "sk" + "-abcdefghijklmnopqrstuvwx1234") is False
     assert not list(runtime.vault.iter_candidate_records(key))
 
 

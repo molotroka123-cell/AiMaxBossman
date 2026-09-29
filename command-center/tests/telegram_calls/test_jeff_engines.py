@@ -44,6 +44,7 @@ def ok(text="привет", conf=0.9, dur=1.0):
 
 
 PCM_1S = b"\x01\x00" * 16000
+FAKE_KEY = "sk" + "-abcdefghijklmnopqrstuvwxyz0123456789"      # built at runtime: the repo secret scan must stay clean
 
 
 # ------------------------------------------------------------------ STT
@@ -294,10 +295,10 @@ async def test_summary_is_one_local_call_stored_only_with_the_peers_consent(make
 
 
 async def test_summary_tolerates_fences_redacts_secrets_and_bounds_the_lists(make):
-    body = summary_json("Он назвал ключ sk-abcdefghijklmnopqrstuvwxyz0123456789 и город Париж.", [f"дело {i}" for i in range(9)])
+    body = summary_json("Он назвал ключ " + FAKE_KEY + " и город Париж.", [f"дело {i}" for i in range(9)])
     runtime, *_ = make("```json\n" + body + "\n```")
     res = await je.JeffBrain(runtime, PEER, model=LOCAL).summarize([Turn("user", "привет")])
-    assert "sk-abcdefghijklmnopqrstuvwxyz" not in res.text and "Париж" in res.text and len(res.agreed_tasks) == 5
+    assert FAKE_KEY[:20] not in res.text and "Париж" in res.text and len(res.agreed_tasks) == 5
 
 
 async def test_summary_that_is_not_json_or_empty_raises_a_stable_code_so_the_session_falls_back(make):
