@@ -210,4 +210,3 @@ def identity_checks(settings: Any, home: Path, data_dir: Path, *,
 
     rows.extend(scheduler_checks(own_sha, read_tasks(), code_dir))
     return rows
-

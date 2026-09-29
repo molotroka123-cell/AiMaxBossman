@@ -34,7 +34,7 @@ from .photo_runtime import build_photo_services, photo_runtime_status
 from .runtime import STOP_FLAG, ParticipantRuntime, StopRequested
 
 COMMANDS = ("setup", "status", "doctor", "start", "stop", "routes", "web", "web-user",
-            "web-setup", "passport-checkpoint", "master-parse")
+            "web-setup", "passport-checkpoint", "master-parse", "watch")
 
 
 def _resolve_path(argv: list[str]) -> Path:
@@ -304,8 +304,20 @@ def cmd_status(path: Path) -> int:
     report["media"] = photo_runtime_status(
         build_photo_services(core_token="", data_dir=data_dir).config)
     report["queue"] = {"pending": _queue_pending(home)}
+    from .heartbeat import WATCHDOG_DIR
+    watchdog = _read_json(home / WATCHDOG_DIR / "state.json")
+    report["watchdog"] = ({**watchdog, "alive": _is_running(home / WATCHDOG_DIR)}
+                          if watchdog else {"alive": False})
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if report["config_present"] else 2
+
+
+def _read_json(path: Path):
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def _is_running(home: Path) -> bool:
@@ -537,9 +549,51 @@ def cmd_start(path: Path) -> int:
                 asyncio.run(runtime.close())
 
 
+def cmd_watch(path: Path) -> int:
+    """Supervise ``pit start``: restart with backoff, one poller, clean STOP."""
+    import subprocess
+
+    from .heartbeat import WATCHDOG_DIR, Watchdog
+    settings = load(path)
+    if settings.web_only:
+        print("bossman pit: web-only конфигурация: Telegram-поллера нет.", file=sys.stderr)
+        return 2
+    data_dir = _resolve_data_dir(path)
+    home = pit_home(data_dir)
+    try:
+        guard = single_instance(home / WATCHDOG_DIR)
+        guard.__enter__()
+    except CompanionError as exc:
+        print(f"bossman pit: {exc}", file=sys.stderr)
+        return 3
+
+    def spawn():
+        logs = home / "logs"
+        logs.mkdir(parents=True, exist_ok=True)
+        out = (logs / "poller.out").open("ab")
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+        try:
+            return subprocess.Popen(
+                [sys.executable, "-m", "bcc.pit.cli", "start", "--data-dir", str(data_dir)],
+                stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, creationflags=flags)
+        finally:
+            out.close()
+
+    try:
+        why = Watchdog(home, spawn).run()
+    except KeyboardInterrupt:
+        why = "stopped"
+    finally:
+        guard.__exit__(None, None, None)
+    print(f"bossman pit watch: {why}")
+    return 0 if why in {"stopped", "exited"} else 2
+
+
 def cmd_stop(path: Path) -> int:
     home = pit_home(_resolve_data_dir(path))
-    if _is_running(home):
+    from .heartbeat import WATCHDOG_DIR
+    # A live watchdog must also see the flag while the poller is between restarts.
+    if _is_running(home) or _is_running(home / WATCHDOG_DIR):
         (home / STOP_FLAG).write_text(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                                       encoding="utf-8")
         print("Сигнал остановки записан; PIT завершит цикл опроса в течение ~25 секунд.")
@@ -570,6 +624,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_start(path)
     if command == "stop":
         return cmd_stop(path)
+    if command == "watch":
+        return cmd_watch(path)
     if command == "routes":
         return cmd_routes(path, argv)
     if command == "web-setup":
