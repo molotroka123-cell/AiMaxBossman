@@ -142,6 +142,18 @@ def _sentence_trim(text: str, limit: int) -> str:
     return cut[:limit - 1].rsplit(" ", 1)[0].rstrip(",;:-") + "…"
 
 
+_LABEL = re.compile(r"(?i)^\s*(?:(?:предположение по формулировкам)\s*:\s*)?(?:контекст общения|личность и манера|context|personality)\s*[:\-—]\s*")
+
+
+def _strip_label(text: str) -> str:
+    """The model sometimes repeats the paragraph title inside the text; the title is added by the reader, not the model."""
+    previous = None
+    while previous != text:
+        previous = text
+        text = _LABEL.sub("", text, count=1).strip()
+    return text
+
+
 def parse_paragraphs(text: str) -> dict:
     value = str(text or "").strip()
     start, end = value.find("{"), value.rfind("}")
@@ -150,8 +162,8 @@ def parse_paragraphs(text: str) -> dict:
     data = json.loads(value[start:end + 1])
     if not isinstance(data, dict):
         raise ValueError("narrative answer is not an object")
-    context = _plain(data.get("context"))
-    personality = _plain(data.get("personality"))
+    context = _strip_label(_plain(data.get("context")))
+    personality = _strip_label(_plain(data.get("personality")))
     if not context or not personality:
         raise ValueError("narrative answer lacks a paragraph")
     return {"context": context, "personality": personality}

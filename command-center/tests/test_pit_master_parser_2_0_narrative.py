@@ -317,3 +317,14 @@ def test_thin_data_is_said_plainly_instead_of_refusing(tmp_path):
 def test_a_participant_without_any_text_is_still_insufficient_data(tmp_path):
     from bcc.pit.master_parser import narrative as narr
     assert narr.MIN_PARTICIPANT_MESSAGES == 1
+
+
+def test_titles_repeated_inside_the_model_text_are_removed():
+    from bcc.pit.master_parser import narrative as narr
+    parsed = narr.parse_paragraphs(json.dumps(
+        {"context": "Контекст общения: Пишет о походах.",
+         "personality": "Личность и манера: Судя по формулировкам, прямой."}, ensure_ascii=False))
+    assert parsed == {"context": "Пишет о походах.", "personality": "Судя по формулировкам, прямой."}
+    final = narr.finalize(parsed)
+    assert final["personality"].startswith("Судя по формулировкам") and "Личность и манера" not in final["personality"]
+
