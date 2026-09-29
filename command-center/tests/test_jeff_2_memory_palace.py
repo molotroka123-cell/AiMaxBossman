@@ -488,6 +488,28 @@ def test_pre_route_answers_memory_questions_and_ignores_everything_else(tmp_path
     assert run(m.pre_route(ctx(key, "что ты знаешь " * 60))) is None
 
 
+def test_general_knowledge_questions_are_not_hijacked(tmp_path):
+    vault = make_vault(tmp_path)
+    key = person(vault)
+    add_fact(vault, key, "f1", "люблю кофе")
+    m = module(vault)
+    for text in ("What do you know?", "что ты знаешь про Python", "почему ты думаешь что небо голубое",
+                 "how do you know that", "откуда ты знаешь про Москву"):
+        assert run(m.pre_route(ctx(key, text))) is None, text
+    assert "люблю кофе" in run(m.pre_route(ctx(key, "what do you know about me"))).reply
+    assert "люблю кофе" in run(m.pre_route(ctx(key, "что ты помнишь?"))).reply
+
+
+def test_a_bare_why_refers_to_what_was_just_shown(tmp_path):
+    vault = make_vault(tmp_path)
+    key = person(vault)
+    add_fact(vault, key, "f1", "люблю кофе")
+    m = module(vault)
+    assert run(m.pre_route(ctx(key, "откуда ты это знаешь?"))) is None
+    run(m.augment(ctx(key, "посоветуй кофе")))
+    assert "люблю кофе" in run(m.pre_route(ctx(key, "откуда ты это знаешь?"))).reply
+
+
 def test_pipeline_end_to_end_adds_notes_before_the_user_message(tmp_path):
     vault = make_vault(tmp_path)
     key = person(vault)

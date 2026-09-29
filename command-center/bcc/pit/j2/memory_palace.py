@@ -70,9 +70,11 @@ _SUFFIXES = tuple(sorted((
     "ing", "ed", "es", "s"), key=len, reverse=True))
 
 _KNOW_RE = re.compile(
-    r"(?:что\s+ты\s+(?:знаешь|помнишь|обо\s+мне|про\s+меня)|что\s+ты\s+(?:обо\s+мне|про\s+меня)\s+"
-    r"(?:знаешь|помнишь)|что\s+тебе\s+(?:обо\s+мне\s+)?известно|what\s+do\s+you\s+(?:know|remember)"
-    r"(?:\s+about\s+me)?|what\s+have\s+you\s+(?:got|stored)\s+on\s+me)", re.I)
+    r"(?:что\s+ты\s+(?:уже\s+)?(?:обо\s+мне|про\s+меня)\s+(?:знаешь|помнишь)|"
+    r"что\s+ты\s+(?:уже\s+)?(?:знаешь|помнишь)\s+(?:обо\s+мне|про\s+меня)|что\s+ты\s+(?:уже\s+)?помнишь\s*[?!.]*\s*$|"
+    r"что\s+тебе\s+обо\s+мне\s+известно|what\s+do\s+you\s+(?:know|remember)\s+about\s+me|"
+    r"what\s+have\s+you\s+(?:got|stored)\s+on\s+me)", re.I)
+_SELF_REF = re.compile(r"\b(?:я|мне|меня|мной|мой|моя|моё|мое|мои|мою|моего|моей|my|me|i)\b", re.I)
 _WHY_RE = re.compile(
     r"(?:почему\s+ты\s+(?:так\s+)?(?:думаешь|считаешь|решил|решила|это\s+знаешь)|откуда\s+ты\s+(?:это\s+|про\s+)?"
     r"(?:знаешь|взял|взяла)|на\s+чём\s+(?:это\s+)?основан|why\s+do\s+you\s+think|how\s+do\s+you\s+know)", re.I)
@@ -340,6 +342,10 @@ class MemoryPalace:
         self.counters = {"retrievals": 0, "embed_used": 0, "embed_failed": 0, "views": 0, "why": 0,
                          "denied": 0, "contradictions": 0}
 
+    def has_shown(self, person_key: str) -> bool:
+        """True while this participant has memory items on screen that a bare «почему?» can refer to."""
+        return bool(self._last_shown.get(person_key))
+
     # -- consent gates: read LIVE on every call ------------------------------------------------
     def consent(self, person_key: str):
         return self.vault.consent(person_key)
@@ -590,7 +596,7 @@ class MemoryPalaceModule(BaseModule):
         text = ctx.text.strip()
         if not text or text.startswith("/") or len(text) > 400:
             return None
-        if _WHY_RE.search(text):
+        if _WHY_RE.search(text) and (_SELF_REF.search(text) or self.palace.has_shown(ctx.person_key)):
             return Advice(reply=await self.palace.why_do_i_think(ctx.person_key, text, surface=ctx.surface),
                           tags=("memory_why",))
         if _KNOW_RE.search(text):

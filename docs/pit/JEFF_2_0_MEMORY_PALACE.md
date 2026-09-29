@@ -28,7 +28,9 @@ Retrieval over ONE participant's passport (`facts`, `events`, `style`), read thr
 * "почему ты так думаешь / откуда ты знаешь / how do you know": finds the supporting record (by the clause, or the
   items just shown) and states the basis; style inferences are labelled a guess; no record means an honest
   "unconfirmed".
-* Slash commands are never intercepted.
+* Only self-referential phrasings are intercepted («что ты обо мне знаешь», «почему ты думаешь, что я ...»); a bare
+  «откуда ты это знаешь?» counts only right after memory items were used or shown; general questions such as
+  «what do you know?» go to the model. Slash commands are never intercepted.
 
 ## Consent and obedience
 
