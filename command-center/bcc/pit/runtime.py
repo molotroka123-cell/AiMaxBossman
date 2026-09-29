@@ -861,6 +861,7 @@ class ParticipantRuntime:
         tasks.append(asyncio.create_task(self._poll()))
         tasks.append(asyncio.create_task(self._stop_watcher()))
         tasks.append(asyncio.create_task(self._heartbeat_loop()))
+        tasks.append(asyncio.create_task(self._j2_lifecycle()))
         if self.settings.allowlist_open:
             tasks.append(asyncio.create_task(self._worker_spawner()))
         try:
@@ -902,6 +903,14 @@ class ParticipantRuntime:
             with contextlib.suppress(Exception):
                 write_file(self.heartbeat.path, self.heartbeat_snapshot())
             await asyncio.sleep(HEARTBEAT_SECONDS)
+
+    async def _j2_lifecycle(self) -> None:
+        """Background Jeff 2.0 modules (reminders, insights) run for the life of the poller."""
+        await self.j2.start()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            await self.j2.stop()
 
     async def _stop_watcher(self) -> None:
         """Interrupt a held provider or Telegram call without waiting for long polling."""
