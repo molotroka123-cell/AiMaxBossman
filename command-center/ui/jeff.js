@@ -2,7 +2,9 @@
 // Talks only to /api/jeff/*. No owner Command Center session, token or endpoint.
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-const PREFS_KEY = 'jeff.ux.prefs.v1';
+const PREFS_KEY = 'jeff.ux.prefs.v2'; // v1 stored speak:true for early builds; Jeff speaks only on request
+const LEGACY_PREFS_KEY = 'jeff.ux.prefs.v1';
+const VOICE_REQUEST = /(голос(ом|овым)|озвуч\w*|скаж\w*\s+вслух|вслух|say it aloud|read (it )?aloud|out loud)/i;
 const defaults = { avatar: 'aurora', voice: '', rate: 1, pitch: 1, speak: false };
 
 let prefs = loadPrefs();
@@ -21,6 +23,7 @@ function loadPrefs() {
   try {
     const raw = localStorage.getItem(PREFS_KEY);
     const parsed = raw ? JSON.parse(raw) : null;
+    try { localStorage.removeItem(LEGACY_PREFS_KEY); } catch {}
     return Object.assign({}, defaults, parsed && typeof parsed === 'object' ? parsed : {});
   } catch { return Object.assign({}, defaults); }
 }
@@ -234,7 +237,7 @@ async function sendText(text, via = 'text') {
       () => { live = ''; showLive(); }))
       || await call('/api/jeff/chat', { method: 'POST', json: { text: value, via }, signal: chatAbort.signal });
     pending.replaceWith(bubble('assistant', res.reply, { disclosure: res.disclosure, attachments: res.attachments, stopped: res.stopped }));
-    if (prefs.speak && res.reply && !res.stopped) speak(res.reply);
+    if ((prefs.speak || VOICE_REQUEST.test(value)) && res.reply && !res.stopped) speak(res.reply);
   } catch (err) {
     pending.replaceWith(bubble('assistant', err?.name === 'AbortError' ? 'Остановлено. Можно продолжать.'
       : errorText(err), { stopped: true }));
