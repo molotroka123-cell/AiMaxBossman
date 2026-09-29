@@ -51,6 +51,13 @@ def test_voice_is_local_first_with_text_fallback():
     assert "ответ показан текстом" in js                            # no voice -> text
 
 
+def test_jeff_speaks_only_on_request():
+    js = _read(UI / "jeff.js")
+    assert "speak: false" in js and "speak: true" not in js          # silent by default
+    assert "jeff.ux.prefs.v2" in js                                  # drops the v1 speak:true an early build stored
+    assert "VOICE_REQUEST.test(value)" in js                         # explicit request in the message still speaks
+
+
 def test_replies_are_escaped_not_rendered_as_html():
     js = _read(UI / "jeff.js")
     assert "function formatReply" in js and "escapeHtml(text)" in js
