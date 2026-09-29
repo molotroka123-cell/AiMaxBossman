@@ -170,11 +170,17 @@ class Registry:
         # проверка и тест модели, — и обойти обёртку значит обойти потолок.
         # Обёртка ставится ПОСЛЕ фабрики, поэтому подменённая фабрика (тесты,
         # плагины) от потолка тоже не освобождает.
-        from .provider_governance import GovernedAdapter
+        from .provider_governance import FreeOnlyAdapter, GovernedAdapter, free_only_refusal
         catalog_state = (None if model.get("pricing_known")
                          else await self._catalog_state(model))
-        return GovernedAdapter(capped(self.adapter_factory(model, provider), provider, model),
-                               provider, model, catalog_state=catalog_state), model
+        inner = capped(self.adapter_factory(model, provider), provider, model)
+        # Free-only product runtime: a cloud model that is not provably free
+        # (owner-registered direct provider, priced OpenRouter model) is refused
+        # on chat; health and catalog reads still work.
+        refusal = free_only_refusal(provider, model)
+        if refusal:
+            inner = FreeOnlyAdapter(inner, refusal)
+        return GovernedAdapter(inner, provider, model, catalog_state=catalog_state), model
 
     async def _catalog_state(self, model: dict) -> str | None:
         """Why the price is unknown, from the provider's synchronized catalog.
