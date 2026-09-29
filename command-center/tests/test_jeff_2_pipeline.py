@@ -183,4 +183,3 @@ def test_augment_knows_whether_the_route_is_remote(tmp_path):
     _started(runtime)
     run(runtime.handle(_person(runtime), message("расскажи про мосты", message_id=8)))
     assert seen and all(isinstance(v, bool) for v in seen)
-
