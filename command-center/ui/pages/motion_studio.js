@@ -59,7 +59,7 @@ function jobCard(ctx, job) {
 const MotionStudioPage = {
   id: 'motion-studio',
   title: 'Motion Studio',
-  icon: 'studio',
+  icon: 'bolt',
   nav: 'more',
   section: 'studio',
 
