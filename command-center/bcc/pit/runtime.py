@@ -52,7 +52,7 @@ from .config import PITSettings
 from .cloud_budget import CloudBudget, classify_rate_limit, next_utc_midnight
 from .resources import LocalCapacityGuard, ollama_resident_probe
 from .models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
-from . import participant_profile
+from . import participant_profile, speech
 from .heartbeat import Heartbeat, INTERVAL_SECONDS as HEARTBEAT_SECONDS
 from .participant_context import build_participant_context
 from .photo_commands import photo_intent
@@ -62,7 +62,10 @@ from .photo_runtime import PhotoServices, build_photo_services
 from .presentation import render_jeff_reply, spoken_reply_text
 from .model_route import (JEFF_MODEL_ROUTE_SCHEMA, PAYMENT_BLOCK_SECONDS, PAYMENT_REQUIRED,
                           PRICE_RECHECK_SECONDS, is_payment_required, route_verdict)
-from .ollama_native import OllamaNativeChatAdapter, is_native_ollama_url
+from .ollama_native import LocalOpenAICompatChat, OllamaNativeChatAdapter, is_native_ollama_url
+from .latency import ReplyMetrics
+from .reply_stream import TurnStream, reply_sink
+from .resilient_chat import ResilientChat
 from .public_guard import public_guard
 from .roleplay import RolePlayMode, roleplay_prompt
 from .roleplay_commands import load_roleplay, parse_roleplay_command, set_roleplay
@@ -509,10 +512,13 @@ class ParticipantRuntime:
         self.local_adapter = (
             OllamaNativeChatAdapter(settings.local_url)
             if is_native_ollama_url(settings.local_url)
-            else build_adapter("openai_compat", settings.local_url) if settings.local_url else None
+            else LocalOpenAICompatChat(base_url=settings.local_url) if settings.local_url else None
         )
+        self.local_settle_seconds = 0.5
+        self._resilient: dict[tuple[str, int], ResilientChat] = {}
         self.catalog: dict[str, ModelEndpoint] = {}
         self.catalog_checked_at = 0.0
+        self.reply_metrics = ReplyMetrics()
         self.prices_verified_at = 0.0
         self.route_rejections: dict[str, str] = {}
         self.route_refusal = ""
@@ -698,6 +704,19 @@ class ParticipantRuntime:
             return ()
         return (decision.selected_model, *decision.fallback_chain)
 
+    async def _local_chat(self, adapter, model: str, messages: list[dict], scope: str, **kw):
+        """Local chat with empty-answer detection: one unload+reload+retry per turn, shared
+        across concurrent turns (``ResilientChat``); a still-empty answer is an error."""
+        key = (model, id(adapter))
+        chat = self._resilient.get(key)
+        if chat is None:
+            chat = self._resilient[key] = ResilientChat(
+                adapter, model, settle=self.local_settle_seconds)
+        try:
+            return await chat.chat(messages, scope=scope, **kw)
+        finally:
+            chat.end_scope(scope)
+
     def _recent_p95_ms(self) -> dict[str, int]:
         """Use the existing private route log as measured routing history."""
         path = self.home / "logs" / "route_log.jsonl"
@@ -841,14 +860,18 @@ class ParticipantRuntime:
 
     def heartbeat_snapshot(self, state: str | None = None) -> dict:
         """Secret-free availability record (also served by /api/jeff/health)."""
-        from . import speech
         try:
             queue = int(self.store.db.execute(
                 "SELECT count(*) FROM inbox WHERE phase IN ('pending','processing')").fetchone()[0])
         except Exception:  # noqa: BLE001
             queue = -1
-        return self.heartbeat.snapshot(queue=queue, stt=speech.asr_status(), tts=speech.tts_status(),
-                                       state=state)
+        snapshot = self.heartbeat.snapshot(queue=queue, stt=speech.asr_status(),
+                                           tts=speech.tts_status(), state=state)
+        snapshot["stt"] = {**snapshot["stt"], "latency": speech.latency_snapshot("stt")}
+        snapshot["tts"] = {**snapshot["tts"], "latency": speech.latency_snapshot("tts")}
+        snapshot["reply_latency"] = self.reply_metrics.snapshot()
+        snapshot["route"] = self.model_route_status()
+        return snapshot
 
     async def _heartbeat_loop(self) -> None:
         """A failed beat never stops Jeff (the store is bound to this loop thread)."""
@@ -1026,12 +1049,12 @@ class ParticipantRuntime:
                                 # configured Piper voice answers instead. STOP wins.
                                 if str(exc) == "VOICE_STOPPED":
                                     raise
+                        # Piper by default; the CosyVoice candidate only when the owner's
+                        # flag, files and consent are all present (bcc.pit.tts_engines).
                         return await asyncio.to_thread(
-                            synthesize_ogg, guarded_text,
-                            piper_executable=os.environ.get("BOSSMAN_PIT_TTS_EXECUTABLE", ""),
-                            model_path=os.environ.get("BOSSMAN_PIT_TTS_MODEL_PATH", ""),
-                            ffmpeg_executable=shutil.which("ffmpeg") or "",
+                            speech.run_engines, guarded_text,
                             stopped=lambda: (self.home / STOP_FLAG).exists(),
+                            piper_synth=synthesize_ogg,
                         )
                     try:
                         sent_id = await self.telegram.send_voice(
@@ -1488,6 +1511,9 @@ class ParticipantRuntime:
                           reply_to: dict | None = None,
                           update_id: int | None = None) -> str:
         who = person.key
+        turn_started = time.perf_counter()
+        turn_stream = TurnStream(reply_sink.get())
+        served_by = "local"
         memory_at_start = consent.memory_enabled
         memory_epoch = self._memory_epoch.get(person_key, 0)
         self._register_discovery_reply(person, person_key, text)
@@ -1697,9 +1723,18 @@ class ParticipantRuntime:
                             ensure_local_fallback()
                             result = None
                             break
-                    result = await asyncio.wait_for(adapter.chat(
-                        route_model, messages, max_tokens=limit,
-                        timeout=call_timeout), timeout=call_timeout)
+                    await turn_stream.reset()   # a previous attempt's preview is not this answer
+                    stream_kw = ({"on_delta": turn_stream.on_delta}
+                                 if provider == "local" or turn_stream.sink is not None else {})
+                    if provider == "local":
+                        result = await asyncio.wait_for(self._local_chat(
+                            adapter, route_model, messages, f"{person_key}:{message_id}",
+                            max_tokens=limit, timeout=call_timeout, **stream_kw),
+                            timeout=call_timeout)
+                    else:
+                        result = await asyncio.wait_for(adapter.chat(
+                            route_model, messages, max_tokens=limit,
+                            timeout=call_timeout, **stream_kw), timeout=call_timeout)
                     finish = str(getattr(result, "finish", "stop") or "stop").lower()
                     visible = result.text.strip()
                     incomplete = (finish in {"length", "max_tokens", "max_output_tokens"}
@@ -1738,6 +1773,7 @@ class ParticipantRuntime:
                     result = None
                     continue
                 context = route_context
+                served_by = provider
                 self._log_route(person_key=person_key, model=route_model, provider=provider,
                                 ok=True, latency_ms=int((time.monotonic() - started) * 1000),
                                 context_chars=context_chars,
@@ -1771,6 +1807,8 @@ class ParticipantRuntime:
                                 route_reason=fallback_reason)
                 fallback_reason = "rate_limited" if rate_limited else "chat_failed"
                 result = None
+        if result is None:
+            await turn_stream.reset()
         if result is None and cloud_stopped:
             self.store.put("provider_last_error", "cloud_" + cloud_stopped)
             return CLOUD_PAUSED_RU
@@ -1782,7 +1820,11 @@ class ParticipantRuntime:
             return INCOMPLETE_REPLY_RU if incomplete_seen else PROVIDER_DOWN_RU
         answer = render_jeff_reply(result.text)
         if not answer:
+            await turn_stream.reset()
             return PROVIDER_DOWN_RU
+        total_ms = (time.perf_counter() - turn_started) * 1000.0
+        self.reply_metrics.record(served_by, ttft_ms=turn_stream.ttft_ms or total_ms,
+                                  total_ms=total_ms, streamed=turn_stream.shown)
         if needs_web and web_sources:
             answer += "\n\nИсточники:\n" + "\n".join(f"• {source}" for source in web_sources)
         elif needs_web:

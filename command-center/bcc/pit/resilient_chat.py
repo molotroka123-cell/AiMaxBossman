@@ -45,6 +45,7 @@ class ResilientChat:
         self.on_call = on_call
         self.clock = clock
         self.stats: dict[str, ScopeStats] = {}
+        self.closed = {"calls": 0, "empty_answers": 0, "recoveries": 0}
         self.epoch = 0
         self.unloads = 0
         self.unload_errors = 0
@@ -55,6 +56,15 @@ class ResilientChat:
 
     def latencies(self) -> list[float]:
         return [value for st in self.stats.values() for value in st.latencies]
+
+    def end_scope(self, name: str) -> None:
+        """Forget a finished scope (a long-lived chat route must not grow per turn nor
+        keep a 'degraded' verdict for the next turn); counters are folded into totals."""
+        st = self.stats.pop(name, None)
+        if st is not None:
+            self.closed = {"calls": self.closed["calls"] + st.calls,
+                           "empty_answers": self.closed["empty_answers"] + st.empty_answers,
+                           "recoveries": self.closed["recoveries"] + st.recoveries}
 
     async def _call(self, st: ScopeStats, messages: list[dict], kw: dict):
         st.calls += 1
