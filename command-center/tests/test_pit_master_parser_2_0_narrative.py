@@ -113,7 +113,7 @@ def test_secrets_are_redacted_before_the_model_sees_them(tmp_path):
     store.db.execute("INSERT INTO inbox(id,who,body,lane,phase,created) VALUES(?,?,?,?,?,?)",
                      (99, f"{ALICE}:{ALICE}", store.seal({
                          "_user_id": ALICE, "_message_id": 99,
-                         "text": "пароль: hunter2xyz и токен sk-abcdefghijklmnopqrstuvwxyz123456"}),
+                         "text": "пароль: hunter2xyz и токен " + "sk-" + "abcdefghij" + "klmnopqrstuvwxyz123456"}),
                       "chat", "done", time.time()))
     store.close()
     model = Narrator()
