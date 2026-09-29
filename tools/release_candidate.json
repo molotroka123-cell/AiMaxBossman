@@ -15,7 +15,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из push;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-29-bossman-1.9-final-freeze-1",
+  "candidate_label": "rc-2026-09-29-bossman-1.9-final-freeze-2",
   "declared_for": "claude/bossman-1.9-final-freeze-cert",
   "note": "Bossman 1.9 final-freeze candidate: PR #86 base plus cv/*, Jeff Admin (participant profiles, context, revoke, heartbeat), free-only routing guards, answer token streaming, ClickFix guard, Agentic Rave, Motion Studio UI. This marker requests all mandatory workflows on this exact push. Candidate status is not release approval; Intelligence Preservation stays mandatory and BLOCKED on corpus size; owner live acceptance is separate. Telegram calls are out of scope of this candidate."
 }
