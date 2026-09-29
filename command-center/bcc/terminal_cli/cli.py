@@ -37,7 +37,7 @@ ERROR_EXIT = {"disconnected": EXIT_DISCONNECTED, "auth": EXIT_DISCONNECTED,
 
 TERMINAL_COMMANDS = ("chat", "exec", "status", "events", "result", "resume", "approve", "deny",
                      "pause", "stop", "continue", "list", "keys", "code", "evolution", "repair",
-                     "run", "evolve", "start", "version", "approvals", "tasks", "market")
+                     "run", "evolve", "start", "version", "approvals", "tasks", "market", "call")
 
 
 class UsageError(Exception):
@@ -297,6 +297,20 @@ def build_parser() -> argparse.ArgumentParser:
     mk.add_argument("--minutes", type=float, default=60.0)
     mk.add_argument("--headed", action="store_true")
     mk.add_argument("--keep-frames", type=int, default=0)
+
+    cl = sub.add_parser("call", help="звонки Telegram (второй тестовый аккаунт): login|status|contacts|peer|"
+                                     "dial|hangup|stop|resume|history|doctor|selftest|install|logout")
+    _common(cl)
+    cl.add_argument("sub", choices=("login", "status", "contacts", "peer", "dial", "hangup", "stop", "resume",
+                                    "history", "doctor", "selftest", "install", "logout"))
+    # `call peer <user_id>` — единственный позиционный аргумент; у `dial` собеседника НЕТ вообще.
+    cl.add_argument("user_id", nargs="?", type=int, help="peer: id второго аккаунта (см. `call contacts`)")
+    cl.add_argument("--clear", action="store_true", help="peer: сбросить собеседника")
+    cl.add_argument("--yes", action="store_true", help="peer/install/logout: подтвердить без вопроса")
+    cl.add_argument("--confirm-unknown", action="store_true", dest="confirm_unknown",
+                    help="dial: подтвердить звонок после звонка с неизвестным исходом")
+    cl.add_argument("--limit", type=int, default=20, help="history: сколько записей")
+    _fmt(cl)
 
     sub.add_parser("version", help="версия клиента")
     return p
@@ -833,14 +847,21 @@ def global_stop(client: Client, out: Out) -> int:
     except BossmanError as exc:
         if exc.kind != "not_supported":
             errors.append({"coding": exc.message})
+    calls_stopped = False
+    try:                                   # hang up a live Telegram call and set the call-STOP flag
+        calls_stopped = bool((client.post("/api/telegram/calls/stop") or {}).get("stopped"))
+    except BossmanError as exc:
+        if exc.kind != "not_supported":
+            errors.append({"calls": exc.message})
     rec = record("stop_all", ok=not errors, stopped_tasks=stopped, computer_stopped=bool(
-        (computer or {}).get("stopped")), cancelled_coding_tasks=coding, errors=errors or None,
+        (computer or {}).get("stopped")), cancelled_coding_tasks=coding, calls_stopped=calls_stopped,
+        errors=errors or None,
         exit_code=EXIT_OK if not errors else EXIT_FAIL)
     if out.machine:
         out.json(rec)
     else:
         out.say(f"STOP: задач {len(stopped)}, компьютер {'остановлен' if rec['computer_stopped'] else '—'},"
-                f" coding {len(coding)}" + (f"; ошибки: {len(errors)}" if errors else ""))
+                f" coding {len(coding)}, звонки {'остановлены' if calls_stopped else '—'}" + (f"; ошибки: {len(errors)}" if errors else ""))
     return rec["exit_code"]
 
 
@@ -973,6 +994,14 @@ def cmd_keys(args) -> int:
             return run_keys(client, out, args)
         except (BossmanError, UsageError) as exc:
             return fail(out, exc, what="keys")
+
+
+def cmd_call(args) -> int:
+    from .call import run_call
+    if args.user_id is not None and args.sub != "peer":
+        return fail(Out(args.output_format), UsageError("у этой подкоманды нет позиционных аргументов; "
+                                                        "собеседник задаётся только через `call peer`"), what="call")
+    return _simple(args, lambda client, out: run_call(client, out, args), what="call")
 
 
 def cmd_resume(args) -> int:
