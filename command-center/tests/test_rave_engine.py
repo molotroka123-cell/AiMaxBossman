@@ -234,6 +234,16 @@ async def test_bad_input_is_refused(app):
     assert (await c.get("/api/rave/..%2F..")).status_code == 404
 
 
+async def test_refused_repo_leaves_no_orphan_rave_directory(app):
+    """A create() refused for its repo must not leave a half-made rv-* directory."""
+    c, svc = app
+    root = Path(svc.settings.data_dir) / "rave"
+    before = {p.name for p in root.glob("rv-*")}
+    r = await c.post("/api/rave", json={"prompt": "x", "agents": ["mock:a"], "repo": "C:/Windows"})
+    assert r.status_code in (400, 403)
+    assert {p.name for p in root.glob("rv-*")} == before
+
+
 # ------------------------------------------------------------------ subscription CLIs (stub)
 
 

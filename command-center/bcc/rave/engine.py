@@ -224,15 +224,16 @@ class RaveService:
                 raise RaveError(422, "USAGE", f"--test не разбирается: {exc}") from None
         rid = "rv-" + secrets.token_hex(4)
         d = self._dir(rid)
-        d.mkdir(parents=True)
         if repo:
-            project = await self._confined_repo(repo)
+            project = await self._confined_repo(repo)   # refused before anything is created
             try:
                 base = await asyncio.to_thread(wsx.head_commit, project)
             except wsx.WorkspaceError as exc:
                 raise RaveError(400, "BAD_REPO", f"нет коммита HEAD: {exc}") from None
+            d.mkdir(parents=True)
             scratch = False
         else:
+            d.mkdir(parents=True)
             project = d / "base"
             base = await asyncio.to_thread(wsx.create_scratch_repo, project, prompt)
             scratch = True
