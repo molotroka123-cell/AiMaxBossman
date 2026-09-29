@@ -7,7 +7,7 @@
    ============================================================ */
 
 import { api, listOf } from '../api.js';
-import { h, toastOk, toastError, openModal, input, textarea } from '../components.js';
+import { h, toast, toastOk, toastError, openModal, input, textarea } from '../components.js';
 import { pageHead, panel, errorNote, btn, codeBlock, statusPill } from './_ui.js';
 
 const state = { selected: '' };
@@ -94,8 +94,14 @@ const RavePage = {
     const startForm = panel('Новый рейв', h('div',
       promptEl, agentsEl,
       btn('Запустить', async () => {
+        const prompt = promptEl.value.trim();
+        if (!prompt) {          // no request and no console error for an empty task: say what is missing
+          toast('Сначала введите задачу для агентов', { type: 'info' });
+          promptEl.focus();
+          return;
+        }
         try {
-          const r = await api.raw('/api/rave', { method: 'POST', body: { prompt: promptEl.value, agents: [agentsEl.value] } });
+          const r = await api.raw('/api/rave', { method: 'POST', body: { prompt, agents: [agentsEl.value] } });
           state.selected = r.id; toastOk(`Рейв ${r.id} запущен`);
         } catch (e) { toastError(e); }
         ctx.refresh();

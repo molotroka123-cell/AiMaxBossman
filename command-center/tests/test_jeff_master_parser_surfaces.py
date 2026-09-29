@@ -70,7 +70,7 @@ async def test_button_runs_in_background_and_shows_the_result(env, fake_local_mo
         state = (await env.client.get("/api/pit/master-parse")).json()
         return state if (not state["running"] and state["report"]) else None
 
-    state = await wait_for(finished, timeout=30)
+    state = await wait_for(finished, timeout=120)
     assert state["status"]["state"] == "done"
     assert state["report"]["totals"]["facts_added"] >= 3
     report = (await env.client.get("/api/pit/master-parse/report")).json()

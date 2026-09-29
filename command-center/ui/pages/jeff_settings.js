@@ -11,7 +11,7 @@
    ============================================================ */
 
 import { api } from '../api.js';
-import { h, toastOk, toastError, actionButton, field, textarea, select, input, checkbox, confirmDialog } from '../components.js';
+import { h, toast, toastOk, toastError, actionButton, field, textarea, select, input, checkbox, confirmDialog } from '../components.js';
 import { panel, pageHead, pill } from './_ui.js';
 
 const PRESET_ORDER = ['stock', 'bold', 'warm', 'brief'];
@@ -62,6 +62,10 @@ function scaleEditor(data, initial, prefix, { perUser = false } = {}) {
         const p = data.presets[id];
         if (!p || !Object.keys(p).length) setAll(data.stock_scales, !perUser);
         else setAll({ ...data.stock_scales, ...p }, false);
+        for (const node of presets.querySelectorAll('button[data-preset]')) {
+          node.setAttribute('aria-pressed', node.dataset.preset === id ? 'true' : 'false');
+        }
+        toast(`Пресет «${data.preset_labels[id] || id}» выбран — нажмите «Сохранить», чтобы применить`, { type: 'info' });
       },
     }, data.preset_labels[id] || id)));
   showMark();
