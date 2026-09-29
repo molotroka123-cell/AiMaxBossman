@@ -72,6 +72,9 @@ from .voice import VoiceError, transcribe_telegram_voice
 STOP_FLAG = "stop.flag"
 
 
+MEMORY_PAUSED_WRITE_RU = "Память на паузе: ничего не записываю и не меняю. Включить — /resume_memory."
+
+
 class StopRequested(RuntimeError):
     """Raised by the poll loop when the owner asked for a clean shutdown.
 
@@ -432,6 +435,21 @@ class PITStore(Store):
         if text.startswith("/"):
             return "control"
         return Store.lane(body)
+
+    def lane_full(self, update_id: int, who: str, body: dict) -> bool:
+        """True when ``ingest`` would refuse a NEW update for lack of room.
+
+        The caller then defers the update (offset not advanced) so Telegram
+        redelivers it, instead of acknowledging and silently dropping it.
+        """
+        if update_id < self.get("offset", 0):
+            return False                                # a duplicate: ingest ignores it
+        pending = self.db.execute("SELECT count(*) FROM inbox WHERE phase='pending'").fetchone()[0]
+        lane = self.lane(body)
+        per_user = self.db.execute(
+            "SELECT count(*) FROM inbox WHERE who=? AND lane=? AND phase='pending'",
+            (who, lane)).fetchone()[0]
+        return pending >= 64 or per_user >= 4
 
     def remember(self, who: str, user: str, assistant: str):
         with self.tx():
@@ -852,7 +870,10 @@ class ParticipantRuntime:
                 if not isinstance(updates, list):
                     raise CompanionError("TELEGRAM_UPDATES_INVALID")
                 for update in updates:
-                    self._ingest_update(update)
+                    if self._ingest_update(update) is False:
+                        # Lane full: keep this update and the rest at Telegram, retry shortly.
+                        await asyncio.sleep(1.0)
+                        break
                 delay = 1.0
                 self.heartbeat.note_poll(True)
                 if time.monotonic() - self.catalog_checked_at > self.settings.catalog_refresh_seconds:
@@ -866,7 +887,7 @@ class ParticipantRuntime:
                 await asyncio.sleep(max(1.0, wait))
                 delay = min(delay * 2, 30)
 
-    def _ingest_update(self, update: dict) -> None:
+    def _ingest_update(self, update: dict) -> bool | None:
         update_id = update.get("update_id")
         message = update.get("message")
         if type(update_id) is not int or not isinstance(message, dict):
@@ -889,7 +910,10 @@ class ParticipantRuntime:
                            for k in ("forward_origin", "forward_from", "sender_chat"))):
                 return
             person = Person(user_id=user_id, chat_id=chat_id, role="guest")
+        if person is not None and self.store.lane_full(update_id, person.key, body):
+            return False                                # deferred, not dropped
         self.store.ingest(update_id, person.key if person else None, body)
+        return True
 
     async def _worker(self, person: Person, lane: str) -> None:
         while True:
@@ -1276,6 +1300,8 @@ class ParticipantRuntime:
             if not argument.strip():
                 return "Напиши /forget и что забыть, например: /forget люблю кофе"
             return self._forget(person_key, argument.strip())
+        if command in {"/correct", "/style"} and not consent.memory_enabled:
+            return MEMORY_PAUSED_WRITE_RU
         if command == "/correct":
             return self._correct(person_key, argument.strip())
         if command == "/pause_memory":

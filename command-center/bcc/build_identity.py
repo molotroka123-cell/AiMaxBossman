@@ -105,3 +105,18 @@ def reset_cache() -> None:
     with _lock:
         _cached = None
         _boot_identity = None
+
+
+def data_dir_fingerprint(path: Any) -> str:
+    """Short, non-reversible tag of a data directory.
+
+    Lets Jeff prove that it and the backend use the same data root without the
+    backend publishing a filesystem path on its unauthenticated identity route.
+    """
+    import hashlib
+    import os
+    try:
+        text = str(Path(path).resolve())
+    except OSError:
+        text = str(path)
+    return hashlib.sha256(os.path.normcase(text).encode("utf-8")).hexdigest()[:12]
