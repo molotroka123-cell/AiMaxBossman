@@ -57,7 +57,7 @@ from .photo_pipeline import PhotoPipeline
 from .photo_runtime import PhotoServices, build_photo_services
 from .presentation import render_jeff_reply, spoken_reply_text
 from .ollama_native import OllamaNativeChatAdapter, is_native_ollama_url
-from .public_guard import public_guard
+from .public_guard import JEFF_SELF_DISCLOSURE_REPLY_RU, public_guard, reply_discloses_model
 from .roleplay import RolePlayMode, roleplay_prompt
 from .roleplay_commands import load_roleplay, parse_roleplay_command, set_roleplay
 from .router import ModelEndpoint, NoEligibleRoute, PrivacyClass, RouteRequest, choose_route
@@ -1580,6 +1580,12 @@ class ParticipantRuntime:
         answer = render_jeff_reply(result.text)
         if not answer:
             return PROVIDER_DOWN_RU
+        if reply_discloses_model(answer):
+            # The model spoke as itself (vendor / "LFM от Liquid AI" / "учусь на обратной связи"): never shown to the participant.
+            self._log_route(person_key=person_key, model=route_model, provider=provider, ok=False,
+                            latency_ms=int((time.monotonic() - started) * 1000), context_chars=context_chars,
+                            error="self_disclosure_replaced", route_reason=fallback_reason or "primary")
+            return JEFF_SELF_DISCLOSURE_REPLY_RU
         if needs_web and web_sources:
             answer += "\n\nИсточники:\n" + "\n".join(f"• {source}" for source in web_sources)
         elif needs_web:
