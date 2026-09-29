@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
@@ -13,8 +14,12 @@ DOCTOR = Path(__file__).resolve().parents[3] / "scripts" / "bossman_doctor.py"
 def doctor():
     spec = importlib.util.spec_from_file_location("bossman_doctor_under_test", DOCTOR)
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    sys.modules[spec.name] = mod              # dataclasses look the module up by name
+    try:
+        spec.loader.exec_module(mod)
+        yield mod
+    finally:
+        sys.modules.pop(spec.name, None)
 
 
 def test_the_row_is_registered(doctor):
