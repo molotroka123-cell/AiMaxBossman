@@ -58,11 +58,11 @@ class Rig:
     vad_name: str
     events: list = field(default_factory=list)
 
-    async def speech(self, text: str, seed: int = 1) -> bytes:
-        return await synth_caller_audio(self.engines, text, seed=seed)
+    async def speech(self, text: str, seed: int = 1, gain: float = 1.0) -> bytes:
+        return await synth_caller_audio(self.engines, text, seed=seed, gain=gain)
 
-    async def say(self, text: str, seed: int = 1) -> None:
-        pcm = await self.speech(text, seed)
+    async def say(self, text: str, seed: int = 1, gain: float = 1.0) -> None:
+        pcm = await self.speech(text, seed, gain)
         if isinstance(self.stt, scripted.ScriptedSTT):
             self.stt.expect(text)
         await self.transport.feed_realtime(pcm, CALLER_RATE)
@@ -100,7 +100,7 @@ class Rig:
         self._sent_mark = len(self.transport.sent)
 
 
-async def synth_caller_audio(engines: Any, text: str, *, seed: int = 1) -> bytes:
+async def synth_caller_audio(engines: Any, text: str, *, seed: int = 1, gain: float = 1.0) -> bytes:
     """16 kHz speech for the synthetic caller: the configured TTS when it is a real engine, else espeak-ng, else tones."""
     tts = engines.tts
     if not isinstance(tts, scripted.ToneTTS):
@@ -111,7 +111,10 @@ async def synth_caller_audio(engines: Any, text: str, *, seed: int = 1) -> bytes
     pcm = scripted.espeak_speech(text, rate_hz=CALLER_RATE)
     if pcm is not None:
         return pcm
-    return scripted.tone_speech(max(700, min(4000, len(text) * 70)), rate_hz=CALLER_RATE, seed=seed)
+    # ``gain``: a person cutting in is louder than the far-end echo of our own voice; without espeak-ng (Windows) the
+    # synthetic caller is a tone as quiet as our own output, which the echo guard rightly refuses to call a barge-in.
+    return scripted.tone_speech(max(700, min(4000, len(text) * 70)), rate_hz=CALLER_RATE, seed=seed,
+                                amp=min(0.9, 0.3 * gain))
 
 
 def _speech_kind(engines: Any) -> str:
@@ -196,7 +199,7 @@ async def scenario_barge_in(engines_factory) -> dict:
     speaking = await rig.wait_until(lambda: rig.session.playout.frames_sent > 30, 25)
     await asyncio.sleep(0.4)
     t_speak = time.monotonic()
-    caller = asyncio.get_running_loop().create_task(rig.say("Стоп, скажи другое.", seed=5))
+    caller = asyncio.get_running_loop().create_task(rig.say("Стоп, скажи другое.", seed=5, gain=2.5))
     barged = await rig.wait_until(lambda: rig.session.record.counters["barge_ins"] >= 1, 4)
     cut_ms = round((time.monotonic() - t_speak) * 1000, 1)
     n_at_cut = len(rig.transport.sent)
