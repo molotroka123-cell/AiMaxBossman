@@ -10,6 +10,13 @@ JEFF_IDENTITY_REPLY_RU = (
     "Меня зовут Jeff. Я AI-помощник в экосистеме Bossman. "
     "Я не раскрываю внутреннюю модель, провайдера или маршрутизацию."
 )
+# What Jeff says when the MODEL answered as itself (vendor / model family / "I learn from user feedback"). The system prompt
+# forbids it, but a small local model does not always obey, so the reply side is checked deterministically.
+JEFF_SELF_DISCLOSURE_REPLY_RU = (
+    "Я Jeff, AI-помощник в экосистеме Bossman. Какая модель стоит под капотом, я не раскрываю. "
+    "Сам я на ваших сообщениях не дообучаюсь: веса не меняются, а то, что я помню о вас, "
+    "хранится в вашей памяти и только с вашего согласия. Спросите ещё раз по сути, и я отвечу."
+)
 OWNER_PRIVACY_REPLY_RU = (
     "Я не раскрываю личные данные владельца Bossman или других пользователей."
 )
@@ -123,6 +130,39 @@ _BOSSMAN_RE = re.compile(
     r"^(?:дай|покажи|give|show).*(?:github).*(?:bossman|боссман)?",
     re.I,
 )
+
+
+# --- reply side: the model must never speak as itself ------------------------------------------------------------------
+# Vendor / model-family names are legitimate topics («Anthropic выпустила...», «Qwen хорош для кода»). They are a leak only
+# when the reply is about the ASSISTANT: first person + a name, or the model's own maker / training claimed as Jeff's.
+_VENDORS = (r"openai|anthropic|google|deepmind|meta|mistral|alibaba|qwen|deepseek|liquid(?:\s*ai)?|lfm\d*(?:[.-]\d+)?|"
+            r"microsoft|xai|x\.ai|zhipu|glm|moonshot|kimi|nvidia|cohere|llama|gemma|gemini|gpt[-\w.]*|claude")
+_SENT = r"[^.!?\n]"
+_SELF_MODEL_RE = re.compile(
+    r"(?:\b(?:я|мы|меня|мо[яйеё]|i am|i'm|as an?|как)\b" + _SENT + r"{0,60}?\b(?:" + _VENDORS + r")\b)|"
+    r"(?:\b(?:" + _VENDORS + r")\b" + _SENT + r"{0,40}?\b(?:меня|я был|я была|мо[яйеё]|создал\w*|разработал\w*|обучил\w*)\b)|"
+    r"(?:\b(?:меня|я)\b" + _SENT + r"{0,40}?\b(?:создал\w*|разработал\w*|обучил\w*|обучен\w*|создан\w*|разработан\w*)"
+    + _SENT + r"{0,30}?\b(?:компани\w*|команд\w*|" + _VENDORS + r")\b)",
+    re.I,
+)
+_SELF_LEARNING_RE = re.compile(
+    r"(?:\b(?:я|мы|мои модели|моя модель|модель)\b" + _SENT + r"{0,50}?\b(?:обуча\w+|дообуча\w+|учусь|развива\w+|улучша\w+)\b"
+    + _SENT + r"{0,60}?\b(?:обратн\w+ связ\w+|данн\w+ пользовател\w+|ваш\w+ (?:сообщени|диалог|запрос)\w*|отзыв\w+))|"
+    r"(?:\b(?:i|we)\b" + _SENT + r"{0,40}?\b(?:learn|train|improve)\w*\b" + _SENT + r"{0,40}?\b(?:from|on)\b" + _SENT + r"{0,30}?"
+    r"\b(?:user feedback|your messages|users? data)\b)",
+    re.I,
+)
+
+
+def reply_discloses_model(reply: str) -> bool:
+    """True when a MODEL reply names the assistant's own model/vendor or claims it learns from user feedback.
+
+    Pure and deterministic; the runtime replaces such a reply with ``JEFF_SELF_DISCLOSURE_REPLY_RU``.
+    """
+    value = " ".join(str(reply or "").split())
+    if not value:
+        return False
+    return bool(_SELF_MODEL_RE.search(value) or _SELF_LEARNING_RE.search(value))
 
 
 def public_guard(text: str) -> GuardReply | None:
