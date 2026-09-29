@@ -629,13 +629,40 @@ def check_telemetry_corpus() -> Check:
                  facts={"path": str(path), "records": existing, "env": tm.ENV_ROOT})
 
 
+def check_telegram_calls() -> Check:
+    """Голосовые звонки Telegram (опциональный модуль): всегда PASS или WARN, никогда BLOCKED.
+
+    Звонки выключены по умолчанию и нужны не каждому: отсутствие зависимостей, моделей речи или входа в аккаунт
+    не должно краснить доктор всего продукта. Подробный разбор с советами — `bossman call doctor`.
+    Ни секретов, ни моделей, ни обращений к Telegram здесь нет (только булевы состояния и имена проверок)."""
+    target = Path(os.environ.get("BCC_DATA_DIR") or (REPO / "command-center" / "data")).expanduser()
+    try:
+        sys.path[:0] = [str(REPO / "command-center")]
+        try:
+            from bcc.telegram_calls import doctor as calls_doctor
+            items = calls_doctor.run_checks(target)
+        finally:
+            sys.path.remove(str(REPO / "command-center"))
+    except Exception as exc:  # noqa: BLE001 — модуль необязателен: сбой проверки тоже только WARN
+        return Check("telegram-calls", WARN, f"диагностика звонков не выполнена ({type(exc).__name__})",
+                     "bossman call doctor (после установки опционального модуля звонков)")
+    bad = [i for i in items if i["status"] != PASS]
+    facts = {"checks": {i["id"]: i["status"] for i in items}}
+    if not bad:
+        return Check("telegram-calls", PASS, "модуль звонков готов к проверке владельцем (настоящий звонок не проверялся)",
+                     facts=facts)
+    names = ", ".join(i["id"] for i in bad[:6]) + (" …" if len(bad) > 6 else "")
+    return Check("telegram-calls", WARN, f"звонки Telegram не готовы: {names}",
+                 "bossman call doctor — подробности и что делать; звонки опциональны и выключены по умолчанию", facts)
+
+
 CHECKS: list[Callable[[], Check]] = [
     check_build_identity,
     check_python, check_python_packages, check_bossman_packages, check_node, check_ffmpeg,
     check_state_dir, check_evidence_key, check_journal_anchor, check_browser_runtime,
     check_model_endpoint, check_openai_endpoints, check_media_engine, check_openhands, check_hardware,
     check_windows_specific, check_computer_operator_deps,
-    check_gateway_url, check_cloud_providers, check_telemetry_corpus,
+    check_gateway_url, check_cloud_providers, check_telemetry_corpus, check_telegram_calls,
 ]
 
 

@@ -26,6 +26,8 @@ def main() -> int:
     out = sys.stdout.buffer
     sys.stdout = sys.stderr
     stdin = sys.stdin.buffer
+    from .addons import activate
+    activate(_data_dir())          # python -I ignores PYTHONPATH: make the add-on dir importable first
     from .call.worker import Worker
 
     loop = asyncio.new_event_loop()

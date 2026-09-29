@@ -65,4 +65,38 @@ Loopback transport = plumbing/latency test **without Telegram**; every record ca
 labels it «ТЕСТ БЕЗ TELEGRAM». Fake STT/TTS/LLM in unit tests prove control flow only. Only a real call between
 the two real accounts, on the owner's machine, can produce the PASS for the real two-way conversation.
 
-(Sections `MEMORY`, `OSS`, `LATENCY`, `ACCEPTANCE` are completed as the implementation lands.)
+## MEMORY
+
+After a call ends (`postcall.py`) only a SHORT summary goes to the existing memory service (same path as
+`memory.write`, kind `session`, tags `telegram-call`, `call-<id>`, idempotent file name derived from the call id).
+Agreed tasks become inert drafts (`status="draft"`, `run_now=false`, `client_request_id=call-<id>-t<n>`) that never
+run without the owner's normal approval. No transcript and no audio are stored unless the owner opted in. After STOP
+the summary is mechanical and proposes no tasks; a loopback (self-test) call writes nothing. Nothing new: no second
+memory store.
+
+## OSS (what is adopted, pinned, and how it is installed)
+
+Adopted, not rebuilt: `py-tgcalls==3.0.0` + `ntgcalls==3.0.0` (voice transport), `telethon==1.45.0` (MTProto user
+login), `faster-whisper` (STT, existing `speech` extra), Piper (TTS), Silero VAD through `pysilero-vad`, the
+Telegram companion's own local model routes (brain). The calls packages are the optional extra `calls` in
+`command-center/pyproject.toml`, deliberately OUTSIDE `runtime`, so `tools/windows_bundle_lock.txt` is unchanged.
+The embedded Python has no pip: `bossman call install` (`addons.py`) downloads pinned wheels into
+`<data_dir>/addons/telegram-calls/packages`, only over https from pypi.org / files.pythonhosted.org, verifies sha256
+against OUR pin before unpacking, unpacks path-traversal-safe, is idempotent and owner-triggered only. Artifacts without a
+verified hash are refused, never skipped (currently telethon, pyaes, rsa, pyasn1 are `UNPINNED_NEEDS_HASH`; see
+`OPEN_QUESTIONS.md`). The worker calls `addons.activate(data_dir)` to put that directory on `sys.path` (it runs with
+`-I`). `bossman call doctor` (`doctor.py`) reports every prerequisite as PASS/WARN/BLOCKED with a Russian remedy
+and loads no model; `scripts/bossman_doctor.py` shows the module as PASS or WARN only.
+
+## LATENCY
+
+The metric is end of the interlocutor's speech -> first outgoing PCM frame, per turn and with a per-stage breakdown,
+summarised as p50/p95. `bossman call selftest` (`call/selftest.py`, «ТЕСТ БЕЗ TELEGRAM») exercises the whole
+session on the loopback transport; with real Whisper and Piper it also reports WER, otherwise it runs scripted
+engines and says so. No real-call latency exists yet: see `LATENCY.md` for what was measured (plumbing only) and
+what was not.
+
+## ACCEPTANCE
+
+`ACCEPTANCE.md` is the single PASS/FAIL/BLOCKED/NOT_RUN table with evidence levels and the owner test checklist.
+`CONTINUE.md` names the one next step; `OPEN_QUESTIONS.md` is the owner's non-blocking list.

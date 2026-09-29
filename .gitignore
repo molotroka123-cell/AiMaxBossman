@@ -115,3 +115,7 @@ astra-security-results/
 # Windows-100 gate local evidence
 windows-100-results/
 windows-100-negative/
+
+# Telegram calls: MTProto session files are secrets and never belong in the repo
+*.session
+*.session-journal

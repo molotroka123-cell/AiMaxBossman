@@ -59,6 +59,11 @@ video-interchange = ["opentimelineio>=0.18,<0.19"]
 # paste). Both universal wheels are pinned by SHA256 in the Windows bundle lock;
 # the Windows hash-checking install and actual archive smoke remain release gates.
 terminal = ["prompt_toolkit==3.0.52"]
+# Telegram voice calls (bcc.telegram_calls). Deliberately NOT part of `runtime`: these wheels are not in
+# tools/windows_bundle_lock.txt, and adding them there needs a re-record on the Windows runner. Imports are lazy;
+# without them the module answers DEPENDENCIES_MISSING. The embedded Python (no pip) uses `bossman call install`,
+# which verifies pinned sha256 (bcc/telegram_calls/addons.py).
+calls = ["py-tgcalls==3.0.0", "ntgcalls==3.0.0", "telethon==1.45.0"]
 
 [project.scripts]
 bcc = "bcc.app:main"

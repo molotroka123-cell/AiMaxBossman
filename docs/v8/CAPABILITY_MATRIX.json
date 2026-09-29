@@ -254,6 +254,30 @@
         "docs/final/BUG_LEDGER.md#BL-073"
       ],
       "note": "Харнесс доказан заглушкой. С настоящей моделью не прогонялся: ключа нет."
+    },
+    {
+      "id": "telegram.calls.pipeline",
+      "title": "Голосовые звонки Telegram: аудиотракт, состояния звонка, установщик, доктор, самопроверка (без Telegram)",
+      "state": "IMPLEMENTED_LIVE_PENDING",
+      "evidence": [
+        "command-center/tests/telegram_calls/test_session.py",
+        "command-center/tests/telegram_calls/test_addons.py::test_bad_hash_rejected_and_nothing_unpacked",
+        "command-center/tests/telegram_calls/test_doctor.py::test_stop_flag_blocks_and_clear_passes",
+        "command-center/tests/telegram_calls/test_selftest.py::test_scripted_fallback_end_to_end",
+        "docs/telegram-calls/ACCEPTANCE.md"
+      ],
+      "note": "Проверено на loopback-транспорте и сценарных движках («ТЕСТ БЕЗ TELEGRAM»): проводка и таймеры нашего кода, не качество речи и не настоящий звонок. Реальные Whisper/Piper и py-tgcalls в этом прогоне не участвовали; хеши telethon и его зависимостей не закреплены (UNPINNED_NEEDS_HASH), установщик их отвергает."
+    },
+    {
+      "id": "telegram.calls.live",
+      "title": "Настоящий двусторонний звонок Telegram с двух аккаунтов владельца",
+      "state": "OWNER_REQUIRED",
+      "evidence": [
+        "docs/telegram-calls/ACCEPTANCE.md",
+        "docs/telegram-calls/CONTINUE.md"
+      ],
+      "owner_supplies": "два аккаунта Telegram и ввод на своей машине: api_id/api_hash, номер, код, пароль 2FA, выбор второго аккаунта, ответ на звонок и разговор; модели Whisper и русский голос Piper; установленные py-tgcalls/ntgcalls/telethon",
+      "note": "NOT_RUN. Задержка (p50/p95 за 10+ реплик), разборчивость, эхо и устойчивость (5+ минут) не измерены на живом звонке; цифр в документах нет, пока их не снял владелец."
     }
   ]
 }
