@@ -38,6 +38,15 @@ BEHAVIOR_SCALE_NAMES = (
 def default_behavior_scales() -> dict[str, int]:
     return {name: 5 for name in BEHAVIOR_SCALE_NAMES}
 
+# Models that must never answer a participant as Jeff. liquid/lfm-* (2.6B) ignores the system prompt and announced itself as
+# «LFM от Liquid AI» to participants (owner decision 2026-09-29: out of the stack for good). Matched as an id prefix.
+DENIED_MODEL_PREFIXES: tuple[str, ...] = ("liquid/lfm",)
+
+
+def is_denied_model(model_id: object) -> bool:
+    return isinstance(model_id, str) and model_id.strip().lower().startswith(DENIED_MODEL_PREFIXES)
+
+
 _SECRET_ENV = (
     ("bot_token", "BOSSMAN_PIT_BOT_TOKEN"),
     ("provider_key", "BOSSMAN_PIT_PROVIDER_KEY"),
@@ -143,7 +152,7 @@ class PITSettings:
         from .model_policy import is_banned_model
         banned = [m for m in (*self.chat_models, *self.local_models) if is_banned_model(m)]
         if banned:
-            raise ValueError(f"banned model family (Liquid/LFM) in the model allowlist: {', '.join(banned)}")
+            raise ValueError(f"banned model family (Liquid/LFM, denied for participants) in the model allowlist: {', '.join(banned)}")
         if bool(self.local_url) != bool(self.local_models):
             raise ValueError("local route needs both local_url and local_models")
         if self.local_url:
@@ -264,8 +273,9 @@ def load(path: Path) -> PITSettings:
         raise ValueError("PIT credentials missing identity_salt; run setup")
     for key in (*[k for k, _ in _SECRET_ENV], "identity_salt"):
         data[key] = secrets.get(key, "")
-    data["chat_models"] = tuple(data["chat_models"] if "chat_models" in data
-                                else DEFAULT_FREE_CHAT_MODELS)
+    # A denied model in an old config or backup is dropped, not fatal: Jeff must still start.
+    data["chat_models"] = tuple(m for m in (data["chat_models"] if "chat_models" in data
+                                            else DEFAULT_FREE_CHAT_MODELS) if not is_denied_model(m))
     # Non-secret runtime knobs may be overridden by the environment (owner run
     # helpers), exactly like the companion's env file contract.
     data["local_url"] = os.environ.get("BOSSMAN_PIT_LOCAL_URL", data.get("local_url", "")).strip()
