@@ -104,6 +104,15 @@ def _fable_ledger_off_the_real_machine(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _legacy_paid_cloud_mock_contracts(monkeypatch):
+    """Older contract tests register MOCK priced cloud models (cost/price math).
+
+    Product default is free-only (bcc.provider_governance.free_only_refusal);
+    test_free_only_registry.py deletes this variable and proves the default."""
+    monkeypatch.setenv("BOSSMAN_ALLOW_PAID_CLOUD", "1")
+
+
+@pytest.fixture(autouse=True)
 def _jeff_blocklist_off_the_real_machine(tmp_path, monkeypatch):
     """No test reads the owner's private Jeff block rule.
 

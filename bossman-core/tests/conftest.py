@@ -6,6 +6,15 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def _legacy_paid_cloud_mock_contracts(monkeypatch):
+    """Older gateway contract tests use MOCK paid cloud models (pricing/cost math).
+
+    Product default is free-only (OpenRouter ':free' or local); the dedicated
+    test_gateway_free_only_policy.py deletes this variable and proves the default."""
+    monkeypatch.setenv("BOSSMAN_ALLOW_PAID_CLOUD", "1")
+
+
+@pytest.fixture(autouse=True)
 def _evidence_key_in_tmp(tmp_path, monkeypatch):
     import bossman._shared  # noqa: F401
     from bossman_shared import evidence

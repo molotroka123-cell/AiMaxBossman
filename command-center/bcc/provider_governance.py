@@ -1,6 +1,8 @@
 """Check actual provider locality and price on EVERY inference, including fallback."""
 import math
+import os
 from contextvars import ContextVar
+from urllib.parse import urlsplit
 
 from bossman_shared.privacy import assert_provider_egress
 from .v2.model_router import derive_local
@@ -80,6 +82,62 @@ def unknown_price_message(model: dict, catalog_state: str | None = None) -> str:
     template = _UNKNOWN_PRICE_WHY.get(catalog_state or "")
     return (template.format(name=name) if template
             else "unknown cloud pricing; refresh catalog before inference")
+
+
+ALLOW_PAID_CLOUD_ENV = "BOSSMAN_ALLOW_PAID_CLOUD"
+
+
+def free_only_policy_active() -> bool:
+    """Owner rule: product runtime cloud = OpenRouter ':free' or a free-tier preset, else local.
+
+    Same switch as the core gateway (bossman.gateway.router); it is an explicit
+    operator/test opt-out and is never implied by a registered key or price."""
+    return os.getenv(ALLOW_PAID_CLOUD_ENV, "").strip().lower() not in {"1", "true", "yes"}
+
+
+def _free_preset_hosts() -> frozenset:
+    from .features.free_providers import PRESETS
+    return frozenset((urlsplit(p.base_url).hostname or "").lower() for p in PRESETS.values())
+
+
+def free_only_refusal(provider: dict, model: dict) -> str:
+    """"" when the free-only rule lets this inference through, else why not.
+
+    Local endpoints and the owner-capped Fable boundary (fable_cap, a separate
+    owner-set hard limit) are not judged here. Any other cloud model must be
+    provably free: OpenRouter with a ':free' id, or a model connected through a
+    free-tier preset (caps.free_tier) on that preset's own host. A positive price
+    is refused outright; a 0/0 an owner typed for an arbitrary host is not proof."""
+    from .fable_cap import paid_fable_boundary
+    if (not free_only_policy_active() or is_governed_local(provider, model)
+            or paid_fable_boundary(provider) or is_local_url(provider.get("base_url") or "")):
+        return ""
+    name = str(model.get("name") or model.get("alias") or "?")
+    prices = [v for v in (model.get("price_in"), model.get("price_out"))
+              if isinstance(v, (int, float)) and not isinstance(v, bool)]
+    if any(v > 0 for v in prices):
+        return (f"free-only policy: cloud model {name} has a positive price; only ':free' "
+                f"OpenRouter models, free-tier providers or local models are allowed")
+    host = (urlsplit(provider.get("base_url") or "").hostname or "").lower()
+    if host.endswith("openrouter.ai") and name.endswith(":free"):
+        return ""
+    if (model.get("caps") or {}).get("free_tier") and host in _free_preset_hosts():
+        return ""
+    return (f"free-only policy: cloud model {name} on {host or 'default endpoint'} is not a ':free' "
+            f"OpenRouter model or a connected free-tier provider model")
+
+
+class FreeOnlyAdapter:
+    """Refuses inference (never health/catalog reads) for a non-free cloud model."""
+
+    def __init__(self, adapter, reason: str):
+        self.adapter, self.reason = adapter, reason
+
+    def __getattr__(self, name):
+        return getattr(self.adapter, name)
+
+    async def chat(self, *args, **kwargs):
+        raise ProviderError(self.reason, kind="budget")
 
 
 class GovernedAdapter:

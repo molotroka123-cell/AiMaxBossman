@@ -290,6 +290,9 @@ def cmd_status(path: Path) -> int:
                 report["last_transport_error"] = transport_error
         except (ValueError, TypeError, CompanionError, OSError) as exc:
             report["config_error"] = str(exc)[:200]
+    from . import heartbeat as pit_heartbeat
+    report["heartbeat"] = {"telegram": pit_heartbeat.read(home), "window": pit_heartbeat.read(home / "web"),
+                           "poller_processes": pit_heartbeat.jeff_process_count()}
     report["media"] = photo_runtime_status(
         build_photo_services(core_token="", data_dir=data_dir).config)
     report["queue"] = {"pending": _queue_pending(home)}

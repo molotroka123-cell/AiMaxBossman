@@ -358,6 +358,14 @@ ENV_BACKENDS = (
     ("nvidia", NVIDIA_KEY_ENV, nvidia_backend_config),
 )
 
+PAID_ENV_BACKENDS = frozenset({"zai", "openai", "anthropic", "google", "groq",
+                               "mistral", "together", "nvidia"})
+
+
+def _free_only() -> bool:
+    return os.getenv("BOSSMAN_ALLOW_PAID_CLOUD", "").strip().lower() not in {"1", "true", "yes"}
+
+
 # Все провайдеры, которых умеет собрать шлюз, включая локального.
 PROVIDER_CONFIGS: dict[str, Any] = {
     "openrouter": openrouter_backend_config,
@@ -474,7 +482,13 @@ def load_gateway_config(path: str | Path | None = None) -> GatewayConfig:
     # ещё и правки yaml, о которой в интерфейсе не сказано нигде: ключ принят,
     # моделей нет, причина не названа. Явную запись из yaml (в том числе
     # enabled: false) это не трогает — там решение уже принято оператором.
+    # Owner rule: only OpenRouter (':free' models, enforced in the router) may
+    # appear from a bare key. A stray OPENAI/ANTHROPIC/... key in the environment
+    # must never silently become a paid fallback; those need an explicit yaml entry
+    # plus BOSSMAN_ALLOW_PAID_CLOUD=1.
     for name, key_env, factory in ENV_BACKENDS:
+        if name in PAID_ENV_BACKENDS and _free_only():
+            continue
         if name not in backends and os.getenv(key_env):
             backends[name] = factory()
 

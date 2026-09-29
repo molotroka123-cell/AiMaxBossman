@@ -52,6 +52,8 @@ from .config import PITSettings
 from .cloud_budget import CloudBudget, classify_rate_limit, next_utc_midnight
 from .resources import LocalCapacityGuard, ollama_resident_probe
 from .models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
+from . import participant_profile
+from .heartbeat import Heartbeat, INTERVAL_SECONDS as HEARTBEAT_SECONDS
 from .participant_context import build_participant_context
 from .photo_commands import photo_intent
 from .photo_edit import PhotoEditPipeline
@@ -483,6 +485,7 @@ class ParticipantRuntime:
             resident_probe=(ollama_resident_probe(settings.local_url, settings.local_models)
                             if settings.local_url else None))
         self.surface = "telegram"
+        self.heartbeat = Heartbeat(self.home, "telegram")
         self.cloud = CloudBudget(self.home, settings.cloud_daily_request_budget)
         self.photo_services: PhotoServices = build_photo_services(
             core_token=settings.core_token, data_dir=settings.data_dir)
@@ -587,7 +590,9 @@ class ParticipantRuntime:
             listed = any(row.get("id") == model for row in rows)
             prices = pricing.get(model)
             zero = bool(prices and prices.get("prompt") == 0.0 and prices.get("completion") == 0.0)
-            if listed and zero:
+            # Owner rule: remote Jeff answers only via OpenRouter ':free' models; the live
+            # zero price is verified on top of the name, so a renamed paid model never gets in.
+            if listed and zero and str(model).endswith(":free"):
                 endpoints[model] = ModelEndpoint(
                     id=model, provider=self.settings.provider_base_url,
                     capabilities=frozenset({"chat"}), local=False, available=True,
@@ -755,6 +760,9 @@ class ParticipantRuntime:
             })
         except OSError:
             pass
+        with contextlib.suppress(Exception):
+            self.heartbeat.note_route(model=model, provider=provider, ok=ok,
+                                      latency_ms=latency_ms, error=error)
 
     # -- update loop ----------------------------------------------------------------
     async def run(self) -> None:
@@ -766,6 +774,7 @@ class ParticipantRuntime:
         tasks.append(asyncio.create_task(self._reconcile_generations()))
         tasks.append(asyncio.create_task(self._poll()))
         tasks.append(asyncio.create_task(self._stop_watcher()))
+        tasks.append(asyncio.create_task(self._heartbeat_loop()))
         if self.settings.allowlist_open:
             tasks.append(asyncio.create_task(self._worker_spawner()))
         try:
@@ -782,6 +791,27 @@ class ParticipantRuntime:
             await self.photo_pipeline.cancel_background()
             with contextlib.suppress(OSError):
                 (self.home / STOP_FLAG).unlink(missing_ok=True)
+            with contextlib.suppress(Exception):
+                self.heartbeat.write(state="stopped", queue=0)
+
+    def heartbeat_snapshot(self, state: str | None = None) -> dict:
+        """Secret-free availability record (also served by /api/jeff/health)."""
+        from . import speech
+        try:
+            queue = int(self.store.db.execute(
+                "SELECT count(*) FROM inbox WHERE phase IN ('pending','processing')").fetchone()[0])
+        except Exception:  # noqa: BLE001
+            queue = -1
+        return self.heartbeat.snapshot(queue=queue, stt=speech.asr_status(), tts=speech.tts_status(),
+                                       state=state)
+
+    async def _heartbeat_loop(self) -> None:
+        """A failed beat never stops Jeff (the store is bound to this loop thread)."""
+        from .heartbeat import write_file
+        while True:
+            with contextlib.suppress(Exception):
+                write_file(self.heartbeat.path, self.heartbeat_snapshot())
+            await asyncio.sleep(HEARTBEAT_SECONDS)
 
     async def _stop_watcher(self) -> None:
         """Interrupt a held provider or Telegram call without waiting for long polling."""
@@ -830,10 +860,12 @@ class ParticipantRuntime:
                 for update in updates:
                     self._ingest_update(update)
                 delay = 1.0
+                self.heartbeat.note_poll(True)
                 if time.monotonic() - self.catalog_checked_at > self.settings.catalog_refresh_seconds:
                     await self.refresh_catalog_safe()
             except CompanionError as exc:
                 self.store.put("transport_error", str(exc))
+                self.heartbeat.note_poll(False, str(exc))
                 if str(exc) in {"AUTH_DENIED", "CONFLICT"}:
                     raise
                 wait = exc.retry_after if isinstance(exc, RateLimited) else delay
@@ -923,14 +955,18 @@ class ParticipantRuntime:
             try:
                 rendered = render_jeff_reply(answer)
                 voice_mode = (
-                    fresh.role == "owner"
-                    and self.store.get("voice_reply:" + fresh.key, False) is True
+                    (fresh.role == "owner"
+                     and self.store.get("voice_reply:" + fresh.key, False) is True
+                     or participant_profile.read_profile(
+                         self.vault.data_dir, self.vault.key_for_telegram(fresh.user_id))[0]["voice_reply"])
                     and not str(message.get("text") or "").startswith("/")
                     and not message.get("_photo") and not message.get("_document")
                 )
                 if voice_mode:
                     async def make_voice(guarded_text: str) -> bytes:
-                        if os.environ.get("BOSSMAN_PIT_TTS_BACKEND", "piper").lower() == "chatterbox":
+                        if (fresh.role == "owner"
+                                and os.environ.get("BOSSMAN_PIT_TTS_BACKEND", "piper").lower() == "chatterbox"):
+                            # The cloned voice is the owner's own: guests get the stock Piper voice.
                             try:
                                 return await asyncio.to_thread(
                                     synthesize_cloned_ogg, guarded_text,
@@ -1060,6 +1096,12 @@ class ParticipantRuntime:
     async def handle(self, person: Person, message: dict, *, update_id: int | None = None) -> str | None:
         person_key = self.vault.key_for_telegram(person.user_id)
         text = str(message.get("text", "")).strip()
+
+        # Jeff Admin: the owner's revoke / Telegram-off switch beats every other path.
+        blocked_reason = participant_profile.gate_reply(
+            self.vault.data_dir, person_key, getattr(self, "surface", "telegram"))
+        if blocked_reason is not None:
+            return blocked_reason
 
         if photo_file_id := message.get("_photo"):
             return await self._handle_photo(person, person_key, message, photo_file_id, text)
