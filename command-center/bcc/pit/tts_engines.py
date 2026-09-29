@@ -150,11 +150,13 @@ def selected_engine_name() -> str:
         "cosyvoice", "cosyvoice3"} else "piper"
 
 
-def engine_chain(piper_synth: Callable[..., bytes] | None = None) -> list[TTSEngine]:
+def engine_chain(piper_synth: Callable[..., bytes] | None = None, *,
+                 allow_candidate: bool = True) -> list[TTSEngine]:
     """The engine to try first, then Piper. The candidate is first only when the owner
-    selected it AND it is available; otherwise Piper is the only engine."""
+    selected it AND it is available AND the caller allows it (Telegram guests never do);
+    otherwise Piper is the only engine."""
     piper = PiperEngine(piper_synth)
-    if selected_engine_name() == "cosyvoice":
+    if allow_candidate and selected_engine_name() == "cosyvoice":
         candidate = CosyVoiceCandidate()
         if candidate.status()["available"]:
             return [candidate, piper]

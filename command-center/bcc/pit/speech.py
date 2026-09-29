@@ -195,10 +195,11 @@ def synthesize(answer: str, *, stopped: Callable[[], bool] = lambda: False) -> b
 
 
 def run_engines(text: str, *, stopped: Callable[[], bool] = lambda: False,
-                piper_synth: Callable[..., bytes] | None = None) -> bytes:
+                piper_synth: Callable[..., bytes] | None = None,
+                allow_candidate: bool = True) -> bytes:
     """Speak ``text`` (already guarded) with the selected engine, Piper as the fallback.
     Records TTS latency. Raises ``PiperError`` with a stable code."""
-    chain = tts_engines.engine_chain(piper_synth)
+    chain = tts_engines.engine_chain(piper_synth, allow_candidate=allow_candidate)
     started = time.perf_counter()
     for index, engine in enumerate(chain):
         try:

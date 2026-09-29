@@ -1060,6 +1060,7 @@ class ParticipantRuntime:
                             speech.run_engines, guarded_text,
                             stopped=lambda: (self.home / STOP_FLAG).exists(),
                             piper_synth=synthesize_ogg,
+                            allow_candidate=fresh.role == "owner",
                         )
                     try:
                         sent_id = await self.telegram.send_voice(

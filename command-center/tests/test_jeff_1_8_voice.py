@@ -78,6 +78,21 @@ def test_candidate_is_used_only_when_selected_and_available(tmp_path, monkeypatc
     assert [e.name for e in tts_engines.engine_chain()] == ["cosyvoice3", "piper"]
 
 
+def test_telegram_guests_never_get_the_candidate_voice(tmp_path, monkeypatch):
+    _files(tmp_path, monkeypatch)
+    assert [e.name for e in tts_engines.engine_chain(allow_candidate=False)] == ["piper"]
+    used = []
+
+    def candidate(self, text, *, stopped):
+        used.append("cosyvoice3")
+        return OGG
+    monkeypatch.setattr(CosyVoiceCandidate, "synthesize", candidate)
+    speech.run_engines("Привет", piper_synth=lambda text, **kw: OGG, allow_candidate=False)
+    assert used == []
+    speech.run_engines("Привет", piper_synth=lambda text, **kw: OGG, allow_candidate=True)
+    assert used == ["cosyvoice3"]
+
+
 def test_candidate_synthesis_uses_the_command_contract_and_verifies_the_audio(tmp_path, monkeypatch):
     _files(tmp_path, monkeypatch)
     calls = []
