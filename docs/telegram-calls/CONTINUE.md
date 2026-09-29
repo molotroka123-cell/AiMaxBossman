@@ -1,5 +1,8 @@
 # CONTINUE — one next action
 
+> **STATUS 2026-09-29 — частично устарел.** Верно то, что сказано в `CLAUDE_MASTER_1_9.md` (главнее этого файла): база — линия 1.9 (`feat/bossman-1.9-freeze-20260929`), мозг звонка — Jeff (`bcc/pit/call_surface.py`, не telegram_companion), секреты — Vault в каталоге данных Bossman, API — `/api/telegram/calls/*` (алиас `/api/calls/*`). Реальный двусторонний звонок: NOT_RUN.
+
+
 Branch: `claude/telegram-live-calls-ah9gwl` (base `release/bossman-owner` @ `90a807b`). Master prompt: `CLAUDE_MASTER_1_9.md`.
 
 **Next action:** implement `call/pytgcalls_transport.py` (real private-call transport) and the speech adapters (`speech/stt.py`, `speech/tts.py`,

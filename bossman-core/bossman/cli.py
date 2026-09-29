@@ -25,7 +25,7 @@ from pathlib import Path
 TERMINAL_COMMANDS = frozenset({
     "chat", "exec", "status", "events", "result", "resume", "approve", "deny", "pause", "stop",
     "continue", "list", "keys", "code", "evolution", "repair", "run", "evolve", "start",
-    "version", "approvals", "tasks", "market",
+    "version", "approvals", "tasks", "market", "review", "rate", "call",
 })
 TERMINAL_FLAGS = ("-p", "--print", "--version", "--url", "--data-dir", "--plain", "--agent",
                   "--cwd", "--verbose", "--output-format", "--model", "--max-seconds",
@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(
         prog="bossman",
         epilog="Терминал Bossman 1.2: bossman [chat] | exec | -p \"…\" | status | events | result | "
-               "approve | deny | stop | keys | code … — `bossman chat --help`, docs/owner/TERMINAL.md")
+               "approve | deny | stop | keys | code | call … — `bossman chat --help`, `bossman call --help`, docs/owner/TERMINAL.md")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("serve")

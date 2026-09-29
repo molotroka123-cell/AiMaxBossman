@@ -300,3 +300,51 @@ async def test_a_finished_session_cannot_be_reused_to_dial_again():
     assert t.dial_calls == 1
     again = await asyncio.wait_for(s.run(), 3)          # a second run() on the same object must not ring the phone
     assert t.dial_calls == 1 and again.outcome == Outcome.COMPLETED
+
+
+class HookedBrain(ScriptedBrain):
+    """A brain with the optional session hooks (like ``JeffBrain``)."""
+
+    def __init__(self, *a, fail_hooks=False, **kw):
+        super().__init__(*a, **kw)
+        self.bound, self.finished, self.fail_hooks = [], [], fail_hooks
+
+    def bind_call(self, call_id):
+        self.bound.append(call_id)
+        if self.fail_hooks:
+            raise RuntimeError("hook boom")
+
+    def turn_finished(self, spoken):
+        self.finished.append(spoken)
+        if self.fail_hooks:
+            raise RuntimeError("hook boom")
+
+
+async def test_brain_hooks_bind_the_call_and_report_whether_the_answer_was_actually_spoken():
+    brain = HookedBrain(["Привет. Чем помочь?"])
+    s, t, *_ = build(["привет"], brain=brain)
+    task = await start(s)
+    await say(t, 900); await hush(t, 900)
+    assert await until(lambda: brain.finished == [True], 6)
+    s.hangup(); await task
+    assert brain.bound == ["t-1"]
+
+
+async def test_brain_hook_reports_nothing_spoken_when_the_turn_failed_before_any_sentence():
+    brain = HookedBrain([], fail_times=1)
+    s, t, *_ = build(["привет"], brain=brain)
+    task = await start(s)
+    await say(t, 900); await hush(t, 900)
+    assert await until(lambda: brain.finished == [False], 6)
+    s.hangup(); await task
+
+
+async def test_a_failing_brain_hook_never_takes_the_call_down():
+    brain = HookedBrain(["Хорошо."], fail_hooks=True)
+    s, t, *_ = build(["привет"], brain=brain)
+    task = await start(s)
+    await say(t, 900); await hush(t, 900)
+    assert await until(lambda: brain.finished, 6)
+    assert s.record.state == CallState.ACTIVE
+    s.hangup(); rec = await task
+    assert rec.outcome == Outcome.COMPLETED and any(e.kind == "error" and e.data.get("detail", "").startswith("brain_hook") for e in s.events)

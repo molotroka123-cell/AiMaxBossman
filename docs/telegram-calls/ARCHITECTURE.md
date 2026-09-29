@@ -1,5 +1,8 @@
 # Telegram live calls — architecture
 
+> **STATUS 2026-09-29 — частично устарел.** Верно то, что сказано в `CLAUDE_MASTER_1_9.md` (главнее этого файла): база — линия 1.9 (`feat/bossman-1.9-freeze-20260929`), мозг звонка — Jeff (`bcc/pit/call_surface.py`, не telegram_companion), секреты — Vault в каталоге данных Bossman, API — `/api/telegram/calls/*` (алиас `/api/calls/*`). Реальный двусторонний звонок: NOT_RUN.
+
+
 Status: **IMPLEMENTATION IN A FEATURE BRANCH. NOT INTEGRATED INTO `release/bossman-owner`, NOT CERTIFIED.**
 A real two-way Telegram call has **not** been verified yet (see `ACCEPTANCE.md` for the PASS / FAIL / BLOCKED / NOT_RUN table).
 

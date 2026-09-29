@@ -139,6 +139,7 @@ class CallSession:
             return self.record
         self._used = True
         self._loop = asyncio.get_running_loop()
+        self._brain_hook("bind_call", self.call_id)
         self.transport.set_audio_callback(self._on_transport_audio)
         self.transport.set_event_callback(self._on_transport_event)
         try:
@@ -277,6 +278,16 @@ class CallSession:
                       latency_ms=self.record.as_dict()["latency_ms"])
         finally:
             self._teardown_done.set()
+
+    def _brain_hook(self, name: str, *args) -> None:
+        """Optional brain callbacks (``bind_call`` / ``turn_finished``): a brain without them (scripted) is fine, one that fails
+        in them must never take the call down."""
+        hook = getattr(self.brain, name, None)
+        if callable(hook):
+            try:
+                hook(*args)
+            except Exception:  # noqa: BLE001
+                self.emit("error", code="INTERNAL", detail=f"brain_hook_{name}")
 
     async def _summary(self) -> CallSummary:
         turns = list(self._history)
@@ -647,6 +658,7 @@ class CallSession:
                     self._recent_spoken.append((now, s))
                 m.assistant_chars = sum(len(s) for s in said)
             m.interrupted = m.interrupted or interrupted
+            self._brain_hook("turn_finished", bool(said))      # Jeff learns from the peer's words only if something was spoken
             if not self._stopping and self._outcome is None and self.phase != Phase.LISTENING and not self._utt_open:
                 self._set_phase(Phase.LISTENING)
         if self._end_call_after_speech and not self._stopping and not cancel.cancelled:

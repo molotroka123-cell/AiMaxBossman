@@ -1,5 +1,8 @@
 # Telegram live calls — acceptance table
 
+> **STATUS 2026-09-29 — частично устарел.** Верно то, что сказано в `CLAUDE_MASTER_1_9.md` (главнее этого файла): база — линия 1.9 (`feat/bossman-1.9-freeze-20260929`), мозг звонка — Jeff (`bcc/pit/call_surface.py`, не telegram_companion), секреты — Vault в каталоге данных Bossman, API — `/api/telegram/calls/*` (алиас `/api/calls/*`). Реальный двусторонний звонок: NOT_RUN.
+
+
 Verdicts: **PASS / FAIL / BLOCKED / NOT_RUN**. Level of evidence is stated per row: `unit` (fakes/loopback, pure control-flow),
 `sandbox` (this cloud session: no Telegram, no model weights), `installed` (Bossman installed product), `owner-live` (owner's machine, real accounts).
 A stub, a loopback run or a successful API request is **not** a conversation.

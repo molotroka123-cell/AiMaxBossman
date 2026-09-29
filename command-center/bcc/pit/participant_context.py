@@ -10,6 +10,12 @@ from .behavior_scores import memory_confidence_floor
 from .config import BEHAVIOR_SCALE_NAMES
 
 
+CALL_SPOKEN_STYLE = (
+    "Ты говоришь голосом в телефонном разговоре: отвечай разговорно, одной-двумя короткими фразами, "
+    "без списков, таблиц, ссылок, эмодзи и любой разметки; числа и даты произноси словами. "
+    "Если собеседник прощается, попрощайся и добавь в самом конце метку [конец]. "
+    "Ты ИИ-ассистент: говори это честно, если спросят.")
+
 PIT_ASSISTANT_SYSTEM = (
     "Твоё публичное имя — Jeff. Ты — персональный AI-помощник собеседника в Telegram. "
     "Если спрашивают, кто ты или какая модель сейчас отвечает, называй себя Jeff и не раскрывай "
@@ -102,7 +108,12 @@ def build_participant_context(
     companion profile is consulted here.
     """
     system = PIT_ASSISTANT_SYSTEM
-    if surface == "web":
+    if surface == "call":
+        # A live voice call: spoken, short, no markup. The rules (identity, privacy, boundaries) stay identical.
+        system = (system.replace("собеседника в Telegram", "собеседника в голосовом звонке")
+                  .replace("Для Telegram используй короткие абзацы, списки и умеренный жирный шрифт; не выводи сырые Markdown-таблицы.",
+                           CALL_SPOKEN_STYLE))
+    elif surface == "web":
         # The Jeff window is not Telegram: the model must not tell the
         # participant it is chatting in Telegram. Rules stay identical.
         system = (system.replace("собеседника в Telegram", "собеседника в окне Jeff на компьютере")
@@ -130,7 +141,8 @@ def build_participant_context(
     )
     if selected:
         vault.audit(person_key, "read", actor="jeff", fact_ids=[item.id for item in selected],
-                    categories=[item.category for item in selected])
+                    categories=[item.category for item in selected],
+                    **({"surface": "call"} if surface == "call" else {}))
     return ParticipantContext(
         person_key=person_key,
         system=system,
