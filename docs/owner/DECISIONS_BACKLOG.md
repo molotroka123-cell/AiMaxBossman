@@ -79,3 +79,19 @@ owner, not code.
 19. **ASTRA UI sweep starts a live `bcc.market.collector` (twitch k1m6a)** by clicking
     «▶ Запустить 1.5»; the child outlives the sweep and locks its temp dir (WinError 32).
     Cost: S. Test: sweep finishes with no collector processes left.
+
+## Jeff settings panel (Bossman Command v0.1, workstream C)
+
+20. **Jeff spend caps in the panel have no effect today.** Jeff answers only through
+    verified zero-cost routes, so its configured paid ceiling is $0 and the panel's
+    `usd_per_day`/`usd_per_job` can only lower it (they are wired as `min(configured,
+    panel)` into `CloudBudget.usd_caps()` and the route `max_cost_usd`). If the owner
+    wants a knob that actually bites, the candidate is a lower *request* cap
+    (`cloud_daily_request_budget`) from the panel. Cost: S. Risk: low. Test: panel cap
+    below the config → `CloudBudget.blocked()` returns `daily_budget` earlier.
+21. **Пульт (companion) command for Jeff presets** — skipped under the freeze: the
+    companion has no settings-command pattern to extend. Cost: M. Test: `/jeff_preset
+    bold` from the owner chat only; participants get the unknown-command refusal.
+22. **Telegram display names for Jeff participants** — PIT stores no Telegram names,
+    so the panel labels Telegram participants «Telegram · владелец / участник N».
+    Storing a first name would be new persona data (needs a consent decision).

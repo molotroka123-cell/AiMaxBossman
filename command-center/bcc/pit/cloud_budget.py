@@ -23,6 +23,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 MODEL_COOLDOWN_SECONDS = 120
+# Jeff answers on verified zero-cost routes only: its configured paid-spend
+# ceiling is $0. The owner panel (jeff-settings.json "budgets") can only lower
+# a ceiling, never raise it, so with these defaults the effective cap stays $0.
+CONFIGURED_USD_PER_DAY = 0.0
+CONFIGURED_USD_PER_JOB = 0.0
 PROVIDER_COOLDOWN_SECONDS = 900
 FILE_NAME = "cloud_budget.json"
 LOCK_NAME = "cloud_budget.lock"
@@ -92,10 +97,24 @@ def _process_lock(path: Path):
 class CloudBudget:
     _lock = threading.Lock()
 
-    def __init__(self, home: Path, daily_budget: int):
+    def __init__(self, home: Path, daily_budget: int, *,
+                 usd_per_day: float = CONFIGURED_USD_PER_DAY,
+                 usd_per_job: float = CONFIGURED_USD_PER_JOB):
         self.path = Path(home) / FILE_NAME
         self.lock_path = Path(home) / LOCK_NAME
         self.daily_budget = int(daily_budget)
+        self.configured_usd_per_day = float(usd_per_day)
+        self.configured_usd_per_job = float(usd_per_job)
+
+    def usd_caps(self) -> dict:
+        """Owner panel budgets applied as a stricter cap only (min with the configured one)."""
+        from .jeff_settings import budget_caps
+        return budget_caps(Path(self.path).parent.parent,
+                           configured_usd_per_day=self.configured_usd_per_day,
+                           configured_usd_per_job=self.configured_usd_per_job)
+
+    def max_cost_usd_per_job(self) -> float:
+        return float(self.usd_caps()["effective"]["usd_per_job"])
 
     @contextlib.contextmanager
     def _locked(self):
@@ -171,7 +190,8 @@ class CloudBudget:
                 "cooldown_until": (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(until))
                                    if until > now else None),
                 "models_cooling": sorted(models),
-                "last_stop_reason": data.get("stop_reason")}
+                "last_stop_reason": data.get("stop_reason"),
+                "usd_caps": self.usd_caps()["effective"]}
 
     def blocked(self) -> str:
         """Provider-wide reason cloud may not be used now ('' = allowed).

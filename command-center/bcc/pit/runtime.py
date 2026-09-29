@@ -607,9 +607,17 @@ class ParticipantRuntime:
         with contextlib.suppress(Exception):
             await self.refresh_catalog()
 
+    def _max_cost_usd(self) -> float:
+        """Owner panel budget as a stricter cap only: min(configured $0, panel)."""
+        try:
+            return min(0.0, self.cloud.max_cost_usd_per_job())
+        except Exception:  # noqa: BLE001 — a bad overlay never widens or breaks routing
+            return 0.0
+
     def _free_route(self) -> tuple[str, bool]:
         decision = choose_route(
-            RouteRequest(intent="chat", privacy=PrivacyClass.PERSONAL, max_cost_usd=0.0),
+            RouteRequest(intent="chat", privacy=PrivacyClass.PERSONAL,
+                         max_cost_usd=self._max_cost_usd()),
             [e for e in self.catalog.values() if e.local == self.settings.local_chat_only],
             allow_paid=False, zero_cost_only=True, local_bonus=0.0)
         return decision.selected_model, decision.provider == "local"
@@ -627,7 +635,8 @@ class ParticipantRuntime:
             return ()
         try:
             decision = choose_route(
-                RouteRequest(intent="chat", privacy=PrivacyClass.PERSONAL, max_cost_usd=0.0),
+                RouteRequest(intent="chat", privacy=PrivacyClass.PERSONAL,
+                             max_cost_usd=self._max_cost_usd()),
                 remote, allow_paid=False, zero_cost_only=True, local_bonus=0.0)
         except NoEligibleRoute:
             return ()
