@@ -74,7 +74,7 @@ from .ollama_native import LocalOpenAICompatChat, OllamaNativeChatAdapter, is_na
 from .latency import ReplyMetrics
 from .reply_stream import EditPacer, TelegramDraft, TurnStream, reply_sink
 from .resilient_chat import ResilientChat
-from .public_guard import public_guard
+from .public_guard import JEFF_SELF_DISCLOSURE_REPLY_RU, public_guard, reply_discloses_model
 from .roleplay import RolePlayMode, roleplay_prompt
 from .roleplay_commands import load_roleplay, parse_roleplay_command, set_roleplay
 from .router import ModelEndpoint, NoEligibleRoute, PrivacyClass, RouteRequest, choose_route
@@ -2535,6 +2535,13 @@ class ParticipantRuntime:
             self._set_provider_error("chat_failed")
             self._mark_catalog_dirty()
             return PROVIDER_DOWN_RU
+        if reply_discloses_model(answer):
+            # The model spoke as itself (vendor / "LFM от Liquid AI" / "учусь на обратной связи"): never shown to the participant.
+            self._log_route(person_key=person_key, model=route_model, provider=provider, ok=False,
+                            latency_ms=int((time.monotonic() - started) * 1000), context_chars=context_chars,
+                            error="self_disclosure_replaced", route_reason=fallback_reason or "primary")
+            await turn_stream.reset()  # a streamed draft of it must not stay in the chat either
+            return JEFF_SELF_DISCLOSURE_REPLY_RU
         self._set_provider_error(None)                      # a model answered: the outage is over
         total_ms = (time.perf_counter() - turn_started) * 1000.0
         self.reply_metrics.record(served_by, ttft_ms=turn_stream.ttft_ms or total_ms,
