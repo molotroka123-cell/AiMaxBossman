@@ -223,12 +223,18 @@ class CallTransport(Protocol):
       ``CallError`` with CALL_DECLINED / CALL_BUSY / CALL_NO_ANSWER /
       TELEGRAM_* / PEER_PRIVACY;
     * ``hangup`` is idempotent and safe in any state;
-    * audio is PCM16 mono at ``audio_format.sample_rate`` in BOTH directions;
-    * ``send_audio`` accepts real-time paced frames; ``clear_outgoing`` drops
-      whatever the engine still buffers (barge-in / STOP).
+    * outgoing audio is PCM16 mono at ``audio_format.sample_rate``; ``send_audio`` receives EXACTLY
+      ``frame_ms`` of audio per call (the real engine, ntgcalls, consumes only the first 10 ms of whatever
+      it is given and over-reads shorter data), paced on a wall-clock deadline by the caller; the rate must be
+      a multiple of 100 Hz (22050 Hz crashed the native library);
+    * incoming audio is PCM16 mono at ``rx_sample_rate`` (the real engine can deliver 16 kHz directly);
+    * pushed audio cannot be recalled from the engine, so the caller keeps at most ~1 frame in flight and
+      ``clear_outgoing`` drops whatever the engine still buffers (barge-in / STOP), best effort.
     """
 
-    audio_format: AudioFormat
+    audio_format: AudioFormat        # outgoing PCM format
+    rx_sample_rate: int              # incoming PCM sample rate (Hz)
+    frame_ms: int                    # outgoing frame duration, real-time pacing unit (10 for ntgcalls)
     name: str
 
     async def start(self) -> None: ...

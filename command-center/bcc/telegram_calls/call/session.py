@@ -93,8 +93,8 @@ class CallSession:
         self._active_since: float | None = None
 
         fmt = transport.audio_format
-        self.playout = Playout(self._send_frame, transport.clear_outgoing, sample_rate=fmt.sample_rate, pace=self.cfg.pace,
-                               clock=clock)
+        self.playout = Playout(self._send_frame, transport.clear_outgoing, sample_rate=fmt.sample_rate,
+                               frame_ms=transport.frame_ms, pace=self.cfg.pace, clock=clock)
         self.playout.on_first_frame = self._on_first_frame
         self.playout.on_marker_started = self._on_marker_started
         self.playout.on_frame_sent = self._on_frame_sent
@@ -388,8 +388,7 @@ class CallSession:
 
     # ================================================================== receive path
     async def _rx_loop(self) -> None:
-        fmt = self.transport.audio_format
-        rs = StreamResampler(fmt.sample_rate, ANALYSIS_RATE, quality="MQ")
+        rs = StreamResampler(self.transport.rx_sample_rate, ANALYSIS_RATE, quality="MQ")
         slicer = FrameSlicer(WINDOW_BYTES)
         update_at = 0.0
         while True:

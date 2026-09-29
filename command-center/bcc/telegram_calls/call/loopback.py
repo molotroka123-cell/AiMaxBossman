@@ -24,10 +24,15 @@ from ..types import AudioFormat, CallError, PeerRef, TransportEvent, TransportEv
 class LoopbackTransport:
     name = "loopback"
 
-    def __init__(self, *, sample_rate: int = 48000, ring_s: float = 0.0, dial_error: CallError | None = None,
+    def __init__(self, *, sample_rate: int = 48000, rx_sample_rate: int = 16000, frame_ms: int = 10,
+                 ring_s: float = 0.0, dial_error: CallError | None = None,
                  echo_delay_ms: int = 0, echo_gain: float = 0.0, echo_noise: float = 0.0,
                  clock: Callable[[], float] = time.monotonic):
+        if sample_rate % 100:
+            raise ValueError("the call engine needs a sample rate that is a multiple of 100 Hz")
         self.audio_format = AudioFormat(sample_rate=sample_rate)
+        self.rx_sample_rate, self.frame_ms = rx_sample_rate, frame_ms
+        self._echo_rs = StreamResampler(sample_rate, rx_sample_rate) if sample_rate != rx_sample_rate else None
         self.ring_s, self.dial_error = ring_s, dial_error
         self.echo_delay_ms, self.echo_gain, self.echo_noise = echo_delay_ms, echo_gain, echo_noise
         self._t0 = 0.0
@@ -46,7 +51,7 @@ class LoopbackTransport:
         self._rx_frames: deque[bytes] = deque()          # driver audio waiting for its 20 ms slot
         self._echo_ticks: dict[int, np.ndarray] = {}     # tick index -> echo samples to mix in
         self._line_task: asyncio.Task | None = None
-        self._tick_ms = 20
+        self._tick_ms = frame_ms
 
     # ------------------------------------------------------------ CallTransport
     async def start(self) -> None:
@@ -68,7 +73,7 @@ class LoopbackTransport:
 
     async def _line(self) -> None:
         """The far end's microphone line: one 20 ms frame per tick = driver audio (or silence) + delayed echo."""
-        n = self.audio_format.sample_rate * self._tick_ms // 1000
+        n = self.rx_sample_rate * self._tick_ms // 1000
         tick = 0
         while not self.ended:
             frame = np.zeros(n, dtype=np.float32)
@@ -93,10 +98,12 @@ class LoopbackTransport:
     async def send_audio(self, pcm: bytes) -> None:
         if self.ended or not self.media_up:
             return
+        if len(pcm) != self.audio_format.frame_bytes(self.frame_ms):
+            raise ValueError("send_audio must receive exactly one frame (the real engine over-reads short data)")
         now = self._clock()
         self.sent.append((now, pcm))
         if self.echo_gain > 0 and self.echo_delay_ms > 0:
-            x = to_float(pcm) * self.echo_gain
+            x = to_float(self._echo_rs.process(pcm) if self._echo_rs is not None else pcm) * self.echo_gain
             if self.echo_noise:
                 x = x + self._rng.normal(0, self.echo_noise, x.shape).astype(np.float32)
             k = int(round(((now - self._t0) * 1000.0 + self.echo_delay_ms) / self._tick_ms))
@@ -119,14 +126,14 @@ class LoopbackTransport:
     # ------------------------------------------------------------ driver side (the synthetic interlocutor)
     def inject(self, pcm: bytes) -> None:
         """Audio from the far end's microphone; delivered on the line clock, mixed with any echo."""
-        step = self.audio_format.frame_bytes(self._tick_ms)
+        step = self.rx_sample_rate * self._tick_ms // 1000 * 2
         for i in range(0, len(pcm), step):
             self._rx_frames.append(pcm[i:i + step])
 
     async def feed_realtime(self, pcm: bytes, rate: int, *, pace: float = 1.0) -> None:
         """Play ``pcm`` (PCM16 mono at ``rate``) into the call at real-time speed; returns when it has been delivered."""
-        if rate != self.audio_format.sample_rate:
-            pcm = StreamResampler(rate, self.audio_format.sample_rate).process(pcm, last=True)
+        if rate != self.rx_sample_rate:
+            pcm = StreamResampler(rate, self.rx_sample_rate).process(pcm, last=True)
         self.inject(pcm)
         while self._rx_frames and not self.ended:
             await asyncio.sleep(0.005)
