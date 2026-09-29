@@ -216,3 +216,55 @@ def test_dry_run_and_no_llm_skip_the_narrative_and_save_nothing(tmp_path):
     run(settings_for(tmp_path), model, narrative=True, use_llm=False)
     assert not (tmp_path / "pit-v1.7" / "passport-checkpoints").exists()
     assert model.notes == []
+
+
+def test_status_shows_the_narrative_phase(tmp_path):
+    build_many(tmp_path, ALICE, 5)
+    phases = []
+    asyncio.run(run_master_parse(
+        settings_for(tmp_path), Options(cloud=False, checkpoint=False, narrative=True),
+        adapter=Narrator(), progress=lambda status: phases.append(status["phase"])))
+    assert "narrative" in phases and phases.index("analyze") < phases.index("narrative")
+    from bcc.pit.master_parser.engine import read_status
+    assert read_status(tmp_path)["phase"] == "done"
+
+
+def test_cli_uncensored_profile_and_flags():
+    from bcc.pit.master_parser import cli
+    ns = cli.build_parser().parse_args(["--profile", "uncensored", "--speed-report", "x.json"])
+    assert ns.profile == "uncensored" and ns.narrative is True and ns.speed_report == "x.json"
+    assert cli.build_parser().parse_args(["--no-narrative"]).narrative is False
+    assert cli.build_parser().parse_args(["--narrative"]).narrative is True
+
+
+def test_cli_profile_forces_local_serial_run(tmp_path, monkeypatch):
+    from bcc.pit.master_parser import cli
+    seen = {}
+
+    async def fake_run(settings, options, **kw):
+        seen["options"] = options
+        return {"dry_run": False, "use_llm": True, "participants": [], "totals": {}}
+
+    monkeypatch.setattr(cli, "resolve_settings", lambda config: settings_for(tmp_path))
+    monkeypatch.setattr(cli, "run_master_parse", fake_run)
+    code = cli.cli_main(tmp_path / "config.json", ["--profile", "uncensored", "--concurrency", "4"])
+    options = seen["options"]
+    assert code == 0
+    assert options.model == "bossman-community-qwen-uncensored:latest"
+    assert options.cloud is False and options.concurrency == 1 and options.narrative is True
+
+
+def test_exit_codes_are_honest():
+    from bcc.pit.master_parser.cli import exit_code
+
+    def person(status="OK", pending=3, story="OK"):
+        return {"status": status, "messages_pending": pending, "narrative": {"status": story}}
+
+    ok = {"participants": [person(), person(status="NO_MEMORY_CONSENT", pending=0, story="")]}
+    assert exit_code(ok) == 0
+    assert exit_code({"participants": [person(), person(status="PARTIAL")]}) == 4
+    assert exit_code({"participants": [person(story="FAILED"), person()]}) == 4
+    assert exit_code({"participants": [person(status="LLM_FAILED", story="FAILED")]}) == 5
+    assert exit_code({"participants": [person(status="ERROR")]}) == 5
+    assert exit_code({"dry_run": True, "participants": [person(status="ERROR")]}) == 0
+    assert exit_code({"participants": [person(pending=0, story="INSUFFICIENT_DATA")]}) == 0
