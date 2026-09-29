@@ -27,7 +27,9 @@ from ..secret_filter import redact_secrets
 
 SCHEMA = "bossman.jeff.narrative.v1"
 MAX_PARAGRAPH = 450
-MIN_PARTICIPANT_MESSAGES = 3
+MIN_PARTICIPANT_MESSAGES = 1
+LOW_DATA_MESSAGES = 3          # below this the paragraphs say plainly that the data is thin
+MAX_FINAL_ATTEMPTS = 4
 MIN_CHUNK_CHARS = 1500
 NOTE_CHARS = 700
 MAX_MERGE_LEVELS = 4
@@ -72,7 +74,9 @@ Chat = Callable[..., Awaitable]
 
 
 class NarrativeRejected(ValueError):
-    pass
+    def __init__(self, message: str, stem: str = ""):
+        super().__init__(message)
+        self.stem = stem
 
 
 def narratives_dir(pit: Path) -> Path:
@@ -160,10 +164,24 @@ def check_paragraphs(paragraphs: dict, participant_text: str) -> None:
         low = text.casefold()
         for stem in CLINICAL_STEMS:
             if stem in low:
-                raise NarrativeRejected(f"clinical wording in {name}")
+                raise NarrativeRejected(f"clinical wording in {name}", stem)
         for stem in SENSITIVE_STEMS:
             if stem in low and stem not in said:
-                raise NarrativeRejected(f"sensitive category in {name}")
+                raise NarrativeRejected(f"sensitive category in {name}", stem)
+
+
+def sanitize_paragraphs(paragraphs: dict, participant_text: str) -> dict:
+    """Last resort: drop the sentences that carry a forbidden stem instead of rejecting the whole narrative."""
+    said = participant_text.casefold()
+    banned = [s for s in CLINICAL_STEMS] + [s for s in SENSITIVE_STEMS if s not in said]
+    cleaned = {}
+    for name, text in paragraphs.items():
+        kept = [part for part in re.split(r"(?<=[.!?])\s+", text) if part.strip()
+                and not any(stem in part.casefold() for stem in banned)]
+        if not kept:
+            raise NarrativeRejected(f"nothing left of {name} after removing forbidden wording")
+        cleaned[name] = " ".join(kept)
+    return cleaned
 
 
 def finalize(paragraphs: dict) -> dict:
@@ -222,19 +240,41 @@ async def build_narrative(chat: Chat, timeline: list[dict], *, scope: str, chunk
             f"{i}. {n}" for i, n in enumerate(g, 1)), 700), 900) if len(g) > 1 else g[0]
             for g in groups]
     user = "Заметки по порядку:\n" + "\n".join(f"{i}. {n}" for i, n in enumerate(notes, 1))
-    paragraphs, why = None, ""
-    for attempt in range(2):
-        answer = await ask(FINAL_SYSTEM + (SHORTEN.format(why=why) if why else ""), user, 1200)
+    participant_messages = sum(1 for m in timeline if m["role"] == "participant" and str(m.get("text") or "").strip())
+    low_data = participant_messages < LOW_DATA_MESSAGES
+    system = FINAL_SYSTEM
+    if low_data:
+        system += (f" Данных очень мало ({participant_messages} сообщ. участника): скажи об этом прямо в первом абзаце "
+                   "и не делай выводов о личности, опирайся только на то, что написано.")
+    paragraphs, why, avoid, last = None, "", [], None
+    for attempt in range(MAX_FINAL_ATTEMPTS):
+        extra = ""
+        if why:
+            extra = SHORTEN.format(why=why)
+        if avoid:
+            extra += " Не используй слова с корнями: " + ", ".join(sorted(set(avoid))) + "."
+        answer = await ask(system + extra, user, 1200)
         try:
-            candidate = finalize(parse_paragraphs(answer))
+            candidate = parse_paragraphs(answer)
+            last = candidate
+            candidate = finalize(candidate)
             check_paragraphs(candidate, participant_text)
         except (ValueError, NarrativeRejected) as exc:   # NarrativeRejected is a ValueError
             why = type(exc).__name__ + ": " + str(exc)[:80]
-            if attempt:
-                raise
+            stem = getattr(exc, "stem", "")
+            if stem:
+                avoid.append(stem)
             continue
         paragraphs = candidate
         break
+    if paragraphs is None:
+        if last is None:
+            raise NarrativeRejected("no parsable narrative after retries")
+        paragraphs = finalize(sanitize_paragraphs(last, participant_text))    # sentence-level filter, no new model call
+        check_paragraphs(paragraphs, participant_text)
+    if low_data:
+        paragraphs = dict(paragraphs, context=f"Данных мало ({participant_messages} сообщ.). " + paragraphs["context"])
+        paragraphs["context"] = _sentence_trim(paragraphs["context"], MAX_PARAGRAPH)
     timings["reduce"] = clock() - t2
     timings["first_paragraph"] = clock() - t0
     provenance = dict(provenance, chunks=len(chunks), merge_levels=levels, llm_calls=calls)

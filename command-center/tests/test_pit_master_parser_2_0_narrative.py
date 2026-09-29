@@ -104,7 +104,7 @@ def test_clinical_or_sensitive_guesses_are_rejected_not_saved(tmp_path, bad):
     person = next(p for p in report["participants"] if p.get("narrative"))
     assert person["narrative"]["status"] == "REJECTED"
     assert not (tmp_path / "pit-v1.7" / "passport-checkpoints" / "narratives").exists()
-    assert len(model.finals) == 2, "one bounded rewrite, then honest rejection"
+    assert len(model.finals) == 4, "bounded retries (avoiding the offending stems), then honest rejection"
 
 
 def test_secrets_are_redacted_before_the_model_sees_them(tmp_path):
@@ -268,3 +268,52 @@ def test_exit_codes_are_honest():
     assert exit_code({"participants": [person(status="ERROR")]}) == 5
     assert exit_code({"dry_run": True, "participants": [person(status="ERROR")]}) == 0
     assert exit_code({"participants": [person(pending=0, story="INSUFFICIENT_DATA")]}) == 0
+
+
+def test_a_single_offending_sentence_is_dropped_instead_of_rejecting_the_narrative(tmp_path):
+    build_many(tmp_path, ALICE, 5)
+    model = Narrator(context="Обсуждает гитару и походы. Много пишет о здоровье и лечении. Пишет коротко.")
+    report = run(settings_for(tmp_path), model, narrative=True)
+    person = next(p for p in report["participants"] if p.get("narrative"))
+    assert person["narrative"]["status"] == "OK"
+    text = next(iter(narrative_files(tmp_path).values()))["paragraphs"]["context"]
+    assert "здоровь" not in text and "лечени" not in text and "гитару" in text
+    assert len(model.finals) == 4, "the model was asked again, with the offending stems named, before filtering"
+
+
+def test_retry_names_the_offending_stem_to_the_model(tmp_path):
+    from bcc.pit.master_parser import narrative as narr
+    seen: list[str] = []
+
+    async def chat(messages, **kw):
+        seen.append(messages[0]["content"])
+        if not messages[0]["content"].startswith("По заметкам"):
+            return SimpleNamespace(text="Заметка: походы.", finish="stop")
+        finals_so_far = sum(1 for s in seen if s.startswith("По заметкам"))
+        text = ('{"context": "Пишет о здоровье.", "personality": "Судя по формулировкам, прямой."}'
+                if finals_so_far < 3 else '{"context": "Пишет о походах.", "personality": "Судя по формулировкам, прямой."}')
+        return SimpleNamespace(text=text, finish="stop")
+
+    timeline = [{"role": "participant", "text": f"сообщение {i} про походы", "ts": float(i)} for i in range(6)]
+    record = asyncio.run(narr.build_narrative(chat, timeline, scope="x", chunk_chars=1500))
+    finals = [s for s in seen if s.startswith("По заметкам")]
+    assert record["status"] == "OK" and len(finals) == 3
+    assert "здоровь" in finals[1] and "Не используй слова с корнями" in finals[1]
+
+
+def test_thin_data_is_said_plainly_instead_of_refusing(tmp_path):
+    from bcc.pit.master_parser import narrative as narr
+
+    async def chat(messages, **kw):
+        return SimpleNamespace(text='{"context": "Один вопрос про визы.", "personality": "Судя по формулировкам, прямой."}',
+                               finish="stop")
+
+    timeline = [{"role": "participant", "text": "Как получить визу?", "ts": 1.0}]
+    record = asyncio.run(narr.build_narrative(chat, timeline, scope="x", chunk_chars=1500))
+    assert record["paragraphs"]["context"].startswith("Данных мало (1 сообщ.)")
+    assert len(record["paragraphs"]["context"]) <= 450 and record["paragraphs"]["personality"]
+
+
+def test_a_participant_without_any_text_is_still_insufficient_data(tmp_path):
+    from bcc.pit.master_parser import narrative as narr
+    assert narr.MIN_PARTICIPANT_MESSAGES == 1
