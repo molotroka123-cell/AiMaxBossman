@@ -147,6 +147,24 @@ def _intent_for(query: str) -> str:
     return "general"
 
 
+IDENTITY_REMINDER_RU = (
+    "Напоминание: ты Jeff. Не называй свою модель, разработчика или компанию и не говори, что обучаешься на сообщениях "
+    "или на обратной связи пользователей: твои веса не меняются. Если спрашивают о тебе, отвечай, что ты Jeff, AI-помощник Bossman."
+)
+
+
+def _without_self_disclosure(history: list[dict], model_id: str = "") -> list[dict]:
+    """Drop turns whose assistant reply spoke as the model (and the question it answered)."""
+    kept: list[dict] = []
+    for item in history:
+        if item.get("role") == "assistant" and reply_discloses_model(str(item.get("content", "")), model_id):
+            if kept and kept[-1].get("role") == "user":
+                kept.pop()
+            continue
+        kept.append(item)
+    return kept
+
+
 def _cloud_refusal(answer: str) -> bool:
     """Recognize short provider refusals; substantive answers stay untouched."""
     value = str(answer or "").strip().lower()
@@ -1462,7 +1480,8 @@ class ParticipantRuntime:
             use_saved_context = memory_context_allowed and (
                 not route_is_remote or route_consent.remote_personalization_enabled)
             if use_saved_context:
-                history = self.store.history(who)
+                # A past reply that spoke as the model must not stay in the prompt: a small model repeats what it "said" before.
+                history = _without_self_disclosure(self.store.history(who), route_model)
                 messages += history[-2:] if provider == "local" else history
             if use_saved_context and reply_to and isinstance(reply_to, dict):
                 author = "бот" if reply_to.get("from_bot") else "участник"
@@ -1477,6 +1496,7 @@ class ParticipantRuntime:
                 state = load_roleplay(self.vault, person_key)
                 if state.enabled:
                     messages.append({"role": "system", "content": roleplay_prompt(state)})
+            messages.append({"role": "system", "content": IDENTITY_REMINDER_RU})   # last word before the question (small models)
             messages.append({"role": "user", "content": text})
             context_chars = sum(len(str(m.get("content", ""))) for m in messages)
             started = time.monotonic()
@@ -1580,7 +1600,7 @@ class ParticipantRuntime:
         answer = render_jeff_reply(result.text)
         if not answer:
             return PROVIDER_DOWN_RU
-        if reply_discloses_model(answer):
+        if reply_discloses_model(answer, route_model):
             # The model spoke as itself (vendor / "LFM от Liquid AI" / "учусь на обратной связи"): never shown to the participant.
             self._log_route(person_key=person_key, model=route_model, provider=provider, ok=False,
                             latency_ms=int((time.monotonic() - started) * 1000), context_chars=context_chars,
