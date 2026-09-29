@@ -230,4 +230,3 @@ def isolation_report(vault: PersonaVault) -> dict[str, Any]:
 def profile_view(data_dir: Path, person_key: str) -> dict[str, Any]:
     profile, error = pp.read_profile(data_dir, person_key)
     return {"profile": profile, "error": error}
-
