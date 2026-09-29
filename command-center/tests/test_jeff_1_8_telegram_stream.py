@@ -162,7 +162,8 @@ def test_failed_final_edit_deletes_the_draft_and_sends_once(tmp_path, monkeypatc
 
 
 def test_reply_too_long_for_one_message_is_delivered_the_ordinary_way(tmp_path, monkeypatch):
-    long_chunks = ("длинный абзац текста. " * 20,) * 12          # ~5000 chars
+    # ~5000+ chars; distinct words, because a real answer that loops one sentence is garbage to the Jeff 2.0 model guard
+    long_chunks = tuple(f"Абзац {i}: " + " ".join(f"фраза{i}и{j}" for j in range(45)) + ". " for i in range(12))
     tg = FakeTelegram()
     local = StreamingLocal(chunks=long_chunks, lead=0.0, gap=0.0)
     _, deliveries, history, phase = run_worker(tmp_path, monkeypatch, tg, local=local)
