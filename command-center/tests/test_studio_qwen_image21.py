@@ -37,16 +37,27 @@ def test_qwen_catalog_declares_local_unverified_generation_and_three_references(
     assert "non-commercial" in model["license"]
 
 
-def test_qwen_argv_uses_pinned_vision_encoder_and_no_cloud(tmp_path):
+def test_qwen_text_to_image_argv_omits_the_vision_encoder(tmp_path):
+    # RC19 job 11: txt2img WITH --llm_vision sat 48 min at 5 % on CPU (no GPU use);
+    # the same argv WITHOUT it ran on Vulkan0 (512², 20 steps, 295 s, correct image).
     files = {role: tmp_path / role for role in sdcpp.REQUIRED_ROLES[MODEL_ID]}
     settings = {"width": 256, "height": 256, "steps": 4, "seed": 7}
     argv = sdcpp._argv({"bin": tmp_path / "sd-cli"}, MODEL_ID,
                        GenerationPlane(MODEL_ID, "a blue cube", settings), settings,
                        files, tmp_path / "out.png", None)
-    assert argv[argv.index("--llm_vision") + 1] == str(files["llm_vision"])
+    assert "--llm_vision" not in argv and str(files["llm_vision"]) not in argv
     assert argv[argv.index("--diffusion-model") + 1] == str(files["diffusion"])
     assert argv[argv.index("--llm") + 1] == str(files["llm"])
     assert "--offload-to-cpu" in argv and "-r" not in argv
+
+
+def test_qwen_reference_edit_argv_uses_pinned_vision_encoder(tmp_path):
+    files = {role: tmp_path / role for role in sdcpp.REQUIRED_ROLES[MODEL_ID]}
+    settings = {"width": 256, "height": 256, "steps": 4, "seed": 7}
+    argv = sdcpp._argv({"bin": tmp_path / "sd-cli"}, MODEL_ID,
+                       GenerationPlane(MODEL_ID, "change blue to green", settings, (_reference(),)),
+                       settings, files, tmp_path / "out.png", None)
+    assert argv[argv.index("--llm_vision") + 1] == str(files["llm_vision"])
 
 
 @pytest.mark.asyncio
