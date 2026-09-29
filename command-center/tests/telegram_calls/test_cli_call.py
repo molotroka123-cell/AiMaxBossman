@@ -164,7 +164,8 @@ def test_every_terminal_subparser_name_is_routed_by_the_core_entry_point():
     real = set(next(a for a in cli.build_parser()._subparsers._group_actions).choices)      # cross-check the AST reading
     assert names == real
     assert names <= _core_terminal_set(), sorted(names - _core_terminal_set())
-    assert set(cli.TERMINAL_COMMANDS) == names
+    # `rave` has its own parser (bcc.rave.cli), reached by an early return before the terminal subparsers.
+    assert "rave" in cli.TERMINAL_COMMANDS and set(cli.TERMINAL_COMMANDS) - {"rave"} == names
 
 
 def test_the_ast_check_notices_a_command_missing_from_core():

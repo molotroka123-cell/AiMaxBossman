@@ -31,9 +31,46 @@ _CODE_AFTER_WORD = re.compile(r"(?i)\b(code|код|password|пароль|2fa)\b(
 _TG_BOT = re.compile(r"(?<!\d)\d{6,16}:[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])")
 
 #: principals that may legitimately hold access on Windows (the current user is added at runtime)
-_WIN_ALLOWED = {"nt authority\\system", "system", "builtin\\administrators", "administrators"}
+_WIN_ALLOWED = {"nt authority\\system", "system", "builtin\\administrators", "administrators",
+                "owner rights", "creator owner"}
 _WIN_DENIED = ("everyone", "builtin\\users", "users", "nt authority\\authenticated users", "authenticated users",
                "nt authority\\interactive", "interactive")
+
+
+def _localized_allowed() -> set[str]:
+    """SYSTEM and Administrators as this Windows prints them (Russian: СИСТЕМА / Администраторы), resolved by
+    well-known SID so the check does not depend on the display language. Empty off Windows or on failure."""
+    if os.name != "nt":
+        return set()
+    import ctypes
+    from ctypes import wintypes
+    names: set[str] = set()
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    for sid_type in (22, 26, 71, 27):         # SYSTEM, Administrators, OWNER RIGHTS, CREATOR OWNER
+        try:
+            sid = ctypes.create_string_buffer(68)
+            size = wintypes.DWORD(68)
+            if not advapi.CreateWellKnownSid(sid_type, None, sid, ctypes.byref(size)):
+                continue
+            name, domain = ctypes.create_unicode_buffer(256), ctypes.create_unicode_buffer(256)
+            n, d, use = wintypes.DWORD(256), wintypes.DWORD(256), wintypes.DWORD()
+            if advapi.LookupAccountSidW(None, sid, name, ctypes.byref(n), domain, ctypes.byref(d), ctypes.byref(use)):
+                names.add(name.value.lower())
+                names.add((domain.value + "\\" + name.value).lower())
+        except Exception:  # noqa: BLE001 - best effort; English names still work
+            continue
+    return names
+
+
+def _console_encoding(platform: str | None = None) -> str:
+    """icacls prints in the OEM code page (cp866 on Russian Windows), not UTF-8."""
+    if (platform or os.name) != "nt":
+        return "utf-8"
+    try:
+        import ctypes
+        return f"cp{ctypes.windll.kernel32.GetOEMCP()}"
+    except Exception:  # noqa: BLE001
+        return "utf-8"
 
 
 def redact(text: str, secrets: Iterable[str] = ()) -> str:
@@ -111,7 +148,8 @@ def parse_icacls(output: str, path: str, current_user: str) -> tuple[bool, str]:
         return False, "no ACL entries parsed"
     user = current_user.lower()
     bad = [p for p in principals if any(p == d or p.endswith("\\" + d) for d in _WIN_DENIED)]
-    extra = [p for p in principals if p not in _WIN_ALLOWED and p != user and not p.endswith("\\" + user.split("\\")[-1])]
+    allowed = _WIN_ALLOWED | _localized_allowed()
+    extra = [p for p in principals if p not in allowed and p != user and not p.endswith("\\" + user.split("\\")[-1])]
     if bad:
         return False, "broad principal(s) present: " + ", ".join(sorted(set(bad)))
     if extra:
@@ -132,7 +170,7 @@ def check_owner_only(path: Path) -> AclReport:
         return AclReport(str(path), True, "mode has no group/other bits", "posix")
     user = os.environ.get("USERDOMAIN", "") + "\\" + os.environ.get("USERNAME", "")
     try:
-        proc = subprocess.run(["icacls", str(path)], capture_output=True, text=True, encoding="utf-8",  # noqa: S603
+        proc = subprocess.run(["icacls", str(path)], capture_output=True, text=True, encoding=_console_encoding("nt"),  # noqa: S603
                               errors="replace", timeout=20, check=False)
     except Exception as exc:  # noqa: BLE001
         return AclReport(str(path), False, f"icacls unavailable ({type(exc).__name__})", "nt")

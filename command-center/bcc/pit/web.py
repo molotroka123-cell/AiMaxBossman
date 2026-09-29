@@ -258,6 +258,8 @@ class WebParticipantRuntime(ParticipantRuntime):
         salt = self.vault.identity_salt
         self.vault.key_for_telegram = lambda uid: derive_web_person_key(uid, salt)
         self.surface = "web"
+        from .heartbeat import Heartbeat
+        self.heartbeat = Heartbeat(Path(web_home), "web")
 
     async def close(self) -> None:
         with_suppressed_async = [self._telegram_client.close, self.models.close,
@@ -486,7 +488,12 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
 
     @app.get("/api/jeff/health")
     async def health():
-        return {"ok": True, "voice": {"asr": speech.asr_status(), "tts": speech.tts_status()}}
+        try:
+            beat = rt.heartbeat_snapshot("running")
+        except Exception:  # noqa: BLE001 — health must answer even without a live runtime
+            beat = None
+        return {"ok": True, "voice": {"asr": speech.asr_status(), "tts": speech.tts_status()},
+                "heartbeat": beat}
 
     # -- auth -------------------------------------------------------------------------------
     @app.get("/api/jeff/me")

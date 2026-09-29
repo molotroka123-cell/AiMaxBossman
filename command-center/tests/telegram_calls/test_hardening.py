@@ -174,3 +174,21 @@ def test_diagnostic_bundle_denies_the_calls_secret_files_by_name():
     from bcc.features import diag_bundle
     assert "credentials.enc" in diag_bundle.DENY_NAMES
     assert any(x.endswith(".session") for x in diag_bundle.DENY_SUFFIXES)
+
+
+def test_localized_well_known_accounts_are_accepted_but_a_foreign_one_still_fails(monkeypatch):
+    """Russian Windows prints the SYSTEM/Administrators accounts in Russian: they must not make the doctor BLOCKED."""
+    monkeypatch.setattr(h, "_localized_allowed", lambda: {"nt authority\\система", "builtin\\администраторы"})
+    ru = (ICACLS_OK.replace("NT AUTHORITY\\SYSTEM", "NT AUTHORITY\\СИСТЕМА")
+          .replace("BUILTIN\\Administrators", "BUILTIN\\Администраторы"))
+    assert h.parse_icacls(ru, PATH, "WIN\\asd") == (True, "owner-only ACL")
+    foreign = ru + "                                        WIN\\guest:(R)\n"
+    ok, detail = h.parse_icacls(foreign, PATH, "WIN\\asd")
+    assert ok is False and "guest" in detail
+
+
+def test_icacls_output_is_decoded_with_the_console_code_page():
+    import codecs
+    name = h._console_encoding("nt")
+    assert name and codecs.lookup(name)          # a real codec (OEM page on Windows), never an empty name
+    assert h._console_encoding("posix") == "utf-8"

@@ -21,6 +21,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "memory": ("/memory <запрос>", "поиск по памяти и фактам"),
     "diff": ("/diff [coding-task-id]", "diff последней coding-задачи"),
     "code": ("/code --allow <путь> [--verify <тест>] <задача>", "coding task через coding path"),
+    "rave": ("/rave \"<задача>\" --agents a,b | status|pause|resume|stop|diff <id>", "Agentic Rave: несколько агентов на один prompt"),
     "approve": ("/approve [id]", "одобрить ожидающее разрешение"),
     "deny": ("/deny [id]", "отклонить ожидающее разрешение"),
     "approvals": ("/approvals", "ожидающие разрешения"),
