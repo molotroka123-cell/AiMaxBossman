@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from dataclasses import dataclass
 
@@ -36,6 +37,23 @@ def direct_target(alias: str) -> tuple[str, str] | None:
     if alias == glm_model_id():
         return "zai", alias
     return None
+
+
+ALLOW_PAID_CLOUD_ENV = "BOSSMAN_ALLOW_PAID_CLOUD"
+
+
+def free_only_policy_active() -> bool:
+    """Owner rule for product runtime: cloud = OpenRouter ':free' only, else local.
+
+    The opt-out exists for explicit operator/test contexts; it is never implied
+    by the presence of a provider key in the environment."""
+    return os.getenv(ALLOW_PAID_CLOUD_ENV, "").strip().lower() not in {"1", "true", "yes"}
+
+
+def cloud_route_allowed(backend_name: str, model: str, is_cloud: bool) -> bool:
+    if not is_cloud or not free_only_policy_active():
+        return True
+    return backend_name == "openrouter" and str(model).endswith(":free")
 
 
 @dataclass(slots=True)
@@ -90,6 +108,7 @@ class ModelRouter:
         candidates = []
         skipped_open: list[str] = []
         dropped_cloud = False
+        dropped_paid = False
         for t in sorted(cfg.targets, key=lambda x: x.priority):
             backend = self.backends.get(t.backend)
             if not backend:
@@ -100,6 +119,9 @@ class ModelRouter:
             if is_cloud and not cloud_allowed:
                 dropped_cloud = True
                 continue        # облачная цель при запрете облака — мимо, не в сеть
+            if not cloud_route_allowed(t.backend, t.model, is_cloud):
+                dropped_paid = True
+                continue        # не ':free' на OpenRouter — платный/чужой облачный путь запрещён
             if not backend.breaker.allow_attempt():
                 # Разомкнутый автомат: цель ПРОПУСКАЕТСЯ, а не деприоритизируется
                 # (иначе каждый запрос снова платит её полный таймаут). В
@@ -112,6 +134,10 @@ class ModelRouter:
                 raise CloudPolicyDenied(
                     f"алиас '{alias}' обслуживается только облаком, а облачная "
                     f"политика это запрещает — данные не отправлены")
+            if dropped_paid:
+                raise CloudPolicyDenied(
+                    f"алиас '{alias}': облачные цели не ':free' на OpenRouter — "
+                    f"платный/прямой облачный путь запрещён (только :free или локально)")
             if skipped_open:
                 raise CircuitOpenError(
                     f"все цели алиаса '{alias}' разомкнуты автоматом "
@@ -140,6 +166,10 @@ class ModelRouter:
             raise CloudPolicyDenied(
                 f"модель '{alias}' обслуживается только облаком ({backend_name}), "
                 f"а облачная политика это запрещает — данные не отправлены")
+        if not cloud_route_allowed(backend_name, model, is_cloud):
+            raise CloudPolicyDenied(
+                f"модель '{alias}' ({backend_name}) не ':free' на OpenRouter — "
+                f"платный облачный путь запрещён (только :free или локально)")
         if not backend.breaker.allow_attempt():
             raise CircuitOpenError(
                 f"бэкенд '{backend_name}' разомкнут автоматом — отказ сразу")
