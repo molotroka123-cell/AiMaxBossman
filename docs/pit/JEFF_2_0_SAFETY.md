@@ -36,6 +36,8 @@ they stay in the audit file. The same participant and category escalate at most 
 * Deterministic: `analyze(text)` is a pure function; the module never calls a model or the network.
 * Turns flagged `ctx.extra["owner"] = True` are never moderated.
 * `BOSSMAN_JEFF_J2_SAFETY=off` disables only this module; `BOSSMAN_JEFF_J2=off` disables the whole layer.
+* `BOSSMAN_JEFF_J2_SAFETY_RATE_MAX` and `BOSSMAN_JEFF_J2_SAFETY_FLOOD_MAX` tune the rate limits (positive integers; junk
+  falls back to the defaults). Machine-speed replays such as `tests/test_pit_laptop_replay.py` raise them.
 
 ## Status keys
 

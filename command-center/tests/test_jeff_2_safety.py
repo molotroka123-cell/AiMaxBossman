@@ -445,6 +445,20 @@ def test_create_derives_paths_and_salt_from_the_runtime(tmp_path):
     assert module.name == "safety" and module.order == 10
 
 
+def test_create_reads_rate_limit_overrides_from_the_environment(monkeypatch):
+    monkeypatch.setenv(sf.RATE_MAX_ENV, "2")
+    module = sf.create(SimpleNamespace())
+    out = [run(module.pre_route(ctx(f"вопрос {i}", mid=str(i)))) for i in range(4)]
+    assert out[1] is None and out[2] is not None
+
+
+def test_junk_rate_limit_override_falls_back_to_the_default(monkeypatch):
+    monkeypatch.setenv(sf.RATE_MAX_ENV, "many")
+    monkeypatch.setenv(sf.FLOOD_MAX_ENV, "-3")
+    module = sf.create(SimpleNamespace())
+    assert module._rate_max == sf.RATE_MAX_MESSAGES and module._flood_max == sf.FLOOD_MAX_IDENTICAL
+
+
 def test_create_works_with_a_bare_runtime():
     module = sf.create(SimpleNamespace())
     assert run(module.pre_route(ctx("ты идиот"))).reply

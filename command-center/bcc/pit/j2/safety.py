@@ -43,6 +43,8 @@ from typing import Any, Awaitable, Callable
 from .contract import Advice, BaseModule, TurnContext
 
 MODULE_ENV = "BOSSMAN_JEFF_J2_SAFETY"          # "off" disables this module only
+RATE_MAX_ENV = "BOSSMAN_JEFF_J2_SAFETY_RATE_MAX"
+FLOOD_MAX_ENV = "BOSSMAN_JEFF_J2_SAFETY_FLOOD_MAX"
 
 # -- limits -------------------------------------------------------------------------------------
 RATE_WINDOW_S = 30.0
@@ -726,4 +728,15 @@ def create(runtime: Any) -> SafetyModule:
     escalate = getattr(runtime, "j2_escalate", None)
     if not callable(escalate):
         escalate = None
-    return SafetyModule(audit_path=audit, escalate=escalate, salt=salt, system_texts=_system_texts())
+    return SafetyModule(audit_path=audit, escalate=escalate, salt=salt, system_texts=_system_texts(),
+                        rate_max=_env_int(RATE_MAX_ENV, RATE_MAX_MESSAGES),
+                        flood_max=_env_int(FLOOD_MAX_ENV, FLOOD_MAX_IDENTICAL))
+
+
+def _env_int(name: str, default: int) -> int:
+    """Owner tuning (and machine-speed test drivers) for the rate limits; junk falls back to the default."""
+    try:
+        value = int(os.environ.get(name, "").strip())
+    except ValueError:
+        return default
+    return value if value > 0 else default

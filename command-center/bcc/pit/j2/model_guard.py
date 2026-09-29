@@ -74,7 +74,9 @@ _FOREIGN_RANGES = (
     (0xFF00, 0xFFEF),      # full-width forms
 )
 _TEMPLATE = re.compile(r"<\|[^|>]{1,40}\|>|</?think>|\[/?INST\]|<<\s*/?SYS\s*>>", re.I)
-_WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*", re.UNICODE)
+_WORD = re.compile(r"[^\W_]+(?:['’-][^\W_]+)*", re.UNICODE)      # digits are part of a word: "шаг1 шаг2" is not a loop
+# Interjections a person may legitimately repeat ("Ха ха ха", "Нет, нет, нет!"): repetition alone is not garbage for them.
+_REPEAT_OK = frozenset("ха хаха да нет ну ага ура бла ох ах эх ой ух ням мяу гав ку так вау ха-ха ой-ой".split())
 _URL = re.compile(r"https?://\S+|www\.\S+", re.I)
 _RANK = {"ok": 0, "suspect": 1, "garbage": 2}
 _CYR = re.compile(r"[а-яё]", re.I)
@@ -158,7 +160,8 @@ def assess(text: str, *, prompt: str = "", expect_cyrillic: bool | None = None) 
     if len(words) >= 3:
         unique = len(set(words))
         if unique == 1:
-            flag("repetition", "garbage")                       # "Или Или Или"
+            if words[0] not in _REPEAT_OK or len(words) >= 7:
+                flag("repetition", "garbage")                   # "Или Или Или"
         elif len(words) >= 8 and unique / len(words) < 0.25:
             flag("repetition", "garbage")
         elif _repeating_ngram(words) >= (4 if len(words) >= 12 else 3) and len(set(words)) <= max(2, len(words) // 3):
