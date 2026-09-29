@@ -243,10 +243,9 @@ class Worker:
         self.stop_now(reason)
         confirmed = True
         if self._call_task is not None and not self._call_task.done():
-            try:
-                await asyncio.wait_for(asyncio.shield(self._call_task), float(args.get("timeout") or 5.0))
-            except asyncio.TimeoutError:
-                confirmed = False
+            # asyncio.wait never cancels the call task on timeout (and never re-raises its failure into the STOP path)
+            done, _pending = await asyncio.wait({self._call_task}, timeout=float(args.get("timeout") or 5.0))
+            confirmed = bool(done)
         return {"stopped": True, "hangup_confirmed": confirmed, "stop_flag": True}
 
     async def op_resume(self, args: dict) -> dict:
@@ -265,10 +264,7 @@ class Worker:
         if self.session is not None:
             self.session.stop("shutdown")
             if self._call_task is not None:
-                try:
-                    await asyncio.wait_for(asyncio.shield(self._call_task), 5)
-                except asyncio.TimeoutError:
-                    pass
+                await asyncio.wait({self._call_task}, timeout=5)
         await self.account.close()
         return {"bye": True}
 
