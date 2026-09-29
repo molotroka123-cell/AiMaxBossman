@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import jeff_settings, participant_profile
+from . import jeff_settings, participant_profile, passport
 from .context import select_persona_context
 from .models import ConsentState
 from .vault import PersonaVault
@@ -122,6 +122,9 @@ def build_participant_context(
     if not consent.memory_enabled:
         return ParticipantContext(person_key=person_key, system=system, persona_items=())
 
+    if not consent.personalization_enabled:
+        return ParticipantContext(person_key=person_key, system=system, persona_items=())
+
     if selected_model_is_remote and not consent.remote_personalization_enabled:
         return ParticipantContext(person_key=person_key, system=system, persona_items=())
 
@@ -138,5 +141,5 @@ def build_participant_context(
     return ParticipantContext(
         person_key=person_key,
         system=system,
-        persona_items=tuple(item.text for item in selected),
+        persona_items=tuple(item.text for item in selected) + passport.style_items(vault, person_key),
     )

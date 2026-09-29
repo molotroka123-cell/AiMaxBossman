@@ -117,7 +117,7 @@ INTRO_RU = (
 
 HELP_RU = (
     "Команды Jeff: /memory — что помню; /forget <что>; /correct <было> => <стало>; "
-    "/pause_memory; /resume_memory; "
+    "/pause_memory; /resume_memory; /passport; /personalization on|off; /revoke_consent; "
     "/export_me; /delete_me; /privacy; /search <запрос>; /style <как отвечать>; "
     "/roleplay и /parody — игровые режимы; /voice on|off — голосовой ответ владельцу."
 )
@@ -1312,7 +1312,29 @@ class ParticipantRuntime:
             return "Такой стиль сохранить не могу — похоже на секрет или чувствительные данные."
         if command == "/privacy":
             return self._privacy(person_key, consent, argument.strip())
+        if command in {"/passport", "/personalization", "/revoke_consent"}:
+            return self._passport_command(person, person_key, command, argument.strip())
         return HELP_RU
+
+    def _passport_command(self, person: Person, person_key: str, command: str, argument: str) -> str:
+        """Jeff 1.5 passport commands; state lives in the participant's own files."""
+        from . import passport_commands as pc
+        if command == "/passport":
+            return pc.view_text(self.vault, person_key)
+        if command == "/personalization":
+            if argument.lower() not in {"on", "off"}:
+                return "Персонализация: /personalization on или /personalization off."
+            return pc.set_personalization(self.vault, person_key, argument.lower() == "on")[1]
+        ok, reply = pc.revoke_consent(self.vault, person_key)
+        if ok:
+            self.invalidate_memory(person_key)
+            self.store.put(f"discovery:{person.key}", None)
+        return reply
+
+    def invalidate_memory(self, person_key: str) -> None:
+        """Stop in-flight turns/background jobs from writing after consent was withdrawn."""
+        self._memory_epoch[person_key] = self._memory_epoch.get(person_key, 0) + 1
+        self.photo_pipeline.invalidate_background_memory(person_key)
 
     def _privacy(self, person_key: str, consent: ConsentState, argument: str) -> str:
         arg = argument.lower()

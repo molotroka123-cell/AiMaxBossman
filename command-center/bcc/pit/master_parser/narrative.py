@@ -306,4 +306,9 @@ def save_narrative(pit: Path, person_key: str, record: dict, *, run_id: str, mod
     _atomic_json(target, {**record, "person_key": key, "run_id": run_id, "model": model,
                           "created_at": _iso(time.time())})
     _restrict_to_owner(target)
+    try:  # Jeff 1.5: the narrative also feeds the participant's style layer (consent-gated)
+        from .. import passport
+        passport.write_style(pit / "personalities" / key, record, run_id=run_id, model=model)
+    except (OSError, ValueError):
+        pass
     return target

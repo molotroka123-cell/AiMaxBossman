@@ -40,6 +40,7 @@ from fastapi import Request  # module level: route annotations resolve against g
 
 from bcc.telegram_companion.config import CompanionError, Person
 
+from . import passport_api
 from .config import PITSettings, load, pit_home
 from .runtime import FORBIDDEN_REPLY_RU, ParticipantRuntime, PITStore
 
@@ -668,6 +669,9 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
         ok = rt.vault.delete_fact(own_key(uid), str(data.get("id", "")), actor="participant",
                                   surface="web")
         return {"ok": ok} if ok else error(404, "FACT_NOT_FOUND")
+
+    passport_api.register(app, rt=rt, own_key=own_key, user_of=user_of, body_json=body_json,
+                          error=error)
 
     # -- voice ----------------------------------------------------------------------------------
     @app.post("/api/jeff/voice/transcribe")
