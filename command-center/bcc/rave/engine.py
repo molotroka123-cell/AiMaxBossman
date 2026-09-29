@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ..single_flight import await_shared
 from . import workspace as wsx
 from .connectors import Blocked, Connector, ProcResult, build, child_env
 from .spec import RAVE_ID, AgentSpec, SpecError, parse_agents
@@ -103,6 +104,7 @@ class RaveService:
         self.runners: dict[tuple[str, str], Runner] = {}
         self.locks: dict[str, asyncio.Lock] = {}
         self.closing = False
+        self._finishers: set[asyncio.Future] = set()      # keeps finalisation tasks alive across a cancelled waiter
 
     # ---- storage
 
@@ -323,9 +325,13 @@ class RaveService:
             final = {"status": "failed", "error": f"{type(exc).__name__}: {exc}"[:1500]}
         finally:
             if final:
-                # shielded: a second STOP (or shutdown) arriving while the result is
-                # being committed must not leave the agent half-finalized
-                await asyncio.shield(self._finish(runner, final))
+                # a second STOP (or shutdown) arriving while the result is being committed must not leave
+                # the agent half-finalized: the commit runs as its own task and this waiter can be cancelled
+                # without cancelling it (await_shared, not asyncio.shield: Python 3.14, see bcc/single_flight.py)
+                finisher = asyncio.ensure_future(self._finish(runner, final))
+                self._finishers.add(finisher)
+                finisher.add_done_callback(self._finishers.discard)
+                await await_shared(finisher)
 
     async def _ensure_workspace(self, rid: str, name: str, rec: dict) -> None:
         agent = self._agent(rec, name)
@@ -505,7 +511,7 @@ class RaveService:
             if r and r.task and not r.task.done():
                 if r.stop:                        # STOP already under way: just wait for it
                     with contextlib.suppress(asyncio.CancelledError, Exception):
-                        await asyncio.wait_for(asyncio.shield(r.task), timeout=30)
+                        await asyncio.wait_for(await_shared(r.task), timeout=30)
                     changed.append(a["name"])
                     continue
                 r.stop = True
@@ -516,7 +522,7 @@ class RaveService:
                     await asyncio.to_thread(r.tree.kill)
                 r.task.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
-                    await asyncio.wait_for(asyncio.shield(r.task), timeout=30)
+                    await asyncio.wait_for(await_shared(r.task), timeout=30)
             else:
                 # no live runner (recovered/paused/queued in a dead boot): stop is final right away
                 runner = Runner(rid, a["name"], stop=True)

@@ -257,6 +257,8 @@ def extract_frames(video: Path, frames_dir: Path, *, interval_seconds: int = 30,
 
 
 def _api_json(method: str, url: str, payload: Optional[dict] = None, *, timeout: int = 120) -> dict:
+    from tools.route_guard import assert_free_or_local
+    assert_free_or_local(url, str((payload or {}).get("model") or ""))   # local or OpenRouter :free only
     body = None if payload is None else json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=body, method=method)
     req.add_header("Accept", "application/json")

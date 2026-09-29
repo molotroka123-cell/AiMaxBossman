@@ -84,6 +84,8 @@ def _multipart(fields: dict[str, str], file_field: str, path: Path) -> tuple[byt
 
 
 def _transcribe(audio: Path, *, api_base: str) -> dict[str, Any]:
+    from tools.route_guard import assert_free_or_local
+    assert_free_or_local(api_base, ASR_MODEL)   # local ASR only
     body, boundary = _multipart(
         {
             "model": ASR_MODEL,

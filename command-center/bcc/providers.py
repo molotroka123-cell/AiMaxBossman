@@ -22,6 +22,8 @@ HEALTH_TIMEOUT = 6.0     # проверка доступности должна 
 # затем названная ошибка с kind="rate_limit" (backoff), а не «модель молчит».
 TRANSIENT_RETRY_DELAYS: tuple[float, ...] = (2.0, 5.0)
 _TRANSIENT_CODES = frozenset({408, 429, 500, 502, 503, 504, 529})
+# Ответы на запрос со `stream`, после которых честно идём обычным вызовом.
+_STREAM_REJECTED = frozenset({400, 404, 405, 415, 422, 501})
 
 
 class ProviderError(RuntimeError):
@@ -258,6 +260,12 @@ class OpenAICompatAdapter(_BaseAdapter):
             payload["tool_choice"] = kw.get("tool_choice") or "auto"
         if kw.get("response_format") is not None:
             payload["response_format"] = kw["response_format"]
+        if kw.get("on_delta") is not None:
+            # Live answer text (owner P1). None = this provider/model cannot
+            # stream right now: fall through to the ordinary whole-answer call.
+            streamed = await self._chat_streamed(model, payload, kw)
+            if streamed is not None:
+                return streamed
         delays = iter(TRANSIENT_RETRY_DELAYS)
         while True:
             resp = await self._request("POST", f"{self.base_url}/chat/completions",
@@ -275,6 +283,10 @@ class OpenAICompatAdapter(_BaseAdapter):
                 raise ProviderError(f"провайдер временно перегружен ({code}): {message}",
                                     kind="rate_limit", hint="повторите позже или выберите другую модель")
             await asyncio.sleep(delay)
+        return self._result_from(data, model)
+
+    @staticmethod
+    def _result_from(data: dict, model: str) -> ChatResult:
         choices = data.get("choices") or []
         if not choices:
             raise ProviderError("модель вернула пустой ответ (нет choices)")
@@ -299,6 +311,60 @@ class OpenAICompatAdapter(_BaseAdapter):
             # по ним честная скорость (TEL-001), а не токены / вся латентность.
             provider_meta={k: data[k] for k in ("id", "provider", "usage", "timings") if k in data},
         )
+
+    async def _chat_streamed(self, model: str, payload: dict, kw: dict) -> ChatResult | None:
+        """The same request as `chat`, read as SSE; answer text goes to
+        `kw["on_delta"](text)` as it arrives. Returns None (nothing was shown)
+        when the provider cannot stream: it rejected `stream`, answered with a
+        plain JSON body, sent no usable frames, or failed before the first
+        token. After the first token a failure is a ProviderError, and the
+        consumer is told to discard what it showed (`on_delta(None)`)."""
+        from bossman_shared.privacy import assert_provider_egress
+        from .streaming import read_chat_stream
+        on_delta = kw["on_delta"]
+        url = f"{self.base_url}/chat/completions"
+        assert_provider_egress(self.kind, url)
+        body = {**payload, "stream": True, "stream_options": {"include_usage": True}}
+        timeout = kw.get("timeout", CHAT_TIMEOUT)
+        shown = False
+
+        async def push(text: str) -> None:
+            nonlocal shown
+            shown = True
+            await on_delta(text)
+
+        async def discard(reason: str) -> ProviderError:
+            if shown:
+                await on_delta(None)
+            return ProviderError(reason, kind="network",
+                                 hint="ответ оборван на середине: шаг будет повторён")
+
+        try:
+            async with self._client(timeout) as client:
+                async with client.stream("POST", url, headers=self._headers(), json=body) as resp:
+                    if resp.status_code >= 400:
+                        await resp.aread()
+                        if resp.status_code in _STREAM_REJECTED:
+                            return None
+                        raise ProviderError(_explain(resp), kind="http")
+                    if "text/event-stream" not in resp.headers.get("content-type", "").lower():
+                        await resp.aread()
+                        data = _response_object(resp, what="chat/completions")
+                        return None if _in_body_error(data) else self._result_from(data, model)
+                    cs = await read_chat_stream(resp.aiter_lines(), push)
+        except httpx.TimeoutException:
+            raise await discard(f"{_host(url)} не ответил за {int(timeout)} с") from None
+        except httpx.HTTPError as exc:
+            raise await discard(f"нет связи с {_host(url)}: {type(exc).__name__}") from None
+        if cs.error or not (cs.terminated or cs.finish_reason):
+            if not shown:
+                return None
+            raise await discard(f"поток ответа {_host(url)} оборван: {cs.error or 'нет завершения'}")
+        if not cs.has_output:
+            return None
+        result = self._result_from(cs.body(), model)
+        result.provider_meta["streamed"] = shown
+        return result
 
     async def health(self) -> Health:
         t0 = time.perf_counter()

@@ -22,6 +22,8 @@ from typing import Callable
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parent.parent))   # repo root: tools.route_guard
+from tools.route_guard import assert_free_or_local  # noqa: E402
 import spec as spec_mod  # noqa: E402
 
 import lottie_assets  # noqa: E402
@@ -58,6 +60,7 @@ def _post(url: str, payload: dict, timeout: float) -> dict:
 
 def _chat(endpoint: str, model: str, messages: list[dict], timeout: float = 240.0, max_tokens: int = 3000) -> str:
     """OpenAI-compatible /chat/completions (llama-swap, LM Studio, vLLM)."""
+    assert_free_or_local(endpoint, model)
     data = _post(endpoint.rstrip("/") + "/chat/completions",
                  {"model": model, "messages": messages, "temperature": 0.4, "max_tokens": max_tokens,
                   "response_format": {"type": "json_object"}}, timeout)
@@ -80,6 +83,7 @@ def _chat_ollama(endpoint: str, model: str, messages: list[dict], timeout: float
     num_ctx is sent only when asked for: Ollama reloads a model whose loaded context size
     differs from the request, and the shared product model on the owner PC runs at 32768.
     A fixed 16384 here evicted and reloaded ~27 GB on every generation run (rc19 audit)."""
+    assert_free_or_local(endpoint, model)
     base = re.sub(r"/v1/?$", "", endpoint.rstrip("/"))
     options: dict = {"temperature": 0.4, "num_predict": max_tokens}
     if num_ctx:
