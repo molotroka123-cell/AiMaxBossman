@@ -47,8 +47,9 @@ def discover(channel: str, start: dt.date, end: dt.date, *, limit: int = 0) -> l
         ytdlp, "--skip-download", "--no-warnings", "--ignore-errors", "--dump-json",
         "--dateafter", start.strftime("%Y%m%d"), "--datebefore", end.strftime("%Y%m%d"),
     ]
-    if limit:
-        cmd += ["--playlist-end", str(limit)]
+    # The limit applies to videos INSIDE the date window. yt-dlp's --playlist-end cuts the channel
+    # listing before --dateafter/--datebefore, so a limit of 3 used to yield the three newest
+    # (out-of-window) live streams and discover nothing.
     cmd.append(channel)
     proc = _run(cmd, timeout=1800)
     if proc.returncode not in (0, 1) and not proc.stdout.strip():
@@ -70,6 +71,8 @@ def discover(channel: str, start: dt.date, end: dt.date, *, limit: int = 0) -> l
             continue
         if not (start <= d <= end):
             continue
+        if limit and len(rows) >= limit:
+            break
         seen.add(vid)
         rows.append({
             "video_id": vid,
