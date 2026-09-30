@@ -109,3 +109,5 @@ junit/логи прогонов), `wtcv-d` (`command-center/tests/test_pit_gener
 (скопирован с Рабочего стола). Ветка: `handoff/continuation-20260929`.
 
 > Свежие документы из worktree (снимок 2026-09-29, частичный): `docs/owner/snapshot-20260929/<worktree>/`.
+
+> Свежие документы из worktree (снимок 2026-09-29): `docs/owner/snapshot-20260929/<worktree>/`.
