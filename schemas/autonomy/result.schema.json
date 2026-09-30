@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bossman.local/schemas/autonomy/result.schema.json",
+  "title": "Bossman hand result with artifact hashes (bcc.autonomy.types.HandResult)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_hash", "ok", "exit_code", "started_at", "finished_at", "artifacts", "refused_reason"],
+  "properties": {
+    "request_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "ok": {"type": "boolean"},
+    "exit_code": {"type": ["integer", "null"]},
+    "started_at": {"type": "string", "minLength": 1, "maxLength": 64},
+    "finished_at": {"type": "string", "minLength": 1, "maxLength": 64},
+    "artifacts": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "refused_reason": {"type": "string", "maxLength": 2000}
+  }
+}
