@@ -208,8 +208,9 @@ export function pick(obj, keys, fallback = undefined) {
 
 export const api = {
   // V2: универсальный вызов для feature-страниц (контракты §8) — свои endpoint'ы
-  // фича зовёт через raw, не расширяя этот файл
-  raw: (path, { method = 'GET', body } = {}) => request(method, path, body),
+  // фича зовёт через raw, не расширяя этот файл. `signal` (AbortSignal) —
+  // необязательная отмена запроса; GET с сигналом не склеивается с чужими.
+  raw: (path, { method = 'GET', body, signal } = {}) => request(method, path, body, signal ? { signal } : undefined),
 
   // auth: токен → серверная сессия (cookie); в браузере остаётся только CSRF
   login: async (token) => {

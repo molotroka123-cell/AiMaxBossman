@@ -1019,6 +1019,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="создать ярлык BOSSMAN на рабочем столе (и в меню «Пуск» на Windows) и выйти")
     p.add_argument("--uninstall-shortcut", action="store_true", help="удалить созданные ярлыки и выйти")
     p.add_argument("--print-launcher", action="store_true", help="показать, что будет записано в ярлык, и выйти")
+    p.add_argument("--chat", action="store_true", help="открыть новый чат Bossman (/chat.html)")
     p.add_argument("--show-token", dest="show_token", action="store_true", default=True,
                    help="показать токен доступа в консоли при запуске (по умолчанию да)")
     p.add_argument("--no-show-token", dest="show_token", action="store_false",
@@ -1028,6 +1029,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-console", dest="console", action="store_false",
                    help="ярлык запускает приложение без окна консоли")
     return p
+
+
+#: Страница нового настольного чата (ui/chat.html). Тот же сервер, те же задачи,
+#: память и подтверждения — это только другая поверхность того же Bossman.
+CHAT_PAGE = "chat.html"
+
+
+def window_url(base_url: str, *, chat: bool = False) -> str:
+    """Адрес, который открывает окно: корень Command Center или страница чата.
+
+    Сервер, его проверки (identity, занятый порт) и журнал запуска всегда
+    работают с корнем ``base_url``; ``--chat`` меняет только то, что показывает
+    окно. Без флага адрес окна не меняется — ``http://<host>:<port>/``.
+    """
+    if not chat:
+        return base_url
+    return base_url.rstrip("/") + "/" + CHAT_PAGE
 
 
 def _accepts_kwarg(func: Callable, name: str) -> bool:
@@ -1045,8 +1063,11 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         out=sys.stdout) -> int:
     """Точка входа с инъекцией launcher'а для тестов.
 
-    Коды выхода: 0 ок, 2 нет браузера, 3 сервер не поднялся, 4 порт занят чужим
-    приложением, 5 не удалось создать ярлык, 7 сервер другой сборки."""
+    Коды выхода: 0 ок (и отказ открыть второе окно при живом замке, в том числе
+    с ``--chat``), 2 нет браузера или ``--chat`` вместе с ``--install-shortcut`` /
+    ``--uninstall-shortcut`` (ярлык BOSSMAN не меняется), 3 сервер не поднялся,
+    4 порт занят чужим приложением, 5 не удалось создать ярлык, 7 сервер другой
+    сборки."""
     from .config import settings
 
     if out is None:
@@ -1079,6 +1100,21 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         from . import desktop_install
 
         spec = desktop_install.build_spec(host=host, port=port, console=args.console)
+        if args.chat and not args.print_launcher:
+            # Ярлык BOSSMAN один (то же имя и путь): `--install-shortcut --chat` заменил
+            # бы его ярлыком чата, а `--uninstall-shortcut --chat` удалил бы основной.
+            # Основной ярлык не трогаем; команду для своего ярлыка чата показывает
+            # `--print-launcher --chat`.
+            print("[bcc-desktop] --chat не меняет ярлык BOSSMAN: он по-прежнему открывает Command Center. "
+                  "Чат открывается командой `bcc-desktop --chat` или из Command Center → «Чат»; "
+                  "команду для отдельного ярлыка покажет `bcc-desktop --print-launcher --chat`.",
+                  file=out, flush=True)
+            return 2
+        if args.print_launcher and args.chat:
+            # Только показ: в команду ярлыка флаг попадает, когда его задали явно.
+            import dataclasses
+
+            spec = dataclasses.replace(spec, args=(*spec.args, "--chat"))
         if args.print_launcher:
             print(f"[bcc-desktop] команда ярлыка: {' '.join(spec.argv)}", file=out)
             print(f"[bcc-desktop] рабочий каталог: {spec.workdir}", file=out)
@@ -1158,6 +1194,15 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
                    "на том же профиле не открываю, иначе Chrome закроется сам.\n"
                    "[bcc-desktop] Совет: если окно ПУСТОЕ (страница не загрузилась) — "
                    "закройте его полностью и запустите BOSSMAN заново.")
+            if args.chat:
+                # Окно чата — тот же профиль Chrome, поэтому отдельным окном чат при живом
+                # окне BOSSMAN не открыть. Молча выйти нельзя: владелец не узнал бы, где чат.
+                chat_url = window_url(f"http://{host}:{lock_port}/", chat=True)
+                msg += ("\n[bcc-desktop] --chat: отдельное окно чата не открыто, пока работает окно BOSSMAN. "
+                        "Откройте чат в этом окне (Command Center → «Чат» → «Открыть чат») "
+                        f"или в браузере этого ПК: {chat_url}\n"
+                        "[bcc-desktop] Чтобы чат был отдельным окном, закройте окно BOSSMAN "
+                        "и запустите `bcc-desktop --chat` снова.")
             print(msg, file=out, flush=True)
             _append_run_log(data_dir, f"refused-second-window existing-port={lock_port}")
             _record_launch(data_dir, launch_id, "refused-second-window", code=0)
@@ -1296,8 +1341,9 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             print(f"[bcc-desktop] сервер запущен: {url}", file=out, flush=True)
         try:
             import webbrowser
-            opened = webbrowser.open(url)
-            print(f"[bcc-desktop] открываю веб-версию в браузере: {url} "
+            page_url = window_url(url, chat=args.chat)
+            opened = webbrowser.open(page_url)
+            print(f"[bcc-desktop] открываю веб-версию в браузере: {page_url} "
                   f"({'ок' if opened else 'не удалось — откройте вручную'})", file=out, flush=True)
         except KeyboardInterrupt:
             pass
@@ -1310,6 +1356,8 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         return 0
 
     print(f"[bcc-desktop] окно: {browser} (профиль {profile_dir})", file=out, flush=True)
+    # Серверные проверки выше шли по корню; окно открывает выбранную страницу.
+    win_url = window_url(url, chat=args.chat)
     # До try: иначе неожиданная ошибка внутри оставит t0 несвязанным, и вместо
     # причины владелец получил бы UnboundLocalError уже после finally.
     t0 = time.monotonic()
@@ -1328,7 +1376,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         # чем именно и с какими флагами мы его запускали (секретов в argv нет).
         try:
             _append_run_log(data_dir, "browser-argv " + " ".join(
-                browser_argv(browser, url, profile_dir, window_size=args.window_size,
+                browser_argv(browser, win_url, profile_dir, window_size=args.window_size,
                              extra=tuple(args.browser_arg))))
         except Exception:  # noqa: BLE001 — журнал не должен мешать запуску
             pass
@@ -1360,7 +1408,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
                 orphan.wait()
                 code = 0
             else:
-                code = launcher(browser, url, profile_dir, extra=tuple(args.browser_arg),
+                code = launcher(browser, win_url, profile_dir, extra=tuple(args.browser_arg),
                                 window_size=args.window_size, **launch_kwargs)
         except OSError as exc:
             # Раньше это улетало трейсбеком и консоль закрывалась вместе с ним:

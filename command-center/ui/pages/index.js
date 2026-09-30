@@ -53,6 +53,8 @@ export const FEATURE_PAGES = [
     () => import('../video_chat.js'), (m) => m.ChatPage),
   lazyPage({ id: 'home-v3', title: 'Главная', icon: 'home', nav: 'primary', section: 'main' },
     () => import('./home.js'), (m) => m.default),
+  lazyPage({ id: 'chat', title: 'Чат', icon: 'tasks', nav: 'primary', section: 'main' },
+    () => import('./chat.js'), (m) => m.default),
   lazyPage({ id: 'apps', title: 'Приложения', icon: 'empty', nav: 'primary', section: 'apps' },
     () => import('./apps.js'), (m) => m.default),
   lazyPage({ id: 'overview', title: 'Обзор', icon: 'home', nav: 'primary', section: 'system' },

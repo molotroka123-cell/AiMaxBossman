@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<!-- Политика страницы: только свои скрипты и запросы (никаких встроенных скриптов, обработчиков в разметке и
+     внешних адресов); Trusted Types без политик — любая запись HTML строкой (innerHTML и т.п.) бросит ошибку. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'self'; require-trusted-types-for 'script'; trusted-types 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0b0c12">
+<title>Bossman · Чат</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="chat/chat.css">
+<!-- тема до первой отрисовки (обычный скрипт, не модуль), чтобы светлая тема не мигала тёмной -->
+<script src="chat/theme-boot.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#chat-input">Перейти к полю ввода</a>
+
+<div id="chat-boot" class="boot" role="status">Загрузка чата Bossman…</div>
+
+<div id="chat-login" class="login-wrap" hidden>
+  <form class="login-card" id="chat-login-form" autocomplete="off">
+    <span class="orb login-orb" role="img" aria-label="Bossman" data-state="idle"><span class="orb-core"></span><span class="orb-glint"></span></span>
+    <h1 class="login-title">Bossman <span>чат</span></h1>
+    <p class="login-sub">Тот же Command Center: те же задачи, память и подтверждения. Вход по токену.</p>
+    <label class="login-label" for="chat-login-token">Токен доступа</label>
+    <input id="chat-login-token" type="text" class="field token-mask" placeholder="вставьте токен" autocomplete="one-time-code" autocapitalize="off" autocorrect="off" spellcheck="false" style="-webkit-text-security: disc" data-lpignore="true" data-1p-ignore="true" data-bwignore>
+    <p class="login-hint" id="chat-login-hint">Токен напечатан в консоли сервера при старте.</p>
+    <div id="chat-login-error" class="login-error" role="alert" hidden></div>
+    <button type="submit" class="btn btn-primary btn-block" id="chat-login-submit">Войти</button>
+  </form>
+</div>
+
+<div id="chat-app" class="app" hidden>
+  <aside id="chat-sidebar" class="sidebar" aria-label="Чаты Bossman"></aside>
+  <main id="chat-main" class="main">
+    <header id="chat-header" class="chat-header"></header>
+    <div id="chat-banner" class="banner-slot" hidden></div>
+    <div id="chat-scroll" class="chat-scroll">
+      <div id="chat-messages" class="messages" role="log" aria-live="polite" aria-relevant="additions" aria-label="Сообщения"></div>
+    </div>
+    <div id="chat-composer-slot" class="composer-slot">
+      <button type="button" id="chat-jump" class="jump-latest" aria-label="К последнему сообщению (End)" title="К последнему сообщению (End)" hidden><span aria-hidden="true">↓</span></button>
+      <div id="chat-reconnect" class="reconnect-banner" hidden>
+        <span id="chat-reconnect-msg" class="reconnect-msg" role="status"></span>
+        <span id="chat-reconnect-count" class="reconnect-count" aria-hidden="true"></span>
+        <button type="button" id="chat-reconnect-now" class="btn btn-ghost reconnect-now" aria-label="Переподключиться к серверу сейчас" title="Переподключиться сейчас">Сейчас</button>
+      </div>
+    </div>
+    <footer id="chat-statusbar" class="statusbar" aria-label="Состояние ответа"></footer>
+    <div class="drop-hint" aria-hidden="true">Отпустите файлы, чтобы прикрепить их к сообщению</div>
+  </main>
+  <aside id="chat-panel" class="panel" aria-label="Thinking &amp; Actions" hidden></aside>
+</div>
+
+<div id="chat-toasts" class="toasts" aria-live="polite"></div>
+<div id="chat-announce" class="sr-only" role="status" aria-atomic="true"></div>
+<script type="module" src="chat/main.js"></script>
+</body>
+</html>
