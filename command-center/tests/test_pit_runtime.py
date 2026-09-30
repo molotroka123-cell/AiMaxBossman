@@ -836,7 +836,11 @@ def test_participant_chat_uses_free_cloud_even_when_local_model_is_available(tmp
     }
     person = runtime.settings.people[0]
     person_key = runtime.vault.key_for_telegram(101)
-    warm(runtime, person_key)
+    # The participant allowed cloud context, so the cloud already gets the conversation: no reason to move the
+    # follow-up to the local model (without that switch a live conversation prefers local, see
+    # test_jeff_owner_bugtest_fixes.test_b_follow_up_with_recent_history_prefers_the_local_route).
+    runtime.vault.set_consent(person_key, ConsentState(
+        memory_enabled=True, remote_processing_enabled=True, remote_personalization_enabled=True))
 
     assert asyncio.run(runtime.handle(person, message("привет", message_id=80))) == "готово"
     assert len(local.calls) == 0 and len(runtime.adapter.calls) == 1
@@ -1196,6 +1200,9 @@ def test_cloud_only_route_excludes_personal_memory_after_revocation(tmp_path):
     assert "только текущий запрос" in asyncio.run(runtime.handle(
         person, message("/privacy personalization off", message_id=84)))
     assert runtime.vault.consent(person_key).remote_personalization_enabled is False
+    # The conversation is no longer live (an hour old): the 70/30 mix sends the turn to the cloud, which must
+    # get neither the persona facts nor the old pairs. (A LIVE conversation would prefer the local model.)
+    runtime.store.db.execute("UPDATE history SET created=created-3600")
     assert asyncio.run(runtime.handle(person, message("Новый вопрос", message_id=85))) == "готово"
     payload = json.dumps(remote.calls[-1], ensure_ascii=False)
     assert "PRIVATE_MARKER_927" not in payload

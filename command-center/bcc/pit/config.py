@@ -302,6 +302,7 @@ def save_setup(
     search_url: str = "",
     local_url: str = "",
     local_models: list[str] | None = None,
+    local_chat_only: bool = False,
     allowlist_open: bool = False,
     web_only: bool = False,
     bot_token: str = "",
@@ -330,6 +331,8 @@ def save_setup(
         "allowlist_open": bool(allowlist_open),
         "web_only": bool(web_only),
     }
+    if local_chat_only:
+        data["local_chat_only"] = True          # only written when on: other setups keep their exact file
     import secrets as _secrets
     credentials = {
         "bot_token": bot_token,
@@ -354,6 +357,7 @@ def save_setup(
         search_url=parsed.get("search_url", ""),
         local_url=parsed.get("local_url", ""),
         local_models=tuple(parsed.get("local_models") or ()),
+        local_chat_only=bool(parsed.get("local_chat_only", False)),
         allowlist_open=bool(parsed.get("allowlist_open", False)),
         web_only=bool(parsed.get("web_only", False)),
         bot_token=credentials["bot_token"],

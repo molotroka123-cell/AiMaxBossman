@@ -181,6 +181,10 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
         probe.capacity_guard = LocalCapacityGuard()
         probe.catalog = {}
         probe.catalog_checked_at = 0.0
+        probe.local_checked_at = 0.0
+        probe.local_state = ""
+        probe._catalog_dirty = False
+        probe._payment_blocked_until = {}
         endpoints = await ParticipantRuntime.refresh_catalog(probe)
         local_ok = any(endpoint.local for endpoint in endpoints.values())
         selected_models = settings.local_models if settings.local_chat_only else settings.chat_models

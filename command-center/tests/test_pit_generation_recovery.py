@@ -211,3 +211,141 @@ def test_worker_does_not_mark_photo_done_when_receipt_commit_fails(tmp_path):
     assert current.store.db.execute(
         "SELECT phase FROM media_jobs WHERE update_id=205").fetchone()[0] == "delivery_unknown"
     current.store.close()
+
+
+# -- a graceful restart (no owner STOP) keeps an unsent Studio generation resumable ---------------
+class HangingBroker(Broker):
+    """A Studio generation that is still running when the process is asked to shut down."""
+
+    def __init__(self, *, submit: bool):
+        super().__init__()
+        self.submit = submit
+        self.started = asyncio.Event()
+
+    async def generate(self, *, prompt, on_job_created=None):
+        self.created.append(prompt)
+        if self.submit:
+            on_job_created(43)                  # the Studio job id is recorded: phase studio_submitted
+        self.started.set()
+        await asyncio.Event().wait()
+
+
+def ready_runtime(tmp_path, broker):
+    runtime = runtime_at(tmp_path)
+    runtime.vault.set_consent(
+        runtime.vault.key_for_telegram(101),
+        ConsentState(memory_enabled=True, remote_processing_enabled=True))
+    enable_generation(runtime, broker)
+
+    async def free_capacity():
+        return True
+    runtime.capacity_guard.local_allowed = free_capacity
+    return runtime
+
+
+async def cancel_worker_while_generating(runtime, broker, update_id):
+    body = {"_user_id": 101, "_chat_id": 101, "_message_id": 9,
+            "text": PROMPT, "_photo": "", "_document": None, "_voice": False}
+    assert runtime.store.ingest(update_id, PERSON.key, body)
+    worker = asyncio.create_task(runtime._worker(PERSON, "chat"))
+    await asyncio.wait_for(broker.started.wait(), timeout=10)
+    worker.cancel()                              # process shutdown: run() cancels every worker
+    await asyncio.gather(worker, return_exceptions=True)
+
+
+@pytest.mark.parametrize("submit,phase", [(True, "studio_submitted"), (False, "requesting")])
+def test_graceful_restart_during_generation_resumes_and_sends_exactly_once(tmp_path, submit, phase):
+    broker = HangingBroker(submit=submit)
+    first = ready_runtime(tmp_path, broker)
+    asyncio.run(cancel_worker_while_generating(first, broker, 301))
+    assert first.store.db.execute("SELECT phase FROM inbox WHERE id=301").fetchone()[0] == "processing"
+    assert first.store.generation_phase(301) == phase
+    first.store.close()
+
+    resume = Broker()
+    second = ready_runtime(tmp_path, resume)
+    sent = []
+
+    async def send_photo(person, data, caption):
+        sent.append((person.key, data))
+        return 601
+
+    second.telegram.send_photo = send_photo
+    second.store.recover()
+    asyncio.run(second._reconcile_generations())
+    asyncio.run(second._reconcile_generations())         # a second pass must not send again
+    assert sent == [(PERSON.key, PNG)]
+    assert resume.resumed == [43]
+    assert resume.created == ([] if submit else [PROMPT])
+    assert second.store.db.execute("SELECT phase FROM inbox WHERE id=301").fetchone()[0] == "done"
+    assert second.store.generation_phase(301) == "sent"
+    second.store.close()
+
+
+def test_owner_stop_during_generation_is_never_resumed(tmp_path):
+    """Negative control: with the STOP flag the cancelled generation ends as delivery_unknown."""
+    broker = HangingBroker(submit=True)
+    first = ready_runtime(tmp_path, broker)
+    (first.home / "stop.flag").write_text("owner stop", encoding="utf-8")
+    asyncio.run(cancel_worker_while_generating(first, broker, 302))
+    assert first.store.db.execute("SELECT phase FROM inbox WHERE id=302").fetchone()[0] == "delivery_unknown"
+    first.store.close()
+
+    resume = Broker()
+    second = ready_runtime(tmp_path, resume)
+    sent = []
+
+    async def send_photo(person, data, caption):
+        sent.append(person.key)
+        return 602
+
+    second.telegram.send_photo = send_photo
+    second.store.recover()
+    asyncio.run(second._reconcile_generations())
+    assert sent == [] and resume.resumed == [] and resume.created == []
+    second.store.close()
+
+
+def test_cancel_during_the_telegram_upload_is_never_uploaded_again(tmp_path):
+    """Negative control: once the upload has started (phase sending) a restart never repeats it."""
+    uploads = []
+
+    class Sending(Broker):
+        async def generate(self, *, prompt, on_job_created=None):
+            on_job_created(43)
+            return await self.resume(43)
+
+    first = ready_runtime(tmp_path, Sending())
+    started = asyncio.Event()
+
+    async def hanging_upload(person, data, caption):
+        uploads.append(person.key)
+        started.set()
+        await asyncio.Event().wait()
+
+    first.telegram.send_photo = hanging_upload
+
+    async def scenario():
+        body = {"_user_id": 101, "_chat_id": 101, "_message_id": 10,
+                "text": PROMPT, "_photo": "", "_document": None, "_voice": False}
+        assert first.store.ingest(303, PERSON.key, body)
+        worker = asyncio.create_task(first._worker(PERSON, "chat"))
+        await asyncio.wait_for(started.wait(), timeout=10)
+        worker.cancel()
+        await asyncio.gather(worker, return_exceptions=True)
+
+    asyncio.run(scenario())
+    assert first.store.db.execute("SELECT phase FROM inbox WHERE id=303").fetchone()[0] == "delivery_unknown"
+    assert first.store.generation_phase(303) == "sending"
+    first.store.close()
+
+    second = ready_runtime(tmp_path, Broker())
+
+    async def forbidden(person, data, caption):
+        raise AssertionError("the upload was already attempted")
+
+    second.telegram.send_photo = forbidden
+    second.store.recover()
+    asyncio.run(second._reconcile_generations())
+    assert uploads == [PERSON.key]
+    second.store.close()

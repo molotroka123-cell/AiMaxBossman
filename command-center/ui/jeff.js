@@ -146,12 +146,18 @@ function appendBubble(el) {
   return el;
 }
 
-async function loadHistory(greeting) {
+async function loadHistory(greeting, { merge = false } = {}) {
   const root = $('#chat');
-  root.innerHTML = '';
   const data = await call('/api/jeff/history');
+  // Reconnect / server restart: never redraw the chat from a SHORTER list (turns the server did not keep, e.g.
+  // while memory is paused, would vanish). A list that is at least as long is the authoritative one.
+  const shown = root.querySelectorAll('.bubble:not(.pending)').length;
+  if (merge && data.messages.length < shown) return;
+  root.innerHTML = '';
   if (!data.messages.length && greeting) appendBubble(bubble('assistant', greeting, { disclosure: ['Знакомство'] }));
-  for (const m of data.messages) appendBubble(bubble(m.role, m.text));
+  for (const m of data.messages) {
+    appendBubble(bubble(m.role, m.text, { stopped: m.kind === 'stopped' || m.kind === 'error' }));
+  }
 }
 
 function setBusy(value) {
@@ -486,7 +492,7 @@ async function showApp(greeting) {
 
 async function reloadAfterReconnect() {
   if ($('#app').hidden || busy) return;
-  await Promise.all([loadIdentity(), loadHistory('').catch(() => {}), refreshMemory()]);
+  await Promise.all([loadIdentity(), loadHistory('', { merge: true }).catch(() => {}), refreshMemory()]);
 }
 
 setInterval(async () => {

@@ -43,7 +43,16 @@ from bcc.telegram_companion.config import CompanionError, Person
 from . import passport_api
 from .config import PITSettings, load, pit_home
 from .reply_stream import reply_sink
-from .runtime import FORBIDDEN_REPLY_RU, ParticipantRuntime, PITStore
+from .runtime import (
+    CLOUD_PAUSED_RU,
+    FORBIDDEN_REPLY_RU,
+    INCOMPLETE_REPLY_RU,
+    NO_MODEL_RU,
+    NO_REMOTE_RU,
+    PROVIDER_DOWN_RU,
+    ParticipantRuntime,
+    PITStore,
+)
 
 WEB_APP_ID = "bossman-jeff-web-v1"
 SESSION_COOKIE = "jeff_session"
@@ -53,6 +62,11 @@ MAX_TEXT_CHARS = 4000
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_AUDIO_BYTES = 12 * 1024 * 1024
 STOPPED_RU = "Остановлено. Можно продолжать."
+GENERIC_ERROR_RU = "Произошла ошибка внутри Bossman. Она записана локально; повтор безопасен."
+STREAM_ERROR_RU = "Не получилось ответить. Повторите чуть позже."
+#: Replies that are an honest status, not a model answer: the window marks them ``kind=error`` after F5.
+ERROR_REPLIES = frozenset({NO_MODEL_RU, PROVIDER_DOWN_RU, CLOUD_PAUSED_RU, INCOMPLETE_REPLY_RU, NO_REMOTE_RU,
+                           GENERIC_ERROR_RU, STREAM_ERROR_RU})
 UI_FILES = {"jeff.html": "text/html; charset=utf-8", "jeff.css": "text/css; charset=utf-8",
             "jeff.js": "text/javascript; charset=utf-8", "icon.svg": "image/svg+xml"}
 IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -304,6 +318,53 @@ def _identity() -> dict:
             "source_identity": ident.get("source_identity")}
 
 
+def _public_heartbeat(beat: dict | None) -> dict | None:
+    """The heartbeat as the UNAUTHENTICATED health endpoint may show it: no model id, no route list, no policy.
+
+    The owner reads the full record from the heartbeat file (``/api/jeff-settings/status``) and ``bossman pit
+    routes``; a web guest only learns counts and whether Jeff is up."""
+    if not isinstance(beat, dict):
+        return beat
+    public = dict(beat)
+    public["llm"] = {key: value for key, value in (beat.get("llm") or {}).items() if key != "model"}
+    route = beat.get("route")
+    if isinstance(route, dict):
+        public["route"] = {
+            "schema": route.get("schema"),
+            "remote_routes": len(route.get("free_remote") or []),
+            "local_routes": len(route.get("local") or []),
+            "refusal": route.get("refusal", ""),
+            "price_checked_age_s": route.get("price_checked_age_s"),
+            "paid_routes_allowed": False,
+        }
+    return public
+
+
+def _guest_synthesize(text: str, *, stopped, audit_dir: Path) -> bytes:
+    """Speak ``text`` for a window participant: the stock local voice only.
+
+    Same steps as ``speech.synthesize`` (filtered text, pre-TTS audit, engine chain) but with
+    ``allow_candidate=False``: a guest never gets the CosyVoice candidate or a cloned voice, whatever
+    text the client sends."""
+    from bcc.oss.piper import PiperError
+
+    from . import speech, speech_audit
+    voice_text = speech.tts_text(text)
+    if not voice_text:
+        raise speech.SpeechError("VOICE_TEXT_INVALID")
+    try:
+        speech_audit.capture(voice_text, surface="web", audit_dir=audit_dir)
+    except OSError as exc:
+        raise speech.SpeechError("VOICE_AUDIT_FAILED") from exc
+    if speech_audit.is_threat(voice_text):
+        # Audited above; a threat is never read aloud (the window's speak button sends reply text back here).
+        raise speech.SpeechError("VOICE_TEXT_REFUSED")
+    try:
+        return speech.run_engines(voice_text, stopped=stopped, allow_candidate=False)
+    except PiperError as exc:
+        raise speech.SpeechError(str(exc)) from exc
+
+
 class _RuntimeHandle:
     """The runtime is built on the server's event-loop thread (SQLite is thread-bound)."""
 
@@ -342,10 +403,20 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     app.state.runtime = rt
 
+    startup_tasks: list[asyncio.Task] = []
+
     @app.on_event("startup")
     async def _startup():
         if rt.value is None:
             rt.value = factory()
+        # The window is a Jeff surface of its own: it beats every 15 s into pit-v1.7/web/heartbeat.json (the owner
+        # panel and ``bossman pit status`` read it) and builds the route catalog now, not on the first message.
+        try:
+            rt.value.heartbeat.state = "running"
+            for coro in (rt.value._heartbeat_loop(), rt.value.refresh_catalog_safe()):
+                startup_tasks.append(asyncio.create_task(coro))
+        except Exception:  # noqa: BLE001 - observability/warm-up never stops the window from starting
+            pass
 
     def error(status: int, code: str) -> JSONResponse:
         return JSONResponse({"error": code}, status_code=status)
@@ -405,10 +476,20 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
         return value
 
     def disclosure(uid: int, had_history: bool, reply: str) -> list[str]:
-        """Public 'how Jeff answered' notes. Never reasoning text or model names."""
+        """Public 'how Jeff answered' notes. Never reasoning text or model names.
+
+        The history note says what the model REALLY received: the runtime records how many earlier pairs went
+        into the answering route, and a cloud route may have got none of them (privacy default)."""
         who = person_for(uid).key
-        notes = ["Учёл предыдущие сообщения разговора" if had_history
-                 else "Начал разговор с чистого листа"]
+        used_context = rt.turn_context.pop(who, None)
+        if used_context is None:
+            notes = ["Ответ выдан без обращения к модели (команда или быстрый ответ)"]
+        elif used_context.get("pairs", 0) > 0:
+            notes = ["Учёл предыдущие сообщения разговора"]
+        elif had_history:
+            notes = ["Этот ответ дан без прошлых сообщений (настройка приватности)"]
+        else:
+            notes = ["Начал разговор с чистого листа"]
         used = rt.store.get(f"last_context:{who}") or []
         if used:
             notes.append(f"Опирался на факты из твоей памяти: {len(used)}")
@@ -416,14 +497,61 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
             notes.append("Проверил свежие источники в интернете")
         return notes
 
-    async def run_turn(uid: int, message: dict, uploads: dict | None = None, sink=None) -> dict:
+    def display_text(message: dict) -> str:
+        """What the participant sees as their own bubble for this message."""
+        text = str(message.get("text") or "").strip()
+        if message.get("_photo"):
+            return "📎 фото" + (" — " + text if text else "")
+        if message.get("_document"):
+            return "📎 файл" + (" — " + text if text else "")
+        return text
+
+    def reply_kind(user_text: str, reply: str, *, stopped: bool = False, attachments: bool = False) -> str:
+        if stopped:
+            return "stopped"
+        if reply in ERROR_REPLIES:
+            return "error"
+        if user_text.startswith("/"):
+            return "command"
+        return "upload" if attachments else "chat"
+
+    def memory_on(uid: int) -> bool:
+        return bool(rt.vault.consent(rt.vault.key_for_telegram(uid)).memory_enabled)
+
+    def transcript_add(who: str, role: str, text: str, kind: str) -> None:
+        """Best effort: a transcript failure never breaks a reply (the context history is separate)."""
+        try:
+            rt.store.transcript_add(who, role, text, kind)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def record_static_exchange(uid: int, user_text: str, reply: str, kind: str = "command") -> None:
+        """A turn answered without run_turn (a voice transcript refused as a command): still part of the chat."""
+        if memory_on(uid):
+            who = person_for(uid).key
+            transcript_add(who, "user", user_text, "chat")
+            transcript_add(who, "assistant", reply, kind)
+
+    async def run_turn(uid: int, message: dict, uploads: dict | None = None, sink=None, *,
+                       record: str = "both") -> dict:
+        """One chat turn. ``record``: "both" = the user message and the displayed reply go to the window
+        transcript (when memory is on), "reply" = only the reply (the internal /start greeting), "none" = nothing
+        (the privacy switches run commands the participant never typed)."""
         person = person_for(uid)
+        who = person.key
         box: list = []
+        stopped = False
         async with lock_for(uid):
             event = stop_event(uid)
             event.clear()
-            had_history = bool(rt.vault.consent(rt.vault.key_for_telegram(uid)).memory_enabled
-                               and rt.store.history(person.key))
+            memory_before = memory_on(uid)
+            epoch_before = rt.store.forget_epoch.get(who, 0)
+            had_history = bool(memory_before and rt.store.history(who))
+            user_text = display_text(message)
+            rt.turn_context.pop(who, None)
+            if record == "both" and memory_before and user_text:
+                transcript_add(who, "user", user_text, "upload" if message.get("_photo") or message.get("_document")
+                               else "chat")
             token_box, token_up = _outbox.set(box), _uploads.set(uploads or {})
             token_sink = reply_sink.set(sink)
             try:
@@ -432,10 +560,9 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
                 try:
                     reply = await task
                 except asyncio.CancelledError:
-                    if event.is_set():
-                        return {"reply": STOPPED_RU, "stopped": True, "attachments": [],
-                                "disclosure": []}
-                    raise
+                    if not event.is_set():
+                        raise
+                    reply, stopped = STOPPED_RU, True
                 finally:
                     inflight.pop(uid, None)
             except CompanionError as exc:
@@ -456,7 +583,7 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
                         "schema": "bossman.pit.runtime-error/1"})
                 except OSError:
                     pass
-                reply = "Произошла ошибка внутри Bossman. Она записана локально; повтор безопасен."
+                reply = GENERIC_ERROR_RU
             finally:
                 _outbox.reset(token_box)
                 _uploads.reset(token_up)
@@ -466,6 +593,22 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
         texts = [item["text"] for item in box if item.get("kind") == "text"]
         if not reply and texts:
             reply = texts[-1]
+        if reply and not stopped:
+            # Mandatory outgoing filter for EVERY reply the window returns: commands, j2 early replies,
+            # uploads and photo answers as well as model answers (Telegram filters at its single send point).
+            reply = rt.guard_outgoing(reply)
+        if reply and record != "none":
+            # Recorded by the state AFTER the turn as well: /resume_memory (off -> on) and the first contact are
+            # part of the chat; a /delete_me confirmation that erased the data must not re-create any of it.
+            wiped = rt.store.forget_epoch.get(who, 0) != epoch_before
+            if not wiped and (memory_before or memory_on(uid)):
+                if record == "both" and not memory_before and user_text:
+                    transcript_add(who, "user", user_text, "chat")
+                kind = ("greeting" if record == "reply"
+                        else reply_kind(user_text, reply, stopped=stopped, attachments=bool(attachments)))
+                transcript_add(who, "assistant", reply, kind)
+        if stopped:
+            return {"reply": STOPPED_RU, "stopped": True, "attachments": [], "disclosure": []}
         return {"reply": reply, "stopped": False, "attachments": attachments,
                 "disclosure": disclosure(uid, had_history, reply) if reply else []}
 
@@ -499,7 +642,7 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
         except Exception:  # noqa: BLE001 — health must answer even without a live runtime
             beat = None
         return {"ok": True, "voice": {"asr": speech.asr_status(), "tts": speech.tts_status()},
-                "heartbeat": beat}
+                "heartbeat": _public_heartbeat(beat)}
 
     # -- auth -------------------------------------------------------------------------------
     @app.get("/api/jeff/me")
@@ -521,7 +664,7 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
                 only_if_empty=True)
         except ValueError as exc:
             return error(403 if str(exc) == "SIGNUP_CLOSED_USE_CLI" else 400, str(exc))
-        greeting = (await run_turn(uid, base_message(uid, "/start")))["reply"]
+        greeting = (await run_turn(uid, base_message(uid, "/start"), record="reply"))["reply"]
         return session_response(uid, {"ok": True, "greeting": greeting})
 
     @app.post("/api/jeff/login")
@@ -539,7 +682,7 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
         login_failures.pop(name, None)
         greeting = None
         if not (rt.vault.person_dir(rt.vault.key_for_telegram(uid)) / "consent.json").is_file():
-            greeting = (await run_turn(uid, base_message(uid, "/start")))["reply"]
+            greeting = (await run_turn(uid, base_message(uid, "/start"), record="reply"))["reply"]
         return session_response(uid, {"ok": True, "greeting": greeting})
 
     @app.post("/api/jeff/logout")
@@ -555,8 +698,20 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
         uid = user_of(request)
         if uid is None:
             return error(401, "AUTH_REQUIRED")
-        rows = rt.store.history(person_for(uid).key)
-        return {"messages": [{"role": row["role"], "text": row["content"]} for row in rows]}
+        who = person_for(uid).key
+        try:
+            limit = int(request.query_params.get("limit", PITStore.TRANSCRIPT_CAP))
+        except ValueError:
+            limit = PITStore.TRANSCRIPT_CAP
+        # The visible chat is the display transcript (errors, stopped turns, commands included). The model-context
+        # window ``store.history`` is only the fallback for a window upgraded from a build without a transcript.
+        rows = rt.store.transcript(who, limit)
+        if rows:
+            messages = [{"role": row["role"], "text": row["text"], "kind": row["kind"]} for row in rows]
+        else:
+            messages = [{"role": row["role"], "text": row["content"], "kind": "chat"}
+                        for row in rt.store.history(who)]
+        return {"messages": messages, "memory_enabled": memory_on(uid)}
 
     @app.post("/api/jeff/chat")
     async def chat(request: Request):
@@ -569,6 +724,7 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
             return error(400, "TEXT_REQUIRED")
         if data.get("via") == "voice" and text.startswith("/"):
             # A transcript is chat input, never an executable command.
+            record_static_exchange(uid, text, FORBIDDEN_REPLY_RU)
             return {"reply": FORBIDDEN_REPLY_RU, "stopped": False, "attachments": [],
                     "disclosure": []}
         return await run_turn(uid, base_message(uid, text))
@@ -592,6 +748,7 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
             return error(400, "TEXT_REQUIRED")
         queue: asyncio.Queue = asyncio.Queue()
         if data.get("via") == "voice" and text.startswith("/"):
+            record_static_exchange(uid, text, FORBIDDEN_REPLY_RU)
             queue.put_nowait(("final", {"reply": FORBIDDEN_REPLY_RU, "stopped": False,
                                         "attachments": [], "disclosure": []}))
         else:
@@ -603,7 +760,7 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
                     queue.put_nowait(("final", await run_turn(uid, base_message(uid, text),
                                                               sink=sink)))
                 except Exception:  # noqa: BLE001 — the stream always ends with a final event
-                    queue.put_nowait(("final", {"reply": "Не получилось ответить. Повторите чуть позже.",
+                    queue.put_nowait(("final", {"reply": STREAM_ERROR_RU,
                                                 "stopped": False, "attachments": [],
                                                 "disclosure": []}))
             background.add(task := asyncio.create_task(turn()))
@@ -682,7 +839,8 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
             commands.append("/resume_memory" if data["memory_enabled"] else "/pause_memory")
         if not commands:
             return error(400, "NOTHING_TO_CHANGE")
-        replies = [(await run_turn(uid, base_message(uid, command)))["reply"] for command in commands]
+        replies = [(await run_turn(uid, base_message(uid, command), record="none"))["reply"]
+                   for command in commands]
         consent = rt.vault.consent(own_key(uid))
         return {"memory_enabled": consent.memory_enabled,
                 "cloud_context_enabled": consent.remote_personalization_enabled,
@@ -756,17 +914,25 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
         event.clear()
         started = time.perf_counter()
         try:
-            audio = await asyncio.to_thread(speech.synthesize, text, stopped=event.is_set,
-                                            audit_dir=home / "logs", surface="web")
+            audio = await asyncio.to_thread(_guest_synthesize, text, stopped=event.is_set,
+                                            audit_dir=home / "logs")
         except speech.SpeechError as exc:
             code = str(exc)
-            return error(409 if code == "VOICE_STOPPED" else 503, code)
+            return error(409 if code == "VOICE_STOPPED" else 422 if code == "VOICE_TEXT_REFUSED" else 503, code)
         return Response(audio, media_type="audio/ogg",
                         headers={"X-Jeff-TTS-Latency-Ms": str(int((time.perf_counter() - started) * 1000))})
 
     @app.on_event("shutdown")
     async def _shutdown():
+        for task in startup_tasks:
+            task.cancel()
+        await asyncio.gather(*startup_tasks, return_exceptions=True)
+        startup_tasks.clear()
         if rt.value is not None:
+            try:
+                rt.value.heartbeat.write(state="stopped", queue=0)
+            except Exception:  # noqa: BLE001
+                pass
             await rt.close()
             rt.value = None
 
@@ -853,14 +1019,21 @@ def cmd_web_setup(config: Path, argv: list[str]) -> int:
         print("bossman pit web-setup: нужна локальная модель (--local-model) или ключ для :free",
               file=sys.stderr)
         return 2
+    # No cloud (--no-cloud, or Enter at the key prompt) means a LOCAL-ONLY window: no cloud model is configured
+    # at all. Before, the ':free' defaults stayed in the config without a key; the public catalog lists them as
+    # live 0/0 routes, so ~70% of the turns went to routes that answered 401 and the window looked dead.
+    local_only = bool(local_models) and (ns.no_cloud or not key)
+    if local_only:
+        models = []
     try:
         save_setup(config, people=[Person(user_id=1, chat_id=1, role="owner")],
                    chat_models=models, provider_base_url="https://openrouter.ai/api/v1",
                    core_url="http://127.0.0.1:8800", local_url=ns.local_url if local_models else "",
-                   local_models=local_models, web_only=True, provider_key=key)
+                   local_models=local_models, local_chat_only=local_only, web_only=True, provider_key=key)
     except (CompanionError, ValueError) as exc:
         print(f"bossman pit web-setup: {exc}", file=sys.stderr)
         return 2
-    print(f"Готово: окно Jeff настроено в {config.parent}. Учётная запись: "
+    mode = "только локальная модель, облако не настроено" if local_only else "локальная модель + бесплатное облако"
+    print(f"Готово: окно Jeff настроено в {config.parent} ({mode}). Учётная запись: "
           "bossman pit web-user add <имя>, запуск: bossman pit web.")
     return 0

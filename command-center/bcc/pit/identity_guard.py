@@ -60,14 +60,40 @@ _PROVIDER_WORDS = (
 )
 P = r"(?:" + "|".join(_PROVIDER_WORDS) + r")"
 _PROVIDER_ANY = re.compile(r"(?<![\w.])" + P + r"(?![\w])", re.I)
+# "Alibaba Cloud", "Google Labs": the organisation suffix goes with the name, otherwise it is left behind
+# ("I'm Qwen, a model created by Alibaba Cloud" became "I'm Jeff Cloud.").
+_ORG = r"(?:\s+(?:cloud|labs?|inc\.?|corp\.?|research|studio|team)(?![\w]))?"
 # "X by/from/от Y" tails, absorbed together with the model name.
 _TAIL = (r"(?:[\s,(]+(?:from|by|от|компании|made\s+by|developed\s+by|created\s+by|trained\s+by|built\s+by|"
          r"разработанн\w+|созданн\w+|обученн\w+|сделанн\w+)\s+(?:the\s+|компани\w+\s+|командой\s+)?"
-         r"(?<![\w.])" + P + r"(?![\w])\)?)?")
-PX = r"(?<![\w.])" + P + r"(?![\w])(?:[\s-]?v?\d\w*(?:\.\d\w*)*(?![\w]))?" + _TAIL
+         r"(?<![\w.])" + P + r"(?![\w])" + _ORG + r"\)?)?")
+PX = r"(?<![\w.])" + P + r"(?![\w])(?:[\s-]?v?\d\w*(?:\.\d\w*)*(?![\w]))?" + _ORG + _TAIL
 _W = r"(?:[\w'’-]+[\s,]+)"          # one word and its separator
+_SEP = r"[\s,;:—–-]+"                # separators that also allow a dash («Jeff — это Qwen»)
 
 _SELF_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple((kind, re.compile(rx, re.I)) for kind, rx in (
+    # -- clauses that are removed whole ("drop"): they have no subject of their own, so a persona phrase in
+    #    their place would leave "Я — Jeff, и я Jeff."
+    #    (only after a main clause: a sentence that STARTS with such a clause is rewritten to the persona instead)
+    ("drop", r"(?<=\w)(?:[,;]\s*(?:(?:и|а|но|однако)\s+)?|\s+(?:и|а|но|однако)\s+)"
+             r"(?:(?:я|jeff|джефф\w*)\s+(?:работаю\s+)?|работаю\s+)на\s+баз[еы]\s+(?:модел\w+\s+)?" + PX),
+    ("drop", r"(?<=\w)(?:[,;]\s*(?:(?:и|а|но|однако)\s+)?|\s+(?:и|а|но|однако)\s+)"
+             r"(?:(?:внутри|под\s+капотом|в\s+основе|в\s+глубине|по\s+факту|по\s+сути)\s+(?:у\s+меня|меня|я)\s+|"
+             r"у\s+меня\s+(?:внутри|под\s+капотом|в\s+основе)\s+)(?:\w+\s+){0,1}?" + PX),
+    ("drop", r"(?<=\w)(?:[,;]\s*(?:(?:but|and|though|however)\s+)?|\s+(?:but|and|though|however)\s+)"
+             r"(?:inside|underneath|under\s+the\s+hood|deep\s+down|at\s+my\s+core|behind\s+the\s+scenes)[,\s]+"
+             r"(?:i'm|i\s+am|it's|it\s+is|i\s+run\s+on|i\s+use)\s+(?:an?\s+)?" + PX),
+    # "Я Jeff, модель Qwen от Alibaba", "I'm Jeff, a model by Google"
+    ("self", r"(?<![\w])(?:я|меня\s+зовут)\s*[—–-]?\s*(?:jeff|джефф\w*)" + _SEP +
+             r"(?:(?:а\s+)?(?:по\s+сути|на\s+самом\s+деле|вообще-то|это|просто|то\s+есть)" + _SEP + r")?"
+             r"(?:(?:языков\w+|больш\w+|модель|модели|ии|ai|нейросеть|llm|ассистент|версия)" + _SEP + r"){0,3}" + PX),
+    ("self", r"\b(?:i\s*am|i'm)\s+jeff" + _SEP + r"(?:(?:but|and|though|actually|really|basically|in\s+fact)" + _SEP +
+             r"){0,2}(?:(?:a|an|the|large|language|model|ai|llm|assistant|version|of|built|based|on|running)" + _SEP +
+             r"){0,6}" + PX),
+    # "Jeff — это Qwen, если что."
+    ("self", r"\b(?:jeff|jev|джефф\w*|this\s+(?:assistant|bot))" + _SEP +
+             r"(?:(?:is|was|actually|really|basically|это|на\s+самом\s+деле|по\s+сути|просто|и\s+есть)" + _SEP +
+             r"){1,3}(?:(?:a|an|the|model|модель|ии|ai)" + _SEP + r"){0,2}" + PX),
     # "I'm (actually) Claude", "I am a GPT"
     ("self", r"\bI(?:'m|’m|\s+am|\s+was)\s+(?:(?:actually|really|just|basically|in\s+fact|called|named|known\s+as|"
              r"a|an|the|model|ai|assistant|large|language|llm|chatbot|version|of)[\s,]+){0,5}" + PX),
@@ -250,6 +276,10 @@ def _fix_sentence(sentence: str, persona: str) -> tuple[str, bool]:
         if hit is None:
             break
         kind, match = hit
+        if kind == "drop":
+            current = re.sub(r"\s+([.!?…])", r"\1", current[:match.start()] + current[match.end():])
+            changed = True
+            continue
         phrase = _persona_phrase(persona, kind, sentence, mid_sentence=_mid_sentence(current, match.start()))
         current = current[:match.start()] + phrase + current[match.end():]
         changed = True

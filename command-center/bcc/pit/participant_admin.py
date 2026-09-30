@@ -150,11 +150,12 @@ def pause_memory(vault: PersonaVault, person_key: str) -> bool:
 
 def forget_chat_history(data_dir: Path, jeff_dir: Path, cfg: dict, salt: bytes | None,
                         person_key: str) -> int:
-    """Best effort: drop the short-term conversation window kept in the sqlite stores."""
+    """Best effort: drop the short-term conversation window AND the Jeff window's display transcript kept in the
+    sqlite stores (PITStore.forget erases both; the plain companion Store knows nothing about the transcript)."""
     if not salt:
         return 0
-    from bcc.telegram_companion.store import Store
     from .identity import derive_person_key
+    from .runtime import PITStore
     from .web import derive_web_person_key
     key = validate_person_key(person_key)
     cleared = 0
@@ -181,7 +182,7 @@ def forget_chat_history(data_dir: Path, jeff_dir: Path, cfg: dict, salt: bytes |
         if not (home / "companion.sqlite3").is_file():
             continue
         try:
-            store = Store(home)
+            store = PITStore(home)
             try:
                 store.forget(who)
                 cleared += 1

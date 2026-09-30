@@ -8,7 +8,8 @@ overlay file is the one Jeff itself re-reads on every message
 Endpoints (mounted under /api with the normal session/CSRF or token auth —
 participants have no Command Center session, so they can never reach them):
   GET    /jeff-settings                    — overlay + presets + known participants
-  PUT    /jeff-settings                    — defaults (style) + budgets; overrides kept
+  PUT    /jeff-settings                    — defaults (style) + budgets (+ the cloud_session_context switch);
+                                             overrides kept
   GET    /jeff-settings/users/{person_key} — one participant's override
   PUT    /jeff-settings/users/{person_key} — set it
   DELETE /jeff-settings/users/{person_key} — remove it (defaults apply again)
@@ -212,6 +213,9 @@ class StyleIn(BaseModel):
 class SettingsIn(BaseModel):
     defaults: StyleIn = Field(default_factory=StyleIn)
     budgets: dict[str, float] | None = None
+    # OWNER DECISION, default off: a free-cloud route may see the last <=3 redacted turns (<=30 min) of the
+    # current conversation. None = leave the file's value as it is.
+    cloud_session_context: bool | None = None
 
 
 def _style_payload(body: StyleIn, *, keep_absent_extra: bool) -> dict:
@@ -219,9 +223,29 @@ def _style_payload(body: StyleIn, *, keep_absent_extra: bool) -> dict:
     if body.system_extra is not None or not keep_absent_extra:
         raw["system_extra"] = body.system_extra or ""
     try:
-        return js.normalize_profile(raw, keep_absent_extra=keep_absent_extra)
+        return js.normalize_profile(raw, keep_absent_extra=keep_absent_extra, strict=True)
     except js.OverlayError as exc:
         raise HTTPException(422, f"Неверные настройки: {exc}") from None
+
+
+def _over_limit(path: Path) -> list[str]:
+    """Places where the RAW file holds a style note longer than the limit (the reader keeps only its start)."""
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(raw, dict):
+        return []
+    users = raw.get("users")
+    blocks = [("defaults", raw.get("defaults"))]
+    if isinstance(users, dict):
+        blocks += [("users", block) for block in users.values()]
+    found = []
+    for name, block in blocks:
+        extra = block.get("system_extra") if isinstance(block, dict) else None
+        if isinstance(extra, str) and len(" ".join(extra.split())) > js.SYSTEM_EXTRA_MAX:
+            found.append(name)
+    return found
 
 
 @router.get("/jeff-settings")
@@ -232,7 +256,8 @@ async def get_settings(request: Request):
                             configured_usd_per_job=_configured()[1])
     return {
         "path": str(path), "exists": path.is_file(), "valid": valid, "error": error,
-        "settings": overlay,
+        "settings": overlay, "cloud_session_context": bool(overlay.get("cloud_session_context")),
+        "extra_truncated": _over_limit(path),
         "presets": js.PRESETS, "preset_labels": js.PRESET_LABELS,
         "scale_names": list(BEHAVIOR_SCALE_NAMES), "scale_labels": SCALE_LABELS,
         "scale_hints": SCALE_HINTS, "scale_range": [js.SCALE_MIN, js.SCALE_MAX],
@@ -258,6 +283,11 @@ async def put_settings(body: SettingsIn, request: Request):
             overlay["budgets"] = js.normalize_budgets(dict(body.budgets))
         except js.OverlayError as exc:
             raise HTTPException(422, f"Неверный бюджет: {exc}") from None
+    if body.cloud_session_context is not None:
+        if body.cloud_session_context:
+            overlay["cloud_session_context"] = True
+        else:
+            overlay.pop("cloud_session_context", None)       # only written when on: older builds keep reading the file
     return {"ok": True, "settings": _save(path, overlay)}
 
 
@@ -459,6 +489,30 @@ async def jeff_status(request: Request):
         "jeff.status", lambda: asyncio.to_thread(_jeff_status_sync, request), ttl=8.0, stale_ttl=45.0)
 
 
+def current_provider_errors(home: Path) -> list[dict]:
+    """``provider_last_error`` of the Telegram store and of the Jeff window store, only while it is CURRENT.
+
+    Both runtimes clear it on their first successful reply; on top of that an error older than the last good
+    reply of the same surface (its heartbeat) is history, not a fault, and is not shown."""
+    from ..pit import heartbeat as hb
+    from ..pit.cli import _store_state
+    rows: list[dict] = []
+    for label, store_home in (("provider_last_error", home), ("provider_last_error (окно)", home / "web")):
+        value = _store_state(store_home, "provider_last_error")
+        if not value:
+            continue
+        at = _store_state(store_home, "provider_last_error_at")
+        beat = hb.read(store_home) or {}
+        last_ok = beat.get("last_reply_at")
+        if isinstance(at, str) and isinstance(last_ok, str) and last_ok >= at:
+            continue
+        row = {"where": label, "error": str(value)[:200]}
+        if isinstance(at, str):
+            row["at"] = at
+        rows.append(row)
+    return rows
+
+
 def _jeff_status_sync(request: Request) -> dict:
     from ..pit import heartbeat as hb
     from ..pit import speech
@@ -488,10 +542,10 @@ def _jeff_status_sync(request: Request) -> dict:
     if creds_error:
         errors.append({"where": "credentials", "error": creds_error})
     from ..pit.cli import _queue_pending, _store_state
-    for name in ("transport_error", "provider_last_error"):
-        value = _store_state(home, name)
-        if value:
-            errors.append({"where": name, "error": str(value)[:200]})
+    value = _store_state(home, "transport_error")
+    if value:
+        errors.append({"where": "transport_error", "error": str(value)[:200]})
+    errors.extend(current_provider_errors(home))
     errors.extend({"where": "runtime", "error": r.get("kind", ""), "at": r.get("at", "")}
                   for r in _tail_jsonl(home / "logs" / "runtime_error.jsonl", 5, ("at", "kind")))
     people = participants(_cc_data_dir(request), jeff_dir, cfg, overlay)

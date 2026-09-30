@@ -147,9 +147,11 @@ def test_chat_reply_history_and_restart(tmp_path):
     with client_for(app2) as c2:
         c2.cookies.set(web.SESSION_COOKIE, cookie)
         history = c2.get("/api/jeff/history").json()["messages"]
-    assert [m["role"] for m in history] == ["user", "assistant"]
-    assert history[0]["text"] == "Привет, как дела?"
-    assert history[1]["text"] == "Привет! Чем займёмся?"
+    # the window transcript: the greeting (shown at sign-up), then the turn
+    assert [m["role"] for m in history] == ["assistant", "user", "assistant"]
+    assert history[0]["text"] == rt.INTRO_RU
+    assert history[1]["text"] == "Привет, как дела?"
+    assert history[2]["text"] == "Привет! Чем займёмся?"
 
 
 def test_context_is_carried_within_a_conversation(tmp_path):

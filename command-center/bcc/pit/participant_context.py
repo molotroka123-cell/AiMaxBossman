@@ -16,6 +16,13 @@ CALL_SPOKEN_STYLE = (
     "Если собеседник прощается, попрощайся и добавь в самом конце метку [конец]. "
     "Ты ИИ-ассистент: говори это честно, если спросят.")
 
+#: Crisis dialogue (the participant wrote that they want to die, see ``crisis.py``): the owner overlay is OFF for
+#: this participant for a while and the model is told to stay calm.
+CRISIS_STYLE_RU = (
+    "Собеседник сейчас в тяжёлом состоянии. Отвечай спокойно, тепло и серьёзно: без грубости, сарказма, шуток, мата "
+    "и обесценивания. Слушай и поддерживай, мягко напоминай, что можно обратиться к близким и в службы помощи; "
+    "не давай опасных инструкций и не выдумывай телефоны.")
+
 PIT_ASSISTANT_SYSTEM = (
     "Твоё публичное имя — Jeff. Ты — персональный AI-помощник собеседника в Telegram. "
     "Если спрашивают, кто ты или какая модель сейчас отвечает, называй себя Jeff и не раскрывай "
@@ -101,6 +108,7 @@ def build_participant_context(
     profile_stability: int = 50,
     behavior_scales: dict[str, int] | None = None,
     surface: str = "telegram",
+    suspend_overlay: bool = False,
 ) -> ParticipantContext:
     """Build context from exactly one participant namespace.
 
@@ -120,9 +128,11 @@ def build_participant_context(
                   .replace("Для Telegram используй", "В окне чата используй"))
     # Owner overlay (jeff-settings.json, Bossman Command v0.1): re-read per
     # message through an mtime cache. Style only; absent/invalid = stock Jeff.
-    style = jeff_settings.style_for(vault.data_dir, person_key)
+    style = jeff_settings.STOCK_STYLE if suspend_overlay else jeff_settings.style_for(vault.data_dir, person_key)
     if style.system_extra:
         system += " " + jeff_settings.owner_extra_text(style.system_extra)
+    if suspend_overlay:
+        system += " " + CRISIS_STYLE_RU
     behavior_scales = jeff_settings.effective_scales(behavior_scales, style)
     # Owner's per-participant profile (Jeff Admin): this person's own file only.
     profile_text = participant_profile.system_text_for(vault.data_dir, person_key)

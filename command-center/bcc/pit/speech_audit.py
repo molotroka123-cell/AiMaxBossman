@@ -33,6 +33,13 @@ _CATEGORIES: tuple[tuple[str, re.Pattern[str]], ...] = tuple((name, re.compile(r
                 r"личн\w+\s+данн|personal\s+data"),
     ("security", r"взлом\w*|\bhack|malware|вирус\w*|вредонос\w*|фишинг\w*|phishing|approval\w*|подтвержден\w*|"
                  r"команд\w+\s+на\s+пк|\bshell\b|jailbreak|джейлбрейк"),
+    # a threat or a slur spoken aloud is on the record as well (a rude manner must not leave no trace)
+    ("threat", r"(?:найду|достану|убью|прикончу|зарежу|сожгу|накажу|изобью|расправлюсь)\s+(?:с\s+)?(?:тебя|вас|его|ее|её|их|"
+               r"тобой|вами)|пожалеешь|пожалеете|готовься\s+к\s+расправ\w*|расправ\w+\s+над|"
+               r"\bi(?:'ll|\s+will)\s+(?:find|kill|hurt|destroy|get)\s+you|you(?:'ll|\s+will)\s+regret|"
+               r"going\s+to\s+kill\s+you"),
+    ("abuse", r"\b(?:ты|он|она|вы)\s+(?:такой\s+|такая\s+)?(?:тупой|тупая|урод|мразь|ублюдок|тварь|скотина|дебил\w*|"
+              r"идиот\w*|кретин\w*)|\bсдохни\b|\bfuck\s+you\b|\byou(?:'re|\s+are)\s+(?:stupid|an?\s+idiot|trash)\b"),
 ))
 _DIGITS = re.compile(r"\d{6,}")
 
@@ -44,6 +51,12 @@ def security_category(text: str) -> str:
         if pattern.search(value):
             return name
     return ""
+
+
+def is_threat(text: str) -> bool:
+    """True when the text to be spoken is a threat (the window refuses to voice it, after auditing it)."""
+    value = str(text or "")
+    return any(name == "threat" and pattern.search(value) for name, pattern in _CATEGORIES)
 
 
 def redact(text: str) -> str:

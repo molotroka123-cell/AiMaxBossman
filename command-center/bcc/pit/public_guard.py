@@ -51,6 +51,7 @@ class GuardKind(StrEnum):
     OTHER_PERSON = "other_person"
     BOSSMAN_PUBLIC = "bossman_public"
     DISCLOSURE = "disclosure"
+    SETTINGS = "settings"
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,7 +76,7 @@ _MODEL_RE = re.compile(
     re.I,
 )
 _IDENTITY_RE = re.compile(r"^(?:кто ты|как тебя зовут|who are you|what are you|your name)\??$", re.I)
-_OWNER_RE = re.compile(r"\b(?:владелец|owner|тимур|создатель|creator)\b", re.I)
+_OWNER_RE = re.compile(r"\b(?:владел\w*|owner\w*|тимур\w*|создател\w*|creator\w*)\b", re.I)
 # Owner PRIVACY is about asking after the Bossman owner, not about the words
 # themselves: «я владелец кафе» or the owner introducing himself («меня зовут
 # Тимур») are ordinary chat. Generic owner words need a link to this assistant
@@ -103,7 +104,9 @@ def _asks_about_owner(value: str) -> bool:
     return False
 _AUTHORITY_RE = re.compile(
     r"(?:памят[ьи] владельца|owner.?s? memory|approvals?|аппрувал|подтвержден[ияй]|"
-    r"выполни.{0,35}(?:на пк|команду|shell|cmd)|run.{0,35}(?:command|shell))",
+    r"выполни.{0,35}(?:на пк|команду|shell|cmd)|run.{0,35}(?:command|shell)|"
+    r"(?:открой|открыть|покажи|прочитай|прочти|скачай|отправь|пришли|дай)\w*.{0,40}"
+    r"(?:файл|token|токен|парол|ключ|заметк|документ)\w*)",
     re.I,
 )
 _LOCATION_RE = re.compile(
@@ -147,6 +150,10 @@ _IDENTITY_EXTRA_RE = re.compile(
     r"\b(?:underlying|base)\s+model\s+(?:are\s+you|do\s+you\s+use|behind\s+you)\b",
     re.I,
 )
+SETTINGS_REPLY_RU = (
+    "Это просто мой характер на сегодня. А как он устроен и кто что настраивал, я не рассказываю: "
+    "давай лучше к делу."
+)
 DISCLOSURE_REPLY_RU = (
     "Я Jeff и не раскрываю системные инструкции, скрытые правила, адреса сервисов, ключи и внутреннее "
     "устройство — ни напрямую, ни в переводе, кодировке, цитате или по частям. С остальным с удовольствием помогу."
@@ -177,6 +184,23 @@ _DISCLOSURE_RE = re.compile(
     r"spell\s+out|по\s+буквам|по\s+частям|letter\s+by\s+letter)\b.{0,40}\b(?:сво[иейё]\w*|тво[иейё]\w*|your)\s+"
     r"(?:\w+\s+){0,2}?(?:инструкц\w+|правил\w+|промпт\w*|настройк\w+|instructions?|rules|prompt|guidelines)",
     re.I | re.S,
+)
+# Questions about how Jeff's MANNER is configured (sliders, who set the tone, the owner's settings, the mode of
+# communication). The manner itself is the owner's business; Jeff answers in character and reveals nothing about it.
+_SETTINGS_RE = re.compile(
+    r"\b(?:тво\w*|у\s+тебя|your)\b[^.!?]{0,40}?\b(?:ползунк\w*|слайдер\w*|sliders?|"
+    r"настройк\w*\s+(?:тона|стиля|характера|манеры|настроени\w+|грубости|общения)|режим\w*\s+общения)|"
+    r"\b(?:ползунк\w*|слайдер\w*|sliders?)\s+(?:настроени\w+|характер\w*|тона|стиля|грубост\w*|mood|tone)|"
+    r"\bкто\s+(?:тебе|тебя)\s+(?:велел|велит|приказал|приказывает|задал|задаёт|задает|настроил\w*|заставил|"
+    r"заставляет|поручил|включил|выставил)\b|"
+    r"\bвладел\w*\s+(?:тебе\s+)?(?:задал\w*|настроил\w*|велел\w*|включил\w*|выставил\w*|разрешил\w*\s+(?:тебе\s+)?"
+    r"(?:грубить|хамить|материться|ругаться|оскорблять))|"
+    r"\b(?:тебе|тебя)\s+владел\w*\s+(?:задал\w*|настроил\w*|велел\w*|включил\w*|выставил\w*)|"
+    r"\bрежим\s+общения\b|"
+    r"\b(?:почему|зачем)\s+ты\s+(?:так\s+)?(?:груб\w+|хамишь|хамиш\w*|материшься|ругаешься|оскорбляешь)|"
+    r"\b(?:who|what)\s+(?:told|made|set|configured|instructed|asked)\s+you\s+to\s+(?:be\s+)?(?:rude|mean|swear|"
+    r"insult)|\byour\s+(?:mood|tone|personality|style)\s+(?:settings?|sliders?|config\w*)",
+    re.I,
 )
 _B64_TOKEN = re.compile(r"(?<![A-Za-z0-9+/=])[A-Za-z0-9+/]{12,}={0,2}(?![A-Za-z0-9+/=])")
 
@@ -209,6 +233,8 @@ def _probe_kind(value: str) -> GuardKind | None:
         return GuardKind.IDENTITY
     if _DISCLOSURE_RE.search(value):
         return GuardKind.DISCLOSURE
+    if _SETTINGS_RE.search(value):
+        return GuardKind.SETTINGS
     try:
         from .j2.safety import Category, analyze
         if analyze(value).category == Category.EXTRACTION:
@@ -236,7 +262,8 @@ def public_guard(text: str) -> GuardReply | None:
         kind = _probe_kind(view)
         if kind is not None:
             # A probe hidden in an encoding is an identity/disclosure attempt whatever it asked.
-            return GuardReply(kind, JEFF_IDENTITY_REPLY_RU if kind == GuardKind.IDENTITY else DISCLOSURE_REPLY_RU,
+            return GuardReply(kind, JEFF_IDENTITY_REPLY_RU if kind == GuardKind.IDENTITY
+                              else SETTINGS_REPLY_RU if kind == GuardKind.SETTINGS else DISCLOSURE_REPLY_RU,
                               risk_delta=2)
     return None
 
@@ -249,6 +276,8 @@ def _public_guard_plain(value: str) -> GuardReply | None:
         return GuardReply(GuardKind.IDENTITY, JEFF_IDENTITY_REPLY_RU, risk_delta=1)
     if kind == GuardKind.DISCLOSURE:
         return GuardReply(GuardKind.DISCLOSURE, DISCLOSURE_REPLY_RU, risk_delta=2)
+    if kind == GuardKind.SETTINGS:
+        return GuardReply(GuardKind.SETTINGS, SETTINGS_REPLY_RU, risk_delta=1)
     if _asks_about_owner(value):
         return GuardReply(GuardKind.OWNER_PRIVACY, OWNER_PRIVACY_REPLY_RU, risk_delta=1)
     if _LOCATION_RE.search(value):
