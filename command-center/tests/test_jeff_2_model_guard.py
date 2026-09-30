@@ -398,6 +398,36 @@ def test_degraded_state_probes_faster():
     assert mg.CANARY_DEGRADED_INTERVAL_S in ticks
 
 
+
+def test_stop_ends_the_loop_even_when_a_cancellation_is_swallowed():
+    # Python 3.11: asyncio.wait_for may return the probe result instead of raising CancelledError
+    # when the cancel lands as the probe completes. Simulate exactly that: the first cancellation
+    # delivered into the loop is swallowed. stop() must still return promptly.
+    async def scenario():
+        swallowed = []
+
+        async def lossy_sleep(seconds):
+            try:
+                await asyncio.sleep(0)
+            except asyncio.CancelledError:
+                if swallowed:
+                    raise
+                swallowed.append(seconds)            # the lost cancellation
+
+        module, *_ = guard("Париж", sleep=lossy_sleep)
+        await module.start()
+        for _ in range(5):
+            await asyncio.sleep(0)
+        stopper = asyncio.ensure_future(module.stop())
+        done, _ = await asyncio.wait({stopper}, timeout=5.0)
+        # Where the cancellation lands (the sleep or, on 3.11, inside wait_for) varies; the contract
+        # does not: stop() returns and the loop is gone. The old `while True` loop never ended here.
+        assert stopper in done, "stop() hung after a swallowed cancellation"
+        assert module._loop_task is None and len(swallowed) <= 1
+
+    run(scenario())
+
+
 # ---- factory and pipeline -----------------------------------------------------------------------------------
 def test_create_wires_the_runtime_local_adapter():
     class Adapter:
