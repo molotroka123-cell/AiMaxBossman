@@ -1028,10 +1028,17 @@ def _api_router() -> APIRouter:
                 stmt = stmt.where(tasks_t.c.status.in_(status.split(",")))
             res = await s.execute(stmt)
             rows = rows_dicts(res.fetchall())
+            # Последний run каждой задачи ОДНИМ запросом (раньше — по запросу на задачу: 101 запрос
+            # на страницу из 100 задач). Последний = наибольший id, как и в `ORDER BY id DESC LIMIT 1`.
+            last: dict[int, dict] = {}
+            if rows:
+                latest = (sa.select(sa.func.max(runs_t.c.id))
+                          .where(runs_t.c.task_id.in_([t["id"] for t in rows]))
+                          .group_by(runs_t.c.task_id))
+                res = await s.execute(sa.select(runs_t).where(runs_t.c.id.in_(latest)))
+                last = {r["task_id"]: r for r in rows_dicts(res.fetchall())}
             for task in rows:
-                run = await s.execute(sa.select(runs_t).where(runs_t.c.task_id == task["id"])
-                                      .order_by(runs_t.c.id.desc()).limit(1))
-                task["last_run"] = _run_public(dbm.row_dict(run.first()))
+                task["last_run"] = _run_public(last.get(task["id"]))
         return rows
 
     @router.post("/tasks/preflight")

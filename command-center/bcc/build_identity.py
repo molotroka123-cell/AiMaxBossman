@@ -72,6 +72,9 @@ def _resolve() -> dict[str, Any]:
 # Захватываем SHA при загрузке модуля, до первого health-запроса. Иначе первый
 # запрос после git pull ошибочно приписал бы старому процессу новый HEAD.
 _boot_identity: dict[str, Any] | None = _resolve()
+# Тот же ответ годится как начальный кэш: иначе первый source_identity() (bcc.app.main, первый /health/live)
+# заново запускал `git rev-parse` и `git diff` — две лишние подпроцесса на каждый старт в чекауте.
+_cached = (time.monotonic(), dict(_boot_identity))
 
 
 def source_identity(*, fresh: bool = False) -> dict[str, Any]:

@@ -32,6 +32,7 @@ MCP Hub — канонический реестр MCP-серверов/инст�
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timedelta
 
@@ -829,7 +830,8 @@ async def skills_for_task(svc, instruction: str, *,
         await _catalog_error(svc, "revocations_unreadable", exc)
         return []
     try:
-        return _catalog(svc).select(
+        return await asyncio.to_thread(
+            _catalog(svc).select,
             instruction or "", revoked,
             available_tools=tuple(available_tools) if available_tools is not None
             else catalog_mod.STUDENT_TOOLS,
@@ -855,7 +857,8 @@ async def list_catalog(request: Request):
         revoked = await catalog_revocations(svc)
     except RevocationsUnreadable as exc:
         raise HTTPException(503, {"message": "список отзывов нечитаем", "hint": str(exc)})
-    return [e.summary() for e in _catalog(svc).entries(revoked)]
+    # Скан каталога + sha256 каждого SKILL.md — десятки мс синхронного I/O: не в цикле событий.
+    return await asyncio.to_thread(lambda: [e.summary() for e in _catalog(svc).entries(revoked)])
 
 
 @router.get("/skill-catalog/select")
