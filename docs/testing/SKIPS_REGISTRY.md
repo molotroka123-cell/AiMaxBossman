@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 368. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 369. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -172,6 +172,7 @@
 | `command-center/tests/test_ux_soak_completed_task_error_label.py:19` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_ux_soak_home_long_task.py:19` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_ux_soak_v15_quick_test_notice.py:18` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_ux_sweep_shell.py:14` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_v21_e2e_mission.py:204` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_v21_e2e_mission.py:359` | skipif | `shutil.which("opencode") is not None` | есть настоящий opencode — отдельный host-smoke | Command Center | необязательный пакет / соседний компонент | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_v21_failure_injection.py:115` | importorskip | `—` | нет пакета mcp | Command Center | необязательный пакет / соседний компонент | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
