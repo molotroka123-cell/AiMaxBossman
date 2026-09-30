@@ -855,7 +855,8 @@ class ParticipantRuntime:
             try:
                 answer = await self._handle_with_notice(fresh, message, update_id=update_id)
             except asyncio.CancelledError:
-                self.store.finish(update_id, "delivery_unknown")
+                if not self._generation_resumable_after_restart(update_id):
+                    self.store.finish(update_id, "delivery_unknown")
                 raise
             except StopRequested:
                 self.store.finish(update_id, "delivery_unknown")
@@ -971,6 +972,22 @@ class ParticipantRuntime:
                 self._pending_photo_memory.pop(
                     (fresh.key, str(message.get("_message_id") or "0")), None)
                 self._finish_update(update_id, "delivery_unknown", fresh)
+
+    def _generation_resumable_after_restart(self, update_id: int) -> bool:
+        """A restart (not owner STOP) cancelled a Studio generation before upload.
+
+        Before the durable 'sending' marker no photo can have reached Telegram,
+        so the inbox row stays 'processing': the next start's recover() marks
+        it interrupted_unknown and _reconcile_generations resumes the exact
+        Studio job and delivers it once. Marking it delivery_unknown here lost
+        images that Studio completed around the restart.
+        """
+        if (self.home / STOP_FLAG).exists():
+            return False
+        try:
+            return self.store.generation_phase(update_id) in {"requesting", "studio_submitted"}
+        except Exception:
+            return False
 
     async def _handle_with_notice(self, person: Person, message: dict, *,
                                   update_id: int, delay: float = 18.0) -> str:
