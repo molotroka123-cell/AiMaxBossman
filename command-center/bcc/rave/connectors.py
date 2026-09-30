@@ -24,6 +24,7 @@ import os
 import re
 import shutil
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -268,6 +269,40 @@ CLAUDE_SOURCES = ("https://code.claude.com/docs/en/legal-and-compliance",
 CODEX_SOURCES = ("https://learn.chatgpt.com/docs/pricing", "https://learn.chatgpt.com/docs/non-interactive-mode",
                  "https://learn.chatgpt.com/docs/auth")
 
+#: `claude -p --permission-prompts none` exists only in Claude Code >= 2.1.259 (checked against
+#: `claude --help` of 2.1.284). Older CLIs exit non-zero on the unknown flag, and the flag is what
+#: makes an unattended run deny a permission prompt instead of waiting for nobody: it is never
+#: dropped silently, the agent is blocked with a clear message instead.
+MIN_CLAUDE_VERSION = (2, 1, 259)
+CLAUDE_UPGRADE_STEP = "обновите Claude Code CLI до 2.1.259+ (в обычном терминале: `claude update`)"
+VERSION_TIMEOUT = 15.0
+VERSION_TTL = 300.0
+_VERSION_RE = re.compile(r"(?<![\d.])(\d+)\.(\d+)\.(\d+)")
+_version_cache: dict[tuple, tuple[float, dict]] = {}
+
+
+def parse_version(text: str) -> tuple[int, int, int] | None:
+    """First `X.Y.Z` in the CLI's `--version` output ("2.1.284 (Claude Code)", "codex-cli 0.157.1")."""
+    m = _VERSION_RE.search(text or "")
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else None
+
+
+def _version_key(cmd: list[str]) -> tuple:
+    """Cache key: the argv plus size/mtime of every argv element that is a file, so a CLI that was
+    updated (new binary) or swapped by a test stub is asked again instead of trusting an old answer."""
+    files = []
+    for part in cmd:
+        try:
+            st = os.stat(part)
+        except (OSError, ValueError):
+            continue
+        files.append((part, st.st_mtime_ns, st.st_size))
+    return (tuple(cmd), tuple(files))
+
+
+def reset_version_cache() -> None:
+    _version_cache.clear()
+
 
 def api_key_allowed(spec: AgentSpec) -> bool:
     return spec.params.get("auth") == "api_key" and os.environ.get(API_KEY_OPT_ENV, "").strip() in ("1", "true", "yes")
@@ -285,6 +320,26 @@ def cli_env(keep: tuple[str, ...], key_vars: tuple[str, ...], *, api_key: bool) 
     return env
 
 
+#: Where each official CLI keeps its login: the variable that moves the whole profile (verified on
+#: `claude auth status --json` -> configDirectory and `codex login status` with the variable set).
+PROFILE_VARS = {"claude": "CLAUDE_CONFIG_DIR", "codex": "CODEX_HOME"}
+_TOOL_ENV = {"claude": (("CLAUDE", "ANTHROPIC"), _CLAUDE_KEY_VARS), "codex": (("CODEX", "OPENAI"), _CODEX_KEY_VARS)}
+
+
+def profile_env(tool: str, profile_dir: str | None, *, api_key: bool = False) -> dict[str, str]:
+    """`cli_env` for one tool, optionally inside an account's own profile directory. With a profile
+    every credential-looking variable of that tool is dropped, so a token exported in the server's
+    environment can never beat (or be mixed with) the profile's own login: the profile decides."""
+    keep, key_vars = _TOOL_ENV[tool]
+    env = cli_env(keep, key_vars, api_key=api_key)
+    if profile_dir:
+        env[PROFILE_VARS[tool]] = str(profile_dir)
+        for k in list(env):
+            if k.upper().startswith(keep) and _SECRETISH.search(k):
+                env.pop(k)
+    return env
+
+
 async def _status_proc(argv: list[str], env: dict[str, str], timeout: float = 45) -> tuple[int | None, str]:
     from bossman.apprentice.proc_tree import run_tree  # noqa: WPS433 (bossman-core)
     import subprocess
@@ -293,15 +348,63 @@ async def _status_proc(argv: list[str], env: dict[str, str], timeout: float = 45
     return res.returncode, (res.stdout or b"").decode("utf-8", "replace")
 
 
-async def claude_login(*, api_key: bool = False) -> dict:
+async def _cli_version(tool: str, *, key_vars: tuple[str, ...], keep: tuple[str, ...]) -> dict:
+    cmd = resolve_cli(tool)
+    if not cmd:
+        return {"installed": False, "version": None, "raw": ""}
+    key = (tool, _version_key(cmd))
+    hit = _version_cache.get(key)
+    if hit and time.monotonic() - hit[0] < VERSION_TTL:
+        return dict(hit[1])
+    try:
+        code, text = await _status_proc([*cmd, "--version"], cli_env(keep, key_vars, api_key=False),
+                                        timeout=VERSION_TIMEOUT)
+    except Exception as exc:  # noqa: BLE001 - bossman-core missing, spawn refused…: reported, never raised
+        return {"installed": True, "version": None, "raw": f"{type(exc).__name__}: {exc}"[:120], "exit_code": None}
+    parsed = parse_version(text)
+    info = {"installed": True, "version": ".".join(map(str, parsed)) if parsed else None,
+            "raw": text.strip()[:120], "exit_code": code}
+    if parsed and code == 0:               # a timeout or garbage is asked again next time
+        _version_cache[key] = (time.monotonic(), info)
+    return dict(info)
+
+
+async def claude_version() -> dict:
+    """`claude --version` (bounded, cached per binary): {installed, version, ok, min, raw}.
+    `ok` is True only when the version parsed and is >= MIN_CLAUDE_VERSION."""
+    info = await _cli_version("claude", key_vars=_CLAUDE_KEY_VARS, keep=("CLAUDE", "ANTHROPIC"))
+    parsed = parse_version(info.get("version") or "")
+    return {**info, "min": ".".join(map(str, MIN_CLAUDE_VERSION)),
+            "ok": bool(parsed and parsed >= MIN_CLAUDE_VERSION)}
+
+
+async def codex_version() -> dict:
+    """`codex --version`: informational only (no minimum is known to be needed)."""
+    return await _cli_version("codex", key_vars=_CODEX_KEY_VARS, keep=("CODEX", "OPENAI"))
+
+
+def _version_problem(ver: dict) -> str:
+    """Russian reason why `claude -p --permission-prompts none` can not be used, '' when it can."""
+    if ver.get("ok"):
+        return ""
+    if ver.get("version"):
+        return (f"версия Claude Code CLI {ver['version']} старше {ver['min']}: {CLAUDE_UPGRADE_STEP}. "
+                f"Флаг `--permission-prompts none` (без него безоператорный запуск ждёт ответа на запрос прав) "
+                f"появился в {ver['min']}; Bossman его не отбрасывает")
+    return (f"не удалось определить версию Claude Code CLI (`claude --version` вернул "
+            f"{ver.get('raw') or 'ничего'!r}): {CLAUDE_UPGRADE_STEP}")
+
+
+async def claude_login(*, api_key: bool = False, profile_dir: str | None = None) -> dict:
     """`claude auth status --json` (the CLI's own status command), reduced to
-    non-identifying fields: never e-mail, org or token data."""
+    non-identifying fields: never e-mail, org or token data. `profile_dir` (account pool)
+    points the CLI at that account's own config directory (CLAUDE_CONFIG_DIR)."""
     cmd = resolve_cli("claude")
     if not cmd:
         return {"installed": False, "logged_in": False, "reason": "claude CLI не найден",
                 "login_step": "установите Claude Code: https://code.claude.com/docs/en/setup"}
     code, text = await _status_proc([*cmd, "auth", "status", "--json"],
-                                    cli_env(("CLAUDE", "ANTHROPIC"), _CLAUDE_KEY_VARS, api_key=api_key))
+                                    profile_env("claude", profile_dir, api_key=api_key))
     try:
         data = json.loads(text[text.find("{"):]) if "{" in text else {}
     except ValueError:
@@ -315,13 +418,13 @@ async def claude_login(*, api_key: bool = False) -> dict:
             "login_step": CLAUDE_LOGIN_STEP, "exit_code": code}
 
 
-async def codex_login(*, api_key: bool = False) -> dict:
+async def codex_login(*, api_key: bool = False, profile_dir: str | None = None) -> dict:
     cmd = resolve_cli("codex")
     if not cmd:
         return {"installed": False, "logged_in": False, "reason": "codex CLI не найден",
                 "login_step": "установите Codex CLI: https://learn.chatgpt.com/docs/codex/cli"}
     code, text = await _status_proc([*cmd, "login", "status"],
-                                    cli_env(("CODEX", "OPENAI"), _CODEX_KEY_VARS, api_key=api_key))
+                                    profile_env("codex", profile_dir, api_key=api_key))
     low = text.lower()
     method = "chatgpt" if "chatgpt" in low else "api_key" if "api key" in low else None
     return {"installed": True, "logged_in": code == 0 and method is not None, "auth_method": method,
@@ -329,6 +432,65 @@ async def codex_login(*, api_key: bool = False) -> dict:
             "auth": "subscription (codex login)" if method == "chatgpt" else
                     ("API key (paid per token)" if method == "api_key" else "not logged in"),
             "login_step": CODEX_LOGIN_STEP, "exit_code": code}
+
+
+class LimitReached(RuntimeError):
+    """The official CLI stopped because the account's usage limit is used up (subscription window).
+    A plain RuntimeError for every caller that does not know the account pool."""
+
+    def __init__(self, message: str, *, tool: str, reset_at: float | None = None):
+        super().__init__(message)
+        self.tool, self.reset_at = tool, reset_at
+
+
+#: Heuristics over the CLI's error text. The wording is NOT a stable interface (Claude Code has printed
+#: "Claude AI usage limit reached|<epoch>" and "You've hit your limit"; Codex "You've hit your usage
+#: limit"); they were written from those messages and are NOT verified against a live exhausted account.
+_LIMIT_PATTERNS = (
+    re.compile(r"usage limit (?:reached|exceeded)", re.I),
+    re.compile(r"(?:hit|reached|exceeded) (?:your|the) (?:[\w-]+ )?(?:usage |rate |message )?limit", re.I),
+    re.compile(r"limit (?:will )?resets?\b", re.I),
+    re.compile(r"rate[_ -]?limit", re.I),
+    re.compile(r"too many requests|\b429\b", re.I),
+    re.compile(r"\b(?:5-hour|weekly|monthly) (?:usage )?limit", re.I),
+    re.compile(r"out of (?:credits|usage|messages)|quota (?:exceeded|exhausted)", re.I),
+)
+_RESET_EPOCH = re.compile(r"limit[^|\n]{0,40}\|\s*(\d{10})\b", re.I)
+
+
+def detect_limit(text: str, *, now: float | None = None) -> dict | None:
+    """{hint, reset_at} when the (already failed) CLI run reads like an exhausted usage limit.
+    `reset_at` (epoch seconds) only when the text carries one in the legacy `...limit reached|<epoch>` form."""
+    body = str(text or "")[:4000]
+    for pat in _LIMIT_PATTERNS:
+        m = pat.search(body)
+        if m:
+            reset = None
+            e = _RESET_EPOCH.search(body)
+            if e:
+                t = float(e.group(1))
+                ref = now if now is not None else time.time()
+                if ref - 86400 <= t <= ref + 30 * 86400:
+                    reset = t
+            return {"hint": m.group(0)[:80], "reset_at": reset}
+    return None
+
+
+def profile_login_step(tool: str, profile_dir: str | None) -> str:
+    """The exact manual step that logs ONE pool account in: the owner does it, Bossman never does."""
+    if not profile_dir:
+        return CLAUDE_LOGIN_STEP if tool == "claude" else CODEX_LOGIN_STEP
+    var = PROFILE_VARS[tool]
+    login = "claude auth login --claudeai" if tool == "claude" else "codex login"
+    return (f"владелец входит сам в обычном терминале под ЭТИМ аккаунтом: PowerShell "
+            f"`$env:{var}='{profile_dir}'; {login}` или cmd `set \"{var}={profile_dir}\" && {login}` "
+            f"(браузер, нужный аккаунт); проверка — кнопка «Проверить» в пуле")
+
+
+def _need_core(tool: str) -> None:
+    if _core_path() is None:
+        raise Blocked(f"{tool}: рантайм bossman-core (управление процессами) не найден рядом с Command Center — "
+                      f"дочерний процесс агента запустить нельзя")
 
 
 def _check_login(tool: str, login: dict, api_key: bool) -> None:
@@ -354,15 +516,28 @@ class ClaudeConnector(Connector):
         super().__init__(spec)
         self.timeout = int_param(spec, "timeout", 900, 30, 7200)
         self.api_key = api_key_allowed(spec)
+        self.profile_dir: str | None = None       # account pool: the account's own CLAUDE_CONFIG_DIR
+        self.account_id: str | None = None
+
+    def use_account(self, account_id: str | None, profile_dir: str | None) -> None:
+        self.account_id, self.profile_dir = account_id, profile_dir
 
     def describe(self) -> dict:
         return {"provider": "Claude Code CLI", "model": self.spec.model or "default",
                 "auth": "API key (paid per token)" if self.api_key else "subscription (claude login)"}
 
     async def preflight(self, ctx: Ctx) -> None:
-        login = await claude_login(api_key=self.api_key)
+        _need_core("claude")
+        ver = await claude_version()
+        if ver["installed"] and not ver["ok"]:
+            raise Blocked(f"claude: {_version_problem(ver)}; затем `bossman rave resume <id> --agent <имя>`",
+                          version=ver.get("version"), min=ver["min"])
+        login = await claude_login(api_key=self.api_key, profile_dir=self.profile_dir)
+        if self.profile_dir:
+            login["login_step"] = profile_login_step("claude", self.profile_dir)
         _check_login("claude", login, self.api_key)
-        ctx.exec_log(f"claude login ok: {login.get('auth')} plan={login.get('plan')}")
+        ctx.exec_log(f"claude {ver.get('version')} login ok: {login.get('auth')} plan={login.get('plan')}"
+                     + (f" account={self.account_id}" if self.account_id else ""))
 
     async def run(self, ctx: Ctx) -> Outcome:
         await ctx.checkpoint()
@@ -374,7 +549,7 @@ class ClaudeConnector(Connector):
         if self.spec.model:
             argv += ["--model", self.spec.model]
         res = await ctx.run_process(argv, stdin=ctx.prompt.encode("utf-8"), timeout=self.timeout,
-                                    env=cli_env(("CLAUDE", "ANTHROPIC"), _CLAUDE_KEY_VARS, api_key=self.api_key))
+                                    env=profile_env("claude", self.profile_dir, api_key=self.api_key))
         ctx.exec_log(f"step 1 executed (claude exit={res.returncode}, timed_out={res.timed_out})")
         if res.timed_out:
             raise RuntimeError(f"claude -p timed out after {self.timeout}s")
@@ -385,8 +560,12 @@ class ClaudeConnector(Connector):
             data = {}
         await ctx.end_step(1)
         if not data or data.get("is_error") or res.returncode:
-            raise RuntimeError(f"claude -p failed (exit {res.returncode}): "
-                               f"{str(data.get('result') or text or res.stderr.decode('utf-8', 'replace'))[:400]}")
+            err = str(data.get("result") or text or res.stderr.decode("utf-8", "replace"))
+            lim = detect_limit(f"{err}\n{res.stderr.decode('utf-8', 'replace')}")
+            if lim:
+                raise LimitReached(f"claude -p: лимит аккаунта исчерпан ({lim['hint']}; exit {res.returncode}): "
+                                   f"{err[:300]}", tool="claude", reset_at=lim["reset_at"])
+            raise RuntimeError(f"claude -p failed (exit {res.returncode}): {err[:400]}")
         meta = {k: data.get(k) for k in ("subtype", "num_turns", "duration_ms", "stop_reason")}
         meta["permission_denials"] = len(data.get("permission_denials") or [])
         return Outcome(str(data.get("result") or ""), meta)
@@ -403,15 +582,23 @@ class CodexConnector(Connector):
         super().__init__(spec)
         self.timeout = int_param(spec, "timeout", 900, 30, 7200)
         self.api_key = api_key_allowed(spec)
+        self.profile_dir: str | None = None       # account pool: the account's own CODEX_HOME
+        self.account_id: str | None = None
+
+    def use_account(self, account_id: str | None, profile_dir: str | None) -> None:
+        self.account_id, self.profile_dir = account_id, profile_dir
 
     def describe(self) -> dict:
         return {"provider": "Codex CLI", "model": self.spec.model or "default",
                 "auth": "API key (paid per token)" if self.api_key else "subscription (codex login)"}
 
     async def preflight(self, ctx: Ctx) -> None:
-        login = await codex_login(api_key=self.api_key)
+        _need_core("codex")
+        login = await codex_login(api_key=self.api_key, profile_dir=self.profile_dir)
+        if self.profile_dir:
+            login["login_step"] = profile_login_step("codex", self.profile_dir)
         _check_login("codex", login, self.api_key)
-        ctx.exec_log(f"codex login ok: {login.get('auth')}")
+        ctx.exec_log(f"codex login ok: {login.get('auth')}" + (f" account={self.account_id}" if self.account_id else ""))
 
     async def run(self, ctx: Ctx) -> Outcome:
         await ctx.checkpoint()
@@ -423,7 +610,7 @@ class CodexConnector(Connector):
             argv += ["-m", self.spec.model]
         argv.append("-")
         res = await ctx.run_process(argv, stdin=ctx.prompt.encode("utf-8"), timeout=self.timeout,
-                                    env=cli_env(("CODEX", "OPENAI"), _CODEX_KEY_VARS, api_key=self.api_key))
+                                    env=profile_env("codex", self.profile_dir, api_key=self.api_key))
         ctx.exec_log(f"step 1 executed (codex exit={res.returncode}, timed_out={res.timed_out})")
         if res.timed_out:
             raise RuntimeError(f"codex exec timed out after {self.timeout}s")
@@ -431,6 +618,10 @@ class CodexConnector(Connector):
         answer = last.read_text(encoding="utf-8", errors="replace").strip() if last.is_file() else ""
         if res.returncode:
             tail = (res.stderr or res.stdout).decode("utf-8", "replace").strip()[-400:]
+            lim = detect_limit(f"{tail}\n{res.stdout.decode('utf-8', 'replace')[-1500:]}")
+            if lim:
+                raise LimitReached(f"codex exec: лимит аккаунта исчерпан ({lim['hint']}; exit {res.returncode}): "
+                                   f"{tail[-300:]}", tool="codex", reset_at=lim["reset_at"])
             raise RuntimeError(f"codex exec failed (exit {res.returncode}): {tail}")
         return Outcome(answer or "(no final message)", {"events": len(res.stdout.splitlines())})
 

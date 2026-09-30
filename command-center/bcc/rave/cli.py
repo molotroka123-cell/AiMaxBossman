@@ -6,6 +6,9 @@
     bossman rave show <id> <agent> | diff <id> <agent> | conflicts <id> | log <id>
     bossman rave pause|resume|stop <id> [--agent X]      bossman rave stop --all
     bossman rave apply <id> <agent> [--approval-id N]
+    bossman rave prune --older-than-days N [--yes] [--include-blocked]   (dry run unless --yes)
+    bossman rave pool [status] | enable [--approval-id N] | disable | add <claude|codex> <имя> [--profile-dir P | --use-default]
+                      | check <id> | remove <id> | clear-limit <id>      (пул СВОИХ аккаунтов, по умолчанию выключен)
 
 Same backend, same data root, same approvals as the web UI and Telegram; the
 terminal keeps no state. `--json` prints machine records.
@@ -21,10 +24,11 @@ from typing import Any
 
 from ..terminal_cli.api_client import BossmanError, Client
 from ..terminal_cli.console import sanitize
-from ..terminal_cli.records import (EXIT_CONFLICT, EXIT_FAIL, EXIT_INTERRUPTED, EXIT_OK, EXIT_USAGE)
+from ..terminal_cli.records import (EXIT_CONFLICT, EXIT_DISCONNECTED, EXIT_FAIL, EXIT_INTERRUPTED, EXIT_OK,
+                                    EXIT_USAGE)
 
 ACTIONS = ("start", "list", "status", "show", "diff", "conflicts", "log", "pause", "resume", "stop",
-           "apply", "connectors")
+           "apply", "connectors", "prune", "pool")
 TERMINAL = ("done", "failed", "stopped", "blocked", "interrupted")
 
 
@@ -42,6 +46,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--watch", action="store_true", help="status: следить до конца")
     p.add_argument("--all", action="store_true", help="stop: остановить все рейвы")
     p.add_argument("--approval-id", type=int)
+    p.add_argument("--older-than-days", type=float, help="prune: рейвы без активности дольше N дней")
+    p.add_argument("--yes", action="store_true", help="prune: действительно удалить (без него — только показать)")
+    p.add_argument("--include-blocked", action="store_true", help="prune: и рейвы с blocked/interrupted агентами")
+    p.add_argument("--profile-dir", help="pool add: каталог профиля CLI этого аккаунта (пусто — Bossman создаст свой)")
+    p.add_argument("--use-default", action="store_true", help="pool add: это обычный вход CLI, без отдельного каталога")
     p.add_argument("--interval", type=float, default=1.0)
     p.add_argument("--json", action="store_true", help="машинный вывод")
     p.add_argument("--url")
@@ -76,7 +85,7 @@ def main(argv: list[str]) -> int:
         client = Client(discover(args.url, args.data_dir))
     except BossmanError as exc:
         pr.say(f"bossman rave: {exc.message}" + (f"\n  подсказка: {exc.hint}" if exc.hint else ""))
-        return 5
+        return EXIT_DISCONNECTED                  # 1.2 contract: 3 = backend unreachable / auth refused
     with client:
         return run(client, args, pr)
 
@@ -104,6 +113,8 @@ def run(client: Client, args, pr: Printer) -> int:
     except BossmanError as exc:
         pr.record({"type": "error", "ok": False, "error": exc.message, "kind": exc.kind, "code": exc.code})
         pr.say(f"bossman rave: {exc.message}" + (f"\n  подсказка: {exc.hint}" if exc.hint else ""))
+        if exc.kind in ("disconnected", "auth"):   # the backend went away / refused the token mid-command
+            return EXIT_DISCONNECTED
         return EXIT_CONFLICT if exc.kind == "conflict" else EXIT_FAIL
     except _Usage as exc:
         pr.say(f"bossman rave: {exc}")
@@ -332,6 +343,11 @@ def _control(client: Client, args, rest, pr: Printer, what: str) -> int:
         stopped = res.get("stopped") or {}
         pr.say("STOP всех рейвов: " + (", ".join(f"{k} ({', '.join(v)})" for k, v in stopped.items()) or
                                          "активных рейвов не было"))
+        if res.get("ok") is False:                # the backend could not confirm: never a silent OK
+            left = res.get("remaining_agents") or []
+            pr.say(f"НЕ ПОДТВЕРЖДЕНО: ещё не остановлено {res.get('remaining', len(left))}: {', '.join(left)}"
+                   + (f"; ошибки: {res.get('errors')}" if res.get("errors") else ""))
+            return EXIT_FAIL
         return EXIT_OK
     (rid,) = _need(rest, 1, f"bossman rave {what} <id> [--agent X]")
     res = client.post(f"/api/rave/{rid}/{what}", {"agent": args.agent})
@@ -365,6 +381,90 @@ def a_apply(client: Client, args, rest, pr: Printer) -> int:
     return EXIT_OK
 
 
+def _mb(n: Any) -> str:
+    return f"{(n or 0) / 1_048_576:.1f} МБ"
+
+
+def a_prune(client: Client, args, rest, pr: Printer) -> int:
+    if args.older_than_days is None:
+        raise _Usage("нужно: bossman rave prune --older-than-days N [--yes] [--include-blocked]")
+    res = client.post("/api/rave/prune", {"older_than_days": args.older_than_days, "dry_run": not args.yes,
+                                          "include_blocked": args.include_blocked}, timeout=600)
+    pr.record({"type": "rave_prune", **res})
+    verb = "БУДЕТ удалено (пробный прогон, --yes — удалить)" if res.get("dry_run") else "удалено"
+    items = res.get("items") or []
+    pr.say(f"prune: рейвы без активности дольше {args.older_than_days:g} дн. — {verb}: {len(items)} шт., "
+           f"{_mb(res.get('freed_bytes'))}")
+    for it in items:
+        lost = f" · РЕЗУЛЬТАТЫ НЕ ПРИМЕНЕНЫ: {', '.join(it['unapplied'])}" if it.get("unapplied") else ""
+        pr.say(f"  {it['id']} · {it['status']} · {_mb(it.get('bytes'))} · {_cut(it.get('prompt'), 50)}{lost}")
+    for sk in res.get("skipped") or []:
+        pr.say(f"  пропущен {sk['id']}: {sk['reason']}")
+    return EXIT_OK
+
+
+POOL_STATE = {"ready": "готов", "limited": "лимит", "needs_login": "нужен вход", "unknown": "не проверен",
+              "not_subscription": "вход не по подписке", "error": "ошибка"}
+
+
+def _pool_render(pool: dict, pr: Printer) -> None:
+    pr.say(f"Пул аккаунтов: {'ВКЛЮЧЁН' if pool.get('active') else 'выключен'} "
+           f"(аккаунтов {len(pool.get('accounts') or [])})")
+    pr.say(pool.get("terms_note") or "")
+    for a in pool.get("accounts") or []:
+        until = (f" до {datetime.fromtimestamp(a['limited_until']).strftime('%H:%M')}"
+                 if a.get("state") == "limited" and a.get("limited_until") else "")
+        pr.say(f"  {a['id']:<10} «{_cut(a['label'], 24)}» · {POOL_STATE.get(a['state'], a['state'])}{until} · "
+               f"{'разрешён' if a.get('approved') else 'ждёт разрешения'} · {a.get('profile_dir') or 'обычный вход CLI'}")
+        if a.get("state") == "needs_login":
+            pr.say(f"             как войти: {a.get('login_step')}")
+    for j in (pool.get("journal") or [])[-8:]:
+        who = f"{j.get('account')} → {j['to']}" if j.get("to") else (j.get("account") or "")
+        pr.say(f"  [{_ts(j.get('at'))}] {j.get('event')} {j.get('tool') or ''} {who} {_cut(j.get('reason'), 80)}")
+
+
+def a_pool(client: Client, args, rest, pr: Printer) -> int:
+    sub = rest[0] if rest else "status"
+    if sub == "status":
+        pool = client.get("/api/rave/pool")
+    elif sub == "enable":
+        res = client.post("/api/rave/pool/enable", {"approval_id": args.approval_id})
+        pr.record({"type": "rave_pool_enable", **res})
+        if res.get("state") == "WAIT_APPROVAL":
+            aid = res.get("approval_id")
+            pr.say(f"Нужно решение владельца: разрешение #{aid}\n{res.get('preview')}")
+            pr.say(f"одобрить: bossman approve {aid}   затем: bossman rave pool enable --approval-id {aid}")
+            return EXIT_OK
+        pool = res["pool"]
+    elif sub == "disable":
+        pool = client.post("/api/rave/pool/disable")
+    elif sub == "add":
+        if len(rest) < 3:
+            raise _Usage("нужно: bossman rave pool add <claude|codex> <имя> [--profile-dir P | --use-default]")
+        res = client.post("/api/rave/pool/accounts", {"tool": rest[1], "label": " ".join(rest[2:]),
+                                                      "profile_dir": args.profile_dir, "use_default": args.use_default})
+        pr.record({"type": "rave_pool_add", **res})
+        new = next((a for a in res["pool"]["accounts"] if a["id"] == res["account"]["id"]), {})
+        pr.say(f"Аккаунт {new.get('id')} добавлен. Войдите в него сами: {new.get('login_step')}")
+        pool = res["pool"]
+    elif sub in ("check", "remove", "clear-limit"):
+        if len(rest) < 2:
+            raise _Usage(f"нужно: bossman rave pool {sub} <id аккаунта>")
+        aid = rest[1]
+        if sub == "check":
+            pool = client.post(f"/api/rave/pool/accounts/{aid}/check")["pool"]
+        elif sub == "remove":
+            pool = client.delete(f"/api/rave/pool/accounts/{aid}")
+        else:
+            pool = client.post(f"/api/rave/pool/accounts/{aid}/clear-limit")
+    else:
+        raise _Usage("pool: status | enable | disable | add | check | remove | clear-limit")
+    pr.record({"type": "rave_pool", **pool})
+    if not pr.as_json:
+        _pool_render(pool, pr)
+    return EXIT_OK
+
+
 def a_connectors(client: Client, args, rest, pr: Printer) -> int:
     data = client.get("/api/rave/connectors", timeout=120)
     pr.record({"type": "rave_connectors", **data})
@@ -376,19 +476,28 @@ def a_connectors(client: Client, args, rest, pr: Printer) -> int:
             pr.say(f"local  · {c.get('endpoint')} · модель по умолчанию {c.get('default_model')} · вход: local")
         else:
             state = "готов" if c.get("logged_in") and c.get("subscription") else "НЕ ГОТОВ"
+            if key == "claude" and c.get("installed") and c.get("version_ok") is False:
+                state = "НЕ ГОТОВ (старая версия)"
             pr.say(f"{key:<6} · {state} · вход: {c.get('auth')}"
                    + (f" · план {c.get('plan')}" if c.get("plan") else "")
+                   + (f" · CLI {c.get('version')}" if c.get("version") else "")
                    + (" · opt-in владельца: есть" if c.get("optin") else " · opt-in владельца: нет (попросит при запуске)"))
+            if c.get("version_problem"):
+                pr.say(f"         {c['version_problem']}")
             if not (c.get("logged_in") and c.get("subscription")):
                 pr.say(f"         как войти: {c.get('login_step')}")
             pr.say(f"         источники: {', '.join(c.get('sources') or [])}")
+    if (data.get("pool") or {}).get("accounts"):
+        pool = data["pool"]
+        pr.say(f"пул аккаунтов: {'ВКЛЮЧЁН' if pool.get('active') else 'выключен'} ({pool['accounts']} шт.) — "
+               f"bossman rave pool")
     api = data.get("api_key_path") or {}
     pr.say(f"путь по API-ключу: {'ВКЛЮЧЁН' if api.get('enabled') else 'выключен'} ({api.get('how')})")
     return EXIT_OK
 
 
 DISPATCH = {"start": a_start, "list": a_list, "status": a_status, "show": a_show, "diff": a_diff,
-            "conflicts": a_conflicts, "log": a_log, "apply": a_apply, "connectors": a_connectors,
+            "conflicts": a_conflicts, "log": a_log, "apply": a_apply, "connectors": a_connectors, "prune": a_prune, "pool": a_pool,
             "pause": lambda c, a, r, p: _control(c, a, r, p, "pause"),
             "resume": lambda c, a, r, p: _control(c, a, r, p, "resume"),
             "stop": lambda c, a, r, p: _control(c, a, r, p, "stop")}

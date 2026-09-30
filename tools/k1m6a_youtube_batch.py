@@ -23,6 +23,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEFAULT_CHANNEL = "https://www.youtube.com/@k1m6a/streams"
 DEFAULT_START = "2026-08-14"
 DEFAULT_END = "2026-08-27"
+INGEST_TIMEOUT = 4 * 3600          # seconds one video may take (captions -> local ASR -> frames -> local vision)
 
 
 def day(value: str) -> dt.date:
@@ -122,7 +123,15 @@ def episode_fingerprint(inbox: pathlib.Path, video_id: str) -> str | None:
     return hashlib.sha256(payload).hexdigest()
 
 
-def ingest_one(row: dict, *, inbox: pathlib.Path, frame_interval: int, max_frames: int) -> dict:
+def _text(value: Any) -> str:
+    """TimeoutExpired carries bytes (or None) even when the run was in text mode."""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value or "")
+
+
+def ingest_one(row: dict, *, inbox: pathlib.Path, frame_interval: int, max_frames: int,
+               timeout: int = INGEST_TIMEOUT) -> dict:
     script = ROOT / "tools" / "youtube_trader_ingest_auto.py"
     cmd = [
         sys.executable, str(script), row["url"],
@@ -131,7 +140,15 @@ def ingest_one(row: dict, *, inbox: pathlib.Path, frame_interval: int, max_frame
         "--max-frames", str(max_frames),
     ]
     started = time.time()
-    proc = _run(cmd, timeout=4 * 3600)
+    try:
+        proc = _run(cmd, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        # One stuck video must not end the whole batch: it is recorded as FAIL with the reason, the loop
+        # goes on, and the manifest and summary are still written.
+        return {"status": "FAIL", "returncode": None, "timed_out": True,
+                "reason": f"ingest timed out after {timeout} s",
+                "seconds": round(time.time() - started, 2),
+                "stdout_tail": _text(exc.stdout)[-2000:], "stderr_tail": _text(exc.stderr)[-2000:]}
     result: dict[str, Any] = {
         "status": "PASS" if proc.returncode == 0 else "FAIL",
         "returncode": proc.returncode,
@@ -215,12 +232,14 @@ def main(argv: list[str] | None = None) -> int:
         out["videos"].append(row)
         manifest_path.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
+    ingested_pass = sum((v.get("ingest") or {}).get("status") == "PASS" for v in videos)
     out["summary"] = {
         "discovered": len(videos),
-        "ingested_pass": sum((v.get("ingest") or {}).get("status") == "PASS" for v in videos),
+        "ingested_pass": ingested_pass,
         "failed": failures,
         "duplicates": duplicates,
-        "independent_episodes": len(videos) - duplicates,
+        # evidence only: a FAIL / NOT_RUN video is not an independent episode (duplicates are PASS rows)
+        "independent_episodes": ingested_pass - duplicates,
         "not_run": sum((v.get("ingest") or {}).get("status") == "NOT_RUN" for v in videos),
     }
     manifest_path.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

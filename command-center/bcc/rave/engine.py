@@ -14,7 +14,10 @@ import json
 import os
 import secrets
 import shlex
+import shutil
+import stat
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,7 +25,8 @@ from typing import Any
 
 from ..single_flight import await_shared
 from . import workspace as wsx
-from .connectors import Blocked, Connector, ProcResult, build, child_env
+from .connectors import Blocked, Connector, LimitReached, ProcResult, build, child_env
+from .pool import MAX_SWITCHES, POOL_OPTIN_KIND, Pool, PoolError, opt_in_preview
 from .spec import RAVE_ID, AgentSpec, SpecError, parse_agents
 
 BOOT_ID = secrets.token_hex(8)
@@ -30,8 +34,11 @@ TERMINAL = ("done", "failed", "stopped", "blocked", "interrupted")
 LIVE = ("queued", "running", "pausing", "paused", "stopping")
 APPLY_KIND = "rave_apply"
 OPTIN_KIND = "rave_connector_optin"
+POOL_TOOLS = ("claude", "codex")
 TEST_TIMEOUT = 300
 MAX_PROMPT = 8000
+PRUNE_REPORTED = {"live": "рейв ещё работает",
+                  "unfinished": "есть агенты, которых можно продолжить (blocked/interrupted): --include-blocked"}
 OPTIN_PREVIEW = {
     "claude": ("Agentic Rave: разрешить агентам запускать официальный Claude Code CLI (`claude -p`) под "
                "ВАШИМ входом и подпиской Claude, в изолированной копии проекта, только правки файлов "
@@ -105,6 +112,7 @@ class RaveService:
         self.locks: dict[str, asyncio.Lock] = {}
         self.closing = False
         self._finishers: set[asyncio.Future] = set()      # keeps finalisation tasks alive across a cancelled waiter
+        self.pool = Pool(self.root)                        # the owner's own accounts (off by default)
 
     # ---- storage
 
@@ -306,12 +314,7 @@ class RaveService:
                                    f"Рабочая копия сохранена. Повторить шаг поверх неё — решение владельца: "
                                    f"bossman rave resume {rid} --agent {name}")}
                 return
-            # login/runtime first: asking the owner to opt in to a CLI that is not
-            # even logged in would be a decision about nothing
-            await conn.preflight(ctx)
-            if conn.optin:
-                await self._require_optin(conn.optin)
-            outcome = await conn.run(ctx)
+            outcome = await self._execute(conn, ctx, runner)
             final = {"status": "done", "answer": outcome.answer[:20000], "meta": outcome.meta}
         except Blocked as exc:
             reason = exc.reason.replace("<id>", rid).replace("<имя>", name)   # the exact command to type
@@ -332,6 +335,68 @@ class RaveService:
                 self._finishers.add(finisher)
                 finisher.add_done_callback(self._finishers.discard)
                 await await_shared(finisher)
+
+    async def _execute(self, conn: Connector, ctx: AgentCtx, runner: Runner) -> Any:
+        """preflight -> owner opt-in -> run. With the account pool switched on, a claude/codex agent runs on
+        the pool's accounts instead of the CLI's default login (`_execute_pooled`)."""
+        if conn.kind in POOL_TOOLS and self.pool.governs(conn.kind):
+            return await self._execute_pooled(conn, ctx, runner)
+        # login/runtime first: asking the owner to opt in to a CLI that is not
+        # even logged in would be a decision about nothing
+        await conn.preflight(ctx)
+        if conn.optin:
+            await self._require_optin(conn.optin)
+        return await conn.run(ctx)
+
+    async def _execute_pooled(self, conn: Any, ctx: AgentCtx, runner: Runner) -> Any:
+        """One agent run on the pool. An account is switched only BETWEEN CLI runs: a run that ends with
+        "usage limit" marks that account limited and the same agent starts its next run on the next ready
+        account (kept workspace, same prompt). Every switch is journaled, emitted as `rave.pool_switch` and
+        written to the agent's record. STOP is honoured before every pick."""
+        rid, name, tool = ctx.rid, ctx.name, conn.kind
+        tried: list[str] = []
+        previous: dict | None = None
+        while True:
+            if runner.stop:
+                raise _Stopped()
+            account, skipped = await self.pool.pick(tool, exclude=tried)
+            if account is None:
+                await self.event(rid, "pool_exhausted", name, tool=tool, tried=tried,
+                                 skipped=[f"{x['id']}:{x['state']}" for x in skipped])
+                raise Blocked(self.pool.exhausted_message(tool, skipped, tried),
+                              pool={"tool": tool, "tried": tried, "skipped": skipped})
+            conn.use_account(account["id"], account["profile_dir"])
+            await self._record_account(rid, name, conn, account)
+            if previous is not None:
+                why = "лимит исчерпан"
+                entry = await self.pool.note_switch(tool, previous["id"], account["id"], why, rave=rid, agent=name)
+                await self.event(rid, "pool_switch", name, tool=tool, account=previous["id"], to=account["id"],
+                                 reason=entry.get("reason"))
+            await conn.preflight(ctx)
+            if conn.optin:
+                await self._require_optin(conn.optin)
+            try:
+                outcome = await conn.run(ctx)
+            except LimitReached as exc:
+                await self.pool.mark_limited(account["id"], exc.reset_at, str(exc), rave=rid, agent=name)
+                await self.event(rid, "pool_limited", name, tool=tool, account=account["id"],
+                                 until=exc.reset_at)
+                tried.append(account["id"])
+                previous = account
+                if len(tried) > MAX_SWITCHES:
+                    raise Blocked(f"пул аккаунтов {tool}: за один запуск агента уже {len(tried)} аккаунта(ов) "
+                                  f"упёрлись в лимит — остановлено (предел переключений {MAX_SWITCHES}); "
+                                  f"`bossman rave resume <id> --agent <имя>` позже", pool={"tried": tried}) from None
+                continue
+            await self.pool.mark_used(account["id"])
+            return outcome
+
+    async def _record_account(self, rid: str, name: str, conn: Any, account: dict) -> None:
+        """Which account this agent runs on, visible in its record (auth column) and the timeline."""
+        base = conn.describe().get("auth") or ""
+        await self.mutate(rid, name, live_only=True, account=account["id"], account_label=account["label"],
+                          auth=f"{base} · аккаунт {account['label']}")
+        await self.event(rid, "pool_account", name, tool=conn.kind, account=account["id"], label=account["label"])
 
     async def _ensure_workspace(self, rid: str, name: str, rec: dict) -> None:
         agent = self._agent(rec, name)
@@ -376,7 +441,14 @@ class RaveService:
         # the owner's test command, in the finished workspace only
         if final["status"] == "done" and rec.get("test_cmd") and snap.get("commit") and not runner.stop:
             await self.mutate(rid, name, step_label="tests")
-            fields["tests"] = await self._run_tests(runner, ws, rec["test_cmd"])
+            try:
+                fields["tests"] = await self._run_tests(runner, ws, rec["test_cmd"])
+            except _Stopped:
+                raise
+            except Exception as exc:  # noqa: BLE001 — e.g. bossman-core missing: never leave the agent unfinished
+                fields["tests"] = {"ran": False, "command": rec["test_cmd"], "exit_code": None, "timed_out": False,
+                                   "passed": False,
+                                   "output_tail": f"тесты не запущены: {type(exc).__name__}: {exc}"[:500]}
             if runner.stop:
                 fields["status"], fields["error"] = "stopped", "остановлено владельцем (STOP) во время тестов"
         # `finalizing` keeps the rave "running" until the conflict check below has
@@ -425,6 +497,19 @@ class RaveService:
 
     # ---- opt-in (a normal Bossman approval)
 
+    async def _approvals(self, kind: str, statuses: tuple[str, ...], preview: str) -> list[dict]:
+        """Approvals of ONE kind with exactly this preview, newest first, straight from the approvals
+        table. `approvals.list()` returns only the newest 100 of everything: behind a busy queue an older
+        approved opt-in (or an already pending request) was not found and a duplicate was created."""
+        import sqlalchemy as sa
+
+        from ..db import approvals as approvals_t, rows_dicts
+        stmt = (sa.select(approvals_t).where(approvals_t.c.kind == kind, approvals_t.c.status.in_(statuses),
+                                             approvals_t.c.preview == preview)
+                .order_by(approvals_t.c.id.desc()).limit(50))
+        async with self.svc.db.session() as s:
+            return rows_dicts((await s.execute(stmt)).fetchall())
+
     async def _require_optin(self, key: str) -> None:
         store = self.root / "optin.json"
         data = json.loads(store.read_text(encoding="utf-8")) if store.is_file() else {}
@@ -432,17 +517,44 @@ class RaveService:
             return
         preview = OPTIN_PREVIEW[key]
         approvals = self.svc.approvals
-        rows = await approvals.list("approved,pending")
-        mine = [a for a in rows if a.get("kind") == OPTIN_KIND and a.get("preview") == preview]
-        approved = [a for a in mine if a.get("status") == "approved"]
+        approved = await self._approvals(OPTIN_KIND, ("approved",), preview)
         if approved and await approvals.consume(approved[0]["id"], kind=OPTIN_KIND, preview=preview):
             data[key] = {"approved": True, "approval_id": approved[0]["id"], "at": now()}
             store.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
             return
-        pending = [a for a in mine if a.get("status") == "pending"]
+        pending = await self._approvals(OPTIN_KIND, ("pending",), preview)
         appr = pending[0] if pending else await approvals.create(OPTIN_KIND, preview)
         raise Blocked(f"нужно разрешение владельца на коннектор {key}: bossman approve {appr.get('id')}, "
                       f"затем bossman rave resume <id> --agent <имя>", approval_id=appr.get("id"))
+
+    # ---- account pool (owner actions; the state itself lives in bcc.rave.pool)
+
+    async def pool_enable(self, approval_id: int | None) -> tuple[int, dict]:
+        """Turn the pool on. A recorded opt-in that already covers every account turns it back on without a
+        question; otherwise a normal approval (`rave_pool_optin`, bound to the exact account list) is needed:
+        202 WAIT_APPROVAL first, then the same call with {approval_id} after the owner approved it."""
+        if not self.pool.accounts_for_preview():
+            raise PoolError(409, "NO_ACCOUNTS", "в пуле нет аккаунтов: сначала добавьте аккаунт")
+        if not self.pool.needs_optin():
+            return 200, {"state": "ENABLED", "pool": await self.pool.enable_covered()}
+        preview = opt_in_preview(self.pool.accounts_for_preview())
+        approvals = self.svc.approvals
+        if approval_id is None:
+            pending = await self._approvals(POOL_OPTIN_KIND, ("pending",), preview)
+            appr = pending[0] if pending else await approvals.create(POOL_OPTIN_KIND, preview)
+            await self.event_global("pool_optin_requested", approval_id=appr.get("id"))
+            return 202, {"state": "WAIT_APPROVAL", "approval_id": appr.get("id"), "preview": preview}
+        if not await approvals.consume(approval_id, kind=POOL_OPTIN_KIND, preview=preview):
+            raise PoolError(403, "APPROVAL_INVALID", "разрешение не одобрено, уже использовано или выдано на "
+                                                     "другой список аккаунтов; запросите новое")
+        view = await self.pool.record_optin(approval_id)
+        await self.event_global("pool_enabled", accounts=[a["id"] for a in view["accounts"]])
+        return 200, {"state": "ENABLED", "pool": view}
+
+    async def event_global(self, kind: str, **data: Any) -> None:
+        """A rave-level bus event that belongs to no single rave (the pool), so open Rave pages refresh."""
+        with contextlib.suppress(Exception):
+            await self.svc.bus.emit("rave." + kind, **data)
 
     def optin_state(self) -> dict:
         store = self.root / "optin.json"
@@ -474,6 +586,8 @@ class RaveService:
 
     async def resume(self, rid: str, agent: str | None = None) -> dict:
         rec = self.load(rid)
+        if rec.get("pruned_at"):
+            raise RaveError(409, "PRUNED", "рабочие копии этого рейва удалены (bossman rave prune): продолжать нечего")
         changed = []
         for a in self._targets(rec, agent):
             key = (rid, a["name"])
@@ -531,13 +645,35 @@ class RaveService:
         await self.event(rid, "stop", agent, agents=changed)
         return {"ok": True, "changed": changed, "rave": self.view(self.load(rid))}
 
+    def active_agents(self) -> list[str]:
+        """Inventory for the owner's global STOP: `"rv-xxxxxxxx/agent"` of every agent that is not in a
+        final state (queued / running / pausing / paused / stopping). Synchronous, reads the records."""
+        found: list[str] = []
+        for d in sorted(self.root.glob("rv-*")):
+            try:
+                rec = self.load(d.name)
+            except (RaveError, OSError, ValueError):
+                continue
+            found += [f"{rec['id']}/{a['name']}" for a in rec["agents"] if a["status"] in LIVE]
+        return found
+
     async def stop_all(self) -> dict:
-        stopped = {}
-        for item in self.list():
-            if item["status"] in ("running", "paused"):
-                res = await self.stop(item["id"])
-                stopped[item["id"]] = res["changed"]
-        return {"ok": True, "stopped": stopped}
+        """STOP every rave and CONFIRM it (awaitable; the owner's global STOP awaits it and only then
+        reports). Returns {ok, stopped, stopped_count, remaining, remaining_agents, errors}:
+        `stopped` = {rave_id: [agent, ...]} (agents this call ended), `remaining` = how many agents are
+        STILL not in a final state when it returns (0 = confirmed), `remaining_agents` = their ids,
+        `ok` = nothing remains and no stop raised. A second concurrent call is safe (STOP is idempotent)."""
+        stopped: dict[str, list[str]] = {}
+        errors: list[dict] = []
+        for rid in sorted({a.split("/", 1)[0] for a in self.active_agents()}):
+            try:
+                stopped[rid] = (await self.stop(rid))["changed"]
+            except Exception as exc:  # noqa: BLE001 — one rave that can not be stopped never hides the others
+                errors.append({"rave": rid, "error": f"{type(exc).__name__}: {exc}"[:300]})
+        remaining = self.active_agents()
+        return {"ok": not remaining and not errors, "stopped": stopped,
+                "stopped_count": sum(len(v) for v in stopped.values()), "remaining": len(remaining),
+                "remaining_agents": remaining, "errors": errors}
 
     # ---- recovery / shutdown
 
@@ -582,6 +718,83 @@ class RaveService:
                         r.tree.kill()
                 r.task.cancel()
 
+    # ---- cleanup
+
+    @staticmethod
+    def _prune_targets(d: Path) -> list[Path]:
+        """What `prune` removes of one rave: the agents' clones, agent-tamper copies, the scratch project and
+        the conflict artifacts. Kept: rave.json, events.jsonl and each agent's exec.log (small records)."""
+        found = [d / "base", d / "conflicts"]
+        agents = d / "agents"
+        if agents.is_dir():
+            for a in sorted(agents.iterdir()):
+                found += [a / "ws", a / "files-copy"]
+        return [p for p in found if p.exists()]
+
+    async def prune(self, older_than_days: float, *, dry_run: bool = True, include_unfinished: bool = False) -> dict:
+        """Remove the workspaces of FINISHED raves that have had no activity for `older_than_days` days.
+        Dry run by default (nothing is deleted, the report says what would be). Never touches a rave that has
+        a live agent (running / paused / queued / stopping) or a live runner in this process; raves with agents
+        the owner can still continue (blocked / interrupted) are skipped unless `include_unfinished`.
+        The results live in the agents' clones: after a prune `apply` is impossible (409 PRUNED)."""
+        if older_than_days < 0:
+            raise RaveError(422, "USAGE", "--older-than-days не может быть отрицательным")
+        cutoff = now() - older_than_days * 86400
+        items: list[dict] = []
+        skipped: list[dict] = []
+        freed = 0
+        for d in sorted(self.root.glob("rv-*")):
+            try:
+                rec = self.load(d.name)
+            except (RaveError, OSError, ValueError):
+                continue
+            rid = rec["id"]
+            last = _last_activity(rec)
+            why = self._prune_blocker(rec, last, cutoff, include_unfinished)
+            if why:
+                if why in PRUNE_REPORTED:             # "already pruned" / "recent" are not news
+                    skipped.append({"id": rid, "reason": PRUNE_REPORTED[why]})
+                continue
+            async with self.lock(rid):                # re-check under the lock: nothing changed since
+                rec = self.load(rid)
+                if self._prune_blocker(rec, last, cutoff, include_unfinished):
+                    continue
+                targets = self._prune_targets(d)
+                size = await asyncio.to_thread(lambda ts=targets: sum(_tree_size(t) for t in ts))
+                entry = {"id": rid, "prompt": rec["prompt"][:80], "status": self.derive(rec),
+                         "last_activity": last, "bytes": size,
+                         "unapplied": [a["name"] for a in rec["agents"]
+                                       if a.get("changed_files") and a["name"] not in (rec.get("applied") or {})]}
+                if not dry_run:
+                    for t in targets:
+                        await asyncio.to_thread(_rmtree, t)
+                    rec["pruned_at"] = now()
+                    self.save(rec)
+                    await self.event(rid, "pruned", None, bytes=size, unapplied=entry["unapplied"])
+                items.append(entry)
+                freed += size
+        return {"dry_run": dry_run, "older_than_days": older_than_days, "cutoff": cutoff, "items": items,
+                "freed_bytes": freed, "skipped": skipped}
+
+    def _prune_blocker(self, rec: dict, last: float, cutoff: float, include_unfinished: bool) -> str:
+        """'' when the rave may be pruned, else why not (pruned / live / recent / unfinished)."""
+        rid = rec["id"]
+        if rec.get("pruned_at"):
+            return "pruned"
+        statuses = {a["status"] for a in rec["agents"]}
+        live_runner = False
+        for a in rec["agents"]:
+            runner = self.runners.get((rid, a["name"]))
+            if runner and runner.task and not runner.task.done():
+                live_runner = True
+        if statuses & set(LIVE) or live_runner or any(a.get("finalizing") for a in rec["agents"]):
+            return "live"
+        if last > cutoff:
+            return "recent"
+        if not include_unfinished and statuses & {"blocked", "interrupted"}:
+            return "unfinished"
+        return ""
+
     # ---- diff / apply
 
     async def diff(self, rid: str, name: str) -> dict:
@@ -590,7 +803,8 @@ class RaveService:
         ws = Path(a["workspace"])
         if not (ws / ".git").exists():
             return {"agent": name, "status": a["status"], "stat": "", "patch": "", "files": [],
-                    "note": "рабочая копия ещё не создана"}
+                    "note": "рабочая копия удалена (prune)" if rec.get("pruned_at")
+                    else "рабочая копия ещё не создана"}
         head = a.get("result_commit")
         if not head:
             # live agent: show the working tree against base without committing
@@ -614,6 +828,8 @@ class RaveService:
     async def apply(self, rid: str, name: str, approval_id: int | None) -> tuple[int, dict]:
         rec = self.load(rid)
         a = self._agent(rec, name)
+        if rec.get("pruned_at"):
+            raise RaveError(409, "PRUNED", "рабочие копии этого рейва удалены (bossman rave prune): применять нечего")
         if a["status"] not in ("done", "stopped", "failed") or not a.get("result_commit"):
             raise RaveError(409, "NOT_ELIGIBLE", f"у агента {name} нет законченного результата (status={a['status']})")
         if not a.get("changed_files"):
@@ -632,8 +848,13 @@ class RaveService:
                                              "другой агент): ничего не записано, обе версии сохранены",
                             files=check["conflicts"])
         if approval_id is None:
-            pending = [x for x in await approvals.list("pending")
-                       if x.get("kind") == APPLY_KIND and x.get("preview") == preview]
+            # the owner may already have decided exactly this preview (Approvals page, Telegram, `bossman
+            # approve`): that approval is used instead of asking a second time
+            decided = await self._approvals(APPLY_KIND, ("approved",), preview)
+            if decided:
+                approval_id = decided[0]["id"]
+        if approval_id is None:
+            pending = await self._approvals(APPLY_KIND, ("pending",), preview)
             appr = pending[0] if pending else await approvals.create(APPLY_KIND, preview)
             await self.event(rid, "apply_requested", name, approval_id=appr.get("id"))
             return 202, {"state": "WAIT_APPROVAL", "approval_id": appr.get("id"), "preview": preview}
@@ -652,6 +873,44 @@ class RaveService:
         rec = await self.mutate(rid, None, applied={**self.load(rid)["applied"], name: entry})
         await self.event(rid, "applied", name, files=res["files"], approval_id=approval_id)
         return 200, {"state": "APPLIED", "agent": name, **entry}
+
+
+def _last_activity(rec: dict) -> float:
+    """When the rave last did something the owner cares about: created, an agent started / finished, a result
+    applied. NOT `updated_at`: every backend start re-saves each record (boot id), which would make every old
+    rave look fresh."""
+    stamps = [rec.get("created_at") or 0]
+    for a in rec["agents"]:
+        stamps += [a.get("started_at") or 0, a.get("finished_at") or 0]
+    stamps += [(v or {}).get("at") or 0 for v in (rec.get("applied") or {}).values()]
+    return max(stamps)
+
+
+def _tree_size(path: Path) -> int:
+    total = 0
+    for root, _dirs, files in os.walk(path):
+        for name in files:
+            with contextlib.suppress(OSError):
+                total += os.lstat(os.path.join(root, name)).st_size
+    return total
+
+
+def _rmtree(path: Path) -> None:
+    """rmtree that also removes what git made read-only (pack files) on Windows."""
+    def retry(func, target, *_exc):
+        with contextlib.suppress(OSError):
+            os.chmod(target, stat.S_IWRITE)
+        func(target)
+    if not path.exists():
+        return
+    if path.is_file() or path.is_symlink():
+        os.chmod(path, stat.S_IWRITE)
+        path.unlink()
+        return
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=retry)
+    else:
+        shutil.rmtree(path, onerror=retry)
 
 
 def _split(cmd: str) -> list[str]:
