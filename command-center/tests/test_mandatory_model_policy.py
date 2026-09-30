@@ -65,7 +65,9 @@ def test_no_active_route_or_default_names_a_liquid_model():
             if "/tests/" in f"/{rel}" or "node_modules" in rel:
                 continue
             text = path.read_text(encoding="utf-8", errors="ignore")
-            hits += [f"{rel}: {m.group(0)}" for m in _MODEL_LITERAL.finditer(text)]
+            # regex sources (detectors) are not model ids: ids never contain a backslash or "|"
+            hits += [f"{rel}: {m.group(0)}" for m in _MODEL_LITERAL.finditer(text)
+                     if "\\" not in m.group(0) and "|" not in m.group(0)]
     assert hits == []
 
 

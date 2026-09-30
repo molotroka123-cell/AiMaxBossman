@@ -52,7 +52,7 @@ from .config import PITSettings
 from .cloud_budget import CloudBudget, classify_rate_limit, next_utc_midnight
 from .resources import LocalCapacityGuard, ollama_resident_probe
 from .models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
-from . import participant_profile, speech
+from . import participant_profile, speech, speech_audit
 from .heartbeat import Heartbeat, INTERVAL_SECONDS as HEARTBEAT_SECONDS
 from .participant_context import build_participant_context
 from .photo_commands import photo_intent
@@ -210,24 +210,93 @@ _QUESTION_START = re.compile(
     r"какие|ли|разве|what|who|where|when|why|how|which|do|does|did|is|are|can)\b", re.I)
 
 
+# Memory poisoning (autonomy freeze, line C): only the participant's OWN, affirmative, first-hand
+# statement is a durable fact. A sentence carrying any of these shapes is never mined.
+_QUOTE_LINE = re.compile(r"^\s*>")
+_REPORTED_CLAIM = re.compile(
+    r"(?<![\w])(?:сказал\w*|говор(?:ит|ят|ил\w*)|пиш(?:ет|ут)|писал\w*|утвержда\w+|счита\w+|дума\w+,?\s+что|"
+    r"уверя\w+|по\s+словам|якобы|мол|дескать|ответил\w*|решил\w*,?\s+что|"
+    r"said|says|say\s+that|told\s+me|tells|claims?|claimed|according\s+to|wrote|writes|thinks|believes|"
+    r"supposedly|allegedly)(?![\w])", re.I)
+_THIRD_PERSON = re.compile(
+    r"(?<![\w])(?:он|она|они|оно|мой\s+друг|моя\s+подруга|мой\s+брат|моя\s+сестра|мама|папа|коллега|сосед\w*|"
+    r"кто-то|кто\s+то|друг\s+сказал|he|she|they|someone|somebody|my\s+(?:friend|brother|sister|mom|dad|mother|"
+    r"father|colleague|boss|wife|husband))(?![\w])", re.I)
+_NEGATED_CLAIM = re.compile(
+    r"(?<![\w])(?:не|нет|никогда|ни|неправда|неверно|вовсе|not|never|no|isn't|don't|doesn't|didn't|won't|"
+    r"wasn't|aren't|untrue|false)(?![\w])|n't\b", re.I)
+_HYPOTHETICAL_CLAIM = re.compile(
+    r"(?<![\w])(?:если\s+бы|представь\w*|допустим|предположим|вообрази|как\s+будто|в\s+роли|играю\s+роль|"
+    r"if\s+i\s+were|imagine|suppose|pretend|hypothetically|in\s+character|role-?play)(?![\w])", re.I)
+_WEB_CLAIM = re.compile(
+    r"https?://|www\.|\[url\]|(?<![\w])(?:википеди\w+|wikipedia|по\s+данным|согласно|источник\w*\s*:|"
+    r"в\s+интернете\s+(?:пишут|написано)|нашёл\s+в\s+интернете|нашел\s+в\s+интернете|according\s+to|"
+    r"source\s*:|search\s+results?|результат\w*\s+поиска)(?![\w])", re.I)
+_MODEL_CLAIM = re.compile(
+    r"(?<![\w])(?:jeff|джефф\w*|jev|бот\w*|bot|assistant|ассистент\w*|нейросет\w*|модель|model|chatgpt|gpt|ии|ai)"
+    r"\s*(?:[:—]|сказал\w*|said|ответил\w*|answered|replied|считает|thinks|решил\w*|decided|предположил\w*|guessed|"
+    r"говорит|says|wrote|написал\w*|утверждает|claims|запомнил\w*|remembered)|"
+    r"(?<![\w])(?:ты\s+(?:сказал\w*|написал\w*|ответил\w*|решил\w*|считаешь|думаешь|запомнил\w*)|"
+    r"по\s+(?:твоим|вашим)\s+словам|you\s+(?:said|wrote|told\s+me|think|decided|remembered)|according\s+to\s+you)"
+    r"(?![\w])", re.I)
+_OPEN_Q, _CLOSE_Q = "«“„", "»”"
+
+
+def _inside_quotes(value: str, pos: int) -> bool:
+    before, after = value[:pos], value[pos:]
+    if sum(before.count(c) for c in _OPEN_Q) > sum(before.count(c) for c in _CLOSE_Q):
+        return True
+    if sum(after.count(c) for c in _CLOSE_Q) > sum(after.count(c) for c in _OPEN_Q):
+        return True                               # the quote opened in an earlier sentence
+    return before.count('"') % 2 == 1
+
+
+def claim_origin(sentence: str, match_start: int = 0) -> str:
+    """'' for the participant's own affirmative first-hand statement, else why it is not a fact."""
+    value = str(sentence or "")
+    prefix = value[:max(0, match_start)]
+    if _QUOTE_LINE.search(value) or _inside_quotes(value, max(0, match_start)):
+        return "quoted"
+    if _MODEL_CLAIM.search(value):
+        return "model_generated"
+    if _WEB_CLAIM.search(value):
+        return "web"
+    if _REPORTED_CLAIM.search(value) or _THIRD_PERSON.search(prefix):
+        return "third_person"
+    if _HYPOTHETICAL_CLAIM.search(value):
+        return "hypothetical"
+    if _NEGATED_CLAIM.search(prefix):
+        return "negated"
+    return ""
+
+
 def extract_candidates(person_key: str, message_id: str, text: str) -> list[MemoryCandidate]:
     """Deterministic high-recall extraction from explicit self-statements.
 
     The model's answer is never mined for persona facts; only the participant's
     own explicit wording becomes a candidate. Secrets fail closed downstream in
-    the collector.
+    the collector. Quoted, negated, third-person/reported, hypothetical, web and
+    model-generated claims are never candidates (``claim_origin``).
     """
     rows: list[MemoryCandidate] = []
     value = " ".join(str(text or "").split())
+    # A link stays one token (its dots are not sentence ends) and marks its sentence as web content.
+    value = re.sub(r"(?:https?://|www\.)\S+", "[url]", value, flags=re.I)
     # Questions are not self-statements: «Как меня зовут и где я живу?» must
     # never become the name «и где я живу». Only declarative sentences count.
-    value = " ".join(sentence.strip() for sentence in _SENTENCE.findall(value)
-                     if sentence.strip() and not sentence.rstrip().endswith("?")
-                     and not _QUESTION_START.match(sentence.strip()))
-    if not value:
+    sentences = [sentence.strip() for sentence in _SENTENCE.findall(value)
+                 if sentence.strip() and not sentence.rstrip().endswith("?")
+                 and not _QUESTION_START.match(sentence.strip())]
+    if not sentences:
         return rows
     for index, (pattern, category, key) in enumerate(_EXTRACT_PATTERNS):
-        match = pattern.search(value)
+        match = None
+        for sentence in sentences:
+            found = pattern.search(sentence)
+            # Only the participant's own affirmative first-hand claim counts (memory poisoning).
+            if found and not claim_origin(sentence, found.start()):
+                match = found
+                break
         if not match:
             continue
         rows.append(MemoryCandidate(
@@ -313,6 +382,8 @@ def _minimize_message(message: dict) -> dict:
         "_voice": voice_meta,
         "_sticker": sticker_emoji,
         "_reply_to": reply_context,
+        "_forwarded": any(k in message for k in ("forward_origin", "forward_from", "forward_from_chat",
+                                                  "forward_sender_name", "forward_date")),
     }
 
 
@@ -545,6 +616,7 @@ class ParticipantRuntime:
         self.prices_verified_at = 0.0
         self.route_rejections: dict[str, str] = {}
         self.route_policy: dict[str, dict] = {}
+        self._no_learn_messages: set[str] = set()
         self.route_refusal = ""
         self._payment_blocked_until: dict[str, float] = {}
         self._spawned_workers: set[str] = {p.key for p in settings.people}
@@ -836,6 +908,32 @@ class ParticipantRuntime:
                 **{k: v for k, v in self.cloud.status().items() if k != "last_stop_reason"},
                 "schema": "bossman.pit.cloud-budget/1"})
 
+    def _internal_terms(self) -> tuple[str, ...]:
+        s = self.settings
+        return tuple(t for t in (*s.chat_models, *s.local_models, s.provider_base_url, s.local_url,
+                                 s.core_url, s.search_url, s.provider_key, s.bot_token, s.core_token,
+                                 s.vision_token, s.proxy) if t)
+
+    def guard_outgoing(self, text: str, *, system_texts: tuple[str, ...] = ()) -> str:
+        """Mandatory identity/disclosure filter for every participant-visible reply (independent of Jeff 2.0).
+
+        Records only the enforced category codes, never the text."""
+        from .identity_guard import guard_reply
+        from .participant_context import PIT_ASSISTANT_SYSTEM
+        if not isinstance(text, str) or not text.strip():
+            return text
+        result = guard_reply(text, system_texts=(PIT_ASSISTANT_SYSTEM, *system_texts),
+                             internal_terms=self._internal_terms())
+        if result.changed:
+            with contextlib.suppress(OSError):
+                _append_jsonl(self.home / "logs" / "identity_guard.jsonl", {
+                    "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "categories": list(result.categories),
+                    "surface": getattr(self, "surface", "telegram"),
+                    "schema": "bossman.pit.identity-guard/1",
+                })
+        return result.text
+
     def _log_route(self, *, person_key: str, model: str, provider: str, ok: bool,
                    latency_ms: int, context_chars: int, tokens_in: int = 0,
                    tokens_out: int = 0, error: str = "", finish: str = "",
@@ -1080,12 +1178,21 @@ class ParticipantRuntime:
                 self._finish_update(update_id, "done", fresh)
                 continue
             try:
+                # Every outgoing reply (chat, photo, commands, voice) passes the mandatory filter.
+                answer = self.guard_outgoing(answer)
                 rendered = render_jeff_reply(answer)
                 voice_mode = self._voice_reply_wanted(fresh, message)
                 if voice_mode:
                     if draft is not None:
                         await draft.discard()
                     async def make_voice(guarded_text: str) -> bytes:
+                        # Pre-TTS capture: the exact text about to be spoken is audited
+                        # (hash + category + redacted copy) before any engine runs.
+                        try:
+                            speech_audit.capture(guarded_text, surface="telegram",
+                                                 audit_dir=self.home / "logs")
+                        except OSError as exc:
+                            raise PiperError("VOICE_AUDIT_FAILED") from exc
                         if (fresh.role == "owner"
                                 and os.environ.get("BOSSMAN_PIT_TTS_BACKEND", "piper").lower() == "chatterbox"):
                             # The cloned voice is the owner's own: guests get the stock Piper voice.
@@ -1334,6 +1441,9 @@ class ParticipantRuntime:
         if edit_words.kind == "edit":
             return await self._edit_latest(person, person_key, edit_words.prompt)
 
+        if message.get("_forwarded"):
+            # Someone else's words forwarded by the participant: answer, never learn from them.
+            self._no_learn_messages.add(str(message.get("_message_id") or "0"))
         return await self._chat_route(person, person_key, text, consent,
                                       message_id=str(message.get("_message_id") or "0"),
                                       reply_to=message.get("_reply_to"), update_id=update_id)
@@ -1644,7 +1754,7 @@ class ParticipantRuntime:
             return early
         reply = await self._chat_route_core(person, person_key, text, consent, message_id=message_id,
                                             reply_to=reply_to, update_id=update_id, j2_ctx=ctx)
-        return await self.j2.post_reply(ctx, reply)
+        return self.guard_outgoing(await self.j2.post_reply(ctx, reply))
 
     async def _chat_route_core(self, person: Person, person_key: str, text: str,
                                consent: ConsentState, message_id: str = "0",
@@ -1962,6 +2072,10 @@ class ParticipantRuntime:
                 return NO_REMOTE_RU
             return INCOMPLETE_REPLY_RU if incomplete_seen else PROVIDER_DOWN_RU
         answer = render_jeff_reply(result.text)
+        # Before memory, history or delivery: the base model's identity, the system prompt and
+        # internals never leave, whatever the (optional) Jeff 2.0 modules do afterwards.
+        answer = self.guard_outgoing(answer, system_texts=tuple(
+            str(m.get("content", "")) for m in messages[:1] if m.get("role") == "system"))
         if not answer:
             await turn_stream.reset()
             return PROVIDER_DOWN_RU
@@ -2008,6 +2122,9 @@ class ParticipantRuntime:
                            {"key": question.category.value, "question": question.question})
 
     def _learn(self, person_key: str, text: str, message_id: str) -> None:
+        if str(message_id) in self._no_learn_messages:
+            self._no_learn_messages.discard(str(message_id))
+            return
         consent = self.vault.consent(person_key)
         if not consent.memory_enabled:
             return
