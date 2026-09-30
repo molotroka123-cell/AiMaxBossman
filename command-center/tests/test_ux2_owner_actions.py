@@ -175,12 +175,14 @@ def test_owner_run_without_executor_is_blocked_and_recoverable(live):  # noqa: F
     from playwright.sync_api import sync_playwright
 
     errors: list[str] = []
+    warnings: list[str] = []
     task_id = _new_task(live, "Действие владельца · без исполнителя")
 
     with sync_playwright() as pw:
         browser = _launch(pw)
         page = browser.new_page(viewport={"width": 1440, "height": 900})
-        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        page.on("console", lambda m: errors.append(m.text) if m.type == "error"
+                else (warnings.append(m.text) if m.type == "warning" else None))
         page.on("pageerror", lambda e: errors.append(str(e)))
         _login(page, live)
         page.goto(live.url + "/#/tasks", wait_until="domcontentloaded")
@@ -213,12 +215,10 @@ def test_owner_run_without_executor_is_blocked_and_recoverable(live):  # noqa: F
         assert _call(live, lambda: _runs_of(live, task_id)), "прогон не создан"
         browser.close()
 
-    # Отказ движка ДОЛЖЕН быть слышен: toastError печатает причину в консоль.
-    # Это ожидаемое сообщение отказа, а не сбой страницы, поэтому из проверки
-    # «посторонних ошибок нет» исключается ровно оно и ничто другое.
-    unexpected = [e for e in errors if "Исполнитель не выбран или недоступен" not in e]
-    assert unexpected == [], unexpected
-    assert any("Исполнитель не выбран или недоступен" in e for e in errors), \
+    # Отказ движка ДОЛЖЕН быть слышен: toastError печатает причину в консоль. С UX-07 честный отказ 4xx идёт
+    # в console.warn (след остаётся), а console.error остаётся для сбоев программы: отказ — не «ошибка страницы».
+    assert errors == [], errors
+    assert any("Исполнитель не выбран или недоступен" in w for w in warnings), \
         "владелец не получил причину отказа"
 
 
