@@ -81,6 +81,14 @@ class Backend:
         return [k for k in found if k.ppid() not in pids]
 
 
+def _copy_bytes(src, dst, *, follow_symlinks=True):
+    """Snapshot copy for the restart tests: content only. On Windows `shutil.copy2` carries the owner-only ACL of the
+    Vault files over as an EMPTY DACL, which nobody (not even the worker) can then open; a plain byte copy is what
+    the owner gets when they copy the folder."""
+    Path(dst).write_bytes(Path(src).read_bytes())
+    return dst
+
+
 def _cmdline(p: psutil.Process) -> list[str]:
     try:
         return p.cmdline()
@@ -426,9 +434,9 @@ def test_restart_keeps_the_vault_stop_and_uncertainty_and_a_lost_key_is_reported
     assert cli(b, "call", "stop", "--json").returncode == 0
     snapshot = b.root / "restart-data"
     stop_backend(b)
-    shutil.copytree(b.data, snapshot)
+    shutil.copytree(b.data, snapshot, copy_function=_copy_bytes)
     lost_key = b.root / "lost-key-data"
-    shutil.copytree(b.data, lost_key)
+    shutil.copytree(b.data, lost_key, copy_function=_copy_bytes)
 
     restarted = start_backend(snapshot, "restarted")
     try:
