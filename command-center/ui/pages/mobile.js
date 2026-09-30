@@ -445,21 +445,41 @@ function browserBody(state, ctx) {
   }));
 }
 
+/* UX-05: бридж кладёт в health.detail сырой след проб («/api/info: ConnectError; …»),
+   и Пульт показывал его владельцу как причину. Человеческая причина — по статусу
+   бриджа (online|unauthorized|incompatible_version|unavailable, R12) и его русской
+   подсказке; технический след остаётся только во всплывающей подсказке. */
+const OPENCODE_STATUS_TEXT = {
+  unavailable: 'OpenCode не запущен на этом компьютере.',
+  unauthorized: 'OpenCode просит пароль.',
+  incompatible_version: 'Эта версия OpenCode не поддерживается.',
+};
+
+export function opencodeReason(health, healthError) {
+  if (healthError) return { text: String(healthError), detail: '' };
+  const info = health || {};
+  const base = OPENCODE_STATUS_TEXT[String(info.status || '')] || 'Сервер OpenCode не отвечает.';
+  const hint = typeof info.hint === 'string' ? info.hint.trim() : '';
+  const detail = String(info.detail || info.error || info.message || '');
+  return { text: hint ? `${base} ${hint.charAt(0).toUpperCase()}${hint.slice(1)}` : base, detail };
+}
+
 function opencodeBody(state, ctx) {
   const health = state.health || {};
   const unavailable = state.healthError
     || (health && health.ok === false)
     /* бридж отвечает online|unauthorized|incompatible_version|unavailable (R12) */
     || (health && health.status && !['ok', 'online'].includes(health.status));
-  const reason = state.healthError
-    || (health && (health.detail || health.error || health.message))
-    || 'сервер opencode не отвечает';
+  const why_ = opencodeReason(health, state.healthError);
+  const reason = why_.text;
 
   if (state.error) return emptyNote('OpenCode недоступен', state.error);
   const live = state.items.filter((s) => !['aborted', 'finished', 'completed', 'failed']
     .includes(String(s.status || '')));
   if (!live.length) {
-    return emptyNote('Сессий OpenCode нет', unavailable ? String(reason) : '');
+    const note = emptyNote('Сессий OpenCode нет', unavailable ? String(reason) : '');
+    if (unavailable && why_.detail) note.title = why_.detail;
+    return note;
   }
   return h('div.stack.sm',
     unavailable ? h('div.xsmall.dim', `OpenCode недоступен: ${String(reason)} — прерывание может не сработать`) : null,

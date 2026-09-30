@@ -226,6 +226,9 @@ function createModal(ctx) {
     footer: h('div'),
   });
   modal.footer.appendChild(actionButton('Создать', async () => {
+    /* UX-13: пустая форма уходила на сервер и возвращалась 400 с полем «source_repo
+       обязателен» (английское имя поля вместо подсказки). Спрашиваем по-русски до запроса. */
+    if (!repoEl.value.trim()) { toast('Укажите папку репозитория', { type: 'warn', hint: 'Нужна папка с git-репозиторием из разрешённых корней.' }); return; }
     try {
       await api.raw('/api/coding-sessions', {
         method: 'POST',

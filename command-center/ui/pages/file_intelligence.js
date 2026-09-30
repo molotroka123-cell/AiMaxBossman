@@ -58,6 +58,23 @@ const STATE_LABEL = {
   FAILED: 'Не удалось',
 };
 
+/* UX-06: страница показывала голые коды (NOT_INSTALLED, UNAVAILABLE,
+   VERSION_UNVERIFIED) и английский текст бэкенда. Код остаётся в скобках —
+   по нему ищут в документации, — но первым идёт человеческое слово. */
+export const BINARY_LABEL = {
+  AVAILABLE: 'Доступен',
+  NOT_INSTALLED: 'Не установлен',
+  WRONG_VERSION: 'Не та версия',
+  PROTOCOL_FAILED: 'Не ответил по протоколу',
+  BUSY: 'Занят другой задачей',
+};
+const UNDO_LABEL = { UNAVAILABLE: 'недоступна' };
+const VERSION_LABEL = { VERSION_UNVERIFIED: 'происхождение не доказано' };
+
+export function withCode(label, code) {
+  return label && code && label !== code ? `${label} (${code})` : String(code || label || '—');
+}
+
 const PRIVACY_LABEL = {
   LOCAL: 'ЛОКАЛЬНО',
   REMOTE: 'УДАЛЁННО',
@@ -78,27 +95,37 @@ function privacyBanner(status) {
   return panel('Приватность', h('div.fi-privacy',
     h('div.fi-privacy-state', badge(PRIVACY_LABEL[mode] || mode, tone)),
     h('p.muted', explain),
-    h('p.muted', `Отмена (undo) через headless-контракт: ${status.undo_headless}.`)));
+    h('p.muted', `Отмена действия из консоли сортировщика: ${withCode(UNDO_LABEL[status.undo_headless], status.undo_headless)}.`)));
 }
 
 function binaryPanel(status) {
   const binary = status.binary || {};
-  const tone = binary.status === 'AVAILABLE' ? 'ok' : 'bad';
+  const code = binary.status || 'NOT_INSTALLED';
+  const tone = code === 'AVAILABLE' ? 'ok' : 'bad';
   const rows = [
-    ['Состояние', binary.status || '—'],
+    ['Состояние', withCode(BINARY_LABEL[code], code)],
     ['Исполняемый файл', binary.resolved_executable || 'не найден'],
-    ['Версия сборки', binary.binary_version || '—'],
+    ['Версия сборки', withCode(VERSION_LABEL[binary.binary_version], binary.binary_version || '—')],
     ['Ожидаемый upstream SHA', binary.pinned_upstream_sha_expected || '—'],
   ];
+  /* Текст бэкенда технический и английский: оставляем как «подробности», но
+     сначала говорим по-русски, что делать. */
+  const technical = [...(binary.notes || []), binary.detail].filter(Boolean);
   return panel('Сортировщик', h('div',
-    h('div', badge(binary.status || 'NOT_INSTALLED', tone)),
+    h('div', badge(BINARY_LABEL[code] || code, tone)),
+    code === 'NOT_INSTALLED'
+      ? h('p', 'Сортировщик файлов (aifilesorter) не установлен. Установите его отдельно, вне папки Bossman, '
+        + 'и укажите путь в переменной AIFS_EXECUTABLE или AIFS_INSTALL_DIR.')
+      : null,
     h('dl.fi-kv', ...rows.flatMap(([k, v]) => [h('dt', k), h('dd', String(v))])),
     binary.version_verified === false
       ? h('p.muted', 'Сборка не доказала своё происхождение (VERSION_UNVERIFIED): '
         + 'закреплён документ интеграции, а не этот файл.')
       : null,
-    ...(binary.notes || []).map((note) => h('p.muted', note)),
-    binary.detail ? h('p.muted', binary.detail) : null));
+    technical.length
+      ? h('details', h('summary.muted', 'Технические подробности'),
+        ...technical.map((note) => h('p.muted.mono', String(note))))
+      : null));
 }
 
 function reviewTable(job, selection, onToggle) {
@@ -172,8 +199,8 @@ const FileIntelligencePage = {
         binaryPanel(status),
         panel('Функция выключена', h('div',
           h('p', `Флаг ${status.flag} по умолчанию выключен.`),
-          h('p.muted', 'Владелец включает его явно, на время проверки. '
-            + 'Пока он выключен, ничего не запускается и не индексируется.'))));
+          h('p.muted', 'Владелец включает его явно, на время проверки: задайте BCC_FILE_INTELLIGENCE=1 '
+            + 'и перезапустите Bossman. Пока он выключен, ничего не запускается и не индексируется.'))));
     }
 
     const state = { job: null, selection: new Set(), busy: false };

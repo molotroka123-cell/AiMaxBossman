@@ -65,3 +65,36 @@ export function notAvailable(label = 'Недоступно', title = 'Эта о�
 export function mono(text) {
   return h('span.mono', String(text ?? '—'));
 }
+
+/* UX-11: одна человеческая подпись события на все страницы (раньше она жила только
+   в home.js, а «Обзор» печатал сырой kind и JSON). */
+// Событие приходит как «agent.created» — техническая метка. Owner видит
+// человеческую фразу, а сырой kind остаётся в подсказке для отладки.
+const EVENT_LABEL = {
+  'agent.created': 'Создан агент', 'agent.updated': 'Изменён агент', 'agent.deleted': 'Удалён агент',
+  'model.created': 'Добавлена модель', 'model.status': 'Модель сменила состояние',
+  'model.degraded': 'Модель отвечает с ошибками',
+  'provider.created': 'Добавлен поставщик моделей',
+  'mission.created': 'Создана миссия', 'mission.started': 'Миссия запущена',
+  'mission.completed': 'Миссия завершена', 'mission.stopped': 'Миссия остановлена',
+  'task.created': 'Поставлена задача', 'task.started': 'Задача пошла в работу',
+  'task.completed': 'Задача выполнена', 'task.failed': 'Задача завершилась ошибкой',
+  'approval.created': 'Ждёт вашего решения', 'approval.decided': 'Решение принято',
+  'governor.intervention': 'Сработал присмотр за агентами',
+  'session.forked': 'Создано ответвление',
+  'apps.control_policy_changed': 'Изменено разрешение на запуск приложений',
+  'autonomy.stop': 'Автономия остановлена (STOP)',
+};
+
+export function humanKind(kind) {
+  if (EVENT_LABEL[kind]) return EVENT_LABEL[kind];
+  const head = kind.split('.')[0];
+  const byHead = {
+    agent: 'Событие агента', model: 'Событие модели', mission: 'Событие миссии',
+    task: 'Событие задачи', approval: 'Подтверждение', resource: 'Память и ресурсы',
+    recovery: 'Восстановление', governor: 'Присмотр', apps: 'Приложения',
+    autonomy: 'Автономия', telegram_call: 'Telegram-звонок', studio: 'Студия',
+    rave: 'Agentic Rave', v15: 'Bossman 1.5',
+  };
+  return byHead[head] || 'Событие';
+}

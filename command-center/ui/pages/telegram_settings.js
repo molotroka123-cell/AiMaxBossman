@@ -13,7 +13,7 @@
    ============================================================ */
 
 import { api } from '../api.js';
-import { h, field, input, select, textarea, actionButton, toastOk, toastError, badge } from '../components.js';
+import { h, field, input, select, textarea, actionButton, toastOk, toastError, badge, confirmDialog } from '../components.js';
 
 export const SETTINGS_ENDPOINT = '/api/telegram/settings';
 
@@ -132,6 +132,17 @@ export async function telegramPanel(ctx) {
             catch (e) { toastError(e, 'Профиль не сохранён'); }
           }, { cls: 'btn btn-sm' }),
           actionButton('Удалить профиль', async () => {
+            /* UX-04: удаление профиля шло сразу, без вопроса (обход интерфейса 30.09
+               стёр им живой профиль владельца). Профиль собирает модель по журналу
+               переписки — вернуть его правкой руками нельзя, поэтому спрашиваем. */
+            const who = person.role === 'owner' ? 'владельца' : 'гостя';
+            const ok = await confirmDialog({
+              title: 'Удалить цифровой профиль?',
+              text: `Профиль ${who} ${uid} будет удалён. Журнал переписки не затрагивается, `
+                + 'но вернуть этот текст правкой уже не получится.',
+              okText: 'Удалить профиль', danger: true,
+            });
+            if (!ok) return;
             try { await api.raw(`/api/telegram/profile/${uid}`, { method: 'DELETE' }); profileEl.value = ''; toastOk('Профиль удалён'); }
             catch (e) { toastError(e, 'Профиль не удалён'); }
           }, { cls: 'btn btn-sm btn-danger' }))));

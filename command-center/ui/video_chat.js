@@ -37,8 +37,12 @@ export function attachmentInput() {
   const input=h('input',{type:'file',multiple:true,accept:'video/*,audio/*,image/*,.srt,.vtt',
       'aria-label':'Прикрепить медиа'});
   const names=h('small',state.files.map(file=>file.name).join(' · '));
-  input.addEventListener('change',()=>{state.files=Array.from(input.files||[]);state.requestId='';names.textContent=state.files.map(file=>file.name).join(' · ');});
-  const remove=h('button.bx-btn',{type:'button',onClick:()=>{state.files=[];state.requestId='';input.value='';names.textContent='';}},'Убрать вложения');
+  /* UX-02: «Убрать вложения» без вложений — кнопка, на которую нечего нажимать
+     (клик не менял ничего). Показываем её, только когда есть что убирать. */
+  const remove=h('button.bx-btn',{type:'button',hidden:!state.files.length,onClick:()=>{
+    state.files=[];state.requestId='';input.value='';names.textContent='';remove.hidden=true;}},'Убрать вложения');
+  input.addEventListener('change',()=>{state.files=Array.from(input.files||[]);state.requestId='';
+    names.textContent=state.files.map(file=>file.name).join(' · ');remove.hidden=!state.files.length;});
   return h('div',input,names,remove);
 }
 export const attachedFiles=()=>state.files;

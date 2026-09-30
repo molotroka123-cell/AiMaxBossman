@@ -351,8 +351,27 @@ export function toast(message, { type = 'info', hint = '', timeout = 5200 } = {}
 export function toastError(err, fallback = 'Не удалось выполнить операцию') {
   const message = (err && err.message) || fallback;
   const hint = (err && err.hint) || '';
-  console.error(err);
+  logToastError(err);
   return toast(message, { type: 'err', hint, timeout: 8000 });
+}
+
+/* UX-07: в консоль как ОШИБКА идёт только то, что похоже на сбой программы
+   (5xx, обрыв сети, TypeError и т.п.). Пустое поле формы, отказ 4xx с понятным
+   текстом и подсказкой («нет агента», «ключ не вставлен») — обычные ответы
+   интерфейса: они уже показаны владельцу тостом, и console.error на каждую такую
+   кнопку превращал честный отказ в «ошибку страницы» для обхода и для devtools.
+   Такие случаи уходят в console.warn: след остаётся, шума в errors нет. */
+export function isExpectedRefusal(err) {
+  if (!err || typeof err !== 'object') return false;
+  if (err instanceof TypeError || err instanceof ReferenceError
+    || err instanceof RangeError || err instanceof SyntaxError) return false;
+  if (typeof err.status === 'number') return err.status >= 400 && err.status < 500;
+  return typeof err.message === 'string' && err.message !== '';
+}
+
+function logToastError(err) {
+  if (isExpectedRefusal(err)) console.warn(err);
+  else console.error(err);
 }
 
 export function toastOk(message, hint = '') {
@@ -393,8 +412,13 @@ export function openModal({ title, body, footer, wide = false, onClose } = {}) {
   const f = typeof footer === 'function' ? footer(handle) : footer;
   if (f) append(footEl, f); else footEl.remove();
 
+  /* UX-10: Tab в открытом окне уходил за его пределы — в страницу под подложкой, —
+     а после закрытия фокус терялся. Теперь Tab/Shift+Tab ходят по кругу внутри
+     верхнего окна, а закрытие возвращает фокус туда, откуда окно открыли. */
+  const opener = document.activeElement;
   const onKey = (e) => {
-    if (e.key === 'Escape') { e.stopPropagation(); close(); }
+    if (e.key === 'Escape') { e.stopPropagation(); close(); return; }
+    if (e.key === 'Tab' && openModals[openModals.length - 1] === handle) trapTab(e, modal);
   };
   wrap.addEventListener('mousedown', (e) => { if (e.target === wrap) close(); });
   document.addEventListener('keydown', onKey, true);
@@ -408,6 +432,9 @@ export function openModal({ title, body, footer, wide = false, onClose } = {}) {
     const idx = openModals.indexOf(handle);
     if (idx >= 0) openModals.splice(idx, 1);
     if (!openModals.length) scrim(false);
+    if (opener && opener !== document.body && opener.isConnected && typeof opener.focus === 'function') {
+      try { opener.focus({ preventScroll: true }); } catch { /* не критично */ }
+    }
     if (onClose) onClose(result);
   }
   handle.close = close;
@@ -420,6 +447,23 @@ export function openModal({ title, body, footer, wide = false, onClose } = {}) {
   if (focusable) setTimeout(() => focusable.focus(), 30);
 
   return handle;
+}
+
+const FOCUSABLE = 'a[href], button, input, select, textarea, summary, [tabindex]';
+
+/** Фокус по кругу внутри окна: список берём заново на каждое нажатие — содержимое окон меняется. */
+export function trapTab(e, modal) {
+  const items = Array.from(modal.querySelectorAll(FOCUSABLE)).filter((el) => {
+    if (el.disabled || el.getAttribute('tabindex') === '-1' || el.type === 'hidden') return false;
+    return el.getClientRects().length > 0;
+  });
+  if (!items.length) { e.preventDefault(); return; }
+  const first = items[0];
+  const last = items[items.length - 1];
+  const active = document.activeElement;
+  if (!modal.contains(active)) { e.preventDefault(); first.focus(); }
+  else if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
 }
 
 export function closeTopModal() {
