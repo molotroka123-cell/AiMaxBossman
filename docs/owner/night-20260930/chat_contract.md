@@ -62,7 +62,8 @@ POST /api/chat/threads/{id}/send
   and /api/tasks/preflight handlers use; do not duplicate admission logic):
    1. preflight exactly like POST /api/tasks/preflight; if agent_id is null use the agent it selects
       (Auto). If preflight refuses -> 409 {error:{code, message, hint}} and NOTHING is created.
-   2. prompt = conversation_context.compose(parts) + attachments block + text, where parts are the
+   2. prompt = conversation_context.compose(parts + [attachments block]) + text (the attachment DATA block
+      is the LAST context part, before MARKER, so current_request() sees only the owner's text), where parts are the
       last CONTEXT_TURNS (3) turns of THIS thread (after the compaction point, with the /compact
       summary first), each `"Владелец: {text}\nBossman: {answer}"` cut to 1500 chars per side,
       answers read from the tasks DB. Attachment block: for kind text, a DATA block

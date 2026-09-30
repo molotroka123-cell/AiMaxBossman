@@ -1223,11 +1223,21 @@ def _api_router() -> APIRouter:
         with `after` it first replays the stored history after that cursor,
         then continues live and drops live copies of what was replayed (`seq`).
         A client that fell behind gets `stream.lagged` with its cursor and
-        reconnects with `after=<cursor>` — it never silently misses events."""
+        reconnects with `after=<cursor>` — it never silently misses events.
+
+        A native EventSource reconnects to the same URL and names its cursor
+        only in the `Last-Event-ID` header (the last `id:` it received). When
+        the URL carries no `after`, that header is the cursor: missed events
+        are replayed once, nothing already shown comes twice. An explicit
+        `after` always wins over the header."""
         from starlette.responses import StreamingResponse
         from .events import TaskStreamFilter
         if task_id is None and run_id is None:
             raise ApiError("нужен task_id или run_id", status=422)
+        if after is None:
+            raw_last_id = (request.headers.get("last-event-id") or "").strip()
+            if raw_last_id.isascii() and raw_last_id.isdigit() and len(raw_last_id) <= 18:
+                after = int(raw_last_id)
         queue = svc.bus.subscribe()
         flt = TaskStreamFilter(task_id=task_id, run_id=run_id)
 
