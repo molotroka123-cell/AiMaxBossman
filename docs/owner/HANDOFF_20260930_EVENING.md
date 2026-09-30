@@ -7,7 +7,7 @@ Higgsfield ждут владельца. Всё, что не запускалос
 ## Где
 
 - Репозиторий `molotroka123-cell/AiMaxBossman`, рабочая ветка `claude/bossman-1.9-owner-bugtest-20260930` (draft PR #89, база `feat/bossman-autonomy`).
-  Локально: `C:\Users\asd\Bossman\wt-bugtest-0930` (ветка `owner/bugtest-20260930`). Вершина: `<FINAL_SHA>` (= `git rev-parse origin/claude/bossman-1.9-owner-bugtest-20260930`).
+  Локально: `C:\Users\asd\Bossman\wt-bugtest-0930` (ветка `owner/bugtest-20260930`). Вершина: `git rev-parse origin/claude/bossman-1.9-owner-bugtest-20260930` (последний кодовый коммит — перф `361a7a7c`, дальше только документы). Итоговый аудит закрытия 2.0 и план на завтра: `docs/owner/AUDIT_2_0_CLOSURE_20260930.md`.
 - В ветку влито за день: линия Telegram-звонков (PR #87), мастер-промпт владельца, все полосы роя (ниже). `main`, `release/*`, теги — не тронуты, force-push не было.
 - Рой: `C:\Users\asd\Bossman\swarm-20260930\` (COMMON.md, `reports\*.md` по полосам, `evidence\` скриншоты, `tools\` сторожа Jeff). Не в репозитории.
 
@@ -25,12 +25,15 @@ Higgsfield ждут владельца. Всё, что не запускалос
 | Веб-доступ | листинг/чтение/браузер/SSRF проверены, 11 дефектов исправлены — `docs/owner/runs/WEB_ACCESS_20260930.md`; у агентов владельца веб-чтение выключено (нужны `BOSSMAN_WEB_RESEARCH_ENABLED`, `BOSSMAN_OSIRIS_ENABLED`), общий поиск требует свой SearXNG | PARTIAL / `OWNER_REQUIRED` |
 | Agentic Rave | проверка версии Claude CLI, честный STOP, Apply, пул собственных аккаунтов (выкл по умолчанию), каталог «нет в каталоге», market, K1m6a — `docs/v1.9/AGENTIC_RAVE.md` | PASS (repo-local); живой rave `NOT_RUN` |
 | Отчёты в пульт | модуль `python -m bcc.telegram_companion.owner_report --file X [--send]` (dry-run по умолчанию) | PASS (repo-local), 4 реальных отправки |
+| Music Studio | причина «ConnectError»: ACE-Step не стоял; честный health (6 статусов), кнопки запуска/остановки; ACE-Step установлен, треки 20 и 30 с сгенерированы через Bossman — `docs/music/MUSIC_STUDIO.md` | PASS (repo-local) + REAL_LOCAL; 60–90 с/варианты NOT_RUN, LM 4B BLOCKED |
+| UX-обход всех страниц | 49 маршрутов, 294 из 461 элементов, 14/14 найденных дефектов закрыты — `docs/owner/runs/UX_SWEEP_20260930.md` | PASS (repo-local + браузер); инцидент с профилем описан в аудите |
+| Скорость Bossman | `/api/tasks` ×6.4 (101→2 SQL), `/health` ready −44…−51%, `/api/apps` p95 1226→13.5 мс — `docs/audits/PERF_20260930.md` | IMPROVED (измерено, синтетическая БД); UI-загрузка не мерилась |
 
 Бесплатные модели: Nemotron-3-Ultra 550B работает через NVIDIA NIM (агент 25 на :8801, $0). Ключ OpenRouter («test key 2026-09-24») **просрочен**.
 
 ## Не подтверждено / не сделано
 
-- Полный зелёный CI на `<FINAL_SHA>`: ждёт раннеров; полный локальный прогон — см. `docs/owner/runs/FULL_RUN_20260930.md` (если есть) или таблицу в итоговом отчёте.
+- Полный зелёный CI на финальном SHA ветки: ждёт раннеров; полный локальный прогон — см. `docs/owner/AUDIT_2_0_CLOSURE_20260930.md` §2: command-center 8183 passed / 3 failed (разобраны), корневые 2877 passed / 6 env-failed, node 119/119.
 - Ролик Genjutsu (Higgsfield): видео 15 с 9:16 и фото загружены, предрасчёт 720p = 105 кредитов (480p = 45), на аккаунте 0 кредитов — `OWNER_REQUIRED`; рассылка через Jeff после результата.
 - Не сделаны полосы: providers (`model_billing`, prompt caching, телеметрия tok/s), motion (перенос `wip/motion56`), jeff-j2 baseline-harness («вдвое сильнее» — только измерением, числа нет), real-цикл JEFF-0042.
 - Живые проверки: микрофон, Claude/Codex rave, `terminal.run` в чистом data-dir, рассылка участникам, голосовой ответ Piper новой сборкой.
