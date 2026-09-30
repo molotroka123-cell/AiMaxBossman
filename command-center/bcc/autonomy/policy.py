@@ -56,6 +56,9 @@ ACTIONS: dict[str, ActionRule] = {
     "stage_candidate": ActionRule("L2", "stage"),
     "apply_release": ActionRule("L3", "release"),
     "rollback_release": ActionRule("L4", "rollback"),
+    # names the Line B cycle uses for the same two gates
+    "apply_candidate": ActionRule("L3", "release"),
+    "rollback": ActionRule("L4", "rollback"),
 }
 
 #: Constitution "always the user's decision" -> why.
@@ -132,6 +135,13 @@ class Scope:
     started_at: float | None = None
     protected_globs: tuple[str, ...] = PROTECTED_GLOBS
     extra_protected: tuple[Path, ...] = field(default_factory=tuple)   # e.g. the pin file, owner data dir
+    output_roots: tuple[Path, ...] = field(default_factory=tuple)      # argv may name files here (reports)
+
+
+class PolicyRefusal(Exception):
+    def __init__(self, reason: str, needs_user: bool = False):
+        super().__init__(reason)
+        self.reason, self.needs_user = reason, needs_user
 
 
 class Policy:
@@ -178,6 +188,27 @@ class Policy:
             except ValueError:
                 continue
         return False
+
+    def in_output_roots(self, raw: str) -> bool:
+        try:
+            p = Path(raw).resolve()
+        except (OSError, ValueError):
+            return False
+        for root in self.scope.output_roots:
+            try:
+                p.relative_to(Path(root).resolve())
+                return True
+            except ValueError:
+                continue
+        return False
+
+    def scope_for(self, req: HandRequest) -> Scope:
+        """The scope an allowed request runs in (a routed policy picks it per request)."""
+        return self.scope
+
+    def prepare(self, req: HandRequest) -> HandRequest:
+        """Normalise a request before the check (identity here). Raises PolicyRefusal."""
+        return req
 
     def remaining_s(self) -> float:
         return self.scope.time_budget_s - (self._clock() - self._started)
@@ -227,6 +258,8 @@ class Policy:
                 or re.match(r"^[A-Za-z]:[\\/]", a) is not None
             if looks_path:
                 p = self.resolve(a)
+                if p is None and os.path.isabs(a) and self.in_output_roots(a):
+                    continue
                 if p is None:
                     return Decision(False, f"argument points outside the worktree: {a}")
                 if self._protected(p):
@@ -295,4 +328,5 @@ class Policy:
         return Decision(False, "unhandled action kind (fail closed)")
 
 
-__all__ = ["ACTIONS", "ALWAYS_USER", "Decision", "LEVELS", "Policy", "Scope", "classify_path", "tier_rank"]
+__all__ = ["ACTIONS", "ALWAYS_USER", "Decision", "LEVELS", "Policy", "PolicyRefusal", "Scope", "classify_path",
+           "tier_rank"]

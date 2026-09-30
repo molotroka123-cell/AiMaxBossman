@@ -101,13 +101,15 @@ def test_writers_need_the_lease_for_the_same_goal(wt, tmp_path):
     lz = EngineeringLease(tmp_path / "lease")
     ex = FakeExec()
     b = broker(wt, tmp_path, ex, lease=lz)
-    assert "lease" in b.execute(req(argv=["pytest"])).refused_reason
+    cmd = dict(action="run_command", argv=["git", "status"])
+    assert "lease" in b.execute(req(**cmd)).refused_reason
     assert b.execute(req(action="read_file", path="docs/a.md", evidence=())).ok        # reads need no lease
+    assert b.execute(req(argv=["pytest"])).ok                                          # test runs need no lease
     t = lz.acquire("JEFF-0001", "codex", ttl_s=60)
-    assert not b.execute(req(argv=["pytest"])).ok                                      # other goal's lease
+    assert not b.execute(req(**cmd)).ok                                                # other goal's lease
     lz.release(t)
     t = lz.acquire("JEFF-0042", "claude", ttl_s=60)
-    assert b.execute(req(argv=["pytest"])).ok
+    assert b.execute(req(**cmd)).ok
     lz.release(t)
 
 
