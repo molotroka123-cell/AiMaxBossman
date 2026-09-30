@@ -20,6 +20,11 @@ Sink = Callable[["str | None"], Awaitable[None]]
 reply_sink: ContextVar[Sink | None] = ContextVar("jeff_reply_sink", default=None)
 
 
+def _stream_leaks(text: str) -> bool:
+    from .identity_guard import stream_leaks
+    return stream_leaks(text)
+
+
 class TurnStream:
     """Per-turn bookkeeping between a model adapter's ``on_delta`` and the sink."""
 
@@ -29,6 +34,8 @@ class TurnStream:
         self.started = clock()
         self.first_at: float | None = None
         self.shown = False
+        self.text = ""
+        self.leak_stopped = False
 
     async def on_delta(self, text: str | None) -> None:
         if text is None:
@@ -38,6 +45,14 @@ class TurnStream:
             return
         if self.first_at is None:
             self.first_at = self.clock()
+        self.text += text
+        if self.sink is not None and _stream_leaks(self.text):
+            # The preview would show the base model's identity or an internal: drop it and stop
+            # previewing; the final reply goes through the mandatory identity/disclosure filter.
+            await self.reset()
+            self.sink = None
+            self.leak_stopped = True
+            return
         self.shown = True
         if self.sink is not None:
             try:
@@ -49,6 +64,7 @@ class TurnStream:
 
     async def reset(self) -> None:
         """What was shown belongs to a failed/refused attempt: tell the sink to drop it."""
+        self.text = ""
         if not self.shown:
             return
         self.shown = False
