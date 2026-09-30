@@ -193,7 +193,8 @@ class PinnedTransport(httpx.AsyncHTTPTransport):
 async def safe_get(url: str, *, allow_private: bool = False,
                    allowed_hosts: set[str] | None = None,
                    max_bytes: int = 1_000_000, timeout: float = 15.0,
-                   max_redirects: int = 3, headers: dict | None = None) -> httpx.Response:
+                   max_redirects: int = 3, headers: dict | None = None,
+                   truncate: bool = False) -> httpx.Response:
     """GET с защитой от SSRF, DNS-rebinding и небезопасных redirect'ов.
 
     Каждый hop: валидация URL → резолв (ВСЕ адреса проверяются) → коннект на
@@ -201,6 +202,12 @@ async def safe_get(url: str, *, allow_private: bool = False,
     не следуются автоматически — следующий hop валидируется заново. Тело
     читается потоково до `max_bytes`; превышение — отказ без аллокации всего
     тела.
+
+    `truncate=True` (только по явной просьбе вызывающего): вместо отказа отдать
+    ПЕРВЫЕ `max_bytes` и оборвать чтение, пометив ответ заголовком
+    `x-bossman-truncated: 1`. Потолок по памяти остаётся тем же — читается не
+    больше `max_bytes`. Нужен чтению страниц: длинные статьи (Википедия — от
+    0,4 до 2 МБ HTML) иначе не читались бы вовсе.
     """
     hops = 0
     current = url
@@ -230,15 +237,22 @@ async def safe_get(url: str, *, allow_private: bool = False,
                     continue  # revalidate next hop before following
                 chunks: list[bytes] = []
                 total = 0
+                cut = False
                 async for chunk in r.aiter_bytes():
                     total += len(chunk)
                     if total > max_bytes:
-                        raise PluginSecurityError(f"response exceeds max_bytes={max_bytes}")
+                        if not truncate:
+                            raise PluginSecurityError(f"response exceeds max_bytes={max_bytes}")
+                        chunks.append(chunk[:max(0, max_bytes - (total - len(chunk)))])
+                        cut = True
+                        break
                     chunks.append(chunk)
-                return httpx.Response(r.status_code,
-                                      headers={k: v for k, v in r.headers.items()
-                                               if k.lower() != "content-length"},
-                                      content=b"".join(chunks))
+                # Служебную метку ставим только мы: сервер не должен уметь её подделать.
+                head = {k: v for k, v in r.headers.items()
+                        if k.lower() not in ("content-length", "x-bossman-truncated")}
+                if cut:
+                    head["x-bossman-truncated"] = "1"
+                return httpx.Response(r.status_code, headers=head, content=b"".join(chunks))
 
 
 # ----------------------------------------------------------------- path

@@ -455,6 +455,16 @@ def _open_url_refusal(raw_url: str) -> str | None:
     if config.is_exfil_sink(host):
         return ("этот адрес принимает данные, а не отдаёт их: открыть его значит "
                 "отправить, а не прочитать")
+    # Внутренняя сеть, loopback, metadata: читаться это всё равно не будет (egress
+    # откажет при чтении), а спрашивать владельца про заведомо отказной адрес —
+    # значит тратить его одобрение и приучать его нажимать «да». Проверка
+    # литеральная и без сети; имя, резолвящееся во внутренний адрес, остановит
+    # `safe_get` при самом чтении.
+    try:
+        osiris.checked_url(canonical)
+    except PluginSecurityError as exc:
+        return (f"адрес ведёт во внутреннюю сеть или на служебный хост ({exc}): "
+                f"такое не читается и не одобряется")
     return None
 
 
@@ -769,6 +779,11 @@ async def tool_search(args: dict, ctx: ToolContext) -> ToolResult:
                 "web.search: site не поддержан")
         return _ok(render.render_no_backends(ready), "web.search: искать негде")
 
+    # Субъект = текст, который РЕАЛЬНО уйдёт этому backend'у: OpenSearch Википедии
+    # ищет по префиксу названия, и «who is Alan Turing» даёт пустоту. Событие
+    # `web.query_sent` ниже печатает уже его, то есть владелец видит отправленное.
+    subject = sources.backend_subject(backend, subject)
+
     # Страховка хука (см. `search_effect`): если общий backend всё-таки выбран
     # не через SearXNG, сужение по домену не должно проехать в auto молча.
     if site and backend.general_web and not config.SEARXNG_URL:
@@ -959,10 +974,16 @@ async def tool_open(args: dict, ctx: ToolContext) -> ToolResult:
     led.mark_tainted()
 
     subject = entry.subject or url_subject(entry.url)
+    # `max_chars` — сколько показать ЭТИМ вызовом (бюджет пассажей ниже), а не
+    # сколько извлечь: извлечённый текст и есть то, по чему ищут `web.find` и
+    # `web.cite`. Раньше сюда передавалось `max_chars` (3000 по умолчанию), и у
+    # англоязычной Википедии первые 3000 знаков текста — это меню сайта: тело
+    # статьи в извлечение не попадало вовсе, `web.find "Bletchley"` ничего не
+    # находил, а цитировать было нечего (замер 2026-09-30).
     try:
         page = await net.fetch_page(ctx.svc, entry.url, subject,
                                     ensure_host_source=sources.ensure_host_source,
-                                    extract_chars=max_chars)
+                                    extract_chars=net.EXTRACT_MAX_CHARS)
     except net.PageRefused as exc:
         if getattr(exc, "code", "") == "raw_budget":
             used, limit = net.raw_budget_state(osiris.store(ctx.svc))
