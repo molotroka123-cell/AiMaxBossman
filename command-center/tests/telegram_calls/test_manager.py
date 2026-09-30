@@ -343,6 +343,24 @@ async def test_status_merges_local_facts_flags_and_labels_the_test_mode(make):
     assert (await m.status())["stop"]["call"] is True
 
 
+async def test_a_live_call_is_not_reported_as_an_uncertain_previous_call(make):
+    """Found in the browser acceptance: state.json carries `in_flight` for the whole call, so the panel said «исход предыдущего звонка
+    неизвестен» (and asked for the extra confirmation) in the middle of a perfectly normal call."""
+    m = make()
+    prep(m)
+    m.state.note_call_started("c-live0000001")                   # what the worker writes BEFORE the phone rings
+    assert (await m.status())["uncertain_previous"] is True, "no call known to this manager and in_flight left behind: a dead worker"
+    m._active_call = {"call_id": "c-live0000001", "state": "active", "phase": None, "transport": "loopback", "models": {},
+                      "started_at": time.time(), "latencies": []}
+    live = await m.status()
+    assert live["call_active"] is True and live["uncertain_previous"] is False, "the call in progress is not the PREVIOUS call"
+    m._active_call = None
+    m.state.note_call_finished("c-live0000001", Outcome.UNKNOWN)
+    assert (await m.status())["uncertain_previous"] is True, "a real uncertain outcome still is (paired control)"
+    m.state.note_call_finished("c-live0000002", Outcome.COMPLETED)
+    assert (await m.status())["uncertain_previous"] is False
+
+
 async def test_status_merges_the_worker_status_when_the_worker_runs(make, tmp_path):
     m = make()
     prep(m)
@@ -369,18 +387,37 @@ async def test_doctor_rows_have_the_documented_shape(make):
     assert {r["status"] for r in rows} <= {"PASS", "WARN", "BLOCKED"}
     assert all(r["remedy"] for r in rows if r["status"] == "BLOCKED")
     checks = {r["check"] for r in rows}
-    assert {"Зависимости", "Права доступа к файлам", "STOP", "Журнал процесса звонков", "Голосовой тракт Jeff"} <= checks
+    assert {"Зависимости", "Права доступа к файлам", "STOP", "Журнал процесса звонков", "Распознавание речи (Whisper)",
+            "Голос (Piper)", "Локальная модель Jeff"} <= checks
 
 
-async def test_doctor_voice_tract_missing_is_a_warning_never_blocked(make, monkeypatch):
+def _voice_files(data: Path) -> None:
+    voice = data / "voice"
+    (voice / "piper").mkdir(parents=True)
+    (voice / "piper" / "piper.exe").write_bytes(b"x")
+    (voice / "ru_RU-denis-medium.onnx").write_bytes(b"x")
+    (voice / "ru_RU-denis-medium.onnx.json").write_text("{}", encoding="utf-8")
+
+
+async def test_doctor_voice_tract_is_checked_by_real_files_and_missing_is_a_warning_never_blocked(make, monkeypatch, tmp_path):
+    from bcc.oss import whisper
     for name in ("BOSSMAN_PIT_TTS_EXECUTABLE", "BOSSMAN_PIT_TTS_MODEL_PATH", "BOSSMAN_WHISPER_MODEL_PATH"):
         monkeypatch.delenv(name, raising=False)
-    row = next(r for r in await make().doctor() if r["check"] == "Голосовой тракт Jeff")
-    assert row["status"] == "WARN" and "BOSSMAN_WHISPER_MODEL_PATH" in row["detail"]
-    for name in ("BOSSMAN_PIT_TTS_EXECUTABLE", "BOSSMAN_PIT_TTS_MODEL_PATH", "BOSSMAN_WHISPER_MODEL_PATH"):
-        monkeypatch.setenv(name, "/somewhere/present")
-    ok = next(r for r in await make().doctor() if r["check"] == "Голосовой тракт Jeff")
-    assert ok["status"] == "PASS"
+    monkeypatch.setattr(whisper, "status", lambda: {"status": "unavailable", "reason": "Whisper model is incomplete"})
+    rows = {r["check"]: r for r in await make().doctor()}
+    assert rows["Голос (Piper)"]["status"] == "WARN" and "BOSSMAN_PIT_TTS_EXECUTABLE" in rows["Голос (Piper)"]["detail"]
+    assert rows["Распознавание речи (Whisper)"]["status"] == "WARN" and rows["Распознавание речи (Whisper)"]["remedy"]
+    # env VARIABLES alone are not enough any more: a path that does not exist is still a WARN (the old check said PASS)
+    for name in ("BOSSMAN_PIT_TTS_EXECUTABLE", "BOSSMAN_PIT_TTS_MODEL_PATH"):
+        monkeypatch.setenv(name, "/somewhere/absent")
+    assert {r["check"]: r for r in await make().doctor()}["Голос (Piper)"]["status"] == "WARN"
+    # the legitimate state: Jeff's voice in <data>/voice (the default Jeff's window uses) and a configured Whisper
+    for name in ("BOSSMAN_PIT_TTS_EXECUTABLE", "BOSSMAN_PIT_TTS_MODEL_PATH"):
+        monkeypatch.delenv(name)
+    _voice_files(tmp_path / "data")
+    monkeypatch.setattr(whisper, "status", lambda: {"status": "configured"})
+    ok = {r["check"]: r for r in await make().doctor()}
+    assert ok["Голос (Piper)"]["status"] == "PASS" and ok["Распознавание речи (Whisper)"]["status"] == "PASS"
 
 
 async def test_doctor_tightens_loose_permissions_and_says_so(make):

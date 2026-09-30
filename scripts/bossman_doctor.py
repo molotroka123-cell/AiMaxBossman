@@ -644,7 +644,20 @@ def check_telegram_calls() -> Check:
     if missing:
         return Check("telegram_calls", WARN, "звонки выключены: нет пакетов аддона " + ", ".join(missing),
                      "bossman call install (или пропустите: звонки не нужны для остальной работы)", facts)
-    return Check("telegram_calls", PASS, "пакеты звонков на месте (сами звонки выключены, пока владелец не включит)",
+    # S6: голосовой тракт Jeff (ASR / TTS / локальная модель) и права на файлы звонков: PASS или WARN, никогда BLOCKED
+    try:
+        from bcc.telegram_calls.doctor_rows import jeff_call_rows
+        data_dir = Path(os.environ.get("BCC_DATA_DIR") or (REPO / "command-center" / "data")).expanduser()
+        rows = jeff_call_rows(data_dir)
+    except Exception as exc:  # noqa: BLE001 - строка диагностики не имеет права падать
+        rows = [{"check": "голосовой тракт", "status": WARN, "detail": f"не удалось проверить ({type(exc).__name__})",
+                 "remedy": "bossman call doctor"}]
+    facts["voice_rows"] = [{"check": r["check"], "status": r["status"]} for r in rows]
+    weak = [r for r in rows if r["status"] != PASS]
+    if weak:
+        return Check("telegram_calls", WARN, "; ".join(f"{r['check']}: {r['detail']}" for r in weak)[:400],
+                     "bossman call doctor: он назовёт, что именно поставить (звонки не нужны для остальной работы)", facts)
+    return Check("telegram_calls", PASS, "пакеты звонков, голос Jeff и права на файлы в порядке (сами звонки выключены, пока владелец не включит)",
                  facts=facts)
 
 

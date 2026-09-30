@@ -117,6 +117,7 @@ class CallsManager:
         self._dial_pending = False
         self._last_record: dict | None = None
         self._selftest_running = False
+        self._stop_latched = False              # in memory: the dial stays blocked even if the durable STOP file cannot be written
         self._cache: dict[str, tuple[float, Any]] = {}
         self.stderr_lines = 0
 
@@ -139,6 +140,16 @@ class CallsManager:
     @property
     def active_call(self) -> dict | None:
         return dict(self._active_call) if self._active_call else None
+
+    @property
+    def busy(self) -> bool:
+        """A call is live OR a dial is in flight: settings / peer / credentials must not change under it."""
+        return self._active_call is not None or bool(self._dial_pending)
+
+    @property
+    def dial_pending(self) -> bool:
+        """A dial is in flight (the phone may ring before the call shows up as active): the owner STOP must see it too."""
+        return bool(self._dial_pending)
 
     def settings(self) -> CallSettings:
         return load_settings(self.home)          # fresh, never cached
@@ -167,6 +178,8 @@ class CallsManager:
                 with contextlib.suppress(asyncio.TimeoutError, asyncio.CancelledError, Exception):
                     await asyncio.wait_for(old, 3.0)
             self.home.mkdir(parents=True, exist_ok=True, mode=0o700)
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(self.repair_unreadable)
             kwargs: dict[str, Any] = {}
             if os.name == "nt":
                 kwargs["creationflags"] = 0x08000000        # CREATE_NO_WINDOW
@@ -404,7 +417,7 @@ class CallsManager:
 
     # ------------------------------------------------------------------ owner actions: account
     def save_credentials(self, api_id: int, api_hash: str) -> dict:
-        if self._active_call is not None:
+        if self.busy:
             raise CallError("CALL_IN_PROGRESS")
         self.store.save_api(api_id, api_hash)
         return self.store.public()
@@ -424,7 +437,7 @@ class CallsManager:
         return await self.request("login.password", {"password": password}, timeout=60.0)
 
     async def logout(self) -> dict:
-        if self._active_call is not None:
+        if self.busy:
             raise CallError("CALL_IN_PROGRESS")
         return await self.request("logout", {}, timeout=30.0)
 
@@ -447,7 +460,7 @@ class CallsManager:
             me_id = creds.me_id or None
         deps_ok = True if self.offline else bool(deps.probe()["ready_for_telegram_call"])
         return DialContext(account=account, me_id=me_id, active_call=self._active_call is not None or self._dial_pending,
-                           stop_active=self.state.stop_is_set() or bool(global_stop),
+                           stop_active=self.state.stop_is_set() or self._stop_latched or bool(global_stop),
                            uncertain_previous=self.state.is_uncertain(), deps_ok=deps_ok)
 
     async def dial(self, *, confirm_unknown: bool = False, global_stop: bool = False) -> dict:
@@ -472,6 +485,8 @@ class CallsManager:
                 elif not self.running and self._reader_task is not None:
                     with contextlib.suppress(asyncio.TimeoutError, asyncio.CancelledError, Exception):
                         await asyncio.wait_for(self._reader_task, 3.0)     # let the exit handling settle the call first
+                elif not self.running and self._active_call is None:
+                    self._dial_pending = False              # the worker could not even be started: nothing was dialled
                 raise
             call = self._active_call or {"started_at": self._clock(), "latencies": [], "phase": None, "state": "dialing"}
             call.update({"call_id": result.get("call_id"), "transport": result.get("transport"),
@@ -489,12 +504,26 @@ class CallsManager:
         return await self._request_raw("hangup", {}, timeout=8.0)
 
     async def stop(self, by: str = "owner") -> dict:
-        """STOP: the durable file first, then the fast op, then (no ack in time / hangup unconfirmed) the process."""
-        self.state.set_stop(by[:40] or "owner")
-        with contextlib.suppress(Exception):
-            await asyncio.to_thread(self.heal_permissions)
-        out: dict[str, Any] = {"stop_flag": True, "worker": "not_running", "hangup_confirmed": None, "terminated": False}
+        """STOP: the durable file first, then the fast op, then (no ack in time / hangup unconfirmed) the process.
+
+        A failing file write (disk, ACL) never keeps the call on the line: the dial is latched in memory, the hangup still runs and
+        the reply says ``stop_flag: false`` so nobody believes the STOP survives a restart."""
+        self._stop_latched = True
+        persisted = True
+        try:
+            self.state.set_stop(by[:40] or "owner")
+        except OSError:
+            persisted = False
+            log.warning("calls STOP file could not be written")
+        out: dict[str, Any] = {"stop_flag": persisted, "worker": "not_running", "hangup_confirmed": None, "terminated": False}
         self._event("stop", by=by[:40])
+        try:
+            return await self._stop_worker(by, out)
+        finally:                                                   # the ACL check runs AFTER the hangup, never in front of it
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(self.heal_permissions)
+
+    async def _stop_worker(self, by: str, out: dict[str, Any]) -> dict:
         if not self.running:
             return out
         out["worker"] = "running"
@@ -518,6 +547,7 @@ class CallsManager:
 
     async def resume(self) -> dict:
         self.state.clear_stop()
+        self._stop_latched = False
         if self.running:
             with contextlib.suppress(CallError):
                 await self._request_raw("resume", {}, timeout=5.0)
@@ -567,21 +597,23 @@ class CallsManager:
 
     def heal_permissions(self) -> list[str]:
         """Owner-only permissions for every file of this module. Returns the names that had to be tightened."""
-        from ..hardening import check_owner_only
+        from ..hardening import check_owner_only, restrict_to_owner
         healed: list[str] = []
         for path in self._own_files():
             if not path.exists() or check_owner_only(path).ok:
                 continue
             try:
-                if os.name == "nt":
-                    from ...auth import _restrict_to_owner
-                    _restrict_to_owner(path)
-                else:
-                    os.chmod(path, 0o700 if path.is_dir() else 0o600)
-                healed.append(path.name)
+                if restrict_to_owner(path):      # a directory keeps an inheritable owner ACE: its files stay readable
+                    healed.append(path.name)
             except OSError:
                 continue
         return healed
+
+    def repair_unreadable(self) -> list[str]:
+        """Cheap pre-flight of the worker start: a file the owner cannot even open (an empty DACL left by an older build or
+        a copy/restore of the folder) is given back to the owner, so the worker never dies on its own config."""
+        from ..hardening import repair_unreadable
+        return repair_unreadable(p for p in self._own_files() if p != self.home)
 
     def acl_report(self) -> list[dict]:
         key_path = getattr(getattr(self.store, "_vault", None), "path", None)
@@ -647,7 +679,7 @@ class CallsManager:
         latency = (call or {}).get("latency_ms") or (last or {}).get("latency_ms") or latency_stats([])
         last_error = outcome_error((last or {}).get("outcome"), (last or {}).get("error_code")) if last else None
         peer = settings.peer
-        stop_call = self.state.stop_is_set()
+        stop_call = self.state.stop_is_set() or self._stop_latched
         return {
             "mode": self.mode,
             "transport": transport,
@@ -663,7 +695,7 @@ class CallsManager:
             "call": call,
             "call_active": call is not None,
             "stop": {"call": stop_call, "global": bool(global_stop), "active": stop_call or bool(global_stop)},
-            "uncertain_previous": self.state.is_uncertain(),
+            "uncertain_previous": self.state.is_uncertain(call_in_progress=call is not None or self._dial_pending),
             "last_call": _last_call_view(last),
             "last_error": last_error,
             "latency": latency,
@@ -726,16 +758,11 @@ class CallsManager:
             row("STOP", "PASS", "STOP не активен")
         row("Журнал процесса звонков", *await asyncio.to_thread(self._log_row))
         row("Резервные копии", *self._backup_row())
-        env = self._child_env()
-        missing_env = [name for name in ("BOSSMAN_PIT_TTS_EXECUTABLE", "BOSSMAN_PIT_TTS_MODEL_PATH",
-                                         "BOSSMAN_WHISPER_MODEL_PATH") if not env.get(name)]
-        if not missing_env:
-            row("Голосовой тракт Jeff", "PASS", "заданы пути TTS и Whisper")
-        else:
-            row("Голосовой тракт Jeff", "WARN", "не заданы: " + ", ".join(missing_env),
-                "Задайте пути к голосу и модели распознавания (настройки голоса Jeff) — без них разговор голосом не начнётся")
-        row("Локальные модели", "WARN", "доступность локальной модели проверяет сборка движков перед звонком",
-            "Проверка: bossman call selftest (тестовый контур) и первый звонок")
+        # The voice tract is checked the way the worker resolves it (real files, not just variable names): PASS or WARN only.
+        from ..doctor_rows import asr_row, model_row, tts_row
+        for voice_row in (await asyncio.to_thread(asr_row), await asyncio.to_thread(tts_row, self.data_dir, self._child_env()),
+                          await asyncio.to_thread(model_row, self.data_dir)):
+            row(voice_row["check"], voice_row["status"], voice_row["detail"], voice_row["remedy"])
         return rows
 
     def _vault_row(self) -> tuple[str, str, str]:

@@ -105,10 +105,10 @@ def load_settings(home: Path | None = None) -> CallSettings:
 
 
 def save_settings(settings: CallSettings, home: Path | None = None) -> Path:
-    from ..auth import _restrict_to_owner
+    from .hardening import restrict_to_owner
     home = home or calls_home()
     home.mkdir(parents=True, exist_ok=True, mode=0o700)
-    _restrict_to_owner(home)
+    restrict_to_owner(home)        # the directory variant: what is already inside stays readable (see hardening)
     path = home / CONFIG_NAME
     tmp = path.with_name(path.name + ".tmp")
     fd = os.open(tmp, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
@@ -116,7 +116,7 @@ def save_settings(settings: CallSettings, home: Path | None = None) -> Path:
         out.write(json.dumps(settings.to_json(), ensure_ascii=False, indent=2) + "\n")
         out.flush()
         os.fsync(out.fileno())
-    _restrict_to_owner(tmp)
+    restrict_to_owner(tmp)
     os.replace(tmp, path)
     return path
 

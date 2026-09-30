@@ -33,6 +33,7 @@ from ..types import (ANALYSIS_RATE, Brain, CallError, CallEvent, CallRecord, Cal
                      TransportEvent, TransportEventKind, TTSEngine, Turn, TurnMetrics)
 
 _WORD = re.compile(r"\w", re.UNICODE)
+_DISCLOSES = re.compile(r"(?i)\bии\b|ассистент|искусственн|нейросет|\bai\b|\bбот\b")     # a greeting that already says «я ИИ-ассистент»
 
 
 @dataclass
@@ -40,6 +41,9 @@ class SessionConfig:
     ring_timeout_s: float = 45.0
     max_call_s: float = 900.0
     greeting: str = "Привет! Это Джефф, ИИ-ассистент. Ты меня слышишь?"
+    #: Spoken before the FIRST model reply when the greeting did not (the callee said «алло» first, or the owner blanked the greeting):
+    #: a fixed sentence, so the AI disclosure never depends on what a model (under any mood overlay) says. "" = off (tests).
+    disclosure: str = ""
     greet_wait_s: float = 1.5             # let the callee say «алло» first
     idle_prompt_s: float = 25.0
     idle_prompt_text: str = "Ты ещё здесь?"
@@ -90,6 +94,7 @@ class CallSession:
         self._done = asyncio.Event()
         self._teardown_done = asyncio.Event()
         self._stopping = False
+        self._stop_event = asyncio.Event()           # set by stop(): interrupts the post-call summary
         self._active_since: float | None = None
 
         fmt = transport.audio_format
@@ -128,6 +133,7 @@ class CallSession:
         self._end_call_after_speech = False
         self._loop: asyncio.AbstractEventLoop | None = None
         self._used = False
+        self._disclosed = False                      # the AI disclosure has been spoken on this call
 
     # ================================================================== public
     @property
@@ -162,6 +168,7 @@ class CallSession:
         if self._stopping:
             return
         self._stopping = True
+        self._stop_event.set()
         self._cancel.cancel(reason)
         self.playout.invalidate()
         if self._stt_stream is not None:
@@ -205,6 +212,8 @@ class CallSession:
         except Exception as exc:  # noqa: BLE001
             self.emit("error", code="INTERNAL", detail=type(exc).__name__)
             self._finish(Outcome.FAILED, "INTERNAL")
+            return
+        if self._stopping or self._outcome is not None:   # STOP / hangup during the (slow) start: the phone must not ring after it
             return
         try:
             await self.transport.dial(self.peer, ring_timeout=self.cfg.ring_timeout_s)   # exactly once, never retried
@@ -297,13 +306,25 @@ class CallSession:
             text=(f"Звонок ассистента на выбранный аккаунт: {user_turns} реплик собеседника, {dur:.0f} с, "
                   f"исход: {self._outcome.value if self._outcome else 'unknown'}. Содержание не сохранялось."),
             agreed_tasks=[], generated_by="mechanical")
-        if user_turns == 0 or self._outcome in (Outcome.STOPPED,):      # STOP starts no new model call
+        if user_turns == 0 or self._outcome in (Outcome.STOPPED,) or self._stopping:      # STOP starts no new model call
             return mechanical
+        task = asyncio.ensure_future(self.brain.summarize(turns))
+        stop = asyncio.ensure_future(self._stop_event.wait())
         try:
-            result = await asyncio.wait_for(self.brain.summarize(turns), self.cfg.summary_timeout_s)
-            return result if result and result.text else mechanical
+            # a STOP during the summary (up to ~22 s of local model time) ends it at once: the worker must be able to answer
+            # the STOP as confirmed instead of being killed mid-summary (which would turn a finished call into UNKNOWN)
+            done, _ = await asyncio.wait({task, stop}, timeout=self.cfg.summary_timeout_s, return_when=asyncio.FIRST_COMPLETED)
+            if task in done and not task.cancelled() and task.exception() is None:
+                result = task.result()
+                return result if result and result.text else mechanical
+            return mechanical
         except Exception:  # noqa: BLE001
             return mechanical
+        finally:
+            for pending in (task, stop):
+                if not pending.done():
+                    pending.cancel()
+            await asyncio.gather(task, stop, return_exceptions=True)
 
     # ================================================================== state helpers
     def _set_state(self, state: CallState) -> None:
@@ -612,6 +633,11 @@ class CallSession:
         idx = 0
         history = self._history_for_llm(exclude_pending_user=True)
         try:
+            if self.cfg.disclosure and not self._disclosed and not self._stopping:
+                self._disclosed = True
+                spoken.append(self.cfg.disclosure)
+                await self._speak(self.cfg.disclosure, gen, idx, cancel, m)
+                idx += 1
             async for delta in self.brain.reply(history, text, cancel):
                 if cancel.cancelled or self._stopping:
                     break
@@ -742,6 +768,8 @@ class CallSession:
         if self.cfg.greeting and not self._stopping and self._outcome is None:
             m = TurnMetrics(turn_id=0)
             self._gen_metrics[self.playout.generation] = m
+            if _DISCLOSES.search(self.cfg.greeting):
+                self._disclosed = True
             await self._say_canned(self.cfg.greeting)
 
     async def _watchdog(self) -> None:

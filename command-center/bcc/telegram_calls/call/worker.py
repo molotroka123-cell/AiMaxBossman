@@ -12,6 +12,7 @@ trusts the other with the one decision that rings a phone.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -37,6 +38,7 @@ from .session import CallSession, SessionConfig
 log = logging.getLogger("bcc.telegram_calls.worker")
 MODE_ENV = "BOSSMAN_CALLS_MODE"               # "offline_test" only ever comes from the operator's environment, never from the API
 OFFLINE_MODE = "offline_test"
+DISCLOSURE = "Это Джефф, ИИ-ассистент."          # spoken before the first reply when the greeting did not say it (see SessionConfig)
 
 
 from ..speech.factory import Engines  # noqa: E402  (re-exported for callers of the worker)
@@ -63,6 +65,8 @@ class Worker:
         self._last_record: dict | None = None
         self._events: list[dict] = []
         self._seq = 0
+        self._dialing = False                     # single flight: a second dial while one is still being built is refused
+        self._stop_epoch = 0                      # bumped by every STOP: a dial that is still being built must see it
 
     # ------------------------------------------------------------ construction helpers
     def _make_account(self) -> TelegramAccount:
@@ -105,6 +109,13 @@ class Worker:
     # ------------------------------------------------------------ ops: info
     async def op_hello(self, args: dict) -> dict:
         from .. import MODULE_VERSION
+        if self.offline:                                      # the fake client must never overwrite (or clear) a REAL session
+            try:
+                session = self.store.load().session
+            except CallError:
+                session = ""
+            if session and not session.startswith("OFFLINE-TEST-SESSION"):
+                raise CallError("INTERNAL", detail="offline_mode_with_real_session")
         return {"version": MODULE_VERSION, "pid": os.getpid(), "mode": self.mode or "telegram", "transport": "loopback" if self.offline else "telegram"}
 
     async def op_deps(self, args: dict) -> dict:
@@ -162,21 +173,47 @@ class Worker:
         return {"peer": {"user_id": peer.user_id, "label": peer.label}}
 
     # ------------------------------------------------------------ ops: call
-    async def op_dial(self, args: dict) -> dict:
+    def _dial_guard(self, args: dict) -> tuple[CallSettings, Any, DialContext]:
+        """The dial guard with FRESH settings from disk. Evaluated twice per dial (before and after the slow engine build)."""
         settings = load_settings(self.home)                      # fresh, never cached
         ctx = DialContext(account=self.account.state(), me_id=self.account.me_id(), active_call=self.session is not None,
                           stop_active=self.state.stop_is_set() or bool(args.get("global_stop")),
                           uncertain_previous=self.state.is_uncertain(),
                           deps_ok=True if self.offline else deps.probe()["ready_for_telegram_call"])
         peer = check_dial(settings, ctx, confirm_unknown=bool(args.get("confirm_unknown")))
-        if ctx.uncertain_previous:
-            self.state.acknowledge_uncertain()                    # the owner confirmed it explicitly
+        return settings, peer, ctx
+
+    async def op_dial(self, args: dict) -> dict:
+        if self._dialing or self.session is not None:            # single flight: two overlapping dials would be two phone calls
+            raise CallError("CALL_IN_PROGRESS")
+        self._dialing = True
+        try:
+            return await self._dial(args)
+        finally:
+            self._dialing = False
+
+    async def _dial(self, args: dict) -> dict:
+        epoch = self._stop_epoch
+        settings, peer, ctx = self._dial_guard(args)
         engines = await self._engines(settings)
         call_id = "c-" + uuid.uuid4().hex[:12]
         transport = await self._build_transport(engines)
+        # The build is slow (models, network) and a STOP / a settings change can arrive meanwhile: nothing may ring after a
+        # STOP that was acknowledged, and the peer / enabled flag are read again from disk right before the phone can ring.
+        try:
+            if self._stop_epoch != epoch:
+                raise CallError("STOP_ACTIVE")
+            settings, peer, ctx = self._dial_guard(args)
+        except CallError:
+            with contextlib.suppress(Exception):
+                await transport.close()
+            raise
+        if ctx.uncertain_previous:
+            self.state.acknowledge_uncertain()                    # the owner confirmed it explicitly (only a dial that goes ahead spends it)
         cfg = SessionConfig(ring_timeout_s=float(settings.ring_timeout_s), max_call_s=float(settings.max_call_s),
                             idle_prompt_s=float(settings.idle_prompt_s), idle_hangup_s=float(settings.idle_hangup_s),
-                            barge_in=settings.barge_in, echo_mode=settings.echo_mode, greeting=settings.greeting)
+                            barge_in=settings.barge_in, echo_mode=settings.echo_mode, greeting=settings.greeting,
+                            disclosure=DISCLOSURE)
         session = CallSession(call_id=call_id, transport=transport, peer=peer, stt=engines.stt, tts=engines.tts,
                               brain=engines.brain, vad=engines.vad, cfg=cfg, on_event=self._on_session_event,
                               recorder=engines.recorder)
@@ -189,7 +226,7 @@ class Worker:
     async def _engines(self, settings: CallSettings) -> Engines:
         if self._engines_factory is None:
             from ..speech.factory import build_engines
-            return await build_engines(settings, self.mode)
+            return await build_engines(settings, self.mode, self.state.stop_is_set)      # Jeff's STT/TTS/brain see the durable STOP
         return await self._engines_factory(settings, self.mode)
 
     async def _build_transport(self, engines: Engines) -> Any:
@@ -209,10 +246,15 @@ class Worker:
         except Exception:  # noqa: BLE001 - CallSession.run does not raise; belt and braces
             log.exception("call session crashed")
         finally:
+            # Every step is guarded on its own: one failing write must not leave the worker "in a call" for ever
+            # (the dial guard would refuse everything until a restart) or swallow the record.
             outcome = record.outcome if record is not None else None
-            self.state.note_call_finished(session.call_id, outcome)
             data = record.as_dict() if record is not None else {"call_id": session.call_id, "outcome": None}
             self._last_record = data
+            try:
+                self.state.note_call_finished(session.call_id, outcome)
+            except OSError:
+                log.warning("state write failed")
             try:
                 self.state.append_history(data)
             except OSError:
@@ -234,19 +276,28 @@ class Worker:
 
     # ``stop`` is also reachable through the fast path (``stop_now``), so it must be safe to call from a bare callback.
     def stop_now(self, reason: str = "owner_stop") -> None:
-        self.state.set_stop(reason)                                # durable first: survives a crash right after
+        self._stop_epoch += 1                                      # a dial still being built sees this before it can ring
+        try:
+            self.state.set_stop(reason)                            # durable first: survives a crash right after
+        except OSError:                                            # a failing write must never keep the call on the line
+            log.warning("stop flag write failed")
         if self.session is not None:
             self.session.stop(reason)
 
     async def op_stop(self, args: dict) -> dict:
         reason = str(args.get("reason") or "owner_stop")[:40]
         self.stop_now(reason)
-        confirmed = True
+        timeout = float(args.get("timeout") or 5.0)
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while self._dialing and loop.time() < deadline:            # a dial still being built aborts itself (STOP_ACTIVE) or hands
+            await asyncio.sleep(0.02)                              # its session over atomically: wait for that, bounded
+        confirmed = not self._dialing                              # still building after the timeout: NOT a confirmed hangup
         if self._call_task is not None and not self._call_task.done():
             # asyncio.wait never cancels the call task on timeout (and never re-raises its failure into the STOP path)
-            done, _pending = await asyncio.wait({self._call_task}, timeout=float(args.get("timeout") or 5.0))
-            confirmed = bool(done)
-        return {"stopped": True, "hangup_confirmed": confirmed, "stop_flag": True}
+            done, _pending = await asyncio.wait({self._call_task}, timeout=max(0.1, deadline - loop.time()))
+            confirmed = bool(done) and confirmed
+        return {"stopped": True, "hangup_confirmed": confirmed, "stop_flag": self.state.stop_is_set()}
 
     async def op_resume(self, args: dict) -> dict:
         self.state.clear_stop()

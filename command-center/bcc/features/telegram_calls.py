@@ -4,8 +4,9 @@ Same product, one more control surface: no second data directory, vault, memory 
 call engine live in the calls worker process (``bcc.telegram_calls``), which ``CallsManager`` starts ONLY on an owner action.
 Nothing here registers an agent tool: an agent cannot place a call.
 
-CONTRACT (fixed by the coordinator; do not rename): routes are /api/telegram/calls/*, bus events are telegram_call.state /
-telegram_call.ended. /api/calls/* and calls.state / calls.ended exist ONLY as compatibility aliases (see "mounting" below).
+CONTRACT (one name each, no aliases): routes are /api/telegram/calls/*, bus events are telegram_call.state /
+telegram_call.ended. The earlier /api/calls/* mount and the calls.state / calls.ended events were removed on purpose (2026-09-30):
+two names for one surface meant two command-bar blocks, two schemas and twice the bus traffic, and nothing depended on them.
 
 Endpoints (paths below are relative to /api/telegram; the normal auth applies):
   GET  /calls/status                      merged local facts + worker status (never starts the worker)
@@ -26,13 +27,14 @@ Endpoints (paths below are relative to /api/telegram; the normal auth applies):
   GET|POST /calls/install                 add-on dependencies: status / start (owner-triggered)
 
 STOP: the durable calls STOP file is written first, then the call is hung up. The bus event ``computer.stop`` (the global
-Bossman STOP) does the same, and dialing is refused while the global STOP is set. Bus events: ``calls.state`` /
-``calls.ended`` (no text, no phone numbers, no secrets, at most ~5 per second).
+Bossman STOP) does the same, and dialing is refused while the global STOP is set. Bus events: ``telegram_call.state`` /
+``telegram_call.ended`` (no text, no phone numbers, no secrets, at most ~5 per second).
 """
 from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import time
 from dataclasses import replace
 from pathlib import Path
@@ -48,8 +50,11 @@ from ..telegram_calls.types import CallError
 from . import Feature
 
 router = APIRouter()
+log = logging.getLogger("bcc.features.telegram_calls")
 
 MIN_EMIT_GAP_S = 0.2                      # at most ~5 bus events per second
+STATE_EVENT = "telegram_call.state"       # the bus event names are a contract with the dashboard page (ui/pages/telegram_calls.js)
+ENDED_EVENT = "telegram_call.ended"
 _CALL_ID = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$"
 
 _STATUS = {
@@ -158,22 +163,20 @@ class _Runtime:
         if data is None:
             return
         self._last_emit = time.monotonic()
-        task = asyncio.get_running_loop().create_task(self._emit("telegram_call.state", data))
+        task = asyncio.get_running_loop().create_task(self._emit(STATE_EVENT, data))
         self.manager._bg.add(task)
         task.add_done_callback(self.manager._bg.discard)
 
     async def _emit(self, kind: str, data: dict) -> None:
-        # CONTRACT NAME first (telegram_call.state / telegram_call.ended); the shorter calls.* name is a compatibility alias
-        # for clients written against it. Both carry the same text-free payload.
-        for prefix in ("telegram_call", "calls"):
-            with contextlib.suppress(Exception):
-                if kind in ("calls.state", "telegram_call.state"):
-                    await self.svc.bus.emit(f"{prefix}.state", state=data.get("state"), phase=data.get("phase"),
-                                            call_id=data.get("call_id"), transport=data.get("transport"))
-                else:
-                    await self.svc.bus.emit(f"{prefix}.ended", call_id=data.get("call_id"), outcome=data.get("outcome"),
-                                            error_code=data.get("error_code"), transport=data.get("transport"),
-                                            turns=data.get("turns"), latency_p50_ms=data.get("latency_p50_ms"))
+        """The ONE pair of bus event names (telegram_call.state / telegram_call.ended), text-free payloads."""
+        with contextlib.suppress(Exception):
+            if kind == STATE_EVENT:
+                await self.svc.bus.emit(STATE_EVENT, state=data.get("state"), phase=data.get("phase"),
+                                        call_id=data.get("call_id"), transport=data.get("transport"))
+            else:
+                await self.svc.bus.emit(ENDED_EVENT, call_id=data.get("call_id"), outcome=data.get("outcome"),
+                                        error_code=data.get("error_code"), transport=data.get("transport"),
+                                        turns=data.get("turns"), latency_p50_ms=data.get("latency_p50_ms"))
 
     async def _on_record(self, rec: dict) -> None:
         try:
@@ -183,9 +186,9 @@ class _Runtime:
             auto = False
         await postcall.process_record(self.svc, self.manager.state, rec, auto_save=auto)
         lat = rec.get("latency_ms") if isinstance(rec.get("latency_ms"), dict) else {}
-        await self._emit("telegram_call.ended", {"call_id": rec.get("call_id"), "outcome": rec.get("outcome"),
-                                         "error_code": rec.get("error_code"), "transport": rec.get("transport"),
-                                         "turns": len(rec.get("turns") or []), "latency_p50_ms": lat.get("p50")})
+        await self._emit(ENDED_EVENT, {"call_id": rec.get("call_id"), "outcome": rec.get("outcome"),
+                                        "error_code": rec.get("error_code"), "transport": rec.get("transport"),
+                                        "turns": len(rec.get("turns") or []), "latency_p50_ms": lat.get("p50")})
 
     # ---- small cached facts for the status poll
     async def cached(self, key: str, ttl: float, fn) -> Any:
@@ -208,16 +211,19 @@ def _rt(request: Request) -> _Runtime:
     return rt
 
 
-def global_stop_active(svc: Any) -> bool:
-    """The global Bossman STOP (features/tools_computer): live state, or the persisted STOP file after a restart."""
+def global_stop_active(svc: Any, *, fail_closed: bool = False) -> bool:
+    """The global Bossman STOP (features/tools_computer): live state, or the persisted STOP file after a restart.
+
+    ``fail_closed=True`` (the dial path): when the state cannot be read the answer is «STOP is active», so nothing dials. The
+    watcher and the status keep the default (False): an unreadable state must not hang up calls every five seconds."""
     try:
         from . import tools_computer
         state = getattr(svc, "_computer_state", None)
         if state is not None and state.stopped():
             return True
         return (Path(svc.settings.data_dir) / "computer" / tools_computer.STOP_FILE).is_file()
-    except Exception:  # noqa: BLE001 - if the state cannot be read, fail closed only for dialing (the guard refuses)
-        return False
+    except Exception:  # noqa: BLE001
+        return bool(fail_closed)
 
 
 async def _memory_configured(svc: Any) -> bool:
@@ -267,7 +273,7 @@ async def put_settings(body: SettingsIn, request: Request):
     changes = {k: getattr(body, k) for k in body.model_fields_set if getattr(body, k) is not None}
     if not changes:
         return _settings_view(current)
-    if mgr.active_call is not None and changes.keys() - {"greeting"}:
+    if mgr.busy and changes.keys() - {"greeting"}:
         raise _http(CallError("CALL_IN_PROGRESS"))
     known = CallSettings.__dataclass_fields__
     direct = {k: v for k, v in changes.items() if k in known}
@@ -374,7 +380,7 @@ async def put_peer(body: PeerIn, request: Request):
                    "Отметьте «Это мой второй аккаунт» и повторите.")
     if (body.user_id is None) == (body.username is None):
         raise _bad("PEER_INVALID", "Укажите либо id, либо юзернейм собеседника (что-то одно).")
-    if mgr.active_call is not None:
+    if mgr.busy:
         raise _http(CallError("CALL_IN_PROGRESS"))
     try:
         found = await mgr.peer_lookup(user_id=body.user_id, username=body.username)      # re-validated by the worker right now
@@ -382,7 +388,11 @@ async def put_peer(body: PeerIn, request: Request):
         raise _http(exc) from None
     peer = found.get("peer") or {}
     try:
-        settings = replace(mgr.settings(), peer_user_id=int(peer["user_id"]), peer_label=str(peer.get("label") or "")[:120])
+        current = mgr.settings()
+        new_id = int(peer["user_id"])
+        # A DIFFERENT interlocutor never inherits "calls are on": the owner switches them on again for the person they just chose
+        settings = replace(current, peer_user_id=new_id, peer_label=str(peer.get("label") or "")[:120],
+                           enabled=current.enabled and current.peer_user_id == new_id)
     except (KeyError, TypeError, ValueError):
         raise _http(CallError("PEER_INVALID")) from None
     mgr.save_settings(settings)
@@ -392,7 +402,7 @@ async def put_peer(body: PeerIn, request: Request):
 @router.delete("/calls/peer")
 async def delete_peer(request: Request):
     mgr = _rt(request).manager
-    if mgr.active_call is not None:
+    if mgr.busy:
         raise _http(CallError("CALL_IN_PROGRESS"))
     try:
         mgr.save_settings(replace(mgr.settings(), peer_user_id=None, peer_label=""))
@@ -409,7 +419,7 @@ async def dial(request: Request, body: DialIn | None = None):
     svc = request.app.state.svc
     try:
         result = await rt.manager.dial(confirm_unknown=bool(body and body.confirm_unknown),
-                                       global_stop=global_stop_active(svc))
+                                       global_stop=global_stop_active(svc, fail_closed=True))
     except CallError as exc:
         raise _http(exc) from None
     return result
@@ -429,7 +439,7 @@ async def stop(request: Request):
     rt = _rt(request)
     result = await rt.manager.stop("owner")
     with contextlib.suppress(Exception):
-        await rt._emit("telegram_call.state", {"state": "stopped", "phase": None, "call_id": None, "transport": None})
+        await rt._emit(STATE_EVENT, {"state": "stopped", "phase": None, "call_id": None, "transport": None})
     return {"stopped": True, "persisted": rt.manager.state.stop_is_set(), **result}
 
 
@@ -548,6 +558,16 @@ async def install_start(request: Request):
 
 # ---------------------------------------------------------------- global STOP -> calls STOP
 
+async def _stop_guarded(rt: _Runtime) -> None:
+    """One failing STOP must not end the watcher: the NEXT computer.stop still has to hang the call up."""
+    try:
+        await rt.manager.stop("computer_stop")
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        log.warning("global STOP: calls stop failed (%s); the watcher keeps running", type(exc).__name__)
+
+
 async def _watch_global_stop(svc: Any, rt: _Runtime) -> None:
     """``computer.stop`` (the global Bossman STOP) ends the call too. A lost event is caught by the periodic check.
 
@@ -567,12 +587,12 @@ async def _watch_global_stop(svc: Any, rt: _Runtime) -> None:
             done, _ = await asyncio.wait({getter}, timeout=5.0)
             if not done:
                 if global_stop_active(svc) and (rt.manager.active_call is not None or rt.manager.running):
-                    await rt.manager.stop("computer_stop")
+                    await _stop_guarded(rt)
                 continue
             msg = getter.result()
             getter = None
             if isinstance(msg, dict) and msg.get("kind") == "computer.stop":
-                await rt.manager.stop("computer_stop")
+                await _stop_guarded(rt)
     finally:
         if getter is not None and not getter.done():
             getter.cancel()
@@ -589,11 +609,9 @@ async def _setup(svc: Any) -> None:
 
 
 # ---------------------------------------------------------------- mounting
-# CONTRACT PATH: /api/telegram/calls/*  (the docs, the CLI global STOP and the command-bar block name it).
-# COMPATIBILITY ALIAS: /api/calls/*     (same handlers, hidden from the schema). Both are blocked in the command bar.
+# ONE canonical path: /api/telegram/calls/*  (the docs, the CLI, the dashboard page and the command-bar block name it).
 _calls_router = router
 router = APIRouter()
 router.include_router(_calls_router, prefix="/telegram")
-router.include_router(_calls_router, include_in_schema=False)
 
 FEATURE = Feature(name="telegram_calls", router=router, setup=_setup)

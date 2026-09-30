@@ -19,7 +19,8 @@ import { api } from '../api.js';
 import { h, field, input, badge, toggle, toastOk, toastError } from '../components.js';
 import { panel, pageHead } from './_ui.js';
 
-export const BASE = '/api/telegram/calls'; // CONTRACT path (coordinator spec, do not rename); /api/calls/* is only a backend alias
+export const BASE = '/api/telegram/calls'; // the ONE canonical path (the former /api/calls alias was removed from the backend)
+export const EVENT_KINDS = ['telegram_call.state', 'telegram_call.ended']; // the ONE pair of bus events (bcc/features/telegram_calls.py)
 export const POLL_MS = 1500;
 
 /* ---------------------------------------------------------------- чистые функции (проверяются в Node) */
@@ -701,7 +702,7 @@ const TelegramCallsPage = {
   /* события шины только подгоняют состояние на месте: страница не пересоздаётся, набранное не пропадает */
   onEvent(ev) {
     const kind = String((ev && ev.kind) || '');
-    if ((kind === 'calls.state' || kind === 'calls.ended') && live && live.root.isConnected) live.poll();
+    if (EVENT_KINDS.includes(kind) && live && live.root.isConnected) live.poll();
     return false;
   },
 };

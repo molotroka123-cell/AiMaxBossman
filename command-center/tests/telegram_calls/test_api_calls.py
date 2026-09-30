@@ -1,4 +1,4 @@
-"""/api/calls/*: auth, empty state, guards, validation, STOP (own and global), UNKNOWN + confirm, bus events, secrets.
+"""/api/telegram/calls/*: auth, empty state, guards, validation, STOP (own and global), UNKNOWN + confirm, bus events, secrets.
 
 The worker is the REAL one in ``BOSSMAN_CALLS_MODE=offline_test`` (fake Telethon client, loopback line, scripted engines):
 the whole product flow runs without Telegram. Nothing here proves a real Telegram call; every call carries transport
@@ -21,7 +21,7 @@ from bcc.tools import REGISTRY
 
 API_ID = 1234567
 API_HASH = "0123456789abcdef" * 2                          # fixture shape only, not a credential
-PREFIX = "/api/calls"
+PREFIX = "/api/telegram/calls"   # the ONE canonical path; the former /api/calls alias is gone (see test_the_removed_aliases...)
 
 
 @pytest.fixture(autouse=True)
@@ -134,7 +134,7 @@ async def test_no_agent_tool_can_place_a_call(env):
 async def test_the_command_bar_lists_but_never_runs_call_routes(env, monkeypatch):
     monkeypatch.setenv("BOSSMAN_COMMAND_BAR_ENABLED", "1")
     catalog = cb.build_catalog(env.app)
-    calls = [cap for cap in catalog.values() if cap.path.startswith("/api/calls")]
+    calls = [cap for cap in catalog.values() if cap.path.startswith("/api/telegram/calls")]
     assert len(calls) >= 20, "the routes must be visible in the catalog (not silently hidden)"
     assert all(cap.runnable is False and cap.blocked_reason for cap in calls)
     tasks = [cap for cap in catalog.values() if cap.path == "/api/tasks" and cap.method == "GET"]
@@ -397,17 +397,30 @@ async def test_bus_events_are_text_free_and_rate_limited(env):
     seen = []
     while not q.empty():
         msg = q.get_nowait()
-        if str(msg.get("kind", "")).startswith("calls."):
+        if str(msg.get("kind", "")).startswith(("telegram_call.", "calls.")):
             seen.append(msg)
     kinds = {m["kind"] for m in seen}
-    assert kinds <= {"calls.state", "calls.ended"} and "calls.ended" in kinds and "calls.state" in kinds
+    assert kinds == {"telegram_call.state", "telegram_call.ended"}, "ONE pair of event names (no calls.* duplicates)"
     allowed = {"kind", "ts", "seq", "state", "phase", "call_id", "transport", "outcome", "error_code", "turns", "latency_p50_ms", "trace_id"}
     for m in seen:
         assert set(m) <= allowed, set(m) - allowed
     blob = json.dumps(seen)
     for secret in (OFFLINE_PHONE, OFFLINE_CODE, API_HASH):
         assert secret not in blob
-    assert [m for m in seen if m["kind"] == "calls.ended"][0]["outcome"] == "completed"
+    assert [m for m in seen if m["kind"] == "telegram_call.ended"][0]["outcome"] == "completed"
+
+
+async def test_the_removed_aliases_are_gone_not_just_hidden(env):
+    """One surface, one name: `/api/calls/*` answers 404 (the real route table has no such path) and only telegram_call.* events exist."""
+    c = env.client
+    for method, path in (("GET", "/api/calls/status"), ("POST", "/api/calls/call"), ("POST", "/api/calls/stop"),
+                         ("PUT", "/api/calls/settings"), ("GET", "/api/calls/history")):
+        r = await c.request(method, path, json={} if method != "GET" else None)
+        assert r.status_code == 404, (method, path, r.status_code)
+    assert (await c.get(f"{PREFIX}/status")).status_code == 200, "the canonical path is alive"
+    paths = {getattr(r, "path", "") for r in cb._walk_routes(env.app.routes)}
+    assert not [p for p in paths if p.startswith("/api/calls")], "no route is mounted under the old prefix, hidden or not"
+    assert [p for p in paths if p.startswith("/api/telegram/calls")]
 
 
 async def test_a_burst_of_state_changes_is_coalesced_to_about_five_per_second(env):
@@ -421,7 +434,7 @@ async def test_a_burst_of_state_changes_is_coalesced_to_about_five_per_second(en
     got = []
     while not q.empty():
         m = q.get_nowait()
-        if m.get("kind") == "calls.state":
+        if m.get("kind") == "telegram_call.state":
             got.append(m)
     elapsed = time.monotonic() - t0
     assert 1 <= len(got) <= elapsed * 5 + 2, (len(got), elapsed)

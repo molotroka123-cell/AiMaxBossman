@@ -17,6 +17,7 @@ import logging.handlers
 import os
 import re
 import subprocess
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
@@ -96,6 +97,65 @@ class RedactingFormatter(logging.Formatter):
         return redact(super().format(record), self._secrets())
 
 
+#: Everyone / BUILTIN\Users / Authenticated Users / INTERACTIVE, by well-known SID (language independent): they are never
+#: allowed on a secret and are taken off explicitly, because `icacls /inheritance:r` only removes INHERITED entries.
+_BROAD_SIDS = ("*S-1-1-0", "*S-1-5-32-545", "*S-1-5-11", "*S-1-5-4")
+
+
+def restrict_to_owner(path: Path) -> bool:
+    """Owner-only access that KEEPS the contents of a directory readable for the owner. True when applied.
+
+    POSIX: chmod 0700 / 0600. Windows: ``icacls /inheritance:r /grant:r <user>:F`` — and for a DIRECTORY the grant is
+    ``(OI)(CI)F``. The plain ``bcc.auth._restrict_to_owner`` grants the directory a NON-inheritable ACE: when the folder
+    was not created by ``mkdir(mode=0o700)`` (a restored backup, a copied data folder, an older runtime) the files in it
+    only hold ACEs INHERITED from it, Windows re-propagates the change, and every such file is left with an EMPTY DACL
+    (``D:AI``, nobody can open it — not even our own worker, «Процесс звонков не запущен или упал»).
+    With ``(OI)(CI)`` the owner's ACE is inherited by what is inside, so nothing is lost and new files get it too.
+    """
+    path = Path(path)
+    if os.name != "nt":
+        try:
+            os.chmod(path, 0o700 if path.is_dir() else 0o600)
+        except OSError:
+            return False
+        return True
+    user = os.environ.get("USERNAME") or ""
+    domain = os.environ.get("USERDOMAIN") or ""
+    principal = f"{domain}\\{user}" if domain and user else (user or "%USERNAME%")
+    grant = f"{principal}:(OI)(CI)F" if path.is_dir() else f"{principal}:F"
+    try:
+        proc = subprocess.run(["icacls", str(path), "/inheritance:r", "/grant:r", grant],  # noqa: S603
+                              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=False)
+        if proc.returncode != 0:
+            warnings.warn(f"icacls did not restrict {path.name} (code {proc.returncode})", UserWarning, stacklevel=2)
+            return False
+        subprocess.run(["icacls", str(path), "/remove:g", *_BROAD_SIDS],  # noqa: S603 - best effort, exit code irrelevant
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=False)
+    except Exception as exc:  # noqa: BLE001 - no icacls, a stripped image, a timeout: the doctor re-checks
+        warnings.warn(f"could not run icacls for {path.name}: {type(exc).__name__}", UserWarning, stacklevel=2)
+        return False
+    return True
+
+
+def repair_unreadable(paths: Iterable[Path]) -> list[str]:
+    """Give the owner back files nobody can open (an EMPTY DACL left by an older build or a foreign tool): a cheap open()
+    probe, no subprocess for healthy files. Returns the names that were repaired."""
+    fixed: list[str] = []
+    for path in paths:
+        path = Path(path)
+        if not path.is_file():
+            continue
+        try:
+            with path.open("rb"):
+                continue
+        except PermissionError:
+            if restrict_to_owner(path):
+                fixed.append(path.name)
+        except OSError:
+            continue
+    return fixed
+
+
 def configure_worker_logging(home: Path, secrets: Callable[[], Iterable[str]] = lambda: (), *,
                              max_bytes: int = 512 * 1024, backups: int = 2) -> logging.Handler:
     """One redacting, size-capped, owner-only log file for the worker; third-party chatter pinned to WARNING."""
@@ -115,8 +175,7 @@ def configure_worker_logging(home: Path, secrets: Callable[[], Iterable[str]] = 
     for noisy in ("telethon", "pytgcalls", "ntgcalls", "aiohttp", "asyncio", "httpx", "httpcore"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
     try:
-        from ..auth import _restrict_to_owner
-        _restrict_to_owner(path)
+        restrict_to_owner(path)
     except Exception:  # noqa: BLE001 - best effort, the doctor re-checks
         pass
     return handler

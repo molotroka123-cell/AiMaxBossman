@@ -21,11 +21,13 @@ import asyncio
 import contextlib
 import dataclasses
 import itertools
+import re
 import time
 from dataclasses import dataclass
 
 from bcc.telegram_companion.config import CompanionError, Person
 
+from . import participant_profile
 from .behavior_scores import BehaviorEvent
 from .config import PITSettings
 from .models import EvidenceKind, MemoryCandidate, Sensitivity
@@ -39,6 +41,11 @@ CALL_SHAPE_SUFFIX = (" Отвечай законченными коротким�
                      "без списков, ссылок и разметки. ")
 CALL_TURN_DEADLINE_SECONDS = 20.0
 CALL_MAX_TOKENS = 300
+#: Said aloud, word for word, to «ты человек / бот / кто это?»: the disclosure must not depend on what a model (under any mood overlay) answers.
+DISCLOSURE_ANSWER = "Я Джефф, ИИ-ассистент, а не человек."
+_DISCLOSURE_QUESTION = re.compile(
+    r"(?i)\b(?:ты|вы|это)\s+(?:\w+\s+){0,2}(?:человек|бот|робот|живой|живая|настоящий|настоящая|нейросеть|ии|ai|машина|программа)\b"
+    r"|с\s+кем\s+я\s+(?:сейчас\s+)?говорю|кто\s+(?:ты|вы|это|говорит)\b|ты\s+(?:не\s+)?реальн")
 SUMMARY_CATEGORY = "communication"
 SUMMARY_KEY = "last_call_summary"
 
@@ -128,6 +135,8 @@ class CallParticipantRuntime(ParticipantRuntime):
         person_key = self.vault.key_for_telegram(peer_user_id)
         if self._blocked(peer_user_id, peer_user_id):
             return CallReply("", "refused", "BLOCKED")                      # the owner's private block beats everything
+        if participant_profile.gate_reply(self.vault.data_dir, person_key, "call") is not None:
+            return CallReply("", "refused", "REVOKED")                      # access withdrawn in Jeff Admin: no answer on any surface
         text = (transcript or "").strip()
         if not text:
             return CallReply("", "refused", "EMPTY")
@@ -139,6 +148,8 @@ class CallParticipantRuntime(ParticipantRuntime):
         if guard is not None:
             self.behavior.privacy_probe(person_key, kind=guard.kind.value)
             return CallReply(spoken_reply_text(guard.text), "guard", guard.kind.value)
+        if _DISCLOSURE_QUESTION.search(text):                                 # deterministic: never left to the model / the mood
+            return CallReply(DISCLOSURE_ANSWER, "guard", "IDENTITY")            # an honest question is no privacy probe: no risk points
         update_id = next(self._update_ids)
         message_id = f"call:{update_id}"
         task = asyncio.get_running_loop().create_task(self._chat_route(
@@ -173,7 +184,9 @@ class CallParticipantRuntime(ParticipantRuntime):
         if code:
             self._pending_chat_records.pop(update_id, None)
             return CallReply("", "error", code)
-        spoken = spoken_reply_text(answer.split("\n\nИсточники:", 1)[0])
+        # The identity/disclosure filter ran inside the route on the MARKED-UP text; markup («Cl**au**de») hides a forbidden name from it,
+        # so the SPOKEN text, what the participant actually hears, goes through the same filter once more.
+        spoken = self.guard_outgoing(spoken_reply_text(answer.split("\n\nИсточники:", 1)[0]))
         if not spoken.strip():
             self._pending_chat_records.pop(update_id, None)
             return CallReply("", "error", "EMPTY_REPLY")

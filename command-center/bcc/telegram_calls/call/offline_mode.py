@@ -5,7 +5,8 @@ Set only in the operator's environment (the acceptance harness), never through t
 * the call transport is the loopback line, driven by a synthetic interlocutor;
 * every record says ``transport="loopback"`` and the status API reports ``mode: "offline_test"``, so the UI/CLI label it
   «ТЕСТ БЕЗ TELEGRAM». It can prove OUR plumbing and latency; it can never count as a real Telegram call.
-The mode uses its own home directory, so real credentials/settings are never touched.
+It shares the data directory of the backend it runs in, so the worker REFUSES to start in this mode when the Vault already holds a
+real (non-offline) session: the fake client must never overwrite or clear it (the acceptance harness always uses a fresh directory).
 """
 from __future__ import annotations
 

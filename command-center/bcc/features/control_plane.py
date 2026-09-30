@@ -49,6 +49,12 @@ def _autonomy_inventory(svc) -> list[str]:
     return live
 
 
+def _calls_inventory(svc) -> list[str]:
+    """A LIVE Telegram call (or a dial in flight). An idle calls worker is not owner work: only a call has to be stopped."""
+    manager = getattr(getattr(svc, "_calls", None), "manager", None)
+    return ["call"] if manager is not None and (manager.active_call is not None or manager.dial_pending) else []
+
+
 def _rave_inventory(svc) -> list[str]:
     """Raves with a running or paused agent (the service is created lazily; none yet means nothing is live)."""
     rave = getattr(svc, "rave", None)
@@ -66,7 +72,7 @@ async def _active_owner_work(svc) -> tuple[dict[str, list], list[dict[str, str]]
     active: dict[str, list] = {name: [] for name in (
         "tasks", "terminal", "coding", "command_bar", "browser",
         "evolution", "v15_economy", "v15_owner_run", "pit", "studio",
-        "studio_provider_unknown", "autonomy", "rave")}
+        "studio_provider_unknown", "autonomy", "rave", "calls")}
     errors: list[dict[str, str]] = []
 
     def inspect(plane: str, fn) -> None:
@@ -137,6 +143,7 @@ async def _active_owner_work(svc) -> tuple[dict[str, list], list[dict[str, str]]
     inspect("evolution", evolution_campaign)
     inspect("autonomy", lambda: _autonomy_inventory(svc))
     inspect("rave", lambda: _rave_inventory(svc))
+    inspect("calls", lambda: _calls_inventory(svc))
     return active, errors
 
 
@@ -240,6 +247,14 @@ async def stop_all_owner_work(request: Request) -> dict[str, Any]:
             await rave_service.stop_all()
         except Exception as exc:  # noqa: BLE001
             errors.append({"plane": "rave", "id": "all", "error": f"{type(exc).__name__}: {exc}"[:300]})
+
+    for ident in active["calls"]:
+        async def stop_call():
+            # the durable calls STOP first, then the hangup (terminating the worker if it does not answer): CallsManager.stop
+            res = await svc._calls.manager.stop("stop_all")
+            if not res.get("stop_flag"):
+                raise RuntimeError("calls STOP was not persisted")
+        await attempt("calls", ident, stop_call)
 
     if active["pit"]:
         from ..pit.config import pit_home

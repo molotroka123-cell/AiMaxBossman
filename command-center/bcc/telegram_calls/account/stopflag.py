@@ -61,9 +61,11 @@ class CallState:
         self._write_state({"in_flight": None, "last_call_id": call_id, "last_outcome": outcome.value if outcome else "unknown",
                            "uncertain": uncertain, "finished": time.time()})
 
-    def is_uncertain(self) -> bool:
+    def is_uncertain(self, *, call_in_progress: bool = False) -> bool:
+        """True when the PREVIOUS call ended unknown (or died in flight). While a call is in progress its own `in_flight`
+        marker is not an uncertainty about the previous one (the dial guard never passes that flag: it stays strict)."""
         s = self._state()
-        return bool(s.get("in_flight")) or bool(s.get("uncertain"))
+        return (bool(s.get("in_flight")) and not call_in_progress) or bool(s.get("uncertain"))
 
     def acknowledge_uncertain(self) -> None:
         s = self._state()

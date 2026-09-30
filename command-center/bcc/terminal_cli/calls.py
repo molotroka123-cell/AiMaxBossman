@@ -25,7 +25,7 @@ from .keys import read_secret
 from .records import (EXIT_BLOCKED, EXIT_FAIL, EXIT_INTERRUPTED, EXIT_NOT_SUPPORTED, EXIT_OK, EXIT_PARTIAL,
                       EXIT_STOPPED, EXIT_USAGE, record)
 
-BASE = "/api/telegram/calls"   # CONTRACT path (coordinator spec, do not rename); /api/calls/* is only a backend alias
+BASE = "/api/telegram/calls"   # the ONE canonical path (the former /api/calls alias was removed from the backend)
 TEST_LABEL = "ТЕСТ БЕЗ TELEGRAM"
 
 #: refusals of the guard / of the account state: kind=blocked (exit 5), never "auth" (that is Bossman's own token)
@@ -293,7 +293,9 @@ def cmd_peer(args) -> int:
         res = client.request("PUT", f"{BASE}/peer", json={**body, "confirm": True}) or {}
         peer = res.get("peer") or {}
         return _emit(out, "call_peer", [f"Тестовый собеседник: {peer.get('label') or 'без имени'} (id {peer.get('user_id')})",
-                                        "Звонки при этом не включались: bossman call enable"], peer=peer, enabled=res.get("enabled"))
+                                        "Звонки уже включены для этого собеседника." if res.get("enabled")
+                                        else "Звонки при этом не включались (при смене собеседника они выключаются): bossman call enable"],
+                     peer=peer, enabled=res.get("enabled"))
     return _run(args, run, what="call peer")
 
 

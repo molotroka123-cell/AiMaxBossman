@@ -1,10 +1,12 @@
 # Telegram live calls — architecture
 
-> **STATUS 2026-09-29 — частично устарел.** Верно то, что сказано в `CLAUDE_MASTER_1_9.md` (главнее этого файла): база — линия 1.9 (`feat/bossman-1.9-freeze-20260929`), мозг звонка — Jeff (`bcc/pit/call_surface.py`, не telegram_companion), секреты — Vault в каталоге данных Bossman, API — `/api/telegram/calls/*` (алиас `/api/calls/*`). Реальный двусторонний звонок: NOT_RUN.
+> **STATUS 2026-09-30.** Согласовано с `CLAUDE_MASTER_1_9.md` (он главнее). База — линия 1.9 (вместе с линией звонков, PR #87), мозг звонка —
+> **Jeff** (`bcc/pit/call_surface.py`, поверхность `call`; не `telegram_companion`), секреты — Vault каталога данных Bossman, API —
+> **`/api/telegram/calls/*`** (единственный префикс: алиас `/api/calls/*` удалён), события шины — **`telegram_call.state` /
+> `telegram_call.ended`** (алиас `calls.*` удалён). Реальный двусторонний звонок: **NOT_RUN / OWNER_REQUIRED** (см. `ACCEPTANCE.md`).
 
-
-Status: **IMPLEMENTATION IN A FEATURE BRANCH. NOT INTEGRATED INTO `release/bossman-owner`, NOT CERTIFIED.**
-A real two-way Telegram call has **not** been verified yet (see `ACCEPTANCE.md` for the PASS / FAIL / BLOCKED / NOT_RUN table).
+Status: **IMPLEMENTED, VERIFIED WITHOUT TELEGRAM (unit / loopback / offline end-to-end / real Chromium). NOT certified as a real call.**
+A real two-way Telegram call has **not** been made (see `ACCEPTANCE.md` for the PASS / FAIL / BLOCKED / NOT_RUN table).
 
 ## Same-product contract (Terminal Run 1.2 rule)
 
@@ -13,12 +15,13 @@ database, model fleet, task queue or secret store:
 
 | Need | Reused existing component |
 |---|---|
-| local LLM routes, persona, owner conversation context | `bcc.telegram_companion` (`config.load`, `Models` routes main/fast, `Store.history/profile`) |
-| secrets at rest (api_id/api_hash/session) | `bcc.secrets.Vault` (Fernet, key file 0600 / `BOSSMAN_VAULT_KEY`) + `bcc.auth._restrict_to_owner` |
-| STT engine | `faster-whisper` (already the optional `speech` extra, `bcc.oss.whisper` model directory convention) |
-| memory of the call outcome | the existing memory path (see `MEMORY.md` section below) |
-| STOP | existing global STOP (`/api/computer/stop`, `bossman stop --all`, Telegram `/stop`) + call-local STOP |
-| UI / CLI | dashboard panel + `bossman call …` (thin client of the Command Center API) |
+| brain, persona, local LLM route, consent, per-participant memory, public guard, block-list | **Jeff (PIT)** call surface: `bcc.pit.call_surface.CallParticipantRuntime` (`surface="call"`), adapter `bcc.telegram_calls.speech.jeff_engines.JeffBrain` |
+| secrets at rest (api_id/api_hash/session) | `bcc.secrets.Vault` (Fernet, `<data>/secret.key` / `BOSSMAN_VAULT_KEY`), file `<data>/telegram-calls/credentials.enc`; owner-only ACL via `bcc.telegram_calls.hardening.restrict_to_owner` (on Windows a directory gets an INHERITABLE owner ACE, so files already inside stay readable) |
+| STT | `bcc.pit.speech.transcribe_wav` (Jeff's faster-whisper, local model directory of `bcc.oss.whisper`) |
+| TTS | the external Piper process of Jeff (`bcc.oss.piper.synthesize_pcm`, voice from `jeff_desktop.default_voice_env`), through the egress guard |
+| memory of the call outcome | one consent-gated short record `last_call_summary` in the interlocutor's Jeff namespace; saving the summary to Bossman memory and proposing tasks are the OWNER's clicks (`postcall.py`) |
+| STOP | existing global STOP (`/api/computer/stop`, `bossman stop --all`, Telegram `/stop` -> bus `computer.stop`) + call-local STOP file |
+| UI / CLI | dashboard panel «Telegram-звонки» + `bossman call …` (thin clients of the Command Center API) |
 
 ## Why a separate worker process
 
@@ -33,10 +36,10 @@ bossman call … ──┼─► /api/telegram/calls/* ─► CallsManager ═�
 Telegram /stop ──┘   (auth + CSRF, no peer param)    │                              └─ py-tgcalls/ntgcalls (P2P call, external PCM)
 global STOP  ────────► bus computer.stop ────────────┘
                                                         worker audio path:
-  transport RX PCM ─► resample 16k ─► VAD/endpointer ─► streaming STT ─► Brain (companion local LLM, streamed)
-        ▲                    │ barge-in / echo guard                                  │ sentence chunks
+  transport RX PCM ─► resample 16k ─► VAD/endpointer ─► STT (Jeff Whisper) ─► Brain (Jeff call surface, local model)
+        ▲                    │ barge-in / echo guard                                  │ short conversational reply
         │                    ▼                                                        ▼
-  transport TX PCM ◄─ paced playout queue (generation-tagged, flush on barge-in/STOP) ◄─ streaming TTS
+  transport TX PCM ◄─ paced playout queue (generation-tagged, flush on barge-in/STOP) ◄─ TTS (Jeff Piper, egress guard)
 ```
 
 ## IPC (manager ⇄ worker)
@@ -68,4 +71,10 @@ Loopback transport = plumbing/latency test **without Telegram**; every record ca
 labels it «ТЕСТ БЕЗ TELEGRAM». Fake STT/TTS/LLM in unit tests prove control flow only. Only a real call between
 the two real accounts, on the owner's machine, can produce the PASS for the real two-way conversation.
 
-(Sections `MEMORY`, `OSS`, `LATENCY`, `ACCEPTANCE` are completed as the implementation lands.)
+## Owner-facing surfaces (one name each)
+
+* API: `/api/telegram/calls/*` only (status, settings, credentials, login/start|code|password, logout, contacts, peer, call, hangup, stop,
+  resume, events, history, history/{id}/save-memory|draft-tasks, selftest, doctor, install). The dashboard command bar lists these routes but never runs them.
+* Bus events: `telegram_call.state` (state/phase/call_id/transport), `telegram_call.ended` (outcome, turns, latency p50): text-free, ≤ ~5/s.
+* CLI: `bossman call setup|status|contacts|peer|enable|disable|dial|hangup|stop|resume|events|history|save-memory|draft-tasks|doctor|selftest|install|logout` (`bossman call --help`).
+* Latency, echo and intelligibility on a real line are **not** claimed anywhere until they are measured on the owner's machine (see `ACCEPTANCE.md`).

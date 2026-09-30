@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path';
 // The module must be importable in Node: no top-level document, window or fetch.
 assert.equal(typeof document, 'undefined');
 const mod = await import('../pages/telegram_calls.js');
-const { accountStep, callWords, controlState, peerPickState, isTestMode, summarizeHistoryItem, fmtMs, errorText, BASE } = mod;
+const { accountStep, callWords, controlState, peerPickState, isTestMode, summarizeHistoryItem, fmtMs, errorText, BASE, EVENT_KINDS } = mod;
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SOURCE = readFileSync(join(here, '..', 'pages', 'telegram_calls.js'), 'utf8');
@@ -32,10 +32,17 @@ test('the page exports exactly the manifest shape the lazy registry expects', ()
 });
 
 test('onEvent never re-renders the page (typed code and 2FA must survive bus events)', () => {
-  assert.equal(mod.default.onEvent({ kind: 'calls.state' }), false);
-  assert.equal(mod.default.onEvent({ kind: 'calls.ended' }), false);
+  assert.equal(mod.default.onEvent({ kind: 'telegram_call.state' }), false);
+  assert.equal(mod.default.onEvent({ kind: 'telegram_call.ended' }), false);
   assert.equal(mod.default.onEvent({ kind: 'task.created' }), false);
   assert.equal(mod.default.onEvent(undefined), false);
+});
+
+test('one canonical API prefix and one pair of bus event names; the old aliases are gone', () => {
+  assert.equal(BASE, '/api/telegram/calls');
+  assert.deepEqual(EVENT_KINDS, ['telegram_call.state', 'telegram_call.ended']);
+  assert.doesNotMatch(SOURCE, /['"`]\/api\/calls/, 'the removed /api/calls alias must not come back in the page');
+  assert.doesNotMatch(SOURCE, /['"]calls\.(state|ended)['"]/, 'the removed calls.* bus events must not come back in the page');
 });
 
 test('empty state: nothing can be dialled, every disabled button says why, STOP is always available', () => {

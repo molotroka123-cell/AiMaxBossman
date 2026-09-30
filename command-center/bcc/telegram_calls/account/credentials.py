@@ -114,17 +114,17 @@ class CredentialStore:
             return Credentials()
 
     def _write(self, c: Credentials) -> None:
-        from ...auth import _restrict_to_owner
+        from ..hardening import restrict_to_owner
         self.home.mkdir(parents=True, exist_ok=True, mode=0o700)
-        _restrict_to_owner(self.home)
+        restrict_to_owner(self.home)     # the directory variant: config/state/history already inside stay readable
         blob = self.vault.encrypt(json.dumps({"api_id": c.api_id, "api_hash": c.api_hash, "session": c.session,
                                               "me_id": c.me_id, "phone_last4": c.phone_last4}))
-        _restrict_to_owner(self.vault.path)
+        restrict_to_owner(self.vault.path)
         tmp = self.path.with_name(self.path.name + ".tmp")
         fd = os.open(tmp, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as out:
             out.write(blob)
             out.flush()
             os.fsync(out.fileno())
-        _restrict_to_owner(tmp)
+        restrict_to_owner(tmp)
         os.replace(tmp, self.path)

@@ -16,7 +16,7 @@ import pytest
 from bcc.telegram_calls import postcall
 from bcc.telegram_calls.account.stopflag import CallState
 
-PREFIX = "/api/calls"
+PREFIX = "/api/telegram/calls"
 CID = "c-abc123def456"
 
 

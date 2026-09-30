@@ -12,6 +12,7 @@ clear ``CallError`` that the doctor explains.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import json
 import logging
@@ -142,9 +143,10 @@ class JeffTTS:
     name = "jeff-piper"
 
     def __init__(self, *, synthesize_pcm: Callable[..., tuple[bytes, int]], exe: str, model: str, egress_guard: Callable[[str], bool],
-                 stopped: Callable[[], bool], sample_rate: int = 22050):
+                 stopped: Callable[[], bool], sample_rate: int = 22050, audit: Callable[[str], None] | None = None):
         self._synth, self._exe, self._model = synthesize_pcm, exe, model
         self._egress_ok, self._stopped = egress_guard, stopped
+        self._audit = audit                                   # the pre-TTS audit of Jeff's other voice paths (hash only on a call)
         self.voice = Path(model).stem
         self.sample_rate = sample_rate
 
@@ -156,6 +158,8 @@ class JeffTTS:
             return
         if not self._egress_ok(text):                        # call audio leaves the host through Telegram: same guard as a voice note
             raise CallError("TTS_UNAVAILABLE", detail="egress_guard")
+        if self._audit is not None:
+            self._audit(text)                                # raises CallError when it cannot be made durable or the text is a threat
         try:
             pcm, rate = await asyncio.to_thread(
                 self._synth, text.strip(), piper_executable=self._exe, model_path=self._model,
@@ -225,7 +229,7 @@ class JeffBrain:
                 self.runtime.discard_turn(result.update_id)
             return
         if result.kind in ("error", "refused"):
-            raise CallError("BRAIN_UNAVAILABLE" if result.code != "BLOCKED" else "PEER_NOT_ALLOWED", detail=result.code[:40])
+            raise CallError("PEER_NOT_ALLOWED" if result.code in ("BLOCKED", "REVOKED") else "BRAIN_UNAVAILABLE", detail=result.code[:40])
         self._last_update = result.update_id
         yield result.text
 
@@ -280,7 +284,31 @@ def _egress_guard(text: str) -> bool:
         from bossman.notifications.telegram_transport import _egress_guard_text
         return _egress_guard_text(scrub(text, ())) == text
     except ImportError:
-        return True                                          # the guard lives in bossman-core; without it Jeff itself cannot speak either
+        return False                                         # fail CLOSED: the guard lives in bossman-core; without it nothing is spoken on a call
+
+
+def make_call_audit(audit_dir: Path) -> Callable[[str], None]:
+    """Pre-TTS audit for the call voice path, the same categories and file as Jeff's Telegram / window voice (``speech_audit``),
+    but HASH-ONLY: no copy of the spoken text is written (nothing of the conversation is stored on a call).
+
+    A security-sensitive sentence gets one durable row (time, category, SHA-256, length) BEFORE the engine runs; when the row
+    cannot be written the sentence is not spoken (fail closed). A threat is audited and then refused, like in Jeff's window."""
+    from bcc.pit import speech_audit
+
+    def audit(text: str) -> None:
+        category = speech_audit.security_category(text)
+        if not category:
+            return
+        row = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "schema": speech_audit.PRE_TTS_AUDIT_SCHEMA,
+               "surface": "call", "category": category, "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+               "chars": len(text), "redacted": ""}
+        try:
+            speech_audit._append_durable(speech_audit.audit_path(audit_dir), row)
+        except OSError:
+            raise CallError("TTS_UNAVAILABLE", detail="audit_failed") from None
+        if speech_audit.is_threat(text):
+            raise CallError("TTS_UNAVAILABLE", detail="threat_refused")
+    return audit
 
 
 def _read_sample_rate(model: str) -> int:
@@ -326,7 +354,7 @@ async def build_jeff_engines(settings: CallSettings, *, pit_settings: Any | None
     stt = JeffSTT(transcribe=transcribe or speech.transcribe_wav, stopped=stopped,
                   model=Path(environ.get("BOSSMAN_WHISPER_MODEL_PATH", "") or "whisper").name, status_fn=speech.asr_status)
     tts = JeffTTS(synthesize_pcm=synthesize_pcm or piper.synthesize_pcm, exe=exe, model=model, egress_guard=_egress_guard,
-                  stopped=stopped, sample_rate=_read_sample_rate(model))
+                  stopped=stopped, sample_rate=_read_sample_rate(model), audit=make_call_audit(runtime.home / "logs"))
     brain = JeffBrain(runtime, settings.peer_user_id, model=pit_settings.local_models[0], stopped=stopped)
     asyncio.get_running_loop().create_task(stt.warmup())
     return Engines(stt=stt, tts=tts, brain=brain, vad=make_vad(settings.vad),

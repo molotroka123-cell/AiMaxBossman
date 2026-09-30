@@ -2142,7 +2142,8 @@ class ParticipantRuntime:
         overlay_suspended = self._overlay_suspended(who)
         memory_at_start = consent.memory_enabled
         memory_epoch = self._memory_epoch.get(person_key, 0)
-        self._register_discovery_reply(person, person_key, text)
+        if getattr(self, "surface", "telegram") != "call":        # a spoken answer must not be sealed into the learning log (master_parser ingests it)
+            self._register_discovery_reply(person, person_key, text)
         complex_request = _is_complex_chat(text)
         deadline = time.monotonic() + (self.turn_deadline_seconds if self.turn_deadline_seconds
                                        else 120 if complex_request else self.settings.chat_deadline_seconds)

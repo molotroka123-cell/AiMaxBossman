@@ -126,6 +126,10 @@ def start_backend(data: Path, name: str = "backend") -> Backend:
 
 def stop_backend(b: Backend) -> None:
     b.api.close()
+    try:                                     # the WHOLE tree, taken before the parent dies: the worker and, on a Windows
+        tree = psutil.Process(b.proc.pid).children(recursive=True)        # venv, the real interpreter behind the launcher
+    except psutil.NoSuchProcess:
+        tree = []
     b.proc.terminate()
     try:
         b.proc.wait(timeout=30)
@@ -133,8 +137,14 @@ def stop_backend(b: Backend) -> None:
         b.proc.kill()
         b.proc.wait(timeout=10)
     b.log.close()
-    for worker in b.workers():
-        worker.kill()
+    for child in tree:
+        try:
+            child.kill()
+        except psutil.NoSuchProcess:
+            pass
+    # Until the real interpreter is gone it still holds the byte-range lock on `backend.lock` (the snapshot copy of
+    # the data folder would fail with PermissionError) and the SQLite files; wait for it, do not race it.
+    psutil.wait_procs(tree, timeout=20)
 
 
 @pytest.fixture(scope="module")
@@ -197,8 +207,9 @@ def wait_no_call(b: Backend, *, outcome: str | None = None) -> dict:
 
 
 def modes_ok(path: Path) -> bool:
-    if os.name == "nt":
-        return True
+    if os.name == "nt":                      # the real DACL: owner-only, and an EMPTY DACL (nobody can read) is reported not ok
+        from bcc.telegram_calls.hardening import check_owner_only
+        return check_owner_only(path).ok
     return stat.S_IMODE(path.stat().st_mode) & 0o077 == 0
 
 
