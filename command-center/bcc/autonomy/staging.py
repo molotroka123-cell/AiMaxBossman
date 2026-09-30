@@ -312,6 +312,24 @@ def default_probes() -> dict[str, Probe]:
     return {"health": probe_live, "ready": probe_ready}
 
 
+#: Probe providers ``(root, repo) -> {check: Probe}`` merged into the default runner
+#: (``bcc.autonomy.probes`` registers the real staging probes on import).
+_PROBE_PROVIDERS: list[Callable[[Path, Path], Mapping[str, Probe]]] = []
+
+
+def register_probe_provider(fn: Callable[[Path, Path], Mapping[str, Probe]]) -> None:
+    if fn not in _PROBE_PROVIDERS:
+        _PROBE_PROVIDERS.append(fn)
+
+
+def registered_probes(root: Path, repo: Path) -> dict[str, Probe]:
+    from . import probes as _standard  # noqa: F401  (registers the standard staging probes)
+    out: dict[str, Probe] = {}
+    for fn in _PROBE_PROVIDERS:
+        out.update(fn(root, repo))
+    return out
+
+
 def build_default_runner(root: str | os.PathLike, repo: str | os.PathLike, *,
                          owner_data_dir: str | os.PathLike | None = None, journal: Journal | None = None,
                          probes: Mapping[str, Probe] | None = None, python: str = sys.executable,
@@ -331,9 +349,11 @@ def build_default_runner(root: str | os.PathLike, repo: str | os.PathLike, *,
         from ..config import _data_dir
         owner_data_dir = _data_dir()
     return StagingRunner(CloneLauncher(sources, python=python, ready_timeout_s=ready_timeout_s),
-                         probes if probes is not None else default_probes(), owner_data_dir=owner_data_dir,
+                         probes if probes is not None else {**registered_probes(root, repo), **default_probes()},
+                         owner_data_dir=owner_data_dir,
                          journal=journal if journal is not None else Journal(root))
 
 
 __all__ = ["CheckResult", "CloneLauncher", "LIVE_PORTS", "STANDARD_CHECKS", "StagingError", "StagingReport",
-           "StagingRunner", "build_default_runner", "default_probes", "free_port"]
+           "StagingRunner", "build_default_runner", "default_probes", "free_port", "register_probe_provider",
+           "registered_probes"]
