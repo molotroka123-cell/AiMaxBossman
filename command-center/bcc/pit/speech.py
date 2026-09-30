@@ -172,8 +172,12 @@ def _transcribe_wav(audio: bytes, *, language: str = "ru",
 
 
 def tts_text(answer: str) -> str:
-    """What Jeff speaks: visible reply without markup, cut at a sentence."""
-    value = spoken_reply_text(answer)
+    """What Jeff speaks: visible reply without markup, cut at a sentence.
+
+    The Jeff window sends reply text back to be spoken, so the mandatory identity/disclosure
+    filter runs here too: a voice never says what the text reply would not show."""
+    from .identity_guard import guard_reply
+    value = guard_reply(spoken_reply_text(answer)).text
     if "Источники:" in value:
         value = value.split("Источники:", 1)[0].strip()
     if len(value) <= MAX_TTS_CHARS:
@@ -183,11 +187,21 @@ def tts_text(answer: str) -> str:
     return (cut[:end + 1] if end > 200 else cut).strip()
 
 
-def synthesize(answer: str, *, stopped: Callable[[], bool] = lambda: False) -> bytes:
-    """Local Russian OGG/Opus for one reply. Raises SpeechError with a stable code."""
+def synthesize(answer: str, *, stopped: Callable[[], bool] = lambda: False,
+               audit_dir: Path | str | None = None, surface: str = "web") -> bytes:
+    """Local Russian OGG/Opus for one reply. Raises SpeechError with a stable code.
+
+    With ``audit_dir`` a security-sensitive reply is written to the pre-TTS audit (hash, category,
+    redacted text) BEFORE any engine runs; an audit that cannot be written refuses the synthesis."""
     text = tts_text(answer)
     if not text:
         raise SpeechError("VOICE_TEXT_INVALID")
+    if audit_dir is not None:
+        from . import speech_audit
+        try:
+            speech_audit.capture(text, surface=surface, audit_dir=audit_dir)
+        except OSError as exc:
+            raise SpeechError("VOICE_AUDIT_FAILED") from exc
     try:
         return run_engines(text, stopped=stopped)
     except PiperError as exc:
