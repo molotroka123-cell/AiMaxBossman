@@ -144,3 +144,18 @@ def test_unknown_level_file_falls_back_to_l0(tmp_path):
     auto = AutonomyService(tmp_path, constitution_status=pinned())
     (auto.root / "level.json").write_text('{"level": "L9"}')
     assert auto.level() == "L0"
+
+
+def test_ui_page_is_registered_lazily_and_matches_its_manifest():
+    import re
+    from pathlib import Path
+    ui = Path(__file__).resolve().parents[1] / "ui" / "pages"
+    index = (ui / "index.js").read_text("utf-8")
+    page = (ui / "autonomy.js").read_text("utf-8")
+    entry = re.search(r"lazyPage\(\{ id: 'autonomy'[^}]*\},\s*\(\) => import\('\./autonomy\.js'\)", index)
+    assert entry, "autonomy must be registered in ui/pages/index.js"
+    for key, value in re.findall(r"(\w+): '([^']+)'", entry.group(0).split("},")[0]):
+        assert f"{key}: '{value}'" in page, (key, value)
+    assert "console.log" not in page and "innerHTML" not in page
+    assert "disabled: !allowed" in page and "title:" in page
+    assert page.endswith("export default AutonomyPage;\n")

@@ -37,7 +37,7 @@ ERROR_EXIT = {"disconnected": EXIT_DISCONNECTED, "auth": EXIT_DISCONNECTED,
 
 TERMINAL_COMMANDS = ("chat", "exec", "status", "events", "result", "resume", "approve", "deny",
                      "pause", "stop", "continue", "list", "keys", "code", "evolution", "repair",
-                     "run", "evolve", "start", "version", "approvals", "tasks", "market", "rave")
+                     "run", "evolve", "start", "version", "approvals", "tasks", "market", "rave", "autonomy")
 
 
 class UsageError(Exception):
@@ -313,6 +313,9 @@ def main(argv: list[str] | None = None) -> int:
     if argv[:1] == ["rave"]:              # Agentic Rave 1.9: own parser (bcc.rave.cli)
         from ..rave.cli import main as rave_main
         return rave_main(argv[1:])
+    if argv[:1] == ["autonomy"]:          # autonomy control plane: own parser (bcc.autonomy.cli)
+        from ..autonomy.cli import main as autonomy_main
+        return autonomy_main(argv[1:])
     parser = build_parser()
     try:
         args = parser.parse_args(argv)
