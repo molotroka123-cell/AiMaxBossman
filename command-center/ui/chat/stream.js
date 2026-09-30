@@ -85,7 +85,7 @@ export function parseFrame(frame) {
  */
 export class TaskStream {
   constructor({ taskId, after = 0, onEvent = () => {}, onState = () => {}, fetchImpl = null,
-    setTimer = null, clearTimer = null, random = Math.random, idleMs = 45000, lingerMs = 1200 } = {}) {
+    setTimer = null, clearTimer = null, random = Math.random, idleMs = 45000, lingerMs = 1200, silentMs = 4000 } = {}) {
     this.taskId = taskId;
     this.lastSeq = Math.max(0, Number(after) || 0);
     this.onEvent = onEvent;
@@ -96,6 +96,9 @@ export class TaskStream {
     this.random = random;
     this.idleMs = idleMs;
     this.lingerMs = lingerMs;
+    this.silentMs = silentMs;
+    this.idleAbort = false;
+    this.silentTimer = null;
     this.attempt = 0;
     this.stopped = true;
     this.finished = false;
@@ -135,9 +138,12 @@ export class TaskStream {
     this._clear(this.retryTimer);
     this._clear(this.idleTimer);
     this._clear(this.lingerTimer);
+    this._clear(this.silentTimer);
     this.retryTimer = null;
     this.idleTimer = null;
     this.lingerTimer = null;
+    this.silentTimer = null;
+    this.idleAbort = false;
     if (this.ctrl) { try { this.ctrl.abort(); } catch { /* уже закрыт */ } }
     this.ctrl = null;
   }
@@ -147,16 +153,31 @@ export class TaskStream {
     /* keepalive приходит раз в 15 с; тишина втрое дольше — связь потеряна */
     this.idleTimer = this._set(() => {
       this.idleTimer = null;
+      /* Тишина ещё не потеря связи: сервер с долгим первым токеном (модель грузится) может молчать,
+         а keepalive при шумной шине не приходит вовсе. Поэтому переподключаемся сразу и тихо, с тем же
+         курсором; баннер «Связь потеряна» появится, только если и подключение не удалось. */
+      this.idleAbort = true;
       if (this.ctrl) { try { this.ctrl.abort(); } catch { /* уже закрыт */ } }
     }, this.idleMs);
   }
 
-  async _connect() {
+  async _connect(silent = false) {
     if (this.stopped) return;
     this.connections += 1;
     const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
     this.ctrl = ctrl;
-    this._setState(this.connections === 1 ? 'connecting' : 'reconnecting', { attempt: this.attempt });
+    this._clear(this.silentTimer);
+    this.silentTimer = null;
+    if (!silent) {
+      this._setState(this.connections === 1 ? 'connecting' : 'reconnecting', { attempt: this.attempt });
+    } else {
+      this.state = 'silent';        // внутреннее: наблюдателю ничего не сообщается
+      /* тихое подключение, которое затянулось, — уже повод сказать, что связи нет */
+      this.silentTimer = this._set(() => {
+        this.silentTimer = null;
+        if (!this.stopped && !this.finished && this.state !== 'open') this._setState('reconnecting', { attempt: this.attempt, delay_ms: 0 });
+      }, this.silentMs);
+    }
     let res;
     try {
       res = await this._fetch(this.url(), {
@@ -164,9 +185,13 @@ export class TaskStream {
         credentials: 'same-origin', headers: { Accept: 'text/event-stream' },
       });
     } catch {
+      this._clear(this.silentTimer);
+      this.silentTimer = null;
       this._scheduleReconnect();
       return;
     }
+    this._clear(this.silentTimer);
+    this.silentTimer = null;
     if (this.stopped) return;
     if (res.status === 401 || res.status === 403) {
       this.stopped = true;
@@ -218,6 +243,11 @@ export class TaskStream {
       if (pending && typeof pending.catch === 'function') pending.catch(() => {});
     } catch { /* уже закрыт */ }
     if (this.stopped || this.finished) return;
+    if (this.idleAbort) {
+      this.idleAbort = false;
+      this._connect(true);
+      return;
+    }
     this._scheduleReconnect();
   }
 

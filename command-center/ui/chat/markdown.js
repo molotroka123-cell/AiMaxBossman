@@ -389,8 +389,12 @@ function findClosing(text, from, marker) {
   return -1;
 }
 
-/** Строка абзаца → узлы {type: text|code|strong|em|link|br}. */
-export function parseInline(text, depth = 0) {
+/**
+ * Строка абзаца → узлы {type: text|code|strong|em|link|br}.
+ * inLink — разбор подписи ссылки: внутри неё новых ссылок (ни [..](..), ни голых адресов) не бывает,
+ * иначе `[https://a.com](https://a.com)` давало бы <a> внутри <a>.
+ */
+export function parseInline(text, depth = 0, inLink = false) {
   const src = String(text ?? '');
   const out = [];
   let buf = '';
@@ -415,18 +419,18 @@ export function parseInline(text, depth = 0) {
       i += n;
       continue;
     }
-    if (ch === '[') {
+    if (ch === '[' && !inLink) {
       const m = LINK.exec(src.slice(i, i + 2600));
       if (m) {
         const href = safeHref(m[2]);
         flush();
-        if (href) out.push({ type: 'link', href, children: depth < MAX_DEPTH ? parseInline(m[1], depth + 1) : [{ type: 'text', text: m[1] }] });
+        if (href) out.push({ type: 'link', href, children: depth < MAX_DEPTH ? parseInline(m[1], depth + 1, true) : [{ type: 'text', text: m[1] }] });
         else out.push({ type: 'text', text: m[1] });
         i += m[0].length;
         continue;
       }
     }
-    if ((ch === 'h' || ch === 'H') && !isWordChar(src[i - 1])) {
+    if ((ch === 'h' || ch === 'H') && !inLink && !isWordChar(src[i - 1])) {
       const m = AUTOLINK.exec(src.slice(i, i + 2100));
       if (m) {
         let url = m[0];
@@ -450,7 +454,7 @@ export function parseInline(text, depth = 0) {
         const end = findClosing(src, open + 1, marker);
         if (end !== -1) {
           flush();
-          out.push({ type: double ? 'strong' : 'em', children: parseInline(src.slice(open, end), depth + 1) });
+          out.push({ type: double ? 'strong' : 'em', children: parseInline(src.slice(open, end), depth + 1, inLink) });
           i = end + marker.length;
           continue;
         }

@@ -95,13 +95,32 @@ function actionsBody(data) {
       c.ok === false && c.summary ? h('div.pnl-act-err', c.summary) : null))));
 }
 
+/**
+ * Одинаковые вердикты (тот же результат и то же пояснение) сливаются в одну строку со счётчиком:
+ * проверяльщик шлёт по событию на каждую проверку, и десять одинаковых «NOT_APPLICABLE» в панели
+ * только прячут единственную строку, которая что-то значит. Порядок первого появления сохраняется.
+ */
+export function groupEvaluations(list) {
+  const rows = [];
+  const index = new Map();
+  for (const e of Array.isArray(list) ? list : []) {
+    const verdict = (e && e.verdict) || '';
+    const reasons = (e && e.reasons) || '';
+    const key = `${verdict}\u0000${reasons}`;
+    if (index.has(key)) index.get(key).count += 1;
+    else { const row = { verdict, reasons, count: 1 }; index.set(key, row); rows.push(row); }
+  }
+  return rows;
+}
+
 function checkBody(data) {
   const { turn } = data;
   if (!turn) return dim('Проверок пока нет.');
   const out = [];
-  for (const e of turn.evaluations) {
+  for (const e of groupEvaluations(turn.evaluations)) {
     out.push(h('div.pnl-check', h('span.badge', { dataset: { tone: e.verdict === 'PASS' ? 'local' : e.verdict === 'FAIL' ? 'danger' : 'lan' } }, e.verdict || '—'),
-      h('span', e.reasons || 'без пояснения')));
+      h('span', e.reasons || 'без пояснения'),
+      e.count > 1 ? h('span.pnl-dim-inline', `× ${e.count}`) : null));
   }
   for (const a of turn.approvals.values()) {
     out.push(h('div.pnl-check', h('span.badge', { dataset: { tone: a.status === 'approved' ? 'local' : a.status === 'pending' ? 'lan' : 'danger' } },
@@ -144,7 +163,7 @@ export function renderPanel(root, data) {
   const tc = turn ? toolCounts(turn) : { done: 0, total: 0 };
   const steps = turn ? turn.progress.length : 0;
   const maxSteps = turn && turn.progress.length ? turn.progress[turn.progress.length - 1].maxSteps : null;
-  const checks = turn ? turn.evaluations.length + turn.approvals.size : 0;
+  const checks = turn ? groupEvaluations(turn.evaluations).length + turn.approvals.size : 0;
   const src = sourcesCount(data);
   root.appendChild(h('header.pnl-head',
     h('div',

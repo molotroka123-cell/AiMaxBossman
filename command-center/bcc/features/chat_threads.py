@@ -609,17 +609,74 @@ def _passthrough(status: int, payload: Any) -> HTTPException:
 # Модели и агенты: вид для выбора в чате
 # ======================================================================
 
+def _place_detail(provider: dict, model: dict, governed_local: bool) -> str:
+    """local / lan / local_proxy / cloud по адресу провайдера (то же решение «локальный ли адрес», что у политики цен)."""
+    import ipaddress
+    from urllib.parse import urlsplit
+
+    from ..providers import is_local_url
+    base = str(provider.get("base_url") or "")
+    if not is_local_url(base):
+        return "cloud"
+    host = (urlsplit(base).hostname or "").strip("[]").lower()
+    try:
+        loopback = host == "localhost" or ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        loopback = host in ("host.docker.internal",)
+    if not governed_local:
+        return "local_proxy"            # облачная модель за локальным прокси: данные уйдут дальше прокси
+    return "local" if loopback else "lan"
+
+
+def _governed_billing(provider: dict, model: dict) -> dict:
+    """Тариф и допуск модели по тем же правилам, по которым их применяет движок (provider_governance).
+
+    Явный выбор агента допуск не отклоняет (`select_executor` проверяет это только для Auto), а запрос
+    потом отказывает уже у провайдера: окно не предлагает такую модель, а показывает причину.
+    """
+    from .. import provider_governance as pg
+
+    governed_local = pg.is_governed_local(provider, model)
+    detail = _place_detail(provider, model, governed_local)
+
+    def out(state: str, usable: bool, refusal: str = "") -> dict:
+        return {"billing": state, "usable": usable, "refusal": refusal, "locality": detail}
+
+    banned = pg.banned_model_refusal(model)
+    if banned:
+        return out("blocked", False, banned)
+    if governed_local:
+        return out("local", True)
+    prices = [v for v in (model.get("price_in"), model.get("price_out"))
+              if isinstance(v, (int, float)) and not isinstance(v, bool)]
+    positive = any(v > 0 for v in prices)
+    if pg.refuses_unknown_price(provider, model):
+        return out("unknown_price", False,
+                   "Цена облачной модели неизвестна: Bossman не отправляет запросы моделям без известной цены. "
+                   "Укажите цену модели или выберите другую.")
+    if pg.free_only_refusal(provider, model):
+        return out("paid" if positive else "blocked", False,
+                   "Политика «только бесплатные»: облачная модель не бесплатна. Разрешены локальные модели, "
+                   "модели OpenRouter с суффиксом :free и провайдеры с бесплатным тарифом.")
+    if positive:
+        from ..fable_cap import paid_fable_boundary
+        return out("paid_capped" if paid_fable_boundary(provider) else "paid", True)
+    return out("free_cloud", True)
+
+
 def _billing(provider: dict | None, model: dict) -> dict | None:
-    """provider_governance.model_billing, если он есть в этой сборке; иначе None."""
+    """provider_governance.model_billing, если он есть в этой сборке; иначе оценка по правилам provider_governance."""
     try:
         from ..provider_governance import model_billing  # type: ignore[attr-defined]
     except ImportError:
-        return None
+        model_billing = None
     try:
-        out = model_billing(provider, model)
+        if model_billing is not None:
+            out = model_billing(provider, model)
+            return out if isinstance(out, dict) else None
+        return _governed_billing(provider, model) if provider else None
     except Exception:  # noqa: BLE001 — оценка цены не роняет выбор модели
         return None
-    return out if isinstance(out, dict) else None
 
 
 def _model_view(model: dict | None, provider: dict | None) -> dict | None:
@@ -1333,7 +1390,7 @@ async def _agents_and_auto(svc: Any) -> tuple[list[dict], dict]:
     return out, auto
 
 
-def _subscription_item(name: str, login: Any, optin: dict) -> dict:
+def _subscription_item(name: str, login: Any, optin: dict, version: Any = None) -> dict:
     via_note = ("Подписка работает только в Agentic Rave; сообщения чата на ней не выполняются.")
     if not isinstance(login, dict):
         reason = f"{type(login).__name__}: {login}" if isinstance(login, BaseException) else "нет данных"
@@ -1343,11 +1400,25 @@ def _subscription_item(name: str, login: Any, optin: dict) -> dict:
     state = optin.get(name) if isinstance(optin.get(name), dict) else {}
     installed = bool(login.get("installed"))
     note = via_note if installed else f"{login.get('reason') or 'CLI не найден'}. {via_note}"
-    return {"name": name, "available": installed,
+    item = {"name": name, "available": installed,
             "logged_in": bool(login.get("logged_in")) if installed else False,
             "subscription": bool(login.get("subscription")) if installed else False,
             "opted_in": bool(state.get("approved")) if state else False,
             "via": "rave", "selectable_for_chat": False, "note": note}
+    if installed and isinstance(version, dict) and version.get("installed") is not False:
+        # Старый Claude Code CLI не запустит рейв без оператора: окно показывает это, а не «вход есть».
+        ok = bool(version.get("ok"))
+        problem = ""
+        if not ok:
+            try:
+                from ..rave.connectors import _version_problem
+                problem = _version_problem(version)
+            except Exception:  # noqa: BLE001 — пояснение не обязательно, флаг версии важнее
+                problem = f"версия CLI {version.get('version') or '?'} ниже {version.get('min') or 'минимальной'}"
+        item.update({"version": version.get("version"), "version_ok": ok, "version_problem": problem})
+        if problem:
+            item["note"] = f"{problem}. {via_note}"
+    return item
 
 
 async def _probe_subscriptions(svc: Any) -> list[dict]:
@@ -1358,7 +1429,12 @@ async def _probe_subscriptions(svc: Any) -> list[dict]:
     with contextlib.suppress(Exception):
         from .rave import service as rave_service
         optin = rave_service(svc).optin_state() or {}
-    items = [_subscription_item("claude", claude, optin), _subscription_item("codex", codex, optin)]
+    claude_ver = None
+    if isinstance(claude, dict) and claude.get("installed") and hasattr(c, "claude_version"):
+        # версию спрашиваем только у установленного CLI; сбой проверки версии не ломает список
+        with contextlib.suppress(Exception):
+            claude_ver = await c.claude_version()
+    items = [_subscription_item("claude", claude, optin, claude_ver), _subscription_item("codex", codex, optin)]
     _state(svc).subscriptions = (time.monotonic(), items)
     return items
 

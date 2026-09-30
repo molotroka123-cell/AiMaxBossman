@@ -120,15 +120,37 @@ def _reasoning_mentions(source: str) -> list[str]:
     return [line.strip() for line in code.splitlines() if re.search(r"reasoning|<think", line)]
 
 
+def _is_drop_only(line: str) -> bool:
+    """Строка state.js, где `<think` встречается только чтобы ВЫРЕЗАТЬ блок из текста (stripHidden): описание
+    регулярного выражения или .replace/.test по нему. Любая другая — показ рассуждений."""
+    if "reasoning" in line.lower() and "HIDDEN_KINDS" not in line:
+        return False
+    return bool(re.fullmatch(r"const THINK_BLOCK = /.*/gi;", line)
+                or (("<think" in line) and (".replace(" in line or ".test(" in line)
+                    and not re.search(r"\b(show|render|push|append|appendChild|h\()", line)))
+
+
 def test_hidden_model_reasoning_is_only_ever_dropped():
     for name, source in _chat_js().items():
         mentions = _reasoning_mentions(source)
         if name == "state.js":
-            assert mentions == ["export const HIDDEN_KINDS = new Set(['run.reasoning_delta']);"], mentions
+            head = "export const HIDDEN_KINDS = new Set(['run.reasoning_delta']);"
+            assert mentions[0] == head, mentions
+            assert all(_is_drop_only(line) for line in mentions[1:]), (
+                f"state.js may mention <think only to cut it out of the text: {mentions[1:]}")
         else:
             assert mentions == [], f"{name} must not touch model reasoning: {mentions}"
     state = (CHAT_DIR / "state.js").read_text(encoding="utf-8")
     assert "if (HIDDEN_KINDS.has(kind)) { turn.hiddenDropped += 1; return false; }" in state
+
+
+def test_the_drop_only_rule_would_notice_a_think_renderer():
+    """Негативный контроль к _is_drop_only: вырезание разрешено, показ — нет."""
+    assert _is_drop_only(r"const THINK_BLOCK = /<think(?:ing)?>[\s\S]*?<\/think>/gi;")
+    assert _is_drop_only("let p = parts[i].replace(THINK_BLOCK, '').replace(/<think>/g, '');")
+    assert not _is_drop_only(r"out.push(h('div.thought', text.match(/<think>(.*)<\/think>/)[1]));")
+    assert not _is_drop_only("show(text.replace(/<think>/, ''));")
+    assert not _is_drop_only("if (ev.kind === 'run.reasoning_delta') turn.thoughts.push(ev.text);")
 
 
 def test_the_reasoning_check_would_notice_a_renderer():
@@ -248,7 +270,9 @@ def test_chat_core_logic_in_node():
     node = os.environ.get("CODEX_PRIMARY_RUNTIME_NODE") or shutil.which("node")
     if not node:
         pytest.skip(reason="Node unavailable: ui/tests/chat_core.test.mjs was not executed")
-    result = subprocess.run([node, "--test", str(UI / "tests" / "chat_core.test.mjs")],
+    # node < 20.19 без "type": "module" не распознаёт ES-модули: флаг включает распознавание (на новых безвреден)
+    result = subprocess.run([node, "--experimental-detect-module", "--no-warnings", "--test",
+                             str(UI / "tests" / "chat_core.test.mjs")],
                             capture_output=True, text=True, timeout=60, check=False, cwd=str(CC))
     assert result.returncode == 0, result.stdout + result.stderr
 

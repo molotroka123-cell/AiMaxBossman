@@ -21,7 +21,7 @@ import { sphere, setSphereState } from './sphere.js';
 import { createTurn, applyEvent, applyTruth, isTerminalStatus, memorySourcesFromRunEvents, answerText } from './state.js';
 import {
   buildPickerModel, routeCard, contextMeter, tpsLabel, latencyLabel, costLabel, localityBadge, isLoopbackHost,
-  exportMarkdown, exportFileName, clientRequestId, raveAgentSpecs, subscriptionState, raveIsLive,
+  exportMarkdown, exportFileName, clientRequestId, raveAgentSpecs, raveSkipReasons, subscriptionState, raveIsLive, placeOfAlias,
 } from './format.js';
 import { TaskStream } from './stream.js';
 import { userRow, assistantRow, updateAssistant, turnEndAnnouncement } from './render.js';
@@ -62,6 +62,7 @@ const S = {
   optionsError: null,
   picker: null,
   pickerModel: null,
+  stopNoteTurn: null,
   threads: [],
   threadsLoading: false,
   threadsError: '',
@@ -269,17 +270,30 @@ function applyOptions() {
   restoreSelection();
 }
 
-async function loadPicker() {
-  try {
-    S.picker = await api.raw('/api/models/picker');
-  } catch {
-    S.picker = null;       // нет данных о тарификации — остаётся место работы модели из /api/chat/options
-  }
+/* Отдельной ручки /api/models/picker в сервере нет (каждая загрузка окна давала 404 в консоли):
+   тарификация, доступность и место работы приходят в /api/chat/options, оттуда список и строится. */
+function loadPicker() {
+  S.picker = null;
   S.pickerModel = buildPickerModel(S.options, S.picker);
   composer.setPicker(S.pickerModel);
   restoreSelection();
+  refreshPlaces();
   renderHeader();
   renderSide();
+}
+
+/** Место работы хода, у которого нет плана «до отправки» (тред открыт заново, F5, ход из CMD). */
+function fillPlace(turn) {
+  if (!turn || turn.locality) return false;
+  const place = placeOfAlias(S.pickerModel, turn.model || (turn.run && turn.run.model_alias) || '');
+  if (!place) return false;
+  turn.locality = place.locality;
+  if (place.billing && !turn.billing) turn.billing = place.billing;
+  return true;
+}
+
+function refreshPlaces() {
+  for (const turn of S.turns) if (fillPlace(turn)) scheduleTurnRender(turn);
 }
 
 function restoreSelection() {
@@ -427,6 +441,7 @@ async function openThread(id) {
   if (S.threadId !== id) return;
   S.thread = detail;
   S.turns = (Array.isArray(detail.turns) ? detail.turns : []).map(turnFromDetail);
+  for (const t of S.turns) fillPlace(t);
   const last = S.turns[S.turns.length - 1] || null;
   S.focusTurn = last;
   renderMessages();
@@ -610,6 +625,12 @@ function applyMeasuredRoute(turn, ev) {
     const e = S.pickerModel ? S.pickerModel.entries.find((x) => x.alias === ev.model) : null;
     turn.locality = e ? e.locality : null;
     turn.billing = e ? e.billing : null;
+  } else if (ev.model && !turn.locality) {
+    /* ход без плана «до отправки» (тред открыт заново, F5): место — по псевдониму модели прогона */
+    const place = placeOfAlias(S.pickerModel, ev.model);
+    if (!place) return;
+    turn.locality = place.locality;
+    if (place.billing && !turn.billing) turn.billing = place.billing;
   } else {
     return;
   }
@@ -716,6 +737,8 @@ async function finalizeTurn(turn) {
     } catch { /* сервер недоступен — остаётся то, что пришло потоком */ }
   }
   if (truth) { turn.truth = truth; applyTruth(turn, truth); }
+  fillPlace(turn);
+  if (S.stopNoteTurn === turn) { S.stopNoteTurn = null; composer.setNote(''); }
   const onScreen = S.nav === nav && S.turns.includes(turn);
   /* новый ход в этом же чате уже идёт — строка состояния и волна принадлежат ему */
   if (onScreen && !S.running) {
@@ -883,6 +906,7 @@ async function onStop() {
       return;
     }
     composer.setNote('STOP отправлен — жду подтверждения от движка.', '');
+    S.stopNoteTurn = turn;        // заметка живёт, пока движок не подтвердил: после «Остановлено» она уже неправда
   } catch (err) {
     if (isAuthErr(err)) return;
     if (err.status === 409) { finalizeTurn(turn); return; }
@@ -954,10 +978,12 @@ async function startRave(text) {
     return;
   }
   const specs = raveAgentSpecs(conn, S.raveAgents);
+  const skipped = raveSkipReasons(conn, S.raveAgents);
   if (!specs.length) {
-    composer.setNote('Нет доступных агентов рейва: включите локального агента или войдите в Claude/Codex (кнопка выбора исполнителя).', 'warn');
+    composer.setNote(`Нет доступных агентов рейва: ${skipped.length ? skipped.join(' ') : 'включите локального агента или войдите в Claude/Codex (кнопка выбора исполнителя).'}`, 'warn');
     return;
   }
+  if (skipped.length) toast(`В рейв не попали: ${skipped.join(' ')}`, 'warn');
   composer.takeInput();
   const card = { key: `rv${S.seq++}`, id: null, prompt: text, specs, status: 'starting', data: null, events: [], cursor: 0, error: '', timer: 0 };
   currentRaves().push(card);
@@ -1504,8 +1530,10 @@ async function popoverContent(kind) {
     out.push(row('local', 'Локальный агент', local ? `${local.default_model || 'модель по умолчанию'} · ${local.endpoint || ''}` : 'нет данных', Boolean(local)));
     for (const name of ['claude', 'codex']) {
       const c = conn && conn[name];
-      const ss = subscriptionState(c ? { available: c.installed !== false, logged_in: c.logged_in } : null);
-      out.push(row(name, name === 'claude' ? 'Claude · подписка' : 'Codex · подписка', ss.text, ss.ok, c && c.reason));
+      const ss = subscriptionState(c ? { available: c.installed !== false, logged_in: c.logged_in,
+        version_ok: c.version_ok, version_problem: c.version_problem } : null);
+      out.push(row(name, name === 'claude' ? 'Claude · подписка' : 'Codex · подписка', ss.text, ss.ok,
+        c && (c.version_ok === false && c.version_problem ? c.version_problem : c.reason)));
     }
     out.push(h('p.pop-dim', 'Подписки работают только в рейве и только после вашего разрешения. Bossman не выполняет вход в Claude/Codex сам.'),
       h('a.pop-link', { href: '/#/rave', target: '_blank', rel: 'noopener noreferrer' }, 'Agentic Rave в Command Center'));

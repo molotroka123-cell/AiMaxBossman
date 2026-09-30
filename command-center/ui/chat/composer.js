@@ -269,8 +269,8 @@ export function createComposer(ctx) {
         const name = s.name === 'claude' ? 'Claude' : s.name === 'codex' ? 'Codex' : s.name;
         list.appendChild(option({
           label: `${name} · Subscription`, sub: `${ss.text}. ${s.note || 'Обычные сообщения на подписке не выполняются — только в режиме Agentic Rave.'}`,
-          badges: [h('span.badge', { dataset: { tone: ss.ok ? 'free' : 'blocked' } }, ss.ok ? 'вход есть' : 'нет входа')],
-          disabled: s.available === false, reason: ss.text, iconName: 'bolt',
+          badges: [h('span.badge', { dataset: { tone: ss.ok ? 'free' : 'blocked' } }, ss.ok ? 'вход есть' : s.version_ok === false ? 'CLI устарел' : 'нет входа')],
+          disabled: s.available === false || s.version_ok === false, reason: ss.text, iconName: 'bolt',
           selected: st.rave && (st.selection.subs || []).includes(s.name),
           onPick: () => pick({ mode: 'rave', sub: s.name }),
         }));

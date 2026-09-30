@@ -291,9 +291,40 @@ export function buildPickerModel(options, picker) {
   return { auto, entries, groups, subscriptions: [...subs.values()] };
 }
 
+/**
+ * Место работы и тарификация модели по её псевдониму из списка выбора. Нужно ходам, у которых нет
+ * плана «до отправки» (тред открыт заново, F5, ход из CMD): сервер в run.usage места не присылает,
+ * а без него локальная модель выглядела бы «ценой неизвестна» и без значка LOCAL.
+ * Неизвестный, пустой или двусмысленный псевдоним — null: не угадываем LOCAL.
+ */
+export function placeOfAlias(pickerModel, alias) {
+  const a = String(alias || '').trim();
+  if (!a || !pickerModel || !Array.isArray(pickerModel.entries)) return null;
+  const hits = pickerModel.entries.filter((e) => e.alias === a);
+  if (!hits.length) return null;
+  const places = new Set(hits.map((e) => `${e.locality || ''}|${e.billing || ''}`));
+  if (places.size !== 1) return null;
+  const { locality, billing } = hits[0];
+  if (!locality) return null;
+  return { locality, billing: billing || null };
+}
+
+/** Первое предложение пояснения сервера, не длиннее 170 знаков: для строки в меню. */
+function firstSentence(text) {
+  const t = String(text || '').trim();
+  if (!t) return '';
+  const cut = t.indexOf('. ');
+  const one = cut > 0 ? t.slice(0, cut) : t;
+  return one.length > 170 ? `${one.slice(0, 167)}…` : one;
+}
+
+const OUTDATED_CLAUDE = 'CLI устарел: обновите Claude Code';
+
 export function subscriptionState(sub) {
   if (!sub) return { text: 'нет данных', ok: false };
   if (sub.available === false) return { text: 'CLI не найден', ok: false };
+  /* старый Claude Code CLI не запустит рейв без оператора: агент недоступен, причина — текстом сервера */
+  if (sub.version_ok === false) return { text: firstSentence(sub.version_problem) || OUTDATED_CLAUDE, ok: false };
   if (sub.logged_in === true) return { text: 'вход выполнен', ok: true };
   if (sub.logged_in === false) return { text: 'вход не выполнен', ok: false };
   return { text: 'состояние входа неизвестно', ok: false };
@@ -305,8 +336,27 @@ export function raveAgentSpecs(connectors, pick = {}) {
   const c = connectors || {};
   /* локальный агент без @модели работает на модели коннектора по умолчанию (default_model) */
   if (pick.local && c.local) out.push('local:local');
-  if (pick.claude && c.claude && c.claude.logged_in) out.push('claude:c');
+  /* version_ok === false — старый Claude Code CLI; нет поля (старый сервер) — не запрещаем */
+  if (pick.claude && c.claude && c.claude.logged_in && c.claude.version_ok !== false) out.push('claude:c');
   if (pick.codex && c.codex && c.codex.logged_in) out.push('codex:x');
+  return out;
+}
+
+/** Почему выбранный агент подписки не попал в рейв: по строке на каждого выбранного и неготового. */
+export function raveSkipReasons(connectors, pick = {}) {
+  const c = connectors || {};
+  const out = [];
+  if (pick.claude) {
+    const k = c.claude;
+    if (!k) out.push('Claude: нет данных о подписке.');
+    else if (k.version_ok === false) out.push(`Claude: ${firstSentence(k.version_problem) || OUTDATED_CLAUDE}.`);
+    else if (!k.logged_in) out.push('Claude: вход не выполнен.');
+  }
+  if (pick.codex) {
+    const x = c.codex;
+    if (!x) out.push('Codex: нет данных о подписке.');
+    else if (!x.logged_in) out.push('Codex: вход не выполнен.');
+  }
   return out;
 }
 

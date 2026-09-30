@@ -9,9 +9,14 @@ visible in the web chat and vice versa. There is no separate data directory,
 model fleet, memory database or task engine.
 
 Status: implemented in the cloud on `claude/bossman-1.9-owner-bugtest-20260930`.
-**NOT_RUN**: no test, browser session or owner scenario was executed in the
-cloud (the owner forbade test runs there). CI runs the tests after the push;
-the owner's bug test tomorrow on the Windows PC is the first real use.
+Nothing was executed in the cloud (the owner forbade test runs there). On
+2026-09-30 the lane `chat-ux` ran the surface in a real Chromium on the Windows
+PC (own instance, own data directory, real local model for the send/stream/STOP
+paths and a scripted fake provider for the rest) and fixed what it found. The
+result table of the 20 checklist items below, with screenshots and the list of
+defects, is `docs/owner/runs/RUN_20261001_CHAT.md`. This is a repo-local run by
+an agent, not the owner's acceptance: the owner's own bug test (§6) is still the
+acceptance.
 
 This is a control surface, not a new level on the North Star ladder. It does
 not change `SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT → … → REVENUE_CAPABLE_PILOT`
@@ -41,7 +46,7 @@ turn re-attaches.
 | Projects, Архив | `GET /api/chat/projects`; filter via `project=` / `archived=1` | A project is a label on a thread. |
 | Send (Enter) | `POST /api/chat/threads/{id}/send {text, agent_id\|null, attachments, client_request_id}` | Same preflight → create → run as `POST /api/tasks`. A refusal (409) is shown as an error card; nothing is created. A network error retries with the SAME `client_request_id` (no duplicate task). If you open another chat while the send is in flight, the turn still goes to its own thread on the server, but the window you are in is not touched (no stream, no STOP, no address change); a short note says where the message went. |
 | Live answer | `GET /api/events/stream?task_id=<tid>&after=<seq>` (SSE via `fetch`) | Dedupe by `seq`; reconnect with `after=<last seq>`, backoff 0.5 → 8 s with jitter; idle watchdog 45 s (server keepalive every 15 s); `stream.lagged` → reconnect from its cursor. Rendering is a frozen prefix: finished blocks are appended once and only the unfinished tail is re-rendered, so a selection or a code «Копировать» button in finished blocks survives the stream. While the answer streams, a half-typed `[label](https://exa` shows just the label and a URL still being typed stays plain text (no live link to a truncated domain); a finished `[label](https://…)` at the very end stays a live link and never shows a stray backslash (`https\://`); `**`, `*`, `_`, `~~` are never auto-closed. Final text and history are rendered as is. After `run.answer_reset` a retried step (fresh stream, attempt 0, idx 0) streams again. |
-| Connection lost | the same stream | A banner above the input: «Связь с сервером потеряна — задача продолжается на сервере.», a countdown «Повтор через N с» (the real `delay_ms`), and the button «Сейчас» (reconnects at once, never a second connection). The network coming back (`online`) or returning to the window also reconnects at once. A transport error never marks the turn failed; only the server truth does. The banner hides when the stream opens. |
+| Connection lost | the same stream | A banner above the input: «Связь с сервером потеряна — задача продолжается на сервере.», a countdown «Повтор через N с» (the real `delay_ms`), and the button «Сейчас» (reconnects at once, never a second connection). The network coming back (`online`) or returning to the window also reconnects at once. A transport error never marks the turn failed; only the server truth does. The banner hides when the stream opens. A stream that is merely SILENT (no frame for 45 s, for example a local model still loading) is not «connection lost»: the window reconnects at once and quietly with the same cursor and shows the banner only if that reconnect fails or hangs for 4 s. (The server's 15 s keepalive is never sent while unrelated bus events such as `system.metrics` keep arriving — see RUN_20261001_CHAT.md, defect B2; without this the banner used to blink every 45 s of quiet.) |
 | «К последнему сообщению (End)» | — | The feed sticks to the bottom only while you are there: wheel up, PageUp / ArrowUp / Home (outside the input) or dragging the scrollbar up un-sticks it; coming within 4 px of the bottom re-sticks. While un-stuck, the round ↓ button above the input is shown (a dot when new text arrived); clicking it keeps the focus in the input. Smooth scroll unless the system asks for reduced motion. Replaces the old 120 px rule that pulled a reader back every frame. |
 | Final truth | `GET /api/chat/threads/{id}` (fallback `GET /api/tasks/{id}`) | After `task.completed/failed/stopped/blocked`. |
 | Steps of a finished turn | `GET /api/tasks/{id}/events?after=0&limit=2000` | Rebuilds tool cards and the panel for history turns. |
@@ -49,8 +54,8 @@ turn re-attaches.
 | Approve / Deny on an inline approval card | `POST /api/approvals/{id} {approve, by:'owner'}` | The existing approvals system; the card follows `approval.decided`. |
 | «Отправить ещё раз» on an error card | the send above | Never labelled «Повторить». |
 | «+» attachments, drag & drop, paste | `POST /api/chat/attachments?filename=&thread_id=` (raw body) | Removable chips with size; limit from `/api/chat/options` (20 MiB, 8 per message). An attachment belongs to the thread open when it was uploaded, so switching chats removes the chips with the note «Вложения убраны: они были загружены для другого чата. Прикрепите файлы снова.» (instead of a 409 on send). |
-| Model picker | `GET /api/chat/options` + `GET /api/models/picker` | «Auto · Local-first» first; then agents grouped Локальные / Облако (бесплатно) / Облако (платно, с лимитом) / Недоступно, with alias and LOCAL / LAN / CLOUD and billing badges. Unusable entries are disabled with the refusal reason. The choice is an agent (the server has no per-message model override). |
-| Claude / Codex subscriptions | same options (`subscriptions`) | Shown with their real login state and the note that they run ONLY through Agentic Rave; choosing one switches the composer to Agentic Rave mode. |
+| Model picker | `GET /api/chat/options` (there is no `/api/models/picker` route: the window used to ask for it and got a 404 in the console on every load) | «Auto · Local-first» first; then agents grouped Локальные / Облако (бесплатно) / Облако (платно, с лимитом) / Недоступно, with alias and LOCAL / LAN / CLOUD and billing badges. `billing`, `usable` and `refusal` are computed on the server by `chat_threads._governed_billing` from the same `provider_governance` rules the engine applies (a build that has `provider_governance.model_billing` uses that instead): a cloud model with an unknown price or one refused by the free-only policy (`BOSSMAN_ALLOW_PAID_CLOUD` opt-out) is disabled with a Russian reason. An explicit choice is otherwise NOT refused at admission (only Auto filters), so without this the window would queue a certain refusal. The choice is an agent (the server has no per-message model override). |
+| Claude / Codex subscriptions | same options (`subscriptions`) | Shown with their real login state and the note that they run ONLY through Agentic Rave; choosing one switches the composer to Agentic Rave mode. A Claude Code CLI older than the minimum for headless rave (`version_ok === false` from `/api/rave/connectors`, or `version_ok` in the options item) is shown as not ready with the server's reason («версия Claude Code CLI … старше …»), its picker entry and rave checkbox are disabled, and it is never put into `POST /api/rave`; a picked agent that was left out is named in a note. An older server without the field does not block Claude. |
 | Context meter «used / window» | `run.usage` | Used = `step_tokens_in` of the latest usage event (the prompt the model actually read), else `tokens_in`; window = `context_window` from usage, else the selected model's. «—» before any run. |
 | Mic | `MediaRecorder` → 16 kHz mono PCM16 WAV in the browser → `POST /api/oss/speech/transcribe?language=auto` | Local faster-whisper. Disabled with the real reason when `/api/chat/options` → `speech.status` is not `configured` or the browser cannot record. Recording shows a timer and a cancel button; the text is put into the input for review, not sent automatically. |
 | Chip «Thinking» (Ctrl+.) | toggles the right panel | State kept in `localStorage['bcc.chat.panel']`. |
@@ -73,11 +78,16 @@ Right panel «Thinking & Actions — Планирование, действия 
 (a mission/workflow plan only if the task has one; otherwise «Для простого
 запроса план не строится» plus the executed steps from `task.progress`),
 Действия (tool calls with CMD / Browser / GitHub / … chips, redacted argument
-summary, duration, ok/failed), Проверка (`evaluation.completed`, approvals),
+summary, duration, ok/failed), Проверка (`evaluation.completed` — identical verdicts are grouped as one row with «× N» —, approvals),
 Источники (`memory.recalled` sources from `GET /api/runs/{id}/events`, URLs from
 tool results, attachments). **Hidden model reasoning is never shown:**
 `run.reasoning_delta` is dropped by the client (only a counter is kept) and
-nothing renders `<think>` content.
+nothing renders `<think>` content. The server cuts `<think>…</think>` out of the
+streamed text but keeps it in `run.assistant_message` and in the task result, so
+the client strips it from every displayed text (`state.stripHidden`; fenced code
+is left alone, an unclosed block at the start and a lone `</think>` are
+handled) and compares the streamed text with the final one ignoring it and
+whitespace — without this the block was shown and the answer appeared twice.
 
 Answer footer: model, LOCAL / LAN / CLOUD, tokens, cost, duration. The place of
 work is inferred from the model the run actually used: `run.usage` carries the
@@ -86,7 +96,10 @@ that alias up in the picker data. The server sends no locality in `run.usage`
 today; the client reads a `locality` field there only as forward
 compatibility, and that branch does not fire now. This inferred place wins over
 the guess made before sending; an unknown model gets no badge instead of a
-wrong LOCAL. «Кратко» in the right panel, the header badge and the sidebar
+wrong LOCAL. A turn that has no «before sending» plan (thread reopened, F5, a
+turn started in CMD) gets its place from the alias of the model it used,
+looked up in the picker data (`format.placeOfAlias`; an unknown or ambiguous
+alias gives no badge), so a local model reads «LOCAL · $0.00 local» there too. «Кратко» in the right panel, the header badge and the sidebar
 Auto card («Последний ответ») use the same model and place as the footer. The
 duration is taken from the server timestamps (`ts`) of `task.started` and the
 terminal event, so a reopened thread or an F5 replay does not show «0 мс». A
@@ -227,7 +240,17 @@ they do not move the North Star ladder.
   itself; the «Новый чат» button always works. In the `bcc-desktop --chat`
   window the page receives the shortcut.
 
-## 5a. Tests written for this surface (NOT_RUN in the cloud)
+## 5a. Tests written for this surface (written in the cloud; run on the Windows PC by lane chat-ux)
+
+Run on the PC: `tests/test_chat_*.py` and `ui/tests/chat*.mjs`. The node tests
+need `node --experimental-detect-module --no-warnings --test …` on Node < 20.19
+(no `"type": "module"` in the tree, so older Node reads the `.js` files as
+CommonJS); the pytest wrappers pass the flag themselves. Added by the run
+(`tests/test_chat_ux_run.py`, `tests/test_chat_ux_browser.py` — real Chromium against a real server and a scripted fake streaming model —, `ui/tests/chat_ux_run.test.mjs`): server-side
+billing/usable/refusal, every `/api/...` call of the window is a real route with
+the right method, nested link, hidden `<think>` and the duplicated answer,
+place by alias, microphone cancel, quiet-stream reconnect, grouped verdicts,
+outdated Claude CLI.
 
 - `command-center/ui/tests/chat_core.test.mjs` (node:test): SSE parsing across
   split chunks and CRLF, reconnect with `after=<last seq>` without repeats, 401

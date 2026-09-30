@@ -86,12 +86,16 @@ export class Recorder {
   async start() {
     this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     this.chunks = [];
-    this.rec = new MediaRecorder(this.stream);
+    /* onstop приходит позже самого stop(): cancel() к этому времени уже обнулил this.rec,
+       поэтому обработчик держит собственную ссылку (иначе TypeError «reading 'mimeType'» на каждой отмене записи) */
+    const rec = new MediaRecorder(this.stream);
+    this.rec = rec;
+    const chunks = this.chunks;
     this.done = new Promise((resolve) => {
-      this.rec.ondataavailable = (e) => { if (e.data && e.data.size) this.chunks.push(e.data); };
-      this.rec.onstop = () => resolve(new Blob(this.chunks, { type: this.rec.mimeType || 'audio/webm' }));
+      rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = () => resolve(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
     });
-    this.rec.start(250);
+    rec.start(250);
     this.startedAt = Date.now();
   }
 

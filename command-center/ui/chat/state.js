@@ -64,6 +64,36 @@ export function clippedPrefix(text) {
   return m ? src.slice(0, m.index) : null;
 }
 
+/**
+ * Скрытое рассуждение модели в тексте ответа: <think>…</think> не показывается НИКОГДА.
+ * Живой поток сервер уже очищает, а итог шага (run.assistant_message) и итог задачи хранят
+ * текст как есть — без этого блок попадал в ленту и ещё раз дублировал ответ.
+ * Ограждённый код (```…```) — содержимое, а не рассуждение: там теги остаются.
+ */
+const THINK_BLOCK = /<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>\s*/gi;
+const FENCED = /(```[\s\S]*?```|~~~[\s\S]*?~~~)/;
+
+export function stripHidden(text) {
+  const src = String(text ?? '');
+  if (!/<\/?think/i.test(src)) return src;
+  const parts = src.split(FENCED);
+  for (let i = 0; i < parts.length; i += 2) {
+    let p = parts[i].replace(THINK_BLOCK, '');
+    /* незакрытый блок в самом начале ответа: всё, что есть, — ещё рассуждение */
+    if (i === 0) p = p.replace(/^\s*<think(?:ing)?>[\s\S]*$/i, '');
+    /* закрывающий тег без открывающего (открывающий был в промпте шаблона): всё до него — рассуждение */
+    if (i === 0 && !/<think/i.test(p)) p = p.replace(/^[\s\S]*?<\/think(?:ing)?>\s*/i, '');
+    parts[i] = p;
+  }
+  return parts.join('');
+}
+
+/** Сравнение «тот же ответ»: без скрытых рассуждений и без различий в пробелах. */
+function sameText(a, b) {
+  const n = (t) => stripHidden(t).replace(/\s+/g, ' ').trim();
+  return n(a) === n(b);
+}
+
 function str(v, limit = 4000) {
   if (v === null || v === undefined) return '';
   const s = typeof v === 'string' ? v : String(v);
@@ -450,19 +480,20 @@ export function applyTruth(turn, detail) {
 export function displaySegments(turn) {
   const segs = [];
   const shown = [];
-  const full = typeof turn.resultText === 'string' ? turn.resultText : '';
+  const full = stripHidden(typeof turn.resultText === 'string' ? turn.resultText : '');
   const result = full.trim();
   for (const item of turn.timeline) {
     if (item.type === 'text') {
       const entry = turn.answers.get(item.id);
-      if (entry && entry.text) {
-        const clipped = result ? clippedPrefix(entry.text) : null;
+      const visible = entry ? stripHidden(entry.text) : '';
+      if (entry && visible.trim()) {
+        const clipped = result ? clippedPrefix(visible) : null;
         if (clipped !== null && clipped.trim() && result.startsWith(clipped.trim())) {
           segs.push({ type: 'text', key: `t:${item.id}`, text: full, final: true });
           shown.push(result);
         } else {
-          segs.push({ type: 'text', key: `t:${item.id}`, text: entry.text, final: entry.final });
-          shown.push(entry.text.trim());
+          segs.push({ type: 'text', key: `t:${item.id}`, text: visible, final: entry.final });
+          shown.push(visible.trim());
         }
       }
     } else if (item.type === 'tool') {
@@ -476,8 +507,8 @@ export function displaySegments(turn) {
       if (n) segs.push({ type: 'note', key: `n:${item.id}`, note: n });
     }
   }
-  if (result && !shown.includes(result)) {
-    segs.push({ type: 'text', key: 't:final', text: turn.resultText, final: true });
+  if (result && !shown.some((s) => sameText(s, result))) {
+    segs.push({ type: 'text', key: 't:final', text: full, final: true });
   }
   return segs;
 }
