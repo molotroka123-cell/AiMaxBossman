@@ -756,7 +756,8 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
         event.clear()
         started = time.perf_counter()
         try:
-            audio = await asyncio.to_thread(speech.synthesize, text, stopped=event.is_set)
+            audio = await asyncio.to_thread(speech.synthesize, text, stopped=event.is_set,
+                                            audit_dir=home / "logs", surface="web")
         except speech.SpeechError as exc:
             code = str(exc)
             return error(409 if code == "VOICE_STOPPED" else 503, code)
