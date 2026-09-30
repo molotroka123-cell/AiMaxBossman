@@ -1,0 +1,34 @@
+diff --git a/tests/test_clamp.py b/tests/test_clamp.py
+new file mode 100644
+index 0000000..541a32f
+--- /dev/null
++++ b/tests/test_clamp.py
+@@ -0,0 +1,28 @@
++import pytest
++
++from mathkit import clamp
++
++
++def test_clamp_value_inside_range():
++    assert clamp(5, 1, 10) == 5
++
++
++def test_clamp_value_at_low_bound():
++    assert clamp(1, 1, 10) == 1
++
++
++def test_clamp_value_at_high_bound():
++    assert clamp(10, 1, 10) == 10
++
++
++def test_clamp_value_below_low():
++    assert clamp(0, 1, 10) == 1
++
++
++def test_clamp_value_above_high():
++    assert clamp(15, 1, 10) == 10
++
++
++def test_clamp_low_greater_than_high():
++    with pytest.raises(ValueError):
++        clamp(5, 10, 1)

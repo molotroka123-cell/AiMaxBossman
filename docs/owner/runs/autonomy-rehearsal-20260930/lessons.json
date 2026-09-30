@@ -1,0 +1,13 @@
+[
+ {
+  "lesson_id": "coach-lesson:3c5d76bf568ee419",
+  "status": "candidate",
+  "learning_status": "UNVERIFIED",
+  "occurrences": 1,
+  "task_class": "docs_tests",
+  "kind": "teacher_patch",
+  "correction": "A bounded change of tier docs_tests limited to tests/test_clamp.py reached the owner gate with passing tests, both reviews and a staged evaluation. Keep the diff small; the owner decides about the release.",
+  "weights": "WEIGHTS_UNCHANGED",
+  "learning_kind": "retrieval_context"
+ }
+]
