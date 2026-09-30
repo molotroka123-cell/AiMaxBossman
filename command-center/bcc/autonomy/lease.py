@@ -161,6 +161,13 @@ class EngineeringLease:
                                     "orphans_killed": killed})
 
     # .......................................................... api
+    def peek(self) -> dict | None:
+        """Read-only view for dashboards: never expires, never kills."""
+        t = self._read()
+        if t is None:
+            return None
+        return {**t.as_dict(), "stale_reason": self._stale_reason(t)}
+
     def current(self) -> LeaseToken | None:
         with file_lock(self.lock_path):
             t = self._read()
