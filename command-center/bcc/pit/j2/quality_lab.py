@@ -894,7 +894,9 @@ class QualityLabModule(BaseModule):
             latency = None if started is None else int(round((self._timer() - started) * 1000))
             turn = Turn(user=ctx.text, reply=reply, latency_ms=latency)
             scored = await score_turn(turn)
-            self.store.record(ctx.person_key, scored, turn, keep_sample=bool(ctx.memory_enabled),
+            # A call keeps no transcript at rest (telegram-calls contract): scores only, never a text sample.
+            self.store.record(ctx.person_key, scored, turn,
+                              keep_sample=bool(ctx.memory_enabled) and ctx.surface != "call",
                               now=self._clock())
             self.scored_turns += 1
         except Exception as exc:                        # noqa: BLE001 - scoring never touches the reply

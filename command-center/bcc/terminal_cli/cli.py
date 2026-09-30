@@ -37,7 +37,8 @@ ERROR_EXIT = {"disconnected": EXIT_DISCONNECTED, "auth": EXIT_DISCONNECTED,
 
 TERMINAL_COMMANDS = ("chat", "exec", "status", "events", "result", "resume", "approve", "deny",
                      "pause", "stop", "continue", "list", "keys", "code", "evolution", "repair",
-                     "run", "evolve", "start", "version", "approvals", "tasks", "market", "rave", "autonomy")
+                     "run", "evolve", "start", "version", "approvals", "tasks", "market", "review", "rate", "call", "rave",
+                     "autonomy")
 
 
 class UsageError(Exception):
@@ -300,8 +301,88 @@ def build_parser() -> argparse.ArgumentParser:
     mk.add_argument("--headed", action="store_true")
     mk.add_argument("--keep-frames", type=int, default=0)
 
+    _build_call_parser(sub)
     sub.add_parser("version", help="версия клиента")
     return p
+
+
+def _build_call_parser(sub) -> None:
+    """`bossman call …` — Telegram-звонки ассистента на ваш второй аккаунт (тот же backend, что и панель дашборда)."""
+    ca = sub.add_parser(
+        "call", formatter_class=argparse.RawDescriptionHelpFormatter,
+        help="Telegram-звонки ассистента на ваш второй аккаунт: setup, status, dial, stop … (bossman call --help)",
+        description="Telegram-звонки ассистента на ВАШ второй аккаунт. Тот же Bossman и тот же API, что у панели «Telegram-звонки». "
+                    "Звонки выключены, пока вы не включите их; собеседник ровно один; автоперезвона нет.",
+        epilog="Синтаксис:\n"
+               "  bossman call setup [--stdin]                подключение: api_id, api_hash, номер, код, пароль 2FA (скрытый ввод; НЕ аргументами)\n"
+               "  bossman call status                         подключение, собеседник, STOP, задержка, модели\n"
+               "  bossman call contacts [запрос]              кандидаты на роль тестового собеседника\n"
+               "  bossman call peer set <id|@юзернейм> --confirm | peer show | peer clear\n"
+               "  bossman call enable | disable               разрешить / запретить звонки\n"
+               "  bossman call dial [--confirm-unknown] [--wait]   позвонить на выбранный аккаунт (адресата указать нельзя)\n"
+               "  bossman call hangup | stop | resume         завершить · STOP (блокирует набор) · снять STOP звонков\n"
+               "  bossman call events [--after N] [--follow]  ход звонка (без текста разговора)\n"
+               "  bossman call history [--limit N]            прошлые звонки: краткий итог, без расшифровки и аудио\n"
+               "  bossman call save-memory <id> | draft-tasks <id>   итог звонка -> память Bossman · предложенные задачи -> ЧЕРНОВИКИ (только по вашей команде)\n"
+               "  bossman call doctor | selftest [сценарий]   диагностика · проверка аудиоконтура без Telegram\n"
+               "  bossman call install [--dry-run]            зависимости звонков\n"
+               "  bossman call logout                         забыть сессию\n"
+               "Коды выхода: 0 успех · 2 неверный вызов · 5 заблокировано (не подключён, звонки выключены, STOP…) · 6 остановлен · "
+               "8 исход неизвестен · 3 Bossman не отвечает.")
+    _common(ca)
+    cs = ca.add_subparsers(dest="call_cmd")
+
+    def leaf(name: str, helptext: str, parent=cs):
+        p = parent.add_parser(name, help=helptext)
+        _common(p)
+        _fmt(p)
+        return p
+
+    p = leaf("setup", "подключение аккаунта: api_id, api_hash, номер, код, пароль 2FA — скрытый ввод или --stdin (НЕ аргументами)")
+    p.add_argument("--stdin", action="store_true", help="читать значения построчно из stdin: api_id, api_hash, номер, код[, пароль 2FA]")
+    p.add_argument("forbidden_value", nargs="*", help=argparse.SUPPRESS)
+    for secret in ("api_id", "api_hash", "phone", "code", "password"):
+        p.add_argument("--" + secret.replace("_", "-"), dest="opt_" + secret, default=None, help=argparse.SUPPRESS)
+    leaf("status", "подключение, собеседник, STOP, задержка ответа, модели")
+    p = leaf("contacts", "кандидаты на роль тестового собеседника: contacts [запрос]")
+    p.add_argument("query", nargs="?", default="")
+    p = leaf("peer", "тестовый собеседник: peer set <id|@юзернейм> --confirm | peer show | peer clear")
+    ps = p.add_subparsers(dest="peer_cmd")
+    q = leaf("set", "выбрать собеседника (нужен --confirm: это ВАШ второй аккаунт)", parent=ps)
+    q.add_argument("target", help="числовой id или @юзернейм")
+    q.add_argument("--confirm", action="store_true", help="подтверждаю: это мой второй аккаунт")
+    leaf("show", "показать выбранного собеседника", parent=ps)
+    leaf("clear", "сбросить выбор", parent=ps)
+    leaf("enable", "разрешить звонки (выключены по умолчанию)")
+    leaf("disable", "запретить звонки")
+    p = leaf("dial", "позвонить на выбранный второй аккаунт: dial [--confirm-unknown] [--wait]")
+    p.add_argument("--confirm-unknown", action="store_true", help="подтверждаю: прошлый звонок закончился неизвестно, я проверил второй аккаунт")
+    p.add_argument("--wait", action="store_true", help="ждать конца звонка и показать итог (задержка, модели)")
+    p.add_argument("--seconds", type=float, default=900.0, help="сколько ждать при --wait (по умолчанию 900)")
+    leaf("hangup", "завершить текущий звонок обычным образом")
+    leaf("stop", "STOP: завершить звонок и заблокировать набор до `call resume`")
+    leaf("resume", "снять STOP звонков (общий STOP Bossman снимается отдельно)")
+    p = leaf("events", "ход звонка: events [--after N] [--follow]")
+    p.add_argument("--after", type=int, default=0)
+    p.add_argument("--follow", action="store_true")
+    p.add_argument("--seconds", type=float, default=600.0, help="сколько следить при --follow (по умолчанию 600)")
+    p = leaf("history", "прошлые звонки: краткий итог, без расшифровки и аудио")
+    p.add_argument("--limit", type=int, default=10)
+    p = leaf("save-memory", "записать краткий итог звонка в память Bossman (по вашей команде): save-memory <id звонка>")
+    p.add_argument("call_id")
+    p = leaf("draft-tasks", "предложенные в звонке задачи -> ЧЕРНОВИКИ (ничего не запускается): draft-tasks <id звонка>")
+    p.add_argument("call_id")
+    leaf("doctor", "локальная диагностика: зависимости, права, журнал, голос (никому не звонит)")
+    p = leaf("selftest", "проверка аудиоконтура БЕЗ Telegram («ТЕСТ БЕЗ TELEGRAM»): selftest [сценарий]")
+    p.add_argument("scenario", nargs="?", default="all", choices=("all", "basic", "barge_in", "echo", "stop", "no_redial"))
+    p = leaf("install", "зависимости звонков: установка на стороне Bossman по вашей команде (sha256 проверяется до записи)")
+    p.add_argument("--dry-run", action="store_true", help="только показать, что будет установлено")
+    leaf("logout", "забыть сессию Telegram, сбросить собеседника и выключить звонки")
+
+
+def cmd_call(args) -> int:
+    from .calls import run_call
+    return run_call(args)
 
 
 # ----------------------------------------------------------------- main
@@ -815,11 +896,41 @@ def cmd_stop(args) -> int:
     return _task_action(args, "stop")
 
 
+#: CONTRACT PATH of the calls API (fixed by the coordinator's spec; do not rename). `/api/calls/*` exists only as a
+#: compatibility alias on the backend. The global STOP below and `bossman call` use THIS path.
+CALLS_API = "/api/telegram/calls"
+
+
+def _stop_calls_step(client: Client, out: Out) -> dict:
+    """Explicit STOP of a live Telegram call (calls STOP flag + hangup). Never raises: STOP must not end on a lost step.
+
+    An older backend without the calls API answers not_supported: nothing to stop there, said plainly. Any other failure
+    is reported and makes the whole STOP unconfirmed.
+    """
+    try:
+        res = client.post(f"{CALLS_API}/stop") or {}
+        persisted = bool(res.get("persisted", res.get("stop_flag")))
+        if not out.machine:
+            out.say("STOP звонков Telegram: " + ("сохранён" if persisted else "НЕ подтверждён — закройте звонок на втором аккаунте вручную"))
+        return {"status": "stopped" if persisted else "unconfirmed", "hangup_confirmed": res.get("hangup_confirmed"),
+                "terminated": bool(res.get("terminated"))}
+    except BossmanError as exc:
+        if exc.kind == "not_supported":
+            return {"status": "not_supported"}
+        message = exc.message
+    except Exception as exc:  # noqa: BLE001 - the step is reported, the rest of the STOP still runs
+        message = type(exc).__name__
+    if not out.machine:
+        out.say(f"STOP звонков Telegram: не подтверждён ({sanitize(message)}) — проверьте второй аккаунт")
+    return {"status": "error", "error": sanitize(message)}
+
+
 def global_stop(client: Client, out: Out) -> int:
-    """Use the same backend owner STOP as the Command Center palette."""
+    """Use the same backend owner STOP as the Command Center palette (+ an explicit STOP of a live call)."""
+    calls = _stop_calls_step(client, out)
     result = client.post("/api/control-plane/stop-all") or {}
-    confirmed = result.get("ok") is True
-    rec = record("stop_all", ok=confirmed, result=result,
+    confirmed = result.get("ok") is True and calls.get("status") in ("stopped", "not_supported")
+    rec = record("stop_all", ok=confirmed, result=result, calls=calls,
                  exit_code=EXIT_OK if confirmed else EXIT_FAIL)
     if out.machine:
         out.json(rec)

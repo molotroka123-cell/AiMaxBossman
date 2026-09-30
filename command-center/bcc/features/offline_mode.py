@@ -137,8 +137,12 @@ KNOWN: dict[str, Requirement] = {
     "skills": Requirement(PROVIDERS, "запуск скилла идёт обычной задачей через модель"),
     "snapshot": Requirement(LOCAL, "копия БД и манифест на диске"),
     "task_exchange": Requirement(LOCAL, "обмен задачами через файлы в data_dir"),
+    "telegram_calls": Requirement(EXTERNAL, "вход в Telegram и звонок идут во внешний Telegram и только по действию "
+                                            "владельца; проверка аудиоконтура (selftest) сети не требует"),
     "terminal": Requirement(LOCAL, "сам терминал локален; куда пойдёт запущенная "
                                    "команда — вне зоны знания этого модуля"),
+    "telegram_calls": Requirement(EXTERNAL, "вход и звонок идут в Telegram (MTProto) только по действию владельца; "
+                                            "проверка аудиоконтура и диагностика работают без сети"),
     "tools_browser": Requirement(EXTERNAL, "инструмент открывает внешние страницы, "
                                            "адрес заранее неизвестен"),
     "tools_code": Requirement(LOCAL, "поиск по локальному индексу кода"),

@@ -103,7 +103,7 @@ def _recogniser(model_path: Path):
 
 
 def transcribe_wav(audio: bytes, *, language: str = "ru",
-                   stopped: Callable[[], bool] = lambda: False) -> dict:
+                   stopped: Callable[[], bool] = lambda: False, beam_size: int = 5) -> dict:
     """PCM16 WAV -> {text, confidence, needs_confirm, ...}. Raises SpeechError."""
     started = time.perf_counter()
     try:
@@ -141,7 +141,7 @@ def _transcribe_wav(audio: bytes, *, language: str = "ru",
         raise SpeechError("VOICE_BUSY")
     try:
         segments, info = model.transcribe(
-            io.BytesIO(clean), language=language, beam_size=5, vad_filter=True,
+            io.BytesIO(clean), language=language, beam_size=beam_size, vad_filter=True,
             condition_on_previous_text=False)
         rows = []
         for segment in segments:

@@ -138,3 +138,7 @@ operating-graph-owner.local/
 
 # self-improve lab runtime state (worktrees, run reports) - never tracked
 self-improve-lab/
+
+# Telegram user-account sessions (Telethon): a session file is the whole account
+*.session
+*.session-journal

@@ -30,6 +30,7 @@ _KEY_HINTS = {
     "learning_goals": "учусь изучаю учёба learn",
     "short_term": "нужно надо план цель need plan",
     "devices": "пользуюсь устройство телефон компьютер device",
+    "last_call_summary": "звонок позвонили созвон разговор говорили обсуждали вчера call",
 }
 
 
