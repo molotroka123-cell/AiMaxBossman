@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -159,7 +160,7 @@ def test_voice_turn_learns_only_after_verified_delivery_and_stays_person_scoped(
     guest_key = runtime.vault.key_for_telegram(guest.user_id)
     warm(runtime, owner_key)
     warm(runtime, guest_key)
-    runtime.store.put("voice_reply:" + owner.key, True)
+    runtime.store.put("voice_reply:" + owner.key, time.time() + 600)      # an active /voice on session
     runtime.catalog = {FREE_ENDPOINT.id: FREE_ENDPOINT}
     runtime.catalog_checked_at = 1.0
     heard = []
@@ -176,11 +177,14 @@ def test_voice_turn_learns_only_after_verified_delivery_and_stays_person_scoped(
         assert not stopped()
         return {"text": "я люблю горы", "cloud_used": False}
 
+    async def send_text(person, text, **kwargs):
+        assert runtime.store.history(owner.key) == []       # learning happens only after a verified delivery
+        return receipt                                      # the TEXT reply is the verified delivery
+
     async def send_voice(person, source_text, _synthesize, **kwargs):
         heard.append((person.key, source_text, kwargs.get("reply_to_message_id")))
-        assert runtime.store.history(owner.key) == []
         assert (await _synthesize(source_text)).startswith(b"OggS")
-        return receipt
+        return 88
 
     claims = iter([(305, message("", message_id=31,
                                  _voice={"file_id": "voice-id", "duration": 3}))])
@@ -191,13 +195,15 @@ def test_voice_turn_learns_only_after_verified_delivery_and_stays_person_scoped(
             raise asyncio.CancelledError
 
     monkeypatch.setattr(rt, "transcribe_telegram_voice", transcribe)
+    monkeypatch.setattr(runtime.telegram, "send", send_text)
     monkeypatch.setattr(runtime.telegram, "send_voice", send_voice)
     monkeypatch.setattr(runtime.store, "claim", claim)
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(runtime._worker(owner, "chat"))
-    assert heard and heard[0][0] == owner.key and heard[0][2] == 31
-    assert len(synthesized) == 1
-    assert synthesized[0][0] == heard[0][1]
+    # Text first; the voice is added only after a verified text delivery.
+    assert (bool(heard) is (receipt is not None)) and (not heard or (heard[0][0] == owner.key and heard[0][2] == 31))
+    assert len(synthesized) == len(heard)
+    assert not heard or synthesized[0][0] == heard[0][1]
     assert bool(runtime.store.history(owner.key)) is (receipt is not None)
     assert bool(list(runtime.vault.iter_candidate_records(owner_key))) is (receipt is not None)
     assert runtime.store.history(guest.key) == []
@@ -241,9 +247,10 @@ def test_voice_reply_preference_is_owner_only(tmp_path):
     assert "доступен только владельцу" in asyncio.run(runtime.handle(guest,
         message("/voice on", user_id=guest.user_id)))
     assert runtime.store.get("voice_reply:" + guest.key) is None
-    assert "включён" in asyncio.run(runtime.handle(owner, message("/voice on")))
-    assert runtime.store.get("voice_reply:" + owner.key) is True
-    assert "выключен" in asyncio.run(runtime.handle(owner, message("/voice off")))
+    assert "включены" in asyncio.run(runtime.handle(owner, message("/voice on")))
+    until = runtime.store.get("voice_reply:" + owner.key)
+    assert rt.voice_session_active(until) and not isinstance(until, bool), "/voice on is a session that expires by itself"
+    assert "выключены" in asyncio.run(runtime.handle(owner, message("/voice off")))
     assert runtime.store.get("voice_reply:" + owner.key) is False
     runtime.store.close()
 
@@ -255,7 +262,7 @@ def _voice_reply_turn(tmp_path, monkeypatch, *, speaker_role, clone, piper):
         Person(user_id=101, chat_id=101, role="owner"), guest)))
     speaker = runtime.settings.people[0] if speaker_role == "owner" else guest
     warm(runtime, runtime.vault.key_for_telegram(speaker.user_id))
-    runtime.store.put("voice_reply:" + speaker.key, True)
+    runtime.store.put("voice_reply:" + speaker.key, time.time() + 600)   # an active /voice on session
     runtime.catalog = {FREE_ENDPOINT.id: FREE_ENDPOINT}
     runtime.catalog_checked_at = 1.0
     monkeypatch.setenv("BOSSMAN_PIT_TTS_BACKEND", "chatterbox")
@@ -314,7 +321,8 @@ def test_failed_voice_clone_falls_back_to_piper_voice(tmp_path, monkeypatch):
         tmp_path, monkeypatch, speaker_role="owner",
         clone=_fails("VOICE_MODEL_INVALID"), piper=lambda _kwargs: piper_audio)
     assert engines == ["clone", "piper"]
-    assert delivered == [("voice", owner.key, piper_audio)]
+    assert [(kind, key) for kind, key, _ in delivered] == [("text", owner.key), ("voice", owner.key)]
+    assert delivered[1][2] == piper_audio
 
 
 def test_failed_clone_and_piper_fall_back_to_text(tmp_path, monkeypatch):

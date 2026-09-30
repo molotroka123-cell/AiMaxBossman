@@ -137,11 +137,27 @@ INTRO_RU = (
     "отключить это можно командой /privacy training off."
 )
 
+# Voice replies happen only when asked: an explicit request in the message, or a /voice on session that expires by itself. The
+# text reply is ALWAYS sent; the voice message is an addition (a failed or blocked voice never loses the answer).
+VOICE_SESSION_SECONDS = 1800
+VOICE_REQUEST_RE = re.compile(
+    r"\bголос(?:ом|ов(?:ой|ое|ые|ым|ого))\b|\bозвуч\w*|\bвслух\b|\bvoice (?:message|note|reply)\b|\b(?:out loud|aloud)\b",
+    re.I)
+
+
+def voice_session_active(value: object, now: float | None = None) -> bool:
+    """A stored ``/voice on`` is an expiry timestamp. The old sticky ``True`` flag is deliberately NOT honoured: it made Jeff
+    answer by voice forever, so it is treated as off."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    return float(value) > (time.time() if now is None else now)
+
+
 HELP_RU = (
     "Команды Jeff: /memory — что помню; /forget <что>; /correct <было> => <стало>; "
     "/pause_memory; /resume_memory; /passport; /personalization on|off; /revoke_consent; "
     "/export_me; /delete_me; /privacy; /search <запрос>; /style <как отвечать>; "
-    "/roleplay и /parody — игровые режимы; /voice on|off — голосовой ответ владельцу."
+    "/roleplay и /parody — игровые режимы; /voice on|off — голос к ответам на 30 минут (текст остаётся); или просто «ответь голосом»."
 )
 
 NO_MODEL_RU = ("Сейчас у меня нет доступной бесплатной модели для ответа. Это честный статус, "
@@ -1568,9 +1584,17 @@ class ParticipantRuntime:
                 answer = self.guard_outgoing(answer)
                 rendered = render_jeff_reply(answer)
                 voice_mode = self._voice_reply_wanted(fresh, message)
+                # The text answer always goes first and is the verified delivery; the voice is an addition.
+                # A progressive preview becomes the final message by one last edit; otherwise one ordinary send.
+                sent_id = (draft.message_id if draft is not None
+                           and await draft.finalize(rendered) else None)
+                if sent_id is None:
+                    sent_id = await self.telegram.send(
+                        fresh, rendered, reply_to_message_id=message.get("_message_id"),
+                        parse_mode="HTML")
+                if type(sent_id) is not int or sent_id <= 0:
+                    raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
                 if voice_mode:
-                    if draft is not None:
-                        await draft.discard()
                     async def make_voice(guarded_text: str) -> bytes:
                         # Pre-TTS capture: the exact text about to be spoken is audited
                         # (hash + category + redacted copy) before any engine runs.
@@ -1605,30 +1629,20 @@ class ParticipantRuntime:
                             allow_candidate=fresh.role == "owner",
                         )
                     try:
-                        sent_id = await self.telegram.send_voice(
+                        await self.telegram.send_voice(
                             fresh, spoken_reply_text(answer), make_voice,
                             reply_to_message_id=message.get("_message_id"),
                             stopped=lambda: (self.home / STOP_FLAG).exists(),
                         )
-                    except PiperError as exc:
+                    except (PiperError, CompanionError) as exc:
                         if str(exc) == "VOICE_STOPPED":
                             raise StopRequested("owner stop flag") from exc
-                        # Missing/failed optional local TTS leaves the chat usable.
-                        # A network or unverified voice delivery is NOT retried.
-                        sent_id = await self.telegram.send(
-                            fresh, rendered, reply_to_message_id=message.get("_message_id"),
-                            parse_mode="HTML")
-                else:
-                    # A progressive preview becomes the final message by one last edit;
-                    # otherwise (or if that edit fails) exactly one ordinary send.
-                    sent_id = (draft.message_id if draft is not None
-                               and await draft.finalize(rendered) else None)
-                    if sent_id is None:
-                        sent_id = await self.telegram.send(
-                            fresh, rendered, reply_to_message_id=message.get("_message_id"),
-                            parse_mode="HTML")
-                if type(sent_id) is not int or sent_id <= 0:
-                    raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
+                        # Missing/blocked/failed optional voice: the text reply is already delivered and is never re-sent.
+                        with contextlib.suppress(OSError):
+                            _append_jsonl(self.home / "logs" / "runtime_error.jsonl", {
+                                "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                "kind": "voice_reply_skipped", "code": str(exc)[:60],
+                                "schema": "bossman.pit.runtime-error/1"})
                 with contextlib.suppress(OSError):
                     _append_jsonl(self.home / "logs" / "delivery_log.jsonl", {
                         "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -1688,7 +1702,8 @@ class ParticipantRuntime:
     def _voice_reply_wanted(self, fresh: Person, message: dict) -> bool:
         return bool(
             (fresh.role == "owner"
-             and self.store.get("voice_reply:" + fresh.key, False) is True
+             and (voice_session_active(self.store.get("voice_reply:" + fresh.key, False))
+                  or bool(VOICE_REQUEST_RE.search(str(message.get("text") or ""))))
              or participant_profile.read_profile(
                  self.vault.data_dir, self.vault.key_for_telegram(fresh.user_id))[0]["voice_reply"])
             and not str(message.get("text") or "").startswith("/")
@@ -1706,9 +1721,7 @@ class ParticipantRuntime:
         if (not text or text.startswith("/") or message.get("_photo") or message.get("_document")
                 or message.get("_voice") or message.get("_sticker")):
             return None
-        with contextlib.suppress(Exception):
-            if self._voice_reply_wanted(person, message):
-                return None
+        # A voice reply no longer replaces the text: the text (this draft) always goes first.
         reply_to = message.get("_message_id")
         return TelegramDraft(
             self.telegram, person, reply_to=reply_to if type(reply_to) is int and reply_to > 0 else None,
@@ -1925,10 +1938,12 @@ class ParticipantRuntime:
             selection = argument.strip().lower()
             if selection not in {"on", "off"}:
                 return "Голосовой режим: /voice on или /voice off."
-            self.store.put("voice_reply:" + person.key, selection == "on")
-            return ("Голосовой ответ включён для этого чата. Если локальная озвучка "
-                    "недоступна, отвечу текстом." if selection == "on" else
-                    "Голосовой ответ выключен для этого чата.")
+            self.store.put("voice_reply:" + person.key,
+                           time.time() + VOICE_SESSION_SECONDS if selection == "on" else False)
+            return (f"Голосовые ответы включены на {VOICE_SESSION_SECONDS // 60} минут: к каждому ответу добавлю голос, текст "
+                    "останется. Если локальная озвучка недоступна, будет только текст. "
+                    "Или просто попросите «ответь голосом»." if selection == "on" else
+                    "Голосовые ответы выключены. Голос только по просьбе.")
         if command in USER_COMMANDS:
             return await self._memory_command(person, person_key, text)
         if command in {"/photoedit", "/editphoto"}:
