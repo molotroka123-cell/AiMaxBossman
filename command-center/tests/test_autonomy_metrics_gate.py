@@ -24,7 +24,8 @@ def test_directions():
 
 def test_accept_when_target_improves_and_protected_hold():
     v = decide(BEFORE, after(), "identity_redteam.leaks", PROTECTED, {"latency_ms": 50})
-    assert v.decision == "ACCEPT" and v.accepted and v.target.change == 4
+    assert v.decision == "ACCEPT" and v.verdict == "ACCEPT" and v.accepted and v.target.change == 4
+    assert v.as_dict()["verdict"] == "ACCEPT" and v.as_dict()["accepted"] is True
 
 
 def test_reject_when_target_does_not_improve():

@@ -119,10 +119,10 @@ async def test_reject_and_revise(api):
     assert (await api.client.post(f"/api/autonomy/goals/{GID}/reject", json={})).status_code == 409
 
 
-async def test_reject_blocks(api):
+async def test_reject_completes_as_rejected_by_user(api):
     to_user_approval(api.svc.autonomy)
     r = (await api.client.post(f"/api/autonomy/goals/{GID}/reject", json={"note": "no"})).json()
-    assert r["goal"]["state"] == "BLOCKED" and r["goal"]["blocked_reason"] == "rejected by the user"
+    assert r["goal"]["state"] == "COMPLETE" and r["goal"]["outcome"] == "rejected_by_user"
 
 
 async def test_journal_endpoint_filters(api):

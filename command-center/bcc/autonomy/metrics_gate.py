@@ -47,9 +47,13 @@ class GateVerdict:
     def accepted(self) -> bool:
         return self.decision == "ACCEPT"
 
+    @property
+    def verdict(self) -> Decision:
+        return self.decision
+
     def as_dict(self) -> dict:
         from dataclasses import asdict
-        return asdict(self)
+        return {**asdict(self), "verdict": self.decision, "accepted": self.accepted}
 
 
 def direction_of(metric: str) -> str:

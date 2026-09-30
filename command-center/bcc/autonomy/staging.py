@@ -46,16 +46,22 @@ class StagingReport:
     passed: bool
     port: int | None
     data_dir: str
-    checks: tuple[CheckResult, ...]
+    checks: dict[str, dict]      # name -> {"ok", "detail", "duration_s"}
     reason: str
     torn_down: bool
     started_at: str
     finished_at: str
 
+    @property
+    def ok(self) -> bool:
+        return self.passed
+
     def as_dict(self) -> dict:
-        d = asdict(self)
-        d["checks"] = {c.name: {"ok": c.ok, "detail": c.detail, "duration_s": c.duration_s} for c in self.checks}
-        return d
+        return {**asdict(self), "ok": self.passed}
+
+
+def _checks(results) -> dict[str, dict]:
+    return {c.name: {"ok": c.ok, "detail": c.detail, "duration_s": c.duration_s} for c in results}
 
 
 class Launcher(Protocol):
@@ -124,7 +130,7 @@ class StagingRunner:
         names = tuple(checks)
 
         def fail(reason: str, port=None, data_dir="", results=(), torn_down=True) -> StagingReport:
-            rep = StagingReport(sha, False, port, data_dir, tuple(results), reason, torn_down, started, utc_now())
+            rep = StagingReport(sha, False, port, data_dir, _checks(results), reason, torn_down, started, utc_now())
             self._log("staging.finished", {"sha": sha, **{k: v for k, v in rep.as_dict().items() if k != "sha"}})
             return rep
 
@@ -178,7 +184,7 @@ class StagingRunner:
         if not reason and failed:
             reason = f"checks failed: {failed}"
         passed = not reason and len(results) == len(names) and torn_down
-        rep = StagingReport(sha, passed, port, str(data_dir), tuple(results), reason, torn_down, started, utc_now())
+        rep = StagingReport(sha, passed, port, str(data_dir), _checks(results), reason, torn_down, started, utc_now())
         self._log("staging.finished", {"sha": sha, **{k: v for k, v in rep.as_dict().items() if k != "sha"}})
         return rep
 

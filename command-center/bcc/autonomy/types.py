@@ -77,6 +77,7 @@ class Review:
     diff_sha256: str
     verdict: Verdict
     notes: str
+    evidence_sha256: str = ""    # hash of the test evidence the reviewer saw (optional)
 
 
 __all__ = ["GoalState", "RiskTier", "Requester", "RiskClass", "Reviewer", "Verdict", "GOAL_STATES", "RISK_TIERS",

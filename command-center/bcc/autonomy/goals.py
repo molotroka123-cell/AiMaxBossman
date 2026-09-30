@@ -32,8 +32,8 @@ TRANSITIONS: dict[str, frozenset[str]] = {
     "TESTING": frozenset({"CLAUDE_REVIEW", "BUILDING", "BLOCKED"}),
     "CLAUDE_REVIEW": frozenset({"CODEX_REVIEW", "BUILDING", "BLOCKED"}),
     "CODEX_REVIEW": frozenset({"STAGING", "BUILDING", "BLOCKED"}),
-    "STAGING": frozenset({"USER_APPROVAL", "BUILDING", "BLOCKED"}),
-    "USER_APPROVAL": frozenset({"DEPLOYED", "BUILDING", "BLOCKED"}),
+    "STAGING": frozenset({"USER_APPROVAL", "DEPLOYED", "BUILDING", "BLOCKED"}),   # DEPLOYED: docs_tests auto tier
+    "USER_APPROVAL": frozenset({"DEPLOYED", "BUILDING", "COMPLETE", "BLOCKED"}),   # COMPLETE = user Reject
     "DEPLOYED": frozenset({"MONITORING", "ROLLED_BACK", "BLOCKED"}),
     "MONITORING": frozenset({"COMPLETE", "ROLLED_BACK", "BLOCKED"}),
     "ROLLED_BACK": frozenset({"PLANNED", "BLOCKED"}),
@@ -45,6 +45,8 @@ assert set(TRANSITIONS) == set(GOAL_STATES)
 _EXEC_REF = re.compile(r"^(pytest|check|cmd|probe|metric|script|test):\S+")
 _MEASURABLE = re.compile(r"(\d|<=|>=|==|!=|<|>|\b(zero|none|all|every|no)\b)", re.I)
 _HISTORY_KEEP = 500
+_SHA = re.compile(r"[0-9a-f]{40}([0-9a-f]{24})?")
+_HEX64 = re.compile(r"[0-9a-f]{64}")
 
 
 class GoalError(ValueError):
@@ -208,12 +210,62 @@ class GoalStore:
         if new == "USER_APPROVAL" and not (self.approvals_valid(rec) and self.staging_passed(rec)):
             raise GuardError("staging did not pass for the approved SHA")
         if new == "DEPLOYED":
-            if not self.apply_decided(rec):
-                raise GuardError("the user's Apply decision for the current SHA is missing")
-            if evidence.get("owner_confirmed") is not True:
-                raise GuardError("the owner has not confirmed the release")
-        if new == "COMPLETE" and evidence.get("gate") != "ACCEPT":
-            raise GuardError("COMPLETE needs a metrics gate ACCEPT")
+            auto = (rec["goal"]["risk_tier"] == "docs_tests" and evidence.get("auto_tier") is True
+                    and self.approvals_valid(rec) and self.staging_passed(rec))
+            if rec["state"] == "STAGING" and not auto:
+                raise GuardError("STAGING -> DEPLOYED only in the automatic docs/tests tier with both approvals "
+                                 "and a passed staging")
+            if not auto:
+                if not self.apply_decided(rec):
+                    raise GuardError("the user's Apply decision for the current SHA is missing")
+                if evidence.get("owner_confirmed") is not True:
+                    raise GuardError("the owner has not confirmed the release")
+        if new == "COMPLETE":
+            if rec["state"] == "USER_APPROVAL":
+                if evidence.get("outcome") != "rejected_by_user":
+                    raise GuardError("USER_APPROVAL -> COMPLETE only as the user's Reject (outcome rejected_by_user)")
+            elif "ACCEPT" not in (evidence.get("gate"), evidence.get("verdict")):
+                raise GuardError("COMPLETE needs a metrics gate ACCEPT")
+
+    def _bind_from_evidence(self, rec: dict, new: str, evidence: Mapping[str, Any]) -> None:
+        """A cycle that keeps its own review gate (Line B) may carry the binding facts in the
+        transition evidence instead of calling record_*; they are recorded with the same checks."""
+        gid = rec["goal"]["goal_id"]
+        c = rec.get("candidate") or {}
+        sha = evidence.get("sha")
+        if new == "TESTING" and isinstance(sha, str) and isinstance(evidence.get("diff_sha256"), str):
+            if not (_SHA.fullmatch(sha) and _HEX64.fullmatch(evidence["diff_sha256"])):
+                raise GuardError("candidate evidence needs a full commit SHA and a sha256 diff hash")
+            if c.get("sha") != sha or c.get("diff_sha256") != evidence["diff_sha256"]:
+                self._invalidate(rec, "candidate SHA/diff changed")
+            rec["candidate"] = {**c, "sha": sha, "diff_sha256": evidence["diff_sha256"],
+                                "author": str(evidence.get("author") or evidence.get("writer") or c.get("author", "")),
+                                "set_at": utc_now()}
+            return
+        if not c or sha != c.get("sha"):
+            return
+        bound = {"sha": c["sha"], "diff_sha256": c["diff_sha256"]}
+        if new == "CLAUDE_REVIEW" and _HEX64.fullmatch(str(evidence.get("evidence_sha256", "")))                 and evidence.get("tests_passed", True) is True and not (rec.get("tests") or {}).get("passed"):
+            rec["tests"] = {**bound, "passed": True, "evidence_sha256": evidence["evidence_sha256"]}
+        if new == "CODEX_REVIEW" and evidence.get("claude") == "APPROVE":
+            rec.setdefault("approvals", {}).setdefault("claude", {"goal_id": gid, "reviewer": "claude", **bound,
+                                                                  "verdict": "APPROVE", "notes": "via transition"})
+        if new in ("USER_APPROVAL", "DEPLOYED") and evidence.get("staging_ok") is True                 and rec["state"] == "STAGING" and not self.staging_passed(rec):
+            rec["staging"] = {**bound, "passed": True, "via": "transition evidence"}
+
+    def _bind_gate_approvals(self, rec: dict, evidence: Mapping[str, Any]) -> None:
+        g = evidence.get("approvals")
+        c = rec.get("candidate") or {}
+        if not isinstance(g, Mapping) or not c:
+            return
+        for reviewer, v in (g.get("verdicts") or {}).items():
+            key = list(v.get("key") or []) if isinstance(v, Mapping) else []
+            if reviewer in ("claude", "codex") and v.get("verdict") == "APPROVE" and key[:2] == [c["sha"],
+                                                                                              c["diff_sha256"]]:
+                rec.setdefault("approvals", {})[reviewer] = {
+                    "goal_id": rec["goal"]["goal_id"], "reviewer": reviewer, "sha": c["sha"],
+                    "diff_sha256": c["diff_sha256"], "verdict": "APPROVE", "notes": str(v.get("notes", ""))[:2000],
+                    "evidence_sha256": key[2] if len(key) > 2 else ""}
 
     def _move(self, rec: dict, new: str, evidence: Mapping[str, Any]) -> None:
         old = rec["state"]
@@ -224,6 +276,9 @@ class GoalStore:
             allowed.add(rec["blocked_from"])
         if new not in allowed:
             raise TransitionError(f"illegal transition {old} -> {new}")
+        if new == "STAGING":
+            self._bind_gate_approvals(rec, evidence)
+        self._bind_from_evidence(rec, new, evidence)
         self._guard(rec, new, evidence)
         if new == "BUILDING" and old in REVISION_SOURCES:
             rec["revisions"] = int(rec.get("revisions", 0)) + 1
@@ -237,6 +292,8 @@ class GoalStore:
             rec["blocked_from"] = None
             rec["blocked_reason"] = ""
         rec["state"] = new
+        if new == "COMPLETE":
+            rec["outcome"] = str(evidence.get("outcome") or "accepted")
         ev = dict(evidence)
         entry_hash = self.journal.append("goal.transition", {"goal_id": rec["goal"]["goal_id"], "from": old,
                                                              "to": new, "evidence": ev})
@@ -371,7 +428,7 @@ class GoalStore:
             if action == "apply":
                 rec["user_decision"] = decision
             elif action == "reject":
-                self._move(rec, "BLOCKED", {"reason": "rejected by the user", "note": note})
+                self._move(rec, "COMPLETE", {"outcome": "rejected_by_user", "applied": False, "note": note})
             else:
                 self._move(rec, "BUILDING", {"reason": "revision requested by the user", "note": note})
         return self._mutate(goal_id, fn)

@@ -45,7 +45,7 @@ def test_contract_field_order():
                                   "risk_class", "timeout_s", "rollback"]
     assert names(HandResult) == ["request_hash", "ok", "exit_code", "started_at", "finished_at", "artifacts",
                                  "refused_reason"]
-    assert names(Review) == ["goal_id", "reviewer", "sha", "diff_sha256", "verdict", "notes"]
+    assert names(Review) == ["goal_id", "reviewer", "sha", "diff_sha256", "verdict", "notes", "evidence_sha256"]
 
 
 def test_frozen():
@@ -66,6 +66,11 @@ def test_round_trip_through_schemas():
     assert schemas.hand_request_from_json(schemas.to_json(h)) == h
     r = Review(goal_id="JEFF-0042", reviewer="codex", sha=SHA, diff_sha256=DIFF, verdict="APPROVE", notes="ok")
     assert schemas.review_from_json(schemas.to_json(r)) == r
+    r2 = Review("JEFF-0042", "claude", SHA, DIFF, "APPROVE", "ok", evidence_sha256=DIFF)
+    assert schemas.review_from_json(schemas.to_json(r2)) == r2
+    old = {k: v for k, v in schemas.to_json(r).items() if k != "evidence_sha256"}
+    assert schemas.review_from_json(old) == r                      # optional on the wire
+    assert schemas.errors_for("review", {**old, "evidence_sha256": "nothex"})
     res = HandResult(request_hash=DIFF, ok=True, exit_code=0, started_at="t0", finished_at="t1",
                      artifacts={"stdout": DIFF})
     assert schemas.hand_result_from_json(schemas.to_json(res)) == res

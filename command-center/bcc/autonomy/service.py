@@ -99,7 +99,7 @@ class AutonomyService:
         g = rec["goal"]
         c = rec.get("candidate") or {}
         return {"goal_id": g["goal_id"], "problem": g["problem"], "state": rec["state"], "risk_tier": g["risk_tier"],
-                "target_metric": g["target_metric"], "blocked_reason": rec.get("blocked_reason", ""),
+                "target_metric": g["target_metric"], "blocked_reason": rec.get("blocked_reason", ""), "outcome": rec.get("outcome", ""),
                 "sha": c.get("sha", ""), "updated_at": rec.get("updated_at", ""),
                 "approvals": sorted(k for k in (rec.get("approvals") or {})
                                     if GoalStore._approved_by(rec, k))}

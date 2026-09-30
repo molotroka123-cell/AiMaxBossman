@@ -57,8 +57,8 @@ def runner(tmp_path, owner, launcher=None, **kw):
 def test_all_checks_pass_on_separate_port_and_temp_dir(tmp_path, owner):
     launcher = FakeLauncher()
     rep = runner(tmp_path, owner, launcher, port_finder=lambda: 45123).run(SHA)
-    assert rep.passed and rep.torn_down and rep.port == 45123
-    assert [c.name for c in rep.checks] == list(STANDARD_CHECKS)
+    assert rep.passed and rep.ok and rep.torn_down and rep.port == 45123
+    assert list(rep.checks) == list(STANDARD_CHECKS) and all(c["ok"] for c in rep.checks.values())
     s = launcher.started[0]
     assert s["env"]["BCC_DATA_DIR"] == str(s["data_dir"]) and s["env"]["BCC_PORT"] == "45123"
     assert not s["data_dir"].exists()                                  # temp dir removed
@@ -90,7 +90,7 @@ def test_failing_or_crashing_probe_fails_but_tears_down(tmp_path, owner):
     launcher = FakeLauncher()
     rep = runner(tmp_path, owner, launcher, probes=probes(fail=("memory",), boom=("voice_status",))).run(SHA)
     assert not rep.passed and rep.torn_down and "memory" in rep.reason and "voice_status" in rep.reason
-    assert "probe raised ValueError" in {c.name: c.detail for c in rep.checks}["voice_status"]
+    assert "probe raised ValueError" in rep.checks["voice_status"]["detail"] and not rep.ok
     assert launcher.stopped and not launcher.started[0]["data_dir"].exists()
 
 
@@ -102,7 +102,7 @@ def test_unknown_check_is_refused_before_launch(tmp_path, owner):
 
 def test_start_failure_and_teardown_failure(tmp_path, owner):
     rep = runner(tmp_path, owner, FakeLauncher(fail_start=True)).run(SHA)
-    assert not rep.passed and "did not start" in rep.reason and rep.checks == ()
+    assert not rep.passed and "did not start" in rep.reason and rep.checks == {}
     rep = runner(tmp_path, owner, FakeLauncher(fail_stop=True)).run(SHA)
     assert not rep.passed and not rep.torn_down and "teardown failed" in rep.reason
 
@@ -115,4 +115,4 @@ def test_short_sha_is_refused(tmp_path, owner):
 def test_report_dict_is_json_ready(tmp_path, owner):
     import json
     d = runner(tmp_path, owner).run(SHA).as_dict()
-    assert json.loads(json.dumps(d))["checks"]["memory"]["ok"] is True
+    assert json.loads(json.dumps(d))["checks"]["memory"]["ok"] is True and d["ok"] is True

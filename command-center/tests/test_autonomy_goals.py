@@ -207,10 +207,71 @@ def test_revision_invalidates_both_approvals(store):
     assert rec["state"] == "BUILDING" and rec["approvals"] == {} and rec["revisions"] == 1
 
 
-def test_user_reject_blocks(store):
+def test_user_reject_completes_with_outcome(store):
     to_user(store)
     rec = store.record_user_decision("JEFF-0042", "reject", sha=SHA1, diff_sha256=D1)
-    assert rec["state"] == "BLOCKED" and rec["blocked_reason"] == "rejected by the user"
+    assert rec["state"] == "COMPLETE" and rec["outcome"] == "rejected_by_user"
+
+
+def test_user_approval_to_complete_only_as_reject(store):
+    to_user(store)
+    with pytest.raises(GuardError):
+        store.transition("JEFF-0042", "COMPLETE", {"gate": "ACCEPT"})
+    assert store.transition("JEFF-0042", "COMPLETE", {"outcome": "rejected_by_user"})["outcome"] ==         "rejected_by_user"
+
+
+def test_line_b_style_evidence_binds_candidate_tests_reviews_and_staging(store):
+    """A cycle with its own review gate carries the binding facts in the transition evidence."""
+    store.create(mk())
+    store.transition("JEFF-0042", "PLANNED", {})
+    store.transition("JEFF-0042", "BUILDING", {})
+    store.transition("JEFF-0042", "TESTING", {"sha": SHA1, "diff_sha256": D1, "writer": "claude"})
+    assert store.get("JEFF-0042")["candidate"]["author"] == "claude"
+    with pytest.raises(GuardError):                                   # no evidence hash: not tested
+        store.transition("JEFF-0042", "CLAUDE_REVIEW", {"sha": SHA1})
+    store.transition("JEFF-0042", "CLAUDE_REVIEW", {"sha": SHA1, "evidence_sha256": "e" * 64})
+    with pytest.raises(GuardError):                                   # approval of another sha is ignored
+        store.transition("JEFF-0042", "CODEX_REVIEW", {"claude": "APPROVE", "sha": SHA2})
+    store.transition("JEFF-0042", "CODEX_REVIEW", {"claude": "APPROVE", "sha": SHA1})
+    gate = {"verdicts": {"claude": {"verdict": "APPROVE", "key": [SHA1, D1, "e" * 64], "notes": ""},
+                         "codex": {"verdict": "APPROVE", "key": [SHA1, D2, "e" * 64], "notes": ""}}}
+    with pytest.raises(GuardError):                                   # codex approved another diff
+        store.transition("JEFF-0042", "STAGING", {"approvals": gate})
+    gate["verdicts"]["codex"]["key"] = [SHA1, D1, "e" * 64]
+    store.transition("JEFF-0042", "STAGING", {"approvals": gate})
+    rec = store.transition("JEFF-0042", "USER_APPROVAL", {"sha": SHA1, "staging_ok": True})
+    assert GoalStore.approvals_valid(rec) and GoalStore.staging_passed(rec)
+    with pytest.raises(GuardError):                                   # the loop cannot deploy by itself
+        store.transition("JEFF-0042", "DEPLOYED", {"sha": SHA1, "user_approved": True})
+    store.transition("JEFF-0042", "BUILDING", {"reason": "user asked for a revision"})
+    assert store.get("JEFF-0042")["approvals"] == {}                  # revision invalidated both approvals
+    rec = store.transition("JEFF-0042", "TESTING", {"sha": SHA2, "diff_sha256": D2})
+    assert rec["candidate"]["sha"] == SHA2 and rec["tests"] is None
+
+
+def test_docs_tests_auto_tier_deploy_needs_approvals_and_staging(tmp_path):
+    s = GoalStore(tmp_path, clock=Clock())
+    s.create(mk(risk_tier="docs_tests"))
+    for st, ev in (("PLANNED", {}), ("BUILDING", {}), ("TESTING", {"sha": SHA1, "diff_sha256": D1}),
+                   ("CLAUDE_REVIEW", {"sha": SHA1, "evidence_sha256": "e" * 64}),
+                   ("CODEX_REVIEW", {"claude": "APPROVE", "sha": SHA1})):
+        s.transition("JEFF-0042", st, ev)
+    s.record_review(rv("codex"))
+    s.transition("JEFF-0042", "STAGING", {})
+    with pytest.raises(GuardError):                                   # no staging evidence yet
+        s.transition("JEFF-0042", "DEPLOYED", {"auto_tier": True})
+    assert s.transition("JEFF-0042", "DEPLOYED", {"auto_tier": True, "sha": SHA1, "staging_ok": True}
+                        )["state"] == "DEPLOYED"
+
+
+def test_auto_tier_is_refused_above_docs_tests(store):
+    to_review(store)
+    store.record_review(rv("claude"))
+    store.transition("JEFF-0042", "CODEX_REVIEW", {})
+    store.record_review(rv("codex"))
+    store.transition("JEFF-0042", "STAGING", {})
+    with pytest.raises(GuardError):
+        store.transition("JEFF-0042", "DEPLOYED", {"auto_tier": True, "sha": SHA1, "staging_ok": True})
 
 
 def test_user_decision_bound_to_sha(store):
