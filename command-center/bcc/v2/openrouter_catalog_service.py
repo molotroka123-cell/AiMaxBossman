@@ -16,6 +16,10 @@ from .tables import provider_catalog_models
 # Не ходить в OpenRouter чаще этого интервала без явного force.
 DEFAULT_TTL_SECONDS = 900
 
+# Registry status of a model the live provider catalog no longer lists.
+MISSING_STATUS = "unavailable"
+MISSING_DETAIL = "нет в живом каталоге провайдера: модель снята — используется запасная модель"
+
 
 class CatalogUnavailable(RuntimeError):
     """Каталог не обновился, но предыдущий каталог в БД цел.
@@ -154,6 +158,7 @@ class OpenRouterCatalogService:
                         .where(provider_catalog_models.c.id == row_id)
                         .values(**values)
                     )
+            unavailable = await self._mark_catalog_presence(s, provider_id, remote_ids, now)
             stale_left = await s.execute(
                 sa.select(sa.func.count()).select_from(provider_catalog_models).where(
                     provider_catalog_models.c.provider_id == provider_id,
@@ -167,7 +172,38 @@ class OpenRouterCatalogService:
         unique_ids = {c.id for c in cards}
         return {"provider_id": provider_id, "synced": len(unique_ids), "cached": False,
                 "remote_ids": len(remote_ids), "stale": stale_count,
-                "last_synced_at": now}
+                "unavailable": unavailable, "last_synced_at": now}
+
+    @staticmethod
+    async def _mark_catalog_presence(s, provider_id: int, remote_ids: list[str], now) -> list[str]:
+        """RC19: a registry model that left the live catalog is not «online».
+
+        `nex-agi/nex-n2.5-pro:free` was withdrawn by OpenRouter; the sync already
+        dropped its price, yet its row kept status=online, so executor
+        auto-selection still picked an agent with it and every run died on
+        «unknown cloud pricing». The live catalog is the authority: missing ->
+        status «unavailable» (auto-selection skips it); back in the catalog ->
+        «unknown» until the next probe proves it answers. An empty catalog
+        proves nothing and changes no status. Returns the aliases marked by
+        this sync.
+        """
+        if not remote_ids:
+            return []
+        present = set(remote_ids)
+        rows = (await s.execute(sa.select(models_t.c.id, models_t.c.name, models_t.c.alias,
+                                          models_t.c.status)
+                                .where(models_t.c.provider_id == provider_id))).fetchall()
+        marked: list[str] = []
+        for r in rows:
+            m = r._mapping
+            if m["name"] not in present and m["status"] != MISSING_STATUS:
+                await s.execute(sa.update(models_t).where(models_t.c.id == m["id"]).values(
+                    status=MISSING_STATUS, status_detail=MISSING_DETAIL, last_check=now))
+                marked.append(m["alias"] or m["name"])
+            elif m["name"] in present and m["status"] == MISSING_STATUS:
+                await s.execute(sa.update(models_t).where(models_t.c.id == m["id"]).values(
+                    status="unknown", status_detail="", last_check=now))
+        return marked
 
     async def catalog_status(self, provider_id: int) -> dict:
         """Состояние подключения для UI: есть ли ключ, размер кэша, последний sync."""
