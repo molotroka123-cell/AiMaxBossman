@@ -107,7 +107,7 @@ def transcribe_wav(audio: bytes, *, language: str = "ru",
     """PCM16 WAV -> {text, confidence, needs_confirm, ...}. Raises SpeechError."""
     started = time.perf_counter()
     try:
-        result = _transcribe_wav(audio, language=language, stopped=stopped)
+        result = _transcribe_wav(audio, language=language, stopped=stopped, beam_size=beam_size)
     except SpeechError as exc:
         # A deliberate STOP or a busy engine says nothing about how fast STT is.
         if str(exc) not in {"VOICE_STOPPED", "VOICE_BUSY", "VOICE_NO_SPEECH"}:
@@ -118,7 +118,7 @@ def transcribe_wav(audio: bytes, *, language: str = "ru",
 
 
 def _transcribe_wav(audio: bytes, *, language: str = "ru",
-                    stopped: Callable[[], bool] = lambda: False) -> dict:
+                    stopped: Callable[[], bool] = lambda: False, beam_size: int = 5) -> dict:
     try:
         clean, duration = whisper._validated_wav(audio)
         model_path = whisper._model_directory()
