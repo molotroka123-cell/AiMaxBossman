@@ -118,6 +118,8 @@ export const FEATURE_PAGES = [
     () => import('./jeff_passports.js'), (m) => m.default),
   lazyPage({ id: 'jeff-insights', title: 'Jeff · обзор', icon: 'agents', nav: 'more', section: 'brains' },
     () => import('./jeff_insights.js'), (m) => m.default),
+  lazyPage({ id: 'autonomy', title: 'Автономия', icon: 'check', nav: 'more', section: 'system' },
+    () => import('./autonomy.js'), (m) => m.default),
 ];
 
 /* Предзагрузка остальных страниц в простое: по одной, чтобы не отбирать сеть и
