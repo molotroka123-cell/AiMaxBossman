@@ -90,7 +90,7 @@ _INJECTION = re.compile(
     r"instructions?|rules?|prompt)|(?:игнорируй|забудь|отмени)\s+(?:все\s+|свои\s+|прежние\s+)*(?:предыдущ|прошл|"
     r"инструкц|правил|систем)|you\s+are\s+now\b|ты\s+теперь\b|^\s*(?:system|assistant)\s*:|<\|[^>]{0,40}\|>|\[/?INST\]|"
     r"(?:do\s+not|don'?t)\s+tell\s+the\s+user|не\s+(?:говори|сообщай)\s+пользователю|\bact\s+as\b|jailbreak", re.I | re.M)
-_CONTROL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f​-‏‪-‮⁠-⁤⁦-⁩﻿]")
+_CONTROL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]")
 _BINARY_MAGIC = (b"GIF8", b"PK\x03\x04", b"\x7fELF", b"%!PS", b"\xca\xfe\xba\xbe")   # never treated as text
 _WINDOWS_RESERVED =re.compile(r"^(?:con|prn|aux|nul|com\d|lpt\d)$", re.I)
 
