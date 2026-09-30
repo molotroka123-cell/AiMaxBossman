@@ -388,12 +388,16 @@ def _append_history(data_dir: Path, findings: list[Finding]) -> bool:
 async def watchdog(request: Request):
     """Что со стартовым окном прямо сейчас. Читающая ручка: работает и при OFF."""
     svc = request.app.state.svc
-    # Проверка адреса блокирует поток на время ожидания ответа — держать на этом
-    # цикл событий нельзя, иначе одна зависшая проверка тормозит всё приложение.
-    findings = await asyncio.to_thread(collect, Path(svc.settings.data_dir), _address(svc.settings))
-    return {"enabled": enabled(), "checked_at": utcnow().isoformat(),
-            "address": _address(svc.settings), "healthy": not findings,
-            "findings": [asdict(f) for f in findings]}
+    from ..probe_cache import probes
+
+    async def current() -> dict:
+        # Проверка адреса блокирует поток на время ожидания ответа — держать на этом
+        # цикл событий нельзя, иначе одна зависшая проверка тормозит всё приложение.
+        findings = await asyncio.to_thread(collect, Path(svc.settings.data_dir), _address(svc.settings))
+        return {"enabled": enabled(), "checked_at": utcnow().isoformat(),
+                "address": _address(svc.settings), "healthy": not findings,
+                "findings": [asdict(f) for f in findings]}
+    return await probes(svc).get("watchdog.now", current, ttl=15.0)
 
 
 @router.get("/watchdog/history")
