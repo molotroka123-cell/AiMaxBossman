@@ -5,7 +5,6 @@ import dataclasses
 
 import pytest
 
-from . import autonomy_fakes  # noqa: F401  (contract types before the Line A merge)
 from bcc.autonomy import skills as S
 from bcc.autonomy.types import Review as ContractReview
 

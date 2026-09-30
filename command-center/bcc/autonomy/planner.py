@@ -169,7 +169,7 @@ def rule_candidates(inp: PlanInputs) -> list[tuple[float, Goal]]:
         path = m.group(1) if m.group(1).startswith("command-center/") else "command-center/" + m.group(1)
         gid = "FIX-" + re.sub(r"[^A-Z0-9]+", "-", m.group(2).upper()).strip("-")[:40]
         out.append((50.0, _goal(gid, f"test {m.group(1)}::{m.group(2)} fails", "the test passes",
-                                [f"pytest {path}::{m.group(2)} exits 0", "protected suites stay green"],
+                                [f"pytest:{path}::{m.group(2)}", "all protected suites pass (exit 0)"],
                                 [path], "docs_tests", "tests.failed", "revert the candidate commit")))
     for item in inp.backlog:
         try:

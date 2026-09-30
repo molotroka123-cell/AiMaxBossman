@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 
-from . import autonomy_fakes  # noqa: F401  (contract types before the Line A merge)
 from bcc.autonomy import savings as SV
 
 

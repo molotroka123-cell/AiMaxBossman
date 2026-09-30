@@ -6,22 +6,31 @@ from pathlib import Path
 
 import pytest
 
-from .autonomy_fakes import (Act, FakeHandBroker, FakeJournal, FakeLease, ScriptedCLIs, done, git, install_fake_clis,
-                             make_goal, make_repo)
+from .autonomy_fakes import (Act, FakeExecutor, ScriptedCLIs, done, git, install_fake_clis, kinds, make_broker,
+                             make_goal, make_repo, of)
 from bcc.autonomy import workers as W
+from bcc.autonomy.goals import GoalStore
+from bcc.autonomy.journal import Journal
+from bcc.autonomy.lease import EngineeringLease
 
 
 @pytest.fixture
 def env(tmp_path, monkeypatch):
     install_fake_clis(monkeypatch)
     repo = make_repo(tmp_path)
-    return {"repo": repo, "base": git(repo, "rev-parse", "HEAD"), "tmp": tmp_path}
+    root = tmp_path / "autonomy"
+    journal = Journal(root)
+    GoalStore(root, journal).create(make_goal())
+    executor = FakeExecutor()
+    return {"repo": repo, "base": git(repo, "rev-parse", "HEAD"), "tmp": root / "cycles" / "G-1", "root": root,
+            "journal": journal, "lease": EngineeringLease(root, journal=journal), "executor": executor,
+            "broker": make_broker(root, journal, executor)}
 
 
 def writer(env, agent="claude", runner=None, lease=None, hands=None, journal=None, goal=None, **kw):
     return W.WriterSession(goal=goal or make_goal(), agent=agent, source_repo=env["repo"], base_sha=env["base"],
-                           session_dir=env["tmp"] / f"s-{agent}", lease=lease or FakeLease(),
-                           hands=hands or FakeHandBroker(), journal=journal or FakeJournal(),
+                           session_dir=env["tmp"] / f"s-{agent}", lease=lease or env["lease"],
+                           hands=hands or env["broker"], journal=journal or env["journal"],
                            runner=runner or ScriptedCLIs(), timeout_s=30, **kw)
 
 
@@ -75,14 +84,15 @@ def test_hand_requests_are_parsed_strictly():
 async def test_writer_commits_in_isolated_clone_and_journals_transcript(env, monkeypatch):
     monkeypatch.setenv("SOME_SERVICE_API_KEY", "x")
     monkeypatch.setenv("BOSSMAN_ANYTHING", "x")
-    lease, journal, clis = FakeLease(), FakeJournal(), ScriptedCLIs()
+    lease, journal, clis = env["lease"], env["journal"], ScriptedCLIs()
     res = await writer(env, lease=lease, journal=journal, runner=clis).run()
     assert res.status == "ok", res.summary
     assert res.sha and res.sha != env["base"] and res.changed_paths == ["docs/README.md"]
     assert len(res.diff_sha256) == 64
     assert git(env["repo"], "rev-parse", "HEAD") == env["base"]          # the source repo is untouched
-    assert lease.holder is None and [h[0] for h in lease.history] == ["acquire", "release"]
-    turn = journal.of("worker_turn")[0]
+    assert lease.current() is None
+    assert [k for k in kinds(journal) if k.startswith("lease.")] == ["lease.acquired", "lease.released"]
+    turn = of(journal, "worker_turn")[0]
     assert turn["transcript_sha256"] == res.transcripts[0]["sha256"]
     assert Path(res.transcripts[0]["path"]).is_file()
     assert "SOME_SERVICE_API_KEY" not in clis.envs[0] and "BOSSMAN_ANYTHING" not in clis.envs[0]
@@ -93,17 +103,17 @@ async def test_writer_commits_in_isolated_clone_and_journals_transcript(env, mon
 
 
 async def test_second_writer_is_refused_while_lease_is_held(env):
-    lease = FakeLease()
-    lease.acquire("OTHER", "someone", 60)
+    lease = env["lease"]
+    lease.acquire("OTHER-1", "someone", 60)
     clis = ScriptedCLIs()
     res = await writer(env, lease=lease, runner=clis).run()
     assert res.status == "lease_busy" and clis.calls == []
 
 
 async def test_timeout_kills_and_releases(env):
-    lease = FakeLease()
+    lease = env["lease"]
     res = await writer(env, lease=lease, runner=ScriptedCLIs(writer=lambda c: Act(timed_out=True))).run()
-    assert res.status == "timeout" and res.sha is None and lease.holder is None
+    assert res.status == "timeout" and res.sha is None and lease.current() is None
 
 
 async def test_scope_violation_is_flagged(env):
@@ -147,19 +157,22 @@ async def test_hand_requests_are_routed_to_the_broker_never_direct(env):
         turns.append(call.prompt)
         if len(turns) == 1:
             req = {"goal_id": "G-1", "requested_by": call.agent, "action": "run_tests", "target": "isolated_worktree",
-                   "arguments": {"suite": "docs"}, "expected_evidence": ["exit_code"], "risk_class": "low"}
+                   "arguments": {"suite": "acceptance", "worktree": str(call.cwd),
+                                 "acceptance_tests": ["pytest:command-center/tests/test_a.py"]},
+                   "expected_evidence": ["exit_code"], "risk_class": "low", "rollback": "none: read-only"}
             bad = {**req, "goal_id": "G-2"}
             return Act(text=json.dumps({"status": "need_hands", "summary": "need tests",
                                         "hand_requests": [req, bad]}))
         return Act(text=done(), edits={"docs/README.md": "fixed\n"})
 
-    broker, journal = FakeHandBroker(), FakeJournal()
-    res = await writer(env, agent="codex", runner=ScriptedCLIs(writer=script), hands=broker,
-                       journal=journal).run()
+    journal = env["journal"]
+    res = await writer(env, agent="codex", runner=ScriptedCLIs(writer=script)).run()
     assert res.status == "ok" and res.turns_used == 2
-    assert [(r.goal_id, r.requested_by, r.action) for r in broker.requests] == [("G-1", "codex", "run_tests")]
+    reqs = [e["request"] for e in of(journal, "hand.request")]
+    assert [(r["goal_id"], r["requested_by"], r["action"]) for r in reqs] == [("G-1", "codex", "run_tests")]
+    assert [r["ok"] for r in of(journal, "hand.result")] == [True] and len(env["executor"].calls) == 1
     assert "Results of your previous hand requests" in turns[1]
-    assert journal.of("hand_requests_rejected")[0]["rejected"][0]["reason"] == "goal_id outside the active goal"
+    assert of(journal, "hand_requests_rejected")[0]["rejected"][0]["reason"] == "goal_id outside the active goal"
 
 
 async def test_writer_turn_budget_is_respected(env):
@@ -169,7 +182,7 @@ async def test_writer_turn_budget_is_respected(env):
 
 async def test_reviewer_is_read_only_at_exact_sha(env):
     w = await writer(env).run()
-    clis, journal = ScriptedCLIs(), FakeJournal()
+    clis, journal = ScriptedCLIs(), env["journal"]
     for agent in ("claude", "codex"):
         sess = W.ReviewerSession(goal=make_goal(), reviewer=agent, source_worktree=Path(w.worktree), sha=w.sha,
                                  diff_sha256=w.diff_sha256, evidence_sha256="e" * 64, evidence=[],
@@ -190,7 +203,7 @@ async def test_reviewer_that_writes_or_times_out_is_unusable(env):
                         (Act(timed_out=True), "timeout")):
         sess = W.ReviewerSession(goal=make_goal(), reviewer="codex", source_worktree=Path(w.worktree), sha=w.sha,
                                  diff_sha256=w.diff_sha256, evidence_sha256="e" * 64, evidence=[],
-                                 session_dir=env["tmp"] / f"r-{status}", journal=FakeJournal(),
+                                 session_dir=env["tmp"] / f"r-{status}", journal=env["journal"],
                                  runner=ScriptedCLIs(reviewer=lambda c, a=act: a))
         assert (await sess.run()).status == status
 

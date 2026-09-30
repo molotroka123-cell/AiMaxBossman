@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 
-from .autonomy_fakes import FakeJournal
 from bcc.autonomy.review import Candidate, ReviewGate, parse_review
 from bcc.autonomy.types import Review
 
@@ -22,7 +21,7 @@ def text(verdict="APPROVE", cand=C1, **extra):
 
 
 def gate(**kw):
-    g = ReviewGate("G", journal=FakeJournal(), **kw)
+    g = ReviewGate("G", **kw)
     g.set_candidate(C1)
     return g
 

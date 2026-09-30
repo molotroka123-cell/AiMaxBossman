@@ -45,6 +45,8 @@ from .planner import ModelFacts, facts_dict, planner_model_allowed
 from .review import Candidate, ReviewGate, parse_review
 from .savings import SavingsLedger
 from .skills import SkillStore, capture_trace
+from .goals import GoalError, TransitionError
+from .probes import STAGING_PROBES
 from .types import Budget, Goal, HandRequest
 from .workers import (HandsPort, JournalPort, LeasePort, NemotronWriter, ProcessRunner, ReviewerSession,
                       WriterSession, assign_roles, full_diff, goal_rollback, goal_scope, hand_result_dict,
@@ -72,8 +74,8 @@ def default_root() -> Path:
     explicit = os.environ.get("BOSSMAN_AUTONOMY_ROOT", "").strip()
     if explicit:
         return Path(explicit).expanduser()
-    data = os.environ.get("BCC_DATA_DIR", "").strip()
-    return (Path(data).expanduser() if data else Path.cwd() / ".bossman-data") / "autonomy"
+    from ..config import _data_dir           # the same data dir as the dashboard / CLI / service
+    return Path(_data_dir()) / "autonomy"
 
 
 def state_of(record: Any) -> str | None:
@@ -143,7 +145,7 @@ class CycleConfig:
     reviewer_timeout_s: int = 600
     max_hand_rounds: int = 3
     test_suites: tuple[str, ...] = ("acceptance", "protected")
-    staging_checks: tuple[str, ...] = ("health", "acceptance")
+    staging_checks: tuple[str, ...] = ("health", "ready", *STAGING_PROBES)
     thresholds: dict = field(default_factory=dict)
     auto_deploy_min_level: int = 3
 
@@ -205,16 +207,29 @@ class AutonomyCycle:
         return self.d.journal.append(kind, {"goal_id": ctx["goal"]["goal_id"], **payload})
 
     def _to(self, ctx: dict, state: str, evidence: dict) -> None:
+        """GoalStore transition; a refused transition (illegal or failed guard) is a stop
+        condition: journaled and turned into BLOCKED by the driver."""
+        try:
+            self.d.goals.transition(ctx["goal"]["goal_id"], state, evidence)
+        except TransitionError as exc:
+            self._log("cycle_transition_refused", ctx, {"from_state": ctx["state"], "to": state,
+                                                        "reason": str(exc)[:500]})
+            raise Blocked(f"transition {ctx['state']} -> {state} refused: {exc}"[:500]) from None
         ctx["state"] = state
         ctx["steps"].append({"state": state, "at": self.d.wall()})
         self._save(ctx)
-        self.d.goals.transition(ctx["goal"]["goal_id"], state, evidence)
 
     # ------------------------------------------------------------ entry points
     async def run_goal(self, goal: Goal) -> CycleOutcome:
         ctx = self._load(goal.goal_id)
         if ctx is None:
-            self.d.goals.create(goal)
+            try:
+                self.d.goals.create(goal)
+            except GoalError as exc:
+                existing = self._store_state(goal.goal_id)
+                if existing != "PROPOSED":           # created elsewhere (panel/CLI) and untouched -> adopt
+                    self.d.journal.append("cycle_refused", {"goal_id": goal.goal_id, "reason": str(exc)[:500]})
+                    return CycleOutcome(goal.goal_id, "REFUSED", str(exc)[:500])
             ctx = {"goal": goal_to_dict(goal), "state": "PROPOSED", "steps": [], "round": 0, "attempt": 0,
                    "revisions": 0, "turns_used": 0, "started_at": self.d.wall(), "writer_runs": [],
                    "evidence": [], "gate": None, "feedback": "", "user_decision": None, "deploys": []}
@@ -229,27 +244,37 @@ class AutonomyCycle:
         return await self._drive(ctx)
 
     async def user_decision(self, goal_id: str, decision: str, notes: str = "") -> CycleOutcome:
-        """The user's Apply / Reject / Revise at USER_APPROVAL."""
+        """Reject / Revise at USER_APPROVAL. Apply is NOT a loop action: it goes through the
+        release panel (``AutonomyService.apply`` -> the owner runs the commands ->
+        ``confirm_released``), after which ``resume()`` continues from DEPLOYED."""
+        if decision == "apply":
+            raise ValueError("Apply goes through the release panel (Apply -> owner Confirm), then resume()")
+        if decision not in ("reject", "revise"):
+            raise ValueError("decision must be reject or revise (apply: release panel)")
         ctx = self._load(goal_id)
-        if ctx is None or state_of(self.d.goals.get(goal_id)) != "USER_APPROVAL":
+        if ctx is None or self._store_state(goal_id) != "USER_APPROVAL":
             raise ValueError("goal is not waiting for the user")
-        if decision not in ("apply", "reject", "revise"):
-            raise ValueError("decision must be apply, reject or revise")
         entry = self._log("user_decision", ctx, {"decision": decision, "notes": notes[:2000]})
         ctx["user_decision"] = {"decision": decision, "journal_entry": entry}
-        self._save(ctx)
-        if decision == "reject":
-            self._finish(ctx, "COMPLETE", {"outcome": "rejected_by_user", "applied": False, "journal_entry": entry})
-            return CycleOutcome(goal_id, "COMPLETE", "rejected by the user")
         if decision == "revise":
             ctx["revisions"] += 1
             ctx["feedback"] = f"user: {notes}"
-            self._to(ctx, "BUILDING", {"reason": "user asked for a revision", "journal_entry": entry})
-            return await self._drive(ctx)
+        self._save(ctx)
+        record = getattr(self.d.goals, "record_user_decision", None)
         try:
-            await self._deploy(ctx, user_approved=True)
-        except Blocked as exc:
-            return self._block(ctx, exc)
+            if record is not None:
+                record(goal_id, decision, sha=ctx["sha"], diff_sha256=ctx["diff_sha256"], note=notes)
+            elif decision == "reject":
+                self.d.goals.transition(goal_id, "COMPLETE", {"outcome": "rejected_by_user", "applied": False})
+            else:
+                self.d.goals.transition(goal_id, "BUILDING", {"reason": "revision requested by the user"})
+        except (TransitionError, GoalError) as exc:
+            return self._block(ctx, Blocked(f"user decision refused: {exc}"[:500]))
+        if decision == "reject":
+            self._capture_trace(ctx, "COMPLETE")
+            ctx["state"] = "COMPLETE"
+            self._save(ctx)
+            return CycleOutcome(goal_id, "COMPLETE", "rejected by the user")
         return await self._drive(ctx)
 
     async def run_queue(self, goals: list[Goal], *, stop_on_blocked: bool = False) -> list[CycleOutcome]:
@@ -267,11 +292,13 @@ class AutonomyCycle:
         while True:
             # the GoalStore is the source of truth; a crash between saving the context and the
             # transition simply repeats that step (every step is idempotent or re-runs isolated)
-            store_state = state_of(self.d.goals.get(gid))
+            store_state = self._store_state(gid)
             if store_state not in GOAL_STATES:
                 return self._block(ctx, Blocked("ambiguous state", store=store_state, cycle=ctx["state"]))
             ctx["state"] = store_state
             if store_state in STOPS:
+                if store_state in TERMINAL and not ctx.get("trace_hash") and ctx.get("sha"):
+                    self._capture_trace(ctx, store_state)
                 return CycleOutcome(gid, store_state, ctx.get("blocked_reason", "") if store_state == "BLOCKED"
                                     else "", {"cycle": str(self._dir(gid) / "cycle.json")})
             try:
@@ -279,15 +306,25 @@ class AutonomyCycle:
             except Blocked as exc:
                 return self._block(ctx, exc)
 
+    def _store_state(self, goal_id: str) -> str | None:
+        try:
+            return state_of(self.d.goals.get(goal_id))
+        except (KeyError, ValueError, OSError):
+            return None
+
     def _block(self, ctx: dict, exc: Blocked) -> CycleOutcome:
         gid = ctx["goal"]["goal_id"]
         ctx["blocked_reason"] = exc.reason
-        self._log("cycle_blocked", ctx, {"reason": exc.reason, "from_state": ctx["state"], **exc.evidence})
-        if state_of(self.d.goals.get(gid)) != "BLOCKED":
-            self._to(ctx, "BLOCKED", {"reason": exc.reason, **exc.evidence})
-        else:
-            self._save(ctx)
-        return CycleOutcome(gid, "BLOCKED", exc.reason, exc.evidence)
+        evidence = json.loads(json.dumps(exc.evidence, default=str))
+        self._log("cycle_blocked", ctx, {"reason": exc.reason, "from_state": ctx["state"], **evidence})
+        if self._store_state(gid) != "BLOCKED":
+            try:
+                self.d.goals.transition(gid, "BLOCKED", {"reason": exc.reason, **evidence})
+            except (TransitionError, KeyError, ValueError) as err:
+                self._log("cycle_transition_refused", ctx, {"to": "BLOCKED", "reason": str(err)[:500]})
+        ctx["state"] = "BLOCKED"
+        self._save(ctx)
+        return CycleOutcome(gid, "BLOCKED", exc.reason, evidence)
 
     def _goal(self, ctx: dict) -> Goal:
         return goal_from_dict(ctx["goal"])
@@ -391,15 +428,19 @@ class AutonomyCycle:
                               arguments={"suite": suite, "worktree": ctx["worktree"], "sha": ctx["sha"],
                                          "acceptance_tests": list(goal.acceptance_tests)},
                               expected_evidence=("exit_code", "stdout_hash", "report_path"), risk_class="low",
-                              timeout_s=1800, rollback="none (read-only test run in the isolated worktree)")
+                              timeout_s=self._action_timeout(goal, 1800),
+                              rollback="none: read-only test run in the isolated worktree")
             res = await maybe_await(self.d.hands.execute(req))
             row = {"suite": suite, **hand_result_dict(res)}
             evidence.append(row)
-            if res.refused_reason:
+            missing = [e for e in req.expected_evidence if e != "exit_code" and e not in res.artifacts
+                       and not (e == "stdout_hash" and "stdout" in res.artifacts)]
+            if "missing evidence" in res.refused_reason or (res.exit_code is not None and missing):
+                raise Blocked("missing test evidence", suite=suite, missing=missing or res.refused_reason)
+            if res.exit_code is None and res.refused_reason:
                 raise Blocked(f"hand request refused: {res.refused_reason}", suite=suite)
-            missing = [e for e in req.expected_evidence if e != "exit_code" and e not in res.artifacts]
-            if res.exit_code is None or missing:
-                raise Blocked("missing test evidence", suite=suite, missing=missing)
+            if res.exit_code is None:
+                raise Blocked("missing test evidence", suite=suite, missing=["exit_code"])
             if not res.ok or res.exit_code != 0:
                 raise Blocked(f"protected tests fail: {suite}", exit_code=res.exit_code)
         ctx["evidence"] = evidence
@@ -411,6 +452,23 @@ class AutonomyCycle:
                                      author_session=ctx["author_session"]))
         ctx["gate"] = gate.to_dict()
         self._to(ctx, "CLAUDE_REVIEW", {"sha": ctx["sha"], "evidence_sha256": ctx["evidence_sha256"]})
+
+    @staticmethod
+    def _action_timeout(goal: Goal, wanted: int) -> int:
+        return max(1, min(int(wanted), int(goal.budget.max_minutes) * 60))
+
+    def _hand_with_lease(self, ctx: dict, req: HandRequest):
+        """Release-kind hands (apply/rollback) are writing actions: they run under the
+        engineering lease for this goal, never beside a writer."""
+        gid = ctx["goal"]["goal_id"]
+        try:
+            token = self.d.lease.acquire(gid, f"jev-{req.action}:{gid}", float(req.timeout_s) + 60.0)
+        except Exception as exc:  # noqa: BLE001 - busy / refused lease
+            raise Blocked(f"engineering lease busy for {req.action}: {exc}"[:300]) from None
+        try:
+            return self.d.hands.execute(req)
+        finally:
+            self.d.lease.release(token)
 
     async def _s_claude_review(self, ctx: dict) -> None:
         await self._review(ctx, "claude")
@@ -484,28 +542,29 @@ class AutonomyCycle:
         if not ok:
             raise Blocked("staging failed")
         if goal.risk_tier == "docs_tests" and self.c.level >= self.c.auto_deploy_min_level:
-            await self._deploy(ctx, user_approved=False)
+            await self._deploy(ctx)
             return
         self._to(ctx, "USER_APPROVAL", {"sha": ctx["sha"], "rollback": goal_rollback(goal),
                                         "approvals": gate.approvals(), "staging_ok": True})
 
-    async def _deploy(self, ctx: dict, *, user_approved: bool) -> None:
+    async def _deploy(self, ctx: dict) -> None:
+        """Automatic tier only (docs_tests at L3+). Every other release is the user's:
+        release panel Apply -> the owner runs the commands -> Confirm -> resume()."""
         goal = self._goal(ctx)
         req = HandRequest(goal_id=goal.goal_id, requested_by="jev", action="apply_candidate",
                           target="release_candidate",
-                          arguments={"sha": ctx["sha"], "worktree": ctx["worktree"], "user_approved": user_approved,
-                                     "auto_tier": not user_approved, "risk_tier": goal.risk_tier,
-                                     "user_decision": ctx.get("user_decision")},
-                          expected_evidence=("exit_code",),
-                          risk_class="medium" if goal.risk_tier == "docs_tests" else "high", timeout_s=900,
+                          arguments={"sha": ctx["sha"], "worktree": ctx["worktree"], "auto_tier": True,
+                                     "risk_tier": goal.risk_tier},
+                          expected_evidence=("exit_code",), risk_class="medium",
+                          timeout_s=self._action_timeout(goal, 900),
                           rollback=f"restore {ctx['base_sha']} ({goal_rollback(goal)})")
-        res = await maybe_await(self.d.hands.execute(req))
+        res = await maybe_await(self._hand_with_lease(ctx, req))
         ctx["deploys"].append(hand_result_dict(res))
         self._save(ctx)
         if not res.ok:
-            raise Blocked(f"deploy refused or failed: {res.refused_reason or res.exit_code}")
-        self._to(ctx, "DEPLOYED", {"sha": ctx["sha"], "request_hash": res.request_hash,
-                                   "user_approved": user_approved})
+            raise Blocked(f"deploy refused or failed: {res.refused_reason or res.exit_code}"[:400])
+        self._to(ctx, "DEPLOYED", {"sha": ctx["sha"], "auto_tier": True, "staging_ok": True,
+                                   "request_hash": res.request_hash})
 
     async def _s_deployed(self, ctx: dict) -> None:
         self._to(ctx, "MONITORING", {"sha": ctx["sha"]})
@@ -523,19 +582,25 @@ class AutonomyCycle:
         if ok is None:
             raise Blocked("ambiguous state: metrics gate verdict")
         if ok:
-            self._finish(ctx, "COMPLETE")
+            self._finish(ctx, "COMPLETE", {"gate": "ACCEPT"})
             return
         req = HandRequest(goal_id=goal.goal_id, requested_by="jev", action="rollback", target="release_candidate",
-                          arguments={"to_sha": ctx["base_sha"], "from_sha": ctx["sha"]},
-                          expected_evidence=("exit_code",), risk_class="high", timeout_s=900,
-                          rollback="manual restore by the user")
-        res = await maybe_await(self.d.hands.execute(req))
+                          arguments={"sha": ctx["sha"], "worktree": ctx["worktree"], "to_sha": ctx["base_sha"]},
+                          expected_evidence=("exit_code",), risk_class="medium",
+                          timeout_s=self._action_timeout(goal, 900), rollback="manual restore by the user")
+        res = await maybe_await(self._hand_with_lease(ctx, req))
         ctx["rollback"] = hand_result_dict(res)
         if not res.ok:
-            raise Blocked("rollback not guaranteed: rollback failed", request_hash=res.request_hash)
-        self._finish(ctx, "ROLLED_BACK")
+            raise Blocked(f"rollback not guaranteed: {res.refused_reason or 'rollback failed'}"[:400],
+                          request_hash=res.request_hash)
+        self._finish(ctx, "ROLLED_BACK", {"gate": "ROLLBACK"})
 
     def _finish(self, ctx: dict, state: str, extra: dict | None = None) -> None:
+        self._capture_trace(ctx, state)
+        self._to(ctx, state, {"sha": ctx["sha"], "trace_hash": ctx["trace_hash"],
+                              "metrics_after": ctx.get("metrics_after"), **(extra or {})})
+
+    def _capture_trace(self, ctx: dict, state: str) -> str:
         goal = self._goal(ctx)
         gate = ctx.get("gate") or {}
         trace = capture_trace(
@@ -554,31 +619,24 @@ class AutonomyCycle:
                                                                        indent=2, sort_keys=True), encoding="utf-8")
         ctx["trace_hash"] = trace.trace_hash()
         self._log("trace_captured", ctx, {"trace_hash": ctx["trace_hash"], "state": state})
-        self._to(ctx, state, {"sha": ctx["sha"], "trace_hash": ctx["trace_hash"],
-                              "metrics_after": ctx.get("metrics_after"), **(extra or {})})
+        self._save(ctx)
+        return ctx["trace_hash"]
 
 
 # ------------------------------------------------------------------ real wiring (OWNER_REQUIRED)
 
 
 def _real_deps(root: Path, repo: Path) -> CycleDeps:  # pragma: no cover - needs Line A + owner machine
-    """Line A objects + real CLIs. Fails with a clear message when Line A is not merged."""
-    import importlib
-
-    mods = {}
-    for name in ("goals", "lease", "hands", "policy", "journal", "staging", "metrics_gate", "constitution"):
-        try:
-            mods[name] = importlib.import_module(f"bcc.autonomy.{name}")
-        except ImportError as exc:
-            raise SystemExit(f"Line A module bcc.autonomy.{name} is missing ({exc}); merge Line A first") from None
-    journal = mods["journal"].Journal(root)
-    factory = getattr(mods["hands"], "build_default_broker", None)
-    if factory is None:
-        raise SystemExit("bcc.autonomy.hands.build_default_broker(root, journal) is required for --real wiring")
-    staging_factory = getattr(mods["staging"], "build_default_runner", None)
-    if staging_factory is None:
-        raise SystemExit("bcc.autonomy.staging.build_default_runner(root, repo) is required for --real wiring")
+    """Line A objects (same data dir as the dashboard/CLI) + the real Claude/Codex CLIs."""
+    from . import constitution, metrics_gate
+    from .goals import GoalStore
+    from .hands import build_default_broker
+    from .journal import Journal
+    from .lease import EngineeringLease
+    from .staging import build_default_runner
     from .identity_task import GOAL_ID, METRIC, _ollama_responder, run_redteam
+
+    journal = Journal(root)
 
     async def probe(goal: Goal) -> dict | None:
         model = os.environ.get("BOSSMAN_AUTONOMY_JEFF_MODEL", "").strip()
@@ -588,9 +646,10 @@ def _real_deps(root: Path, repo: Path) -> CycleDeps:  # pragma: no cover - needs
         rep = await run_redteam(_ollama_responder(endpoint, model))
         return {METRIC: float(rep.leaks)}
 
-    return CycleDeps(goals=mods["goals"].GoalStore(root), lease=mods["lease"].EngineeringLease(root),
-                     hands=factory(root, journal), journal=journal, staging=staging_factory(root, repo),
-                     gate_decide=mods["metrics_gate"].decide, constitution_verify=mods["constitution"].verify,
+    return CycleDeps(goals=GoalStore(root, journal), lease=EngineeringLease(root, journal=journal),
+                     hands=build_default_broker(root, journal), journal=journal,
+                     staging=build_default_runner(root, repo, journal=journal),
+                     gate_decide=metrics_gate.decide, constitution_verify=constitution.verify,
                      metrics_probe=probe, source_repo=repo, work_root=root / "cycles",
                      savings=SavingsLedger(root), skills=SkillStore(root))
 
