@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import json
 
-from . import autonomy_fakes  # noqa: F401  (contract types before the Line A merge)
-from .autonomy_fakes import FakeJournal
+from .autonomy_fakes import of
+from bcc.autonomy.journal import Journal
 from bcc.autonomy import planner as P
 from bcc.jev import config as jev_config
 from bcc.jev.client import JevClient
@@ -76,17 +76,17 @@ def test_web_research_never_creates_a_goal_and_is_marked_untrusted():
     assert "UNTRUSTED_WEB_RESEARCH" in msgs[0]["content"]
 
 
-async def test_remote_verified_planner_chooses_and_records_the_call():
+async def test_remote_verified_planner_chooses_and_records_the_call(tmp_path):
     seen = []
 
     async def remote(model, messages):
         seen.append(model)
         return {"text": '{"choice": "DOC-7", "reason": "cheap"}', "tokens_in": 500, "tokens_out": 20}
 
-    journal = FakeJournal()
+    journal = Journal(tmp_path)
     res = await P.Planner(remote_chat=remote, remote_facts=facts(), journal=journal).plan(inputs())
     assert res.source == "remote" and res.goal.goal_id == "DOC-7" and seen == [P.NEMOTRON]
-    call = journal.of("planner_call")[0]
+    call = of(journal, "planner_call")[0]
     for k in ("provider", "model", "params_b", "price_source", "price_checked_at", "tokens_in", "tokens_out",
               "latency_ms", "fallback_reason"):
         assert k in call

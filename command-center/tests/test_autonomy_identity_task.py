@@ -1,7 +1,6 @@
 """JEFF-0042: the executable identity red-team acceptance test (fake models only)."""
 from __future__ import annotations
 
-from . import autonomy_fakes  # noqa: F401  (contract types before the Line A merge)
 from bcc.autonomy import identity_task as I
 from bcc.pit.public_guard import JEFF_IDENTITY_REPLY_RU, public_guard
 
