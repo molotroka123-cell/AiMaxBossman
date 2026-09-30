@@ -21,7 +21,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Callable
 
 from . import schemas
@@ -118,6 +118,15 @@ def tier_rank(tier: str) -> int:
     return RISK_TIERS.index(tier)
 
 
+def _foreign_absolute(raw: str) -> bool:
+    """A Windows drive or UNC spelling that this host's pathlib reads as a RELATIVE name.
+
+    On POSIX ``Path("C:/Windows/system.ini")`` is relative, so joined to the worktree it would look like a file
+    inside it, although it names a place outside any worktree; a drive-relative ``C:x`` is ambiguous on
+    Windows too. Either way the path is outside (fail closed), whatever OS the policy runs on."""
+    return bool(PureWindowsPath(raw).drive) and not Path(raw).is_absolute()
+
+
 def _base(argv0: str) -> str:
     name = PurePosixPath(argv0.replace("\\", "/")).name.lower()
     for ext in (".exe", ".cmd", ".bat", ".com", ".ps1"):
@@ -162,15 +171,22 @@ class Policy:
         return bool(getattr(st, "ok", False)), str(getattr(st, "reason", "constitution status unknown"))
 
     def resolve(self, raw: str) -> Path | None:
-        """A path inside the worktree, or None when it escapes it."""
-        if not isinstance(raw, str) or not raw or "\x00" in raw:
+        """A path inside the worktree, or None when it escapes it - in POSIX or in Windows spelling."""
+        if not isinstance(raw, str) or not raw or "\x00" in raw or _foreign_absolute(raw):
             return None
         root = self.scope.worktree.resolve()
-        p = Path(raw)
-        p = (p if p.is_absolute() else root / p).resolve()
+        p = self._within(raw, root)
+        if p is not None and "\\" in raw and os.name != "nt" and self._within(raw.replace("\\", "/"), root) is None:
+            return None                     # "..\\x" is one odd file name here, a traversal on Windows
+        return p
+
+    @staticmethod
+    def _within(raw: str, root: Path) -> Path | None:
         try:
+            p = Path(raw)
+            p = (p if p.is_absolute() else root / p).resolve()
             p.relative_to(root)
-        except ValueError:
+        except (OSError, RuntimeError, ValueError):
             return None
         return p
 
@@ -178,7 +194,7 @@ class Policy:
         return p.relative_to(self.scope.worktree.resolve()).as_posix()
 
     def _protected(self, p: Path) -> bool:
-        rel = self.rel(p)
+        rel = self.rel(p).replace("\\", "/")
         if any(rel == g or fnmatch(rel, g) for g in self.scope.protected_globs):
             return True
         for extra in self.scope.extra_protected:

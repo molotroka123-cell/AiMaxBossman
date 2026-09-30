@@ -14,7 +14,11 @@ with the staging temp data dir - never the owner data and never a network:
   prices refused, a ``:free`` id at 0/0 accepted;
 * ``acceptance``     - the goal's ``pytest:`` acceptance tests in the candidate checkout.
 
-A probe that cannot run, raises or returns malformed output fails closed.
+A probe that cannot run, raises or returns malformed output fails closed. So does a staged
+probe whose ``bcc`` code does not come from the staged checkout: an installed ``bcc``
+(setuptools' editable finder resolves ``bcc.<child>`` from the installed tree whenever the
+checkout's ``bcc`` lacks that child) would otherwise run the installed product's checks and
+pass for a candidate that does not even contain them.
 """
 from __future__ import annotations
 
@@ -29,6 +33,8 @@ from typing import Any, Callable, Mapping
 
 STAGING_PROBES = ("telegram_fake", "memory", "jeff_identity", "voice_status", "model_routing", "acceptance")
 PROBE_TIMEOUT_S = 600
+#: Set by ``candidate_probe`` for the probe subprocess: the checkout whose code must be the one probed.
+STAGING_CHECKOUT_ENV = "BOSSMAN_STAGING_CHECKOUT"
 _FAKE_BOT = "0:staging-fake"
 _SALT = "ab" * 32
 
@@ -198,9 +204,10 @@ def check_acceptance(data_dir: Path, opts: Mapping[str, Any]) -> tuple[bool, str
     if not tests:
         return False, "no pytest: acceptance tests for this candidate (fail closed)"
     cwd = Path(opts.get("cwd") or Path.cwd())
+    env = {k: v for k, v in os.environ.items() if k != STAGING_CHECKOUT_ENV}   # the tests are not a staged probe
     proc = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *tests], cwd=str(cwd),
                           capture_output=True, timeout=int(opts.get("timeout", PROBE_TIMEOUT_S)),
-                          env={**os.environ, "BCC_DATA_DIR": str(data_dir), "PYTHONDONTWRITEBYTECODE": "1"})
+                          env={**env, "BCC_DATA_DIR": str(data_dir), "PYTHONDONTWRITEBYTECODE": "1"})
     tail = (proc.stdout or b"").decode("utf-8", "replace").strip().splitlines()[-1:] or [""]
     return proc.returncode == 0, f"pytest exit {proc.returncode}: {tail[0][:300]}"
 
@@ -220,6 +227,37 @@ def run_check(name: str, data_dir: Path, opts: Mapping[str, Any] | None = None) 
     except Exception as exc:  # noqa: BLE001 - a crashing probe is a failed check
         ok, detail = False, f"probe raised {type(exc).__name__}: {str(exc)[:300]}"
     return {"check": name, "ok": bool(ok), "detail": str(detail)[:1000]}
+
+
+def _inside(path: Any, root: Path) -> bool:
+    try:
+        Path(str(path)).resolve().relative_to(root)
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return True
+
+
+def foreign_modules(checkout: str | os.PathLike, modules: Mapping[str, Any] | None = None) -> list[str]:
+    """``bcc`` modules (``__main__`` included, by its spec name) loaded from outside ``checkout``.
+
+    A module without a file or package path is foreign too: its origin is unknown (fail closed)."""
+    root = Path(checkout).resolve()
+    found: set[str] = set()
+    for key, module in list((sys.modules if modules is None else modules).items()):
+        name = str(getattr(getattr(module, "__spec__", None), "name", None) or key)
+        if name != "bcc" and not name.startswith("bcc."):
+            continue
+        spots = ([module.__file__] if getattr(module, "__file__", None)
+                 else list(getattr(module, "__path__", None) or ()))
+        if not spots or not all(_inside(spot, root) for spot in spots):
+            found.add(name)
+    return sorted(found)
+
+
+def _foreign_result(name: str, foreign: list[str]) -> dict:
+    return {"check": name, "ok": False,
+            "detail": (f"probe code is not the staged candidate's: {', '.join(foreign[:5])} loaded from outside "
+                       f"the staged checkout (fail closed)")[:1000]}
 
 
 # ------------------------------------------------------------------ staging wiring (candidate subprocess)
@@ -251,6 +289,7 @@ def candidate_probe(name: str, *, tests_for: Callable[[str], list[str]] | None =
         from ..rave.connectors import child_env
         paths = [str(base)] + ([str(checkout / "bossman-core")] if (checkout / "bossman-core").is_dir() else [])
         env = {**child_env(), "BCC_DATA_DIR": str(ctx["data_dir"]), "BOSSMAN_STAGING": "1",
+               STAGING_CHECKOUT_ENV: str(checkout),
                "PYTHONPATH": os.pathsep.join(paths), "PYTHONDONTWRITEBYTECODE": "1"}
         try:
             proc = runner(argv, cwd=str(base), env=env, capture_output=True, timeout=timeout_s)
@@ -300,7 +339,15 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
     data = Path(args.data_dir)
     data.mkdir(parents=True, exist_ok=True)
-    res = run_check(args.check, data, {"cwd": args.cwd or None, "tests": args.test})
+    checkout = os.environ.get(STAGING_CHECKOUT_ENV, "").strip()
+    foreign = foreign_modules(checkout) if checkout else []
+    if foreign:                                 # not the candidate's code: do not even run the check
+        res = _foreign_result(args.check, foreign)
+    else:
+        res = run_check(args.check, data, {"cwd": args.cwd or None, "tests": args.test})
+        foreign = foreign_modules(checkout) if checkout else []     # what the check itself imported
+        if foreign:
+            res = _foreign_result(args.check, foreign)
     sys.stdout.write(json.dumps(res, ensure_ascii=False) + "\n")
     return 0 if res["ok"] else 1
 

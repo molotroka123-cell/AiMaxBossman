@@ -85,14 +85,16 @@ def test_release_tiers(wt):
     assert pol(wt, "L4").check(req(action="rollback_release"), goal()).allowed
 
 
-@pytest.mark.parametrize("path", ["../outside.txt", "/etc/passwd", "C:/Windows/system.ini", "docs/../../x"])
+@pytest.mark.parametrize("path", ["../outside.txt", "/etc/passwd", "C:/Windows/system.ini", "docs/../../x",
+                                  "..\\outside.txt", "C:\\Windows\\system.ini"])
 def test_paths_outside_the_worktree_are_refused(wt, path):
     d = pol(wt).check(req(action="write_file", path=path), goal())
     assert not d.allowed and "outside" in d.reason
 
 
 @pytest.mark.parametrize("path", ["docs/constitution/BOSSMAN_CONSTITUTION.md", "command-center/bcc/autonomy/policy.py",
-                                  ".github/workflows/ci.yml", ".git/hooks/pre-commit"])
+                                  ".github/workflows/ci.yml", ".git/hooks/pre-commit",
+                                  "docs\\constitution\\BOSSMAN_CONSTITUTION.md"])
 def test_gate_files_need_the_user(wt, path):
     d = pol(wt).check(req(action="write_file", path=path), goal("critical_runtime"))
     assert not d.allowed and d.needs_user
@@ -107,6 +109,7 @@ def test_extra_protected_paths(wt):
 def test_write_above_goal_tier_is_refused(wt):
     p = pol(wt)
     assert p.check(req(action="write_file", path="docs/guide.md"), goal("docs_tests")).allowed
+    assert p.check(req(action="write_file", path="docs\\guide.md"), goal("docs_tests")).allowed
     assert p.check(req(action="write_file", path="command-center/tests/test_x.py"), goal("docs_tests")).allowed
     d = p.check(req(action="write_file", path="command-center/bcc/engine.py"), goal("docs_tests"))
     assert not d.allowed and "critical_runtime" in d.reason
