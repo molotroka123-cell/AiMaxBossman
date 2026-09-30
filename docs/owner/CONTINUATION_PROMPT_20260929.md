@@ -107,3 +107,5 @@ junit/логи прогонов), `wtcv-d` (`command-center/tests/test_pit_gener
 
 Файл плана автономии: `docs/owner/BOSSMAN_JEV_TYPESCRIPT_AUTONOMY_ONE_RUN_PLAN.md`
 (скопирован с Рабочего стола). Ветка: `handoff/continuation-20260929`.
+
+> Свежие документы из worktree (снимок 2026-09-29, частичный): `docs/owner/snapshot-20260929/<worktree>/`.

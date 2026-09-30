@@ -1,0 +1,161 @@
+# HANDOFF — состояние на закрытие фазы V2.2
+
+Всё критичное закоммичено и запушено.
+
+- **Ветка:** `claude/bossman-control-v03-43igbk`
+- **Тесты:** на коммите `b0bac7c` — **323 passed, 1 skipped**: локально 90 с,
+  на GitHub Actions 86.8 с
+  (`cd command-center && timeout 900 python -u -m pytest -q`)
+- **Пропуск** — реальный host-smoke по `opencode serve`: бинаря нет, честно не засчитан
+- **Итог фазы:** [`V2_2_CURRENT_PHASE_FINAL_REPORT.md`](V2_2_CURRENT_PHASE_FINAL_REPORT.md)
+
+Предыдущая версия этого файла (состояние на ночь перед V2.2) описывала
+незакрытые пункты. Все они разобраны ниже — с указанием, что стало.
+
+## 1. Что было открыто в прошлом handoff и что стало
+
+| Пункт прошлого handoff | Стало |
+|---|---|
+| Закончить Qdrant | было ГОТОВО, идеи этапа 0 внедрены (§4, §6 фазы V2.2) |
+| Закончить browser-use | **ЗАКРЫТО** — `docs/research/browser-use.md` §14: сверка с шаблоном, вердикт, измеримое условие возврата |
+| Собрать `_MASTER_PLAN.md` | было ГОТОВО; в V2.2 исправлен счёт целей (8 исходных + OpenClaw добавлена позже) |
+| Закрыть self-learning pipeline | **ЗАКРЫТО** — таблица `skill_evaluations`, ограниченные вердикты, переход «провал → предложить разбор» |
+| GitHub CI | **ЗАКРЫТО** — Actions реально прогоняется; два дублирующих workflow сведены в один |
+| Реальные hardware smoke tests | **НЕ СДЕЛАНО** — только на боевой машине, см. §4 |
+| OpenClaw сверху | **исследование закрыто**, мост не начинался (запрет фазы). `docs/research/openclaw.md` |
+
+## 2. Что сделано в фазе V2.2
+
+**§4 Масштаб памяти.** `remember()` больше не перестраивал индекс целиком —
+теперь `index_one`, если бэкенд умеет. По умолчанию `SQLiteMemoryBackend`,
+`local-json` остался откатом. Замер на реальном хранилище:
+
+```
+ 200 заметок | local-json  запись= 117.3 мс  холодный поиск= 108.3 мс
+ 200 заметок | sqlite      запись=   2.4 мс  холодный поиск=   1.9 мс
+ 800 заметок | local-json  запись= 574.7 мс  холодный поиск= 430.9 мс
+ 800 заметок | sqlite      запись=   4.3 мс  холодный поиск=   6.9 мс
+```
+
+Рост записи у `local-json` линеен по размеру хранилища, у sqlite — нет.
+
+**§6 Производные хранилища в снапшоте.** Индекс памяти и индекс кода
+копируются по строгому allowlist (не `data_dir/**`), после БД и строго в
+остаток общего предела: при нехватке места жертвуем индексом, а не базой.
+Не влезший индекс честно отдаёт `restored=false, reason="not copied; rebuild
+required"`, БД при этом откатывается.
+
+**§7 Петля самообучения стала механизмом.** `skill_evaluations` привязана к
+паре версий скилла, а не к task/run. Вердиктов три, границы жёсткие; PROMOTE
+меняет ровно одно поле (`skills.current_version_id`); кандидат с расширенными
+правами автоматически не применяется никогда. `after_run` при `failed`
+**предлагает** разбор провала и ничего не запускает.
+
+**§8 Два последних скилла ядра.** `requirement-clarify`,
+`external-evidence-check`. Ядро — 18 скиллов.
+
+**§9 Изоляция рабочей области агента.** `<data_dir>/scratch/<миссия>/<агент>/`.
+Регрессия закрыта: агент A больше не пишет в черновики агента B.
+
+**§10–§12 Исследования закрыты, счёт целей исправлен.**
+
+**§13–§14 CI.** Два workflow сведены в один: матрица 3.11+3.12, Chromium
+ставится всегда (раньше половина прогонов была зелёной по неполному набору),
+сканер секретов и `node --check` отдельным job'ом.
+
+## 3. Что осталось честно НЕ сделано
+
+1. **Приёмы browser-use не внедрены.** Вердикт «ВЗЯТЬ ИДЕЮ» вынесен, 15 приёмов
+   расписаны по файлам, но кода нет. Этап 1 (~200 строк) закрывает два дефекта
+   безопасности нашего браузера: значение `<input type=password>` попадает в
+   снимок для модели, и `browser.login` принимает пароль аргументом. **Это
+   самый ценный незакрытый пункт.**
+2. **Мост OpenClaw** — намеренно не начинался, это следующая фаза.
+3. **Реальные hardware smoke** — §4 ниже.
+4. **Замеры OpenClaw с настоящей моделью и каналами** — нет ключей и весов.
+
+## 4. Hardware smoke tests — что прогнать на боевой машине
+
+Ничего из этого здесь проверить нельзя, и ни одно не засчитано:
+
+1. **Реальная GPU-модель вместо сценарного HTTP-сервиса.** Код менять не нужно —
+   меняется `base_url` провайдера. Прогон `tests/test_v21_e2e_mission.py`
+   станет настоящим E2E.
+2. **`opencode serve`** — единственный пропущенный тест перестанет пропускаться.
+3. **Живой OpenRouter с ключом** — сейчас всё на `MockTransport`.
+4. **Замер VRAM/RAM** всего стека против `opencode serve` — методика в
+   `docs/V2_CURRENT_STATE_AUDIT.md`. Для сравнения: OpenClaw Gateway в простое
+   занимает **280 МБ RSS** без весов (измерено, `docs/research/openclaw.md` §10).
+5. **Только `terminal.run` в режиме `sandbox`** — здесь docker-демон недоступен,
+   работает только `project_host`.
+6. **Tool calling у локальных моделей** — критично для OpenClaw: инфраструктура
+   готова (`capability_probe` + verified-gate в роутере), нужны реальные модели.
+   Отдельно проверить предупреждение про Ollama через `/v1`.
+
+## 5. Дальше: мост OpenClaw
+
+Исследование закрыто: **ВНЕДРЯТЬ ПОЗЖЕ, вариант B (channel gateway only)**,
+контракт V1 из восьми методов — `docs/research/openclaw.md` §12.
+
+**OPENCLAW NEXT PHASE ALLOWED: YES**, при трёх условиях:
+
+1. **ASK на любую отправку в канал** — до первой строки моста. OpenClaw впервые
+   даёт BOSSMAN возможность писать реальным людям (Telegram, WhatsApp), а
+   `node.invoke` добавляет к этому `sms.send`. Ночная миссия, написавшая
+   клиенту, не чинится откатом.
+2. **`idempotencyKey` с первого коммита** — иначе наш собственный ретрай станет
+   вторым сообщением человеку. У них поле обязательное, значит ключ должен
+   выводиться из `mission_id + run_id + call_id`.
+3. **Решение по памяти до моста.** У OpenClaw своя долговременная память:
+   `memory-core` включён по умолчанию, LanceDB-плагин с auto-capture, и
+   `memory-wiki` с режимом `obsidian` и скиллом, который правит vault. Два
+   писателя в одни заметки — потеря данных, а не «расхождение».
+
+Что уже совпадает и работы не требует: формат скиллов (`SKILL.md` с YAML
+frontmatter — тот же), `default_skill_roots` + одна строка на `.openclaw/skills`,
+`decide_effect` + approvals как Permission Bridge.
+
+## 6. Команды
+
+```bash
+cd /home/user/AiMaxBossman/command-center
+
+# тесты — ВСЕГДА через timeout (иначе харнесс может подвесить прогон)
+timeout 900 python -u -m pytest -q
+
+# только V2.2
+timeout 400 python -u -m pytest tests/test_v22_ -q
+
+# сервер: токен печатается при старте, в браузере меняется на HttpOnly-сессию
+BCC_DATA_DIR=/tmp/bcc-data BCC_PORT=8821 python -m bcc.app
+```
+
+## 7. Ловушки окружения
+
+- `pytest` без `timeout` иногда зависает или даёт exit 144 — артефакт харнесса,
+  не тестов. Наблюдалось в этой сессии: один прогон висел 15 минут при нулевой
+  загрузке CPU, повторный прошёл за 92 с без единой правки.
+- **Вывод pytest через `| tail` буферизуется целиком** — при зависании не видно
+  ничего. Для долгих прогонов писать в файл, а не в конвейер.
+- `docker` есть, но запуск контейнеров недоступен: `sandbox` честно падает,
+  `project_host` работает.
+- Chromium предустановлен (`/opt/pw-browsers/chromium`), `playwright install`
+  запускать НЕ надо.
+- `huggingface.co` закрыт прокси (403) — dense-эмбеддинги и cross-encoder ни в
+  одном ТЗ не измерены, только оценены.
+- Пакет `mcp` установлен вручную; в `pyproject.toml` он в
+  `optional-dependencies.mcp`, импорт ленивый.
+
+## 8. Запрет соблюдён
+
+Продакшн-деплой, финансовые действия, удаление данных, отправка сообщений
+наружу, force-push, слияние в защищённую ветку — ничего не выполнялось.
+Секретов не закоммичено (скан диффа перед каждым коммитом + шаг в CI).
+
+## 2026-08-29 — OpenRouter UX + red-team sweep (этот агент)
+
+FIXED: OpenRouter connect/validate/TTL-cache/outage-cached-catalog/status + UI Connect&filters (b586fa2); gateway circuit breaker+health classification+correlation (2bfb475); memory ACTIVE->CANDIDATE clobber, atomic state.json, pause/cancel reconcile (864aa4b); canonical bossman-coder alias + startup validation + auth boundary tests (fca65d0).
+TESTS: openrouter 30 passed/1 skip(smoke); gateway 35 passed; context/projects 56 passed; alias/auth+remote 91 passed; test_router 6 passed (cp1252 fixed). Real OpenRouter smoke = skip без OPENROUTER_API_KEY, бюджет: 1 catalog fetch + max 1 дешёвый inference.
+NOT FIXED: core API без per-request credentials (loopback-only default, осознанно — rewrite запрещён); HALF_OPEN self-expiry token; in-flight cost при pause не персистится.
+FILES: bcc/features/openrouter.py, bcc/v2/openrouter_catalog_service.py, bcc/v2/openrouter_ext.py, ui/pages/openrouter.js, bossman/gateway/{backends,router,app,config,main}.py, bossman/context_engine/memory.py, bossman/projects/{plan,runner,router}.py, bossman/{agents,llm}.py, config/gateway.example.yaml + 3 новых тест-файла.
+COMMITS: b586fa2, 2bfb475, 864aa4b, fca65d0 (все в claude/bossman-control-v03-43igbk).
