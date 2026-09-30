@@ -14,7 +14,8 @@
 - Ветка: `claude/bossman-1.9-owner-bugtest-20260930` (draft PR #89, база PR `feat/bossman-autonomy`)
 - Base SHA: `4c770578` (`origin/feat/bossman-autonomy` — самый полный тип 1.9: jeff-2.0, autonomy-a/b,
   rc19/t-jeff-admin, a19/streaming, rc19/integration уже внутри)
-- Финальный SHA чекпоинта: `<FINAL_SHA>`
+- Код чекпоинта: `02cd7181eca4daa2df3efed989e12e2a2f2a2588` (чат UI + бэкенд + CI-фиксы). Вершина ветки — следующий docs-коммит с этим
+  handoff (код тот же). `<FINAL_SHA>` ниже = `git rev-parse origin/claude/bossman-1.9-owner-bugtest-20260930`.
 - Canonical `release/bossman-owner` и `main` не трогались; force-push не было; тегов/релизов нет.
 
 ## Что влито (merge-коммиты, без потери поведения)
@@ -67,6 +68,10 @@
   прогоне `8cfa0481`, прошёл на втором прогоне того же SHA — нестабилен, корень не найден.
 - Intelligence Preservation: красный по замыслу — нужен владельческий замер на железе.
 - CSP/Trusted Types и `content-visibility` в Chrome/Edge владельца — проверить в консоли (0 CSP-нарушений).
+- Известные мелочи чата: ссылка, у которой текст сам URL (`[https://a.com](https://a.com)`), даёт вложенный
+  autolink; `bcc-desktop --chat` не открывает второе окно при уже запущенном окне BOSSMAN (подскажет URL чата —
+  откройте его в работающем окне или закройте BOSSMAN); место работы (LOCAL/CLOUD) выводится по alias модели,
+  потому что `run.usage` пока не несёт locality (полоса providers).
 
 ## Что НЕ сделано (следующий чекпоинт, спецификации готовы в `LANE_SPECS.md`)
 
