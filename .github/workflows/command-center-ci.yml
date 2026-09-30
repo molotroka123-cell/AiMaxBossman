@@ -34,7 +34,10 @@ jobs:
     # Full Command Center runs on the closure tree now take ~21-30 minutes.
     # 30m repeatedly killed otherwise-green py3.12/3.14 jobs at the runner cap;
     # 60m keeps the test/coverage contracts intact while allowing runner jitter.
-    timeout-minutes: 60
+    # 2026-09-30: 7235 tests now take 53-59m on py3.11/3.12 (measured over the
+    # last 30 runs); py3.12 was cancelled at 60m while at 94% with no failure.
+    # 90m restores headroom; per-test --timeout=180 still catches real hangs.
+    timeout-minutes: 90
     # The same installed core runtime is required on all three interpreters:
     # v1.5 imports bossman_v3 and the coding path launches bossman.apprentice
     # from a child process. A source checkout on PYTHONPATH cannot prove that.
