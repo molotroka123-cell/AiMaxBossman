@@ -122,6 +122,17 @@ class ProviderAdapter(Protocol):
     async def list_models(self) -> list[str]: ...
 
 
+def is_ollama_v1_url(url: str) -> bool:
+    """Loopback Ollama's OpenAI-compatible endpoint (default port 11434, path /v1)."""
+    try:
+        parts = urlparse(url or "")
+        port = parts.port
+    except ValueError:
+        return False
+    return ((parts.hostname or "").lower() in ("127.0.0.1", "localhost", "::1")
+            and port == 11434 and parts.path.rstrip("/") == "/v1")
+
+
 def is_local_url(url: str) -> bool:
     """Адрес на этой же машине или в локальной сети.
 
@@ -260,6 +271,17 @@ class OpenAICompatAdapter(_BaseAdapter):
             payload["tool_choice"] = kw.get("tool_choice") or "auto"
         if kw.get("response_format") is not None:
             payload["response_format"] = kw["response_format"]
+        if kw.get("reasoning_effort") is not None:
+            payload["reasoning_effort"] = kw["reasoning_effort"]
+        elif is_ollama_v1_url(self.base_url):
+            # RC19: Ollama's /v1 returns a thinking model's private reasoning in
+            # `message.reasoning` (CMD showed it to the owner) and spends the
+            # answer budget on it. `think: false` is ignored on /v1;
+            # `reasoning_effort: "none"` switches thinking off (Ollama 0.34.4,
+            # owner host). Same policy as llama.cpp `--reasoning off` in
+            # start-models.ps1 and Jeff's native `think: false`. A caller that
+            # wants reasoning asks for it explicitly.
+            payload["reasoning_effort"] = "none"
         if kw.get("on_delta") is not None:
             # Live answer text (owner P1). None = this provider/model cannot
             # stream right now: fall through to the ordinary whole-answer call.
