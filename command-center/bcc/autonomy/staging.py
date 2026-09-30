@@ -21,6 +21,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -176,7 +177,7 @@ class StagingRunner:
                 except Exception as exc:  # noqa: BLE001
                     torn_down = False
                     reason = reason or f"teardown failed: {type(exc).__name__}: {exc}"
-            shutil.rmtree(data_dir, ignore_errors=True)
+            _rmtree(data_dir)
             if data_dir.exists():
                 torn_down = False
                 reason = reason or "teardown failed: temp data dir not removed"
@@ -189,47 +190,150 @@ class StagingRunner:
         return rep
 
 
-class CheckoutLauncher:
-    """Real launcher: ``python -m bcc --host 127.0.0.1 --port N`` from a candidate checkout.
+def _rmtree(path: Path, attempts: int = 20) -> None:
+    """Remove a tree even with read-only git objects; retry while a killed child releases handles."""
+    import stat
 
-    ``checkout_for(sha)`` returns the path of the candidate worktree (already
-    at that SHA). The child gets its own process group and the staging env
-    (temp BCC_DATA_DIR); readiness is ``GET /health/live``.
+    def onerror(func, p, _exc):
+        try:
+            os.chmod(p, stat.S_IWRITE)
+            func(p)
+        except OSError:
+            pass
+
+    for _ in range(attempts):
+        if not path.exists():
+            return
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=onerror)
+        else:  # pragma: no cover - Python 3.11
+            shutil.rmtree(path, onerror=onerror)
+        if path.exists():
+            time.sleep(0.1)
+
+
+def _has_commit(repo: Path, sha: str) -> bool:
+    try:
+        from ..rave import workspace as rws
+        return rws.git(repo, "cat-file", "-e", f"{sha}^{{commit}}", check=False).returncode == 0
+    except Exception:  # noqa: BLE001
+        return False
+
+
+class CloneLauncher:
+    """Real launcher: clone the candidate SHA into a fresh temp checkout and run
+    ``python -m bcc --host 127.0.0.1 --port N`` there with the staging env
+    (temp BCC_DATA_DIR). The SHA is looked up in ``sources()`` (the source repo
+    and the cycle worktrees). Readiness is ``GET /health/live``; stop kills the
+    process group and deletes the checkout.
     """
 
-    def __init__(self, checkout_for: Callable[[str], Path], *, python: str = sys.executable,
+    def __init__(self, sources: Callable[[], Iterable[Path]], *, python: str = sys.executable,
                  ready_timeout_s: float = 90.0):
-        self.checkout_for = checkout_for
+        self.sources = sources
         self.python = python
         self.ready_timeout_s = ready_timeout_s
 
-    def start(self, sha: str, port: int, data_dir: Path, env: Mapping[str, str]) -> subprocess.Popen:
+    def _source_for(self, sha: str) -> Path:
+        for src in self.sources():
+            if (Path(src) / ".git").exists() and _has_commit(Path(src), sha):
+                return Path(src)
+        raise StagingError(f"no repository or cycle worktree contains {sha[:12]}")
+
+    def start(self, sha: str, port: int, data_dir: Path, env: Mapping[str, str]) -> dict:
+        from ..rave import workspace as rws
         from ..rave.connectors import child_env
-        cc = Path(self.checkout_for(sha)) / "command-center"
-        kw: dict[str, Any] = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" \
-            else {"start_new_session": True}
-        proc = subprocess.Popen([self.python, "-m", "bcc", "--host", "127.0.0.1", "--port", str(port)],
-                                cwd=str(cc), env={**child_env(), **env, "PYTHONPATH": str(cc)},
-                                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kw)
-        deadline = time.monotonic() + self.ready_timeout_s
-        while time.monotonic() < deadline:
-            if proc.poll() is not None:
-                raise StagingError(f"candidate exited with {proc.returncode}")
-            try:
-                with urllib.request.urlopen(f"http://127.0.0.1:{port}/health/live", timeout=2) as r:  # noqa: S310
-                    if r.status == 200:
-                        return proc
-            except OSError:
-                time.sleep(0.5)
-        self.stop(proc)
-        raise StagingError("candidate did not become live in time")
+        source = self._source_for(sha)
+        checkout = Path(tempfile.mkdtemp(prefix=f"bossman-staging-src-{sha[:8]}-")) / "checkout"
+        try:
+            rws.create_workspace(source, sha, checkout, f"staging/{sha[:12]}")
+        except Exception:
+            _rmtree(checkout.parent)
+            raise
+        cc = checkout / "command-center"
+        paths = [str(cc)] + ([str(checkout / "bossman-core")] if (checkout / "bossman-core").is_dir() else [])
+        kw: dict[str, Any] = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt"             else {"start_new_session": True}
+        handle = {"checkout": checkout, "port": port, "proc": None}
+        try:
+            handle["proc"] = subprocess.Popen(
+                [self.python, "-m", "bcc", "--host", "127.0.0.1", "--port", str(port)], cwd=str(cc),
+                env={**child_env(), **env, "PYTHONPATH": os.pathsep.join(paths), "PYTHONDONTWRITEBYTECODE": "1"},
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kw)
+            deadline = time.monotonic() + self.ready_timeout_s
+            while time.monotonic() < deadline:
+                if handle["proc"].poll() is not None:
+                    raise StagingError(f"candidate exited with {handle['proc'].returncode}")
+                if _get(f"http://127.0.0.1:{port}/health/live")[0] == 200:
+                    return handle
+                time.sleep(0.3)
+            raise StagingError("candidate did not become live in time")
+        except BaseException:
+            self.stop(handle)
+            raise
 
-    def stop(self, handle: subprocess.Popen) -> None:
+    def stop(self, handle: dict) -> None:
         from .lease import kill_process_group
-        if handle.poll() is None:
-            kill_process_group(handle.pid)
-        handle.wait(timeout=30)
+        proc = handle.get("proc")
+        try:
+            if proc is not None:
+                if proc.poll() is None:
+                    kill_process_group(proc.pid)
+                proc.wait(timeout=30)
+        finally:
+            _rmtree(Path(handle["checkout"]).parent)
+        if Path(handle["checkout"]).exists():
+            raise StagingError("staging checkout was not removed")
 
 
-__all__ = ["CheckResult", "CheckoutLauncher", "LIVE_PORTS", "STANDARD_CHECKS", "StagingError", "StagingReport",
-           "StagingRunner", "free_port"]
+def _get(url: str, timeout: float = 5.0) -> tuple[int, bytes]:
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:  # noqa: S310 - 127.0.0.1 staging only
+            return r.status, r.read(65536)
+    except urllib.error.HTTPError as exc:
+        return exc.code, b""
+    except OSError:
+        return 0, b""
+
+
+def probe_live(handle: Any, ctx: Mapping[str, Any]) -> tuple[bool, str]:
+    status, body = _get(f"{ctx['base_url']}/health/live")
+    return status == 200 and b'"alive"' in body, f"/health/live -> {status}"
+
+
+def probe_ready(handle: Any, ctx: Mapping[str, Any]) -> tuple[bool, str]:
+    status, _ = _get(f"{ctx['base_url']}/health")
+    return status == 200, f"/health -> {status}"
+
+
+def default_probes() -> dict[str, Probe]:
+    """Probes that need no credentials. Checks without a probe (telegram_fake, memory,
+    jeff_identity, voice_status, model_routing, acceptance) fail closed until one is
+    registered for them."""
+    return {"health": probe_live, "ready": probe_ready}
+
+
+def build_default_runner(root: str | os.PathLike, repo: str | os.PathLike, *,
+                         owner_data_dir: str | os.PathLike | None = None, journal: Journal | None = None,
+                         probes: Mapping[str, Probe] | None = None, python: str = sys.executable,
+                         ready_timeout_s: float = 90.0) -> StagingRunner:
+    """Staging for the cycle: clone of the candidate SHA (from ``repo`` or a cycle
+    worktree under ``root/cycles``), system temp data dir, a free non-live port."""
+    root, repo = Path(root), Path(repo)
+
+    def sources() -> list[Path]:
+        found = [repo]
+        cycles = root / "cycles"
+        if cycles.is_dir():
+            found += sorted(cycles.glob("*/*/worktree"), key=lambda p: p.stat().st_mtime, reverse=True)
+        return found
+
+    if owner_data_dir is None:
+        from ..config import _data_dir
+        owner_data_dir = _data_dir()
+    return StagingRunner(CloneLauncher(sources, python=python, ready_timeout_s=ready_timeout_s),
+                         probes if probes is not None else default_probes(), owner_data_dir=owner_data_dir,
+                         journal=journal if journal is not None else Journal(root))
+
+
+__all__ = ["CheckResult", "CloneLauncher", "LIVE_PORTS", "STANDARD_CHECKS", "StagingError", "StagingReport",
+           "StagingRunner", "build_default_runner", "default_probes", "free_port"]
