@@ -60,6 +60,7 @@ from .photo_edit import PhotoEditPipeline
 from .photo_pipeline import PhotoPipeline
 from .photo_runtime import PhotoServices, build_photo_services
 from .presentation import render_jeff_reply, spoken_reply_text
+from .model_policy import BANNED_MODEL, is_banned_model, planning_decision
 from .model_route import (JEFF_MODEL_ROUTE_SCHEMA, PAYMENT_BLOCK_SECONDS, PAYMENT_REQUIRED,
                           PRICE_RECHECK_SECONDS, is_payment_required, route_verdict)
 from .ollama_native import LocalOpenAICompatChat, OllamaNativeChatAdapter, is_native_ollama_url
@@ -543,6 +544,7 @@ class ParticipantRuntime:
         self.reply_metrics = ReplyMetrics()
         self.prices_verified_at = 0.0
         self.route_rejections: dict[str, str] = {}
+        self.route_policy: dict[str, dict] = {}
         self.route_refusal = ""
         self._payment_blocked_until: dict[str, float] = {}
         self._spawned_workers: set[str] = {p.key for p in settings.people}
@@ -605,6 +607,8 @@ class ParticipantRuntime:
             if self.local_adapter is not None and await self.capacity_guard.local_allowed():
                 rows = await self.local_adapter.list_model_info()
                 for model in self.settings.local_models:
+                    if is_banned_model(model):
+                        continue
                     if any(isinstance(row, dict) and row.get("id") == model for row in rows):
                         endpoints[model] = ModelEndpoint(
                             id=model, provider="local", capabilities=frozenset({"chat"}),
@@ -614,7 +618,9 @@ class ParticipantRuntime:
             return endpoints
         rows = await self.adapter.list_model_info()
         pricing = await self.adapter.list_model_pricing()
-        rejected: dict[str, str] = {}
+        rows_by_id = {row.get("id"): row for row in rows if isinstance(row, dict)}
+        rejected: dict[str, str] = {model: BANNED_MODEL for model in self.settings.rejected_models}
+        policy: dict[str, dict] = {}
         for model in self.settings.chat_models:
             listed = any(row.get("id") == model for row in rows)
             # Owner rule: remote Jeff answers only via a model whose LIVE catalog price is
@@ -629,7 +635,13 @@ class ParticipantRuntime:
                 id=model, provider=self.settings.provider_base_url,
                 capabilities=frozenset({"chat"}), local=False, available=True,
                 zero_cost=True, paid=False)
+            # Planner-grade policy (>=10B + live 0/0) is recorded for the owner and
+            # for callers that need a main planning model; chat routing keeps its own gate.
+            policy[model] = planning_decision(
+                model, listed=True, prices=pricing.get(model), row=rows_by_id.get(model),
+                price_checked_at=time.time(), allow_small_fallback=True).to_dict()
         self.route_rejections = rejected
+        self.route_policy = policy
         self.route_refusal = ""
         self.prices_verified_at = time.monotonic()
         if self.local_adapter is not None and self.settings.local_models:
@@ -637,6 +649,8 @@ class ParticipantRuntime:
                 if await self.capacity_guard.local_allowed():
                     local_rows = await self.local_adapter.list_model_info()
                     for model in self.settings.local_models:
+                        if is_banned_model(model):
+                            continue
                         if any(isinstance(row, dict) and row.get("id") == model
                                for row in local_rows):
                             endpoints[model] = ModelEndpoint(
@@ -689,6 +703,8 @@ class ParticipantRuntime:
                if self.prices_verified_at else None)
         return {"schema": JEFF_MODEL_ROUTE_SCHEMA, "free_remote": remote, "local": local,
                 "rejected": dict(self.route_rejections), "refusal": refusal,
+                "policy": {model: row for model, row in getattr(self, "route_policy", {}).items()
+                           if model in remote},
                 "price_checked_age_s": age, "paid_routes_allowed": False}
 
     def _max_cost_usd(self) -> float:
