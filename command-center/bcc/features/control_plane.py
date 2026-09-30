@@ -29,6 +29,31 @@ CACHE_SECONDS = 2.0
 RETENTION_DAYS = int(os.environ.get("BOSSMAN_EVENTS_RETENTION_DAYS", "14"))
 RETENTION_MAX_ROWS = int(os.environ.get("BOSSMAN_EVENTS_MAX_ROWS", "200000"))
 STUDIO_UNKNOWN_REASON = "owner_stop_provider_unknown"
+AUTONOMY_SETTLE_S = 3.0        # how long the owner STOP waits for the autonomy loop to let go of its lease
+
+
+def _autonomy_inventory(svc) -> list[str]:
+    """Live autonomy work: the engineering lease holder (a writer session) and a running supervisor heartbeat.
+    A stale lease / heartbeat (dead holder) is not live work."""
+    from ..autonomy.lease import pid_alive
+    from . import autonomy as autonomy_feature
+    auto = autonomy_feature.service(svc)
+    live: list[str] = []
+    lease = auto.lease.peek()
+    if lease and not lease.get("stale_reason"):
+        live.append(str(lease.get("goal_id") or lease.get("holder") or "lease"))
+    hb = auto.heartbeat() or {}
+    if hb.get("status") in ("RUNNING", "WAITING", "BACKOFF") and int(hb.get("pid") or 0) > 0 \
+            and pid_alive(int(hb["pid"])) and time.time() - float(hb.get("at") or 0) < 60.0:
+        live.append(f"supervisor:{hb['pid']}")
+    return live
+
+
+def _rave_inventory(svc) -> list[str]:
+    """Raves with a running or paused agent (the service is created lazily; none yet means nothing is live)."""
+    rave = getattr(svc, "rave", None)
+    return [str(item["id"]) for item in (rave.list() if rave is not None else ())
+            if item.get("status") in ("running", "paused")]
 
 
 async def _active_owner_work(svc) -> tuple[dict[str, list], list[dict[str, str]]]:
@@ -41,7 +66,7 @@ async def _active_owner_work(svc) -> tuple[dict[str, list], list[dict[str, str]]
     active: dict[str, list] = {name: [] for name in (
         "tasks", "terminal", "coding", "command_bar", "browser",
         "evolution", "v15_economy", "v15_owner_run", "pit", "studio",
-        "studio_provider_unknown")}
+        "studio_provider_unknown", "autonomy", "rave")}
     errors: list[dict[str, str]] = []
 
     def inspect(plane: str, fn) -> None:
@@ -110,6 +135,8 @@ async def _active_owner_work(svc) -> tuple[dict[str, list], list[dict[str, str]]
             live = bool(evolution._loop().status(work).get("loop_running"))
         return ["campaign"] if live else []
     inspect("evolution", evolution_campaign)
+    inspect("autonomy", lambda: _autonomy_inventory(svc))
+    inspect("rave", lambda: _rave_inventory(svc))
     return active, errors
 
 
@@ -193,6 +220,27 @@ async def stop_all_owner_work(request: Request) -> dict[str, Any]:
     if active["v15_owner_run"]:
         await attempt("v15_owner_run", "run", lambda: v15_owner_run.stop(request), confirmed=False)
 
+    if active["autonomy"]:
+        # STOP file (the loop reads it on every step) + the worker process trees registered with the lease
+        from . import autonomy as autonomy_feature
+        try:
+            await asyncio.to_thread(autonomy_feature.service(svc).request_stop, by="stop-all",
+                                    reason="owner STOP (stop --all)")
+            for _ in range(int(AUTONOMY_SETTLE_S / 0.25)):
+                if not await asyncio.to_thread(_autonomy_inventory, svc):
+                    break
+                await asyncio.sleep(0.25)
+        except Exception as exc:  # noqa: BLE001 — one broken plane cannot hide another
+            errors.append({"plane": "autonomy", "id": "loop", "error": f"{type(exc).__name__}: {exc}"[:300]})
+
+    rave_service = getattr(svc, "rave", None)
+    if active["rave"] and rave_service is not None:
+        # awaited HERE, not left to the owner.stop_all event: the result is counted in ok / remaining
+        try:
+            await rave_service.stop_all()
+        except Exception as exc:  # noqa: BLE001
+            errors.append({"plane": "rave", "id": "all", "error": f"{type(exc).__name__}: {exc}"[:300]})
+
     if active["pit"]:
         from ..pit.config import pit_home
         from ..pit.runtime import STOP_FLAG
@@ -264,6 +312,10 @@ async def stop_all_owner_work(request: Request) -> dict[str, Any]:
     for ident in active["pit"]:
         if not any(e["plane"] == "pit" and e["id"] == ident for e in errors):
             (requested if ident in remaining["pit"] else stopped)["pit"].append(ident)
+    for plane in ("autonomy", "rave"):
+        for ident in active[plane]:
+            if not any(e["plane"] == plane for e in errors):
+                (requested if ident in remaining[plane] else stopped)[plane].append(ident)
     for ident in cancelled_studio:
         (requested if ident in remaining["studio"] or ident in provider_outcome_unknown
          else stopped)["studio"].append(ident)

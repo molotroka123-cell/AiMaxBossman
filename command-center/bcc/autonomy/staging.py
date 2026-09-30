@@ -229,10 +229,15 @@ class CloneLauncher:
     """
 
     def __init__(self, sources: Callable[[], Iterable[Path]], *, python: str = sys.executable,
-                 ready_timeout_s: float = 90.0):
+                 ready_timeout_s: float = 90.0,
+                 command: Callable[[Path, int, str], tuple[list[str], Path, list[str]]] | None = None):
         self.sources = sources
         self.python = python
         self.ready_timeout_s = ready_timeout_s
+        #: ``(checkout, port, python) -> (argv, cwd, pythonpath)``: how the staged candidate is started. The default
+        #: starts Bossman (``python -m bcc`` in command-center); a rehearsal over another repository names its own
+        #: server. Readiness is always ``GET /health/live`` on the port.
+        self.command = command
 
     def _source_for(self, sha: str) -> Path:
         for src in self.sources():
@@ -250,13 +255,17 @@ class CloneLauncher:
         except Exception:
             _rmtree(checkout.parent)
             raise
-        cc = checkout / "command-center"
-        paths = [str(cc)] + ([str(checkout / "bossman-core")] if (checkout / "bossman-core").is_dir() else [])
+        if self.command is not None:
+            argv, cwd, paths = self.command(checkout, port, self.python)
+        else:
+            cc = checkout / "command-center"
+            argv, cwd = [self.python, "-m", "bcc", "--host", "127.0.0.1", "--port", str(port)], cc
+            paths = [str(cc)] + ([str(checkout / "bossman-core")] if (checkout / "bossman-core").is_dir() else [])
         kw: dict[str, Any] = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt"             else {"start_new_session": True}
         handle = {"checkout": checkout, "port": port, "proc": None}
         try:
             handle["proc"] = subprocess.Popen(
-                [self.python, "-m", "bcc", "--host", "127.0.0.1", "--port", str(port)], cwd=str(cc),
+                argv, cwd=str(cwd),
                 env={**child_env(), **env, "PYTHONPATH": os.pathsep.join(paths), "PYTHONDONTWRITEBYTECODE": "1"},
                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kw)
             deadline = time.monotonic() + self.ready_timeout_s

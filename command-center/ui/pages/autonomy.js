@@ -2,13 +2,15 @@
    autonomy.js — контур автономии: цели, улики, панель релиза.
    Endpoints: GET /api/autonomy/status, GET /api/autonomy/goals,
               GET /api/autonomy/goals/{id},
-              POST /api/autonomy/goals/{id}/apply|confirm|reject|revise.
+              POST /api/autonomy/goals/{id}/apply|confirm|reject|revise,
+              POST /api/autonomy/stop|resume (аварийный STOP цикла).
 
    Страница ничего не решает сама. Apply НЕ сливает и НЕ пушит: бэкенд
    записывает решение владельца (привязанное к SHA и хэшу diff) и отдаёт
    точные команды fast-forward и отката. «Выпущено» — только после того,
    как владелец сам выполнил команды и нажал «Подтвердить выпуск».
-   Та же логика в терминале: bossman autonomy status|goals|journal verify.
+   Та же логика в терминале: bossman autonomy status|goals|journal verify|stop|resume.
+   Опыт цикла — контекст для поиска (WEIGHTS_UNCHANGED): веса модели не меняются.
    ============================================================ */
 
 import { api } from '../api.js';
@@ -72,6 +74,15 @@ function releasePanel(view, ctx) {
       btn('Показать команды', () => showCommands(`Команды релиза · ${gid}`, view.commands), { size: 'sm' })) : ''));
 }
 
+function evaluationNote(view) {
+  const ev = view.evaluation;
+  if (!ev) return '';
+  const verdict = ev.decision || (ev.accepted ? 'ACCEPT' : 'REJECT');
+  const reasons = (ev.reasons || []).join('; ');
+  return h('div.small.dim', { style: 'margin-top:.5rem' },
+    `оценка кандидата до одобрения: ${verdict} · измерено: ${ev.measured_on || '—'}` + (reasons ? ` · ${reasons}` : ''));
+}
+
 function evidencePanel(view) {
   const rows = (view.evidence || []).slice(-60).reverse();
   return panel(`Улики (${(view.evidence || []).length})`, rows.length
@@ -93,6 +104,7 @@ function goalView(view, ctx) {
       h('div.small.dim', `уровень риска: ${view.risk_tier} · целевая метрика: ${view.target_metric}`),
       view.blocked_reason ? h('div.small', { style: 'color:var(--bx-rose)' }, `BLOCKED: ${view.blocked_reason}`) : '')),
     releasePanel(view, ctx),
+    evaluationNote(view),
     evidencePanel(view));
 }
 
@@ -114,16 +126,46 @@ const AutonomyPage = {
     const items = (listR.value && Array.isArray(listR.value.items)) ? listR.value.items : [];
     const pills = [];
     if (st) {
-      pills.push(pill(st.loop === 'READY' ? 'конституция закреплена' : 'BLOCKED',
-        { tone: st.loop === 'READY' ? 'ok' : 'err', title: st.reason || '' }));
+      const pinned = st.constitution ? !!st.constitution.ok : st.loop === 'READY';
+      pills.push(pill(pinned ? 'конституция закреплена' : 'BLOCKED',
+        { tone: pinned ? 'ok' : 'err', title: pinned ? '' : (st.reason || '') }));
       pills.push(pill('уровень', { tone: 'idle', value: st.level }));
+      if (st.mode) {
+        const off = st.mode.autonomous_apply === 'OFF';
+        pills.push(pill('автоприменение', { tone: off ? 'ok' : 'err', value: off ? 'ВЫКЛ' : st.mode.autonomous_apply,
+          title: st.mode.reason || '' }));
+      }
+      if (st.stop) {
+        pills.push(pill('STOP', { tone: st.stop.active ? 'err' : 'ok', value: st.stop.active ? 'включён' : 'нет',
+          title: st.stop.reason || '' }));
+      }
+      pills.push(pill(st.weights || 'WEIGHTS_UNCHANGED', { tone: 'idle',
+        title: 'Опыт цикла сохраняется как контекст для поиска (retrieval_context). Веса модели не меняются.' }));
+      if (st.promotion) {
+        pills.push(pill('чистых циклов', { tone: 'idle', value: `${st.promotion.clean_cycles}/${st.promotion.required}`,
+          title: 'Только чтение: уровень этим не повышается.' }));
+      }
+      if (st.budget && st.budget.used && st.budget.limits) {
+        pills.push(pill('бюджет дня', { tone: 'idle',
+          value: `${st.budget.used.cycles}/${st.budget.limits.cycles_per_day} циклов`, title: st.budget.day || '' }));
+      }
       pills.push(pill('журнал', { tone: st.journal && st.journal.ok ? 'ok' : 'err', value: st.journal ? st.journal.entries : 0 }));
       if (st.lease) pills.push(pill('пишет', { tone: 'warn', value: st.lease.holder, live: true }));
     }
-    const head = pageHead('Автономия', HEAD_SUB, { pills });
-    const notice = st && st.loop !== 'READY'
+    const stopOn = !!(st && st.stop && st.stop.active);
+    const actions = [
+      btn('STOP автономии', () => post('/api/autonomy/stop', { reason: 'owner STOP (панель)' }, 'STOP записан', ctx),
+        { size: 'sm', variant: 'danger', title: 'Остановить цикл: записать STOP и завершить процессы писателя' }),
+      btn('Снять STOP', () => post('/api/autonomy/resume', {}, 'STOP автономии снят', ctx),
+        { size: 'sm', disabled: !stopOn,
+          title: stopOn ? 'Снять STOP автономии (общий STOP владельца снимается отдельно)' : 'STOP автономии не установлен' }),
+    ];
+    const head = pageHead('Автономия', HEAD_SUB, { pills, actions });
+    const notice = st && st.loop === 'BLOCKED'
       ? panel('Цикл остановлен', h('div.small', `${st.reason} Закрепить может только владелец: bossman autonomy constitution pin (в своём терминале).`))
-      : '';
+      : (st && st.loop === 'STOPPED'
+        ? panel('Цикл остановлен', h('div.small', `${st.reason}. Снять: кнопка «Снять STOP» или bossman autonomy resume.`))
+        : '');
     if (!items.length) {
       return h('div.bx-page', head, notice, blank({
         iconName: 'empty', title: 'Целей пока нет',

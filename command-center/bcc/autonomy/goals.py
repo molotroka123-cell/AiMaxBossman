@@ -20,6 +20,7 @@ from typing import Any, Callable, Iterable, Mapping
 
 from . import schemas
 from .journal import Journal, atomic_write_bytes, canonical, file_lock, sha256_bytes, utc_now
+from .policy import CANONICAL_TARGET_BRANCH, scope_violations
 from .types import GOAL_STATES, Goal, Review
 
 TERMINAL = frozenset({"COMPLETE"})
@@ -86,6 +87,10 @@ def validate_goal(goal: Goal) -> None:
         raise GoalError(f"refused: acceptance tests are not measurable: {bad}")
     if goal.target_metric in goal.protected_metrics:
         raise GoalError("refused: the target metric cannot also be a protected metric")
+    scope = [c.split(":", 1)[1].strip() for c in goal.constraints if c.lower().startswith("path:")]
+    problems = scope_violations(scope)
+    if problems:
+        raise GoalError("refused: goal scope touches the loop's own rules: " + "; ".join(problems))
 
 
 class GoalStore:
@@ -292,6 +297,8 @@ class GoalStore:
             rec["blocked_from"] = None
             rec["blocked_reason"] = ""
         rec["state"] = new
+        if old == "PROPOSED" and new == "PLANNED" and rec.get("started_ts") is None:
+            rec["started_ts"] = self._clock()                  # the time budget starts when work starts
         if new == "COMPLETE":
             rec["outcome"] = str(evidence.get("outcome") or "accepted")
         ev = dict(evidence)
@@ -334,6 +341,9 @@ class GoalStore:
         if not re.fullmatch(r"[0-9a-f]{40}([0-9a-f]{24})?", sha or "") or \
                 not re.fullmatch(r"[0-9a-f]{64}", diff_sha256 or ""):
             raise GoalError("candidate needs a full commit SHA and a sha256 diff hash")
+        if target_branch and target_branch != CANONICAL_TARGET_BRANCH:
+            raise GoalError(f"refused: a candidate is released only to {CANONICAL_TARGET_BRANCH}, "
+                            f"not {target_branch!r}")
 
         def fn(rec: dict) -> None:
             old = rec.get("candidate") or {}
@@ -446,9 +456,12 @@ class GoalStore:
         return self._mutate(goal_id, fn)
 
     def sweep_budgets(self) -> list[str]:
-        """Timeout sweep: block every live goal whose budget ran out. Returns the blocked ids."""
+        """Timeout sweep: block every live goal whose budget ran out. Returns the blocked ids. A goal waiting for
+        the owner (USER_APPROVAL) is not spending anything, so it is never swept."""
         blocked = []
         for rec in self.resumable():
+            if rec["state"] == "USER_APPROVAL":
+                continue
             reason = self.budget_exceeded(rec)
             if reason:
                 self.block(rec["goal"]["goal_id"], f"budget exhausted: {reason}")
@@ -462,8 +475,11 @@ class GoalStore:
             return "agent turns"
         if float(u.get("cost_usd", 0.0)) > float(b["max_cost_usd"]) + 1e-9:
             return "cost"
-        if self._clock() - float(rec.get("created_ts", self._clock())) > float(b["max_minutes"]) * 60:
-            return "time"
+        started = rec.get("started_ts")
+        if started is None and rec.get("state") != "PROPOSED":
+            started = rec.get("created_ts")                   # goals stored before the start clock existed
+        if started is not None and self._clock() - float(started) > float(b["max_minutes"]) * 60:
+            return "time"                                      # the clock runs from the start, not from creation
         return ""
 
 

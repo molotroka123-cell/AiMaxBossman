@@ -22,11 +22,17 @@ Bossman request hash, is refused.
 Skills are versioned (same name -> next version), scoped (app, env), revocable,
 linked to the source trace/evidence, and carry a confidence that drops on failure
 and an expiry. Retrieval is by goal text, app, environment and confidence.
+
+Hardening (bounded self-improvement): every free-text field of a skill passes the same poison filter as a lesson
+(`learning.lessons.poison_reasons`: control-plane override, budget raise, permission grant, prompt injection, ...);
+an identical artifact is never stored twice (dedup) and a revoked artifact is never silently re-added; add / revoke /
+outcome are written to the autonomy journal; the cycle only WRITES A PROPOSAL (`skills/proposed/<hash>.json`), a skill
+becomes active only through `SkillStore.confirm` (all five conditions again, owner command). A skill is retrieval
+context: it never changes model weights (`weights: WEIGHTS_UNCHANGED`, `learning_kind: retrieval_context`).
 """
 from __future__ import annotations
 
 import json
-import os
 import re
 import time
 from dataclasses import asdict, dataclass, field, replace
@@ -35,7 +41,12 @@ from typing import Any, Iterable
 
 from ..jev.decision import scrub
 from ..pit.secret_filter import redact_secrets
+from .journal import atomic_write_bytes
 from .workers import sha256_json
+
+WEIGHTS = "WEIGHTS_UNCHANGED"
+LEARNING_KIND = "retrieval_context"
+PROPOSAL_DIR = "proposed"
 
 EXECUTED_ORIGINS = ("executed",)
 UNTRUSTED_ORIGINS = ("web", "chat", "quoted", "model_output")
@@ -93,6 +104,8 @@ class EpisodeTrace:
     origin: str = "executed"
     app: str = ""
     env: str = ""
+    weights: str = WEIGHTS              # saving experience is NOT training: the model weights are never changed
+    learning_kind: str = LEARNING_KIND
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -131,6 +144,8 @@ class SkillSpec:
     revoked_reason: str = ""
     successes: int = 0
     failures: int = 0
+    weights: str = WEIGHTS              # a skill is retrieval context, never fine-tuning
+    learning_kind: str = LEARNING_KIND
 
     ARTIFACT_FIELDS = ("name", "description", "app", "env", "parameters", "preconditions", "steps",
                        "failure_detection", "rollback", "timeout_s", "source_trace_hash", "evidence", "keywords")
@@ -144,6 +159,40 @@ class SkillSpec:
 
 class SkillRefused(ValueError):
     pass
+
+
+def _leaf_strings(obj: Any, key: str = "") -> Iterable[str]:
+    """Every free-text leaf of a skill field; evidence hashes are not advice text."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k in _EVIDENCE_KEYS:
+                continue
+            yield from _leaf_strings(v, str(k))
+    elif isinstance(obj, (list, tuple)):
+        for v in obj:
+            yield from _leaf_strings(v, key)
+    elif isinstance(obj, str):
+        yield obj
+
+
+def poison_problems(spec: "SkillSpec") -> list[str]:
+    """Why the skill's text fields must not reach a model (empty = acceptable). Uses the lesson poison filter,
+    so a skill is as hard to poison as a lesson; an unavailable filter fails closed."""
+    try:
+        from learning.lessons import poison_reasons
+    except ImportError:                                            # pragma: no cover - learning ships with bcc
+        return ["poison filter unavailable (fail closed)"]
+    out: list[str] = []
+    fields = {"description": spec.description, "parameters": list(spec.parameters.values()),
+              "preconditions": spec.preconditions, "steps": spec.steps, "failure_detection": spec.failure_detection,
+              "rollback": spec.rollback, "keywords": spec.keywords, "app": spec.app, "env": spec.env}
+    for name, value in fields.items():
+        for text in _leaf_strings(value):
+            reasons = [r for r in poison_reasons(text) if "too short" not in r]
+            if reasons:
+                out.append(f"{name}: {', '.join(reasons)[:160]}")
+                break
+    return out
 
 
 def compile_skill(trace: EpisodeTrace, spec: SkillSpec, *, acceptance_passed: bool, approvals: Iterable[Any],
@@ -172,6 +221,9 @@ def compile_skill(trace: EpisodeTrace, spec: SkillSpec, *, acceptance_passed: bo
         problems.append("4: parameters, preconditions, steps, failure detection and rollback must be explicit")
     if type(spec.timeout_s) is not int or not 1 <= spec.timeout_s <= 24 * 3600:
         problems.append("4: explicit timeout_s required")
+    poisoned = poison_problems(spec)
+    if poisoned:
+        problems.append("poison: " + "; ".join(poisoned))
     if staging_successes < 1:
         problems.append("5: no staging success yet")
     if problems:
@@ -187,24 +239,25 @@ def _tokens(text: str) -> set[str]:
 
 
 class SkillStore:
-    """JSON file per skill version under <root>/skills/<name>/v<N>.json."""
+    """JSON file per skill version under <root>/skills/<name>/v<N>.json (atomic writes)."""
 
-    def __init__(self, root: Path, *, clock=time.time, ttl_s: int = DEFAULT_TTL_S):
+    def __init__(self, root: Path, *, clock=time.time, ttl_s: int = DEFAULT_TTL_S, journal: Any = None):
         self.root = Path(root) / "skills"
-        self.clock, self.ttl_s = clock, ttl_s
+        self.clock, self.ttl_s, self.journal = clock, ttl_s, journal
+
+    def _log(self, kind: str, payload: dict) -> None:
+        if self.journal is not None:
+            self.journal.append(kind, payload)
 
     def _dir(self, name: str) -> Path:
-        if not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,63}", name):
+        if not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,63}", name) or name == PROPOSAL_DIR:
             raise ValueError("skill name must be a lowercase slug")
         return self.root / name
 
     def _write(self, spec: SkillSpec) -> None:
         d = self._dir(spec.name)
-        d.mkdir(parents=True, exist_ok=True)
-        path = d / f"v{spec.version}.json"
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(asdict(spec), ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
-        os.replace(tmp, path)
+        atomic_write_bytes(d / f"v{spec.version}.json",
+                           json.dumps(asdict(spec), ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8"))
 
     def versions(self, name: str) -> list[SkillSpec]:
         d = self._dir(name)
@@ -214,12 +267,85 @@ class SkillStore:
         return sorted(out, key=lambda s: s.version)
 
     def add(self, spec: SkillSpec) -> SkillSpec:
-        """Store a COMPILED spec as the next version of its name."""
+        """Store a COMPILED spec as the next version of its name. An artifact identical to the latest version is
+        a duplicate (returned unchanged, nothing written); an artifact that was revoked is never re-added."""
         prior = self.versions(spec.name)
+        ahash = spec.artifact_hash()
+        if any(v.revoked and v.artifact_hash() == ahash for v in prior):
+            self._log("skill.refused", {"name": spec.name, "artifact_hash": ahash, "reason": "revoked artifact"})
+            raise SkillRefused(f"{spec.name}: this exact artifact was revoked and is not re-added")
+        if prior and not prior[-1].revoked and prior[-1].artifact_hash() == ahash:
+            self._log("skill.dedup", {"name": spec.name, "version": prior[-1].version, "artifact_hash": ahash})
+            return prior[-1]
         new = replace(spec, version=(prior[-1].version + 1 if prior else 1),
                       expires_at=spec.expires_at or self.clock() + self.ttl_s, revoked=False)
         self._write(new)
+        self._log("skill.add", {"name": new.name, "version": new.version, "artifact_hash": ahash,
+                                "source_trace_hash": new.source_trace_hash, "weights": WEIGHTS,
+                                "learning_kind": LEARNING_KIND})
         return new
+
+    # ------------------------------------------------------------ proposals (owner confirmation)
+    def _proposal_path(self, artifact_hash: str) -> Path:
+        if not re.fullmatch(r"[0-9a-f]{64}", artifact_hash or ""):
+            raise ValueError("proposal id is a sha256 artifact hash")
+        return self.root / PROPOSAL_DIR / f"{artifact_hash}.json"
+
+    def propose(self, spec: SkillSpec, *, by: str, trace_hash: str = "") -> str | None:
+        """Write a proposal file for a skill draft. Nothing becomes active: the draft must pass the poison filter,
+        is deduplicated by artifact hash, and needs `confirm` (owner command, all five conditions) to be stored.
+        Returns the artifact hash, or None when the draft is refused (journaled)."""
+        ahash = spec.artifact_hash()
+        problems = poison_problems(spec)
+        if problems:
+            self._log("skill.proposal_refused", {"name": spec.name, "artifact_hash": ahash, "by": by,
+                                                 "reason": "; ".join(problems)[:400]})
+            return None
+        path = self._proposal_path(ahash)
+        if path.is_file():
+            self._log("skill.dedup", {"name": spec.name, "artifact_hash": ahash, "proposal": True})
+            return ahash
+        body = {"proposal": True, "status": "NEEDS_OWNER_CONFIRMATION", "artifact_hash": ahash, "by": by,
+                "trace_hash": trace_hash, "at": self.clock(), "weights": WEIGHTS, "learning_kind": LEARNING_KIND,
+                "spec": asdict(spec)}
+        atomic_write_bytes(path, json.dumps(body, ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8"))
+        self._log("skill.proposed", {"name": spec.name, "artifact_hash": ahash, "by": by, "trace_hash": trace_hash})
+        return ahash
+
+    def proposals(self) -> list[dict]:
+        d = self.root / PROPOSAL_DIR
+        out = []
+        for p in sorted(d.glob("*.json")) if d.is_dir() else ():
+            try:
+                out.append(json.loads(p.read_text(encoding="utf-8")))
+            except (OSError, ValueError):
+                continue
+        return out
+
+    def confirm(self, artifact_hash: str, *, by: str, trace: EpisodeTrace, acceptance_passed: bool,
+                approvals: Iterable[Any], staging_successes: int) -> SkillSpec:
+        """Owner confirmation of a proposal: the five conditions are checked again (`compile_skill`) and only then
+        is the skill stored. Raises SkillRefused with every failed condition; the proposal stays in place."""
+        path = self._proposal_path(artifact_hash)
+        if not path.is_file():
+            raise KeyError(f"no proposal {artifact_hash[:12]}")
+        raw = json.loads(path.read_text(encoding="utf-8"))["spec"]
+        spec = SkillSpec(**raw)
+        compiled = compile_skill(trace, spec, acceptance_passed=acceptance_passed, approvals=approvals,
+                                 staging_successes=staging_successes)
+        stored = self.add(compiled)
+        path.unlink(missing_ok=True)
+        self._log("skill.confirmed", {"name": stored.name, "version": stored.version, "artifact_hash": artifact_hash,
+                                      "by": by})
+        return stored
+
+    def reject_proposal(self, artifact_hash: str, *, by: str, reason: str = "") -> bool:
+        path = self._proposal_path(artifact_hash)
+        if not path.is_file():
+            return False
+        path.unlink(missing_ok=True)
+        self._log("skill.proposal_rejected", {"artifact_hash": artifact_hash, "by": by, "reason": reason[:300]})
+        return True
 
     def get(self, name: str, version: int | None = None) -> SkillSpec | None:
         vs = self.versions(name)
@@ -233,6 +359,8 @@ class SkillStore:
             raise KeyError(f"{name} v{version}")
         spec = replace(spec, revoked=True, revoked_reason=reason[:500])
         self._write(spec)
+        self._log("skill.revoke", {"name": name, "version": version, "artifact_hash": spec.artifact_hash(),
+                                   "reason": reason[:300]})
         return spec
 
     def record_outcome(self, name: str, version: int, *, success: bool) -> SkillSpec:
@@ -246,13 +374,15 @@ class SkillStore:
         else:
             spec = replace(spec, confidence=round(spec.confidence * 0.5, 4), failures=spec.failures + 1)
         self._write(spec)
+        self._log("skill.outcome", {"name": name, "version": version, "success": bool(success),
+                                    "confidence": spec.confidence})
         return spec
 
     def all_latest(self) -> list[SkillSpec]:
         if not self.root.is_dir():
             return []
         out = []
-        for d in sorted(p for p in self.root.iterdir() if p.is_dir()):
+        for d in sorted(p for p in self.root.iterdir() if p.is_dir() and p.name != PROPOSAL_DIR):
             vs = [s for s in self.versions(d.name) if not s.revoked]
             if vs:
                 out.append(vs[-1])

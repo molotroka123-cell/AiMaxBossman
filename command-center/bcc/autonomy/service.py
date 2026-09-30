@@ -15,14 +15,20 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import constitution as const
+from . import stop as stop_mod
+from .budget import DailyBudget
 from .goals import GoalStore
+from .hands import MAX_LEVEL
 from .journal import Journal
-from .lease import EngineeringLease
-from .policy import LEVELS
+from .lease import EngineeringLease, kill_process_group, pid_alive
+from .policy import CANONICAL_TARGET_BRANCH, LEVELS
 from .types import GOAL_STATES
 
 DEFAULT_LEVEL = "L2"                 # constitution: the system starts at L2 at most
-DEFAULT_TARGET_BRANCH = "release/bossman-owner"
+DEFAULT_TARGET_BRANCH = CANONICAL_TARGET_BRANCH
+WEIGHTS = "WEIGHTS_UNCHANGED"        # experience is retrieval context; no training ever happens in this loop
+LEARNING_KIND = "retrieval_context"
+PROMOTION_REQUIRED_CYCLES = 25       # clean COMPLETE goals before a level change may even be discussed
 _REF = re.compile(r"^(?!-)[A-Za-z0-9._/-]{1,200}$")
 
 
@@ -39,6 +45,8 @@ def _ref(value: str, what: str) -> str:
 def release_commands(candidate: dict) -> dict:
     sha = _ref(candidate.get("sha", ""), "sha")
     target = _ref(candidate.get("target_branch") or DEFAULT_TARGET_BRANCH, "target branch")
+    if target != CANONICAL_TARGET_BRANCH:          # the loop never prepares a release to any other branch
+        raise ReleaseRefused(f"releases go only to {CANONICAL_TARGET_BRANCH}, not {target!r}")
     branch = candidate.get("branch") or ""
     base = candidate.get("base_sha") or ""
     release = []
@@ -55,11 +63,13 @@ class AutonomyService:
     def __init__(self, data_dir: str | os.PathLike, *, constitution_path: str | os.PathLike | None = None,
                  pin_path: str | os.PathLike | None = None,
                  constitution_status: Callable[[], Any] | None = None):
-        self.root = Path(data_dir) / "autonomy"
+        self.data_dir = Path(data_dir)
+        self.root = self.data_dir / "autonomy"
         self.root.mkdir(parents=True, exist_ok=True)
         self.journal = Journal(self.root)
         self.goals = GoalStore(self.root, self.journal)
         self.lease = EngineeringLease(self.root, journal=self.journal)
+        self.budget = DailyBudget(self.root, journal=self.journal)
         self._cpath = constitution_path
         self._ppath = pin_path
         self._cstatus = constitution_status
@@ -76,7 +86,84 @@ class AutonomyService:
             level = json.loads(p.read_text(encoding="utf-8")).get("level", DEFAULT_LEVEL)
         except (OSError, ValueError, AttributeError):
             return DEFAULT_LEVEL
-        return level if level in LEVELS else "L0"          # unknown -> the most restrictive level
+        if level not in LEVELS:
+            return "L0"                                         # unknown -> the most restrictive level
+        return level if LEVELS.index(level) <= LEVELS.index(MAX_LEVEL) else MAX_LEVEL   # never above the hard cap
+
+    # .......................................................... emergency stop
+    def stop_reason(self) -> str:
+        """'' when the loop may run, otherwise why not (autonomy STOP and/or the owner's global STOP)."""
+        return stop_mod.stop_reason(self.root, self.data_dir)
+
+    def stop_state(self) -> dict:
+        sources = stop_mod.stop_sources(self.root, self.data_dir)
+        return {"active": bool(sources), "sources": sources, "reason": self.stop_reason()}
+
+    def request_stop(self, *, by: str = "owner", reason: str = "") -> dict:
+        """Set the autonomy STOP and kill the worker process trees registered with the engineering lease. The cycle
+        (another process) sees the file on its next step and its sessions poll it while a CLI runs."""
+        rec = stop_mod.request_stop(self.root, by=by, reason=reason)
+        lease = self.lease.peek() or {}
+        killed = []
+        if lease and not lease.get("stale_reason"):
+            for pid in lease.get("processes") or ():
+                if pid_alive(int(pid)):
+                    kill_process_group(int(pid))
+                    killed.append(int(pid))
+        self.journal.append("autonomy.stop", {"by": by, "reason": rec["reason"], "killed": killed,
+                                              "lease_goal": lease.get("goal_id", "")})
+        return {"stop": rec, "killed": killed, "state": self.stop_state()}
+
+    def clear_stop(self, *, by: str = "owner") -> dict:
+        """Clear the autonomy STOP only. The owner's global STOP is cleared where it was set (Computer Use resume)."""
+        removed = stop_mod.clear_stop(self.root)
+        self.journal.append("autonomy.resume", {"by": by, "removed": removed})
+        state = self.stop_state()
+        return {"cleared": removed, "state": state,
+                "note": ("the owner's global STOP is still set: clear it with the Computer Use resume"
+                         if "computer" in state["sources"] else "")}
+
+    # .......................................................... mode / promotion (read-only)
+    def autonomy_mode(self) -> dict:
+        """What the loop may do by itself: nothing that changes the product. Read-only; nothing here can change it."""
+        return {"autonomous_apply": "OFF", "level": self.level(), "max_level": MAX_LEVEL,
+                "reason": f"level capped at {MAX_LEVEL} (hands.MAX_LEVEL), no apply executor exists, a release is "
+                          "prepared for the owner as commands and only the owner runs them",
+                "release": "OWNER_ONLY", "weights": WEIGHTS, "learning_kind": LEARNING_KIND}
+
+    def promotion_eligibility(self, required: int = PROMOTION_REQUIRED_CYCLES) -> dict:
+        """How many clean cycles exist (COMPLETE, never rolled back, no hand refused by the policy). Read-only: it
+        never changes the level; raising it would be an owner command in an interactive terminal (not implemented)."""
+        refused: dict[str, int] = {}
+        for e in self.journal.entries(kind="hand.refused"):
+            gid = (e.get("payload") or {}).get("goal_id")
+            if gid:
+                refused[gid] = refused.get(gid, 0) + 1
+        clean, rolled = [], []
+        for rec in self.goals.list():
+            gid = rec["goal"]["goal_id"]
+            went_back = rec.get("state") == "ROLLED_BACK" or any(h.get("to") == "ROLLED_BACK"
+                                                                 for h in rec.get("history") or [])
+            if went_back:
+                rolled.append(gid)
+            if rec.get("state") == "COMPLETE" and rec.get("outcome") == "accepted" and not went_back \
+                    and not refused.get(gid):
+                clean.append(gid)
+        reasons = []
+        if len(clean) < required:
+            reasons.append(f"{len(clean)} of {required} clean cycles")
+        if rolled:
+            reasons.append(f"rolled back: {', '.join(sorted(rolled)[:5])}")
+        return {"eligible": not reasons, "clean_cycles": len(clean), "required": required, "rolled_back": sorted(rolled),
+                "policy_refusals": sum(refused.values()), "reasons": reasons, "level": self.level(),
+                "note": "read-only; eligibility never changes the level"}
+
+    def heartbeat(self) -> dict | None:
+        try:
+            raw = json.loads((self.root / "heartbeat.json").read_text(encoding="utf-8"))
+            return raw if isinstance(raw, dict) else None
+        except (OSError, ValueError):
+            return None
 
     def status(self) -> dict:
         c = self.constitution()
@@ -87,12 +174,19 @@ class AutonomyService:
         if lease:
             lease.pop("token", None)                         # the token is the writer's capability
         v = self.journal.verify()
-        loop = "BLOCKED" if not c.ok else "READY"
-        return {"loop": loop, "reason": "" if c.ok else c.reason,
+        stop = self.stop_state()
+        loop = "BLOCKED" if not c.ok else ("STOPPED" if stop["active"] else "READY")
+        reason = "" if c.ok else c.reason
+        if c.ok and stop["active"]:
+            reason = stop["reason"]
+        return {"loop": loop, "reason": reason,
                 "constitution": c.as_dict() if hasattr(c, "as_dict") else {"ok": c.ok, "reason": c.reason},
                 "level": self.level(), "lease": lease,
                 "goals": {k: n for k, n in counts.items() if n}, "goals_total": sum(counts.values()),
-                "journal": {"ok": v.ok, "entries": v.entries, "head": v.head, "reason": v.reason}}
+                "journal": {"ok": v.ok, "entries": v.entries, "head": v.head, "reason": v.reason},
+                "stop": stop, "mode": self.autonomy_mode(), "promotion": self.promotion_eligibility(),
+                "budget": self.budget.snapshot(), "heartbeat": self.heartbeat(),
+                "weights": WEIGHTS, "learning_kind": LEARNING_KIND}
 
     # .......................................................... goals
     def summary(self, rec: dict) -> dict:
@@ -130,8 +224,11 @@ class AutonomyService:
     def goal_view(self, goal_id: str) -> dict:
         rec = self.goals.get(goal_id)
         evidence = self.journal.entries(goal_id=goal_id, limit=300)
+        evaluations = self.journal.entries(kind="staging_evaluation", goal_id=goal_id, limit=1)
         view = {**self.summary(rec), "record": rec, "evidence": evidence, "actions": self.release_actions(rec),
-                "approvals_valid": GoalStore.approvals_valid(rec), "staging_passed": GoalStore.staging_passed(rec)}
+                "approvals_valid": GoalStore.approvals_valid(rec), "staging_passed": GoalStore.staging_passed(rec),
+                "evaluation": (evaluations[-1]["payload"] if evaluations else None),
+                "weights": WEIGHTS, "learning_kind": LEARNING_KIND}
         if GoalStore.apply_decided(rec):
             view["commands"] = release_commands(rec["candidate"])
         return view
@@ -174,4 +271,5 @@ class AutonomyService:
         return {"goal": self.summary(rec)}
 
 
-__all__ = ["AutonomyService", "ReleaseRefused", "release_commands"]
+__all__ = ["AutonomyService", "LEARNING_KIND", "PROMOTION_REQUIRED_CYCLES", "ReleaseRefused", "WEIGHTS",
+           "release_commands"]

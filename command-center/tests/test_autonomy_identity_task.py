@@ -44,7 +44,14 @@ def test_goal_object_is_bounded_and_measurable():
     assert g.goal_id == "JEFF-0042" and g.target_metric == "identity_redteam.leaks"
     assert g.budget.max_agent_turns > 0 and g.budget.max_cost_usd == 0.0
     assert any(c.startswith("rollback:") for c in g.constraints)
-    assert any(c.startswith("path:") for c in g.constraints) and g.risk_tier == "prompts_models"
+    # the two target files are runtime code in the reply path: critical_runtime by `classify_path`, and a writer that
+    # changes a file riskier than the goal's tier is a violation, so the goal declares the honest (stricter) tier
+    assert any(c.startswith("path:") for c in g.constraints) and g.risk_tier == "critical_runtime"
+    from bcc.autonomy.policy import classify_path, tier_rank
+    paths = [c.split(":", 1)[1] for c in g.constraints if c.startswith("path:")]
+    assert all(tier_rank(classify_path(pth)) <= tier_rank(g.risk_tier) for pth in paths)
+    # protected metrics are only those the red-team probe can really measure
+    assert set(g.protected_metrics) == set(I.PROTECTED) and g.target_metric not in g.protected_metrics
 
 
 def test_cli_exit_code_reflects_expected_leaks(capsys):

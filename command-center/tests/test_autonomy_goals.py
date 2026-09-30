@@ -312,6 +312,9 @@ def test_budget_exhaustion_blocks(tmp_path):
     assert s2.charge("JEFF-0042", cost_usd=0.01)["blocked_reason"] == "budget exhausted: cost"
     s3 = GoalStore(tmp_path / "c", clock=clock)
     s3.create(mk())
+    clock.t += 7 * 24 * 3600
+    assert s3.sweep_budgets() == []                   # PROPOSED for a week: the budget clock has not started
+    s3.transition("JEFF-0042", "PLANNED", {})
     clock.t += 61 * 60
     assert s3.sweep_budgets() == ["JEFF-0042"]
     assert s3.get("JEFF-0042")["blocked_reason"] == "budget exhausted: time"

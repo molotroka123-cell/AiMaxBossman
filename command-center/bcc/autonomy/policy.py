@@ -88,12 +88,24 @@ DESTRUCTIVE_GIT = frozenset({"push", "reset", "clean", "rebase", "filter-branch"
 PYTHON_MODULES = frozenset({"pytest", "ruff", "mypy", "compileall", "json.tool"})
 NPM_SUBCOMMANDS = frozenset({"test", "run"})
 
-#: Constitution / approval-gate / safety files: writing them is always the user's decision.
-PROTECTED_GLOBS = ("docs/constitution/*", "command-center/bcc/autonomy/constitution.py",
-                   "command-center/bcc/autonomy/policy.py", "command-center/bcc/autonomy/goals.py",
-                   "command-center/bcc/autonomy/hands.py", "command-center/bcc/autonomy/journal.py",
-                   "command-center/bcc/autonomy/types.py", "schemas/autonomy/*", ".github/workflows/*", ".git/*",
-                   ".git")
+#: The only branch a candidate may be released to. A goal, a candidate or a release command never names another one.
+CANONICAL_TARGET_BRANCH = "release/bossman-owner"
+
+#: Constitution / approval-gate / safety files: writing them is always the user's decision. Self-improvement never
+#: changes its own rules, permissions, limits or canonical branch, so this covers the WHOLE autonomy package (every
+#: rule, limit and gate), its API / control-plane / evolution surfaces and page, the lesson poison filter and store,
+#: the Jeff claim-origin filter, the Fable budget cap, the evolution suite config and the loops' own tests.
+#: ``*`` also matches ``/`` (fnmatch), so one glob covers a whole directory.
+PROTECTED_GLOBS = ("docs/constitution/*", "command-center/bcc/autonomy/*",
+                   "command-center/bcc/features/autonomy.py", "command-center/bcc/features/control_plane.py",
+                   "command-center/bcc/features/evolution.py", "command-center/bcc/features/coding_recipes.py",
+                   "command-center/ui/pages/autonomy.js",
+                   "learning/lessons.py", "learning/lesson_format.py", "learning/trace.py",
+                   "command-center/bcc/pit/runtime.py", "bossman_shared/fable_budget.py",
+                   "bossman-core/bossman_v3/self_improvement/loop.py", "config/evolution/*",
+                   "command-center/tests/test_autonomy_*", "command-center/tests/autonomy_fakes.py",
+                   "command-center/tests/test_control_plane_autonomy_rave.py",
+                   "schemas/autonomy/*", ".github/workflows/*", ".git/*", ".git")
 
 TIER_GLOBS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("docs_tests", ("*.md", "*.rst", "docs/*", "tests/*", "*/tests/*", "test_*.py", "*/test_*.py")),
@@ -116,6 +128,40 @@ def classify_path(rel: str) -> str:
 
 def tier_rank(tier: str) -> int:
     return RISK_TIERS.index(tier)
+
+
+def _norm_rel(path: str) -> str:
+    return str(path or "").replace("\\", "/").strip().lstrip("/")
+
+
+def is_protected_path(rel: str, protected: tuple[str, ...] = PROTECTED_GLOBS) -> str:
+    """The protected glob a repository path falls under ('' when it is not protected)."""
+    p = _norm_rel(rel)
+    for g in protected:
+        if p == g or fnmatch(p, g):
+            return g
+    return ""
+
+
+def scope_violations(patterns: Any, protected: tuple[str, ...] = PROTECTED_GLOBS) -> list[str]:
+    """Problems of a goal's allowed-path globs: a scope may not NAME protected files (`a/b.py` or `dir/**` that is
+    itself protected), escape the repository, or be the whole repository. A broader scope (for example `docs/**`)
+    is allowed because a writer's changed paths are checked one by one against the protected list afterwards."""
+    out: list[str] = []
+    for raw in patterns or ():
+        s = _norm_rel(raw)
+        if not s or s in (".", "*", "**", "**/*", "*/**") or s.startswith((".git/", "../")) or s == ".git" \
+                or ".." in s.split("/") or re.match(r"^[A-Za-z]:", s) or s.startswith("~"):
+            out.append(f"{raw}: scope must be a narrow path inside the repository")
+            continue
+        probes = {s, s.rstrip("/") + "/x"}
+        if s.endswith("/**"):
+            probes.add(s[:-3] + "/x")
+        hit = next((g for g in protected if any(p == g or fnmatch(p, g) for p in probes)), "")
+        if hit:
+            out.append(f"{raw}: names a protected path ({hit}); self-improvement never changes its own rules, "
+                       f"limits or safety gates")
+    return out
 
 
 def _foreign_absolute(raw: str) -> bool:
@@ -344,5 +390,5 @@ class Policy:
         return Decision(False, "unhandled action kind (fail closed)")
 
 
-__all__ = ["ACTIONS", "ALWAYS_USER", "Decision", "LEVELS", "Policy", "PolicyRefusal", "Scope", "classify_path",
-           "tier_rank"]
+__all__ = ["ACTIONS", "ALWAYS_USER", "CANONICAL_TARGET_BRANCH", "Decision", "LEVELS", "PROTECTED_GLOBS", "Policy",
+           "PolicyRefusal", "Scope", "classify_path", "is_protected_path", "scope_violations", "tier_rank"]
