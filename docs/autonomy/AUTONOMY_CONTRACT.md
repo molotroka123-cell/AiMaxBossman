@@ -53,6 +53,7 @@ class HandResult:
 class Review:
     goal_id: str; reviewer: Literal["claude", "codex"]; sha: str; diff_sha256: str
     verdict: Literal["APPROVE", "REQUEST_CHANGES", "REJECT"]; notes: str
+    evidence_sha256: str = ""   # integration update: hash of the test evidence the reviewer saw
 ```
 
 ## State machine (owner update 29.09, enforced by `goals.GoalStore`)
@@ -61,14 +62,36 @@ class Review:
 PROPOSED -> PLANNED -> BUILDING -> TESTING -> CLAUDE_REVIEW -> CODEX_REVIEW -> STAGING -> USER_APPROVAL
          -> DEPLOYED -> MONITORING -> COMPLETE          (MONITORING/DEPLOYED -> ROLLED_BACK -> PLANNED)
 revision (TESTING/CLAUDE_REVIEW/CODEX_REVIEW/STAGING/USER_APPROVAL -> BUILDING) invalidates both approvals
+USER_APPROVAL -> COMPLETE only as the user's Reject (evidence outcome "rejected_by_user")
+STAGING -> DEPLOYED only in the automatic docs_tests tier (evidence auto_tier: true)
 any state -> BLOCKED: rejection, timeout, disagreement, changed SHA, missing evidence, ambiguity
 BLOCKED -> the state it was blocked from (resume) or PLANNED
 ```
 
 Guards: `CLAUDE_REVIEW -> CODEX_REVIEW` needs Claude's APPROVE, `CODEX_REVIEW -> STAGING` needs both APPROVEs,
 all bound to the current candidate SHA + diff hash; `STAGING -> USER_APPROVAL` needs a passed staging report for
-that SHA; `USER_APPROVAL -> DEPLOYED` needs the user's Apply decision for that SHA and the owner's confirmation.
-A new candidate SHA/diff invalidates approvals and staging. A reviewer never approves its own candidate.
+that SHA; `USER_APPROVAL -> DEPLOYED` needs the user's Apply decision for that SHA (release panel / service) and
+`owner_confirmed: true`; `MONITORING -> COMPLETE` needs `gate` (or `verdict`) `"ACCEPT"`. A new candidate SHA/diff
+invalidates approvals and staging. A reviewer never approves its own unreviewed candidate. Failed guards raise
+`goals.GuardError` (a `TransitionError`): the cycle turns it into BLOCKED.
+
+The facts may come from `set_candidate/record_tests/record_review/record_staging` or from the transition
+evidence (for a cycle with its own review gate): `-> TESTING {sha, diff_sha256, writer}` sets the candidate;
+`-> CLAUDE_REVIEW {sha, evidence_sha256}` records passed tests; `-> CODEX_REVIEW {sha, claude: "APPROVE"}`;
+`-> STAGING {approvals: {verdicts: {reviewer: {verdict, key: [sha, diff_sha256, evidence_sha256]}}}}`;
+`-> USER_APPROVAL / DEPLOYED {sha, staging_ok: true}`. Facts that do not name the current SHA+diff are ignored.
+
+## Default wiring for the cycle
+
+- `hands.build_default_broker(root, journal) -> HandBroker`: level capped at L2; the request's worktree is
+  `arguments.worktree` and must be a git checkout under `root/cycles`; `arguments.sha` must equal its HEAD;
+  `run_tests {suite: "acceptance"|"protected"}` becomes `python -m pytest` on the goal's `pytest:` acceptance tests
+  or on the autonomy safety suite with a JUnit report under `root/reports`; writers need the engineering lease;
+  `apply_candidate` / `rollback` are release gates (needs the user below L3 / L4).
+- `staging.build_default_runner(root, repo) -> StagingRunner`: clones the candidate SHA (from `repo` or a cycle
+  worktree) into a temp checkout, starts it on a free non-live port with a temp data dir, credential-free probes
+  `health` and `ready`; any other check fails closed until a probe is registered.
+- `StagingReport.ok` / `.checks: {name: {ok, detail, duration_s}}`; `GateVerdict.verdict` / `.accepted`.
 
 ## Wire schemas
 
