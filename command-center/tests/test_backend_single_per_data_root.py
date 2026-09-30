@@ -117,6 +117,26 @@ def _wait_holder(data: Path, timeout: float = 60.0) -> dict | None:
     return None
 
 
+def _family(proc):
+    """The spawned pid and its descendants. A Windows venv `python.exe` is a launcher: the lock holder is the interpreter below it."""
+    import psutil
+    try:
+        return {proc.pid} | {c.pid for c in psutil.Process(proc.pid).children(recursive=True)}
+    except psutil.Error:
+        return {proc.pid}
+
+
+def _kill_tree(proc):
+    """Crash the whole process tree (launcher and interpreter): no cleanup code runs in any of them."""
+    import psutil
+    try:
+        for child in psutil.Process(proc.pid).children(recursive=True):
+            child.kill()
+    except psutil.Error:
+        pass
+    proc.kill()
+
+
 def test_real_processes_second_server_exits_5_and_crash_frees_the_root(tmp_path):
     data = tmp_path / "data"
     data.mkdir()
@@ -124,13 +144,13 @@ def test_real_processes_second_server_exits_5_and_crash_frees_the_root(tmp_path)
     first = _start(data, first_port)
     try:
         holder = _wait_holder(data)
-        assert holder and holder["port"] == first_port and holder["pid"] == first.pid
+        assert holder and holder["port"] == first_port and holder["pid"] in _family(first)
         second = _start(data, second_port)
         _, err = second.communicate(timeout=60)
         assert second.returncode == 5
         assert str(first_port) in err.decode("utf-8", "replace")
     finally:
-        first.kill()                       # crash: no cleanup code runs
+        _kill_tree(first)                  # crash: no cleanup code runs
         first.communicate(timeout=30)
     assert backend_lock.running_backend(data) is None
     third = _start(data, second_port)
@@ -138,7 +158,7 @@ def test_real_processes_second_server_exits_5_and_crash_frees_the_root(tmp_path)
         holder = _wait_holder(data)
         assert holder and holder["port"] == second_port
     finally:
-        third.kill()
+        _kill_tree(third)
         third.communicate(timeout=30)
 
 
