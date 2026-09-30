@@ -23,6 +23,7 @@ def status(ok):
 def open_page(live, pw, errors, bad):  # noqa: F811
     browser = _launch(pw)
     page = browser.new_page(viewport={"width": 1440, "height": 900})
+    page.add_init_script("window.__bxPreload = false;")
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.on("response", lambda r: bad.append(f"{r.status} {r.url}") if r.status >= 400 else None)
@@ -32,6 +33,15 @@ def open_page(live, pw, errors, bad):  # noqa: F811
     page.wait_for_function("!document.querySelector('#view .skeleton') && "
                            "document.getElementById('view').childElementCount > 0", timeout=20000)
     return browser, page
+
+
+def close(browser, page) -> None:
+    """Leave the app first: an idle preload / event stream cut mid-accept on shutdown is noise."""
+    try:
+        page.add_init_script("window.__bxPreload = false;")
+        page.goto("about:blank")
+    finally:
+        browser.close()
 
 
 def test_empty_state_has_no_errors(live):  # noqa: F811
@@ -45,7 +55,7 @@ def test_empty_state_has_no_errors(live):  # noqa: F811
             page.wait_for_selector("text=Целей пока нет", timeout=10000)
             assert page.locator("text=Цикл остановлен").count() == 1
         finally:
-            browser.close()
+            close(browser, page)
     assert not errors, errors
     assert not bad, bad
 
@@ -71,7 +81,7 @@ def test_release_buttons_follow_the_gate(live):  # noqa: F811
             apply = page.locator("button", has_text="Apply")
             assert apply.is_disabled() and "USER_APPROVAL" in (apply.get_attribute("title") or "")
         finally:
-            browser.close()
+            close(browser, page)
     assert GID and auto.goals.get(GID)["state"] == "USER_APPROVAL"       # nothing was released by rendering
     assert not errors, errors
     assert not bad, bad

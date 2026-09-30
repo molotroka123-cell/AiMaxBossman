@@ -1,4 +1,4 @@
-"""`bossman autonomy ...` РІР‚вЂќ the autonomy control plane in Bossman CMD.
+"""`bossman autonomy ...` - the autonomy control plane in Bossman CMD.
 
     bossman autonomy status [--json]
     bossman autonomy goals [--state S] [--json]
@@ -110,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
         v = auto.journal.verify()
         _emit(args, {"ok": v.ok, "entries": v.entries, "head": v.head, "reason": v.reason, "bad_seq": v.bad_seq},
               f"{'OK' if v.ok else 'TAMPERED'}: {v.entries} entries, head {v.head[:16]}"
-              + (f" РІР‚вЂќ {v.reason} (seq {v.bad_seq})" if not v.ok else ""))
+              + (f" - {v.reason} (seq {v.bad_seq})" if not v.ok else ""))
         return EXIT_OK if v.ok else EXIT_FAIL
     parser.print_help()
     return EXIT_USAGE
