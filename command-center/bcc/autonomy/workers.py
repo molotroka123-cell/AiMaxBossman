@@ -540,7 +540,7 @@ class WriterSession:
                                        f"autonomy({self.goal.goal_id}): {self.agent} writer turn {self.turn}\n\n"
                                        f"Worker: {self.agent}\nTask: {self.task_id}", fp)
         head = snap["commit"]
-        if not snap["committed"] or head == self.base_sha:
+        if head == self.base_sha:              # a worker that committed by itself still counts
             result.status, result.summary = "no_change", result.summary or "writer produced no change"
             return
         changed = [c["path"] for c in rws.changed(self.worktree, self.base_sha, head)]

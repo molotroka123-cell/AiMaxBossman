@@ -130,6 +130,16 @@ async def test_no_change_is_reported(env):
     assert res.status == "no_change"
 
 
+async def test_worker_that_commits_itself_is_still_a_candidate(env):
+    def script(call):
+        (call.cwd / "docs" / "README.md").write_text("self-committed\n", encoding="utf-8")
+        git(call.cwd, "-c", "user.name=w", "-c", "user.email=w@w", "commit", "-qam", "by the worker")
+        return Act(text=done())
+
+    res = await writer(env, agent="codex", runner=ScriptedCLIs(writer=script)).run()
+    assert res.status == "ok" and res.changed_paths == ["docs/README.md"]
+
+
 async def test_hand_requests_are_routed_to_the_broker_never_direct(env):
     turns = []
 
