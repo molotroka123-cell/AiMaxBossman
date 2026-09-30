@@ -94,9 +94,10 @@ def sandbox_auto_ok(command: str) -> bool:
 
 
 def _mgr(svc) -> TerminalManager:
-    if getattr(svc, "terminal", None) is None:
-        svc.terminal = TerminalManager()
-    return svc.terminal
+    # Один менеджер и одна настройка (журнал вывода, запись итога в БД) на оба входа:
+    # страницу «Терминал» и инструмент агента.
+    from .terminal import _mgr as shared_mgr
+    return shared_mgr(svc)
 
 
 async def _roots(svc) -> list[Path]:

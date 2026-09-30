@@ -2,8 +2,9 @@
    terminal.js — Feature 07: Terminal (sandbox/project_host/system_admin).
    Endpoints: GET/POST /api/terminal/roots, POST /api/terminal/preview,
    POST /api/terminal/run, GET /api/terminal/sessions,
-   GET /api/terminal/sessions/{id}, POST /api/terminal/sessions/{id}/kill,
-   POST /api/terminal/sessions/{id}/stdin.
+   GET /api/terminal/sessions/{id}, GET /api/terminal/sessions/{id}/log,
+   POST /api/terminal/sessions/{id}/kill, POST /api/terminal/sessions/{id}/stdin,
+   GET /api/terminal/capabilities (проба Docker → режим по умолчанию).
    ============================================================ */
 
 import { api } from '../api.js';
@@ -20,7 +21,10 @@ const MODES = [
   { value: 'system_admin', label: 'С правами системы', hint: 'Полный доступ — всегда спрашивает подтверждение.' },
 ];
 
-const termState = { mode: 'sandbox', cwd: '', command: '', preview: null };
+// modeChosen: пока владелец сам не выбрал режим, он берётся из честной пробы Docker
+// (GET /api/terminal/capabilities). Раньше по умолчанию всегда стоял «Песочница», и на
+// ПК без Docker каждый запуск падал ошибкой 503.
+const termState = { mode: 'sandbox', modeChosen: false, docker: null, cwd: '', command: '', preview: null };
 
 const TerminalPage = {
   id: 'terminal',
@@ -30,9 +34,14 @@ const TerminalPage = {
   section: 'studio',
 
   async render(ctx) {
-    const [rootsR, sessionsR] = await Promise.allSettled([api.raw('/api/terminal/roots'), api.raw('/api/terminal/sessions')]);
+    const [rootsR, sessionsR, capsR] = await Promise.allSettled([
+      api.raw('/api/terminal/roots'), api.raw('/api/terminal/sessions'), api.raw('/api/terminal/capabilities')]);
     const roots = rootsR.status === 'fulfilled' ? (rootsR.value.roots || []) : [];
     const sessions = sessionsR.status === 'fulfilled' ? (Array.isArray(sessionsR.value) ? sessionsR.value : []) : [];
+    if (capsR.status === 'fulfilled' && capsR.value && capsR.value.docker) {
+      termState.docker = capsR.value.docker;
+      if (!termState.modeChosen && capsR.value.default_mode) termState.mode = capsR.value.default_mode;
+    }
 
     if (!termState.cwd && roots.length) termState.cwd = roots[0];
 
@@ -57,8 +66,13 @@ const TerminalPage = {
 function buildRunPanel(ctx, roots) {
   const modeSeg = h('div.seg', MODES.map((m) => h('button', {
     type: 'button', class: termState.mode === m.value ? 'on' : '', title: m.hint,
-    onClick: () => { termState.mode = m.value; ctx.refresh(); },
+    onClick: () => { termState.mode = m.value; termState.modeChosen = true; ctx.refresh(); },
   }, m.label)));
+  const dockerOff = termState.docker && termState.docker.available === false;
+  const dockerNote = dockerOff
+    ? h('div.xsmall.dim', `Docker недоступен (${termState.docker.detail || 'не отвечает'}): «Песочница» не запустится. `
+      + 'Режим «В проекте» работает без Docker и каждый раз спрашивает подтверждение.')
+    : null;
 
   const cwdEl = input({ placeholder: roots[0] || '/data', value: termState.cwd, class: 'input mono' });
   cwdEl.addEventListener('input', () => { termState.cwd = cwdEl.value; });
@@ -128,6 +142,7 @@ function buildRunPanel(ctx, roots) {
 
   return panel('Запуск команды', h('div.stack.sm',
     field('Режим', modeSeg),
+    dockerNote,
     field('В какой папке выполнять', cwdEl),
     field('Команда', cmdEl),
     networkField,
@@ -169,8 +184,12 @@ function buildRootsPanel(roots, ctx) {
 }
 
 function sessionRow(s, ctx) {
+  // `lost` — строка осталась от прошлого запуска сервера: исход команды неизвестен.
+  const lost = s.status === 'lost';
   return h('div.mini-row.clickable', { onClick: () => openSessionDetail(s.id, ctx) },
-    statusBadge(s.status || 'running', { live: s.status === 'running' }),
+    lost
+      ? statusBadge('offline', { label: 'потеряна (после рестарта)' })
+      : statusBadge(s.status || 'running', { live: s.status === 'running' }),
     h('div', { style: { flex: '1', minWidth: 0 } },
       h('div.mono.small.truncate', s.command),
       h('div.xsmall.dim', `${s.mode} · ${s.cwd}`)),
@@ -190,9 +209,15 @@ async function openSessionDetail(id, ctx) {
     let st;
     try { st = await api.raw(`/api/terminal/sessions/${encodeURIComponent(id)}`); }
     catch (e) {
-      modal.body.textContent = '';
-      modal.body.appendChild(h('div.small', { style: { color: 'var(--err)' } }, e.message || 'Сессия недоступна (возможно, после рестарта сервера)'));
-      return;
+      // Сессии нет в памяти (вытеснена или рестарт): итог и вывод берём из журнала.
+      try {
+        if (e && e.status === 404) st = await api.raw(`/api/terminal/sessions/${encodeURIComponent(id)}/log`);
+        else throw e;
+      } catch (e2) {
+        modal.body.textContent = '';
+        modal.body.appendChild(h('div.small', { style: { color: 'var(--err)' } }, e2.message || 'Сессия недоступна (возможно, после рестарта сервера)'));
+        return;
+      }
     }
     if (stopped) return;
     modal.body.textContent = '';
