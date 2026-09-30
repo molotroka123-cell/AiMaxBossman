@@ -202,8 +202,10 @@ class LocalConnector(Connector):
         env["PYTHONPATH"] = os.pathsep.join(p for p in (core, env.get("PYTHONPATH", "")) if p)
         argv = [sys.executable, "-m", "bossman.apprentice.local_sidecar", "--endpoint", self.endpoint,
                 "--model", self.model, "--max-steps", str(self.max_steps)]
+        # With no --allow the editable set is the workspace's top level, computed lazily by the context (was: TypeError on None).
+        allow = ctx.allow if ctx.allow is not None else await ctx.resolve_allow()
         req = {"schema": "bossman.openhands.v1", "instruction": ctx.prompt, "workspace": str(ctx.workspace),
-               "allowed_paths": list(ctx.allow), "protected_paths": [], "timeout_seconds": self.timeout}
+               "allowed_paths": list(allow), "protected_paths": [], "timeout_seconds": self.timeout}
         res = await ctx.run_process(argv, stdin=json.dumps(req).encode("utf-8"),
                                     timeout=self.timeout + 60, env=env)
         ctx.exec_log(f"step 1 executed (sidecar exit={res.returncode}, timed_out={res.timed_out})")

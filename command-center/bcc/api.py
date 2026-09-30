@@ -1261,16 +1261,24 @@ def _api_router() -> APIRouter:
                         if len(batch) < 500:
                             break
                     yield frame({"kind": "stream.replayed", "cursor": last_seq})
+                last_sent = time.monotonic()
                 while True:
                     if not svc.bus.is_subscribed(queue):
                         yield frame({"kind": "stream.lagged", "cursor": last_seq})
                         return
+                    # The keepalive clock runs from the last thing WRITTEN to the client. Events that the filter drops
+                    # (system.metrics, other tasks) used to restart the wait, so a quiet task stream never pinged and
+                    # the browser showed a false "connection lost" after ~45 s of silence.
+                    wait = STREAM_KEEPALIVE_S - (time.monotonic() - last_sent)
                     try:
-                        msg = await asyncio.wait_for(queue.get(), timeout=STREAM_KEEPALIVE_S)
+                        if wait <= 0:
+                            raise TimeoutError
+                        msg = await asyncio.wait_for(queue.get(), timeout=wait)
                     except TimeoutError:
                         if await request.is_disconnected():
                             return
                         yield ": keepalive\n\n"
+                        last_sent = time.monotonic()
                         continue
                     seq = msg.get("seq")
                     if isinstance(seq, int) and seq <= last_seq:
@@ -1280,6 +1288,7 @@ def _api_router() -> APIRouter:
                     if isinstance(seq, int):
                         last_seq = seq
                     yield frame(msg)
+                    last_sent = time.monotonic()
             finally:
                 svc.bus.unsubscribe(queue)
 

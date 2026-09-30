@@ -971,10 +971,15 @@ class AgentCtx:
         with open(self.agent_dir / "exec.log", "a", encoding="utf-8") as fh:
             fh.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} boot={BOOT_ID} {line}\n")
 
-    async def run_process(self, argv: list[str], *, stdin: bytes, timeout: float,
-                          env: dict[str, str] | None = None) -> ProcResult:
+    async def resolve_allow(self) -> list[str]:
+        """The editable paths: the owner's --allow list, else the workspace top level (computed once)."""
         if self.allow is None:
             self.allow = await asyncio.to_thread(_top_level, self.workspace)
+        return self.allow
+
+    async def run_process(self, argv: list[str], *, stdin: bytes, timeout: float,
+                          env: dict[str, str] | None = None) -> ProcResult:
+        await self.resolve_allow()
         return await self.spawn(self.service, self.runner, argv, cwd=self.workspace, stdin=stdin,
                                 timeout=timeout, env=env)
 
