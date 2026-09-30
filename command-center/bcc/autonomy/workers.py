@@ -30,10 +30,13 @@ import fnmatch
 import hashlib
 import inspect
 import json
+import os
 import random
 import re
 import shutil
+import stat
 import subprocess
+import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -253,6 +256,28 @@ def hand_result_dict(res: HandResult) -> dict:
     return {"request_hash": res.request_hash, "ok": res.ok, "exit_code": res.exit_code,
             "started_at": res.started_at, "finished_at": res.finished_at, "artifacts": dict(res.artifacts),
             "refused_reason": res.refused_reason}
+
+
+def fresh_dir(path: Path) -> Path:
+    """`path` if absent/removable, else the first free `path-N` (Windows keeps git
+    objects read-only and a crashed session may hold files open)."""
+    if path.exists():
+        def _chmod_retry(func, target, *_):
+            try:
+                os.chmod(target, stat.S_IWRITE)
+                func(target)
+            except OSError:
+                pass
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=_chmod_retry)
+        else:  # pragma: no cover
+            shutil.rmtree(path, onerror=_chmod_retry)
+    n = 1
+    candidate = path
+    while candidate.exists():
+        n += 1
+        candidate = path.with_name(f"{path.name}-{n}")
+    return candidate
 
 
 # ------------------------------------------------------------------ manifest
@@ -494,8 +519,8 @@ class WriterSession:
 
     async def _run_locked(self, result: WriterResult) -> None:
         self.session_dir.mkdir(parents=True, exist_ok=True)
-        if self.worktree.exists():
-            shutil.rmtree(self.worktree, ignore_errors=True)
+        self.worktree = fresh_dir(self.worktree)
+        result.worktree = str(self.worktree)
         fp = await asyncio.to_thread(rws.create_workspace, self.source_repo, self.base_sha, self.worktree,
                                      self.manifest.branch)
         (self.session_dir / "manifest.json").write_text(json.dumps(self.manifest.as_dict(), indent=2,
@@ -719,8 +744,7 @@ class ReviewerSession:
     async def run(self) -> ReviewSessionResult:
         out = ReviewSessionResult(status="failed", reviewer=self.reviewer, session_id=self.session_id)
         self.session_dir.mkdir(parents=True, exist_ok=True)
-        if self.checkout.exists():
-            shutil.rmtree(self.checkout, ignore_errors=True)
+        self.checkout = fresh_dir(self.checkout)
         fp = await asyncio.to_thread(rws.create_workspace, self.source_worktree, self.sha, self.checkout,
                                      f"review-{self.reviewer}-{self.sha[:12]}")
         last_msg = self.session_dir / "last-message.txt"

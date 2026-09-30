@@ -239,7 +239,7 @@ class AutonomyCycle:
         ctx["user_decision"] = {"decision": decision, "journal_entry": entry}
         self._save(ctx)
         if decision == "reject":
-            self._to(ctx, "COMPLETE", {"outcome": "rejected_by_user", "applied": False, "journal_entry": entry})
+            self._finish(ctx, "COMPLETE", {"outcome": "rejected_by_user", "applied": False, "journal_entry": entry})
             return CycleOutcome(goal_id, "COMPLETE", "rejected by the user")
         if decision == "revise":
             ctx["revisions"] += 1
@@ -535,7 +535,7 @@ class AutonomyCycle:
             raise Blocked("rollback not guaranteed: rollback failed", request_hash=res.request_hash)
         self._finish(ctx, "ROLLED_BACK")
 
-    def _finish(self, ctx: dict, state: str) -> None:
+    def _finish(self, ctx: dict, state: str, extra: dict | None = None) -> None:
         goal = self._goal(ctx)
         gate = ctx.get("gate") or {}
         trace = capture_trace(
@@ -555,7 +555,7 @@ class AutonomyCycle:
         ctx["trace_hash"] = trace.trace_hash()
         self._log("trace_captured", ctx, {"trace_hash": ctx["trace_hash"], "state": state})
         self._to(ctx, state, {"sha": ctx["sha"], "trace_hash": ctx["trace_hash"],
-                              "metrics_after": ctx.get("metrics_after")})
+                              "metrics_after": ctx.get("metrics_after"), **(extra or {})})
 
 
 # ------------------------------------------------------------------ real wiring (OWNER_REQUIRED)
