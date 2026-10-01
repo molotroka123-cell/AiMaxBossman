@@ -353,4 +353,3 @@ def test_long_results_carry_a_grouped_copy_and_small_ones_do_not():
     assert ma.fmt(Fraction(-98765432)) == "-98765432 (-98 765 432)"
     assert ma.fmt(Fraction(12345)) == "12345 (12 345)" and ma.fmt(Fraction(1234)) == "1234"
     assert "15! = 1307674368000 (1 307 674 368 000)" in summary("Сколько существует перестановок из 15 элементов?")
-
