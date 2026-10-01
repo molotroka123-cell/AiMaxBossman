@@ -242,6 +242,8 @@ def test_average_equation_combinatorics():
     assert "C(10, 3) = 10! / (3! * 7!) = 120" in summary("Чему равно C(10,3) сочетаний?")
     assert "A(10, 3) = 10! / 7! = 720" in summary("Чему равно число размещений из 10 по 3?")
     assert find_math_hint("Сколькими способами 7 человек можно рассадить за круглым столом?") is None
+    assert "15! = 1307674368000" in summary("Сколько существует перестановок из 15 элементов?")       # genitive plural
+    assert "5! = 120" in summary("Найди число перестановок из 5")
 
 
 def test_dates_and_times():

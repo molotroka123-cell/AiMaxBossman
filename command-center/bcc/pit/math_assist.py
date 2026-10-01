@@ -801,7 +801,7 @@ def _handle_combinatorics(t: str) -> MathHint | None:
     m = re.search(r"размещени\w*\s+из\s+(\d+)\s+по\s+(\d+)", t)
     if m and _count_ints(t) == 2:
         return _arr_hint(int(m.group(1)), int(m.group(2)))
-    m = re.search(r"(?:перестановк\w*|факториал\w*)\s+(?:из\s+|числа\s+)?(\d+)", t)
+    m = re.search(r"(?:перестанов(?:к\w*|ок)|факториал\w*)\s+(?:из\s+|числа\s+)?(\d+)", t)
     if m and _count_ints(t) == 1:
         return _fact_hint(int(m.group(1)))
     if not re.search(r"способ|вариант|сколько", t) or _REPEAT_OR_CIRCLE.search(t):
