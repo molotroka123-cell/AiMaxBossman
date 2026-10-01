@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from ..providers import ProviderError, http_client
+from ..providers import ProviderError, http_client, net_reason
 
 DEFAULT_BASE = "https://openrouter.ai/api/v1"
 
@@ -177,7 +177,7 @@ class OpenRouterClient:
             # ProviderError сюда приходит от http_client: прокси из окружения
             # настроен, но не поддержан сборкой. Для владельца это та же
             # «нет связи», только с причиной, которую можно устранить.
-            return "network", f"нет связи с OpenRouter: {exc}"
+            return "network", f"нет связи с OpenRouter: {exc if isinstance(exc, ProviderError) else net_reason(exc)}"
         if r.status_code >= 400:
             detail, hint = explain_status(r.status_code)
             # 401/403 — про ключ, 404 — про адрес, остальное — про доступность.

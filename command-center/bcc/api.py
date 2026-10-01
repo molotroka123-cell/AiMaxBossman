@@ -637,14 +637,48 @@ def _install_error_handlers(app: FastAPI) -> None:
     async def _validation_error(_r: Request, exc: RequestValidationError):
         first = (exc.errors() or [{}])[0]
         where = ".".join(str(p) for p in first.get("loc", [])[1:]) or "тело запроса"
-        return JSONResponse({"error": {"message": f"неверный запрос: {where} — "
-                                                  f"{first.get('msg', 'некорректное значение')}",
+        return JSONResponse({"error": {"message": f"неверный запрос: {where} — {validation_reason(first)}",
                                        "hint": "проверьте поля запроса"}}, status_code=422)
 
     @app.exception_handler(Exception)
     async def _unhandled(_r: Request, exc: Exception):
         return JSONResponse({"error": {"message": f"внутренняя ошибка: {type(exc).__name__}",
                                        "hint": "подробности — в логе сервера"}}, status_code=500)
+
+
+_VALIDATION_WORDS = {
+    "missing": "поле обязательно",
+    "int_parsing": "нужно целое число", "int_type": "нужно целое число", "int_from_float": "нужно целое число",
+    "float_parsing": "нужно число", "float_type": "нужно число",
+    "bool_parsing": "нужно «да» или «нет»", "bool_type": "нужно «да» или «нет»",
+    "string_type": "нужна строка текста", "bytes_type": "нужна строка текста",
+    "list_type": "нужен список", "dict_type": "нужен объект", "model_attributes_type": "нужен объект",
+    "json_invalid": "тело запроса — не JSON", "literal_error": "недопустимое значение",
+    "enum": "недопустимое значение", "extra_forbidden": "лишнее поле", "none_required": "поле должно быть пустым",
+    "url_parsing": "некорректный адрес", "url_scheme": "некорректный адрес",
+}
+
+
+def validation_reason(error: dict) -> str:
+    """Причина отказа валидации по-русски: сырой английский текст pydantic («Input should be a valid
+    integer…») владельцу ничего не говорит."""
+    kind = str(error.get("type") or "")
+    ctx = error.get("ctx") or {}
+    if kind == "string_too_short":
+        return f"слишком коротко (не меньше {ctx.get('min_length', 1)} симв.)"
+    if kind == "string_too_long":
+        return f"слишком длинно (не больше {ctx.get('max_length', '?')} симв.)"
+    if kind == "too_short":
+        return f"слишком мало элементов (не меньше {ctx.get('min_length', 1)})"
+    if kind == "too_long":
+        return f"слишком много элементов (не больше {ctx.get('max_length', '?')})"
+    for key, word in (("greater_than_equal", "не меньше"), ("less_than_equal", "не больше"),
+                      ("greater_than", "больше чем"), ("less_than", "меньше чем")):
+        if kind == key:
+            bound = ctx.get(("ge" if key == "greater_than_equal" else "le" if key == "less_than_equal"
+                             else "gt" if key == "greater_than" else "lt"))
+            return f"{word} {bound}" if bound is not None else word
+    return _VALIDATION_WORDS.get(kind, "некорректное значение")
 
 
 def _mount_ui(app: FastAPI, settings: Settings) -> None:

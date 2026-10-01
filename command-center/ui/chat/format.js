@@ -404,6 +404,24 @@ export function raveIsLive(card) {
   return agents.some((a) => Boolean(a) && (a.live === true || RAVE_AGENT_LIVE.has(a.status)));
 }
 
+/** Состояние модели из model_health словами: коды provider_down / unmeasured владельцу ничего не говорят. */
+const HEALTH_WORDS = {
+  healthy: 'работает', ok: 'работает', silent: 'отвечает пустотой', malformed: 'ответ не разобран',
+  throttled: 'лимит запросов', unauthorized: 'доступ отклонён', provider_down: 'провайдер недоступен',
+  timeout: 'не ответила вовремя', unmeasured: 'ещё не проверялась',
+};
+export function healthLabel(code) {
+  const key = String(code || '').trim();
+  return HEALTH_WORDS[key] || key;
+}
+
+/** Итог проверки хода словами: серверные коды PASS/FAIL/NOT_APPLICABLE владельцу ничего не говорят. */
+const VERDICT_WORDS = { PASS: 'пройдена', FAIL: 'не пройдена', NOT_APPLICABLE: 'не требуется' };
+export function verdictLabel(verdict) {
+  const code = String(verdict || '').trim().toUpperCase();
+  return VERDICT_WORDS[code] || (verdict ? String(verdict) : '—');
+}
+
 export function backoffDelay(attempt, random = Math.random) {
   const base = Math.min(8000, 500 * Math.pow(2, Math.max(0, attempt - 1)));
   const jitter = 0.8 + random() * 0.4;

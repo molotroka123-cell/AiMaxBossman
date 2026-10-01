@@ -19,7 +19,7 @@ import { h, icon, clear, domFactory } from './dom.js';
 import { renderMarkdown, planTextRender } from './markdown.js';
 import { sphere, setSphereState } from './sphere.js';
 import { displaySegments, isTerminalStatus } from './state.js';
-import { clockLabel, fmtBytes, fmtDuration, fmtTokens, localityBadge, costLabel } from './format.js';
+import { clockLabel, fmtBytes, fmtDuration, fmtTokens, localityBadge, costLabel, verdictLabel } from './format.js';
 
 const RUNNING_WORDS = {
   queued: 'В очереди…',
@@ -238,7 +238,7 @@ function footerFor(turn, ctx) {
   }
   if (turn.startedAt && turn.finishedAt) parts.push(h('span.foot-meta', fmtDuration(turn.finishedAt - turn.startedAt)));
   const evalRow = turn.evaluations.length ? turn.evaluations[turn.evaluations.length - 1] : null;
-  if (evalRow) parts.push(h('span.badge', { dataset: { tone: evalRow.verdict === 'PASS' ? 'local' : evalRow.verdict === 'FAIL' ? 'danger' : 'lan' }, title: evalRow.reasons || '' }, `Проверка: ${evalRow.verdict}`));
+  if (evalRow) parts.push(h('span.badge', { dataset: { tone: evalRow.verdict === 'PASS' ? 'local' : evalRow.verdict === 'FAIL' ? 'danger' : 'lan' }, title: evalRow.reasons || evalRow.verdict || '' }, `Проверка: ${verdictLabel(evalRow.verdict)}`));
   const actions = h('span.foot-actions',
     h('button.link-btn', { type: 'button', 'aria-label': 'Скопировать ответ', title: 'Скопировать ответ', onClick: () => ctx.onCopy(turn) }, icon('copy', 15)),
     h('button.link-btn', { type: 'button', 'aria-label': 'Шаги и источники этого ответа в правой панели', title: 'Показать в панели Thinking & Actions', onClick: () => ctx.onFocus(turn) }, icon('list', 15)),

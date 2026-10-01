@@ -249,11 +249,21 @@ export function codeBlock(text) {
 /* ---------------------------------------------------------------- сегментированный переключатель */
 
 export function segmented(options, current, onPick) {
-  return h('div.bx-seg', options.map((o) => {
-    const b = h('button', { type: 'button', class: current === o.value ? 'is-on' : '' }, o.label);
-    b.addEventListener('click', () => onPick(o.value));
+  const buttons = [];
+  const mark = (value) => buttons.forEach(({ node, option }) => {
+    const on = option.value === value;
+    node.classList.toggle('is-on', on);
+    node.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  const root = h('div.bx-seg', options.map((o) => {
+    const b = h('button', { type: 'button', class: current === o.value ? 'is-on' : '',
+      'aria-pressed': current === o.value ? 'true' : 'false' }, o.label);
+    buttons.push({ node: b, option: o });
+    // выбор должен быть виден сразу: иначе нажатая кнопка выглядит мёртвой, пока страница не перерисуется
+    b.addEventListener('click', () => { mark(o.value); onPick(o.value); });
     return b;
   }));
+  return root;
 }
 
 /* ---------------------------------------------------------------- поле ввода */

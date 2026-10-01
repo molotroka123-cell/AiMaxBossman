@@ -18,7 +18,7 @@
 
 import { api } from '../api.js';
 import { h, icon, iconButton, clear } from './dom.js';
-import { billingBadge, localityBadge, fmtBytes, fmtClockTimer, subscriptionState } from './format.js';
+import { billingBadge, localityBadge, fmtBytes, fmtClockTimer, subscriptionState, healthLabel } from './format.js';
 import { Recorder, blobToWav16k, micUnsupportedReason, MAX_RECORD_MS } from './audio.js';
 
 const DEFAULT_MAX_BYTES = 20 * 1024 * 1024;
@@ -253,7 +253,7 @@ export function createComposer(ctx) {
       for (const e of g.items) {
         list.appendChild(option({
           label: `${e.name} · ${e.alias}`,
-          sub: !e.usable ? (e.refusal || 'недоступен') : [e.provider, e.health && e.health !== 'ok' ? `состояние: ${e.health}` : ''].filter(Boolean).join(' · '),
+          sub: !e.usable ? (e.refusal || 'недоступен') : [e.provider, e.health && e.health !== 'ok' ? `состояние: ${healthLabel(e.health)}` : ''].filter(Boolean).join(' · '),
           badges: entryBadges(e), disabled: !e.usable, reason: e.refusal,
           selected: !st.rave && st.selection.mode === 'agent' && String(st.selection.agentId) === String(e.agentId),
           iconName: e.group === 'local' ? 'home' : 'link',

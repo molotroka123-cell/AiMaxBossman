@@ -1473,8 +1473,12 @@ function kv(label, value) { return h('div.pop-kv', h('span', label), h('b', valu
 
 async function popoverContent(kind) {
   if (kind === 'memory') {
-    const [cfgR, statsR] = await Promise.allSettled([api.raw('/api/memory/config'), api.raw('/api/memory/stats')]);
+    const cfgR = await Promise.allSettled([api.raw('/api/memory/config')]).then((r) => r[0]);
     const cfg = cfgR.status === 'fulfilled' ? cfgR.value : null;
+    // статистику просим только у подключённого хранилища: у неподключённого сервер честно отвечает 503,
+    // и это был лишний запрос с ошибкой в консоли при каждом открытии окна «Память»
+    const statsR = cfg && cfg.configured
+      ? await Promise.allSettled([api.raw('/api/memory/stats')]).then((r) => r[0]) : null;
     const recall = S.options && S.options.memory ? S.options.memory.recall_enabled : null;
     const out = [h('h3.pop-title', icon('memory', 16), 'Память Bossman')];
     if (!cfg) out.push(h('p.pop-dim', `Настройки памяти не получены: ${cfgR.reason ? cfgR.reason.message : 'ошибка'}`));
@@ -1483,7 +1487,7 @@ async function popoverContent(kind) {
         h('a.pop-link', { href: '/#/settings', target: '_blank', rel: 'noopener noreferrer' }, 'Подключить в Command Center → Настройки'));
     } else {
       out.push(kv('Хранилище', cfg.root || '—'), kv('Движок', cfg.backend_class || cfg.backend || '—'));
-      if (statsR.status === 'fulfilled' && statsR.value && statsR.value.stats && typeof statsR.value.stats === 'object') {
+      if (!statsR) { /* статистика не запрашивалась */ } else if (statsR.status === 'fulfilled' && statsR.value && statsR.value.stats && typeof statsR.value.stats === 'object') {
         for (const [k, v] of Object.entries(statsR.value.stats).slice(0, 6)) {
           if (v === null || typeof v === 'object') continue;
           out.push(kv(k, String(v)));
