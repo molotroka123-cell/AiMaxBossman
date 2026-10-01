@@ -142,3 +142,32 @@ async def test_free_provider_connect_without_network_does_not_blame_the_key(env,
     assert not TECH_NET.search(text), text[:300]
     assert "не принял ключ" not in text, "сеть недоступна, про ключ ничего не известно"
     assert "Ключ не проверен" in text
+
+
+# ------------------------------------------------------------------ новый чат: код проверки не показывается как есть
+
+import os
+import shutil
+import subprocess
+from pathlib import Path
+
+UI = Path(__file__).resolve().parent.parent / "ui"
+
+
+def test_chat_verdict_codes_are_words_in_node():
+    node = os.environ.get("CODEX_PRIMARY_RUNTIME_NODE") or shutil.which("node")
+    if not node:
+        pytest.skip("node is not installed")
+    result = subprocess.run([node, "--experimental-detect-module", "--no-warnings", "--test",
+                             str(UI / "tests" / "buttons_sweep_chat.test.mjs")],
+                            capture_output=True, text=True, timeout=180, cwd=str(UI.parent))
+    assert result.returncode == 0, (result.stdout + result.stderr)[-3000:]
+    assert re.search(r"^# fail 0$", result.stdout, re.M), result.stdout[-1500:]
+
+
+def test_chat_footer_and_panel_use_the_verdict_label():
+    render = (UI / "chat" / "render.js").read_text(encoding="utf-8")
+    panel = (UI / "chat" / "panel.js").read_text(encoding="utf-8")
+    assert "Проверка: ${evalRow.verdict}" not in render, "в подписи ответа сырой код NOT_APPLICABLE/PASS/FAIL"
+    assert "verdictLabel(evalRow.verdict)" in render
+    assert "verdictLabel(e.verdict)" in panel and "e.verdict || '—'" not in panel

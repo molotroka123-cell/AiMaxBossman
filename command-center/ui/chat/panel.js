@@ -17,7 +17,7 @@
    ============================================================ */
 
 import { h, icon, iconButton, clear } from './dom.js';
-import { fmtDuration, localityBadge, billingBadge } from './format.js';
+import { fmtDuration, localityBadge, billingBadge, verdictLabel } from './format.js';
 import { toolCounts } from './state.js';
 
 function section(id, title, iconName, counter, collapsed, onToggle, body) {
@@ -118,7 +118,7 @@ function checkBody(data) {
   if (!turn) return dim('Проверок пока нет.');
   const out = [];
   for (const e of groupEvaluations(turn.evaluations)) {
-    out.push(h('div.pnl-check', h('span.badge', { dataset: { tone: e.verdict === 'PASS' ? 'local' : e.verdict === 'FAIL' ? 'danger' : 'lan' } }, e.verdict || '—'),
+    out.push(h('div.pnl-check', h('span.badge', { dataset: { tone: e.verdict === 'PASS' ? 'local' : e.verdict === 'FAIL' ? 'danger' : 'lan' } }, verdictLabel(e.verdict)),
       h('span', e.reasons || 'без пояснения'),
       e.count > 1 ? h('span.pnl-dim-inline', `× ${e.count}`) : null));
   }

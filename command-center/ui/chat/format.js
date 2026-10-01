@@ -404,6 +404,13 @@ export function raveIsLive(card) {
   return agents.some((a) => Boolean(a) && (a.live === true || RAVE_AGENT_LIVE.has(a.status)));
 }
 
+/** Итог проверки хода словами: серверные коды PASS/FAIL/NOT_APPLICABLE владельцу ничего не говорят. */
+const VERDICT_WORDS = { PASS: 'пройдена', FAIL: 'не пройдена', NOT_APPLICABLE: 'не требуется' };
+export function verdictLabel(verdict) {
+  const code = String(verdict || '').trim().toUpperCase();
+  return VERDICT_WORDS[code] || (verdict ? String(verdict) : '—');
+}
+
 export function backoffDelay(attempt, random = Math.random) {
   const base = Math.min(8000, 500 * Math.pow(2, Math.max(0, attempt - 1)));
   const jitter = 0.8 + random() * 0.4;
