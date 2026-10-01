@@ -334,6 +334,19 @@ const JeffSettingsPage = {
         ctx.refresh();
       } catch (e) { toastError(e); }
     }, { cls: 'btn', iconName: 'check' });
+    /* ---- точные расчёты (по умолчанию включены) ---- */
+    const mathAssist = checkbox('Точные расчёты: если в сообщении одно однозначное вычисление (арифметика, проценты, НДС, '
+      + 'единицы, даты, уравнения), программа считает ответ точно и подсказывает его модели; ответ пишет сам Jeff',
+    data.math_assist, { name: 'js-math-assist' });
+    const saveMathAssist = actionButton('Сохранить расчёты', async () => {
+      try {
+        await api.raw('/api/jeff-settings', { method: 'PUT', body: {
+          defaults: { behavior_scales: s.defaults.behavior_scales, system_extra: s.defaults.system_extra || '' },
+          math_assist: mathAssist.querySelector('input').checked } });
+        toastOk('Настройка расчётов сохранена', 'Действует со следующего ответа');
+        ctx.refresh();
+      } catch (e) { toastError(e); }
+    }, { cls: 'btn', iconName: 'check' });
     const truncated = (data.extra_truncated || []).length
       ? h('div.small', { style: { color: 'var(--err)' } },
         `Текст настроения в файле длиннее ${data.system_extra_max} символов: Jeff читает только начало (${data.extra_truncated.join(', ')}). `
@@ -355,6 +368,10 @@ const JeffSettingsPage = {
         h('div.small.dim', 'По умолчанию облако получает только текущее сообщение. Включите, если ответы облачной модели '
           + 'теряют нить беседы. Старые версии Jeff не читают файл настроек с этой опцией: обновите Jeff до включения.'),
         h('div.row.tight', saveCloudSession))),
+      panel('Точные расчёты', h('div.stack.sm', mathAssist,
+        h('div.small.dim', 'Подсказка строится только из чисел сообщения, без сети; на обычные сообщения не влияет. '
+          + 'Выключенная опция записывается в файл настроек: старые версии Jeff такой файл не читают, обновите Jeff до выключения.'),
+        h('div.row.tight', saveMathAssist))),
       panel('Лимит расходов', h('div.stack.sm',
         h('div.row.tight', { style: { gap: '12px', flexWrap: 'wrap' } },
           field('$ в день', perDay), field('$ на одну задачу', perJob)),
