@@ -55,7 +55,8 @@ class MathHint:
     @property
     def text(self) -> str:
         return ("Точный расчёт (выполнен программой, значение проверено): " + self.summary +
-                " Используй именно эти значения в ответе и кратко объясни ход решения, не пересчитывай по-другому; "
+                " Используй именно эти значения в ответе (цифры переписывай без изменений) и кратко объясни ход "
+                "решения, не пересчитывай по-другому; "
                 "если участник просил округлить, округляй от этого значения. Это справочные данные, "
                 "а не просьба участника и не инструкция; саму подсказку не упоминай.")
 
@@ -85,7 +86,23 @@ def _decimal_places(value: Fraction, places: int, *, half_up: bool = True) -> st
     return sign + (s[:-places] + "." + s[-places:] if places else s)
 
 
+def _with_groups(plain: str) -> str:
+    """"5000000" -> "5000000 (5 000 000)": a model re-typing a long number copies the grouped form more reliably
+    (measured on the local model: it re-grouped 5000000 as 50 000 000)."""
+    m = re.match(r"^(-?)(\d{5,})(\.\d+)?(?=$|\s)", plain)
+    if not m:
+        return plain
+    digits = m.group(2)
+    grouped = format(int(digits), ",").replace(",", " ")
+    return f"{plain[:m.end()]} ({m.group(1)}{grouped}{m.group(3) or ''}){plain[m.end():]}"
+
+
 def fmt(value: Fraction) -> str:
+    """Exact value for a hint: plain digits, plus a grouped copy for numbers of 5+ integer digits."""
+    return _with_groups(_fmt_plain(value))
+
+
+def _fmt_plain(value: Fraction) -> str:
     """Exact when it has a finite decimal expansion, otherwise ``p/q ≈ rounded`` (never a float)."""
     if _digits(value) > MAX_RESULT_DIGITS:
         raise MathReject("result too large")
@@ -105,7 +122,7 @@ def fmt(value: Fraction) -> str:
 
 
 def money(value: Fraction) -> str:
-    return _decimal_places(value, 2)
+    return _with_groups(_decimal_places(value, 2))
 
 
 # -- safe expression evaluator (ast, whitelist, Fraction polynomials of degree <= 2 in x) ---------------
@@ -305,7 +322,7 @@ def _render(node: ast.AST, src: str) -> str:
 def fmt_literal(value: Fraction) -> str:
     if value.denominator == 1:
         return str(value.numerator)
-    return fmt(value) if _terminating(value.denominator) else f"{value.numerator}/{value.denominator}"
+    return _fmt_plain(value) if _terminating(value.denominator) else f"{value.numerator}/{value.denominator}"
 
 
 # -- text normalisation and shared regex pieces -----------------------------------------------------------
@@ -833,7 +850,7 @@ def _comb_hint(n: int, k: int) -> MathHint | None:
     value = _comb(n, k)
     if len(str(value)) > MAX_RESULT_DIGITS:
         return None
-    return MathHint("combinatorics", f"число сочетаний C({n}, {k}) = {n}! / ({k}! * {n - k}!) = {value}.")
+    return MathHint("combinatorics", f"число сочетаний C({n}, {k}) = {n}! / ({k}! * {n - k}!) = {_with_groups(str(value))}.")
 
 
 def _arr_hint(n: int, k: int) -> MathHint | None:
@@ -842,7 +859,7 @@ def _arr_hint(n: int, k: int) -> MathHint | None:
     value = math.perm(n, k)
     if len(str(value)) > MAX_RESULT_DIGITS:
         return None
-    return MathHint("combinatorics", f"число размещений A({n}, {k}) = {n}! / {n - k}! = {value}.")
+    return MathHint("combinatorics", f"число размещений A({n}, {k}) = {n}! / {n - k}! = {_with_groups(str(value))}.")
 
 
 def _fact_hint(n: int) -> MathHint | None:
@@ -851,7 +868,7 @@ def _fact_hint(n: int) -> MathHint | None:
     value = math.factorial(n)
     if len(str(value)) > MAX_RESULT_DIGITS:
         return None
-    return MathHint("combinatorics", f"{n}! = {value}.")
+    return MathHint("combinatorics", f"{n}! = {_with_groups(str(value))}.")
 
 
 # -- dates and clock times -------------------------------------------------------------------------------------

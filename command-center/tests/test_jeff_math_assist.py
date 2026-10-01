@@ -210,7 +210,7 @@ def test_percent_stays_silent_when_the_story_is_ambiguous():
 
 def test_compound_and_simple_interest_show_only_the_asked_quantity():
     def numbers(text):
-        return set(re.findall(r"(?<![\d.])\d+\.\d\d(?!\d)", summary(text)))
+        return set(re.findall(r"= (\d+\.\d\d) ", summary(text)))
     assert numbers("Вклад 100 000 рублей под 8% годовых на 3 года со сложным процентом. Сколько будет через 3 года?") == {"125971.20"}
     assert numbers("Положили 50 000 рублей под 12% годовых с ежемесячной капитализацией на 2 года. Сколько будет?") == {"63486.73"}
     assert numbers("Простые проценты: 200 000 рублей под 6% годовых на 4 года. Сколько процентов начислят?") == {"48000.00"}
@@ -221,10 +221,10 @@ def test_compound_and_simple_interest_show_only_the_asked_quantity():
 
 def test_unit_conversions_are_exact():
     assert "8.04672 км" in summary("Переведи 5 миль в километры.")
-    assert "12600 с" in summary("Сколько секунд в 3,5 часах?")
+    assert "12600 (12 600) с" in summary("Сколько секунд в 3,5 часах?")
     assert "98.6 °F" in summary("Сколько градусов по Фаренгейту это 37 градусов по Цельсию?")
     assert "25 м/с" in summary("Скорость 90 км/ч. Сколько это в метрах в секунду?")
-    assert "32000 м²" in summary("Сколько квадратных метров в 3,2 гектарах?")
+    assert "32000 (32 000) м²" in summary("Сколько квадратных метров в 3,2 гектарах?")
     assert "2500 л" in summary("В бассейне 2,5 кубометра воды. Сколько это литров?")
     assert "5.44" in summary("Сколько килограммов в 12 фунтах? Округли до 2 знаков.")
     assert "-40 °F" in summary("Переведи -40 градусов Цельсия в Фаренгейт")
@@ -343,4 +343,14 @@ def test_adversarial_shapes_stay_fast(text):
 def test_an_operand_of_more_than_100_digits_is_refused_and_100_digits_still_work():
     assert find_math_hint("Сколько будет " + "9" * 101 + " + 1") is None
     hint = find_math_hint("Сколько будет " + "9" * 100 + " + 1")
-    assert hint is not None and hint.summary.endswith("= 1" + "0" * 100 + ".")
+    assert hint is not None and hint.summary.startswith("9" * 100 + " + 1 = 1" + "0" * 100)
+
+
+def test_long_results_carry_a_grouped_copy_and_small_ones_do_not():
+    assert find_math_hint("Сколько будет 1 000 000 000 / 8 / 25?").summary.endswith("= 5000000 (5 000 000).")
+    assert find_math_hint("Сколько будет 12*12").summary == "12 * 12 = 144."
+    assert ma.fmt(Fraction(80004400261, 1000)) == "80004400.261 (80 004 400.261)"
+    assert ma.fmt(Fraction(-98765432)) == "-98765432 (-98 765 432)"
+    assert ma.fmt(Fraction(12345)) == "12345 (12 345)" and ma.fmt(Fraction(1234)) == "1234"
+    assert "15! = 1307674368000 (1 307 674 368 000)" in summary("Сколько существует перестановок из 15 элементов?")
+
