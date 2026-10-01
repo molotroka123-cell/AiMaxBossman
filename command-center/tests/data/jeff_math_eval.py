@@ -12,7 +12,8 @@ The OpenRouter key is read from the owner's key file inside this process, handed
 printed, logged or written anywhere. Each run uses a fresh temporary data dir with one synthetic participant.
 
 Scoring (strict, documented; the same code scores before and after):
-  number   FINAL NUMBER of the reply: the first number after the last "Ответ"/"Итого"/"Итог" marker, else the number
+  number   FINAL NUMBER of the reply: the first number after the last "Ответ"/"Итого"/"Итог" marker (on that line; after
+           the last "=" of that line when it has one), else the number
            inside the last bold span that has one, else the last number of the reply. Numbers are read as
            digits with optional decimal point/comma; groups of exactly three digits separated by spaces or NBSP are
            thousands separators; "1,234,567" (two or more comma groups) is thousands; the minus sign must touch the
@@ -78,7 +79,10 @@ def final_number(reply: str) -> Fraction | None:
     text = reply.replace("`", "")
     markers = list(_MARKER.finditer(text))
     if markers:
-        found = _numbers(text[markers[-1].end():])
+        rest = text[markers[-1].end():].split("\n", 1)[0]       # the rest of the marker's own line
+        if "=" in rest:
+            rest = rest.rsplit("=", 1)[1]                        # "Итого: 387 + 470 = 857 рублей" -> 857
+        found = _numbers(rest)
         if found:
             return found[0]
     for m in reversed(list(_BOLD.finditer(text))):
