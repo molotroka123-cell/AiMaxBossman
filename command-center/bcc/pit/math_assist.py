@@ -309,7 +309,7 @@ def fmt_literal(value: Fraction) -> str:
 
 
 # -- text normalisation and shared regex pieces -----------------------------------------------------------
-NUM = r"(?:\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)"
+NUM = r"(?:\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:[.,]\d+)?|\d{1,100}(?:[.,]\d{1,100})?)"
 _NUM_RE = re.compile(NUM)
 _GROUPED = re.compile(r"(?<![\d.,])(\d{1,3})((?:[ \u00a0\u202f]\d{3})+)(?![\d])")
 
@@ -982,8 +982,8 @@ def find_math_hint(text: str) -> MathHint | None:
     if not isinstance(text, str) or not text.strip() or len(text) > MAX_TEXT:
         return None
     t, places = _split_rounding(_norm(text))
-    if t.startswith("/"):
-        return None
+    if t.startswith("/") or re.search(r"\d{101,}", t):
+        return None                          # a command, or an operand longer than 100 digits (regex-cost guard)
     hints: list[MathHint] = []
     for handler in _SPECIFIC:
         try:

@@ -309,3 +309,33 @@ def test_hint_latency_is_negligible():
             hint_text(text)
     per_call_ms = (time.perf_counter() - started) / (20 * len(texts)) * 1000
     assert per_call_ms < 5.0, per_call_ms
+
+
+def test_fuzz_never_raises_and_never_hangs():
+    import random
+    rng = random.Random(20261001)
+    pieces = ["1", "23", "4,5", "6.7", "+", "-", "*", "/", "^", "(", ")", "!", "x", "=", "%", " ", "  ", "км", "м", "в",
+              "сколько", "будет", "посчитай", "процентов", "от", "НДС", "скидка", "через", "дней", "после",
+              "15.03.2024", "12:30", "часов", "минут", "из", "по", "способов", "выбрать", "среднее арифметическое",
+              "уравнение", "², ", "°C", "§", "0", "000", "1 000", "e5", "__import__", "'", '"', ".", ",", "?"]
+    started = time.perf_counter()
+    for _ in range(4000):
+        text = "".join(rng.choice(pieces) + rng.choice(["", " "]) for _ in range(rng.randint(1, 40)))
+        hint = find_math_hint(text)                       # must not raise
+        assert hint is None or isinstance(hint.text, str)
+    assert time.perf_counter() - started < 20.0
+
+
+@pytest.mark.parametrize("text", ["1 " * 290, "1 + " * 140 + "1", "а " * 295, "(" * 590, "9" * 590, "1," * 290,
+                                  "1 - " * 140, "сколько " * 70, "1.1.1." * 95, "12:30 " * 95, "5 км в " * 80,
+                                  "x = " * 140, "10% от " * 90, "1 000 " * 95])
+def test_adversarial_shapes_stay_fast(text):
+    started = time.perf_counter()
+    find_math_hint(text)
+    assert time.perf_counter() - started < 1.0
+
+
+def test_an_operand_of_more_than_100_digits_is_refused_and_100_digits_still_work():
+    assert find_math_hint("Сколько будет " + "9" * 101 + " + 1") is None
+    hint = find_math_hint("Сколько будет " + "9" * 100 + " + 1")
+    assert hint is not None and hint.summary.endswith("= 1" + "0" * 100 + ".")
