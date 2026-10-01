@@ -62,3 +62,35 @@ async def test_duplicate_skill_does_not_show_a_file_path(env):
         msg = _message(resp)
         assert not WINDOWS_PATH.search(msg), f"путь к файлу в уведомлении: {msg!r}"
         assert "уже существует" in msg
+
+
+# ------------------------------------------------------------------ «Студия»: сообщения для человека
+
+import base64
+
+
+async def test_studio_reference_import_refusals_are_russian(env):
+    bad_type = await env.client.post("/api/studio/references", json={
+        "filename": "заметка.txt", "data_base64": base64.b64encode(b"x").decode()})
+    assert bad_type.status_code == 422
+    msg = _message(bad_type)
+    assert not LATIN_PHRASE.search(msg), msg
+    assert "PNG" in msg
+    empty = await env.client.post("/api/studio/references", json={"filename": "a.png", "data_base64": ""})
+    assert empty.status_code == 422
+    assert not LATIN_PHRASE.search(_message(empty)), _message(empty)
+
+
+async def test_studio_reframe_without_reference_is_russian(env):
+    resp = await env.client.post("/api/studio/jobs", json={"model": "local:reframe", "prompt": "x"})
+    assert resp.status_code == 422
+    msg = _message(resp)
+    assert not LATIN_PHRASE.search(msg), f"сырой английский текст бэкенда: {msg!r}"
+    assert "рефрейм" in msg.lower()
+
+
+async def test_studio_missing_things_are_russian(env):
+    for path in ("/api/studio/runs/99999", "/api/studio/packages/nope"):
+        resp = await env.client.get(path)
+        assert resp.status_code in (404, 409, 422), (path, resp.status_code)
+        assert not LATIN_PHRASE.search(_message(resp)), (path, _message(resp))
