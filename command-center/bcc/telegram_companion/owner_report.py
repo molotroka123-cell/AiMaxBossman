@@ -66,9 +66,9 @@ def _mask(chat_id: int) -> str:
 
 def _load_owner(config_path: Path | None) -> tuple[Any, Any] | None:
     """(settings, owner person) of the configured Пульт, or None when it is not configured."""
-    from .__main__ import default_config
     from .config import load
-    config = config_path or default_config()
+    from .paths import companion_config_path
+    config = config_path or companion_config_path(read_fallback=True)
     if not config.exists():
         return None
     settings = load(config, env_file=config.parent / "companion.env")

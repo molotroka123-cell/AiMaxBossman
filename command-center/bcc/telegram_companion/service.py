@@ -1194,6 +1194,8 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
                 if not self.learning_enabled(person):
                     continue
                 old = self.store.profile(person.key) or {}
+                if old.get("edited_by_owner") and not force:
+                    continue            # the owner's hand-edited text is never replaced by a rebuild
                 since = int(old.get("last_log_id", 0))
                 if not force and self.store.log_count(person.key, since) < self.settings.profile_every:
                     continue
