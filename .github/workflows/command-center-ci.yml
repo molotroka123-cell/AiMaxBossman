@@ -113,18 +113,30 @@ jobs:
           python -m pytest -q -n 4 --durations=15 --timeout=180 --timeout-method=signal
           --ignore=tests/telegram_calls --cov=bcc --cov-report=
 
-      - name: Pytest - real-time Telegram Calls tests (serial, adds to the same coverage)
-        # Barge-in, echo and live-call self-tests are paced by the wall clock; running them next to 3 busy workers
-        # would make their timing budgets measure the runner, not the product. They run alone, after the parallel step,
-        # and the coverage floor is enforced on the union of both steps.
+      - name: Pytest - Telegram Calls tests (serial, adds to the same coverage)
+        # The call e2e/worker tests spawn real processes and are kept out of the parallel step; the two wall-clock-paced
+        # files below get their own step. The coverage floor is enforced on the union of the steps.
         if: ${{ !cancelled() }}
         working-directory: command-center
         env:
           BCC_DATA_DIR: ${{ runner.temp }}/bcc-data-calls
           BCC_REQUIRE_BROWSER: "1"
         run: >-
-          python -m pytest -q tests/telegram_calls --durations=15 --timeout=180 --timeout-method=signal
+          python -m pytest -q tests/telegram_calls --ignore=tests/telegram_calls/test_session.py
+          --ignore=tests/telegram_calls/test_selftest.py --durations=15 --timeout=180 --timeout-method=signal
           --cov=bcc --cov-append --cov-report=term:skip-covered --cov-fail-under=72
+
+      - name: Pytest - wall-clock paced call tests (serial, NO coverage tracing)
+        # test_session (barge-in budget) and test_selftest (echo / false barge-in) run real-time DSP against the line
+        # clock. coverage's tracer made the same session read 0.69-0.81 s against a 0.6 s budget on the CI runner
+        # (run 36849703334, py3.11/3.12), so they run alone and untraced, with the budgets unchanged.
+        if: ${{ !cancelled() }}
+        working-directory: command-center
+        env:
+          BCC_DATA_DIR: ${{ runner.temp }}/bcc-data-calls-rt
+        run: >-
+          python -m pytest -q tests/telegram_calls/test_session.py tests/telegram_calls/test_selftest.py
+          --durations=10 --timeout=180 --timeout-method=signal
 
   core-runtime:
     # Тесты, которым нужен рантайм bossman-core рядом с Command Center (как в
