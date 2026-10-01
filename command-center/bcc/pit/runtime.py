@@ -145,6 +145,7 @@ NO_MODEL_RU = ("Сейчас у меня нет доступной беспла�
 NO_WEB_RU = "Веб-поиск сейчас недоступен, поэтому отвечаю без свежих источников."
 PROVIDER_DOWN_RU = ("Модель-провайдер недоступен. Платные маршруты у меня выключены; "
                     "попробуй позже.")
+TRAINING_FILE = "training.jsonl"      # opt-in training pairs, inside the participant's own vault folder
 INCOMPLETE_REPLY_RU = ("Ответ модели оборвался. Я не буду выдавать обрывок за полный ответ; "
                        "повтори запрос или попроси ответить короче.")
 FORBIDDEN_REPLY_RU = ("Такой команды у Jeff нет: управление компьютером и внутренностями "
@@ -1988,13 +1989,25 @@ class ParticipantRuntime:
             consent.remote_personalization_enabled = False
             self.vault.set_consent(person_key, consent)
             return "Удалённая модель больше не получает память: только текущий запрос."
+        if arg == "training on":
+            consent.training_use_enabled = True
+            self.vault.set_consent(person_key, consent)
+            return ("Спасибо! Твои диалоги с Jeff, очищенные от секретов, будут попадать в закрытый набор для "
+                    "обучения моделей Bossman. Набор виден только владельцу и никогда не показывается в ответах. "
+                    "Передумаешь: /privacy training off, и набор с твоими диалогами будет стёрт.")
+        if arg == "training off":
+            consent.training_use_enabled = False
+            self.vault.set_consent(person_key, consent)
+            (self.vault.person_dir(person_key) / TRAINING_FILE).unlink(missing_ok=True)
+            return "Обучение на твоих диалогах выключено, а накопленный набор с ними стёрт."
         return (
             f"Приватность: память {'включена' if consent.memory_enabled else 'выключена'}; "
             f"удалённые модели {'разрешены' if consent.remote_processing_enabled else 'выключены'}; "
             f"передача памяти удалённой модели "
             f"{'разрешена' if consent.remote_personalization_enabled else 'выключена'}; "
-            f"чувствительные факты {'записываются' if consent.sensitive_memory_enabled else 'не записываются'}.\n"
-            "Команды: /privacy remote on|off; /privacy personalization on|off; /pause_memory; "
+            f"чувствительные факты {'записываются' if consent.sensitive_memory_enabled else 'не записываются'}; "
+            f"обучение на моих диалогах {'включено' if consent.training_use_enabled else 'выключено'}.\n"
+            "Команды: /privacy remote on|off; /privacy personalization on|off; /privacy training on|off; /pause_memory; "
             "/resume_memory; /export_me; /delete_me.")
 
     def _memory_summary(self, person_key: str, consent: ConsentState) -> str:
@@ -2514,6 +2527,12 @@ class ParticipantRuntime:
             return
         self.store.remember(who, text, answer[:4000])
         self.store.log(who, text, answer)
+        if self.vault.consent(person_key).training_use_enabled:
+            # Explicit opt-in only (/privacy training on). Secret-redacted, one file per person inside that person's own
+            # vault folder, removed again by /privacy training off and /delete_me. Never read back into a prompt.
+            _append_jsonl(self.vault.ensure(person_key) / TRAINING_FILE, {
+                "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "user": redact_secrets(text)[0][:4000], "assistant": redact_secrets(answer)[0][:4000]})
         self.store.put(f"last_context:{who}", persona_items)
         if web_sources:
             self.store.put(f"last_web:{who}", web_sources)

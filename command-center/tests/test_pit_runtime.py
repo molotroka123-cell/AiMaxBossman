@@ -1788,3 +1788,48 @@ def test_complex_cloud_request_starts_at_the_doubled_token_budget_and_a_plain_on
     assert limits == [min(4096, base * 2)]
     limits, base = run("расскажи про горы", 32)
     assert limits == [base]
+
+
+def _training_file(runtime, person):
+    return runtime.vault.person_dir(runtime.vault.key_for_telegram(person.user_id)) / rt.TRAINING_FILE
+
+
+def _ready_runtime(tmp_path):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    key = runtime.vault.key_for_telegram(person.user_id)
+    runtime.vault.set_consent(key, ConsentState(memory_enabled=True, remote_processing_enabled=True))
+    runtime.catalog = {"free/model:free": ModelEndpoint(
+        id="free/model:free", provider="remote", capabilities=frozenset({"chat"}),
+        local=False, available=True, zero_cost=True, paid=False)}
+    runtime.catalog_checked_at = 1.0
+    return runtime, person
+
+
+def test_training_is_off_by_default_and_nothing_is_collected(tmp_path):
+    runtime, person = _ready_runtime(tmp_path)
+    asyncio.run(runtime.handle(person, message("расскажи про горы", message_id=41)))
+    assert runtime.store.history(person.key)                       # normal memory still works
+    assert not _training_file(runtime, person).exists()
+    assert "обучение на моих диалогах выключено" in asyncio.run(
+        runtime.handle(person, message("/privacy", message_id=42)))
+    asyncio.run(runtime.close())
+
+
+def test_training_opt_in_collects_redacted_pairs_and_opt_out_erases_them(tmp_path):
+    runtime, person = _ready_runtime(tmp_path)
+    answer = asyncio.run(runtime.handle(person, message("/privacy training on", message_id=43)))
+    assert "закрытый набор" in answer and "/privacy training off" in answer
+    secret = "sk-or-v1-" + "a1b2c3d4" * 8
+    asyncio.run(runtime.handle(person, message(f"мой ключ {secret}, расскажи про горы", message_id=44)))
+    path = _training_file(runtime, person)
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    assert len(rows) == 1 and secret not in json.dumps(rows, ensure_ascii=False) and rows[0]["assistant"] == "готово"
+    assert "включено" in asyncio.run(runtime.handle(person, message("/privacy", message_id=45)))
+    # the training file is never fed back into a prompt
+    assert all("training" not in json.dumps(call[1], ensure_ascii=False) for call in runtime.adapter.calls)
+    assert "стёрт" in asyncio.run(runtime.handle(person, message("/privacy training off", message_id=46)))
+    assert not path.exists()
+    asyncio.run(runtime.handle(person, message("ещё про моря", message_id=47)))
+    assert not path.exists()
+    asyncio.run(runtime.close())
