@@ -17,3 +17,24 @@ test('verdictLabel: an unknown code is shown as is (never hidden), an empty one 
   assert.equal(verdictLabel(''), '—');
   assert.equal(verdictLabel(undefined), '—');
 });
+
+const { createTurn, applyEvent, rungLabel, approvalLabel } = await import('../chat/state.js');
+
+test('a retry note says what the recovery rung means, not the server code retry_same', () => {
+  const turn = createTurn({ taskId: 7, text: 'x' });
+  applyEvent(turn, { kind: 'task.queued', retry: true, attempt: 1, run_id: 3, recovery_rung: 'retry_same' });
+  const [note] = [...turn.notes.values()];
+  assert.ok(note, 'the retry note exists');
+  assert.doesNotMatch(note.detail, /retry_same/);
+  assert.match(note.detail, /повтор того же маршрута/);
+  assert.equal(rungLabel('alternate_model'), 'другая модель');
+  assert.equal(rungLabel('something_new'), 'something_new', 'an unknown code is shown, never hidden');
+});
+
+test('approval statuses are words in the Thinking panel', () => {
+  assert.equal(approvalLabel('pending'), 'ждёт');
+  assert.equal(approvalLabel('approved'), 'разрешено');
+  assert.equal(approvalLabel('rejected'), 'отклонено');
+  assert.equal(approvalLabel('denied'), 'отклонено');
+  assert.equal(approvalLabel(''), '—');
+});

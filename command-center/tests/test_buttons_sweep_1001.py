@@ -280,3 +280,8 @@ def test_resource_plan_explanations_are_russian():
     for line in lines:
         assert re.search(r"[А-Яа-я]{3,}", line), line
         assert not LATIN_PHRASE.search(line), f"английская строка в плане: {line!r}"
+
+
+def test_chat_panel_uses_the_approval_label():
+    panel = (UI / "chat" / "panel.js").read_text(encoding="utf-8")
+    assert "approvalLabel(a.status)" in panel and ": a.status)" not in panel

@@ -252,6 +252,23 @@ function setStatus(turn, status) {
   turn.status = status;
 }
 
+/* Ступени восстановления и решения по подтверждениям приходят с сервера кодами; владельцу они показываются словами. */
+const RUNG_WORDS = {
+  retry_same: 'повтор того же маршрута', alternate_model: 'другая модель',
+  degraded_path: 'упрощённый путь', human_escalation: 'нужен человек',
+};
+export function rungLabel(code) {
+  const key = String(code || '').trim();
+  return RUNG_WORDS[key] || key;
+}
+const APPROVAL_WORDS = {
+  pending: 'ждёт', approved: 'разрешено', rejected: 'отклонено', denied: 'отклонено', expired: 'истекло', decided: 'решено',
+};
+export function approvalLabel(status) {
+  const key = String(status || '').trim();
+  return APPROVAL_WORDS[key] || key || '—';
+}
+
 function reduce(turn, kind, ev, now) {
   switch (kind) {
     case 'task.created':
@@ -261,7 +278,7 @@ function reduce(turn, kind, ev, now) {
       if (ev.retry) {
         addNote(turn, `retry:${ev.run_id ?? ''}:${ev.attempt ?? turn.notes.size}`, {
           tone: 'warn', title: 'Повторная попытка',
-          detail: [ev.attempt ? `попытка ${ev.attempt}` : '', ev.recovery_rung ? `ступень ${ev.recovery_rung}` : '']
+          detail: [ev.attempt ? `попытка ${ev.attempt}` : '', ev.recovery_rung ? `ступень: ${rungLabel(ev.recovery_rung)}` : '']
             .filter(Boolean).join(' · '),
         });
       }

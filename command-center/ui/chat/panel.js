@@ -18,7 +18,7 @@
 
 import { h, icon, iconButton, clear } from './dom.js';
 import { fmtDuration, localityBadge, billingBadge, verdictLabel } from './format.js';
-import { toolCounts } from './state.js';
+import { toolCounts, approvalLabel } from './state.js';
 
 function section(id, title, iconName, counter, collapsed, onToggle, body) {
   const open = !collapsed.has(id);
@@ -124,7 +124,7 @@ function checkBody(data) {
   }
   for (const a of turn.approvals.values()) {
     out.push(h('div.pnl-check', h('span.badge', { dataset: { tone: a.status === 'approved' ? 'local' : a.status === 'pending' ? 'lan' : 'danger' } },
-      a.status === 'pending' ? 'ждёт' : a.status), h('span', `Подтверждение ${a.kind || ''}`.trim())));
+      approvalLabel(a.status)), h('span', `Подтверждение ${a.kind || ''}`.trim())));
   }
   if (!out.length) out.push(dim('Сервер не прислал проверок для этого хода.'));
   return out;
