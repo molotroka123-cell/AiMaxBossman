@@ -31,7 +31,7 @@
 | `9251414d` | красные root-ci/browser-user-paths — устаревший реестр пропусков (исправлен), core runtime (windows) — тайминговый тест эволюции (бюджет увеличен) |
 | `2f0cc1fb` | всё зелёное, кроме Intelligence Preservation и одного нестабильного UI-теста редактора `test_web_ui_edit_download...` (гонка ввода, в соседнем прогоне зелёный) |
 | `fda7be4f` | красные: пробел в конце файла (исправлен), `test_local_sidecar::test_kill_reaches_a_descendant...` (процессная нестабильность), OS-60 сценарий очереди медиа (гонка) — до перезапуска |
-| **`5b99dc7c` (FINAL)** | **RUNNING/QUEUED на момент отчёта — полный зелёный повторный CI на FINAL_SHA НЕ получен**; ожидается ≈ 35–45 мин; нестабильные тесты перечислены ниже |
+| **`5b99dc7c` (FINAL)** | **GREEN кроме owner-only гейта:** из 53 разных проверок зелёный прогон есть у 52 (в т.ч. `pytest (py3.11/3.12/3.14)` и root-ci); без зелёного прогона только `measured intelligence retention` — честный гейт владельца; две «cancelled» — дубли push/PR с зелёным двойником. |
 
 ## Доказательства на железе владельца (отдельно от облачного CI)
 - **Новый код запущен на AiMax:** `/health/live` build `5b99dc7c` (source checkout), Jeff `heartbeat.build_sha` тот же.
@@ -48,7 +48,7 @@
 
 ## P0 / P1 / P2
 - **P0:** нет открытых, известных. (Закрыты: утечка прав worker.log, стирание `agent_id` владельца настройками.)
-- **P1:** (1) нет зелёного CI на FINAL_SHA (идёт); (2) цикл самоулучшения на корне не доказан (нужны пин и Apply); (3) Intelligence Preservation — замер владельца; (4) автозапуск теперь на исходник в worktree `wt-bugtest-0930` — нужна нормальная установка нового билда; (5) тайминговые нестабильные тесты: `test_operator_step_profile`, `test_v5_human_speed`, `test_editors_user_acceptance::…second_project`, `test_local_sidecar::…own_session`, OS-60 — повторяются реже, чем раз в ~10 прогонов, но красят CI.
+- **P1:** (1) ~~нет зелёного CI на FINAL_SHA~~ — получен (кроме гейта владельца); (2) цикл самоулучшения на корне не доказан (нужны пин и Apply); (3) Intelligence Preservation — замер владельца; (4) автозапуск теперь на исходник в worktree `wt-bugtest-0930` — нужна нормальная установка нового билда; (5) тайминговые нестабильные тесты: `test_operator_step_profile`, `test_v5_human_speed`, `test_editors_user_acceptance::…second_project`, `test_local_sidecar::…own_session`, OS-60 — повторяются реже, чем раз в ~10 прогонов, но красят CI.
 - **P2:** чат на телефоне 390 px — нельзя открыть прошлый чат; `poller_processes` считает пару лаунчер+интерпретатор venv как 2 процесса (`test_jeff_availability` красный на ПК при запущенном Jeff); провайдеры local-main/fast на закрытых портах 8081/8082 («готов: нет»); английские подписи («Task Composer»…); `inception/mercury-decide:free` не существует в OpenRouter; Kimi K3 через NVIDIA не отвечал за 240 с (перегрузка бесплатной очереди); Higgsfield Genjutsu: 0 кредитов.
 
 ## Расходы
@@ -57,4 +57,4 @@
 ## Маркеры
 - `BOSSMAN_2_0_READY_FOR_OWNER_TEST=NO`
 - `BOSSMAN_2_0_FREEZE_READY=NO`
-Причины (по правилам корректировки): нет полностью зелёного обязательного CI на FINAL_SHA; нет доказанного owner-root цикла самоулучшения (пин и Apply — за владельцем). Всё остальное из условий (новый код запущен на AiMax, живой ответ Jeff) выполнено.
+Причина (по правилам корректировки): нет доказанного owner-root цикла самоулучшения (пин конституции и Apply — только владелец). CI на FINAL_SHA зелёный, кроме гейта Intelligence Preservation (замер владельца). Всё остальное из условий (новый код запущен на AiMax, живой ответ Jeff) выполнено.
