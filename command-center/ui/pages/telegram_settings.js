@@ -143,7 +143,7 @@ export async function telegramPanel(ctx) {
               okText: 'Удалить профиль', danger: true,
             });
             if (!ok) return;
-            try { await api.raw(`/api/telegram/profile/${uid}`, { method: 'DELETE' }); profileEl.value = ''; toastOk('Профиль удалён'); }
+            try { await api.raw(`/api/telegram/profile/${uid}${person.role === 'owner' ? '?confirm=owner' : ''}`, { method: 'DELETE' }); profileEl.value = ''; toastOk('Профиль удалён'); }
             catch (e) { toastError(e, 'Профиль не удалён'); }
           }, { cls: 'btn btn-sm btn-danger' }))));
     }
