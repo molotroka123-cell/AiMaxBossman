@@ -2346,7 +2346,12 @@ class ParticipantRuntime:
                                else 0.0)
                     timeout = min(timeout, max(1.0, remaining - reserve) / remote_left)
                 route_deadline = started + timeout
-                for attempt_index, limit in enumerate((self.settings.max_tokens,
+                # A reasoning cloud model spends part of max_tokens on its thinking: a long request answered at the
+                # base budget came back finish=length after 75 s and the 4096 retry then ran out of the turn
+                # (owner's chat 2026-10-01 12:27Z). A complex request starts at the doubled budget on the cloud route.
+                first_limit = (min(4096, self.settings.max_tokens * 2)
+                               if provider == "remote" and complex_request else self.settings.max_tokens)
+                for attempt_index, limit in enumerate((first_limit,
                                                        min(4096, self.settings.max_tokens * 2))):
                     remaining = route_deadline - time.monotonic()
                     if remaining < 1:

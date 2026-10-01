@@ -1756,3 +1756,35 @@ def test_photo_analysis_runs_local_vision_when_ready(tmp_path, monkeypatch):
     assert "кот" in answer
     latest = runtime.vault.person_dir(person_key) / "media" / "latest.json"
     assert latest.is_file()
+
+
+def test_complex_cloud_request_starts_at_the_doubled_token_budget_and_a_plain_one_does_not(tmp_path):
+    """Live incident 2026-10-01 12:27Z: a long request on the reasoning cloud model came back finish=length at the base
+    budget after 75 s (thinking tokens count), and the retry then ran out of the turn: 'Ответ модели оборвался'."""
+    class Recording(FakeAdapter):
+        def __init__(self):
+            super().__init__()
+            self.limits: list[int] = []
+
+        async def chat(self, model, messages, **kw):
+            self.limits.append(kw["max_tokens"])
+            return await super().chat(model, messages, **kw)
+
+    def run(text, message_id):
+        runtime = make_runtime(tmp_path / f"r{message_id}", adapter=Recording())
+        person = runtime.settings.people[0]
+        key = runtime.vault.key_for_telegram(101)
+        runtime.vault.set_consent(key, ConsentState(memory_enabled=True, remote_processing_enabled=True))
+        runtime.catalog = {"free/model:free": ModelEndpoint(
+            id="free/model:free", provider="remote", capabilities=frozenset({"chat"}),
+            local=False, available=True, zero_cost=True, paid=False)}
+        assert asyncio.run(runtime.handle(person, message(text, message_id=message_id))) == "готово"
+        limits = runtime.adapter.limits
+        asyncio.run(runtime.close())
+        return limits, runtime.settings.max_tokens
+
+    long_text = "Подробно опиши план: " + "шаг за шагом, " * 40
+    limits, base = run(long_text, 31)
+    assert limits == [min(4096, base * 2)]
+    limits, base = run("расскажи про горы", 32)
+    assert limits == [base]
