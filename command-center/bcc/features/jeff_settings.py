@@ -8,12 +8,12 @@ overlay file is the one Jeff itself re-reads on every message
 Endpoints (mounted under /api with the normal session/CSRF or token auth —
 participants have no Command Center session, so they can never reach them):
   GET    /jeff-settings                    — overlay + presets + known participants
-  PUT    /jeff-settings                    — defaults (style) + budgets (+ the cloud_session_context switch);
+  PUT    /jeff-settings                    — defaults (style) + budgets (+ the cloud_session_context and math_assist switches);
                                              overrides kept
   GET    /jeff-settings/users/{person_key} — one participant's override
   PUT    /jeff-settings/users/{person_key} — set it
   DELETE /jeff-settings/users/{person_key} — remove it (defaults apply again)
-  POST   /jeff-settings/reset              — stock Jeff for everyone (budgets kept)
+  POST   /jeff-settings/reset              — stock Jeff for everyone (budgets and an explicit math_assist=off kept)
 
 Participants are listed by display name (Jeff window account) or a neutral
 label; the API never returns a Telegram ID, only PIT person keys (HMAC).
@@ -216,6 +216,8 @@ class SettingsIn(BaseModel):
     # OWNER DECISION, default off: a free-cloud route may see the last <=3 redacted turns (<=30 min) of the
     # current conversation. None = leave the file's value as it is.
     cloud_session_context: bool | None = None
+    # Exact-calculation hint (default ON): False switches it off, None leaves the file's value as it is.
+    math_assist: bool | None = None
 
 
 def _style_payload(body: StyleIn, *, keep_absent_extra: bool) -> dict:
@@ -257,6 +259,7 @@ async def get_settings(request: Request):
     return {
         "path": str(path), "exists": path.is_file(), "valid": valid, "error": error,
         "settings": overlay, "cloud_session_context": bool(overlay.get("cloud_session_context")),
+        "math_assist": overlay.get("math_assist") is not False,
         "extra_truncated": _over_limit(path),
         "presets": js.PRESETS, "preset_labels": js.PRESET_LABELS,
         "scale_names": list(BEHAVIOR_SCALE_NAMES), "scale_labels": SCALE_LABELS,
@@ -288,6 +291,11 @@ async def put_settings(body: SettingsIn, request: Request):
             overlay["cloud_session_context"] = True
         else:
             overlay.pop("cloud_session_context", None)       # only written when on: older builds keep reading the file
+    if body.math_assist is not None:
+        if body.math_assist:
+            overlay.pop("math_assist", None)                 # default on = not written: older builds keep reading the file
+        else:
+            overlay["math_assist"] = False
     return {"ok": True, "settings": _save(path, overlay)}
 
 
@@ -330,6 +338,8 @@ async def reset(request: Request):
     overlay, _, _ = _current(path)
     fresh = js.empty_overlay()
     fresh["budgets"] = overlay.get("budgets") or fresh["budgets"]
+    if overlay.get("math_assist") is False:
+        fresh["math_assist"] = False                           # a feature switch, not a style: the owner's choice stays
     return {"ok": True, "settings": _save(path, fresh)}
 
 

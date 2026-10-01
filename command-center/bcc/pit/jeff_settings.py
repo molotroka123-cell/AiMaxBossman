@@ -21,6 +21,9 @@ Contract:
   the persona stay behind the participant's own consent. It is written into the file ONLY when true, so a file that
   keeps the privacy default stays readable by an older Jeff build (which rejects unknown fields and would fall
   back to stock Jeff); turning it on makes the file unreadable for such a build until it is updated.
+- ``math_assist`` (default ON) lets Jeff put an exact, program-computed result in front of the model when the message
+  holds one unambiguous calculation (``bcc.pit.math_assist``). The owner switches it OFF here; the file carries the
+  field ONLY when it is off (same compatibility rule as above: a default file stays readable by an older build).
 """
 from __future__ import annotations
 
@@ -157,12 +160,15 @@ def normalize(raw: Any) -> dict[str, Any]:
         raise OverlayError("overlay must be an object")
     if raw.get("version", SCHEMA_VERSION) != SCHEMA_VERSION:
         raise OverlayError("unsupported overlay version")
-    unknown = set(raw) - {"version", "defaults", "users", "budgets", "cloud_session_context"}
+    unknown = set(raw) - {"version", "defaults", "users", "budgets", "cloud_session_context", "math_assist"}
     if unknown:
         raise OverlayError("unknown overlay field")
     session_flag = raw.get("cloud_session_context", False)
     if not isinstance(session_flag, bool):
         raise OverlayError("cloud_session_context must be true or false")
+    math_flag = raw.get("math_assist", True)
+    if not isinstance(math_flag, bool):
+        raise OverlayError("math_assist must be true or false")
     users_raw = raw.get("users") or {}
     if not isinstance(users_raw, dict) or len(users_raw) > MAX_USERS:
         raise OverlayError("users must be an object of at most %d participants" % MAX_USERS)
@@ -179,6 +185,8 @@ def normalize(raw: Any) -> dict[str, Any]:
            "budgets": normalize_budgets(raw.get("budgets"))}
     if session_flag:
         out["cloud_session_context"] = True
+    if not math_flag:
+        out["math_assist"] = False
     return out
 
 
@@ -312,6 +320,17 @@ def cloud_session_context(data_dir: Path | str) -> bool:
     except Exception:  # noqa: BLE001
         return False
     return bool(overlay and overlay.get("cloud_session_context") is True)
+
+
+def math_assist_enabled(data_dir: Path | str) -> bool:
+    """Owner switch ``math_assist`` (default ON, re-read per message): exact-calculation hint for the model.
+
+    Only an explicit ``false`` in a valid file turns it off; no file, an unreadable or an invalid one means ON."""
+    try:
+        overlay, _ = read_overlay(settings_path(data_dir))
+    except Exception:  # noqa: BLE001 - the overlay can never break a reply
+        return True
+    return not (overlay and overlay.get("math_assist") is False)
 
 
 def budget_caps(data_dir: Path | str, *, configured_usd_per_day: float,
