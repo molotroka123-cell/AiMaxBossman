@@ -203,3 +203,33 @@ def test_chat_memory_popover_does_not_request_stats_of_an_unconfigured_store(liv
         finally:
             browser.close()
     assert bad == [], bad
+
+
+# ------------------------------------------------------------------ «Цели»: переключатель условия показывает выбор
+
+@pytest.mark.skipif(not chromium_available(), reason=browser_reason())
+def test_segmented_switch_shows_the_pressed_choice(live):  # noqa: F811
+    """«должно быть false» в мастере цели раньше менял только скрытый черновик: кнопка не меняла вид
+    (обход кнопок видел «мёртвую» кнопку), пока шаг не перерисуют."""
+    from playwright.sync_api import sync_playwright
+
+    from .test_ux2_thinking_pane import _login
+
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            _login(page, live)
+            page.goto(f"{live.url}/#/objectives", wait_until="domcontentloaded")
+            page.wait_for_selector("#view button:has-text('Новая цель')", timeout=15000)
+            page.locator("#view button", has_text="Новая цель").first.click()
+            page.wait_for_selector("#modal-root .bx-seg", timeout=8000)
+            yes = page.locator("#modal-root .bx-seg button", has_text="должно быть true")
+            no = page.locator("#modal-root .bx-seg button", has_text="должно быть false")
+            assert "is-on" in (yes.get_attribute("class") or "")
+            no.click()
+            assert "is-on" in (no.get_attribute("class") or ""), "нажатый вариант не выделился"
+            assert "is-on" not in (yes.get_attribute("class") or ""), "прежний вариант остался выделенным"
+            assert no.get_attribute("aria-pressed") == "true" and yes.get_attribute("aria-pressed") == "false"
+        finally:
+            browser.close()
