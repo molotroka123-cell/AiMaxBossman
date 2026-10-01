@@ -223,4 +223,7 @@ async def test_a_connection_that_never_returns_is_still_reported(tmp_path):
         await held.close()
     # И ровно то же измерение видит возврат, когда соединение действительно
     # вернули: иначе проверка выше означала бы «всегда ненулевой».
-    assert await settled_pool_balance(balance, deadline_s=0.5) == 0
+    try:
+        assert await settled_pool_balance(balance, deadline_s=0.5) == 0
+    finally:
+        await svc.stop()      # движок закрыт: иначе рабочий поток aiosqlite переживает цикл событий
