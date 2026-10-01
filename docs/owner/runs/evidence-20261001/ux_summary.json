@@ -1,0 +1,1782 @@
+{
+ "env": {
+  "date": "2026-10-01 03:46:58",
+  "os": "Windows-11-10.0.26200-SP0",
+  "cpu_count": 32,
+  "ram_gb": 119.6,
+  "final_sha": "12ed7ca819b37e23db7cc03bca38662264595a7f",
+  "final_dirty_files": 0,
+  "base_sha": "84f5e0acce6a32c348330af39ff4a5874ade98a1",
+  "python": "3.12.10",
+  "cpu_pct_at_start": 5.5,
+  "python_procs_at_start": 20,
+  "chromium": "153.0.8010.12"
+ },
+ "params": {
+  "rounds": 8,
+  "N_API": 40,
+  "N_TTFT": 10,
+  "N_COLD": 3,
+  "N_WARM": 3,
+  "N_ROUTES": 12,
+  "SETTLE_MS": 1500
+ },
+ "routes_used": [
+  "home-v3",
+  "agents",
+  "approvals",
+  "mission_console",
+  "missions",
+  "builder",
+  "objectives",
+  "control",
+  "file-intelligence",
+  "video-studio",
+  "web_designer",
+  "browser"
+ ],
+ "n_routes_base_nav": 37,
+ "n_routes_final_nav": 45,
+ "sanity": {
+  "rounds_base": 8,
+  "rounds_final": 8,
+  "forbidden_conns": [],
+  "console_errors": {
+   "base": 0,
+   "final": 0
+  },
+  "failed_responses": {
+   "base": 0,
+   "final": 0
+  },
+  "failed_urls_sample": {
+   "base": [],
+   "final": []
+  },
+  "route_timeouts": {
+   "base": 0,
+   "final": 0
+  },
+  "health_last_status": {
+   "base": [
+    503
+   ],
+   "final": [
+    503
+   ]
+  },
+  "health_ready_found": {
+   "base": 8,
+   "final": 8
+  },
+  "cpu_pct_before_median": {
+   "base": 4.949999999999999,
+   "final": 4.15
+  },
+  "cpu_pct_before_max": {
+   "base": 9.5,
+   "final": 10.8
+  },
+  "stub_stream_flag": {
+   "base": [
+    "False"
+   ],
+   "final": [
+    "True"
+   ]
+  },
+  "chat_ui_ttft_final": {
+   "n": 40,
+   "median": 575.3499999977648,
+   "p90": 947.9200000032782,
+   "min": 511.79999999701977,
+   "max": 1279.7000000029802,
+   "mean": 697.810000000149
+  },
+  "first_text_in_replay": {
+   "base": 0,
+   "final": 0
+  },
+  "task_end_states": {
+   "base": [
+    "task.completed"
+   ],
+   "final": [
+    "task.completed"
+   ]
+  }
+ },
+ "metrics": [
+  {
+   "base": {
+    "n": 24,
+    "median": 5.649999998509884,
+    "p90": 170.06000000312923,
+    "min": 5,
+    "max": 365.29999999701977,
+    "mean": 67.99999999937911
+   },
+   "final": {
+    "n": 24,
+    "median": 5.600000001490116,
+    "p90": 199.25000000596046,
+    "min": 5.0999999940395355,
+    "max": 207.20000000298023,
+    "mean": 69.0666666670392
+   },
+   "ratio_median": 0.9911504430030169,
+   "ratio_p90": 1.1716453016717283,
+   "p_perm": 0.7277389277389278,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 4,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "1 UI load",
+   "name": "main cold: TTFB",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 24,
+    "median": 53.899999994784594,
+    "p90": 319.9800000041723,
+    "min": 48.29999999701977,
+    "max": 653.0999999940395,
+    "mean": 156.72083333227783
+   },
+   "final": {
+    "n": 24,
+    "median": 58.70000000670552,
+    "p90": 252.8400000050664,
+    "min": 52.900000005960464,
+    "max": 260.30000000447035,
+    "mean": 121.25833333252619
+   },
+   "ratio_median": 1.089053803569302,
+   "ratio_p90": 0.7901743859046488,
+   "p_perm": 0.9597513597513597,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 1,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "1 UI load",
+   "name": "main cold: DOMContentLoaded",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 24,
+    "median": 54.49999999627471,
+    "p90": 320.58000000044706,
+    "min": 48.8999999910593,
+    "max": 654.2999999970198,
+    "mean": 157.41666666356227
+   },
+   "final": {
+    "n": 24,
+    "median": 59.349999997764826,
+    "p90": 253.47000000178815,
+    "min": 53.70000000298023,
+    "max": 261,
+    "mean": 121.92500000012417
+   },
+   "ratio_median": 1.0889908257214977,
+   "ratio_p90": 0.7906606775264666,
+   "p_perm": 0.9653457653457653,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 1,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "1 UI load",
+   "name": "main cold: load",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 24,
+    "median": 497.44999999925494,
+    "p90": 1419.5,
+    "min": 199.5,
+    "max": 1556.2000000029802,
+    "mean": 745.224999999317
+   },
+   "final": {
+    "n": 24,
+    "median": 269.8500000014901,
+    "p90": 570.8500000044703,
+    "min": 217.5,
+    "max": 595.3000000044703,
+    "mean": 352.4083333350718
+   },
+   "ratio_median": 0.5424665795595423,
+   "ratio_p90": 0.4021486438918424,
+   "p_perm": 0.0001554001554001554,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 8,
+   "rounds_paired": 8,
+   "verdict": "IMPROVED",
+   "group": "1 UI load",
+   "name": "main cold: first meaningful element visible",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 24,
+    "median": 75.0,
+    "p90": 75.0,
+    "min": 72,
+    "max": 75,
+    "mean": 74.5
+   },
+   "final": {
+    "n": 24,
+    "median": 83.0,
+    "p90": 83.0,
+    "min": 80,
+    "max": 83,
+    "mean": 82.5
+   },
+   "ratio_median": 1.1066666666666667,
+   "ratio_p90": 1.1066666666666667,
+   "p_perm": 0.0001554001554001554,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 0,
+   "rounds_paired": 8,
+   "verdict": "REGRESSED",
+   "group": "1 UI load",
+   "name": "main cold: requests (until load+1.5s)",
+   "unit": "count"
+  },
+  {
+   "base": {
+    "n": 24,
+    "median": 1124996.5,
+    "p90": 1125517.5,
+    "min": 1119036,
+    "max": 1125547,
+    "mean": 1124179.3333333333
+   },
+   "final": {
+    "n": 24,
+    "median": 1302711.5,
+    "p90": 1302739.1,
+    "min": 1296529,
+    "max": 1302773,
+    "mean": 1301017.9166666667
+   },
+   "ratio_median": 1.1579693803491833,
+   "ratio_p90": 1.1574578804860876,
+   "p_perm": 0.0001554001554001554,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 0,
+   "rounds_paired": 8,
+   "verdict": "REGRESSED",
+   "group": "1 UI load",
+   "name": "main cold: transferred bytes (nav+resources)",
+   "unit": "B"
+  },
+  {
+   "base": {
+    "n": 24,
+    "median": 27.0,
+    "p90": 60.29999999999997,
+    "min": 23,
+    "max": 146,
+    "mean": 36.541666666666664
+   },
+   "final": {
+    "n": 24,
+    "median": 26.5,
+    "p90": 34.4,
+    "min": 20,
+    "max": 39,
+    "mean": 27.5
+   },
+   "ratio_median": 0.9814814814814815,
+   "ratio_p90": 0.5704809286898842,
+   "p_perm": 0.8191142191142191,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 3,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "1 UI load",
+   "name": "main cold: blocking time TBT (longtasks>50ms)",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 24,
+    "median": 0.5,
+    "p90": 0.8100000046193597,
+    "min": 0.3999999910593033,
+    "max": 1,
+    "mean": 0.5291666658595204
+   },
+   "final": {
+    "n": 24,
+    "median": 0.5,
+    "p90": 0.5699999958276748,
+    "min": 0.29999999701976776,
+    "max": 0.7000000029802322,
+    "mean": 0.4875000004346172
+   },
+   "ratio_median": 1.0,
+   "ratio_p90": 0.7037036945395239,
+   "p_perm": 0.965034965034965,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 1,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "1 UI load",
+   "name": "main warm: TTFB",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 24,
+    "median": 19.800000000745058,
+    "p90": 29.970000005513423,
+    "min": 18.5,
+    "max": 36.79999999701977,
+    "mean": 21.94166666797052
+   },
+   "final": {
+    "n": 24,
+    "median": 21.300000000745058,
+    "p90": 24.240000001341105,
+    "min": 19.299999997019768,
+    "max": 24.900000005960464,
+    "mean": 21.700000001428027
+   },
+   "ratio_median": 1.075757575754725,
+   "ratio_p90": 0.8088088087047648,
+   "p_perm": 0.9987567987567988,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 2,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "1 UI load",
+   "name": "main warm: DOMContentLoaded",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 24,
+    "median": 20.450000002980232,
+    "p90": 30.88000000417232,
+    "min": 19.099999994039536,
+    "max": 38,
+    "mean": 22.620833332960803
+   },
+   "final": {
+    "n": 24,
+    "median": 21.949999999254942,
+    "p90": 24.840000005066393,
+    "min": 19.899999998509884,
+    "max": 25.5,
+    "mean": 22.375000000620883
+   },
+   "ratio_median": 1.0733496330589785,
+   "ratio_p90": 0.8044041451331011,
+   "p_perm": 0.9992229992229992,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 2,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "1 UI load",
+   "name": "main warm: load",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 24,
+    "median": 163.65000000223517,
+    "p90": 254.55000000298017,
+    "min": 145.19999998807907,
+    "max": 318.40000000596046,
+    "mean": 180.40416666834304
+   },
+   "final": {
+    "n": 24,
+    "median": 176.44999999925494,
+    "p90": 204.020000000298,
+    "min": 153.70000000298023,
+    "max": 229.5,
+    "mean": 178.83750000130385
+   },
+   "ratio_median": 1.078215704227589,
+   "ratio_p90": 0.8014928304769571,
+   "p_perm": 0.9693861693861694,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 2,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "1 UI load",
+   "name": "main warm: first meaningful element visible",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 24,
+    "median": 72.0,
+    "p90": 75.0,
+    "min": 72,
+    "max": 75,
+    "mean": 72.625
+   },
+   "final": {
+    "n": 24,
+    "median": 80.0,
+    "p90": 83.0,
+    "min": 80,
+    "max": 83,
+    "mean": 80.625
+   },
+   "ratio_median": 1.1111111111111112,
+   "ratio_p90": 1.1066666666666667,
+   "p_perm": 0.0001554001554001554,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 0,
+   "rounds_paired": 8,
+   "verdict": "REGRESSED",
+   "group": "1 UI load",
+   "name": "main warm: requests (until load+1.5s)",
+   "unit": "count"
+  },
+  {
+   "base": {
+    "n": 24,
+    "median": 28350.5,
+    "p90": 34273.1,
+    "min": 28305,
+    "max": 34281,
+    "mean": 29572.5
+   },
+   "final": {
+    "n": 24,
+    "median": 28844.5,
+    "p90": 35054.1,
+    "min": 28812,
+    "max": 35082,
+    "mean": 30134.083333333332
+   },
+   "ratio_median": 1.0174247367771292,
+   "ratio_p90": 1.02278755058632,
+   "p_perm": 0.4666666666666667,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 2,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "1 UI load",
+   "name": "main warm: transferred bytes (nav+resources)",
+   "unit": "B"
+  },
+  {
+   "base": {
+    "n": 24,
+    "median": 28.5,
+    "p90": 75.09999999999997,
+    "min": 24,
+    "max": 126,
+    "mean": 38.791666666666664
+   },
+   "final": {
+    "n": 24,
+    "median": 26.0,
+    "p90": 34.4,
+    "min": 21,
+    "max": 38,
+    "mean": 27.125
+   },
+   "ratio_median": 0.9122807017543859,
+   "ratio_p90": 0.4580559254327565,
+   "p_perm": 0.16565656565656567,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 5,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "1 UI load",
+   "name": "main warm: blocking time TBT (longtasks>50ms)",
+   "unit": "ms"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 24,
+    "median": 5.200000002980232,
+    "p90": 6.040000002831221,
+    "min": 4.899999991059303,
+    "max": 29.5,
+    "mean": 6.3125
+   },
+   "group": "1 UI load",
+   "name": "chat cold: TTFB",
+   "unit": "ms"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 24,
+    "median": 53.69999999925494,
+    "p90": 57.46000000089407,
+    "min": 50.8999999910593,
+    "max": 75.5,
+    "mean": 54.8458333335196
+   },
+   "group": "1 UI load",
+   "name": "chat cold: DOMContentLoaded",
+   "unit": "ms"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 24,
+    "median": 53.69999999925494,
+    "p90": 57.46000000089407,
+    "min": 51,
+    "max": 75.5,
+    "mean": 54.8583333340163
+   },
+   "group": "1 UI load",
+   "name": "chat cold: load",
+   "unit": "ms"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 24,
+    "median": 94.55000000074506,
+    "p90": 310.5799999907613,
+    "min": 89.8999999910593,
+    "max": 326.6000000089407,
+    "mean": 164.4416666670392
+   },
+   "group": "1 UI load",
+   "name": "chat cold: first meaningful element visible",
+   "unit": "ms"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 24,
+    "median": 21.0,
+    "p90": 21.0,
+    "min": 21,
+    "max": 21,
+    "mean": 21.0
+   },
+   "group": "1 UI load",
+   "name": "chat cold: requests (until load+1.5s)",
+   "unit": "count"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 24,
+    "median": 330843.0,
+    "p90": 330843.0,
+    "min": 330843,
+    "max": 330843,
+    "mean": 330843.0
+   },
+   "group": "1 UI load",
+   "name": "chat cold: transferred bytes (nav+resources)",
+   "unit": "B"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 24,
+    "median": 0.0,
+    "p90": 0.0,
+    "min": 0,
+    "max": 0,
+    "mean": 0.0
+   },
+   "group": "1 UI load",
+   "name": "chat cold: blocking time TBT (longtasks>50ms)",
+   "unit": "ms"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 24,
+    "median": 0.5,
+    "p90": 0.599999999254942,
+    "min": 0.3999999910593033,
+    "max": 0.6000000089406967,
+    "mean": 0.4791666669771075
+   },
+   "group": "1 UI load",
+   "name": "chat warm: TTFB",
+   "unit": "ms"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 24,
+    "median": 22.049999997019768,
+    "p90": 23.91000000089407,
+    "min": 21.19999998807907,
+    "max": 25.799999997019768,
+    "mean": 22.38333333252619
+   },
+   "group": "1 UI load",
+   "name": "chat warm: DOMContentLoaded",
+   "unit": "ms"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 24,
+    "median": 22.099999994039536,
+    "p90": 23.91000000089407,
+    "min": 21.19999999552965,
+    "max": 25.799999997019768,
+    "mean": 22.40416666585952
+   },
+   "group": "1 UI load",
+   "name": "chat warm: load",
+   "unit": "ms"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 24,
+    "median": 57.099999997764826,
+    "p90": 61.230000000447035,
+    "min": 55.599999994039536,
+    "max": 64.79999999701977,
+    "mean": 58.04583333277454
+   },
+   "group": "1 UI load",
+   "name": "chat warm: first meaningful element visible",
+   "unit": "ms"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 24,
+    "median": 21.0,
+    "p90": 21.0,
+    "min": 21,
+    "max": 21,
+    "mean": 21.0
+   },
+   "group": "1 UI load",
+   "name": "chat warm: requests (until load+1.5s)",
+   "unit": "count"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 24,
+    "median": 3718.0,
+    "p90": 3718.0,
+    "min": 3718,
+    "max": 3718,
+    "mean": 3718.0
+   },
+   "group": "1 UI load",
+   "name": "chat warm: transferred bytes (nav+resources)",
+   "unit": "B"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 24,
+    "median": 0.0,
+    "p90": 0.0,
+    "min": 0,
+    "max": 0,
+    "mean": 0.0
+   },
+   "group": "1 UI load",
+   "name": "chat warm: blocking time TBT (longtasks>50ms)",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 8,
+    "median": 497.44999999925494,
+    "p90": 662.2000000044702,
+    "min": 483.59999999403954,
+    "max": 1031.0999999940395,
+    "mean": 561.6124999998137
+   },
+   "final": {
+    "n": 8,
+    "median": 565.3999999985099,
+    "p90": 579.5500000096857,
+    "min": 443.6000000089407,
+    "max": 595.3000000044703,
+    "mean": 553.4375000046566
+   },
+   "ratio_median": 1.1365966428773882,
+   "ratio_p90": 0.8751887647323671,
+   "p_perm": 0.9978243978243978,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 2,
+   "rounds_paired": 8,
+   "verdict": "INSUFFICIENT_EVIDENCE",
+   "group": "1 UI load",
+   "name": "main cold load #1 after server start: first meaningful element",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 8,
+    "median": 224.04999999329448,
+    "p90": 632.2699999988076,
+    "min": 199.5,
+    "max": 1556.2000000029802,
+    "mean": 388.3624999979511
+   },
+   "final": {
+    "n": 8,
+    "median": 229.20000000298023,
+    "p90": 241.089999999851,
+    "min": 217.5,
+    "max": 246.20000000298023,
+    "mean": 230.1875
+   },
+   "ratio_median": 1.0229859406821686,
+   "ratio_p90": 0.3813086181541203,
+   "p_perm": 0.9283605283605284,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 3,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "1 UI load",
+   "name": "main cold load #2 after server start: first meaningful element",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 8,
+    "median": 1405.5999999977648,
+    "p90": 1424.0899999991059,
+    "min": 422.90000000596046,
+    "max": 1424.2999999970198,
+    "mean": 1285.7000000001863
+   },
+   "final": {
+    "n": 8,
+    "median": 269.8500000014901,
+    "p90": 288.93000000119207,
+    "min": 259.90000000596046,
+    "max": 291.79999999701977,
+    "mean": 273.6000000005588
+   },
+   "ratio_median": 0.19198207171451281,
+   "ratio_p90": 0.2028874579565712,
+   "p_perm": 0.0001554001554001554,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 8,
+   "rounds_paired": 8,
+   "verdict": "IMPROVED",
+   "group": "1 UI load",
+   "name": "main cold load #3 after server start: first meaningful element",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 88,
+    "median": 0.7000000029802322,
+    "p90": 1.0999999962747098,
+    "min": 0.5,
+    "max": 1.5999999940395355,
+    "mean": 0.7943181813779202
+   },
+   "final": {
+    "n": 88,
+    "median": 0.7000000029802322,
+    "p90": 0.9300000041723249,
+    "min": 0.5999999940395355,
+    "max": 1.1000000014901161,
+    "mean": 0.7579545454884117
+   },
+   "ratio_median": 1.0,
+   "ratio_p90": 0.8454545521108077,
+   "p_perm": 0.8172494172494172,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 3,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "2 Responsiveness",
+   "name": "route first_visit: click -> nav item active",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 96,
+    "median": 28.25000000745058,
+    "p90": 145.5,
+    "min": 11.199999995529652,
+    "max": 281.19999998807907,
+    "mean": 57.70520833258828
+   },
+   "final": {
+    "n": 96,
+    "median": 24.099999994039536,
+    "p90": 111.8999999947846,
+    "min": 12.099999994039536,
+    "max": 208.20000000298023,
+    "mean": 52.704166666061305
+   },
+   "ratio_median": 0.8530973446967598,
+   "ratio_p90": 0.7690721649126089,
+   "p_perm": 0.31142191142191145,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 4,
+   "rounds_paired": 8,
+   "verdict": "INSUFFICIENT_EVIDENCE",
+   "group": "2 Responsiveness",
+   "name": "route first_visit: click -> page rendered",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 96,
+    "median": 74.39999999850988,
+    "p90": 198.55000000074506,
+    "min": 25.5,
+    "max": 339.09999999403954,
+    "mean": 95.82291666612339
+   },
+   "final": {
+    "n": 96,
+    "median": 67.94999999552965,
+    "p90": 156.0,
+    "min": 31.899999991059303,
+    "max": 235,
+    "mean": 87.46249999959643
+   },
+   "ratio_median": 0.91330645157111,
+   "ratio_p90": 0.7856962981587238,
+   "p_perm": 0.38865578865578865,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 4,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "2 Responsiveness",
+   "name": "route first_visit: click -> rendered+2 frames",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 8,
+    "median": 0.0,
+    "p90": 3.299999999999998,
+    "min": 0,
+    "max": 11,
+    "mean": 1.375
+   },
+   "final": {
+    "n": 8,
+    "median": 0.0,
+    "p90": 0.0,
+    "min": 0,
+    "max": 0,
+    "mean": 0.0
+   },
+   "ratio_median": null,
+   "ratio_p90": 0.0,
+   "p_perm": 1.0,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 1,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "2 Responsiveness",
+   "name": "route first_visit: blocking time per 12-route pass (sum TBT)",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 8,
+    "median": 0.0,
+    "p90": 0.2999999999999998,
+    "min": 0,
+    "max": 1,
+    "mean": 0.125
+   },
+   "final": {
+    "n": 8,
+    "median": 0.0,
+    "p90": 0.0,
+    "min": 0,
+    "max": 0,
+    "mean": 0.0
+   },
+   "ratio_median": null,
+   "ratio_p90": 0.0,
+   "p_perm": 1.0,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 1,
+   "rounds_paired": 8,
+   "verdict": "INSUFFICIENT_EVIDENCE",
+   "group": "2 Responsiveness",
+   "name": "route first_visit: long tasks per 12-route pass",
+   "unit": "count"
+  },
+  {
+   "base": {
+    "n": 96,
+    "median": 0.7000000029802322,
+    "p90": 1.1999999955296516,
+    "min": 0.5,
+    "max": 1.5,
+    "mean": 0.7729166668529311
+   },
+   "final": {
+    "n": 96,
+    "median": 0.7000000029802322,
+    "p90": 0.8000000007450581,
+    "min": 0.5,
+    "max": 1,
+    "mean": 0.6947916677842537
+   },
+   "ratio_median": 1.0,
+   "ratio_p90": 0.6666666697710752,
+   "p_perm": 0.8062160062160062,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 2,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "2 Responsiveness",
+   "name": "route revisit: click -> nav item active",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 96,
+    "median": 15.50000000372529,
+    "p90": 41.900000005960464,
+    "min": 9,
+    "max": 1239.2999999970198,
+    "mean": 34.018750000900276
+   },
+   "final": {
+    "n": 96,
+    "median": 14.700000002980232,
+    "p90": 36.69999999925494,
+    "min": 8.200000002980232,
+    "max": 53.80000000447035,
+    "mean": 19.44062500066745
+   },
+   "ratio_median": 0.9483870967385299,
+   "ratio_p90": 0.875894987924444,
+   "p_perm": 0.9185703185703186,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 3,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "2 Responsiveness",
+   "name": "route revisit: click -> page rendered",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 96,
+    "median": 61.899999998509884,
+    "p90": 105.69999999925494,
+    "min": 15.099999994039536,
+    "max": 1330.5999999940395,
+    "mean": 83.29374999979821
+   },
+   "final": {
+    "n": 96,
+    "median": 61.49999999627471,
+    "p90": 73.85000000149012,
+    "min": 19.200000002980232,
+    "max": 98.20000000298023,
+    "mean": 60.06354166707024
+   },
+   "ratio_median": 0.9935379644225395,
+   "ratio_p90": 0.6986754967077642,
+   "p_perm": 0.5779331779331779,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 3,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "2 Responsiveness",
+   "name": "route revisit: click -> rendered+2 frames",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 8,
+    "median": 0.0,
+    "p90": 0.0,
+    "min": 0,
+    "max": 0,
+    "mean": 0.0
+   },
+   "final": {
+    "n": 8,
+    "median": 0.0,
+    "p90": 0.0,
+    "min": 0,
+    "max": 0,
+    "mean": 0.0
+   },
+   "ratio_median": null,
+   "ratio_p90": null,
+   "p_perm": 1.0,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 0,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "2 Responsiveness",
+   "name": "route revisit: blocking time per 12-route pass (sum TBT)",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 8,
+    "median": 0.0,
+    "p90": 0.0,
+    "min": 0,
+    "max": 0,
+    "mean": 0.0
+   },
+   "final": {
+    "n": 8,
+    "median": 0.0,
+    "p90": 0.0,
+    "min": 0,
+    "max": 0,
+    "mean": 0.0
+   },
+   "ratio_median": null,
+   "ratio_p90": null,
+   "p_perm": 1.0,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 0,
+   "rounds_paired": 8,
+   "verdict": "INSUFFICIENT_EVIDENCE",
+   "group": "2 Responsiveness",
+   "name": "route revisit: long tasks per 12-route pass",
+   "unit": "count"
+  },
+  {
+   "base": {
+    "n": 80,
+    "median": 656.0039999967557,
+    "p90": 1277.3959500002093,
+    "min": 438.9530999906128,
+    "max": 1667.9903000040213,
+    "mean": 755.2945737494156
+   },
+   "final": {
+    "n": 80,
+    "median": 518.7228000067989,
+    "p90": 576.251249994675,
+    "min": 353.32179999386426,
+    "max": 1447.027199988952,
+    "mean": 553.9908649992867
+   },
+   "ratio_median": 0.7907311540926035,
+   "ratio_p90": 0.451114041808713,
+   "p_perm": 0.0001554001554001554,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 8,
+   "rounds_paired": 8,
+   "verdict": "IMPROVED",
+   "group": "3 Chat TTFT",
+   "name": "API short answer: send -> first answer text at client",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 80,
+    "median": 485.2182152753812,
+    "p90": 1106.6311937975115,
+    "min": 267.92281701636966,
+    "max": 1497.3956077737967,
+    "mean": 584.46256860625
+   },
+   "final": {
+    "n": 80,
+    "median": 468.21346639626427,
+    "p90": 525.7396514076389,
+    "min": 302.81616187130567,
+    "max": 1396.5125019603875,
+    "mean": 503.48010981797415
+   },
+   "ratio_median": 0.9649544301022045,
+   "ratio_p90": 0.47508117822299284,
+   "p_perm": 0.004972804972804973,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 7,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "3 Chat TTFT",
+   "name": "API short answer: Bossman overhead (first text - model time-to-first-output)",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 80,
+    "median": 469.16019916534424,
+    "p90": 1072.839570045471,
+    "min": 250.0436305999756,
+    "max": 1473.57177734375,
+    "mean": 554.8558443784714
+   },
+   "final": {
+    "n": 80,
+    "median": 463.367223739624,
+    "p90": 519.9306488037108,
+    "min": 298.5961437225342,
+    "max": 1390.9404277801514,
+    "mean": 498.4972655773163
+   },
+   "ratio_median": 0.9876524576551332,
+   "ratio_p90": 0.4846303802736081,
+   "p_perm": 0.2236208236208236,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 6,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "3 Chat TTFT",
+   "name": "API short answer: pre-model (send -> model call arrives)",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 80,
+    "median": 712.2706000009202,
+    "p90": 1340.3618099880987,
+    "min": 503.2290999952238,
+    "max": 1773.0136000027414,
+    "mean": 814.8734750002404
+   },
+   "final": {
+    "n": 80,
+    "median": 713.5866499957046,
+    "p90": 777.6057400027638,
+    "min": 549.8545000009472,
+    "max": 1650.694600000861,
+    "mean": 751.2372274999507
+   },
+   "ratio_median": 1.0018476826009424,
+   "ratio_p90": 0.5801461472627815,
+   "p_perm": 0.8354312354312354,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 4,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "3 Chat TTFT",
+   "name": "API short answer: task completed",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 40,
+    "median": 1656.3445499923546,
+    "p90": 1692.1513299937942,
+    "min": 1385.7071999955224,
+    "max": 1895.5475999973714,
+    "mean": 1626.1142199982714
+   },
+   "final": {
+    "n": 40,
+    "median": 609.8337000003085,
+    "p90": 646.1831999971764,
+    "min": 499.775000003865,
+    "max": 822.0360999985132,
+    "mean": 603.9868999996543
+   },
+   "ratio_median": 0.3681804610056062,
+   "ratio_p90": 0.3818708105731573,
+   "p_perm": 0.0001554001554001554,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 8,
+   "rounds_paired": 8,
+   "verdict": "IMPROVED",
+   "group": "3 Chat TTFT",
+   "name": "API long answer: send -> first answer text at client",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 40,
+    "median": 605.4921320464928,
+    "p90": 641.3071613307693,
+    "min": 334.98054785013665,
+    "max": 844.3984701298177,
+    "mean": 575.3286546219897
+   },
+   "final": {
+    "n": 40,
+    "median": 559.317929088138,
+    "p90": 595.5249501421349,
+    "min": 449.62842026143335,
+    "max": 771.4393859787378,
+    "mean": 553.4964968243003
+   },
+   "ratio_median": 0.9237410355733421,
+   "ratio_p90": 0.9286111025274811,
+   "p_perm": 0.014296814296814297,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 7,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "3 Chat TTFT",
+   "name": "API long answer: Bossman overhead (first text - model time-to-first-output)",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 40,
+    "median": 590.383768081665,
+    "p90": 624.941086769104,
+    "min": 320.30367851257324,
+    "max": 827.7974128723145,
+    "mean": 556.2485039234161
+   },
+   "final": {
+    "n": 40,
+    "median": 554.2031526565552,
+    "p90": 585.5340957641602,
+    "min": 444.1542625427246,
+    "max": 760.9031200408936,
+    "mean": 548.1184840202332
+   },
+   "ratio_median": 0.9387167849436789,
+   "ratio_p90": 0.936942870553327,
+   "p_perm": 0.2571872571872572,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 6,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "3 Chat TTFT",
+   "name": "API long answer: pre-model (send -> model call arrives)",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 40,
+    "median": 1712.7186999932746,
+    "p90": 1752.8630800006795,
+    "min": 1437.6163999986602,
+    "max": 1955.9258999943268,
+    "mean": 1687.6282799985347
+   },
+   "final": {
+    "n": 40,
+    "median": 1702.3528500067187,
+    "p90": 1731.3866699987557,
+    "min": 1584.753200004343,
+    "max": 1905.5094999930589,
+    "mean": 1693.467317500108
+   },
+   "ratio_median": 0.9939477218374525,
+   "ratio_p90": 0.9877478108547328,
+   "p_perm": 0.38554778554778557,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 7,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "3 Chat TTFT",
+   "name": "API long answer: task completed",
+   "unit": "ms"
+  },
+  {
+   "verdict": "N/A",
+   "why": "baseline has no such surface",
+   "final": {
+    "n": 80,
+    "median": 518.7228000067989,
+    "p90": 576.251249994675,
+    "min": 353.32179999386426,
+    "max": 1447.027199988952,
+    "mean": 553.9908649992867
+   },
+   "group": "3 Chat TTFT",
+   "name": "API short answer: first STREAMED token (run.answer_delta)",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 8,
+    "median": 1515.7181000031414,
+    "p90": 1779.4741799982148,
+    "min": 1461.1860000004526,
+    "max": 2231.8131999927573,
+    "mean": 1606.3080500007345
+   },
+   "final": {
+    "n": 8,
+    "median": 1494.6532499961904,
+    "p90": 1530.4069299963885,
+    "min": 1459.1043000109494,
+    "max": 1552.208499997505,
+    "mean": 1495.6581375008682
+   },
+   "ratio_median": 0.9861023959488856,
+   "ratio_p90": 0.8600332318381398,
+   "p_perm": 0.1414141414141414,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 4,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "4 Backend",
+   "name": "process start -> port listening",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 8,
+    "median": 1692.3346499970648,
+    "p90": 1982.1287100043262,
+    "min": 1643.2788999954937,
+    "max": 2507.814500000677,
+    "mean": 1792.3590499976854
+   },
+   "final": {
+    "n": 8,
+    "median": 1685.7258999953046,
+    "p90": 1743.7375299967243,
+    "min": 1649.7533000074327,
+    "max": 1757.3574999987613,
+    "mean": 1693.1277374987985
+   },
+   "ratio_median": 0.996094891751007,
+   "ratio_p90": 0.8797297174475206,
+   "p_perm": 0.5567987567987568,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 4,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "4 Backend",
+   "name": "process start -> first /health/live 200",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 8,
+    "median": 3391.2530000015977,
+    "p90": 3733.221780000895,
+    "min": 3343.16379998927,
+    "max": 4407.61689998908,
+    "mean": 3513.1030624979758
+   },
+   "final": {
+    "n": 8,
+    "median": 2750.2039999963017,
+    "p90": 2836.5235399949597,
+    "min": 2701.0119000042323,
+    "max": 2876.736999998684,
+    "mean": 2769.9927124995156
+   },
+   "ratio_median": 0.8109698686576926,
+   "ratio_p90": 0.7598057943383905,
+   "p_perm": 0.0001554001554001554,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 8,
+   "rounds_paired": 8,
+   "verdict": "IMPROVED",
+   "group": "4 Backend",
+   "name": "process start -> /health 200 (after stub provision+model check)",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 312,
+    "median": 1.8317500071134418,
+    "p90": 2.447819999360945,
+    "min": 1.6429999959655106,
+    "max": 6.0240999882807955,
+    "mean": 2.0039657049495965
+   },
+   "final": {
+    "n": 312,
+    "median": 1.8101500027114525,
+    "p90": 2.437910006847232,
+    "min": 1.5767000004416332,
+    "max": 6.897200000821613,
+    "mean": 1.9800836540898905
+   },
+   "ratio_median": 0.9882079954589286,
+   "ratio_p90": 0.9959515027590672,
+   "p_perm": 0.7168609168609169,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 4,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "4 Backend",
+   "name": "GET /api/tasks (empty dir, keep-alive, excl. first call)",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 312,
+    "median": 1.1368000050424598,
+    "p90": 1.6394700011005625,
+    "min": 0.9360999974887818,
+    "max": 4.16399999812711,
+    "mean": 1.2525400641327276
+   },
+   "final": {
+    "n": 312,
+    "median": 1.0955999969155528,
+    "p90": 1.2770400091540066,
+    "min": 0.9321999968960881,
+    "max": 4.1379000031156465,
+    "mean": 1.141983333209049
+   },
+   "ratio_median": 0.9637579099717121,
+   "ratio_p90": 0.7789346607725304,
+   "p_perm": 0.27163947163947166,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 5,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "4 Backend",
+   "name": "GET /api/apps (empty dir, keep-alive, excl. first call)",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 8,
+    "median": 40.75045000354294,
+    "p90": 47.070359995996114,
+    "min": 31.974600002286024,
+    "max": 50.54109999036882,
+    "mean": 40.808624999044696
+   },
+   "final": {
+    "n": 8,
+    "median": 41.01045000425074,
+    "p90": 47.55196000041906,
+    "min": 24.10799999779556,
+    "max": 47.691400002804585,
+    "mean": 39.61743750005553
+   },
+   "ratio_median": 1.0063802976576994,
+   "ratio_p90": 1.0102314918446325,
+   "p_perm": 0.7381507381507382,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 3,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "4 Backend",
+   "name": "GET /api/tasks very first call after start",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 8,
+    "median": 639.0483499999391,
+    "p90": 654.2450000051758,
+    "min": 547.5101000047289,
+    "max": 654.5460000052117,
+    "mean": 631.9965125021554
+   },
+   "final": {
+    "n": 8,
+    "median": 4.540499998256564,
+    "p90": 5.535190003865864,
+    "min": 4.249399993568659,
+    "max": 5.704800001694821,
+    "mean": 4.725662496639416
+   },
+   "ratio_median": 0.007105096192263069,
+   "ratio_p90": 0.00846042385317744,
+   "p_perm": 0.0001554001554001554,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 8,
+   "rounds_paired": 8,
+   "verdict": "IMPROVED",
+   "group": "4 Backend",
+   "name": "GET /api/apps very first call after start",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 160,
+    "median": 0.9882000013021752,
+    "p90": 1.2939099979121238,
+    "min": 0.8211999956984073,
+    "max": 18.945200004964136,
+    "mean": 1.1572212497412693
+   },
+   "final": {
+    "n": 160,
+    "median": 0.9566500011715107,
+    "p90": 1.168090003193356,
+    "min": 0.817699998151511,
+    "max": 3.6565000045811757,
+    "mean": 1.0067893742416345
+   },
+   "ratio_median": 0.9680732644311978,
+   "ratio_p90": 0.9027598558463934,
+   "p_perm": 0.5299145299145299,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 5,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "4 Backend",
+   "name": "GET /health/live",
+   "unit": "ms"
+  },
+  {
+   "base": {
+    "n": 160,
+    "median": 2.861300003132783,
+    "p90": 4.610359999060165,
+    "min": 2.4680000060470775,
+    "max": 8.143800005200319,
+    "mean": 3.226451251157414
+   },
+   "final": {
+    "n": 160,
+    "median": 2.7720999933080748,
+    "p90": 3.7091000049258582,
+    "min": 2.4302999954670668,
+    "max": 34.491599988541566,
+    "mean": 4.272716873856552
+   },
+   "ratio_median": 0.9688253557029866,
+   "ratio_p90": 0.8045141823375981,
+   "p_perm": 0.567987567987568,
+   "rounds_base": 8,
+   "rounds_final": 8,
+   "rounds_final_lower": 5,
+   "rounds_paired": 8,
+   "verdict": "NO_CHANGE",
+   "group": "4 Backend",
+   "name": "GET /health",
+   "unit": "ms"
+  }
+ ],
+ "per_route": {
+  "first_visit:home-v3": {
+   "base_median": 53.44999999925494,
+   "final_median": 43.04999999701977,
+   "ratio": 0.8054256313867139,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "first_visit:agents": {
+   "base_median": 25.399999994784594,
+   "final_median": 26.0,
+   "ratio": 1.0236220474542759,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "first_visit:approvals": {
+   "base_median": 12.899999998509884,
+   "final_median": 13.199999999254942,
+   "ratio": 1.0232558140139312,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "first_visit:mission_console": {
+   "base_median": 73.14999999850988,
+   "final_median": 77.40000000596046,
+   "ratio": 1.0580997950449371,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "first_visit:missions": {
+   "base_median": 11.649999991059303,
+   "final_median": 12.899999998509884,
+   "ratio": 1.107296138060934,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "first_visit:builder": {
+   "base_median": 16.99999999627471,
+   "final_median": 17.69999999552965,
+   "ratio": 1.0411764705534317,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "first_visit:objectives": {
+   "base_median": 77.44999999925494,
+   "final_median": 68.25,
+   "ratio": 0.8812136862576702,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "first_visit:control": {
+   "base_median": 192.30000000074506,
+   "final_median": 197.64999999850988,
+   "ratio": 1.0278211128327825,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "first_visit:file-intelligence": {
+   "base_median": 21.75,
+   "final_median": 22.050000000745058,
+   "ratio": 1.0137931034825314,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "first_visit:video-studio": {
+   "base_median": 107.60000000149012,
+   "final_median": 110.24999999627471,
+   "ratio": 1.0246282527392927,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "first_visit:web_designer": {
+   "base_median": 20.149999998509884,
+   "final_median": 20.149999998509884,
+   "ratio": 1.0,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "first_visit:browser": {
+   "base_median": 15.900000002235174,
+   "final_median": 17.700000002980232,
+   "ratio": 1.1132075472007559,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "revisit:home-v3": {
+   "base_median": 42.50000000745058,
+   "final_median": 44.25000000372529,
+   "ratio": 1.0411764704933628,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "revisit:agents": {
+   "base_median": 11.199999995529652,
+   "final_median": 11.150000002235174,
+   "ratio": 0.9955357148826398,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "revisit:approvals": {
+   "base_median": 10.350000001490116,
+   "final_median": 9.949999995529652,
+   "ratio": 0.9613526564345047,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "revisit:mission_console": {
+   "base_median": 31.24999999627471,
+   "final_median": 29.350000008940697,
+   "ratio": 0.9392000003980636,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "revisit:missions": {
+   "base_median": 9.99999999627471,
+   "final_median": 10.699999991804361,
+   "ratio": 1.0699999995790421,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "revisit:builder": {
+   "base_median": 11.100000005215406,
+   "final_median": 10.550000000745058,
+   "ratio": 0.9504504500709975,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "revisit:objectives": {
+   "base_median": 17.25,
+   "final_median": 16.049999997019768,
+   "ratio": 0.9304347824359286,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "revisit:control": {
+   "base_median": 18.900000005960464,
+   "final_median": 19.80000000447035,
+   "ratio": 1.0476190475251879,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "revisit:file-intelligence": {
+   "base_median": 12.649999998509884,
+   "final_median": 13.200000002980232,
+   "ratio": 1.043478261228074,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "revisit:video-studio": {
+   "base_median": 33.400000002235174,
+   "final_median": 36.00000000372529,
+   "ratio": 1.0778443114166503,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "revisit:web_designer": {
+   "base_median": 13.850000001490116,
+   "final_median": 14.900000005960464,
+   "ratio": 1.0758122746828434,
+   "n_base": 8,
+   "n_final": 8
+  },
+  "revisit:browser": {
+   "base_median": 14.949999999254942,
+   "final_median": 14.699999991804361,
+   "ratio": 0.9832775914740441,
+   "n_base": 8,
+   "n_final": 8
+  }
+ }
+}

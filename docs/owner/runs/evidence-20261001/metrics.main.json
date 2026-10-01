@@ -1,0 +1,214 @@
+{
+  "git_head": "12ed7ca819b37e23db7cc03bca38662264595a7f",
+  "samples": 148,
+  "fast_rows": 22,
+  "first_up_after_watchdog_s": 32.0,
+  "run_minutes_after_first_up": 36.8,
+  "sample_gap_max_s": 17.3,
+  "heartbeat_pre_kill": {
+    "n": 100,
+    "max": 15.9,
+    "p50": 12.9,
+    "p95": 15.4,
+    "not_up": 0
+  },
+  "heartbeat_post_kill": {
+    "n": 48,
+    "max": 15.1,
+    "p50": 10.4,
+    "p95": 13.1,
+    "not_up": 0
+  },
+  "heartbeat_age_max_all_rows_incl_kill_window": 15.9,
+  "watchdog_restarts_pre_kill_max": 0,
+  "watchdog_restarts_end": 1,
+  "poller_heartbeat_pids_pre_kill": [
+    9912
+  ],
+  "poller_started_at_pre_kill": [
+    "2026-10-01T10:46:27Z"
+  ],
+  "poller_heartbeat_pids_post_kill": [
+    9912,
+    17616
+  ],
+  "poller_started_at_post_kill": [
+    "2026-10-01T10:46:27Z",
+    "2026-10-01T11:12:03Z"
+  ],
+  "wd_child_pids_all": [
+    25944,
+    27912
+  ],
+  "wd_states_seen": [
+    "backoff",
+    "running"
+  ],
+  "backend_logical_counts": [
+    1
+  ],
+  "backend_raw_counts": [
+    2
+  ],
+  "backend_root_start_times": [
+    1790851584.62
+  ],
+  "backend_listen_pids": [
+    [
+      21616
+    ]
+  ],
+  "backend_json_pids": [
+    21616
+  ],
+  "poller_logical_counts_samples": [
+    0,
+    1
+  ],
+  "poller_raw_counts_samples": [
+    0,
+    2
+  ],
+  "poller_logical_max_fast": 1,
+  "watchdog_logical_counts": [
+    1
+  ],
+  "health_codes": {
+    "503": 148
+  },
+  "health_live_codes": {
+    "200": 148
+  },
+  "health_alive_all_true": true,
+  "health_ready_values": [
+    "False"
+  ],
+  "health_status_values": [
+    "DEGRADED"
+  ],
+  "health_bad_components": [
+    "browser",
+    "models",
+    "providers"
+  ],
+  "health_ms": {
+    "p50": 58,
+    "p95": 75,
+    "max": 112
+  },
+  "health_build_sha_values": [
+    "12ed7ca819b37e23db7cc03bca38662264595a7f"
+  ],
+  "heartbeat_build_sha_values": [
+    "12ed7ca819b37e23db7cc03bca38662264595a7f"
+  ],
+  "heartbeat_jeff_version": [
+    "1.1"
+  ],
+  "launcher_case_samples_past_grace": 137,
+  "old_rule_would_kill_samples": 137,
+  "new_rule_accepts_samples": 137,
+  "replies": {
+    "total": 8,
+    "ok": 8,
+    "p50": 0.64,
+    "p95": 0.87,
+    "max": 0.87,
+    "items": [
+      {
+        "token": "JEFF30-01-51679",
+        "kind": "ping",
+        "latency_s": 0.29,
+        "text": "Принято: JEFF30-01-51679. Это тестовый ответ фейковой модели jeff30."
+      },
+      {
+        "token": "JEFF30-02-51978",
+        "kind": "ping",
+        "latency_s": 0.68,
+        "text": "Принято: JEFF30-02-51978. Это тестовый ответ фейковой модели jeff30."
+      },
+      {
+        "token": "JEFF30-03-52278",
+        "kind": "ping",
+        "latency_s": 0.87,
+        "text": "Принято: JEFF30-03-52278. Это тестовый ответ фейковой модели jeff30."
+      },
+      {
+        "token": "JEFF30-04-52578",
+        "kind": "ping",
+        "latency_s": 0.64,
+        "text": "Принято: JEFF30-04-52578. Это тестовый ответ фейковой модели jeff30."
+      },
+      {
+        "token": "JEFF30-05-52878",
+        "kind": "ping",
+        "latency_s": 0.57,
+        "text": "Принято: JEFF30-05-52878. Это тестовый ответ фейковой модели jeff30."
+      },
+      {
+        "token": "JEFF30-06-53130",
+        "kind": "post_restart",
+        "latency_s": 0.77,
+        "text": "Принято: JEFF30-06-53130. Это тестовый ответ фейковой модели jeff30."
+      },
+      {
+        "token": "JEFF30-07-53478",
+        "kind": "ping",
+        "latency_s": 0.64,
+        "text": "Принято: JEFF30-07-53478. Это тестовый ответ фейковой модели jeff30."
+      },
+      {
+        "token": "JEFF30-08-53778",
+        "kind": "ping",
+        "latency_s": 0.66,
+        "text": "Принято: JEFF30-08-53778. Это тестовый ответ фейковой модели jeff30."
+      }
+    ]
+  },
+  "kill": {
+    "events": {
+      "heartbeat_recovered": 4.2,
+      "new_heartbeat_pid": 17616,
+      "new_process_seen": 4.2,
+      "old_tree_gone": 1.05,
+      "watchdog_restarts_after": 1
+    },
+    "max_logical": 1,
+    "new_roots": [
+      25944
+    ],
+    "old_pollers": [
+      9912,
+      27912
+    ],
+    "old_start": 1790851586.5462468,
+    "old_wd_restarts": 0,
+    "t_kill": 1790853120.0324557,
+    "victim": 9912
+  },
+  "leftovers": {
+    "listening": {
+      "8851": [],
+      "8852": [],
+      "8853": []
+    },
+    "other_jeff30_cmdline": [],
+    "processes": {
+      "backend": [],
+      "poller": [],
+      "watchdog": []
+    },
+    "ts": 1790853872.746,
+    "type": "leftovers"
+  },
+  "tg_counts_last": {
+    "getMe": 2,
+    "getUpdates": 116,
+    "getWebhookInfo": 2,
+    "sendMessage": 9
+  },
+  "tg_bad_token_last": 0,
+  "model_calls_last": 8,
+  "model_with_nonce_last": 8,
+  "timeline_md": "| t, мин | пульс: возраст, с | пульс: PID | сторож: state / restarts | бэкенд сырых/логич. | Jeff сырых/логич. | /health code, мс | события |\n|---|---|---|---|---|---|---|---|\n| 0.0 | 2.4 | 9912 | running / 0 | 2/1 | 2/1 | 503, 69 | inject start |\n| 1.0 | 3.3 | 9912 | running / 0 | 2/1 | 2/1 | 503, 46 | inject ping |\n| 2.0 | 2.0 | 9912 | running / 0 | 2/1 | 2/1 | 503, 46 |  |\n| 3.0 | 1.7 | 9912 | running / 0 | 2/1 | 2/1 | 503, 42 |  |\n| 4.0 | 2.4 | 9912 | running / 0 | 2/1 | 2/1 | 503, 45 |  |\n| 5.0 | 2.1 | 9912 | running / 0 | 2/1 | 2/1 | 503, 45 |  |\n| 6.0 | 1.9 | 9912 | running / 0 | 2/1 | 2/1 | 503, 49 | inject ping |\n| 7.0 | 0.6 | 9912 | running / 0 | 2/1 | 2/1 | 503, 56 |  |\n| 8.0 | 1.3 | 9912 | running / 0 | 2/1 | 2/1 | 503, 43 |  |\n| 9.0 | 1.0 | 9912 | running / 0 | 2/1 | 2/1 | 503, 64 |  |\n| 10.0 | 15.7 | 9912 | running / 0 | 2/1 | 2/1 | 503, 57 |  |\n| 11.0 | 15.5 | 9912 | running / 0 | 2/1 | 2/1 | 503, 64 | inject ping |\n| 12.0 | 14.7 | 9912 | running / 0 | 2/1 | 2/1 | 503, 60 |  |\n| 13.0 | 14.5 | 9912 | running / 0 | 2/1 | 2/1 | 503, 46 |  |\n| 14.0 | 15.2 | 9912 | running / 0 | 2/1 | 2/1 | 503, 57 |  |\n| 15.0 | 14.9 | 9912 | running / 0 | 2/1 | 2/1 | 503, 56 |  |\n| 16.0 | 13.5 | 9912 | running / 0 | 2/1 | 2/1 | 503, 56 | inject ping |\n| 17.0 | 14.1 | 9912 | running / 0 | 2/1 | 2/1 | 503, 55 |  |\n| 18.0 | 13.7 | 9912 | running / 0 | 2/1 | 2/1 | 503, 41 |  |\n| 19.0 | 14.3 | 9912 | running / 0 | 2/1 | 2/1 | 503, 41 |  |\n| 20.0 | 13.9 | 9912 | running / 0 | 2/1 | 2/1 | 503, 65 |  |\n| 21.0 | 12.5 | 9912 | running / 0 | 2/1 | 2/1 | 503, 61 | inject ping |\n| 22.0 | 13.0 | 9912 | running / 0 | 2/1 | 2/1 | 503, 67 |  |\n| 23.0 | 12.7 | 9912 | running / 0 | 2/1 | 2/1 | 503, 56 |  |\n| 24.0 | 13.3 | 9912 | running / 0 | 2/1 | 2/1 | 503, 40 |  |\n| 25.0 | 15.1 | 9912 | backoff / 1 | 2/1 | 0/0 | 503, 15 | deliberate_kill; heartbeat_recovered; inject post_restart |\n| 26.0 | 11.8 | 17616 | running / 1 | 2/1 | 2/1 | 503, 50 |  |\n| 27.0 | 10.5 | 17616 | running / 1 | 2/1 | 2/1 | 503, 66 |  |\n| 28.0 | 11.4 | 17616 | running / 1 | 2/1 | 2/1 | 503, 112 |  |\n| 29.0 | 11.2 | 17616 | running / 1 | 2/1 | 2/1 | 503, 65 |  |\n| 30.0 | 10.8 | 17616 | running / 1 | 2/1 | 2/1 | 503, 67 |  |\n| 31.0 | 10.4 | 17616 | running / 1 | 2/1 | 2/1 | 503, 62 | inject ping |\n| 32.0 | 10.1 | 17616 | running / 1 | 2/1 | 2/1 | 503, 42 |  |\n| 33.0 | 9.7 | 17616 | running / 1 | 2/1 | 2/1 | 503, 71 |  |\n| 34.0 | 10.3 | 17616 | running / 1 | 2/1 | 2/1 | 503, 46 |  |\n| 35.0 | 9.9 | 17616 | running / 1 | 2/1 | 2/1 | 503, 52 |  |\n| 36.0 | 8.6 | 17616 | running / 1 | 2/1 | 2/1 | 503, 69 | inject ping |"
+}
