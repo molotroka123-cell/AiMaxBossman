@@ -20,6 +20,15 @@ from . import Feature
 router = APIRouter(prefix="/v15/autonomy", tags=["v1.5"])
 
 
+def __getattr__(name: str):
+    # PEP 562: `v15_autonomy.BossmanAutonomyKernel` keeps resolving (runtime-package contract test, external callers)
+    # while the heavy bossman_v3 import still happens only on first access.
+    if name == "BossmanAutonomyKernel":
+        from bossman_v3.autonomy_kernel import BossmanAutonomyKernel
+        return BossmanAutonomyKernel
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 class CandidateBody(BaseModel):
     id: str = Field(min_length=1, max_length=200)
     quality_lcb: float = Field(ge=0, le=1)

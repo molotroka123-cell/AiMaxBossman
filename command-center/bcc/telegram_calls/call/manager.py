@@ -120,6 +120,7 @@ class CallsManager:
         self._stop_latched = False              # in memory: the dial stays blocked even if the durable STOP file cannot be written
         self._cache: dict[str, tuple[float, Any]] = {}
         self.stderr_lines = 0
+        self._permissions_checked = False       # first status() tightens a restored/copied folder once
 
     # ------------------------------------------------------------------ facts
     @property
@@ -643,6 +644,12 @@ class CallsManager:
 
     async def status(self, *, global_stop: bool = False) -> dict:
         """Local facts merged with the worker's own status when it is running. Never starts the worker."""
+        if not self._permissions_checked:
+            # A folder that was copied or restored (backup, new machine) carries the default umask: tighten it before
+            # anything reads it, not only after the first call or `doctor`. Once per process, off the event loop.
+            self._permissions_checked = True
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(self.heal_permissions)
         settings_error: str | None = None
         try:
             settings = self.settings()

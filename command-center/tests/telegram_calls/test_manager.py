@@ -473,3 +473,24 @@ async def test_doctor_never_starts_the_worker_or_touches_the_network(make, tmp_p
     m = make()
     await m.doctor()
     assert not m.running and not (tmp_path / "started").exists()
+
+
+async def test_first_status_tightens_a_copied_or_restored_folder_without_starting_the_worker(make, tmp_path):
+    """A byte copy of the data folder (backup, new machine) carries the default umask: the first status() tightens
+    worker.log to the owner before anything reads it, once per process, and still never starts the worker."""
+    from bcc.telegram_calls.hardening import check_owner_only
+
+    m = make()
+    m.home.mkdir(parents=True, exist_ok=True)
+    log = m.home / "worker.log"
+    log.write_bytes(b"restored\n")
+    if os.name != "nt":
+        os.chmod(log, 0o644)
+    calls = []
+    real = m.heal_permissions
+    m.heal_permissions = lambda: calls.append(1) or real()
+    await m.status()
+    await m.status()
+    assert len(calls) == 1, "healed on the first status only, not on every poll"
+    assert check_owner_only(log).ok, check_owner_only(log).detail
+    assert not m.running and not (tmp_path / "started").exists()

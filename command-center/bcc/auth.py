@@ -41,7 +41,7 @@ def _restrict_to_owner(path: Path) -> None:
     principal = f"{domain}\\{user}" if domain and user else (user or "%USERNAME%")
     # Каталог получает НАСЛЕДУЕМЫЙ ACE: с обычным `:F` Windows пересчитывает права вложенных файлов, и каждый файл, у которого
     # были только унаследованные ACE, остаётся с ПУСТЫМ DACL (D:AI) — не читается никем, даже владельцем.
-    grant = f"{principal}:(OI)(CI)F" if Path(path).is_dir() else f"{principal}:F"
+    grant = f"{principal}:(OI)(CI)F" if os.path.isdir(path) else f"{principal}:F"   # not Path(): os.name may be patched to nt
     argv = ["icacls", str(path), "/inheritance:r", "/grant:r", grant]
     try:
         proc = subprocess.run(  # noqa: S603 — argv, без строки для оболочки
