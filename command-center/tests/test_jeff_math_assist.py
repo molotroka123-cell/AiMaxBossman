@@ -197,6 +197,10 @@ def test_percent_discount_vat_and_share():
     assert "1200" in s
 
 
+def test_direction_words_must_be_whole_words():
+    assert summary("Просто скажи, сколько будет 15% от 200?") == "15% от 200 = 30."      # "просто" is not "рост"
+
+
 def test_percent_stays_silent_when_the_story_is_ambiguous():
     assert find_math_hint("Цена была 1000 рублей, потом скидка 10%. Сколько она стоит сейчас?") is None
     assert find_math_hint("Скидка 15% и ещё 5% сверху, а цена 2000. Сколько?") is None
