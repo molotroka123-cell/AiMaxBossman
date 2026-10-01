@@ -223,6 +223,8 @@ async def test_other_instance_never_inherits_the_owner_legacy_home(tmp_path, loc
     assert tree(legacy) == before
     assert paths.legacy_applies(tmp_path / "bugtest" / "data") is False
     assert paths.legacy_applies(local / "Bossman" / "CommandCenter") is True
+    # a sibling data dir under the SAME %LOCALAPPDATA%\Bossman (a bugtest/candidate install) is not the owner's instance
+    assert paths.legacy_applies(local / "Bossman" / "Bugtest0930") is False
     # read-only callers fall back to the legacy file only for the owner's own instance
     owner_dd, other_dd = local / "Bossman" / "CommandCenter", tmp_path / "bugtest" / "data"
     os.environ.pop("BOSSMAN_TELEGRAM_CONFIG", None)

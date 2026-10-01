@@ -84,7 +84,7 @@ def legacy_applies(data_dir: Path | str | None = None) -> bool:
     candidate instance with its own ``BCC_DATA_DIR`` must never inherit the owner's
     bot token and profiles, so for it the legacy home is irrelevant."""
     base = companion_home(data_dir).parent.resolve()
-    return _same(base.parent, legacy_home().parent.resolve())
+    return _same(base, legacy_home().parent.resolve() / "CommandCenter")
 
 
 def legacy_pending(data_dir: Path | str | None = None) -> bool:
@@ -262,7 +262,7 @@ def migrate_companion_home(legacy: Path, new: Path, *, now: _dt.datetime | None 
         serial += 1
         backup = legacy.with_name(f"{legacy.name}.migration-backup-{stamp}-{serial}")
     try:
-        backup.mkdir(parents=True)
+        backup.mkdir(mode=0o700, parents=True)      # holds secret.key and credentials.enc copies
         for rel in rels:
             _copy_one(legacy, backup, rel)
         if _hashes(backup, rels) != source_hashes:

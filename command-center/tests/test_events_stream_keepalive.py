@@ -63,7 +63,10 @@ async def test_a_quiet_task_stream_is_pinged_while_other_tasks_keep_the_bus_busy
 
 async def test_keepalive_is_not_sent_while_events_of_this_task_flow(tmp_path, monkeypatch):
     """Negative control: frames that ARE written restart the clock, so a live task stream gets no needless pings."""
-    monkeypatch.setattr(api_mod, "STREAM_KEEPALIVE_S", 0.25)
+    # 1.0 s against 0.05 s event gaps: a loaded CI runner can stall a frame for >0.25 s (py3.14 run, 2026-10-01), which is
+    # a real gap, not a missing negative control. The window ends (1.8 s) before the first keepalive could fire after
+    # the last event (~1.5 s + 1.0 s), so a ping is still a failure.
+    monkeypatch.setattr(api_mod, "STREAM_KEEPALIVE_S", 1.0)
     app, svc = await start_app(make_settings(tmp_path), start_workers=False)
     try:
         async def own_events():
@@ -72,7 +75,7 @@ async def test_keepalive_is_not_sent_while_events_of_this_task_flow(tmp_path, mo
                 await asyncio.sleep(0.05)
 
         feeder = asyncio.create_task(own_events())
-        body = await raw_stream(app, f"task_id={TASK}", svc.auth.token, 1.4)
+        body = await raw_stream(app, f"task_id={TASK}", svc.auth.token, 1.8)
         await feeder
         assert body.count("data: ") > 10
         assert ": keepalive" not in body, body
