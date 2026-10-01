@@ -123,6 +123,12 @@ async def get_skill(skill_id: str, request: Request):
     return d
 
 
+def _already_exists(skill_id) -> HTTPException:
+    """FileExistsError несёт путь к файлу на диске — владельцу его показывать нельзя."""
+    return HTTPException(409, {"message": f"Навык «{skill_id}» уже существует. Выберите другое имя.",
+                               "hint": "Имя — латиницей, строчными буквами, цифрами и дефисом."})
+
+
 @router.post("/skills")
 async def create_skill(request: Request):
     svc = request.app.state.svc
@@ -133,7 +139,9 @@ async def create_skill(request: Request):
         raise HTTPException(422, {"message": "нужны id и content"})
     try:
         sk = _lib(svc).create(sid, content, overwrite=bool(body.get("overwrite")))
-    except (ValueError, FileExistsError) as exc:
+    except FileExistsError:
+        raise _already_exists(sid) from None
+    except ValueError as exc:
         raise HTTPException(409, {"message": str(exc)})
     await svc.bus.emit("skill.created", slug=sk.id)
     return _skill_dict(sk)
@@ -151,7 +159,9 @@ async def clone_skill(skill_id: str, request: Request):
     content = sk.path.read_text(encoding="utf-8")
     try:
         clone = lib.create(new_id, content)
-    except (ValueError, FileExistsError) as exc:
+    except FileExistsError:
+        raise _already_exists(new_id) from None
+    except ValueError as exc:
         raise HTTPException(409, {"message": str(exc)})
     return _skill_dict(clone)
 
@@ -174,7 +184,9 @@ async def import_skill(request: Request):
         raise HTTPException(422, {"message": "нужны id и content"})
     try:
         sk = _lib(svc).create(body["id"], body["content"], overwrite=bool(body.get("overwrite")))
-    except (ValueError, FileExistsError) as exc:
+    except FileExistsError:
+        raise _already_exists(body["id"]) from None
+    except ValueError as exc:
         raise HTTPException(409, {"message": str(exc)})
     return _skill_dict(sk)
 
