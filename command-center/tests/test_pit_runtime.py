@@ -432,7 +432,7 @@ def test_first_contact_gets_short_intro_and_silent_memory(tmp_path):
     person_key = runtime.vault.key_for_telegram(101)
 
     intro = asyncio.run(runtime.handle(person, message("/start")))
-    assert intro == "Привет, я Джефф 🙂 Рад знакомству."
+    assert intro.startswith("Привет, я Джефф 🙂 Рад знакомству.")      # still short; the 2026-10-01 training notice follows
     assert "?" not in intro.split("🙂")[-1] or "да/нет" not in intro
     consent = runtime.vault.consent(person_key)
     assert consent.memory_enabled and consent.remote_processing_enabled
@@ -1832,4 +1832,18 @@ def test_training_opt_in_collects_redacted_pairs_and_opt_out_erases_them(tmp_pat
     assert not path.exists()
     asyncio.run(runtime.handle(person, message("ещё про моря", message_id=47)))
     assert not path.exists()
+    asyncio.run(runtime.close())
+
+
+def test_first_contact_states_the_training_notice_and_starts_collection_with_it(tmp_path):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    key = runtime.vault.key_for_telegram(person.user_id)
+    assert not (runtime.vault.person_dir(key) / "consent.json").is_file()      # a genuinely new participant
+    reply = asyncio.run(runtime.handle(person, message("/start", message_id=51)))
+    assert "/privacy training off" in reply and "закрытый набор" in reply and "/memory" in reply
+    consent = runtime.vault.consent(key)
+    assert consent.memory_enabled and consent.training_use_enabled
+    assert "стёрт" in asyncio.run(runtime.handle(person, message("/privacy training off", message_id=52)))
+    assert runtime.vault.consent(key).training_use_enabled is False
     asyncio.run(runtime.close())

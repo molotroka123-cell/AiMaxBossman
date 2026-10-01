@@ -130,7 +130,9 @@ DISCOVERY_INTENT_HINTS = (
 )
 
 INTRO_RU = (
-    "Привет, я Джефф 🙂 Рад знакомству."
+    "Привет, я Джефф 🙂 Рад знакомству. Я помню наши разговоры: посмотреть /memory, пауза /pause_memory, стереть /forget. "
+    "Кстати, диалоги без паролей и ключей идут в закрытый набор для обучения моих моделей; "
+    "отключить это можно командой /privacy training off."
 )
 
 HELP_RU = (
@@ -1814,6 +1816,9 @@ class ParticipantRuntime:
         consent.memory_enabled = True
         consent.remote_processing_enabled = True
         consent.discovery_enabled = False
+        # Owner policy 2026-10-01 (notice-and-opt-out): the intro we return RIGHT NOW states that dialogues go to a closed
+        # training set and how to refuse, so collection starts together with that notice, never before it.
+        consent.training_use_enabled = True
         consent.accepted_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         self.vault.set_consent(person_key, consent)
         return INTRO_RU
