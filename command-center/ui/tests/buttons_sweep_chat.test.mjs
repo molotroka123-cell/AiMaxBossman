@@ -38,3 +38,13 @@ test('approval statuses are words in the Thinking panel', () => {
   assert.equal(approvalLabel('denied'), 'отклонено');
   assert.equal(approvalLabel(''), '—');
 });
+
+const { healthLabel } = await import('../chat/format.js');
+
+test('model health codes are words in the executor picker', () => {
+  assert.equal(healthLabel('provider_down'), 'провайдер недоступен');
+  assert.equal(healthLabel('unmeasured'), 'ещё не проверялась');
+  assert.equal(healthLabel('throttled'), 'лимит запросов');
+  assert.equal(healthLabel('brand_new_code'), 'brand_new_code', 'an unknown code is shown, never hidden');
+  assert.equal(healthLabel(''), '');
+});

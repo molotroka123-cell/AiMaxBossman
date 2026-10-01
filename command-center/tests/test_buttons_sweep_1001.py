@@ -285,3 +285,8 @@ def test_resource_plan_explanations_are_russian():
 def test_chat_panel_uses_the_approval_label():
     panel = (UI / "chat" / "panel.js").read_text(encoding="utf-8")
     assert "approvalLabel(a.status)" in panel and ": a.status)" not in panel
+
+
+def test_chat_picker_uses_the_health_label():
+    composer = (UI / "chat" / "composer.js").read_text(encoding="utf-8")
+    assert "healthLabel(e.health)" in composer and "`состояние: ${e.health}`" not in composer
