@@ -527,7 +527,7 @@ def cmd_start(path: Path) -> int:
     try:
         # Jeff never polls the owner's «Пульт» companion bot, and one bot token
         # has one poller on this machine even across different data dirs.
-        assert_not_companion_bot(settings.bot_token)
+        assert_not_companion_bot(settings.bot_token, data_dir=_resolve_data_dir(path))
         locks.enter_context(single_instance(home))
         locks.enter_context(token_poller_lock(settings.bot_token))
     except CompanionError as exc:

@@ -149,10 +149,10 @@ class MarketNotifier:
                            + "; анализ ожидает полный свежий кадр.")
             else:
                 message = f"BTC DATA QUALITY: {quality_state}; значения UNKNOWN до нового VERIFIED кадра."
-        from bcc.telegram_companion.__main__ import default_config
+        from bcc.telegram_companion.paths import companion_config_path
         from bcc.telegram_companion.config import load
         from bcc.telegram_companion.adapters import Telegram
-        config = default_config()
+        config = companion_config_path(read_fallback=True)
         if not config.exists():
             return {"sent": False, "reason": "companion_not_configured"}
         settings = load(config, env_file=config.parent / "companion.env")
