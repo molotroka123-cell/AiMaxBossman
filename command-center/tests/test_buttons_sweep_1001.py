@@ -171,3 +171,35 @@ def test_chat_footer_and_panel_use_the_verdict_label():
     assert "Проверка: ${evalRow.verdict}" not in render, "в подписи ответа сырой код NOT_APPLICABLE/PASS/FAIL"
     assert "verdictLabel(evalRow.verdict)" in render
     assert "verdictLabel(e.verdict)" in panel and "e.verdict || '—'" not in panel
+
+
+# ------------------------------------------------------------------ новый чат: «Память» без подключённого хранилища
+
+from .browser_support import chromium_available, reason as browser_reason
+from .test_ux2_thinking_pane import _launch, live  # noqa: F401
+
+
+@pytest.mark.skipif(not chromium_available(), reason=browser_reason())
+def test_chat_memory_popover_does_not_request_stats_of_an_unconfigured_store(live):  # noqa: F811
+    """Кнопка «Память» при неподключённом хранилище не должна ходить за статистикой: сервер на это честно
+    отвечает 503, и каждое открытие окна оставляло в консоли ошибку (и ответ 5xx в сети)."""
+    from playwright.sync_api import sync_playwright
+
+    bad: list[str] = []
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.on("response", lambda r: bad.append(f"{r.status} {r.url}") if r.status >= 500 else None)
+            page.on("console", lambda m: bad.append(f"console: {m.text}") if m.type == "error" else None)
+            page.on("pageerror", lambda e: bad.append(f"pageerror: {e}"))
+            page.goto(live.url + "/chat.html", wait_until="domcontentloaded")
+            page.fill("#chat-login-token", live.svc.auth.token)
+            page.click("#chat-login-submit")
+            page.wait_for_selector("#chat-app:not([hidden])", timeout=15000)
+            page.click("#chip-memory")
+            page.wait_for_selector("text=Хранилище памяти не подключено", timeout=8000)
+            page.wait_for_timeout(500)
+        finally:
+            browser.close()
+    assert bad == [], bad
