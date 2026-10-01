@@ -14,8 +14,9 @@ Bossman looks first). Layout produced (what bcc/features/music_studio.py expects
 Steps (the same ones done by hand on the owner's Ryzen AI MAX+ 395 / gfx1151 on 2026-09-30):
   1. git clone ACE-Step-1.5 (shallow) and check out the pinned commit;
   2. python3.12 -m venv venv_rocm;
-  3. pip install torch/torchvision/torchaudio 2.9.x+rocm7.2.1 from repo.radeon.com  (~2 GB: torch 0.8 +
-     rocm-sdk-core 0.6 + rocm-sdk-libraries 0.5);
+  3. install the torch/torchvision/torchaudio 2.9.x+rocm7.2.1 wheels from repo.radeon.com (a pinned
+     index, deliberately not a Bossman dependency: ~2 GB, torch 0.8 + rocm-sdk-core 0.6 +
+     rocm-sdk-libraries 0.5);
   4. pip install -c constraints -r requirements-rocm.txt + diskcache python-multipart toml typer-slim
      (the constraint keeps pip from replacing the ROCm torch);
   5. python -m acestep.model_downloader  (main model from Hugging Face, ~9.4 GB: turbo DiT, LM 1.7B,
