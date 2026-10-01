@@ -233,3 +233,34 @@ def test_segmented_switch_shows_the_pressed_choice(live):  # noqa: F811
             assert no.get_attribute("aria-pressed") == "true" and yes.get_attribute("aria-pressed") == "false"
         finally:
             browser.close()
+
+
+# ------------------------------------------------------------------ общие отказы: проверка полей и запрет платного облака
+
+async def test_validation_errors_are_russian_not_pydantic_english(env):
+    bad_int = await env.client.get("/api/web-designer/projects/тест")
+    assert bad_int.status_code == 422
+    msg = _message(bad_int)
+    assert "Input should" not in msg and not LATIN_PHRASE.search(msg), msg
+    assert "целое число" in msg
+    missing = await env.client.post("/api/providers", json={})
+    assert missing.status_code == 422
+    msg = _message(missing)
+    assert "Field required" not in msg and "обязательно" in msg, msg
+
+
+def test_cloud_refusals_are_russian(monkeypatch):
+    import bcc.provider_governance as gov
+    from bcc.provider_governance import free_only_refusal, unknown_price_message
+
+    monkeypatch.setattr(gov, "free_only_policy_active", lambda: True)
+
+    model = {"name": "vendor/x", "alias": "x", "kind": "cloud"}
+    texts = [unknown_price_message(model), unknown_price_message(model, "stale"), unknown_price_message(model, "absent"),
+             free_only_refusal({"kind": "openai_compat", "base_url": "https://api.cloud-provider.example/v1"},
+                               {**model, "price_in": 1.0, "price_out": 2.0}),
+             free_only_refusal({"kind": "openai_compat", "base_url": "https://api.cloud-provider.example/v1"}, model)]
+    for text in texts:
+        assert text, "отказ не должен быть пустым"
+        assert re.search(r"[А-Яа-я]{4,}", text), text
+        assert not LATIN_PHRASE.search(text.replace("vendor/x", "")), f"английская фраза в отказе: {text!r}"

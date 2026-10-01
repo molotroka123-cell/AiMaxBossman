@@ -49,10 +49,10 @@ def known_prices(model):
 #: owner's next step is not — "refresh the catalog" cannot fix a model the
 #: catalog no longer lists (RC19 audit: a removed OpenRouter model).
 _UNKNOWN_PRICE_WHY = {
-    "stale": ("unknown cloud pricing: model {name} is no longer in the provider catalog "
-              "(removed by the provider?) — choose another model for this agent"),
-    "absent": ("unknown cloud pricing: model {name} is not in the synchronized provider "
-               "catalog — check the model id or choose another model"),
+    "stale": ("Цена облачной модели неизвестна: модели {name} больше нет в каталоге провайдера "
+              "(провайдер её убрал?). Выберите для агента другую модель."),
+    "absent": ("Цена облачной модели неизвестна: модели {name} нет в синхронизированном каталоге "
+               "провайдера. Проверьте имя модели или выберите другую."),
 }
 
 
@@ -81,7 +81,7 @@ def unknown_price_message(model: dict, catalog_state: str | None = None) -> str:
     name = model.get("name") or model.get("alias") or "?"
     template = _UNKNOWN_PRICE_WHY.get(catalog_state or "")
     return (template.format(name=name) if template
-            else "unknown cloud pricing; refresh catalog before inference")
+            else "Цена облачной модели неизвестна: обновите каталог провайдера перед запуском.")
 
 
 ALLOW_PAID_CLOUD_ENV = "BOSSMAN_ALLOW_PAID_CLOUD"
@@ -129,15 +129,15 @@ def free_only_refusal(provider: dict, model: dict) -> str:
     prices = [v for v in (model.get("price_in"), model.get("price_out"))
               if isinstance(v, (int, float)) and not isinstance(v, bool)]
     if any(v > 0 for v in prices):
-        return (f"free-only policy: cloud model {name} has a positive price; only ':free' "
-                f"OpenRouter models, free-tier providers or local models are allowed")
+        return (f"Облачная модель {name} платная, а включён режим «только бесплатное»: "
+                f"разрешены локальные модели, модели OpenRouter с суффиксом ':free' и бесплатные тарифы провайдеров.")
     host = (urlsplit(provider.get("base_url") or "").hostname or "").lower()
     if host.endswith("openrouter.ai") and name.endswith(":free"):
         return ""
     if (model.get("caps") or {}).get("free_tier") and host in _free_preset_hosts():
         return ""
-    return (f"free-only policy: cloud model {name} on {host or 'default endpoint'} is not a ':free' "
-            f"OpenRouter model or a connected free-tier provider model")
+    return (f"Облачная модель {name} ({host or 'адрес по умолчанию'}) не доказанно бесплатная, а включён режим "
+            f"«только бесплатное»: нужна локальная модель, модель OpenRouter ':free' или бесплатный тариф провайдера.")
 
 
 class FreeOnlyAdapter:
