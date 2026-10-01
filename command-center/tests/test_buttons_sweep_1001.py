@@ -290,3 +290,30 @@ def test_chat_panel_uses_the_approval_label():
 def test_chat_picker_uses_the_health_label():
     composer = (UI / "chat" / "composer.js").read_text(encoding="utf-8")
     assert "healthLabel(e.health)" in composer and "`состояние: ${e.health}`" not in composer
+
+
+# ------------------------------------------------------------------ «Навыки → MCP» и настройки «Студии»
+
+async def test_adding_the_same_mcp_server_twice_is_a_conflict_not_a_500(env):
+    body = {"name": "кнопки-сервер", "transport": "http", "url": "http://127.0.0.1:9/mcp"}
+    first = await env.client.post("/api/mcp/servers", json=body)
+    assert first.status_code == 200, first.text
+    again = await env.client.post("/api/mcp/servers", json=body)
+    assert again.status_code == 409, f"{again.status_code} {again.text[:200]}"
+    assert "уже подключён" in _message(again)
+    assert "IntegrityError" not in again.text
+
+
+async def test_mcp_validation_is_russian(env):
+    resp = await env.client.post("/api/mcp/servers", json={"name": "x-сервер", "transport": "stdio", "command": []})
+    assert resp.status_code == 422
+    assert not LATIN_PHRASE.search(_message(resp)), _message(resp)
+    assert "requires" not in _message(resp) and "нужна команда" in _message(resp), _message(resp)
+
+
+async def test_studio_unknown_setting_is_russian(env):
+    resp = await env.client.post("/api/studio/jobs", json={"model": "mock:image", "prompt": "x", "settings": {"seed_xyz": 1}})
+    assert resp.status_code == 422, resp.text[:200]
+    msg = _message(resp)
+    assert not LATIN_PHRASE.search(msg), msg
+    assert "не поддерживается" in msg

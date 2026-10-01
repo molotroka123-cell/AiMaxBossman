@@ -29,7 +29,7 @@ def _value(field, schema, value):
         if valid and 'multiple_of' in schema:
             valid = value % schema['multiple_of'] == 0
     if not valid:
-        raise ValueError(f'studio setting {field}: unsupported value')
+        raise ValueError(f'Настройка «{field}»: это значение выбранная модель не принимает.')
 
 
 def declared_free(model_id):
@@ -53,7 +53,7 @@ def validate_settings(model, values):
     schemas = model['settings']
     for field in values:
         if field not in schemas:
-            raise ValueError(f'studio setting {field}: unknown field')
+            raise ValueError(f'Настройка «{field}» не поддерживается выбранной моделью: уберите её или смените модель.')
     resolved = {name: values.get(name, schema['default']) for name, schema in schemas.items()}
     for name, value in resolved.items():
         _value(name, schemas[name], value)
