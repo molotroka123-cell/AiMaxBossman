@@ -100,10 +100,14 @@ async def test_barge_in_cuts_audio_drops_the_queue_and_records_only_what_was_spo
     assert await until(lambda: s.playout.frames_sent > 10, 4)
     await asyncio.sleep(0.5)
     before = len(t.sent)
-    t_speech = time.monotonic()
     speaker = asyncio.create_task(say(t, 1200, seed=5, amp=0.45))
-    assert await until(lambda: s.record.counters["barge_ins"] == 1, 2)
-    cut = time.monotonic() - t_speech
+    await asyncio.sleep(0)                                    # let say() queue its frames on the line
+    queued = len(t._rx_frames)
+    assert queued > 50, "say() must have queued its 1200 ms of speech (60 ticks) before we start counting"
+    assert await until(lambda: s.record.counters["barge_ins"] == 1, 5)      # wall clock: hang guard only
+    # The barge-in budget is measured in AUDIO time (20 ms line ticks of far-end speech delivered before the cut was
+    # confirmed), not wall time: a loaded CI runner stalled the loop and made the same session read 0.78 s (py3.12).
+    cut = (queued - len(t._rx_frames)) * t._tick_ms / 1000.0
     frames_at_cut = len(t.sent)
     await asyncio.sleep(0.25)
     assert len(t.sent) - frames_at_cut <= 1, "audio must stop within one frame after the barge-in is confirmed"
