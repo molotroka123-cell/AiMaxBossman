@@ -317,3 +317,17 @@ async def test_studio_unknown_setting_is_russian(env):
     msg = _message(resp)
     assert not LATIN_PHRASE.search(msg), msg
     assert "не поддерживается" in msg
+
+
+# ------------------------------------------------------------------ «Приложения»: «остановлено (terminate)»
+
+from .test_apps_control import apps_root, flag_on, make_app  # noqa: E402,F401
+
+
+async def test_app_stop_message_has_no_signal_name(env, apps_root, flag_on):  # noqa: F811
+    make_app(apps_root, "fake-app")
+    assert (await env.client.post("/api/apps/fake-app/start")).status_code == 200
+    body = (await env.client.post("/api/apps/fake-app/stop")).json()
+    assert body["stopped"] is True
+    assert "terminate" not in body["message"] and "kill" not in body["message"], body["message"]
+    assert "остановлено" in body["message"]
