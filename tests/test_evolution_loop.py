@@ -160,7 +160,7 @@ def test_stop_during_an_attempt_cancels_it_quickly_and_resume_finishes_the_cycle
 def test_attempt_wall_clock_budget_times_out_keeps_evidence_and_moves_on(campaign):
     _repo, make = campaign
     cfg, work = make({"money": [{**GOOD_MONEY, "sleep_seconds": 60}], "price": [GOOD_PRICE]},
-                     max_cycles=2, attempt_minutes=0.03)
+                     max_cycles=2, attempt_minutes=0.1)      # 6 s: the legit 2nd attempt must fit on a slow Windows runner (1.8 s did not)
     state = L.EvolutionLoop(work, cfg).run()
     first, second = state["cycles"]
     assert first["outcome"] == "TIMEOUT" and (work / "cycles" / first["id"] / "attempt" / "attempt.json").is_file()
