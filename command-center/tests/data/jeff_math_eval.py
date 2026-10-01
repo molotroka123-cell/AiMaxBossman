@@ -215,7 +215,7 @@ async def run(args) -> dict:
     from bcc.pit.runtime import ParticipantRuntime
     from bcc.telegram_companion.config import Person
 
-    corpus = json.loads(CORPUS.read_text(encoding="utf-8"))
+    corpus = json.loads(Path(args.corpus).read_text(encoding="utf-8"))
     items = corpus["items"]
     if args.only:
         wanted = set(args.only.split(","))
@@ -241,6 +241,11 @@ async def run(args) -> dict:
     else:
         meter.inner = runtime.local_adapter
         runtime.local_adapter = meter
+    if args.math == "off":
+        # the owner switch of the patch (jeff-settings.json math_assist=false): the hook is inert, the path is the old one
+        from bcc.pit import jeff_settings as js
+        js.write_overlay(js.settings_path(runtime.vault.data_dir), {"version": 1, "math_assist": False})
+        assert js.math_assist_enabled(runtime.vault.data_dir) is False
     person = settings.people[0]
     person_key = runtime.vault.key_for_telegram(person.user_id)
     runtime.vault.set_consent(person_key, ConsentState(memory_enabled=True, remote_processing_enabled=True))
@@ -276,7 +281,7 @@ async def run(args) -> dict:
             f"{row['latency_s']}s")
     await runtime.close()
     return {"label": args.label, "route": args.route, "model": MODEL if args.route == "cloud" else args.local_model,
-            "corpus_version": corpus["version"], "n_items": len(results), "rpm": args.rpm,
+            "corpus_version": corpus["version"], "math_assist": args.math, "n_items": len(results), "rpm": args.rpm,
             "wall_seconds": round(time.monotonic() - started_all, 1),
             "total_cost": sum((c.get("cost") or 0) for r in results for c in r["model_calls"]),
             "costs_reported": sum(c.get("cost") is not None for r in results for c in r["model_calls"]),
@@ -295,10 +300,13 @@ def main() -> None:
     parser.add_argument("--local-url", default="http://127.0.0.1:11434/v1")
     parser.add_argument("--local-model", default="")
     parser.add_argument("--rescore")
+    parser.add_argument("--corpus", default=str(CORPUS))
+    parser.add_argument("--math", choices=("on", "off"), default="on",
+                        help="off writes math_assist=false into the temporary jeff-settings.json (baseline of the patched code)")
     args = parser.parse_args()
     if args.rescore:
         data = json.loads(Path(args.rescore).read_text(encoding="utf-8"))
-        items = {i["id"]: i for i in json.loads(CORPUS.read_text(encoding="utf-8"))["items"]}
+        items = {i["id"]: i for i in json.loads(Path(args.corpus).read_text(encoding="utf-8"))["items"]}
         for row in data["results"]:
             row["score"] = score(items[row["id"]], row["reply"])
         data["summary"] = summarize(data["results"])
@@ -309,7 +317,7 @@ def main() -> None:
     text = json.dumps(data, ensure_ascii=False, indent=1) + "\n"
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8", newline="\n")
-    print(json.dumps({k: data[k] for k in ("label", "route", "n_items", "wall_seconds", "total_cost", "summary")},
+    print(json.dumps({k: data[k] for k in ("label", "route", "math_assist", "n_items", "wall_seconds", "total_cost", "summary")},
                      ensure_ascii=False, indent=1))
 
 
