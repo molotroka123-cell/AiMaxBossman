@@ -516,6 +516,10 @@ _PERIODS = [(re.compile(r"ежемесячн\w*|каждый\s+месяц|раз
             (re.compile(r"ежегодн\w*|раз\s+в\s+год|каждый\s+год"), 1)]
 
 
+_ASKS_INTEREST = re.compile(r"скольк\w*\s+(?:\w+\s+)?(?:процент\w*|доход\w*|прибыл\w*)|скольк\w*\s+(?:\w+\s+){0,2}?начисл\w*|"
+                            r"\b(?:доход|прибыль|переплат\w*)\b|сумм\w+\s+процентов|размер\w*\s+процентов")
+
+
 def _handle_interest(t: str) -> MathHint | None:
     compound = bool(re.search(r"сложн\w*\s+процент|капитализац\w*", t))
     simple = bool(re.search(r"простые?\s+процент|простых\s+процент|без\s+капитализац", t))
@@ -547,12 +551,17 @@ def _handle_interest(t: str) -> MathHint | None:
             return None
         amount = principal * (1 + rate / 100 / n) ** int(periods)
         label = {1: "ежегодная", 2: "раз в полгода", 4: "ежеквартальная", 12: "ежемесячная"}[n]
-        return MathHint("compound", f"сложные проценты, капитализация {label}: {fmt(principal)} * (1 + {fmt(rate)}/100"
-                                    f"{'/' + str(n) if n != 1 else ''})^{int(periods)} = {money(amount)} "
-                                    f"(округлено до копеек); начисленные проценты = {money(amount - principal)}.")
-    amount = principal * (1 + rate / 100 * t_years)
-    return MathHint("compound", f"простые проценты: {fmt(principal)} * (1 + {fmt(rate)}/100 * {fmt(t_years)}) = "
-                                f"{money(amount)}; начисленные проценты = {money(amount - principal)}.")
+        head = (f"сложные проценты, капитализация {label}: {fmt(principal)} * (1 + {fmt(rate)}/100"
+                f"{'/' + str(n) if n != 1 else ''})^{int(periods)}")
+    else:
+        amount = principal * (1 + rate / 100 * t_years)
+        head = f"простые проценты: {fmt(principal)} * (1 + {fmt(rate)}/100 * {fmt(t_years)})"
+    # Only the quantity the participant asked for: two numbers in the hint made the model list both, and the
+    # question's own answer was not always the one it ended on (measured 2026-10-01).
+    if _ASKS_INTEREST.search(t):
+        return MathHint("compound", f"{head}; начисленные проценты (без тела вклада) = {money(amount - principal)} "
+                                    f"(округлено до копеек).", amount - principal)
+    return MathHint("compound", f"{head} = {money(amount)} (итоговая сумма с процентами, округлено до копеек).", amount)
 
 
 # -- unit conversion --------------------------------------------------------------------------------------
