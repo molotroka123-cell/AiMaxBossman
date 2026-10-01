@@ -23,7 +23,8 @@ from bcc.pit import jeff_settings as js
 from bcc.pit.cloud_budget import CloudBudget
 from bcc.pit.config import BEHAVIOR_SCALE_NAMES, config_path, default_behavior_scales, pit_home, save_setup
 from bcc.pit.models import ConsentState
-from bcc.pit.participant_context import PIT_ASSISTANT_SYSTEM, behavior_system_text, build_participant_context
+from bcc.pit.participant_context import (
+    MEMORY_OFF_RU, PIT_ASSISTANT_SYSTEM, behavior_system_text, build_participant_context)
 from bcc.pit.vault import PersonaVault
 from bcc.telegram_companion.config import Person
 
@@ -51,7 +52,8 @@ def system_for(data_dir: Path, tg_id: int, scales=None) -> str:
 
 
 def stock_system() -> str:
-    return PIT_ASSISTANT_SYSTEM + " " + behavior_system_text(default_behavior_scales())
+    # system_for() builds with memory disabled, so the stock text ends with the honest "memory is off" sentence
+    return PIT_ASSISTANT_SYSTEM + " " + behavior_system_text(default_behavior_scales()) + " " + MEMORY_OFF_RU
 
 
 def write(data_dir: Path, overlay) -> Path:

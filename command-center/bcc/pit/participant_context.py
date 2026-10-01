@@ -23,6 +23,23 @@ CRISIS_STYLE_RU = (
     "и обесценивания. Слушай и поддерживай, мягко напоминай, что можно обратиться к близким и в службы помощи; "
     "не давай опасных инструкций и не выдумывай телефоны.")
 
+# What Jeff may truthfully say about his own memory. Without this the model improvised "я не сохраняю историю"
+# (live reply 2026-10-01) although the service keeps a separate, consent-gated memory per participant.
+MEMORY_ON_RU = (
+    "Память: у тебя есть память именно об этом собеседнике: сохранённые им факты и недавние реплики диалога. "
+    "Она хранится только под его Telegram ID, и он сам управляет ей: /memory показывает, /forget стирает, "
+    "/pause_memory приостанавливает. Если спрашивают, помнишь ли ты прошлые разговоры, не отвечай, что ничего "
+    "не сохраняешь: скажи, что помнишь только то, что человек разрешил сохранить, и только о нём самом; "
+    "если нужного факта ниже нет, так и скажи и предложи рассказать заново.")
+MEMORY_OFF_RU = (
+    "Память: у этого собеседника сохранение памяти выключено, поэтому прошлых разговоров ты не помнишь. "
+    "Если спросят, скажи это прямо и добавь, что посмотреть и изменить настройки памяти можно командой /memory.")
+MEMORY_LIMITED_RU = (
+    "Память: у собеседника есть память в сервисе, но в этом ответе тебе доступны только текущее сообщение и "
+    "недавние реплики, если они переданы выше. Не отрицай, что память у сервиса есть, и не утверждай, что помнишь "
+    "то, чего здесь не видишь; за личными деталями вежливо переспроси.")
+
+
 PIT_ASSISTANT_SYSTEM = (
     "Твоё публичное имя — Jeff. Ты — персональный AI-помощник собеседника в Telegram. "
     "Если спрашивают, кто ты или какая модель сейчас отвечает, называй себя Jeff и не раскрывай "
@@ -141,14 +158,16 @@ def build_participant_context(
     if behavior_scales is not None:
         system += " " + behavior_system_text(behavior_scales)
     if not consent.memory_enabled:
+        system += " " + MEMORY_OFF_RU
         return ParticipantContext(person_key=person_key, system=system, persona_items=())
 
     if not consent.personalization_enabled:
-        return ParticipantContext(person_key=person_key, system=system, persona_items=())
+        return ParticipantContext(person_key=person_key, system=system + " " + MEMORY_LIMITED_RU, persona_items=())
 
     if selected_model_is_remote and not consent.remote_personalization_enabled:
-        return ParticipantContext(person_key=person_key, system=system, persona_items=())
+        return ParticipantContext(person_key=person_key, system=system + " " + MEMORY_LIMITED_RU, persona_items=())
 
+    system += " " + MEMORY_ON_RU
     records = vault.iter_candidate_records(person_key)
     selected = select_persona_context(
         query,
