@@ -264,3 +264,19 @@ def test_cloud_refusals_are_russian(monkeypatch):
         assert text, "отказ не должен быть пустым"
         assert re.search(r"[А-Яа-я]{4,}", text), text
         assert not LATIN_PHRASE.search(text.replace("vendor/x", "")), f"английская фраза в отказе: {text!r}"
+
+
+def test_resource_plan_explanations_are_russian():
+    """Строки плана памяти попадают на экран «Задача» (кнопка «Открыть задачу»): по-английски им там не место."""
+    from bcc.v2.resource_brain import Reservation, ResourceSnapshot, plan_memory
+
+    idle = Reservation(owner="idle-model", memory_mb=30_000, idle=True) if "idle" in Reservation.__dataclass_fields__ else None
+    snap = ResourceSnapshot(total_memory_mb=100_000, used_system_mb=10_000, reserve_floor_mb=4_000,
+                            reservations=[idle] if idle else [])
+    lines = []
+    for request, policy in ((100, "balanced"), (60_000, "balanced"), (95_000, "balanced"), (95_000, "low_power")):
+        lines += plan_memory(snap, request, policy=policy).explanation
+    assert lines
+    for line in lines:
+        assert re.search(r"[А-Яа-я]{3,}", line), line
+        assert not LATIN_PHRASE.search(line), f"английская строка в плане: {line!r}"
