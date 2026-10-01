@@ -104,3 +104,41 @@ async def test_chat_voice_button_reason_is_russian(env, monkeypatch, tmp_path):
     reason = (opts.get("speech") or {}).get("reason") or ""
     assert reason, opts.get("speech")
     assert not LATIN_PHRASE.search(reason), f"подсказка кнопки микрофона на английском: {reason!r}"
+
+
+# ------------------------------------------------------------------ «Нет связи»: причина словами, а не классом исключения
+
+import httpx
+
+TECH_NET = re.compile(r"ConnectError|All connection attempts failed|ReadTimeout|HTTPError|Traceback")
+
+
+def _dead_network(monkeypatch):
+    """Каждый исходящий запрос провайдера кончается ConnectError с английским текстом httpx."""
+    def refuse(request):
+        raise httpx.ConnectError("All connection attempts failed", request=request)
+
+    def dead_client(url, *, timeout=10, transport=None, **kw):
+        return httpx.AsyncClient(timeout=timeout, transport=httpx.MockTransport(refuse))
+    import bcc.providers
+    import bcc.v2.openrouter_ext
+    monkeypatch.setattr(bcc.providers, "http_client", dead_client)
+    monkeypatch.setattr(bcc.v2.openrouter_ext, "http_client", dead_client)
+
+
+async def test_openrouter_connect_without_network_is_human(env, monkeypatch):
+    _dead_network(monkeypatch)
+    resp = await env.client.post("/api/openrouter/connect", json={"api_key": "sk-or-v1-" + "0" * 40})
+    text = resp.text
+    assert not TECH_NET.search(text), f"сырой текст сетевой ошибки в ответе: {text[:300]}"
+    assert "нет связи" in text.lower()
+
+
+async def test_free_provider_connect_without_network_does_not_blame_the_key(env, monkeypatch):
+    _dead_network(monkeypatch)
+    resp = await env.client.post("/api/free-providers/google_ai_studio/connect", json={"api_key": "AIza" + "0" * 35})
+    assert resp.status_code == 502
+    text = resp.text
+    assert not TECH_NET.search(text), text[:300]
+    assert "не принял ключ" not in text, "сеть недоступна, про ключ ничего не известно"
+    assert "Ключ не проверен" in text

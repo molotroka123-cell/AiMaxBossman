@@ -8,7 +8,7 @@ import httpx
 import sqlalchemy as sa
 
 from ..db import Database, fetch_one, providers as providers_t, models as models_t, utcnow
-from ..providers import ProviderError
+from ..providers import ProviderError, net_reason
 from ..secrets import Vault
 from .openrouter_ext import OpenRouterClient, explain_status
 from .tables import provider_catalog_models
@@ -104,7 +104,7 @@ class OpenRouterCatalogService:
                                      hint=getattr(exc, "hint", None) or "повторите позже") from None
         except httpx.HTTPError as exc:
             raise CatalogUnavailable(
-                f"нет связи с OpenRouter: {type(exc).__name__}",
+                f"нет связи с OpenRouter: {net_reason(exc)}",
                 last_synced_at=last_synced, cached_count=cached_count) from None
 
         now = utcnow()

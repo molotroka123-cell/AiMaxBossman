@@ -235,7 +235,7 @@ class _BaseAdapter:
             raise ProviderError(f"{_host(url)} не ответил за {int(timeout)} с", kind="network",
                                 hint="проверьте, что сервер модели запущен") from None
         except httpx.HTTPError as exc:
-            raise ProviderError(f"нет связи с {_host(url)}: {type(exc).__name__}", kind="network",
+            raise ProviderError(f"нет связи с {_host(url)}: {net_reason(exc)}", kind="network",
                                 hint="проверьте base_url и что endpoint поднят") from None
         if resp.status_code >= 400:
             raise ProviderError(_explain(resp), kind="http")
@@ -377,7 +377,7 @@ class OpenAICompatAdapter(_BaseAdapter):
         except httpx.TimeoutException:
             raise await discard(f"{_host(url)} не ответил за {int(timeout)} с") from None
         except httpx.HTTPError as exc:
-            raise await discard(f"нет связи с {_host(url)}: {type(exc).__name__}") from None
+            raise await discard(f"нет связи с {_host(url)}: {net_reason(exc)}") from None
         if cs.error or not (cs.terminated or cs.finish_reason):
             if not shown:
                 return None
@@ -648,6 +648,21 @@ def build_adapter(kind: str, base_url: str = "", api_key: str | None = None,
         raise ProviderError(f"неизвестный вид провайдера: {kind}",
                             hint=f"доступны: {', '.join(ADAPTERS)}")
     return cls(base_url=base_url, api_key=api_key, transport=transport)  # type: ignore[return-value]
+
+
+def net_reason(exc: BaseException) -> str:
+    """Причина сетевого сбоя словами для человека.
+
+    Имя класса исключения («ConnectError») и английский текст httpx («All connection attempts
+    failed») владельцу ничего не говорят и в уведомление не попадают.
+    """
+    if isinstance(exc, httpx.TimeoutException):
+        return "не ответил вовремя"
+    if isinstance(exc, (httpx.ConnectError, httpx.ProxyError)):
+        return "соединение не установлено: сервер выключен, нет интернета или соединение закрыто прокси"
+    if isinstance(exc, (httpx.ReadError, httpx.RemoteProtocolError, httpx.WriteError)):
+        return "соединение оборвалось"
+    return "сетевой сбой"
 
 
 def _host(url: str) -> str:
