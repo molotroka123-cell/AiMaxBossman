@@ -94,3 +94,13 @@ async def test_studio_missing_things_are_russian(env):
         resp = await env.client.get(path)
         assert resp.status_code in (404, 409, 422), (path, resp.status_code)
         assert not LATIN_PHRASE.search(_message(resp)), (path, _message(resp))
+
+
+# ------------------------------------------------------------------ новый чат: кнопка голосового ввода
+
+async def test_chat_voice_button_reason_is_russian(env, monkeypatch, tmp_path):
+    monkeypatch.setenv("BOSSMAN_WHISPER_MODEL_PATH", str(tmp_path / "нет-такой-модели"))
+    opts = (await env.client.get("/api/chat/options")).json()
+    reason = (opts.get("speech") or {}).get("reason") or ""
+    assert reason, opts.get("speech")
+    assert not LATIN_PHRASE.search(reason), f"подсказка кнопки микрофона на английском: {reason!r}"
