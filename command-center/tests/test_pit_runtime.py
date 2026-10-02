@@ -289,6 +289,21 @@ def test_guard_answers_before_any_model_route(tmp_path):
     assert snapshot.risk.score >= 1
 
 
+def test_simple_greetings_are_deterministic_and_never_call_model(tmp_path):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    person_key = runtime.vault.key_for_telegram(person.user_id)
+    warm(runtime, person_key)
+
+    assert asyncio.run(runtime.handle(person, message("Привет!"))) == "Привет 🙂"
+    assert asyncio.run(runtime.handle(person, message("Как ты?"))) == "Хорошо, спасибо 🙂 Готов помочь."
+    assert runtime.adapter.calls == []
+
+    # A greeting inside a substantive message must still reach the normal route.
+    assert asyncio.run(runtime.handle(person, message("Мне похуй, привет"))) == "готово"
+    assert len(runtime.adapter.calls) == 1
+
+
 def test_forbidden_owner_console_command_is_refused_without_llm(tmp_path):
     runtime = make_runtime(tmp_path)
     answer = asyncio.run(runtime.handle(runtime.settings.people[0], message("/sh ls -la")))
@@ -332,11 +347,11 @@ def test_first_contact_gets_short_intro_and_silent_memory(tmp_path):
     assert "?" not in intro.split("🙂")[-1] or "да/нет" not in intro
     consent = runtime.vault.consent(person_key)
     assert consent.memory_enabled and consent.remote_processing_enabled
-    # no consent maze: a chat message goes straight to the model route
+    # The hello is served locally; substantive chat remains on the model route.
     runtime.catalog = {"free/model:free": ModelEndpoint(
         id="free/model:free", provider="remote", capabilities=frozenset({"chat"}),
         local=False, available=True, zero_cost=True, paid=False)}
-    answer = asyncio.run(runtime.handle(person, message("привет", message_id=2)))
+    answer = asyncio.run(runtime.handle(person, message("напиши приветствие", message_id=2)))
     assert answer == "готово"
 
 
@@ -349,7 +364,7 @@ def test_chat_requires_remote_consent(tmp_path):
     assert "Джефф" in intro
     runtime.catalog = {}
     runtime.catalog_checked_at = 1.0
-    answer = asyncio.run(runtime.handle(person, message("привет", message_id=3)))
+    answer = asyncio.run(runtime.handle(person, message("объясни задачу", message_id=3)))
     assert answer == rt.NO_MODEL_RU
     assert runtime.adapter.calls == []
 
@@ -382,7 +397,7 @@ def test_personalization_off_excludes_prior_chat_history_from_remote_request(tmp
     runtime.catalog_checked_at = 1.0
     asyncio.run(runtime.handle(person, message("PRIVATE_CHAT_MARKER_001", message_id=51)))
     asyncio.run(runtime.handle(person, message("/privacy personalization off", message_id=52)))
-    asyncio.run(runtime.handle(person, message("Как дела?", message_id=53)))
+    asyncio.run(runtime.handle(person, message("Объясни задачу?", message_id=53)))
     assert "PRIVATE_CHAT_MARKER_001" not in json.dumps(runtime.adapter.calls[-1], ensure_ascii=False)
 
 
@@ -420,7 +435,7 @@ def test_chat_route_answers_with_local_placeholder_when_no_route(tmp_path):
         memory_enabled=True, remote_processing_enabled=True))
     runtime.catalog = {}
     runtime.catalog_checked_at = 1.0   # skip the live refresh; allowlist yields no route
-    answer = asyncio.run(runtime.handle(person, message("привет", message_id=6)))
+    answer = asyncio.run(runtime.handle(person, message("объясни задачу", message_id=6)))
     assert answer == rt.NO_MODEL_RU
     assert runtime.adapter.calls == []
 
@@ -734,7 +749,7 @@ def test_participant_chat_uses_free_cloud_even_when_local_model_is_available(tmp
     person_key = runtime.vault.key_for_telegram(101)
     warm(runtime, person_key)
 
-    assert asyncio.run(runtime.handle(person, message("привет", message_id=80))) == "готово"
+    assert asyncio.run(runtime.handle(person, message("расскажи о погоде", message_id=80))) == "готово"
     assert len(local.calls) == 0 and len(runtime.adapter.calls) == 1
 
     class FailingLocal:
@@ -842,7 +857,7 @@ def test_cloud_timeout_tries_second_free_route_before_busy_local(tmp_path, monke
     person = settings.people[0]
     warm(runtime, runtime.vault.key_for_telegram(person.user_id))
 
-    answer = asyncio.run(runtime.handle(person, message("Привет", message_id=884)))
+    answer = asyncio.run(runtime.handle(person, message("расскажи о задаче", message_id=884)))
     assert answer == "Ответ из облачного резерва."
     assert [model for model, _ in runtime.adapter.calls] == [
         "free/primary:free", "free/backup:free"]
@@ -897,7 +912,7 @@ def test_local_failure_tries_each_verified_free_cloud_with_bounded_time(tmp_path
     runtime.adapter = Cloud()
     person = settings.people[0]
     warm(runtime, runtime.vault.key_for_telegram(person.user_id))
-    assert asyncio.run(runtime.handle(person, message("Привет", message_id=887))) == "Ответ Gemma."
+    assert asyncio.run(runtime.handle(person, message("расскажи о задаче", message_id=887))) == "Ответ Gemma."
     assert [model for model, _ in runtime.adapter.calls] == [
         "free/nemotron:free", "free/gemma:free"]
     assert runtime.adapter.budgets[0] <= settings.chat_deadline_seconds / 2
@@ -922,7 +937,7 @@ def test_explicit_local_only_chat_uses_one_model_and_jeff_persona(tmp_path, monk
     person_key = runtime.vault.key_for_telegram(person.user_id)
     warm(runtime, person_key)
 
-    assert asyncio.run(runtime.handle(person, message("Привет", message_id=880))) == "Привет, я Jeff."
+    assert asyncio.run(runtime.handle(person, message("расскажи о задаче", message_id=880))) == "Привет, я Jeff."
     assert len(local.calls) == 1 and local.calls[0][0] == settings.local_models[0]
     assert "Твоё публичное имя — Jeff" in local.calls[0][1][0]["content"]
     assert remote.calls == []
@@ -1005,7 +1020,7 @@ def test_local_only_chat_has_no_cloud_fallback_on_model_failure(tmp_path, monkey
     person = settings.people[0]
     warm(runtime, runtime.vault.key_for_telegram(person.user_id))
 
-    assert asyncio.run(runtime.handle(person, message("Привет", message_id=881))) == rt.PROVIDER_DOWN_RU
+    assert asyncio.run(runtime.handle(person, message("расскажи о задаче", message_id=881))) == rt.PROVIDER_DOWN_RU
     assert remote.calls == []
     asyncio.run(runtime.close())
 
@@ -1026,7 +1041,7 @@ def test_local_only_chat_yields_when_owner_needs_memory(tmp_path, monkeypatch):
     person = settings.people[0]
     warm(runtime, runtime.vault.key_for_telegram(person.user_id))
 
-    assert asyncio.run(runtime.handle(person, message("Привет", message_id=882))) == rt.NO_MODEL_RU
+    assert asyncio.run(runtime.handle(person, message("расскажи о задаче", message_id=882))) == rt.NO_MODEL_RU
     assert local.calls == [] and remote.calls == []
     asyncio.run(runtime.close())
 
@@ -1323,7 +1338,7 @@ def test_remote_route_used_when_local_catalog_down(tmp_path):
     person = runtime.settings.people[0]
     person_key = runtime.vault.key_for_telegram(101)
     warm(runtime, person_key)
-    answer = asyncio.run(runtime.handle(person, message("привет", message_id=90)))
+    answer = asyncio.run(runtime.handle(person, message("расскажи о задаче", message_id=90)))
     assert answer == "готово"
     assert len(runtime.adapter.calls) == 1
 
@@ -1550,9 +1565,27 @@ def test_unreadable_advisory_behavior_file_does_not_break_chat_or_memory(tmp_pat
 
     monkeypatch.setattr(runtime.behavior.behavior, "read", denied)
     monkeypatch.setattr(runtime.behavior.behavior, "apply", denied)
-    assert asyncio.run(runtime.handle(person, message("привет", message_id=62))) == "готово"
+    assert asyncio.run(runtime.handle(person, message("расскажи о задаче", message_id=62))) == "готово"
     assert runtime.vault.consent(key).memory_enabled is True
     assert runtime.store.history(person.key)
+
+
+def test_unreadable_person_facts_degrades_to_chat_without_memory(tmp_path, monkeypatch):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    key = runtime.vault.key_for_telegram(person.user_id)
+    warm(runtime, key)
+    runtime.catalog = {FREE_ENDPOINT.id: FREE_ENDPOINT}
+    runtime.catalog_checked_at = 1.0
+
+    def denied(_person_key):
+        raise PermissionError("synthetic profile ACL denial")
+
+    monkeypatch.setattr(runtime.vault, "iter_candidate_records", denied)
+    assert asyncio.run(runtime.handle(person, message("объясни задачу", message_id=63))) == "готово"
+    assert len(runtime.adapter.calls) == 1
+    sent_messages = runtime.adapter.calls[0][1]
+    assert all("PRIVATE_PROFILE_MARKER" not in str(item) for item in sent_messages)
 
 
 def test_roleplay_requires_consent_then_persists(tmp_path):

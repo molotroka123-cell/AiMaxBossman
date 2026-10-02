@@ -150,7 +150,7 @@ def test_provider_failure_answers_honestly(tmp_path):
     key = runtime.vault.key_for_telegram(21)
     warm(runtime, key)
     for _ in range(3):
-        answer = asyncio.run(runtime.handle(person, user_message(21, "привет", 2)))
+        answer = asyncio.run(runtime.handle(person, user_message(21, "расскажи о задаче", 2)))
         assert answer == rt.PROVIDER_DOWN_RU
     assert runtime.adapter.calls == 3
 
