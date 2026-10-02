@@ -154,6 +154,32 @@ def test_chat_reply_history_and_restart(tmp_path):
     assert history[2]["text"] == "Привет! Чем займёмся?"
 
 
+def test_unhandled_chat_error_has_incident_id_and_never_claims_retry_safe(tmp_path, monkeypatch):
+    app, _ = make_app(tmp_path)
+
+    async def fail_unexpectedly(_self, _person, _message):
+        raise RuntimeError("private incoming text must not be logged")
+
+    monkeypatch.setattr(web.WebParticipantRuntime, "handle", fail_unexpectedly)
+    with client_for(app) as c:
+        signup(c)
+        response = chat(c, "a private request")
+
+    assert response.status_code == 200
+    reply = response.json()["reply"]
+    assert reply.startswith("Не удалось завершить запрос.")
+    assert "Перед повтором проверь, выполнилось ли действие." in reply
+    assert "повтор безопасен" not in reply.lower()
+    incident_id = reply.split("Код сбоя: ", 1)[1].split(".", 1)[0]
+    assert len(incident_id) == 10
+
+    log = (tmp_path / "pit-v1.7" / "logs" / "runtime_error.jsonl").read_text(encoding="utf-8")
+    event = json.loads(log.splitlines()[-1])
+    assert event["incident_id"] == incident_id
+    assert event["surface"] == "web" and event["schema"] == "bossman.pit.runtime-error/2"
+    assert "private incoming text" not in log and "a private request" not in log
+
+
 def test_context_is_carried_within_a_conversation(tmp_path):
     adapter = RecordingAdapter("Понял.")
     app, _ = make_app(tmp_path, adapter)

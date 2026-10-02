@@ -244,7 +244,7 @@ def test_the_full_lane_keeps_the_production_authorization_boundary(full_lane):
                              {"kind": "equals", "value": "ок"}), _client(model))
     assert run.executed_tools == [], run.executed_tools
     assert "fs.write:not_granted" in run.declined_tools
-    assert "browser.confirmed_click:needs_confirm" in run.declined_tools
+    assert "browser.confirmed_click:not_granted" in run.declined_tools
     assert "no_such_tool:unknown" in run.declined_tools
     assert not (full_lane.sandbox_root() / "x").exists()
 
@@ -268,6 +268,9 @@ def test_every_lane_carries_observable_configuration_identifiers(production_lane
     assert full["executes_tools"] is True
     assert full["system_prompt_builder"] == "bossman.runner._system_prompt"
     assert full["context_mechanism"] == "bossman.context.ContextBuilder"
+    full_schemas = {schema["function"]["name"] for schema in production_lanes["full"].tool_schemas}
+    assert full_schemas == {"fs_read", "fs_search", "fs_list", "search_journal", "log"}
+    assert production_lanes["full"].agent.grant("browser.open") is None
     for key in ("agent_sha256", "system_prompt_sha256", "tool_registry_sha256",
                 "context_window", "tool_schema_count", "not_covered"):
         assert full.get(key), key

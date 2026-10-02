@@ -30,6 +30,8 @@ dependencies = [
 [project.optional-dependencies]
 # Optional local upstream engines; weights are supplied by the owner, never at boot.
 documents = ["docling-slim[convert-core,format-pdf,format-office]==2.127.0"]
+# Heavy local PDF layout models are opt-in and isolated from the normal Bossman runtime.
+master-parser-documents = ["docling-slim[convert-core,format-pdf,format-office,models-local,cli]==2.127.0"]
 speech = ["faster-whisper==1.2.1"]
 semantic-memory = ["qdrant-client==1.15.1"]
 # Зависимости приложений, которые архив везёт внутри bcc/_apps: у них свои

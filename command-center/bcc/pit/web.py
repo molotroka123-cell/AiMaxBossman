@@ -50,6 +50,8 @@ from .runtime import (
     NO_MODEL_RU,
     NO_REMOTE_RU,
     PROVIDER_DOWN_RU,
+    UNHANDLED_ERROR_PREFIX_RU,
+    _record_unhandled_error,
     ParticipantRuntime,
     PITStore,
 )
@@ -62,7 +64,7 @@ MAX_TEXT_CHARS = 4000
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_AUDIO_BYTES = 12 * 1024 * 1024
 STOPPED_RU = "Остановлено. Можно продолжать."
-GENERIC_ERROR_RU = "Произошла ошибка внутри Bossman. Она записана локально; повтор безопасен."
+GENERIC_ERROR_RU = UNHANDLED_ERROR_PREFIX_RU
 STREAM_ERROR_RU = "Не получилось ответить. Повторите чуть позже."
 #: Replies that are an honest status, not a model answer: the window marks them ``kind=error`` after F5.
 ERROR_REPLIES = frozenset({NO_MODEL_RU, PROVIDER_DOWN_RU, CLOUD_PAUSED_RU, INCOMPLETE_REPLY_RU, NO_REMOTE_RU,
@@ -509,7 +511,7 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
     def reply_kind(user_text: str, reply: str, *, stopped: bool = False, attachments: bool = False) -> str:
         if stopped:
             return "stopped"
-        if reply in ERROR_REPLIES:
+        if reply in ERROR_REPLIES or reply.startswith(GENERIC_ERROR_RU):
             return "error"
         if user_text.startswith("/"):
             return "command"
@@ -569,21 +571,7 @@ def create_app(settings: PITSettings, *, port: int, runtime: ParticipantRuntime 
                 from .runtime import _failure_text
                 reply = _failure_text(str(exc))
             except Exception as exc:  # noqa: BLE001 — same generic reply as the Telegram worker
-                import traceback
-                from .vault import _append_jsonl
-                frames = traceback.extract_tb(exc.__traceback__)
-                frame = frames[-1] if frames else None
-                try:
-                    _append_jsonl(rt.home / "logs" / "runtime_error.jsonl", {
-                        "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                        "kind": type(exc).__name__, "surface": "web",
-                        "file": Path(frame.filename).name if frame else "unknown",
-                        "function": frame.name if frame else "unknown",
-                        "line": frame.lineno if frame else 0,
-                        "schema": "bossman.pit.runtime-error/1"})
-                except OSError:
-                    pass
-                reply = GENERIC_ERROR_RU
+                reply = _record_unhandled_error(rt.home, exc, surface="web")
             finally:
                 _outbox.reset(token_box)
                 _uploads.reset(token_up)

@@ -29,6 +29,7 @@ import re
 import shutil
 import time
 import traceback
+import uuid
 from dataclasses import replace
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -445,6 +446,37 @@ def _minimize_message(message: dict) -> dict:
         "_forwarded": any(k in message for k in ("forward_origin", "forward_from", "forward_from_chat",
                                                   "forward_sender_name", "forward_date")),
     }
+
+
+UNHANDLED_ERROR_PREFIX_RU = "Не удалось завершить запрос."
+
+
+def _record_unhandled_error(home: Path, exc: Exception, *, surface: str) -> str:
+    """Write a content-free incident and return safe, actionable user wording."""
+    incident_id = uuid.uuid4().hex[:10]
+    frames = traceback.extract_tb(exc.__traceback__)
+    frame = frames[-1] if frames else None
+    event = {
+        "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "incident_id": incident_id,
+        "kind": type(exc).__name__,
+        "surface": surface,
+        "file": Path(frame.filename).name if frame else "unknown",
+        "function": frame.name if frame else "unknown",
+        "line": frame.lineno if frame else 0,
+        "schema": "bossman.pit.runtime-error/2",
+    }
+    log_path = Path(home) / "logs" / "runtime_error.jsonl"
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        _append_jsonl(log_path, event)
+        saved = True
+    except OSError:
+        saved = False
+    reply = (f"{UNHANDLED_ERROR_PREFIX_RU} Перед повтором проверь, выполнилось ли действие. "
+             f"Код сбоя: {incident_id}.")
+    return reply + (" Детали записаны локально." if saved else
+                    " Bossman не смог сохранить детали сбоя локально.")
 
 
 def _failure_text(code: str) -> str:
@@ -1493,20 +1525,9 @@ class ParticipantRuntime:
             except CompanionError as exc:
                 answer = _failure_text(str(exc))
             except Exception as exc:
-                # Do not log the inbound text, model response or credentials.
-                # A type and code location make the generic reply actionable.
-                frames = traceback.extract_tb(exc.__traceback__)
-                frame = frames[-1] if frames else None
-                with contextlib.suppress(OSError):
-                    _append_jsonl(self.home / "logs" / "runtime_error.jsonl", {
-                        "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                        "kind": type(exc).__name__,
-                        "file": Path(frame.filename).name if frame else "unknown",
-                        "function": frame.name if frame else "unknown",
-                        "line": frame.lineno if frame else 0,
-                        "schema": "bossman.pit.runtime-error/1",
-                    })
-                answer = "Произошла ошибка внутри Bossman. Она записана локально; повтор безопасен."
+                # Never claim a retry is safe after an unclassified failure: a prior
+                # step may already have produced an external effect.
+                answer = _record_unhandled_error(self.home, exc, surface="telegram")
             finally:
                 reply_sink.reset(sink_token)
             if (self.home / STOP_FLAG).exists():
