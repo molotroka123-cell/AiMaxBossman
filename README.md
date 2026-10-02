@@ -117,6 +117,7 @@ skill transfer, operating-graph continuity, measured routing и работу п�
 [Money MVP — продуктовый приоритет и критерии](docs/product/MONEY_MVP.md) · [Bossman 1.5](BOSSMAN_1_5_START_HERE.md)
 
 ## Этап 1.2 — тот же Bossman, теперь ещё и в CMD
+
 **Не второй Bossman и не новая база. Только ещё один удобный пульт.** Терминал, дашборд и Telegram должны работать с одним выбранным экземпляром программы: общие проекты и файлы, модели, задачи, навыки, память, разрешения и результаты. Изменение через один интерфейс видно в остальных без переноса папок.
 
 Владелец хочет общаться с Bossman прямо в Windows CMD, как с современным coding-CLI. Claude Code будет обучать и аудировать его через структурированные команды, а не тратить каждый шаг на клики по дашборду. Это должно сделать процесс удобнее; снижение времени и расходов ещё нужно измерить на одинаковых задачах. Терминал сам по себе не ускоряет модель и не заменяет реальную проверку результата.
@@ -322,7 +323,8 @@ python tools/exact_sha_certify.py --sha "$TESTED_SHA" --runs-json runs.json --ou
 - **Last evidence SHA:** `0c1cbe651f5271bbd0bb2d30b467c1206c19f565` · **Current HEAD SHA:** `9e3aa192f513` · **Evidence freshness:** PARTIALLY_STALE
 - **Last scorecard update:** 2026-09-22
 - **Benchmark hard failures:** none observed
-- **Live hardware attestation:** PENDING- **Exact-SHA CI:** PASS
+- **Live hardware attestation:** PENDING
+- **Exact-SHA CI:** PASS
 
 _Среднее (вторично, не авторитетно): 8.0/10. 10.0 = ATTESTED; ни одна ось не ATTESTED без живой аттестации железа._
 <!-- BOSSMAN_LIVE_SCORECARD_END -->
