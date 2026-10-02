@@ -51,3 +51,16 @@ These are repository tests. They do not prove owner-machine image generation, Te
 6. Only after the above passes, deliver the verified test image and its audit summary to the Telegram console.
 
 Until those gates pass, Bossman 2.0 and Viggle remain **NOT OWNER_VERIFIED**; no successful new-model image or Telegram delivery is claimed.
+
+## Continued owner checks — same date
+
+- Current documentation/evidence HEAD: `496e98ae94f789a8d09a06f7082c9e1c80068f8e`; working tree clean at check time. The tested source patch remains `63b4977f6ec8f094bcde561377a7b6064d227d46`.
+- `scripts/evening_owner_run.py preflight` refused to start because the checked-out branch is `claude/bossman-freeze-closure-ohvmon`; the script requires `claude/bossman-final-completion-kymr05`. PR #89's public head is a third branch (`claude/bossman-1.9-owner-bugtest-20260930`). No branch was switched or renamed.
+- The public PR #89 remains Draft with 119 commits, merging into `feat/bossman-autonomy`; this is not an owner acceptance. Source: https://github.com/molotroka123-cell/AiMaxBossman/pull/89.
+- Owner-breaker status is `INCOMPLETE`, 0/22 recorded; all B1–B12 and L1–L10 remain `NOT_RUN`.
+- Ollama `/api/tags` is reachable and lists local models, including `bossman-community-qwen-uncensored:latest`. The configured Jeff route remains cloud OpenRouter Nemotron, so using that local Qwen in the Intelligence Preservation runner would not be a same-model comparison for the active Jeff route.
+- The exact-SHA Intelligence Preservation preflight stopped before any generation: the checked-in corpus has 220 tasks, only 20 per metric, while a no-loss 98% confidence-bound PASS needs at least 189 per core metric. This gate requires an independently reviewed larger corpus; `--allow-insufficient-samples` would produce diagnostic-only evidence and cannot pass release.
+- The Bossman NVIDIA provider catalog check returned `unavailable: NVIDIA_API_KEY не задан`. No Kimi request was made. The Bossman CLI `status` check found no Control API at `127.0.0.1:8800`; Docker CLI is absent. Three BCC runs are queued under tasks in `waiting_approval`, each with a pending approval. The attempted hidden start of a candidate BCC server was rejected by the command execution policy, so no server was started and no queued work was run.
+- The two observed `bcc.pit.cli start` PIDs were parent/child from one launch (`14000` → `4364`), with the same creation time; this is not evidence of duplicate pollers.
+
+These checks add owner-machine evidence about why the required run cannot currently proceed. They do not convert the blocked/missing rows into PASS and do not change `READY_FOR_OWNER_TEST=NO` / `FREEZE_READY=NO`.
