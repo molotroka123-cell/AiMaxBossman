@@ -108,6 +108,7 @@ def failure_text(code: str) -> str:
         "IMAGE_GEN_LOW_MEMORY": "Мало свободной памяти для генерации (нужно больше, чем свободно сейчас). Закройте тяжёлые задачи или выгрузите модель и попробуйте снова.",
         "IMAGE_ENGINE_NOT_CONFIGURED": "Генерация не настроена в Bossman: нет движка sd.cpp (BOSSMAN_SDCPP_BIN) или моделей с MANIFEST.json (BOSSMAN_MEDIA_MODELS). Картинку-заглушку я не присылаю.",
         "IMAGE_GEN_FAILED": "Генерация не удалась в Bossman Studio. Подробности — в Студии, раздел «Картинки».",
+        "IMAGE_RUNTIME_BLOCKED_BY_WINDOWS": "Windows заблокировал неподписанный локальный медиа-движок (Smart App Control). Клип не создан и не отправлен. Нужна подписанная сборка движка или решение владельца по защите Windows; автоматического повтора не будет.",
         "IMAGE_GEN_CANCELLED": "Генерация отменена.",
         "IMAGE_GEN_TIMEOUT": "Генерация не уложилась в отведённое время и отменена.",
         "IMAGE_GEN_CANCEL_UNCONFIRMED": "Bossman не подтвердил остановку: генерация, возможно, ещё идёт. "
@@ -689,6 +690,8 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
                 if status in {"failed", "cancelled"}:
                     if status == "cancelled":
                         await self.send_partial_video(person, job_id, prompt, video, "остановлено")
+                    if status == "failed" and "0xc0e90002" in str(job.get("error") or "").lower():
+                        raise CompanionError("IMAGE_RUNTIME_BLOCKED_BY_WINDOWS")
                     raise CompanionError("IMAGE_GEN_CANCELLED" if status == "cancelled" else "IMAGE_GEN_FAILED")
                 await asyncio.sleep(self.image_poll_seconds)
             runs = await self.core.studio_runs(job_id, surface)

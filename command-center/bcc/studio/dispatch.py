@@ -151,6 +151,11 @@ async def generate(svc,job,ext,model):
                 await note_cost()
                 if status.reason:
                     if status.reason=='timeout':await salvage_partial(svc,job,plane,model,provider,receipt.request_id,'timeout')
+                    detail_fn=getattr(provider,'failure_detail',None)
+                    detail=detail_fn(receipt.request_id) if model['provider']=='sdcpp' and callable(detail_fn) else None
+                    if detail:
+                        from bcc.studio.providers.sdcpp import SdCppFailure
+                        raise SdCppFailure(status.reason,detail)
                     raise ProviderFailure(status)
                 if status.state=='completed':break
                 if status.state=='canceled':

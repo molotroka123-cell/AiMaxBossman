@@ -26,9 +26,9 @@ def cfg(**kw):
 
 
 class FakeStudio:
-    def __init__(self, *, available=True, finish='completed', polls=1, file_bytes=PNG, sha=None):
+    def __init__(self, *, available=True, finish='completed', polls=1, file_bytes=PNG, sha=None, error=None):
         self.available, self.finish, self.polls = available, finish, polls
-        self.file_bytes, self.sha = file_bytes, sha
+        self.file_bytes, self.sha, self.error = file_bytes, sha, error
         self.requests, self.created, self.cancelled = [], [], False
 
     def __call__(self, request):
@@ -46,7 +46,7 @@ class FakeStudio:
         if url.path == '/api/studio/jobs/7':
             self.polls -= 1
             status = 'running' if self.polls > 0 else ('cancelled' if self.cancelled else self.finish)
-            return httpx.Response(200, json={'id': 7, 'status': status})
+            return httpx.Response(200, json={'id': 7, 'status': status, 'error': self.error})
         if url.path == '/api/studio/runs':
             assert url.params['job_id'] == '7'
             return httpx.Response(200, json={'items': [{'id': 'run-abc', 'job_id': 7, 'mime': 'image/png',
@@ -128,6 +128,11 @@ def test_engine_not_configured_is_said_plainly(tmp_path):
 def test_failed_job_reports_failure(tmp_path):
     reply, _, tg = run(tmp_path, FakeStudio(finish='failed'))
     assert reply == 'ERR:IMAGE_GEN_FAILED' and tg.photos() == []
+
+
+def test_windows_blocked_media_runtime_has_actionable_message(tmp_path):
+    reply, _, tg = run(tmp_path, FakeStudio(finish='failed', error='failed: provider_down (0xC0E90002)'))
+    assert reply == 'ERR:IMAGE_RUNTIME_BLOCKED_BY_WINDOWS' and tg.photos() == []
 
 
 def test_cancel_stops_the_studio_job(tmp_path):
