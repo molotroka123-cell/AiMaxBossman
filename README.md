@@ -1,6 +1,6 @@
 # BOSSMAN
 
-**Обновлено 26 сентября 2026 года.**
+**Обновлено 2 октября 2026 года.** [Сводный аудит 2026-10-02](https://github.com/molotroka123-cell/AiMaxBossman/blob/integrate/bossman-1.7-unified-20260925/docs/owner/CURRENT_AUDIT_20261002.md).
 
 Актуальная работа над Bossman 1.5–1.7 ведётся в единой ветке [integrate/bossman-1.7-unified-20260925](https://github.com/molotroka123-cell/AiMaxBossman/tree/integrate/bossman-1.7-unified-20260925). [Откройте README этой ветки](https://github.com/molotroka123-cell/AiMaxBossman/blob/integrate/bossman-1.7-unified-20260925/README.md), чтобы увидеть текущую карту продукта.
 
