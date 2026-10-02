@@ -250,6 +250,9 @@ def _blocked_reason(group: str, path: str) -> str:
         return "командная строка не запускает саму себя"
     if path in ("/api/login", "/api/logout"):
         return "вход и выход выполняются формой входа: там секрет, а не команда"
+    if group == "calls" or path == "/api/telegram/calls" or path.startswith("/api/telegram/calls/"):
+        return ("звонки Telegram запускает только владелец: вход, звонок и STOP звонков "
+                "выполняются на странице «Telegram-звонки» или командой `bossman call`, а не из командной строки")
     return ""
 
 

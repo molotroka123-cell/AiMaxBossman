@@ -146,14 +146,21 @@ async def _watch_owner_stop(svc: Any, rave: RaveService) -> None:
     Cancelled when the backend stops: then child processes are killed and the
     durable state is left for recovery (agents come back paused)."""
     q = svc.bus.subscribe()
+    getter: asyncio.Future | None = None       # one pending q.get(); always cancelled on the way out
     try:
         while True:
             if not svc.bus.is_subscribed(q):      # dropped as a lagging reader: subscribe again
+                if getter is not None and not getter.done():
+                    getter.cancel()
+                getter = None
                 q = svc.bus.subscribe()
-            try:
-                msg = await asyncio.wait_for(q.get(), timeout=5.0)
-            except asyncio.TimeoutError:
-                continue
+            if getter is None:
+                getter = asyncio.ensure_future(q.get())
+            done, _ = await asyncio.wait({getter}, timeout=5.0)
+            if not done:
+                continue                          # nothing yet: re-check the subscription
+            msg = getter.result()
+            getter = None
             if isinstance(msg, dict) and msg.get("kind") == "owner.stop_all":
                 with contextlib.suppress(Exception):
                     await rave.stop_all()
@@ -161,6 +168,8 @@ async def _watch_owner_stop(svc: Any, rave: RaveService) -> None:
         await rave.shutdown()
         raise
     finally:
+        if getter is not None and not getter.done():
+            getter.cancel()
         svc.bus.unsubscribe(q)
 
 

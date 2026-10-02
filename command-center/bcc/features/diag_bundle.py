@@ -90,8 +90,8 @@ EXCLUDED = [
 
 # Страховка на будущее: даже если кто-то добавит часть с таким именем, она не
 # попадёт в архив. Проверка по имени, а не по намерению автора правки.
-DENY_NAMES = {desktop.TOKEN_FILE_NAME, "secret.key", ".env"}
-DENY_SUFFIXES = (".db", ".sqlite", ".sqlite3", ".db-wal", ".db-shm", ".key", ".pem", ".env")
+DENY_NAMES = {desktop.TOKEN_FILE_NAME, "secret.key", ".env", "credentials.enc"}
+DENY_SUFFIXES = (".db", ".sqlite", ".sqlite3", ".db-wal", ".db-shm", ".key", ".pem", ".env", ".session", ".session-journal")
 
 # «Длинная строка после слова token/key/secret» без разделителя `:`/`=` —
 # ровно так секрет и попадает в лог, а KV-паттерн проекта такое не ловит.

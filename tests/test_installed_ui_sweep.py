@@ -212,9 +212,17 @@ def test_loading_the_driver_does_not_repoint_the_top_level_tests_package():
     """
     sys.modules.pop('_sweep_driver_under_test', None)
     before = list(sys.path)
+    # Как разрешается корневой `tests.*` ДО загрузки драйвера: соседние тесты могут
+    # оставить в sys.path свои каталоги (command-center рядом с корнем), и тогда
+    # абсолютный ответ зависит от порядка запуска, а не от драйвера. Предмет
+    # проверки — что именно ЗАГРУЗКА ДРАЙВЕРА разрешение не меняет.
+    resolved_before = importlib.util.find_spec('tests.test_learning_trace')
     assert _driver().page_routes('') == []
     assert sys.path == before, 'загрузка драйвера изменила sys.path'
-    assert importlib.util.find_spec('tests.test_learning_trace') is not None
+    resolved_after = importlib.util.find_spec('tests.test_learning_trace')
+    assert (resolved_after is None) == (resolved_before is None), 'драйвер сломал разрешение tests.*'
+    if resolved_before is not None:
+        assert resolved_after.origin == resolved_before.origin
 
 
 def test_review_names_survive_a_windows_locale_console(tmp_path):

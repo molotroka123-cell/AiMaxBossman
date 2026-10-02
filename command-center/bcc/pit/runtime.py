@@ -464,6 +464,12 @@ class ParticipantRuntime:
     adapters all come from the existing Bossman stack.
     """
 
+    #: Surface hooks (calls). The defaults keep Telegram and the Jeff window byte-for-byte unchanged: a surface such as a
+    #: live voice call may bound the turn, switch web search off and replace the local reply-shape sentence.
+    allow_web: bool = True
+    turn_deadline_seconds: float | None = None
+    local_shape_suffix: str | None = None
+
     def __init__(self, settings: PITSettings):
         self.settings = settings
         self.home = Path(settings.data_dir) / "pit-v1.7"
@@ -532,7 +538,7 @@ class ParticipantRuntime:
         blocklist = self.__dict__.get("blocklist")
 
         def authorize(person, _base=base) -> bool:
-            if (blocklist is not None and getattr(self, "surface", "telegram") == "telegram"
+            if (blocklist is not None and getattr(self, "surface", "telegram") in ("telegram", "call")
                     and blocklist.blocks_person(person)):
                 return False
             # Read at call time: the transport may be assigned before settings.
@@ -545,7 +551,7 @@ class ParticipantRuntime:
 
     def _blocked(self, user_id, chat_id=None) -> bool:
         blocklist = self.__dict__.get("blocklist")
-        return (blocklist is not None and getattr(self, "surface", "telegram") == "telegram"
+        return (blocklist is not None and getattr(self, "surface", "telegram") in ("telegram", "call")
                 and blocklist.blocks_user(user_id, chat_id))
 
     async def close(self) -> None:
@@ -1435,13 +1441,15 @@ class ParticipantRuntime:
     async def _chat_route(self, person: Person, person_key: str, text: str,
                           consent: ConsentState, message_id: str = "0",
                           reply_to: dict | None = None,
-                          update_id: int | None = None) -> str:
+                          update_id: int | None = None,
+                          session_history: list[dict] | None = None) -> str:
         who = person.key
         memory_at_start = consent.memory_enabled
         memory_epoch = self._memory_epoch.get(person_key, 0)
         self._register_discovery_reply(person, person_key, text)
         complex_request = _is_complex_chat(text)
-        deadline = time.monotonic() + (120 if complex_request else self.settings.chat_deadline_seconds)
+        deadline = time.monotonic() + (self.turn_deadline_seconds if self.turn_deadline_seconds
+                                       else 120 if complex_request else self.settings.chat_deadline_seconds)
 
         now = time.monotonic()
         if self.catalog_checked_at == 0.0:
@@ -1480,7 +1488,7 @@ class ParticipantRuntime:
 
         web_sources: list[str] = []
         web_block = ""
-        needs_web = bool(FRESH_INTENT.search(text))
+        needs_web = self.allow_web and bool(FRESH_INTENT.search(text))
         if needs_web:
             try:
                 results = await self.models.web_results(text)
@@ -1571,9 +1579,10 @@ class ParticipantRuntime:
                 # but give the local chat only the last exchange and a bounded
                 # answer shape so it can finish within the reply budget.
                 messages[0] = dict(messages[0], content=(
-                    messages[0]["content"] + " Ответь законченным текстом до 180 слов. "
+                    messages[0]["content"] + (self.local_shape_suffix if self.local_shape_suffix is not None else
+                    " Ответь законченным текстом до 180 слов. "
                     "Сначала ответ по делу, затем короткое пояснение. "
-                    "Избегай таблиц и длинного вступления, если их не просили. "
+                    "Избегай таблиц и длинного вступления, если их не просили. ") +
                     "На добровольную шутливую прожарку самого собеседника отвечай остро; "
                     "если мат явно разрешён, не смягчай ответ морализаторством. "
                     "При сочетании алкоголя с седативными препаратами, включая "
@@ -1599,6 +1608,9 @@ class ParticipantRuntime:
             if use_saved_context:
                 history = self.store.history(who)
                 messages += history[-2:] if provider == "local" else history
+            if session_history:
+                # Short-term memory of THIS conversation (a live call): sent even when long-term memory is off.
+                messages += list(session_history)[-12:]
             if use_saved_context and reply_to and isinstance(reply_to, dict):
                 author = "бот" if reply_to.get("from_bot") else "участник"
                 quoted = str(reply_to.get("text", "")).strip()
