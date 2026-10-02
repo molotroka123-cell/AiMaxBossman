@@ -277,14 +277,29 @@ def cmd_status(path: Path) -> int:
         try:
             settings = load(path)
             personalities = home / "personalities"
-            participants = len(list(personalities.iterdir())) if personalities.is_dir() else 0
+            # Status is scoped to configured participants. Old or revoked namespaces
+            # may intentionally have tighter ACLs and must never break the owner's
+            # status/passport screens (or be read just to compute an aggregate).
+            from .identity import derive_person_key, scoped_person_dir
+            scoped_dirs = [
+                scoped_person_dir(personalities, derive_person_key(
+                    person.user_id, bytes.fromhex(settings.identity_salt)))
+                for person in settings.people
+            ]
+            visible_dirs = [person_dir for person_dir in scoped_dirs if person_dir.is_dir()]
+            participants = len(visible_dirs)
             facts = 0
-            if personalities.is_dir():
-                for person_dir in personalities.iterdir():
-                    marker = person_dir / "facts.jsonl"
+            fact_scan_errors = 0
+            for person_dir in visible_dirs:
+                marker = person_dir / "facts.jsonl"
+                try:
                     if marker.is_file():
                         facts += sum(1 for line in marker.read_text(encoding="utf-8").splitlines()
                                      if line.strip())
+                except OSError:
+                    # Keep status available if one authorized namespace is temporarily
+                    # unreadable; do not expose the path or any participant's data.
+                    fact_scan_errors += 1
             report["allowlist"] = len(settings.people)
             from .blocklist import BlocklistError, PrivateBlocklist
             try:
@@ -293,6 +308,8 @@ def cmd_status(path: Path) -> int:
                 report["blocklist"] = {"error": str(exc)}
             report["chat_models"] = len(settings.chat_models)
             report["pit_storage"] = {"participants": participants, "facts": facts, "root": str(home)}
+            if fact_scan_errors:
+                report["pit_storage"]["fact_scan_errors"] = fact_scan_errors
             report["web"] = "SEARXNG" if settings.search_url else "KEYLESS_FALLBACK"
             report["local_models"] = list(settings.local_models) or "NONE"
             report["chat_route_mode"] = "LOCAL_ONLY_TEST" if settings.local_chat_only else "CLOUD_FREE"

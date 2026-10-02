@@ -142,24 +142,37 @@ def read(home: Path) -> dict[str, Any] | None:
 
 
 def jeff_process_count() -> int:
-    """Live processes running the Jeff Telegram poller (`... pit start`); must be 0 or 1."""
+    """Logical Jeff pollers (`... pit start`), collapsing a Windows venv launcher pair."""
     try:
         import psutil
     except ImportError:
         return -1
-    count = 0
     me = os.getpid()
-    for proc in psutil.process_iter(["pid", "cmdline"]):
+    matches = []
+    for proc in psutil.process_iter(["pid", "ppid", "cmdline", "exe"]):
         try:
             tokens = [str(t).lower() for t in (proc.info.get("cmdline") or [])]
+            pid = proc.info.get("pid")
+            parent_pid = proc.info.get("ppid")
+            executable = str(proc.info.get("exe") or "").lower()
         except (psutil.Error, TypeError):
             continue
-        if proc.info.get("pid") == me or "start" not in tokens:
+        if pid == me or "start" not in tokens:
             continue
         head = tokens[: tokens.index("start")]
         if head and head[-1] in {"pit", "bcc.pit", "bcc.pit.cli"}:
-            count += 1
-    return count
+            matches.append((pid, parent_pid, executable))
+
+    # On Windows, `Scripts\\python.exe` is a launcher that starts the base
+    # interpreter. Both processes retain `... bcc.pit.cli start` in cmdline,
+    # so counting raw matches reports two for one Jeff poller. Count the child
+    # interpreter once; independent pollers remain separately visible.
+    launcher_pids = {
+        pid for pid, _parent_pid, executable in matches
+        if "\\scripts\\python.exe" in executable
+        and any(child_parent == pid for _child_pid, child_parent, _child_exe in matches)
+    }
+    return sum(1 for pid, _parent_pid, _executable in matches if pid not in launcher_pids)
 
 
 def _descendant_pids(pid: Any) -> set[int]:

@@ -9,7 +9,7 @@ import pytest
 
 from bcc.pit import cli as pit_cli
 from bcc.pit import runtime as rt
-from bcc.pit.config import PITSettings, config_path, credentials_path, looks_like_repo, pit_home
+from bcc.pit.config import PITSettings, config_path, credentials_path, load, looks_like_repo, pit_home, save_setup
 from bcc.telegram_companion.config import CompanionError, Person
 
 
@@ -42,6 +42,40 @@ def test_status_without_config_is_fail_closed(tmp_path, capsys):
     report = json.loads(capsys.readouterr().out)
     assert report["config_present"] is False
     assert report["process"] == "STOPPED"
+
+
+def test_status_ignores_unconfigured_locked_passports(tmp_path, monkeypatch, capsys):
+    """A stale/revoked namespace with a restrictive ACL cannot break owner status."""
+    path = config_path(tmp_path)
+    save_setup(path, people=[Person(user_id=101, chat_id=101, role="owner")],
+               chat_models=["test/local"], provider_base_url="https://openrouter.ai/api/v1",
+               core_url="http://127.0.0.1:8800", local_url="http://127.0.0.1:11434",
+               local_models=["test/local"], local_chat_only=True, web_only=True)
+    settings = load(path)
+    from bcc.pit.identity import derive_person_key
+
+    home = pit_home(tmp_path)
+    owner_key = derive_person_key(101, bytes.fromhex(settings.identity_salt))
+    owner_dir = home / "personalities" / owner_key
+    owner_dir.mkdir(parents=True)
+    (owner_dir / "facts.jsonl").write_text('{"id":"known"}\n', encoding="utf-8")
+    stale_dir = home / "personalities" / ("f" * 64)
+    stale_dir.mkdir(parents=True)
+    stale_facts = stale_dir / "facts.jsonl"
+    stale_facts.write_text('{"id":"must-not-read"}\n', encoding="utf-8")
+    original_read_text = Path.read_text
+
+    def deny_stale_read(file, *args, **kwargs):
+        if file == stale_facts:
+            raise PermissionError("restricted namespace")
+        return original_read_text(file, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", deny_stale_read)
+    assert pit_cli.cmd_status(path) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert "config_error" not in report
+    assert report["pit_storage"]["participants"] == 1
+    assert report["pit_storage"]["facts"] == 1
 
 
 def test_doctor_without_config_fails_closed(tmp_path, capsys):
