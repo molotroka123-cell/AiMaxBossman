@@ -21,9 +21,10 @@ import { sphere, setSphereState } from './sphere.js';
 import { createTurn, applyEvent, applyTruth, isTerminalStatus, memorySourcesFromRunEvents, answerText } from './state.js';
 import {
   buildPickerModel, routeCard, contextMeter, tpsLabel, latencyLabel, costLabel, localityBadge, isLoopbackHost,
-  exportMarkdown, exportFileName, clientRequestId, raveAgentSpecs, raveSkipReasons, subscriptionState, raveIsLive, placeOfAlias,
+  exportMarkdown, exportFileName, technicalLogFileName, clientRequestId, raveAgentSpecs, raveSkipReasons, subscriptionState, raveIsLive, placeOfAlias,
 } from './format.js';
 import { TaskStream } from './stream.js';
+import { collectTechnicalLogForTurn } from './technical-log.js';
 import { userRow, assistantRow, updateAssistant, turnEndAnnouncement } from './render.js';
 import { createStick } from './scroll.js';
 import { renderPanel, sourcesCount } from './panel.js';
@@ -1248,7 +1249,12 @@ function openMoreMenu(anchor) {
     h('button.pop-item', { type: 'button', role: 'menuitem', disabled: !lastTask, 'aria-label': 'Открыть последнюю задачу чата в Command Center',
       title: lastTask ? `Задача #${lastTask.taskId}` : 'В этом чате ещё нет задач',
       onClick: () => { close(); if (lastTask) window.open(`/#/tasks?task=${enc(lastTask.taskId)}`, '_blank', 'noopener'); } },
-    icon('open', 16), 'Открыть задачу в Command Center'));
+    icon('open', 16), 'Открыть задачу в Command Center'),
+    h('button.pop-item', { type: 'button', role: 'menuitem', disabled: !lastTask,
+      'aria-label': 'Скачать технические логи выполнения',
+      title: 'JSON без текстов чата, аргументов и результатов инструментов',
+      onClick: () => { close(); exportTechnicalLog(); } },
+    icon('export', 16), 'Скачать технические логи'));
   const host = $('chat-header');
   host.appendChild(menu);
   const a = anchor.getBoundingClientRect();
@@ -1309,6 +1315,58 @@ function exportThread() {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
   toast('Чат сохранён в Markdown', 'ok');
+}
+
+const TECH_LOG_MAX_TURNS = 20;
+
+async function exportTechnicalLog() {
+  const allTurns = S.turns.filter((turn) => turn.taskId);
+  if (!S.threadId || !allTurns.length) return;
+  const threadId = Number(S.threadId) || null;
+  const turns = allTurns.slice(-TECH_LOG_MAX_TURNS);
+  const button = $('chat-more');
+  if (button) button.disabled = true;
+  try {
+    const collected = [];
+    const turnOffset = allTurns.length - turns.length;
+    for (const [index, turn] of turns.entries()) collected.push(await collectTechnicalLogForTurn(turn, index + turnOffset, (path) => api.raw(path)));
+    const bundle = {
+      schema: 'bossman.technical-log.v1',
+      created_at: new Date().toISOString(),
+      thread_id: threadId,
+      redaction: {
+        policy: 'technical-field-allowlist',
+        limitations: ['Identifier syntax and known credential patterns only; not a universal secret detector.'],
+        user_content_included: false,
+        excluded_categories: ['chat prompts and answers', 'tool arguments and results', 'raw error messages', 'credentials'],
+        omitted_field_count: collected.reduce((sum, x) => sum + x.omittedFields, 0),
+      },
+      coverage: {
+        task_count: allTurns.length,
+        exported_task_count: turns.length,
+        omitted_turn_count: allTurns.length - turns.length,
+        task_event_count: collected.reduce((sum, x) => sum + x.record.task_events.length, 0),
+        run_event_count: collected.reduce((sum, x) => sum + x.record.run_events.length, 0),
+        partial: allTurns.length > turns.length || collected.some((x) => x.failures.length > 0 || x.record.truncated),
+        truncated_turns: collected.filter((x) => x.record.truncated).map((x) => x.record.turn),
+        failures: collected.flatMap((x) => x.failures.map((failure) => ({ task_id: x.record.task_id, ...failure }))),
+      },
+      turns: collected.map((x) => x.record),
+    };
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = h('a', { href: url, download: technicalLogFileName() });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast(bundle.coverage.partial ? 'Техлоги скачаны частично — причины указаны в JSON' : 'Технические логи скачаны',
+      bundle.coverage.partial ? 'warn' : 'ok');
+  } catch {
+    toast('Не удалось собрать технические логи. Повторите попытку позже.', 'error');
+  } finally {
+    if (button) button.disabled = false;
+  }
 }
 
 function setPanel(open) {

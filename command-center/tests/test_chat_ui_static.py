@@ -419,3 +419,11 @@ def test_skip_link_and_foreign_anchors_never_reset_the_open_thread():
     handler = main[main.index("window.addEventListener('hashchange'"):]
     handler = handler[:handler.index("});")]
     assert "!parseHash().thread" in handler and handler.index("!parseHash().thread") < handler.index("route();")
+
+
+def test_failed_task_output_is_never_presented_as_a_verified_result():
+    pages = (UI / "pages.js").read_text(encoding="utf-8")
+    block_start = pages.index("result ? h('div',")
+    block = pages[block_start:block_start + 500]
+    assert "status === 'completed' ? 'Результат' : 'Ответ модели · задача не завершена'" in block
+    assert "Текст ответа не подтверждает выполнение действия." in block

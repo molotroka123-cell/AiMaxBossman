@@ -50,6 +50,7 @@ class LoopbackTransport:
         self._rng = np.random.default_rng(7)
         self._rx_frames: deque[bytes] = deque()          # driver audio waiting for its 20 ms slot
         self._echo_ticks: dict[int, np.ndarray] = {}     # tick index -> echo samples to mix in
+        self._echo_next_tick: int | None = None           # tick where the next played frame's echo lands (continuity)
         self._line_task: asyncio.Task | None = None
         self._tick_ms = frame_ms
 
@@ -106,7 +107,14 @@ class LoopbackTransport:
             x = to_float(self._echo_rs.process(pcm) if self._echo_rs is not None else pcm) * self.echo_gain
             if self.echo_noise:
                 x = x + self._rng.normal(0, self.echo_noise, x.shape).astype(np.float32)
-            k = int(round(((now - self._t0) * 1000.0 + self.echo_delay_ms) / self._tick_ms))
+            k_wall = int(round(((now - self._t0) * 1000.0 + self.echo_delay_ms) / self._tick_ms))
+            # A real echo is a CONTINUOUS delayed copy of what was played. Placing each frame by the wall clock at the moment
+            # it was handed over lets scheduler jitter put neighbouring frames on the same tick or leave gaps (a loaded CI runner
+            # then produced a false barge-in in the echo self-test). Frames follow each other tick by tick; only a real pause in
+            # the stream (more than 100 ms off) re-anchors the echo to the clock.
+            nxt = self._echo_next_tick
+            k = nxt if nxt is not None and abs(k_wall - nxt) <= 100 // self._tick_ms + 1 else k_wall
+            self._echo_next_tick = k + 1
             prev = self._echo_ticks.get(k)
             self._echo_ticks[k] = x if prev is None else prev[: len(x)] + x[: len(prev)]
 

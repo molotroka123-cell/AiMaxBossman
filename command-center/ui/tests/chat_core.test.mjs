@@ -20,7 +20,7 @@ import {
 import { markdownToHtml, safeHref, escapeHtml, stableCut, healTail, planTextRender } from '../chat/markdown.js';
 import {
   groupThreads, threadTimeLabel, contextMeter, tpsLabel, latencyLabel, costLabel, buildPickerModel, routeCard,
-  isLoopbackHost, exportMarkdown, clientRequestId, backoffDelay, raveAgentSpecs, fmtTokens, raveIsLive,
+  isLoopbackHost, exportMarkdown, technicalLogEvent, technicalLogFileName, clientRequestId, backoffDelay, raveAgentSpecs, fmtTokens, raveIsLive,
 } from '../chat/format.js';
 import { encodeWavPcm16 } from '../chat/audio.js';
 import { nextStuck, STICK_EPSILON } from '../chat/scroll.js';
@@ -51,6 +51,29 @@ test('parseFrame: broken JSON and non-objects are dropped, not thrown', () => {
   assert.equal(parseFrame({ data: '{broken' }), null);
   assert.equal(parseFrame({ data: '[1,2]' }), null);
   assert.deepEqual(parseFrame({ data: '{"kind":"task.completed","seq":3}' }), { kind: 'task.completed', seq: 3 });
+});
+
+test('technical log export allowlists diagnostic fields and drops content-bearing fields', () => {
+  const raw = { kind: 'run.tool_use', task_id: 7, run_id: 9, step: 2, tool: 'fs.read', ts: '2026-10-02T12:00:00Z',
+    args: { path: 'C:/private.txt', token: 'secret' }, message: 'user prompt', preview: 'tool output',
+    model: 'local-qwen-35b', duration_ms: 45 };
+  const safe = technicalLogEvent(raw);
+  assert.deepEqual(safe.event, { kind: 'run.tool_use', task_id: 7, run_id: 9, step: 2,
+    tool: 'fs.read', ts: '2026-10-02T12:00:00Z', model: 'local-qwen-35b', duration_ms: 45 });
+  assert.equal(safe.omittedFields, 3);
+  assert.doesNotMatch(JSON.stringify(safe), /private\.txt|secret|user prompt|tool output/);
+});
+
+test('technical log export rejects free-form strings masquerading as technical identifiers', () => {
+  const safe = technicalLogEvent({ kind: 'task.failed', model: 'private prompt content', status: 'failed',
+    tool: 'terminal.run', error: 'raw exception with credentials',
+    source: 'nvapi-Abcdefgh1234567890', ts: '2026-10-02T12:00:00Z credentials' });
+  assert.deepEqual(safe.event, { kind: 'task.failed', status: 'failed', tool: 'terminal.run' });
+  assert.equal(safe.omittedFields, 4);
+});
+
+test('technical log filename has a stable local date format', () => {
+  assert.equal(technicalLogFileName(new Date('2026-10-02T12:00:00Z')), 'bossman-technical-log 2026-10-02.json');
 });
 
 function sseResponse(chunks) {

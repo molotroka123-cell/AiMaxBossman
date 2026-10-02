@@ -384,6 +384,82 @@ export function exportFileName(title, now = new Date()) {
   return `${base} ${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}.md`;
 }
 
+/** Диагностический экспорт: только безопасные технические поля, без текста и payload. */
+const TECHNICAL_LOG_FIELDS = new Set([
+  'seq', 'id', 'task_id', 'run_id', 'step', 'max_steps', 'attempt', 'idx', 'ts', 'kind', 'level',
+  'status', 'tool', 'model', 'duration_ms', 'elapsed_ms', 'tokens_in', 'tokens_out',
+  'step_tokens_in', 'step_tokens_out', 'context_window', 'max_tokens_total', 'cost_usd',
+  'pricing_known', 'usage_reported', 'ok', 'code', 'error_code', 'approval_kind', 'approval_id',
+  'is_error', 'truncated', 'streamed', 'chars', 'count', 'max_cost_usd',
+]);
+const TECHNICAL_LOG_IDENTIFIERS = new Set([
+  'kind', 'level', 'status', 'tool', 'model', 'code', 'error_code', 'approval_kind',
+]);
+const TECHNICAL_LOG_BOOLEANS = new Set([
+  'pricing_known', 'usage_reported', 'ok', 'is_error', 'truncated', 'streamed',
+]);
+const TECHNICAL_LOG_IDS = new Set(['seq', 'id', 'task_id', 'run_id', 'approval_id']);
+const TECHNICAL_LOG_MEASURES = new Set(['duration_ms', 'elapsed_ms', 'cost_usd', 'max_cost_usd']);
+
+// Syntax filtering is not a universal secret detector. Exclude free-form source
+// entirely; only model names may have a single namespace separator.
+function technicalIdentifier(key, value) {
+  if (typeof value !== 'string' || value.length > 100) return false;
+  const secretLike = /(?:sk|ghp|gho|github_pat|nvapi|nim)[-_][A-Za-z0-9_-]{8,}|AIza[A-Za-z0-9_-]{20,}|(?:AKIA|ASIA)[A-Z0-9]{16}|^[a-f0-9]{32,}$|^[A-Za-z0-9_-]{40,}$|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\./i;
+  if (secretLike.test(value)) return false;
+  if (key === 'model') {
+    return /^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:\/[A-Za-z0-9_][A-Za-z0-9_.-]*)?(?::[A-Za-z0-9_][A-Za-z0-9_.-]*)?$/.test(value)
+      && !/(?:^|\/)(?:users?|home|private|documents?|desktop|downloads?|tmp|var|etc)(?:\/|$)|\.(?:txt|json|ya?ml|pem|key|env|log|csv|pdf|docx?)$/i.test(value);
+  }
+  if (key === 'level') return /^(?:debug|info|warn|warning|error|critical)$/.test(value);
+  if (key === 'status') return /^(?:queued|pending|running|paused|blocked|completed|failed|cancelled|canceled|stopped|waiting|retrying|idle|starting)$/.test(value);
+  return /^[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z][A-Za-z0-9_-]*)*$/.test(value);
+}
+
+function technicalTimestamp(value) {
+  if (typeof value !== 'string' || value.length > 40) return null;
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})?$/.exec(value);
+  if (!match || Number(match[2]) > 23 || Number(match[3]) > 59 || Number(match[4]) > 59) return null;
+  const day = new Date(`${match[1]}T00:00:00Z`);
+  if (!Number.isFinite(day.getTime()) || day.toISOString().slice(0, 10) !== match[1]) return null;
+  // The backend's utcnow() is deliberately naive UTC, not local browser time.
+  const normalized = match[6] ? value : `${value}Z`;
+  return Number.isFinite(Date.parse(normalized)) ? normalized : null;
+}
+
+export function technicalLogEvent(event) {
+  const safe = {};
+  let omittedFields = 0;
+  if (!event || typeof event !== 'object' || Array.isArray(event)) {
+    return { event: safe, omittedFields: 1 };
+  }
+  for (const [key, value] of Object.entries(event)) {
+    if (!TECHNICAL_LOG_FIELDS.has(key)) { omittedFields += 1; continue; }
+    if (value === null) {
+      safe[key] = value;
+    } else if (TECHNICAL_LOG_BOOLEANS.has(key)) {
+      if (typeof value === 'boolean') safe[key] = value;
+      else omittedFields += 1;
+    } else if (key === 'ts') {
+      const timestamp = technicalTimestamp(value);
+      if (timestamp !== null) safe[key] = timestamp;
+      else omittedFields += 1;
+    } else if (TECHNICAL_LOG_IDENTIFIERS.has(key)) {
+      if (technicalIdentifier(key, value)) safe[key] = value;
+      else omittedFields += 1;
+    } else if (typeof value === 'number' && Number.isFinite(value) && value >= 0
+        && (TECHNICAL_LOG_MEASURES.has(key) || Number.isSafeInteger(value))
+        && (!TECHNICAL_LOG_IDS.has(key) || value > 0)) {
+      safe[key] = value;
+    } else omittedFields += 1;
+  }
+  return { event: safe, omittedFields };
+}
+
+export function technicalLogFileName(now = new Date()) {
+  return `bossman-technical-log ${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}.json`;
+}
+
 /** Идентификатор повтора отправки: 8..128 символов [A-Za-z0-9._:-]. */
 export function clientRequestId(random = Math.random, now = Date.now()) {
   const tail = Math.floor(random() * 0xffffffff).toString(36);
