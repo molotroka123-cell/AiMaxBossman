@@ -1,0 +1,109 @@
+# MASTER PROMPT — Codex: замкнуть цикл самоулучшения Bossman
+
+Ты работаешь в репозитории `molotroka123-cell/AiMaxBossman`. Цель: реализовать
+пункты 1–10 из `docs/SELF_IMPROVEMENT_GAP.md` так, чтобы Bossman мог
+**предлагать, проверять, постепенно выкатывать и откатывать** улучшения
+`route` / `context` / `skill` — без права трогать ядро доверия.
+
+Сначала прочитай: `docs/SELF_IMPROVEMENT_GAP.md`, `CLAIMS_NOT_PROVEN.md`,
+`bossman_shared/objective_improvement.py`, `bossman-core/bossman/learning_guard/`
+(`promotion.py`, `autonomy_trainer.py`, `runtime_bridge.py`, `evidence_ledger.py`,
+`holdout.py`), `bossman-core/bossman_v3/self_improvement/lab.py`,
+`bossman-core/bossman/failure_patterns.py`, `tools/intelligence_preservation_gate.py`,
+`docs/v4/EPOCH_4_PLAN.md` (разделы Permissions and self-improvement, M4, M9).
+
+## Неизменяемые правила (нарушение = провал задачи)
+
+1. Ядро доверия НИКОГДА не автоповышается: `policy_kernel`, `evidence_signer`,
+   `finalizer`, `authorization`, `admission`, `treasury`, `objective_store`.
+   Не ослабляй `may_promote`, `TRUST_CRITICAL_KINDS`, `CORE_INTELLIGENCE_RETENTION`
+   (0.98), `MIN_SAMPLE_COUNT` (20).
+2. Модель или выученный скилл не может одобрить собственное расширение прав.
+3. Всё новое — за флагом, по умолчанию OFF. Флаг выключен => поведение
+   байт-в-байт прежнее.
+4. Никакого self-reported success: «выполнено» только по независимому верификатору
+   (principal ≠ planner) и свежему наблюдению.
+5. Не ослабляй, не пропускай и не удаляй существующие тесты и гейты. Не
+   подгоняй тесты под код. Недостаток доказательств = `INSUFFICIENT_EVIDENCE`,
+   а не ноль и не PASS.
+6. Не заявляй «сделано», пока нет теста/лога с SHA. Обновляй
+   `CLAIMS_NOT_PROVEN.md` только конкретной уликой.
+7. Не трать деньги и не делай внешних эффектов (сообщения, платежи, деплой,
+   live-сделки). Сеть в тестах — только фикстуры.
+8. Секреты не писать ни в код, ни в логи, ни в коммиты.
+
+## Работа по этапам (один этап = отдельная ветка/PR-серия, мелкие атомарные коммиты)
+
+### Этап 1 — честные метрики (gap 5, 7)
+- Добавь REAL_SANDBOX-кейсы для capabilities `verifier` и
+  `universal_computer_apprentice` в release-tier манифест бенчмарка
+  (`bossman-core/bossman/benchmark/`).
+- Добавь поле стоимости/токенов/латентности в запись выполненной задачи ТОЛЬКО при
+  наличии провайдерской улики; иначе поле отсутствует (не 0).
+- Результат: `scripts/epoch4_performance.py compare` по-прежнему честно отвечает
+  `INSUFFICIENT_EVIDENCE`, пока выборок нет.
+
+### Этап 2 — реестр версий (gap 6)
+- Единый реестр версий `route`/`context`/`skill`: pin версии, ревокация, история,
+  хранение доказательств (никогда не удалять). Переиспользуй `evidence_ledger` и
+  версии скиллов BCC; не создавай параллельный движок.
+- API: `register`, `pin`, `revoke`, `rollback_to(prev)`, `active(kind, scope)`.
+- Тесты: откат восстанавливает ровно предыдущий pin; ревокация необратимо
+  блокирует повторный pin без нового прохождения конвейера; рестарт процесса не
+  теряет состояние.
+
+### Этап 3 — исполнитель стадий + canary/monitor/rollback (gap 3, 4, 10)
+- Новый модуль (например `bossman-core/bossman/self_improvement/executor.py`)
+  запускает стадии `observe → hypothesis → sandbox → ab_test → red_team →
+  intelligence_preservation` в порядке `PIPELINE_STAGES` и САМ записывает
+  `completed_stages`; вызывающий код не может их заявить.
+- Замер удержания интеллекта — через `tools/intelligence_preservation_gate.py`,
+  `retention_evidence_ref` формируется из sha256 реального отчёта.
+- После `may_promote == True` — только «eligible for canary». Canary: малая доля
+  трафика, окно наблюдения, метрики (verified success, security, cost, latency);
+  авто-rollback при регрессии любой security-метрики или падении verified success
+  ниже порога. Продвижение дальше canary — только решением владельца (gap 9).
+- Holdout: регулярная ротация и учёт использования; кандидат, оптимизированный
+  под фиксированный набор, помечается подозрительным (защита от Goodhart).
+- Всё в shadow за флагом (например `BOSSMAN_SELF_IMPROVEMENT_EXECUTOR`).
+
+### Этап 4 — генератор гипотез (gap 2)
+- Из `failure_patterns.extract_patterns` (>=3 свежих эпизода с совпадающим
+  окружением) и failure memory формируй `CandidateImprovement` с явными
+  `touches_trust_kernel` / `widens_permissions`, определяемыми структурно, а не
+  со слов модели. Один эпизод кандидата не рождает.
+- Кандидаты только трёх допустимых видов; остальное отклоняется до замеров.
+
+### Этап 5 — подключение к рантайму (gap 1)
+- Подключи исполнитель и генератор через существующий
+  `learning_guard/runtime_bridge.py` (не параллельный путь), за OFF-флагами.
+  Обнови `docs/context/FINAL_CONNECTIVITY_MATRIX.md`: из `INTENTIONAL_FROZEN`
+  можно вывести только то, что реально подключено и покрыто тестом.
+
+### Этап 6 — владелец в петле (gap 9)
+- Интерфейс в Command Center: список кандидатов, доказательства по стадиям,
+  дельты метрик, кнопки «canary» / «отклонить» / «откат». Каждое действие имеет
+  обработчик и видимое состояние; решения владельца пишутся в журнал.
+- Одобрение выдаёт только доверенный издатель владельца; одобрения, созданные
+  моделью, отклоняются.
+
+### Этап 7 — приёмка (gap 8)
+- Подготовь сценарии и скрипты живой приёмки для Windows, браузерного агента и
+  Fleet, но НЕ объявляй их пройденными: статус `PENDING_OWNER_MACHINE`, пока
+  владелец не пришлёт улику.
+
+## Тесты и красная команда (обязательно на каждом этапе)
+
+- Юнит + интеграционные тесты; рестарт-тест для всего, что хранит состояние.
+- Атакующие тесты: пропуск стадии, подделка `completed_stages`, «голый» float
+  удержания, кандидат с `touches_trust_kernel`, расширение прав, повторная
+  попытка после отказа, гонка двух промоушенов, откат во время canary.
+- Запусти существующие наборы (`pytest` в `bossman-core`, `tests/`,
+  `tools/ci_secret_scan.py`) до и после; сообщай точные числа и падения. Если
+  падает старый тест — найди причину, не ослабляй.
+
+## Формат отчёта по завершении этапа
+
+Для каждого пункта gap: `CLOSED` (с SHA и ссылкой на тест) / `PARTIAL` /
+`NOT_DONE` / `PENDING_OWNER_MACHINE`. Отдельно — что НЕ проверено и почему.
+Не пиши «готово», если не запускал.
