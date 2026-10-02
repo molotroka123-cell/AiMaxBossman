@@ -19,6 +19,7 @@
 - PIT status reports the current owner runtime as running. It also reports `PermissionError` reading the Jeff profile's `facts.jsonl`. The file exists, but this session cannot inspect its ACL. The repo patch now degrades to a no-memory chat if profile facts are inaccessible; a synthetic regression test covers that case. The actual owner ACL remains unresolved.
 - The owner runtime's prior J2 status reported 7 canary failures out of 7 and `needs_owner=true`. That is a quality gate failure, not a pass.
 - PIT's status output reported `allow_unmeasured_media=true` and `image_license_mode=commercial_licensed` for the existing media configuration. Neither value is evidence that the proposed Viggle research-only profile is commercially licensed or verified. Viggle must use its own fail-closed research-only gate.
+- The active PIT profile was backed up to `config.before-tone-fix-20261002.json`; greeting style was changed to warmth 7, humor 2, directness 7, creativity 6. PIT was stopped through its own control command and restarted from the tested working tree (PID 14000); the queue was empty. The status checker still reports the unreadable `facts.jsonl` as `config_error`. No owner message was injected, so live Telegram response behavior remains unverified.
 
 ## Changes made in this audit patch
 
