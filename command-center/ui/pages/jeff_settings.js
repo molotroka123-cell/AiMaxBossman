@@ -14,9 +14,9 @@ import { api } from '../api.js';
 import { h, toast, toastOk, toastError, actionButton, field, textarea, select, input, checkbox, confirmDialog } from '../components.js';
 import { panel, pageHead, pill } from './_ui.js';
 
-const PRESET_ORDER = ['stock', 'bold', 'warm', 'brief'];
+const PRESET_ORDER = ['stock', 'bold', 'warm', 'brief', 'angry_today'];
 
-function scaleEditor(data, initial, prefix, { perUser = false } = {}) {
+function scaleEditor(data, initial, prefix, { perUser = false, onPreset = null } = {}) {
   /* initial: {name: value} для всех 8 шкал; stock — «настройка не задана».
      Для участника «Обычный» = явные стоковые значения (иначе он унаследовал бы общий стиль). */
   const state = { values: { ...initial.values }, stock: initial.stock };
@@ -56,12 +56,13 @@ function scaleEditor(data, initial, prefix, { perUser = false } = {}) {
     showMark();
   };
   const presets = h('div.row.tight', { style: { flexWrap: 'wrap', gap: '6px' } },
-    PRESET_ORDER.filter((id) => id in data.presets).map((id) => h('button.btn.btn-sm', {
+    PRESET_ORDER.filter((id) => id in data.presets && (!perUser || id !== 'angry_today')).map((id) => h('button.btn.btn-sm', {
       type: 'button', dataset: { preset: id, scope: prefix },
       onClick: () => {
         const p = data.presets[id];
         if (!p || !Object.keys(p).length) setAll(data.stock_scales, !perUser);
         else setAll({ ...data.stock_scales, ...p }, false);
+        if (typeof onPreset === 'function') onPreset(id);
         for (const node of presets.querySelectorAll('button[data-preset]')) {
           node.setAttribute('aria-pressed', node.dataset.preset === id ? 'true' : 'false');
         }
@@ -238,24 +239,39 @@ const JeffSettingsPage = {
       return h('div.bx-page', head, panel('Не удалось загрузить', h('div.small', e.message || String(e))));
     }
     const s = data.settings;
+    const expiryStatus = data.style_expired ? pill('Временный стиль истёк — действует обычный Jeff', { tone: 'warn' })
+      : s.style_expires_at ? pill(`Стиль истекает ${new Date(s.style_expires_at).toLocaleString('ru-RU')}`, { tone: 'warn' }) : null;
     const status = h('div.row.tight', { style: { flexWrap: 'wrap', gap: '8px' } },
       data.valid ? pill(data.exists ? 'Настройки применяются' : 'Обычный Jeff', { tone: 'ok' })
         : pill('Файл настроек повреждён — Jeff работает как обычно', { tone: 'err' }),
+      expiryStatus,
       data.jeff_configured ? null : pill('Jeff на этой машине ещё не настроен', { tone: 'warn' }),
       h('span.xsmall.dim.mono', data.path));
     const invalidNote = data.valid ? null
       : h('div.small', { style: { color: 'var(--err)' } }, `Ошибка: ${data.error}. «Сохранить» запишет новые настройки, а старый файл отложит в копию .bak.`);
 
     /* ---- все участники ---- */
-    const defaults = scaleEditor(data, valuesFrom(data, s.defaults.behavior_scales), 'js');
     const extra = textarea({ rows: 3, name: 'js-extra', maxlength: String(data.system_extra_max),
       placeholder: 'Например: «Отвечай с лёгкой иронией, без канцелярита». Только стиль — права и доступы этим не выдаются.' });
     extra.value = s.defaults.system_extra || '';
+    const styleDuration = select([
+      { value: '0', label: 'Без срока' },
+      { value: '24', label: '24 часа' },
+    ], { name: 'js-style-duration' });
+    styleDuration.value = s.style_expires_at && !data.style_expired ? '24' : '0';
+    const defaults = scaleEditor(data, valuesFrom(data, s.defaults.behavior_scales), 'js', {
+      onPreset: (id) => {
+        if (id === 'angry_today') {
+          extra.value = (data.preset_notes || {})[id] || '';
+          styleDuration.value = '24';
+        }
+      },
+    });
     const saveDefaults = actionButton('Сохранить', async () => {
       try {
         await api.raw('/api/jeff-settings', { method: 'PUT', body: {
           defaults: { behavior_scales: defaults.scales(), system_extra: extra.value },
-          budgets: s.budgets } });
+          budgets: s.budgets, style_duration_hours: Number(styleDuration.value) } });
         toastOk('Настройки Jeff сохранены', 'Действуют со следующего ответа');
         ctx.refresh();
       } catch (e) { toastError(e); }
@@ -361,6 +377,8 @@ const JeffSettingsPage = {
       jeffStatus ? statusPanel(jeffStatus) : null,
       participantAdmin(ctx, data),
       panel('Для всех участников', h('div.stack.sm', defaults.node, truncated,
+        field('Срок действия общего стиля', styleDuration,
+          'Пресет «Сердитый — 24 часа» сам вернётся к обычной манере. Права, доступы и индивидуальные настройки не меняются.'),
         field('Дополнительно о стиле (необязательно)', extra, `До ${data.system_extra_max} символов. Только манера речи; более длинный текст не сохраняется.`),
         h('div.row.tight', { style: { gap: '8px' } }, saveDefaults, resetAll))),
       panel('Отдельный участник', h('div.stack.sm', field('Участник', userSel), userBox)),

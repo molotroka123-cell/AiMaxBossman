@@ -218,6 +218,9 @@ class SettingsIn(BaseModel):
     cloud_session_context: bool | None = None
     # Exact-calculation hint (default ON): False switches it off, None leaves the file's value as it is.
     math_assist: bool | None = None
+    # 0 clears the expiry; 1..24 gives the default style a bounded lifetime.
+    # Participant-specific overrides remain separate and are never modified.
+    style_duration_hours: int | None = Field(default=None, ge=0, le=24, strict=True)
 
 
 def _style_payload(body: StyleIn, *, keep_absent_extra: bool) -> dict:
@@ -260,8 +263,9 @@ async def get_settings(request: Request):
         "path": str(path), "exists": path.is_file(), "valid": valid, "error": error,
         "settings": overlay, "cloud_session_context": bool(overlay.get("cloud_session_context")),
         "math_assist": overlay.get("math_assist") is not False,
+        "style_expired": js.style_expired(overlay),
         "extra_truncated": _over_limit(path),
-        "presets": js.PRESETS, "preset_labels": js.PRESET_LABELS,
+        "presets": js.PRESETS, "preset_labels": js.PRESET_LABELS, "preset_notes": js.PRESET_NOTES,
         "scale_names": list(BEHAVIOR_SCALE_NAMES), "scale_labels": SCALE_LABELS,
         "scale_hints": SCALE_HINTS, "scale_range": [js.SCALE_MIN, js.SCALE_MAX],
         "stock_scales": _stock_scales(cfg), "system_extra_max": js.SYSTEM_EXTRA_MAX,
@@ -281,6 +285,14 @@ async def put_settings(body: SettingsIn, request: Request):
     path, _, _ = _paths(request)
     overlay, _, _ = _current(path)
     overlay["defaults"] = _style_payload(body.defaults, keep_absent_extra=False)
+    if body.style_duration_hours is not None:
+        if body.style_duration_hours == 0:
+            overlay.pop("style_expires_at", None)
+        else:
+            try:
+                overlay["style_expires_at"] = js.expiry_after(body.style_duration_hours)
+            except js.OverlayError as exc:
+                raise HTTPException(422, f"Настройки Jeff не сохранены: {exc}") from None
     if body.budgets is not None:
         try:
             overlay["budgets"] = js.normalize_budgets(dict(body.budgets))

@@ -34,6 +34,7 @@ import os
 import re
 import tempfile
 import threading
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -61,8 +62,18 @@ PRESETS: dict[str, dict[str, int]] = {
              "warmth": 9, "humor": 6, "directness": 5, "creativity": 5},
     "brief": {"initiative": 3, "curiosity": 3, "depth": 3, "brevity": 10,
               "warmth": 5, "humor": 3, "directness": 8, "creativity": 4},
+    # Short-lived and deliberately bounded: sharp delivery toward the problem,
+    # never threats, harassment, or a change in authority.
+    "angry_today": {"initiative": 7, "curiosity": 4, "depth": 5, "brevity": 8,
+                    "warmth": 1, "humor": 1, "directness": 10, "creativity": 5},
 }
-PRESET_LABELS = {"stock": "Обычный", "bold": "Дерзкий", "warm": "Тёплый", "brief": "Краткий"}
+PRESET_LABELS = {"stock": "Обычный", "bold": "Дерзкий", "warm": "Тёплый", "brief": "Краткий",
+                 "angry_today": "Сердитый — 24 часа"}
+PRESET_NOTES = {
+    "angry_today": ("Сегодня говори резко, сердито и предельно прямо; направляй недовольство на проблему, "
+                    "а не на человека. Не угрожай, не унижай, не дискриминируй и не трави. "
+                    "В серьёзных и кризисных ситуациях сохраняй спокойствие и точность."),
+}
 
 log = logging.getLogger("bcc.pit.jeff_settings")
 
@@ -160,7 +171,8 @@ def normalize(raw: Any) -> dict[str, Any]:
         raise OverlayError("overlay must be an object")
     if raw.get("version", SCHEMA_VERSION) != SCHEMA_VERSION:
         raise OverlayError("unsupported overlay version")
-    unknown = set(raw) - {"version", "defaults", "users", "budgets", "cloud_session_context", "math_assist"}
+    unknown = set(raw) - {"version", "defaults", "users", "budgets", "cloud_session_context", "math_assist",
+                          "style_expires_at"}
     if unknown:
         raise OverlayError("unknown overlay field")
     session_flag = raw.get("cloud_session_context", False)
@@ -183,6 +195,17 @@ def normalize(raw: Any) -> dict[str, Any]:
            "defaults": normalize_profile(raw.get("defaults") or {}),
            "users": users,
            "budgets": normalize_budgets(raw.get("budgets"))}
+    if "style_expires_at" in raw:
+        expires = raw["style_expires_at"]
+        if not isinstance(expires, str):
+            raise OverlayError("style_expires_at must be an ISO-8601 UTC timestamp")
+        try:
+            parsed = datetime.fromisoformat(expires.replace("Z", "+00:00"))
+        except ValueError:
+            raise OverlayError("style_expires_at must be an ISO-8601 UTC timestamp") from None
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            raise OverlayError("style_expires_at must include a timezone")
+        out["style_expires_at"] = parsed.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     if session_flag:
         out["cloud_session_context"] = True
     if not math_flag:
@@ -258,11 +281,30 @@ class JeffStyle:
 STOCK_STYLE = JeffStyle(scales={}, system_extra="")
 
 
+def style_expired(overlay: dict[str, Any] | None, *, now: datetime | None = None) -> bool:
+    """Whether the default owner style has reached its optional UTC deadline."""
+    expires = (overlay or {}).get("style_expires_at")
+    if not expires:
+        return False
+    try:
+        deadline = datetime.fromisoformat(str(expires).replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    if deadline.tzinfo is None or deadline.utcoffset() is None:
+        return True
+    instant = now or datetime.now(timezone.utc)
+    if instant.tzinfo is None or instant.utcoffset() is None:
+        return True
+    return deadline <= instant.astimezone(timezone.utc)
+
+
 def merged_style(overlay: dict[str, Any] | None, person_key: str) -> JeffStyle:
     """defaults ← this participant's override. Other participants never mix in."""
     if not overlay:
         return STOCK_STYLE
     defaults = overlay.get("defaults") or {}
+    if style_expired(overlay):
+        defaults = {}
     scales = dict(defaults.get("behavior_scales") or {})
     extra = defaults.get("system_extra", "")
     user = (overlay.get("users") or {}).get(str(person_key).lower())
@@ -271,6 +313,16 @@ def merged_style(overlay: dict[str, Any] | None, person_key: str) -> JeffStyle:
         if "system_extra" in user:
             extra = user["system_extra"]
     return JeffStyle(scales=scales, system_extra=extra or "")
+
+
+def expiry_after(hours: int, *, now: datetime | None = None) -> str:
+    """Return a canonical UTC expiry for a bounded temporary owner style."""
+    if isinstance(hours, bool) or not isinstance(hours, int) or not 1 <= hours <= 24:
+        raise OverlayError("style duration must be between 1 and 24 hours")
+    instant = now or datetime.now(timezone.utc)
+    if instant.tzinfo is None or instant.utcoffset() is None:
+        raise OverlayError("current time must include a timezone")
+    return (instant.astimezone(timezone.utc) + timedelta(hours=hours)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def style_for(data_dir: Path | str, person_key: str) -> JeffStyle:

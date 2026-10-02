@@ -22,6 +22,16 @@ base value. Any scale that the overlay sets (defaults or per participant) is loc
 overlay's own extra text is already in the system prompt and is not repeated. No personalisation happens when the participant's
 personalisation switch is off.
 
+### Temporary owner mood
+
+The owner settings panel includes `angry_today` for the shared default style. It sets directness to 10/10 and warmth/humour to
+1/10, with an explicit note to direct frustration at the problem rather than the person. Threats, humiliation, discrimination,
+harassment, crisis-response calmness, identity, privacy and tool permissions are not changed. The preset is excluded from
+per-participant controls. Saving it with a 24-hour duration stores a canonical UTC expiry; after that instant the shared default
+style is ignored on the next turn. Participant overrides remain intact. `0` duration removes the expiry; “Откат к обычному”
+clears the style and expiry while preserving the existing spend cap behavior. Expiry is evaluated when Jeff reads the overlay,
+so there is no timer process to start or recover.
+
 ## Prompt assembly within a budget
 
 Parts are ranked (register, brevity, directness, humour, warmth, depth, emoji). The note must fit about 110 tokens (three
