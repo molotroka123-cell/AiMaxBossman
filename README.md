@@ -117,7 +117,6 @@ skill transfer, operating-graph continuity, measured routing и работу п�
 [Money MVP — продуктовый приоритет и критерии](docs/product/MONEY_MVP.md) · [Bossman 1.5](BOSSMAN_1_5_START_HERE.md)
 
 ## Этап 1.2 — тот же Bossman, теперь ещё и в CMD
-
 **Не второй Bossman и не новая база. Только ещё один удобный пульт.** Терминал, дашборд и Telegram должны работать с одним выбранным экземпляром программы: общие проекты и файлы, модели, задачи, навыки, память, разрешения и результаты. Изменение через один интерфейс видно в остальных без переноса папок.
 
 Владелец хочет общаться с Bossman прямо в Windows CMD, как с современным coding-CLI. Claude Code будет обучать и аудировать его через структурированные команды, а не тратить каждый шаг на клики по дашборду. Это должно сделать процесс удобнее; снижение времени и расходов ещё нужно измерить на одинаковых задачах. Терминал сам по себе не ускоряет модель и не заменяет реальную проверку результата.
@@ -219,6 +218,12 @@ Bossman уже прошёл первый реальный owner-hardware цик�
 
 [Локальные кандидаты](tests/owner_hardware/MODEL_STACK_2026-09-20.md) и [облачные кандидаты](tests/owner_hardware/CLOUD_STACK_2026-09-20.md) — планы сравнения, не доказанные победители и не обещание доступности. Перед подключением проверяются официальный ID, лицензия, runtime, возможности и актуальный тариф. В первый день не скачиваем весь каталог.
 
+### Кандидаты на локальную генерацию и Qwen3.8 — статус 2026-10-02
+
+- **Viggle Qwen-Image-2.1 Turbo:** спецификация записана в [owner-run документе](docs/models/viggle_qwen_image_2_1_turbo.md). В этой сессии генераций не выполнено и отправок в Telegram не было; Windows runtime и веса не подтверждены. Статус: `NOT RUN`, не `PASS`. Модель требует Research-only gate до записи отдельной коммерческой лицензии.
+- **Qwen3.8-27B:** добавить к текущему MAIN/FAST сравнению отдельным кандидатом без замены маршрута. Применяется существующая [матрица owner-hardware](tests/owner_hardware/MODEL_STACK_2026-09-20.md) и [Qwen apprentice benchmark](docs/evo/LOCAL_QWEN_APPRENTICE_BENCHMARK.md). Протокол и текущий статус: [QWEN38 owner benchmark](docs/models/QWEN38_OWNER_BENCHMARK_20261002.md). Модель не генерирует изображения.
+- **Owner evidence:** локальный запуск инструмента в этой сессии недоступен, поэтому не перепроверены установка моделей, диск и память; Qwen3.8 не скачана и её inference/benchmark не запускались. Не публиковать latency, token totals или картинки как owner results до фактического прогона.
+
 <a id="map"></a>
 ## Карта репозитория
 
@@ -317,8 +322,7 @@ python tools/exact_sha_certify.py --sha "$TESTED_SHA" --runs-json runs.json --ou
 - **Last evidence SHA:** `0c1cbe651f5271bbd0bb2d30b467c1206c19f565` · **Current HEAD SHA:** `9e3aa192f513` · **Evidence freshness:** PARTIALLY_STALE
 - **Last scorecard update:** 2026-09-22
 - **Benchmark hard failures:** none observed
-- **Live hardware attestation:** PENDING
-- **Exact-SHA CI:** PASS
+- **Live hardware attestation:** PENDING- **Exact-SHA CI:** PASS
 
 _Среднее (вторично, не авторитетно): 8.0/10. 10.0 = ATTESTED; ни одна ось не ATTESTED без живой аттестации железа._
 <!-- BOSSMAN_LIVE_SCORECARD_END -->
