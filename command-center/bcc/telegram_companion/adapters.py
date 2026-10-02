@@ -194,6 +194,69 @@ class Telegram:
     METHODS = frozenset({"getMe", "getWebhookInfo", "getUpdates", "sendMessage", "sendChatAction", "getFile",
                          "answerCallbackQuery", "setMyCommands", "deleteMessage"})
 
+    async def send_voice(self, person: Person, source_text: str, synthesize,
+                         *, reply_to_message_id: int | None = None,
+                         stopped=None) -> int:
+        """Guard text before local TTS, then upload a verified private voice reply.
+
+        ``synthesize`` is an async local callable that receives only the text
+        accepted by the existing Telegram egress guard. No audio is generated
+        when delivery identity or egress approval fails.
+        """
+        from bossman.notifications.telegram_transport import _egress_guard_text
+
+        if not self.settings.bot_token:
+            raise CompanionError("TELEGRAM_NOT_CONFIGURED")
+        if not self.authorize_delivery(person):
+            raise CompanionError("IDENTITY_REVOKED")
+        if not isinstance(source_text, str) or not source_text.strip():
+            raise CompanionError("VOICE_TEXT_INVALID")
+        if stopped is not None and stopped():
+            raise CompanionError("VOICE_STOPPED")
+        safe_text = _egress_guard_text(scrub(source_text, (
+            self.settings.bot_token, self.settings.core_token,
+            self.settings.cloud_token, self.settings.local_token)))
+        if safe_text != source_text:
+            raise CompanionError("VOICE_TEXT_BLOCKED")
+        audio = await synthesize(safe_text)
+        if stopped is not None and stopped():
+            raise CompanionError("VOICE_STOPPED")
+        if not self.authorize_delivery(person):
+            raise CompanionError("IDENTITY_REVOKED")
+        if not isinstance(audio, bytes) or not audio.startswith(b"OggS") or not 32 < len(audio) <= 4 * 1024 * 1024:
+            raise CompanionError("VOICE_AUDIO_UNVERIFIED")
+        payload = {"chat_id": str(person.chat_id)}
+        if type(reply_to_message_id) is int and reply_to_message_id > 0:
+            payload["reply_parameters"] = json.dumps({"message_id": reply_to_message_id})
+        lock = self._send_locks.setdefault(person.chat_id, asyncio.Lock())
+        async with lock:
+            now = asyncio.get_running_loop().time()
+            await asyncio.sleep(max(0, self._sent_at.get(person.chat_id, 0) + 1.05 - now))
+            if stopped is not None and stopped():
+                raise CompanionError("VOICE_STOPPED")
+            if not self.authorize_delivery(person):
+                raise CompanionError("IDENTITY_REVOKED")
+            try:
+                async with asyncio.timeout(120):
+                    response = await self.client.post(
+                        f"{TELEGRAM_API}/bot{self.settings.bot_token}/sendVoice",
+                        data=payload, files={"voice": ("bossman.ogg", audio, "audio/ogg")})
+                body = response.json()
+            except (httpx.HTTPError, OSError, TimeoutError, ValueError):
+                raise CompanionError("NETWORK_UNAVAILABLE") from None
+            finally:
+                self._sent_at[person.chat_id] = asyncio.get_running_loop().time()
+        if response.status_code == 429:
+            raise RateLimited((body.get("parameters") or {}).get("retry_after", 1) if isinstance(body, dict) else 1)
+        result = body.get("result") if isinstance(body, dict) and body.get("ok") is True else None
+        message_id = result.get("message_id") if isinstance(result, dict) else None
+        voice = result.get("voice") if isinstance(result, dict) else None
+        if (type(message_id) is not int or message_id <= 0 or
+                not isinstance(voice, dict) or not isinstance(voice.get("file_id"), str)
+                or not voice["file_id"]):
+            raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
+        return message_id
+
     async def send_video(self, person: Person, data: bytes, caption: str, keyboard=None):
         """Upload a verified MP4; same identity check and caption egress guard as photos."""
         from bossman.notifications.telegram_transport import _egress_guard_text
@@ -262,7 +325,7 @@ class Telegram:
         try:
             async with asyncio.timeout(120):
                 response = await self.client.post(f"{TELEGRAM_API}/bot{self.settings.bot_token}/sendPhoto",
-                                                  data={"chat_id": str(person.chat_id), "caption": clean,
+                                                  data={"chat_id": str(person.chat_id), **({"caption": clean} if clean else {}),
                                                         **({"reply_markup": json.dumps(markup(keyboard))} if keyboard else {})},
                                                   files={"photo": (name, data, mime)})
             body = response.json()

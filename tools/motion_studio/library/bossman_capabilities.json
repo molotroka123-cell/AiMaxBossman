@@ -1,0 +1,99 @@
+{
+ "meta": {
+  "title": "Capabilities",
+  "bpm": 124,
+  "key": "D",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // CAPABILITIES",
+  "voice": "am_fenrir",
+  "duration": 12.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "BOSSMAN",
+   "kicker": "YOUR AI OPERATOR",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Meet Bossman."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "WHAT IT DOES",
+   "items": [
+    {
+     "t": 2.75,
+     "title": "AGENTS",
+     "sub": "plan · act · verify",
+     "icon": "agents"
+    },
+    {
+     "t": 3.5,
+     "title": "MEMORY",
+     "sub": "retained experience",
+     "icon": "memory"
+    },
+    {
+     "t": 4.25,
+     "title": "COMPUTER USE",
+     "sub": "sees & drives the PC",
+     "icon": "cursor"
+    },
+    {
+     "t": 5.0,
+     "title": "VIDEO STUDIO",
+     "sub": "edit · render · export",
+     "icon": "play"
+    },
+    {
+     "t": 5.75,
+     "title": "JEFF",
+     "sub": "on Telegram",
+     "icon": "plane"
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "Agents."
+    },
+    {
+     "t": 3.5,
+     "text": "Memory."
+    },
+    {
+     "t": 4.25,
+     "text": "Computer use."
+    },
+    {
+     "t": 5.0,
+     "text": "Video studio."
+    },
+    {
+     "t": 5.75,
+     "text": "Jeff, on Telegram."
+    }
+   ],
+   "start": 2.5,
+   "end": 9.0
+  },
+  {
+   "type": "logo",
+   "name": "BOSSMAN",
+   "tagline": "LOCAL-FIRST AI",
+   "start": 9.0,
+   "end": 12.0,
+   "vo": [
+    {
+     "t": 9.1,
+     "text": "Local first."
+    }
+   ]
+  }
+ ]
+}

@@ -2,9 +2,9 @@
 
 The participant runtime must demote local model routes when free VRAM is below
 the owner-configured headroom, fall back to runtime-confirmed FREE cloud
-models, and never evict or throttle the 1.6 workload. A broken VRAM probe
-degrades to the previous behaviour (local allowed), never to a participant
-facing outage.
+models, and never evict or throttle the 1.6 workload. When both dedicated
+VRAM and AMD unified-memory probes are unavailable, local capacity is unknown
+and the remote free route remains available.
 """
 from __future__ import annotations
 
@@ -242,12 +242,12 @@ def test_refresh_catalog_drops_local_when_vram_busy(tmp_path, monkeypatch):
     assert "free/model:free" in endpoints
 
 
-def test_refresh_catalog_reserves_local_for_learning_even_when_vram_free(tmp_path, monkeypatch):
+def test_refresh_catalog_includes_local_when_capacity_is_free(tmp_path, monkeypatch):
     runtime = with_local(make_runtime(tmp_path))
     monkeypatch.setattr(res, "_read_free_vram_mb", lambda: 8192)
     runtime.capacity_guard = LocalCapacityGuard(min_free_mb=2000, ttl_seconds=0)
     endpoints = _run(runtime.refresh_catalog())
-    assert "bossman-fast-local:latest" not in endpoints
+    assert endpoints["bossman-fast-local:latest"].local is True
     assert endpoints["free/model:free"].local is False
 
 
@@ -275,6 +275,7 @@ def test_cached_local_route_is_demoted_when_capacity_becomes_unknown(tmp_path, m
     remote = ChatAdapter()
     runtime.adapter = remote
     monkeypatch.setattr(res, "_read_free_vram_mb", lambda: None)
+    monkeypatch.setattr(res, "_read_amd_unified_free_mb", lambda: None)
     person = runtime.settings.people[0]
     key = runtime.vault.key_for_telegram(person.user_id)
     runtime.vault.set_consent(key, ConsentState(

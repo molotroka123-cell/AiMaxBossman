@@ -6,6 +6,7 @@ from .context import select_persona_context
 from .models import ConsentState
 from .vault import PersonaVault
 from .behavior_scores import memory_confidence_floor
+from .config import BEHAVIOR_SCALE_NAMES
 
 
 PIT_ASSISTANT_SYSTEM = (
@@ -24,7 +25,40 @@ PIT_ASSISTANT_SYSTEM = (
     "Отвечай по проверяемым фактам, отделяй факты от мнений и при необходимости используй актуальные источники. "
     "Если данных о собеседнике ещё нет, отвечай как нейтральный универсальный помощник. "
     "Не утверждай, что знаешь человека лучше, чем следует из его собственной переписки."
+    " Ты — ИИ-ассистент, а не человек: если спрашивают, честно говори, что ты ИИ, и не выдумывай "
+    "себе личный опыт, тело или прошлое. Не выдавай догадки за факты: если не уверен, так и скажи "
+    "или предложи проверить. Пиши по-русски, если собеседник пишет по-русски; отвечай коротко и тепло, "
+    "обычным разговорным языком. Если запрос двусмысленный, сначала дай лучший разумный ответ, "
+    "а затем задай один конкретный вопрос, который снимет двусмысленность."
+    " Сначала дай полезный ответ по существу. Не заканчивай каждый ответ шаблонными «Чем могу помочь?» "
+    "или «Тебе удобнее, когда я предлагаю следующий шаг?». Если для точного ответа не хватает важных данных, "
+    "задай один конкретный вопрос по теме; если данных достаточно, заверши ответ без вопроса. "
+    "Для Telegram используй короткие абзацы, списки и умеренный жирный шрифт; не выводи сырые Markdown-таблицы."
+    " Если запрос требует границы из-за риска причинения вреда, назови эту границу одним коротким "
+    "предложением и предложи только уместную безопасную информацию по теме. Не заменяй ответ "
+    "длинной лекцией о законе, морали или зависимости, непроверенными телефонами помощи и "
+    "дежурным вопросом в конце. Не выдавай опасные практические инструкции под видом свободного стиля."
 )
+
+
+_SCALE_HINTS = {
+    "initiative": "сам предлагай следующий конкретный шаг только когда он полезен",
+    "curiosity": "уточняй недостающий контекст по текущей задаче, без дежурных вопросов",
+    "depth": "добавляй существенные детали и объяснения",
+    "brevity": "убирай повторы и лишний текст",
+    "warmth": "отвечай дружелюбно и естественно",
+    "humor": "добавляй уместный лёгкий юмор",
+    "directness": "говори прямо и ясно",
+    "creativity": "предлагай нестандартные, но практичные идеи",
+}
+
+
+def behavior_system_text(scales: dict[str, int]) -> str:
+    """Owner-only tuning. Values are internal guidance, never public content."""
+    return ("Внутренняя настройка манеры ответа (не упоминай шкалы и значения собеседнику): "
+            + "; ".join(f"{_SCALE_HINTS[name]} — {scales[name]}/10"
+                        for name in BEHAVIOR_SCALE_NAMES) + ". "
+            "Любая настройка действует только на стиль, не меняет разрешения, приватность или факты.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,17 +92,27 @@ def build_participant_context(
     selected_model_is_remote: bool,
     max_items: int = 20,
     profile_stability: int = 50,
+    behavior_scales: dict[str, int] | None = None,
+    surface: str = "telegram",
 ) -> ParticipantContext:
     """Build context from exactly one participant namespace.
 
     No global Bossman memory, owner profile, other Telegram identity or legacy
     companion profile is consulted here.
     """
+    system = PIT_ASSISTANT_SYSTEM
+    if surface == "web":
+        # The Jeff window is not Telegram: the model must not tell the
+        # participant it is chatting in Telegram. Rules stay identical.
+        system = (system.replace("собеседника в Telegram", "собеседника в окне Jeff на компьютере")
+                  .replace("Для Telegram используй", "В окне чата используй"))
+    if behavior_scales is not None:
+        system += " " + behavior_system_text(behavior_scales)
     if not consent.memory_enabled:
-        return ParticipantContext(person_key=person_key, system=PIT_ASSISTANT_SYSTEM, persona_items=())
+        return ParticipantContext(person_key=person_key, system=system, persona_items=())
 
     if selected_model_is_remote and not consent.remote_personalization_enabled:
-        return ParticipantContext(person_key=person_key, system=PIT_ASSISTANT_SYSTEM, persona_items=())
+        return ParticipantContext(person_key=person_key, system=system, persona_items=())
 
     records = vault.iter_candidate_records(person_key)
     selected = select_persona_context(
@@ -77,8 +121,11 @@ def build_participant_context(
         max_items=max_items,
         min_confidence=memory_confidence_floor(profile_stability),
     )
+    if selected:
+        vault.audit(person_key, "read", actor="jeff", fact_ids=[item.id for item in selected],
+                    categories=[item.category for item in selected])
     return ParticipantContext(
         person_key=person_key,
-        system=PIT_ASSISTANT_SYSTEM,
+        system=system,
         persona_items=tuple(item.text for item in selected),
     )

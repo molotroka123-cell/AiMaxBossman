@@ -217,7 +217,7 @@ def test_delete_recreates_zero_start_identity(tmp_path):
     assert not runtime.vault.person_dir(key).exists()
     # identity comes back zero-start, not with old facts
     welcome = asyncio.run(runtime.handle(person, user_message(51, "привет", 2)))
-    assert "Jeff" in welcome
+    assert welcome == rt.INTRO_RU  # zero-start intro, not a reply built on old facts
     assert list(runtime.vault.iter_candidate_records(key)) == []
 
 

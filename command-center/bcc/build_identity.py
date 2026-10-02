@@ -27,6 +27,7 @@ from typing import Any
 #: не «unknown» строчными: владелец должен видеть это как СОСТОЯНИЕ, а не как
 #: отсутствующее поле, которое легко принять за косметику.
 UNKNOWN = "SOURCE_IDENTITY_UNKNOWN"
+STALE = "SOURCE_IDENTITY_STALE"
 
 # Desktop protocol marker. Older launchers accept only the original app name
 # from /api/identity and cannot check SHA. A different marker makes them refuse
@@ -37,9 +38,8 @@ _HEX40 = re.compile(r"[0-9a-f]{40}")
 
 #: Живой чекаут и установленное колесо отвечают по-разному дорого: первое —
 #: подпроцесс git, второе — чтение маленького json. `/health` опрашивают часто,
-#: поэтому ответ живёт несколько секунд. TTL короткий намеренно: сдвинутый HEAD
-#: обязан стать видимым в пределах одного взгляда владельца, а не после
-#: перезапуска.
+#: поэтому ответ живёт несколько секунд. Сдвинутый HEAD делает работающий
+#: процесс устаревшим, а не превращает уже загруженный код в новую сборку.
 _TTL_SECONDS = 5.0
 _lock = threading.Lock()
 _cached: tuple[float, dict[str, Any]] | None = None
@@ -69,22 +69,39 @@ def _resolve() -> dict[str, Any]:
             "detail": ""}
 
 
+# Захватываем SHA при загрузке модуля, до первого health-запроса. Иначе первый
+# запрос после git pull ошибочно приписал бы старому процессу новый HEAD.
+_boot_identity: dict[str, Any] | None = _resolve()
+
+
 def source_identity(*, fresh: bool = False) -> dict[str, Any]:
-    """Личность работающего исходника. `fresh=True` обходит кэш."""
-    global _cached
+    """Личность загруженного кода; смена checkout требует перезапуска."""
+    global _boot_identity, _cached
     now = time.monotonic()
     if not fresh:
         cached = _cached
         if cached is not None and now - cached[0] < _TTL_SECONDS:
             return dict(cached[1])
-    value = _resolve()
+    current = _resolve()
+    with _lock:
+        if _boot_identity is None:  # только reset_cache() в тестах
+            _boot_identity = current
+        boot = dict(_boot_identity)
+    value = boot
+    if (boot["source_identity"] == "PASS" and
+            (current["source_identity"] != "PASS" or
+             current["build_sha"] != boot["build_sha"])):
+        value = {**boot, "source_identity": STALE,
+                 "detail": "источник кода изменился после запуска; перезапустите Bossman",
+                 "checkout_sha": current["build_sha"]}
     with _lock:
         _cached = (now, value)
     return dict(value)
 
 
 def reset_cache() -> None:
-    """Для тестов: следующий вызов пересчитает личность."""
-    global _cached
+    """Для тестов: следующий вызов заново привяжет стартовую личность."""
+    global _boot_identity, _cached
     with _lock:
         _cached = None
+        _boot_identity = None

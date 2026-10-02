@@ -64,6 +64,9 @@ const MODES = [
    вручную формулировка поручения. */
 const state = { modes: new Set(['smart']), agentId: null, draft: '' };
 
+/* Предел поля `text` у /api/video-studio/chat (bcc/features/video_studio.py, Chat.text max_length=12000). */
+const VIDEO_ROUTER_MAX_TEXT = 12000;
+
 /* ---------------------------------------------------------------- мелочи */
 
 function greeting() {
@@ -268,9 +271,21 @@ function buildCommandBar(ctx, agents) {
   async function submit() {
     const text = input.value.trim();
     if (!text) { toast('Опишите задачу', { type: 'warn' }); input.focus(); return; }
+    if (text.length > VIDEO_ROUTER_MAX_TEXT && attachedFiles().length) {
+      // Media go only to a video project; silently dropping them would be worse.
+      toast(`Задание для видеопроекта длиннее ${VIDEO_ROUTER_MAX_TEXT} символов`, {
+        type: 'warn', hint: 'Сократите текст или уберите вложения, чтобы поставить обычную задачу.',
+      });
+      input.focus();
+      return;
+    }
     start.disabled = true;
     try {
-      if (await routeVideoRequest(text, attachedFiles(), ctx)) return;
+      // The video router accepts at most VIDEO_ROUTER_MAX_TEXT characters and
+      // answered a longer brief with a 422, so a long task could not be launched
+      // from here at all (RC 1.9 soak). Such a text is never a video request.
+      if (text.length <= VIDEO_ROUTER_MAX_TEXT
+          && await routeVideoRequest(text, attachedFiles(), ctx)) return;
     } catch (e) { toastError(e, 'Не удалось открыть видеопроект'); return; }
     finally { start.disabled = false; }
     const agent = state.agentId ?? (agents.length === 1 ? pick(agents[0], ['id']) : null);

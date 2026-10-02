@@ -41,6 +41,18 @@ async def test_private_registry_does_not_copy_owner_jobs_or_vault_identity(env, 
         assert (private / KEY_FILE).stat().st_mode & 0o777 == 0o600
 
 
+async def test_private_acceptance_agents_keep_production_output_budget(env, tmp_path):
+    """A reasoning model spent the old 256-token probe budget before producing any answer."""
+    stack = await make_stack(env.client)
+    selected = owner.configured_model(env.settings.data_dir, stack['agent']['id'])
+    private = tmp_path / 'private'
+    private.mkdir(mode=0o700)
+    await owner.seed_private_registry(private, selected, tool_agent=True)
+    with sqlite3.connect(private / 'bcc.db') as conn:
+        budgets = dict(conn.execute('SELECT id, max_tokens FROM agents'))
+    assert budgets == {1: 2048, owner.TOOL_AGENT_ID: 2048}
+
+
 async def test_harness_only_copies_selected_provider_credential(env, tmp_path):
     first = await make_stack(env.client)
     provider = (await env.client.post('/api/providers', json={

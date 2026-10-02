@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Awaitable, Callable
 
-from .capabilities import LAPTOP_IMAGE_GENERATION_REPLY_RU
 from .photo_pipeline import PhotoStore
 from .studio_image_edit import EditedImage, StudioImageEditBroker
 from .vault import PersonaVault
@@ -13,6 +13,14 @@ from .vault import PersonaVault
 class PhotoEditReply:
     text: str
     image: EditedImage | None
+
+
+def _edit_settings(instruction: str) -> dict[str, int]:
+    match = re.search(r"(?<!\d)(\d{1,2})\s*шаг(?:а|ов)?\b", instruction, re.I)
+    if match is None:
+        return {}
+    steps = int(match.group(1))
+    return {"steps": steps} if 4 <= steps <= 50 else {}
 
 
 class PhotoEditPipeline:
@@ -56,7 +64,7 @@ class PhotoEditPipeline:
             mime=asset.mime,
             prompt=instruction,
             filename=asset.path.name,
-            settings={},
+            settings=_edit_settings(instruction),
             references=references,
         )
         return PhotoEditReply("Готово.", output)
@@ -75,14 +83,14 @@ class PhotoEditPipeline:
             mime=mime,
             prompt=instruction,
             filename="telegram-photo" + PhotoStore._suffix(mime),
-            settings={},
+            settings=_edit_settings(instruction),
             references=(),
         )
         return PhotoEditReply("Готово.", output)
 
     async def _unavailable(self) -> str | None:
         if not self.ai_max_ready or self.broker is None:
-            return LAPTOP_IMAGE_GENERATION_REPLY_RU
+            return "Фото получил. Сейчас не могу его изменить. Попробуй чуть позже."
         if not self.image_use_allowed:
             return "Локальное редактирование пока не включено для этого режима использования."
         if self.vram_gate is not None and not await self.vram_gate():

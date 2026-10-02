@@ -23,13 +23,16 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import os
 import re
+import shutil
 import time
 import traceback
 from dataclasses import replace
 from pathlib import Path
 
 from bcc.providers import build_adapter
+from bcc.oss.piper import PiperError, synthesize_ogg
 from bcc.telegram_companion.adapters import (
     IMAGE_MAX_BYTES,
     Models,
@@ -44,20 +47,23 @@ from .behavior_controller import BehaviorController
 from .behavior_scores import BehaviorEvent
 from .collector import HighRecallCollector
 from .config import PITSettings
-from .resources import LocalCapacityGuard
+from .cloud_budget import CloudBudget, classify_rate_limit, next_utc_midnight
+from .resources import LocalCapacityGuard, ollama_resident_probe
 from .models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
 from .participant_context import build_participant_context
 from .photo_commands import photo_intent
 from .photo_edit import PhotoEditPipeline
 from .photo_pipeline import PhotoPipeline
 from .photo_runtime import PhotoServices, build_photo_services
-from .presentation import render_jeff_reply
+from .presentation import render_jeff_reply, spoken_reply_text
+from .ollama_native import OllamaNativeChatAdapter, is_native_ollama_url
 from .public_guard import public_guard
 from .roleplay import RolePlayMode, roleplay_prompt
 from .roleplay_commands import load_roleplay, parse_roleplay_command, set_roleplay
 from .router import ModelEndpoint, NoEligibleRoute, PrivacyClass, RouteRequest, choose_route
 from .telegram_contract import USER_COMMANDS
 from .vault import PersonaVault, _append_jsonl, _atomic_json
+from .voice import VoiceError, transcribe_telegram_voice
 
 STOP_FLAG = "stop.flag"
 
@@ -85,7 +91,7 @@ FORBIDDEN_COMMANDS = frozenset({
 })
 
 FRESH_INTENT = re.compile(
-    r"\b(новост|курс|погод|сегодня|сейчас|актуальн|свеж|последн|2025|2026|newest|latest|news|"
+    r"\b(новост|курс|погод|сегодня|актуальн|свеж|последн|2025|2026|newest|latest|news|"
     r"today|weather|currently|who won)\b", re.I)
 
 IMAGE_GENERATION_INTENT = re.compile(
@@ -102,15 +108,14 @@ DISCOVERY_INTENT_HINTS = (
 )
 
 INTRO_RU = (
-    "Привет! Я Jeff — живой AI-ассистент из программы AiBossman (локальный ИИ-проект). "
-    "Понимаю текст, ищу в интернете, помогаю с кодом и переводами. Модели бесплатные. "
-    "Просто пиши — отвечу 🙂"
+    "Привет, я Джефф 🙂 Рад знакомству."
 )
 
 HELP_RU = (
-    "Команды Jeff: /memory — что помню; /forget <что>; /pause_memory; /resume_memory; "
+    "Команды Jeff: /memory — что помню; /forget <что>; /correct <было> => <стало>; "
+    "/pause_memory; /resume_memory; "
     "/export_me; /delete_me; /privacy; /search <запрос>; /style <как отвечать>; "
-    "/roleplay и /parody — игровые режимы."
+    "/roleplay и /parody — игровые режимы; /voice on|off — голосовой ответ владельцу."
 )
 
 NO_MODEL_RU = ("Сейчас у меня нет доступной бесплатной модели для ответа. Это честный статус, "
@@ -118,7 +123,8 @@ NO_MODEL_RU = ("Сейчас у меня нет доступной беспла�
 NO_WEB_RU = "Веб-поиск сейчас недоступен, поэтому отвечаю без свежих источников."
 PROVIDER_DOWN_RU = ("Модель-провайдер недоступен. Платные маршруты у меня выключены; "
                     "попробуй позже.")
-VOICE_REPLY_RU = "Голосовые пока не разбираю — напиши текстом, отвечу сразу 😊"
+INCOMPLETE_REPLY_RU = ("Ответ модели оборвался. Я не буду выдавать обрывок за полный ответ; "
+                       "повтори запрос или попроси ответить короче.")
 FORBIDDEN_REPLY_RU = ("Такой команды у Jeff нет: управление компьютером и внутренностями "
                       "Bossman здесь недоступно.")
 DELETE_CONFIRM_RU = ("Точно удалить всю твою память и профиль? Это необратимо. "
@@ -126,6 +132,9 @@ DELETE_CONFIRM_RU = ("Точно удалить всю твою память и 
 DELETED_RU = ("Память удалена полностью: профиль, факты и производные данные. "
               "Начали с чистого листа (zero-start).")
 UNKNOWN_COMMAND_RU = "Такой команды у Jeff нет. Список — /help."
+CLOUD_PAUSED_RU = ("Бесплатный облачный лимит на сейчас исчерпан, а локальная модель занята. "
+                   "Не буду долбить сервис повторами — напиши чуть позже.")
+MAX_REMOTE_ATTEMPTS_PER_TURN = 3
 NO_REMOTE_RU = ("Удалённые модели отключены в твоих настройках приватности. "
                 "Чат-ответы приостановлены; команды работают. Включить: /privacy remote on.")
 
@@ -136,6 +145,27 @@ def _intent_for(query: str) -> str:
         if any(marker in lowered for marker in markers):
             return name
     return "general"
+
+
+def _cloud_refusal(answer: str) -> bool:
+    """Recognize short provider refusals; substantive answers stay untouched."""
+    value = str(answer or "").strip().lower()
+    if not value or len(value) > 500:
+        return False
+    return value.startswith((
+        "i can't help with that", "i cannot help with that",
+        "i'm sorry, but i can't", "i’m sorry, but i can’t",
+        "я не могу помочь с этим", "извините, я не могу помочь",
+        "к сожалению, я не могу помочь",
+    ))
+
+
+def _is_complex_chat(text: str) -> bool:
+    lowered = text.lower()
+    return (len(text) > 400 or bool(FRESH_INTENT.search(text))
+            or any(word in lowered for word in (
+                "подробно", "сравни", "проанализируй", "пошагово",
+                "детально", "сложный вопрос", "in detail", "compare")))
 
 
 _EXTRACT_PATTERNS = (
@@ -156,6 +186,12 @@ _EXTRACT_PATTERNS = (
 )
 
 
+_SENTENCE = re.compile(r"[^.!?…]+[.!?…]*")
+_QUESTION_START = re.compile(
+    r"^(?:а\s+|и\s+)?(?:как|кто|что|где|куда|откуда|почему|зачем|когда|сколько|какой|какая|какое|"
+    r"какие|ли|разве|what|who|where|when|why|how|which|do|does|did|is|are|can)\b", re.I)
+
+
 def extract_candidates(person_key: str, message_id: str, text: str) -> list[MemoryCandidate]:
     """Deterministic high-recall extraction from explicit self-statements.
 
@@ -165,6 +201,11 @@ def extract_candidates(person_key: str, message_id: str, text: str) -> list[Memo
     """
     rows: list[MemoryCandidate] = []
     value = " ".join(str(text or "").split())
+    # Questions are not self-statements: «Как меня зовут и где я живу?» must
+    # never become the name «и где я живу». Only declarative sentences count.
+    value = " ".join(sentence.strip() for sentence in _SENTENCE.findall(value)
+                     if sentence.strip() and not sentence.rstrip().endswith("?")
+                     and not _QUESTION_START.match(sentence.strip()))
     if not value:
         return rows
     for index, (pattern, category, key) in enumerate(_EXTRACT_PATTERNS):
@@ -227,6 +268,11 @@ def _minimize_message(message: dict) -> dict:
     doc = None
     if isinstance(document, dict) and isinstance(document.get("file_id"), str):
         doc = {"file_id": document["file_id"], "file_name": str(document.get("file_name", ""))[:120]}
+    voice = message.get("voice")
+    voice_meta = None
+    if isinstance(voice, dict):
+        voice_meta = {key: voice[key] for key in
+                      ("file_id", "duration", "mime_type", "file_size") if key in voice}
     sticker = message.get("sticker")
     sticker_emoji = ""
     if isinstance(sticker, dict):
@@ -246,7 +292,7 @@ def _minimize_message(message: dict) -> dict:
         "text": str(message.get("text") or message.get("caption") or ""),
         "_photo": photo_file_id,
         "_document": doc,
-        "_voice": isinstance(message.get("voice"), dict),
+        "_voice": voice_meta,
         "_sticker": sticker_emoji,
         "_reply_to": reply_context,
     }
@@ -260,6 +306,15 @@ def _failure_text(code: str) -> str:
         "NETWORK_UNAVAILABLE": "Сеть недоступна. Повтори позже.",
         "SEARCH_NOT_CONFIGURED": "Веб-поиск сейчас недоступен.",
         "DOCUMENT_TOO_LARGE": "Файл слишком большой для разбора (лимит 10 МБ).",
+        "VOICE_TOO_LARGE": "Голосовое слишком большое — пришли запись короче 10 минут.",
+        "VOICE_DURATION_INVALID": "Пришли голосовое короче 10 минут.",
+        "VOICE_FORMAT_UNSUPPORTED": "Не удалось открыть голосовое. Пришли обычное голосовое Telegram.",
+        "VOICE_NO_SPEECH": "Не расслышал речь. Попробуй записать ещё раз.",
+        "VOICE_STT_UNAVAILABLE": "Сейчас не могу разобрать голосовое. Напиши текстом или повтори позже.",
+        "VOICE_DECODER_UNAVAILABLE": "Сейчас не могу разобрать голосовое. Напиши текстом или повтори позже.",
+        "VOICE_DECODE_FAILED": "Не удалось разобрать голосовое. Попробуй записать ещё раз.",
+        "VOICE_FETCH_FAILED": "Не удалось загрузить голосовое. Повтори отправку позже.",
+        "VOICE_INVALID": "Не удалось открыть голосовое. Пришли его ещё раз.",
     }
     return mapping.get(code, f"Технический сбой ({code}). Платные маршруты не включаю; повтори позже.")
 
@@ -409,7 +464,11 @@ class ParticipantRuntime:
         self.models = Models(_transport_settings(settings), self.home)
         self.behavior = BehaviorController(self.vault)
         self.collector = HighRecallCollector(self.vault)
-        self.capacity_guard = LocalCapacityGuard()
+        self.capacity_guard = LocalCapacityGuard(
+            resident_probe=(ollama_resident_probe(settings.local_url, settings.local_models)
+                            if settings.local_url else None))
+        self.surface = "telegram"
+        self.cloud = CloudBudget(self.home, settings.cloud_daily_request_budget)
         self.photo_services: PhotoServices = build_photo_services(
             core_token=settings.core_token, data_dir=settings.data_dir)
         self.photo_pipeline = PhotoPipeline(
@@ -427,13 +486,17 @@ class ParticipantRuntime:
             vram_gate=self.capacity_guard.local_allowed,
         )
         self._pending_photo_memory: dict[tuple[str, str], tuple[object, str]] = {}
+        self._pending_chat_records: dict[int, tuple] = {}
         self._memory_epoch: dict[str, int] = {}
         self.adapter = build_adapter("openai_compat", settings.provider_base_url,
                                      api_key=settings.provider_key or None)
-        # Local models remain available to the separate collection/learning
-        # pipeline, but participant chat replies use verified free cloud only.
-        self.local_adapter = build_adapter(
-            "openai_compat", settings.local_url) if settings.local_url else None
+        # Local models remain reserved for collection/learning unless the owner
+        # explicitly enables a one-model, local-only participant chat test.
+        self.local_adapter = (
+            OllamaNativeChatAdapter(settings.local_url)
+            if is_native_ollama_url(settings.local_url)
+            else build_adapter("openai_compat", settings.local_url) if settings.local_url else None
+        )
         self.catalog: dict[str, ModelEndpoint] = {}
         self.catalog_checked_at = 0.0
         # Open allowlist (owner decision): every new private-chat human becomes a
@@ -457,10 +520,22 @@ class ParticipantRuntime:
     async def refresh_catalog(self) -> dict[str, ModelEndpoint]:
         """Verify the allowlist against live catalogs.
 
-        Participant chat may use only a listed, zero-priced remote model.
-        Local models are reserved for collection and learning work.
+        Participant chat uses listed, zero-priced remote models by default.
+        An explicit local-only test uses one installed local model and never
+        falls back to a remote provider.
         """
         endpoints: dict[str, ModelEndpoint] = {}
+        if self.settings.local_chat_only:
+            if self.local_adapter is not None and await self.capacity_guard.local_allowed():
+                rows = await self.local_adapter.list_model_info()
+                for model in self.settings.local_models:
+                    if any(isinstance(row, dict) and row.get("id") == model for row in rows):
+                        endpoints[model] = ModelEndpoint(
+                            id=model, provider="local", capabilities=frozenset({"chat"}),
+                            local=True, available=True, zero_cost=True, paid=False)
+            self.catalog = endpoints
+            self.catalog_checked_at = time.monotonic()
+            return endpoints
         rows = await self.adapter.list_model_info()
         pricing = await self.adapter.list_model_pricing()
         for model in self.settings.chat_models:
@@ -472,6 +547,19 @@ class ParticipantRuntime:
                     id=model, provider=self.settings.provider_base_url,
                     capabilities=frozenset({"chat"}), local=False, available=True,
                     zero_cost=True, paid=False)
+        if self.local_adapter is not None and self.settings.local_models:
+            try:
+                if await self.capacity_guard.local_allowed():
+                    local_rows = await self.local_adapter.list_model_info()
+                    for model in self.settings.local_models:
+                        if any(isinstance(row, dict) and row.get("id") == model
+                               for row in local_rows):
+                            endpoints[model] = ModelEndpoint(
+                                id=model, provider="local", capabilities=frozenset({"chat"}),
+                                local=True, available=True, zero_cost=True, paid=False)
+            except Exception:
+                # A local outage must not take down healthy verified free cloud.
+                pass
         self.catalog = endpoints
         self.catalog_checked_at = time.monotonic()
         return endpoints
@@ -483,25 +571,105 @@ class ParticipantRuntime:
     def _free_route(self) -> tuple[str, bool]:
         decision = choose_route(
             RouteRequest(intent="chat", privacy=PrivacyClass.PERSONAL, max_cost_usd=0.0),
-            [e for e in self.catalog.values() if not e.local],
+            [e for e in self.catalog.values() if e.local == self.settings.local_chat_only],
             allow_paid=False, zero_cost_only=True, local_bonus=0.0)
         return decision.selected_model, decision.provider == "local"
 
-    def _route_fallback(self, failed_model: str) -> tuple[str, bool] | None:
-        """A remote free route to try after a local call failed."""
-        remote = [(endpoint.id, endpoint.provider) for endpoint in self.catalog.values()
-                  if not endpoint.local and endpoint.id != failed_model]
+    def _remote_fallbacks(self, failed_model: str) -> tuple[str, ...]:
+        """All remaining catalog-verified free remote chat routes, in rank order."""
+        if self.settings.local_chat_only:
+            return ()
+        remote = [endpoint for endpoint in self.catalog.values()
+                  if not endpoint.local and endpoint.id in self.settings.chat_models
+                  and endpoint.id != failed_model]
         if not remote:
-            return None
-        decision = choose_route(
-            RouteRequest(intent="chat", privacy=PrivacyClass.PERSONAL, max_cost_usd=0.0),
-            [e for e in self.catalog.values() if not e.local and e.id != failed_model],
-            allow_paid=False, zero_cost_only=True, local_bonus=0.3)
-        return decision.selected_model, False
+            return ()
+        try:
+            decision = choose_route(
+                RouteRequest(intent="chat", privacy=PrivacyClass.PERSONAL, max_cost_usd=0.0),
+                remote, allow_paid=False, zero_cost_only=True, local_bonus=0.0)
+        except NoEligibleRoute:
+            return ()
+        return (decision.selected_model, *decision.fallback_chain)
+
+    def _recent_p95_ms(self) -> dict[str, int]:
+        """Use the existing private route log as measured routing history."""
+        path = self.home / "logs" / "route_log.jsonl"
+        if not path.is_file():
+            return {}
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()[-300:]
+        except OSError:
+            return {}
+        timings: dict[str, list[int]] = {}
+        for line in lines:
+            try:
+                item = json.loads(line)
+            except ValueError:
+                continue
+            latency = item.get("latency_ms")
+            if item.get("ok") and type(latency) is int and latency >= 0:
+                timings.setdefault(str(item.get("model")), []).append(latency)
+        return {model: sorted(values)[min(len(values) - 1, int(len(values) * .95))]
+                for model, values in timings.items() if values}
+
+    def _mixed_route(self, text: str, consent: ConsentState) -> tuple[str, bool]:
+        """70/30 simple-turn mix, with measured cloud speed and a local privacy route."""
+        local = [item for item in self.catalog.values() if item.local]
+        remote = [item for item in self.catalog.values() if not item.local]
+        if not consent.remote_processing_enabled:
+            if local:
+                return local[0].id, True
+            raise NoEligibleRoute("remote processing disabled and no local model")
+        turn = int(self.store.get("chat_route_counter", 0) or 0)
+        self.store.put("chat_route_counter", turn + 1)
+        simple = len(text) <= 320 and not FRESH_INTENT.search(text)
+        if local and simple and ((turn * 37 + 50) % 100) < self.settings.local_share_percent:
+            return local[0].id, True
+        if not remote:
+            if local:
+                return local[0].id, True
+            raise NoEligibleRoute("no live chat model")
+        p95 = self._recent_p95_ms()
+        fast = [item for item in remote if p95.get(item.id, 12_000) <= 25_000]
+        candidates = fast or remote
+        candidates.sort(key=lambda item: (p95.get(item.id, 12_000), item.id))
+        cloud_turn = int(self.store.get("cloud_route_counter", 0) or 0)
+        self.store.put("cloud_route_counter", cloud_turn + 1)
+        # Mostly the fastest; bounded exploration keeps the other verified free
+        # routes measured without forcing slow models on every participant.
+        selected = candidates[cloud_turn % len(candidates)] if cloud_turn % 4 == 3 else candidates[0]
+        return selected.id, False
+
+    # -- free-cloud budget (shared by the Telegram bot and the Jeff window) -----------------
+    def cloud_budget_status(self) -> dict:
+        """Owner-only: today's zero-cost cloud usage and why cloud is paused."""
+        return self.cloud.status()
+
+    def _cloud_blocked(self) -> str:
+        """'' when a zero-cost cloud request may be sent now, else the stop reason."""
+        reason = self.cloud.blocked()
+        if reason == "daily_budget":
+            self._cloud_stop("daily_budget")
+        return reason
+
+    def _cloud_spend(self) -> None:
+        self.cloud.spend()
+
+    def _cloud_stop(self, reason: str, *, until: float | None = None) -> None:
+        if not self.cloud.stop(reason, until=until):
+            return
+        with contextlib.suppress(OSError):
+            _append_jsonl(self.home / "logs" / "cloud_budget.jsonl", {
+                "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "event": "cloud_paused", "reason": reason,
+                **{k: v for k, v in self.cloud.status().items() if k != "last_stop_reason"},
+                "schema": "bossman.pit.cloud-budget/1"})
 
     def _log_route(self, *, person_key: str, model: str, provider: str, ok: bool,
                    latency_ms: int, context_chars: int, tokens_in: int = 0,
-                   tokens_out: int = 0, error: str = "") -> None:
+                   tokens_out: int = 0, error: str = "", finish: str = "",
+                   route_reason: str = "") -> None:
         """Owner-visible internal route telemetry: no message content, no secrets."""
         try:
             _append_jsonl(self.home / "logs" / "route_log.jsonl", {
@@ -515,7 +683,11 @@ class ParticipantRuntime:
                 "context_tokens_est": int(context_chars // 4),
                 "tokens_in": int(tokens_in),
                 "tokens_out": int(tokens_out),
+                "finish": str(finish)[:32],
                 "error": str(error)[:80],
+                "surface": getattr(self, "surface", "telegram"),
+                "local_gate": str(getattr(getattr(self, "capacity_guard", None), "last_reason", ""))[:80],
+                "route_reason": str(route_reason)[:80],
                 "schema": "bossman.pit.route-log/1",
             })
         except OSError:
@@ -642,7 +814,7 @@ class ParticipantRuntime:
                 self.store.scrub_inbox(update_id)
                 continue
             try:
-                answer = await self.handle(fresh, message, update_id=update_id)
+                answer = await self._handle_with_notice(fresh, message, update_id=update_id)
             except asyncio.CancelledError:
                 self.store.finish(update_id, "delivery_unknown")
                 raise
@@ -680,11 +852,63 @@ class ParticipantRuntime:
                 self._finish_update(update_id, "done", fresh)
                 continue
             try:
-                await self.telegram.send(
-                    fresh, render_jeff_reply(answer),
-                    reply_to_message_id=message.get("_message_id"),
-                    parse_mode="HTML",
+                rendered = render_jeff_reply(answer)
+                voice_mode = (
+                    fresh.role == "owner"
+                    and self.store.get("voice_reply:" + fresh.key, False) is True
+                    and not str(message.get("text") or "").startswith("/")
+                    and not message.get("_photo") and not message.get("_document")
                 )
+                if voice_mode:
+                    async def make_voice(guarded_text: str) -> bytes:
+                        return await asyncio.to_thread(
+                            synthesize_ogg, guarded_text,
+                            piper_executable=os.environ.get("BOSSMAN_PIT_TTS_EXECUTABLE", ""),
+                            model_path=os.environ.get("BOSSMAN_PIT_TTS_MODEL_PATH", ""),
+                            ffmpeg_executable=shutil.which("ffmpeg") or "",
+                            stopped=lambda: (self.home / STOP_FLAG).exists(),
+                        )
+                    try:
+                        sent_id = await self.telegram.send_voice(
+                            fresh, spoken_reply_text(answer), make_voice,
+                            reply_to_message_id=message.get("_message_id"),
+                            stopped=lambda: (self.home / STOP_FLAG).exists(),
+                        )
+                    except PiperError as exc:
+                        if str(exc) == "VOICE_STOPPED":
+                            raise StopRequested("owner stop flag") from exc
+                        # Missing/failed optional local TTS leaves the chat usable.
+                        # A network or unverified voice delivery is NOT retried.
+                        sent_id = await self.telegram.send(
+                            fresh, rendered, reply_to_message_id=message.get("_message_id"),
+                            parse_mode="HTML")
+                else:
+                    sent_id = await self.telegram.send(
+                        fresh, rendered, reply_to_message_id=message.get("_message_id"),
+                        parse_mode="HTML")
+                if type(sent_id) is not int or sent_id <= 0:
+                    raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
+                with contextlib.suppress(OSError):
+                    _append_jsonl(self.home / "logs" / "delivery_log.jsonl", {
+                        "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "update_id": update_id,
+                        "reply_message_id": sent_id,
+                        "person_key": self.vault.key_for_telegram(fresh.user_id)[:12] + "…",
+                        "schema": "bossman.pit.delivery-log/1",
+                    })
+                pending_chat = self._pending_chat_records.pop(update_id, None)
+                if pending_chat is not None:
+                    try:
+                        self._record_chat(*pending_chat)
+                    except Exception as exc:
+                        with contextlib.suppress(OSError):
+                            _append_jsonl(self.home / "logs" / "runtime_error.jsonl", {
+                                "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                "kind": type(exc).__name__,
+                                "stage": "post_delivery_memory",
+                                "update_id": update_id,
+                                "schema": "bossman.pit.runtime-error/1",
+                            })
                 self._finish_update(update_id, "done", fresh)
                 pending = self._pending_photo_memory.pop(
                     (fresh.key, str(message.get("_message_id") or "0")), None)
@@ -694,14 +918,54 @@ class ParticipantRuntime:
                         self.photo_pipeline.schedule_background_after_delivery(
                             asset, caption=caption)
             except asyncio.CancelledError:
+                self._pending_chat_records.pop(update_id, None)
                 self._pending_photo_memory.pop(
                     (fresh.key, str(message.get("_message_id") or "0")), None)
                 self.store.finish(update_id, "delivery_unknown")
                 raise
+            except StopRequested:
+                self._pending_chat_records.pop(update_id, None)
+                self.store.finish(update_id, "delivery_unknown")
+                raise
             except (CompanionError, Exception):
+                self._pending_chat_records.pop(update_id, None)
                 self._pending_photo_memory.pop(
                     (fresh.key, str(message.get("_message_id") or "0")), None)
                 self._finish_update(update_id, "delivery_unknown", fresh)
+
+    async def _handle_with_notice(self, person: Person, message: dict, *,
+                                  update_id: int, delay: float = 18.0) -> str:
+        text = str(message.get("text") or "")
+        if (not text or text.startswith("/") or not _is_complex_chat(text)
+                or message.get("_photo") or message.get("_document") or message.get("_voice")):
+            return await self.handle(person, message, update_id=update_id)
+
+        sending = asyncio.Event()
+
+        async def notice() -> int | None:
+            await asyncio.sleep(delay)
+            if (self.home / STOP_FLAG).exists():
+                return None
+            sending.set()
+            return await self.telegram.send(
+                person, "Думаю…", reply_to_message_id=message.get("_message_id"))
+
+        task = asyncio.create_task(notice())
+        try:
+            return await self.handle(person, message, update_id=update_id)
+        finally:
+            if not sending.is_set() or asyncio.current_task().cancelling():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+            else:
+                try:
+                    message_id = await asyncio.wait_for(task, timeout=40)
+                    if type(message_id) is int and message_id > 0:
+                        await self.telegram.delete_message(person, message_id)
+                except Exception:
+                    # A temporary progress bubble may fail or be undeletable;
+                    # it must never swallow the substantive answer.
+                    pass
 
     def _finish_update(self, update_id: int, phase: str, person: Person) -> None:
         self.store.finish(update_id, phase)
@@ -717,8 +981,32 @@ class ParticipantRuntime:
             return await self._handle_photo(person, person_key, message, photo_file_id, text)
         if document := message.get("_document"):
             return await self._handle_document(person, person_key, message, text, document)
-        if message.get("_voice"):
-            return VOICE_REPLY_RU
+        if voice := message.get("_voice"):
+            try:
+                result = await transcribe_telegram_voice(
+                    self.telegram, voice,
+                    stopped=lambda: (self.home / STOP_FLAG).exists())
+            except VoiceError as exc:
+                if str(exc) == "VOICE_STOPPED":
+                    raise StopRequested("owner stop flag") from exc
+                return _failure_text(str(exc))
+            transcript = str(result["text"]).strip()
+            # A transcript is chat input, never an executable Telegram command.
+            if transcript.startswith("/"):
+                self.behavior.privacy_probe(person_key, kind="tool_probe")
+                return FORBIDDEN_REPLY_RU
+            consent = self.vault.consent(person_key)
+            welcome = self._welcome_if_first_contact(person_key, consent)
+            guard = public_guard(transcript)
+            if guard is not None:
+                self.behavior.privacy_probe(person_key, kind=guard.kind.value)
+                answer = guard.text
+            else:
+                answer = await self._chat_route(
+                    person, person_key, transcript, consent,
+                    message_id=str(message.get("_message_id") or "0"),
+                    reply_to=message.get("_reply_to"), update_id=update_id)
+            return f"{welcome}\n\n{answer}" if welcome else answer
         if not text and message.get("_sticker"):
             # The participant communicates with stickers: mirror with an emoji
             # sticker (bots cannot send arbitrary Telegram sticker packs).
@@ -764,7 +1052,7 @@ class ParticipantRuntime:
 
         return await self._chat_route(person, person_key, text, consent,
                                       message_id=str(message.get("_message_id") or "0"),
-                                      reply_to=message.get("_reply_to"))
+                                      reply_to=message.get("_reply_to"), update_id=update_id)
 
     # -- zero-start welcome / pending confirmations ----------------------------------------
     def _welcome_if_first_contact(self, person_key: str, consent: ConsentState) -> str | None:
@@ -827,6 +1115,16 @@ class ParticipantRuntime:
             return self._start(person_key, consent)
         if command == "/help":
             return HELP_RU
+        if command == "/voice":
+            if person.role != "owner":
+                return "Голосовой режим пока доступен только владельцу."
+            selection = argument.strip().lower()
+            if selection not in {"on", "off"}:
+                return "Голосовой режим: /voice on или /voice off."
+            self.store.put("voice_reply:" + person.key, selection == "on")
+            return ("Голосовой ответ включён для этого чата. Если локальная озвучка "
+                    "недоступна, отвечу текстом." if selection == "on" else
+                    "Голосовой ответ выключен для этого чата.")
         if command in USER_COMMANDS:
             return await self._memory_command(person, person_key, text)
         if command in {"/photoedit", "/editphoto"}:
@@ -839,13 +1137,14 @@ class ParticipantRuntime:
         welcome = self._welcome_if_first_contact(person_key, consent)
         if welcome is not None:
             return welcome
-        return INTRO_RU + "\n\n" + HELP_RU
+        return INTRO_RU
 
     async def _memory_command(self, person: Person, person_key: str, text: str) -> str:
         command, _, argument = text.partition(" ")
         command = command.lower()
         consent = self.vault.consent(person_key)
         if command == "/memory":
+            self.vault.audit(person_key, "view", actor="participant")
             return self._memory_summary(person_key, consent)
         if command == "/why_memory":
             items = self.store.get(f"last_context:{person.key}") or []
@@ -857,6 +1156,8 @@ class ParticipantRuntime:
             if not argument.strip():
                 return "Напиши /forget и что забыть, например: /forget люблю кофе"
             return self._forget(person_key, argument.strip())
+        if command == "/correct":
+            return self._correct(person_key, argument.strip())
         if command == "/pause_memory":
             consent.memory_enabled = False
             self.vault.set_consent(person_key, consent)
@@ -871,6 +1172,7 @@ class ParticipantRuntime:
             self.vault.set_consent(person_key, consent)
             return "Память снова активна."
         if command == "/export_me":
+            self.vault.audit(person_key, "export", actor="participant")
             return await self._export_me(person, person_key)
         if command == "/delete_me":
             self.store.put(f"delete_pending:{person.key}", time.time())
@@ -959,8 +1261,32 @@ class ParticipantRuntime:
                                           outcome="FORGET_REQUESTED", useful=False, corrected=True)
             _append_jsonl(self.vault.ensure(person_key) / "corrections.jsonl",
                           {"action": "forget", "candidate_id": row.get("id"), "query": query[:200]})
+        self.vault.audit(person_key, "forget", actor="participant",
+                         fact_ids=[str(row.get("id", "")) for row in removed],
+                         categories=[str(row.get("category", "")) for row in removed])
         self.behavior.record(person_key, BehaviorEvent.MEMORY_CORRECTED)
         return f"Забыл: удалено {len(removed)} факт(ов). Это не вернётся после перезапуска."
+
+    def _correct(self, person_key: str, argument: str) -> str:
+        """``/correct <было> => <стало>``: the participant fixes a stored fact."""
+        old, new = "", ""
+        for separator in ("=>", "->", "→"):
+            if separator in argument:
+                old, _, new = argument.partition(separator)
+                break
+        old, new = old.strip().lower(), new.strip()
+        if not old or not new:
+            return "Напиши так: /correct люблю чай => люблю кофе"
+        matches = [row["id"] for row in self.vault.list_facts(person_key)
+                   if old in str(row.get("value", "")).lower()]
+        if not matches:
+            return "Такого факта в памяти нет. Посмотреть, что я помню, — /memory."
+        fixed = sum(1 for fact_id in dict.fromkeys(matches)
+                    if self.vault.correct_fact(person_key, fact_id, new, actor="participant"))
+        if not fixed:
+            return "Так сохранить не могу — похоже на секрет или пустое значение."
+        self.behavior.record(person_key, BehaviorEvent.MEMORY_CORRECTED)
+        return f"Исправил: {fixed} факт(ов). Дальше буду опираться на новое значение."
 
     async def _export_me(self, person: Person, person_key: str) -> str:
         payload = json.dumps(self.vault.export(person_key), ensure_ascii=False, indent=2)
@@ -988,22 +1314,33 @@ class ParticipantRuntime:
     # -- chat route ----------------------------------------------------------------------------
     async def _chat_route(self, person: Person, person_key: str, text: str,
                           consent: ConsentState, message_id: str = "0",
-                          reply_to: dict | None = None) -> str:
+                          reply_to: dict | None = None,
+                          update_id: int | None = None) -> str:
         who = person.key
         memory_at_start = consent.memory_enabled
         memory_epoch = self._memory_epoch.get(person_key, 0)
         self._register_discovery_reply(person, person_key, text)
+        complex_request = _is_complex_chat(text)
+        deadline = time.monotonic() + (120 if complex_request else self.settings.chat_deadline_seconds)
 
         if self.catalog_checked_at == 0.0:
             await self.refresh_catalog_safe()
-        # Discard any cached local endpoint from a previous build/config.
-        self.catalog = {key: endpoint for key, endpoint in self.catalog.items()
-                        if not endpoint.local}
+        if self.settings.local_chat_only:
+            # Recheck installed model and owner resource headroom on every turn.
+            # Clear first so a catalog failure cannot leave a stale live route.
+            self.catalog = {}
+            await self.refresh_catalog_safe()
+        elif any(endpoint.local for endpoint in self.catalog.values()):
+            self.capacity_guard.reset()
+            if not await self.capacity_guard.local_allowed():
+                self.catalog = {key: endpoint for key, endpoint in self.catalog.items()
+                                if not endpoint.local}
+        consent = self.vault.consent(person_key)
         try:
-            model, is_local = self._free_route()
+            model, is_local = (self._free_route() if self.settings.local_chat_only
+                               else self._mixed_route(text, consent))
         except NoEligibleRoute:
             return NO_MODEL_RU
-        consent = self.vault.consent(person_key)
         if not is_local and not consent.remote_processing_enabled:
             return NO_REMOTE_RU
 
@@ -1027,21 +1364,59 @@ class ParticipantRuntime:
 
         context = None
         result = None
+        incomplete_seen = False
         # local-first with remote fallback: every route here is zero-cost
         attempts: list[tuple[str, object, str]] = []
+        local_fallback: str | None = None
+        prefer_local_after_refusal = False
         if is_local:
             attempts.append((model, self.local_adapter, "local"))
-            fallback = self._route_fallback(model) if consent.remote_processing_enabled else None
-            if fallback is not None:
-                attempts.append((fallback[0], self.adapter, "remote"))
+            if consent.remote_processing_enabled:
+                attempts.extend((fallback, self.adapter, "remote")
+                                for fallback in self._remote_fallbacks(model))
         else:
             attempts.append((model, self.adapter, "remote"))
-        for route_model, adapter, provider in attempts:
+            local_fallback = next((item.id for item in self.catalog.values() if item.local), None)
+            attempts.extend((fallback, self.adapter, "remote")
+                            for fallback in self._remote_fallbacks(model))
+            if self.settings.local_fallback_on_cloud_refusal and local_fallback:
+                attempts.append((local_fallback, self.local_adapter, "local"))
+            if (local_fallback and (self._cloud_blocked() or all(
+                    self.cloud.model_blocked(m) for m, _, kind in attempts if kind == "remote"))
+                    and all(kind != "local" for _, _, kind in attempts)):
+                # Free cloud is paused (budget/rate limit): the local model
+                # answers instead of the participant waiting on a dead route.
+                attempts.append((local_fallback, self.local_adapter, "local"))
+
+        def ensure_local_fallback() -> None:
+            # A rate limit found mid-turn must not strand the participant while
+            # a verified local model is available in the catalog.
+            fallback = next((item.id for item in self.catalog.values() if item.local), None)
+            if fallback and self.local_adapter is not None and all(
+                    kind != "local" for _, _, kind in attempts):
+                attempts.append((fallback, self.local_adapter, "local"))
+        cloud_stopped = ""
+        remote_sent = 0
+        fallback_reason = ""
+        for route_index, (route_model, adapter, provider) in enumerate(attempts):
+            if prefer_local_after_refusal and provider == "remote":
+                continue
             # The control lane can change consent while a local model is slow.
             # Rebuild the complete payload for each attempt, including fallback.
             route_consent = self.vault.consent(person_key)
             if provider == "remote" and not route_consent.remote_processing_enabled:
                 continue
+            if provider == "remote":
+                blocked = self._cloud_blocked() or (
+                    "rate_limited" if self.cloud.model_blocked(route_model) else "")
+                if blocked:
+                    cloud_stopped = blocked
+                    ensure_local_fallback()
+                    continue
+                if remote_sent >= MAX_REMOTE_ATTEMPTS_PER_TURN:
+                    fallback_reason = fallback_reason or "remote_attempt_cap"
+                    continue
+                remote_sent += 1
             route_is_remote = provider == "remote"
             memory_context_allowed = (memory_at_start
                                       and self._memory_epoch.get(person_key, 0) == memory_epoch
@@ -1051,12 +1426,44 @@ class ParticipantRuntime:
             route_context = build_participant_context(
                 query=text, vault=self.vault, person_key=person_key,
                 consent=context_consent, selected_model_is_remote=route_is_remote,
-                profile_stability=snapshot.profile_stability)
+                profile_stability=snapshot.profile_stability,
+                behavior_scales=self.settings.behavior_scales,
+                surface=getattr(self, "surface", "telegram"))
             messages = route_context.as_messages()
+            if provider == "local" and messages and messages[0]["role"] == "system":
+                # This community GGUF stopped mid-word with long conversation
+                # prompts on the owner host. Keep durable memory in the vault,
+                # but give the local chat only the last exchange and a bounded
+                # answer shape so it can finish within the reply budget.
+                messages[0] = dict(messages[0], content=(
+                    messages[0]["content"] + " Ответь законченным текстом до 180 слов. "
+                    "Сначала ответ по делу, затем короткое пояснение. "
+                    "Избегай таблиц и длинного вступления, если их не просили. "
+                    "На добровольную шутливую прожарку самого собеседника отвечай остро; "
+                    "если мат явно разрешён, не смягчай ответ морализаторством. "
+                    "При сочетании алкоголя с седативными препаратами, включая "
+                    "бензодиазепины, советуй вызвать экстренную помощь сразу, даже если "
+                    "человек пока отвечает. Объясни риск угнетения дыхания, признаки "
+                    "ухудшения (редкое или храпящее дыхание, не удаётся разбудить, "
+                    "синеют губы) и что делать до приезда помощи: оставаться рядом, "
+                    "следить за дыханием, при потере сознания и сохранённом дыхании "
+                    "положить на бок. Если человек уже сонный, прямо скажи вызвать "
+                    "помощь сейчас; не делай вызов условным при новых признаках и не "
+                    "советуй ждать 15–20 минут до проверки."
+                ))
+                if re.search(r"(?:прожарь\s+меня|roast\s+me)", text, re.I):
+                    messages[0]["content"] += (
+                        " Здесь сам собеседник просит прожарку: отвечай только шуткой, "
+                        "без заголовка, пояснения, советов, утешения и мягкой концовки. "
+                        "Если мат прямо разрешён, вставь одно-два разговорных матерных "
+                        "слова (например, «блядь») в саму шутку, не заменяй их эвфемизмами. "
+                        "Ответ — один цельный абзац; никаких дисклеймеров и вопроса в конце."
+                    )
             use_saved_context = memory_context_allowed and (
                 not route_is_remote or route_consent.remote_personalization_enabled)
             if use_saved_context:
-                messages += self.store.history(who)
+                history = self.store.history(who)
+                messages += history[-2:] if provider == "local" else history
             if use_saved_context and reply_to and isinstance(reply_to, dict):
                 author = "бот" if reply_to.get("from_bot") else "участник"
                 quoted = str(reply_to.get("text", "")).strip()
@@ -1074,28 +1481,102 @@ class ParticipantRuntime:
             context_chars = sum(len(str(m.get("content", ""))) for m in messages)
             started = time.monotonic()
             try:
-                timeout = self.settings.local_timeout if provider == "local" \
-                    else self.settings.remote_timeout
-                result = await adapter.chat(route_model, messages,
-                                            max_tokens=self.settings.max_tokens,
-                                            timeout=timeout)
+                remaining = deadline - started
+                if remaining < 1:
+                    break
+                timeout = min(self.settings.local_timeout if provider == "local"
+                              else self.settings.remote_timeout, remaining)
+                if provider == "remote":
+                    remote_left = sum(kind == "remote" for _, _, kind in attempts[route_index:])
+                    timeout = min(timeout, remaining / remote_left)
+                route_deadline = started + timeout
+                for attempt_index, limit in enumerate((self.settings.max_tokens,
+                                                       min(4096, self.settings.max_tokens * 2))):
+                    remaining = route_deadline - time.monotonic()
+                    if remaining < 1:
+                        result = None
+                        break
+                    call_timeout = min(timeout, remaining)
+                    if provider == "remote":
+                        self._cloud_spend()
+                    result = await asyncio.wait_for(adapter.chat(
+                        route_model, messages, max_tokens=limit,
+                        timeout=call_timeout), timeout=call_timeout)
+                    finish = str(getattr(result, "finish", "stop") or "stop").lower()
+                    visible = result.text.strip()
+                    incomplete = (finish in {"length", "max_tokens", "max_output_tokens"}
+                                  or (provider == "local" and len(visible) >= 24
+                                      and len(visible.split()) >= 5
+                                      and visible[-1].isalpha()))
+                    if not incomplete:
+                        break
+                    incomplete_seen = True
+                    self._log_route(person_key=person_key, model=route_model,
+                                    provider=provider, ok=False,
+                                    latency_ms=int((time.monotonic() - started) * 1000),
+                                    context_chars=context_chars,
+                                    tokens_in=getattr(result, "tokens_in", 0),
+                                    tokens_out=getattr(result, "tokens_out", 0),
+                                    finish=finish, error="incomplete_reply",
+                                    route_reason=fallback_reason)
+                    fallback_reason = "incomplete_reply"
+                    result = None
+                    if attempt_index == 0:
+                        messages = [*messages[:-1], {"role": "user", "content":
+                                    text + "\n\nОтветь кратко, закончи каждую мысль и завершай ответ точкой."}]
+                if result is None:
+                    continue
+                if (provider == "remote" and
+                        (not result.text.strip() or _cloud_refusal(result.text))):
+                    self._log_route(person_key=person_key, model=route_model,
+                                    provider=provider, ok=False,
+                                    latency_ms=int((time.monotonic() - started) * 1000),
+                                    context_chars=context_chars, error="cloud_refusal",
+                                    route_reason=fallback_reason)
+                    fallback_reason = "cloud_refusal"
+                    prefer_local_after_refusal = bool(
+                        self.settings.local_fallback_on_cloud_refusal and local_fallback)
+                    result = None
+                    continue
                 context = route_context
                 self._log_route(person_key=person_key, model=route_model, provider=provider,
                                 ok=True, latency_ms=int((time.monotonic() - started) * 1000),
                                 context_chars=context_chars,
                                 tokens_in=getattr(result, "tokens_in", 0),
-                                tokens_out=getattr(result, "tokens_out", 0))
+                                tokens_out=getattr(result, "tokens_out", 0),
+                                finish=getattr(result, "finish", ""),
+                                route_reason=fallback_reason or "primary")
                 break
-            except Exception:
+            except Exception as exc:
+                rate_limited = provider == "remote" and (
+                    getattr(exc, "kind", "") == "rate_limit" or "(429)" in str(exc))
+                if rate_limited:
+                    if classify_rate_limit(str(exc)) == "provider_daily_limit":
+                        # Account-wide free-tier cap: pause cloud until it resets.
+                        self._cloud_stop("provider_daily_limit", until=next_utc_midnight())
+                        cloud_stopped = "provider_daily_limit"
+                    else:
+                        # One upstream model is busy: cool only that model and
+                        # move on to the next verified free route.
+                        self.cloud.cool_model(route_model)
+                        cloud_stopped = cloud_stopped or "rate_limited"
+                    ensure_local_fallback()
                 self._log_route(person_key=person_key, model=route_model, provider=provider,
                                 ok=False, latency_ms=int((time.monotonic() - started) * 1000),
-                                context_chars=context_chars, error="chat_failed")
+                                context_chars=context_chars,
+                                error="rate_limited" if rate_limited else "chat_failed",
+                                route_reason=fallback_reason)
+                fallback_reason = "rate_limited" if rate_limited else "chat_failed"
                 result = None
+        if result is None and cloud_stopped:
+            self.store.put("provider_last_error", "cloud_" + cloud_stopped)
+            return CLOUD_PAUSED_RU
         if result is None:
-            self.store.put("provider_last_error", "chat_failed")
+            self.store.put("provider_last_error",
+                           "reply_incomplete" if incomplete_seen else "chat_failed")
             if not is_local and not self.vault.consent(person_key).remote_processing_enabled:
                 return NO_REMOTE_RU
-            return PROVIDER_DOWN_RU
+            return INCOMPLETE_REPLY_RU if incomplete_seen else PROVIDER_DOWN_RU
         answer = render_jeff_reply(result.text)
         if not answer:
             return PROVIDER_DOWN_RU
@@ -1104,22 +1585,39 @@ class ParticipantRuntime:
         elif needs_web:
             answer += f"\n\n({NO_WEB_RU})"
 
-        # learning pipeline strictly after the answer
+        # The live worker records memory and learns only after Telegram accepts
+        # the reply. Direct handle() calls retain synchronous test semantics.
         record_turn = (memory_at_start and self._memory_epoch.get(person_key, 0) == memory_epoch
                        and self.vault.consent(person_key).memory_enabled)
+        question = (self._maybe_ask(person_key, text)
+                    if record_turn and not answer.rstrip().endswith("?") else None)
+        if question is not None:
+            answer += "\n\n" + question.question
         if record_turn:
-            self.store.remember(who, text, answer[:4000])
-            self.store.log(who, text, answer)
-            self.store.put(f"last_context:{who}", list(context.persona_items)[:20])
-            if web_block:
-                self.store.put(f"last_web:{who}", web_sources)
-            self._learn(person_key, text, message_id)
-            self.behavior.record(person_key, BehaviorEvent.CONTEXT_CONTINUED)
-
-        question = self._maybe_ask(person, person_key, text) if record_turn else ""
-        if question:
-            answer += "\n\n" + question
+            record = (who, person_key, text, answer, list(context.persona_items)[:20],
+                      web_sources if web_block else [], message_id, memory_epoch, question)
+            if update_id is None:
+                self._record_chat(*record)
+            else:
+                self._pending_chat_records[update_id] = record
         return answer
+
+    def _record_chat(self, who: str, person_key: str, text: str, answer: str,
+                     persona_items: list, web_sources: list[str], message_id: str,
+                     memory_epoch: int, question) -> None:
+        if (self._memory_epoch.get(person_key, 0) != memory_epoch
+                or not self.vault.consent(person_key).memory_enabled):
+            return
+        self.store.remember(who, text, answer[:4000])
+        self.store.log(who, text, answer)
+        self.store.put(f"last_context:{who}", persona_items)
+        if web_sources:
+            self.store.put(f"last_web:{who}", web_sources)
+        self._learn(person_key, text, message_id)
+        self.behavior.record(person_key, BehaviorEvent.CONTEXT_CONTINUED)
+        if question is not None and self.vault.consent(person_key).discovery_enabled:
+            self.store.put(f"discovery:{who}",
+                           {"key": question.category.value, "question": question.question})
 
     def _learn(self, person_key: str, text: str, message_id: str) -> None:
         consent = self.vault.consent(person_key)
@@ -1132,26 +1630,25 @@ class ParticipantRuntime:
         if result.accepted:
             self.behavior.record(person_key, BehaviorEvent.VOLUNTARY_PREFERENCE)
 
-    def _maybe_ask(self, person: Person, person_key: str, text: str) -> str:
+    def _maybe_ask(self, person_key: str, text: str):
         consent = self.vault.consent(person_key)
         if not consent.memory_enabled or not consent.discovery_enabled:
-            return ""
+            return None
+        intent = _intent_for(text)
+        if intent == "general":
+            return None
         known = {str(record.get("key")) for record in self.vault.iter_candidate_records(person_key)}
         skipped = self._skipped_set(person_key)
         state = load_roleplay(self.vault, person_key)
         question = self.behavior.choose_contextual_personal_question(
             person_key,
-            intent=_intent_for(text),
+            intent=intent,
             already_known=known,
             skipped=skipped,
             enabled=True,
             roleplay=state if state.enabled else None,
         )
-        if question is None:
-            return ""
-        self.store.put(f"discovery:{person.key}",
-                       {"key": question.category.value, "question": question.question})
-        return question.question
+        return question
 
     def _skipped_set(self, person_key: str) -> set[str]:
         path = self.vault.person_dir(person_key) / "discovery.json"
@@ -1226,7 +1723,7 @@ class ParticipantRuntime:
             try:
                 if (self.home / STOP_FLAG).exists():
                     raise StopRequested("owner stop flag")
-                await self.telegram.send_photo(person, reply.image.data, render_jeff_reply("Готово:"))
+                await self.telegram.send_photo(person, reply.image.data, "")
                 return ""
             except CompanionError as exc:
                 return _failure_text(str(exc))
@@ -1273,7 +1770,7 @@ class ParticipantRuntime:
         try:
             if (self.home / STOP_FLAG).exists():
                 raise StopRequested("owner stop flag")
-            await self.telegram.send_photo(person, reply.image.data, render_jeff_reply("Готово:"))
+            await self.telegram.send_photo(person, reply.image.data, "")
             return ""
         except CompanionError as exc:
             return _failure_text(str(exc))
@@ -1331,8 +1828,7 @@ class ParticipantRuntime:
         if update_id is not None:
             self.store.begin_generation_delivery(update_id, person.key, output.job_id)
         try:
-            message_id = await self.telegram.send_photo(
-                person, output.data, render_jeff_reply("Готово:"))
+            message_id = await self.telegram.send_photo(person, output.data, "")
         except Exception:
             # Telegram has no sendPhoto idempotency key. A network exception
             # can arrive after Telegram accepted the upload, so never retry it.

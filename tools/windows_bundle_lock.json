@@ -48,10 +48,11 @@
   },
   "build_tools": {
     "file": "windows_bundle_build_tools.txt",
-    "sha256": "f88dfc92067569a8994fac24745752046a129956fd8cfcf35d2e0c3e690d3bb7",
+    "sha256": "157e93ef96b1dd3e4d7844b60ebdb24eed5399ab2f05d7655015e445a29155bf",
     "pins": {
       "pip": "26.2.1",
       "setuptools": "84.0.0",
+      "packaging": "26.3",
       "wheel": "0.48.0"
     },
     "source_distributions_in_lock": [

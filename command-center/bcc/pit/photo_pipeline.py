@@ -18,7 +18,7 @@ from .vault import PersonaVault, _atomic_json
 
 
 LAPTOP_PHOTO_REPLY_RU = (
-    "Фото получил. Разбирать и редактировать изображения локально я начну после переезда на AI Max 😊"
+    "Фото получил. Сейчас не могу разобрать изображение. Попробуй чуть позже."
 )
 
 # Sensitive visual inference is refused by stem + inflection suffix («религиозные»,
@@ -254,8 +254,7 @@ class PhotoPipeline:
         if not self.ai_max_ready or self.vision is None:
             return PhotoReply(LAPTOP_PHOTO_REPLY_RU, asset, False)
         if self.vram_gate is not None and not await self.vram_gate():
-            # Honest deferral: the photo is safely stored and analysed later
-            # is NOT claimed — the participant hears the laptop answer.
+            # The photo is safely stored; analysis later is not claimed.
             return PhotoReply(LAPTOP_PHOTO_REPLY_RU, asset, False)
 
         if asset is not None:

@@ -1,0 +1,61 @@
+{
+ "meta": {
+  "title": "Podcast",
+  "bpm": 100,
+  "key": "E",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // PODCAST",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "EP 12",
+   "kicker": "OFFLINE MINDS",
+   "start": 0.0,
+   "end": 3.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Episode twelve."
+    }
+   ]
+  },
+  {
+   "type": "voice",
+   "name": "HOST",
+   "sub": "PODCAST",
+   "lines": [
+    "Can AI run fully offline?"
+   ],
+   "status": [
+    {
+     "text": "NEW EPISODE — LIVE",
+     "state": "live"
+    }
+   ],
+   "start": 3.0,
+   "end": 7.0,
+   "vo": [
+    {
+     "t": 3.1,
+     "text": "Can AI run fully offline?"
+    }
+   ]
+  },
+  {
+   "type": "end_card",
+   "text": "LISTEN NOW",
+   "sub": "WHEREVER YOU LISTEN",
+   "start": 7.0,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 7.1,
+     "text": "Listen now."
+    }
+   ]
+  }
+ ]
+}

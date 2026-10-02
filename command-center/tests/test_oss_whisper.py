@@ -110,6 +110,16 @@ def test_hub_id_cannot_trigger_model_download(monkeypatch):
         whisper.transcribe_audio(recording())
 
 
+def test_installed_windows_model_is_discovered_without_task_environment(monkeypatch, tmp_path):
+    model = tmp_path / "Bossman" / "tool-cache" / "whisper-base-multilingual"
+    model.mkdir(parents=True)
+    for filename in ("model.bin", "tokenizer.json", "config.json"):
+        (model / filename).write_bytes(b"test fixture")
+    monkeypatch.delenv("BOSSMAN_WHISPER_MODEL_PATH", raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    assert whisper._model_directory() == model.resolve()
+
+
 def test_engine_failure_redacted_and_releases_work_slot(monkeypatch, model_dir):
     engine(monkeypatch, fail=True)
     with pytest.raises(whisper.WhisperError) as error:

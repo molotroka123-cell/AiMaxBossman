@@ -1,0 +1,79 @@
+{
+ "meta": {
+  "title": "Pricing",
+  "bpm": 120,
+  "key": "C",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // PRICING",
+  "voice": "am_fenrir",
+  "duration": 12.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "PRICING",
+   "kicker": "SIMPLE & FAIR",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Simple pricing."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "PICK A PLAN",
+   "items": [
+    {
+     "t": 2.75,
+     "title": "FREE",
+     "sub": "0 EUR · local",
+     "icon": "bolt"
+    },
+    {
+     "t": 3.5,
+     "title": "PRO",
+     "sub": "9 EUR / month",
+     "icon": "agents"
+    },
+    {
+     "t": 4.33,
+     "title": "TEAM",
+     "sub": "29 EUR / month",
+     "icon": "memory"
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "Free."
+    },
+    {
+     "t": 3.5,
+     "text": "Pro, nine euro."
+    },
+    {
+     "t": 4.33,
+     "text": "Team, twenty-nine."
+    }
+   ],
+   "start": 2.5,
+   "end": 8.5
+  },
+  {
+   "type": "end_card",
+   "text": "START FREE",
+   "sub": "UPGRADE ANYTIME",
+   "start": 8.5,
+   "end": 12.0,
+   "vo": [
+    {
+     "t": 8.6,
+     "text": "Start free."
+    }
+   ]
+  }
+ ]
+}

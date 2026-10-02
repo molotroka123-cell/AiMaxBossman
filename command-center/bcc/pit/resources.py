@@ -38,6 +38,55 @@ _MIN_FREE_MB_DEFAULT = 2000
 # the whole pool, so the no-owner-override headroom is larger than the
 # dedicated-VRAM default.
 _UNIFIED_MIN_FREE_MB_DEFAULT = 8000
+# When Jeff's OWN local model is already resident (Ollama /api/ps), the memory
+# it occupies is part of the "used" figure: demanding the full headroom again
+# would demote Jeff because of itself. A resident model only needs room for its
+# KV cache, so the gate drops to this hard floor. Below it Jeff still yields.
+_RESIDENT_FLOOR_MB_DEFAULT = 2000
+
+
+def _resident_floor_mb() -> int:
+    raw = os.environ.get("BOSSMAN_PIT_RESIDENT_FLOOR_MB", "").strip()
+    try:
+        return max(0, int(raw)) if raw else _RESIDENT_FLOOR_MB_DEFAULT
+    except ValueError:
+        return _RESIDENT_FLOOR_MB_DEFAULT
+
+
+def _ollama_ps(url: str, timeout: float = 2.0) -> dict | None:
+    """GET loopback Ollama /api/ps (resident models). None on any failure."""
+    import json
+    import urllib.request
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(url)
+    if parts.scheme != "http" or parts.hostname not in {"127.0.0.1", "localhost"}:
+        return None
+    root = f"http://{parts.hostname}:{parts.port or 11434}/api/ps"
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(root, timeout=timeout) as response:  # noqa: S310 — loopback only
+            data = json.loads(response.read(256_000).decode("utf-8", "replace"))
+            return data if isinstance(data, dict) else None
+    except Exception:  # noqa: BLE001 — residency is an optimisation, never a crash
+        return None
+
+
+def ollama_resident_probe(local_url: str, models) -> "callable":
+    """Callable: is one of Jeff's configured local models resident right now?"""
+    wanted = {str(model) for model in models or ()}
+
+    def probe() -> bool:
+        if not wanted:
+            return False
+        data = _ollama_ps(local_url)
+        rows = data.get("models") if isinstance(data, dict) else None
+        if not isinstance(rows, list):
+            return False
+        return any(isinstance(row, dict) and (row.get("name") in wanted or row.get("model") in wanted)
+                   for row in rows)
+
+    return probe
 
 
 def _env_min_free_mb() -> int | None:
@@ -178,7 +227,9 @@ def _read_free_vram_mb() -> int | None:
 class LocalCapacityGuard:
     """Turn-scoped gate for local model routes, cached across rapid turns."""
 
-    def __init__(self, min_free_mb: int | None = None, ttl_seconds: float = _CACHE_SECONDS):
+    def __init__(self, min_free_mb: int | None = None, ttl_seconds: float = _CACHE_SECONDS,
+                 resident_probe=None):
+        self.resident_probe = resident_probe
         env_min = _env_min_free_mb()
         if min_free_mb is None:
             self.min_free_mb = (
@@ -218,9 +269,23 @@ class LocalCapacityGuard:
             self._cached, self._checked_at = True, now
             self.last_reason = f"{label}-free-{free_mb}mb"
             return True
+        floor = _resident_floor_mb()
+        resident = False
+        if self.resident_probe is not None:
+            try:
+                resident = bool(await loop.run_in_executor(None, self.resident_probe))
+            except Exception:  # noqa: BLE001
+                resident = False
+        if resident and free_mb >= floor:
+            self._cached, self._checked_at = True, now
+            self.last_reason = f"{label}-resident-own-model-free-{free_mb}mb-floor-{floor}mb"
+            return True
         self._cached, self._checked_at = False, now
-        self.last_reason = (
-            f"{label}-low-{free_mb}mb-min-{min_mb}mb-1.6-priority")
+        if resident:
+            self.last_reason = f"{label}-below-floor-{free_mb}mb-floor-{floor}mb-1.6-priority"
+        else:
+            self.last_reason = (
+                f"{label}-low-{free_mb}mb-min-{min_mb}mb-1.6-priority")
         return False
 
     def reset(self) -> None:

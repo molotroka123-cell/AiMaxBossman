@@ -58,6 +58,19 @@ def test_snake_case_and_urls_untouched():
     assert "https://example.com/a_b?a=1||b=2" in out
 
 
+def test_telegram_headings_and_markdown_table_become_readable():
+    raw = "### Что делают\n| Метод | Для чего | Данные |\n|---|---|---|\n| PRP | рост волос | ограничены |"
+    out = to_telegram_html(raw)
+    assert "<b>Что делают</b>" in out
+    assert "• <b>PRP</b> — Для чего: рост волос; Данные: ограничены" in out
+    assert "###" not in out and "|---|" not in out
+
+
+def test_code_fence_keeps_markdown_example_unchanged():
+    out = to_telegram_html("```md\n### пример\n|---|---|\n```")
+    assert "<pre>### пример\n|---|---|</pre>" in out
+
+
 def test_send_uses_html_then_falls_back_plain():
     sent = []
 

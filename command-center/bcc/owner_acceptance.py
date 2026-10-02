@@ -34,6 +34,10 @@ from . import db as dbm, model_health
 from .auth import TOKEN_FILE, _restrict_to_owner
 from .secrets import KEY_ENV, KEY_FILE
 
+# Match the production agent default: a local reasoning model exhausted the old
+# 256-token probe limit before emitting visible text on the owner AI Max.
+ACCEPTANCE_MAX_TOKENS = 2048
+
 
 class OwnerRequired(RuntimeError):
     pass
@@ -136,7 +140,7 @@ async def seed_private_registry(data_dir: Path, selected: dict, *, tool_agent: b
                 pricing_known=bool(model.get('pricing_known'))))
             await session.execute(sa.insert(dbm.agents).values(
                 id=1, name='Owner acceptance', model_id=1, enabled=True, tools=[], permissions={},
-                max_steps=1, max_tokens=256, fallback_model_id=None,
+                max_steps=1, max_tokens=ACCEPTANCE_MAX_TOKENS, fallback_model_id=None,
                 system_prompt='Answer the arithmetic question exactly. Do not use tools.'))
             if tool_agent:
                 # §7 (17.09): one real agentic task — model → permitted tool →
@@ -147,7 +151,7 @@ async def seed_private_registry(data_dir: Path, selected: dict, *, tool_agent: b
                 await session.execute(sa.insert(dbm.agents).values(
                     id=TOOL_AGENT_ID, name='Owner acceptance tool', model_id=1, enabled=True,
                     tools=[TOOL_NAME], permissions={'filesystem.write': True},
-                    max_steps=3, max_tokens=512, fallback_model_id=None,
+                    max_steps=3, max_tokens=ACCEPTANCE_MAX_TOKENS, fallback_model_id=None,
                     system_prompt=('You have one tool, memory_write. Call it exactly once with the title, '
                                    'kind and content the user gives, then answer with the single word DONE.')))
             await session.commit()

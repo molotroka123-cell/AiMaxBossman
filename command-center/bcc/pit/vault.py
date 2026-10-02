@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import tempfile
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Iterable
@@ -98,6 +99,97 @@ class PersonaVault:
             if redacted:
                 return False
         _append_jsonl(target / "facts.jsonl", payload)
+        self.audit(person_key, "write", actor="jeff", fact_ids=[str(payload.get("id", ""))],
+                   categories=[str(payload.get("category", ""))])
+        return True
+
+    # -- participant-visible memory audit / correction ---------------------------------
+    AUDIT_FILE = "memory_audit.jsonl"
+    AUDIT_ACTIONS = frozenset({"write", "read", "view", "correct", "delete", "forget",
+                               "export", "delete_all", "owner_passport_read"})
+
+    def audit(self, person_key: str, action: str, *, actor: str,
+              fact_ids: Iterable[str] = (), categories: Iterable[str] = (),
+              surface: str = "") -> None:
+        """Who/what/when for this person's memory. Never stores fact values."""
+        if action not in self.AUDIT_ACTIONS or actor not in {"jeff", "participant", "owner"}:
+            raise ValueError("unknown memory audit action/actor")
+        target = self.person_dir(person_key)
+        if not target.is_dir():
+            return
+        ids = [str(item)[:80] for item in fact_ids][:40]
+        cats = sorted({str(item)[:40] for item in categories if item})[:20]
+        row = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "action": action,
+               "actor": actor, "fact_ids": ids, "categories": cats, "count": len(ids),
+               "schema": "bossman.pit.memory-audit/1"}
+        if surface:
+            row["surface"] = str(surface)[:20]
+        try:
+            _append_jsonl(target / self.AUDIT_FILE, row)
+        except OSError:
+            pass
+
+    def memory_audit(self, person_key: str, *, last: int = 200) -> list[dict[str, Any]]:
+        path = self.person_dir(person_key) / self.AUDIT_FILE
+        if not path.is_file():
+            return []
+        rows = []
+        for line in path.read_text(encoding="utf-8").splitlines()[-max(1, int(last)):]:
+            try:
+                rows.append(json.loads(line))
+            except ValueError:
+                continue
+        return rows
+
+    def list_facts(self, person_key: str) -> list[dict[str, Any]]:
+        """Own facts in a participant-facing shape (id, category, key, value, evidence)."""
+        return [{"id": str(row.get("id", "")), "category": str(row.get("category", "")),
+                 "key": str(row.get("key", "")), "value": row.get("value"),
+                 "evidence_kind": str(row.get("evidence_kind", ""))}
+                for row in self.iter_candidate_records(person_key)]
+
+    def _rewrite_facts(self, person_key: str, rows: list[dict[str, Any]]) -> None:
+        path = self.person_dir(person_key) / "facts.jsonl"
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text("".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n"
+                               for row in rows), encoding="utf-8")
+        os.replace(tmp, path)
+
+    def correct_fact(self, person_key: str, fact_id: str, value: str, *, actor: str,
+                     surface: str = "") -> bool:
+        """Replace one stored value; the participant's correction becomes confirmed."""
+        clean = " ".join(str(value or "").split())[:300]
+        if not clean:
+            return False
+        clean, redacted = redact_secrets(clean)
+        if redacted:
+            return False
+        rows = [dict(row) for row in self.iter_candidate_records(person_key)]
+        hit = [row for row in rows if str(row.get("id", "")) == str(fact_id)]
+        if not hit:
+            return False
+        for row in hit:
+            row["value"] = clean
+            row["evidence_kind"] = "confirmed"
+            row["confidence"] = max(float(row.get("confidence", 0.0) or 0.0), 0.95)
+        self._rewrite_facts(person_key, rows)
+        self.append_correction(person_key, {"action": "correct", "candidate_id": str(fact_id),
+                                            "actor": actor})
+        self.audit(person_key, "correct", actor=actor, fact_ids=[str(fact_id)],
+                   categories=[str(hit[0].get("category", ""))], surface=surface)
+        return True
+
+    def delete_fact(self, person_key: str, fact_id: str, *, actor: str, surface: str = "") -> bool:
+        rows = [dict(row) for row in self.iter_candidate_records(person_key)]
+        kept = [row for row in rows if str(row.get("id", "")) != str(fact_id)]
+        if len(kept) == len(rows):
+            return False
+        removed = [row for row in rows if str(row.get("id", "")) == str(fact_id)]
+        self._rewrite_facts(person_key, kept)
+        self.append_correction(person_key, {"action": "delete", "candidate_id": str(fact_id),
+                                            "actor": actor})
+        self.audit(person_key, "delete", actor=actor, fact_ids=[str(fact_id)],
+                   categories=[str(row.get("category", "")) for row in removed], surface=surface)
         return True
 
     def append_question(self, person_key: str, payload: dict[str, Any]) -> None:

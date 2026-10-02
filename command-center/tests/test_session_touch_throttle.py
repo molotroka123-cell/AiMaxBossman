@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import types
+from datetime import datetime, timedelta
 
 import sqlalchemy as sa
 
@@ -19,8 +20,10 @@ async def test_repeated_requests_write_last_seen_once(env, monkeypatch):
     # Тест меряет семантику троттла, а не удачу планировщика, поэтому идём
     # по заведомо внутрииинтервальным шагам.
     clock = {"t": 1000.0}
+    wall = {"t": datetime(2026, 1, 1)}
     fake_time = types.SimpleNamespace(monotonic=lambda: clock["t"])
     monkeypatch.setattr("bcc.sessions.time", fake_time)
+    monkeypatch.setattr("bcc.sessions.utcnow", lambda: wall["t"])
     sess = await store.create("тест")
     sid = sess["id"]
 
@@ -39,6 +42,7 @@ async def test_repeated_requests_write_last_seen_once(env, monkeypatch):
 
     # интервал прошёл — отметка обновляется, поле не «замерзает» навсегда
     store._touched[sid] = store._touched[sid] - store.TOUCH_INTERVAL_S - 1
+    wall["t"] += timedelta(seconds=store.TOUCH_INTERVAL_S + 1)
     await store.touch(sid)
     assert await stamp() > first
 

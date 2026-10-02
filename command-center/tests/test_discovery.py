@@ -47,6 +47,23 @@ async def test_registered_providers_marked(tmp_path):
     assert result["endpoints"][0]["registered"] is True
 
 
+async def test_registered_loopback_endpoints_are_probed_not_assumed_ready(tmp_path):
+    result = await discover(
+        endpoints=[], model_dirs=[str(tmp_path)], transport=_transport(),
+        known_providers=[
+            {"name": "local-main", "kind": "openai_compat",
+             "base_url": "http://127.0.0.1:8081/v1"},
+            {"name": "cloud", "kind": "openai_compat",
+             "base_url": "https://example.com/v1"},
+        ])
+    assert len(result["endpoints"]) == 1
+    endpoint = result["endpoints"][0]
+    assert endpoint["base_url"] == "http://127.0.0.1:8081/v1"
+    assert endpoint["registered"] is True
+    assert endpoint["ok"] is False
+    assert endpoint["models"] == []
+
+
 async def test_extra_url_probed(tmp_path):
     result = await discover(
         extra_urls=["http://127.0.0.1:8080/v1"],

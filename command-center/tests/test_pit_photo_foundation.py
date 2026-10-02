@@ -8,7 +8,6 @@ import json
 import httpx
 import pytest
 
-from bcc.pit.capabilities import LAPTOP_IMAGE_GENERATION_REPLY_RU
 from bcc.pit.models import ConsentState
 from bcc.pit.photo_edit import PhotoEditPipeline
 from bcc.pit.photo_commands import photo_intent
@@ -70,6 +69,19 @@ def test_laptop_photo_path_is_honest_and_does_not_call_vision(tmp_path):
         reply = await pipe.answer_photo(person_key=key, message_id=1, data=JPEG, prompt="что здесь?")
         assert reply.text == LAPTOP_PHOTO_REPLY_RU
         assert not reply.background_memory_scheduled
+    asyncio.run(go())
+
+
+def test_ai_max_without_vision_does_not_claim_future_hardware_migration(tmp_path):
+    async def go():
+        vault = PersonaVault(tmp_path, SALT)
+        key = vault.key_for_telegram(5)
+        pipe = PhotoPipeline(vault, vision=None, ai_max_ready=True)
+        reply = await pipe.answer_photo(person_key=key, message_id=2, data=JPEG)
+        assert reply.text == LAPTOP_PHOTO_REPLY_RU
+        assert "AI Max" not in reply.text
+        assert "переезд" not in reply.text
+
     asyncio.run(go())
 
 
@@ -278,7 +290,13 @@ def test_photo_edit_is_ai_max_only_and_per_user_latest(tmp_path):
 
         laptop = PhotoEditPipeline(vault, broker=Broker(), ai_max_ready=False)
         answer = await laptop.edit_latest(key, "убери фон")
-        assert answer.text == LAPTOP_IMAGE_GENERATION_REPLY_RU and answer.image is None
+        assert answer.text == "Фото получил. Сейчас не могу его изменить. Попробуй чуть позже."
+        assert answer.image is None
+
+        ai_max_without_editor = PhotoEditPipeline(vault, broker=None, ai_max_ready=True)
+        answer = await ai_max_without_editor.edit_latest(key, "убери фон")
+        assert answer.text == "Фото получил. Сейчас не могу его изменить. Попробуй чуть позже."
+        assert answer.image is None
 
         ai_max = PhotoEditPipeline(vault, broker=Broker(), ai_max_ready=True)
         answer = await ai_max.edit_latest(key, "убери фон")
@@ -291,7 +309,26 @@ def test_photo_intent_supports_simple_followup_edit_commands():
     assert edit.kind == "edit" and edit.prompt == "убери фон"
     caption = photo_intent("замени фон на ночной город", has_photo=True)
     assert caption.kind == "edit"
+    portrait = photo_intent("Нарисуй меня только я стою в центре Нью Йорка, 24 шага", has_photo=True)
+    assert portrait.kind == "edit" and "24 шага" in portrait.prompt
     assert photo_intent("что на фото?", has_photo=True).kind == "analyze"
+
+
+def test_photo_edit_preserves_explicit_24_step_request(tmp_path):
+    class Broker:
+        async def edit(self, **kwargs):
+            assert kwargs["settings"] == {"steps": 24}
+            from bcc.pit.studio_image_edit import EditedImage
+            return EditedImage(PNG, "image/png", hashlib.sha256(PNG).hexdigest(), "run", 1)
+
+    async def go():
+        vault = PersonaVault(tmp_path, SALT)
+        pipe = PhotoEditPipeline(vault, broker=Broker(), ai_max_ready=True)
+        result = await pipe.edit_current_bytes(
+            JPEG, "Нарисуй меня в центре Нью-Йорка, 24 шага")
+        assert result.image is not None
+
+    asyncio.run(go())
 
 
 def test_photo_runtime_is_disabled_by_default_and_status_is_secret_free(monkeypatch):

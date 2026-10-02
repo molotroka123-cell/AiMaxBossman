@@ -856,10 +856,41 @@ def list_items(client: Client, what: str, *, limit: int = 20) -> list[dict]:
         cat = Catalog.load(client)
         from .ops import locality
         from .records import model_kind
-        return [{"id": m.get("id"), "alias": sanitize(m.get("alias")), "name": sanitize(m.get("name")),
+        rows = [{"id": m.get("id"), "alias": sanitize(m.get("alias")), "name": sanitize(m.get("name")),
                  "locality": locality(cat.provider(m.get("provider_id")), m),
-                 "context_window": m.get("context_window"), "model_kind": model_kind(m.get("name"))}
+                 "context_window": m.get("context_window"), "model_kind": model_kind(m.get("name")),
+                 "registered": True, "provider_id": m.get("provider_id")}
                 for m in cat.models]
+        try:
+            found = client.post("/api/models/discover", {}) or {}
+        except BossmanError:
+            return rows  # older backend: the stored registry is still usable
+        endpoints = {str(e.get("base_url") or "").rstrip("/"): e
+                     for e in found.get("endpoints") or [] if isinstance(e, dict)}
+        for row in rows:
+            provider = cat.provider(row["provider_id"])
+            if row["locality"] != "local" or not provider:
+                continue
+            endpoint = endpoints.get(str(provider.get("base_url") or "").rstrip("/"))
+            if endpoint is not None:
+                # A catalog listing only proves presence, never inference quality.
+                row["catalog_status"] = ("listed" if endpoint.get("ok") and
+                                         row["name"] in (endpoint.get("models") or []) else "unavailable")
+        for endpoint in found.get("endpoints") or []:
+            if (not isinstance(endpoint, dict) or not endpoint.get("ok") or
+                    not str(endpoint.get("label", "")).startswith("Ollama")):
+                continue
+            provider = next((p for p in cat.providers if str(p.get("base_url") or "").rstrip("/") ==
+                             str(endpoint.get("base_url") or "").rstrip("/")), None)
+            for name in endpoint.get("models") or []:
+                if not isinstance(name, str) or not name or any(
+                        r["name"] == name and r["provider_id"] == (provider or {}).get("id") for r in rows):
+                    continue
+                rows.append({"id": None, "alias": sanitize(name), "name": sanitize(name),
+                             "locality": "local", "context_window": None,
+                             "model_kind": model_kind(name), "registered": False,
+                             "provider_id": (provider or {}).get("id"), "catalog_status": "listed"})
+        return rows
     if what == "agents":
         cat = Catalog.load(client)
         return [{"id": a.get("id"), "name": sanitize(a.get("name")), "enabled": a.get("enabled"),

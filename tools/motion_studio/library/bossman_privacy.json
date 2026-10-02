@@ -1,0 +1,79 @@
+{
+ "meta": {
+  "title": "Privacy",
+  "bpm": 110,
+  "key": "E",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // PRIVACY",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "PRIVATE",
+   "kicker": "BY DEFAULT",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Private by default."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "WHERE YOUR DATA STAYS",
+   "items": [
+    {
+     "t": 2.75,
+     "title": "LOCAL MODELS",
+     "sub": "your hardware",
+     "icon": "bolt"
+    },
+    {
+     "t": 3.5,
+     "title": "VOICE",
+     "sub": "audio stays on your PC",
+     "icon": "shield"
+    },
+    {
+     "t": 4.62,
+     "title": "SECRETS",
+     "sub": "never logged",
+     "icon": "shield"
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "Local models."
+    },
+    {
+     "t": 3.5,
+     "text": "Your voice stays home."
+    },
+    {
+     "t": 4.62,
+     "text": "Secrets never logged."
+    }
+   ],
+   "start": 2.5,
+   "end": 7.5
+  },
+  {
+   "type": "logo",
+   "name": "BOSSMAN",
+   "tagline": "YOUR MACHINE · YOUR RULES",
+   "start": 7.5,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 7.6,
+     "text": "Your rules."
+    }
+   ]
+  }
+ ]
+}

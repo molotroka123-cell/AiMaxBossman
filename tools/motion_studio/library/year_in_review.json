@@ -1,0 +1,99 @@
+{
+ "meta": {
+  "title": "Year in review",
+  "bpm": 124,
+  "key": "D",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // YEAR IN REVIEW",
+  "voice": "am_fenrir",
+  "duration": 14.0
+ },
+ "scenes": [
+  {
+   "type": "bars",
+   "values": [
+    120,
+    180,
+    150,
+    240,
+    310,
+    280,
+    390,
+    420,
+    510,
+    480,
+    560,
+    640
+   ],
+   "headline_label": "MONTHS",
+   "counter_label": "SIGNUPS",
+   "x_from": "JAN",
+   "x_to": "DEC",
+   "highlight": {
+    "index": 11,
+    "text": "BEST: DECEMBER"
+   },
+   "start": 0.0,
+   "end": 5.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Four thousand two hundred eighty signups."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "HIGHLIGHTS",
+   "items": [
+    {
+     "t": 5.25,
+     "title": "V1",
+     "sub": "we launched",
+     "icon": "bolt"
+    },
+    {
+     "t": 6.0,
+     "title": "MOBILE",
+     "sub": "apps shipped",
+     "icon": "play"
+    },
+    {
+     "t": 6.75,
+     "title": "10K USERS",
+     "sub": "and counting",
+     "icon": "chart"
+    }
+   ],
+   "vo": [
+    {
+     "t": 5.25,
+     "text": "We launched."
+    },
+    {
+     "t": 6.0,
+     "text": "Mobile apps."
+    },
+    {
+     "t": 6.75,
+     "text": "Ten thousand users."
+    }
+   ],
+   "start": 5.0,
+   "end": 10.5
+  },
+  {
+   "type": "end_card",
+   "text": "THANK YOU",
+   "sub": "SEE YOU NEXT YEAR",
+   "start": 10.5,
+   "end": 14.0,
+   "vo": [
+    {
+     "t": 10.6,
+     "text": "Thank you."
+    }
+   ]
+  }
+ ]
+}

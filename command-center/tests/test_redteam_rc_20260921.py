@@ -577,8 +577,8 @@ async def test_rt_p5_computer_act_via_engine_model_claims_never_execute_conseque
     calls computer.act on «Удалить» with (a) semantic=delete + _approved_consequence
     → engine ASK, waiting_approval, desktop executed nothing; (b) a benign label «OK»
     in a bank window (consequence visible only in the foreground) with semantic=noop +
-    _approved_consequence + _approval_id → engine AUTO, handler refuses, nothing
-    executed, run continues with the refusal as data. (A named «Удалить» with
+    _approved_consequence + _approval_id → engine ASK (rc19 CU-ONESHOT; before: AUTO
+    and a handler refusal), nothing executed. (A named «Удалить» with
     semantic=noop is an engine ASK since ask_consequence — covered by the unit suite.)"""
     pytest.importorskip("bossman.computer_operator.models")
     from bcc.features import tools_computer as tc
@@ -616,12 +616,14 @@ async def test_rt_p5_computer_act_via_engine_model_claims_never_execute_conseque
                                       "semantic": "noop", "_approved_consequence": True, "_approval_id": 7}),
             ("text", "перевёл")])
         task2 = await _another_task(env, stack, adapter2)
-        status = await _run_task(env, task2, until=FINISHED)
+        # rc19 CU-ONESHOT: the agent's computer.control grant no longer yields AUTO for a
+        # desktop mutation — the engine parks the call for the owner (was: AUTO, then the
+        # handler refused). Either way the desktop executed nothing.
+        status = await _run_task(env, task2)
         assert st.desktop.executed == [], "a model claim executed a consequential click"
         rows = await _tool_rows(env.svc, task_id=task2)
-        assert rows[-1]["effect"] == "auto" and rows[-1]["status"] == "error"
-        assert "не выполнено" in adapter2.seen_messages[1][-1]["content"]
-        assert status in FINISHED
+        assert rows[-1]["effect"] == "ask" and rows[-1]["status"] == "pending_approval"
+        assert status == "waiting_approval"
     finally:
         tc.availability, tc.SETTLE_S = original_avail, original_settle
 

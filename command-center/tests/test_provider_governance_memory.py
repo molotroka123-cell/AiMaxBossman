@@ -45,6 +45,25 @@ def test_local_call_keeps_memory():
         assert inner.calls == [[SYS, MEM, USER]], url
 
 
+def test_link_local_metadata_address_does_not_count_as_local():
+    """A provider at 169.254.169.254 (the AWS/GCP/Azure metadata address, or any
+    other link-local host) must be treated like a cloud destination: owner
+    memory withheld unless explicitly opted in. Link-local is never a real
+    server the owner is running -- ipaddress.is_private is True for it too,
+    so a naive private-range check would wrongly call it local and leak
+    recalled memory to whatever actually answers on that address."""
+    for url in ("http://169.254.169.254/v1", "http://[fe80::1]/v1"):
+        gov, inner = _adapter(url)
+        sink: list = []
+        token = memory_withheld.set(sink)
+        try:
+            asyncio.run(gov.chat("m", [SYS, MEM, USER]))
+        finally:
+            memory_withheld.reset(token)
+        assert inner.calls == [[SYS, USER]], url
+        assert sink and sink[0]["messages"] == 1, url
+
+
 def test_explicit_opt_in_sends_memory_to_the_cloud():
     gov, inner = _adapter("https://openrouter.ai/api/v1")
     token = memory_to_cloud_allowed.set(True)

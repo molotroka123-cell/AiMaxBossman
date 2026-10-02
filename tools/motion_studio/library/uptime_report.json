@@ -1,0 +1,69 @@
+{
+ "meta": {
+  "title": "Uptime",
+  "bpm": 110,
+  "key": "E",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // UPTIME",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "99.95%",
+   "kicker": "SEPTEMBER UPTIME",
+   "start": 0.0,
+   "end": 3.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Ninety-nine point nine five percent."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "THE MONTH",
+   "items": [
+    {
+     "t": 3.25,
+     "title": "1 INCIDENT",
+     "sub": "resolved in 18 min",
+     "icon": "shield"
+    },
+    {
+     "t": 4.0,
+     "title": "0 DATA LOSS",
+     "sub": "backups verified",
+     "icon": "memory"
+    }
+   ],
+   "vo": [
+    {
+     "t": 3.25,
+     "text": "One incident."
+    },
+    {
+     "t": 4.0,
+     "text": "No data lost."
+    }
+   ],
+   "start": 3.0,
+   "end": 7.5
+  },
+  {
+   "type": "end_card",
+   "text": "STATUS PAGE",
+   "sub": "ALWAYS PUBLIC",
+   "start": 7.5,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 7.6,
+     "text": "Status is public."
+    }
+   ]
+  }
+ ]
+}

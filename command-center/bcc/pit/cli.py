@@ -1,4 +1,4 @@
-"""``bossman pit setup|status|doctor|start|stop`` — owner launch surface.
+"""``bossman pit setup|status|doctor|start|stop|routes|web|passport-checkpoint`` — owner surface.
 
 The owner launch contract (docs/v1.7): PIT starts from the existing ``bossman``
 CLI, secrets stay out of argv/logs/config, diagnostics are secret-free and
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import getpass
 import json
 import os
@@ -32,7 +33,8 @@ from .config import (
 from .photo_runtime import build_photo_services, photo_runtime_status
 from .runtime import STOP_FLAG, ParticipantRuntime, StopRequested
 
-COMMANDS = ("setup", "status", "doctor", "start", "stop")
+COMMANDS = ("setup", "status", "doctor", "start", "stop", "routes", "web", "web-user",
+            "web-setup", "passport-checkpoint")
 
 
 def _resolve_path(argv: list[str]) -> Path:
@@ -40,6 +42,7 @@ def _resolve_path(argv: list[str]) -> Path:
     parser.add_argument("--data-dir", default="")
     parser.add_argument("command", choices=COMMANDS)
     ns, _ = parser.parse_known_args(argv)
+
     data_dir = Path(ns.data_dir) if ns.data_dir else default_data_dir()
     return config_path(data_dir)
 
@@ -110,12 +113,16 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
         return checks, False
 
     add("allowlist", len(settings.people) >= 1)
-    add("bot_token_present", bool(settings.bot_token))
+    if settings.web_only:
+        checks.append({"check": "telegram", "status": "SKIP",
+                       "detail": "web-only Jeff window: no Telegram bot by design"})
+    else:
+        add("bot_token_present", bool(settings.bot_token))
 
     # The public model catalog is accessible even with an expired API key.
     # Validate the credential separately so doctor cannot report chat ready
     # when every participant request would fail with 401.
-    if urlsplit(settings.provider_base_url).hostname == "openrouter.ai":
+    if not settings.local_chat_only and urlsplit(settings.provider_base_url).hostname == "openrouter.ai":
         try:
             import httpx
             async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
@@ -130,6 +137,8 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
 
     transport_ok = False
     try:
+        if settings.web_only:
+            raise _SkipTelegram
         from .runtime import _transport_settings
         transport = Telegram(_transport_settings(settings))
         try:
@@ -139,6 +148,8 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
             import contextlib
             with contextlib.suppress(Exception):
                 await transport.close()
+    except _SkipTelegram:
+        pass
     except CompanionError as exc:
         add("telegram_auth", False, str(exc))
     if transport_ok:
@@ -164,9 +175,10 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
         probe.catalog_checked_at = 0.0
         endpoints = await ParticipantRuntime.refresh_catalog(probe)
         local_ok = any(endpoint.local for endpoint in endpoints.values())
+        selected_models = settings.local_models if settings.local_chat_only else settings.chat_models
         rows = [{"model": model, "status": "ZERO_COST_OK" if model in endpoints else "NOT_ELIGIBLE"}
-                for model in settings.chat_models]
-        route_ok = bool(endpoints) or bool(settings.local_models)
+                for model in selected_models]
+        route_ok = bool(endpoints)
         detail = json.dumps(rows, ensure_ascii=False)
         if settings.local_models:
             detail += f"; local={'OK' if local_ok else 'DOWN'}"
@@ -190,8 +202,12 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
     add("ai_max_media", media_ok, json.dumps(media, ensure_ascii=False))
 
     add("participant_tool_perimeter", _tool_perimeter(), "location/device/computer denied")
-    ok = all(item["status"] == "PASS" for item in checks)
+    ok = all(item["status"] in {"PASS", "SKIP"} for item in checks)
     return checks, ok
+
+
+class _SkipTelegram(Exception):
+    """Doctor path marker: a web-only configuration has no Telegram bot."""
 
 
 def with_suppressed_close(client) -> None:
@@ -256,6 +272,7 @@ def cmd_status(path: Path) -> int:
             report["pit_storage"] = {"participants": participants, "facts": facts, "root": str(home)}
             report["web"] = "SEARXNG" if settings.search_url else "KEYLESS_FALLBACK"
             report["local_models"] = list(settings.local_models) or "NONE"
+            report["chat_route_mode"] = "LOCAL_ONLY_TEST" if settings.local_chat_only else "CLOUD_FREE"
             report["route_stats"] = _route_stats(home)
             transport_error = _store_state(home, "transport_error")
             if transport_error:
@@ -339,6 +356,56 @@ def _route_stats(home: Path) -> dict:
     return {"turns": len(rows), "by_model": summary}
 
 
+ROUTE_AUDIT_FIELDS = ("at", "surface", "model", "provider", "ok", "latency_ms", "finish",
+                      "tokens_in", "tokens_out", "error", "route_reason", "local_gate",
+                      "context_tokens_est")
+
+
+def read_route_audit(home: Path, *, last: int = 20) -> list[dict]:
+    """Owner-only: which model answered each Jeff turn. Never message content."""
+    log_path = Path(home) / "logs" / "route_log.jsonl"
+    if not log_path.is_file():
+        return []
+    rows = []
+    for line in log_path.read_text(encoding="utf-8").splitlines()[-max(1, int(last)):]:
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict):
+            rows.append({key: row.get(key) for key in ROUTE_AUDIT_FIELDS if key in row})
+    return rows
+
+
+def cmd_routes(path: Path, argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="bossman pit routes")
+    parser.add_argument("--last", type=int, default=20)
+    parser.add_argument("--json", action="store_true")
+    ns, _ = parser.parse_known_args(argv[1:])
+    home = pit_home(_resolve_data_dir(path))
+    rows = read_route_audit(home, last=max(1, min(ns.last, 2000)))
+    from .cloud_budget import CloudBudget
+    try:
+        daily = load(path).cloud_daily_request_budget
+    except Exception:  # noqa: BLE001 — the audit must still print the route log
+        daily = 0
+    summary = CloudBudget(home, daily).status()
+    if ns.json:
+        print(json.dumps({"summary": summary, "routes": rows}, ensure_ascii=False, indent=2))
+        return 0
+    print("Jeff: кто отвечал (только для владельца; участникам модель не раскрывается)")
+    print(json.dumps(summary, ensure_ascii=False))
+    for row in rows:
+        status = "OK " if row.get("ok") else "ERR"
+        print(f"{row.get('at','?')} {status} {row.get('surface','telegram'):<8} "
+              f"{row.get('provider','?'):<6} {row.get('model','?')} "
+              f"{row.get('latency_ms','?')}ms finish={row.get('finish') or '-'} "
+              f"tok={row.get('tokens_in',0)}/{row.get('tokens_out',0)} "
+              f"reason={row.get('route_reason') or '-'} err={row.get('error') or '-'} "
+              f"gate={row.get('local_gate') or '-'}")
+    return 0
+
+
 def _queue_pending(home: Path) -> int:
     import sqlite3
     db_path = home / "companion.sqlite3"
@@ -405,14 +472,25 @@ def _keep_system_awake():
 def cmd_start(path: Path) -> int:
     from bcc.telegram_companion.store import single_instance
     settings = load(path)
+    if settings.web_only:
+        print("bossman pit: это web-only конфигурация окна Jeff; Telegram-бот здесь не настроен.",
+              file=sys.stderr)
+        return 2
     home = pit_home(_resolve_data_dir(path))
+    from .bot_guard import assert_not_companion_bot, token_poller_lock
+    locks = contextlib.ExitStack()
     try:
-        lock = single_instance(home)
+        # Jeff never polls the owner's «Пульт» companion bot, and one bot token
+        # has one poller on this machine even across different data dirs.
+        assert_not_companion_bot(settings.bot_token)
+        locks.enter_context(single_instance(home))
+        locks.enter_context(token_poller_lock(settings.bot_token))
     except CompanionError as exc:
+        locks.close()
         print(f"bossman pit: {exc}", file=sys.stderr)
         return 3
     (home / STOP_FLAG).unlink(missing_ok=True)
-    with lock, _keep_system_awake():
+    with locks, _keep_system_awake():
         runtime = ParticipantRuntime(settings)
         try:
             asyncio.run(runtime.run())
@@ -426,7 +504,6 @@ def cmd_start(path: Path) -> int:
             return 2
         finally:
             (home / STOP_FLAG).unlink(missing_ok=True)
-            import contextlib
             with contextlib.suppress(Exception):
                 asyncio.run(runtime.close())
 
@@ -464,6 +541,19 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_start(path)
     if command == "stop":
         return cmd_stop(path)
+    if command == "routes":
+        return cmd_routes(path, argv)
+    if command == "web-setup":
+        from . import web
+        return web.cmd_web_setup(path, argv)
+    if command in {"web", "web-user"}:
+        from . import web
+        return web.cli_main(path, argv)
+    if command == "passport-checkpoint":
+        from .passport_checkpoint import run_checkpoint
+        report, checkpoint = run_checkpoint(load(path))
+        print(json.dumps({"checkpoint": str(checkpoint), **report}, ensure_ascii=False))
+        return 0 if all(row["status"] != "MODEL_ERROR" for row in report["participants"]) else 1
     return 2
 
 

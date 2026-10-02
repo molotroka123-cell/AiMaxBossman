@@ -62,7 +62,9 @@ async def _routed_task(svc, client, *, meta=None):
     async with svc.db.session() as s:
         await s.execute(sa.update(models_t).values(status="online"))
         await s.commit()
-    task = (await client.post("/api/tasks", json={"title": "код", "prompt": "напиши функцию",
+    # Exercise the coding route with an informational prompt. A request to
+    # *write* code requires a verified file action; FakeAdapter only chats.
+    task = (await client.post("/api/tasks", json={"title": "код", "prompt": "Объясни назначение функции в Python",
                                                   "agent_id": stack["agent"]["id"], "run_now": False})).json()["task"]
     values = {"kind": "coding"}
     if meta is not None:

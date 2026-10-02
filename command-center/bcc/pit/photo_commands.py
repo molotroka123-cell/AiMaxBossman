@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 _EDIT_PREFIX = re.compile(
     r"^(?:/photoedit|/editphoto|отредактируй|измени|убери|удали|добавь|замени|"
+    r"нарисуй|перерисуй|сгенерируй|изобрази|"
     r"сделай\s+фон|ретуш|edit|remove|add|replace)\b",
     re.I,
 )

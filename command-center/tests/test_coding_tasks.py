@@ -10,6 +10,7 @@ sensible edits — that stays the live acceptance's job.
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import os
 import subprocess
@@ -105,12 +106,44 @@ async def _wait_terminal(env, task_id, timeout=30.0):
 
 async def test_readiness_names_the_missing_sidecar_command(env, monkeypatch):
     monkeypatch.delenv(ct.COMMAND_ENV, raising=False)
+    monkeypatch.setattr(ct, "_local_sidecar_command", lambda: "")
     r = (await env.client.get("/api/coding-tasks/readiness")).json()
     assert r["available"] is False and r["runtime"] is True and r["sidecar_command"] is False
     assert ct.COMMAND_ENV in r["reason"]
     res = await env.client.post("/api/coding-tasks", json={
         "instruction": "x", "source_repo": "/tmp", "allowed_paths": ["a"]})
     assert res.status_code == 503 and res.json()["error"]["code"] == "OPENHANDS_UNAVAILABLE"
+
+
+def test_known_installed_local_model_is_pinned_without_manual_command(monkeypatch):
+    monkeypatch.delenv(ct.COMMAND_ENV, raising=False)
+
+    class Tags(io.BytesIO):
+        status = 200
+
+    class Opener:
+        def open(self, url, timeout):
+            assert url == "http://127.0.0.1:11434/api/tags" and timeout == 1.0
+            return Tags(json.dumps({"models": [
+                {"name": "untrusted; command"},
+                {"name": "bossman-fast-qwen36-35b-a3b-q5:latest"},
+            ]}).encode())
+
+    monkeypatch.setattr(ct.urllib.request, "build_opener", lambda *_: Opener())
+    command = ct._sidecar_command()
+    from bossman.apprentice.openhands_client import split_command
+    argv = split_command(command)
+    assert argv[:4] == (sys.executable, "-I", "-m", "bossman.apprentice.local_sidecar")
+    assert argv[-2:] == ("--model", "bossman-fast-qwen36-35b-a3b-q5:latest")
+    assert "untrusted" not in command
+    assert ct._sidecar_command() == command
+
+
+def test_explicit_empty_sidecar_command_disables_auto_discovery(monkeypatch):
+    monkeypatch.setenv(ct.COMMAND_ENV, "")
+    monkeypatch.setattr(ct, "_local_sidecar_command",
+                        lambda: pytest.fail("explicit disable must not query a model"))
+    assert ct._sidecar_command() == ""
 
 
 async def test_readiness_names_a_missing_runtime(env, monkeypatch):

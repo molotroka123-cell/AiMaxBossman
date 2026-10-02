@@ -1,6 +1,13 @@
 import { api } from '../api.js';
-import { h, actionButton, field, input, toastOk, toastError } from '../components.js';
+import { h, actionButton, field, input, toast, toastOk, toastError } from '../components.js';
 import { panel, pageHead, pill, tile } from './_ui.js';
+
+/* Коды из POST /api/v15/owner-run/quick-test (bcc/features/v15_owner_run.py). */
+const SETUP_LABEL = {
+  runner_missing: 'нет файла запуска 1.5 (runner_missing)',
+  jev_key_missing: 'нет ключа JEV (jev_key_missing)',
+  openrouter_key_missing: 'нет ключа OpenRouter (openrouter_key_missing)',
+};
 
 function stateTone(value) {
   const s = String(value || '').toUpperCase();
@@ -46,7 +53,16 @@ const Page = {
           actionButton('⚡ Quick Test', async () => {
             try {
               const out = await api.raw('/api/v15/owner-run/quick-test', { method: 'POST', body: {} });
-              out.status === 'READY' ? toastOk('1.5 Quick Test: READY') : toastError(new Error((out.problems || []).join(', ')), '1.5 требует подготовки');
+              if (out.status === 'READY') toastOk('1.5 Quick Test: READY');
+              // OWNER_REQUIRED is the expected answer until keys/runner are set up: a
+              // "needs setup" notice, not an error (it also made the UI sweep report
+              // the button as failing). Anything else is still an error.
+              else if (out.status === 'OWNER_REQUIRED') {
+                toast('1.5 требует подготовки', {
+                  type: 'warn', timeout: 8000,
+                  hint: (out.problems || []).map((p) => SETUP_LABEL[p] || p).join(' · ') || 'см. статус ниже',
+                });
+              } else toastError(new Error(`Quick Test: неожиданный ответ ${out.status || '—'}`), '1.5 требует подготовки');
               ctx.refresh();
             } catch (e) { toastError(e, 'Quick Test не выполнен'); }
           }, { cls: 'btn btn-secondary', iconName: 'check' }),

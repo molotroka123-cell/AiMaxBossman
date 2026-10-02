@@ -1,5 +1,247 @@
 # Рабочий стол — Bossman 1.5 → 1.6 → 1.7 closure
 
+## 2026-09-28 01:42 UTC — owner PC / autonomous earning checkpoint
+
+This checkpoint records observation, not a freeze or an income claim. Fetch the
+remote branch again before acting: the last observed PR #84 head was
+`681c10a29e48b7180380a29e29cc0c7cb30c4702`. Exact-head workflows were
+mostly queued or in progress at observation time; Intelligence Preservation
+remains mandatory and has no qualifying measured corpus. A local evidence
+transport patch exists separately, but does not turn that gate green.
+
+The owner selected three source lanes for a future two-admin workflow:
+SwapMe materials in the owner's Telegram, `freshvibes.cz`, and
+`freshvibesbeauty.cz`. The first site advertises Prague dental care; the
+second advertises aesthetic services. SwapMe's visible Telegram channel
+describes a Prague crypto exchange. We read source context only; no private
+transaction records, participant identifiers, chat texts, tokens, or owner
+photos are copied into Git. No exchange, financial transfer, publication, or
+outbound proposal occurred in this checkpoint.
+
+Installed product is still split: backend/UI `93f1f1c3` on loopback :8800 and
+one Jeff/PIT poller from `0d5d1d4d`. A controlled cold migration to a single
+`0d5d1d4d` bundle was attempted only after zero active tasks and approvals.
+The full backup failed because three protected PIT data files were unreadable
+to the owner account. The new bundle was never started; the previous backend,
+desktop and single poller were restored. The partial copy is explicitly
+marked incomplete and must not be used for restore. Canonical data/vault were
+left in place. This is a data-preservation blocker, not a migration PASS.
+
+`bossman status --json` on the restored installed bundle worked, but reported
+`ready=false`, 87 model rows, zero active tasks and approvals. The public
+health endpoint returned 503 for model/provider health. Ollama has five
+installed tags; Bossman's Ollama registry has four. The models folder holds
+28 GGUF files, including components and incomplete shards: file count is not
+an inference readiness result. Local endpoints configured on :8082/:8083 did
+not listen. Jeff's doctor reported 10/10 checks PASS, including a free route,
+while the separate CMD OpenRouter model list reported unavailable. A real
+CLI coding handshake had previously reached a local model and tool call, but
+an isolated third-party repository under `%TEMP%` was rejected because the
+owner's configured code roots are Python's library and the BossBlocks game.
+Do not move a client repo into either root as a workaround. A dedicated
+market sandbox needs an explicit narrow root update and fresh CMD retest.
+
+A source-only model-discovery fix was tested and committed in this checkout:
+CMD now includes live Ollama tags as display-only when unregistered and marks
+configured but unreachable local endpoints unavailable. Nineteen targeted
+tests passed. It is not in the currently installed `93f1f1c3` bundle and it
+does not turn all GGUF files into running models. An exact-SHA rebuild and
+owner-PC CMD retest remain required.
+
+The autonomous earning claim is **NOT_TESTED**. Two local, isolated coding
+cases were prepared from the public MIT `jpvanhal/inflection` repository at
+commit `88eefaacf7d0caaa701af7c8ab2d0ab3f17086f1`: the existing suite is
+455/455 green, and the new medium and hard acceptance cases reproduce red.
+Their hypothetical values are $10 and $20, not quotes, earnings, or orders.
+Actual Bossman authoring, independent verifier, persistent lesson, restart and
+unseen transfer must be recorded before calling them learned capabilities.
+No Upwork proposal has been sent, and no paid work has been won.
+
+The reusable `tools/coding_value_sim.py` rehearsal then ran in a *private
+synthetic* Bossman backend with real local Qwen. Its $20 hard case completed in
+97.8 seconds and passed independent host verification (three repeats plus a
+hidden check). The $10 medium case produced a correct diff that passed the
+same independent checks, but its Bossman sidecar hit `model_error` at the
+artificial 120-second task limit before its own tests/finish: task status is
+**BLOCKED**, not PASS. Overall real-model rehearsal is **BLOCKED**. The same
+script with a deterministic model passed on the installed `0d5d1d4d` runtime
+as `PLUMBING_PASS`; installed runtime with a real model is **NOT_TESTED**.
+The private report is under `%LOCALAPPDATA%\Bossman\owner-run\coding-value-sim\`
+and contains no public customer data. This rehearsal is separate from the
+public MIT repository red cases above; those two external-repo cases remain
+unrun by Bossman because the live configured code roots rejected `%TEMP%`.
+
+Current gate: `ONE_RUNTIME=BLOCKED`, `ALL_LOCAL_MODELS_VISIBLE=BLOCKED`,
+`AUTONOMOUS_CODING=BLOCKED`, `MEASURED_RETENTION=BLOCKED`,
+`REAL_PROPOSAL=NOT_TESTED`, `INCOME=NOT_TESTED`, `FREEZE=BLOCKED`,
+`READY_FOR_1_8=NO`. Continue only with real observed changes on a final SHA.
+
+## 2026-09-27 18:10 UTC — owner PC acceptance and CI blocker
+
+This is a release checkpoint, **not a freeze certificate**. On exact local
+commit `ea3f5a0d9a5215c5bc8a2b43e66289177d187add`, a fresh Windows release
+ZIP (`BOSSMAN-Windows-x64-ea3f5a0d9a52.zip`, SHA-256
+`8BE4AC8CD76B2EEC5F84B79E6C1BCF341F0203991B7576CBC69E6D81ECFF6AEC`)
+passed `tools/verify_windows_bundle.py` with
+`BOSSMAN_BUNDLE_ACCEPTANCE=PASS`. The extracted archive's own `python.exe -I`
+then passed genuine local-model `bcc.owner_acceptance`: `BOOT`,
+`CORE_LIVE_API`, `REAL_AGENT_TASK`, `RESTART_PERSISTENCE` all `PASS`,
+`fixture_adapter=false`, `source_dirty=false`, arithmetic task #1 and tool
+task #2 (`steps=2`, $0 model cost). Reports are retained outside Git in
+`C:\Users\asd\Bossman\owner-test-pack\bundle-ea3f5a0d-a\owner-bundle-verify.json`
+and `C:\Users\asd\Bossman\owner-test-pack\installed-ea3f5a0d\installed-live-acceptance.json`.
+The production e97 backend on :8801 and its single Jeff poller were not
+replaced by this isolated test. The complete interactive owner UI smoke and
+Jeff delivery on a final installed SHA remain unverified.
+
+The prior remote candidate `87477dc85d3d9588125bcca859a0d4547a0a4cb2`
+failed the same live acceptance because the private reasoning-model probes
+used 256/512 output tokens and returned an empty `finish=length` reply.
+The local `ea3f5a0d` fix uses 2048; 25 focused tests passed (one skipped)
+and the above installed retest passed. This is evidence for the fix, not for
+a future SHA containing later changes.
+
+Command Center CI on the prior remote SHA exposed three reproducible Jev
+test failures in Python 3.11/3.14: their fake adapter returned text for a
+request to *write* a function. The action contract correctly rejected
+`action_contract/no_verified_action`. The test fixture now asks an
+informational coding question while preserving the coding route; local
+`test_jev_feature.py` plus `test_action_contract.py` passed **90/90**.
+The Jev test correction and Jeff's concise high-risk reply style require
+exact-SHA CI and installed retest on their eventual candidate SHA. No
+participant message was sent during these tests.
+Concurrent remote commit `73d937ea1c9f633fb600605326d5f3864e1f77d8`
+also narrowed the action classifier: a bare request to write a function is
+chat code, while a concrete file/game edit still requires a verified action.
+It was merged without conflict. The combined Jev/action-contract suite passed
+92/92 locally; owner-acceptance/PIT suites passed 73 with one skip.
+
+Mandatory `Intelligence Preservation` remains `BLOCKED`: the current corpus
+has 20 items per metric, but a 98% lower-bound claim needs at least 189
+independent items in each of four core metrics even with perfect results.
+The current evidence file is absent. The owner explicitly retained this as
+a blocker. `V15/V16/V17` are not collectively certified;
+`BOSSMAN_1_5_1_6_1_7=NOT_FROZEN`, `READY_FOR_1_8=NO`.
+
+## 2026-09-27 owner checkpoint — release candidate, not freeze
+
+The active acceptance line is PR #84, `claude/bossman-freeze-closure-ohvmon`.
+After `git fetch --all --prune`, local and remote HEAD matched at
+`7f90a197f0833d58bdb30b073f9a12cdd652b7c5`; the worktree was clean.
+The older `integrate/bossman-1.7-unified-20260925` reference below is historical.
+No 1.8 work is authorized until the mandatory 1.5–1.7 gate passes.
+
+- Exact-SHA Windows release archive was built locally from a clean tree:
+  `BOSSMAN-Windows-x64-7f90a197f083.zip`, 788,049,956 bytes,
+  SHA-256 `9d2f14bdc56189deef8ba927ad26a1232c3f78a317413c374bb743951d74217d`.
+  Its isolated archive verifier returned `BOSSMAN_BUNDLE_ACCEPTANCE=PASS` with
+  source SHA `7f90a197`, zero reported problems. The GitHub Windows `bundle`
+  job and the `owner-experience` job for this same SHA both passed. The latter
+  exercises the archive on a GitHub Windows runner; it is not a complete live
+  smoke on the owner's AI Max PC.
+- The live candidate backend on `127.0.0.1:8801` reports SHA `7f90a197`;
+  an older backend on `127.0.0.1:8800` reports `e76de12b`. The Jeff/PIT
+  poller is one logical process tree and points to 8801. `ONE_BACKEND=BLOCKED`:
+  the old elevated process refused a normal stop attempt (`Access denied`).
+  Installed Jeff `pit doctor` passed config, Telegram authentication, free
+  route, web, media configuration, and participant tool perimeter. This does
+  not prove media delivery. After the owner requested local uncensored
+  priority with a free cloud fallback, the installed PIT config was backed up
+  and set to use local `bossman-community-qwen-uncensored:latest` first, with a
+  22-second local timeout and free OpenRouter models as fallbacks. PIT was
+  restarted through its installed CLI, leaving one poller. A real incoming
+  message at 15:37:27 UTC took the local route (22,015 ms, failed), then a
+  free Nemotron fallback (4,640 ms, success) and received Telegram delivery
+  receipt `message_id=241`. Further fallback replies were delivered through
+  `message_id=252`. A later request failed on both local and cloud routes;
+  receipt `254` may be an error reply and was not counted as model success.
+  This proves some live replies, but route reliability remains a defect.
+  Existing private per-user conversation/route logs remain in the
+  canonical data directory; no chat contents or secrets are in Git.
+  The 8801 coding-task readiness endpoint reports that
+  `BOSSMAN_OPENHANDS_COMMAND` is unset. One live local-model task (#56) returned
+  a textual plan and was marked `PASS` without any tool call or file change;
+  this is a false task-success signal, not BOSSBLOCKS evidence.
+- The archive's isolated Python runtime imported installed `bcc`, opened the
+  canonical SQLite data read-only, decrypted 7/7 existing provider keys, and
+  loaded the existing PIT bot token, provider key and identity salt. No secret
+  values were printed. This is a compatibility check; migration and live
+  continuity still need proof. The pre-upgrade backup is PARTIAL because two
+  ACL-protected personality files were unreadable.
+- Exact-SHA CI at this check: root-ci, Bossman Core CI, ASTRA, PostgreSQL,
+  Solana, PIT, Economy, Local bundle, Shipped app contracts, Editors and Fable
+  PASS. Command Center CI was pending. `Intelligence Preservation` FAILS at
+  `Require current same-model evidence`: the committed measurement file is
+  absent. The owner initially kept this gate mandatory. The current corpus
+  has insufficient independent samples for the 95% retention lower bound;
+  do not fabricate evidence. A later owner request to defer optional tests
+  cannot turn a red required CI check green.
+- The owner deferred `YOUTUBE-001` and `INSTAGRAM-001` for this pass and allowed
+  a reduced BOSSBLOCKS-001 check: about ten minutes of real game coding via
+  free AI plus a concrete result. This changes the owner mission scope, not
+  the measured-intelligence gate or the requirement for honest live evidence.
+- That reduced game continuation now has a local Qwen-assisted HUD change,
+  isolated game commit `f285f95e1b1125ff71ad534b74b1ae28bb44e381`, fresh
+  Godot render, and 6/6 tests on a clean extraction. Artifact:
+  `docs/v1.6/runs/artifacts/BossBlocks-LOCAL-20260927.zip`, SHA-256
+  `EECCB1893014921F920522D2B7535AC9109E1D6BA3E6E1A1426E33E2B8A788DD`.
+  `REDUCED_GAME_CONTINUATION=PASS`; the full owner emulator and autonomous
+  Bossman-only game benchmark remain `DEFERRED`/`BLOCKED`. Details and observed
+  token/time counts are in `docs/v1.6/runs/BOSSBLOCKS-001-RESULT.md`.
+
+Current release status: `V15=NOT_TESTED`, `V16=BLOCKED`, `V17=BLOCKED`,
+`ALL_MANDATORY_CI=BLOCKED`, `OWNER_PC_ACCEPTANCE=BLOCKED`,
+`BOSSMAN_1_5_1_6_1_7=NOT_FROZEN`, `READY_FOR_1_8=NO`.
+
+An owner-PC UI observation was attempted, but the Computer Use session could
+not establish the active browser URL confidently and stopped before any UI
+interaction. `OWNER_UI_SMOKE=BLOCKED`; no click-through success is claimed.
+The old desktop shortcut still targets an older installed archive and connects
+to `:8800`. That legacy backend is an orphaned Session-0 process rather than a
+managed service or running scheduled task. No supported stop endpoint was
+found. The candidate backend on `:8801` latched `SOURCE_IDENTITY_UNKNOWN`
+while this worktree was dirty, so it must be restarted after a clean commit.
+An installed desktop built from the same final SHA is then needed for a valid
+same-build UI smoke; using the prior `7f90a197` bundle against a newer SHA
+would fail the identity check. No old data directory was deleted.
+Phase-0 gate at this checkpoint: `ONE_CHECKOUT=BLOCKED`, `ONE_VENV=BLOCKED`,
+`ONE_DATA_DIR=BLOCKED`, `ONE_BACKEND=BLOCKED`, `ONE_POLLER=PASS`,
+`KEYS_IN_VAULT=PASS` (7/7 existing provider keys opened),
+`BACKEND_SHA=BLOCKED` until clean restart and same-build verification.
+At 15:48 UTC legacy port `:8800` was closed; only `:8801` was listening.
+The old desktop process remained and is not evidence of the new installed UI.
+The source backend on `:8801` still reported `SOURCE_IDENTITY_UNKNOWN` because
+the audit/code worktree had pending edits. One PIT poller remained active.
+`ONE_BACKEND=PASS` as a listener count at that instant, while the full Phase-0
+gate remains `BLOCKED` until a same-build installed desktop and clean backend
+identity are observed.
+
+Local uncensored diagnosis: a direct cold Ollama load took 23.6 seconds;
+the model then answered a short prompt with `think=false` in 0.25 seconds.
+The installed PIT already sends `think=false`; its recent failures were at
+the 22-second local timeout with zero output. Its selected free Nemotron
+fallback succeeded for three requests but failed for the next one within
+the remaining eight-second budget. A warm model was present in `/api/ps` at
+the time of this checkpoint. These synthetic timing checks are not a fresh
+Telegram acceptance after the pending source changes.
+The source fixes now awaiting final build are: classify explicit `Make ... code
+change` requests as actions so a text-only pseudo-tool plan cannot close the
+task; retain the local Ollama Jeff model for 30 minutes after a call; and try
+the configured, catalog-eligible free cloud fallbacks in sequence within the
+existing 30-second deadline. No paid fallback or participant authority was
+added. The combined focused regression for these changes passed `143/143`
+on the owner PC. These are source test results, not installed Jeff/UX proof.
+
+Owner-directed code-lock status: `REDUCED_GAME_CONTINUATION=PASS`,
+`YOUTUBE_001=DEFERRED`, `INSTAGRAM_001=DEFERRED`,
+`FULL_REGRESSION=DEFERRED` (the owner stopped the local Command Center run at
+73%, so it has no final verdict). A clean tree and CI from the final commit
+are still required even for an operational candidate. The same-product
+Terminal Run contract remains in force: CLI, dashboard and Telegram must use
+the same backend, tasks, models, memory and approvals. Current North Star
+ladder: `SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT` is evidenced by code and
+tests; `SELF_REPAIR_SINGLE_CYCLE_PASS` and all later levels are `NOT_TESTED`.
+
 Date: 2026-09-26. Canonical operational handoff for Codex / OpenCode / other coding agents.
 
 ## Source truth
@@ -49,6 +291,18 @@ No final SHA/freeze, no complete one-click Windows product, installed OpenHands/
 4. ~~Computer Use native pipe unavailable / os error 2~~ **DONE 2026-09-26**: root cause was missing Windows desktop deps (DO-001). `pip install pywinauto pyautogui` restored `availability()=(True,'')`. Full live owner-desktop sequence PASS through product handlers: fresh screenshot (1.78 MB PNG, visually verified), UIA window list, Notepad launch, deterministic typing (fresh UIA readback `typed_text_visible=true`), Save-As dialog drive, disk-verified saved file (60 bytes, exact content), harmless wait, owner STOP aborted the in-flight action (`stop_file_persisted=true`, post-STOP acts refused), resume restored actions, Calculator launched by product launcher and interacted (UIA readback "Выражение — 77 × 6=" → "Отображать как 462", arithmetic correct), closed via product path. Policy guard correctly refuses any action on Bossman-titled surfaces.
 
 ## 2026-09-26 evening — closure state (SHA c2dfe919)
+
+## Jeff participant UX — 2026-09-27 working goal
+
+**Jeff answer integrity / owner acceptance checkpoint (2026-09-27):** the owner Telegram roast and emergency prompts returned mid-sentence at 160 and 14 output tokens respectively, so output-budget exhaustion is unproven. Native Ollama chat already sends `think=false`. The adapter previously hid Ollama `done_reason=length`; Jeff did not gate incomplete text. The candidate repair sets the participant answer limit to 2048, preserves finish reason, retries an incomplete answer once (up to 4096 and within the existing deadline), and returns an explicit incomplete status if both attempts fail. Local `stop` replies ending mid-sentence are also treated as incomplete. Route telemetry records finish and token counts without message content. The local-only uncensored test stays local-only until the owner ends it; no silent cloud fallback.
+
+**Live response workflow:** Telegram update → single poller / durable inbox → participant identity and authority guard → consent-scoped context → measured local/free model route → answer-completeness gate → Telegram send receipt → memory/history, deterministic fact extraction and contextual discovery. Memory analysis runs after successful delivery; failed delivery leaves no new learned turn. Discovery asks at most one opt-in, task-specific question and skips generic closing questions. A separate owner-only route/delivery log records timings and receipt IDs; no audit content is appended to participant messages. `STOP`, revocation and per-user memory isolation remain gates throughout. These repairs are candidate code until the exact-SHA tests and live Telegram retest pass; Jeff acceptance and release freeze remain BLOCKED.
+
+- Owner-only style controls: eight scales, each 1–10, initially 5: initiative, curiosity, depth, brevity, warmth, humor, directness, creativity. Tune in `pit-v1.7/config.json`; never expose scale names/values in participant replies. These controls affect wording only, never permissions or privacy.
+- Answer the actual question first. Ask at most one specific, relevant question when material information is missing. Do not append generic thanks, “Чем могу помочь?” or repeated meta-questions about preferred answer style.
+- Telegram presentation: use safe HTML entities for concise headings, bold, code, quotes and spoilers; render Markdown tables as readable labeled list items. Preserve reply context via `reply_parameters`; on entity rejection retry once as plain text. Evaluate richer Bot API message blocks separately before adoption; never lose a reply because of formatting.
+- Participant image broadcasts require an owner-requested, visually verified local artifact and a private-chat recipient list. A public caption contains only the intended participant-facing text; generation timing, model route, backend identity and audit stay in owner-only records. Record individual delivery receipts; never automatically retry an ambiguous send.
+- Uncensored community Qwen is an opt-in single-model local chat test, with the same Jeff persona, per-user memory boundary and tool perimeter. Keep free-cloud routing as the normal mode unless the owner explicitly changes it. Do not infer model availability from a specification or partial download.
 
 **Working product tonight (all verified live):**
 - Jeff chat LIVE through free OpenRouter (rotated owner key): fresh owner turn answered in **6.2 s**, ok. Historical 40–90 s latencies were the local-27B era.

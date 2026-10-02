@@ -1,0 +1,53 @@
+{
+ "meta": {
+  "title": "New year",
+  "bpm": 124,
+  "key": "D",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // NEW YEAR",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "2027",
+   "kicker": "HAPPY NEW YEAR",
+   "start": 0.0,
+   "end": 3.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Happy new year."
+    }
+   ]
+  },
+  {
+   "type": "sticker",
+   "lottie": "noto_party_popper",
+   "text": "THANK YOU",
+   "sub": "FOR AN AMAZING YEAR",
+   "start": 3.0,
+   "end": 6.5,
+   "vo": [
+    {
+     "t": 3.1,
+     "text": "Thank you for an amazing year."
+    }
+   ]
+  },
+  {
+   "type": "logo",
+   "name": "BOSSMAN",
+   "tagline": "SEE YOU IN 2027",
+   "start": 6.5,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 6.6,
+     "text": "See you next year."
+    }
+   ]
+  }
+ ]
+}

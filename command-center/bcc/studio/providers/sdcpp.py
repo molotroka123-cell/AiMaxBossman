@@ -81,6 +81,7 @@ ENGINES = {
     "sdcpp:sdxl-base": "sdxl-base",
     "sdcpp:flux2-klein-4b": "flux2-klein-4b",
     "sdcpp:qwen-image-2.1": "qwen-image-2.1",
+    "sdcpp:qwen-image-edit-2509": "qwen-image-edit-2509",
 }
 # Roles the argv needs per engine; every file listed in the manifest entry is hashed,
 # these must at least be present.
@@ -91,6 +92,7 @@ REQUIRED_ROLES = {
     "sdcpp:sdxl-base": ("model", "vae"),
     "sdcpp:flux2-klein-4b": ("diffusion", "vae", "llm"),
     "sdcpp:qwen-image-2.1": ("diffusion", "vae", "llm", "llm_vision"),
+    "sdcpp:qwen-image-edit-2509": ("diffusion", "vae", "llm", "llm_vision"),
 }
 ALLOWED_INPUT_ROLES = frozenset({"start", "reference"})
 ALLOWED_INPUT_FORMATS = frozenset({"PNG", "JPEG"})
@@ -610,6 +612,11 @@ def _argv(cfg: dict, model_id: str, plane: GenerationPlane, settings: dict,
         argv += ["--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),
                  "--llm", str(files["llm"]), "--llm_vision", str(files["llm_vision"]),
                  "--cfg-scale", "6.0", "--sampling-method", "euler", "--offload-to-cpu"]
+    elif model_id == "sdcpp:qwen-image-edit-2509":
+        argv += ["--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),
+                 "--llm", str(files["llm"]), "--llm_vision", str(files["llm_vision"]),
+                 "--cfg-scale", "2.5", "--sampling-method", "euler", "--flow-shift", "3",
+                 "--offload-to-cpu", "--diffusion-fa"]
     elif model_id == "sdcpp:sdxl-base":
         argv += ["-m", str(files["model"]), "--vae", str(files["vae"]),
                  "--cfg-scale", "7.0", "--sampling-method", "dpm++2m"]
@@ -1021,7 +1028,7 @@ class SdCppProvider:
         init_data = None
         ref_data: list[tuple[bytes, str]] = []
         if plane.media:
-            if plane.model == "sdcpp:qwen-image-2.1":
+            if plane.model in {"sdcpp:qwen-image-2.1", "sdcpp:qwen-image-edit-2509"}:
                 if len(plane.media) > 3 or any(item.get("role") != "reference" for item in plane.media):
                     raise ValueError("media: Qwen accepts 1-3 reference images only")
                 ref_data = [await asyncio.to_thread(_decode_start_image, item) for item in plane.media]

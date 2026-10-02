@@ -28,6 +28,7 @@ from bcc.pit.capabilities import LAPTOP_IMAGE_GENERATION_REPLY_RU, image_generat
 from bcc.pit.discovery import DiscoveryMode
 from bcc.pit.companion_profile import PIT_BLOCKED_COMMANDS, PitParticipantPolicy, command_allowed_in_pit
 from bcc.pit.participant_context import PIT_ASSISTANT_SYSTEM, build_participant_context
+from bcc.pit.config import BEHAVIOR_SCALE_NAMES, default_behavior_scales
 from bcc.pit.router import (
     ModelEndpoint,
     NoEligibleRoute,
@@ -320,6 +321,23 @@ def test_new_participant_starts_with_zero_personal_context(tmp_path):
     assert "ничего персонального не знаешь" in PIT_ASSISTANT_SYSTEM
 
 
+def test_owner_style_scales_start_neutral_and_stay_internal(tmp_path):
+    scales = default_behavior_scales()
+    assert tuple(scales) == BEHAVIOR_SCALE_NAMES
+    assert len(scales) == 8 and set(scales.values()) == {5}
+    vault = PersonaVault(tmp_path, SALT)
+    key = vault.key_for_telegram(4243)
+    ctx = build_participant_context(
+        query="Посоветуй книгу", vault=vault, person_key=key,
+        consent=ConsentState(memory_enabled=False),
+        selected_model_is_remote=False, behavior_scales=scales,
+    )
+    assert "5/10" in ctx.system
+    assert "не упоминай шкалы" in ctx.system
+    assert "Чем могу помочь?" in ctx.system
+    assert ctx.persona_items == ()
+
+
 def test_participant_context_reads_only_own_persona(tmp_path):
     vault = PersonaVault(tmp_path, SALT)
     a, b = vault.key_for_telegram(111), vault.key_for_telegram(222)
@@ -421,6 +439,12 @@ def test_pit_public_renderer_never_prefixes_internal_route_metadata():
     assert meta.selected_model not in rendered
     assert meta.provider not in rendered
     assert public_model_label() == "Jeff"
+
+
+def test_jeff_renderer_drops_generic_signoff_after_substantive_answer():
+    assert render_jeff_reply("Вот три варианта.\n\nЧем могу помочь?") == "Вот три варианта."
+    assert render_jeff_reply("Вот три варианта.\n\nТебе удобнее, когда я сам предлагаю следующий шаг, или лучше отвечать строго на вопрос?") == "Вот три варианта."
+    assert render_jeff_reply("Чем могу помочь?") == "Чем могу помочь?"
 
 
 def test_privacy_probe_adds_local_risk_only_and_export_hides_it(tmp_path):

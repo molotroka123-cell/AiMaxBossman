@@ -1,5 +1,49 @@
 # BOSSBLOCKS-001 — owner game run, 2026-09-26
 
+## 2026-09-27 owner-authorized reduced continuation
+
+The owner deferred the full BOSSBLOCKS mission and requested a short real
+coding continuation using free AI. On the owner PC, installed Bossman at
+`7f90a197f0833d58bdb30b073f9a12cdd652b7c5` submitted task #56 to the
+local `bossman-fast-qwen36-35b-a3b-q5:latest` model. It returned a textual
+tool plan and the generic task engine marked it `PASS` without an actual tool
+call or file change. **That verdict is invalid as game evidence.** The
+installed coding path on the same backend was also unavailable because
+`BOSSMAN_OPENHANDS_COMMAND` was unset.
+
+The local Ollama model was then asked directly for a small HUD change. Its
+first diff was invalid (duplicate function, count before removal, missing HUD
+number); a correction prompt produced the two functions used in the final
+change. A human reviewed and applied the code. This proves a bounded local
+model-assisted coding result, **not** autonomous Bossman coding.
+
+```text
+GAME_REPO_SHA=f285f95e1b1125ff71ad534b74b1ae28bb44e381
+CHANGED=scripts/main.gd; tests/owner_controls.gd; tests/bossblocks-game.png
+FEATURE=HUD shows count of in-bounds player-placeable blocks; refreshes after placing/removing/saving/loading
+LOCAL_OLLAMA_CALLS=2
+LOCAL_OLLAMA_ELAPSED_S=21.49+4.72
+LOCAL_OLLAMA_TOKENS_IN=2881+235
+LOCAL_OLLAMA_TOKENS_OUT=760+192
+BOSSMAN_TASK_56=FALSE_PASS; 1 local call; 3214 input tokens; 883 output tokens; no tools/files
+PAID_CALLS=0
+COST_USD=0.00 for observed calls
+GAME_TESTS=6/6 PASS from freshly extracted ZIP on owner Windows PC
+REAL_GODOT=4.7.2 process launched; controls, place/break, HUD count and save/restart tests PASS
+RENDER=tests/bossblocks-game.png, visually inspected, 1152x648, readable HUD
+ARTIFACT=docs/v1.6/runs/artifacts/BossBlocks-LOCAL-20260927.zip
+ARTIFACT_SHA256=EECCB1893014921F920522D2B7535AC9109E1D6BA3E6E1A1426E33E2B8A788DD
+REDUCED_GAME_CONTINUATION=PASS
+FULL_BOSSBLOCKS_001=DEFERRED
+OWNER_EMULATOR=DEFERRED
+BOSSMAN_ONLY_BOUNDARY=BLOCKED
+```
+
+The ZIP contains the tested Godot source, tests, and fresh render. It was
+extracted to a new directory and `python -m pytest tests -q` passed 6/6 there.
+No full owner emulator, learning transfer, or standalone game executable is
+claimed by this reduced check.
+
 **PARTIAL / NOT ACCEPTED AS GREEN.** A playable original Godot project and a verified local ZIP exist. The last coding packet stalled, so the final playable fallback was written directly by Codex in the isolated game repository. This violates the benchmark's Bossman-only boundary. A full owner-equivalent desktop play/soak run, Aster final verdict, and durable learning gate were not completed.
 
 ```text
