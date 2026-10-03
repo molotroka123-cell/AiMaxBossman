@@ -76,12 +76,13 @@ class FakeLauncher:
         return None
 
 
-def make_broker(root: Path, journal: Journal, executor: FakeExecutor, *, level: str = "L2") -> HandBroker:
+def make_broker(root: Path, journal: Journal, executor: FakeExecutor, *, level: str = "L2",
+                stop_check: Callable[[], str] | None = None) -> HandBroker:
     """Mirror of hands.build_default_broker with an explicit level (the default caps at L2)."""
     policy = RoutedPolicy([root / "cycles"], root / "reports", constitution_status=OK_CONSTITUTION, level=level,
                           time_budget_s=10 * 24 * 3600.0)
     return HandBroker(policy, journal, executor, goals=GoalStore(root, journal), level=level,
-                      lease=EngineeringLease(root, journal=journal))
+                      lease=EngineeringLease(root, journal=journal), stop_check=stop_check)
 
 
 def make_staging(root: Path, journal: Journal, owner: Path, checks: tuple[str, ...],

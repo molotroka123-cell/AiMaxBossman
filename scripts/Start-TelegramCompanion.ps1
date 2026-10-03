@@ -26,8 +26,11 @@ param(
     [string]$Python = '',
     # Optional source checkout; its command-center and bossman-core are put first on sys.path.
     [string]$RepoRoot = '',
-    [string]$ConfigPath = (Join-Path $env:LOCALAPPDATA 'Bossman\telegram-companion\config.json'),
-    [string]$EnvFile = (Join-Path $env:LOCALAPPDATA 'Bossman\telegram-companion\companion.env'),
+    # 2026-10-01: the companion home belongs to ONE Bossman instance, <BCC_DATA_DIR>\telegram-companion.
+    # Without BCC_DATA_DIR the legacy folder is still passed: the companion follows its MIGRATED_TO.json
+    # marker once the owner's instance has copied it (Settings -> Telegram, or python -m bcc.telegram_companion --migrate).
+    [string]$ConfigPath = $(if ($env:BCC_DATA_DIR) { Join-Path $env:BCC_DATA_DIR 'telegram-companion\config.json' } else { Join-Path $env:LOCALAPPDATA 'Bossman\telegram-companion\config.json' }),
+    [string]$EnvFile = $(if ($env:BCC_DATA_DIR) { Join-Path $env:BCC_DATA_DIR 'telegram-companion\companion.env' } else { Join-Path $env:LOCALAPPDATA 'Bossman\telegram-companion\companion.env' }),
     [switch]$SkipChecks
 )
 $ErrorActionPreference = 'Stop'

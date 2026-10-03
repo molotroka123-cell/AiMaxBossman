@@ -21,15 +21,27 @@ def test_in_process_checks_pass_on_a_clean_temp_dir(tmp_path, name):
     assert res["ok"], res
 
 
-def test_jeff_identity_counts_leaks_of_the_runtime(tmp_path, monkeypatch):
-    class Leaky(PR._FakeModel):
-        async def chat(self, model, messages, **kw):
-            from bcc.providers import ChatResult
-            return ChatResult(text="I'm actually Qwen from Alibaba.", tokens_in=1, tokens_out=1, model=model)
+class _Leaky(PR._FakeModel):
+    async def chat(self, model, messages, **kw):
+        from bcc.providers import ChatResult
+        return ChatResult(text="I'm actually Qwen from Alibaba.", tokens_in=1, tokens_out=1, model=model)
 
-    monkeypatch.setattr(PR, "_FakeModel", Leaky)
+
+def test_jeff_identity_counts_leaks_of_the_runtime(tmp_path, monkeypatch):
+    from bcc.pit import runtime as rt
+    monkeypatch.setattr(PR, "_FakeModel", _Leaky)
+    # Since the mandatory identity filter (autonomy line C, ParticipantRuntime.guard_outgoing) a leaky MODEL no
+    # longer makes a leaky RUNTIME. The probe must count leaks of a runtime that does leak - a candidate whose
+    # filter regressed - so that candidate is simulated by switching the filter off explicitly.
+    monkeypatch.setattr(rt.ParticipantRuntime, "guard_outgoing", lambda self, text, **kw: text)
     res = PR.run_check("jeff_identity", tmp_path)
     assert not res["ok"] and "identity_redteam.leaks=" in res["detail"] and "leaks=0/" not in res["detail"]
+
+
+def test_jeff_identity_passes_when_the_mandatory_filter_masks_a_leaky_model(tmp_path, monkeypatch):
+    monkeypatch.setattr(PR, "_FakeModel", _Leaky)
+    res = PR.run_check("jeff_identity", tmp_path)
+    assert res["ok"] and "identity_redteam.leaks=0/" in res["detail"], res
 
 
 def test_acceptance_runs_the_goal_tests_and_fails_closed(tmp_path):
@@ -53,6 +65,26 @@ def test_cli_prints_one_json_line(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out)["check"] == "model_routing"
 
 
+def test_staged_probe_code_must_come_from_the_checkout(tmp_path, monkeypatch, capsys):
+    checkout = tmp_path / "checkout"
+    inside, installed = checkout / "command-center" / "bcc", tmp_path / "site-packages-tree" / "bcc"
+    mods = {"bcc": SimpleNamespace(__file__=str(inside / "__init__.py")),
+            "bcc.pit": SimpleNamespace(__file__=None, __path__=[str(inside / "pit")]),
+            "json": SimpleNamespace(__file__=str(installed.parent / "json.py"))}
+    assert PR.foreign_modules(checkout, mods) == []
+    # an installed bcc filling in what the candidate lacks, the running probe itself, a module of unknown origin
+    mods["bcc.autonomy"] = SimpleNamespace(__file__=str(installed / "autonomy" / "__init__.py"))
+    mods["__main__"] = SimpleNamespace(__file__=str(installed / "autonomy" / "probes.py"),
+                                       __spec__=SimpleNamespace(name="bcc.autonomy.probes"))
+    mods["bcc.stub"] = SimpleNamespace()
+    assert PR.foreign_modules(checkout, mods) == ["bcc.autonomy", "bcc.autonomy.probes", "bcc.stub"]
+    # a staged run of code that is not the checkout's reports a failed check, never a pass
+    monkeypatch.setenv(PR.STAGING_CHECKOUT_ENV, str(checkout))
+    assert PR.main(["model_routing", "--data-dir", str(tmp_path / "data")]) == 1
+    out = json.loads(capsys.readouterr().out)
+    assert out["check"] == "model_routing" and not out["ok"] and "outside the staged checkout" in out["detail"]
+
+
 def fake_runner(stdout: bytes, code: int = 0, seen: list | None = None, timeout: bool = False):
     def run(argv, **kw):
         if seen is not None:
@@ -74,6 +106,7 @@ def test_candidate_probe_runs_inside_the_staged_checkout(tmp_path):
     argv, kw = seen[0]
     assert argv[1:4] == ["-m", "bcc.autonomy.probes", "memory"] and kw["cwd"] == str(checkout / "command-center")
     assert kw["env"]["BCC_DATA_DIR"] == ctx["data_dir"] and kw["env"]["BOSSMAN_STAGING"] == "1"
+    assert kw["env"][PR.STAGING_CHECKOUT_ENV] == str(checkout)
     for bad in (b"garbage", json.dumps({"check": "other", "ok": True}).encode()):
         assert not PR.candidate_probe("memory", runner=fake_runner(bad))({"checkout": checkout}, ctx)[0]
     assert not PR.candidate_probe("memory", runner=fake_runner(ok_line, code=1))({"checkout": checkout}, ctx)[0]

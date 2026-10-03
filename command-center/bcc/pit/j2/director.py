@@ -145,7 +145,10 @@ RULES: tuple[Rule, ...] = (
     _rule(Intent.META, r"\b(?:кто\s+ты|что\s+ты\s+(?:умеешь|можешь|такое)|как\s+тебя\s+зовут|ты\s+(?:бот|человек|нейросеть|ии|ai|"
           r"настоящий|живой|робот)|ты\s+помнишь\s+меня|что\s+ты\s+знаешь\s+обо\s+мне|как\s+ты\s+работаешь|"
           r"расскажи\s+о\s+себе|who\s+are\s+you|what\s+can\s+you\s+do)\b", 5.5),
-    _rule(Intent.SMALLTALK, r"\b(?:как\s+дела|как\s+ты\b|как\s+жизнь|как\s+настроение|чем\s+занят\w*|как\s+сам|"
+    # «как ты?» / «как ты поживаешь» are small talk; «как ты относишься к …» is a real question (it used to get
+    # the one-line small-talk plan and a politically loaded question got «Я нейтрален»).
+    _rule(Intent.SMALLTALK, r"\b(?:как\s+дела|как\s+ты(?=\s*[?!.,…]|\s*$|\s+(?:там|сам|поживаешь|живешь|себя|чувствуешь|"
+          r"сегодня|вообще)\b)|как\s+жизнь|как\s+настроение|чем\s+занят\w*|как\s+сам|"
           r"как\s+оно|что\s+делаешь|чем\s+занимаешься|как\s+поживаешь|how\s+are\s+you|what'?s\s+up)\b", 5.0),
     _rule(Intent.SMALLTALK, r"^(?:ну\s+)?что\s+нового" + _TAIL, 5.0),
     _rule(Intent.EMOTIONAL, r"\b(?:мне\s+(?:очень\s+|так\s+|как-то\s+|сегодня\s+)?(?:грустно|плохо|тяжело|одиноко|страшно|тревожно|обидно|больно|скучно|тоскливо)|"
@@ -312,6 +315,22 @@ def wanted_length(text: str) -> str | None:
     if _WANT_LONG.search(value):
         return "long"
     return None
+
+
+_LENGTH_ORDER = ("one_line", "short", "medium", "long")
+
+
+def adjust_length(length: str, scales: dict | None, text: str) -> str:
+    """The owner overlay's brevity/depth move the planned length (a «talkative» manner must not be capped at
+    «1–2 предложения»). Only scales the owner SET count; the participant's own «кратко»/«подробно» wins."""
+    if not scales or wanted_length(text) or length not in _LENGTH_ORDER:
+        return length
+    if "brevity" not in scales and "depth" not in scales:
+        return length
+    gap = int(scales.get("depth", 5)) - int(scales.get("brevity", 5))
+    step = 2 if gap >= 5 else 1 if gap >= 2 else -2 if gap <= -5 else -1 if gap <= -2 else 0
+    index = max(0, min(len(_LENGTH_ORDER) - 1, _LENGTH_ORDER.index(length) + step))
+    return _LENGTH_ORDER[index]
 
 
 def base_plan(intent: Intent, text: str) -> tuple[str, str]:
@@ -619,6 +638,8 @@ class DirectorModule(BaseModule):
         cls = await self.decide_intent(ctx.text)
         follow_up, shift = advance_topic(state, ctx.text, cls.intent) if advance else (False, False)
         length, shape = base_plan(cls.intent, ctx.text)
+        if cls.intent is not Intent.EMOTIONAL:
+            length = adjust_length(length, ctx.extra.get("overlay_scales"), ctx.text)
         reasons: list[str] = []
         ask, question = False, ""
         current = state.turn - 1 if advance else state.turn

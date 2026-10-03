@@ -11,11 +11,22 @@ from typing import Any
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
-from bossman_v3.autonomy_kernel import BossmanAutonomyKernel
-from bossman_v3.resource_manager import RouteCandidate, RoutePolicy
 from . import Feature
 
+# bossman_v3.* тянет за собой bossman.resource_brain -> remote_client -> runner (redis, asyncpg,
+# playwright, opentelemetry: ~250 мс на КАЖДЫЙ старт процесса, измерено importtime). Ядро строится и
+# импортируется при первом обращении к /v15/autonomy/*, а не при старте сервера.
+
 router = APIRouter(prefix="/v15/autonomy", tags=["v1.5"])
+
+
+def __getattr__(name: str):
+    # PEP 562: `v15_autonomy.BossmanAutonomyKernel` keeps resolving (runtime-package contract test, external callers)
+    # while the heavy bossman_v3 import still happens only on first access.
+    if name == "BossmanAutonomyKernel":
+        from bossman_v3.autonomy_kernel import BossmanAutonomyKernel
+        return BossmanAutonomyKernel
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class CandidateBody(BaseModel):
@@ -43,16 +54,18 @@ class PlanBody(BaseModel):
     owner_input_required: bool = False
 
 
-def _kernel(svc) -> BossmanAutonomyKernel:
+def _kernel(svc):
     kernel = getattr(svc, "v15_autonomy", None)
     if kernel is None:
+        from bossman_v3.autonomy_kernel import BossmanAutonomyKernel
         kernel = BossmanAutonomyKernel(Path(svc.settings.data_dir) / "v1.5")
         svc.v15_autonomy = kernel
     return kernel
 
 
 async def _setup(svc):
-    svc.v15_autonomy = BossmanAutonomyKernel(Path(svc.settings.data_dir) / "v1.5")
+    # Ядро создаётся лениво в _kernel(): каталог v1.5/society появляется при первом обращении.
+    return None
 
 
 @router.get("/status")
@@ -74,6 +87,7 @@ async def status(request: Request):
 
 @router.post("/plan")
 async def plan(body: PlanBody, request: Request):
+    from bossman_v3.resource_manager import RouteCandidate, RoutePolicy
     kernel = _kernel(request.app.state.svc)
     policy = RoutePolicy(
         min_quality_lcb=body.min_quality_lcb,

@@ -135,7 +135,7 @@ async def generation_status(svc):
 
 async def validate_plane(svc,payload):
     model=next((m for m in model_specs() if m['id']==payload['model']),None)
-    if model is None: raise ValueError('model: unknown id')
+    if model is None: raise ValueError('Модель не найдена: обновите страницу и выберите модель заново.')
     settings=catalog.validate_settings(model,payload.get('settings',{}))
     if model['provider']=='sdcpp':
         # The length preset (1 s TestRun / 5-30 s) fixes frames/fps/size in the plane itself,
@@ -148,16 +148,16 @@ async def validate_plane(svc,payload):
     normalized=[]
     for item in media:
         role=item['role']; counts[role]=counts.get(role,0)+1
-        if role not in model['roles'] or counts[role]>model['roles'][role]: raise ValueError(f'media.{role}: unsupported role/count')
+        if role not in model['roles'] or counts[role]>model['roles'][role]: raise ValueError(f'Эта модель не принимает столько входных файлов с ролью «{role}».')
         row=await one(svc,runs,runs.c.id,item['run_id'])
-        if not row or row['deleted']: raise ValueError('media.run_id: missing or deleted')
+        if not row or row['deleted']: raise ValueError('Исходный результат не найден или лежит в корзине.')
         await verified_handle(svc,row,close=True)
         normalized.append({'run_id':row['id'],'role':role,'sha256':row['sha256']})
     if model['id']=='local:reframe':
-        if len(normalized)!=1:raise ValueError('media: reframe needs one reference')
+        if len(normalized)!=1:raise ValueError('Для рефрейма нужен ровно один исходный результат из библиотеки: выберите картинку или видео.')
         model={**model,'surface':(await one(svc,runs,runs.c.id,normalized[0]['run_id']))['surface']}
     cid=payload.get('collection_id')
-    if cid is not None and not await one(svc,image_collections,image_collections.c.id,cid): raise ValueError('collection_id: missing')
+    if cid is not None and not await one(svc,image_collections,image_collections.c.id,cid): raise ValueError('Коллекция не найдена: выберите другую.')
     return model,{'model':model['id'],'prompt':payload['prompt'],'settings':settings,'media':normalized,'count':payload.get('count',1),'collection_id':cid}
 
 async def create_job(svc,payload):

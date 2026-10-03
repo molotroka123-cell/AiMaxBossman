@@ -270,6 +270,11 @@ class ModelGuardModule(BaseModule):
         self._probe_lock = asyncio.Lock()
         self._bg: set[asyncio.Task] = set()
         self._loop_task: asyncio.Task | None = None
+        # Set by stop() before it cancels the loop. On Python 3.11 asyncio.wait_for can swallow a
+        # cancellation that lands while the awaited probe completes (the race 47756eed fixed for the
+        # STOP watcher); the loop then kept probing forever and stop() never returned. The flag ends
+        # the loop on its next turn even when the cancellation itself was lost.
+        self._stop_requested = False
         self._last_probe_at = -1e9
 
     # -- state machine ---------------------------------------------------------------------------
@@ -425,9 +430,11 @@ class ModelGuardModule(BaseModule):
     # -- background loop -------------------------------------------------------------------------
     async def start(self) -> None:
         if self._loop_task is None and self._chat is not None and not self._disabled():
+            self._stop_requested = False
             self._loop_task = asyncio.get_running_loop().create_task(self._run())
 
     async def stop(self) -> None:
+        self._stop_requested = True
         task, self._loop_task = self._loop_task, None
         if task is not None:
             task.cancel()
@@ -439,7 +446,7 @@ class ModelGuardModule(BaseModule):
             pending.cancel()
 
     async def _run(self) -> None:
-        while True:
+        while not self._stop_requested:
             calm, degraded = self._intervals
             await self._sleep(calm if self.healthy else degraded)
             try:

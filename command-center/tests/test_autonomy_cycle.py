@@ -47,7 +47,9 @@ async def nemotron_chat(messages):
 
 
 class Probe:
-    """Metrics: before = 5 errors; after = 1 error (improved); latency regresses for scripted goals."""
+    """Metrics: 1st call (baseline) = 5 errors; 2nd call (staged evaluation, BEFORE the owner gate) and 3rd call
+    (monitoring after a release) = 1 error (improved); latency regresses from the 3rd call for scripted goals, i.e.
+    only after the release. A regression already visible on the staged candidate is `test_autonomy_bounded_loop`."""
 
     def __init__(self, regress: set[str] = frozenset()):
         self.seen: dict[str, int] = {}
@@ -57,7 +59,8 @@ class Probe:
         n = self.seen[goal.goal_id] = self.seen.get(goal.goal_id, 0) + 1
         if n == 1:
             return {goal.target_metric: 5.0, "latency_ms": 100.0}
-        return {goal.target_metric: 1.0, "latency_ms": 500.0 if goal.goal_id in self.regress else 100.0}
+        return {goal.target_metric: 1.0,
+                "latency_ms": 500.0 if n >= 3 and goal.goal_id in self.regress else 100.0}
 
 
 @pytest.fixture

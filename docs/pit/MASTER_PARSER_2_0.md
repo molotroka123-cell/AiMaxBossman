@@ -1,7 +1,10 @@
 # Master Parser 2.0
 
-Status: candidate on `feat/master-parser-2.0` (from the 1.9 freeze line). Not merged, not
-measured on real data. Everything below is covered by tests with fake adapters only.
+Status: candidate in the owner bug-test worktree, branch
+`claude/bossman-1.9-owner-bugtest-20260930` at base SHA `4b9049a097daf49e9fa6c3e8dedeb5f6a3591e33`.
+Current changes are uncommitted and not merged. Everything below is covered by tests
+with fake adapters only; Telegram export ingestion, Docling conversion, and real-data
+behavior remain unverified.
 
 ## What it does
 
@@ -39,6 +42,58 @@ updates passports (unchanged from 1.x). 2.0 adds, per consenting participant:
 - Narrative text is stored only in the participant's own owner-only file and in the owner's
   checkpoint; never in the run report, the speed report or logs.
 - Tests use synthetic corpora and fake models. Real data was not read.
+
+## Local Telegram Desktop document attachments
+
+The Master Parser can now ingest supported attachments from Telegram Desktop JSON
+exports in its existing `master-parser/inbox` source. It follows each message's
+relative `file` path, accepts `.txt`, `.md`, `.pdf`, `.docx`, `.pptx` and `.xlsx`,
+and appends extracted text to that participant's message with an explicit
+`untrusted data` marker. The source is never modified. Only already-known Jeff
+participants are attributed; unsafe paths, symlinks, unsupported types and files
+over 32 MiB are rejected and counted in the source stats. Extracted text is capped
+at 20,000 characters. OOXML ZIP packages are checked before conversion for entry
+count and expanded-size limits, encrypted entries, and traversal names.
+
+PDF and Office conversion uses the optional open-source Docling adapter. Docling
+is selected because one local converter provides structured document conversion
+for PDF, DOCX, PPTX and XLSX and exports a common Markdown representation. Its
+upstream project is MIT-licensed; review the pinned transitive dependency licenses
+before redistributing a packaged runtime. The adapter is lazy and local-path-only.
+
+The existing owner runtime already installs Docling through its `documents`
+extra. Minimal installations can use `bossman-command-center[documents]` for
+conversion, while the `master-parser-documents` extra adds local-model and CLI
+support for PDF setup. DOCX/PPTX/XLSX conversion uses no PDF model weights and
+does not need a model directory. PDF conversion requires pre-fetched model artifacts: run
+`docling-tools models download` during setup and set `DOCLING_ARTIFACTS_PATH` to
+the local models directory. PDF inference runs with Hugging Face offline flags
+temporarily enabled and restores the process environment after conversion. The
+adapter does not accept URLs or download weights during parsing. Without the
+optional dependency, or without local PDF artifacts for a PDF, captions and
+ordinary text messages remain ingestible while attachment extraction is reported
+as unavailable. PDF model weights remain outside the standard Bossman runtime.
+Plain `.txt` and `.md` files need no Docling.
+
+This follows the existing source-reader seam (`document_parser: Path -> str`):
+the Telegram export reader owns participant attribution, safe relative-path
+validation, size/type limits and the untrusted-evidence marker; the adapter only
+extracts text. A later parser can implement the same seam without coupling the
+corpus engine to Docling. MarkItDown was reviewed as another MIT option, but the
+current path needs layout-aware PDF and Office conversion from one local document
+representation, which is Docling's documented focus. This is a parser choice,
+not a claim that extraction is lossless or safe to treat as instructions.
+
+The integration is covered by synthetic tests for extraction, path traversal,
+unsupported formats, preservation of captions on extraction failure, bounded
+Office archive handling, Office conversion without PDF models, and fail-closed/
+offline PDF setup. A real Telegram Desktop export and owner-machine Docling
+conversion have not yet been verified.
+
+Upstream references: [Docling supported formats](https://github.com/docling-project/docling/blob/main/docs/usage/supported_formats.md),
+[Docling offline usage](https://github.com/docling-project/docling/blob/main/docs/faq/index.md),
+[Docling slim package and MIT license](https://github.com/docling-project/docling/blob/main/packages/docling-slim/README.md),
+[MarkItDown](https://github.com/microsoft/markitdown).
 
 ## How to run
 

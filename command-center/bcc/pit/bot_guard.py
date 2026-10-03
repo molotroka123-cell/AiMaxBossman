@@ -76,17 +76,15 @@ def release_byte_lock(file) -> None:
         pass
 
 
-def companion_config_path() -> Path:
-    configured = os.environ.get("BOSSMAN_COMPANION_CONFIG", "").strip()
-    if configured:
-        return Path(configured)
-    base = os.environ.get("LOCALAPPDATA", str(Path.home() / ".local" / "share"))
-    return Path(base) / "Bossman" / "telegram-companion" / "config.json"
+def companion_config_path(data_dir: Path | None = None) -> Path:
+    """Same resolver as the companion itself (BOSSMAN_COMPANION_CONFIG keeps priority here)."""
+    from bcc.telegram_companion.paths import companion_config_path as resolve
+    return resolve(data_dir, env_order=("BOSSMAN_COMPANION_CONFIG", "BOSSMAN_TELEGRAM_CONFIG"), read_fallback=True)
 
 
-def companion_token_fingerprint(config: Path | None = None) -> str | None:
+def companion_token_fingerprint(config: Path | None = None, data_dir: Path | None = None) -> str | None:
     """Fingerprint of the companion («Пульт») bot token, or None when unknown."""
-    path = Path(config) if config else companion_config_path()
+    path = Path(config) if config else companion_config_path(data_dir)
     if not path.is_file():
         return None
     try:
@@ -98,7 +96,8 @@ def companion_token_fingerprint(config: Path | None = None) -> str | None:
     return token_fingerprint(token) if token else None
 
 
-def assert_not_companion_bot(pit_token: str, companion_config: Path | None = None) -> None:
-    fingerprint = companion_token_fingerprint(companion_config)
+def assert_not_companion_bot(pit_token: str, companion_config: Path | None = None,
+                             data_dir: Path | None = None) -> None:
+    fingerprint = companion_token_fingerprint(companion_config, data_dir)
     if fingerprint and fingerprint == token_fingerprint(pit_token):
         raise CompanionError("PIT_TOKEN_IS_THE_OWNER_COMPANION_BOT")

@@ -162,6 +162,15 @@ def jeff_process_count() -> int:
     return count
 
 
+def _descendant_pids(pid: Any) -> set[int]:
+    """Every live descendant of `pid` (empty without psutil or when the process is gone)."""
+    try:
+        import psutil
+        return {child.pid for child in psutil.Process(int(pid)).children(recursive=True)}
+    except Exception:  # noqa: BLE001 - ImportError, NoSuchProcess, AccessDenied, bad pid: "no descendants", never a crash
+        return set()
+
+
 # -- watchdog: the survivability half of the heartbeat -------------------------------
 STOP_FLAG_NAME = "stop.flag"
 BACKOFF_BASE_SECONDS = 2.0
@@ -238,7 +247,13 @@ class Watchdog:
 
     def _healthy(self, pid: int) -> bool:
         beat = self.beat_reader(self.home)
-        return bool(beat and beat.get("pid") == pid and beat.get("availability") == "up")
+        if not beat or beat.get("availability") != "up":
+            return False
+        beat_pid = beat.get("pid")
+        # A Windows venv `python.exe` is a launcher: the pid the watchdog spawned is the launcher, the pid that writes the
+        # heartbeat is the real interpreter below it. Comparing only the two made a perfectly healthy Jeff "unhealthy"
+        # after the start grace and the watchdog killed and restarted it every few minutes (seen live 30.09).
+        return beat_pid == pid or beat_pid in _descendant_pids(pid)
 
     def _sleep_watching_stop(self, seconds: float) -> bool:
         """Sleep in slices; True if a stop was requested meanwhile."""

@@ -49,10 +49,10 @@ def known_prices(model):
 #: owner's next step is not — "refresh the catalog" cannot fix a model the
 #: catalog no longer lists (RC19 audit: a removed OpenRouter model).
 _UNKNOWN_PRICE_WHY = {
-    "stale": ("unknown cloud pricing: model {name} is no longer in the provider catalog "
-              "(removed by the provider?) — choose another model for this agent"),
-    "absent": ("unknown cloud pricing: model {name} is not in the synchronized provider "
-               "catalog — check the model id or choose another model"),
+    "stale": ("Цена облачной модели неизвестна: модели {name} больше нет в каталоге провайдера "
+              "(провайдер её убрал?). Выберите для агента другую модель."),
+    "absent": ("Цена облачной модели неизвестна: модели {name} нет в синхронизированном каталоге "
+               "провайдера. Проверьте имя модели или выберите другую."),
 }
 
 
@@ -81,7 +81,7 @@ def unknown_price_message(model: dict, catalog_state: str | None = None) -> str:
     name = model.get("name") or model.get("alias") or "?"
     template = _UNKNOWN_PRICE_WHY.get(catalog_state or "")
     return (template.format(name=name) if template
-            else "unknown cloud pricing; refresh catalog before inference")
+            else "Цена облачной модели неизвестна: обновите каталог провайдера перед запуском.")
 
 
 ALLOW_PAID_CLOUD_ENV = "BOSSMAN_ALLOW_PAID_CLOUD"
@@ -100,6 +100,16 @@ def _free_preset_hosts() -> frozenset:
     return frozenset((urlsplit(p.base_url).hostname or "").lower() for p in PRESETS.values())
 
 
+def banned_model_refusal(model: dict) -> str:
+    """'' unless the model is a banned family (Liquid/LFM, bcc.pit.model_policy)."""
+    from .pit.model_policy import banned_refusal
+    for name in (model.get("name"), model.get("alias")):
+        refusal = banned_refusal(name) if name else ""
+        if refusal:
+            return refusal
+    return ""
+
+
 def free_only_refusal(provider: dict, model: dict) -> str:
     """"" when the free-only rule lets this inference through, else why not.
 
@@ -109,6 +119,9 @@ def free_only_refusal(provider: dict, model: dict) -> str:
     free-tier preset (caps.free_tier) on that preset's own host. A positive price
     is refused outright; a 0/0 an owner typed for an arbitrary host is not proof."""
     from .fable_cap import paid_fable_boundary
+    banned = banned_model_refusal(model)
+    if banned:
+        return banned                  # owner ban: local or cloud, paid opt-out or not
     if (not free_only_policy_active() or is_governed_local(provider, model)
             or paid_fable_boundary(provider) or is_local_url(provider.get("base_url") or "")):
         return ""
@@ -116,15 +129,15 @@ def free_only_refusal(provider: dict, model: dict) -> str:
     prices = [v for v in (model.get("price_in"), model.get("price_out"))
               if isinstance(v, (int, float)) and not isinstance(v, bool)]
     if any(v > 0 for v in prices):
-        return (f"free-only policy: cloud model {name} has a positive price; only ':free' "
-                f"OpenRouter models, free-tier providers or local models are allowed")
+        return (f"Облачная модель {name} платная, а включён режим «только бесплатное»: "
+                f"разрешены локальные модели, модели OpenRouter с суффиксом ':free' и бесплатные тарифы провайдеров.")
     host = (urlsplit(provider.get("base_url") or "").hostname or "").lower()
     if host.endswith("openrouter.ai") and name.endswith(":free"):
         return ""
     if (model.get("caps") or {}).get("free_tier") and host in _free_preset_hosts():
         return ""
-    return (f"free-only policy: cloud model {name} on {host or 'default endpoint'} is not a ':free' "
-            f"OpenRouter model or a connected free-tier provider model")
+    return (f"Облачная модель {name} ({host or 'адрес по умолчанию'}) не доказанно бесплатная, а включён режим "
+            f"«только бесплатное»: нужна локальная модель, модель OpenRouter ':free' или бесплатный тариф провайдера.")
 
 
 class FreeOnlyAdapter:
@@ -150,6 +163,9 @@ class GovernedAdapter:
 
     async def chat(self, *args, **kwargs):
         p, m = self.provider, self.model
+        banned = banned_model_refusal(m)
+        if banned:
+            raise ProviderError(banned, kind="budget")
         assert_provider_egress(p["kind"], p.get("base_url") or "")
         local = is_governed_local(p, m)
         # CappedAdapter has its own canonical tariff and rejects unknown models before dispatch.

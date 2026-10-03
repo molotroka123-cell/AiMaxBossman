@@ -15,7 +15,10 @@ Resume модель обязана перечитать DOM — старое с�
 """
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
+import re
 import threading
 import time
 import uuid
@@ -27,9 +30,11 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from ..db import settings_kv, utcnow
 from ..tools import REGISTRY, ToolResult, ToolSpec
 from ..v2.browser_control import (AmbiguousSelector, BrowserApprovalRequired,
+                                  BrowserConsequenceApprovalRequired,
                                   BrowserDownloadApprovalRequired, BrowserDownloadFailed, BrowserPolicy,
                                   BrowserPolicyDenied, BrowserTakeoverActive, BrowserUnavailable,
-                                  CaptchaBlocked, StaleElementReference, redact_secrets)
+                                  CaptchaBlocked, StaleElementReference, live_ref_info,
+                                  redact_secrets, selector_consequence)
 from ..v2.tables import browser_sessions as bs_t
 from . import Feature
 
@@ -54,6 +59,56 @@ def _mgr(svc):
     return base_mgr(svc)
 
 
+# Скриншоты агента: кольцо из SHOT_RING файлов на сессию, а не новый файл на каждый
+# вызов (было ~1200 файлов в час на одну открытую панель). Старые перезаписываются,
+# закрытие сессии и старт процесса убирают остатки.
+SHOT_RING = 5
+_SHOT_SEQ: dict[int, int] = {}
+
+
+def shots_dir(svc) -> Path:
+    return Path(svc.settings.data_dir) / "browser" / "shots"
+
+
+def store_screenshot(svc, session_id: int, png: bytes) -> Path:
+    folder = shots_dir(svc)
+    folder.mkdir(parents=True, exist_ok=True)
+    n = _SHOT_SEQ.get(session_id, 0)
+    _SHOT_SEQ[session_id] = n + 1
+    path = folder / f"shot-{int(session_id)}-{n % SHOT_RING}.png"
+    path.write_bytes(png)
+    return path
+
+
+def drop_session_shots(svc, session_id: int) -> int:
+    """Убрать кадры закрытой сессии. Возвращает, сколько файлов удалено."""
+    _SHOT_SEQ.pop(session_id, None)
+    removed = 0
+    for path in shots_dir(svc).glob(f"shot-{int(session_id)}-*.png"):
+        with contextlib.suppress(OSError):
+            path.unlink()
+            removed += 1
+    return removed
+
+
+def _is_live(svc, session_id: int) -> bool:
+    """Есть ли в ЭТОМ процессе живой браузерный контекст. Менеджер без
+    `is_live` (двойник в тестах) считается живым — прежнее поведение."""
+    check = getattr(_mgr(svc), "is_live", None)
+    return True if check is None else bool(check(session_id))
+
+
+async def mark_session(svc, session_id: int, status: str, *, only_if: str | None = None) -> None:
+    """Проставить итоговый статус строки сессии (по умолчанию — любой текущий)."""
+    cond = bs_t.c.id == session_id
+    if only_if:
+        cond = sa.and_(cond, bs_t.c.status == only_if)
+    async with svc.db.session() as s:
+        await s.execute(sa.update(bs_t).where(cond).values(
+            status=status, updated_at=utcnow(), finished_at=utcnow()))
+        await s.commit()
+
+
 async def _session_for(ctx, args: dict) -> int:
     """Сессия браузера этого run'а: переиспользуем, пока не попросили новую."""
     explicit = args.get("session_id")
@@ -71,7 +126,13 @@ async def _session_for(ctx, args: dict) -> int:
             bs_t.c.task_id == ctx.task["id"], bs_t.c.status == "running"))
             .order_by(bs_t.c.id.desc()).limit(1))).first()
     if row:
-        return int(row[0])
+        # Строка `running` переживает рестарт процесса, а Playwright-контекст — нет.
+        # Раньше её брали не глядя, и каждый вызов браузерного инструмента после
+        # рестарта падал с LookupError «session is not running». Мёртвую строку
+        # закрываем честным `lost` и открываем новую сессию.
+        if _is_live(ctx.svc, int(row[0])):
+            return int(row[0])
+        await mark_session(ctx.svc, int(row[0]), "lost", only_if="running")
     async with ctx.svc.db.session() as s:
         res = await s.execute(sa.insert(bs_t).values(
             task_id=ctx.task["id"], agent_id=ctx.agent.get("id"), status="created",
@@ -80,7 +141,13 @@ async def _session_for(ctx, args: dict) -> int:
         await s.commit()
     policy = BrowserPolicy.from_dict((ctx.agent.get("permissions") or {}).get("browser")
                                      if isinstance(ctx.agent.get("permissions"), dict) else None)
-    await _mgr(ctx.svc).start(sid, policy, headless=True)
+    try:
+        await _mgr(ctx.svc).start(sid, policy, headless=True)
+    except BaseException:
+        # Строка, оставшаяся в `created` навсегда, неотличима от «создаётся».
+        with contextlib.suppress(Exception):
+            await mark_session(ctx.svc, sid, "failed")
+        raise
     async with ctx.svc.db.session() as s:
         await s.execute(sa.update(bs_t).where(bs_t.c.id == sid).values(
             status="running", updated_at=utcnow()))
@@ -89,16 +156,45 @@ async def _session_for(ctx, args: dict) -> int:
     return sid
 
 
-def _render(snapshot: dict) -> ToolResult:
-    """DOM-снимок → компактный текст для модели (обрезка здесь, не по просьбе модели)."""
+def _int_arg(value, low: int, high: int) -> int:
+    """Целое из аргумента модели в границах; мусор — ноль (а не исключение)."""
+    if isinstance(value, bool):
+        return 0
+    try:
+        return max(low, min(int(value or 0), high))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _render(snapshot: dict, offset: int | None = None) -> ToolResult:
+    """DOM-снимок → компактный текст для модели (обрезка здесь, не по просьбе модели).
+
+    Длинная страница читается кусками: `offset` — с какого знака показывать, и
+    подсказка «ещё есть» называет ТОЧНЫЙ следующий вызов. Раньше подсказка
+    отсылала к `browser.read_dom` «с уточняющим запросом», а у того не было ни
+    одного параметра: всё после первых TEXT_LIMIT знаков было недостижимо.
+    """
     from .. import clip_guard
     guard = clip_guard.scan_page_text(str(snapshot.get("text") or ""))
     text = guard["text"]
-    truncated = len(text) > TEXT_LIMIT
+    # Снимок сам может начинаться не с нуля (`text_offset`): менеджер режет окно
+    # ещё в странице, поэтому страница длиннее его потолка читается до конца.
+    base = max(0, _int_arg(snapshot.get("text_offset"), 0, 10**9))
+    total = max(_int_arg(snapshot.get("text_total"), 0, 10**9), base + len(text))
+    offset = base if offset is None else max(0, int(offset))
+    local = max(0, min(offset - base, len(text)))
+    offset = base + local
+    end = offset + TEXT_LIMIT
+    truncated = total > end
     items = (snapshot.get("interactive") or [])[:INTERACTIVE_LIMIT]
-    lines = [f"URL: {snapshot.get('url')}", f"Заголовок: {snapshot.get('title')}", "",
-             "Текст страницы:", text[:TEXT_LIMIT], "",
-             "Интерактивные элементы (ref действителен только до следующего снимка):"]
+    status = snapshot.get("http_status")
+    lines = [f"URL: {snapshot.get('url')}", f"Заголовок: {snapshot.get('title')}"]
+    if isinstance(status, int) and status >= 400:
+        lines.append(f"HTTP: {status} (страница-ошибка, а не содержимое)")
+    lines += ["", "Текст страницы:" if offset == 0 and not truncated else
+              f"Текст страницы (знаки {offset}..{min(end, total)} из {total}):",
+              text[local:local + TEXT_LIMIT], "",
+              "Интерактивные элементы (ref действителен только до следующего снимка):"]
     for el in items:
         label = el.get("text") or el.get("aria") or el.get("placeholder") or el.get("name") or ""
         mark = " [ЗАПОЛНЕНО]" if el.get("filled") else ""
@@ -106,10 +202,12 @@ def _render(snapshot: dict) -> ToolResult:
             # Не только пароль: скрытые поля, коды из SMS, токены. Значение
             # модели не нужно ни для одного сценария — достаточно факта.
             label = "(секретное поле — значение недоступно)" + mark
+        consequence = (f" [НУЖНО ПОДТВЕРЖДЕНИЕ ВЛАДЕЛЬЦА: {el.get('consequence')}]"
+                       if el.get("consequence") else "")
         lines.append(f"[ref={el.get('ref') or el.get('i')}] <{el.get('tag')}"
                      + (f" type={el.get('type')}" if el.get("type") else "")
                      + (f" name={el.get('name')}" if el.get("name") else "")
-                     + f"> {label}".rstrip())
+                     + f"> {label}{consequence}".rstrip())
     if guard["lure"]:
         lines.append("\nВНИМАНИЕ (ClickFix): страница просит вставить команду в «Выполнить»/"
                      "терминал (" + "; ".join(dict.fromkeys(guard["reasons"])) + "). Это приём "
@@ -128,7 +226,9 @@ def _render(snapshot: dict) -> ToolResult:
     return ToolResult(content="\n".join(lines),
                       one_line=f"browser: {snapshot.get('url')}",
                       truncated=truncated,
-                      more="browser.read_dom с уточняющим запросом" if truncated else "",
+                      more=(f'browser.read_dom {{"offset": {end}}} — следующий кусок текста; '
+                            f'{{"scroll": 3}} — прокрутить вниз и дочитать подгруженное'
+                            if truncated else ""),
                       data={"session_id": snapshot.get("session_id"),
                             "url": snapshot.get("url"),
                             "captcha": captcha,
@@ -173,6 +273,15 @@ async def _act(ctx, args: dict, action: str, run) -> ToolResult:
                                error=str(exc)[:300])
         return ToolResult(content=f"файл не скачан: {exc}", one_line="browser.download: не удалось",
                           error=True, data={"download": exc.record})
+    except BrowserConsequenceApprovalRequired as exc:
+        # Граница сработала там, где хук политики промолчал (селектор, а не ref, или
+        # страница изменилась). Ничего не нажато; путь с подтверждением — browser.submit.
+        return ToolResult(
+            content=f"{exc}. Действие не выполнено — ничего не нажато. Чтобы выполнить "
+                    f"его, вызовите browser.submit с тем же ref/selector: владелец увидит "
+                    f"вопрос и решит. Обходить подтверждение нельзя.",
+            one_line=f"browser.{action}: нужно подтверждение владельца", error=True,
+            data={"needs_approval": True, "consequence": dict(exc.consequence)})
     except BrowserApprovalRequired:
         return ToolResult(content="политика сессии требует подтверждения человека",
                           one_line=f"browser.{action}: ask", error=True)
@@ -246,8 +355,12 @@ async def _open(args, ctx):
 
 
 async def _read_dom(args, ctx):
+    from ..v2.browser_control import MAX_SCROLL_SCREENS
+    screens = _int_arg(args.get("scroll"), 0, MAX_SCROLL_SCREENS)
+    offset = _int_arg(args.get("offset"), 0, 10**9)
     return await _act(ctx, args, "snapshot",
-                      lambda m, sid: m.snapshot(sid, actor="agent", approved=True))
+                      lambda m, sid: m.snapshot(sid, actor="agent", approved=True,
+                                                scroll_screens=screens, text_offset=offset))
 
 
 async def _click(args, ctx):
@@ -256,9 +369,16 @@ async def _click(args, ctx):
     if not sel and not ref:
         return ToolResult(content="нужен ref из свежего DOM-снимка (надёжнее) или selector",
                           one_line="browser.click: нет цели", error=True)
+    # `approved=True` — прежнее «AUTO/ASK уже решил канонический слой». Клик с
+    # последствиями (оплата, отправка, публикация, удаление…) решается строже: он
+    # проходит, только если у ЭТОГО вызова есть строка одобрения владельца
+    # (`ctx.approval_id`, её пишет движок, а не модель). Иначе граница в
+    # BrowserManager.click его не пропустит, даже если хук политики промолчал.
+    owner_decided = getattr(ctx, "approval_id", None) is not None
     return await _act(ctx, args, "click",
                       lambda m, sid: m.click(sid, sel, ref=ref, actor="agent", approved=True,
-                                             allow_download=False))
+                                             allow_download=False,
+                                             consequence_approved=owner_decided))
 
 
 async def _download(args, ctx):
@@ -302,14 +422,17 @@ async def _reload(args, ctx):
 
 
 async def _submit(args, ctx):
-    """Отправка формы = клик по submit-элементу, но через ASK-инструмент."""
+    """Отправка формы = клик по submit-элементу, но через ASK-инструмент.
+
+    Это же — путь с подтверждением для любого клика с последствиями: оплата,
+    публикация, удаление. Цель — ref из свежего снимка или selector."""
     sel = str(args.get("selector") or "")
-    if not sel:
-        return ToolResult(content="нужен аргумент selector кнопки отправки",
-                          one_line="browser.submit: нет selector", error=True)
+    ref = str(args.get("ref") or "")
+    if not sel and not ref:
+        return ToolResult(content="нужен ref из свежего DOM-снимка или selector кнопки отправки",
+                          one_line="browser.submit: нет цели", error=True)
     return await _act(ctx, args, "submit",
-                      lambda m, sid: m.click(sid, sel, ref=str(args.get("ref") or ""),
-                                             actor="agent", approved=True))
+                      lambda m, sid: m.click(sid, sel, ref=ref, actor="agent", approved=True))
 
 
 async def credentials_map(svc) -> dict:
@@ -690,17 +813,55 @@ async def _screenshot(args, ctx):
     except Exception as exc:
         return ToolResult(content=f"не удалось снять скриншот: {type(exc).__name__}: {exc}",
                           one_line="browser.screenshot: ошибка", error=True)
-    shots = Path(ctx.svc.settings.data_dir) / "browser"
-    shots.mkdir(parents=True, exist_ok=True)
-    path = shots / f"shot-{sid}-{uuid.uuid4().hex[:6]}.png"
-    path.write_bytes(png)
+    path = store_screenshot(ctx.svc, sid, png)
     return ToolResult(content=f"скриншот сохранён: {path} ({len(png)} байт). "
+                              f"Хранятся только последние {SHOT_RING} кадров сессии. "
                               f"Содержимое страницы читайте через browser.read_dom.",
                       one_line="browser.screenshot: ок",
                       data={"path": str(path), "session_id": sid})
 
 
 def _no_loosen(_args: dict) -> tuple[str, str] | None:
+    return None
+
+
+def _click_effect(args: dict) -> tuple[str, str] | None:
+    """P0: клик с последствиями — ASK, как `browser.submit`.
+
+    У хука есть только аргументы вызова, поэтому цель берётся из ПОСЛЕДНЕГО
+    снимка страницы (`live_ref_info`): подпись, роль, тип и форма элемента там
+    уже классифицированы. Селектор проверяется по своему тексту. Промах хука не
+    ослабляет защиту: граница в `BrowserManager.click` смотрит на живой элемент."""
+    ref = str(args.get("ref") or "").strip()
+    if ref:
+        info = live_ref_info(ref)
+        if info and info.get("consequence"):
+            return "ask", f"клик с последствиями: {info['consequence']['why']}"
+        return None
+    hit = selector_consequence(str(args.get("selector") or ""))
+    if hit:
+        return "ask", f"клик с последствиями: {hit['why']}"
+    return None
+
+
+def _submit_effect(args: dict) -> tuple[str, str]:
+    ref = str(args.get("ref") or "").strip()
+    info = live_ref_info(ref) if ref else None
+    why = (info or {}).get("consequence") or selector_consequence(str(args.get("selector") or ""))
+    return "ask", ("отправка формы во внешний мир" + (f": {why['why']}" if why else ""))
+
+
+_PASSWORD_SELECTOR = re.compile(r"""(?i)type\s*=\s*["']?password""")
+
+
+def _type_effect(args: dict) -> tuple[str, str] | None:
+    """Ввод агентом в поле пароля/секрета — отказ без права на подтверждение.
+    Единственный путь для пароля — `browser.login` (значение из хранилища)."""
+    ref = str(args.get("ref") or "").strip()
+    info = live_ref_info(ref) if ref else None
+    if (info and info.get("secret")) or _PASSWORD_SELECTOR.search(str(args.get("selector") or "")):
+        return ("deny", "ввод агентом в поле пароля/секрета запрещён: пароль подставляет "
+                        "только хранилище (browser.login с credential_id) или сам владелец")
     return None
 
 
@@ -720,8 +881,15 @@ SPECS = [
              category="write", permission="browser.control", source="browser",
              default_effect="ask", timeout_seconds=180.0, idempotent=False,
              effect_hook=lambda a: ("ask", "скачивание файла на диск владельца")),
-    ToolSpec(name="browser.read_dom", description="Перечитать текущую страницу (DOM-снимок).",
-             handler=_read_dom, input_schema={}, category="read", permission="browser.read",
+    ToolSpec(name="browser.read_dom",
+             description="Перечитать текущую страницу (DOM-снимок). Длинная страница "
+                         "показывается кусками: offset — с какого знака читать дальше "
+                         "(точное значение печатается в подсказке «дочитать»); scroll — "
+                         "прокрутить вниз на N экранов (1..10), чтобы подгрузилась лента.",
+             handler=_read_dom,
+             input_schema={"offset": {"type": "integer", "minimum": 0},
+                           "scroll": {"type": "integer", "minimum": 0, "maximum": 10}},
+             required=[], category="read", permission="browser.read",
              source="browser", default_effect="auto", timeout_seconds=60.0, external_output=True),
     ToolSpec(name="browser.screenshot", description="Скриншот текущей страницы в файл.",
              handler=_screenshot, input_schema={}, category="read", permission="browser.read",
@@ -729,14 +897,17 @@ SPECS = [
     ToolSpec(name="browser.click",
              description="Кликнуть по элементу: ref из последнего DOM-снимка (надёжно) "
                          "или CSS-селектор. Устаревший ref и неоднозначный селектор "
-                         "отклоняются, а не нажимаются наугад.",
+                         "отклоняются, а не нажимаются наугад. Клик с последствиями "
+                         "(оплата, покупка, заказ, отправка формы, публикация, удаление, "
+                         "подписка, вход) требует подтверждения владельца; в снимке такие "
+                         "элементы помечены.",
              handler=_click,
              input_schema={"ref": {"type": "string",
                                    "description": "ссылка из последнего DOM-снимка (надёжнее селектора)"},
                            "selector": {"type": "string"}}, required=[],
              category="write", permission="browser.control", source="browser",
              default_effect="auto", timeout_seconds=60.0, idempotent=False,
-             external_output=True),
+             external_output=True, effect_hook=_click_effect),
     ToolSpec(name="browser.type",
              description="Ввести текст в поле по ref из DOM-снимка или CSS-селектору. "
                          "Для паролей используйте browser.login с credential_id.",
@@ -745,7 +916,7 @@ SPECS = [
                            "text": {"type": "string"}},
              required=["text"], category="write", permission="browser.control",
              source="browser", default_effect="auto", timeout_seconds=60.0, idempotent=False,
-             external_output=True),
+             external_output=True, effect_hook=_type_effect),
     ToolSpec(name="browser.select", description="Выбрать значение в выпадающем списке.",
              handler=_select,
              input_schema={"selector": {"type": "string"}, "value": {"type": "string"}},
@@ -794,11 +965,18 @@ SPECS = [
              input_schema={}, category="read", permission="browser.read", source="browser",
              default_effect="auto", external_output=True),
     # Чувствительные действия: ASK по умолчанию и НЕ ослабляются выданным правом
-    ToolSpec(name="browser.submit", description="Отправить форму (нужно подтверждение человека).",
-             handler=_submit, input_schema={"selector": {"type": "string"}}, required=["selector"],
+    ToolSpec(name="browser.submit",
+             description="Отправить форму или нажать кнопку с последствиями (оплата, "
+                         "публикация, удаление, отправка): ref из свежего DOM-снимка или "
+                         "selector. Нужно подтверждение человека.",
+             handler=_submit,
+             input_schema={"ref": {"type": "string",
+                                   "description": "ссылка из последнего DOM-снимка (надёжнее селектора)"},
+                           "selector": {"type": "string"}},
+             required=[],
              category="send", permission="browser.control", source="browser",
              default_effect="ask", idempotent=False, external_output=True,
-             effect_hook=lambda a: ("ask", "отправка формы во внешний мир")),
+             effect_hook=_submit_effect),
     ToolSpec(name="browser.login",
              description="Войти по СОХРАНЁННОЙ учётной записи (credential_id). "
                          "Пароль в аргументах не передаётся и модели не показывается. "
@@ -904,9 +1082,148 @@ async def http_delete_credential(credential_id: str, request: Request):
     return {"ok": True, "id": credential_id}
 
 
+# ------------------------------------------------- жизненный цикл сессий
+
+#: Задача в одном из этих состояний больше браузера не использует.
+_TASK_DONE = ("completed", "failed", "stopped", "cancelled")
+_TASK_END_EVENTS = frozenset({"task.completed", "task.failed", "task.stopped"})
+_LEGACY_SHOT_MAX_AGE_S = 24 * 3600
+
+
+async def reconcile_sessions(svc) -> int:
+    """Старт процесса: строки `running`/`created` без живого контекста → `lost`.
+
+    Рантайм-сессия не переживает рестарт, а строка переживала и оставалась
+    `running` навсегда: список показывал «работает», панель получала 404, а
+    инструмент агента брал эту строку и падал."""
+    async with svc.db.session() as s:
+        rows = (await s.execute(sa.select(bs_t.c.id).where(
+            bs_t.c.status.in_(("running", "created"))))).fetchall()
+    dead = [int(r[0]) for r in rows if not _is_live(svc, int(r[0]))]
+    if dead:
+        async with svc.db.session() as s:
+            await s.execute(sa.update(bs_t).where(bs_t.c.id.in_(dead)).values(
+                status="lost", updated_at=utcnow(), finished_at=utcnow()))
+            await s.commit()
+    return len(dead)
+
+
+def cleanup_screenshot_files(svc) -> None:
+    """Старт процесса: кольцо кадров прошлого процесса и старые «бесконечные» файлы."""
+    folder = shots_dir(svc)
+    for path in folder.glob("shot-*.png") if folder.is_dir() else ():
+        with contextlib.suppress(OSError):
+            path.unlink()
+    legacy = Path(svc.settings.data_dir) / "browser"
+    cutoff = time.time() - _LEGACY_SHOT_MAX_AGE_S
+    for path in legacy.glob("shot-*.png") if legacy.is_dir() else ():
+        with contextlib.suppress(OSError):
+            if path.stat().st_mtime < cutoff:
+                path.unlink()
+
+
+async def close_sessions(svc, session_ids: list[int], *, status: str = "stopped") -> list[int]:
+    """Закрыть сессии: контекст Chromium, строка в БД, кольцо кадров."""
+    closed: list[int] = []
+    for sid in session_ids:
+        with contextlib.suppress(Exception):
+            await _mgr(svc).stop(sid)
+        with contextlib.suppress(Exception):
+            await mark_session(svc, sid, status)
+        with contextlib.suppress(Exception):
+            drop_session_shots(svc, sid)
+        closed.append(sid)
+    return closed
+
+
+async def close_task_sessions(svc, task_id: int) -> list[int]:
+    """Задача закончилась (completed/failed/stopped) — её браузеры больше не нужны.
+
+    Раньше сессия жила до остановки процесса: каждая задача с браузером оставляла
+    Chromium (и его память) навсегда, а `max_runtime_minutes` политики не
+    исполнялся нигде."""
+    async with svc.db.session() as s:
+        rows = (await s.execute(sa.select(bs_t.c.id).where(
+            bs_t.c.task_id == task_id, bs_t.c.status.in_(("running", "created"))))).fetchall()
+    return await close_sessions(svc, [int(r[0]) for r in rows])
+
+
+async def sweep_ended_tasks(svc) -> list[int]:
+    """Страховка к подписке на шину (очередь подписчика может переполниться):
+    живые сессии задач, которые уже закончились, закрываются по состоянию БД."""
+    from ..db import tasks as tasks_t
+    async with svc.db.session() as s:
+        rows = (await s.execute(
+            sa.select(bs_t.c.id).select_from(bs_t.join(tasks_t, tasks_t.c.id == bs_t.c.task_id))
+            .where(bs_t.c.status.in_(("running", "created")),
+                   tasks_t.c.status.in_(_TASK_DONE)))).fetchall()
+    ids = [int(r[0]) for r in rows if _is_live(svc, int(r[0]))]
+    return await close_sessions(svc, ids) if ids else []
+
+
+async def watch_bus(svc, kinds: frozenset[str], handler) -> None:
+    """Подписка на события шины: тяжёлая работа — в отдельных задачах, чтобы
+    очередь подписчика (500 событий) не переполнялась и читатель не вылетал.
+
+    Вылет из подписки (шина бросает отстающих) — повторная подписка. Снятие задачи
+    (остановка сервисов) отпускает очередь и доделывает начатую работу."""
+    q = svc.bus.subscribe()
+    getter: asyncio.Future | None = None       # один q.get(); отменяется при любом выходе
+    pending: set[asyncio.Task] = set()
+    try:
+        while True:
+            if not svc.bus.is_subscribed(q):       # шина выбросила отстающего: подписаться снова
+                if getter is not None and not getter.done():
+                    getter.cancel()
+                getter = None
+                q = svc.bus.subscribe()
+            if getter is None:
+                getter = asyncio.ensure_future(q.get())
+            # asyncio.wait, а не wait_for(q.get()): у wait_for на Python 3.11 отмена
+            # внешней задачи может потеряться (gh-86296) — остановка сервисов зависла бы.
+            done, _ = await asyncio.wait({getter}, timeout=5.0)
+            if not done:
+                continue
+            msg = getter.result()
+            getter = None
+            if not isinstance(msg, dict) or msg.get("kind") not in kinds:
+                continue
+            task = asyncio.create_task(handler(msg), name="bcc-ops-bus-handler")
+            pending.add(task)
+            task.add_done_callback(pending.discard)
+    finally:
+        if getter is not None and not getter.done():
+            getter.cancel()
+        svc.bus.unsubscribe(q)
+        if pending:
+            # Начатую работу с БД не рвём отменой: отменённый посреди запроса
+            # коннект в пул уже не вернётся (см. bcc/api.py Services.stop).
+            await asyncio.wait(set(pending), timeout=3.0)
+
+
+async def _on_task_end(svc, msg: dict) -> None:
+    with contextlib.suppress(Exception):
+        if msg.get("task_id") is not None:
+            await close_task_sessions(svc, int(msg["task_id"]))
+
+
+async def _sweep_tick(svc) -> None:
+    await sweep_ended_tasks(svc)
+
+
 async def _setup(svc) -> None:
     for spec in SPECS:
         REGISTRY.register(spec)
+    with contextlib.suppress(Exception):
+        await reconcile_sessions(svc)
+    with contextlib.suppress(Exception):
+        cleanup_screenshot_files(svc)
+    # В svc._tasks, чтобы остановка сервисов отменила подписку (как у missions/rave).
+    if hasattr(svc, "_tasks"):
+        svc._tasks.append(asyncio.create_task(
+            watch_bus(svc, _TASK_END_EVENTS, lambda msg: _on_task_end(svc, msg)),
+            name="bcc-browser-task-end"))
 
 
-FEATURE = Feature(name="tools_browser", router=router, setup=_setup)
+FEATURE = Feature(name="tools_browser", router=router, setup=_setup,
+                  tick=_sweep_tick, tick_seconds=30.0)

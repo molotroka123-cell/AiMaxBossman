@@ -122,6 +122,17 @@ class ProviderAdapter(Protocol):
     async def list_models(self) -> list[str]: ...
 
 
+def is_ollama_v1_url(url: str) -> bool:
+    """Loopback Ollama's OpenAI-compatible endpoint (default port 11434, path /v1)."""
+    try:
+        parts = urlparse(url or "")
+        port = parts.port
+    except ValueError:
+        return False
+    return ((parts.hostname or "").lower() in ("127.0.0.1", "localhost", "::1")
+            and port == 11434 and parts.path.rstrip("/") == "/v1")
+
+
 def is_local_url(url: str) -> bool:
     """Адрес на этой же машине или в локальной сети.
 
@@ -224,7 +235,7 @@ class _BaseAdapter:
             raise ProviderError(f"{_host(url)} не ответил за {int(timeout)} с", kind="network",
                                 hint="проверьте, что сервер модели запущен") from None
         except httpx.HTTPError as exc:
-            raise ProviderError(f"нет связи с {_host(url)}: {type(exc).__name__}", kind="network",
+            raise ProviderError(f"нет связи с {_host(url)}: {net_reason(exc)}", kind="network",
                                 hint="проверьте base_url и что endpoint поднят") from None
         if resp.status_code >= 400:
             raise ProviderError(_explain(resp), kind="http")
@@ -260,6 +271,17 @@ class OpenAICompatAdapter(_BaseAdapter):
             payload["tool_choice"] = kw.get("tool_choice") or "auto"
         if kw.get("response_format") is not None:
             payload["response_format"] = kw["response_format"]
+        if kw.get("reasoning_effort") is not None:
+            payload["reasoning_effort"] = kw["reasoning_effort"]
+        elif is_ollama_v1_url(self.base_url):
+            # RC19: Ollama's /v1 returns a thinking model's private reasoning in
+            # `message.reasoning` (CMD showed it to the owner) and spends the
+            # answer budget on it. `think: false` is ignored on /v1;
+            # `reasoning_effort: "none"` switches thinking off (Ollama 0.34.4,
+            # owner host). Same policy as llama.cpp `--reasoning off` in
+            # start-models.ps1 and Jeff's native `think: false`. A caller that
+            # wants reasoning asks for it explicitly.
+            payload["reasoning_effort"] = "none"
         if kw.get("on_delta") is not None:
             # Live answer text (owner P1). None = this provider/model cannot
             # stream right now: fall through to the ordinary whole-answer call.
@@ -355,7 +377,7 @@ class OpenAICompatAdapter(_BaseAdapter):
         except httpx.TimeoutException:
             raise await discard(f"{_host(url)} не ответил за {int(timeout)} с") from None
         except httpx.HTTPError as exc:
-            raise await discard(f"нет связи с {_host(url)}: {type(exc).__name__}") from None
+            raise await discard(f"нет связи с {_host(url)}: {net_reason(exc)}") from None
         if cs.error or not (cs.terminated or cs.finish_reason):
             if not shown:
                 return None
@@ -626,6 +648,21 @@ def build_adapter(kind: str, base_url: str = "", api_key: str | None = None,
         raise ProviderError(f"неизвестный вид провайдера: {kind}",
                             hint=f"доступны: {', '.join(ADAPTERS)}")
     return cls(base_url=base_url, api_key=api_key, transport=transport)  # type: ignore[return-value]
+
+
+def net_reason(exc: BaseException) -> str:
+    """Причина сетевого сбоя словами для человека.
+
+    Имя класса исключения («ConnectError») и английский текст httpx («All connection attempts
+    failed») владельцу ничего не говорят и в уведомление не попадают.
+    """
+    if isinstance(exc, httpx.TimeoutException):
+        return "не ответил вовремя"
+    if isinstance(exc, (httpx.ConnectError, httpx.ProxyError)):
+        return "соединение не установлено: сервер выключен, нет интернета или соединение закрыто прокси"
+    if isinstance(exc, (httpx.ReadError, httpx.RemoteProtocolError, httpx.WriteError)):
+        return "соединение оборвалось"
+    return "сетевой сбой"
 
 
 def _host(url: str) -> str:

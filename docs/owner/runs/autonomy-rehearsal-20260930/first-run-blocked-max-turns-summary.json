@@ -1,0 +1,155 @@
+{
+ "label": "SANDBOX_REHEARSAL, pin tестовый, не владельца",
+ "run": "C:\\Users\\asd\\Bossman\\swarm-20260930\\autonomy\\sandbox\\run-20260930-102240",
+ "started": "2026-09-30T10:22:40",
+ "pin": {
+  "kind": "SANDBOX_TEST_PIN",
+  "path": "C:\\Users\\asd\\Bossman\\swarm-20260930\\autonomy\\sandbox\\run-20260930-102240\\test-pin\\constitution.sha256",
+  "owner_pin_touched": false,
+  "constitution_sha12": "ea6f8e86717a"
+ },
+ "constitution_status": {
+  "status": "OK",
+  "ok": true,
+  "sha": "ea6f8e86717a0cab045ef84589c48a9fbfa41687e4f2c764c4a6015b382feeb3",
+  "pinned_sha": "ea6f8e86717a0cab045ef84589c48a9fbfa41687e4f2c764c4a6015b382feeb3",
+  "reason": "pinned by the user",
+  "path": "C:\\Users\\asd\\Bossman\\swarm-20260930\\autonomy\\sandbox\\run-20260930-102240\\constitution\\BOSSMAN_CONSTITUTION.md",
+  "pin_path": "<sandbox test pin>"
+ },
+ "plan": {
+  "source": "remote",
+  "candidates": [
+   "SBX-0001",
+   "SBX-0002"
+  ],
+  "reason": "chosen by remote",
+  "calls": [
+   {
+    "source": "remote",
+    "provider": "nvidia-nim",
+    "model": "nvidia/nemotron-3-ultra-550b-a55b",
+    "params_b": 550.0,
+    "price_source": "GET /api/models on the live instance (id 55, price 0/0), 2026-09-30",
+    "price_checked_at": "2026-09-30T17:22:41Z",
+    "tokens_in": 231,
+    "tokens_out": 173,
+    "latency_ms": 9531,
+    "fallback_reason": null,
+    "choice": "SBX-0001"
+   }
+  ],
+  "chosen": "SBX-0001"
+ },
+ "roles": {
+  "goal_id": "SBX-0001",
+  "seed": "2",
+  "draw": 0.417017,
+  "writer": "claude",
+  "review_order": [
+   "claude",
+   "codex"
+  ],
+  "claude_model": "haiku",
+  "codex_model": "codex default"
+ },
+ "supervisor": {
+  "status": "BLOCKED",
+  "reason": "SBX-0001: writer output malformed: no valid JSON envelope in the writer output",
+  "cycles": 1,
+  "passes": [
+   {
+    "action": "run",
+    "goal_id": "SBX-0001",
+    "state": "BLOCKED",
+    "reason": "writer output malformed: no valid JSON envelope in the writer output"
+   }
+  ],
+  "started_at": 1790788970.7675061,
+  "finished_at": 1790788984.6717312,
+  "weights": "WEIGHTS_UNCHANGED",
+  "learning_kind": "retrieval_context"
+ },
+ "cycle_seconds": 13.9,
+ "goal": {
+  "id": "SBX-0001",
+  "state": "BLOCKED",
+  "blocked_reason": "writer output malformed: no valid JSON envelope in the writer output",
+  "candidate": null,
+  "usage": {
+   "agent_turns": 1,
+   "cost_usd": 0.0
+  },
+  "approvals": [],
+  "staging": null
+ },
+ "usage": {
+  "claude": {
+   "cli_calls": 1,
+   "seconds": 0.0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "notional_usd": 0.0
+  },
+  "codex": {
+   "cli_calls": 0,
+   "seconds": 0.0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "notional_usd": 0.0
+  }
+ },
+ "lessons": [
+  {
+   "lesson_id": "coach-lesson:ad56d377b4bdfe31",
+   "status": "candidate",
+   "learning_status": "UNVERIFIED",
+   "occurrences": 1,
+   "task_class": "docs_tests",
+   "kind": "teacher_patch",
+   "correction": "A cycle of tier docs_tests limited to tests/test_clamp.py stopped on: writer output malformed. Report the stop to the owner and wait; do not widen the scope and do not repeat the same attempt unchanged.",
+   "weights": "WEIGHTS_UNCHANGED",
+   "learning_kind": "retrieval_context"
+  }
+ ],
+ "skill_proposals": 0,
+ "manifest": {
+  "complete": true,
+  "missing": [],
+  "manifest_sha256": "91b7d53173fb8d8ac4425fbbd7c0baf875a0b363873d040030d21cef8ff39825",
+  "problems": []
+ },
+ "journal": {
+  "ok": true,
+  "entries": 23,
+  "head": "47ab1ab43229f615ec9a575ba15fa93c213a83ba912f218d1a745efbe7aabd91",
+  "reason": ""
+ },
+ "journal_kinds": [
+  "budget.charge",
+  "budget.check",
+  "cycle_blocked",
+  "cycle_started",
+  "freeze.manifest",
+  "goal.created",
+  "goal.transition",
+  "lease.acquired",
+  "lease.process",
+  "lease.released",
+  "lesson.candidate",
+  "plan.proposed",
+  "planner_call",
+  "roles_assigned",
+  "supervisor.finished",
+  "supervisor.pass",
+  "supervisor.pass_finished",
+  "supervisor.started",
+  "worker_turn",
+  "writer_finished",
+  "writer_started"
+ ],
+ "hand_requests": [],
+ "live_calls_total": 1,
+ "total_seconds": 24.0,
+ "finished": "2026-09-30T10:23:04"
+}

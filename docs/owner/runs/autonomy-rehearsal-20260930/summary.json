@@ -1,0 +1,195 @@
+{
+ "label": "SANDBOX_REHEARSAL, pin tестовый, не владельца",
+ "run": "C:\\Users\\asd\\Bossman\\swarm-20260930\\autonomy\\sandbox\\run-20260930-102359",
+ "started": "2026-09-30T10:23:59",
+ "pin": {
+  "kind": "SANDBOX_TEST_PIN",
+  "path": "C:\\Users\\asd\\Bossman\\swarm-20260930\\autonomy\\sandbox\\run-20260930-102359\\test-pin\\constitution.sha256",
+  "owner_pin_touched": false,
+  "constitution_sha12": "ea6f8e86717a"
+ },
+ "constitution_status": {
+  "status": "OK",
+  "ok": true,
+  "sha": "ea6f8e86717a0cab045ef84589c48a9fbfa41687e4f2c764c4a6015b382feeb3",
+  "pinned_sha": "ea6f8e86717a0cab045ef84589c48a9fbfa41687e4f2c764c4a6015b382feeb3",
+  "reason": "pinned by the user",
+  "path": "C:\\Users\\asd\\Bossman\\swarm-20260930\\autonomy\\sandbox\\run-20260930-102359\\constitution\\BOSSMAN_CONSTITUTION.md",
+  "pin_path": "<sandbox test pin>"
+ },
+ "plan": {
+  "source": "remote",
+  "candidates": [
+   "SBX-0001",
+   "SBX-0002"
+  ],
+  "reason": "chosen by remote",
+  "calls": [
+   {
+    "source": "remote",
+    "provider": "nvidia-nim",
+    "model": "nvidia/nemotron-3-ultra-550b-a55b",
+    "params_b": 550.0,
+    "price_source": "GET /api/models on the live instance (id 55, price 0/0), 2026-09-30",
+    "price_checked_at": "2026-09-30T17:24:00Z",
+    "tokens_in": 231,
+    "tokens_out": 125,
+    "latency_ms": 6570,
+    "fallback_reason": null,
+    "choice": "SBX-0001"
+   }
+  ],
+  "chosen": "SBX-0001"
+ },
+ "roles": {
+  "goal_id": "SBX-0001",
+  "seed": "2",
+  "draw": 0.417017,
+  "writer": "claude",
+  "review_order": [
+   "claude",
+   "codex"
+  ],
+  "claude_model": "haiku",
+  "codex_model": "codex default"
+ },
+ "supervisor": {
+  "status": "WAITING_OWNER",
+  "reason": "SBX-0001 waits for the owner's decision",
+  "cycles": 1,
+  "passes": [
+   {
+    "action": "run",
+    "goal_id": "SBX-0001",
+    "state": "USER_APPROVAL",
+    "reason": ""
+   }
+  ],
+  "started_at": 1790789046.901817,
+  "finished_at": 1790789099.2354016,
+  "weights": "WEIGHTS_UNCHANGED",
+  "learning_kind": "retrieval_context"
+ },
+ "cycle_seconds": 52.3,
+ "goal": {
+  "id": "SBX-0001",
+  "state": "USER_APPROVAL",
+  "blocked_reason": "",
+  "candidate": {
+   "author": "claude",
+   "diff_sha256": "29b9c26e66e574971aadbf4595f69ca23388bc2ca03e368dfc3724fd05e29eb2",
+   "set_at": "2026-09-30T17:24:31.976782Z",
+   "sha": "94cbd0785d1e0dfce5a608510b77b860104d35c5"
+  },
+  "usage": {
+   "agent_turns": 3,
+   "cost_usd": 0.0
+  },
+  "approvals": [
+   "claude",
+   "codex"
+  ],
+  "staging": {
+   "passed": true,
+   "sha": "94cbd0785d1e0dfce5a608510b77b860104d35c5",
+   "via": "transition evidence"
+  }
+ },
+ "candidate": {
+  "sha": "94cbd0785d1e0dfce5a608510b77b860104d35c5",
+  "diff_sha256": "29b9c26e66e574971aadbf4595f69ca23388bc2ca03e368dfc3724fd05e29eb2",
+  "diff_bytes": 682,
+  "changed": [
+   "tests/test_clamp.py"
+  ]
+ },
+ "usage": {
+  "claude": {
+   "cli_calls": 2,
+   "seconds": 27.619,
+   "tokens_in": 179042,
+   "tokens_out": 2655,
+   "notional_usd": 0.169792
+  },
+  "codex": {
+   "cli_calls": 1,
+   "seconds": 0.0,
+   "tokens_in": 40399,
+   "tokens_out": 310,
+   "notional_usd": 0.0
+  }
+ },
+ "lessons": [
+  {
+   "lesson_id": "coach-lesson:3c5d76bf568ee419",
+   "status": "candidate",
+   "learning_status": "UNVERIFIED",
+   "occurrences": 1,
+   "task_class": "docs_tests",
+   "kind": "teacher_patch",
+   "correction": "A bounded change of tier docs_tests limited to tests/test_clamp.py reached the owner gate with passing tests, both reviews and a staged evaluation. Keep the diff small; the owner decides about the release.",
+   "weights": "WEIGHTS_UNCHANGED",
+   "learning_kind": "retrieval_context"
+  }
+ ],
+ "skill_proposals": 0,
+ "manifest": {
+  "complete": true,
+  "missing": [],
+  "manifest_sha256": "8be686e54ccdf8da41762a2016599d8d1f268863ca360a9492c46463ebe4644b",
+  "problems": []
+ },
+ "journal": {
+  "ok": true,
+  "entries": 45,
+  "head": "6b354985dee871cfe4683edcb6ef5dc1952325de1f2b27fc9019f749d1a52c4d",
+  "reason": ""
+ },
+ "journal_kinds": [
+  "acceptance_not_executed",
+  "budget.charge",
+  "budget.check",
+  "cycle_started",
+  "freeze.manifest",
+  "goal.created",
+  "goal.transition",
+  "hand.prepared",
+  "hand.request",
+  "hand.result",
+  "hand_requests_rejected",
+  "lease.acquired",
+  "lease.process",
+  "lease.released",
+  "lesson.candidate",
+  "plan.proposed",
+  "planner_call",
+  "review_recorded",
+  "review_session",
+  "roles_assigned",
+  "staging.finished",
+  "staging.started",
+  "staging_evaluation",
+  "staging_report",
+  "supervisor.finished",
+  "supervisor.pass",
+  "supervisor.pass_finished",
+  "supervisor.started",
+  "trace_captured",
+  "worker_turn",
+  "writer_finished",
+  "writer_started"
+ ],
+ "hand_requests": [
+  {
+   "action": "run_tests",
+   "suite": "acceptance"
+  },
+  {
+   "action": "run_tests",
+   "suite": "protected"
+  }
+ ],
+ "live_calls_total": 2,
+ "total_seconds": 59.5,
+ "finished": "2026-09-30T10:24:59"
+}

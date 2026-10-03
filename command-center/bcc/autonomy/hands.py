@@ -163,7 +163,7 @@ class SubprocessExecutor:
 class HandBroker:
     def __init__(self, policy: Policy, journal: Journal, executor: Executor | None = None, *,
                  goals: Any = None, level: str | None = None, lease: Any = None,
-                 clock: Callable[[], str] = utc_now):
+                 clock: Callable[[], str] = utc_now, stop_check: Callable[[], str] | None = None):
         self.policy = policy
         self.journal = journal
         self.executor: Executor = executor or SubprocessExecutor()
@@ -171,6 +171,7 @@ class HandBroker:
         self.level = level
         self.lease = lease
         self._clock = clock
+        self.stop_check = stop_check          # owner STOP: every request is refused (journaled) while it is set
 
     def _goal(self, goal_id: str) -> Goal | None:
         g = self._goals
@@ -201,6 +202,9 @@ class HandBroker:
                                              "request": schemas.to_json(req)})
         if not isinstance(req, HandRequest):
             return self._refuse(req, rh, started, "not a HandRequest", False)
+        stopped = self.stop_check() if self.stop_check is not None else ""
+        if stopped:
+            return self._refuse(req, rh, started, stopped, False)
         original = req
         try:
             req = self.policy.prepare(req)
@@ -280,12 +284,15 @@ class RoutedPolicy(Policy):
 
     def __init__(self, worktree_roots: Any, reports_root: Path, *, constitution_status: Any = None,
                  level: str = MAX_LEVEL, python: str | None = None, head_of: Callable[[Path], str] | None = None,
-                 **scope_kw: Any):
+                 protected_suite: Any = None, **scope_kw: Any):
         import sys
         self.worktree_roots = tuple(Path(r) for r in worktree_roots)
         self.reports_root = Path(reports_root)
         self.python = python or sys.executable
         self._head_of = head_of
+        #: the test files the ``protected`` suite runs (default: Bossman's autonomy safety suite); a rehearsal over
+        #: another repository names that repository's own regression tests here
+        self.protected_suite = tuple(protected_suite) if protected_suite else PROTECTED_SUITE
         self._scope_kw = scope_kw
         super().__init__(Scope(worktree=self.reports_root, output_roots=(self.reports_root,), **scope_kw),
                          constitution_status=constitution_status, level=level)
@@ -335,7 +342,7 @@ class RoutedPolicy(Policy):
             if suite == "acceptance":
                 ids = _pytest_ids(args.get("acceptance_tests"))
             elif suite == "protected":
-                ids = list(PROTECTED_SUITE)
+                ids = list(self.protected_suite)
             else:
                 raise PolicyRefusal(f"unknown test suite {suite!r}")
             if not ids:
@@ -359,7 +366,8 @@ class RoutedPolicy(Policy):
 
 
 def build_default_broker(root: str | os.PathLike, journal: Journal, *, level: str = MAX_LEVEL,
-                         constitution_status: Any = None, executor: Executor | None = None) -> HandBroker:
+                         constitution_status: Any = None, executor: Executor | None = None,
+                         stop_check: Callable[[], str] | None = None, protected_suite: Any = None) -> HandBroker:
     """The real hands for the cycle: routed policy (level capped at L2), default argv
     executor, goals from ``GoalStore(root)``, engineering lease ``EngineeringLease(root)``."""
     from .goals import GoalStore
@@ -371,9 +379,9 @@ def build_default_broker(root: str | os.PathLike, journal: Journal, *, level: st
     root = Path(root)
     # the goal budget (GoalStore) bounds the cycle; the broker only bounds each action by its timeout
     policy = RoutedPolicy([root / "cycles"], root / "reports", constitution_status=constitution_status, level=level,
-                          time_budget_s=10 * 24 * 3600.0)
+                          protected_suite=protected_suite, time_budget_s=10 * 24 * 3600.0)
     return HandBroker(policy, journal, executor or SubprocessExecutor(), goals=GoalStore(root, journal),
-                      level=level, lease=EngineeringLease(root, journal=journal))
+                      level=level, lease=EngineeringLease(root, journal=journal), stop_check=stop_check)
 
 
 __all__ = ["ExecOutcome", "Executor", "HandBroker", "MAX_LEVEL", "PROTECTED_SUITE", "RoutedPolicy",

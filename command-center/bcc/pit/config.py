@@ -108,6 +108,9 @@ class PITSettings:
     # the default private location; see bcc.pit.blocklist. Never holds IDs.
     blocked_ids_file: str = ""
     behavior_scales: dict[str, int] = field(default_factory=default_behavior_scales)
+    # Model ids the owner configured but the model policy refuses (Liquid/LFM ban):
+    # dropped at load time on every start/reload and shown in the route status.
+    rejected_models: tuple[str, ...] = ()
     bot_token: str = field(default="", repr=False)
     provider_key: str = field(default="", repr=False)
     core_token: str = field(default="", repr=False)
@@ -137,6 +140,10 @@ class PITSettings:
             raise ValueError("chat model allowlist must be 1..N exact model ids")
         if len(set(self.chat_models)) != len(self.chat_models):
             raise ValueError("duplicate chat model ids")
+        from .model_policy import is_banned_model
+        banned = [m for m in (*self.chat_models, *self.local_models) if is_banned_model(m)]
+        if banned:
+            raise ValueError(f"banned model family (Liquid/LFM) in the model allowlist: {', '.join(banned)}")
         if bool(self.local_url) != bool(self.local_models):
             raise ValueError("local route needs both local_url and local_models")
         if self.local_url:
@@ -267,6 +274,16 @@ def load(path: Path) -> PITSettings:
         data["local_models"] = tuple(m.strip() for m in env_locals.split(",") if m.strip())
     else:
         data["local_models"] = tuple(data.get("local_models") or ())
+    # Owner model policy: a banned model family never survives a (re)load, whether it
+    # came from config.json or the environment; only-banned chat lists use the defaults.
+    from .model_policy import split_banned
+    data["chat_models"], banned_chat = split_banned(data["chat_models"])
+    if banned_chat and not data["chat_models"]:
+        data["chat_models"] = DEFAULT_FREE_CHAT_MODELS
+    data["local_models"], banned_local = split_banned(data["local_models"])
+    if banned_local and not data["local_models"]:
+        data["local_url"] = ""
+    data["rejected_models"] = (*banned_chat, *banned_local)
     data["allowlist_open"] = bool(data.get("allowlist_open", False))
     data["web_only"] = bool(data.get("web_only", False))
     if data["web_only"]:
@@ -285,6 +302,7 @@ def save_setup(
     search_url: str = "",
     local_url: str = "",
     local_models: list[str] | None = None,
+    local_chat_only: bool = False,
     allowlist_open: bool = False,
     web_only: bool = False,
     bot_token: str = "",
@@ -313,6 +331,8 @@ def save_setup(
         "allowlist_open": bool(allowlist_open),
         "web_only": bool(web_only),
     }
+    if local_chat_only:
+        data["local_chat_only"] = True          # only written when on: other setups keep their exact file
     import secrets as _secrets
     credentials = {
         "bot_token": bot_token,
@@ -337,6 +357,7 @@ def save_setup(
         search_url=parsed.get("search_url", ""),
         local_url=parsed.get("local_url", ""),
         local_models=tuple(parsed.get("local_models") or ()),
+        local_chat_only=bool(parsed.get("local_chat_only", False)),
         allowlist_open=bool(parsed.get("allowlist_open", False)),
         web_only=bool(parsed.get("web_only", False)),
         bot_token=credentials["bot_token"],

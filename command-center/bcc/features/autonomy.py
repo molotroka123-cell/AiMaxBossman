@@ -5,9 +5,17 @@ panel (Apply / Reject / Revise / Confirm released). Apply never merges or
 pushes: it records the user's decision bound to the candidate SHA + diff hash
 and returns the exact fast-forward and rollback commands. Logic lives in
 bcc.autonomy.service; design: docs/autonomy/AUTONOMY_CONTRACT.md.
+
+Emergency stop: POST /autonomy/stop sets the autonomy STOP and kills the worker
+process trees registered with the engineering lease; POST /autonomy/resume clears
+only that STOP (the owner's global STOP is cleared where it was set). Decisions and
+stops are published on the event bus (`autonomy.goal.decision`, `autonomy.stop`),
+which the page subscribes to. Experience saved by the loop is retrieval context
+(WEIGHTS_UNCHANGED), never training.
 """
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -28,6 +36,10 @@ class BoundIn(BaseModel):
 
 class NoteIn(BaseModel):
     note: str = Field(default="", max_length=2000)
+
+
+class StopIn(BaseModel):
+    reason: str = Field(default="", max_length=300)
 
 
 def service(svc: Any) -> AutonomyService:
@@ -52,6 +64,19 @@ def _call(fn, *args, **kw):
         raise HTTPException(400, str(exc)) from None
 
 
+async def _publish(request: Request, kind: str, **data: Any) -> None:
+    """Bus events for the page and other subscribers; a bus problem never fails the owner's decision."""
+    with contextlib.suppress(Exception):
+        await request.app.state.svc.bus.emit(kind, **data)
+
+
+async def _decision(request: Request, goal_id: str, decision: str, result: dict) -> dict:
+    goal = result.get("goal") if isinstance(result, dict) else None
+    await _publish(request, "autonomy.goal.decision", goal_id=goal_id, decision=decision,
+                   state=(goal or {}).get("state", ""))
+    return result
+
+
 @router.get("/autonomy/status")
 async def status(request: Request):
     return _svc(request).status()
@@ -69,22 +94,42 @@ async def goal(goal_id: str, request: Request):
 
 @router.post("/autonomy/goals/{goal_id}/apply")
 async def apply(goal_id: str, body: BoundIn, request: Request):
-    return _call(_svc(request).apply, goal_id, body.sha, body.diff_sha256, body.note)
+    res = _call(_svc(request).apply, goal_id, body.sha, body.diff_sha256, body.note)
+    return await _decision(request, goal_id, "apply", res)
 
 
 @router.post("/autonomy/goals/{goal_id}/confirm")
 async def confirm(goal_id: str, body: BoundIn, request: Request):
-    return _call(_svc(request).confirm_released, goal_id, body.sha, body.diff_sha256)
+    res = _call(_svc(request).confirm_released, goal_id, body.sha, body.diff_sha256)
+    return await _decision(request, goal_id, "confirm", res)
 
 
 @router.post("/autonomy/goals/{goal_id}/reject")
 async def reject(goal_id: str, body: NoteIn, request: Request):
-    return _call(_svc(request).reject, goal_id, body.note)
+    res = _call(_svc(request).reject, goal_id, body.note)
+    return await _decision(request, goal_id, "reject", res)
 
 
 @router.post("/autonomy/goals/{goal_id}/revise")
 async def revise(goal_id: str, body: NoteIn, request: Request):
-    return _call(_svc(request).revise, goal_id, body.note)
+    res = _call(_svc(request).revise, goal_id, body.note)
+    return await _decision(request, goal_id, "revise", res)
+
+
+@router.post("/autonomy/stop")
+async def stop(body: StopIn, request: Request):
+    """Emergency STOP of the loop: persisted (survives a restart), journaled, worker trees killed."""
+    res = _svc(request).request_stop(by="owner-api", reason=body.reason)
+    await _publish(request, "autonomy.stop", active=True, by="owner-api", killed=len(res["killed"]))
+    return res
+
+
+@router.post("/autonomy/resume")
+async def resume(request: Request):
+    """Clear the AUTONOMY STOP only; the owner's global STOP is reported, never cleared here."""
+    res = _svc(request).clear_stop(by="owner-api")
+    await _publish(request, "autonomy.stop", active=bool(res["state"]["active"]), by="owner-api", killed=0)
+    return res
 
 
 @router.get("/autonomy/journal")

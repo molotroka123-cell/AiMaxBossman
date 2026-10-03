@@ -557,13 +557,17 @@ async def test_mission_04_browser_form_interaction(env, form_site, allow_private
         ("tool", "browser_open", {"url": url}),
         ("tool", "browser_type", {"selector": "#name", "text": "Тимур"}),
         ("tool", "browser_type", {"selector": "#email", "text": "timur@example.org"}),
-        ("tool", "browser_click", {"selector": "#go"}),
+        # P0 (2026-09-30): кнопка «Отправить» в POST-форме — клик с последствиями. Обычный
+        # `browser.click` её не нажимает (граница BrowserManager.click; отказ проверяется в
+        # tests/test_ops_terminal_browser.py), отправка идёт ТОЛЬКО через ASK-путь
+        # `browser.submit`, и владелец подтверждает её (см. _run_mission).
+        ("tool", "browser_submit", {"selector": "#go"}),
         ("tool", "browser_read_dom", {}),
         ("text", "форма отправлена"),
     ])
     stack = await _mission_stack(
         env, prompt=prompt, max_steps=10,
-        tools=["browser.open", "browser.read_dom", "browser.type", "browser.click"],
+        tools=["browser.open", "browser.read_dom", "browser.type", "browser.submit"],
         adapter=adapter,
         permissions={"browser.read": True, "browser.control": True},
         evidence=[{"kind": "browser", "target": url,
@@ -571,14 +575,15 @@ async def test_mission_04_browser_form_interaction(env, form_site, allow_private
     task_id = stack["task"]["id"]
     assert _submissions(inbox) == []
 
-    status, _ = await _run_mission(env, task_id, timeout=180.0)
-
+    status, approved = await _run_mission(env, task_id, timeout=180.0)
     assert status == "completed", status
     rows = await _tool_rows(env, task_id)
     assert [r["tool"] for r in rows] == ["browser.open", "browser.type", "browser.type",
-                                         "browser.click", "browser.read_dom"]
+                                         "browser.submit", "browser.read_dom"]
     assert all(r["status"] == "executed" and r["source"] == "browser" for r in rows)
-    assert _one([r for r in rows if r["tool"] == "browser.click"], "browser.click")
+    assert _one([r for r in rows if r["tool"] == "browser.submit"], "browser.submit")
+    assert [a["kind"] for a in approved] == ["tool"], "владелец должен был решить ровно одну отправку"
+    assert "browser.submit" in approved[0]["preview"]
 
     # post-state: сервер записал ровно то, что ушло из браузера
     posted = _submissions(inbox)

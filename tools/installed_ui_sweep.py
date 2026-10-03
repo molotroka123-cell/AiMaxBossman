@@ -195,7 +195,8 @@ def main() -> int:
         # Разбор — из того же драйвера, что и на исходниках: два списка
         # маршрутов разошлись бы, и установленный продукт проверялся бы не тем,
         # чем проверяется исходник.
-        pages = module.page_routes(registry.read_text(encoding='utf-8'))
+        pages = module.page_routes(registry.read_text(encoding='utf-8'),
+                                   (registry.parent.parent / 'pages.js').read_text(encoding='utf-8'))
         if not pages:
             raise RuntimeError('Packaged UI page registry is empty')
         with (data / 'private-server.log').open('w', encoding='utf-8') as log:

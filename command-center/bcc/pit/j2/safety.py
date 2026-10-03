@@ -66,6 +66,7 @@ class Category(StrEnum):
     MALWARE = "malware"
     ABUSE = "abuse"
     THREAT = "threat"
+    HARASS = "harass"
     RATE = "rate_limit"
     LEAK = "leak"
 
@@ -290,6 +291,74 @@ RULES: tuple[Rule, ...] = (
        r"stupid\s+(?:bot|ai|machine)|kill\s+yourself|go\s+die)\b"),
 )
 
+# -- HARASS_PROXY: a request to write a threat / insult / harassment AIMED AT a named real person -----------------
+# (the audit: «Сочини угрозу для Ивана Петрова» was answered with a ready threat in the rude manner). Jeff does not
+# write them "for" someone else in any mode. Three parts: an act, a request shape around it, a third-person target.
+_H_TARGET_RU = (r"(?:(?:ему|ей|его|ее|им|их)\b|\b(?:мо[еёйюиея]\w*\s+|наш\w*\s+|тво[еёйюиея]\w*\s+)?"
+                r"(?:начальник\w*|начальств\w+|босс\w*|шеф\w*|сосед\w*|бывш\w+|коллег\w*|учител\w*|препод\w*|"
+                r"одноклассник\w*|однокурсник\w*|тещ\w+|свекр\w+|жене\b|мужу\b|парню\b|девушк\w+|подруг\w+|друг[ауе]\b|"
+                r"брат\w*|сестр\w+|родител\w+|клиент\w*|конкурент\w*|директор\w*|менеджер\w*|хозяин\w*|арендодател\w+)\b)")
+_H_ACT_RU = (r"(?:оскорби\w*|оскорбляй\w*|обзови\w*|обзывай\w*|обругай\w*|унизь\w*|унижай\w*|запугай\w*|запугивай\w*|"
+             r"пригрози\w*|угрожай\w*|обматери\w*|затрави\w*|опозорь\w*|нагруби\w*|оболь\w*\s+грязью)")
+_H_NOUN_RU = r"(?:угроз\w+|оскорблени\w+|оскорбительн\w+|унизительн\w+|гадост\w+|травл\w+)"
+_H_REQ_RU = (r"(?:напиши\w*|сочини\w*|придумай\w*|составь\w*|сформулируй\w*|сгенерируй\w*|набросай\w*|накатай\w*|"
+             r"подбери\w*|сделай\w*|скажи\w*|нужн[аоы]?\b|хочу|помоги\w*\s+(?:мне\s+)?(?:написать|придумать|составить|"
+             r"сочинить|сформулировать))")
+_H_TARGET_EN = (r"(?:\b(?:him|her|them)\b|\bmy\s+(?:boss|manager|neighbou?r|ex\b|ex-\w+|coworker|co-worker|colleague|"
+                r"teacher|wife|husband|girlfriend|boyfriend|friend|brother|sister|landlord|roommate|classmate|mother|"
+                r"father|mom|dad|in-laws?)\b)")
+_H_ACT_EN = r"(?:insult|threaten|harass|bully|humiliate|intimidate|curse\s+out|cuss\s+out|defame|slander)"
+_H_NOUN_EN = r"(?:threats?|insults?|harassing\s+message|abusive\s+message|hate\s+message|nasty\s+message|smear)"
+_H_REQ_EN = (r"(?:write|compose|draft|make|generate|create|give\s+me|i\s+need|i\s+want|help\s+me\s+(?:write|draft)|"
+             r"come\s+up\s+with)")
+_HARASS_NORM = tuple(re.compile(rx, re.I | re.S) for rx in (
+    r"\b" + _H_ACT_RU + r"\b[^.!?]{0,50}?" + _H_TARGET_RU,
+    r"\b" + _H_REQ_RU + r"\b[^.!?]{0,30}?\b" + _H_NOUN_RU + r"\b[^.!?]{0,50}?" + _H_TARGET_RU,
+    r"\b" + _H_ACT_EN + r"\b[^.!?]{0,40}?" + _H_TARGET_EN,
+    r"\b" + _H_REQ_EN + r"\b[^.!?]{0,30}?\b" + _H_NOUN_EN + r"\b[^.!?]{0,50}?" + _H_TARGET_EN,
+))
+# A named person is read from the ORIGINAL text (a capitalised word after the act, inside the same sentence).
+_HARASS_NAMED = tuple(re.compile(rx, re.S) for rx in (
+    r"(?i:\b" + _H_ACT_RU + r"\b)[^.!?]{0,50}?\s(?!(?:Jeff|Джефф\w*|Jev|Bossman|Боссман\w*)\b)[A-ZА-ЯЁ][a-zа-яё]{2,}",
+    r"(?i:\b" + _H_REQ_RU + r"\b[^.!?]{0,30}?\b" + _H_NOUN_RU + r"\b)[^.!?]{0,50}?\s"
+    r"(?!(?:Jeff|Джефф\w*|Jev|Bossman|Боссман\w*)\b)[A-ZА-ЯЁ][a-zа-яё]{2,}",
+    r"(?i:\b" + _H_ACT_EN + r"\b)[^.!?]{0,40}?\s(?!(?:Jeff|Jev|Bossman)\b)[A-Z][a-z]{2,}",
+    r"(?i:\b" + _H_REQ_EN + r"\b[^.!?]{0,30}?\b" + _H_NOUN_EN + r"\b)[^.!?]{0,50}?\s(?!(?:Jeff|Jev|Bossman)\b)[A-Z][a-z]{2,}",
+))
+
+
+def harass_proxy(text: str) -> bool:
+    """True for a request to write a threat / insult / harassment about a named or described real person."""
+    original = str(text or "")[:MAX_TEXT]
+    norm = normalize(original)
+    if not norm:
+        return False
+    if any(rx.search(norm) for rx in _HARASS_NORM):
+        return True
+    return any(rx.search(original) for rx in _HARASS_NAMED)
+
+
+# A `/style` request that asks Jeff to insult / threaten / harass people or a group (the participant sets Jeff's
+# style for THEMSELVES; it may not turn Jeff on third parties). Checked with analyze() for override attempts.
+_STYLE_HARM = re.compile(
+    r"\b(?:оскорбля\w*|унижа\w*|угрожа\w*|запугива\w*|травл\w+|травит\w*|обзыва\w*|ненавид\w*|"
+    r"insult\w*|threat\w*|harass\w*|bully\w*|humiliat\w*|hate)\b[^.!?]{0,60}?"
+    r"\b(?:людям|людей|всем\s+вокруг|другим|третьим|знаком\w+|национальн\w+|нацию|нации|расу|расы|религи\w+|верующ\w+|"
+    r"женщин\w*|мужчин\w*|геев|евре\w+|мусульман\w+|армян\w+|узбек\w+|украинц\w+|русск\w+|по\s+именам|названн\w+|"
+    r"начальник\w*|сосед\w*|бывш\w+|коллег\w*|people|others|nationalit\w+|race|religio\w+|women|men|gays|jews|muslims|"
+    r"by\s+name|named)\b", re.I | re.S)
+
+
+def style_violation(text: str) -> bool:
+    """True when a participant's ``/style`` text must be refused: a rule override, an extraction or malware
+    request, a threat/harassment request, or an instruction to insult people or groups."""
+    verdict = analyze(text)
+    if verdict.block and verdict.category in (Category.INJECTION, Category.JAILBREAK, Category.EXTRACTION,
+                                              Category.MALWARE, Category.THREAT, Category.HARASS):
+        return True
+    return bool(_STYLE_HARM.search(normalize(text))) or harass_proxy(text)
+
+
 _EDU = re.compile(
     r"\b(?:что\s+такое|что\s+значит|что\s+означает|объясни\w*|расскажи\w*\s+(?:про|о|об)|как\s+(?:работает|работают|"
     r"защититься|защитить\w*|распознать|обнаружить|бороться|избежать)|в\s+чем\s+(?:разница|суть)|для\s+(?:статьи|доклада|"
@@ -317,8 +386,9 @@ class Verdict:
         return self.category is not None
 
 
-_PRIORITY = (Category.THREAT, Category.MALWARE, Category.EXTRACTION, Category.INJECTION,
+_PRIORITY = (Category.THREAT, Category.MALWARE, Category.HARASS, Category.EXTRACTION, Category.INJECTION,
              Category.JAILBREAK, Category.ABUSE)
+_HARASS_RULE = Rule("har.proxy", Category.HARASS, re.compile(r"$^"), 2)
 
 
 def _in_quotes(text: str, start: int, end: int) -> bool:
@@ -356,6 +426,8 @@ def analyze(text: str) -> Verdict:
                 soft.append(rule.category)
                 continue
             hits.setdefault(rule.category, []).append((rule, weight))
+    if harass_proxy(text):
+        hits.setdefault(Category.HARASS, []).append((_HARASS_RULE, _HARASS_RULE.weight))
     if not hits:
         cats = tuple(dict.fromkeys(soft))
         return Verdict(caution=bool(cats), caution_categories=cats)
@@ -407,6 +479,10 @@ REPLIES: dict[str, dict[Category, tuple[str, ...]]] = {
             "Если есть реальная опасность, обратитесь к людям рядом или в местные экстренные службы.",
             "Такие слова я оставлю без ответа по существу. Хотите, поговорим о том, что вас так разозлило?",
         ),
+        Category.HARASS: (
+            "Угрозы, оскорбления и травлю конкретных людей я не пишу: ни всерьёз, ни «в шутку». Если с этим "
+            "человеком конфликт, помогу сформулировать твёрдое, но корректное сообщение, жалобу или план разговора.",
+        ),
         Category.RATE: (
             "Вы пишете очень быстро, я не успеваю. Дайте мне несколько секунд и напишите одним сообщением.",
             "Сообщений слишком много подряд, поэтому пока пауза. Соберите мысль в одно сообщение, и я отвечу.",
@@ -442,6 +518,10 @@ REPLIES: dict[str, dict[Category, tuple[str, ...]]] = {
         Category.THREAT: (
             "I won't engage with threats. If you're having a hard time, say so plainly and I'll listen. "
             "If anyone is in real danger, please contact local emergency services.",
+        ),
+        Category.HARASS: (
+            "I don't write threats, insults or harassment aimed at a real person, not even as a joke. If you're in "
+            "a conflict with them, I can help you word a firm but civil message or a complaint.",
         ),
         Category.RATE: (
             "You're writing faster than I can answer. Give me a few seconds and send it as one message.",
@@ -613,6 +693,12 @@ class SafetyModule(BaseModule):
                 person.limited = False
                 first = False
             verdict = analyze(text) if limit is None else Verdict()
+            if (verdict.category is Category.ABUSE and ctx.extra.get("overlay_abuse_ok") is True
+                    and ctx.extra.get("overlay_suspended") is not True):
+                # The owner asked for a cold manner (overlay warmth <= 2): an insult aimed at Jeff is answered in
+                # character instead of by the polite canon, and is no strike. Threats, hate, harassment of third
+                # parties, injections and malware keep their canonical refusals.
+                verdict = Verdict()
             strikes = self._strike(person, verdict.category) if verdict.block else 0
         if limit is not None:
             self._audit({"kind": "safety.block", "who": who, "category": Category.RATE.value,

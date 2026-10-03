@@ -90,7 +90,7 @@ _INJECTION = re.compile(
     r"act\s+as\b|pretend\s+to\b|jailbreak|\bDAN\s+mode\b", re.I | re.M)
 _CHATML = re.compile(r"<\|[^>]{0,40}\|>|<<\s*/?SYS>>", re.I)
 _URL = re.compile(r"(?:https?://|www\.)\S+", re.I)
-_CONTROL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f​-‏‪-‮⁠-⁤⁦-⁩﻿]")
+_CONTROL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]")
 _SKIP_TAGS = frozenset({"script", "style", "noscript", "template", "svg", "head", "nav", "footer", "iframe",
                         "form", "select", "button", "canvas", "object", "embed", "aside"})
 _VOID_TAGS = frozenset({"br", "hr", "img", "input", "meta", "link", "area", "base", "col", "source", "track", "wbr"})

@@ -637,14 +637,48 @@ def _install_error_handlers(app: FastAPI) -> None:
     async def _validation_error(_r: Request, exc: RequestValidationError):
         first = (exc.errors() or [{}])[0]
         where = ".".join(str(p) for p in first.get("loc", [])[1:]) or "тело запроса"
-        return JSONResponse({"error": {"message": f"неверный запрос: {where} — "
-                                                  f"{first.get('msg', 'некорректное значение')}",
+        return JSONResponse({"error": {"message": f"неверный запрос: {where} — {validation_reason(first)}",
                                        "hint": "проверьте поля запроса"}}, status_code=422)
 
     @app.exception_handler(Exception)
     async def _unhandled(_r: Request, exc: Exception):
         return JSONResponse({"error": {"message": f"внутренняя ошибка: {type(exc).__name__}",
                                        "hint": "подробности — в логе сервера"}}, status_code=500)
+
+
+_VALIDATION_WORDS = {
+    "missing": "поле обязательно",
+    "int_parsing": "нужно целое число", "int_type": "нужно целое число", "int_from_float": "нужно целое число",
+    "float_parsing": "нужно число", "float_type": "нужно число",
+    "bool_parsing": "нужно «да» или «нет»", "bool_type": "нужно «да» или «нет»",
+    "string_type": "нужна строка текста", "bytes_type": "нужна строка текста",
+    "list_type": "нужен список", "dict_type": "нужен объект", "model_attributes_type": "нужен объект",
+    "json_invalid": "тело запроса — не JSON", "literal_error": "недопустимое значение",
+    "enum": "недопустимое значение", "extra_forbidden": "лишнее поле", "none_required": "поле должно быть пустым",
+    "url_parsing": "некорректный адрес", "url_scheme": "некорректный адрес",
+}
+
+
+def validation_reason(error: dict) -> str:
+    """Причина отказа валидации по-русски: сырой английский текст pydantic («Input should be a valid
+    integer…») владельцу ничего не говорит."""
+    kind = str(error.get("type") or "")
+    ctx = error.get("ctx") or {}
+    if kind == "string_too_short":
+        return f"слишком коротко (не меньше {ctx.get('min_length', 1)} симв.)"
+    if kind == "string_too_long":
+        return f"слишком длинно (не больше {ctx.get('max_length', '?')} симв.)"
+    if kind == "too_short":
+        return f"слишком мало элементов (не меньше {ctx.get('min_length', 1)})"
+    if kind == "too_long":
+        return f"слишком много элементов (не больше {ctx.get('max_length', '?')})"
+    for key, word in (("greater_than_equal", "не меньше"), ("less_than_equal", "не больше"),
+                      ("greater_than", "больше чем"), ("less_than", "меньше чем")):
+        if kind == key:
+            bound = ctx.get(("ge" if key == "greater_than_equal" else "le" if key == "less_than_equal"
+                             else "gt" if key == "greater_than" else "lt"))
+            return f"{word} {bound}" if bound is not None else word
+    return _VALIDATION_WORDS.get(kind, "некорректное значение")
 
 
 def _mount_ui(app: FastAPI, settings: Settings) -> None:
@@ -1028,10 +1062,17 @@ def _api_router() -> APIRouter:
                 stmt = stmt.where(tasks_t.c.status.in_(status.split(",")))
             res = await s.execute(stmt)
             rows = rows_dicts(res.fetchall())
+            # Последний run каждой задачи ОДНИМ запросом (раньше — по запросу на задачу: 101 запрос
+            # на страницу из 100 задач). Последний = наибольший id, как и в `ORDER BY id DESC LIMIT 1`.
+            last: dict[int, dict] = {}
+            if rows:
+                latest = (sa.select(sa.func.max(runs_t.c.id))
+                          .where(runs_t.c.task_id.in_([t["id"] for t in rows]))
+                          .group_by(runs_t.c.task_id))
+                res = await s.execute(sa.select(runs_t).where(runs_t.c.id.in_(latest)))
+                last = {r["task_id"]: r for r in rows_dicts(res.fetchall())}
             for task in rows:
-                run = await s.execute(sa.select(runs_t).where(runs_t.c.task_id == task["id"])
-                                      .order_by(runs_t.c.id.desc()).limit(1))
-                task["last_run"] = _run_public(dbm.row_dict(run.first()))
+                task["last_run"] = _run_public(last.get(task["id"]))
         return rows
 
     @router.post("/tasks/preflight")
@@ -1223,11 +1264,21 @@ def _api_router() -> APIRouter:
         with `after` it first replays the stored history after that cursor,
         then continues live and drops live copies of what was replayed (`seq`).
         A client that fell behind gets `stream.lagged` with its cursor and
-        reconnects with `after=<cursor>` — it never silently misses events."""
+        reconnects with `after=<cursor>` — it never silently misses events.
+
+        A native EventSource reconnects to the same URL and names its cursor
+        only in the `Last-Event-ID` header (the last `id:` it received). When
+        the URL carries no `after`, that header is the cursor: missed events
+        are replayed once, nothing already shown comes twice. An explicit
+        `after` always wins over the header."""
         from starlette.responses import StreamingResponse
         from .events import TaskStreamFilter
         if task_id is None and run_id is None:
             raise ApiError("нужен task_id или run_id", status=422)
+        if after is None:
+            raw_last_id = (request.headers.get("last-event-id") or "").strip()
+            if raw_last_id.isascii() and raw_last_id.isdigit() and len(raw_last_id) <= 18:
+                after = int(raw_last_id)
         queue = svc.bus.subscribe()
         flt = TaskStreamFilter(task_id=task_id, run_id=run_id)
 
@@ -1251,16 +1302,24 @@ def _api_router() -> APIRouter:
                         if len(batch) < 500:
                             break
                     yield frame({"kind": "stream.replayed", "cursor": last_seq})
+                last_sent = time.monotonic()
                 while True:
                     if not svc.bus.is_subscribed(queue):
                         yield frame({"kind": "stream.lagged", "cursor": last_seq})
                         return
+                    # The keepalive clock runs from the last thing WRITTEN to the client. Events that the filter drops
+                    # (system.metrics, other tasks) used to restart the wait, so a quiet task stream never pinged and
+                    # the browser showed a false "connection lost" after ~45 s of silence.
+                    wait = STREAM_KEEPALIVE_S - (time.monotonic() - last_sent)
                     try:
-                        msg = await asyncio.wait_for(queue.get(), timeout=STREAM_KEEPALIVE_S)
+                        if wait <= 0:
+                            raise TimeoutError
+                        msg = await asyncio.wait_for(queue.get(), timeout=wait)
                     except TimeoutError:
                         if await request.is_disconnected():
                             return
                         yield ": keepalive\n\n"
+                        last_sent = time.monotonic()
                         continue
                     seq = msg.get("seq")
                     if isinstance(seq, int) and seq <= last_seq:
@@ -1270,6 +1329,7 @@ def _api_router() -> APIRouter:
                     if isinstance(seq, int):
                         last_seq = seq
                     yield frame(msg)
+                    last_sent = time.monotonic()
             finally:
                 svc.bus.unsubscribe(queue)
 

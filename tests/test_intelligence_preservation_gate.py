@@ -105,6 +105,19 @@ def test_more_than_two_percent_core_regression_is_no_go():
     assert any(f["code"] == "FULL_CORE_REGRESSION" for f in report["findings"])
 
 
+def test_aggregate_core_failure_still_reports_each_regressed_metric():
+    payload = _payload()
+    for name in CORE_METRICS:
+        _set(payload, "full", name, 0.70)
+
+    report = evaluate(payload)
+
+    assert report["status"] == "NO_GO"
+    reported = {f["message"].split()[1].split("=")[0]
+                for f in report["findings"] if f["code"] == "CORE_METRIC_REGRESSION"}
+    assert reported == set(CORE_METRICS)
+
+
 def test_context_pollution_isolated_as_context_regression():
     payload = _payload()
     for name in CORE_METRICS:

@@ -148,6 +148,13 @@ class JevConfig:
         return out
 
 
+def _model() -> str:
+    """Env override, except a banned model family (Liquid/LFM) which falls back to the default."""
+    from bcc.pit.model_policy import is_banned_model
+    value = os.environ.get(MODEL_ENV, "").strip()
+    return value if value and not is_banned_model(value) else DEFAULT_MODEL
+
+
 def load() -> JevConfig:
     return JevConfig(
         enabled=_flag(FLAG, False),
@@ -155,7 +162,7 @@ def load() -> JevConfig:
         # Live routing also requires explicit public egress and zero-cost evidence.
         shadow=_flag(SHADOW_FLAG, True),
         endpoint=os.environ.get(ENDPOINT_ENV, "").strip() or DEFAULT_ENDPOINT,
-        model=os.environ.get(MODEL_ENV, "").strip() or DEFAULT_MODEL,
+        model=_model(),
         timeout_ms=_int("BOSSMAN_JEV_TIMEOUT_MS", 2500, 100, 30000),
         max_retries=_int("BOSSMAN_JEV_MAX_RETRIES", 1, 0, 3),
         breaker_failures=_int("BOSSMAN_JEV_BREAKER_FAILURES", 3, 1, 100),

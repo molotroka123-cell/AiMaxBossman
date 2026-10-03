@@ -1,0 +1,169 @@
+{
+  "schema": 1,
+  "target": "win_amd64-cp312",
+  "note": "Generated from pip's resolver report (pip install --dry-run --report --platform win_amd64 --python-version 3.12 --only-binary=:all: --no-deps) plus the pure-Python pyaes sdist; regenerate with tools/telegram_calls_addon_lock.py on a networked machine, never by hand. Packages already provided by the bundle at the same version are skipped at install time.",
+  "packages": [
+    {
+      "name": "aiohappyeyeballs",
+      "version": "2.7.1",
+      "kind": "wheel",
+      "filename": "aiohappyeyeballs-2.7.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/71/43/1947f06babed6b3f1d7f38b0c767f52df66bfb2bc10b468c4a7de9eceff2/aiohappyeyeballs-2.7.1-py3-none-any.whl",
+      "sha256": "9243213661e29250eb41368e5daa826fc017156c3b8a11440826b2e3ed376472"
+    },
+    {
+      "name": "aiohttp",
+      "version": "3.14.3",
+      "kind": "wheel",
+      "filename": "aiohttp-3.14.3-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/76/9b/f2f8f108da17ecef2cc3efc424e8b7ad3782b1a8360f7b8eae8ced84f6ea/aiohttp-3.14.3-cp312-cp312-win_amd64.whl",
+      "sha256": "33a2d7c28d33797a2e99923dffa63f83d908a19b6bf26cfe80fa790aa5e1a75a"
+    },
+    {
+      "name": "aiosignal",
+      "version": "1.4.0",
+      "kind": "wheel",
+      "filename": "aiosignal-1.4.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/fb/76/641ae371508676492379f16e2fa48f4e2c11741bd63c48be4b12a6b09cba/aiosignal-1.4.0-py3-none-any.whl",
+      "sha256": "053243f8b92b990551949e63930a839ff0cf0b0ebbe0597b0f3fb19e1a0fe82e"
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "kind": "wheel",
+      "filename": "attrs-26.1.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl",
+      "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"
+    },
+    {
+      "name": "deprecation",
+      "version": "2.1.0",
+      "kind": "wheel",
+      "filename": "deprecation-2.1.0-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/02/c3/253a89ee03fc9b9682f1541728eb66db7db22148cd94f89ab22528cd1e1b/deprecation-2.1.0-py2.py3-none-any.whl",
+      "sha256": "a10811591210e1fb0e768a8c25517cabeabcba6f0bf96564f8ff45189f90b14a"
+    },
+    {
+      "name": "frozenlist",
+      "version": "1.8.0",
+      "kind": "wheel",
+      "filename": "frozenlist-1.8.0-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/b8/af/38e51a553dd66eb064cdf193841f16f077585d4d28394c2fa6235cb41765/frozenlist-1.8.0-cp312-cp312-win_amd64.whl",
+      "sha256": "34187385b08f866104f0c0617404c8eb08165ab1272e884abc89c112e9c00746"
+    },
+    {
+      "name": "idna",
+      "version": "3.20",
+      "kind": "wheel",
+      "filename": "idna-3.20-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/58/a2/bb081bab032533a855d44de1d56f8e8426114ff1ba5d1f07a438a0a654f8/idna-3.20-py3-none-any.whl",
+      "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
+    },
+    {
+      "name": "multidict",
+      "version": "7.0.0",
+      "kind": "wheel",
+      "filename": "multidict-7.0.0-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/3d/58/b100dc9169c4f3bad9b6b3c520a2a47ef21d5d9120f11ff3c7dbca1eaa10/multidict-7.0.0-cp312-cp312-win_amd64.whl",
+      "sha256": "f39d891905c19243918ce86ef8d0402b6e4585ef023542efa1f628ae0e4056d2"
+    },
+    {
+      "name": "ntgcalls",
+      "version": "3.0.0",
+      "kind": "wheel",
+      "filename": "ntgcalls-3.0.0-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/8a/e1/f73ab8a22b81afd1c26266709b3860c1a4115dcfa68b0ae452a8ab58ba54/ntgcalls-3.0.0-cp312-cp312-win_amd64.whl",
+      "sha256": "545cfe0069911cbc22f98b1ac8ba4be42065903e88467b590037aa5514c9beba"
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "kind": "wheel",
+      "filename": "packaging-26.3-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+    },
+    {
+      "name": "propcache",
+      "version": "0.5.4",
+      "kind": "wheel",
+      "filename": "propcache-0.5.4-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/58/7b/6e8ef26f6d510a7916064fec68d55fcbfbdf7eb01e377480d66a122152d8/propcache-0.5.4-cp312-cp312-win_amd64.whl",
+      "sha256": "98914de2c4d7f0f9f4a8c6ea4bf05841f4175796941e3ef7d47eb718f22311fb"
+    },
+    {
+      "name": "py-tgcalls",
+      "version": "3.0.0",
+      "kind": "wheel",
+      "filename": "py_tgcalls-3.0.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/de/94/e2a63c588d9caf3198ba9637d0ccff5c19895a9f7d50087f4679492df662/py_tgcalls-3.0.0-py3-none-any.whl",
+      "sha256": "c736066f3f79804f6f128231f4adad228e6aefb3418a473e0a52175c0a8baf49"
+    },
+    {
+      "name": "pyaes",
+      "version": "1.6.1",
+      "kind": "sdist_pure",
+      "filename": "pyaes-1.6.1.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/44/66/2c17bae31c906613795711fc78045c285048168919ace2220daa372c7d72/pyaes-1.6.1.tar.gz",
+      "sha256": "02c1b1405c38d3c370b085fb952dd8bea3fadcee6411ad99f312cc129c536d8f",
+      "package_dir": "pyaes",
+      "size": 28536
+    },
+    {
+      "name": "pyasn1",
+      "version": "0.6.4",
+      "kind": "wheel",
+      "filename": "pyasn1-0.6.4-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/9a/3b/6163796d69c3977d1e4287bea4a6979161cbbdd170ebb430511e8e1999ce/pyasn1-0.6.4-py3-none-any.whl",
+      "sha256": "deda9277cfd454080ec40b207fb6df82206a3a2688735233cdcd8d3d565f088b"
+    },
+    {
+      "name": "pysilero-vad",
+      "version": "3.4.0",
+      "kind": "wheel",
+      "filename": "pysilero_vad-3.4.0-cp39-abi3-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/be/10/128ba35aac0dee2c21a2936df20fcae49b6db5fe94c27af4b32fa11e8fc7/pysilero_vad-3.4.0-cp39-abi3-win_amd64.whl",
+      "sha256": "d5b422c2e7f13eb22ecd0a2b38eb55080f02f88b64aed4ec65e8a3089090fc4b"
+    },
+    {
+      "name": "rsa",
+      "version": "4.9.1",
+      "kind": "wheel",
+      "filename": "rsa-4.9.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/64/8d/0133e4eb4beed9e425d9a98ed6e081a55d195481b7632472be1af08d2f6b/rsa-4.9.1-py3-none-any.whl",
+      "sha256": "68635866661c6836b8d39430f97a996acbd61bfa49406748ea243539fe239762"
+    },
+    {
+      "name": "soxr",
+      "version": "1.1.0",
+      "kind": "wheel",
+      "filename": "soxr-1.1.0-cp312-abi3-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/b0/4d/621e4150e4815246ad552d215a8a294a90143fedd19ee442cf82d3b3abc8/soxr-1.1.0-cp312-abi3-win_amd64.whl",
+      "sha256": "6ae2a174bffea94e8ead857dad85999d3f49f091774dbad5b046c0417d7092f4"
+    },
+    {
+      "name": "Telethon",
+      "version": "1.45.0",
+      "kind": "wheel",
+      "filename": "telethon-1.45.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/92/ac/241c09e6905215f225d8088438ceb1f32cc4b4865f3f49068cb402debfd7/telethon-1.45.0-py3-none-any.whl",
+      "sha256": "339e24c83aedc9f12cbe389264627edc49779e4289c535aa90aafc4ce62f7972"
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "kind": "wheel",
+      "filename": "typing_extensions-4.16.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+    },
+    {
+      "name": "yarl",
+      "version": "1.25.1",
+      "kind": "wheel",
+      "filename": "yarl-1.25.1-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/bb/cc/51a7b4abf4ac593b8e7eb3794b28e5a35ae26eed8bc04787628d215af82f/yarl-1.25.1-cp312-cp312-win_amd64.whl",
+      "sha256": "7d575b54cb3863ef9bc290ea4b009999d55dc237326131e4853cf33e888fee03"
+    }
+  ]
+}

@@ -102,6 +102,18 @@ def _view(svc) -> dict:
     return _loop().status(_work(svc))
 
 
+def _owner_stop_active(svc) -> bool:
+    """The owner's global STOP (`<data>/computer/STOP`): the loop halts on it, so a campaign must not be (re)started
+    while it is set. Cleared where it was set (Computer Use resume)."""
+    return (Path(svc.settings.data_dir) / "computer" / "STOP").exists()
+
+
+def _refuse_while_owner_stop(svc) -> None:
+    if _owner_stop_active(svc):
+        raise HTTPException(409, {"code": "OWNER_STOP_ACTIVE",
+                                  "message": "the owner's global STOP is set; clear it before starting the loop"})
+
+
 @router.get("/status")
 async def status(request: Request):
     return _view(request.app.state.svc)
@@ -121,6 +133,7 @@ async def start(body: StartBody, request: Request):
     svc = request.app.state.svc
     module = _loop()
     work = _work(svc)
+    _refuse_while_owner_stop(svc)
     active = _ACTIVE.get(work)
     if active or module.status(work)["loop_running"]:
         raise HTTPException(409, {"code": "EVOLUTION_ALREADY_RUNNING"})
@@ -170,6 +183,7 @@ async def resume(request: Request):
     module = _loop()
     if not (work / "loop-state.json").is_file():
         raise HTTPException(404, {"code": "NO_CAMPAIGN"})
+    _refuse_while_owner_stop(svc)
     if _ACTIVE.get(work) or module.status(work)["loop_running"]:
         raise HTTPException(409, {"code": "EVOLUTION_STILL_RUNNING"})
     state = module._read_json(work / module.STATE_FILE) or {}

@@ -103,11 +103,11 @@ def _recogniser(model_path: Path):
 
 
 def transcribe_wav(audio: bytes, *, language: str = "ru",
-                   stopped: Callable[[], bool] = lambda: False) -> dict:
+                   stopped: Callable[[], bool] = lambda: False, beam_size: int = 5) -> dict:
     """PCM16 WAV -> {text, confidence, needs_confirm, ...}. Raises SpeechError."""
     started = time.perf_counter()
     try:
-        result = _transcribe_wav(audio, language=language, stopped=stopped)
+        result = _transcribe_wav(audio, language=language, stopped=stopped, beam_size=beam_size)
     except SpeechError as exc:
         # A deliberate STOP or a busy engine says nothing about how fast STT is.
         if str(exc) not in {"VOICE_STOPPED", "VOICE_BUSY", "VOICE_NO_SPEECH"}:
@@ -118,7 +118,7 @@ def transcribe_wav(audio: bytes, *, language: str = "ru",
 
 
 def _transcribe_wav(audio: bytes, *, language: str = "ru",
-                    stopped: Callable[[], bool] = lambda: False) -> dict:
+                    stopped: Callable[[], bool] = lambda: False, beam_size: int = 5) -> dict:
     try:
         clean, duration = whisper._validated_wav(audio)
         model_path = whisper._model_directory()
@@ -141,7 +141,7 @@ def _transcribe_wav(audio: bytes, *, language: str = "ru",
         raise SpeechError("VOICE_BUSY")
     try:
         segments, info = model.transcribe(
-            io.BytesIO(clean), language=language, beam_size=5, vad_filter=True,
+            io.BytesIO(clean), language=language, beam_size=beam_size, vad_filter=True,
             condition_on_previous_text=False)
         rows = []
         for segment in segments:
@@ -172,8 +172,12 @@ def _transcribe_wav(audio: bytes, *, language: str = "ru",
 
 
 def tts_text(answer: str) -> str:
-    """What Jeff speaks: visible reply without markup, cut at a sentence."""
-    value = spoken_reply_text(answer)
+    """What Jeff speaks: visible reply without markup, cut at a sentence.
+
+    The Jeff window sends reply text back to be spoken, so the mandatory identity/disclosure
+    filter runs here too: a voice never says what the text reply would not show."""
+    from .identity_guard import guard_reply
+    value = guard_reply(spoken_reply_text(answer)).text
     if "Источники:" in value:
         value = value.split("Источники:", 1)[0].strip()
     if len(value) <= MAX_TTS_CHARS:
@@ -183,11 +187,21 @@ def tts_text(answer: str) -> str:
     return (cut[:end + 1] if end > 200 else cut).strip()
 
 
-def synthesize(answer: str, *, stopped: Callable[[], bool] = lambda: False) -> bytes:
-    """Local Russian OGG/Opus for one reply. Raises SpeechError with a stable code."""
+def synthesize(answer: str, *, stopped: Callable[[], bool] = lambda: False,
+               audit_dir: Path | str | None = None, surface: str = "web") -> bytes:
+    """Local Russian OGG/Opus for one reply. Raises SpeechError with a stable code.
+
+    With ``audit_dir`` a security-sensitive reply is written to the pre-TTS audit (hash, category,
+    redacted text) BEFORE any engine runs; an audit that cannot be written refuses the synthesis."""
     text = tts_text(answer)
     if not text:
         raise SpeechError("VOICE_TEXT_INVALID")
+    if audit_dir is not None:
+        from . import speech_audit
+        try:
+            speech_audit.capture(text, surface=surface, audit_dir=audit_dir)
+        except OSError as exc:
+            raise SpeechError("VOICE_AUDIT_FAILED") from exc
     try:
         return run_engines(text, stopped=stopped)
     except PiperError as exc:

@@ -11,7 +11,7 @@
    ============================================================ */
 
 import { api } from '../api.js';
-import { h, toastOk, toastError, actionButton, field, textarea, select, input, checkbox, confirmDialog } from '../components.js';
+import { h, toast, toastOk, toastError, actionButton, field, textarea, select, input, checkbox, confirmDialog } from '../components.js';
 import { panel, pageHead, pill } from './_ui.js';
 
 const PRESET_ORDER = ['stock', 'bold', 'warm', 'brief'];
@@ -62,6 +62,10 @@ function scaleEditor(data, initial, prefix, { perUser = false } = {}) {
         const p = data.presets[id];
         if (!p || !Object.keys(p).length) setAll(data.stock_scales, !perUser);
         else setAll({ ...data.stock_scales, ...p }, false);
+        for (const node of presets.querySelectorAll('button[data-preset]')) {
+          node.setAttribute('aria-pressed', node.dataset.preset === id ? 'true' : 'false');
+        }
+        toast(`Пресет «${data.preset_labels[id] || id}» выбран — нажмите «Сохранить», чтобы применить`, { type: 'info' });
       },
     }, data.preset_labels[id] || id)));
   showMark();
@@ -317,6 +321,38 @@ const JeffSettingsPage = {
       } catch (e) { toastError(e); }
     }, { cls: 'btn', iconName: 'check' });
 
+    /* ---- облако и контекст разговора (РЕШЕНИЕ ВЛАДЕЛЬЦА, по умолчанию выключено) ---- */
+    const cloudSession = checkbox('Показывать бесплатной облачной модели последние 3 реплики текущего разговора '
+      + '(не старше 30 минут, без ключей и паролей; факты и персона — только по согласию самого участника)',
+    data.cloud_session_context, { name: 'js-cloud-session' });
+    const saveCloudSession = actionButton('Сохранить для облака', async () => {
+      try {
+        await api.raw('/api/jeff-settings', { method: 'PUT', body: {
+          defaults: { behavior_scales: s.defaults.behavior_scales, system_extra: s.defaults.system_extra || '' },
+          cloud_session_context: cloudSession.querySelector('input').checked } });
+        toastOk('Настройка приватности сохранена', 'Действует со следующего ответа');
+        ctx.refresh();
+      } catch (e) { toastError(e); }
+    }, { cls: 'btn', iconName: 'check' });
+    /* ---- точные расчёты (по умолчанию включены) ---- */
+    const mathAssist = checkbox('Точные расчёты: если в сообщении одно однозначное вычисление (арифметика, проценты, НДС, '
+      + 'единицы, даты, уравнения), программа считает ответ точно и подсказывает его модели; ответ пишет сам Jeff',
+    data.math_assist, { name: 'js-math-assist' });
+    const saveMathAssist = actionButton('Сохранить расчёты', async () => {
+      try {
+        await api.raw('/api/jeff-settings', { method: 'PUT', body: {
+          defaults: { behavior_scales: s.defaults.behavior_scales, system_extra: s.defaults.system_extra || '' },
+          math_assist: mathAssist.querySelector('input').checked } });
+        toastOk('Настройка расчётов сохранена', 'Действует со следующего ответа');
+        ctx.refresh();
+      } catch (e) { toastError(e); }
+    }, { cls: 'btn', iconName: 'check' });
+    const truncated = (data.extra_truncated || []).length
+      ? h('div.small', { style: { color: 'var(--err)' } },
+        `Текст настроения в файле длиннее ${data.system_extra_max} символов: Jeff читает только начало (${data.extra_truncated.join(', ')}). `
+        + 'Сократите его и сохраните: границы («без угроз, без оскорблений по нации») должны стоять в начале.')
+      : null;
+
     let jeffStatus = null;
     try { jeffStatus = await api.raw('/api/jeff-settings/status'); } catch { jeffStatus = null; }
 
@@ -324,10 +360,18 @@ const JeffSettingsPage = {
       panel('Состояние', h('div.stack.sm', status, invalidNote)),
       jeffStatus ? statusPanel(jeffStatus) : null,
       participantAdmin(ctx, data),
-      panel('Для всех участников', h('div.stack.sm', defaults.node,
-        field('Дополнительно о стиле (необязательно)', extra, `До ${data.system_extra_max} символов. Только манера речи.`),
+      panel('Для всех участников', h('div.stack.sm', defaults.node, truncated,
+        field('Дополнительно о стиле (необязательно)', extra, `До ${data.system_extra_max} символов. Только манера речи; более длинный текст не сохраняется.`),
         h('div.row.tight', { style: { gap: '8px' } }, saveDefaults, resetAll))),
       panel('Отдельный участник', h('div.stack.sm', field('Участник', userSel), userBox)),
+      panel('Облако и контекст разговора', h('div.stack.sm', cloudSession,
+        h('div.small.dim', 'По умолчанию облако получает только текущее сообщение. Включите, если ответы облачной модели '
+          + 'теряют нить беседы. Старые версии Jeff не читают файл настроек с этой опцией: обновите Jeff до включения.'),
+        h('div.row.tight', saveCloudSession))),
+      panel('Точные расчёты', h('div.stack.sm', mathAssist,
+        h('div.small.dim', 'Подсказка строится только из чисел сообщения, без сети; на обычные сообщения не влияет. '
+          + 'Выключенная опция записывается в файл настроек: старые версии Jeff такой файл не читают, обновите Jeff до выключения.'),
+        h('div.row.tight', saveMathAssist))),
       panel('Лимит расходов', h('div.stack.sm',
         h('div.row.tight', { style: { gap: '12px', flexWrap: 'wrap' } },
           field('$ в день', perDay), field('$ на одну задачу', perJob)),

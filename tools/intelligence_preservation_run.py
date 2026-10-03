@@ -133,10 +133,10 @@ SYSTEM_PROMPT = (
 # read-only analyst: его гранты (fs.read/fs.search/fs.list/search_journal/log)
 # не меняют мир, а сам он объявлен в production, а не в бенчмарке.
 FULL_LANE_AGENT = "analyst"
-# Что полоса FULL действительно ИСПОЛНЯЕТ. Всё остальное отклоняется тем же
-# текстом, которым production отказывает в неподтверждённом действии. Список
-# узкий намеренно: измерение не имеет права трогать мир владельца.
-BENCH_EXECUTABLE_TOOLS = ("fs.read", "fs.list", "fs.search", "search_journal")
+# Что полоса FULL действительно ИСПОЛНЯЕТ. log пишет только в одноразовый
+# journal.md внутри workdir измерения; остальные операции — read-only. Список
+# совпадает с инструментами аналитика, которые доступны в этой песочнице.
+BENCH_EXECUTABLE_TOOLS = ("fs.read", "fs.list", "fs.search", "search_journal", "log")
 FULL_LANE_MAX_STEPS = 6
 
 # Коды нарушений контракта полосы FULL. Каждый — поведенческий: он получается

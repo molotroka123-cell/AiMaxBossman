@@ -140,6 +140,20 @@ def test_the_real_profile_passes_the_junit_check(tmp_path):
     assert counts["tests"] == 49 and counts["per_module"] == MODULES and counts["profile"] == "windows-installed"
 
 
+@pytest.mark.parametrize("second_sha", [SHA, "b" * 40])
+def test_merged_profile_refuses_conflicting_source_shas(tmp_path, second_sha):
+    modules = list(MODULES.items())
+    merged = ET.Element("testsuites")
+    merged.append(ET.fromstring(results(dict(modules[:9]), sha=SHA)))
+    merged.append(ET.fromstring(results(dict(modules[9:]), sha=second_sha)))
+    path = write(tmp_path, ET.tostring(merged))
+    if second_sha == SHA:
+        assert require.verify(path, source_sha=SHA, registry=REGISTRY)["tests"] == 49
+    else:
+        with pytest.raises(SystemExit, match="source_sha"):
+            require.verify(path, source_sha=SHA, registry=REGISTRY)
+
+
 @pytest.mark.parametrize("case", ["thirteen", "repeat", "one_module", "module_short", "failure", "error",
                                   "skipped", "wrong_sha", "no_sha", "padding_outside_profile"])
 def test_everything_that_is_not_the_profile_is_refused(tmp_path, case):

@@ -15,6 +15,10 @@ log = logging.getLogger("bcc.pit.j2")
 FLAG_ENV = "BOSSMAN_JEFF_J2"                    # "off" disables the whole layer
 KNOWN_MODULES = ("safety", "model_guard", "director", "memory_palace", "persona", "research",
                  "media", "proactive", "quality_lab", "insights")
+#: Deny by default on a live VOICE call (ctx.surface == "call"): only these modules run there. A call stores no conversation text
+#: and starts no network access or schedule: director / persona persist what was said, proactive schedules the spoken reminder
+#: in plain text, research searches the web, media deletes files by voice. A module opts in explicitly with ``call_safe = True``.
+CALL_SAFE_MODULES = frozenset({"safety", "model_guard", "memory_palace", "quality_lab", "insights"})
 PRE_TIMEOUT_S = 0.4
 AUGMENT_TIMEOUT_S = 0.6
 POST_TIMEOUT_S = 0.8
@@ -83,6 +87,10 @@ class J2Pipeline:
         return tuple(self._modules)
 
     # -- one guarded call -------------------------------------------------------------------
+    @staticmethod
+    def _runs_on(module: J2Module, ctx: TurnContext) -> bool:
+        return ctx.surface != "call" or module.name in CALL_SAFE_MODULES or bool(getattr(module, "call_safe", False))
+
     def _usable(self, module: J2Module) -> bool:
         breaker = self._breakers[module.name]
         if breaker.open_until and self._clock() < breaker.open_until:
@@ -122,6 +130,8 @@ class J2Pipeline:
         if not self.enabled:
             return None
         for module in self._modules:
+            if not self._runs_on(module, ctx):
+                continue
             advice = await self._guarded(module, "pre", lambda m=module: m.pre_route(ctx))
             if isinstance(advice, Advice) and advice.reply:
                 return advice.reply
@@ -134,6 +144,8 @@ class J2Pipeline:
         notes: list[str] = []
         used = 0
         for module in self._modules:
+            if not self._runs_on(module, ctx):
+                continue
             advice = await self._guarded(module, "augment", lambda m=module: m.augment(ctx))
             if not isinstance(advice, Advice):
                 continue
@@ -154,6 +166,8 @@ class J2Pipeline:
             return reply
         text = reply
         for module in self._modules:
+            if not self._runs_on(module, ctx):
+                continue
             changed = await self._guarded(module, "post", lambda m=module, t=text: m.post_reply(ctx, t))
             if isinstance(changed, str) and changed.strip():
                 text = changed

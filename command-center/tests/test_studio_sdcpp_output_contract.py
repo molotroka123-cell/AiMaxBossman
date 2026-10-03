@@ -72,6 +72,13 @@ def test_duration_tolerance_is_bounded_both_ways():
     assert sdcpp.duration_mismatch(1000, {}) is None              # nothing requested: nothing to hold to
 
 
+def test_windows_app_control_block_is_not_misreported_as_bad_media():
+    assert sdcpp.classify_engine_exit(3236495362, platform="nt") == (
+        "provider_down", "Windows App Control blocked the unsigned media runtime (0xC0E90002)")
+    assert sdcpp.classify_engine_exit(1, platform="nt") == ("malformed", "engine exit code 1")
+    assert sdcpp.classify_engine_exit(3236495362, platform="posix")[0] == "malformed"
+
+
 @pytest.mark.parametrize("override", [60.0, 3660.0])
 async def test_explicit_timeout_override_wins_even_when_equal_to_catalog(harness, override):
     provider = harness.provider(WAN)

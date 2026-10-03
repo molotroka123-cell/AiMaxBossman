@@ -104,6 +104,12 @@ def _fable_ledger_off_the_real_machine(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _probe_cache_off(monkeypatch):
+    """Health probes are cached in the product (bcc.probe_cache); every test measures its own mocked state."""
+    monkeypatch.setenv("BCC_PROBE_CACHE", "off")
+
+
+@pytest.fixture(autouse=True)
 def _legacy_paid_cloud_mock_contracts(monkeypatch):
     """Older contract tests register MOCK priced cloud models (cost/price math).
 
@@ -126,6 +132,24 @@ def _jeff_blocklist_off_the_real_machine(tmp_path, monkeypatch):
         return
     monkeypatch.setattr(blocklist, "default_blocklist_path",
                         lambda: tmp_path / "private-test" / blocklist.DEFAULT_FILE_NAME)
+
+
+@pytest.fixture(autouse=True)
+def _telegram_store_off_the_real_machine(tmp_path, monkeypatch):
+    """No test can reach the owner's real Telegram companion home.
+
+    The companion keeps the bot token, the sealed profiles and the secret key in
+    one folder. Since 2026-10-01 its canonical place is ``<BCC_DATA_DIR>/telegram-companion``
+    and the legacy ``%LOCALAPPDATA%\\Bossman\\telegram-companion`` is a migration
+    SOURCE: a test that PUTs or DELETEs through the settings API without pinning
+    a path would rewrite the real files. Both explicit overrides and the data
+    dir are forced into this test's tmp dir; tests that need another place set
+    their own (monkeypatch overrides this one).
+    """
+    guard = tmp_path / "telegram-guard"
+    monkeypatch.setenv("BOSSMAN_TELEGRAM_CONFIG", str(guard / "telegram-companion" / "config.json"))
+    monkeypatch.setenv("BOSSMAN_COMPANION_CONFIG", str(guard / "telegram-companion" / "config.json"))
+    monkeypatch.setenv("BCC_DATA_DIR", str(guard / "data"))
 
 
 @pytest.fixture

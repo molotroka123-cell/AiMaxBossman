@@ -1,6 +1,7 @@
 """Unified Bossman 1.5 owner-run API: self-improvement + Twitch collector."""
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -61,7 +62,9 @@ def _call(svc, command: str, body: StartBody | None = None) -> dict:
 
 @router.get("/status")
 async def status(request: Request):
-    out = _call(request.app.state.svc, "status")
+    # subprocess.run блокирует цикл событий на всё время запуска интерпретера (~70 мс, до 30 с по
+    # таймауту): в поток, чтобы чат, SSE и остальные запросы не замирали.
+    out = await asyncio.to_thread(_call, request.app.state.svc, "status")
     store = getattr(request.app.state.svc, "owner_input", None)
     out["owner_inputs_pending"] = len(store.pending()) if store is not None else None
     return out
@@ -70,7 +73,7 @@ async def status(request: Request):
 @router.post("/quick-test")
 async def quick_test(request: Request):
     svc = request.app.state.svc
-    out = _call(svc, "status")
+    out = await asyncio.to_thread(_call, svc, "status")
     problems = []
     if not _script().is_file():
         problems.append("runner_missing")
@@ -95,7 +98,7 @@ async def quick_test(request: Request):
 
 @router.post("/start")
 async def start(body: StartBody, request: Request):
-    out = _call(request.app.state.svc, "start", body)
+    out = await asyncio.to_thread(_call, request.app.state.svc, "start", body)
     await request.app.state.svc.bus.emit("v15.owner_run.started",
                                          status=out.get("status"), root=out.get("root"))
     return out
@@ -103,7 +106,7 @@ async def start(body: StartBody, request: Request):
 
 @router.post("/stop")
 async def stop(request: Request):
-    out = _call(request.app.state.svc, "stop")
+    out = await asyncio.to_thread(_call, request.app.state.svc, "stop")
     await request.app.state.svc.bus.emit("v15.owner_run.stop_requested", root=out.get("root"))
     return out
 

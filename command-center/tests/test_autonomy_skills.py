@@ -114,7 +114,8 @@ def test_store_versions_revocation_confidence_expiry_and_retrieval(tmp_path):
     spec = S.compile_skill(t, spec_for(t), acceptance_passed=True, approvals=approvals(t, spec_for(t)),
                            staging_successes=1)
     v1 = store.add(spec)
-    v2 = store.add(spec)
+    assert store.add(spec).version == 1                                          # identical artifact: dedup
+    v2 = store.add(dataclasses.replace(spec, keywords=[*spec.keywords, "second"]))
     assert (v1.version, v2.version) == (1, 2)
     assert [s.version for s in store.retrieve("ollama model is stuck, restart it", app="ollama")] == [2]
     assert store.retrieve("ollama restart", app="telegram") == []

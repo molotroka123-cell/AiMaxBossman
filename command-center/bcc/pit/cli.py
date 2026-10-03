@@ -181,6 +181,10 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
         probe.capacity_guard = LocalCapacityGuard()
         probe.catalog = {}
         probe.catalog_checked_at = 0.0
+        probe.local_checked_at = 0.0
+        probe.local_state = ""
+        probe._catalog_dirty = False
+        probe._payment_blocked_until = {}
         endpoints = await ParticipantRuntime.refresh_catalog(probe)
         local_ok = any(endpoint.local for endpoint in endpoints.values())
         selected_models = settings.local_models if settings.local_chat_only else settings.chat_models
@@ -523,7 +527,7 @@ def cmd_start(path: Path) -> int:
     try:
         # Jeff never polls the owner's «Пульт» companion bot, and one bot token
         # has one poller on this machine even across different data dirs.
-        assert_not_companion_bot(settings.bot_token)
+        assert_not_companion_bot(settings.bot_token, data_dir=_resolve_data_dir(path))
         locks.enter_context(single_instance(home))
         locks.enter_context(token_poller_lock(settings.bot_token))
     except CompanionError as exc:

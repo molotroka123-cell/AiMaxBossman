@@ -85,3 +85,35 @@ def test_release_buttons_follow_the_gate(live):  # noqa: F811
     assert GID and auto.goals.get(GID)["state"] == "USER_APPROVAL"       # nothing was released by rendering
     assert not errors, errors
     assert not bad, bad
+
+
+def test_stop_pills_buttons_and_the_staged_evaluation_are_real(live):  # noqa: F811
+    from playwright.sync_api import sync_playwright
+    from bcc.autonomy.stop import autonomy_stop_path
+    live.svc.autonomy = auto = AutonomyService(live.settings.data_dir, constitution_status=status(True))
+    to_user_approval(auto)
+    auto.journal.append("staging_evaluation", {"goal_id": GID, "sha": "1" * 40, "decision": "ACCEPT", "accepted": True,
+                                               "measured_on": "candidate_worktree", "reasons": ["m.errors: 5 -> 1"]})
+    auto.request_stop(by="ui-test", reason="ui test")
+    errors: list[str] = []
+    bad: list[str] = []
+    with sync_playwright() as pw:
+        browser, page = open_page(live, pw, errors, bad)
+        try:
+            page.wait_for_selector("text=Панель релиза", timeout=10000)
+            assert page.locator(".bx-pill", has_text="автоприменение").inner_text().upper().endswith("ВЫКЛ")
+            assert page.locator(".bx-pill", has_text="WEIGHTS_UNCHANGED").count() == 1
+            assert page.locator(".bx-pill", has_text="STOP").first.inner_text().upper().endswith("ВКЛЮЧЁН")
+            assert page.locator("text=Цикл остановлен").count() == 1
+            assert page.locator("text=оценка кандидата до одобрения: ACCEPT").count() == 1
+            resume = page.locator("button", has_text="Снять STOP")
+            assert resume.is_enabled() and page.locator("button", has_text="STOP автономии").is_enabled()
+            resume.click()
+            page.wait_for_function("[...document.querySelectorAll('button')].some(b => "
+                                   "b.innerText.includes('Снять STOP') && b.disabled)", timeout=10000)
+            assert not autonomy_stop_path(auto.root).exists()
+            assert page.locator("text=Цикл остановлен").count() == 0
+        finally:
+            close(browser, page)
+    assert not errors, errors
+    assert not bad, bad

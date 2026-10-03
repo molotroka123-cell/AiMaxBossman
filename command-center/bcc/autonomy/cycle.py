@@ -15,12 +15,16 @@ writer turn and invalidates both approvals. Auto-deploy happens only for the
 `docs_tests` tier at autonomy level 3+, everything else stops at USER_APPROVAL.
 After deploy the metrics gate decides; a regression is rolled back.
 
-Stop conditions -> BLOCKED: constitution not pinned/mismatching, missing budget,
-scope or rollback condition, budget exhausted, lease busy, writer timeout /
-malformed output / scope or tamper violation, failing tests or missing evidence,
-any reviewer rejection / timeout / malformed verdict / write, repeated
-disagreement, revision limit, candidate SHA changed, ambiguous state or report,
-rollback not guaranteed.
+Stop conditions -> BLOCKED: owner STOP (global or autonomy, checked on every step and inside the writer /
+reviewer / hand layers), constitution not pinned/mismatching, missing budget, scope or rollback condition, goal or
+daily budget exhausted, lease busy, writer timeout / malformed output / scope, protected-path or tier violation,
+failing tests or missing evidence, any reviewer rejection / timeout / malformed verdict / write, repeated
+disagreement, revision limit, candidate SHA changed, staged evaluation REJECT (metrics measured on the staged
+candidate BEFORE the owner is asked), ambiguous state or report, rollback not guaranteed.
+
+Experience: every stop writes `trace.json` (atomic) and one lesson CANDIDATE (UNVERIFIED, with provenance and dedup)
+into the retrieval memory. Nothing here trains a model: `weights: WEIGHTS_UNCHANGED`, `learning_kind:
+retrieval_context`. Autonomous apply stays OFF (level cap L2, no apply executor).
 
 The cycle context is persisted after every step (`<root>/<goal>/cycle.json`), so a
 crash resumes from the persisted GoalStore state instead of starting over.
@@ -41,6 +45,8 @@ from pathlib import Path
 from typing import Any, Callable, Protocol
 
 from ..rave import workspace as rws
+from .budget import DailyBudget
+from .experience import LEARNING_KIND, WEIGHTS, ExperienceWriter
 from .planner import ModelFacts, facts_dict, planner_model_allowed
 from .review import Candidate, ReviewGate, parse_review
 from .savings import SavingsLedger
@@ -48,9 +54,10 @@ from .skills import SkillStore, capture_trace
 from .goals import GoalError, TransitionError
 from .probes import STAGING_PROBES
 from .types import Budget, Goal, HandRequest
+from .journal import atomic_write_bytes
 from .workers import (HandsPort, JournalPort, LeasePort, NemotronWriter, ProcessRunner, ReviewerSession,
-                      WriterSession, assign_roles, full_diff, goal_rollback, goal_scope, hand_result_dict,
-                      maybe_await, sha256_bytes, sha256_json)
+                      TreeRunner, WriterSession, assign_roles, full_diff, goal_rollback, goal_scope,
+                      hand_result_dict, maybe_await, sha256_bytes, sha256_json)
 
 GOAL_STATES = ("PROPOSED", "PLANNED", "BUILDING", "TESTING", "CLAUDE_REVIEW", "CODEX_REVIEW", "STAGING",
                "USER_APPROVAL", "DEPLOYED", "MONITORING", "COMPLETE", "ROLLED_BACK", "BLOCKED")
@@ -148,6 +155,8 @@ class CycleConfig:
     staging_checks: tuple[str, ...] = ("health", "ready", *STAGING_PROBES)
     thresholds: dict = field(default_factory=dict)
     auto_deploy_min_level: int = 3
+    models: dict = field(default_factory=dict)         # agent -> CLI model alias (e.g. {"claude": "haiku"})
+    max_cli_turns: int | None = None                   # `claude -p --max-turns N` (Codex has no such flag)
 
 
 @dataclass
@@ -168,6 +177,10 @@ class CycleDeps:
     savings: SavingsLedger | None = None
     skills: SkillStore | None = None
     wall: Callable[[], float] = time.time
+    stop_check: Callable[[], str] | None = None        # owner STOP: "" = run, else the reason
+    candidate_probe: Callable[[Goal, Path], Any] | None = None   # metrics of the STAGED candidate (its own worktree)
+    daily: DailyBudget | None = None                   # global daily cap (cycles / turns / usd)
+    experience: ExperienceWriter | None = None         # lesson CANDIDATES (retrieval memory, never training)
 
 
 @dataclass
@@ -176,6 +189,10 @@ class CycleOutcome:
     state: str
     reason: str = ""
     evidence: dict = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # experience saved by the loop is retrieval context: never claim (or imply) weight training
+        self.evidence = {"weights": WEIGHTS, "learning_kind": LEARNING_KIND, **self.evidence}
 
 
 class Blocked(Exception):
@@ -243,6 +260,24 @@ class AutonomyCycle:
             raise KeyError(f"no persisted cycle for {goal_id}")
         return await self._drive(ctx)
 
+    async def resume_after_stop(self, goal_id: str) -> CycleOutcome:
+        """A goal the owner STOP blocked continues from the state it was blocked from, once the STOP is cleared.
+        Any other BLOCKED goal stays blocked: it needs the owner's look, not an automatic retry."""
+        ctx = self._load(goal_id)
+        if ctx is None:
+            raise KeyError(f"no persisted cycle for {goal_id}")
+        rec = self.d.goals.get(goal_id)
+        reason = str(rec.get("blocked_reason", "")) if isinstance(rec, dict) else ""
+        if state_of(rec) != "BLOCKED" or not reason.startswith("owner STOP"):
+            raise ValueError("only a goal blocked by the owner STOP resumes by itself")
+        stopped = self._stop_reason()
+        if stopped:
+            return CycleOutcome(goal_id, "BLOCKED", stopped)
+        self.d.goals.resume(goal_id, {"resumed_after": "owner STOP cleared"})
+        self._log("cycle_resumed_after_stop", ctx, {"from_state": self._store_state(goal_id)})
+        ctx.pop("blocked_reason", None)
+        return await self._drive(ctx)
+
     async def user_decision(self, goal_id: str, decision: str, notes: str = "") -> CycleOutcome:
         """Reject / Revise at USER_APPROVAL. Apply is NOT a loop action: it goes through the
         release panel (``AutonomyService.apply`` -> the owner runs the commands ->
@@ -274,6 +309,7 @@ class AutonomyCycle:
             self._capture_trace(ctx, "COMPLETE")
             ctx["state"] = "COMPLETE"
             self._save(ctx)
+            self._experience(ctx, "REJECTED", "")
             return CycleOutcome(goal_id, "COMPLETE", "rejected by the user")
         return await self._drive(ctx)
 
@@ -287,9 +323,27 @@ class AutonomyCycle:
         return out
 
     # ------------------------------------------------------------ driver
+    def _thresholds(self, goal: Goal) -> dict:
+        """Metric thresholds: the config's, plus the honest JEFF-0042 tolerances for that goal."""
+        from .identity_task import GOAL_ID, THRESHOLDS
+        return {**(THRESHOLDS if goal.goal_id == GOAL_ID else {}), **self.c.thresholds}
+
+    def _stop_reason(self) -> str:
+        return (self.d.stop_check() if self.d.stop_check is not None else "") or ""
+
+    def _sweep(self, ctx: dict) -> None:
+        """Block every live goal whose own budget (turns / cost / time) ran out."""
+        sweep = getattr(self.d.goals, "sweep_budgets", None)
+        if sweep is None:
+            return
+        blocked = sweep()
+        if blocked:
+            self._log("budget.swept", ctx, {"blocked": list(blocked)})
+
     async def _drive(self, ctx: dict) -> CycleOutcome:
         gid = ctx["goal"]["goal_id"]
         while True:
+            self._sweep(ctx)
             # the GoalStore is the source of truth; a crash between saving the context and the
             # transition simply repeats that step (every step is idempotent or re-runs isolated)
             store_state = self._store_state(gid)
@@ -297,14 +351,27 @@ class AutonomyCycle:
                 return self._block(ctx, Blocked("ambiguous state", store=store_state, cycle=ctx["state"]))
             ctx["state"] = store_state
             if store_state in STOPS:
-                if store_state in TERMINAL and not ctx.get("trace_hash") and ctx.get("sha"):
+                if store_state in TERMINAL | {"BLOCKED"} and ctx.get("sha") and ctx.get("trace_state") != store_state:
                     self._capture_trace(ctx, store_state)
-                return CycleOutcome(gid, store_state, ctx.get("blocked_reason", "") if store_state == "BLOCKED"
-                                    else "", {"cycle": str(self._dir(gid) / "cycle.json")})
+                reason = ""
+                if store_state == "BLOCKED":
+                    reason = ctx.get("blocked_reason", "") or self._stored_reason(gid)
+                self._experience(ctx, store_state, reason)
+                return CycleOutcome(gid, store_state, reason, {"cycle": str(self._dir(gid) / "cycle.json")})
+            stopped = self._stop_reason()
+            if stopped:                                         # the owner STOP halts the loop before any step
+                return self._block(ctx, Blocked(stopped))
             try:
                 await getattr(self, "_s_" + store_state.lower())(ctx)
             except Blocked as exc:
                 return self._block(ctx, exc)
+
+    def _stored_reason(self, goal_id: str) -> str:
+        try:
+            rec = self.d.goals.get(goal_id)
+            return str(rec.get("blocked_reason", "")) if isinstance(rec, dict) else ""
+        except (KeyError, ValueError, OSError):
+            return ""
 
     def _store_state(self, goal_id: str) -> str | None:
         try:
@@ -324,6 +391,7 @@ class AutonomyCycle:
                 self._log("cycle_transition_refused", ctx, {"to": "BLOCKED", "reason": str(err)[:500]})
         ctx["state"] = "BLOCKED"
         self._save(ctx)
+        self._experience(ctx, "BLOCKED", exc.reason)
         return CycleOutcome(gid, "BLOCKED", exc.reason, evidence)
 
     def _goal(self, ctx: dict) -> Goal:
@@ -335,6 +403,22 @@ class AutonomyCycle:
             raise Blocked("budget exhausted: agent turns", turns_used=ctx["turns_used"], max=b.max_agent_turns)
         if (self.d.wall() - ctx["started_at"]) / 60.0 > b.max_minutes:
             raise Blocked("budget exhausted: minutes", max_minutes=b.max_minutes)
+        if self.d.daily is not None:
+            why = self.d.daily.exhausted(need_turns=need_turns)
+            if why:
+                raise Blocked(why, daily=self.d.daily.snapshot())
+
+    def _charge(self, ctx: dict, *, turns: int, cost_usd: float = 0.0) -> None:
+        """Account the turns (and the USD of a paid route; the subscription CLIs and the free route cost 0) on the
+        goal and on the daily cap. A goal that just ran out of budget is BLOCKED by the store; stop here."""
+        gid = ctx["goal"]["goal_id"]
+        if self.d.daily is not None and (turns or cost_usd):
+            self.d.daily.charge(gid, turns=turns, usd=cost_usd)
+        charge = getattr(self.d.goals, "charge", None)
+        if charge is not None and (turns or cost_usd):
+            rec = charge(gid, agent_turns=turns, cost_usd=cost_usd)
+            if state_of(rec) == "BLOCKED":
+                raise Blocked(str(rec.get("blocked_reason") or "budget exhausted"))
 
     # ------------------------------------------------------------ states
     async def _s_proposed(self, ctx: dict) -> None:
@@ -352,6 +436,10 @@ class AutonomyCycle:
             raise Blocked("goal has no allowed paths (path:<glob>)")
         if not goal_rollback(goal):
             raise Blocked("rollback cannot be guaranteed: no rollback condition")
+        if self.d.daily is not None:
+            why = self.d.daily.start_cycle(goal.goal_id)              # journaled: budget.check
+            if why:
+                raise Blocked(why, daily=self.d.daily.snapshot())
         nemo_ok, nemo_why = planner_model_allowed(self.d.nemotron_facts) if self.d.nemotron else (False,
                                                                                                 "not configured")
         route = route_writer(goal, seed=self.c.seed, nemotron_ok=nemo_ok, nemotron_reason=nemo_why)
@@ -383,17 +471,22 @@ class AutonomyCycle:
             session_dir=self._dir(goal.goal_id) / f"w{ctx['round']}-a{ctx['attempt']}", lease=self.d.lease,
             hands=self.d.hands, journal=self.d.journal, runner=self.d.runner, timeout_s=self.c.writer_timeout_s,
             max_hand_rounds=self.c.max_hand_rounds, feedback=ctx.get("feedback", ""), turn=ctx["round"],
-            nemotron=self.d.nemotron, turns_left=lambda: budget_turns - ctx["turns_used"])
+            nemotron=self.d.nemotron, turns_left=lambda: budget_turns - ctx["turns_used"],
+            model=self.c.models.get(writer), stop_check=self.d.stop_check, max_cli_turns=self.c.max_cli_turns)
         res = await session.run()
         ctx["turns_used"] += res.turns_used
         ctx["building_started"] = False
         ctx["writer_runs"].append({k: v for k, v in res.as_dict().items() if k != "hand_results"})
         self._save(ctx)
+        self._charge(ctx, turns=res.turns_used)
         if res.status != "ok":
             reasons = {"lease_busy": "engineering lease busy", "timeout": "writer timed out",
                        "malformed": "writer output malformed", "violation": "boundary violation",
                        "budget": "budget exhausted: agent turns", "no_change": "writer produced no change",
-                       "unavailable": "writer unavailable"}
+                       "unavailable": "writer unavailable", "stopped": "owner STOP"}
+            if res.status == "stopped":
+                raise Blocked(res.summary if str(res.summary).startswith("owner STOP") else f"owner STOP: {res.summary}",
+                              violations=res.violations)
             raise Blocked(f"{reasons.get(res.status, 'writer failed')}: {res.summary}"[:400],
                           violations=res.violations)
         if self.d.savings is not None:
@@ -443,6 +536,13 @@ class AutonomyCycle:
                 raise Blocked("missing test evidence", suite=suite, missing=["exit_code"])
             if not res.ok or res.exit_code != 0:
                 raise Blocked(f"protected tests fail: {suite}", exit_code=res.exit_code)
+        skipped = [t for t in goal.acceptance_tests if not str(t).strip().startswith("pytest:")]
+        if skipped:                       # cmd: / measurable statements are not run by the hands: say so, never hide it
+            evidence.append({"suite": "not_executed", "status": "NOT_EXECUTED", "tests": list(skipped),
+                             "request_hash": "", "ok": None,
+                             "note": "acceptance tests without a pytest: reference are recorded, not executed; the "
+                                     "target metric is measured on the staged candidate instead"})
+            self._log("acceptance_not_executed", ctx, {"tests": list(skipped)})
         ctx["evidence"] = evidence
         ctx["evidence_sha256"] = sha256_json(evidence)
         gate = ReviewGate(goal.goal_id, max_disagreements=self.c.max_disagreements, journal=self.d.journal,
@@ -493,13 +593,20 @@ class AutonomyCycle:
                                evidence=ctx["evidence"], session_dir=self._dir(goal.goal_id)
                                / f"r{ctx['round']}-{agent}-a{ctx['attempt']}", journal=self.d.journal,
                                runner=self.d.runner, timeout_s=self.c.reviewer_timeout_s,
-                               base_sha=ctx["base_sha"], diff_text=diff)
+                               base_sha=ctx["base_sha"], diff_text=diff, model=self.c.models.get(agent),
+                               stop_check=self.d.stop_check, max_cli_turns=self.c.max_cli_turns)
         out = await sess.run()
         ctx["turns_used"] += 1
+        if out.status == "stopped":                     # an owner STOP is not a failed review: nothing was decided
+            self._save(ctx)
+            self._charge(ctx, turns=1)
+            raise Blocked(out.reason if str(out.reason).startswith("owner STOP") else f"owner STOP: {out.reason}")
         if out.status != "ok":
             gate.record_failure(agent, f"{out.status}: {out.reason}")
             ctx["gate"] = gate.to_dict()
+            self._charge(ctx, turns=1)
             raise Blocked(gate.blocked_reason)
+        self._charge(ctx, turns=1)
         review, why = parse_review(out.text, goal_id=goal.goal_id, reviewer=agent, candidate=cand)
         if review is None:
             gate.record_failure(agent, f"malformed verdict: {why}")
@@ -541,11 +648,46 @@ class AutonomyCycle:
             raise Blocked("ambiguous state: staging report")
         if not ok:
             raise Blocked("staging failed")
+        evaluation = await self._evaluate_candidate(ctx, goal)          # REJECT -> Blocked before the owner is asked
         if goal.risk_tier == "docs_tests" and self.c.level >= self.c.auto_deploy_min_level:
             await self._deploy(ctx)
             return
+        self._capture_trace(ctx, "USER_APPROVAL")       # the evidence trace is there while the owner decides
         self._to(ctx, "USER_APPROVAL", {"sha": ctx["sha"], "rollback": goal_rollback(goal),
-                                        "approvals": gate.approvals(), "staging_ok": True})
+                                        "approvals": gate.approvals(), "staging_ok": True,
+                                        "evaluation": evaluation,
+                                        "not_executed": [t for e in ctx["evidence"] if e.get("status") == "NOT_EXECUTED"
+                                                         for t in e.get("tests", [])],
+                                        "weights": WEIGHTS, "learning_kind": LEARNING_KIND})
+
+    async def _evaluate_candidate(self, ctx: dict, goal: Goal) -> dict:
+        """Measure the STAGED candidate and apply the metrics gate BEFORE approval (deployed=False): the owner is
+        never asked to approve something whose target metric did not improve or whose protected metrics regressed.
+        With a `candidate_probe` the metrics are measured in the candidate's own worktree; without one the shared
+        probe is used and the evaluation says so."""
+        if self.d.candidate_probe is not None:
+            after = await maybe_await(self.d.candidate_probe(goal, Path(ctx["worktree"])))
+            measured_on = "candidate_worktree"
+        else:
+            after = await maybe_await(self.d.metrics_probe(goal))
+            measured_on = "shared_probe (not candidate-specific)"
+        if not isinstance(after, dict):
+            raise Blocked("ambiguous state: the staged candidate's metrics could not be measured")
+        verdict = await maybe_await(self.d.gate_decide(ctx["metrics_before"], after, goal.target_metric,
+                                                       goal.protected_metrics, self._thresholds(goal), deployed=False))
+        ok = verdict_flag(verdict)
+        detail = verdict.as_dict() if hasattr(verdict, "as_dict") else (verdict if isinstance(verdict, dict) else {})
+        evaluation = {"decision": getattr(verdict, "decision", None) or (detail.get("verdict") or ""),
+                      "accepted": bool(ok), "measured_on": measured_on, "before": ctx["metrics_before"],
+                      "after": after, "reasons": list(getattr(verdict, "reasons", None) or detail.get("reasons") or [])}
+        ctx["candidate_eval"] = evaluation
+        self._log("staging_evaluation", ctx, {"sha": ctx["sha"], **evaluation})
+        if ok is None:
+            raise Blocked("ambiguous state: staged evaluation verdict")
+        if not ok:
+            raise Blocked("staged evaluation rejected the candidate: " + "; ".join(evaluation["reasons"])[:300],
+                          evaluation=evaluation)
+        return evaluation
 
     async def _deploy(self, ctx: dict) -> None:
         """Automatic tier only (docs_tests at L3+). Every other release is the user's:
@@ -575,7 +717,7 @@ class AutonomyCycle:
         if not isinstance(after, dict):
             raise Blocked("ambiguous state: metrics probe failed after deploy")
         verdict = await maybe_await(self.d.gate_decide(ctx["metrics_before"], after, goal.target_metric,
-                                                       goal.protected_metrics, self.c.thresholds))
+                                                       goal.protected_metrics, self._thresholds(goal), deployed=True))
         ok = verdict_flag(verdict)
         ctx["metrics_after"] = after
         self._log("metrics_verdict", ctx, {"ok": ok, "before": ctx["metrics_before"], "after": after})
@@ -598,7 +740,59 @@ class AutonomyCycle:
     def _finish(self, ctx: dict, state: str, extra: dict | None = None) -> None:
         self._capture_trace(ctx, state)
         self._to(ctx, state, {"sha": ctx["sha"], "trace_hash": ctx["trace_hash"],
-                              "metrics_after": ctx.get("metrics_after"), **(extra or {})})
+                              "metrics_after": ctx.get("metrics_after"), "weights": WEIGHTS,
+                              "learning_kind": LEARNING_KIND, **(extra or {})})
+        if state == "COMPLETE":
+            self._propose_skill(ctx)
+
+    def _propose_skill(self, ctx: dict) -> None:
+        """An accepted cycle may leave a skill PROPOSAL (a file, poison-filtered and deduplicated). It becomes a skill
+        only through the owner's `SkillStore.confirm` (all five conditions again). Never raises."""
+        if self.d.skills is None:
+            return
+        try:
+            from .skills import SkillSpec
+            goal = self._goal(ctx)
+            steps = [{"action": "run_tests", "suite": e["suite"], "request_hash": e["request_hash"]}
+                     for e in ctx["evidence"] if e.get("status") != "NOT_EXECUTED"]
+            name = "auto-" + re.sub(r"[^a-z0-9]+", "-", goal.goal_id.lower()).strip("-")[:48]
+            spec = SkillSpec(
+                name=name, description=f"Bounded change procedure that completed goal {goal.goal_id} "
+                                       f"({goal.risk_tier}) with passing acceptance tests and dual review.",
+                app="bossman", env="autonomy-cycle", parameters={"goal_id": "goal identifier",
+                                                                 "scope": "allowed path globs"},
+                preconditions=["constitution pinned by the owner", "no owner STOP", "engineering lease free"],
+                steps=steps or [{"action": "review", "suite": "none", "request_hash": ctx.get("trace_hash", "")}],
+                failure_detection=["acceptance tests fail", "a protected metric regresses"],
+                rollback=[goal_rollback(goal)], timeout_s=max(60, int(goal.budget.max_minutes) * 60),
+                source_trace_hash=ctx.get("trace_hash", ""), evidence=[ctx.get("trace_hash", "")],
+                keywords=[goal.risk_tier, "autonomy"])
+            ahash = self.d.skills.propose(spec, by="autonomy-cycle", trace_hash=ctx.get("trace_hash", ""))
+            self._log("skill_proposal", ctx, {"artifact_hash": ahash, "weights": WEIGHTS,
+                                              "learning_kind": LEARNING_KIND})
+        except Exception as exc:  # noqa: BLE001 - a proposal must never break the loop
+            self._log("skill_proposal_skipped", ctx, {"reason": f"{type(exc).__name__}: {str(exc)[:200]}"})
+
+    def _experience(self, ctx: dict, state: str, reason: str = "") -> None:
+        """One lesson CANDIDATE per (state, sha) stop: retrieval memory with provenance, UNVERIFIED, deduplicated.
+        Never raises: the loop does not depend on its memory."""
+        if self.d.experience is None or state not in ("USER_APPROVAL", "COMPLETE", "ROLLED_BACK", "BLOCKED",
+                                                       "REJECTED"):
+            return
+        key = f"{state}:{ctx.get('sha') or ''}:{reason[:40] if state == 'BLOCKED' else ''}"
+        done = ctx.setdefault("lessons", {})
+        if key in done:
+            return
+        try:
+            head = self.d.journal.head() if hasattr(self.d.journal, "head") else ""
+            res = self.d.experience.record(goal=self._goal(ctx), state=state, reason=reason,
+                                           trace_hash=ctx.get("trace_hash") or "", sha=ctx.get("sha") or "",
+                                           writer=(ctx.get("route") or {}).get("writer", ""), journal_head=head)
+        except Exception as exc:  # noqa: BLE001 - experience must not break the loop
+            self._log("lesson.skipped", ctx, {"state": state, "reason": f"{type(exc).__name__}: {str(exc)[:200]}"})
+            return
+        done[key] = (res or {}).get("lesson_id", "")
+        self._save(ctx)
 
     def _capture_trace(self, ctx: dict, state: str) -> str:
         goal = self._goal(ctx)
@@ -607,17 +801,20 @@ class AutonomyCycle:
             goal_id=goal.goal_id, start_state={"base_sha": ctx["base_sha"], "metrics_before": ctx["metrics_before"]},
             instruction=goal.desired_result,
             actions=[{"action": "run_tests", "suite": e["suite"], "request_hash": e["request_hash"], "ok": e["ok"]}
-                     for e in ctx["evidence"]]
+                     for e in ctx["evidence"] if e.get("status") != "NOT_EXECUTED"]
                     + [{"action": "apply_candidate", "request_hash": d["request_hash"], "ok": d["ok"]}
                        for d in ctx["deploys"]],
-            observations=[w.get("summary", "") for w in ctx["writer_runs"]], errors=[],
+            observations=[w.get("summary", "") for w in ctx["writer_runs"]]
+                         + [f"NOT_EXECUTED acceptance tests: {t}" for e in ctx["evidence"]
+                            if e.get("status") == "NOT_EXECUTED" for t in e.get("tests", [])], errors=[],
             recovery=[f"revision {i + 1}" for i in range(ctx["revisions"])],
             result={"state": state, "sha": ctx["sha"], "metrics_after": ctx.get("metrics_after")},
             reviews=[{"reviewer": r, **v} for r, v in sorted((gate.get("verdicts") or {}).items())],
             user_decision=(ctx.get("user_decision") or {}).get("decision"), origin="executed")
-        (self._dir(goal.goal_id) / "trace.json").write_text(json.dumps(trace.as_dict(), ensure_ascii=False,
-                                                                       indent=2, sort_keys=True), encoding="utf-8")
+        atomic_write_bytes(self._dir(goal.goal_id) / "trace.json",
+                           json.dumps(trace.as_dict(), ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8"))
         ctx["trace_hash"] = trace.trace_hash()
+        ctx["trace_state"] = state
         self._log("trace_captured", ctx, {"trace_hash": ctx["trace_hash"], "state": state})
         self._save(ctx)
         return ctx["trace_hash"]
@@ -626,32 +823,56 @@ class AutonomyCycle:
 # ------------------------------------------------------------------ real wiring (OWNER_REQUIRED)
 
 
-def _real_deps(root: Path, repo: Path) -> CycleDeps:  # pragma: no cover - needs Line A + owner machine
-    """Line A objects (same data dir as the dashboard/CLI) + the real Claude/Codex CLIs."""
-    from . import constitution, metrics_gate
+def default_data_dir() -> Path:
+    from ..config import _data_dir
+    return Path(_data_dir())
+
+
+def real_deps(root: Path, repo: Path, *, data_dir: Path | None = None, constitution_path: Any = None,
+              pin_path: Any = None, stop_check: Callable[[], str] | None = None) -> CycleDeps:  # pragma: no cover
+    """Line A objects (same data dir as the dashboard/CLI) + the real Claude/Codex CLIs, with the owner STOP wired
+    into the driver, the hand broker and the worker sessions, the daily cap, the experience writer and the metrics
+    probes that measure the candidate's OWN code."""
+    from . import constitution, metrics_gate, stop as stop_mod
     from .goals import GoalStore
     from .hands import build_default_broker
+    from .identity_task import GOAL_ID, probe_in_checkout
     from .journal import Journal
     from .lease import EngineeringLease
+    from .metrics_probes import probe_tests_failed
     from .staging import build_default_runner
-    from .identity_task import GOAL_ID, METRIC, _ollama_responder, run_redteam
 
     journal = Journal(root)
+    data = Path(data_dir) if data_dir is not None else default_data_dir()
+    stop = stop_check or stop_mod.checker(root, data)
 
-    async def probe(goal: Goal) -> dict | None:
-        model = os.environ.get("BOSSMAN_AUTONOMY_JEFF_MODEL", "").strip()
-        if goal.goal_id != GOAL_ID or not model:
-            return None
-        endpoint = os.environ.get("BOSSMAN_AUTONOMY_JEFF_ENDPOINT", "http://127.0.0.1:11434/v1")
-        rep = await run_redteam(_ollama_responder(endpoint, model))
-        return {METRIC: float(rep.leaks)}
+    def verify() -> Any:
+        return constitution.verify(constitution_path, pin_path)
+
+    model = os.environ.get("BOSSMAN_AUTONOMY_JEFF_MODEL", "").strip()
+    endpoint = os.environ.get("BOSSMAN_AUTONOMY_JEFF_ENDPOINT", "http://127.0.0.1:11434/v1")
+
+    async def measure(goal: Goal, checkout: Path) -> dict | None:
+        if goal.goal_id == GOAL_ID:
+            return await probe_in_checkout(checkout, model=model, endpoint=endpoint) if model else None
+        if goal.target_metric == "tests.failed":
+            return await probe_tests_failed(checkout, goal.acceptance_tests)
+        return None                        # no honest probe for this metric: the goal is not started
+
+    async def probe(goal: Goal) -> dict | None:                      # the baseline: the source checkout's own code
+        return await measure(goal, Path(repo))
 
     return CycleDeps(goals=GoalStore(root, journal), lease=EngineeringLease(root, journal=journal),
-                     hands=build_default_broker(root, journal), journal=journal,
-                     staging=build_default_runner(root, repo, journal=journal),
-                     gate_decide=metrics_gate.decide, constitution_verify=constitution.verify,
-                     metrics_probe=probe, source_repo=repo, work_root=root / "cycles",
-                     savings=SavingsLedger(root), skills=SkillStore(root))
+                     hands=build_default_broker(root, journal, constitution_status=verify, stop_check=stop),
+                     journal=journal, staging=build_default_runner(root, repo, journal=journal),
+                     gate_decide=metrics_gate.decide, constitution_verify=verify, metrics_probe=probe,
+                     source_repo=repo, work_root=root / "cycles", runner=TreeRunner(stop_check=stop),
+                     savings=SavingsLedger(root), skills=SkillStore(root, journal=journal), stop_check=stop,
+                     candidate_probe=measure, daily=DailyBudget(root, journal=journal),
+                     experience=ExperienceWriter(root, journal=journal))
+
+
+_real_deps = real_deps      # the old private name
 
 
 async def openrouter_nemotron() -> tuple[NemotronWriter | None, ModelFacts | None, str]:  # pragma: no cover

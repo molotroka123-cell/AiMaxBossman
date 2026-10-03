@@ -54,6 +54,23 @@ def test_roundtrip_digest_deep_immutability():
         ObjectiveSpec()
 
 
+def test_observer_only_objective_may_have_no_permissions_or_conflict_claims():
+    raw = raw_spec()
+    raw["permission_refs"] = []
+    raw["conflict_keys"] = []
+    spec = ObjectiveSpec.from_dict(raw)
+    assert spec.to_dict()["permission_refs"] == []
+    assert spec.to_dict()["conflict_keys"] == []
+
+
+@pytest.mark.parametrize("field", ["stop_conditions", "allowed_triggers"])
+def test_objective_still_requires_stop_conditions_and_trigger(field):
+    raw = raw_spec()
+    raw[field] = []
+    with pytest.raises(ObjectiveValidationError):
+        ObjectiveSpec.from_dict(raw)
+
+
 def test_trusted_revision_required_identity_immutable_and_old_observation_unknown():
     first = ObjectiveSpec.from_dict(raw_spec())
     raw = first.to_dict()
@@ -94,7 +111,6 @@ def test_strict_numeric_validation(path, value):
     lambda r: r["predicates"][0].update(source_ref="outside"),
     lambda r: r["predicates"][0].update(operator="ge"),
     lambda r: r["predicates"][0].update(expected=1),
-    lambda r: r.update(permission_refs=[]),
     lambda r: r.update(allowed_triggers=["everything"]),
     lambda r: r["sources"][0].update(max_age_seconds=86401),
     lambda r: r.update(owner_id="\ud800"),

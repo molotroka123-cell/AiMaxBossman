@@ -389,14 +389,28 @@ def test_real_processes_kill_then_watchdog_restarts_exactly_one_poller(tmp_path)
             time.sleep(0.05)
         raise AssertionError("no poller came up")
 
+    import psutil
+
+    def family(proc: subprocess.Popen) -> set[int]:
+        """The spawned pid plus its descendants: a Windows venv python.exe is a launcher, the looper that writes
+        poller.json is the interpreter below it."""
+        try:
+            return {proc.pid} | {c.pid for c in psutil.Process(proc.pid).children(recursive=True)}
+        except psutil.Error:
+            return {proc.pid}
+
     thread.start()
     try:
         first = holder_pid()
-        next(p for p in procs if p.pid == first).kill()          # crash the poller
+        psutil.Process(first).kill()                             # crash the poller (the real interpreter)
         second = holder_pid(after=first)
         assert second != first
+        deadline = time.monotonic() + 30
         live = [p for p in procs if p.poll() is None]
-        assert [p.pid for p in live] == [second]                 # exactly one poller
+        while len(live) != 1 and time.monotonic() < deadline:     # the launcher of the crashed one exits a moment later
+            time.sleep(0.1)
+            live = [p for p in procs if p.poll() is None]
+        assert len(live) == 1 and second in family(live[0])      # exactly one poller
     finally:
         (home / "stop.flag").write_text("x")
         thread.join(timeout=60)

@@ -289,8 +289,50 @@ def _export_uid(value) -> int | None:
     return None
 
 
+def _export_attachment_text(export_file: Path, relative_file: object,
+                            parser: Callable[[Path], str] | None) -> tuple[str, str | None]:
+    """Extract bounded text from one Telegram Desktop attachment, never from a URL.
+
+    Attachments are resolved relative to the export JSON and must remain beneath
+    that directory. This deliberately excludes symlinks and absolute paths.
+    """
+    if not isinstance(relative_file, str) or not relative_file.strip():
+        return "", None
+    rel = Path(relative_file)
+    if rel.is_absolute() or rel.drive or ".." in rel.parts:
+        return "", "attachment path rejected"
+    suffix = rel.suffix.lower()
+    allowed = {".txt", ".md", ".pdf", ".docx", ".pptx", ".xlsx"}
+    if suffix not in allowed:
+        return "", "unsupported attachment type"
+    try:
+        root = export_file.parent.resolve(strict=True)
+        candidate = export_file.parent / rel
+        # Reject symlinks in every existing component, including the final file.
+        current = export_file.parent
+        for part in rel.parts:
+            current = current / part
+            if current.is_symlink():
+                return "", "attachment symlink rejected"
+        resolved = candidate.resolve(strict=True)
+        resolved.relative_to(root)
+        if not resolved.is_file() or resolved.stat().st_size > 32 * 1024 * 1024:
+            return "", "attachment missing or too large"
+        if suffix in {".txt", ".md"}:
+            extracted = resolved.read_text(encoding="utf-8-sig", errors="replace")
+        elif parser is None:
+            return "", "document parser unavailable"
+        else:
+            extracted = parser(resolved)
+        cleaned = " ".join(str(extracted or "").split())[:20_000]
+        return cleaned, None if cleaned else "no text extracted"
+    except Exception as exc:  # noqa: BLE001 — one malformed attachment cannot abort a source scan
+        return "", f"attachment extraction failed: {type(exc).__name__}"
+
+
 def read_exports(inbox: Path, *, known: dict[int, str], cursors: dict[str, str],
-                 name: str = "tg-export") -> ReadResult:
+                 name: str = "tg-export",
+                 document_parser: Callable[[Path], str] | None = None) -> ReadResult:
     """Telegram Desktop JSON exports. Only known Jeff participants are attributed.
 
     A personal chat with a known participant keeps both sides (the other side
@@ -300,6 +342,14 @@ def read_exports(inbox: Path, *, known: dict[int, str], cursors: dict[str, str],
     result = ReadResult()
     stat = SourceStat(name)
     result.stats.append(stat)
+    if document_parser is None:
+        # Optional, lazy, local-only Docling integration. Importing Master Parser
+        # does not initialize models or download weights.
+        try:
+            from .documents import parse_with_docling
+            document_parser = parse_with_docling
+        except ImportError:
+            document_parser = None
     if not Path(inbox).is_dir():
         stat.status = "missing"
         return result
@@ -338,7 +388,21 @@ def read_exports(inbox: Path, *, known: dict[int, str], cursors: dict[str, str],
                 else:
                     continue
                 ts = _parse_ts(message.get("date_unixtime") or message.get("date"))
+                attachment = message.get("file")
+                extracted, extraction_error = _export_attachment_text(path, attachment,
+                                                                        document_parser)
+                if extraction_error:
+                    # A message with an unsupported/unsafe attachment remains
+                    # visible as a message, and the source report records why.
+                    if attachment:
+                        stat.errors += 1
+                        stat.detail = extraction_error
+                if extracted:
+                    text = (text + "\n\n[Extracted local attachment text — untrusted data]\n" +
+                            extracted).strip()
+                    kind = "document"
                 kind = ("command" if text.strip().startswith("/") else
+                        "document" if attachment else
                         "text" if text.strip() else
                         "voice" if message.get("media_type") in {"voice_message", "video_message"} else
                         "photo" if message.get("photo") else "empty")

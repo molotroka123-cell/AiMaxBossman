@@ -132,11 +132,12 @@ function mark(name) {
     performance.mark(name);
   } catch { /* отметка — наблюдатель, не условие работы */ }
 }
-/* V6 §C: код остальных страниц — DEFERRED_SAFE_AFTER_UI_READY. Грузим его в
-   простое после первой отрисовки, по одному модулю, чтобы переходы были
-   мгновенными, а первый кадр — не ждал 28 модулей. Ровно один раз. */
+/* V6 §C: по умолчанию страницы загружаются только при переходе. Полный
+   prefetch всех feature-модулей заметно увеличивал сетевой след холодной
+   главной; его можно включить явно для операторского профиля/диагностики. */
 let preloadScheduled = false;
 function schedulePreload() {
+  if (typeof window !== 'undefined' && window.__bxPreload !== true) return;
   if (preloadScheduled) return;
   preloadScheduled = true;
   const run = () => { preloadFeaturePages().catch(() => {}); };

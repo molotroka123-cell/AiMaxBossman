@@ -150,6 +150,25 @@ def test_a_results_file_that_names_another_sha_is_refused(evidence):
     assert "results.xml:not_bound_to_payload" in report["blockers"]
 
 
+@pytest.mark.parametrize("conflicting_field", [None, "source_sha", "archive_sha256", "run_id", "harness_sha"])
+def test_merged_junit_must_agree_on_every_payload_binding(evidence, conflicting_field):
+    modules = list(MODULES.items())
+    merged = ET.fromstring(junit(dict(modules[:9])))
+    second = ET.fromstring(junit(dict(modules[9:]))).find("testsuite")
+    for prop in second.iter("property"):
+        if prop.get("name") == conflicting_field:
+            prop.set("value", "foreign-run" if conflicting_field == "run_id" else "c" * len(prop.get("value")))
+    merged.append(second)
+    (evidence / "results.xml").write_bytes(ET.tostring(merged))
+    report = manifest(evidence)
+    if conflicting_field is None:
+        assert report["status"] == "FROZEN", report["blockers"]
+    else:
+        assert report["status"] == "BLOCKED"
+        assert report["publish_gate"]["release_ready"] is False
+        assert "results.xml:malformed" in report["blockers"]
+
+
 # ------------------------------------------------------- the JUnit contract
 
 def test_forty_repetitions_of_one_case_are_one_case(evidence):

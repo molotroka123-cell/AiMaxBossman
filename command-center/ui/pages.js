@@ -14,6 +14,7 @@ import {
 } from './components.js';
 import * as ui from './pages/_ui.js';
 import { telegramPanel } from './pages/telegram_settings.js';
+import { humanKind } from './pages/_shared.js';
 
 /* ============================================================
    Общие помощники
@@ -308,13 +309,14 @@ const HomePage = {
 function activityRow(e) {
   const kind = pick(e, ['kind', 'type'], 'event');
   const data = e.data && typeof e.data === 'object' ? e.data : {};
+  /* UX-11: без JSON.stringify(data) — владельцу не нужен {"enabled":false}; сырой kind — в подсказке. */
   const text = pick(e, ['message', 'text', 'title'])
     || pick(data, ['message', 'title', 'prompt'])
-    || (Object.keys(data).length ? JSON.stringify(data).slice(0, 160) : '');
+    || '';
   return h('div.feed-item',
     h('span.feed-time', fmtClock(pick(e, ['ts', 'created_at']))),
-    h('span.feed-kind', kind),
-    h('span.feed-text', text || '—'));
+    h('span.feed-kind', { title: String(kind) }, humanKind(String(kind))),
+    h('span.feed-text', text ? String(text) : '—'));
 }
 
 function errorBanner(err, ctx) {
@@ -349,12 +351,23 @@ const ModelsPage = {
       `${ui.plural(models.length, 'модель', 'модели', 'моделей')} · `
       + `${ui.plural(providers.length, 'поставщик', 'поставщика', 'поставщиков')}`,
       { actions: [
+        /* UX-01: без моделей кнопка раньше молча возвращалась — клик без реакции.
+           Теперь она выключена и объясняет почему; если проверка не ушла, это видно. */
         ui.btn('Проверить все', async () => {
           if (!models.length) return;
-          await Promise.allSettled(models.map((m) => api.checkModel(pick(m, ['id']))));
-          toastOk('Проверка запущена');
+          const results = await Promise.allSettled(models.map((m) => api.checkModel(pick(m, ['id']))));
+          const failed = results.filter((r) => r.status === 'rejected').length;
+          if (failed) {
+            toast(`Проверка не запустилась у ${failed} из ${models.length}`,
+              { type: 'warn', hint: 'Откройте карточку модели — там причина.' });
+          } else {
+            toastOk('Проверка запущена');
+          }
           ctx.refresh();
-        }, { iconName: 'retry', size: 'sm' }),
+        }, {
+          iconName: 'retry', size: 'sm', disabled: !models.length,
+          title: models.length ? 'Проверить доступность каждой модели' : 'Проверять нечего: моделей ещё нет',
+        }),
         ui.btn('Найти локальные', () => openDiscoveryModal(ctx), { iconName: 'search', size: 'sm' }),
         ui.btn('Бесплатные облака', () => openFreeProvidersModal(ctx), { iconName: 'plus', size: 'sm' }),
         ui.btn('Добавить модель', () => openModelWizard(ctx), { variant: 'primary', iconName: 'plus', size: 'sm' }),
@@ -825,10 +838,18 @@ function openModelEdit(ctx, m) {
    AGENTS
    ============================================================ */
 
+/* UX-03: «Создать агента» с главной вела на страницу «Агенты» и требовала второго
+   нажатия. Теперь #/agents?new=1 сразу открывает окно нового агента (один раз). */
+const agentsDeepLink = { openNew: false };
+
 const AgentsPage = {
   id: 'agents',
   title: 'Агенты',
   icon: 'agents',
+
+  async enter(_ctx, params) {
+    if (params && params.new) { agentsDeepLink.openNew = true; delete params.new; }
+  },
 
   async render(ctx) {
     const [agentsR, modelsR] = await Promise.allSettled([api.agents(), api.models()]);
@@ -857,6 +878,10 @@ const AgentsPage = {
           action: ui.btn('Создать агента', () => openAgentModal(ctx, null, models), { variant: 'primary', iconName: 'plus' }),
         });
 
+    if (agentsDeepLink.openNew) {
+      agentsDeepLink.openNew = false;
+      setTimeout(() => openAgentModal(ctx, null, models), 0);
+    }
     return h('div.bx-page', head, body);
   },
 
@@ -1273,7 +1298,9 @@ async function loadTaskDetail(id, bodyEl, ctx) {
         h('pre.block', { style: { color: status === 'completed' ? 'var(--warn)' : 'var(--err)' } },
           String(error))) : null,
       result ? h('div',
-        h('div.section-title', 'Результат'),
+        h('div.section-title', status === 'completed' ? 'Результат' : 'Ответ модели · задача не завершена'),
+        status !== 'completed' ? h('div.small', { style: { color: 'var(--warn)' } },
+          'Текст ответа не подтверждает выполнение действия.') : null,
         h('pre.block', String(result))) : null,
       h('div',
         h('div.row', { style: { marginBottom: '6px' } },

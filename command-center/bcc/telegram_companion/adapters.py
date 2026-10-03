@@ -865,13 +865,43 @@ def reply_text(body) -> str:
         raise CompanionError("MODEL_REPLY_INVALID") from None
 
 
+def _egress_guard(*, resolve: bool):
+    """Request hook of the INTERNET client: public targets only (SSRF guard).
+
+    Web pages are fetched from URLs chosen by third parties (search results), so a
+    name that resolves to 127.0.0.1 / a LAN address / cloud metadata must never be
+    contacted: the literal checks of Jeff's own URL filter do not see a hostname
+    such as `localtest.me` or `127.0.0.1.nip.io` (measured 2026-09-30: both fetched
+    a loopback service).  Reuses `plugin_security` (the same validation and the
+    all-addresses-public DNS check as `safe_get`).  Residual, named: the connect
+    resolves the name again (no IP pinning -- `psec.PinnedTransport` makes
+    DuckDuckGo answer 202 to every request after the second, measured), so a DNS
+    rebind inside that window is not closed here; the complete fix is
+    `psec.safe_get` in `bcc/pit/j2/research.py` (another lane).  With a proxy the
+    name is resolved by the proxy: only the literal checks apply.
+    """
+    from .. import plugin_security as psec
+
+    async def hook(request: httpx.Request) -> None:
+        try:
+            _, host = psec.validate_url(str(request.url))
+            if resolve:
+                await asyncio.to_thread(psec.resolve_pinned_ip, host)
+        except psec.PluginSecurityError as exc:
+            raise httpx.ConnectError(f"egress blocked: {exc}", request=request) from None
+    return hook
+
+
 class Models:
     def __init__(self, settings: Settings, home, *, transport=None):
         self.settings, self.home = settings, home
         self.local = httpx.AsyncClient(timeout=max(settings.local_timeout, settings.fast_timeout), trust_env=False,
                                        follow_redirects=False, transport=transport)
+        # Real network only: tests inject their own transport and stay offline.
+        hooks = {} if transport is not None else {"request": [_egress_guard(resolve=not settings.proxy)]}
         self.remote = httpx.AsyncClient(timeout=25, trust_env=False, follow_redirects=False,
-                                        proxy=settings.proxy or None, transport=transport)
+                                        proxy=settings.proxy or None, transport=transport,
+                                        event_hooks=hooks)
         self.lock = PriorityLock()
         self.retry_local_at = 0.0
         self.retry_fast_at = 0.0

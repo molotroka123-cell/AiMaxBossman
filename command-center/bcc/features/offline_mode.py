@@ -137,8 +137,12 @@ KNOWN: dict[str, Requirement] = {
     "skills": Requirement(PROVIDERS, "запуск скилла идёт обычной задачей через модель"),
     "snapshot": Requirement(LOCAL, "копия БД и манифест на диске"),
     "task_exchange": Requirement(LOCAL, "обмен задачами через файлы в data_dir"),
+    "telegram_calls": Requirement(EXTERNAL, "вход в Telegram и звонок идут во внешний Telegram и только по действию "
+                                            "владельца; проверка аудиоконтура (selftest) сети не требует"),
     "terminal": Requirement(LOCAL, "сам терминал локален; куда пойдёт запущенная "
                                    "команда — вне зоны знания этого модуля"),
+    "telegram_calls": Requirement(EXTERNAL, "вход и звонок идут в Telegram (MTProto) только по действию владельца; "
+                                            "проверка аудиоконтура и диагностика работают без сети"),
     "tools_browser": Requirement(EXTERNAL, "инструмент открывает внешние страницы, "
                                            "адрес заранее неизвестен"),
     "tools_code": Requirement(LOCAL, "поиск по локальному индексу кода"),
@@ -345,6 +349,11 @@ async def _external_state(rows: list[dict], provs: ProvidersView) -> dict:
 @router.get("/offline")
 async def offline_report(request: Request):
     svc = request.app.state.svc
+    from ..probe_cache import probes
+    return await probes(svc).get("offline.report", lambda: _offline_report(svc), ttl=15.0)
+
+
+async def _offline_report(svc) -> dict:
     provs = await _providers_view(svc)
     rows = [resolve(name, provs) for name in _capability_names(svc)]
     loopback = await probe_loopback()

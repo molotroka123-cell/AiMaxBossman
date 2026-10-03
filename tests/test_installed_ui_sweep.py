@@ -56,6 +56,29 @@ def test_the_real_registry_still_sweeps_both_studio_screens():
     assert len(routes) == len(set(routes)), 'повторяющийся маршрут обхода'
 
 
+def test_source_sweep_includes_core_pages_from_the_exported_registry():
+    routes = _driver().page_ids()
+    core = {'home', 'models', 'agents', 'tasks', 'schedules', 'approvals', 'system', 'settings'}
+    assert core <= set(routes), f'core routes omitted: {core - set(routes)}'
+    assert 'images?studio=1' in routes
+    assert len(routes) == len(set(routes))
+
+
+def test_core_registry_parser_ignores_unexported_objects_and_rejects_unknown_exports():
+    driver = _driver()
+    source = """
+      const Status = { id: 'completed' };
+      const Tasks = { id: 'tasks', render() {} };
+      const Home = { id: 'home', render() {} };
+      export const PAGES = [Home, Tasks];
+    """
+    assert driver.page_routes('', source) == ['home', 'tasks']
+    with pytest.raises(ValueError, match='Unknown'):
+        driver.page_routes('', source.replace('Home, Tasks', 'Home, Unknown'))
+    with pytest.raises(ValueError, match='PAGES'):
+        driver.page_routes('', '')
+
+
 def test_stop_owned_tree_releases_child_working_directory(tmp_path):
     working = tmp_path / 'managed app with spaces'
     working.mkdir()

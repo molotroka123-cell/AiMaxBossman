@@ -26,6 +26,7 @@ sandbox). A reviewer that changed its checkout invalidates its own review.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import fnmatch
 import hashlib
 import inspect
@@ -45,6 +46,7 @@ from typing import Any, Awaitable, Callable, Protocol
 from ..rave import workspace as rws
 from ..rave.connectors import (_CLAUDE_KEY_VARS, _CODEX_KEY_VARS, CLAUDE_DENIED, CLAUDE_TOOLS, ProcResult,
                                cli_env, resolve_cli)
+from .policy import classify_path, is_protected_path, tier_rank
 from .types import Goal, HandRequest, HandResult
 
 AGENTS = ("claude", "codex")
@@ -72,6 +74,24 @@ REVIEW_OUTPUT_SCHEMA: dict[str, Any] = {
 
 class WorkerUnavailable(RuntimeError):
     """The CLI is not installed / resolvable: nothing was started."""
+
+
+async def cli_preflight(agent: str, runner: Any) -> str:
+    """Why the REAL CLI must not be started ('' = fine). Only a real `TreeRunner` is checked: `claude -p
+    --permission-prompts none` needs Claude Code >= 2.1.259 (an older CLI exits on the unknown flag, and the flag is what
+    denies a permission prompt in an unattended run), so an old or unreadable version blocks with a clear reason
+    instead of an opaque failure (`rave.connectors.claude_version`, bounded and cached)."""
+    if agent != "claude" or not isinstance(runner, TreeRunner):
+        return ""
+    try:
+        from ..rave.connectors import CLAUDE_UPGRADE_STEP, claude_version
+    except ImportError:                                            # pragma: no cover - the preflight is best effort
+        return ""
+    ver = await claude_version()
+    if ver.get("ok"):
+        return ""
+    return (f"Claude Code CLI {ver.get('version') or 'version unknown'} is older than {ver.get('min')} or unreadable: "
+            f"{CLAUDE_UPGRADE_STEP}")
 
 
 # ------------------------------------------------------------------ ports (Line A objects)
@@ -104,13 +124,43 @@ async def maybe_await(value: Any) -> Any:
 class TreeRunner:
     """Real runner: the child and all its descendants live in one process tree
     (POSIX session / Windows Job Object) that is killed on timeout AND reaped
-    after a normal exit (`bossman.apprentice.proc_tree.run_tree`)."""
+    after a normal exit (`bossman.apprentice.proc_tree.run_tree`).
+
+    Owner STOP: while the CLI runs, ``stop_check()`` is polled every ``poll_s`` seconds; when it names a reason the
+    whole tree is killed at once (``stopped`` keeps the reason). ``on_pid(pid)`` lets a session register the worker
+    process with the engineering lease, so a lease release / takeover / control-plane STOP kills it as well."""
+
+    def __init__(self, *, stop_check: Callable[[], str] | None = None, poll_s: float = 0.5,
+                 on_pid: Callable[[int], Any] | None = None):
+        self.stop_check, self.poll_s, self.on_pid = stop_check, poll_s, on_pid
+        self.stopped = ""
 
     async def run(self, argv: list[str], *, cwd: Path, stdin: bytes, timeout: float,
                   env: dict[str, str] | None) -> ProcResult:
         from bossman.apprentice.proc_tree import run_tree  # noqa: WPS433 (bossman-core)
-        res = await asyncio.to_thread(run_tree, argv, input=stdin, timeout=timeout, cwd=str(cwd), env=env,
-                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        trees: list[Any] = []
+
+        def on_start(tree: Any) -> None:
+            trees.append(tree)
+            if self.on_pid is not None:
+                with contextlib.suppress(Exception):
+                    self.on_pid(int(tree.pid))
+
+        self.stopped = ""
+        fut = asyncio.ensure_future(asyncio.to_thread(
+            run_tree, argv, input=stdin, timeout=timeout, cwd=str(cwd), env=env, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, on_start=on_start))
+        while True:
+            done, _ = await asyncio.wait({fut}, timeout=self.poll_s)
+            if done:
+                break
+            reason = self.stop_check() if self.stop_check is not None else ""
+            if reason and not self.stopped:
+                self.stopped = reason
+                for tree in list(trees):
+                    with contextlib.suppress(Exception):
+                        await asyncio.to_thread(tree.kill)
+        res = fut.result()
         return ProcResult(res.returncode, res.stdout or b"", res.stderr or b"", res.timed_out)
 
 
@@ -332,7 +382,8 @@ class TaskManifest:
 # ------------------------------------------------------------------ CLI adapters
 
 
-def cli_argv(agent: str, role: str, *, cwd: Path, last_message: Path, model: str | None = None) -> list[str]:
+def cli_argv(agent: str, role: str, *, cwd: Path, last_message: Path, model: str | None = None,
+             max_turns: int | None = None) -> list[str]:
     base = resolve_cli(agent)
     if not base:
         raise WorkerUnavailable(f"{agent} CLI not found")
@@ -346,6 +397,8 @@ def cli_argv(agent: str, role: str, *, cwd: Path, last_message: Path, model: str
         argv += ["--setting-sources", "project", "--no-session-persistence", "--permission-prompts", "none"]
         if model:
             argv += ["--model", model]
+        if max_turns:
+            argv += ["--max-turns", str(int(max_turns))]          # bounded agentic turns inside one `claude -p`
         return argv
     if agent == "codex":
         sandbox = "workspace-write" if role == "writer" else "read-only"
@@ -372,7 +425,16 @@ def final_text(agent: str, res: ProcResult, last_message: Path) -> tuple[str, di
             return "", {}
         top = data[-1]
         usage = top.get("usage") if isinstance(top.get("usage"), dict) else {}
-        return ("" if top.get("is_error") else str(top.get("result") or "")), _usage(usage)
+        extra = {k: top[k] for k in ("total_cost_usd", "num_turns", "duration_ms") if isinstance(top.get(k), (int, float))
+                 and not isinstance(top.get(k), bool)}
+        used = _usage(usage)
+        if top.get("is_error"):              # why the CLI ended without an answer (error_max_turns, ...)
+            used["error"] = str(top.get("subtype") or top.get("terminal_reason") or "error")[:60]
+        if extra:         # list-price equivalent, NOT money: the subscription CLIs are not billed per token
+            used["notional_usd"] = round(float(extra.get("total_cost_usd", 0.0)), 6)
+            used["cli_turns"] = int(extra.get("num_turns", 0))
+            used["duration_ms"] = int(extra.get("duration_ms", 0))
+        return ("" if top.get("is_error") else str(top.get("result") or "")), used
     answer = last_message.read_text(encoding="utf-8", errors="replace") if last_message.is_file() else ""
     usage: dict = {}
     for line in res.stdout.decode("utf-8", "replace").splitlines():
@@ -393,8 +455,10 @@ def _usage(raw: dict) -> dict:
     tin = raw.get("input_tokens", raw.get("prompt_tokens"))
     tout = raw.get("output_tokens", raw.get("completion_tokens"))
     out = {}
+    cached = sum(v for v in (raw.get("cache_creation_input_tokens"), raw.get("cache_read_input_tokens"))
+                 if type(v) is int and v >= 0)
     if type(tin) is int and tin >= 0:
-        out["tokens_in"] = tin
+        out["tokens_in"] = tin + cached            # Claude reports the cached prompt separately from input_tokens
     if type(tout) is int and tout >= 0:
         out["tokens_out"] = tout
     return out
@@ -463,13 +527,17 @@ class WriterSession:
                  lease: LeasePort, hands: HandsPort, journal: JournalPort, runner: ProcessRunner | None = None,
                  timeout_s: int = 900, max_hand_rounds: int = 3, feedback: str = "", turn: int = 1,
                  nemotron: "NemotronWriter | None" = None, model: str | None = None,
-                 turns_left: Callable[[], int] | None = None):
+                 turns_left: Callable[[], int] | None = None, stop_check: Callable[[], str] | None = None,
+                 max_cli_turns: int | None = None):
         if agent not in WRITER_KINDS:
             raise ValueError(f"unknown writer {agent!r}")
         self.goal, self.agent, self.source_repo, self.base_sha = goal, agent, Path(source_repo), base_sha
         self.session_dir = Path(session_dir)
         self.lease, self.hands, self.journal = lease, hands, journal
-        self.runner = runner or TreeRunner()
+        self.stop_check = stop_check or (lambda: "")
+        self.max_cli_turns = max_cli_turns
+        self._token: Any = None
+        self.runner = runner or TreeRunner(stop_check=self.stop_check)
         self.timeout_s, self.max_hand_rounds = timeout_s, max_hand_rounds
         self.feedback, self.turn, self.nemotron, self.model = feedback, turn, nemotron, model
         self.turns_left = turns_left or (lambda: 1_000_000)
@@ -493,6 +561,11 @@ class WriterSession:
             result.status, result.summary = "violation", "goal has no allowed paths (path:<glob> constraints)"
             result.violations.append("no_scope")
             return result
+        stopped = self.stop_check()
+        if stopped:
+            result.status, result.summary = "stopped", stopped
+            self._log("writer_stopped", {"reason": stopped, "before": "lease"})
+            return result
         holder = f"{self.agent}-writer:{self.task_id}"
         try:
             token = self.lease.acquire(self.goal.goal_id, holder, int(self.timeout_s * (self.max_hand_rounds + 1)
@@ -507,9 +580,15 @@ class WriterSession:
             return result
         self._log("writer_started", {"agent": self.agent, "holder": holder, "manifest": self.manifest.as_dict(),
                                      "manifest_sha256": result.manifest_sha256})
+        self._token = token
+        register = getattr(self.lease, "register_process", None)
+        if register is not None and isinstance(self.runner, TreeRunner):
+            self.runner.on_pid = lambda pid: register(token, pid)       # STOP / takeover kills the worker tree
         try:
             await self._run_locked(result)
         finally:
+            if isinstance(self.runner, TreeRunner):
+                self.runner.on_pid = None
             self.lease.release(token)
             self._log("writer_finished", {"status": result.status, "sha": result.sha,
                                           "diff_sha256": result.diff_sha256, "violations": result.violations,
@@ -545,11 +624,19 @@ class WriterSession:
             return
         changed = [c["path"] for c in rws.changed(self.worktree, self.base_sha, head)]
         outside = [p for p in changed if not path_allowed(p, self.manifest.allowed_paths)]
+        protected = [p for p in changed if is_protected_path(p)]
+        rank = tier_rank(self.goal.risk_tier)
+        above = [p for p in changed if tier_rank(classify_path(p)) > rank]
         result.sha, result.changed_paths = head, changed
         result.diff_sha256 = sha256_bytes(full_diff(self.worktree, self.base_sha, head))
-        if outside:
+        if outside or protected or above:
             result.status = "violation"
-            result.violations.append("scope:" + ",".join(outside[:20]))
+            if outside:
+                result.violations.append("scope:" + ",".join(outside[:20]))
+            if protected:                              # the loop never changes its own rules, limits or gates
+                result.violations.append("protected:" + ",".join(protected[:20]))
+            if above:                                  # the changed files are riskier than the goal's declared tier
+                result.violations.append("tier:" + ",".join(f"{p}={classify_path(p)}" for p in above[:20]))
             return
         result.status = "ok"
 
@@ -560,9 +647,18 @@ class WriterSession:
             if self.turns_left() <= 0:
                 result.status, result.summary = "budget", "agent turn budget exhausted"
                 return False
+            stopped = self.stop_check()
+            if stopped:
+                result.status, result.summary = "stopped", stopped
+                return False
+            problem = await cli_preflight(self.agent, self.runner)
+            if problem:
+                result.status, result.summary = "unavailable", problem
+                return False
             last_msg.unlink(missing_ok=True)
             try:
-                argv = cli_argv(self.agent, "writer", cwd=self.worktree, last_message=last_msg, model=self.model)
+                argv = cli_argv(self.agent, "writer", cwd=self.worktree, last_message=last_msg, model=self.model,
+                                max_turns=self.max_cli_turns)
             except WorkerUnavailable as exc:
                 result.status, result.summary = "unavailable", str(exc)
                 return False
@@ -573,7 +669,13 @@ class WriterSession:
             tr = _save_transcript(self.session_dir, f"transcript-{rnd}.log", res, prompt)
             result.transcripts.append(tr)
             self._log("worker_turn", {"agent": self.agent, "round": rnd, "exit_code": res.returncode,
-                                      "timed_out": res.timed_out, "transcript_sha256": tr["sha256"]})
+                                      "timed_out": res.timed_out, "transcript_sha256": tr["sha256"],
+                                      "usage": final_text(self.agent, res, last_msg)[1]})
+            stopped = self.stop_check()
+            if stopped:                                # the tree was killed (or finished) under an owner STOP
+                result.status, result.summary = "stopped", stopped
+                self._log("writer_stopped", {"reason": stopped, "round": rnd})
+                return False
             if res.timed_out:
                 result.status, result.summary = "timeout", f"writer timed out after {self.timeout_s}s (tree killed)"
                 return False
@@ -582,7 +684,8 @@ class WriterSession:
             result.tokens_out += usage.get("tokens_out", 0)
             env = extract_envelope(text)
             if env is None:
-                result.status, result.summary = "malformed", "no valid JSON envelope in the writer output"
+                why = f" (the CLI ended with {usage['error']})" if usage.get("error") else ""
+                result.status, result.summary = "malformed", "no valid JSON envelope in the writer output" + why
                 return False
             result.summary = str(env.get("summary") or "")[:2000]
             reqs, rejected = parse_hand_requests(env, goal_id=self.goal.goal_id, agent=self.agent)
@@ -714,14 +817,17 @@ class ReviewerSession:
     def __init__(self, *, goal: Goal, reviewer: str, source_worktree: Path, sha: str, diff_sha256: str,
                  evidence_sha256: str, evidence: list[dict], session_dir: Path, journal: JournalPort,
                  runner: ProcessRunner | None = None, timeout_s: int = 600, model: str | None = None,
-                 base_sha: str = "", diff_text: str = ""):
+                 base_sha: str = "", diff_text: str = "", stop_check: Callable[[], str] | None = None,
+                 max_cli_turns: int | None = None):
         if reviewer not in AGENTS:
             raise ValueError(f"unknown reviewer {reviewer!r}")
         self.goal, self.reviewer = goal, reviewer
         self.source_worktree, self.sha, self.diff_sha256 = Path(source_worktree), sha, diff_sha256
         self.evidence_sha256, self.evidence = evidence_sha256, evidence
         self.session_dir, self.journal = Path(session_dir), journal
-        self.runner = runner or TreeRunner()
+        self.stop_check = stop_check or (lambda: "")
+        self.max_cli_turns = max_cli_turns
+        self.runner = runner or TreeRunner(stop_check=self.stop_check)
         self.timeout_s, self.model, self.base_sha, self.diff_text = timeout_s, model, base_sha, diff_text
         self.session_id = f"{goal.goal_id}-r-{reviewer}-{sha[:12]}"
         self.checkout = self.session_dir / "checkout"
@@ -743,13 +849,22 @@ class ReviewerSession:
 
     async def run(self) -> ReviewSessionResult:
         out = ReviewSessionResult(status="failed", reviewer=self.reviewer, session_id=self.session_id)
+        stopped = self.stop_check()
+        if stopped:
+            out.status, out.reason = "stopped", stopped
+            return out
         self.session_dir.mkdir(parents=True, exist_ok=True)
         self.checkout = fresh_dir(self.checkout)
         fp = await asyncio.to_thread(rws.create_workspace, self.source_worktree, self.sha, self.checkout,
                                      f"review-{self.reviewer}-{self.sha[:12]}")
         last_msg = self.session_dir / "last-message.txt"
+        problem = await cli_preflight(self.reviewer, self.runner)
+        if problem:
+            out.status, out.reason = "unavailable", problem
+            return out
         try:
-            argv = cli_argv(self.reviewer, "reviewer", cwd=self.checkout, last_message=last_msg, model=self.model)
+            argv = cli_argv(self.reviewer, "reviewer", cwd=self.checkout, last_message=last_msg, model=self.model,
+                            max_turns=self.max_cli_turns)
         except WorkerUnavailable as exc:
             out.status, out.reason = "unavailable", str(exc)
             return out
@@ -762,7 +877,12 @@ class ReviewerSession:
         self.journal.append("review_session", {"goal_id": self.goal.goal_id, "reviewer": self.reviewer,
                                                "session_id": self.session_id, "sha": self.sha,
                                                "exit_code": res.returncode, "timed_out": res.timed_out,
-                                               "checkout_modified": wrote, "transcript_sha256": tr["sha256"]})
+                                               "checkout_modified": wrote, "transcript_sha256": tr["sha256"],
+                                               "usage": final_text(self.reviewer, res, last_msg)[1]})
+        stopped = self.stop_check()
+        if stopped:                                    # the tree was killed (or finished) under an owner STOP
+            out.status, out.reason = "stopped", stopped
+            return out
         if res.timed_out:
             out.status, out.reason = "timeout", f"reviewer timed out after {self.timeout_s}s"
             return out

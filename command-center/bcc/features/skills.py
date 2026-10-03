@@ -32,6 +32,7 @@ MCP Hub — канонический реестр MCP-серверов/инст�
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timedelta
 
@@ -122,6 +123,12 @@ async def get_skill(skill_id: str, request: Request):
     return d
 
 
+def _already_exists(skill_id) -> HTTPException:
+    """FileExistsError несёт путь к файлу на диске — владельцу его показывать нельзя."""
+    return HTTPException(409, {"message": f"Навык «{skill_id}» уже существует. Выберите другое имя.",
+                               "hint": "Имя — латиницей, строчными буквами, цифрами и дефисом."})
+
+
 @router.post("/skills")
 async def create_skill(request: Request):
     svc = request.app.state.svc
@@ -132,7 +139,9 @@ async def create_skill(request: Request):
         raise HTTPException(422, {"message": "нужны id и content"})
     try:
         sk = _lib(svc).create(sid, content, overwrite=bool(body.get("overwrite")))
-    except (ValueError, FileExistsError) as exc:
+    except FileExistsError:
+        raise _already_exists(sid) from None
+    except ValueError as exc:
         raise HTTPException(409, {"message": str(exc)})
     await svc.bus.emit("skill.created", slug=sk.id)
     return _skill_dict(sk)
@@ -150,7 +159,9 @@ async def clone_skill(skill_id: str, request: Request):
     content = sk.path.read_text(encoding="utf-8")
     try:
         clone = lib.create(new_id, content)
-    except (ValueError, FileExistsError) as exc:
+    except FileExistsError:
+        raise _already_exists(new_id) from None
+    except ValueError as exc:
         raise HTTPException(409, {"message": str(exc)})
     return _skill_dict(clone)
 
@@ -173,7 +184,9 @@ async def import_skill(request: Request):
         raise HTTPException(422, {"message": "нужны id и content"})
     try:
         sk = _lib(svc).create(body["id"], body["content"], overwrite=bool(body.get("overwrite")))
-    except (ValueError, FileExistsError) as exc:
+    except FileExistsError:
+        raise _already_exists(body["id"]) from None
+    except ValueError as exc:
         raise HTTPException(409, {"message": str(exc)})
     return _skill_dict(sk)
 
@@ -829,7 +842,8 @@ async def skills_for_task(svc, instruction: str, *,
         await _catalog_error(svc, "revocations_unreadable", exc)
         return []
     try:
-        return _catalog(svc).select(
+        return await asyncio.to_thread(
+            _catalog(svc).select,
             instruction or "", revoked,
             available_tools=tuple(available_tools) if available_tools is not None
             else catalog_mod.STUDENT_TOOLS,
@@ -855,7 +869,8 @@ async def list_catalog(request: Request):
         revoked = await catalog_revocations(svc)
     except RevocationsUnreadable as exc:
         raise HTTPException(503, {"message": "список отзывов нечитаем", "hint": str(exc)})
-    return [e.summary() for e in _catalog(svc).entries(revoked)]
+    # Скан каталога + sha256 каждого SKILL.md — десятки мс синхронного I/O: не в цикле событий.
+    return await asyncio.to_thread(lambda: [e.summary() for e in _catalog(svc).entries(revoked)])
 
 
 @router.get("/skill-catalog/select")
@@ -913,6 +928,13 @@ async def list_mcp(request: Request):
     return [dict(r._mapping) for r in rows]
 
 
+_MCP_RU = {
+    "stdio MCP requires command": "Для локального (stdio) MCP-сервера нужна команда запуска.",
+    "http MCP requires url": "Для сетевого (http) MCP-сервера нужен адрес.",
+    "invalid MCP transport": "Неизвестный тип подключения: нужен stdio или http.",
+}
+
+
 @router.post("/mcp/servers")
 async def add_mcp(request: Request):
     svc = request.app.state.svc
@@ -922,7 +944,7 @@ async def add_mcp(request: Request):
                          command=body.get("command", []), url=body.get("url", ""))
     errs = spec.validate()
     if errs:
-        raise HTTPException(422, {"message": "; ".join(errs)})
+        raise HTTPException(422, {"message": "; ".join(_MCP_RU.get(e, e) for e in errs)})
     # F-014: stdio-транспорт ЗАПУСКАЕТ ПРОЦЕСС. Команда проверяется по allowlist
     # бинарников ДО записи в БД — отклонённый сервер не должен ни сохраниться,
     # ни быть поднят позже рантаймом.
@@ -931,12 +953,17 @@ async def add_mcp(request: Request):
         if refusal:
             await svc.bus.emit("mcp.command_refused", server=spec.name, detail=refusal[:400])
             raise HTTPException(403, {"message": f"команда запуска MCP отклонена: {refusal}"})
-    async with svc.db.session() as s:
-        res = await s.execute(sa.insert(mcp_servers_t).values(
-            name=spec.name, transport=spec.transport, command=spec.command,
-            url=spec.url, enabled=True, status="unknown", created_at=utcnow()))
-        sid = int(res.inserted_primary_key[0])
-        await s.commit()
+    try:
+        async with svc.db.session() as s:
+            res = await s.execute(sa.insert(mcp_servers_t).values(
+                name=spec.name, transport=spec.transport, command=spec.command,
+                url=spec.url, enabled=True, status="unknown", created_at=utcnow()))
+            sid = int(res.inserted_primary_key[0])
+            await s.commit()
+    except sa.exc.IntegrityError:
+        # имя сервера уникально: повторное «Добавить» было внутренней ошибкой 500
+        raise HTTPException(409, {"message": f"Сервер «{spec.name}» уже подключён. Выберите другое имя.",
+                                  "hint": "Либо удалите существующий сервер в списке ниже."}) from None
     return {"id": sid, "name": spec.name}
 
 

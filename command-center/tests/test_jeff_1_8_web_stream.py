@@ -61,8 +61,8 @@ def test_sse_delivers_deltas_then_one_final_reply_and_saves_it_once(tmp_path):
     assert "".join(data["t"] for name, data in got if name == "delta") == "Первая часть."
     final = got[-1][1]
     assert final["reply"] == "Первая часть." and final["stopped"] is False and final["disclosure"]
-    assert [m["role"] for m in history] == ["user", "assistant"]
-    assert history[1]["text"] == "Первая часть."
+    assert [m["role"] for m in history] == ["assistant", "user", "assistant"]   # greeting, then the turn (saved once)
+    assert history[2]["text"] == "Первая часть."
     assert len(adapter.calls) == 1
 
 

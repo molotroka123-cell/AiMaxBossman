@@ -2,6 +2,7 @@ name: analyst
 title: Bossman Analyst
 model: bossman-smart
 cloud_policy: never            # сделки SwapMe и внутренние данные — облако запрещено физически
+computer_use: false            # аналитик ограничен файлами и журналом, как указано в prompt.md
 tools:
   - fs.read
   - fs.search

@@ -34,6 +34,8 @@ class Store:
           body TEXT NOT NULL, created REAL NOT NULL);
         CREATE INDEX IF NOT EXISTS learning_log_who ON learning_log(who, id);
         CREATE TABLE IF NOT EXISTS profiles(who TEXT PRIMARY KEY, body TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS profile_backups(id INTEGER PRIMARY KEY, who TEXT NOT NULL,
+          body TEXT NOT NULL, deleted REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS proposals(id TEXT PRIMARY KEY, who TEXT NOT NULL,
           body TEXT NOT NULL, expires REAL NOT NULL, phase TEXT NOT NULL DEFAULT 'pending',
           task_id INTEGER);
@@ -219,8 +221,32 @@ class Store:
                         (who, self.seal(value)))
         return value
 
-    def delete_profile(self, who: str):
-        self.db.execute("DELETE FROM profiles WHERE who=?", (who,))
+    def delete_profile(self, who: str, *, snapshot: bool = True):
+        """Owner-side delete. The sealed row is copied to ``profile_backups`` first, so
+        a click on the wrong profile is recoverable with ``restore_profile``. The
+        privacy command (/forget) goes through ``forget`` and keeps nothing."""
+        with self.tx():
+            row = self.db.execute("SELECT body FROM profiles WHERE who=?", (who,)).fetchone()
+            if row and snapshot:
+                self.db.execute("INSERT INTO profile_backups(who,body,deleted) VALUES(?,?,?)",
+                                (who, row[0], time.time()))
+                self.db.execute("DELETE FROM profile_backups WHERE who=? AND id NOT IN "
+                                "(SELECT id FROM profile_backups WHERE who=? ORDER BY id DESC LIMIT 5)", (who, who))
+            self.db.execute("DELETE FROM profiles WHERE who=?", (who,))
+
+    def restore_profile(self, who: str):
+        """Put the most recent snapshot of a deleted profile back (unless a profile exists again)."""
+        with self.tx():
+            if self.db.execute("SELECT 1 FROM profiles WHERE who=?", (who,)).fetchone():
+                return None
+            row = self.db.execute("SELECT body FROM profile_backups WHERE who=? ORDER BY id DESC LIMIT 1", (who,)).fetchone()
+            if not row:
+                return None
+            self.db.execute("INSERT INTO profiles VALUES (?,?)", (who, row[0]))
+        return self.open(row[0])
+
+    def profile_backup_count(self, who: str) -> int:
+        return self.db.execute("SELECT count(*) FROM profile_backups WHERE who=?", (who,)).fetchone()[0]
 
     def prune_learning(self, retention_days: int):
         self.db.execute("DELETE FROM learning_log WHERE created<?", (time.time() - retention_days * 86400,))
@@ -229,6 +255,7 @@ class Store:
         with self.tx():
             self.db.execute("DELETE FROM learning_log WHERE who=?", (who,))
             self.db.execute("DELETE FROM profiles WHERE who=?", (who,))
+            self.db.execute("DELETE FROM profile_backups WHERE who=?", (who,))
             self.db.execute("DELETE FROM history WHERE who=?", (who,))
             self.put("cloud:" + who, False)
             self.db.execute("UPDATE inbox SET body=? WHERE who=? AND phase NOT IN ('pending','processing')", (self.seal({}), who))

@@ -24,6 +24,7 @@ import json
 import re
 import time
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from ..jev import config as jev_config
@@ -104,6 +105,7 @@ class PlanInputs:
     logs: list[str] = field(default_factory=list)
     user_goals: list[str] = field(default_factory=list)
     web_research: list[dict] = field(default_factory=list)   # {"source", "text"} - UNTRUSTED
+    lessons: list[dict] = field(default_factory=list)         # VERIFIED lessons only (owner-verified): advice DATA
 
 
 @dataclass
@@ -139,8 +141,14 @@ class PlanResult:
 # ------------------------------------------------------------------ candidates
 
 
+#: Protected metrics of a planner-made goal: what `metrics_probes` can really measure (the failing test's suite must
+#: not lose passing tests). Names nobody measures would fail the metrics gate closed on every candidate.
+DEFAULT_PROTECTED = ("tests.passed",)
+MAX_BACKLOG_MINUTES, MAX_BACKLOG_TURNS = 240, 20         # a backlog item may shrink a goal's budget, never grow it past this
+
+
 def _goal(goal_id: str, problem: str, desired: str, tests: list[str], paths: list[str], tier: str,
-          metric: str, rollback: str, protected: tuple[str, ...] = ("task_success", "latency_ms", "rollbacks"),
+          metric: str, rollback: str, protected: tuple[str, ...] = DEFAULT_PROTECTED,
           minutes: int = 60, turns: int = 8) -> Goal:
     constraints = tuple([f"path:{p}" for p in paths] + [f"rollback:{rollback}",
                                                         "no merge to protected branches", "no release push"])
@@ -177,10 +185,13 @@ def rule_candidates(inp: PlanInputs) -> list[tuple[float, Goal]]:
             paths = [str(p) for p in item["paths"] if str(p).strip()]
             if not tests or not paths or not str(item.get("metric") or "").strip():
                 continue
+            protected = tuple(str(m) for m in (item.get("protected") or ()) if str(m).strip()) or DEFAULT_PROTECTED
             out.append((float(item.get("priority", 10)), _goal(
                 str(item["id"]), str(item["problem"]), str(item["desired_result"]), tests, paths,
                 str(item.get("risk_tier") or "critical_runtime"), str(item["metric"]),
-                str(item.get("rollback") or "revert the candidate commit"))))
+                str(item.get("rollback") or "revert the candidate commit"), protected,
+                minutes=max(1, min(int(item.get("minutes", 60)), MAX_BACKLOG_MINUTES)),
+                turns=max(1, min(int(item.get("turns", 8)), MAX_BACKLOG_TURNS)))))
         except (KeyError, TypeError, ValueError):
             continue
     out.sort(key=lambda pg: (-pg[0], pg[1].goal_id))
@@ -202,6 +213,8 @@ def _messages(inp: PlanInputs, cands: list[Goal]) -> list[dict]:
     payload = {
         "metrics": inp.metrics, "logs_tail": [scrub(x)[:300] for x in inp.logs[-20:]],
         "user_goals": [scrub(x)[:300] for x in inp.user_goals],
+        "VERIFIED_LESSONS_DATA": [{"task_class": l.get("task_class"), "correction": scrub(str(l.get("correction")))[:300]}
+                                  for l in inp.lessons[:8] if isinstance(l, dict)],
         "candidates": [{"id": g.goal_id, "problem": g.problem, "risk_tier": g.risk_tier,
                         "target_metric": g.target_metric} for g in cands],
         "UNTRUSTED_WEB_RESEARCH": [{"source": scrub(str(w.get("source")))[:200], "trust": "untrusted",
@@ -328,3 +341,51 @@ class Planner:
 
 def facts_dict(f: ModelFacts | None) -> dict | None:
     return asdict(f) if f else None
+
+
+# ------------------------------------------------------------------ proposal intake (`bossman autonomy plan`)
+
+
+def junit_failures(reports_root: Path, *, limit: int = 40) -> list[str]:
+    """`FAILED <file>::<test>` lines from the JUnit reports the loop's own test runs left under ``reports_root``
+    (the planner's log format). Reports are Bossman-written files; an unreadable one is skipped."""
+    import xml.etree.ElementTree as ET          # noqa: S405 - our own JUnit files, no network input
+    lines: list[str] = []
+    root = Path(reports_root)
+    for path in sorted(root.glob("**/*.xml")) if root.is_dir() else ():
+        try:
+            tree = ET.parse(path)
+        except (ET.ParseError, OSError):
+            continue
+        for case in tree.iter("testcase"):
+            if case.find("failure") is None and case.find("error") is None:
+                continue
+            cls, name = str(case.get("classname") or ""), str(case.get("name") or "")
+            if not name:
+                continue
+            file = cls.replace(".", "/") + ".py"
+            file = file if file.startswith(("command-center/", "tests/")) else "tests/" + Path(file).name
+            lines.append(f"FAILED {file}::{name.split('[')[0]}")
+            if len(lines) >= limit:
+                return lines
+    return lines
+
+
+def build_plan_inputs(root: Path, *, redteam_metrics: dict | None = None, verified_lessons: list[dict] | None = None
+                      ) -> PlanInputs:
+    """Inputs of the planner from durable sources only: the red-team metrics (when measured), JUnit failures under
+    ``<root>/reports``, the owner's ``<root>/backlog.json`` and VERIFIED lessons. Web or chat text is never an input."""
+    root = Path(root)
+    backlog: list[dict] = []
+    try:
+        raw = json.loads((root / "backlog.json").read_text(encoding="utf-8"))
+        backlog = [b for b in raw if isinstance(b, dict)] if isinstance(raw, list) else []
+    except (OSError, ValueError):
+        backlog = []
+    return PlanInputs(metrics=dict(redteam_metrics or {}), backlog=backlog, logs=junit_failures(root / "reports"),
+                      lessons=list(verified_lessons or []))
+
+
+async def plan_goal(root: Path, inp: PlanInputs, *, planner: "Planner | None" = None) -> PlanResult:
+    """Plan ONE goal. The caller stores it as PROPOSED; planning never runs a goal."""
+    return await (planner or Planner()).plan(inp)

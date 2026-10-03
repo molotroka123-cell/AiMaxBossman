@@ -122,9 +122,12 @@ async def connect(name: str, body: ConnectIn, request: Request):
     try:
         remote = await build_adapter("openai_compat", preset.base_url, key).list_models()
     except ProviderError as exc:
-        status = 502 if exc.kind == "network" else 400
-        raise HTTPException(status, {"message": f"{preset.title} не принял ключ: {exc}",
-                                     "hint": f"ключ берётся на {preset.signup_url}"}) from None
+        if exc.kind == "network":
+            # Сеть недоступна: про сам ключ ничего не известно, «не принял ключ» было бы неправдой.
+            raise HTTPException(502, {"message": f"Не удалось связаться с {preset.title}: {exc}. Ключ не проверен.",
+                                      "hint": "проверьте интернет и повторите; ключ берётся на " + preset.signup_url}) from None
+        raise HTTPException(400, {"message": f"{preset.title} не принял ключ: {exc}",
+                                  "hint": f"ключ берётся на {preset.signup_url}"}) from None
     row = await _find_provider(svc, preset)
     created = row is None
     if created:

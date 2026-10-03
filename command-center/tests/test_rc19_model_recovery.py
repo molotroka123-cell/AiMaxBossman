@@ -183,7 +183,7 @@ async def test_with_nothing_live_the_owner_sees_both_causes_without_retries(env)
 
     run = await _run(env, task["id"])
     assert run["status"] == "failed"
-    assert "unknown cloud pricing" in run["error"] and "ConnectError" in run["error"]
+    assert "Цена облачной модели неизвестна" in run["error"] and "ConnectError" in run["error"]
     assert run["attempt"] == 0, "a refusal of our own gate was retried on the same route"
     assert len(calls) == 1
 
@@ -202,7 +202,7 @@ async def test_a_removed_catalog_model_is_named_as_removed(env):
     with pytest.raises(ProviderError) as info:
         await adapter.chat("vendor/removed:free", [{"role": "user", "content": "x"}])
     assert info.value.kind == "budget"
-    assert "no longer in the provider catalog" in str(info.value)
+    assert "больше нет в каталоге провайдера" in str(info.value)
 
 
 # --------------------------------------------------------- cloud consent

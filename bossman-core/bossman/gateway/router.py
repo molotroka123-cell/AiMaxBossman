@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import time
 from dataclasses import dataclass
 
@@ -50,7 +51,18 @@ def free_only_policy_active() -> bool:
     return os.getenv(ALLOW_PAID_CLOUD_ENV, "").strip().lower() not in {"1", "true", "yes"}
 
 
+# Owner model policy (mirrors command-center bcc.pit.model_policy): the Liquid/LFM
+# family is refused on every target, local or cloud, whatever the paid opt-out says.
+_BANNED_MODEL = re.compile(r"lfm|liquid/", re.I)
+
+
+def banned_model(model: str) -> bool:
+    return bool(_BANNED_MODEL.search(str(model or "")))
+
+
 def cloud_route_allowed(backend_name: str, model: str, is_cloud: bool) -> bool:
+    if banned_model(model):
+        return False
     if not is_cloud or not free_only_policy_active():
         return True
     return backend_name == "openrouter" and str(model).endswith(":free")
