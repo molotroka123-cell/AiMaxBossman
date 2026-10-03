@@ -5,9 +5,25 @@ from tools.youtube_trader_ingest import (
     attach_future_outcomes,
     build_cases,
     extract_video_id,
+    download_subtitles,
     parse_vtt,
     transcript_near,
 )
+
+
+def test_partial_subtitle_download_keeps_already_saved_tracks(tmp_path, monkeypatch):
+    import subprocess
+    from tools import youtube_trader_ingest as ingest
+
+    saved = tmp_path / "subs.video.en.vtt"
+
+    def write_one_track_then_fail(*args, **kwargs):
+        saved.write_text("WEBVTT\n\n00:00:00.000 --> 00:00:01.000\ncaption\n", encoding="utf-8")
+        raise subprocess.CalledProcessError(1, args[0])
+
+    monkeypatch.setattr(ingest, "require_binary", lambda _name: "yt-dlp")
+    monkeypatch.setattr(ingest, "_run", write_one_track_then_fail)
+    assert download_subtitles("https://youtu.be/wbl-wFVtmmk", tmp_path) == [saved]
 
 
 def test_extract_video_id_short_url_with_extra_query():

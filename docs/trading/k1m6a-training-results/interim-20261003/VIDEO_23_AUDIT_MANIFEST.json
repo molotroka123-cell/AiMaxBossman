@@ -1,0 +1,86 @@
+{
+  "schema": "bossman.k1m6a-video-audit-manifest/1",
+  "video_id": "RdR-z4nQN7k",
+  "files": [
+    {
+      "path": "video.webm",
+      "size_bytes": 250334995,
+      "sha256": "258ac45790a12f4967cd93f7d560dcfa54116b0e2eb26add52956546388bc1bb"
+    },
+    {
+      "path": "video.mp4",
+      "size_bytes": 251296004,
+      "sha256": "6e08dbbefb73c6300ca37f90cfd27f072af9768a7db5cf7eee51aa4d3700623f"
+    },
+    {
+      "path": "video.en.vtt",
+      "size_bytes": 166174,
+      "sha256": "069a96bc302c3a838312f1f746449fd951491c9f23374998ee7c2b2646ce8e22"
+    },
+    {
+      "path": "audio.wav",
+      "size_bytes": 48463268,
+      "sha256": "5f298e4557a928ffccdf179fd6573a1120855f26717f1f90bef7d1ea3087dbcf"
+    },
+    {
+      "path": "asr.segments.json",
+      "size_bytes": 33281,
+      "sha256": "887bf67a21c3c5b8f649eec84f5fae996b1ffca99ea9ca929672eaee3aebf1a2"
+    },
+    {
+      "path": "asr.meta.json",
+      "size_bytes": 213,
+      "sha256": "628b2d3de3179179ecd635d9429d86d76c15620256b696f823d1f30ba495f055"
+    },
+    {
+      "path": "study_notes.json",
+      "size_bytes": 16779,
+      "sha256": "5f5963d6e44a52a46502a194c8dbc131a0939f25f2320879ff2217fd4f015c6d"
+    },
+    {
+      "path": "study_sheet.md",
+      "size_bytes": 3833,
+      "sha256": "9d6040fb1d52668c91e90580a73a0b42ad1bd4e96833d0ff4d154f76aa1ec598"
+    },
+    {
+      "path": "report.md",
+      "size_bytes": 2829,
+      "sha256": "18e67b97632a387903be68e2cf785a36805a142e9ea252c30669f04a86654535"
+    },
+    {
+      "path": "report.json",
+      "size_bytes": 4222,
+      "sha256": "282a9336038f6a10516ceae475b1096b00b389c185e04ce864a6b6a4dfe2af29"
+    },
+    {
+      "path": "summary.json",
+      "size_bytes": 335,
+      "sha256": "3ba097e01c1f7d1fa5944fc49ba42994d6ed3ccd805f8ca7584bf97c3ac8ef2d"
+    },
+    {
+      "path": "processing_audit.json",
+      "size_bytes": 4222,
+      "sha256": "282a9336038f6a10516ceae475b1096b00b389c185e04ce864a6b6a4dfe2af29"
+    },
+    {
+      "path": "manual_visual_corrections.json",
+      "size_bytes": 1537,
+      "sha256": "fd98bcd4f06b5d49d773b7d0e60eb2ed79eff63484cc5561595807c93a3bf9ff"
+    },
+    {
+      "path": "smart_frames.json",
+      "size_bytes": 8361,
+      "sha256": "a6d73163155a1511a99e6b07d10e0ac9d066449acb3101ac6d411a70c2d71961"
+    },
+    {
+      "path": "smart_visual_audit.json",
+      "size_bytes": 116487,
+      "sha256": "2b5c83922ca6cafdbabccd7133177b4cb2a8ac186b1ace733a8394aafe84ab88"
+    },
+    {
+      "path": "frames/review_contact_sheet.jpg",
+      "size_bytes": 570950,
+      "sha256": "a61601d8cef7284ca09edf39dd646d055e8bd7f70b0dae6478f49bf164f6d862"
+    }
+  ]
+}

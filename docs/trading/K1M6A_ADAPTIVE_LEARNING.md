@@ -1,5 +1,73 @@
 # Adaptive K1M6A Learning — Full Watch First, Then Learn to Skip
 
+## 2026-10-03 owner instruction: deep autonomous study
+
+The owner should not have to sit through videos or supervise each processing
+step. Process one video at a time until the full-watch baseline and review
+workflow have demonstrated useful recall. Reserve meaningful wall time for
+each video; do not optimize for rapid queue completion.
+
+For every video, Bossman must complete this study loop locally:
+
+1. Save source metadata, the best available public caption track, the local
+   model identities, and a checksum of every input artifact.
+2. Read the complete transcript in overlapping time windows. Keep exact quotes
+   and video-relative timestamps. A second local pass classifies teaching,
+   dated opinion, worked example, and noise; rejected quotes are retained as
+   extraction diagnostics.
+3. Build broad chart coverage across the whole video, then add dense frames
+   around candidate setups, level changes, invalidations, and post-trade
+   review. Prefer changed-screen/scene samples plus transcript anchors; never
+   let a transcript-only pre-scan suppress unexamined material during the
+   golden full-watch phase.
+4. Read sampled charts with the local vision model. Record unreadable values
+   as null. Manually compare a subset of the actual frame pixels to the vision
+   output and document ticker, venue, timeframe, panel, and overlay mistakes.
+5. Reconcile high-value spoken claims against neighboring transcript and
+   chart frames. Relative percentages, incomplete phrases, chat messages, and
+   giveaways must not become precise price levels or teacher rules.
+6. Write a study sheet: setup context, observable trigger, invalidation,
+   risk/size management, outcome evidence, counterexample/uncertainty, and
+   what Bossman would need to see before acting. Missing information stays
+   explicitly missing.
+7. Run a closed-book local retrieval check: hide the source notes, ask the
+   model to reconstruct a few candidate ideas with evidence timestamps, then
+   compare every answer against the source. Store misses and corrections as
+   learning diagnostics, not as confirmed market truths.
+8. Produce a per-video audit, source/frame hashes, runtime, and selected chart
+   images for the authorized Pult. Only after successful delivery mark the
+   queue item reported.
+
+Use only local Bossman for study/inference. Jev is permitted only when its
+already-authorized function is necessary; do not route study to paid/cloud
+fallbacks. Raw teacher material remains unverified. No fine-tuning or canonical
+rule promotion follows from a single video or from a model's own quiz answer.
+
+### Free open-source tools considered for accuracy
+
+- FFmpeg is already used for deterministic frame extraction. PySceneDetect is
+  a possible scene-change pre-scan, but chart streams often keep one static
+  layout while the plot moves; scene changes are therefore extra frame anchors,
+  never a substitute for broad temporal sampling. Repositories:
+  [FFmpeg](https://github.com/FFmpeg/FFmpeg),
+  [PySceneDetect](https://github.com/Breakthrough/PySceneDetect).
+- The local `faster-whisper` package/model can provide a second transcript
+  where captions are absent or suspect. Its output must be aligned and checked
+  against the original captions/audio; do not silently replace teacher quotes.
+  Repository: [SYSTRAN/faster-whisper](https://github.com/SYSTRAN/faster-whisper).
+- WhisperX word alignment can improve word timing, but its extra model and
+  dependency footprint should be justified by a local quality comparison
+  before installation. Never download model weights automatically.
+  Repository: [m-bain/WhisperX](https://github.com/m-bain/whisperX).
+
+The current host has `faster_whisper` and FFmpeg, but not PySceneDetect,
+OpenCV, or WhisperX (checked 2026-10-03). Do not claim those are integrated.
+Evaluate additions on a fixed, manually reviewed set: quote exactness,
+chart-anchor coverage, timestamp error, missed high-value episodes, runtime,
+and disk/RAM/GPU cost. Keep the existing pipeline as baseline. Adopt a tool
+only when the local before/after comparison shows improved evidence quality
+without a recall regression.
+
 ## Owner objective
 
 Assume only ~30% of each video contains high-value trading material. Bossman

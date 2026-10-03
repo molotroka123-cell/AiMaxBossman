@@ -163,7 +163,10 @@ def download_subtitles(url: str, workdir: Path) -> list[Path]:
     try:
         _run(cmd, timeout=180)
     except subprocess.CalledProcessError:
-        return []
+        # yt-dlp may save one usable caption language and fail on a later
+        # requested language (rate limits are common). Keep already-written
+        # VTT files; the caller should use them before considering local ASR.
+        pass
     return sorted(workdir.glob("subs.*.vtt"))
 
 
