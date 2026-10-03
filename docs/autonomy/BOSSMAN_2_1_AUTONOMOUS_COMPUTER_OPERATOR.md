@@ -385,6 +385,171 @@ evidence, red-team, shadow, canary and automatic rollback.
 Model names are replaceable registry entries. Bossman Core retains mission
 truth, permissions, receipts and durable learning.
 
+## Bossman 2.1 capability candidates and acceptance tests
+
+These integrations are approved for isolated implementation and benchmarking.
+They are not production dependencies and must not change the owner-ready or
+freeze status until their exact routes pass the tests below on owner hardware.
+
+### 1. Colibrì with GLM-5.2
+
+Upstream: `https://github.com/JustVugg/colibri`  
+Role: slow local background expert for architecture, difficult review, long
+analysis and offline fallback; never the interactive default.
+
+Current planning facts: the recommended GLM-5.2 int4 container is approximately
+372 GB and streams routed experts across storage, RAM and optional GPU tiers.
+On a 128 GB host, reserve enough memory for Windows and Bossman rather than
+allowing Colibrì to starve the control plane. Installation requires at least
+500 GB of genuinely free fast-NVMe capacity plus a separately enforced disk,
+RAM, temperature and execution-time budget.
+
+Acceptance:
+
+- pin an audited Colibrì release and exact model artifact hashes;
+- verify OpenAI-compatible streaming without granting execution authority;
+- measure cold/warm TTFT, decode tok/s, RAM, disk throughput and temperature;
+- run the same difficult planning/coding cases against the current local heavy
+  model and record verified success per wall-clock hour, not parameter count;
+- prove STOP cancels generation and releases resources;
+- prove Bossman UX, Telegram, watchdog and mission persistence remain responsive
+  while Colibrì is saturated;
+- reject it as a default route if it causes paging, control-plane latency or
+  materially worse verified throughput.
+
+### 2. VoiceStudio
+
+Upstream: `https://github.com/debpalash/VoiceStudio`  
+Role: local speech sidecar for Jeff/Bossman TTS, permitted voice cloning,
+dictation, transcription, dubbing and audiobook/media workflows through its
+local API or MCP surface.
+
+VoiceStudio does not receive Bossman authority, secrets or raw unrelated
+memory. Voice profiles require explicit owner permission and remain local.
+The application is AGPL-3.0; every selected speech model has its own license
+that must be recorded before commercial use. On Windows, most PyTorch engines
+may use CPU when an AMD GPU path is unavailable; `audio.cpp` Vulkan and a
+future verified Linux/ROCm route are benchmark candidates, not assumptions.
+
+Acceptance:
+
+- isolated install, pinned release, hashes, license inventory and secret scan;
+- Russian, Czech and English TTS/ASR corpus with identical scripts;
+- permitted clean-reference voice-clone test with speaker similarity,
+  intelligibility and human owner rating;
+- streaming first-audio latency, real-time factor, CPU/GPU/RAM usage and
+  cancellation during speech;
+- Telegram voice reply, UX playback, barge-in/STOP and restart recovery;
+- malformed audio, silence, noise, long text, mixed language and concurrent
+  mission tests;
+- no claim that all 646 languages have equal quality: only measured languages
+  receive a PASS.
+
+### 3. Tencent HunyuanImage 3.5 Preview
+
+Route: ComfyUI Partner Nodes / Tencent-hosted service.  
+Role: optional budget-capped cloud image generation and editing route for
+FreshVibes creative work, multilingual text, product/person consistency and
+multi-reference composition.
+
+This preview is not a local model: the current ComfyUI workflows execute on
+Tencent servers. The UI must label the route `CLOUD`, show estimated/settled
+cost, and require the applicable data classification. Private owner, patient,
+identity, credential or regulated material is blocked unless a separate policy
+explicitly authorizes the provider and data handling.
+
+Acceptance:
+
+- verify provider availability, current terms, retention and pricing before use;
+- test text-to-image and edit separately, including one to five references;
+- benchmark Russian/Czech/English poster text for exact spelling and layout;
+- measure subject/product identity preservation and prohibited-data blocking;
+- verify 1K, native 2K and advertised 4K-upscaled outputs honestly;
+- record latency, retries, settled cost and artifact provenance;
+- simulate provider outage and prove the local image route remains available.
+
+### 4. Muse Gadget SDK
+
+Upstream: `https://github.com/facebookincubator/muse-gadget-sdk`  
+License: Apache-2.0.  
+Role: hardware/UX reference for a future Bossman desk device, microphone,
+speaker, push-to-talk, status display, sensors and Home Assistant bridge.
+
+The open component is the ESP32/Linux device SDK and firmware, not the Muse
+model or cloud service. The upstream pairing flow requires a Muse SDK token and
+app. Bossman must not depend on that external authority. Reuse or adapt only
+audited device-side patterns behind a Bossman-owned local HTTP/WebSocket/MQTT
+bridge. This is a post-freeze hardware experiment unless an isolated simulator
+can prove value without delaying the core 2.1 gate.
+
+Acceptance:
+
+- pin commit, inventory dependencies and preserve licenses;
+- run the ESP32/Linux simulator without owner credentials in source or logs;
+- map push-to-talk, status, audio and display events to least-authority Bossman
+  capabilities;
+- provide a physical and Telegram STOP path that wins over queued actions;
+- survive Wi-Fi loss, duplicate events, reconnect and Bossman restart;
+- prove the device cannot bypass the constitution or become a second owner
+  console;
+- no `LOCAL` claim when a route still depends on Muse cloud or an SDK token.
+
+### 5. Xiaomi MiMo-V2.6
+
+Official collection:
+`https://huggingface.co/collections/XiaomiMiMo/mimo-v26`  
+Roles:
+
+- `mimo-v2.6-flash`: cheap cloud worker candidate;
+- `mimo-v2.6-pro`: difficult coding, multimodal, research, Computer Use and
+  independent-review candidate;
+- `MiMo-V2.6-Distill-Qwen-9B`: local router/vision worker candidate;
+- full 1T Pro weights and 311B Flash weights: research artifacts, not practical
+  default local routes on the 128 GB owner machine without later measured
+  quantization/runtime evidence.
+
+The provider is OpenAI/Anthropic-protocol compatible and supports streaming,
+tool calls, structured output and context caching. Prices and vendor benchmark
+claims are volatile metadata and must be read from the provider at test time.
+Prompt caching must use stable prefixes and Bossman's existing cache-economics
+receipts. Because Xiaomi has documented tool-call repetition as a failure
+class, Bossman must enforce tool-call idempotency and repeated-signature
+termination outside the model.
+
+Acceptance:
+
+- add Pro and Flash behind the normal provider registry, encrypted key vault,
+  per-mission budget and hard daily cap;
+- run the Bossman tool/schema suite: exact tool selection, argument validity,
+  multi-tool order, duplicate-call rate and recovery from tool errors;
+- run coding, browser/Computer Use, image/audio/video understanding, structured
+  output and long-horizon continuation cases;
+- compare Pro, Flash, local GLM-5.3-Flash and Codex on identical tasks using an
+  independent verifier;
+- validate real provider usage receipts, cache-read tokens, TTFT, latency and
+  cost in the Telegram Token Auditor;
+- inject timeouts, 429/5xx, malformed tool calls and network loss; verify local
+  fallback and no false completion;
+- test Distill 9B locally before granting any planner or vision role;
+- never treat vendor benchmark claims or an API-only run as owner-hardware
+  proof of the open weights.
+
+### Shared benchmark and promotion rule
+
+All five candidates use a frozen corpus, exact configuration manifest and
+append-only result ledger. Required comparison fields are:
+
+`candidate, version/commit, model hash/id, route, task id, success,
+verified_success, false_completion, unsafe_effects, duplicate_effects,
+tool_schema_errors, recovery_steps, TTFT, wall_time, tokens, cache tokens,
+cost, peak RAM/VRAM, disk IO, owner_rating`.
+
+A candidate may be promoted only when it improves a predeclared metric without
+regressing STOP, authority isolation, privacy, restart safety or verified
+completion. One successful demo is insufficient. Failed and blocked cases stay
+in the report. Removal or provider outage must leave native Bossman CMD/UX and
+the local core functional.
+
 ## Reference acceptance mission
 
 With one owner message and no further intervention, Bossman must:
@@ -446,7 +611,7 @@ Until that evidence exists, the truthful value is `NOT_PROVEN`.
 6. Bossman CMD Codex escalation with strict bundle redaction and budget caps.
 7. Unified append-only Token Auditor events for local, cloud and Codex calls,
    including deduplication, Prague-day rollups and usage-gap detection.
-8. End-to-end reference mission harness and fail-closed STOP/rollback.
+8. End-to-end reference mission harness and fail-closed STOP/rollback.\n9. Provider-registry routes and budget/usage receipts for MiMo-V2.6 Pro/Flash.\n10. Frozen cross-model benchmark corpus with independent verification.
 
 ### P1
 
