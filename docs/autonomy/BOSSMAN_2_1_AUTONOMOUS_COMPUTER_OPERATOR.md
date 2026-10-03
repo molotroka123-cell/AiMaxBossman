@@ -128,6 +128,67 @@ Preferred execution order:
 Bossman Core owns intent, permissions, mission state, evidence and STOP. The
 adapter returns observations and effect receipts.
 
+## OpenDots adoption decision
+
+Upstream: `https://github.com/CopilotKit/OpenDots`  
+License: MIT  
+Decision: **ADOPT AS A BOUNDED UX / AG-UI / ISOLATED-COMPUTER SIDECAR; DO NOT
+REPLACE BOSSMAN CORE**.
+
+OpenDots is a useful implementation reference and donor for:
+
+- persistent streaming chat, conversation history and visible tool activity;
+- specialist `Dot` surfaces that can map to Bossman/Jeff/worker roles;
+- Spaces/pages as an editable artifact and document workspace;
+- AG-UI transport for streamed messages, tool calls and agent state;
+- the Computer panel with browser, workspace files, terminal output, activity
+  records and human takeover;
+- scheduled/background turns, restart-persistent browser profiles and files;
+- voice/call UX and independently rendered long-running compute;
+- Automatic Learning ingestion as a source of workflow candidates.
+
+OpenDots/OpenBot computers are isolated Linux containers. Their shell and
+files deliberately do not fall back to the Windows host. Therefore they are a
+safe execution lane for browsing, downloads and tool work, but they do not
+replace the Jev/Kev-class adapter required for full owner-Windows control.
+
+Integration boundary:
+
+```text
+OpenDots UX / AG-UI / Spaces / Computer panel
+                    |
+             Bossman adapter
+                    |
+Bossman Core: constitution, mission truth, STOP, budget, receipts,
+              verifier, durable learning and promotion
+             /                         \
+OpenBot isolated computer        Jev/Kev Windows control
+```
+
+Required rules:
+
+- pin an audited upstream commit; never track `main` implicitly;
+- develop and test the adapter in an isolated branch/worktree;
+- route all OpenDots tools through Bossman capability and identity checks;
+- keep Bossman Core as the only authority and source of completion truth;
+- treat OpenDots Automatic Learning output as `CANDIDATE`, never as an
+  automatically trusted or promoted skill;
+- retain the existing Bossman Telegram owner console; upstream Telegram work
+  is optional and must not create a second authority path;
+- run OpenBot behind loopback/internal Docker networks and never expose its
+  supervisor or computer API directly;
+- do not claim owner-PC Computer Use from a container-only test;
+- require Windows/Docker/Node compatibility checks and a secret scan before
+  import;
+- preserve upstream license and attribution for copied code.
+
+Acceptance requires a side-by-side prototype, not a wholesale merge: stream a
+Bossman mission into the OpenDots chat, execute one isolated OpenBot browser +
+file + terminal workflow, preserve it across restart, display Bossman receipts,
+and prove that revoking the Bossman capability stops subsequent actions. The
+same goal must still run through the native Bossman CMD/UX without OpenDots, so
+OpenDots cannot become a single point of failure.
+
 ## Recovery loop: learn while finishing the original mission
 
 For each failure:
