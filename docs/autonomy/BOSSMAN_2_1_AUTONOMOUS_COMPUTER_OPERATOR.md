@@ -391,18 +391,23 @@ These integrations are approved for isolated implementation and benchmarking.
 They are not production dependencies and must not change the owner-ready or
 freeze status until their exact routes pass the tests below on owner hardware.
 
-### 1. Colibrì with GLM-5.2
+### 1. Colibrì with GLM-5.2 — DEFERRED / LOWEST PRIORITY
 
 Upstream: `https://github.com/JustVugg/colibri`  
-Role: slow local background expert for architecture, difficult review, long
-analysis and offline fallback; never the interactive default.
+Priority: **P3 / LAST; DO NOT DOWNLOAD OR INSTALL NOW**.  
+Role: optional slow local background expert for architecture, difficult review,
+long analysis and offline fallback; never the interactive default.
 
 Current planning facts: the recommended GLM-5.2 int4 container is approximately
 372 GB and streams routed experts across storage, RAM and optional GPU tiers.
-On a 128 GB host, reserve enough memory for Windows and Bossman rather than
-allowing Colibrì to starve the control plane. Installation requires at least
-500 GB of genuinely free fast-NVMe capacity plus a separately enforced disk,
-RAM, temperature and execution-time budget.
+The owner machine currently has insufficient practical storage/memory headroom,
+so Colibrì is explicitly deferred. Bossman must not download its weights,
+reserve RAM, start conversion or schedule background inference automatically.
+Reconsider only after the core 2.1 freeze, the other four candidates, and the
+purchase/verification of additional fast NVMe capacity. A future installation
+requires at least 500 GB of genuinely free fast-NVMe space, enough RAM left for
+Windows and the Bossman control plane, and separately enforced disk, memory,
+temperature and execution-time budgets.
 
 Acceptance:
 
