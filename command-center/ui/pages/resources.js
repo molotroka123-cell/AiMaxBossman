@@ -55,7 +55,7 @@ const ResourcesPage = {
       ? panel(`Что сейчас держит память · ${reservations.length}`,
         h('div.bx-list', reservations.map((r) => h('div.bx-list-row',
           h('div', { style: { minWidth: 0 } },
-            h('div.bx-list-name', `${r.holder_kind}: ${r.holder_id}`),
+            h('div.bx-list-name', r.holder_kind, h('span.raw-id.xsmall.dim', ` · ${r.holder_id}`)),
             h('div.bx-list-note', fmtDateShort(r.created_at))),
           h('span.bx-list-end',
             tag(`${fmtNum(r.amount_mb)} МБ`),

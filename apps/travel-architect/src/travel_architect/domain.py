@@ -76,6 +76,38 @@ class TravelEngine:
     def watch_snapshot(self):
         return {"watches":[x["value"] for x in self.s.kv_list("watches")],"evaluation":self.evaluate_watches()}
 
+    def romantic_weekend_demo(self):
+        """Curated, fully local 'romantic weekend for two' — no network calls,
+        no DB dependency. Used by the demo view so the app always looks great
+        even offline or against an empty database."""
+        return {
+            "title": "Романтические выходные вдвоём · Порту",
+            "subtitle": "2 ночи · для двоих · бюджет ≈ 480 €",
+            "destination": "Порту, Португалия",
+            "nights": 2,
+            "travelers": 2,
+            "budget_eur": 480,
+            "places": [
+                {"name": "Отель Vintage & Views", "kind": "hotel", "time": "Пятница, заезд 15:00",
+                 "note": "Бутик-отель с видом на реку Дору, номер с балконом", "price_eur": 190},
+                {"name": "Ужин на закате · Cais da Ribeira", "kind": "dinner", "time": "Пятница, 20:00",
+                 "note": "Столик у воды, местное вино порту на двоих", "price_eur": 65},
+                {"name": "Прогулка на лодке rabelo", "kind": "activity", "time": "Суббота, 11:00",
+                 "note": "Часовой круиз по шести мостам Дору", "price_eur": 40},
+                {"name": "Дегустация в винном погребе", "kind": "activity", "time": "Суббота, 15:00",
+                 "note": "Тур и дегустация портвейна для двоих в Vila Nova de Gaia", "price_eur": 55},
+                {"name": "Романтический ужин · Miradouro", "kind": "dinner", "time": "Суббота, 20:30",
+                 "note": "Столик на террасе с панорамой города на закате", "price_eur": 90},
+                {"name": "Утро в кафе Majestic", "kind": "breakfast", "time": "Воскресенье, 10:00",
+                 "note": "Завтрак в историческом кафе перед отъездом", "price_eur": 30},
+            ],
+            "timeline": [
+                {"day": "Пятница", "items": ["15:00 — заезд в отель", "20:00 — ужин у реки"]},
+                {"day": "Суббота", "items": ["11:00 — круиз по Дору", "15:00 — дегустация портвейна", "20:30 — ужин на террасе"]},
+                {"day": "Воскресенье", "items": ["10:00 — завтрак", "12:00 — выезд"]},
+            ],
+        }
+
     def constraint_check(self,trip_id,offer_id):
         trip=self.s.kv_get("trips",trip_id)
         offer=self.s.kv_get("offers",offer_id)

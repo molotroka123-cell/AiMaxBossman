@@ -1712,7 +1712,7 @@ const SystemPage = {
           ? ui.meter('из них под модели', g.memProcs, g.memTotal, `${fmtGb(g.memProcs)} ГиБ`) : null,
         g.procs.length
           ? h('div.stack.xs', g.procs.slice(0, 4).map((p) => h('div.row.xsmall.dim',
-            h('span', `${p.name || 'процесс'} · ${p.pid ?? '—'}`), h('div.spacer'),
+            h('span', p.name || 'процесс', h('span.raw-id', ` · ${p.pid ?? '—'}`)), h('div.spacer'),
             h('span.num', `${fmtGb(p.vram_used_mb)} ГиБ`))))
           : null)))
       : h('div.small.dim', 'Видеокарта не найдена — сервер не сообщает её данные.'));

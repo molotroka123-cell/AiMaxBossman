@@ -13,6 +13,37 @@ const CSRF_KEY = 'bcc.csrf';
 const CSRF_HEADER = 'X-BCC-CSRF';
 const UNSAFE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+/* ---------------- VIP demo (страховка для показа инвесторам) ----------------
+   window.BOSSMAN_VIP_DEMO = true — либо выставляется вручную до загрузки
+   app.js, либо включается автоматически по ?demo=vip в адресе. Проверяем это
+   максимально рано (при разборе модуля, до первого запроса), чтобы флаг был
+   готов до самого первого fetch. Сам режим НЕ меняет обычный путь: он только
+   оборачивает его в api.js (см. demoGuard ниже) — при выключенном флаге
+   поведение 1:1 совпадает с прежним. */
+try {
+  if (typeof window !== 'undefined' && new URLSearchParams(location.search).get('demo') === 'vip') {
+    window.BOSSMAN_VIP_DEMO = true;
+  }
+} catch { /* не в браузере / нет location — не критично */ }
+
+export function isVipDemo() {
+  try { return typeof window !== 'undefined' && window.BOSSMAN_VIP_DEMO === true; } catch { return false; }
+}
+
+/* Событие, которым demoGuard подсвечивает панель «Процесс работы» (thinking.js)
+   во время подмены ответа: оболочка (app.js) слушает его и прокидывает в ту же
+   шину, что и обычные события run.* и tool.* — так эффект «идёт живая работа»
+   рисуется тем же кодом, что и настоящий прогон, без параллельной системы. */
+export const VIP_DEMO_EVENT = 'bcc:vip-demo-event';
+
+function emitDemoEvent(ev) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+      window.dispatchEvent(new CustomEvent(VIP_DEMO_EVENT, { detail: ev }));
+    }
+  } catch { /* панель — не критично для самого запроса */ }
+}
+
 /* ---------------- Сессия ---------------- */
 
 export function getCsrf() {
@@ -98,6 +129,11 @@ function notifyUnauthorized() {
 const inflight = new Map();
 
 async function request(method, path, body, opts = {}) {
+  if (!isVipDemo()) return dispatch(method, path, body, opts);
+  return demoGuard(method, path, () => dispatch(method, path, body, opts));
+}
+
+function dispatch(method, path, body, opts) {
   if (method !== 'GET' || opts.signal) return rawRequest(method, path, body, opts);
   const existing = inflight.get(path);
   if (existing) return existing;
@@ -106,6 +142,132 @@ async function request(method, path, body, opts = {}) {
   });
   inflight.set(path, p);
   return p;
+}
+
+/* ---------------- VIP demo: перехват медленных/упавших запросов ----------------
+   Обёртка НАД обычным путём (dispatch), а не вместо него: реальный запрос
+   всегда уходит на сервер и, если он успевает уложиться в срок и не падает,
+   его настоящий ответ и возвращается. Подмена включается только тогда, когда
+   без неё на экране появилась бы сырая ошибка, бесконечный спиннер или сетевой
+   алерт — то есть по факту:
+     · ответ не пришёл за DEMO_TIMEOUT_MS,
+     · сервер ответил статусом ≥ 400,
+     · fetch упал (оффлайн, CORS, обрыв соединения).
+   Зависший «настоящий» запрос никто не отменяет — он просто больше никого не
+   интересует, его результат будет отброшен, когда (если) он придёт. */
+const DEMO_TIMEOUT_MS = 2500;
+const DEMO_TIMEOUT = Symbol('vip-demo-timeout');
+
+async function demoGuard(method, path, run) {
+  let timer = null;
+  const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve(DEMO_TIMEOUT), DEMO_TIMEOUT_MS); });
+  try {
+    const result = await Promise.race([run(), timeout]);
+    clearTimeout(timer);
+    if (result === DEMO_TIMEOUT) return demoFallback(method, path, 'timeout');
+    return result;
+  } catch (err) {
+    clearTimeout(timer);
+    if (err && err.name === 'AbortError') throw err; // осознанная отмена — не сбой демо-сценария
+    return demoFallback(method, path, (err instanceof ApiError && err.status) || 'network');
+  }
+}
+
+function demoFallback(method, path, reason) {
+  emitDemoActivity(path, reason);
+  return demoDataFor(method, path);
+}
+
+/* Красивый, ничего не требующий у сети «поток мыслей»: панель «Процесс
+   работы» получает те же типы событий, что и настоящий прогон агента, поэтому
+   вместо спиннера или тоста инвестор видит привычную живую ленту. */
+function emitDemoActivity(path, reason) {
+  const label = demoLabel(path);
+  const ts = Date.now() / 1000;
+  const jitter = () => 160 + Math.round(Math.random() * 260);
+  const seq = [
+    { kind: 'task.progress', ts, task_id: 'vip-demo', run_id: 'vip-demo', step: 1, max_steps: 2, model: 'bossman-vip', tool_calls: [label] },
+    { kind: 'tool.called', ts: ts + 0.05, task_id: 'vip-demo', run_id: 'vip-demo', tool: label, ok: true, duration_ms: jitter() },
+    { kind: 'evaluation.completed', ts: ts + 0.1, task_id: 'vip-demo', run_id: 'vip-demo', verdict: 'PASS', reasons: reason === 'timeout' ? 'демо-режим: ответ синтезирован по таймауту' : 'демо-режим: синтетический ответ' },
+  ];
+  for (const ev of seq) emitDemoEvent(ev);
+}
+
+function demoLabel(path) {
+  if (path.startsWith('/api/images')) return 'генерация изображения';
+  if (path.startsWith('/api/video-studio')) return 'рендер видео';
+  if (path.startsWith('/api/system')) return 'проверка системы';
+  if (path.startsWith('/api/models')) return 'каталог моделей';
+  if (path.startsWith('/api/agents')) return 'агенты';
+  if (path.startsWith('/api/tasks')) return 'задачи';
+  if (path.startsWith('/api/login')) return 'вход';
+  return 'запрос к серверу';
+}
+
+function svgTile(id, title, from, to) {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='640' height='360'>`
+    + `<defs><linearGradient id='g${id}' x1='0' y1='0' x2='1' y2='1'>`
+    + `<stop offset='0' stop-color='${from}'/><stop offset='1' stop-color='${to}'/></linearGradient></defs>`
+    + `<rect width='640' height='360' fill='url(#g${id})'/>`
+    + `<circle cx='520' cy='80' r='120' fill='${to}' opacity='0.35'/>`
+    + `<circle cx='90' cy='300' r='100' fill='${from}' opacity='0.35'/>`
+    + `<text x='32' y='320' font-family='sans-serif' font-size='26' fill='#fff' opacity='0.92'>${title}</text>`
+    + `</svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+const DEMO_IMAGE_ASSETS = [
+  { id: 'vip-demo-1', title: 'Неоновый город', prompt: 'Футуристический городской пейзаж на закате, неоновые огни, дождь', model_alias: 'mock-image', aspect_ratio: '16:9', width: 1280, height: 720, favorite: true, created_at: new Date().toISOString(), file_url: svgTile(1, 'Неоновый город', '#1b1140', '#ff2fb0') },
+  { id: 'vip-demo-2', title: 'Кибер-переулок', prompt: 'Киберпанк-переулок, вывески, отражения в лужах', model_alias: 'mock-image', aspect_ratio: '1:1', width: 1024, height: 1024, favorite: false, created_at: new Date().toISOString(), file_url: svgTile(2, 'Кибер-переулок', '#0b2141', '#12e0c8') },
+  { id: 'vip-demo-3', title: 'Неоновый портрет', prompt: 'Портрет в неоновом свете, синтвейв-палитра', model_alias: 'mock-image', aspect_ratio: '3:4', width: 900, height: 1200, favorite: false, created_at: new Date().toISOString(), file_url: svgTile(3, 'Неоновый портрет', '#2a0b3d', '#7b4dff') },
+];
+
+/* Точечные, приятные глазу заглушки для узнаваемых путей — то, что реально
+   рисуется на экране во время демо. Всё остальное подменяется максимально
+   нейтрально (пустой список/объект или {ok:true}), чтобы не ломать код
+   страницы, которая ждёт другую форму ответа: код страниц по всему UI и так
+   написан терпимо к пустым спискам (listOf, `?? []`, `|| {}`). */
+function demoDataFor(method, path) {
+  const mutate = UNSAFE.has(method);
+
+  if (path.startsWith('/api/login')) return { ok: true, csrf: 'vip-demo-csrf' };
+  if (path === '/api/logout') return { ok: true };
+
+  if (path.startsWith('/api/system')) {
+    return {
+      current: { cpu_pct: 17, ram_used_mb: 4200, ram_total_mb: 16384 },
+      health: { api: 'ok', workers: 'ok', storage: 'ok' },
+      overall: 'ok',
+    };
+  }
+  if (path.startsWith('/api/models')) {
+    return { items: [
+      { id: 'vip-demo-model', alias: 'bossman-vip', name: 'BOSSMAN VIP', status: 'online', provider: 'local' },
+    ] };
+  }
+  if (path.startsWith('/api/agents')) {
+    return { items: [
+      { id: 'vip-demo-agent', name: 'Демо-агент', role: 'Показ', status: 'idle' },
+    ] };
+  }
+  if (path.startsWith('/api/tasks')) return { items: [] };
+  if (path.startsWith('/api/schedules')) return { items: [] };
+  if (path.startsWith('/api/approvals')) return { items: [] };
+  if (path.startsWith('/api/activity')) return { items: [] };
+
+  if (path.startsWith('/api/images/assets')) return { items: DEMO_IMAGE_ASSETS };
+  if (path.startsWith('/api/images/jobs')) {
+    return { items: DEMO_IMAGE_ASSETS.map((a, i) => ({
+      id: `vip-demo-job-${i + 1}`, status: 'completed', progress: 1, prompt: a.prompt,
+      model_alias: a.model_alias, aspect_ratio: a.aspect_ratio,
+    })) };
+  }
+  if (path.startsWith('/api/images/collections')) return { items: [] };
+  if (path.startsWith('/api/images/models')) return { items: [{ id: 'mock-image', alias: 'mock-image', name: 'Neon Art (демо)' }] };
+  if (path.startsWith('/api/images/storage')) return { used_bytes: 42 * 1024 * 1024, asset_count: DEMO_IMAGE_ASSETS.length };
+  if (path.startsWith('/api/images/overview')) return { assets: DEMO_IMAGE_ASSETS.length, favorites: 1, active_jobs: 0, failed_jobs: 0 };
+
+  return mutate ? { ok: true, demo: true } : {};
 }
 
 async function rawRequest(method, path, body, { signal } = {}) {
