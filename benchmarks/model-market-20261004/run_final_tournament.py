@@ -71,7 +71,8 @@ def main():
     output = {"schema": "bossman.model-market-final-run/1", "model": args.model,
               "api": BASE, "agent_ids": {"coding": code_agent, "browser": browser_agent},
               "server_port": args.port, "server_pid": server_pid, "started_at": now(),
-              "runner_sha": None, "attempts": [], "resource_sample": samples}
+              "runner_sha": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+              "attempts": [], "resource_sample": samples}
     for round_no in range(1, args.rounds + 1):
         for task in tasks:
             agent = code_agent if task["category"] == "coding" else browser_agent

@@ -41,10 +41,10 @@
   "hash_algorithm": "SHA256",
   "source_sha": "e76de12b239dc977e0170bdb5c97f1bd084b90f9",
   "files": {
-    "results.json": "53f9ca5da2afab9a02fd7ae4a1d75760bfc079bf4bc8f3537b010a98f9726935",
+    "results.json": "93b96298f177badd6faa540771bf65672e05ea7c3807dce23b443c3f54638d3f",
     "logs/model_market_state.json": "b4e82cf83139b61c7d772faf6bde058a57110c27f2346f70ad9dc685c73c6ac6",
-    "REPRODUCE_MODEL_MARKET_20261004.md": "9d05d01f6eefb00e79671a87d9e9bfd08f378b9a5d167ae7c8dc889c00be2172",
-    "MODEL_MARKET_20261004.md": "394cb17808a4a8be20533ff95e2f46535321e9134b782feb9b035b8a39bd192a",
+    "REPRODUCE_MODEL_MARKET_20261004.md": "4625a3c9384c2d1f3c76ad6fe1023aabd9bc42ae752adf1b6adf34efb7855731",
+    "MODEL_MARKET_20261004.md": "294d780d3493c60edd72c84fea9d8466b9332ccbbd416d1359c499b592c7d773",
     "PUBLIC_BENCHMARK_CROSSWALK_20261004.md": "170338d8e756a9bf7d9f184588f2c5aa4737c3244044b92508cdf8aae5f44f04",
     "logs/quick_smoke_runs.json": "91c903bed0d095678b82e67d8be51518016b14dba792db73ffcebe35fd70c88a",
     "benchmarks/model-market-20261004/coding-responses.json": "90ef58c5ca80827deb7bdfa6f4cb4455d019042019155c1731a902ae09aad82d",
@@ -56,7 +56,7 @@
     "benchmarks/model-market-20261004/final_tasks.json": "4bbab354a60e8ccec0cf73f2047a15520b6f0f3bafeac0d0011708c95bd019c9",
     "benchmarks/model-market-20261004/hidden_coding_tests.py": "b738a66e765f3d0f30c4d091cb70479fa22a4995f90ed21f51f4822daff050b2",
     "benchmarks/model-market-20261004/make_final_tasks.py": "6c48721daa218ca2f6b0d7fa004b45efbebb816b9986d9575071bad5e8ea34af",
-    "benchmarks/model-market-20261004/run_final_tournament.py": "c332349ba16253d0ad8ad04fac08d35f68e0cacd492dc3e3423f7e6477d601bf",
+    "benchmarks/model-market-20261004/run_final_tournament.py": "974bada5aa311739457f1ea94cdae9962c8dc6a397b22ae637035056b46f659a",
     "benchmarks/model-market-20261004/score_coding_diffs.py": "bdc7cf48acee264d101dc14e5bae0a690a7078899c3d8c526068569274647905",
     "benchmarks/model-market-20261004/score_final_tournament.py": "3252c353f66c77e19d086208edbc3fdcad065dcf4f2410156b751cd9287459c0"
   }

@@ -186,7 +186,8 @@
     "Known output files are scrubbed benchmark outputs/diffs; API tokens, databases/WAL, caches, candidate workspaces, and raw user chat content are excluded.",
     "Muse quick round was incomplete after two request failures; do not report a 10-task score for it.",
     "Qwen3.8-pi diagnostic rerun was stopped after CODE-01 produced an empty response in 414.14 s at 4096 output tokens; it did not change the owner-reported 0/4 status.",
-    "Muse quick-round score remains incomplete/unranked. A corrected llama.cpp+Bossman one-task diagnostic passed after an Ollama stop-token configuration fault was isolated; no full Muse round or LOCAL_WORKER promotion was performed."
+    "Muse quick-round score remains incomplete/unranked. A corrected llama.cpp+Bossman one-task diagnostic passed after an Ollama stop-token configuration fault was isolated; no full Muse round or LOCAL_WORKER promotion was performed.",
+    "Finalist run records have runner_sha=null; the checked-in runner postdates the run start, and the isolated BCC database is excluded, so exact historical runner/API provenance is not independently pinned."
   ],
   "final_tournament": {
     "schema": "bossman.model-market-final-scorecard/1",
@@ -421,6 +422,17 @@
       "The final corpus has 12 coding hidden-test checks, 6 tool checks, 4 browser checks, 2 recovery checks, 4 context checks and 2 STOP checks per candidate.",
       "Each candidate missed one TOOL-02 first-heading assertion on repeat 2; Browser, recovery, context answers and STOP were otherwise correct.",
       "The full owner-PC stack was not promoted or proven; no canonical configuration changed."
-    ]
+    ],
+    "provenance_audit": {
+      "archived_runner_sha_present": false,
+      "archived_runner_sha_values": {
+        "qwen36-q5": null,
+        "qwen38-q5": null
+      },
+      "checked_in_runner_commit_after_run_start": true,
+      "isolated_bcc_database_included": false,
+      "score_recomputes_from_saved_artifacts": true,
+      "evidence_classification": "saved-run evidence; not fully pinned or independently replayable A-grade evidence"
+    }
   }
 }

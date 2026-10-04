@@ -39,6 +39,8 @@ Equivalent Bossman tasks were submitted through `POST /api/tasks`, not directly 
 
 The 15-task finalist round ran twice per model through the isolated Bossman CMD/API at `127.0.0.1:18810`, with one candidate server active at a time. The same task order and fixed decoding/configuration were used. Hidden coding tests were applied after collecting candidate outputs. Results and per-task logs are in `benchmarks/model-market-20261004/`; scoring logic is in `score_final_tournament.py` and hidden-diff scoring is in `score_coding_diffs.py`.
 
+Evidence limitation: the archived finalist JSON has `runner_sha: null`. Git history shows the checked-in runner was committed after those runs started, and the isolated BCC database is excluded. Therefore the saved task records and scores can be reviewed and recomputed, but the exact historical runner and API records cannot be independently pinned from this repository snapshot. The current runner records its own SHA256 in any future run; that does not retroactively identify the runner used in the archived run.
+
 To recompute the published scores from the saved run artifacts, from the repository root run:
 
 ```powershell
