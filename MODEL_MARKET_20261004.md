@@ -30,6 +30,8 @@ The numeric win does not satisfy the promotion gate: the owner stack was not res
 
 ## Candidate cards
 
+Per-candidate best located public benchmark, source grade, and local Bossman outcome crosswalk: [PUBLIC_BENCHMARK_CROSSWALK_20261004.md](PUBLIC_BENCHMARK_CROSSWALK_20261004.md). Public scores are for discovery and context only; the local tournament below is the selection evidence.
+
 Dates and sizes are upstream-reported or rough quantization estimates where marked. `n/a` means not found in the cited upstream record, rather than inferred. Recent means a repository/model update or release between 2026-08-05 and 2026-10-04 inclusive. The two downloaded candidate revisions and actual Ollama blob digests are recorded below; other mutable refs remain discovery-only.
 
 | # | Candidate / repo and rev | Date, architecture, active/total, quant, size | Context, vision, tools/template, license | AMD/runtime and RAM estimate | Results and grade | Disposition |
