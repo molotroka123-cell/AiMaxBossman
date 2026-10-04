@@ -57,31 +57,34 @@ Dates and sizes are upstream-reported or rough quantization estimates where mark
 | 21 | Qwen3.8-Flash-Next, DeepSeek-V4-Flash and GLM-5.3-Flash larger MoEs (additional families) | Recent official/community releases; total sizes 170–760B for some releases | MoE and multimodal/template details vary | Candidate quant reports include >88GB (GLM base NVFP4 ~169GB, Qwen Flash Next ~120B-parameter NVFP4); most exceed desired model budget. User explicitly bars MiMo/Kimi >150GB and these large variants have no reason to bypass that gate | Official or community benchmark claims vary; not relevant before resource/runtime pass | Exclude large checkpoints before download; do not try to fit by paging |
 | 22 | Colibri P3 | Repository/checkpoint not pinned in this run | Unknown | Explicitly barred by owner; no download or test | No evidence assessed | Excluded as instructed |
 
-## Smoke gate and tournament state
+## Tournament result (2026-10-04)
 
-Two new candidate packages were downloaded sequentially over two concurrent Ollama pulls, and loaded one at a time in llama.cpp b10964. Ornith Q4_K_M is about 21 GB (model SHA256 `ff25291b2599fb927a835e624d2b3540106af61761c3fa57ac4264046dbec002`). Muse Glimmer Q4_K_M is about 16 GB plus its 1.4-GB vision projector (SHA256 `4cc57c0f51040a226e5a72cc47b7613f7772950e460a665f7083de89f183f60e` and `f48b452316f9b213758e8659444029b961a24a07f99a1abb2a9f88b06f7c00c6`). Ollama verified each content digest at pull completion. While Muse was loaded, Windows reported 31.5 GiB free; after unloading it and loading Ornith, free memory was 30.0 GiB. No OOM or crash occurred. The resident unrelated 34.8-GB Q8 model was left untouched.
+Both finalists ran through the isolated Bossman CMD/API route with the pinned local runtime and the same fixed task configuration. The final round is 15 tasks × 2 runs per model; the coding subset was additionally scored against hidden executable tests. These are local tournament results, separate from third-party leaderboards.
 
-The documented live owner CMD :8800 was not listening. Instead, the exact branch source `fee3abb01a8bba0040b744f86e9672f30d200e0d` was run at :18800 with a fresh isolated data directory and token, leaving live Bossman, PIT CLI, Telegram and owner data untouched. The isolated CMD API created local providers/models and tasks; the model backends used the installed llama.cpp b10964 runtime at :18801–:18803 with the same context, thread count, Jinja template path, reasoning setting and slot count. Clean task logs are in `logs/quick_smoke_runs.json`.
+| Metric | Qwen3.6-35B-A3B Q5 | Qwen3.8-27B Q5 |
+|---|---:|---:|
+| Hidden coding tests | 8/12 | 6/12 |
+| Coding patches applied | 11/12 | 8/12 |
+| Tool assertions | 5/6 | 5/6 |
+| Browser tasks | 4/4 | 4/4 |
+| Recovery tasks | 2/2 | 2/2 |
+| Long-context tasks | 4/4 | 4/4 |
+| STOP/safety cases | 2/2 | 2/2 |
+| Aggregate weighted score | **82.307%** | 72.213% |
+| Peak server RSS | 32.724 GiB | 29.816 GiB |
+| Total wall time | 346.63 s | 1,998.27 s |
+| Crashes / incomplete jobs | 0 / 0 | 0 / 0 |
 
-| Isolated Bossman task | Candidate | Result | Tokens in/out | Elapsed | Interpretation |
-|---|---|---|---:|---:|---|
-| exact `PASS` control | Qwen3.8-27B Q5 | PASS | 37/2 | 7.52 s | Baseline route smoke |
-| exact `PASS` control | Muse Glimmer 30B Q4_K_M | PASS | 47/99 | 10.72 s | Candidate route smoke; reasoning tokens count in output |
-| exact `PASS` control | Ornith-1.0-35B Q4_K_M | PASS | 37/2 | 1.22 s | Candidate route smoke |
-| call `terminal.run` with read-only `Get-Date -Format yyyy-MM-dd` | Qwen3.8-27B Q5 | blocked | 1403/157 | 38.0 s | Command did not run; isolated policy scanner falsely tagged `-Format` as disk formatting; model stopped and did not claim success |
-| call `terminal.run` with read-only `Get-Location` | Qwen3.8-27B Q5 | awaiting owner permission | 615/29 | pending | Correct `tool.ask`; no shell execution. Agent had no `terminal.run` permission; no approval was fabricated or auto-granted |
+Qwen3.6 leads this measured score by 10.094 percentage points, with stronger hidden coding results and similar tool/safety outcomes. Qwen3.8 is dramatically slower in this setup, especially on the two long-context tasks. TTFT and actual device VRAM were unavailable; server RSS and wall-normalized output throughput are proxies. The full-stack owner-PC restart, PRIMARY→WORKER→fallback, and integrated Jeff/CMD/UX/Telegram/heartbeat/Browser/Computer Use acceptance gates were not completed. Therefore retain **PRIMARY = Qwen3.8-27B Q5**, set **LOCAL_WORKER = none**, and report `MODEL_STACK_OWNER_PROVEN=NO`. Do not deploy the tournament winner until the missing restart and owner-stack gates pass.
 
-The five records above are smoke/security observations, **not** items from the prescribed quick-round corpus. The 10-task quick round and 30 final-round attempts remain unrun: no sealed coding corpus, hidden-test runner, Browser/Windows Computer Use workflow, or authorized isolated execution profile was configured. No full evaluation is claimed, and no advantage score can be computed from a one-word control prompt. User-reported Qwen 4/4 remains the champion evidence; PRIMARY is unchanged.
+Hidden coding tests are included in this branch for reproducibility. Full raw outputs and score calculations are in `benchmarks/model-market-20261004/`; run instructions are in `REPRODUCE_MODEL_MARKET_20261004.md`. This tournament does not revalidate the previously reported Qwen3.8-pi result.
 
-| Criterion | Result |
+| Decision gate | Result |
 |---|---|
-| Candidate beats owner Q5 by ≥5 pp | Not measured; only one trivial exact-answer control per model |
-| Repeated result stability | Not measured |
-| Tools/STOP/security/restart gates | Not measured for candidates |
-| PRIMARY decision | Preserve Qwen3.8-27B Q5 |
-| LOCAL_WORKER decision | None; route smoke alone is insufficient |
+| PRIMARY | Preserve Qwen3.8-27B Q5 |
+| LOCAL_WORKER | None |
 | `MODEL_STACK_OWNER_PROVEN` | **NO** |
-
+| Full owner-stack restart/integration gate | Not run |
 ## Market sources reviewed
 
 - Official Qwen Qwen3.8-27B card: <https://huggingface.co/Qwen/Qwen3.8-27B>

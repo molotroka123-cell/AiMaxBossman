@@ -35,10 +35,15 @@ For Muse, include `--mmproj '<projector-blob-path>'`; its model and projector SH
 
 Equivalent Bossman tasks were submitted through `POST /api/tasks`, not directly to the model endpoint. The exact control prompt was `Reply with exactly the word PASS and nothing else.` Each candidate returned `PASS`. This validates basic route compatibility only; it does not measure coding, tools, vision, robustness or relative agent quality. The local runner was stopped after evidence capture. The two downloaded GGUF packages remain in Ollama's shared model store; no live route/config was changed.
 
-## Prescribed tournament remains unrun
+## Final tournament (completed)
 
-Do not extrapolate these smoke tasks into the benchmark. The next valid run needs a sealed coding test corpus, hidden-test runner and configured, isolated tool/Browser/Computer Use policy. The quick round has 10 tasks; the finalist round has 15 tasks × 2 runs for each of two finalists. Record each attempt in structured JSON with `source_sha`, model revision/quant, runner config, route ID, item ID, random seed, timestamps, test outcome, tool calls and arguments, retries/steps, TTFT, prompt/output tokens, generation rate, peak RAM/VRAM, restart status and safety decision. Scrub secrets from persisted logs.
+The 15-task finalist round ran twice per model through the isolated Bossman CMD/API at `127.0.0.1:18810`, with one candidate server active at a time. The same task order and fixed decoding/configuration were used. Hidden coding tests were applied after collecting candidate outputs. Results and per-task logs are in `benchmarks/model-market-20261004/`; scoring logic is in `score_final_tournament.py` and hidden-diff scoring is in `score_coding_diffs.py`.
 
-Run the same Bossman CMD/API path, tool registry, system instructions, decoding parameters, time/token budgets, and task order for every candidate. Only unseal hidden expected outputs after candidate runs finish. Treat model-card and leaderboard results as market selection evidence; never add them to the local score.
+To recompute the published scores from the saved run artifacts, from the repository root run:
 
-No shell command in this file runs the prescribed tournament. The isolated route smoke commands/log are kept separate from the live owner CMD and from the hidden-test scoreboard.
+```powershell
+python benchmarks/model-market-20261004/score_coding_diffs.py
+python benchmarks/model-market-20261004/score_final_tournament.py
+```
+
+These recompute from saved outputs and do not start a model or alter owner configuration. For a new full run, review the runner's fixed route and task configuration in `run_final_tournament.py`; provision the isolated API and two candidate agents exactly as documented in the saved result metadata. Do not send live owner traffic to tournament models. This procedure does not claim owner-stack restart or integration acceptance.

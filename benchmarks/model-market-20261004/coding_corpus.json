@@ -1,0 +1,42 @@
+{
+  "schema": "bossman.model-market-coding-corpus/1",
+  "hidden_tests_sealed_until_outputs_saved": true,
+  "items": [
+    {
+      "id": "CODE-01",
+      "path": "merge_intervals.py",
+      "starter": "def merge_intervals(intervals):\n    raise NotImplementedError\n",
+      "prompt": "Implement merge_intervals(intervals). Input is an iterable of two-item integer intervals. Return a new list sorted by start, merging overlap and touching boundaries. Empty input returns []. An interval whose start exceeds end raises ValueError. Do not mutate the input. Output only a unified diff changing merge_intervals.py; no prose."
+    },
+    {
+      "id": "CODE-02",
+      "path": "top_k_frequent.py",
+      "starter": "def top_k_frequent(items, k):\n    raise NotImplementedError\n",
+      "prompt": "Implement top_k_frequent(items, k). Return at most k distinct strings ordered by decreasing frequency, then lexicographically ascending for ties. Return [] when k <= 0 or items is empty. Do not mutate items. Output only a unified diff changing top_k_frequent.py; no prose."
+    },
+    {
+      "id": "CODE-03",
+      "path": "retry_after.py",
+      "starter": "def parse_retry_after(value, now):\n    raise NotImplementedError\n",
+      "prompt": "Implement parse_retry_after(value, now). Accept Retry-After as a nonnegative decimal seconds value or an HTTP-date. Return a float seconds delay. For a past HTTP-date return 0.0. Treat a naive now as UTC. Return None for invalid input. Do not mutate inputs. Output only a unified diff changing retry_after.py; no prose."
+    },
+    {
+      "id": "CODE-04",
+      "path": "redact.py",
+      "starter": "def redact(value):\n    raise NotImplementedError\n",
+      "prompt": "Implement redact(value) for nested dict/list/tuple data. Return a deep copy with values replaced by '[REDACTED]' when a dictionary key, case-insensitively, contains password, token, secret, api_key, or authorization. Recurse into other containers and leave scalar values unchanged. Do not mutate input. Output only a unified diff changing redact.py; no prose."
+    },
+    {
+      "id": "CODE-05",
+      "path": "byte_range.py",
+      "starter": "def parse_byte_range(value, size):\n    raise NotImplementedError\n",
+      "prompt": "Implement parse_byte_range(value, size) for a single HTTP Range header. Accept bytes=N-M, bytes=N-, and bytes=-S; return an inclusive (start, end) tuple, clamp an explicit/open end to size-1, and return None for malformed, multi-range, negative, unsatisfiable, or size<=0 inputs. For a suffix range, S must be positive and the start is max(0,size-S). Output only a unified diff changing byte_range.py; no prose."
+    },
+    {
+      "id": "CODE-06",
+      "path": "dedupe_paths.py",
+      "starter": "def dedupe_paths(paths):\n    raise NotImplementedError\n",
+      "prompt": "Implement dedupe_paths(paths). Return a new list containing the first original spelling of each path, preserving order. Equality is based on a normalized key: convert backslashes to slashes, collapse repeated slashes, remove '.' segments, resolve '..' against a prior ordinary segment without crossing a leading root, and compare case-insensitively. Do not mutate paths. Output only a unified diff changing dedupe_paths.py; no prose."
+    }
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "schema": "bossman.model-market-coding-score/1",
+  "models": {
+    "qwen36-round1": {
+      "CODE-01": {
+        "applied": true
+      },
+      "CODE-02": {
+        "applied": true
+      },
+      "CODE-03": {
+        "applied": true
+      },
+      "CODE-04": {
+        "applied": true
+      },
+      "CODE-05": {
+        "applied": true
+      },
+      "CODE-06": {
+        "applied": true
+      },
+      "hidden_tests": {
+        "passed": 4,
+        "total": 6,
+        "failures": [
+          "hidden_coding_tests.CandidateCodingTests.test_merge_intervals: Traceback (most recent call last):\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 25, in test_merge_intervals\n    self.assertEqual(m.merge_intervals(iter(src)), [(1, 5), (8, 10), (20, 21)])\nAssertionError: Lists differ: [[8, 10], [20, 21]] != [(1, 5), (8, 10), (20, 21)]\n\nFirst differing element 0:\n[8, 10]\n(1, 5)\n\nSecond list contains 1 additional elements.\nFirst extra element 2:\n(20, 21)\n\n- [[8, 10], [20, 21]]\n+ [(1, 5), (8, 10), (20, 21)]\n",
+          "hidden_coding_tests.CandidateCodingTests.test_redact: Traceback (most recent call last):\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 58, in test_redact\n    self.assertEqual(result, {\"Name\": \"Ada\", \"api_key_id\": \"[REDACTED]\",\nAssertionError: {'Nam[20 chars]id': 8, 'nested': [{'Authorization': 'Bearer h[50 chars]'})]} != {'Nam[20 chars]id': '[REDACTED]', 'nested': [{'Authorization'[67 chars]'})]}\n  {'Name': 'Ada',\n-  'api_key_id': 8,\n+  'api_key_id': '[REDACTED]',\n-  'nested': [{'Authorization': 'Bearer hidden', 'ok': True},\n?                                ^^^^^^^^^^^^^\n\n+  'nested': [{'Authorization': '[REDACTED]', 'ok': True},\n?                                ^^^^^^^^^^\n\n-             ('tuple', {'clientSecret': 's'})]}\n?                                         ^\n\n+             ('tuple', {'clientSecret': '[REDACTED]'})]}\n?                                         ^^^^^^^^^^\n\n"
+        ],
+        "errors": []
+      }
+    },
+    "qwen36-round2": {
+      "CODE-01": {
+        "applied": true
+      },
+      "CODE-02": {
+        "applied": true
+      },
+      "CODE-03": {
+        "applied": true
+      },
+      "CODE-04": {
+        "applied": true
+      },
+      "CODE-05": {
+        "applied": true
+      },
+      "CODE-06": {
+        "applied": false,
+        "error": "error: corrupt patch at C:/Users/asd/Bossman/worktrees/model-market-20261004/evidence/tournament-20261004/final-candidates/qwen36-round2/candidate.patch:3"
+      },
+      "hidden_tests": {
+        "passed": 4,
+        "total": 6,
+        "failures": [],
+        "errors": [
+          "hidden_coding_tests.CandidateCodingTests.test_dedupe_paths: Traceback (most recent call last):\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 77, in test_dedupe_paths\n    m = load(self.root / \"dedupe_paths.py\", \"candidate_dedupe_paths\")\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 15, in load\n    spec.loader.exec_module(module)\n  File \"<frozen importlib._bootstrap_external>\", line 995, in exec_module\n  File \"<frozen importlib._bootstrap_external>\", line 1132, in get_code\n  File \"<frozen importlib._bootstrap_external>\", line 1190, in get_data\nFileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\asd\\\\Bossman\\\\worktrees\\\\model-market-20261004\\\\evidence\\\\tournament-20261004\\\\final-candidates\\\\qwen36-round2\\\\dedupe_paths.py'\n",
+          "hidden_coding_tests.CandidateCodingTests.test_retry_after: Traceback (most recent call last):\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 47, in test_retry_after\n    self.assertIsNone(m.parse_retry_after(\"tomorrow\", now))\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\evidence\\tournament-20261004\\final-candidates\\qwen36-round2\\retry_after.py\", line 24, in parse_retry_after\n    parsed = email.utils.parsedate_to_datetime(value)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\email\\utils.py\", line 316, in parsedate_to_datetime\n    raise ValueError('Invalid date value or format \"%s\"' % str(data))\nValueError: Invalid date value or format \"tomorrow\"\n"
+        ]
+      }
+    },
+    "qwen38-round1": {
+      "CODE-01": {
+        "applied": true
+      },
+      "CODE-02": {
+        "applied": true
+      },
+      "CODE-03": {
+        "applied": true
+      },
+      "CODE-04": {
+        "applied": false,
+        "error": "error: evidence/tournament-20261004/final-candidates/qwen38-round1/redact.py: No such file or directory"
+      },
+      "CODE-05": {
+        "applied": false,
+        "error": "error: patch fragment without header at C:/Users/asd/Bossman/worktrees/model-market-20261004/evidence/tournament-20261004/final-candidates/qwen38-round1/candidate.patch:3: @@ -0,0 +1,60 @@"
+      },
+      "CODE-06": {
+        "applied": true
+      },
+      "hidden_tests": {
+        "passed": 3,
+        "total": 6,
+        "failures": [
+          "hidden_coding_tests.CandidateCodingTests.test_merge_intervals: Traceback (most recent call last):\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 25, in test_merge_intervals\n    self.assertEqual(m.merge_intervals(iter(src)), [(1, 5), (8, 10), (20, 21)])\nAssertionError: Lists differ: [[1, 5], [8, 10], [20, 21]] != [(1, 5), (8, 10), (20, 21)]\n\nFirst differing element 0:\n[1, 5]\n(1, 5)\n\n- [[1, 5], [8, 10], [20, 21]]\n?  ^    ^  ^     ^  ^       -\n\n+ [(1, 5), (8, 10), (20, 21)]\n?  ^    ^  ^     ^  ^      +\n\n"
+        ],
+        "errors": [
+          "hidden_coding_tests.CandidateCodingTests.test_parse_byte_range: Traceback (most recent call last):\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 65, in test_parse_byte_range\n    m = load(self.root / \"byte_range.py\", \"candidate_byte_range\")\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 15, in load\n    spec.loader.exec_module(module)\n  File \"<frozen importlib._bootstrap_external>\", line 995, in exec_module\n  File \"<frozen importlib._bootstrap_external>\", line 1132, in get_code\n  File \"<frozen importlib._bootstrap_external>\", line 1190, in get_data\nFileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\asd\\\\Bossman\\\\worktrees\\\\model-market-20261004\\\\evidence\\\\tournament-20261004\\\\final-candidates\\\\qwen38-round1\\\\byte_range.py'\n",
+          "hidden_coding_tests.CandidateCodingTests.test_redact: Traceback (most recent call last):\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 53, in test_redact\n    m = load(self.root / \"redact.py\", \"candidate_redact\")\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 15, in load\n    spec.loader.exec_module(module)\n  File \"<frozen importlib._bootstrap_external>\", line 995, in exec_module\n  File \"<frozen importlib._bootstrap_external>\", line 1132, in get_code\n  File \"<frozen importlib._bootstrap_external>\", line 1190, in get_data\nFileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\asd\\\\Bossman\\\\worktrees\\\\model-market-20261004\\\\evidence\\\\tournament-20261004\\\\final-candidates\\\\qwen38-round1\\\\redact.py'\n"
+        ]
+      }
+    },
+    "qwen38-round2": {
+      "CODE-01": {
+        "applied": true
+      },
+      "CODE-02": {
+        "applied": true
+      },
+      "CODE-03": {
+        "applied": false,
+        "error": "diff must modify only retry_after.py; got []"
+      },
+      "CODE-04": {
+        "applied": true
+      },
+      "CODE-05": {
+        "applied": false,
+        "error": "diff must modify only byte_range.py; got []"
+      },
+      "CODE-06": {
+        "applied": true
+      },
+      "hidden_tests": {
+        "passed": 3,
+        "total": 6,
+        "failures": [
+          "hidden_coding_tests.CandidateCodingTests.test_merge_intervals: Traceback (most recent call last):\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 25, in test_merge_intervals\n    self.assertEqual(m.merge_intervals(iter(src)), [(1, 5), (8, 10), (20, 21)])\nAssertionError: Lists differ: [[1, 5], [8, 10], [20, 21]] != [(1, 5), (8, 10), (20, 21)]\n\nFirst differing element 0:\n[1, 5]\n(1, 5)\n\n- [[1, 5], [8, 10], [20, 21]]\n?  ^    ^  ^     ^  ^       -\n\n+ [(1, 5), (8, 10), (20, 21)]\n?  ^    ^  ^     ^  ^      +\n\n"
+        ],
+        "errors": [
+          "hidden_coding_tests.CandidateCodingTests.test_parse_byte_range: Traceback (most recent call last):\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 65, in test_parse_byte_range\n    m = load(self.root / \"byte_range.py\", \"candidate_byte_range\")\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 15, in load\n    spec.loader.exec_module(module)\n  File \"<frozen importlib._bootstrap_external>\", line 995, in exec_module\n  File \"<frozen importlib._bootstrap_external>\", line 1132, in get_code\n  File \"<frozen importlib._bootstrap_external>\", line 1190, in get_data\nFileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\asd\\\\Bossman\\\\worktrees\\\\model-market-20261004\\\\evidence\\\\tournament-20261004\\\\final-candidates\\\\qwen38-round2\\\\byte_range.py'\n",
+          "hidden_coding_tests.CandidateCodingTests.test_retry_after: Traceback (most recent call last):\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 42, in test_retry_after\n    m = load(self.root / \"retry_after.py\", \"candidate_retry\")\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\asd\\Bossman\\worktrees\\model-market-20261004\\benchmarks\\model-market-20261004\\hidden_coding_tests.py\", line 15, in load\n    spec.loader.exec_module(module)\n  File \"<frozen importlib._bootstrap_external>\", line 995, in exec_module\n  File \"<frozen importlib._bootstrap_external>\", line 1132, in get_code\n  File \"<frozen importlib._bootstrap_external>\", line 1190, in get_data\nFileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\asd\\\\Bossman\\\\worktrees\\\\model-market-20261004\\\\evidence\\\\tournament-20261004\\\\final-candidates\\\\qwen38-round2\\\\retry_after.py'\n"
+        ]
+      }
+    }
+  }
+}

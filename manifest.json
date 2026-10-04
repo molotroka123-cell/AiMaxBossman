@@ -41,10 +41,22 @@
   "hash_algorithm": "SHA256",
   "source_sha": "e76de12b239dc977e0170bdb5c97f1bd084b90f9",
   "files": {
-    "results.json": "e88fd437d3b3c3cfadc361a6f4827c8a5dae6fae9ab5f221ddad1d1ec550fca9",
+    "results.json": "75e8cb0b745bb1e33d4393a757b28b2ee213ab2d1b54d534950a87ab8c96a96a",
     "logs/model_market_state.json": "b4e82cf83139b61c7d772faf6bde058a57110c27f2346f70ad9dc685c73c6ac6",
-    "REPRODUCE_MODEL_MARKET_20261004.md": "8fbc4c9bcc4b0ccf3552b8798ac7b883be9e878698b65ff43c9727eb736de5c1",
-    "MODEL_MARKET_20261004.md": "1f098ec7d86ac0d93c9185931c8d086f86a15caac8d0afedb9ef87c1680b0f32",
-    "logs/quick_smoke_runs.json": "91c903bed0d095678b82e67d8be51518016b14dba792db73ffcebe35fd70c88a"
+    "REPRODUCE_MODEL_MARKET_20261004.md": "9d05d01f6eefb00e79671a87d9e9bfd08f378b9a5d167ae7c8dc889c00be2172",
+    "MODEL_MARKET_20261004.md": "f25ef42a59be8c44ce3a1bc154b2c37a45d6f1a1c7179eb1ae58dcbd04be377c",
+    "logs/quick_smoke_runs.json": "91c903bed0d095678b82e67d8be51518016b14dba792db73ffcebe35fd70c88a",
+    "benchmarks/model-market-20261004/coding-responses.json": "90ef58c5ca80827deb7bdfa6f4cb4455d019042019155c1731a902ae09aad82d",
+    "benchmarks/model-market-20261004/coding-scores.json": "ca0180b610c6cd61107fef23ae84f56befc684b49c48a656a8621f0bf0a0e5ac",
+    "benchmarks/model-market-20261004/coding_corpus.json": "5f3948d7bf9aef5c744a7ce29df6557a2f2d8d507a5526c1fd60efe301d33ae2",
+    "benchmarks/model-market-20261004/final-qwen36-q5.json": "5bbfefc9c75691ceccece78ad3e40f15f602d4944af227106ab094eb679c9cf8",
+    "benchmarks/model-market-20261004/final-qwen38-q5.json": "27235c2c78ee4ce9a0ee8cac3c845435defca1b15577624d49b8d63df63de4f9",
+    "benchmarks/model-market-20261004/final-scorecard.json": "b1add67b6a8bcf8eaef635560fd96040a46888d0fb766670a4e917133ace9479",
+    "benchmarks/model-market-20261004/final_tasks.json": "4bbab354a60e8ccec0cf73f2047a15520b6f0f3bafeac0d0011708c95bd019c9",
+    "benchmarks/model-market-20261004/hidden_coding_tests.py": "b738a66e765f3d0f30c4d091cb70479fa22a4995f90ed21f51f4822daff050b2",
+    "benchmarks/model-market-20261004/make_final_tasks.py": "6c48721daa218ca2f6b0d7fa004b45efbebb816b9986d9575071bad5e8ea34af",
+    "benchmarks/model-market-20261004/run_final_tournament.py": "c332349ba16253d0ad8ad04fac08d35f68e0cacd492dc3e3423f7e6477d601bf",
+    "benchmarks/model-market-20261004/score_coding_diffs.py": "bdc7cf48acee264d101dc14e5bae0a690a7078899c3d8c526068569274647905",
+    "benchmarks/model-market-20261004/score_final_tournament.py": "3252c353f66c77e19d086208edbc3fdcad065dcf4f2410156b751cd9287459c0"
   }
 }

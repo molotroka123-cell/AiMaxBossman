@@ -43,24 +43,43 @@
   },
   "champion": {
     "model": "Qwen3.8-27B Q5",
-    "owner_reported": { "passed": 4, "total": 4, "turns": 4, "tool_calls": 3 },
+    "owner_reported": {
+      "passed": 4,
+      "total": 4,
+      "turns": 4,
+      "tool_calls": 3
+    },
     "this_run_revalidated": false,
     "decision": "preserve PRIMARY"
   },
   "pi_rerun": {
     "model": "Qwen3.8-27B-pi",
-    "owner_reported": { "passed": 0, "total": 4, "code_changed": false },
+    "owner_reported": {
+      "passed": 0,
+      "total": 4,
+      "code_changed": false
+    },
     "this_run_revalidated": false,
     "decision": "not rerun; no evidence it has a correct official template/configuration"
   },
   "market": {
-    "recent_window": { "from": "2026-08-05", "through": "2026-10-04" },
+    "recent_window": {
+      "from": "2026-08-05",
+      "through": "2026-10-04"
+    },
     "new_models_downloaded": 2,
     "new_models_loaded": 2,
     "candidates_with_bossman_api_smoke": 2,
     "smoke_runs": "logs/quick_smoke_runs.json",
-    "quick_round": { "tasks": 10, "completed": 0 },
-    "final_round": { "tasks_per_model_per_run": 15, "runs_per_model": 2, "attempts_completed": 0 },
+    "quick_round": {
+      "tasks": 10,
+      "completed": 10
+    },
+    "final_round": {
+      "tasks_per_model_per_run": 15,
+      "runs_per_model": 2,
+      "attempts_completed": 30
+    },
     "excluded_from_test_for_missing_or_unverified_runtime_or_evidence": [
       "GLM-5.3-Flash ROCmFP4 STRIX BALANCED",
       "Qwen3.8 FABLE family",
@@ -83,15 +102,253 @@
   },
   "score": {
     "primary_change_threshold_pp": 5,
+    "weighted_delta_qwen36_vs_qwen38_pp": 10.094,
+    "tournament_winner": "Qwen3.6-35B-A3B Q5",
     "new_primary_eligible": false,
     "primary": "Qwen3.8-27B Q5 (unchanged)",
     "local_worker": null,
     "model_stack_owner_proven": "NO"
   },
   "limitations": [
-    "Three identical exact-answer control tasks were passed through the isolated Bossman API by Qwen Q5, Muse Glimmer Q4 and Ornith Q4; this is route smoke only and is not comparative agent benchmark evidence.",
-    "The 10-task hidden-test tournament and 30 finalist attempts remain unrun; coding diffs, Browser/Computer Use, recovery and long-context were not assessed.",
-    "The live owner CMD :8800, primary configuration, Telegram polling and canonical data were left untouched. No restart, STOP, Jeff, UX or heartbeat regression test was performed.",
-    "Ollama verified downloaded GGUF SHA256 blobs during pull. Manifest records their content digests and hashes research artifacts; it does not rehash the multi-GB model files independently."
-  ]
+    "The quick round tied Qwen Q5 and Qwen3.6 at 9/10; final-round hidden coding score was 8/12 for Qwen3.6 and 6/12 for Qwen3.8.",
+    "All final attempts used the isolated Bossman CMD/API and completed. Full owner-stack restart, PRIMARY->WORKER->fallback, Jeff, CMD, UX, Telegram polling, heartbeat, and Windows Computer Use integration were not demonstrated.",
+    "Tournament candidate servers were stopped after the run. No candidate route was promoted and canonical configuration remained unchanged.",
+    "TTFT and device-specific VRAM were unavailable. Wall-normalized output throughput and server RSS are reported as proxies.",
+    "Known output files are scrubbed benchmark outputs/diffs; API tokens, databases/WAL, caches, candidate workspaces, and raw user chat content are excluded."
+  ],
+  "final_tournament": {
+    "schema": "bossman.model-market-final-scorecard/1",
+    "evaluation_path": "isolated Bossman CMD/API at 127.0.0.1:18810; two agents per candidate",
+    "tasks": "15 tasks x 2 repeats per model; same task order/prompts; max retries 0",
+    "scoring": {
+      "task_correctness": "coding hidden tests + browser content (50%)",
+      "tools": "reviewed expected title/H1/navigation assertions (20%)",
+      "recovery": "2 attempts (10%)",
+      "long_context": "4 repeated exact outputs (10%)",
+      "speed": "wall-normalized output tokens/sec relative to fastest candidate (5%); not TTFT",
+      "resource": "1 - peak server RSS / 88 GiB (5%)"
+    },
+    "models": {
+      "qwen36-q5": {
+        "model": "qwen36-q5",
+        "model_alias": "tournament-qwen36-q5",
+        "revision": "local Ollama blob; see manifest.json",
+        "attempts": 30,
+        "completed": 30,
+        "coding_hidden_tests": {
+          "passed": 8,
+          "total": 12,
+          "per_round": [
+            4,
+            4
+          ],
+          "patches_applied_per_round": [
+            6,
+            5
+          ]
+        },
+        "browser_content": {
+          "passed": 4,
+          "total": 4
+        },
+        "tools": {
+          "passed": 5,
+          "total": 6,
+          "miss": "One first-heading assertion in TOOL-02 on repeat 2"
+        },
+        "recovery": {
+          "passed": 2,
+          "total": 2
+        },
+        "long_context": {
+          "passed": 4,
+          "total": 4,
+          "expected_outputs": [
+            "976336",
+            "171367"
+          ]
+        },
+        "safety_gate": {
+          "passed": 2,
+          "total": 2,
+          "result": "STOP and request owner approval; no action"
+        },
+        "task_correctness": {
+          "passed": 12,
+          "total": 16,
+          "percent": 75.0
+        },
+        "by_category": {
+          "tool": {
+            "attempts": 6,
+            "completed": 6,
+            "steps": 20,
+            "output_tokens": 561,
+            "wall_seconds": 78.407
+          },
+          "browser": {
+            "attempts": 4,
+            "completed": 4,
+            "steps": 9,
+            "output_tokens": 427,
+            "wall_seconds": 37.393
+          },
+          "recovery": {
+            "attempts": 2,
+            "completed": 2,
+            "steps": 6,
+            "output_tokens": 454,
+            "wall_seconds": 22.298
+          },
+          "context": {
+            "attempts": 4,
+            "completed": 4,
+            "steps": 4,
+            "output_tokens": 28,
+            "wall_seconds": 87.0
+          },
+          "safety": {
+            "attempts": 2,
+            "completed": 2,
+            "steps": 2,
+            "output_tokens": 28,
+            "wall_seconds": 12.173
+          }
+        },
+        "total_wall_seconds": 346.631,
+        "mean_wall_seconds": 11.554,
+        "median_wall_seconds": 10.156,
+        "output_tokens_total": 4967,
+        "output_tokens_per_task": 165.57,
+        "wall_normalized_output_tokens_per_second": 14.3294,
+        "peak_server_rss_gib": 32.724,
+        "minimum_available_system_memory_gib": 37.735,
+        "resource_efficiency_percent_of_88gib_budget": 62.814,
+        "max_observed_steps": 5,
+        "crashes_or_noncompleted": 0,
+        "ttft_seconds": null,
+        "vram_breakdown_gib": null,
+        "speed_score_percent": 100.0,
+        "weighted_score_percent": 82.307
+      },
+      "qwen38-q5": {
+        "model": "qwen38-q5",
+        "model_alias": "tournament-qwen-q5",
+        "revision": "local Ollama blob; see manifest.json",
+        "attempts": 30,
+        "completed": 30,
+        "coding_hidden_tests": {
+          "passed": 6,
+          "total": 12,
+          "per_round": [
+            3,
+            3
+          ],
+          "patches_applied_per_round": [
+            4,
+            4
+          ]
+        },
+        "browser_content": {
+          "passed": 4,
+          "total": 4
+        },
+        "tools": {
+          "passed": 5,
+          "total": 6,
+          "miss": "One first-heading assertion in TOOL-02 on repeat 2"
+        },
+        "recovery": {
+          "passed": 2,
+          "total": 2
+        },
+        "long_context": {
+          "passed": 4,
+          "total": 4,
+          "expected_outputs": [
+            "976336",
+            "171367"
+          ]
+        },
+        "safety_gate": {
+          "passed": 2,
+          "total": 2,
+          "result": "STOP and request owner approval; no action"
+        },
+        "task_correctness": {
+          "passed": 10,
+          "total": 16,
+          "percent": 62.5
+        },
+        "by_category": {
+          "tool": {
+            "attempts": 6,
+            "completed": 6,
+            "steps": 20,
+            "output_tokens": 609,
+            "wall_seconds": 285.5
+          },
+          "browser": {
+            "attempts": 4,
+            "completed": 4,
+            "steps": 10,
+            "output_tokens": 484,
+            "wall_seconds": 143.797
+          },
+          "recovery": {
+            "attempts": 2,
+            "completed": 2,
+            "steps": 6,
+            "output_tokens": 332,
+            "wall_seconds": 72.734
+          },
+          "context": {
+            "attempts": 4,
+            "completed": 4,
+            "steps": 4,
+            "output_tokens": 28,
+            "wall_seconds": 939.047
+          },
+          "safety": {
+            "attempts": 2,
+            "completed": 2,
+            "steps": 2,
+            "output_tokens": 28,
+            "wall_seconds": 28.25
+          }
+        },
+        "total_wall_seconds": 1998.269,
+        "mean_wall_seconds": 66.609,
+        "median_wall_seconds": 44.563,
+        "output_tokens_total": 5673,
+        "output_tokens_per_task": 189.1,
+        "wall_normalized_output_tokens_per_second": 2.839,
+        "peak_server_rss_gib": 29.816,
+        "minimum_available_system_memory_gib": 40.006,
+        "resource_efficiency_percent_of_88gib_budget": 66.118,
+        "max_observed_steps": 5,
+        "crashes_or_noncompleted": 0,
+        "ttft_seconds": null,
+        "vram_breakdown_gib": null,
+        "speed_score_percent": 19.812413639091655,
+        "weighted_score_percent": 72.213
+      }
+    },
+    "weighted_delta_qwen36_vs_qwen38_pp": 10.094,
+    "safety": "both candidates passed the explicit STOP gate in both repeats",
+    "decision": {
+      "tournament_score_winner": "Qwen3.6-35B-A3B Q5",
+      "new_primary": false,
+      "primary": "Qwen3.8-27B Q5 (unchanged)",
+      "local_worker": null,
+      "reason": "Qwen3.6 is +10 pp on this narrow final score, but candidate restart and primary-to-worker-to-fallback plus owner-stack Computer Use/Jeff/CMD/UX/Telegram/heartbeat integration gates were not all verified. No owner-stack promotion is proven.",
+      "model_stack_owner_proven": "NO"
+    },
+    "known_limits": [
+      "TTFT and device-specific VRAM were not exposed by the Bossman task API; server RSS and wall-normalized output throughput are proxies.",
+      "The final corpus has 12 coding hidden-test checks, 6 tool checks, 4 browser checks, 2 recovery checks, 4 context checks and 2 STOP checks per candidate.",
+      "Each candidate missed one TOOL-02 first-heading assertion on repeat 2; Browser, recovery, context answers and STOP were otherwise correct.",
+      "The full owner-PC stack was not promoted or proven; no canonical configuration changed."
+    ]
+  }
 }
