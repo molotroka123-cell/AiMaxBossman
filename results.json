@@ -139,7 +139,35 @@
       "ornith-ai/Ornith-1.0-35B exact pinned GGUF only after AMD support smoke",
       "NVIDIA Nemotron 3.5 Lightning 30B-A3B GGUF only; NVFP4 artifact is not accepted as AMD compatible",
       "meta-models/Muse-Glimmer-30B quant only after exact template/tool parity smoke"
-    ]
+    ],
+    "muse_runtime_diagnostic": {
+      "ollama_api_smoke": {
+        "finish_reason": "stop",
+        "content_chars": 0,
+        "completion_tokens": 3,
+        "http_status": 200
+      },
+      "bossman_ollama_task": {
+        "reason": "EMPTY_RESULT",
+        "status": "failed"
+      },
+      "ollama_stop_metadata": [
+        "<|begin_of_text|>",
+        "<|start|>",
+        "<|message|>",
+        "<|eot|>",
+        "<|start|>user<|message|>"
+      ],
+      "corrected_runtime": "llama.cpp 0.5.0-dev build 11223, Vulkan; local Muse Q4 GGUF+mmproj; --jinja; alias=muse-glimmer; ctx=32768; --reasoning-budget 512; reasoning_strength=low",
+      "bossman_api_smoke": {
+        "status": "completed",
+        "result": "MUSE_BOSSMAN_READY",
+        "tasks": 1
+      },
+      "promoted_worker": false,
+      "canonical_changed": false,
+      "note": "Corrected route diagnostic only; does not replace the incomplete 10-task quick round or qualify Muse as LOCAL_WORKER."
+    }
   },
   "score": {
     "primary_change_threshold_pp": 5,
@@ -157,7 +185,8 @@
     "TTFT and device-specific VRAM were unavailable. Wall-normalized output throughput and server RSS are reported as proxies.",
     "Known output files are scrubbed benchmark outputs/diffs; API tokens, databases/WAL, caches, candidate workspaces, and raw user chat content are excluded.",
     "Muse quick round was incomplete after two request failures; do not report a 10-task score for it.",
-    "Qwen3.8-pi diagnostic rerun was stopped after CODE-01 produced an empty response in 414.14 s at 4096 output tokens; it did not change the owner-reported 0/4 status."
+    "Qwen3.8-pi diagnostic rerun was stopped after CODE-01 produced an empty response in 414.14 s at 4096 output tokens; it did not change the owner-reported 0/4 status.",
+    "Muse quick-round score remains incomplete/unranked. A corrected llama.cpp+Bossman one-task diagnostic passed after an Ollama stop-token configuration fault was isolated; no full Muse round or LOCAL_WORKER promotion was performed."
   ],
   "final_tournament": {
     "schema": "bossman.model-market-final-scorecard/1",

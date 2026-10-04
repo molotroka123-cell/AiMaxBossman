@@ -85,6 +85,13 @@ Hidden coding tests are included in this branch for reproducibility. Full raw ou
 | LOCAL_WORKER | None |
 | `MODEL_STACK_OWNER_PROVEN` | **NO** |
 | Full owner-stack restart/integration gate | Not run |
+
+## Post-tournament Muse runtime diagnosis (2026-10-04)
+
+The first Muse quick round is incomplete and remains unranked. A follow-on diagnostic isolated a runtime configuration fault: the installed Ollama model returns an empty `content` field after three completion tokens, and the isolated Bossman task fails with `EMPTY_RESULT`. Its Ollama `show` metadata lists stop strings for `<|begin_of_text|>`, `<|start|>`, and `<|message|>`. Meta's current Muse Glimmer llama.cpp guide specifies `--jinja`, a `muse-glimmer` API alias, `reasoning_strength: low` for bounded reasoning, and end tokens `<|end_of_text|>` plus `<|eot|>`; it warns against incorrect stop tokens. [Meta Muse Glimmer llama.cpp guide](https://dev.meta.ai/docs/muse-glimmer/llama-cpp)
+
+Using the same locally stored Muse Q4 model and vision projector with `llama.cpp` b11223 Vulkan, `--jinja`, context 32768, reasoning budget 512, and low reasoning strength, the isolated Bossman CMD/API completed one exact-answer task (`MUSE_BOSSMAN_READY`). This proves that a corrected local Bossman route can answer a simple prompt; it does not complete Muse's 10-task round, prove tool reliability, or justify a LOCAL_WORKER promotion. The Ollama model and canonical Bossman configuration were left unchanged. Muse is image-input/text-output; Tencent Hy-Image is a separate image-generation provider and has not been integrated into Bossman.
+
 ## Market sources reviewed
 
 - Official Qwen Qwen3.8-27B card: <https://huggingface.co/Qwen/Qwen3.8-27B>
