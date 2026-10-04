@@ -28,5 +28,16 @@
     { "path": "C:/Users/asd/Bossman/start-models.ps1", "sha256": "599224a717f1b5f41fa2f45e8743cc770d0b64b316bb2a937e8eea5ebd23c559", "note": "Unmodified external owner config; not copied because it is outside source worktree" },
     { "path": "C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-84f5e0acce6a/app-support/config/v1.5/model-routing-stack.json", "sha256": "f0f10a72814dababd39128776eb761d66b71dab250e5f8cabd712203a336cc2", "note": "Unmodified external installed routing config; not copied because it is outside source worktree" }
   ],
-  "secrets": "None captured. Process command lines, user-specific data paths, host name and API response template were excluded."
+  "evaluation_after_capture": {
+    "branch": "research/model-market-20261004",
+    "isolated_bossman_api": { "address": "127.0.0.1:18800", "source_commit": "fee3abb01a8bba0040b744f86e9672f30d200e0d", "data_dir": "worktree/evidence/isolated-bcc-data (excluded from Git)", "process_pid_at_capture": 20712 },
+    "isolated_llama_servers": [
+      { "model": "Qwen3.8-27B Q5_K_M", "address": "127.0.0.1:18801", "ollama_blob_sha256": "2de73110cb254cbf09b54b717578dadff12ef1194e7271527e68202f39ba4bfd", "build": "b10964 Vulkan" },
+      { "model": "Ornith-1.0-35B Q4_K_M", "address": "127.0.0.1:18802", "ollama_blob_sha256": "ff25291b2599fb927a835e624d2b3540106af61761c3fa57ac4264046dbec002", "build": "b10964 Vulkan" },
+      { "model": "Muse Glimmer 30B Q4_K_M + vision projector", "address": "127.0.0.1:18803", "ollama_blob_sha256": "4cc57c0f51040a226e5a72cc47b7613f7772950e460a665f7083de89f183f60e", "mmproj_sha256": "f48b452316f9b213758e8659444029b961a24a07f99a1abb2a9f88b06f7c00c6", "build": "b10964 Vulkan" }
+    ],
+    "memory": { "free_gib_while_muse_loaded": 31.5, "free_gib_after_ornith_load": 30.0, "free_disk_gib_after_downloads": 308.5 },
+    "bossman_task_results": "quick_smoke_runs.json"
+  },
+  "secrets": "None captured. Process command lines, user-specific data paths, host name and API response template were excluded. Isolated CMD token and database stay outside version control."
 }

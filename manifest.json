@@ -1,20 +1,50 @@
 {
-  "schema": "bossman.model-market-manifest/1",
   "created_at": "2026-10-04",
-  "source_sha": "e76de12b239dc977e0170bdb5c97f1bd084b90f9",
-  "branch": "research/model-market-20261004",
-  "files": {
-    "MODEL_MARKET_20261004.md": "c8f0d7576b60df3d85c6ad6a05625ea53d4c3e8d65e0639a9911c6c715b5b3b4",
-    "results.json": "f48d9b894b619d2abbafa495487ffcac524b2cf6673d716ccaff89526f4006ab",
-    "REPRODUCE_MODEL_MARKET_20261004.md": "dbbeb6e3b1e38c3bd0b6f4d93ddbb873b05400b69a9c5eb7440d720e4b1449c5",
-    "logs/model_market_state.json": "4d79061ae77f8d4ba382fe7286316840184586a8f37ff5edcfeef475c88e3133"
-  },
+  "weight_digest_verification": "Ollama verified content-addressed SHA256 on pull; multi-GB files were not independently rehashed afterward",
+  "self_hash": "excluded",
   "external_configs": {
     "C:/Users/asd/Bossman/start-models.ps1": "599224a717f1b5f41fa2f45e8743cc770d0b64b316bb2a937e8eea5ebd23c559",
     "C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-84f5e0acce6a/app-support/config/v1.5/model-routing-stack.json": "f0f10a72814dababd39128776eb761d66b71dab250e5f8cabd712203a336cc2"
   },
-  "model_weights_downloaded": false,
-  "model_weights_hashed": false,
+  "branch": "research/model-market-20261004",
+  "schema": "bossman.model-market-manifest/1",
+  "model_weight_blobs": [
+    {
+      "digest_verified_by_ollama": true,
+      "ollama_blob_sha256": "2de73110cb254cbf09b54b717578dadff12ef1194e7271527e68202f39ba4bfd",
+      "candidate": "Qwen3.8-27B Q5_K_M baseline",
+      "ollama_tag": "qwen38-ab-baseline:latest"
+    },
+    {
+      "repo_revision": "383064f72a1ef3087b779f268d3ca117eb989aac",
+      "digest_verified_by_ollama": true,
+      "ollama_blob_sha256": "ff25291b2599fb927a835e624d2b3540106af61761c3fa57ac4264046dbec002",
+      "candidate": "Ornith-1.0-35B Q4_K_M",
+      "repo": "ornith-ai/Ornith-1.0-35B-GGUF"
+    },
+    {
+      "repo_revision": "70bf1b61ac09f91b24d39038091b41c582bc5d7a",
+      "digest_verified_by_ollama": true,
+      "ollama_blob_sha256": "4cc57c0f51040a226e5a72cc47b7613f7772950e460a665f7083de89f183f60e",
+      "candidate": "Muse Glimmer 30B Q4_K_M",
+      "repo": "meta-models/Muse-Glimmer-30B-GGUF"
+    },
+    {
+      "repo_revision": "70bf1b61ac09f91b24d39038091b41c582bc5d7a",
+      "digest_verified_by_ollama": true,
+      "ollama_blob_sha256": "f48b452316f9b213758e8659444029b961a24a07f99a1abb2a9f88b06f7c00c6",
+      "candidate": "Muse Glimmer vision projector",
+      "repo": "meta-models/Muse-Glimmer-30B-GGUF"
+    }
+  ],
+  "model_weights_downloaded": true,
   "hash_algorithm": "SHA256",
-  "self_hash": "excluded"
+  "source_sha": "e76de12b239dc977e0170bdb5c97f1bd084b90f9",
+  "files": {
+    "results.json": "e88fd437d3b3c3cfadc361a6f4827c8a5dae6fae9ab5f221ddad1d1ec550fca9",
+    "logs/model_market_state.json": "b4e82cf83139b61c7d772faf6bde058a57110c27f2346f70ad9dc685c73c6ac6",
+    "REPRODUCE_MODEL_MARKET_20261004.md": "8fbc4c9bcc4b0ccf3552b8798ac7b883be9e878698b65ff43c9727eb736de5c1",
+    "MODEL_MARKET_20261004.md": "1f098ec7d86ac0d93c9185931c8d086f86a15caac8d0afedb9ef87c1680b0f32",
+    "logs/quick_smoke_runs.json": "91c903bed0d095678b82e67d8be51518016b14dba792db73ffcebe35fd70c88a"
+  }
 }

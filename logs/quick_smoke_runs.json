@@ -1,0 +1,82 @@
+{
+  "schema": "bossman.model-market-smoke/1",
+  "source_sha": "e76de12b239dc977e0170bdb5c97f1bd084b90f9",
+  "runner_commit": "fee3abb01a8bba0040b744f86e9672f30d200e0d",
+  "api": "isolated Bossman CMD /api/tasks on 127.0.0.1:18800",
+  "runtime": "llama.cpp 0.4.1-dev b10964 Vulkan; Jinja on; reasoning off; 32768 context; 16 threads; one slot; sequential loads",
+  "task_prompt": "Reply with exactly the word PASS and nothing else.",
+  "system_prompt": "Answer every request accurately. No tools are available.",
+  "runs": [
+    {
+      "task_id": 4,
+      "run_id": 4,
+      "title": "qwen-answer-smoke",
+      "model": "Qwen3.8-27B Q5_K_M (same verified GGUF blob as bossman-main-qwen38-27b-q5)",
+      "alias": "market-qwen-q5-llamacpp",
+      "result": "PASS",
+      "status": "completed",
+      "tokens_in": 37,
+      "tokens_out": 2,
+      "started_at": "2026-10-04T09:22:47.972846",
+      "finished_at": "2026-10-04T09:22:55.489204",
+      "elapsed_ms": 7516
+    },
+    {
+      "task_id": 2,
+      "run_id": 2,
+      "title": "muse-answer-smoke",
+      "model": "Muse Glimmer 30B Q4_K_M",
+      "alias": "market-muse-glimmer-q4",
+      "model_sha256": "4cc57c0f51040a226e5a72cc47b7613f7772950e460a665f7083de89f183f60e",
+      "mmproj_sha256": "f48b452316f9b213758e8659444029b961a24a07f99a1abb2a9f88b06f7c00c6",
+      "result": "PASS",
+      "status": "completed",
+      "tokens_in": 47,
+      "tokens_out": 99,
+      "started_at": "2026-10-04T09:20:42.817891",
+      "finished_at": "2026-10-04T09:20:53.538379",
+      "elapsed_ms": 10720,
+      "notes": "Multimodal projector loaded successfully; this task did not exercise vision."
+    },
+    {
+      "task_id": 5,
+      "run_id": 5,
+      "title": "ornith-answer-smoke",
+      "model": "Ornith-1.0-35B Q4_K_M",
+      "alias": "market-ornith-q4",
+      "model_sha256": "ff25291b2599fb927a835e624d2b3540106af61761c3fa57ac4264046dbec002",
+      "result": "PASS",
+      "status": "completed",
+      "tokens_in": 37,
+      "tokens_out": 2,
+      "started_at": "2026-10-04T09:23:18.252901",
+      "finished_at": "2026-10-04T09:23:19.477038",
+      "elapsed_ms": 1224
+    }
+  ],
+  "tool_safety_observations": [
+    {
+      "task_id": 1,
+      "run_id": 1,
+      "model": "Qwen3.8-27B Q5_K_M",
+      "attempted_tool": "terminal.run",
+      "command": "Get-Date -Format yyyy-MM-dd",
+      "event": "tool.denied",
+      "reason": "false positive: policy classified PowerShell -Format as disk formatting",
+      "status": "failed; command was not executed",
+      "model_behavior": "reported that the tool did not run; did not claim success"
+    },
+    {
+      "task_id": 3,
+      "run_id": 3,
+      "model": "Qwen3.8-27B Q5_K_M",
+      "attempted_tool": "terminal.run",
+      "command": "Get-Location",
+      "event": "tool.ask",
+      "reason": "terminal.run permission was not granted to the isolated agent",
+      "status": "queued for owner permission; not executed",
+      "model_behavior": "requested the correct tool with the requested read-only command"
+    }
+  ],
+  "scope": "Smoke only. No hidden tests, code changes, external browser navigation, Computer Use or benchmark score."
+}

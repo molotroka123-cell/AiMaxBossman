@@ -26,13 +26,20 @@
     "resident_model_context": 32768,
     "bossman_cmd_api_expected": "http://127.0.0.1:8800",
     "bossman_cmd_api_available": false,
+    "isolated_bossman_cmd_api": "http://127.0.0.1:18800 (branch source commit fee3abb01a8bba0040b744f86e9672f30d200e0d; fresh isolated data directory)",
+    "isolated_llama_cpp": "0.4.1-dev build 10964, Vulkan; one model loaded at a time on 127.0.0.1:18801-18803",
+    "free_memory_gib_after_candidate_loads": 30.0,
+    "free_disk_gb_after_downloads": 308.5,
     "configured_llama_cpp": "Vulkan build b10964 (from start-models.ps1; not verified as live backend)"
   },
   "routes": {
     "qwen38_main_configured": "C:/Users/asd/Bossman/start-models.ps1 -> qwen38-27b/Qwen3.8-27B-UD-Q5_K_M.gguf + mmproj-F16.gguf on 127.0.0.1:8081",
     "qwen36_fast_configured": "C:/Users/asd/Bossman/start-models.ps1 -> qwen36-35b-a3b/Qwen3.6-35B-A3B-UD-Q5_K_M.gguf + mmproj-F16.gguf on 127.0.0.1:8082",
     "active_ollama_route": "Bossman Ollama service /api endpoint; running model at 127.0.0.1:57389",
-    "cmd_frontdoor": "Bossman launcher expects 127.0.0.1:8800/health/live; not listening at capture"
+    "cmd_frontdoor": "Bossman launcher expects 127.0.0.1:8800/health/live; not listening at capture",
+    "isolated_qwen_candidate": "127.0.0.1:18801, same GGUF blob as bossman-main-qwen38-27b-q5",
+    "isolated_ornith_candidate": "127.0.0.1:18802, model SHA256 ff25291b2599fb927a835e624d2b3540106af61761c3fa57ac4264046dbec002",
+    "isolated_muse_candidate": "127.0.0.1:18803, model SHA256 4cc57c0f51040a226e5a72cc47b7613f7772950e460a665f7083de89f183f60e, mmproj SHA256 f48b452316f9b213758e8659444029b961a24a07f99a1abb2a9f88b06f7c00c6"
   },
   "champion": {
     "model": "Qwen3.8-27B Q5",
@@ -48,9 +55,10 @@
   },
   "market": {
     "recent_window": { "from": "2026-08-05", "through": "2026-10-04" },
-    "new_models_downloaded": 0,
-    "new_models_loaded": 0,
-    "candidates_with_bossman_api_smoke": 0,
+    "new_models_downloaded": 2,
+    "new_models_loaded": 2,
+    "candidates_with_bossman_api_smoke": 2,
+    "smoke_runs": "logs/quick_smoke_runs.json",
     "quick_round": { "tasks": 10, "completed": 0 },
     "final_round": { "tasks_per_model_per_run": 15, "runs_per_model": 2, "attempts_completed": 0 },
     "excluded_from_test_for_missing_or_unverified_runtime_or_evidence": [
@@ -81,8 +89,9 @@
     "model_stack_owner_proven": "NO"
   },
   "limitations": [
-    "No running Bossman Command Center API was available at its documented port; do not treat runtime model metadata or third-party benchmark claims as model-pass evidence.",
-    "No candidate tournament execution, restart, STOP, Telegram polling, Browser, Computer Use, Jeff, UX, or heartbeat regression test was performed.",
-    "No weights were downloaded or rehashed in this run. SHA256 manifest covers the research artifacts and captured state, not model weight blobs."
+    "Three identical exact-answer control tasks were passed through the isolated Bossman API by Qwen Q5, Muse Glimmer Q4 and Ornith Q4; this is route smoke only and is not comparative agent benchmark evidence.",
+    "The 10-task hidden-test tournament and 30 finalist attempts remain unrun; coding diffs, Browser/Computer Use, recovery and long-context were not assessed.",
+    "The live owner CMD :8800, primary configuration, Telegram polling and canonical data were left untouched. No restart, STOP, Jeff, UX or heartbeat regression test was performed.",
+    "Ollama verified downloaded GGUF SHA256 blobs during pull. Manifest records their content digests and hashes research artifacts; it does not rehash the multi-GB model files independently."
   ]
 }
