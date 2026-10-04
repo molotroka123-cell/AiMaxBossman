@@ -6,7 +6,7 @@
     "C:/Users/asd/Bossman/start-models.ps1": "599224a717f1b5f41fa2f45e8743cc770d0b64b316bb2a937e8eea5ebd23c559",
     "C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-84f5e0acce6a/app-support/config/v1.5/model-routing-stack.json": "f0f10a72814dababd39128776eb761d66b71dab250e5f8cabd712203a336cc2"
   },
-  "branch": "research/model-market-20261004",
+  "branch": "feat/tencent-hy-image-20261004",
   "schema": "bossman.model-market-manifest/1",
   "model_weight_blobs": [
     {
@@ -41,10 +41,10 @@
   "hash_algorithm": "SHA256",
   "source_sha": "e76de12b239dc977e0170bdb5c97f1bd084b90f9",
   "files": {
-    "results.json": "93b96298f177badd6faa540771bf65672e05ea7c3807dce23b443c3f54638d3f",
+    "results.json": "79de19879067744d5701262e4a7d66febefd8284372a2fe882cd2987f0a2aa1c",
     "logs/model_market_state.json": "b4e82cf83139b61c7d772faf6bde058a57110c27f2346f70ad9dc685c73c6ac6",
     "REPRODUCE_MODEL_MARKET_20261004.md": "4625a3c9384c2d1f3c76ad6fe1023aabd9bc42ae752adf1b6adf34efb7855731",
-    "MODEL_MARKET_20261004.md": "294d780d3493c60edd72c84fea9d8466b9332ccbbd416d1359c499b592c7d773",
+    "MODEL_MARKET_20261004.md": "902e1c395aa3ae0bbb3a061c19d0fc48f9cb4d7decb417e54dd52e61bf1073ba",
     "PUBLIC_BENCHMARK_CROSSWALK_20261004.md": "170338d8e756a9bf7d9f184588f2c5aa4737c3244044b92508cdf8aae5f44f04",
     "logs/quick_smoke_runs.json": "91c903bed0d095678b82e67d8be51518016b14dba792db73ffcebe35fd70c88a",
     "benchmarks/model-market-20261004/coding-responses.json": "90ef58c5ca80827deb7bdfa6f4cb4455d019042019155c1731a902ae09aad82d",
@@ -58,6 +58,7 @@
     "benchmarks/model-market-20261004/make_final_tasks.py": "6c48721daa218ca2f6b0d7fa004b45efbebb816b9986d9575071bad5e8ea34af",
     "benchmarks/model-market-20261004/run_final_tournament.py": "974bada5aa311739457f1ea94cdae9962c8dc6a397b22ae637035056b46f659a",
     "benchmarks/model-market-20261004/score_coding_diffs.py": "bdc7cf48acee264d101dc14e5bae0a690a7078899c3d8c526068569274647905",
-    "benchmarks/model-market-20261004/score_final_tournament.py": "3252c353f66c77e19d086208edbc3fdcad065dcf4f2410156b751cd9287459c0"
+    "benchmarks/model-market-20261004/score_final_tournament.py": "3252c353f66c77e19d086208edbc3fdcad065dcf4f2410156b751cd9287459c0",
+    "benchmarks/model-market-20261004/owner-stack-validation.json": "cbe13b730ac3f1ea578896fe537ed0eecc6ecc6d6063161d1f3eddeb7962c381"
   }
 }

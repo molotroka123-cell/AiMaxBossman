@@ -187,7 +187,8 @@
     "Muse quick round was incomplete after two request failures; do not report a 10-task score for it.",
     "Qwen3.8-pi diagnostic rerun was stopped after CODE-01 produced an empty response in 414.14 s at 4096 output tokens; it did not change the owner-reported 0/4 status.",
     "Muse quick-round score remains incomplete/unranked. A corrected llama.cpp+Bossman one-task diagnostic passed after an Ollama stop-token configuration fault was isolated; no full Muse round or LOCAL_WORKER promotion was performed.",
-    "Finalist run records have runner_sha=null; the checked-in runner postdates the run start, and the isolated BCC database is excluded, so exact historical runner/API provenance is not independently pinned."
+    "Finalist run records have runner_sha=null; the checked-in runner postdates the run start, and the isolated BCC database is excluded, so exact historical runner/API provenance is not independently pinned.",
+    "Isolated source-checkout Qwen3.6 restart and Qwen3.8 fallback passed, but installed-product and full worker/integration acceptance remain open; the captured owner route-config fingerprint differs from the current read-only fingerprint."
   ],
   "final_tournament": {
     "schema": "bossman.model-market-final-scorecard/1",
@@ -434,5 +435,118 @@
       "score_recomputes_from_saved_artifacts": true,
       "evidence_classification": "saved-run evidence; not fully pinned or independently replayable A-grade evidence"
     }
+  },
+  "owner_stack_validation": {
+    "schema": "bossman.model-market-owner-stack-validation/1",
+    "recorded_at": "2026-10-04T13:58:24.836918Z",
+    "source_sha_under_test": "9706e50acdb86124dbed880d07e3b110a9e7dde0",
+    "execution": "isolated Bossman source-checkout API on loopback; isolated data dir; owner services/config were not written",
+    "runtime": {
+      "bossman_build_sha": "9706e50acdb86124dbed880d07e3b110a9e7dde0",
+      "llama_cpp_version": "0.4.1-dev build 10964 commit b29c606e2",
+      "candidate": "Qwen3.6-35B-A3B Q5_K_M",
+      "fallback": "Qwen3.8-27B Q5_K_M",
+      "context_tokens": 32768,
+      "llama_flags": [
+        "-ngl 999",
+        "-t 16",
+        "--jinja",
+        "--reasoning off",
+        "-np 1"
+      ],
+      "ports": {
+        "qwen36": 18831,
+        "qwen38_fallback": 18832,
+        "bossman_api": 18850
+      },
+      "all_test_ports_closed_after_run": true
+    },
+    "checks": {
+      "qwen36_api_before_bossman_restart": {
+        "task_id": 1,
+        "status": "completed",
+        "alias": "owner-qwen36-q5",
+        "response": "QWEN36_OWNER_PASS"
+      },
+      "qwen36_api_after_bossman_restart": {
+        "task_id": 2,
+        "status": "completed",
+        "alias": "owner-qwen36-q5",
+        "response": "QWEN36_AFTER_RESTART",
+        "task_persisted": true
+      },
+      "qwen36_api_after_bossman_and_llama_restart": {
+        "task_id": 3,
+        "status": "completed",
+        "alias": "owner-qwen36-q5",
+        "response": "QWEN36_DUAL_RESTART_PASS",
+        "bossman_ready": true,
+        "bossman_health": "DEGRADED"
+      },
+      "tool_environment_setup_attempt": {
+        "task_id": 4,
+        "status": "failed",
+        "tool_effect": "not performed; isolated memory root was not configured",
+        "model_response": "DONE",
+        "note_created": false,
+        "scored": false
+      },
+      "memory_write_after_isolated_vault_configuration": {
+        "task_id": 5,
+        "status": "completed",
+        "model_alias": "owner-qwen36-q5",
+        "response": "DONE",
+        "note_created": true,
+        "isolated_vault_only": true
+      },
+      "stop_gate": {
+        "task_id": 6,
+        "status": "completed",
+        "stop_or_approval_required": true,
+        "tool_count": 0
+      },
+      "fallback": {
+        "task_id": 7,
+        "status": "completed",
+        "primary": "owner-qwen36-q5 (server intentionally stopped)",
+        "fallback": "owner-qwen38-q5",
+        "response": "ROUTE_FALLBACK_PASS"
+      },
+      "primary_restored": {
+        "task_id": 8,
+        "status": "completed",
+        "primary": "owner-qwen36-q5",
+        "fallback_server": "offline",
+        "response": "QWEN36_PRIMARY_ROUTE_PASS"
+      }
+    },
+    "owner_pc_state_after_run": {
+      "owner_ollama_pid": 17432,
+      "codex_listener_8081_pid": 10464,
+      "bossman_owner_port_8800_listener": false,
+      "current_routing_config_sha256": "f0f10a72814dab2dde39128776eb761d66b71dab250e5f8cabd712203a336cc2",
+      "captured_routing_config_sha256": "f0f10a72814dababd39128776eb761d66b71dab250e5f8cabd712203a336cc2",
+      "routing_config_hash_matches_capture": false,
+      "free_memory_gib_after_cleanup": 71.1,
+      "free_disk_gb_after_cleanup": 305.9
+    },
+    "decision": {
+      "tournament_winner": "Qwen3.6-35B-A3B Q5",
+      "promote_primary": false,
+      "primary": "Qwen3.8-27B Q5 (preserved)",
+      "local_worker": null,
+      "model_stack_owner_proven": "NO",
+      "reason": "isolated restart and one primary/fallback route are proven, but installed-product and full integration acceptance remain incomplete; owner routing-config fingerprint differs from the earlier captured value"
+    },
+    "not_verified": [
+      "installed Windows artifact",
+      "worker orchestration",
+      "Jeff",
+      "UX",
+      "Telegram polling and heartbeat",
+      "Windows Browser/Computer Use integration",
+      "full regression suite",
+      "full owner primary-to-worker-to-fallback acceptance"
+    ]
   }
 }
