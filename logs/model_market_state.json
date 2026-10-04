@@ -1,0 +1,32 @@
+{
+  "captured_at": "2026-10-04",
+  "source_sha": "e76de12b239dc977e0170bdb5c97f1bd084b90f9",
+  "host": "owner-PC (hostname omitted from shared research record)",
+  "system": {
+    "os": "Windows",
+    "cpu": "AMD Ryzen AI Max+ 395",
+    "gpu": "AMD Radeon 8060S Graphics",
+    "gpu_driver": "32.0.22021.1009",
+    "visible_memory_gib": 119.6,
+    "free_memory_gib": 62.1,
+    "free_disk_gb": 375.2
+  },
+  "processes": [
+    { "name": "ollama.exe", "pid": 17432, "purpose": "ollama serve", "listen": "127.0.0.1:11434" },
+    { "name": "llama-server.exe", "pid": 20368, "working_set_gb": 29.4, "listen": "127.0.0.1:57389", "command_line_redacted": true },
+    { "name": "python.exe", "pid": 15288, "purpose": "Bossman PIT CLI start", "data_dir_redacted": true },
+    { "name": "python.exe", "pid": 2408, "purpose": "Bossman Telegram companion", "config_path_redacted": true }
+  ],
+  "routes": [
+    { "name": "Ollama API", "address": "http://127.0.0.1:11434", "available": true, "probe": "GET /api/version and GET /api/ps" },
+    { "name": "resident Ollama model child", "address": "http://127.0.0.1:57389", "available": true, "probe": "PID/port/listener inspection; no prompts sent" },
+    { "name": "Bossman CMD/API", "address": "http://127.0.0.1:8800", "available": false, "probe": "documented launcher /health/live expected port not listening" },
+    { "name": "Qwen3.8 main config", "address": "http://127.0.0.1:8081", "available": false, "probe": "configured in start-models.ps1; port not listening" },
+    { "name": "Qwen3.6 fast config", "address": "http://127.0.0.1:8082", "available": false, "probe": "configured in start-models.ps1; port not listening" }
+  ],
+  "config_sources": [
+    { "path": "C:/Users/asd/Bossman/start-models.ps1", "sha256": "599224a717f1b5f41fa2f45e8743cc770d0b64b316bb2a937e8eea5ebd23c559", "note": "Unmodified external owner config; not copied because it is outside source worktree" },
+    { "path": "C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-84f5e0acce6a/app-support/config/v1.5/model-routing-stack.json", "sha256": "f0f10a72814dababd39128776eb761d66b71dab250e5f8cabd712203a336cc2", "note": "Unmodified external installed routing config; not copied because it is outside source worktree" }
+  ],
+  "secrets": "None captured. Process command lines, user-specific data paths, host name and API response template were excluded."
+}

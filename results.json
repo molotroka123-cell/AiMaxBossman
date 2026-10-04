@@ -1,0 +1,88 @@
+{
+  "schema": "bossman.model-market-results/1",
+  "date": "2026-10-04",
+  "source_sha": "e76de12b239dc977e0170bdb5c97f1bd084b90f9",
+  "branch": "research/model-market-20261004",
+  "thread_id": "01a10123-746b-7e00-9413-63a90081a21e",
+  "machine": {
+    "os": "Windows",
+    "cpu": "AMD Ryzen AI Max+ 395",
+    "gpu": "AMD Radeon 8060S Graphics",
+    "unified_memory_gb_owner_reported": 128,
+    "visible_memory_gib": 119.6,
+    "free_memory_gib_at_capture": 62.1,
+    "free_disk_gb_at_capture": 375.2,
+    "gpu_driver": "32.0.22021.1009"
+  },
+  "runtime": {
+    "ollama": "0.35.1",
+    "ollama_api": "http://127.0.0.1:11434",
+    "resident_child_api": "http://127.0.0.1:57389",
+    "resident_child_pid": 20368,
+    "resident_child_working_set_gb": 29.4,
+    "resident_model": "bossman-community-qwen-uncensored:latest",
+    "resident_model_size_gb": 34.8,
+    "resident_model_quant": "Q8_0",
+    "resident_model_context": 32768,
+    "bossman_cmd_api_expected": "http://127.0.0.1:8800",
+    "bossman_cmd_api_available": false,
+    "configured_llama_cpp": "Vulkan build b10964 (from start-models.ps1; not verified as live backend)"
+  },
+  "routes": {
+    "qwen38_main_configured": "C:/Users/asd/Bossman/start-models.ps1 -> qwen38-27b/Qwen3.8-27B-UD-Q5_K_M.gguf + mmproj-F16.gguf on 127.0.0.1:8081",
+    "qwen36_fast_configured": "C:/Users/asd/Bossman/start-models.ps1 -> qwen36-35b-a3b/Qwen3.6-35B-A3B-UD-Q5_K_M.gguf + mmproj-F16.gguf on 127.0.0.1:8082",
+    "active_ollama_route": "Bossman Ollama service /api endpoint; running model at 127.0.0.1:57389",
+    "cmd_frontdoor": "Bossman launcher expects 127.0.0.1:8800/health/live; not listening at capture"
+  },
+  "champion": {
+    "model": "Qwen3.8-27B Q5",
+    "owner_reported": { "passed": 4, "total": 4, "turns": 4, "tool_calls": 3 },
+    "this_run_revalidated": false,
+    "decision": "preserve PRIMARY"
+  },
+  "pi_rerun": {
+    "model": "Qwen3.8-27B-pi",
+    "owner_reported": { "passed": 0, "total": 4, "code_changed": false },
+    "this_run_revalidated": false,
+    "decision": "not rerun; no evidence it has a correct official template/configuration"
+  },
+  "market": {
+    "recent_window": { "from": "2026-08-05", "through": "2026-10-04" },
+    "new_models_downloaded": 0,
+    "new_models_loaded": 0,
+    "candidates_with_bossman_api_smoke": 0,
+    "quick_round": { "tasks": 10, "completed": 0 },
+    "final_round": { "tasks_per_model_per_run": 15, "runs_per_model": 2, "attempts_completed": 0 },
+    "excluded_from_test_for_missing_or_unverified_runtime_or_evidence": [
+      "GLM-5.3-Flash ROCmFP4 STRIX BALANCED",
+      "Qwen3.8 FABLE family",
+      "Swift-Qwen3.8 agent/coding",
+      "Qwen3.8 code-analysis MTP",
+      "experimental Heretic/Cold-Fusion/abliterated/merged models",
+      "Clef-Flash custom joint schema head",
+      "JEV-27B-VL",
+      "Gemma-4-12B agentic FABLE/Composer derivative",
+      "Devstral Small 1.1",
+      "GPT-OSS-20B",
+      "older Nemotron Nano",
+      "large GLM/Qwen/DeepSeek/MiMo/Kimi checkpoints"
+    ],
+    "conditional_research_smoke_candidates": [
+      "ornith-ai/Ornith-1.0-35B exact pinned GGUF only after AMD support smoke",
+      "NVIDIA Nemotron 3.5 Lightning 30B-A3B GGUF only; NVFP4 artifact is not accepted as AMD compatible",
+      "meta-models/Muse-Glimmer-30B quant only after exact template/tool parity smoke"
+    ]
+  },
+  "score": {
+    "primary_change_threshold_pp": 5,
+    "new_primary_eligible": false,
+    "primary": "Qwen3.8-27B Q5 (unchanged)",
+    "local_worker": null,
+    "model_stack_owner_proven": "NO"
+  },
+  "limitations": [
+    "No running Bossman Command Center API was available at its documented port; do not treat runtime model metadata or third-party benchmark claims as model-pass evidence.",
+    "No candidate tournament execution, restart, STOP, Telegram polling, Browser, Computer Use, Jeff, UX, or heartbeat regression test was performed.",
+    "No weights were downloaded or rehashed in this run. SHA256 manifest covers the research artifacts and captured state, not model weight blobs."
+  ]
+}

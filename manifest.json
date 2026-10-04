@@ -1,0 +1,20 @@
+{
+  "schema": "bossman.model-market-manifest/1",
+  "created_at": "2026-10-04",
+  "source_sha": "e76de12b239dc977e0170bdb5c97f1bd084b90f9",
+  "branch": "research/model-market-20261004",
+  "files": {
+    "MODEL_MARKET_20261004.md": "c8f0d7576b60df3d85c6ad6a05625ea53d4c3e8d65e0639a9911c6c715b5b3b4",
+    "results.json": "f48d9b894b619d2abbafa495487ffcac524b2cf6673d716ccaff89526f4006ab",
+    "REPRODUCE_MODEL_MARKET_20261004.md": "dbbeb6e3b1e38c3bd0b6f4d93ddbb873b05400b69a9c5eb7440d720e4b1449c5",
+    "logs/model_market_state.json": "4d79061ae77f8d4ba382fe7286316840184586a8f37ff5edcfeef475c88e3133"
+  },
+  "external_configs": {
+    "C:/Users/asd/Bossman/start-models.ps1": "599224a717f1b5f41fa2f45e8743cc770d0b64b316bb2a937e8eea5ebd23c559",
+    "C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-84f5e0acce6a/app-support/config/v1.5/model-routing-stack.json": "f0f10a72814dababd39128776eb761d66b71dab250e5f8cabd712203a336cc2"
+  },
+  "model_weights_downloaded": false,
+  "model_weights_hashed": false,
+  "hash_algorithm": "SHA256",
+  "self_hash": "excluded"
+}
