@@ -60,7 +60,16 @@
       "code_changed": false
     },
     "this_run_revalidated": false,
-    "decision": "not rerun; no evidence it has a correct official template/configuration"
+    "decision": "one diagnostic rerun attempted; failed with empty output; do not score",
+    "rerun": {
+      "attempted": true,
+      "completed_tasks": 0,
+      "first_task": "CODE-01",
+      "status": "failed_no_output",
+      "wall_seconds": 414.14,
+      "tokens_out": 4096,
+      "note": "isolated Bossman run with Ollama embedded template/default sampling; no response/diff, stopped after first coding task; score not counted"
+    }
   },
   "market": {
     "recent_window": {
@@ -69,11 +78,43 @@
     },
     "new_models_downloaded": 2,
     "new_models_loaded": 2,
-    "candidates_with_bossman_api_smoke": 2,
+    "candidates_with_bossman_api_smoke": 4,
     "smoke_runs": "logs/quick_smoke_runs.json",
     "quick_round": {
       "tasks": 10,
-      "completed": 10
+      "completed": 10,
+      "by_model": {
+        "Qwen3.8-27B Q5": {
+          "completed": 10,
+          "score": "9/10",
+          "result": "completed",
+          "coding": "3/4"
+        },
+        "Qwen3.6-35B-A3B Q5": {
+          "completed": 10,
+          "score": "9/10",
+          "result": "completed",
+          "coding": "3/4"
+        },
+        "Ornith-1.0-35B Q4_K_M": {
+          "completed": 10,
+          "score": "7/10",
+          "result": "completed",
+          "coding": "1/4"
+        },
+        "Muse-Glimmer-30B Q4_K_M": {
+          "completed": 1,
+          "score": null,
+          "result": "incomplete; two failed requests",
+          "coding": "1/4"
+        },
+        "Qwen3.8-27B-pi": {
+          "completed": 0,
+          "score": null,
+          "result": "excluded from ranking",
+          "coding": "0/4 reported; rerun produced no output"
+        }
+      }
     },
     "final_round": {
       "tasks_per_model_per_run": 15,
@@ -114,7 +155,9 @@
     "All final attempts used the isolated Bossman CMD/API and completed. Full owner-stack restart, PRIMARY->WORKER->fallback, Jeff, CMD, UX, Telegram polling, heartbeat, and Windows Computer Use integration were not demonstrated.",
     "Tournament candidate servers were stopped after the run. No candidate route was promoted and canonical configuration remained unchanged.",
     "TTFT and device-specific VRAM were unavailable. Wall-normalized output throughput and server RSS are reported as proxies.",
-    "Known output files are scrubbed benchmark outputs/diffs; API tokens, databases/WAL, caches, candidate workspaces, and raw user chat content are excluded."
+    "Known output files are scrubbed benchmark outputs/diffs; API tokens, databases/WAL, caches, candidate workspaces, and raw user chat content are excluded.",
+    "Muse quick round was incomplete after two request failures; do not report a 10-task score for it.",
+    "Qwen3.8-pi diagnostic rerun was stopped after CODE-01 produced an empty response in 414.14 s at 4096 output tokens; it did not change the owner-reported 0/4 status."
   ],
   "final_tournament": {
     "schema": "bossman.model-market-final-scorecard/1",
