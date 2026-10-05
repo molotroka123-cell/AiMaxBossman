@@ -1,4 +1,9 @@
-"""SAST/SCA with durable JSON reports; tool failures and findings both block CI."""
+"""SAST/SCA with durable JSON reports; tool failures and findings both block CI.
+
+``--component windows-bundle`` audits the hash-pinned lock the owner's Windows
+archive is installed from (tools/windows_bundle_lock.txt) rather than this
+runner's environment: the two differ, and only the lock is what ships.
+"""
 from __future__ import annotations
 import argparse
 import json
@@ -9,17 +14,23 @@ import sys
 
 def main():
     p=argparse.ArgumentParser()
-    p.add_argument("--component", choices=("bossman-core", "command-center"), required=True)
+    p.add_argument("--component", choices=("bossman-core", "command-center", "windows-bundle"), required=True)
     p.add_argument("--output", default="astra-security-results")
     args=p.parse_args()
     out=Path(args.output); out.mkdir(parents=True, exist_ok=True)
     sources=["bossman-core/bossman", "bossman-core/bossman_v3", "bossman_shared"] if args.component == "bossman-core" else ["command-center/bcc"]
-    commands={
+    if args.component == "windows-bundle":
+        lock = Path(__file__).resolve().parent / "windows_bundle_lock.txt"
+        commands={"pip-audit": [sys.executable,"-m","pip_audit","--progress-spinner","off","--format","json",
+                                "-r",str(lock),"--disable-pip","--require-hashes",
+                                "--output",str(out/"pip-audit.json")]}
+    else:
+      commands={
         "bandit": [sys.executable,"-m","bandit","-r",*sources,"-q","--severity-level","high",
                    "--confidence-level","medium","-f","json","-o",str(out/"bandit.json")],
         "pip-audit": [sys.executable,"-m","pip_audit","--progress-spinner","off","--format","json",
                       "--output",str(out/"pip-audit.json")],
-    }
+      }
     results={}
     for name, cmd in commands.items():
         output=out/f"{name}.json"
