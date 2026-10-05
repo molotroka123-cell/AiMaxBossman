@@ -1118,7 +1118,7 @@ def status(work: Path) -> dict:
     verdict = (current or {}).get("verdict") or {}
     lesson = (current or {}).get("lesson") or {}
     out.update({
-        "status": status_value, "halt_reason": state.get("halt_reason"),
+        "status": status_value, "campaign_id": state.get("campaign_id"), "halt_reason": state.get("halt_reason"),
         "backend": state["config"].get("backend"), "model": attempt.get("model") or (state.get("backend_info") or {}).get("model"),
         "model_kind": attempt.get("model_kind") or (state.get("backend_info") or {}).get("model_kind"),
         "cycle": {"index": (current or {}).get("index"), "id": (current or {}).get("id"),

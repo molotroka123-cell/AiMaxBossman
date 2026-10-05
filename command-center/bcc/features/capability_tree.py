@@ -157,9 +157,26 @@ def scan_repository(repo: Path, seed: dict, previous: dict | None = None) -> dic
     return result
 
 
-def _activity(svc) -> dict:
+def _campaign(svc) -> tuple[str, dict]:
+    """The existing loop's campaign to show: /api/evolution first, else the 1.5 owner-run one.
+
+    Both are the same bossman_v3.self_improvement.loop, started by different owner
+    controls into different work dirs; a running campaign wins over a finished one.
+    """
     from . import evolution  # local import prevents feature-load cycle
-    campaign = evolution._view(svc)
+    data = Path(svc.settings.data_dir).resolve()
+    options = (("evolution", data / "evolution" / "campaign"),
+               ("v15_owner_run", data / "v1.5" / "owner-run" / "self-improve" / "evolution"))
+    present = [(name, work) for name, work in options if (work / "loop-state.json").is_file()]
+    if not present:
+        return "evolution", evolution._view(svc)
+    module = evolution._loop()
+    views = [(name, module.status(work)) for name, work in present]
+    return next(((n, v) for n, v in views if v.get("loop_running")), views[0])
+
+
+def _activity(svc) -> dict:
+    source, campaign = _campaign(svc)
     cycle = campaign.get("cycle") or {}
     query = " ".join(str(cycle.get(k) or "") for k in ("task", "phase")).lower()
     seed = _seed()
@@ -172,8 +189,19 @@ def _activity(svc) -> dict:
             if score:
                 matches.append({"node_id": node["id"], "label": node["label"], "score": score})
         matches.sort(key=lambda row: (-row["score"], row["label"]))
-    return {"schema": "bossman.capability-activity/1", "observed_at": _now(), "campaign": campaign,
-            "active_matches": matches[:8], "proof_level": "runtime_state_only"}
+    return {"schema": "bossman.capability-activity/1", "observed_at": _now(), "campaign_source": source,
+            "campaign": campaign, "active_matches": matches[:8], "proof_level": "runtime_state_only"}
+
+
+def _stable_activity(value: dict) -> dict:
+    """What counts as a change worth persisting: not RAM, heartbeat or elapsed seconds."""
+    campaign = value.get("campaign") or {}
+    cycle = campaign.get("cycle") or {}
+    return {"source": value.get("campaign_source"), "proof_level": value.get("proof_level"),
+            "matches": value.get("active_matches"),
+            "campaign": {k: campaign.get(k) for k in ("campaign_id", "status", "loop_running", "paused", "stopped",
+                                                       "halt_reason", "cycles_closed", "verifier_verdict")},
+            "cycle": {k: cycle.get(k) for k in ("index", "id", "task", "phase", "outcome")}}
 
 
 @router.get("")
@@ -225,10 +253,7 @@ async def tick(svc) -> None:
     try:
         value = _activity(svc)
         path = _tree_dir(svc) / "activity-latest.json"
-        old = _read(path, {})
-        comparable = {k: value.get(k) for k in ("campaign", "active_matches", "proof_level")}
-        previous = {k: old.get(k) for k in comparable}
-        if comparable != previous:
+        if _stable_activity(value) != _stable_activity(_read(path, {})):
             _atomic(path, value)
     except Exception:
         return

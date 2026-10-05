@@ -85,6 +85,13 @@ const Page = {
     const cycle = campaign.cycle || {};
     const phase = cycle.phase || '—';
     const scanInfo = payload.scan;
+    // Pause/STOP go to the owner control of the campaign actually shown: the
+    // 1.5 owner-run has its own STOP and no pause of its own.
+    const v15 = activity.campaign_source === 'v15_owner_run';
+    const control = async (path) => {
+      try { await api.raw(path, { method: 'POST', body: {} }); toastOk('Команда передана циклу'); ctx.refresh(); }
+      catch (e) { toastError(e, 'Цикл не принял команду'); }
+    };
     return h('div.bx-page',
       pageHead('Дерево развития', 'Живая карта Bossman: что существует, что сейчас меняется и чем это доказано.', {
         pills: [pill(campaign.status || 'NO_CAMPAIGN', { tone: campaign.loop_running ? 'ok' : campaign.status === 'BLOCKED' ? 'err' : 'idle', live: !!campaign.loop_running }),
@@ -92,11 +99,14 @@ const Page = {
         actions: [btn('Проверить репозиторий без ИИ', scan, { variant: 'secondary', iconName: 'search' })],
       }),
       panel('Сейчас улучшается', h('div.stack.sm',
-        h('p', cycle.task || 'Активная задача ещё не выбрана.'),
+        h('p.small.dim', `Кампания ${campaign.campaign_id || '—'} · ${v15 ? 'Bossman 1.5 owner-run' : 'Evolution Loop'}`),
+        h('p', `Задача: ${cycle.task || 'ещё не выбрана'}`),
+        h('p.small', `Цикл ${cycle.index ?? '—'} · фаза ${phase}`),
         h('p.small.dim', campaign.last_action?.text || campaign.halt_reason || 'Ожидаем состояние цикла.'),
         h('div.row.gap-sm',
-          btn('Пауза', async () => { await api.raw('/api/evolution/pause', { method: 'POST', body: {} }); ctx.refresh(); }, { variant: 'secondary' }),
-          btn('STOP', async () => { await api.raw('/api/evolution/stop', { method: 'POST', body: {} }); ctx.refresh(); }, { variant: 'danger' })))),
+          v15 ? h('span.small.dim', 'Пауза: у 1.5 owner-run есть только STOP')
+            : btn('Пауза', () => control('/api/evolution/pause'), { variant: 'secondary' }),
+          btn('STOP', () => control(v15 ? '/api/v15/owner-run/stop' : '/api/evolution/stop'), { variant: 'danger' })))),
       panel('Карта', familyTree(nodes, activity, pick)),
       panel('Выбранный узел', details),
       panel('Автосканер', scanInfo
