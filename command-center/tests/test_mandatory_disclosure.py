@@ -155,7 +155,11 @@ def test_output_filter_alone_discloses_nothing(disclosing_runtime, monkeypatch):
     assert len(model.calls) >= len(CORPUS)
     assert [(pid, turn, disclosed(a)) for pid, turn, a in replies if disclosed(a)] == []
     log = (runtime.home / "logs" / "identity_guard.jsonl").read_text(encoding="utf-8")
-    assert "system_prompt" in log and "secret" in log and "endpoint" in log
+    assert "system_prompt" in log and "secret" in log
+    # The "I answer through <route model> at <openrouter url>" shape is now caught EARLIER, on the raw model text (a reply that speaks as
+    # the model is replaced whole before the rewriting guard; red-team 2026-10-05), so it leaves no guard category - but it must still be
+    # refused, with exactly that replacement.
+    assert "endpoint" in log or any(a == rt.JEFF_SELF_DISCLOSURE_REPLY_RU for _pid, _turn, a in replies)
     assert "127.0.0.1" not in log and "sk-or" not in log     # the guard log holds categories, never text
 
 

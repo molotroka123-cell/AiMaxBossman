@@ -123,3 +123,25 @@ SearXNG OK/DOWN(причина)/NOT_CONFIGURED; DDG — OK только при H
 - Что считать доказательством утром: вердикт `VERIFIED_CANDIDATE` (изменён `discovery.py` + добавлен тест, падающий на старом коде,
   независимая проверка пройдена) и лист в дереве со статусом «проверено». Это уровень `SELF_REPAIR_SINGLE_CYCLE_PASS` **кандидата**; 3-циклового
   доказательства, переноса и soak нет.
+
+## Чекпоинт 6 — Command Center: полный локальный прогон и разбор падений (задачи 1, 6)
+
+Полный набор `command-center` (pytest -n 4, Linux py3.11, без `tests/telegram_calls`): **7 failed, 8122 passed, 52 skipped** → разбор:
+- 4 — реальные конфликты **старых тестов с более новыми решениями владельца 05.10** (правило линии: побеждает новая дата, тест обновляется с комментарием;
+  набор «Jeff 1781 passed» их не включал — `test_mandatory_*` и `test_autonomy_probes`):
+  - `test_mandatory_pre_tts_audit` (2 теста): подготовка включала залипший флаг `voice_reply=True` (теперь «выключено»; `/voice on` — метка времени на 30 мин)
+    и ждала голос первым (теперь текст всегда первым, голос — добавка). Подготовка и порядок обновлены; проверяемое (аудит ДО TTS) сохранено;
+  - `test_mandatory_disclosure::test_output_filter_alone_discloses_nothing`: форма «Я отвечаю через <модель> на https://openrouter…» теперь режется раньше,
+    по сырому тексту модели (`reply_discloses_model`), поэтому категория `endpoint` в логе guard не появляется; утверждение теперь: `endpoint` в логе
+    ИЛИ ответ равен `JEFF_SELF_DISCLOSURE_REPLY_RU` (раскрытия нет по-прежнему — первое утверждение теста без изменений);
+  - `test_autonomy_probes::test_jeff_identity_counts_leaks_of_the_runtime`: «протекающий» кандидат теперь обязан выключать оба фильтра (`guard_outgoing` и
+    `reply_discloses_model`). Парный тест «фильтр маскирует протекающую модель» не менялся и проходит. После правок: 51 + 14 passed.
+- 3 — среда этого окружения, не код: `test_installed_product_paths::test_the_wheel_carries_the_interface` (сборка wheel падает в setuptools песочницы:
+  `AttributeError: install_layout`), `test_ux2_desktop::…real_chromium_app_window…` (ищет пинованный `chromium-1243`, в образе `chromium-1194`),
+  `test_double_submit_real_buttons::…` (проходит в одиночку, падает под `-n 4` — гонка кликов). Они остаются «не подтверждены здесь»; их вердикт даст CI.
+- Windows-пакет (задача 6): `run_workflow windows-bundle.yml` → **403 Resource not accessible by integration** (токен интеграции без `actions: write`);
+  push-фильтр workflow (`claude/**`, `night/**`, `release/**`, `integrate/…`) не включает `goal/**`, на этой ветке `windows-bundle` не запускался ни разу
+  (последний прогон — 02.10 на `claude/bossman-1.9-owner-bugtest-20260930`). Собрать Windows-пакет на Linux нельзя. **Артефакта, sha256 и
+  `bundle-acceptance.json` нет.** Что нажать владельцу — `docs/handoff/OWNER_MORNING_20261006.md`, п. 0.
+- CI Command Center на этой ветке: все последние прогоны `cancelled` (3 сессии пушат подряд, concurrency отменяет предыдущие) — завершённого вердикта CI
+  по Command Center на ветке нет; нужна пауза в пушах, чтобы прогон дошёл до конца.
