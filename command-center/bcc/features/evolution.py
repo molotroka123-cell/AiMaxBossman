@@ -80,10 +80,14 @@ def _bootstrap(module) -> str:
             "from bossman_v3.self_improvement.loop import main; raise SystemExit(main(sys.argv[1:]))")
 
 
-def _worker_command(module, work: Path, repo: Path, suite: Path, body: StartBody, svc) -> list[str]:
+def _worker_command(module, work: Path, repo: Path, suite: Path, body: StartBody, svc,
+                    api_url: str | None = None) -> list[str]:
     argv = [sys.executable, "-I", "-c", _bootstrap(module), "loop", "--work", str(work), "--repo", str(repo),
             "--suite", str(suite), "--backend", body.backend, "--data-dir", str(svc.settings.data_dir),
             "--max-cycles", str(body.cycles)]
+    if api_url:
+        # The loop's default is :8800; `bcc --port 8801` does not reach settings.port.
+        argv += ["--api-url", api_url]
     if body.model:
         argv += ["--model", body.model]
     return argv
@@ -134,7 +138,8 @@ async def start(body: StartBody, request: Request):
     from bossman.apprentice.proc_tree import ProcessTree  # noqa: PLC0415
     logfile = (work / "loop-worker.log").open("ab")
     try:
-        tree = ProcessTree(_worker_command(module, work, repo, suite, body, svc),
+        tree = ProcessTree(_worker_command(module, work, repo, suite, body, svc,
+                                           api_url=str(request.base_url).rstrip("/")),
                            stdin=subprocess.DEVNULL, stdout=logfile, stderr=subprocess.STDOUT)
     except Exception:
         logfile.close()

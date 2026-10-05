@@ -190,6 +190,37 @@ def test_tick_does_not_rewrite_activity_for_volatile_metrics(tmp_path, monkeypat
     assert path.read_text(encoding="utf-8") == first
 
 
+def test_evolution_start_tells_the_worker_which_command_center_started_it(tmp_path, monkeypatch):
+    # Owner install: `bcc --port 8801`; the worker defaulted to :8800 and the campaign was BLOCKED at once.
+    import bossman.apprentice.proc_tree as proc_tree
+    repo = tmp_path / "repo"
+    (repo / "config" / "evolution").mkdir(parents=True)
+    (repo / "config" / "evolution" / "owner-v1.1.json").write_text("{}", encoding="utf-8")
+    seen = {}
+
+    class FakeTree:
+        def __init__(self, argv, **_kw):
+            seen["argv"] = argv
+            self.pid = 4242
+            self.proc = SimpleNamespace(wait=lambda: 0)
+
+        def close(self):
+            pass
+
+    async def fake_repo(_svc, _raw):
+        return repo
+    monkeypatch.setattr(proc_tree, "ProcessTree", FakeTree)
+    monkeypatch.setattr(evolution, "_repo", fake_repo)
+    app = FastAPI()
+    app.state.svc = SimpleNamespace(settings=SimpleNamespace(data_dir=tmp_path / "data"))
+    app.include_router(evolution.router, prefix="/api")
+    with TestClient(app, base_url="http://127.0.0.1:8801") as client:
+        out = client.post("/api/evolution/start", json={"cycles": 1})
+        assert out.status_code == 200, out.text
+    argv = seen["argv"]
+    assert argv[argv.index("--api-url") + 1] == "http://127.0.0.1:8801"
+
+
 def test_full_app_mounts_capability_tree(tmp_path):
     app = create_app(make_settings(tmp_path), start_workers=False, announce_token=False)
     paths = set(app.openapi()["paths"])
