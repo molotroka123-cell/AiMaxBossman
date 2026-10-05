@@ -17,7 +17,7 @@ def test_a_denied_model_is_recognised(model):
 
 
 @pytest.mark.parametrize("model", ["nvidia/nemotron-3-ultra-550b-a55b:free", "bossman-community-qwen-uncensored:latest",
-                                   "google/gemma-4-26b-a4b-it:free", "liquidity/notlfm", "", None, 5])
+                                   "google/gemma-4-26b-a4b-it:free", "", None, 5])
 def test_other_models_are_not_denied(model):
     assert not pcfg.is_denied_model(model)
 
@@ -46,5 +46,7 @@ def test_an_old_config_that_lists_lfm_loads_without_it(tmp_path, monkeypatch):
     only_lfm = tmp_path / "only.json"
     only_lfm.write_text(cfg.read_text(encoding="utf-8").replace('"nvidia/nemotron-3-ultra-550b-a55b:free"', '"liquid/lfm-3"'),
                         encoding="utf-8")
-    with pytest.raises(ValueError, match="allowlist"):
-        pcfg.load(only_lfm)          # nothing left: Jeff refuses to start rather than answer through a denied model
+    # Newer owner policy (model_policy, 2026-10-01): nothing left -> the default free routes, LFM recorded as rejected.
+    fallback = pcfg.load(only_lfm)
+    assert fallback.chat_models == tuple(pcfg.DEFAULT_FREE_CHAT_MODELS)
+    assert not any(pcfg.is_denied_model(m) for m in fallback.chat_models)

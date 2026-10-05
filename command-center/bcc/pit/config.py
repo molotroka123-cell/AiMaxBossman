@@ -38,13 +38,10 @@ BEHAVIOR_SCALE_NAMES = (
 def default_behavior_scales() -> dict[str, int]:
     return {name: 5 for name in BEHAVIOR_SCALE_NAMES}
 
-# Models that must never answer a participant as Jeff. liquid/lfm-* (2.6B) ignores the system prompt and announced itself as
-# «LFM от Liquid AI» to participants (owner decision 2026-09-29: out of the stack for good). Matched as an id prefix.
-DENIED_MODEL_PREFIXES: tuple[str, ...] = ("liquid/lfm",)
-
-
 def is_denied_model(model_id: object) -> bool:
-    return isinstance(model_id, str) and model_id.strip().lower().startswith(DENIED_MODEL_PREFIXES)
+    """Liquid/LFM never answers a participant as Jeff (owner decisions 2026-09-29/10-01); one policy: model_policy."""
+    from .model_policy import is_banned_model
+    return isinstance(model_id, str) and is_banned_model(model_id.strip())
 
 
 _SECRET_ENV = (
@@ -273,9 +270,8 @@ def load(path: Path) -> PITSettings:
         raise ValueError("PIT credentials missing identity_salt; run setup")
     for key in (*[k for k, _ in _SECRET_ENV], "identity_salt"):
         data[key] = secrets.get(key, "")
-    # A denied model in an old config or backup is dropped, not fatal: Jeff must still start.
-    data["chat_models"] = tuple(m for m in (data["chat_models"] if "chat_models" in data
-                                            else DEFAULT_FREE_CHAT_MODELS) if not is_denied_model(m))
+    data["chat_models"] = tuple(data["chat_models"] if "chat_models" in data
+                                else DEFAULT_FREE_CHAT_MODELS)
     # Non-secret runtime knobs may be overridden by the environment (owner run
     # helpers), exactly like the companion's env file contract.
     data["local_url"] = os.environ.get("BOSSMAN_PIT_LOCAL_URL", data.get("local_url", "")).strip()
