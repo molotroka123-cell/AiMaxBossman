@@ -9,6 +9,14 @@ dependencies = []
 ui = ["playwright"]
 test = ["pytest"]
 
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# Explicit: evidence/ and tests/ beside botlab/ are not packages (the Windows bundle builds every app wheel).
+[tool.setuptools]
+packages = ["botlab"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
