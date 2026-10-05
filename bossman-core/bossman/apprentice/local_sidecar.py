@@ -50,6 +50,7 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -401,6 +402,11 @@ class Model:
         self.base = base if base.endswith("/v1") else base + "/v1"
         self.model = model
         self.api_key = api_key
+        #: A loopback runtime (Ollama/llama.cpp) is asked not to think. In thinking mode
+        #: the local Qwen spent the whole max_tokens budget reasoning and never emitted
+        #: the tool call (owner box 2026-10-05: 12 steps x ~125 s of no_tool_call, then a
+        #: timeout). A server that rejects the field gets a retry without it, remembered.
+        self.no_think = urllib.parse.urlsplit(self.base).hostname in {"127.0.0.1", "localhost", "::1"}
 
     def models(self, timeout: float = 10) -> list[str]:
         body = _http(self.base + "/models", None, api_key=self.api_key, timeout=timeout)
@@ -416,14 +422,22 @@ class Model:
         payload = {"model": self.model, "messages": messages, "temperature": 0, "max_tokens": 4096,
                    "tools": [{"type": "function", "function": t} for t in tools],
                    "tool_choice": self.tool_choice}
-        try:
-            body = _http(self.base + "/chat/completions", payload, api_key=self.api_key, timeout=timeout)
-        except urllib.error.HTTPError as exc:
-            if exc.code != 400 or self.tool_choice == "auto":
-                raise
-            self.tool_choice = "auto"
-            body = _http(self.base + "/chat/completions", {**payload, "tool_choice": "auto"},
-                         api_key=self.api_key, timeout=timeout)
+        if self.no_think:
+            payload["reasoning_effort"] = "none"
+        url = self.base + "/chat/completions"
+        while True:
+            try:
+                body = _http(url, payload, api_key=self.api_key, timeout=timeout)
+                break
+            except urllib.error.HTTPError as exc:
+                # Relax one optional field per 400, oldest first, and remember it.
+                if exc.code == 400 and self.tool_choice != "auto":
+                    self.tool_choice = payload["tool_choice"] = "auto"
+                elif exc.code == 400 and "reasoning_effort" in payload:
+                    self.no_think = False
+                    payload.pop("reasoning_effort")
+                else:
+                    raise
         choice = (body.get("choices") or [{}])[0]
         return choice.get("message") or {}
 
