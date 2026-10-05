@@ -208,13 +208,15 @@ def _stable_activity(value: dict) -> dict:
 
 
 @router.get("")
-async def tree(request: Request):
+async def tree(request: Request, lite: bool = False):
+    """Full map + live overlay; ``lite=1`` omits the ~0.5 MB seed for the page's 4 s live poll."""
     svc = request.app.state.svc
     root = _tree_dir(svc)
-    return {"tree": _seed(), "activity": _activity(svc),
-            "notes": _read(root / "owner-notes.json", {}),
-            "scan": _read(root / "scan-latest.json", None),
-            "work": _work_state(svc)[1]["jobs"]}
+    live = {"activity": _activity(svc), "work": _work_state(svc)[1]["jobs"]}
+    if lite:
+        return live
+    return {"tree": _seed(), **live, "notes": _read(root / "owner-notes.json", {}),
+            "scan": _read(root / "scan-latest.json", None)}
 
 
 @router.post("/note")

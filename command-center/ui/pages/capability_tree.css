@@ -1,1 +1,57 @@
-.cap-tree{display:grid;gap:18px}.cap-tree-trunk{align-items:center;background:linear-gradient(135deg,var(--bx-azure),var(--bx-violet));border-radius:24px;color:#fff;display:flex;flex-direction:column;margin:auto;padding:18px 34px}.cap-tree-trunk b{font-size:20px}.cap-tree-trunk span{font-size:12px;opacity:.8}.cap-tree-crown{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}.cap-tree-family{border-left:3px solid color-mix(in srgb,var(--bx-azure) 50%,transparent);padding-left:12px}.cap-tree-family.is-jeff{border-left-width:8px}.cap-tree-family-title{background:none;border:0;color:var(--fg);font:inherit;font-weight:600;padding:8px 0;text-align:left}.cap-tree-leaves{display:flex;flex-direction:column;gap:5px}.cap-tree-leaf{align-items:center;background:transparent;border:0;border-radius:9px;color:var(--fg);display:flex;font:inherit;gap:8px;padding:7px;text-align:left}.cap-tree-leaf:hover,.cap-tree-leaf:focus-visible{background:var(--panel-2)}.cap-tree-dot{background:var(--idle);border-radius:50%;flex:0 0 8px;height:8px}.cap-tree-leaf.is-code .cap-tree-dot{background:var(--bx-azure)}.cap-tree-leaf.is-reported .cap-tree-dot{background:var(--ok)}.cap-tree-leaf.is-branch .cap-tree-dot,.cap-tree-leaf.is-prepared .cap-tree-dot{background:var(--warn)}.cap-tree-leaf.is-idea .cap-tree-dot{background:var(--bx-violet)}.cap-tree-leaf.is-blocked .cap-tree-dot{background:var(--err)}.cap-tree-leaf.is-active{background:color-mix(in srgb,var(--bx-azure) 14%,transparent);font-weight:600}@media(max-width:640px){.cap-tree-crown{grid-template-columns:1fr}}
+/* Дерево развития: сцена-«ночь» не зависит от темы оболочки, панели ниже — обычные. */
+.ct-stage{position:relative;border-radius:22px;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 18%,#1d2a52 0%,#0c1430 48%,#060912 100%);
+  box-shadow:0 18px 60px rgba(4,8,24,.45),inset 0 0 0 1px rgba(160,190,255,.12)}
+.ct-svg{display:block;width:100%;height:auto;min-height:320px}
+.ct-star{fill:#dfe8ff;opacity:.55;animation:ct-twinkle 6s ease-in-out infinite}
+.ct-root{fill:none;stroke:#cfdcff;stroke-width:3;stroke-linecap:round;opacity:.35;filter:drop-shadow(0 0 4px #ffd98a)}
+.ct-trunk{fill:url(#ct-bark);opacity:.92}
+.ct-trunk-glow{fill:#ffe1a0;opacity:.35}
+.ct-trunk-label{fill:#22305a;font:600 34px/1 Georgia,'Times New Roman',serif;letter-spacing:.2em;text-anchor:middle;opacity:.6}
+.ct-family{animation:ct-sway 8s ease-in-out infinite alternate}
+.ct-svg:hover .ct-family{animation-play-state:paused} /* a still crown is easier to click */
+.ct-fork{stroke-width:3.5}
+.ct-branch-glow.ct-fork{stroke-width:11}
+.ct-branch{fill:none;stroke:#e9f1ff;stroke-width:6;stroke-linecap:round;opacity:.9}
+.ct-branch-glow{fill:none;stroke:#9ec3ff;stroke-width:18;stroke-linecap:round;opacity:.38}
+.ct-family.is-jeff .ct-branch{stroke-width:9}
+.ct-family.is-jeff .ct-branch-glow{stroke:#7fb2ff;stroke-width:26;opacity:.5}
+.ct-twig{fill:none;stroke:#c4d5ff;stroke-width:1.2;opacity:.35}
+.ct-leaf{cursor:pointer;opacity:.92;transition:opacity .2s,stroke-width .2s}
+.ct-leaf.twinkle{animation:ct-leaf-glow 5s ease-in-out infinite}
+.ct-leaf:hover,.ct-leaf:focus-visible{opacity:1;stroke:#fff;stroke-width:1.6;outline:none}
+.ct-leaf.is-selected{stroke:#fff;stroke-width:2}
+.ct-family-label{fill:#eef4ff;font:600 16px/1 Georgia,'Times New Roman',serif;letter-spacing:.1em;cursor:pointer;
+  paint-order:stroke;stroke:rgba(8,14,40,.65);stroke-width:4px;filter:drop-shadow(0 0 6px rgba(150,190,255,.85))}
+.ct-family-label.is-jeff{font-size:26px}
+.ct-family-label:hover,.ct-family-label:focus-visible{fill:#fff3c4;outline:none}
+.ct-firefly{fill:#ffe9a6;opacity:0;filter:drop-shadow(0 0 5px #ffd36b);animation:ct-float 9s ease-in-out infinite}
+.ct-pulse{fill:none;stroke:#fff1b0;stroke-width:2.4;animation:ct-pulse 1.8s ease-out infinite;transform-box:fill-box;transform-origin:center}
+.ct-ring{fill:none;stroke:#ffffff;stroke-width:2;stroke-dasharray:4 3;animation:ct-spin 6s linear infinite;transform-box:fill-box;transform-origin:center}
+.ct-orbit{animation:ct-spin 2.4s linear infinite}
+.ct-spark{fill:#fffbe0;filter:drop-shadow(0 0 6px #ffd36b) drop-shadow(0 0 12px #ff9f43)}
+.ct-legend{position:absolute;left:16px;bottom:14px;display:flex;flex-direction:column;gap:5px;padding:12px 14px;
+  border-radius:14px;background:rgba(8,13,34,.72);border:1px solid rgba(170,195,255,.22);backdrop-filter:blur(6px);
+  color:#e7eeff;font-size:12px;letter-spacing:.04em}
+.ct-legend-row{display:flex;align-items:center;gap:8px}
+.ct-legend-row i{width:14px;height:8px;border-radius:50%;box-shadow:0 0 8px currentColor}
+.ct-legend-note{opacity:.65;font-size:11px;margin-top:2px}
+.ct-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-top:16px}
+.ct-work-box{display:flex;flex-direction:column;gap:8px;margin-top:10px;padding:12px;border-radius:14px;
+  background:color-mix(in srgb,var(--bx-azure) 9%,transparent);border:1px solid color-mix(in srgb,var(--bx-azure) 30%,transparent)}
+.ct-job{align-items:center;flex-wrap:wrap}
+.ct-list{margin-top:16px}
+.ct-list summary{cursor:pointer;font-weight:600;padding:8px 0}
+@keyframes ct-sway{from{transform:rotate(-.9deg)}to{transform:rotate(.9deg)}}
+@keyframes ct-twinkle{0%,100%{opacity:.25}50%{opacity:.9}}
+@keyframes ct-leaf-glow{0%,100%{opacity:.75}50%{opacity:1;filter:brightness(1.6)}}
+@keyframes ct-float{0%{opacity:0;transform:translate(0,0)}20%{opacity:.95}80%{opacity:.6}100%{opacity:0;transform:translate(18px,-90px)}}
+@keyframes ct-pulse{0%{opacity:.95;transform:scale(.6)}100%{opacity:0;transform:scale(2.6)}}
+@keyframes ct-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){
+  .ct-family,.ct-star,.ct-leaf.twinkle,.ct-firefly,.ct-pulse,.ct-ring,.ct-orbit{animation:none}
+  .ct-firefly{opacity:.5}
+}
+/* Список узлов (доступность, поиск) — прежние стили. */
+.cap-tree-crown{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}.cap-tree-family{border-left:3px solid color-mix(in srgb,var(--bx-azure) 50%,transparent);padding-left:12px}.cap-tree-family-title{background:none;border:0;color:var(--fg);font:inherit;font-weight:600;padding:8px 0;text-align:left}.cap-tree-leaves{display:flex;flex-direction:column;gap:5px}.cap-tree-leaf{align-items:center;background:transparent;border:0;border-radius:9px;color:var(--fg);display:flex;font:inherit;gap:8px;padding:7px;text-align:left}.cap-tree-leaf:hover,.cap-tree-leaf:focus-visible{background:var(--panel-2)}.cap-tree-dot{background:var(--idle);border-radius:50%;flex:0 0 8px;height:8px}.cap-tree-leaf.is-code .cap-tree-dot{background:var(--bx-azure)}.cap-tree-leaf.is-reported .cap-tree-dot{background:var(--ok)}.cap-tree-leaf.is-branch .cap-tree-dot,.cap-tree-leaf.is-prepared .cap-tree-dot{background:var(--warn)}.cap-tree-leaf.is-idea .cap-tree-dot{background:var(--bx-violet)}.cap-tree-leaf.is-blocked .cap-tree-dot{background:var(--err)}
+@media(max-width:640px){.cap-tree-crown,.ct-grid{grid-template-columns:1fr}.ct-legend{position:static;margin:8px}}

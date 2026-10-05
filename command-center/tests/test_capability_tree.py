@@ -264,6 +264,15 @@ def test_zone_work_starts_one_scoped_coding_task_and_reports(tmp_path, monkeypat
         assert client.get("/api/capability-tree").json()["work"][0]["task_id"] == out.json()["job"]["task_id"]
 
 
+def test_lite_view_omits_the_seed_but_keeps_live_state(tmp_path, monkeypatch):
+    created = []
+    app, _ = _zone_app(tmp_path, monkeypatch, created)
+    with TestClient(app) as client:
+        client.post("/api/capability-tree/work", json={"node_id": "leaf"})
+        lite = client.get("/api/capability-tree?lite=1").json()
+    assert set(lite) == {"activity", "work"} and lite["work"][0]["node_id"] == "leaf"
+
+
 def test_zone_without_files_in_this_build_is_refused(tmp_path, monkeypatch):
     created = []
     app, _ = _zone_app(tmp_path, monkeypatch, created)
