@@ -172,6 +172,9 @@ class ApiError(RuntimeError):
     """The Command Center API is unreachable or refused the call."""
 
 
+READINESS_TIMEOUT_S = 300.0
+
+
 class CommandCenterApi:
     """Loopback-only client of the Command Center (X-BCC-Token; never a proxy)."""
 
@@ -248,7 +251,9 @@ class BossmanCodingBackend:
         self.agent: dict | None = None
 
     def prepare(self, loop) -> dict:
-        status, ready = self.api.get("/api/coding-tasks/readiness")
+        # Readiness performs a live tool-call handshake with the student model; a cold
+        # local model takes ~45 s on the owner machine, beyond the 30 s request default.
+        status, ready = self.api.request("GET", "/api/coding-tasks/readiness", timeout=READINESS_TIMEOUT_S)
         if status != 200 or not isinstance(ready, dict):
             raise ApiError(f"coding tasks readiness answered {status}")
         if not ready.get("available"):
