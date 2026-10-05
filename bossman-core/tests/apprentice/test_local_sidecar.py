@@ -553,3 +553,30 @@ def test_an_edit_in_between_or_a_changed_result_is_not_a_repeat(repo):
                        "protected_paths": []}, _Script(turns, seen), max_steps=10, test_timeout=30)
     assert res["repeats_without_progress"] == 0 and res["stop_reason"] == "finished"
     assert not any("ПОВТОР" in s for s in seen)
+
+
+def test_a_lone_surrogate_in_the_context_does_not_break_the_model_request(monkeypatch):
+    """NVIDIA answered HTTP 400 "lone leading surrogate in hex escape" to a \ud83d escape (2026-10-05)."""
+    seen = {}
+
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+        def read(self):
+            return b'{"ok": true}'
+
+    class Opener:
+        def open(self, req, timeout):
+            seen["body"] = req.data
+            return Resp()
+
+    monkeypatch.setattr(ls.urllib.request, "build_opener", lambda *_a: Opener())
+    out = ls._http("http://example.invalid/v1/chat/completions",
+                   {"messages": [{"role": "user", "content": "файл: \ud83d конец 😀"}]}, api_key=None, timeout=5)
+    assert out == {"ok": True}
+    body = seen["body"].decode("utf-8")              # valid UTF-8, no lone-surrogate escape
+    assert "\ud83d" not in body and "файл: ? конец 😀" in json.loads(body)["messages"][0]["content"]

@@ -388,7 +388,10 @@ def _http(url: str, payload: dict | None, *, api_key: str | None, timeout: float
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
-    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    # A lone surrogate (a file read with surrogateescape, a cut emoji) must not kill the call: NVIDIA's
+    # endpoint refused "\ud83d" escapes with HTTP 400 (2026-10-05). Raw UTF-8, broken halves become "?".
+    data = (json.dumps(payload, ensure_ascii=False).encode("utf-8", errors="replace")
+            if payload is not None else None)
     req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
     # Loopback model servers must not be sent through an HTTP proxy.
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
