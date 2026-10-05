@@ -293,7 +293,12 @@ export function mountThinking({ bus, api, button }) {
   });
   renderConn(); renderNow(); renderLog();
   if (open) setOpen(true);
-  return { open: () => setOpen(true), close: () => setOpen(false), isOpen: () => open, runs, events,
+  // Security audit 2026-10-05: logout / session expiry must not leave task titles, models and tools on screen.
+  function reset() {
+    runs.clear(); events.length = 0; seeded = false;
+    setOpen(false); renderNow(); renderLog();
+  }
+  return { open: () => setOpen(true), close: () => setOpen(false), isOpen: () => open, runs, events, reset,
     stats: () => ({ events: events.length, runs: runs.size, renders: renderCount, maxEvents: MAX_EVENTS,
                     rows: logBox.childElementCount, cards: nowBox.childElementCount }) };
 }

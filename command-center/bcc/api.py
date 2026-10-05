@@ -270,6 +270,8 @@ class Services:
         await self.db.close()
 
 
+EVENTS_WS_RECHECK_SECONDS = 15.0  # an open event stream re-checks its session this often
+
 def services(request: Request) -> Services:
     return request.app.state.svc
 
@@ -754,6 +756,11 @@ def _public_router() -> APIRouter:
     @router.post("/logout")
     async def logout(request: Request, response: Response, svc: Services = Depends(services)):
         """Выход инвалидирует сессию на сервере, а не только в браузере."""
+        # Security audit 2026-10-05: SameSite does not separate ports, so a page on another local port could
+        # log the owner out. A browser always sends Origin on a cross-origin POST; a foreign one is refused.
+        origin = request.headers.get("origin")
+        if origin and not _same_origin(origin, request.headers.get("host", "")):
+            raise ApiError("чужой источник запроса", status=403)
         sid = request.cookies.get(COOKIE_NAME)
         revoked = await svc.sessions.revoke(sid) if sid else False
         response.delete_cookie(COOKIE_NAME, path="/")
@@ -779,8 +786,21 @@ def _public_router() -> APIRouter:
         from .events import STREAM_ONLY, WEB_LIVE
         try:
             await ws.send_json({"kind": "hello", "ts": utcnow().isoformat()})
+            sid = ws.cookies.get(COOKIE_NAME)
             while True:
-                msg = await queue.get()
+                try:
+                    msg = await asyncio.wait_for(queue.get(), timeout=EVENTS_WS_RECHECK_SECONDS)
+                except asyncio.TimeoutError:
+                    msg = None
+                # Security audit 2026-10-05: an open stream must end with the session (logout, revoke, expiry).
+                if sess is not None and await svc.sessions.get(sid) is None:
+                    await ws.close(code=4401)
+                    return
+                if sess is None and not (svc.settings.legacy_token_auth and svc.auth.check(token)):
+                    await ws.close(code=4401)
+                    return
+                if msg is None:
+                    continue
                 if msg.get("kind") in STREAM_ONLY and msg.get("kind") not in WEB_LIVE:
                     # Построчный вывод модели/инструментов — для терминала
                     # (/api/events/stream); панели веба его не рисуют.

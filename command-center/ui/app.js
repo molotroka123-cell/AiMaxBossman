@@ -682,6 +682,7 @@ document.addEventListener('keydown', (e) => {
 
 function showLogin(message = '') {
   bus.stop();
+  thinking.reset();                 // the owner's process pane never outlives the session
   state.ready = false;
   lastRendered = null;
   el.shell.hidden = true;

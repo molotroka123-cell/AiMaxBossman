@@ -203,3 +203,31 @@ def test_settings_defaults_are_safe():
     assert s.host == "127.0.0.1"          # наружу по умолчанию не слушаем
     assert s.legacy_token_auth is True    # переходный режим, документирован
     assert s.cookie_secure == "auto"
+
+
+def test_open_ws_closes_after_the_session_is_revoked(env, monkeypatch):
+    """Security audit 2026-10-05: an already-open event stream kept running after logout/revoke."""
+    from fastapi.testclient import TestClient
+    from starlette.websockets import WebSocketDisconnect
+    from bcc import api as api_mod
+    monkeypatch.setattr(api_mod, "EVENTS_WS_RECHECK_SECONDS", 0.2)
+    with TestClient(env.app) as client:
+        assert client.post("/api/login", json={"token": env.svc.auth.token}).status_code == 200
+        with client.websocket_connect("/api/events") as ws:
+            assert ws.receive_json()["kind"] == "hello"
+            assert client.post("/api/logout").status_code in (200, 204)
+            with pytest.raises(WebSocketDisconnect) as closed:
+                ws.receive_json()
+            assert closed.value.code == 4401
+
+
+def test_logout_from_a_foreign_origin_is_refused_and_the_session_survives(env):
+    """Security audit 2026-10-05: a page on another local port could revoke the owner's session."""
+    from fastapi.testclient import TestClient
+    with TestClient(env.app) as client:
+        assert client.post("/api/login", json={"token": env.svc.auth.token}).status_code == 200
+        foreign = client.post("/api/logout", headers={"Origin": "http://127.0.0.1:9999"})
+        assert foreign.status_code == 403
+        assert client.get("/api/models").status_code == 200          # still logged in
+        same = client.post("/api/logout", headers={"Origin": "http://testserver"})
+        assert same.status_code == 200 and same.json()["revoked"] is True
