@@ -104,6 +104,49 @@ class TaskIn(BaseModel):
     project_id: str | None = Field(default=None, max_length=120)
     use_memory: bool = True
     verify_tests: list[str] = Field(default_factory=list, max_length=32)
+    #: Optional cloud worker from the fixed WORKERS allowlist; None = the configured local sidecar.
+    worker: str | None = Field(default=None, max_length=40)
+
+
+#: Cloud workers the owner can pick per task. Fixed allowlist: endpoint, model and the
+#: credential name never come from the request. Verified live on the owner box 2026-10-05
+#: (forced tool call): the :free models cost $0, GLM 5.3 Flash ~$0.00004 per call.
+WORKERS: dict[str, dict[str, str]] = {
+    "openrouter-free": {"endpoint": "https://openrouter.ai/api/v1", "model": "nvidia/nemotron-3-super-120b-a12b:free",
+                        "key": "OPENROUTER_API_KEY", "label": "OpenRouter · Nemotron 3 Super 120B (free)"},
+    "openrouter-code-free": {"endpoint": "https://openrouter.ai/api/v1", "model": "cohere/north-mini-code:free",
+                             "key": "OPENROUTER_API_KEY", "label": "OpenRouter · Cohere North Mini Code (free)"},
+    "nvidia-nim": {"endpoint": "https://integrate.api.nvidia.com/v1", "model": "nvidia/nemotron-3-super-120b-a12b",
+                   "key": "NVIDIA_API_KEY", "label": "NVIDIA NIM · Nemotron 3 Super 120B"},
+    "glm-flash": {"endpoint": "https://openrouter.ai/api/v1", "model": "z-ai/glm-5.3-flash",
+                  "key": "OPENROUTER_API_KEY", "label": "OpenRouter · GLM 5.3 Flash (paid, ~$0.00004/call)"},
+}
+#: The owner's local provider key file (user ACL); read only when the vault/env has no key.
+OWNER_KEYS_FILE = Path(os.environ.get("LOCALAPPDATA", "")) / "Bossman" / "keys" / "provider-keys.env"
+_WORKER_KEY_ENV = "BOSSMAN_WORKER_API_KEY"
+
+
+async def _worker_key(name: str, svc) -> str | None:
+    try:
+        from .plugins import resolve_cred
+        key = await resolve_cred(name, svc)
+    except Exception:  # noqa: BLE001 — a vault outage falls back to the owner's key file
+        key = None
+    if key:
+        return key
+    try:
+        for line in OWNER_KEYS_FILE.read_text(encoding="utf-8").splitlines():
+            if line.startswith(name + "="):
+                return line.split("=", 1)[1].strip().strip('"') or None
+    except OSError:
+        return None
+    return None
+
+
+def _worker_command(worker: str) -> list[str]:
+    spec = WORKERS[worker]
+    return [sys.executable, "-I", "-m", "bossman.apprentice.local_sidecar", "--endpoint", spec["endpoint"],
+            "--model", spec["model"], "--api-key-env", _WORKER_KEY_ENV]
 
 
 def _runtime() -> tuple[Any, Any, str]:
@@ -324,7 +367,7 @@ class _Cancelled(Exception):
 
 
 def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None,
-             env: dict[str, str] | None = None) -> dict:
+             env: dict[str, str] | None = None, command: list[str] | None = None) -> dict:
     """Blocking: runs in a worker thread. Returns the terminal record."""
     oc, wt, reason = _runtime()
     if oc is None:
@@ -341,7 +384,8 @@ def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None
     try:
         if task_id in _CANCELLED:
             raise _Cancelled()
-        client = oc.OpenHandsClient(on_process=lambda tree: _ACTIVE.__setitem__(task_id, tree),
+        client = oc.OpenHandsClient(command=command or None,
+                                    on_process=lambda tree: _ACTIVE.__setitem__(task_id, tree),
                                     env=env or None)
         extra = {"context": context} if context else {}
         request = oc.OpenHandsRequest(body.instruction, root, tuple(body.allowed_paths),
@@ -489,8 +533,16 @@ async def _skills_context(svc, body: TaskIn) -> tuple[list[dict], dict]:
 
 async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None = None) -> None:
     try:
-        env = await _sidecar_env(svc)
-        final = await asyncio.to_thread(_execute, record, repo, body, context, env)
+        command = None
+        if body.worker:
+            # A cloud worker gets ONLY its own key, under a fixed name the sidecar pops at start.
+            key = await _worker_key(WORKERS[body.worker]["key"], svc)
+            if not key:
+                raise RuntimeError(f"нет ключа {WORKERS[body.worker]['key']} для исполнителя {body.worker}")
+            env, command = {_WORKER_KEY_ENV: key}, _worker_command(body.worker)
+        else:
+            env = await _sidecar_env(svc)
+        final = await asyncio.to_thread(_execute, record, repo, body, context, env, command)
     except Exception as exc:  # noqa: BLE001
         final = {**record, "status": "failed", "error": f"{type(exc).__name__}: {exc}"[:800],
                  "finished_at": time.time()}
@@ -829,6 +881,8 @@ async def cancel_task(task_id: str, request: Request):
 @router.post("/coding-tasks")
 async def create_task(body: TaskIn, request: Request):
     svc = request.app.state.svc
+    if body.worker is not None and body.worker not in WORKERS:
+        raise HTTPException(422, {"code": "UNKNOWN_WORKER", "workers": sorted(WORKERS)})
     ready = await readiness(svc)
     if not ready["available"]:
         raise HTTPException(503, {"code": "OPENHANDS_UNAVAILABLE", "message": ready["reason"],
@@ -849,7 +903,8 @@ async def create_task(body: TaskIn, request: Request):
               "project_id": body.project_id, "memory": memory, "skills": skills_info,
               "verify_tests": list(body.verify_tests),
               "source_repo": str(repo), "allowed_paths": list(body.allowed_paths),
-              "protected_paths": list(body.protected_paths), "model": body.model,
+              "protected_paths": list(body.protected_paths),
+              "model": WORKERS[body.worker]["model"] if body.worker else body.model, "worker": body.worker,
               "created_at": time.time(), "finished_at": None, "changed_files": [], "diff": "",
               "error": "", "evidence": None, "sandbox_cleanup": None,
               "authority": {"push": False, "merge": False, "deploy": False}}
