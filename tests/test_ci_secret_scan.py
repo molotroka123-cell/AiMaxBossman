@@ -284,3 +284,23 @@ def test_main_itself_does_not_choke_on_an_untracked_build_artifact(tmp_path, mon
     (art / "leaked.py").write_text(f'K = "{fake}"\n', encoding="utf-8")
     assert scan.main() == 2, "непрослеженный файл с настоящим ключом обязан ронять сканер"
     assert "openrouter key" in capsys.readouterr().err
+
+
+def test_oversized_text_log_is_scanned_by_stream_and_still_fails_closed_otherwise(tmp_path):
+    """Крупный чистый .jsonl не «неисследуем» (раньше валил репозиторный скан), но секрет в нём ловится;
+    крупный не-текст и файл сверх лимита по-прежнему не считаются чистыми."""
+    clean_line = '{"kind": "system.metrics", "cpu_pct": 3.4}\n'
+    clean = tmp_path / "clean.jsonl"
+    clean.write_text(clean_line * (scan.MAX_BYTES // len(clean_line) + 10), encoding="utf-8")
+    assert clean.stat().st_size > scan.MAX_BYTES
+    assert scan.scan_paths([clean], tmp_path) == []                       # законный случай проходит
+
+    dirty = tmp_path / "dirty.jsonl"
+    secret = "ghp_" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"  # ci-secret-scan: allow
+    dirty.write_text(clean_line * (scan.MAX_BYTES // len(clean_line) + 10) + secret + "\n", encoding="utf-8")
+    rows = scan.scan_paths([dirty], tmp_path)
+    assert any("github token" in r and r.startswith("dirty.jsonl:") for r in rows), rows   # плохой — отвергнут
+
+    blob = tmp_path / "blob.dat"
+    blob.write_bytes(b"x" * (scan.MAX_BYTES + 1))
+    assert any("unscannable oversized" in r for r in scan.scan_paths([blob], tmp_path))   # не-текст — fail-closed

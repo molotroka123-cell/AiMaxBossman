@@ -71,6 +71,11 @@ DICT_HINT = re.compile(r"(?i)(test|fake|example|sample|placeholder|canary|dummy|
                        r"config|default|bossman|claude|openai|anthropic|redacted|xxxx|0000|aaaa)")
 ALLOW_MARK = "ci-secret-scan: allow"
 MAX_BYTES = 2_000_000
+# Крупные текстовые журналы (тестовый период пишет по ~5 МБ .jsonl) сканируются построчно,
+# а не отбраковываются как «неисследуемые»: паттерны провайдеров однострочные, память не растёт.
+# Всё, что не похоже на текст, и всё сверх лимита по-прежнему fail-closed.
+STREAM_SUFFIX = {".jsonl", ".ndjson", ".log", ".json", ".md", ".txt", ".csv"}
+MAX_STREAM_BYTES = 64_000_000
 ZIP_MEMBER_SUFFIX = {".py", ".md", ".txt", ".json", ".yml", ".yaml", ".toml", ".ini", ".cfg", ".env", ".sh", ".js", ".ts"}
 
 
@@ -182,6 +187,20 @@ def scan_zip(path: Path, rel: str) -> list[str]:
     return out
 
 
+def scan_stream(path: Path, rel: str) -> list[str]:
+    """Построчное сканирование паттернов для крупного текстового файла (без энтропии, как для .json/.md)."""
+    out: list[str] = []
+    try:
+        with path.open("r", encoding="utf-8", errors="ignore") as fh:
+            for number, line in enumerate(fh, 1):
+                if ALLOW_MARK in line:
+                    continue
+                out += [f"{rel}:{number}: {row.split(': ', 1)[1]}" for row in pattern_findings(line, rel)]
+    except OSError:
+        out.append(f"{rel}: unscannable unreadable file")
+    return out
+
+
 def scan_paths(paths: list[Path], root: Path) -> list[str]:
     findings: list[str] = []
     for path in paths:
@@ -195,8 +214,12 @@ def scan_paths(paths: list[Path], root: Path) -> list[str]:
         if suffix in SKIP_SUFFIX:
             continue
         try:
-            if path.stat().st_size > MAX_BYTES and suffix not in ZIP_SUFFIX:
-                findings.append(f"{rel}: unscannable oversized file")
+            size = path.stat().st_size
+            if size > MAX_BYTES and suffix not in ZIP_SUFFIX:
+                if suffix in STREAM_SUFFIX and size <= MAX_STREAM_BYTES:
+                    findings += scan_stream(path, rel)
+                else:
+                    findings.append(f"{rel}: unscannable oversized file")
                 continue
         except OSError:
             findings.append(f"{rel}: unscannable unreadable file")

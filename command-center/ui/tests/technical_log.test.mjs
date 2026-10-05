@@ -4,7 +4,7 @@ import { technicalLogEvent } from '../chat/format.js';
 import { collectTechnicalLogForTurn } from '../chat/technical-log.js';
 
 test('technical diagnostics reject content in numeric and boolean fields', () => {
-  const raw = { task_id: 'private user text', run_id: 'sk-fakecredential123456789',
+  const raw = { task_id: 'private user text', run_id: 'sk-fakecredential123456789', // ci-secret-scan: allow (synthetic redaction fixture)
     duration_ms: 'tool result', ok: 'answer text', count: 4, pricing_known: false };
   assert.deepEqual(technicalLogEvent(raw), {
     event: { count: 4, pricing_known: false }, omittedFields: 4,
@@ -78,7 +78,7 @@ test('collector rejects invalid identity and redacts top level metadata', async 
   const invalid = await collectTechnicalLogForTurn({ taskId: 'private text' }, 0, async () => { called = true; });
   assert.equal(called, false);
   assert.equal(invalid.failures[0].code, 'INVALID_TASK_ID');
-  const result = await collectTechnicalLogForTurn({ taskId: 7, status: 'private user text', model: 'sk-fakecredential123456789' }, 0,
+  const result = await collectTechnicalLogForTurn({ taskId: 7, status: 'private user text', model: 'sk-fakecredential123456789' }, 0, // ci-secret-scan: allow (synthetic redaction fixture)
     async (path) => path === '/api/tasks/7' ? { task: { id: 7 }, runs: [] } : { task_id: 7, events: [], cursor: 0, more: false });
   assert.equal(result.record.status, null);
   assert.equal(result.record.model, null);
@@ -88,7 +88,7 @@ test('collector rejects invalid identity and redacts top level metadata', async 
 test('technical diagnostics validate the entire identifier before export', () => {
   for (const field of ['kind', 'level', 'status', 'tool', 'source', 'model', 'code', 'error_code', 'approval_kind']) {
     for (const value of ['C:/Users/private/document.txt', 'https://private.example/key',
-      'github_pat_fakecredential123456789', 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.fakeSignature']) {
+      'github_pat_fakecredential123456789', 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.fakeSignature']) { // ci-secret-scan: allow (synthetic redaction fixture)
       assert.deepEqual(technicalLogEvent({ [field]: value }).event, {}, `${field}: ${value}`);
     }
   }
@@ -129,7 +129,7 @@ test('technical strings exclude sources, relative paths and additional credentia
   assert.deepEqual(technicalLogEvent({ source: 'internal' }).event, {});
   for (const field of ['kind', 'level', 'status', 'tool', 'source', 'model', 'code', 'error_code', 'approval_kind']) {
     for (const value of ['Users/alice/private.txt', 'alice/private.txt', 'home/private',
-      'AIzaSy000000000000000000000000000000000', 'AKIA0000000000000000']) {
+      'AIzaSy000000000000000000000000000000000', 'AKIA0000000000000000']) { // ci-secret-scan: allow (synthetic redaction fixture)
       assert.deepEqual(technicalLogEvent({ [field]: value }).event, {}, `${field}: ${value}`);
     }
   }

@@ -425,7 +425,19 @@ def test_owner_release_scenario_79_synthetic_fixture_obeys_job_contract(tmp_path
     scenario_dir = Path(__file__).resolve().parent / 'owner_scenarios'
     monkeypatch.syspath_prepend(str(scenario_dir))
     from scenario_runner import RunContext, PRODUCT_CONTRACTS
-    from scn_18_recovery_release import os79_certification_refuses_a_missing_required_run
+    # Same module name as scenario_runner.discover(): the @scenario decorator registers each id
+    # once, so importing the file under a second name raises "уже реализован" (and breaks discover()
+    # for every later test) depending on file order.
+    import importlib.util
+    import sys
+    name = 'bossman_owner_scn_scn_18_recovery_release'
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, scenario_dir / 'scn_18_recovery_release.py')
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    os79_certification_refuses_a_missing_required_run = (
+        sys.modules[name].os79_certification_refuses_a_missing_required_run)
 
     context = RunContext(SimpleNamespace(depth=PRODUCT_CONTRACTS), tmp_path, None)
     os79_certification_refuses_a_missing_required_run(context)
