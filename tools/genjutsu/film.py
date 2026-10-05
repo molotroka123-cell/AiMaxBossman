@@ -83,7 +83,8 @@ def main(argv=None) -> int:
     ap.add_argument("--shot-targets", default="", help="comma list per shot: largest (default) | center (whole person, not at the edge)")
     ap.add_argument("--steps", type=int, default=20)
     ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--parallel", type=int, default=2)
+    # 2 at once on the single Radeon 8060S -> "device lost on Vulkan0" killed both (2026-10-05)
+    ap.add_argument("--parallel", type=int, default=1)
     ap.add_argument("--roi-max", type=float, default=0.6)
     ap.add_argument("--out-fps", type=int, default=24)
     ap.add_argument("--plan-only", action="store_true")
@@ -125,7 +126,11 @@ def main(argv=None) -> int:
     hw, hh = fw // 2, fh // 2
     targets = (args.shot_targets.split(",") + ["largest"] * len(shots))[:len(shots)]
     masks, track = [], None
-    for i, p in enumerate(paths):
+    cached = sorted((job / "masks").glob("*.png")) if (job / "masks").is_dir() else []
+    if len(cached) == len(paths) and (job / "masks" / "targets.txt").is_file() \
+            and (job / "masks" / "targets.txt").read_text() == ",".join(targets):
+        masks = [np.asarray(Image.open(c)) > 127 for c in cached]  # resume: same frames, same targets
+    for i, p in enumerate(paths[len(masks):]):
         img = Image.open(p).convert("RGB").resize((hw, hh), Image.BILINEAR)
         if i in cuts:
             track = None
@@ -158,7 +163,9 @@ def main(argv=None) -> int:
             with (job / "masks" / "boxes.jsonl").open("a", encoding="utf-8") as f:
                 f.write(json.dumps({"frame": i, "mode": mode, "target": None if target is None else
                                     [round(float(v), 2) for v in target], "area": int(masks[-1].sum())}) + "\n")
-    trace("masks", t0, frames=len(masks))
+    (job / "masks").mkdir(exist_ok=True)
+    (job / "masks" / "targets.txt").write_text(",".join(targets))
+    trace("masks", t0, frames=len(masks), cached=len(cached) == len(paths))
 
     # 4. plan + control frames
     jobs = []

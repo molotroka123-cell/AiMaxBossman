@@ -31,7 +31,9 @@ Replacing a public figure *out* of a meme with consenting people is fine; insert
      --shot-prompts prompts.json --plan-only
    ```
    Check: every shot replaces the right person; the grey hole covers only that person.
-5. Real run: same command with `--parallel 2 --steps 20` instead of `--plan-only`.
+5. Real run: same command with `--parallel 1 --steps 20` instead of `--plan-only`. Re-running skips finished segments.
+   Measured 2026-10-05: `--parallel 2` on the single Radeon 8060S (Vulkan) -> "device lost on Vulkan0" during
+   VAE encode, killing every concurrent sd-cli at once. One GPU = one generation; parallelism only across GPUs.
    Outputs: `film_24fps.mp4` (music kept), `film_16fps.mp4`, `review_source_vs_result.mp4`, `trace.jsonl` (timings).
 6. Send result + review video to the owner's пульт; record timings and defects in the job's trace.
 
