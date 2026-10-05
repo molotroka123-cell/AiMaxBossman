@@ -1,0 +1,47 @@
+[
+  {
+    "id": 37304275631,
+    "name": "ASTRA acceptance",
+    "head_branch": "claude/bossman-control-v03-43igbk",
+    "head_sha": "2c14c75a3d2839818524426bb43b472fbe7842ed",
+    "conclusion": "success",
+    "created_at": "2026-10-05T11:38:52Z",
+    "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37304275631"
+  },
+  {
+    "id": 37209801510,
+    "name": "root-ci (shared contracts, learning layer, tools)",
+    "head_branch": "ux/ai-3d-maker-adapter-20261004",
+    "head_sha": "2c14c75a3d2839818524426bb43b472fbe7842ed",
+    "conclusion": "failure",
+    "created_at": "2026-10-04T14:35:13Z",
+    "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37209801510"
+  },
+  {
+    "id": 37209801507,
+    "name": "Bossman Core CI",
+    "head_branch": "ux/ai-3d-maker-adapter-20261004",
+    "head_sha": "2c14c75a3d2839818524426bb43b472fbe7842ed",
+    "conclusion": "success",
+    "created_at": "2026-10-04T14:35:13Z",
+    "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37209801507"
+  },
+  {
+    "id": 37209801489,
+    "name": "Command Center CI",
+    "head_branch": "ux/ai-3d-maker-adapter-20261004",
+    "head_sha": "2c14c75a3d2839818524426bb43b472fbe7842ed",
+    "conclusion": "success",
+    "created_at": "2026-10-04T14:35:13Z",
+    "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37209801489"
+  },
+  {
+    "id": 37209801468,
+    "name": "ASTRA acceptance",
+    "head_branch": "ux/ai-3d-maker-adapter-20261004",
+    "head_sha": "2c14c75a3d2839818524426bb43b472fbe7842ed",
+    "conclusion": "success",
+    "created_at": "2026-10-04T14:35:13Z",
+    "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37209801468"
+  }
+]

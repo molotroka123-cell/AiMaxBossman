@@ -1,0 +1,14 @@
+{
+  "artifact_only": true,
+  "graph_ids_and_parents": "PASS",
+  "source_paths": "PASS",
+  "javascript_syntax": "PASS",
+  "DOM_initial_render": "PASS",
+  "branch_selection": "PASS",
+  "search": "PASS",
+  "source_drilldown": "PASS",
+  "slash_command_search": "PASS",
+  "browser_pixel_layout": "NOT RUN: browser binary unavailable; download unsuccessful",
+  "product_tests": "NOT RUN",
+  "owner_runtime_memory_import": "NOT RUN"
+}
