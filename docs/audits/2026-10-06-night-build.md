@@ -87,3 +87,20 @@ Same-product Terminal Run contract: пульт, CLI и дашборд — оди
 и при загрузке индекса, сохранённого старой сборкой, записи из scratch отбрасываются. Корень внутри scratch (собственный алиас) работает как раньше.
 Тесты `tests/test_code_index_scratch_exclusion.py` (3): на старом коде падают 2 (чужой черновик находится поиском; старый индекс не очищается),
 «свой scratch как корень» проходит и до и после (негативный контроль). Регрессия code/index/scratch/terminal: 630 passed, 15 skipped.
+
+## Чекпоинт 4 — веб-поиск Jeff (задача 4)
+
+Дефекты (оба воспроизведены): (1) `Models.web_results` при настроенном, но лежащем SearXNG бросал `NETWORK_UNAVAILABLE` **без** перехода на
+keyless DuckDuckGo — старый код проверен напрямую на `httpx.MockTransport`; (2) проба doctor принимала **любой 2xx** от DuckDuckGo, хотя
+реальный поиск (`text_request`) принимает только 200 (на бот-проверку DDG отвечает 202) — путь, не способный обслужить запрос,
+показывался живым.
+Фикс: `web_results` пробует SearXNG, при сбое (CompanionError/RateLimited) идёт в keyless DDG и записывает `search_path`
+(`searxng`|`keyless_ddg`) и `search_note`; если упали оба — честная ошибка. `probe_search_paths` (тот же код запросов, что в рантайме):
+SearXNG OK/DOWN(причина)/NOT_CONFIGURED; DDG — OK только при HTTP 200 **и** ≥1 разобранном результате; строка `web` в
+`bcc.pit.cli doctor` теперь `active=SEARXNG|KEYLESS_FALLBACK|NONE; searxng=…; keyless_ddg=…`.
+Тесты `tests/test_pit_web_search_fallback.py` (5, офлайн): живой SearXNG используется без обращения к DDG; лежащий/битый SearXNG → DDG;
+оба лежат → ошибка; doctor различает пути и отвергает бот-проверку 202.
+**Не доказано отсюда:** живой DuckDuckGo недоступен из облачной среды (прокси 403), поэтому реальную работу keyless-пути покажет
+`python -m bcc.pit.cli doctor` на ПК владельца (строка `web`).
+Побочная находка (не мой код, воспроизводится и без моих правок): `tests/test_autonomy_probes.py::test_jeff_identity_counts_leaks_of_the_runtime`
+красный на линии (после cherry-pick `4c5cf52b` проверка идёт по сырому тексту до `guard_outgoing`) — разбирается отдельно.

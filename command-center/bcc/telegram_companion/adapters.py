@@ -912,6 +912,8 @@ class Models:
         self.retry_local_at = 0.0
         self.retry_fast_at = 0.0
         self.vision_cache = {}
+        self.search_path = "none_yet"          # which web path served the last query (see web_results)
+        self.search_note = ""
         self.cloud_locked = (home / "cloud-billing-review.flag").exists()
 
     async def close(self):
@@ -1128,32 +1130,84 @@ class Models:
         return "\n\n".join(out) or "По этому запросу результатов не найдено."
 
     async def web_results(self, query: str) -> list[dict]:
-        """Top web results for ONLY this query: configured SearXNG, else keyless DuckDuckGo HTML.
+        """Top web results for ONLY this query: configured SearXNG, else (also when SearXNG is DOWN) keyless DuckDuckGo HTML.
 
+        `self.search_path` records which path actually served the last query ("searxng" | "keyless_ddg"), so a dead SearXNG is
+        visible instead of silently killing web search (it used to raise with no fallback).
         Results are untrusted third-party text; callers quote them as data, never obey them."""
         query = " ".join(query.split())[:300]
         if not query:
             return []
         if self.settings.search_url:
-            body = await json_request(self.local, "GET", self.settings.search_url + "/search",
-                                      params={"q": query, "format": "json"}, timeout=10)
-            rows = body.get("results") if isinstance(body, dict) else None
-            if not isinstance(rows, list):
-                raise CompanionError("SEARCH_RESPONSE_INVALID")
-            out = []
-            for row in rows:
-                if isinstance(row, dict):
-                    item = clean_result(row.get("title"), row.get("url"), row.get("content"))
-                    if item:
-                        out.append(item)
-                if len(out) >= WEB_RESULTS:
-                    break
+            try:
+                out = await self._searxng_results(query)
+                self.search_path, self.search_note = "searxng", ""
+                return out
+            except (CompanionError, RateLimited) as exc:
+                note = "searxng_down:" + (str(exc) or type(exc).__name__)[:60]
+            out = await self._keyless_results(query)      # the keyless failure (if any) propagates: nothing works
+            self.search_path, self.search_note = "keyless_ddg", note
             return out
+        out = await self._keyless_results(query)
+        self.search_path, self.search_note = "keyless_ddg", ""
+        return out
+
+    async def _searxng_results(self, query: str) -> list[dict]:
+        body = await json_request(self.local, "GET", self.settings.search_url + "/search",
+                                  params={"q": query, "format": "json"}, timeout=10)
+        rows = body.get("results") if isinstance(body, dict) else None
+        if not isinstance(rows, list):
+            raise CompanionError("SEARCH_RESPONSE_INVALID")
+        out = []
+        for row in rows:
+            if isinstance(row, dict):
+                item = clean_result(row.get("title"), row.get("url"), row.get("content"))
+                if item:
+                    out.append(item)
+            if len(out) >= WEB_RESULTS:
+                break
+        return out
+
+    async def _keyless_results(self, query: str) -> list[dict]:
         # Remote client: honours the configured proxy, no cookies/history, no redirects.
         html = await text_request(self.remote, DDG_HTML, params={"q": query},
                                   headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
                                            "Accept-Language": "ru,en;q=0.8"}, timeout=15)
         return parse_ddg_html(html)
+
+
+async def probe_search_paths(settings, *, transport=None) -> dict:
+    """What `bcc.pit.cli doctor` reports for web search: each path probed through the SAME request helpers the runtime uses.
+
+    searxng: NOT_CONFIGURED | OK | DOWN(reason). keyless_ddg: OK only with HTTP 200 AND at least one parsed result (DuckDuckGo
+    answers 202 to bot checks - the old probe accepted any 2xx and reported a path that cannot serve a query).
+    active: SEARXNG (it answers) | KEYLESS_FALLBACK (SearXNG absent or DOWN, DDG works) | NONE."""
+    report = {"searxng": {"state": "NOT_CONFIGURED", "detail": ""}, "keyless_ddg": {"state": "DOWN", "detail": ""}}
+    search_url = str(getattr(settings, "search_url", "") or "")
+    proxy = str(getattr(settings, "proxy", "") or "") or None
+    async with httpx.AsyncClient(timeout=12, trust_env=False, follow_redirects=False, transport=transport) as local, \
+            httpx.AsyncClient(timeout=15, trust_env=False, follow_redirects=False, proxy=proxy if transport is None else None,
+                              transport=transport) as remote:
+        if search_url:
+            try:
+                body = await json_request(local, "GET", search_url.rstrip("/") + "/search",
+                                          params={"q": "ping", "format": "json"}, timeout=10)
+                ok = isinstance(body, dict) and isinstance(body.get("results"), list)
+                report["searxng"] = {"state": "OK" if ok else "DOWN", "detail": "" if ok else "SEARCH_RESPONSE_INVALID"}
+            except (CompanionError, RateLimited) as exc:
+                report["searxng"] = {"state": "DOWN", "detail": str(exc) or type(exc).__name__}
+        try:
+            html = await text_request(remote, DDG_HTML, params={"q": "ping"},
+                                      headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                                               "Accept-Language": "ru,en;q=0.8"}, timeout=15)
+            found = len(parse_ddg_html(html))
+            report["keyless_ddg"] = ({"state": "OK", "detail": f"{found} results"} if found
+                                     else {"state": "DOWN", "detail": "NO_RESULTS_PARSED"})
+        except CompanionError as exc:
+            report["keyless_ddg"] = {"state": "DOWN", "detail": str(exc)}
+    report["active"] = ("SEARXNG" if report["searxng"]["state"] == "OK"
+                        else "KEYLESS_FALLBACK" if report["keyless_ddg"]["state"] == "OK" else "NONE")
+    return report
 
 
 WEB_RESULTS = 5

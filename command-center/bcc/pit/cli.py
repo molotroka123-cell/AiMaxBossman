@@ -198,10 +198,12 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
     except Exception as exc:  # noqa: BLE001 — doctor must not crash on a broken provider
         add("free_route", False, str(exc))
 
-    if settings.search_url:
-        add("web", await _probe_web(settings), "searxng configured")
-    else:
-        add("web", await _probe_web(settings), "keyless fallback")
+    paths = await _probe_web_paths(settings)
+    add("web", paths["active"] != "NONE",
+        f"active={paths['active']}; searxng={paths['searxng']['state']}"
+        + (f"({paths['searxng']['detail']})" if paths["searxng"]["detail"] else "")
+        + f"; keyless_ddg={paths['keyless_ddg']['state']}"
+        + (f"({paths['keyless_ddg']['detail']})" if paths["keyless_ddg"]["detail"] else ""))
 
     media = photo_runtime_status(build_photo_services(core_token="", data_dir=data_dir).config)
     # AI Max can expose generation before vision/edit. Each capability remains
@@ -230,19 +232,18 @@ def with_suppressed_close(client) -> None:
             close()
 
 
-async def _probe_web(settings) -> bool:
-    import httpx
+async def _probe_web_paths(settings) -> dict:
+    """Which web-search path is alive (SearXNG / keyless DuckDuckGo): the doctor row says it instead of a bare PASS/FAIL."""
+    from bcc.telegram_companion.adapters import probe_search_paths
     try:
-        async with httpx.AsyncClient(timeout=8, trust_env=False) as client:
-            if settings.search_url:
-                response = await client.get(settings.search_url.rstrip("/") + "/search",
-                                            params={"q": "ping", "format": "json"})
-            else:
-                response = await client.get("https://html.duckduckgo.com/html/",
-                                            params={"q": "ping"})
-            return 200 <= response.status_code < 300
-    except Exception:
-        return False
+        return await probe_search_paths(settings)
+    except Exception as exc:  # noqa: BLE001 — a doctor must not crash on a broken network stack
+        return {"active": "NONE", "searxng": {"state": "UNKNOWN", "detail": type(exc).__name__},
+                "keyless_ddg": {"state": "UNKNOWN", "detail": type(exc).__name__}}
+
+
+async def _probe_web(settings) -> bool:
+    return (await _probe_web_paths(settings))["active"] != "NONE"
 
 
 def _tool_perimeter() -> bool:
