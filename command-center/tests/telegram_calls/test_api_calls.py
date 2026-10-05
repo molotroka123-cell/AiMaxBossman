@@ -348,6 +348,27 @@ async def test_the_global_stop_blocks_dialing_and_ends_a_running_call(env):
     await c.post(f"{PREFIX}/resume")
 
 
+async def test_owner_stop_all_hangs_up_a_live_call_and_never_redials(env):
+    """S7: the calls plane is part of the one owner STOP (dashboard, CLI and Telegram channel all call stop-all)."""
+    await ready(env)
+    c = env.client
+    assert (await c.get("/api/control-plane/active")).json()["active"]["calls"] == []
+    assert (await c.post(f"{PREFIX}/call", json={})).status_code == 200
+    await active(env)
+    assert (await c.get("/api/control-plane/active")).json()["active"]["calls"] == ["call"]
+    body = (await c.post("/api/control-plane/stop-all")).json()
+    # stop-all sets the computer STOP first and that already hangs the call up (global-STOP watcher), so the plane may be
+    # listed as stopped OR already gone from the inventory: what must hold is no remaining call, no error, outcome stopped.
+    assert body["remaining"]["calls"] == [], body
+    assert not [e for e in body["errors"] if e["plane"] == "calls"], body["errors"]
+    st = await until(env, lambda s: s["call"] is None and s["last_call"] and s["last_call"]["outcome"] == "stopped")
+    assert st["stop"]["call"] is True
+    blocked = await c.post(f"{PREFIX}/call", json={})
+    assert blocked.status_code == 409 and blocked.json()["error"]["code"] == "STOP_ACTIVE", "no redial after STOP"
+    await c.post("/api/computer/resume")
+    await c.post(f"{PREFIX}/resume")
+
+
 async def test_a_dead_worker_means_unknown_and_the_next_dial_needs_a_confirmation(env):
     await ready(env)
     c = env.client
