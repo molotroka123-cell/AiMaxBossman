@@ -1,0 +1,484 @@
+{
+  "kind": "botlab.learn.report",
+  "created": "2026-10-05T10:28:59",
+  "boundary": "local headless engine only; opponents are labelled training bots",
+  "config": {
+    "generations": 12,
+    "population": 20,
+    "elite_frac": 0.25,
+    "deals_per_candidate": 150,
+    "test_deals": 2000,
+    "seed": 7,
+    "init_std_frac": 0.25,
+    "min_std_frac": 0.03,
+    "smoothing": 0.7
+  },
+  "table": {
+    "seats": 6,
+    "big_blind": 2,
+    "stack_bb": 100,
+    "duplicate_rotation": true
+  },
+  "train_pool": [
+    "Rock",
+    "Calling Station",
+    "Maniac",
+    "TAG Trainer"
+  ],
+  "unseen_pool": [
+    "LAG Trainer",
+    "Scared Money",
+    "Loose Limper",
+    "Trapper"
+  ],
+  "start_profile": {
+    "name": "Student (start)",
+    "description": "Learner starting point: generic middle-of-the-road settings before training.",
+    "vpip": 0.32,
+    "pfr": 0.14,
+    "value_threshold": 0.55,
+    "aggression": 0.5,
+    "bluff": 0.12,
+    "call_slack": 0.1,
+    "bet_size": 0.6,
+    "open_size": 3.0,
+    "sims": 80,
+    "training_opponent": false
+  },
+  "learned_profile": {
+    "name": "Learned",
+    "description": "Learned by botlab CEM vs the TRAIN pool",
+    "vpip": 0.5021,
+    "pfr": 0.0491,
+    "value_threshold": 0.6175,
+    "aggression": 0.5537,
+    "bluff": 0.0697,
+    "call_slack": 0.0201,
+    "bet_size": 1.3959,
+    "open_size": 2.424,
+    "sims": 80,
+    "training_opponent": false
+  },
+  "generations": [
+    {
+      "generation": 0,
+      "seed": 7000,
+      "hands_per_candidate": 900,
+      "mean_candidate_bb100": 0.89,
+      "best_bb100": 47.56,
+      "elite_avg_bb100": 32.86,
+      "population_avg_bb100": -2.35,
+      "new_mean": {
+        "vpip": 0.2163,
+        "pfr": 0.0981,
+        "value_threshold": 0.5874,
+        "aggression": 0.4873,
+        "bluff": 0.0824,
+        "call_slack": 0.1797,
+        "bet_size": 0.7711,
+        "open_size": 3.0621
+      },
+      "new_std": {
+        "vpip": 0.1093,
+        "pfr": 0.097,
+        "value_threshold": 0.1008,
+        "aggression": 0.1615,
+        "bluff": 0.0915,
+        "call_slack": 0.1206,
+        "bet_size": 0.1938,
+        "open_size": 0.5392
+      }
+    },
+    {
+      "generation": 1,
+      "seed": 7001,
+      "hands_per_candidate": 900,
+      "mean_candidate_bb100": 80.39,
+      "best_bb100": 119.11,
+      "elite_avg_bb100": 101.22,
+      "population_avg_bb100": 70.77,
+      "new_mean": {
+        "vpip": 0.2743,
+        "pfr": 0.1227,
+        "value_threshold": 0.5823,
+        "aggression": 0.4112,
+        "bluff": 0.0909,
+        "call_slack": 0.1059,
+        "bet_size": 0.7143,
+        "open_size": 3.0668
+      },
+      "new_std": {
+        "vpip": 0.1244,
+        "pfr": 0.0537,
+        "value_threshold": 0.1608,
+        "aggression": 0.1256,
+        "bluff": 0.0636,
+        "call_slack": 0.0928,
+        "bet_size": 0.2354,
+        "open_size": 0.5575
+      }
+    },
+    {
+      "generation": 2,
+      "seed": 7002,
+      "hands_per_candidate": 900,
+      "mean_candidate_bb100": -19.0,
+      "best_bb100": 127.89,
+      "elite_avg_bb100": 48.71,
+      "population_avg_bb100": -16.29,
+      "new_mean": {
+        "vpip": 0.3017,
+        "pfr": 0.0738,
+        "value_threshold": 0.579,
+        "aggression": 0.4751,
+        "bluff": 0.0868,
+        "call_slack": 0.1184,
+        "bet_size": 0.8188,
+        "open_size": 2.9272
+      },
+      "new_std": {
+        "vpip": 0.1253,
+        "pfr": 0.037,
+        "value_threshold": 0.1483,
+        "aggression": 0.1143,
+        "bluff": 0.066,
+        "call_slack": 0.0661,
+        "bet_size": 0.3024,
+        "open_size": 0.6162
+      }
+    },
+    {
+      "generation": 3,
+      "seed": 7003,
+      "hands_per_candidate": 900,
+      "mean_candidate_bb100": -31.89,
+      "best_bb100": 130.17,
+      "elite_avg_bb100": 95.44,
+      "population_avg_bb100": 13.54,
+      "new_mean": {
+        "vpip": 0.2757,
+        "pfr": 0.0636,
+        "value_threshold": 0.6227,
+        "aggression": 0.5039,
+        "bluff": 0.0933,
+        "call_slack": 0.0888,
+        "bet_size": 0.8684,
+        "open_size": 2.6275
+      },
+      "new_std": {
+        "vpip": 0.1123,
+        "pfr": 0.0352,
+        "value_threshold": 0.093,
+        "aggression": 0.1067,
+        "bluff": 0.0417,
+        "call_slack": 0.0475,
+        "bet_size": 0.3677,
+        "open_size": 0.4641
+      }
+    },
+    {
+      "generation": 4,
+      "seed": 7004,
+      "hands_per_candidate": 900,
+      "mean_candidate_bb100": 32.28,
+      "best_bb100": 115.61,
+      "elite_avg_bb100": 97.93,
+      "population_avg_bb100": 51.86,
+      "new_mean": {
+        "vpip": 0.3252,
+        "pfr": 0.0967,
+        "value_threshold": 0.6352,
+        "aggression": 0.5053,
+        "bluff": 0.0793,
+        "call_slack": 0.0639,
+        "bet_size": 0.8578,
+        "open_size": 2.601
+      },
+      "new_std": {
+        "vpip": 0.0571,
+        "pfr": 0.0314,
+        "value_threshold": 0.083,
+        "aggression": 0.1244,
+        "bluff": 0.0306,
+        "call_slack": 0.0614,
+        "bet_size": 0.2855,
+        "open_size": 0.3996
+      }
+    },
+    {
+      "generation": 5,
+      "seed": 7005,
+      "hands_per_candidate": 900,
+      "mean_candidate_bb100": 121.56,
+      "best_bb100": 404.94,
+      "elite_avg_bb100": 300.46,
+      "population_avg_bb100": 171.89,
+      "new_mean": {
+        "vpip": 0.3871,
+        "pfr": 0.0671,
+        "value_threshold": 0.6226,
+        "aggression": 0.5378,
+        "bluff": 0.0804,
+        "call_slack": 0.0873,
+        "bet_size": 1.0932,
+        "open_size": 2.4893
+      },
+      "new_std": {
+        "vpip": 0.0401,
+        "pfr": 0.0247,
+        "value_threshold": 0.0433,
+        "aggression": 0.0995,
+        "bluff": 0.0197,
+        "call_slack": 0.0453,
+        "bet_size": 0.2981,
+        "open_size": 0.24
+      }
+    },
+    {
+      "generation": 6,
+      "seed": 7006,
+      "hands_per_candidate": 900,
+      "mean_candidate_bb100": 24.06,
+      "best_bb100": 60.17,
+      "elite_avg_bb100": 54.49,
+      "population_avg_bb100": 22.55,
+      "new_mean": {
+        "vpip": 0.3791,
+        "pfr": 0.0618,
+        "value_threshold": 0.6177,
+        "aggression": 0.5539,
+        "bluff": 0.0836,
+        "call_slack": 0.0478,
+        "bet_size": 1.116,
+        "open_size": 2.5092
+      },
+      "new_std": {
+        "vpip": 0.0678,
+        "pfr": 0.0171,
+        "value_threshold": 0.0362,
+        "aggression": 0.0572,
+        "bluff": 0.0172,
+        "call_slack": 0.0511,
+        "bet_size": 0.2618,
+        "open_size": 0.1501
+      }
+    },
+    {
+      "generation": 7,
+      "seed": 7007,
+      "hands_per_candidate": 900,
+      "mean_candidate_bb100": -52.72,
+      "best_bb100": 58.33,
+      "elite_avg_bb100": 29.49,
+      "population_avg_bb100": -36.02,
+      "new_mean": {
+        "vpip": 0.3778,
+        "pfr": 0.0557,
+        "value_threshold": 0.6157,
+        "aggression": 0.519,
+        "bluff": 0.0809,
+        "call_slack": 0.0578,
+        "bet_size": 1.1549,
+        "open_size": 2.4624
+      },
+      "new_std": {
+        "vpip": 0.1,
+        "pfr": 0.0171,
+        "value_threshold": 0.0225,
+        "aggression": 0.0477,
+        "bluff": 0.015,
+        "call_slack": 0.0445,
+        "bet_size": 0.1932,
+        "open_size": 0.1128
+      }
+    },
+    {
+      "generation": 8,
+      "seed": 7008,
+      "hands_per_candidate": 900,
+      "mean_candidate_bb100": 107.61,
+      "best_bb100": 173.11,
+      "elite_avg_bb100": 156.52,
+      "population_avg_bb100": 116.96,
+      "new_mean": {
+        "vpip": 0.4335,
+        "pfr": 0.0622,
+        "value_threshold": 0.6143,
+        "aggression": 0.5255,
+        "bluff": 0.0811,
+        "call_slack": 0.0519,
+        "bet_size": 1.1557,
+        "open_size": 2.4338
+      },
+      "new_std": {
+        "vpip": 0.0782,
+        "pfr": 0.0171,
+        "value_threshold": 0.0199,
+        "aggression": 0.0327,
+        "bluff": 0.015,
+        "call_slack": 0.0403,
+        "bet_size": 0.1908,
+        "open_size": 0.1202
+      }
+    },
+    {
+      "generation": 9,
+      "seed": 7009,
+      "hands_per_candidate": 900,
+      "mean_candidate_bb100": 81.89,
+      "best_bb100": 109.11,
+      "elite_avg_bb100": 99.04,
+      "population_avg_bb100": 59.39,
+      "new_mean": {
+        "vpip": 0.4481,
+        "pfr": 0.0631,
+        "value_threshold": 0.6217,
+        "aggression": 0.5455,
+        "bluff": 0.0719,
+        "call_slack": 0.0545,
+        "bet_size": 1.2301,
+        "open_size": 2.4397
+      },
+      "new_std": {
+        "vpip": 0.0991,
+        "pfr": 0.0171,
+        "value_threshold": 0.0215,
+        "aggression": 0.0302,
+        "bluff": 0.015,
+        "call_slack": 0.0334,
+        "bet_size": 0.2096,
+        "open_size": 0.1536
+      }
+    },
+    {
+      "generation": 10,
+      "seed": 7010,
+      "hands_per_candidate": 900,
+      "mean_candidate_bb100": 156.33,
+      "best_bb100": 241.28,
+      "elite_avg_bb100": 209.1,
+      "population_avg_bb100": 152.2,
+      "new_mean": {
+        "vpip": 0.4492,
+        "pfr": 0.0561,
+        "value_threshold": 0.6198,
+        "aggression": 0.551,
+        "bluff": 0.0671,
+        "call_slack": 0.0273,
+        "bet_size": 1.252,
+        "open_size": 2.4496
+      },
+      "new_std": {
+        "vpip": 0.0677,
+        "pfr": 0.0202,
+        "value_threshold": 0.015,
+        "aggression": 0.0285,
+        "bluff": 0.015,
+        "call_slack": 0.0249,
+        "bet_size": 0.271,
+        "open_size": 0.0974
+      }
+    },
+    {
+      "generation": 11,
+      "seed": 7011,
+      "hands_per_candidate": 900,
+      "mean_candidate_bb100": 91.06,
+      "best_bb100": 192.67,
+      "elite_avg_bb100": 183.96,
+      "population_avg_bb100": 130.72,
+      "new_mean": {
+        "vpip": 0.5021,
+        "pfr": 0.0491,
+        "value_threshold": 0.6175,
+        "aggression": 0.5537,
+        "bluff": 0.0697,
+        "call_slack": 0.0201,
+        "bet_size": 1.3959,
+        "open_size": 2.424
+      },
+      "new_std": {
+        "vpip": 0.0353,
+        "pfr": 0.0183,
+        "value_threshold": 0.015,
+        "aggression": 0.0285,
+        "bluff": 0.0174,
+        "call_slack": 0.0281,
+        "bet_size": 0.1279,
+        "open_size": 0.09
+      }
+    }
+  ],
+  "eval_train_pool_heldout_seeds": {
+    "pool": [
+      "Rock",
+      "Calling Station",
+      "Maniac",
+      "TAG Trainer"
+    ],
+    "deals": 2000,
+    "hands_each": 12000,
+    "seed": 907001,
+    "start_bb100": {
+      "mean": 48.171,
+      "sd": 773.931,
+      "n": 2000,
+      "ci95_lo": 14.252,
+      "ci95_hi": 82.089
+    },
+    "learned_bb100": {
+      "mean": 106.979,
+      "sd": 1121.94,
+      "n": 2000,
+      "ci95_lo": 57.809,
+      "ci95_hi": 156.149
+    },
+    "paired_diff_bb100": {
+      "mean": 58.808,
+      "sd": 1015.672,
+      "n": 2000,
+      "ci95_lo": 14.295,
+      "ci95_hi": 103.321
+    },
+    "improvement_supported": true,
+    "regression_supported": false
+  },
+  "eval_unseen_pool": {
+    "pool": [
+      "LAG Trainer",
+      "Scared Money",
+      "Loose Limper",
+      "Trapper"
+    ],
+    "deals": 2000,
+    "hands_each": 12000,
+    "seed": 907002,
+    "start_bb100": {
+      "mean": 0.821,
+      "sd": 463.589,
+      "n": 2000,
+      "ci95_lo": -19.496,
+      "ci95_hi": 21.138
+    },
+    "learned_bb100": {
+      "mean": 43.25,
+      "sd": 777.842,
+      "n": 2000,
+      "ci95_lo": 9.16,
+      "ci95_hi": 77.34
+    },
+    "paired_diff_bb100": {
+      "mean": 42.429,
+      "sd": 746.824,
+      "n": 2000,
+      "ci95_lo": 9.699,
+      "ci95_hi": 75.16
+    },
+    "improvement_supported": true,
+    "regression_supported": false
+  },
+  "improvement_supported_on_unseen": true,
+  "verdict": "IMPROVED on unseen opponents: learned - start = +42.4 bb/100, 95% CI [+9.7, +75.2] over 12000 hands",
+  "total_hands_simulated": 264000,
+  "elapsed_sec": 723.6
+}
