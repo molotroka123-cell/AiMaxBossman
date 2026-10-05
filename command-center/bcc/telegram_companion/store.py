@@ -272,6 +272,12 @@ class Store:
                         (nonce, who, self.seal(payload), time.time() + 300))
         return nonce
 
+    def only_pending(self, who: str) -> str | None:
+        """The nonce of this person's single live proposal, or None when there are none or several."""
+        rows = self.db.execute("SELECT id FROM proposals WHERE who=? AND phase='pending' AND expires>?",
+                               (who, time.time())).fetchall()
+        return rows[0][0] if len(rows) == 1 else None
+
     def consume(self, who: str, nonce: str):
         with self.tx():
             row = self.db.execute("SELECT * FROM proposals WHERE id=? AND who=? AND phase='pending' AND expires>?",

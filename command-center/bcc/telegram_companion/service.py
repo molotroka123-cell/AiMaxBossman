@@ -967,6 +967,10 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
         if command == "/confirm":
             if self.store.get("delegation_locked", False):
                 return "Новые поручения заблокированы владельцем."
+            if not arg:
+                # Owner test 2026-10-05: a bare /confirm after /task was refused. With exactly one live
+                # proposal of THIS person it is unambiguous; several still need the code.
+                arg = self.store.only_pending(person.key) or ""
             if len(arg) != 12 or any(c not in "0123456789abcdef" for c in arg):
                 raise CompanionError("PROPOSAL_EXPIRED_OR_USED")
             proposal = self.store.consume(person.key, arg)
