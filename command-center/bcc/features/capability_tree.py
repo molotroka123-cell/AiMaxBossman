@@ -414,13 +414,27 @@ async def zone_reports(request: Request, after: int = 0):
     return {"items": rows, "last_seq": state["seq"]}
 
 
+def _earned(rec: dict) -> str | None:
+    """What Bossman's own work proved for the leaf: verified candidate, unverified candidate, or nothing.
+
+    A failed independent check earns nothing; only the owner's Apply turns a candidate into "applied".
+    """
+    if rec.get("status") != "completed" or not rec.get("changed_files"):
+        return None
+    ver = rec.get("verification")
+    if isinstance(ver, dict):
+        return "verified" if ver.get("passed") else None
+    return "unverified"
+
+
 def _sync_zone_work(svc) -> None:
     from . import coding_tasks
     with _WORK_LOCK:
         path, state = _work_state(svc)
         changed = False
         for job in state["jobs"]:
-            if job["status"] in _DONE:
+            awaiting_apply = job["status"] == "completed" and job.get("earned") in ("verified", "unverified")
+            if job["status"] in _DONE and not awaiting_apply:
                 continue
             try:
                 rec = coding_tasks._read(svc, job["task_id"])
@@ -430,7 +444,13 @@ def _sync_zone_work(svc) -> None:
             if status != job["status"]:
                 job["status"] = status
                 job["changed_files"] = list(rec.get("changed_files") or [])
+                job["earned"] = _earned(rec)
                 _report(state, job, status, _task_summary(job, rec))
+                changed = True
+            if job.get("earned") in ("verified", "unverified") and rec.get("applied_at"):
+                job["earned"], job["applied_at"] = "applied", rec["applied_at"]
+                _report(state, job, "applied", f"Зона «{job['label']}»: улучшение Bossman применено владельцем "
+                        f"(задача {job['task_id']}); лист на дереве отмечен как улучшенный.")
                 changed = True
         if changed:
             _atomic(path, state)

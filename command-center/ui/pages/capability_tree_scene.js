@@ -485,7 +485,35 @@ export function createScene({ nodes, colors, onPick, onHover }) {
     ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke(); ctx.restore();
   }
 
+  // What Bossman's own zone work earned: applied (owner accepted) = green crown that blooms,
+  // verified candidate = gold double ring, unverified candidate = dashed ring.
+  const EARNED = { applied: '#5ef0a0', verified: '#ffd36b', unverified: 'rgba(255,255,255,.7)' };
+  function drawEarned(t) {
+    for (const e of marks.earned || []) {
+      const l = byNode.get(e.id); if (!l) continue;
+      const c = EARNED[e.kind] || EARNED.unverified;
+      const breathe = reduced ? 0 : Math.sin(t * 0.002 + l.x) * 1.5;
+      if (e.kind === 'applied') {
+        ctx.globalCompositeOperation = 'lighter';
+        const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, 22);
+        g.addColorStop(0, 'rgba(94,240,160,.55)'); g.addColorStop(1, 'rgba(94,240,160,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(l.x, l.y, 22, 0, TAU); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        for (let k = 0; k < 5; k++) {  // five petals
+          const a = k * TAU / 5 + (reduced ? 0 : t * 0.0004);
+          ctx.fillStyle = c; ctx.beginPath();
+          ctx.ellipse(l.x + Math.cos(a) * 7, l.y + Math.sin(a) * 7, 4.5, 2.2, a, 0, TAU); ctx.fill();
+        }
+      } else if (e.kind === 'verified') {
+        ring(l.x, l.y, 10 + breathe, c, 1.6); ring(l.x, l.y, 15 + breathe, c, 1);
+      } else {
+        ring(l.x, l.y, 11 + breathe, c, 1.2, [3, 3], reduced ? 0 : t * 0.001);
+      }
+    }
+  }
+
   function drawMarks(t) {
+    drawEarned(t);
     for (const id of marks.active || []) {
       const l = byNode.get(id); if (!l) continue;
       ctx.globalCompositeOperation = 'lighter';

@@ -318,6 +318,36 @@ def test_zone_completion_is_reported_once_with_the_independent_check(tmp_path, m
     assert "после вашего подтверждения" in reports[0]["text"]
 
 
+def test_leaf_earns_verified_then_applied_only_through_the_owner_apply(tmp_path, monkeypatch):
+    from bcc.features import coding_tasks
+    created = []
+    app, _ = _zone_app(tmp_path, monkeypatch, created)
+    svc = app.state.svc
+    with TestClient(app) as client:
+        task_id = client.post("/api/capability-tree/work", json={"node_id": "leaf"}).json()["job"]["task_id"]
+    rec = {"id": task_id, "status": "completed", "changed_files": ["a.py"], "verification": {"ran": True, "passed": True}}
+    monkeypatch.setattr(coding_tasks, "_read", lambda _svc, _tid: dict(rec))
+    tree._sync_zone_work(svc)
+    with TestClient(app) as client:
+        job = client.get("/api/capability-tree?lite=1").json()["work"][0]
+    assert job["earned"] == "verified"
+    rec["applied_at"] = 123.0  # the owner pressed Apply in Coding
+    tree._sync_zone_work(svc)
+    tree._sync_zone_work(svc)
+    with TestClient(app) as client:
+        job = client.get("/api/capability-tree?lite=1").json()["work"][0]
+        reports = client.get("/api/capability-tree/reports?after=0").json()["items"]
+    assert job["earned"] == "applied"
+    assert [r["status"] for r in reports].count("applied") == 1
+
+
+def test_failed_independent_check_earns_nothing():
+    assert tree._earned({"status": "completed", "changed_files": ["a.py"], "verification": {"passed": False}}) is None
+    assert tree._earned({"status": "completed", "changed_files": [], "verification": {"passed": True}}) is None
+    assert tree._earned({"status": "completed", "changed_files": ["a.py"]}) == "unverified"
+    assert tree._earned({"status": "failed", "changed_files": ["a.py"]}) is None
+
+
 def test_full_app_mounts_capability_tree(tmp_path):
     app = create_app(make_settings(tmp_path), start_workers=False, announce_token=False)
     paths = set(app.openapi()["paths"])

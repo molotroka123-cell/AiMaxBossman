@@ -88,6 +88,7 @@ def main(argv=None) -> int:
     ap.add_argument("--roi-max", type=float, default=0.6)
     ap.add_argument("--out-fps", type=int, default=24)
     ap.add_argument("--plan-only", action="store_true")
+    ap.add_argument("--composite-only", action="store_true", help="no generation: assemble finished segments")
     args = ap.parse_args(argv)
     job = args.job
     job.mkdir(parents=True, exist_ok=True)
@@ -200,6 +201,9 @@ def main(argv=None) -> int:
     sheet.save(job / "plan_preview.png")
     if args.plan_only:
         return 0
+    if args.composite_only:  # assemble from finished segments only; the rest of the frames stay the source
+        jobs = [jb for jb in jobs if len(list((jb["dir"] / "gen").glob("*.png"))) >= jb["length"]]
+        trace("composite_only", t_all, segments=[(j["shot"], j["start"]) for j in jobs])
 
     # 5. generation, --parallel segments at once
     stop, procs = threading.Event(), []

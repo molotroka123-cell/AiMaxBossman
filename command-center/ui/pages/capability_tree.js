@@ -77,6 +77,12 @@ function campaignBody(activity, control) {
       btn('STOP', () => control(v15 ? '/api/v15/owner-run/stop' : '/api/evolution/stop'), { variant: 'danger' })));
 }
 
+// Leaves Bossman improved itself (zone work): applied by the owner / candidate passed the independent check.
+function earnedText(jobs) {
+  const n = (k) => jobs.filter(j => j.earned === k).length;
+  return `улучшено Bossman · применено ${n('applied')} · проверено ${n('verified')} · без проверки ${n('unverified')}`;
+}
+
 function workList(jobs) {
   if (!jobs.length) return h('p.dim', 'Пока ни одной зоны в работе. Выберите лист и нажмите «Bossman, работай здесь».');
   return h('div.stack.sm', ...jobs.slice().reverse().slice(0, 12).map(j => h('div.row.gap-sm.ct-job',
@@ -101,8 +107,10 @@ const Page = {
     const details = h('div');
     const campaignBox = h('div');
     const workBox = h('div');
+    const earnedRow = h('span.ct-legend-row', earnedText(jobs));
     const marks = () => ({ active: (activity.active_matches || []).map(x => x.node_id), selected: selected?.id,
-      working: jobs.filter(j => !DONE.includes(j.status)).map(j => j.node_id) });
+      working: jobs.filter(j => !DONE.includes(j.status)).map(j => j.node_id),
+      earned: jobs.filter(j => j.earned).map(j => ({ id: j.node_id, kind: j.earned })) });
     let scene = null;
     let save;
     let work;
@@ -150,7 +158,7 @@ const Page = {
     scene.update(marks());
     const legend = h('div.ct-legend', ...LEGEND.map(k => h('span.ct-legend-row',
       h('i', { style: `background:${STATUS[k][2]};color:${STATUS[k][2]}` }), `${STATUS[k][0]} · ${statusCounts[k] || 0}`)),
-    h('span.ct-legend-note', 'цвет = уровень доказательства, не PASS'));
+    earnedRow, h('span.ct-legend-note', 'цвет = уровень доказательства, не PASS'));
     const stage = h('div.ct-stage', scene.el, legend);
     stage.ctScene = scene;  // automation hook (smoke tests): the same pick path as a click
     renderDetail();
@@ -164,6 +172,7 @@ const Page = {
         jobs = lite.work || jobs;
         campaignBox.replaceChildren(campaignBody(activity, control));
         workBox.replaceChildren(workList(jobs));
+        earnedRow.replaceChildren(earnedText(jobs));
         scene.update(marks());
       } catch { /* the next tick retries; a failed poll never blanks the page */ }
     };
