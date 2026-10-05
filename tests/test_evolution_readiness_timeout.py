@@ -21,6 +21,18 @@ class RecordingApi:
         return self.request("POST", path, payload)
 
 
+def test_worker_model_selects_an_allowlisted_cloud_worker_for_the_attempt(tmp_path):
+    import time as _time
+    from types import SimpleNamespace
+    backend = BossmanCodingBackend(RecordingApi(), project_id="p", model="worker:openrouter-free")
+    ctx = SimpleNamespace(task={"editable": ["a.py"], "tests": ["tests/test_a.py"]}, instruction="fix",
+                          deadline=_time.monotonic() + 600)
+    body = backend.body(ctx, tmp_path)
+    assert body["worker"] == "openrouter-free" and body["model"] is None
+    plain = BossmanCodingBackend(RecordingApi(), project_id="p", model="some-local-model").body(ctx, tmp_path)
+    assert "worker" not in plain and plain["model"] == "some-local-model"
+
+
 def test_readiness_waits_longer_than_a_cold_model_handshake():
     api = RecordingApi()
     backend = BossmanCodingBackend(api, project_id="p")
