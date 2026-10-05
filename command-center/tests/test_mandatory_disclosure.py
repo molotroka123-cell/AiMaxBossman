@@ -150,6 +150,8 @@ def test_full_pipeline_discloses_nothing(disclosing_runtime):
 def test_output_filter_alone_discloses_nothing(disclosing_runtime, monkeypatch):
     runtime, model = disclosing_runtime
     monkeypatch.setattr(rt, "public_guard", lambda text: None)
+    # "alone": the reply-side self-disclosure replacement (20010a4c) would otherwise catch the leak first
+    monkeypatch.setattr(rt, "reply_discloses_model", lambda *_a, **_k: False)
     monkeypatch.setenv("BOSSMAN_JEFF_J2", "off")
     replies = _run(runtime, CORPUS)
     assert len(model.calls) >= len(CORPUS)
