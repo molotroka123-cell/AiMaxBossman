@@ -316,3 +316,50 @@ def test_a_real_writer_produces_the_shape_that_was_broken(tmp_path):
     text = render_compact(parse_file(p))
     assert "МАРКЕР-ИЗВЛЕЧЕНИЯ" in text, text[:300]
     assert "вторая ячейка" in text, text[:300]
+
+
+def _make_epub(path, chapters, *, spine=True, opf_dir="OEBPS") -> None:
+    buf = io.BytesIO()
+    pre = f"{opf_dir}/" if opf_dir else ""
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("mimetype", "application/epub+zip")
+        z.writestr("META-INF/container.xml",
+                   '<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles>'
+                   f'<rootfile full-path="{pre}content.opf"/></rootfiles></container>')
+        items = "".join(f'<item id="c{i}" href="t/c{i}.xhtml"/>' for i in range(len(chapters)))
+        # spine deliberately reverses manifest order: reading order comes from the spine
+        refs = "".join(f'<itemref idref="c{i}"/>' for i in reversed(range(len(chapters)))) if spine else ""
+        z.writestr(f"{pre}content.opf",
+                   '<package xmlns="http://www.idpf.org/2007/opf"><metadata '
+                   'xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Книга</dc:title></metadata>'
+                   f"<manifest>{items}</manifest><spine>{refs}</spine></package>")
+        for i, body in enumerate(chapters):
+            z.writestr(f"{pre}t/c{i}.xhtml",
+                       f"<html><head><script>var s='DECOY-{i}'</script></head><body>{body}</body></html>")
+        z.writestr("../evil.xhtml", "<p>TRAVERSAL</p>")
+    path.write_bytes(buf.getvalue())
+
+
+def test_epub_chapters_are_text_in_spine_order_with_provenance(tmp_path):
+    # Measured gap (THIRD_PARTY_DECISIONS.md): EPUB was listed as zip entries, 0 of the book's text reached the model.
+    get_cache().clear() if hasattr(get_cache(), "clear") else None
+    p = tmp_path / "book.epub"
+    _make_epub(p, ["<p>Caf&#233; ALPHA</p>", "<h1>Two</h1><p>BETA &amp; co</p>"])
+    art = parse_file(p)
+    assert art.kind == "epub"
+    assert [s.ref for s in art.sections] == ["meta=title", "chapter=OEBPS/t/c1.xhtml", "chapter=OEBPS/t/c0.xhtml"]
+    text = "\n".join(s.text for s in art.sections)
+    assert "Café ALPHA" in text and "BETA & co" in text
+    # negative controls: script content and a traversal member never become book text
+    assert "DECOY" not in text and "TRAVERSAL" not in text
+
+
+def test_epub_without_spine_falls_back_to_manifest_and_non_epub_zip_stays_a_listing(tmp_path):
+    p = tmp_path / "nospine.epub"
+    _make_epub(p, ["<p>ONLY</p>"], spine=False, opf_dir="")
+    assert "ONLY" in "\n".join(s.text for s in parse_file(p).sections)
+    fake = tmp_path / "fake.epub"  # a .epub that is just a zip: honest listing, as before
+    with zipfile.ZipFile(fake, "w") as z:
+        z.writestr("a.txt", "x")
+    art = parse_file(fake)
+    assert [s.kind for s in art.sections] == ["entry"]

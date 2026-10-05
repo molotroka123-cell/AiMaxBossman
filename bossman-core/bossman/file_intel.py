@@ -21,6 +21,7 @@ import re
 import struct
 import zipfile
 from dataclasses import dataclass, field
+from html.parser import HTMLParser
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -47,7 +48,7 @@ class ArtifactSection:
 
 @dataclass(frozen=True, slots=True)
 class ParsedArtifact:
-    kind: str                   # pdf|docx|xlsx|csv|pptx|txt|md|json|zip|image|code
+    kind: str                   # pdf|docx|xlsx|csv|pptx|epub|txt|md|json|zip|image|code
     source_path: str
     content_hash: str
     sections: tuple[ArtifactSection, ...]
@@ -65,7 +66,7 @@ def detect_kind(path: Path, head: bytes) -> str:
     if head.startswith(b"\x89PNG") or ext in (".png", ".jpg", ".jpeg", ".gif", ".webp"):
         return "image"
     if head.startswith(b"PK\x03\x04"):
-        return {".docx": "docx", ".xlsx": "xlsx", ".pptx": "pptx"}.get(ext, "zip")
+        return {".docx": "docx", ".xlsx": "xlsx", ".pptx": "pptx", ".epub": "epub"}.get(ext, "zip")
     if ext == ".csv":
         return "csv"
     if ext == ".json":
@@ -225,6 +226,81 @@ def _parse_pptx(data: bytes) -> list[ArtifactSection]:
         return out[:MAX_SECTIONS]
 
 
+class _XhtmlText(HTMLParser):
+    """Текст главы EPUB: блоки — отдельными строками, script/style — выброшены."""
+    _BLOCK = {"p", "div", "br", "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6", "section", "blockquote"}
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self.skip = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style"):
+            self.skip += 1
+        elif tag in self._BLOCK:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style") and self.skip:
+            self.skip -= 1
+        elif tag in self._BLOCK:
+            self.parts.append("\n")
+
+    def handle_data(self, data):
+        if not self.skip:
+            self.parts.append(data)
+
+    def text(self) -> str:
+        lines = (" ".join(line.split()) for line in "".join(self.parts).splitlines())
+        return "\n".join(line for line in lines if line)
+
+
+_OPF = "{http://www.idpf.org/2007/opf}"
+_CONTAINER = "{urn:oasis:names:tc:opendocument:xmlns:container}"
+
+
+def _parse_epub(data: bytes) -> list[ArtifactSection]:
+    """EPUB = zip + OPF: главы в порядке spine, ссылка на файл главы как provenance.
+
+    Раньше EPUB уходил в общий zip-листинг: модель получала имена файлов вместо
+    текста книги (замер в docs/hybrid/THIRD_PARTY_DECISIONS.md: 17/19 против
+    19/19 у MarkItDown — вся разница здесь). Без новых зависимостей.
+    """
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        names = set(_safe_zip_names(zf))
+        opf_path = ""
+        if "META-INF/container.xml" in names:
+            rootfile = ET.fromstring(zf.read("META-INF/container.xml")).find(f".//{_CONTAINER}rootfile")
+            opf_path = (rootfile.get("full-path") or "") if rootfile is not None else ""
+        if opf_path not in names:
+            opf_path = next((n for n in sorted(names) if n.endswith(".opf")), "")
+        if not opf_path:
+            return _parse_zip(data)  # не EPUB по содержанию: честный листинг, как раньше
+        opf = ET.fromstring(zf.read(opf_path))
+        base = opf_path.rsplit("/", 1)[0] + "/" if "/" in opf_path else ""
+        manifest = {item.get("id"): item.get("href") or "" for item in opf.iter(f"{_OPF}item")}
+        order = [manifest.get(ref.get("idref"), "") for ref in opf.iter(f"{_OPF}itemref")]
+        if not any(order):
+            order = [h for h in manifest.values() if h.endswith((".xhtml", ".html", ".htm"))]
+        out: list[ArtifactSection] = []
+        title = opf.find(".//{http://purl.org/dc/elements/1.1/}title")
+        if title is not None and (title.text or "").strip():
+            out.append(ArtifactSection(ref="meta=title", kind="text", text=title.text.strip()))
+        for href in order:
+            member = base + href.split("#", 1)[0]
+            if member not in names:
+                continue
+            parser = _XhtmlText()
+            parser.feed(zf.read(member).decode("utf-8", "replace"))
+            text = parser.text()
+            if text:
+                out.append(ArtifactSection(ref=f"chapter={member}", kind="text", text=text))
+            if len(out) >= MAX_SECTIONS:
+                break
+    return out[:MAX_SECTIONS]
+
+
 def _parse_pdf(data: bytes) -> list[ArtifactSection]:
     try:
         from pypdf import PdfReader  # optional dependency — честно
@@ -258,6 +334,7 @@ _PARSERS = {
                         ensure_ascii=False, indent=1)[:200_000])],
     "zip": lambda d, p: _parse_zip(d),
     "docx": lambda d, p: _parse_docx(d),
+    "epub": lambda d, p: _parse_epub(d),
     "xlsx": lambda d, p: _parse_xlsx(d),
     "pptx": lambda d, p: _parse_pptx(d),
     "pdf": lambda d, p: _parse_pdf(d),
