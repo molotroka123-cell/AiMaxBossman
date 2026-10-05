@@ -14,6 +14,7 @@ No product tests, current owner-machine observation, current authenticated conne
 - `capability-map.json`: stable node IDs, statuses, provenance, next actions and reference-only memory protocol.
 - `command-api-symbol-catalog.json`: full extracted declaration catalogue with source lines.
 - `full-inventory.json.gz`: all branch tips and union file/blob membership; branch indexes refer to the ordered `branches` array.
+- `ZONES_AGENTS_SKILLS_PLUGINS.md`: zone scoping fix, proof and vetted OSS for agents/skills/plugins (2026-10-05).
 - `integration-backlog.json`: documented blocked/proposed work and files absent from selected checkout. Absence does NOT mean abandoned.
 
 ## Main findings

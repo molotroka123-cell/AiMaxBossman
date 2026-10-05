@@ -97,7 +97,8 @@ proof['workers'] = app.state.svc.start_workers
 from starlette.responses import JSONResponse
 get_allowed = {'/api/login-hint','/api/models','/api/providers','/api/providers/kinds',
                '/api/missions','/api/schedules','/api/objectives','/api/objectives/status','/api/approvals',
-               '/api/testing/status','/api/command-bar'}
+               '/api/testing/status','/api/command-bar',
+               '/api/evolution/status'}  # read-only poll: the capability tree opens once per campaign
 fixtures = {
     '/api/system': {'cpu_percent':0,'ram_total':1,'ram_used':0,'gpus':[]},
     '/api/identity': {'source_sha':'fixture','source_dirty':True},

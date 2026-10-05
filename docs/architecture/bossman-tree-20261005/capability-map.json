@@ -12614,6 +12614,231 @@
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
+    },
+    {
+      "id": "agents-graph",
+      "label": "Карта агентов · граф оркестров",
+      "parent": "agents",
+      "status": "code",
+      "detail": "Граф строится из БД агентов/оркестров и живых run'ов. Код в этой сборке; живая работа не сертифицирована.",
+      "sources": [
+        {
+          "path": "command-center/bcc/features/agentmap.py"
+        },
+        {
+          "path": "command-center/bcc/v2/agent_graph.py"
+        },
+        {
+          "path": "command-center/bcc/v2/orchestration_schema.py"
+        }
+      ],
+      "next_action": "Проверить, что граф совпадает с таблицей agents после правки агента."
+    },
+    {
+      "id": "agents-lab",
+      "label": "Лаборатория агентов · сравнение стратегий",
+      "parent": "agents",
+      "status": "code",
+      "detail": "Шесть сохранённых стратегий над одним sidecar; честное сравнение на одном кейсе. Код в этой сборке; живая работа не сертифицирована.",
+      "sources": [
+        {
+          "path": "command-center/bcc/features/lab_agents.py"
+        }
+      ],
+      "next_action": "Прогнать одинаковый кейс для RAW и PLAN_EXECUTE_VERIFY; сравнить по скрытым тестам."
+    },
+    {
+      "id": "skills-runtime",
+      "label": "Движок навыков · загрузка, каталог, оценка",
+      "parent": "skills",
+      "status": "code",
+      "detail": "Код, который реально находит, дедуплицирует и оценивает SKILL.md. Без него зона навыков — только тексты. Код в этой сборке; живая работа не сертифицирована.",
+      "sources": [
+        {
+          "path": "command-center/bcc/features/skills.py"
+        },
+        {
+          "path": "command-center/bcc/v2/skill_library.py"
+        },
+        {
+          "path": "command-center/bcc/v2/skill_catalog.py"
+        },
+        {
+          "path": "command-center/bcc/v2/skill_evaluation.py"
+        }
+      ],
+      "next_action": "Убедиться, что одноимённые навыки из .agents/skills и skills_catalog не конфликтуют (systematic-debugging, test-driven-development, webapp-testing)."
+    },
+    {
+      "id": "plugins-mcp",
+      "label": "MCP · хаб и runtime",
+      "parent": "plugins",
+      "status": "code",
+      "detail": "Подключение MCP-серверов к общему реестру инструментов и разрешений. Код в этой сборке; живая работа не сертифицирована.",
+      "sources": [
+        {
+          "path": "command-center/bcc/features/tools_mcp.py"
+        },
+        {
+          "path": "command-center/bcc/v2/mcp_hub.py"
+        },
+        {
+          "path": "command-center/bcc/v2/mcp_runtime.py"
+        }
+      ],
+      "next_action": "Подключить один локальный MCP-сервер, вызвать tool_list и проверить отказ без разрешения."
+    },
+    {
+      "id": "plugins-security",
+      "label": "Безопасность плагинов · scopes",
+      "parent": "plugins",
+      "status": "code",
+      "detail": "Проверка scope/approval для каждого capability manifest. Код в этой сборке; живая работа не сертифицирована.",
+      "sources": [
+        {
+          "path": "command-center/bcc/plugin_security.py"
+        }
+      ],
+      "next_action": "Негативный контроль: запись без scope отклоняется, чтение со scope проходит."
+    },
+    {
+      "id": "plugins-oss",
+      "label": "OSS-движки · инвентарь",
+      "parent": "plugins",
+      "status": "code",
+      "detail": "Опциональные локальные движки (whisper, UI-TARS) и их наличие. Код в этой сборке; живая работа не сертифицирована.",
+      "sources": [
+        {
+          "path": "command-center/bcc/features/oss_integrations.py"
+        }
+      ],
+      "next_action": "Показать владельцу, какие движки установлены на его машине."
+    },
+    {
+      "id": "oss-113",
+      "label": "openai/openai-agents-python",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "MIT; handoffs/guardrails/tracing — эталон для nl_orchestra и task_exchange, не замена движка. Ссылка, не установленная зависимость.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261005/ZONES_AGENTS_SKILLS_PLUGINS.md"
+        }
+      ],
+      "next_action": "Взять идею в кандидат-ветку с тестом; зависимость — только после проверки лицензии и одобрения.",
+      "external_url": "https://github.com/openai/openai-agents-python"
+    },
+    {
+      "id": "oss-114",
+      "label": "langchain-ai/langgraph",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "MIT; durable graph + checkpoint/interrupt — сверить с миссиями и WAIT_APPROVAL. Ссылка, не установленная зависимость.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261005/ZONES_AGENTS_SKILLS_PLUGINS.md"
+        }
+      ],
+      "next_action": "Взять идею в кандидат-ветку с тестом; зависимость — только после проверки лицензии и одобрения.",
+      "external_url": "https://github.com/langchain-ai/langgraph"
+    },
+    {
+      "id": "oss-115",
+      "label": "pydantic/pydantic-ai",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "MIT; типизированные tool-вызовы и eval-хуки — образец для контрактов навыков. Ссылка, не установленная зависимость.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261005/ZONES_AGENTS_SKILLS_PLUGINS.md"
+        }
+      ],
+      "next_action": "Взять идею в кандидат-ветку с тестом; зависимость — только после проверки лицензии и одобрения.",
+      "external_url": "https://github.com/pydantic/pydantic-ai"
+    },
+    {
+      "id": "oss-116",
+      "label": "crewAIInc/crewAI",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "Роли/процессы для fleet и swarm; только как UX-референс. Ссылка, не установленная зависимость.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261005/ZONES_AGENTS_SKILLS_PLUGINS.md"
+        }
+      ],
+      "next_action": "Взять идею в кандидат-ветку с тестом; зависимость — только после проверки лицензии и одобрения.",
+      "external_url": "https://github.com/crewAIInc/crewAI"
+    },
+    {
+      "id": "oss-117",
+      "label": "modelcontextprotocol/python-sdk",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "MIT; официальный MCP SDK (pypi: mcp) — опора для mcp_runtime. Ссылка, не установленная зависимость.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261005/ZONES_AGENTS_SKILLS_PLUGINS.md"
+        }
+      ],
+      "next_action": "Взять идею в кандидат-ветку с тестом; зависимость — только после проверки лицензии и одобрения.",
+      "external_url": "https://github.com/modelcontextprotocol/python-sdk"
+    },
+    {
+      "id": "oss-118",
+      "label": "PrefectHQ/fastmcp",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "Apache-2.0; быстрые MCP-серверы для своих коннекторов Bossman. Ссылка, не установленная зависимость.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261005/ZONES_AGENTS_SKILLS_PLUGINS.md"
+        }
+      ],
+      "next_action": "Взять идею в кандидат-ветку с тестом; зависимость — только после проверки лицензии и одобрения.",
+      "external_url": "https://github.com/PrefectHQ/fastmcp"
+    },
+    {
+      "id": "oss-119",
+      "label": "modelcontextprotocol/servers",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "Справочные MCP-серверы (filesystem, git, fetch) для теста plugins-mcp. Ссылка, не установленная зависимость.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261005/ZONES_AGENTS_SKILLS_PLUGINS.md"
+        }
+      ],
+      "next_action": "Взять идею в кандидат-ветку с тестом; зависимость — только после проверки лицензии и одобрения.",
+      "external_url": "https://github.com/modelcontextprotocol/servers"
+    },
+    {
+      "id": "oss-120",
+      "label": "ComposioHQ/composio",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "Apache-2.0; OAuth-коннекторы к сотням сервисов — только с одобрением владельца. Ссылка, не установленная зависимость.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261005/ZONES_AGENTS_SKILLS_PLUGINS.md"
+        }
+      ],
+      "next_action": "Взять идею в кандидат-ветку с тестом; зависимость — только после проверки лицензии и одобрения.",
+      "external_url": "https://github.com/ComposioHQ/composio"
+    },
+    {
+      "id": "oss-121",
+      "label": "temporalio/sdk-python",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "MIT; надёжные долгие воркфлоу — референс для recovery миссий. Ссылка, не установленная зависимость.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261005/ZONES_AGENTS_SKILLS_PLUGINS.md"
+        }
+      ],
+      "next_action": "Взять идею в кандидат-ветку с тестом; зависимость — только после проверки лицензии и одобрения.",
+      "external_url": "https://github.com/temporalio/sdk-python"
     }
   ],
   "memory_protocol": {

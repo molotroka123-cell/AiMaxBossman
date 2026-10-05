@@ -354,3 +354,56 @@ def test_full_app_mounts_capability_tree(tmp_path):
     assert "/api/capability-tree" in paths
     assert "/api/capability-tree/note" in paths
     assert "/api/capability-tree/scan" in paths
+
+
+def _zone_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "zone"
+    feats, tests = repo / "command-center" / "bcc" / "features", repo / "command-center" / "tests"
+    feats.mkdir(parents=True)
+    tests.mkdir(parents=True)
+    for stem in ("plugins", "missions", "rave"):
+        (feats / f"{stem}.py").write_text("X = 1\n", encoding="utf-8")
+    (tests / "test_plugins_adapter.py").write_text("from bcc.features import plugins\n", encoding="utf-8")
+    (tests / "test_plugin_security.py").write_text("from bcc.features import (\n    plugins,\n)\n", encoding="utf-8")
+    (tests / "test_feat_missions.py").write_text("import bcc.features.missions as m\n", encoding="utf-8")
+    (tests / "test_rave_a.py").write_text("", encoding="utf-8")
+    (tests / "test_rave_b.py").write_text("", encoding="utf-8")
+    (tests / "test_browser_sweep.py").write_text("from playwright.sync_api import sync_playwright\n"
+                                                 "from bcc.features import missions\n", encoding="utf-8")
+    (tests / "test_unrelated.py").write_text("from bcc.features import pluginsx, rave_cli\n", encoding="utf-8")
+    for i in range(tree._ZONE_FILES_MAX + 3):
+        skill = repo / ".agents" / "skills" / f"s{i}"
+        skill.mkdir(parents=True)
+        (skill / "SKILL.md").write_text("# s\n", encoding="utf-8")
+    return repo
+
+
+def test_zone_scope_keeps_runtime_code_and_finds_importing_tests(tmp_path):
+    # Owner-run prep 2026-10-05: the skills zone held 48 SKILL.md texts, no runtime code and no tests,
+    # and the plugins zone missed test_plugin_security (named after plugin_security, imports plugins).
+    repo = _zone_repo(tmp_path)
+    md = [{"id": f"s{i}", "parent": "z", "sources": [{"path": f".agents/skills/s{i}/SKILL.md"}]}
+          for i in range(tree._ZONE_FILES_MAX + 3)]
+    code = [{"id": stem, "parent": "z", "sources": [{"path": f"command-center/bcc/features/{stem}.py"}]}
+            for stem in ("plugins", "missions", "rave")]
+    seed = {"nodes": [{"id": "z", "sources": []}, *md, *code]}
+    files, dirs, verify = tree._zone_scope(seed, seed["nodes"][0], repo)
+    assert len(files) == tree._ZONE_FILES_MAX
+    assert files[:3] == [f"command-center/bcc/features/{s}.py" for s in ("plugins", "missions", "rave")]
+    assert dirs == ["command-center/tests"]
+    names = [Path(v).name for v in verify]
+    # own tests of every module first (round-robin), then tests that merely import a module
+    assert names == ["test_plugins_adapter.py", "test_rave_a.py", "test_rave_b.py",
+                     "test_plugin_security.py", "test_feat_missions.py"]
+    # negative controls: a browser suite and a look-alike module name are never a zone check
+    assert "test_browser_sweep.py" not in names and "test_unrelated.py" not in names
+
+
+def test_zone_scope_caps_verification(tmp_path):
+    repo = _zone_repo(tmp_path)
+    tests = repo / "command-center" / "tests"
+    for i in range(tree._ZONE_VERIFY_MAX + 5):
+        (tests / f"test_plugins_{i:02d}.py").write_text("", encoding="utf-8")
+    seed = {"nodes": [{"id": "z", "sources": [{"path": "command-center/bcc/features/plugins.py"}]}]}
+    _, _, verify = tree._zone_scope(seed, seed["nodes"][0], repo)
+    assert len(verify) == tree._ZONE_VERIFY_MAX
