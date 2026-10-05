@@ -2,6 +2,8 @@
 
 **Обновлено 2 октября 2026 года.** [Сводный аудит 2026-10-02](https://github.com/molotroka123-cell/AiMaxBossman/blob/integrate/bossman-1.7-unified-20260925/docs/owner/CURRENT_AUDIT_20261002.md). Текущий статус выпуска и доказательства: [рабочая ведомость владельца](docs/owner/WORKBENCH_20260926.md).
 
+> **24.09 owner handoff:** today's implementation package is in [BOSSMAN_TOMORROW_2026-09-24_START_HERE.md](BOSSMAN_TOMORROW_2026-09-24_START_HERE.md). It covers Model Fleet GREEN, Bossman WebDesigner, 8xH200 fine-tuning, evaluation/holdout, OSS/data sources and the next Game Studio reuse target. **Important:** this main-branch package is documentation; do not overwrite the newer `release/bossman-owner` runtime with the historical main runtime.
+
 ### Один компьютер. Одна программа. Проверяемый результат.
 
 Локальное AI-рабочее пространство: модели, агенты, память, управление компьютером, файлы, сайты, изображения, видео и связь через Telegram. Владелец задаёт результат обычным языком; Bossman должен выполнить работу, запросить нужные разрешения и проверить итог.
