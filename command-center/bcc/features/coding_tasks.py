@@ -127,20 +127,24 @@ _WORKER_KEY_ENV = "BOSSMAN_WORKER_API_KEY"
 
 
 async def _worker_key(name: str, svc) -> str | None:
-    try:
-        from .plugins import resolve_cred
-        key = await resolve_cred(name, svc)
-    except Exception:  # noqa: BLE001 — a vault outage falls back to the owner's key file
-        key = None
-    if key:
-        return key
+    """The owner's provider key file first (where the owner put the worker keys), then vault/env.
+
+    Live 2026-10-05: with vault/env first every cloud worker task failed on its first call
+    (HTTPError) while the same sidecar with the key-file key fixed a planted bug end to end.
+    """
     try:
         for line in OWNER_KEYS_FILE.read_text(encoding="utf-8").splitlines():
             if line.startswith(name + "="):
-                return line.split("=", 1)[1].strip().strip('"') or None
+                value = line.split("=", 1)[1].strip().strip('"')
+                if value:
+                    return value
     except OSError:
+        pass
+    try:
+        from .plugins import resolve_cred
+        return await resolve_cred(name, svc) or None
+    except Exception:  # noqa: BLE001 — no key anywhere: the task fails visibly
         return None
-    return None
 
 
 def _worker_command(worker: str) -> list[str]:

@@ -642,6 +642,13 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
             except (urllib.error.URLError, OSError, ValueError) as exc:
                 stop = "model_error"
                 summary = f"model call failed: {type(exc).__name__}"
+                if isinstance(exc, urllib.error.HTTPError):
+                    # The status and the provider's short reason are what makes a cloud failure
+                    # actionable (401 key, 400 payload, 429 rate limit); key-like strings are redacted.
+                    with contextlib.suppress(Exception):
+                        detail = exc.read(400).decode("utf-8", "replace")
+                        detail = re.sub(r"(sk-or-|nvapi-)[A-Za-z0-9_-]+", r"\1***", detail)
+                        summary += f" {exc.code}: {' '.join(detail.split())[:300]}"
                 break
             calls = parse_calls(msg)
             messages.append({"role": "assistant", "content": msg.get("content") or "",

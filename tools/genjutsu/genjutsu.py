@@ -38,10 +38,14 @@ BOSSMAN = Path.home() / "Bossman"
 MEDIA = BOSSMAN / "models" / "media"
 PREP = MEDIA / "genjutsu-prep"
 SD_CLI = BOSSMAN / "media-runtime" / "sdcpp" / "vulkan" / "sd-cli.exe"
+# Official Comfy-Org safetensors (the format stable-diffusion.cpp documents for Wan). The community
+# GGUFs were refused by this sd-cli build (74988b2): calcuis 1.3B -> "vace_patch_embedding not in model
+# metadata"; QuantStack 14B -> 5-D conv tensor "invalid number of dimensions". 14B is quantised on load.
 MODELS = {
-    "1.3b": MEDIA / "wan21-vace-1.3b" / "wan2.1-vace-1.3b-q8_0.gguf",
-    "14b": MEDIA / "wan21-vace-14b" / "Wan2.1_14B_VACE-Q4_K_M.gguf",
+    "1.3b": MEDIA / "wan21-vace-1.3b" / "wan2.1_vace_1.3B_fp16.safetensors",
+    "14b": MEDIA / "wan21-vace-14b" / "wan2.1_vace_14B_fp16.safetensors",
 }
+LOAD_TYPE = {"1.3b": None, "14b": "q8_0"}
 VAE = MEDIA / "wan21-vace-1.3b" / "wan_2.1_vae.safetensors"
 T5 = MEDIA / "wan22-ti2v-5b" / "umt5-xxl-encoder-Q8_0.gguf"
 NEGATIVE = ("色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，"
@@ -292,6 +296,8 @@ def stage_generate(job: Path, args, trace: Trace) -> None:
            "--offload-to-cpu", "--temporal-tiling", "-o", str(job / "gen" / "%04d.png"), "-v"]
     if args.fa:
         cmd.append("--diffusion-fa")
+    if LOAD_TYPE.get(args.model):
+        cmd += ["--type", LOAD_TYPE[args.model]]
     (job / "sd-cli.cmd.json").write_text(json.dumps(cmd, ensure_ascii=False, indent=1), encoding="utf-8")
     t0, peak, killed = time.time(), [0.0], [False]
     with (job / "sd-cli.log").open("w", encoding="utf-8", errors="replace") as log:

@@ -20,15 +20,14 @@ def test_worker_command_is_fixed_by_the_allowlist():
     assert nim[nim.index("--endpoint") + 1] == "https://integrate.api.nvidia.com/v1"
 
 
-def test_worker_key_falls_back_to_the_owner_key_file(tmp_path, monkeypatch):
+def test_worker_key_prefers_the_owner_key_file_then_env(tmp_path, monkeypatch):
     keyfile = tmp_path / "provider-keys.env"
     keyfile.write_text("OTHER=x\nNVIDIA_API_KEY=nv-test-value\n", encoding="utf-8")
     monkeypatch.setattr(ct, "OWNER_KEYS_FILE", keyfile)
-    monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
-    assert asyncio.run(ct._worker_key("NVIDIA_API_KEY", None)) == "nv-test-value"
-    monkeypatch.setenv("NVIDIA_API_KEY", "from-env")
-    assert asyncio.run(ct._worker_key("NVIDIA_API_KEY", None)) == "from-env"
+    monkeypatch.setenv("NVIDIA_API_KEY", "stale-env-value")
+    assert asyncio.run(ct._worker_key("NVIDIA_API_KEY", None)) == "nv-test-value"  # the owner's file wins
     monkeypatch.setattr(ct, "OWNER_KEYS_FILE", tmp_path / "missing.env")
+    assert asyncio.run(ct._worker_key("NVIDIA_API_KEY", None)) == "stale-env-value"
     monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
     assert asyncio.run(ct._worker_key("NVIDIA_API_KEY", None)) is None
 
