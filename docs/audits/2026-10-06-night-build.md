@@ -40,3 +40,27 @@ Same-product Terminal Run contract: пульт, CLI и дашборд — оди
 `ci_secret_scan` PASS.
 
 Итог корневого набора (локально, Linux py3.11, после фиксов): `2939 passed, 47 skipped, 0 failed`. CI по новому SHA — ниже, когда завершится.
+
+## Чекпоинт 2 — сведение веток (задача 2)
+
+Репозиторий был клонирован неглубоко (shallow) — `git fetch --unshallow` выполнен, иначе `HEAD..ветка` врёт. Ветки `origin/pr89-latest`
+в удалённом репозитории уже нет — взят `refs/pull/89/head` (0ec2ff52).
+
+| Источник | Что сделано | SHA |
+|---|---|---|
+| PR #89 (`pr89-latest`, 5 docs 2.1: архитектура autonomous operator, 5 кандидатов, Colibri отложен) | merge, конфликт README → оставлен README линии (заметка 24.09; строка аудита 02.10 совпадала) | `9b2318b3` |
+| `claude/bossman-freeze-closure-ohvmon` (1 docs-коммит `68a65803`) | merge, тот же README-конфликт, то же решение | `54f0f38d` |
+| `telegram-live-calls-s7-work` `12db1299` (STOP/hangup побеждают дозвон) | cherry-pick -x. Большая часть уже была в линии в новой форме (worker `_dialing/_stop_epoch`, manager `busy/dial_pending/_stop_latched`, control_plane `_calls_inventory`, hardening) → конфликты решены стороной линии. **Не хватало и добавлено:** `CallSession._dial_until_done` (STOP/hangup прерывают дозвон; STOP до run не звонит), замена STOP-файла, если старый недоступен для записи. Три теста падали на линии до порта (`test_stop_while_ringing_*`, `test_hangup_while_ringing_*`, `test_the_stop_flag_is_replaced_*`), проходят после; `test_worker_dial_races` (2) добавлен. Пакет `tests/telegram_calls` без `test_session.py`: 471 passed, 4 skipped; `test_session.py`+`test_account_store.py`: проходят | `ea558d2f` |
+| `a0087401` (DACL: `(OI)(CI)F` для каталогов) | смысл **уже в линии** (`bcc/auth.py`), не было теста. Добавлен переносимый тест (подмена icacls) — падает при удалении фикса (проверено), + оригинальный Windows-тест (на Linux skip) | `ab6d6d71` |
+| `a6a1b03b` (один префикс API, приёмка панели) | префикс `/api/telegram/calls` **уже в коде линии**; перенесены браузерная приёмка панели (`test_panel_browser`, 2 passed в Chromium) и тест owner stop-all/без перезвона (в линии `stop-all` ставит computer STOP первым, и тот уже кладёт трубку — тест проверяет инварианты, а не порядок). Docs `ARCHITECTURE/CONTINUE` из этого коммита не переносились (docs-only) | `ab6d6d71` |
+
+`wip/*` — только просмотр, в линию **не влито**; полезное:
+- `wip/cv-d-20260929`: Jeff `runtime.py` — при рестарте (не STOP) не помечать генерацию Studio как `delivery_unknown`, если фото ещё не ушло: resume
+  доставит ровно один раз (теряло готовые картинки). Полезно, без тестов в снапшоте → нужен порт с тестом.
+- `wip/cv-e-20260929`: каталог OpenRouter — модель, пропавшая из живого каталога, получает `unavailable` (авто-выбор её пропускает;
+  `nex-agi/nex-n2.5-pro:free` снят, а строка оставалась online и валила запуски «unknown cloud pricing»). Полезно для пула бесплатных моделей; без тестов в снапшоте.
+- `wip/autonomy-b-20260929`: правка тестов `test_autonomy_*` (−419/+420), по сути переписывание; проверить против текущих тестов, как есть не брать.
+- `wip/autonomy-c-20260929`: набор red-team/«mandatory» тестов (identity, disclosure, memory poisoning, pre-TTS audit; ~1500 строк) — ценный кандидат на порт, нужна проверка на текущем коде.
+- `wip/motion56-20260929`: Motion Studio library (build_library.py +623, тесты +236, docs) — не связано с ночной целью, оставлено.
+- Не вливались (вне задач ночи): `handoff/continuation-20260929` (3244 файла снимка docs → кандидат в `docs/owner/archive/` по решению владельца),
+  `feat/bossman-autonomy-funding` (docs заявки, NOT_SUBMITTED — решение владельца), `scratch/root-ci-debug-19` (удалять только с согласия владельца).
