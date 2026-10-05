@@ -349,3 +349,23 @@ async def test_ap001_the_canary_is_readable_when_it_is_legitimately_in_scope(
     assert TOKEN in res.content, (
         "the canary is not readable even in scope — the other AP-001 tests would "
         "then prove filtering, not containment")
+
+
+async def test_omitted_mode_runs_in_the_sandbox_it_was_approved_as_even_if_host_is_saved(env, monkeypatch):
+    """Security audit 2026-10-05: approval/policy read a missing mode as "sandbox"; the handler used the saved
+    default (project_host) and ran on the host. Approved == executed."""
+    async def saved_host_default(_svc):
+        return "project_host"
+    monkeypatch.setattr(tt, "_mode", saved_host_default)
+    seen = {}
+
+    async def fake_start(self, command, cwd, policy, **kwargs):
+        seen["mode"] = policy.mode
+        raise PermissionError("stop after capture")
+    monkeypatch.setattr(TerminalManager, "start", fake_start)
+    ctx = _ctx(env)
+    own = tt.scratch.for_context(ctx)                # always an allowed cwd
+    own.mkdir(parents=True, exist_ok=True)
+    res = await tt._tool_run({"command": "echo hi", "cwd": str(own)}, ctx)
+    assert seen.get("mode") == "sandbox", res.content
+    assert tt.normalize_run_args({"command": "echo hi"})["mode"] == "sandbox"

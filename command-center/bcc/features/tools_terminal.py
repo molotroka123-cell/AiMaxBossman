@@ -303,7 +303,10 @@ async def _tool_run(args: dict, ctx) -> ToolResult:
     if blocked:
         return ToolResult(content=blocked, one_line="terminal.run: чужая рабочая область",
                           error=True)
-    mode = str(args.get("mode") or await _mode(ctx.svc))
+    # Security audit 2026-10-05: the approval normalizer and the policy hook treat a missing mode as
+    # "sandbox"; executing the saved default (possibly project_host) instead ran on the host what was
+    # approved as sandbox. Approved == executed: no mode means sandbox; host needs an explicit mode.
+    mode = str(args.get("mode") or "sandbox")
     if mode not in ("sandbox", "project_host", "system_admin"):
         mode = "sandbox"
     own_scratch = scratch.for_context(ctx)
