@@ -288,15 +288,43 @@ class WorkBody(BaseModel):
 
 _WORK_LOCK = threading.Lock()
 _ZONE_FILES_MAX = 48
+_ZONE_VERIFY_MAX = 12
+_CODE_SUFFIXES = (".py", ".js")
 _REPORTS_KEPT = 300
 _DONE = ("completed", "failed", "blocked")
+
+
+def _tests_for(rel: str, folder: Path, texts: dict[Path, str]) -> tuple[list[Path], list[Path]]:
+    """(tests named after the module, other tests that import it: ``features.plugins``,
+    ``from bcc.features import plugins``). Name-only matching missed e.g. test_plugin_security."""
+    path = Path(rel)
+    stem, pkg = path.stem, path.parent.name
+    named = sorted(folder.glob(f"test_{stem}*.py"))
+    importing: list[Path] = []
+    if not rel.endswith(_CODE_SUFFIXES) or not pkg:
+        return named, importing
+    pattern = re.compile(rf"\b{re.escape(pkg)}\.{re.escape(stem)}\b"
+                         rf"|from\s+[\w.]*\b{re.escape(pkg)}\s+import\s+\(?[\w\s,]*\b{re.escape(stem)}\b")
+    for hit in sorted(folder.glob("test_*.py")):
+        if hit in named:
+            continue
+        if hit not in texts:
+            try:
+                texts[hit] = hit.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                texts[hit] = ""
+        if pattern.search(texts[hit]) and "playwright" not in texts[hit]:  # browser suites: not a zone check
+            importing.append(hit)
+    return named, importing
 
 
 def _zone_scope(seed: dict, node: dict, repo: Path) -> tuple[list[str], list[str], list[str]]:
     """(editable source files, test folders, existing tests to verify) for a node and its leaves.
 
     Only files present in THIS checkout: a zone whose code lives on another
-    branch cannot be worked on until that branch is integrated.
+    branch cannot be worked on until that branch is integrated. Code comes before
+    prose so the file cap drops SKILL.md texts, never the runtime that loads them;
+    verification tests are taken round-robin so every module of the zone is checked.
     """
     group = [node] + [n for n in seed["nodes"] if n.get("parent") == node["id"]]
     files: list[str] = []
@@ -305,22 +333,24 @@ def _zone_scope(seed: dict, node: dict, repo: Path) -> tuple[list[str], list[str
             rel = str(src.get("path") or "")
             if rel and rel not in files and (repo / rel).is_file():
                 files.append(rel)
-    files = files[:_ZONE_FILES_MAX]
+    files = sorted(files, key=lambda rel: not rel.endswith(_CODE_SUFFIXES))[:_ZONE_FILES_MAX]
     test_dirs: list[str] = []
     for rel in files:
         top = rel.split("/")[0]
         folder = next((c for c in (f"{top}/tests", "tests") if (repo / c).is_dir()), None)
-        if folder and folder not in test_dirs:
+        if folder and folder not in test_dirs and (rel.endswith(_CODE_SUFFIXES) or not test_dirs):
             test_dirs.append(folder)
+    texts: dict[Path, str] = {}
+    found = [[_tests_for(rel, repo / folder, texts) for folder in test_dirs]
+             for rel in files if rel.endswith(_CODE_SUFFIXES)]
     verify: list[str] = []
-    for rel in files:
-        stem = Path(rel).stem
-        for folder in test_dirs:
-            for hit in sorted((repo / folder).glob(f"test_{stem}*.py"))[:2]:
-                path = hit.relative_to(repo).as_posix()
-                if path not in verify:
-                    verify.append(path)
-    return files, test_dirs, verify[:8]
+    for kind in (0, 1):  # every module's own tests before any test that merely imports it
+        lists = [[h.relative_to(repo).as_posix() for pair in per for h in pair[kind]] for per in found]
+        for rank in range(max((len(x) for x in lists), default=0)):
+            for hits in lists:
+                if rank < len(hits) and hits[rank] not in verify and len(verify) < _ZONE_VERIFY_MAX:
+                    verify.append(hits[rank])
+    return files, test_dirs, verify
 
 
 def _zone_instruction(node: dict, owner_text: str) -> str:
