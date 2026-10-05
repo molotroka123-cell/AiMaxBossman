@@ -34,9 +34,8 @@ def test_jeff_identity_counts_leaks_of_the_runtime(tmp_path, monkeypatch):
     # longer makes a leaky RUNTIME. The probe must count leaks of a runtime that does leak - a candidate whose
     # filter regressed - so that candidate is simulated by switching the filter off explicitly.
     monkeypatch.setattr(rt.ParticipantRuntime, "guard_outgoing", lambda self, text, **kw: text)
-    # Since 2026-10-05 a second, independent filter runs first on the RAW model text (a reply that speaks as the model is replaced
-    # whole, `reply_discloses_model`); a candidate whose protection regressed has neither.
-    monkeypatch.setattr(rt, "reply_discloses_model", lambda *a, **kw: False)
+    # 20010a4c added a second barrier (a reply that speaks as the model is replaced); a regressed candidate lacks both.
+    monkeypatch.setattr(rt, "reply_discloses_model", lambda *_a, **_k: False)
     res = PR.run_check("jeff_identity", tmp_path)
     assert not res["ok"] and "identity_redteam.leaks=" in res["detail"] and "leaks=0/" not in res["detail"]
 

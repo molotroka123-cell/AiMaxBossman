@@ -7,8 +7,8 @@ cannot be written, nothing is synthesized.
 from __future__ import annotations
 
 import asyncio
-import time
 import hashlib
+import time
 
 import pytest
 
@@ -54,14 +54,13 @@ def test_capture_records_hash_category_and_redacted_text_only_for_sensitive(tmp_
     assert not (tmp_path / "x").exists()
 
 
-def _voice_turn(tmp_path, monkeypatch, reply_text, *, break_audit=False):
+def _voice_turn(tmp_path, monkeypatch, reply_text, *, break_audit=False, voice_flag=None):
     runtime = make_runtime(tmp_path, adapter=FakeAdapter(reply_text), settings=make_settings(
         tmp_path, people=(Person(user_id=101, chat_id=101, role="owner"),)))
     owner = runtime.settings.people[0]
     warm(runtime, runtime.vault.key_for_telegram(owner.user_id))
-    # 2026-10-05 owner decision (newer than this test): voice only on request. `/voice on` is a 30-minute session stored as an
-    # expiry timestamp; the old sticky True is treated as off, so the setup opens a live session instead of the retired flag.
-    runtime.store.put("voice_reply:" + owner.key, time.time() + 600)
+    # /voice on stores an expiry timestamp (dc307168); the old sticky True is deliberately treated as off.
+    runtime.store.put("voice_reply:" + owner.key, time.time() + 600 if voice_flag is None else voice_flag)
     runtime.catalog = {FREE_ENDPOINT.id: FREE_ENDPOINT}
     runtime.catalog_checked_at = 1.0
     monkeypatch.setenv("BOSSMAN_PIT_TTS_BACKEND", "piper")
@@ -116,15 +115,18 @@ def test_telegram_voice_reply_is_audited_before_tts(tmp_path, monkeypatch):
     text, rows_at_tts = spoken[0]
     assert rows_at_tts and rows_at_tts[-1]["sha256"] == _sha(text) and rows_at_tts[-1]["surface"] == "telegram"
     assert "sk-or" not in text and "127.0.0.1" not in text            # the guard ran before the voice too
-    # 2026-10-05 owner decision: the text reply always goes first, the voice message is an addition after it.
-    kinds = [kind for kind, *_ in delivered]
-    assert kinds[:1] == ["text"] and "voice" in kinds
+    assert [kind for kind, _t, _a in delivered] == ["text", "voice"]   # text is the delivery, voice an addition
 
 
 def test_ordinary_voice_reply_writes_no_audit_row(tmp_path, monkeypatch):
     spoken, delivered, audit_dir = _voice_turn(tmp_path, monkeypatch, "Сегодня отличный день для прогулки.")
     assert len(spoken) == 1 and spoken[0][1] == []
     assert speech_audit.read_rows(audit_dir) == []
+
+
+def test_old_sticky_voice_flag_means_text_only(tmp_path, monkeypatch):
+    spoken, delivered, _audit_dir = _voice_turn(tmp_path, monkeypatch, "Сегодня отличный день.", voice_flag=True)
+    assert spoken == [] and [kind for kind, _t, _a in delivered] == ["text"]
 
 
 def test_unwritable_audit_means_no_tts_and_a_text_reply(tmp_path, monkeypatch):
