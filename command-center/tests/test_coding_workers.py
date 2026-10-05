@@ -18,6 +18,8 @@ def test_worker_command_is_fixed_by_the_allowlist():
     assert argv[argv.index("--api-key-env") + 1] == "BOSSMAN_WORKER_API_KEY"
     nim = ct._worker_command("nvidia-nim")
     assert nim[nim.index("--endpoint") + 1] == "https://integrate.api.nvidia.com/v1"
+    ultra = ct._worker_command("nemotron-ultra-free")
+    assert ultra[ultra.index("--model") + 1] == "nvidia/nemotron-3-ultra-550b-a55b:free"
 
 
 def test_worker_key_prefers_the_owner_key_file_then_env(tmp_path, monkeypatch):

@@ -118,6 +118,8 @@ WORKERS: dict[str, dict[str, str]] = {
                              "key": "OPENROUTER_API_KEY", "label": "OpenRouter · Cohere North Mini Code (free)"},
     "nvidia-nim": {"endpoint": "https://integrate.api.nvidia.com/v1", "model": "nvidia/nemotron-3-super-120b-a12b",
                    "key": "NVIDIA_API_KEY", "label": "NVIDIA NIM · Nemotron 3 Super 120B"},
+    "nemotron-ultra-free": {"endpoint": "https://openrouter.ai/api/v1", "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+                            "key": "OPENROUTER_API_KEY", "label": "OpenRouter · Nemotron 3 Ultra 550B (free)"},
     "glm-flash": {"endpoint": "https://openrouter.ai/api/v1", "model": "z-ai/glm-5.3-flash",
                   "key": "OPENROUTER_API_KEY", "label": "OpenRouter · GLM 5.3 Flash (paid, ~$0.00004/call)"},
 }
