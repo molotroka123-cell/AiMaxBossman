@@ -143,7 +143,8 @@ async def start(body: StartBody, request: Request):
     task = asyncio.create_task(_reap(work, tree, logfile), name="bcc-evolution-reap")
     task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
     return {"status": "STARTING", "campaign": str(work), "pid": tree.pid,
-            "repo": str(repo), "cycles": body.cycles, "model": body.model}
+            "repo": str(repo), "cycles": body.cycles, "model": body.model,
+            "open_path": "#/capability-tree"}
 
 
 @router.post("/pause")

@@ -72,7 +72,7 @@ const Page = {
                 repo: repo.value || null, cycles: Number(cycles.value) || 8,
                 allow_glm: !!paid.checked, cadence: 15,
               }});
-              toastOk('Bossman 1.5 запущен'); ctx.refresh();
+              toastOk('Bossman 1.5 запущен'); ctx.navigate('capability-tree');
             } catch (e) { toastError(e, 'Не удалось запустить'); }
           }, { cls: 'btn btn-primary', iconName: 'bolt' }),
           actionButton('⛔ STOP', async () => {

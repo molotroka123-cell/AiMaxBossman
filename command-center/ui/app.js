@@ -84,7 +84,7 @@ const SECTIONS = [
 // Страница, не перечисленная здесь, идёт после перечисленных.
 const MAIN_ORDER = ['home-v3', 'apps', 'missions', 'agents', 'approvals'];
 const SECTION_ORDER = {
-  work: ['mission_console', 'missions', 'builder', 'objectives', 'control'],
+  work: ['capability-tree', 'mission_console', 'missions', 'builder', 'objectives', 'control'],
   studio: ['video-studio', 'web_designer', 'browser', 'coding', 'terminal',
            'images', 'web_research', 'trading_lab', 'bossman-chat'],
   brains: ['agentmap', 'orchestras', 'skills', 'router', 'openrouter', 'benchmarks'],
@@ -764,6 +764,7 @@ async function boot() {
   mark('bossman:ui_ready');
   bus.start();
   onRoute();
+  maybeOpenEvolutionTree();
 
   /* Тестовый период: плашка и запись действий. Наблюдатель, а не условие
      запуска — его отказ не должен мешать приложению работать. */
@@ -783,9 +784,22 @@ async function boot() {
   loadCounts();
   loadTopStats();
   if (!statsTimer) statsTimer = setInterval(loadTopStats, 30000);
+  if (!evolutionTreeTimer) evolutionTreeTimer = setInterval(maybeOpenEvolutionTree, 5000);
+}
+
+async function maybeOpenEvolutionTree() {
+  try {
+    const data = await api.raw('/api/evolution/status');
+    if (!data || !data.loop_running || currentPage === 'capability-tree') return;
+    const key = `bcc.capability-tree.opened.${data.campaign_id || data.campaign || 'active'}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    navigate('capability-tree');
+  } catch { /* evolution may be absent in older installed builds */ }
 }
 
 let statsTimer = null;
+let evolutionTreeTimer = null;
 
 /* MF-032 / build identity: SHA работающей сборки в оболочке.
    Три состояния, и ни одно из них не молчит:

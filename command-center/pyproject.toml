@@ -85,7 +85,8 @@ include = ["bcc*"]
 # discovered by bcc.v2.skill_catalog; they must ship inside the wheel.
 [tool.setuptools.package-data]
 bcc = ["skills_catalog/*/LICENSE", "skills_catalog/*/*/SKILL.md",
-       "skills_catalog/*/*/provenance.json", "skills_catalog/*/*/LICENSE.txt"]
+       "skills_catalog/*/*/provenance.json", "skills_catalog/*/*/LICENSE.txt",
+       "capability_tree_seed.json"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
