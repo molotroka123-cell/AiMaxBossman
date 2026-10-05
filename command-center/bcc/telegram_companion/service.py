@@ -1538,6 +1538,26 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
                 continue
             self.store.put(key, "delivered")
 
+    async def notify_zone_reports(self):
+        """Relay development-tree zone work reports to the owner only (one sender, cursor-based)."""
+        owner = next((p for p in self.settings.people if p.role == "owner"), None)
+        if owner is None or not self.console_allowed(owner):
+            return
+        cursor = int(self.store.get("zone_report_cursor", 0) or 0)
+        try:
+            if owner not in self.policy_provider().people:
+                return
+            rows = await self.core.zone_reports(cursor)
+        except (CompanionError, OSError, ValueError, TypeError, AttributeError):  # older core: no tree reports
+            return
+        for row in sorted(rows, key=lambda r: r["seq"]):
+            # Advance first: an uncertain send is not replayed after a restart.
+            self.store.put("zone_report_cursor", row["seq"])
+            try:
+                await self.telegram.send(owner, "🌳 Дерево развития\n" + str(row.get("text") or "")[:3500])
+            except CompanionError:
+                continue
+
     async def monitor(self):
         owner = next(p for p in self.settings.people if p.role == "owner")
         ticks = 0
@@ -1550,6 +1570,7 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
             await self.notify_tasks()
             await self.notify_owner_inputs()
             await self.notify_login_receipts()
+            await self.notify_zone_reports()
             with contextlib.suppress(CompanionError):
                 await self.refresh_profiles()
             if not self.store.get("watch", False):

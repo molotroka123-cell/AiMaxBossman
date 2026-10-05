@@ -538,6 +538,12 @@ class Core:
             raise CompanionError("EVOLUTION_RESPONSE_INVALID")
         return body
 
+    async def zone_reports(self, after: int) -> list[dict]:
+        """Development-tree zone work reports newer than ``after`` (owner relay only)."""
+        body = await self._request("GET", f"/api/capability-tree/reports?after={int(after)}")
+        rows = body.get("items") if isinstance(body, dict) else None
+        return [r for r in rows or [] if isinstance(r, dict) and isinstance(r.get("seq"), int)]
+
     # ---- Bossman Studio (local generation; provenance and gallery stay in Bossman)
     async def studio_model(self, model_id: str) -> dict | None:
         # The first listing after a Bossman start re-hashes every model file against MANIFEST.json.

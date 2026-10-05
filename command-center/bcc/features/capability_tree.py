@@ -213,7 +213,8 @@ async def tree(request: Request):
     root = _tree_dir(svc)
     return {"tree": _seed(), "activity": _activity(svc),
             "notes": _read(root / "owner-notes.json", {}),
-            "scan": _read(root / "scan-latest.json", None)}
+            "scan": _read(root / "scan-latest.json", None),
+            "work": _work_state(svc)[1]["jobs"]}
 
 
 @router.post("/note")
@@ -273,13 +274,167 @@ async def scan(body: ScanBody, request: Request):
         return result
 
 
+class WorkBody(BaseModel):
+    node_id: str = Field(min_length=1, max_length=160, pattern=r"^[A-Za-z0-9_.:/-]+$")
+    instruction: str = Field(default="", max_length=4000)
+    source_repo: str | None = Field(default=None, max_length=1000)
+
+
+_WORK_LOCK = threading.Lock()
+_ZONE_FILES_MAX = 48
+_REPORTS_KEPT = 300
+_DONE = ("completed", "failed", "blocked")
+
+
+def _zone_scope(seed: dict, node: dict, repo: Path) -> tuple[list[str], list[str], list[str]]:
+    """(editable source files, test folders, existing tests to verify) for a node and its leaves.
+
+    Only files present in THIS checkout: a zone whose code lives on another
+    branch cannot be worked on until that branch is integrated.
+    """
+    group = [node] + [n for n in seed["nodes"] if n.get("parent") == node["id"]]
+    files: list[str] = []
+    for n in group:
+        for src in n.get("sources") or []:
+            rel = str(src.get("path") or "")
+            if rel and rel not in files and (repo / rel).is_file():
+                files.append(rel)
+    files = files[:_ZONE_FILES_MAX]
+    test_dirs: list[str] = []
+    for rel in files:
+        top = rel.split("/")[0]
+        folder = next((c for c in (f"{top}/tests", "tests") if (repo / c).is_dir()), None)
+        if folder and folder not in test_dirs:
+            test_dirs.append(folder)
+    verify: list[str] = []
+    for rel in files:
+        stem = Path(rel).stem
+        for folder in test_dirs:
+            for hit in sorted((repo / folder).glob(f"test_{stem}*.py"))[:2]:
+                path = hit.relative_to(repo).as_posix()
+                if path not in verify:
+                    verify.append(path)
+    return files, test_dirs, verify[:8]
+
+
+def _zone_instruction(node: dict, owner_text: str) -> str:
+    text = (f"Зона дерева развития Bossman: «{node.get('label')}» ({node['id']}).\n"
+            f"Описание зоны: {node.get('detail') or '—'}\n"
+            f"Следующий шаг по карте: {node.get('next_action') or '—'}\n\n"
+            "Задача: изучи файлы зоны, найди ОДИН реальный ограниченный дефект или недоработку, "
+            "воспроизведи его тестом, исправь минимально и запусти проверку. Правь только разрешённые файлы. "
+            "Если дефекта нет — так и напиши и ничего не меняй. Наличие кода не равно проверенной работе.")
+    if owner_text.strip():
+        text += "\n\nПожелание владельца: " + owner_text.strip()
+    return text
+
+
+def _work_state(svc) -> tuple[Path, dict]:
+    path = _tree_dir(svc) / "zone-work.json"
+    state = _read(path, {})
+    state.setdefault("jobs", [])
+    state.setdefault("reports", [])
+    state.setdefault("seq", 0)
+    return path, state
+
+
+def _report(state: dict, job: dict, status: str, text: str) -> None:
+    state["seq"] += 1
+    state["reports"].append({"seq": state["seq"], "at": _now(), "node_id": job["node_id"], "label": job["label"],
+                             "task_id": job["task_id"], "status": status, "text": text})
+    state["reports"] = state["reports"][-_REPORTS_KEPT:]
+
+
+def _task_summary(job: dict, rec: dict) -> str:
+    status = rec.get("status")
+    head = f"Зона «{job['label']}», задача {job['task_id']}: "
+    if status == "running":
+        return head + "Bossman работает в изолированной копии."
+    if status == "completed":
+        changed = rec.get("changed_files") or []
+        ver = rec.get("verification")
+        check = ("независимая проверка Bossman: " + ("пройдена" if ver.get("passed") else "НЕ пройдена")
+                 if isinstance(ver, dict) else "независимой проверки не было (тесты зоны не найдены)")
+        if not changed:
+            return head + "готово без изменений — дефект не найден. " + check + "."
+        return (head + f"кандидат готов, изменено файлов: {len(changed)} ({', '.join(changed[:4])}). {check}. "
+                "В проект попадёт только после вашего подтверждения (Coding → Применить).")
+    return head + f"{status}: {str(rec.get('error') or '')[:400]}"
+
+
+@router.post("/work")
+async def start_zone_work(body: WorkBody, request: Request):
+    """Owner picked a zone: start ONE existing coding task scoped to that zone's files."""
+    from . import coding_tasks  # local import: the coding feature owns tasks, sandbox and apply gates
+    svc = request.app.state.svc
+    seed = _seed()
+    node = next((n for n in seed["nodes"] if n["id"] == body.node_id), None)
+    if node is None:
+        raise HTTPException(404, {"code": "CAPABILITY_NODE_NOT_FOUND"})
+    repo = await _scan_source(svc, body.source_repo)
+    files, test_dirs, verify = _zone_scope(seed, node, repo)
+    if not files:
+        raise HTTPException(422, {"code": "CAPABILITY_ZONE_HAS_NO_SOURCES",
+                                  "message": "в этой сборке нет файлов зоны: она в другой ветке или это только идея"})
+    _, state = _work_state(svc)
+    if any(j["node_id"] == node["id"] and j["status"] not in _DONE for j in state["jobs"]):
+        raise HTTPException(409, {"code": "CAPABILITY_ZONE_ALREADY_RUNNING"})
+    task = await coding_tasks.create_task(coding_tasks.TaskIn(
+        instruction=_zone_instruction(node, body.instruction), source_repo=str(repo),
+        allowed_paths=files + test_dirs, verify_tests=verify, project_id="capability-tree"), request)
+    job = {"node_id": node["id"], "label": node.get("label") or node["id"], "task_id": task["id"],
+           "status": task.get("status") or "running", "created_at": _now(), "files": files, "verify_tests": verify}
+    with _WORK_LOCK:
+        path, state = _work_state(svc)
+        state["jobs"] = [j for j in state["jobs"] if j["node_id"] != node["id"]] + [job]
+        _report(state, job, "started", f"Зона «{job['label']}»: Bossman начал работу (задача {job['task_id']}, "
+                f"файлов в области: {len(files)}, тестов для проверки: {len(verify)}).")
+        _atomic(path, state)
+    await svc.bus.emit("capability_tree.zone_work_started", node_id=node["id"], task_id=task["id"])
+    return {"job": job, "task": task}
+
+
+@router.get("/reports")
+async def zone_reports(request: Request, after: int = 0):
+    """Zone work reports with seq > after; the owner's Telegram пульт relays them."""
+    _, state = _work_state(request.app.state.svc)
+    rows = [r for r in state["reports"] if r["seq"] > after][:20]
+    return {"items": rows, "last_seq": state["seq"]}
+
+
+def _sync_zone_work(svc) -> None:
+    from . import coding_tasks
+    with _WORK_LOCK:
+        path, state = _work_state(svc)
+        changed = False
+        for job in state["jobs"]:
+            if job["status"] in _DONE:
+                continue
+            try:
+                rec = coding_tasks._read(svc, job["task_id"])
+            except HTTPException:
+                rec = {"status": "failed", "error": "запись задачи не найдена"}
+            status = rec.get("status") or "running"
+            if status != job["status"]:
+                job["status"] = status
+                job["changed_files"] = list(rec.get("changed_files") or [])
+                _report(state, job, status, _task_summary(job, rec))
+                changed = True
+        if changed:
+            _atomic(path, state)
+
+
 async def tick(svc) -> None:
-    """Durably mirror only changed campaign activity; no mutation of the seed map."""
+    """Durably mirror only changed campaign activity and zone-work status; no mutation of the seed map."""
     try:
         value = _activity(svc)
         path = _tree_dir(svc) / "activity-latest.json"
         if _stable_activity(value) != _stable_activity(_read(path, {})):
             _atomic(path, value)
+    except Exception:
+        pass
+    try:
+        await asyncio.to_thread(_sync_zone_work, svc)
     except Exception:
         return
 

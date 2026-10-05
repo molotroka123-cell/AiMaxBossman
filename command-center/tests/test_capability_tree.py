@@ -221,6 +221,77 @@ def test_evolution_start_tells_the_worker_which_command_center_started_it(tmp_pa
     assert argv[argv.index("--api-url") + 1] == "http://127.0.0.1:8801"
 
 
+def _zone_app(tmp_path, monkeypatch, created):
+    from bcc.features import coding_tasks
+    bossman = _bossman_checkout(tmp_path / "bm")
+    (bossman / "command-center" / "tests").mkdir(parents=True)
+    (bossman / "command-center" / "tests" / "test_new_feature.py").write_text("def test_x(): pass\n", encoding="utf-8")
+    app = _scan_app(tmp_path, monkeypatch, [bossman])
+    seed = {"schema_version": "1.0", "nodes": [
+        {"id": "bossman", "label": "Bossman", "parent": "", "status": "mixed", "sources": []},
+        {"id": "fam", "label": "Семья", "parent": "bossman", "status": "mixed", "sources": []},
+        {"id": "leaf", "label": "Новая функция", "parent": "fam", "status": "code", "detail": "d",
+         "sources": [{"path": "command-center/bcc/features/new_feature.py"}]},
+        {"id": "elsewhere", "label": "Другая ветка", "parent": "fam", "status": "branch",
+         "sources": [{"path": "command-center/bcc/features/not_here.py"}]}]}
+    (tmp_path / "seed.json").write_text(json.dumps(seed), encoding="utf-8")
+
+    async def fake_create(body, _request):
+        created.append(body)
+        return {"id": f"task{len(created):08d}", "status": "running"}
+    monkeypatch.setattr(coding_tasks, "create_task", fake_create)
+
+    async def emit(*_a, **_kw):
+        return None
+    app.state.svc.bus = SimpleNamespace(emit=emit)
+    return app, bossman
+
+
+def test_zone_work_starts_one_scoped_coding_task_and_reports(tmp_path, monkeypatch):
+    created = []
+    app, _ = _zone_app(tmp_path, monkeypatch, created)
+    with TestClient(app) as client:
+        out = client.post("/api/capability-tree/work", json={"node_id": "leaf", "instruction": "проверь граничный случай"})
+        assert out.status_code == 200, out.text
+        body = created[0]
+        assert body.allowed_paths == ["command-center/bcc/features/new_feature.py", "command-center/tests"]
+        assert body.verify_tests == ["command-center/tests/test_new_feature.py"]
+        assert "Новая функция" in body.instruction and "проверь граничный случай" in body.instruction
+        again = client.post("/api/capability-tree/work", json={"node_id": "leaf"})
+        assert again.status_code == 409
+        reports = client.get("/api/capability-tree/reports?after=0").json()["items"]
+        assert [r["status"] for r in reports] == ["started"]
+        assert client.get("/api/capability-tree").json()["work"][0]["task_id"] == out.json()["job"]["task_id"]
+
+
+def test_zone_without_files_in_this_build_is_refused(tmp_path, monkeypatch):
+    created = []
+    app, _ = _zone_app(tmp_path, monkeypatch, created)
+    with TestClient(app) as client:
+        out = client.post("/api/capability-tree/work", json={"node_id": "elsewhere"})
+        assert out.status_code == 422 and out.json()["detail"]["code"] == "CAPABILITY_ZONE_HAS_NO_SOURCES"
+        assert created == []
+
+
+def test_zone_completion_is_reported_once_with_the_independent_check(tmp_path, monkeypatch):
+    from bcc.features import coding_tasks
+    created = []
+    app, _ = _zone_app(tmp_path, monkeypatch, created)
+    svc = app.state.svc
+    with TestClient(app) as client:
+        task_id = client.post("/api/capability-tree/work", json={"node_id": "leaf"}).json()["job"]["task_id"]
+    monkeypatch.setattr(coding_tasks, "_read", lambda _svc, tid: {
+        "id": tid, "status": "completed", "changed_files": ["command-center/bcc/features/new_feature.py"],
+        "verification": {"ran": True, "passed": True}})
+    tree._sync_zone_work(svc)
+    tree._sync_zone_work(svc)  # no duplicate report for an unchanged status
+    with TestClient(app) as client:
+        reports = client.get("/api/capability-tree/reports?after=1").json()["items"]
+    assert len(reports) == 1 and reports[0]["status"] == "completed" and reports[0]["task_id"] == task_id
+    assert "независимая проверка Bossman: пройдена" in reports[0]["text"]
+    assert "после вашего подтверждения" in reports[0]["text"]
+
+
 def test_full_app_mounts_capability_tree(tmp_path):
     app = create_app(make_settings(tmp_path), start_workers=False, announce_token=False)
     paths = set(app.openapi()["paths"])
