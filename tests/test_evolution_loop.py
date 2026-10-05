@@ -321,3 +321,19 @@ def test_recipe_publishing_is_off_by_default_and_needs_an_explicit_owner_flag(ca
     on, _ = L.config_from_args(argparse.Namespace(**base, publish_recipes=True))
     both, _ = L.config_from_args(argparse.Namespace(**base, publish_recipes=True, no_recipes=True))
     assert (off.publish_recipes, on.publish_recipes, both.publish_recipes) == (False, True, False)
+
+
+@pytest.mark.parametrize("backend,model,free", [
+    ("bossman_coding", None, True),                       # the owner's local sidecar
+    ("bossman_coding", "worker:openrouter-free", True),
+    ("bossman_coding", "worker:nemotron-ultra-free", True),
+    ("bossman_coding", "worker:glm-flash", False),        # paid: reservation + max_usd apply
+    ("bossman_coding", "worker:nvidia-nim", False),       # credit-based: counted, conservatively
+    ("mock_patch", None, True),
+    ("claude", "claude-x", False),
+])
+def test_only_free_routes_skip_the_loop_budget(backend, model, free):
+    """Security audit 2026-10-05: a paid cloud worker was treated as $0 and bypassed max_usd."""
+    from types import SimpleNamespace
+    fake = SimpleNamespace(config=SimpleNamespace(backend=backend, model=model))
+    assert L.EvolutionLoop.local_cost(fake) is free

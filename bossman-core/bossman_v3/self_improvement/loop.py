@@ -369,6 +369,12 @@ class EvolutionLoop:
 
     def local_cost(self) -> bool:
         # Loopback models and the mock cost no $; the product path runs the owner's local sidecar model.
+        # Security audit 2026-10-05: a cloud worker ("worker:<id>") is $0 only when it is a free route
+        # (allowlist ids ending in "-free"); a paid one (glm-flash, nvidia-nim credits) goes through the
+        # loop's per-attempt reservation and max_usd like any priced backend.
+        model = str(self.config.model or "")
+        if self.config.backend == "bossman_coding" and model.startswith("worker:"):
+            return model.removeprefix("worker:").endswith("-free")
         return self.config.backend in ("mock_patch", "local", "bossman_coding")
 
     def test_runner(self):
