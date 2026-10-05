@@ -21,7 +21,7 @@ def _run(repo: Path, *args: str) -> str:
 
 def _repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
-    repo.mkdir()
+    repo.mkdir(parents=True)
     _run(repo, "init", "-b", "main")
     _run(repo, "config", "user.email", "test@example.invalid")
     _run(repo, "config", "user.name", "Test")
@@ -48,6 +48,57 @@ def test_deterministic_scanner_finds_unmapped_files_without_ai(tmp_path):
     again = tree.scan_repository(repo, seed, result)
     assert again["new_since_previous"] == []
     assert again["fingerprint"] == result["fingerprint"]
+
+
+def test_previous_scan_of_another_repo_is_not_a_baseline(tmp_path):
+    # Live owner run: the UI scanned a non-Bossman root; a later Bossman scan must not call every file "new".
+    seed = {"schema_version": "1.0", "nodes": [{"id": "bossman", "sources": []}]}
+    other = tree.scan_repository(_repo(tmp_path / "other"), seed)
+    again = tree.scan_repository(_repo(tmp_path / "bossman"), seed, other)
+    assert again["baseline_created"] is True
+    assert again["new_since_previous"] == []
+
+
+def _bossman_checkout(root: Path) -> Path:
+    repo = _repo(root)
+    (repo / "bossman-core").mkdir()
+    return repo
+
+
+def _scan_app(tmp_path: Path, monkeypatch, roots: list[Path]) -> FastAPI:
+    app = _app(tmp_path, monkeypatch, [{"id": "bossman", "label": "Bossman", "parent": "", "status": "code",
+                                        "sources": []}], {"status": "NO_CAMPAIGN", "cycle": {}})
+
+    async def fake_roots(_svc):
+        return [r.resolve() for r in roots]
+    monkeypatch.setattr(tree, "allowed_roots", fake_roots)
+    monkeypatch.setattr(evolution, "allowed_roots", fake_roots)
+    return app
+
+
+def test_ui_scan_picks_the_only_bossman_checkout_among_code_roots(tmp_path, monkeypatch):
+    game = _repo(tmp_path / "game")  # another Git root, e.g. a project the owner codes on
+    bossman = _bossman_checkout(tmp_path / "bm")
+    with TestClient(_scan_app(tmp_path, monkeypatch, [game, bossman])) as client:
+        out = client.post("/api/capability-tree/scan", json={})
+        assert out.status_code == 200, out.text
+        assert out.json()["repo"] == str(bossman.resolve())
+
+
+def test_ui_scan_refuses_a_non_bossman_repo_and_lists_candidates(tmp_path, monkeypatch):
+    game = _repo(tmp_path / "game")
+    first, second = _bossman_checkout(tmp_path / "a"), _bossman_checkout(tmp_path / "b")
+    with TestClient(_scan_app(tmp_path, monkeypatch, [game])) as client:
+        none = client.post("/api/capability-tree/scan", json={})
+        assert none.status_code == 422 and none.json()["detail"]["code"] == "CAPABILITY_SCAN_SOURCE_REQUIRED"
+        explicit = client.post("/api/capability-tree/scan", json={"source_repo": str(game)})
+        assert explicit.status_code == 422 and explicit.json()["detail"]["code"] == "CAPABILITY_SCAN_NOT_BOSSMAN"
+    with TestClient(_scan_app(tmp_path, monkeypatch, [game, first, second])) as client:
+        many = client.post("/api/capability-tree/scan", json={})
+        assert many.status_code == 422
+        assert many.json()["detail"]["candidates"] == [str(first.resolve()), str(second.resolve())]
+        chosen = client.post("/api/capability-tree/scan", json={"source_repo": str(second)})
+        assert chosen.status_code == 200 and chosen.json()["repo"] == str(second.resolve())
 
 
 def _app(tmp_path: Path, monkeypatch, nodes: list[dict], campaign: dict) -> FastAPI:

@@ -23,6 +23,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from . import Feature
+from .tools_code import allowed_roots
 
 router = APIRouter(prefix="/capability-tree", tags=["capability-tree"])
 PACKAGE_MAP = Path(__file__).resolve().parents[1] / "capability_tree_seed.json"
@@ -135,6 +136,8 @@ def scan_repository(repo: Path, seed: dict, previous: dict | None = None) -> dic
             raise ValueError("more than 500 remote refs: prune/fetch an explicit repository mirror first")
         union.update(_git(repo, "ls-tree", "-r", "--name-only", sha, timeout=180).splitlines())
     head = _git(repo, "rev-parse", "HEAD").strip()
+    if previous and previous.get("repo") != str(repo):
+        previous = None  # a scan of another checkout is not this repository's baseline
     known = {s.get("path") for n in seed.get("nodes", []) for s in n.get("sources", []) if s.get("path")}
     candidates = sorted(p for p in union if p.startswith(PRODUCT_PREFIXES) and p.endswith(PRODUCT_SUFFIXES)
                         and not any(part in {"tests", "test", "artifacts", "archive", "snapshots"}
@@ -230,14 +233,36 @@ async def save_note(body: NoteBody, request: Request):
     return {"saved": True, "node_id": body.node_id, "note": notes.get(body.node_id)}
 
 
+def _is_bossman_checkout(path: Path) -> bool:
+    return (path / ".git").exists() and (path / "command-center" / "bcc").is_dir() and (path / "bossman-core").is_dir()
+
+
+async def _scan_source(svc, raw: str | None) -> Path:
+    """Explicit path: the loop's code-root policy plus a Bossman check. None: the one Bossman checkout among roots.
+
+    Other Git roots (an owner's game or site) are normal; scanning them would
+    report zero Bossman capabilities and poison the next comparison.
+    """
+    from . import evolution
+    if raw:
+        repo = await evolution._repo(svc, raw)
+        if not _is_bossman_checkout(repo):
+            raise HTTPException(422, {"code": "CAPABILITY_SCAN_NOT_BOSSMAN", "path": str(repo)})
+        return repo
+    found = [root for root in await allowed_roots(svc) if _is_bossman_checkout(root)]
+    if len(found) != 1:
+        raise HTTPException(422, {"code": "CAPABILITY_SCAN_SOURCE_REQUIRED", "candidates": [str(r) for r in found],
+                                  "message": "add one Bossman checkout to the code roots or choose source_repo"})
+    return found[0]
+
+
 @router.post("/scan")
 async def scan(body: ScanBody, request: Request):
-    from . import evolution
     svc = request.app.state.svc
     if _SCAN_LOCK.locked():
         raise HTTPException(409, {"code": "CAPABILITY_SCAN_ALREADY_RUNNING"})
     async with _SCAN_LOCK:
-        repo = await evolution._repo(svc, body.source_repo)
+        repo = await _scan_source(svc, body.source_repo)
         path = _tree_dir(svc) / "scan-latest.json"
         previous = _read(path, None)
         try:

@@ -74,11 +74,19 @@ const Page = {
     };
     const pick = node => { selected = node; details.replaceChildren(detail(selected, notes[selected.id], save)); };
     details.append(detail(selected, notes[selected?.id], save));
-    const scan = async () => {
+    const scan = async (sourceRepo) => {
       try {
-        const out = await api.raw('/api/capability-tree/scan', { method: 'POST', body: {} });
+        const out = await api.raw('/api/capability-tree/scan', { method: 'POST', body: sourceRepo ? { source_repo: sourceRepo } : {} });
         toastOk(`Сканер завершён: ${out.unmapped_capability_files?.length || 0} файлов требуют сверки`); ctx.refresh();
-      } catch (e) { toastError(e, 'Сканер не завершён'); }
+      } catch (e) {
+        const candidates = e.detail?.candidates || [];
+        if (!sourceRepo && e.code === 'CAPABILITY_SCAN_SOURCE_REQUIRED' && candidates.length > 1) {
+          const pick = window.prompt(`Найдено несколько чекаутов Bossman. Какой проверить?\n${candidates.join('\n')}`, candidates[0]);
+          if (pick && pick.trim()) return scan(pick.trim());
+          return;
+        }
+        toastError(e, 'Сканер не завершён');
+      }
     };
     clearTimeout(refreshTimer);
     if (campaign.loop_running) refreshTimer = setTimeout(() => ctx.scheduleRefresh(), 3000);
@@ -96,7 +104,7 @@ const Page = {
       pageHead('Дерево развития', 'Живая карта Bossman: что существует, что сейчас меняется и чем это доказано.', {
         pills: [pill(campaign.status || 'NO_CAMPAIGN', { tone: campaign.loop_running ? 'ok' : campaign.status === 'BLOCKED' ? 'err' : 'idle', live: !!campaign.loop_running }),
           pill(`цикл ${cycle.index ?? '—'} · ${phase}`, { tone: campaign.loop_running ? 'info' : 'idle' })],
-        actions: [btn('Проверить репозиторий без ИИ', scan, { variant: 'secondary', iconName: 'search' })],
+        actions: [btn('Проверить репозиторий без ИИ', () => scan(), { variant: 'secondary', iconName: 'search' })],
       }),
       panel('Сейчас улучшается', h('div.stack.sm',
         h('p.small.dim', `Кампания ${campaign.campaign_id || '—'} · ${v15 ? 'Bossman 1.5 owner-run' : 'Evolution Loop'}`),
