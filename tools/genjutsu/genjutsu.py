@@ -268,7 +268,7 @@ def stage_pose_and_masks(job: Path, frames: list[Image.Image], want_mask: bool, 
     return poses, lost
 
 
-def stage_control(job: Path, frames, mode: str) -> None:
+def stage_control(job: Path, frames, mode: str, swap_ctrl: str = "hole") -> None:
     out = job / "ctrl"
     out.mkdir(exist_ok=True)
     for i, img in enumerate(frames, 1):
@@ -277,8 +277,9 @@ def stage_control(job: Path, frames, mode: str) -> None:
         if mode == "swap":
             m = Image.open(job / "mask" / f"{i:04d}.png").convert("L")
             hole = Image.composite(Image.new("RGB", img.size, (127, 127, 127)), img, m)
-            # inside the hole: the actor's skeleton, so the new character keeps the motion
-            ctrl = Image.composite(Image.composite(pose, hole, drawn), hole, m)
+            # "hole-pose": the actor's skeleton inside the hole keeps the motion, but the 1.3B model
+            # copied the coloured bones into the output (L0d, 2026-10-05). "hole" leaves it grey.
+            ctrl = Image.composite(Image.composite(pose, hole, drawn), hole, m) if swap_ctrl == "hole-pose" else hole
         elif mode == "motion-depth":
             ctrl = Image.composite(pose, Image.open(job / "depth" / f"{i:04d}.png").convert("RGB"), drawn)
         else:
@@ -286,14 +287,35 @@ def stage_control(job: Path, frames, mode: str) -> None:
         ctrl.save(out / f"{i:04d}.png")
 
 
+def free_llms(trace: Trace) -> None:
+    """Unload resident Ollama models (they reload on their next request) to give VACE the RAM."""
+    t0 = time.time()
+    exe = shutil.which("ollama") or str(Path.home() / "AppData" / "Local" / "Programs" / "Ollama" / "ollama.exe")
+    before = free_ram_gb()
+    try:
+        listing = subprocess.run([exe, "ps"], capture_output=True, text=True, timeout=30).stdout.splitlines()[1:]
+        names = [row.split()[0] for row in listing if row.strip()]
+        for name in names:
+            subprocess.run([exe, "stop", name], capture_output=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        names = []
+    time.sleep(3)
+    trace("free_llms", t0, unloaded=names, free_ram_before_gb=round(before, 1), free_ram_after_gb=round(free_ram_gb(), 1))
+
+
 def stage_generate(job: Path, args, trace: Trace) -> None:
     (job / "gen").mkdir(exist_ok=True)
+    if args.free_llms:
+        free_llms(trace)
     cmd = [str(SD_CLI), "-M", "vid_gen", "--diffusion-model", str(MODELS[args.model]), "--vae", str(VAE),
            "--t5xxl", str(T5), "-p", args.prompt, "-n", NEGATIVE, "-i", str(args.ref),
            "--control-video", str(job / "ctrl"), "--vace-strength", str(args.vace_strength),
            "-W", str(args.width), "-H", str(args.height), "--video-frames", str(args.frames), "--fps", str(args.fps),
            "--steps", str(args.steps), "--cfg-scale", str(args.cfg), "--sampling-method", "euler", "-s", str(args.seed),
-           "--offload-to-cpu", "--temporal-tiling", "-o", str(job / "gen" / "%04d.png"), "-v"]
+           "--temporal-tiling", "--vae-tiling", "-o", str(job / "gen" / "%04d.png"), "-v"]
+    # --vae-tiling: the RAM peak is the final VAE decode (OOM guard fired there on 17 frames, 2026-10-05).
+    # No --offload-to-cpu: on this unified-memory APU it only shuttles weights every step
+    # (measured 381 s/step at 17 frames with it vs 13-17 s/step at 5 frames without).
     if args.fa:
         cmd.append("--diffusion-fa")
     if LOAD_TYPE.get(args.model):
@@ -391,9 +413,13 @@ def main(argv=None) -> int:
     ap.add_argument("--cfg", type=float, default=6.0)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--vace-strength", type=float, default=1.0)
-    ap.add_argument("--fa", action="store_true", help="flash attention (A/B first: once gave colour noise here)")
+    ap.add_argument("--no-fa", dest="fa", action="store_false",
+                    help="disable flash attention (A/B 2026-10-05: identical frames, 22%% faster, linear memory)")
     ap.add_argument("--box", type=lambda s: [float(v) for v in s.split(",")], help="x0,y0,x1,y1 of the person on frame 1")
     ap.add_argument("--prep-only", action="store_true")
+    ap.add_argument("--free-llms", action="store_true", help="unload resident Ollama models before generating")
+    ap.add_argument("--swap-ctrl", choices=["hole", "hole-pose"], default="hole",
+                    help="swap control frames: grey hole only, or the actor's skeleton inside the hole")
     args = ap.parse_args(argv)
     if (args.frames - 1) % 4:
         ap.error("--frames must be 4k+1")
@@ -414,7 +440,7 @@ def main(argv=None) -> int:
     _, lost = stage_pose_and_masks(job, frames, args.mode == "swap", args.mode == "motion-depth", args.box)
     trace("pose_masks", t0, lost_track_frames=lost)
     t0 = time.time()
-    stage_control(job, frames, args.mode)
+    stage_control(job, frames, args.mode, args.swap_ctrl)
     trace("control", t0)
     if args.prep_only:
         return 0
