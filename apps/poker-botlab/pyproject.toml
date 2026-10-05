@@ -1,0 +1,15 @@
+[project]
+name = "poker-botlab"
+version = "0.1.0"
+description = "Bossman poker bot training lab: headless NLHE engine + loopback-only adapter for the local Bossman Poker AI trainer"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+ui = ["playwright"]
+test = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
