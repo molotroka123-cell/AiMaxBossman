@@ -194,17 +194,25 @@ class Segmenter:
         self.enc = session(PREP / "sam2" / "vision_encoder.onnx")
         self.dec = session(PREP / "sam2" / "prompt_encoder_mask_decoder.onnx")
 
-    def __call__(self, img: Image.Image, box) -> np.ndarray:
+    def __call__(self, img: Image.Image, box, points=None) -> np.ndarray:
+        """box prompt; optional points [(x, y, label)] with label 1 = this person, 0 = not this one."""
         w, h = img.size
         x = ((np.asarray(img.resize((1024, 1024), Image.BILINEAR), np.float32) / 255 - [0.485, 0.456, 0.406])
              / [0.229, 0.224, 0.225]).transpose(2, 0, 1)[None].astype(np.float32)
         e0, e1, e2 = self.enc.run(None, {"pixel_values": x})
         b = np.array([[[box[0] * 1024 / w, box[1] * 1024 / h, box[2] * 1024 / w, box[3] * 1024 / h]]], np.float32)
+        if points:
+            pts = np.array([[[[px * 1024 / w, py * 1024 / h] for px, py, _ in points]]], np.float32)
+            lab = np.array([[[lbl for _, _, lbl in points]]], np.int64)
+        else:
+            pts, lab = np.zeros((1, 1, 1, 2), np.float32), np.full((1, 1, 1), -10, np.int64)
         iou, masks, _ = self.dec.run(None, {
-            "input_points": np.zeros((1, 1, 1, 2), np.float32), "input_labels": np.full((1, 1, 1), -10, np.int64),
+            "input_points": pts, "input_labels": lab,
             "input_boxes": b, "image_embeddings.0": e0, "image_embeddings.1": e1, "image_embeddings.2": e2})
-        best = masks[0, 0, int(iou[0, 0].argmax())]
-        return np.asarray(Image.fromarray((best > 0).astype(np.uint8) * 255).resize((w, h), Image.BILINEAR)) > 127
+        best = masks[0, 0, int(iou[0, 0].argmax())].astype(np.float32)
+        # Upsample the logits, then threshold: thresholding the 256x256 mask first left dotted edges.
+        up = np.asarray(Image.fromarray(best, mode="F").resize((w, h), Image.BILINEAR))
+        return up > 0
 
 
 def bbox_of(mask: np.ndarray, grow: float, w: int, h: int):
