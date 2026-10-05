@@ -111,6 +111,10 @@ class ToolSpec:
     # Read-only contextual admission: may DENY, never grant or lower ASK.
     # Used before creating an approval and rechecked at actual execution.
     context_deny: Callable[[dict, ToolContext], Awaitable[str | None]] | None = None
+    # Audit 2026-10-05 #5: arguments that must be BOUND to external content before the owner is asked (the sha256 of the script a
+    # `curl | sh` would download). Unlike `context_deny` the hook receives the REAL argument dict and its additions become part of
+    # the approval digest and of the parked call. A returned string refuses the call. See `bind_arguments`.
+    bind_args: Callable[[dict], Awaitable[str | None]] | None = None
 
     @property
     def impl_fingerprint(self) -> str:
@@ -121,8 +125,11 @@ class ToolSpec:
             self.handler, "__qualname__", repr(self.handler))
         context_identity = (getattr(self.context_deny, "__module__", "") + ":" +
                             getattr(self.context_deny, "__qualname__", "")) if self.context_deny else None
+        bind_identity = (getattr(self.bind_args, "__module__", "") + ":" +
+                         getattr(self.bind_args, "__qualname__", "")) if self.bind_args else None
         blob = json.dumps({"name": self.name, "source": self.source, "handler": h,
                            **({"context_deny": context_identity} if context_identity else {}),
+                           **({"bind_args": bind_identity} if bind_identity else {}),
                            "schema": self.input_schema, "required": list(self.required),
                            "description": self.description, "generation": self.generation},
                           sort_keys=True, ensure_ascii=False, default=str)
@@ -441,6 +448,28 @@ async def context_denial(spec: ToolSpec, args: dict, ctx: ToolContext) -> str | 
         raise
     except Exception as exc:
         return f"context policy unavailable ({type(exc).__name__}); denied"
+
+
+async def bind_arguments(spec: ToolSpec, args: dict) -> str | None:
+    """Bind external content (e.g. the sha256 of a downloaded script) into the REAL arguments, in place, before approval.
+
+    `context_denial` hands its hook a copy on purpose, so anything a hook computed was lost: the approval digest and the parked call
+    never saw it. Fails closed: an error or a non-str decision refuses the call. None = bound (or nothing to bind).
+    """
+    hook = spec.bind_args
+    if hook is None:
+        return None
+    try:
+        reason = await asyncio.wait_for(hook(args), timeout=15.0)
+        if reason is None or reason == "":
+            return None
+        if type(reason) is str:
+            return reason[:1000]
+        return "argument binding returned an invalid decision; denied"
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        return f"argument binding unavailable ({type(exc).__name__}); denied"
 
 
 def malformed_arguments(spec: ToolSpec, args: Any) -> str | None:

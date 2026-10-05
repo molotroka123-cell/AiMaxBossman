@@ -223,10 +223,11 @@ async def _fetch_remote_script(url: str) -> bytes:
 async def _bind_remote_script_content(args: dict) -> str | None:
     """Bind curl/wget | sh approval to downloaded bytes, not just the URL.
 
-    Before ASK the hook stores source+SHA in the canonical arguments, so both are
-    visible in the preview and part of approval_digest. At effect time the same
-    hook refetches and compares; changed bytes refuse execution. A new model call
-    can then create a fresh approval for the new digest.
+    Before ASK the dispatcher (`tools.bind_arguments`, ToolSpec.bind_args) stores source+SHA in
+    the REAL arguments, so both are visible in the preview and part of approval_digest. At effect
+    time `_tool_run` refetches, compares and executes exactly those bytes through stdin
+    (`_remote_exec_plan`); changed bytes refuse execution. A new model call can then create a
+    fresh approval for the new digest. (As a `context_deny` hook it only ever saw a copy.)
     """
     url = _piped_remote_url(str(args.get("command") or ""))
     if not url:
@@ -244,6 +245,28 @@ async def _bind_remote_script_content(args: dict) -> str | None:
     args["_remote_content_sha256"] = digest
     args["_remote_content_bytes"] = len(data)
     return None
+
+
+async def _remote_exec_plan(command: str, match, args: dict) -> tuple[str, bytes] | str:
+    """(command that reads the script from stdin, the verified bytes) or a refusal text. Approved bytes == executed bytes."""
+    approved = str(args.get("_remote_content_sha256") or "")
+    if not re.fullmatch(r"[0-9a-f]{64}", approved):
+        return ("curl|sh refused: no approved script digest in the call (the approval was not bound to the downloaded bytes); "
+                "request a NEW approval")
+    url = match.group(1).rstrip("'\\\"")
+    bound_url = str(args.get("_remote_source_url") or "")
+    if bound_url and bound_url != url:
+        return f"curl|sh refused: the URL differs from the approved one ({bound_url})"
+    try:
+        data = await _fetch_remote_script(url)
+    except (httpx.HTTPError, PermissionError, ValueError, OSError) as exc:
+        return f"curl|sh refused: could not re-fetch the approved script ({type(exc).__name__}: {exc})"
+    digest = hashlib.sha256(data).hexdigest()
+    if digest != approved:
+        return ("downloaded script changed after approval: approved sha256="
+                f"{approved}, current sha256={digest}; request a NEW approval")
+    interpreter = re.findall(r"(?i)\|\s*(?:/bin/)?((?:ba)?sh)\b", match.group(0))[-1].lower()
+    return command[:match.start()] + f"{interpreter} -s" + command[match.end():], data
 
 
 async def _run_context_deny(args: dict, ctx) -> str | None:
@@ -328,11 +351,21 @@ async def _tool_run(args: dict, ctx) -> ToolResult:
         return ToolResult(content="команда запрещена политикой терминала",
                           one_line="terminal.run: deny политики", error=True)
 
+    # Audit 2026-10-05 #5: `curl URL | sh` would download the script AGAIN at effect time. Run exactly the approved bytes:
+    # fetch, verify the sha256 the owner approved, hand the bytes to the interpreter through stdin.
+    run_command, script = command, None
+    remote = _PIPE_TO_SHELL_URL.search(command)
+    if remote:
+        planned = await _remote_exec_plan(command, remote, args)
+        if isinstance(planned, str):
+            return ToolResult(content=planned, one_line="terminal.run: скрипт не совпал с одобренным", error=True)
+        run_command, script = planned
+
     timeout = float(args.get("timeout") or 120)
     try:
-        session = await _mgr(ctx.svc).start(command, cwd, policy, approved=True,
+        session = await _mgr(ctx.svc).start(run_command, cwd, policy, approved=True,
                                             network=bool(args.get("network")),
-                                            owner=str(ctx.task.get("id")))
+                                            owner=str(ctx.task.get("id")), stdin_data=script)
     except PermissionError as exc:
         return ToolResult(content=f"отказ политики: {exc}", one_line="terminal.run: отказ",
                           error=True)
@@ -484,7 +517,8 @@ SPECS = [
         },
         required=["command"], category="exec", permission="terminal.run", source="terminal",
         default_effect="ask", timeout_seconds=300.0, idempotent=False, external_output=True,
-        effect_hook=_run_effect, normalize_args=normalize_run_args, context_deny=_run_context_deny),
+        effect_hook=_run_effect, normalize_args=normalize_run_args, context_deny=_run_context_deny,
+        bind_args=_bind_remote_script_content),
     ToolSpec(name="terminal.status",
              description="Состояние и вывод ранее запущенной команды по session_id.",
              handler=_tool_status,

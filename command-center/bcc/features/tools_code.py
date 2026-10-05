@@ -151,10 +151,15 @@ async def get_handle(svc, root: Path) -> CodeIndexHandle:
         return pool[key]
 
     index_path = Path(svc.settings.data_dir) / "code-index" / f"{key}.json"
+    # Audit 2026-10-05 #3: a root that is an ANCESTOR of <data_dir>/scratch (the project root, or the data dir itself) must not index the
+    # agents' private scratch areas: the pool is shared, so a neighbour's drafts would become searchable by every agent. A root that
+    # lies inside scratch (the agent's own alias) is indexed as before.
+    scratch_base = scratch.base_dir(svc.settings)
+    exclude = () if _within(root, [scratch_base]) else (scratch_base,)
     handle = CodeIndexHandle(
         key=key,
         root=root,
-        index=CodeIndex(roots=[root], index_path=index_path, extra_ignores=ignores),
+        index=CodeIndex(roots=[root], index_path=index_path, extra_ignores=ignores, exclude_dirs=exclude),
     )
     pool[key] = handle
     return handle

@@ -1534,6 +1534,13 @@ class TaskEngine:
                 blocked = await context_denial(spec, call.arguments, ctx)
                 if blocked:
                     effect, reason = "deny", blocked
+                else:
+                    # Audit 2026-10-05 #5: bind downloaded-script sha256 etc. into the REAL arguments BEFORE the digest below,
+                    # so the owner approves (and the effect re-verifies) the exact bytes.
+                    from .tools import bind_arguments
+                    bound = await bind_arguments(spec, call.arguments)
+                    if bound:
+                        effect, reason = "deny", bound
             if effect == "deny":
                 await self._record_tool_call(run_id, task["id"], step, call, spec,
                                              effect="deny", status="denied", preview=reason)

@@ -64,3 +64,26 @@ Same-product Terminal Run contract: пульт, CLI и дашборд — оди
 - `wip/motion56-20260929`: Motion Studio library (build_library.py +623, тесты +236, docs) — не связано с ночной целью, оставлено.
 - Не вливались (вне задач ночи): `handoff/continuation-20260929` (3244 файла снимка docs → кандидат в `docs/owner/archive/` по решению владельца),
   `feat/bossman-autonomy-funding` (docs заявки, NOT_SUBMITTED — решение владельца), `scratch/root-ci-debug-19` (удалять только с согласия владельца).
+
+## Чекпоинт 3 — открытые находки аудита 05.10 (задача 3)
+
+Поправка к чекпоинту 1: третьим красным в root-ci был шаг `git diff --check` (CRLF в `test_secrem_f009_terminal.py`); его уже
+исправила параллельная сессия (`6a7b9ebd`), мой merge `91cab14f` её включает. На ветку пишет ещё одна сессия — перед каждым push делается fetch/merge, без force.
+
+**#5 — привязка sha256 удалённого скрипта (`curl | sh`).** Воспроизведено на настоящем движке (`test_terminal_remote_script_dispatch`):
+в карточке одобрения не было sha256. Первопричина: `tools.context_denial` отдаёт хуку **копию** `dict(args)`, поэтому
+`_bind_remote_script_content` писал `_remote_content_sha256` в копию; `approval_digest` и припаркованный вызов sha не видели, а на
+исполнении оболочка заново качала `curl … | sh` — байты, которых владелец не одобрял. Изолированные тесты хелпера этого не ловили.
+Фикс (минимальный): `ToolSpec.bind_args` + `tools.bind_arguments` (реальные аргументы, до digest) → вызывается движком после `context_denial`;
+на исполнении `_tool_run` перекачивает скрипт, сверяет sha256 с одобренным и запускает `sh -s`/`bash -s` со скриптом через **stdin**
+(`TerminalManager.start(stdin_data=…)`, для docker добавлен `-i`); вызов без привязанного sha или с другими байтами — отказ.
+Тесты (`tests/test_terminal_remote_script_dispatch.py`, 4): на старом коде 3 падают (sha нет в одобрении; байты не идут через stdin;
+`_remote_exec_plan` отсутствует), 1 («подмена после одобрения») на старом коде проходит вхолостую — в тестовой среде нет сети, поэтому
+доказательную силу несут остальные. С фиксом 4 passed; регрессия terminal/approval/engine/tools: 1000 passed, 14 skipped.
+
+**#3 — чужой scratch в индексе кода.** Если корень индекса — предок `<data_dir>/scratch` (корень проекта или сам data dir), `rglob`
+индексировал черновики других агентов, а пул индексов общий → они становились доступны поиску любого агента; `scratch.check`
+смотрит только случай «кандидат внутри scratch». Фикс: `CodeIndex.exclude_dirs` (+ `get_handle` исключает `scratch` для корней вне него),
+и при загрузке индекса, сохранённого старой сборкой, записи из scratch отбрасываются. Корень внутри scratch (собственный алиас) работает как раньше.
+Тесты `tests/test_code_index_scratch_exclusion.py` (3): на старом коде падают 2 (чужой черновик находится поиском; старый индекс не очищается),
+«свой scratch как корень» проходит и до и после (негативный контроль). Регрессия code/index/scratch/terminal: 630 passed, 15 skipped.

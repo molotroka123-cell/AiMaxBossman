@@ -307,7 +307,8 @@ class TerminalManager:
 
     async def start(self, cmd: str, cwd: Path, policy: TerminalPolicy,
                     *, approved: bool = False, network: bool = False,
-                    owner: str | None = None) -> TerminalSession:
+                    owner: str | None = None, stdin_data: bytes | None = None) -> TerminalSession:
+        """`stdin_data`: bytes fed to the command's stdin, then EOF (a verified script handed to `sh -s`)."""
         cwd = cwd.resolve()
         # F-009: единая точка confinement и для host-режимов, и для sandbox —
         # каталог, который уйдёт в `-v cwd:/work`, обязан лежать в разрешённых
@@ -335,6 +336,7 @@ class TerminalManager:
             container = f"bcc-{sid}"
             docker_args = [
                 "docker", "run", "--rm", "--name", container,
+                *(["-i"] if stdin_data is not None else []),          # without -i docker does not forward stdin
                 "--network", "bridge" if network else "none",
                 "-v", f"{cwd}:/work",
                 "-w", "/work",
@@ -376,6 +378,14 @@ class TerminalManager:
                                   container=container, job=_win_bind_and_resume(proc))
         self.sessions[sid] = session
         session._reader = asyncio.create_task(self._read(session))
+        if stdin_data is not None and proc.stdin is not None:
+            try:
+                proc.stdin.write(stdin_data)
+                await proc.stdin.drain()
+            except (BrokenPipeError, ConnectionResetError):
+                pass                                                  # the command exited early; its output says why
+            finally:
+                proc.stdin.close()
         return session
 
     async def _read(self, s: TerminalSession) -> None:
