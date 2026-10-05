@@ -104,3 +104,22 @@ SearXNG OK/DOWN(причина)/NOT_CONFIGURED; DDG — OK только при H
 `python -m bcc.pit.cli doctor` на ПК владельца (строка `web`).
 Побочная находка (не мой код, воспроизводится и без моих правок): `tests/test_autonomy_probes.py::test_jeff_identity_counts_leaks_of_the_runtime`
 красный на линии (после cherry-pick `4c5cf52b` проверка идёт по сырому тексту до `guard_outgoing`) — разбирается отдельно.
+
+## Чекпоинт 5 — первое доказанное самоулучшение (задача 5): **НЕ доказано, подготовлено к утреннему запуску**
+
+Факты:
+- В облачной среде нет ключей OpenRouter/NVIDIA (проверено: ни одной переменной `OPENROUTER*`/`NVIDIA*`), живой исполнитель дерева отсюда
+  запустить нельзя. Стаб-режим не считается и не использовался. **Лист дерева «проверено» не получен.**
+- Дефект кандидата воспроизведён на текущей линии: `choose_discovery_question([DiscoveryCandidate(relevance=nan, …), good], enabled=True)` →
+  `None` (хороший вопрос не выбран), а `[good, bad]` → `good` — результат зависит от порядка. Причина: `max(candidates, key=score)`
+  с NaN-оценкой первого элемента (сравнения с NaN ложны, `max` его не вытесняет), затем `score(best) >= threshold` ложно.
+- Я **намеренно не исправлял** `pit/discovery.py` сам: патч, написанный «учителем», не считается самоулучшением (AGENTS.md), и исчезло бы
+  то, что должен найти и исправить Bossman. Дефект остаётся в линии до утреннего прогона.
+- Подготовлено: `tools/tree_self_improve.py` — одна команда запускает ровно существующий путь дерева (`POST /api/capability-tree/work`,
+  лист `module-a7105ffd5da5` = `command-center/bcc/pit/discovery.py`; область: этот файл + `command-center/tests`; независимая проверка:
+  `test_discovery.py`, `test_pit_foundation.py` — оба сейчас зелёные), только $0-исполнители (`nemotron-ultra-free`, `openrouter-free`,
+  `openrouter-code-free`, `local`; платные отвергаются), честные вердикты `VERIFIED_CANDIDATE | UNVERIFIED_CANDIDATE | CHECK_FAILED |
+  NO_DEFECT_FOUND | FAILED | TIMEOUT`; применение в проект — только владельцем (Coding → Применить). Тесты хелпера: 3 passed.
+- Что считать доказательством утром: вердикт `VERIFIED_CANDIDATE` (изменён `discovery.py` + добавлен тест, падающий на старом коде,
+  независимая проверка пройдена) и лист в дереве со статусом «проверено». Это уровень `SELF_REPAIR_SINGLE_CYCLE_PASS` **кандидата**; 3-циклового
+  доказательства, переноса и soak нет.
