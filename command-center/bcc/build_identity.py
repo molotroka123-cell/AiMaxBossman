@@ -72,6 +72,9 @@ def _resolve() -> dict[str, Any]:
 # Захватываем SHA при загрузке модуля, до первого health-запроса. Иначе первый
 # запрос после git pull ошибочно приписал бы старому процессу новый HEAD.
 _boot_identity: dict[str, Any] | None = _resolve()
+# Тот же ответ годится как начальный кэш: иначе первый source_identity() (bcc.app.main, первый /health/live)
+# заново запускал `git rev-parse` и `git diff` — две лишние подпроцесса на каждый старт в чекауте.
+_cached = (time.monotonic(), dict(_boot_identity))
 
 
 def source_identity(*, fresh: bool = False) -> dict[str, Any]:
@@ -105,3 +108,18 @@ def reset_cache() -> None:
     with _lock:
         _cached = None
         _boot_identity = None
+
+
+def data_dir_fingerprint(path: Any) -> str:
+    """Short, non-reversible tag of a data directory.
+
+    Lets Jeff prove that it and the backend use the same data root without the
+    backend publishing a filesystem path on its unauthenticated identity route.
+    """
+    import hashlib
+    import os
+    try:
+        text = str(Path(path).resolve())
+    except OSError:
+        text = str(path)
+    return hashlib.sha256(os.path.normcase(text).encode("utf-8")).hexdigest()[:12]

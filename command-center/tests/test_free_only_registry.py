@@ -63,7 +63,7 @@ async def test_adapter_for_refuses_chat_but_not_health(env):
     paid = await reg.create_model(provider_id=prov["id"], name="gpt-x", kind="cloud",
                                   price_in=1.0, price_out=2.0)
     adapter, _ = await reg.adapter_for(paid["id"])
-    with pytest.raises(ProviderError, match="free-only"):
+    with pytest.raises(ProviderError, match="только бесплатное"):
         await adapter.chat("gpt-x", [])
     assert await adapter.health() == "ok"
     assert calls == ["health"]                      # no request reached the provider

@@ -44,9 +44,9 @@ async def copy_verified(svc,row,target):
 
 async def import_reference(svc,filename,encoded):
     suffix=Path(filename).suffix.lower()
-    if suffix not in ('.png','.jpg','.jpeg','.mp4','.wav','.mp3'):raise ValueError('filename: unsupported raster/video/audio type')
+    if suffix not in ('.png','.jpg','.jpeg','.mp4','.wav','.mp3'):raise ValueError('Этот тип файла не подходит: нужны PNG, JPG, MP4, WAV или MP3.')
     data=base64.b64decode(encoded,validate=True)
-    if not 0<len(data)<=15*1024*1024:raise ValueError('reference exceeds 15 MiB or is empty')
+    if not 0<len(data)<=15*1024*1024:raise ValueError('Файл пустой или больше 15 МиБ.')
     surface='video' if suffix=='.mp4' else 'audio' if suffix in ('.wav','.mp3') else 'image'
     path=rt.storage(svc).save('references/'+uuid4().hex+suffix,data)
     try:
@@ -55,7 +55,7 @@ async def import_reference(svc,filename,encoded):
     return rt.public_run(await rt.one(svc,runs,runs.c.id,rid))
 
 async def into_video(svc,row,payload):
-    if row['deleted']:raise ValueError('result is in trash')
+    if row['deleted']:raise ValueError('Результат лежит в корзине: сначала верните его.')
     temp=rt.storage(svc).root/('transfer-'+uuid4().hex)
     try:
         await copy_verified(svc,row,temp)
@@ -66,7 +66,7 @@ async def into_video(svc,row,payload):
     finally:temp.unlink(missing_ok=True)
 
 async def reframe(svc,row,width,height,mode):
-    if row['surface'] not in ('image','video') or row['mime']=='image/svg+xml':raise ValueError('reframe supports raster images/video, not demo SVG')
+    if row['surface'] not in ('image','video') or row['mime']=='image/svg+xml':raise ValueError('Рефрейм работает с растровыми картинками и видео, а не с демо-рисунком (SVG).')
     return await rt.create_job(svc,{'model':'local:reframe','prompt':row['provenance']['plane']['prompt']+' / '+mode,'settings':{'width':width,'height':height,'mode':mode},'media':[{'run_id':row['id'],'role':'reference'}]})
 
 async def process_reframe(svc,job,ext,model):
@@ -90,7 +90,7 @@ async def process_reframe(svc,job,ext,model):
 async def storyboard(svc,payload):
     from bcc.video_studio.storyboard import RECIPES
     shots=payload['shots']
-    if any(x not in RECIPES for x in shots):raise ValueError('shots: unknown recipe')
+    if any(x not in RECIPES for x in shots):raise ValueError('В раскадровке есть неизвестный шаблон кадра.')
     # This is a generation plan using canonical recipes, NOT a montage with fabricated media ids.
     prepared=[]
     for index,shot in enumerate(shots):
@@ -113,9 +113,9 @@ async def package(svc,ids):
         total=0
         for rid in dict.fromkeys(ids):
             row=await rt.one(svc,runs,runs.c.id,rid)
-            if not row or row['deleted']:raise ValueError('package: result missing/deleted')
+            if not row or row['deleted']:raise ValueError('Один из выбранных результатов не найден или лежит в корзине.')
             total+=row['file_bytes']
-            if total>256*1024*1024:raise ValueError('package exceeds 256 MiB')
+            if total>256*1024*1024:raise ValueError('Архив получится больше 256 МиБ: выберите меньше результатов.')
             path=temporary/(rid+Path(row['file_path']).suffix)
             await copy_verified(svc,row,path);paths.append(path);manifest.append(row['provenance'])
         def write():

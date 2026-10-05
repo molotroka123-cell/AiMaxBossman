@@ -132,3 +132,39 @@ def synthesize_ogg(
         if not output.startswith(b"OggS"):
             raise PiperError("VOICE_AUDIO_INVALID")
         return output
+
+
+def synthesize_pcm(
+    text: str, *, piper_executable: str | Path, model_path: str | Path,
+    stopped: Callable[[], bool] = lambda: False,
+) -> tuple[bytes, int]:
+    """Verified mono PCM16 and its sample rate for one short utterance (no ffmpeg, no Opus): the live-call sibling of
+    ``synthesize_ogg``. Same local-only checks, the same STOP-polling runner, nothing is written outside a temp dir.
+    """
+    if (not isinstance(text, str) or not 0 < len(text.strip()) <= MAX_TEXT_CHARS or
+            "\x00" in text or len(text.encode("utf-8")) > MAX_TEXT_BYTES):
+        raise PiperError("VOICE_TEXT_INVALID")
+    piper = _local_file(piper_executable)
+    model = _local_file(model_path, ".onnx")
+    config = _local_file(str(model) + ".json", ".json")
+    try:
+        details = json.loads(config.read_text(encoding="utf-8"))
+        language = details.get("language", {})
+        if not isinstance(language, dict) or language.get("code") != "ru_RU":
+            raise PiperError("VOICE_LANGUAGE_UNSUPPORTED")
+    except (OSError, UnicodeError, json.JSONDecodeError, AttributeError) as exc:
+        raise PiperError("VOICE_MODEL_INVALID") from exc
+    if stopped():
+        raise PiperError("VOICE_STOPPED")
+    with tempfile.TemporaryDirectory(prefix="bossman-voice-") as directory:
+        wav = Path(directory) / "reply.wav"
+        _run([str(piper), "--model", str(model), "--config", str(config),
+              "--output_file", str(wav)], stdin=text.encode("utf-8") + b"\n",
+             stopped=stopped, timeout=60)
+        _validate_wav(wav)
+        if stopped():
+            raise PiperError("VOICE_STOPPED")
+        with wave.open(str(wav), "rb") as audio:
+            rate = audio.getframerate()
+            pcm = audio.readframes(audio.getnframes())
+    return pcm, rate

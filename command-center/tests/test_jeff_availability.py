@@ -249,6 +249,27 @@ async def test_owner_status_and_pit_status_expose_the_heartbeat(env, capsys):
     assert report["heartbeat"]["telegram"]["availability"] == "up"
 
 
+def test_poller_process_count_collapses_windows_venv_launcher(monkeypatch):
+    from bcc.pit import heartbeat
+    import psutil
+
+    class Proc:
+        def __init__(self, pid, ppid, exe):
+            self.info = {
+                "pid": pid, "ppid": ppid, "exe": exe,
+                "cmdline": [exe, "-m", "bcc.pit.cli", "start", "--config", "<redacted>"],
+            }
+
+    launcher = Proc(101, 1, r"C:\venv\Scripts\python.exe")
+    interpreter = Proc(102, 101, r"C:\Python312\python.exe")
+    other_poller = Proc(103, 1, r"C:\Python312\python.exe")
+    monkeypatch.setattr(psutil, "process_iter", lambda _attrs: iter((launcher, interpreter)))
+    assert heartbeat.jeff_process_count() == 1
+
+    monkeypatch.setattr(psutil, "process_iter", lambda _attrs: iter((launcher, interpreter, other_poller)))
+    assert heartbeat.jeff_process_count() == 2
+
+
 def test_window_health_endpoint_carries_the_heartbeat(tmp_path):
     from .test_pit_web import RecordingAdapter, client_for, make_app
     app, _ = make_app(tmp_path, RecordingAdapter("Ок."))

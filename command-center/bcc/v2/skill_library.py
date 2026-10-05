@@ -111,7 +111,8 @@ class SkillLibrary:
 
     def create(self, skill_id: str, content: str, *, overwrite: bool = False) -> Skill:
         if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,62}", skill_id):
-            raise ValueError("skill id must be lower kebab-case")
+            raise ValueError("Имя навыка: 2–63 символа, только строчные латинские буквы, цифры и дефис "
+                             "(например, my-skill). Русские буквы и пробелы не подходят.")
         dest = self.canonical_root / skill_id / SKILL_FILE
         if dest.exists() and not overwrite:
             raise FileExistsError(dest)

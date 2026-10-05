@@ -106,6 +106,7 @@ MAX_LOG_LINES = 60
 CANCEL_WAIT_S = 15
 KILL_WAIT_S = 10
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
+WINDOWS_APP_CONTROL_BLOCK = 0xC0E90002
 
 _HASH_CACHE_LOCK_TOKEN = "installation_token"
 
@@ -585,6 +586,19 @@ def duration_mismatch(observed_ms, settings: dict, *, segments: int = 1) -> str 
         return (f"duration {observed_s:.3f}s does not match the requested {expected_s:.3f}s "
                 f"({frames} frames x {n} segment(s) @ {fps} fps, tolerance {tolerance:.3f}s)")
     return None
+
+
+def classify_engine_exit(returncode: int, *, platform: str | None = None) -> tuple[str, str]:
+    """Name the Windows Smart App Control/App Control block instead of a media error.
+
+    0xC0E90002 is emitted before an unsigned/untrusted executable can initialize. It is
+    distinct from a model failure: retrying the same binary cannot produce an artifact.
+    """
+    system = os.name if platform is None else platform
+    code = int(returncode) & 0xFFFFFFFF
+    if system == "nt" and code == WINDOWS_APP_CONTROL_BLOCK:
+        return "provider_down", "Windows App Control blocked the unsigned media runtime (0xC0E90002)"
+    return "malformed", f"engine exit code {returncode}"
 
 
 def _qwen_vision(plane: GenerationPlane, files: dict[str, Path]) -> list[str]:
@@ -1275,7 +1289,7 @@ class SdCppProvider:
             job["failure"] = "canceled"
             return
         if proc.returncode != 0:
-            job["failure"], job["failure_detail"] = "malformed", f"engine exit code {proc.returncode}"
+            job["failure"], job["failure_detail"] = classify_engine_exit(proc.returncode)
             return
         # Zero exit is not completion: the raw output must probe and decode.
         try:

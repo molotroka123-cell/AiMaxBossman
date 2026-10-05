@@ -24,9 +24,12 @@ COLUMNS = ("captured_at_utc", "status", "stream_state", "symbol", "exchange", "t
 
 
 def default_root(channel: str = "k1m6a") -> Path:
-    base = os.environ.get("BCC_DATA_DIR") or os.path.join(os.environ.get("LOCALAPPDATA") or str(Path.home()),
-                                                          "Bossman", "CommandCenter")
-    return Path(base) / "market-data" / "twitch" / channel
+    """Where the collector writes by default: under the SAME data directory as the backend
+    (`bcc.config._data_dir()`: BCC_DATA_DIR, else a source checkout's `command-center/data`, else the
+    per-user application-data directory). `/api/market/status` reads `<data_dir>/market-data/...`, so a
+    `bossman market watch` without `--root` has to land there; `--root` still overrides."""
+    from ..config import _data_dir
+    return Path(_data_dir()) / "market-data" / "twitch" / channel
 
 
 class Ledger:

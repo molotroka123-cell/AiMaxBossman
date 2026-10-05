@@ -419,6 +419,7 @@ async def test_bossman_exposes_status_export_stop_and_nothing_else(tmp_path):
             assert (await client.post(path, json={})).status_code in (404, 405)
     finally:
         await client.aclose()
+        await svc.stop()
 
 
 def test_calibration_findings_2026_09_24():

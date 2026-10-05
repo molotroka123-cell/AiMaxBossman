@@ -190,9 +190,12 @@ def test_jeff_refuses_the_owner_companion_bot_token(tmp_path, monkeypatch, capsy
     bot_guard.assert_not_companion_bot("111111111:" + "Z" * 35)
 
 
-def test_jeff_and_companion_never_share_state_dirs(tmp_path):
+def test_jeff_and_companion_never_share_state_dirs(tmp_path, monkeypatch):
     from bcc.pit.config import pit_home
     from bcc.telegram_companion.__main__ import default_config
+    monkeypatch.delenv("BOSSMAN_TELEGRAM_CONFIG", raising=False)
+    monkeypatch.delenv("BOSSMAN_COMPANION_CONFIG", raising=False)
+    monkeypatch.setenv("BCC_DATA_DIR", str(tmp_path))
     jeff_home = pit_home(tmp_path)
     assert jeff_home.name == "pit-v1.7"
     assert default_config().parent.name == "telegram-companion"

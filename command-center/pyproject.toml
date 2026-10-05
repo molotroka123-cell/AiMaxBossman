@@ -30,6 +30,8 @@ dependencies = [
 [project.optional-dependencies]
 # Optional local upstream engines; weights are supplied by the owner, never at boot.
 documents = ["docling-slim[convert-core,format-pdf,format-office]==2.127.0"]
+# Heavy local PDF layout models are opt-in and isolated from the normal Bossman runtime.
+master-parser-documents = ["docling-slim[convert-core,format-pdf,format-office,models-local,cli]==2.127.0"]
 speech = ["faster-whisper==1.2.1"]
 semantic-memory = ["qdrant-client==1.15.1"]
 # Зависимости приложений, которые архив везёт внутри bcc/_apps: у них свои
@@ -46,7 +48,7 @@ runtime = [
     # distribution; a checkout on PYTHONPATH is not an installation contract.
     "bossman-core[runtime]==0.3.0",
 ]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "greenlet>=3.0", "pytest-timeout>=2.2", "pytest-cov>=5.0"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "greenlet>=3.0", "pytest-timeout>=2.2", "pytest-cov>=5.0", "pytest-xdist>=3.5", "numpy>=1.26"]  # numpy: audio tests of bcc.telegram_calls (optional runtime extra "calls")
 # Браузерные тесты. Отдельной группой, а не в dev: Playwright тянет за собой
 # браузер, и требовать его от всех, кто просто хочет прогнать юнит-тесты,
 # незачем. Без этой группы браузерные тесты честно SKIP'аются, а не падают.
@@ -67,6 +69,11 @@ video-interchange = ["opentimelineio>=0.18,<0.19"]
 # paste). Both universal wheels are pinned by SHA256 in the Windows bundle lock;
 # the Windows hash-checking install and actual archive smoke remain release gates.
 terminal = ["prompt_toolkit==3.0.52"]
+# Telegram live calls (bcc.telegram_calls). OPTIONAL and deliberately NOT part of `runtime`: the Windows bundle is hash-locked
+# (tools/windows_bundle_lock.txt, recorded only on the Windows runner). On the embedded runtime `bossman call install`
+# installs the exact hash-verified add-on from bcc/telegram_calls/addon_lock.json instead. Voice reuses Jeff's tract
+# (faster-whisper from `speech`, the external Piper executable); numpy is already in the bundle.
+calls = ["telethon==1.45.0", "py-tgcalls==3.0.0", "ntgcalls==3.0.0", "pysilero-vad==3.4.0", "soxr==1.1.0", "numpy>=1.26", "faster-whisper==1.2.1"]
 
 [project.scripts]
 bcc = "bcc.app:main"
@@ -84,7 +91,7 @@ include = ["bcc*"]
 # Imported third-party skills are read-only DATA (text + provenance + licences),
 # discovered by bcc.v2.skill_catalog; they must ship inside the wheel.
 [tool.setuptools.package-data]
-bcc = ["skills_catalog/*/LICENSE", "skills_catalog/*/*/SKILL.md",
+bcc = ["telegram_calls/addon_lock.json", "skills_catalog/*/LICENSE", "skills_catalog/*/*/SKILL.md",
        "skills_catalog/*/*/provenance.json", "skills_catalog/*/*/LICENSE.txt",
        "capability_tree_seed.json"]
 

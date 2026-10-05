@@ -34,7 +34,7 @@ from .photo_runtime import build_photo_services, photo_runtime_status
 from .runtime import STOP_FLAG, ParticipantRuntime, StopRequested
 
 COMMANDS = ("setup", "status", "doctor", "start", "stop", "routes", "web", "web-user",
-            "web-setup", "passport-checkpoint", "master-parse")
+            "web-setup", "passport-checkpoint", "master-parse", "watch")
 
 
 def _resolve_path(argv: list[str]) -> Path:
@@ -113,6 +113,8 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
         return checks, False
 
     add("allowlist", len(settings.people) >= 1)
+    from .doctor_identity import identity_checks
+    checks.extend(await asyncio.to_thread(identity_checks, settings, home, data_dir))
     from .blocklist import BlocklistError, PrivateBlocklist
     try:
         block_status = PrivateBlocklist.from_settings(settings).status()
@@ -179,6 +181,10 @@ async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
         probe.capacity_guard = LocalCapacityGuard()
         probe.catalog = {}
         probe.catalog_checked_at = 0.0
+        probe.local_checked_at = 0.0
+        probe.local_state = ""
+        probe._catalog_dirty = False
+        probe._payment_blocked_until = {}
         endpoints = await ParticipantRuntime.refresh_catalog(probe)
         local_ok = any(endpoint.local for endpoint in endpoints.values())
         selected_models = settings.local_models if settings.local_chat_only else settings.chat_models
@@ -249,7 +255,9 @@ def _tool_perimeter() -> bool:
 
 def cmd_doctor(path: Path) -> int:
     checks, ok = asyncio.run(_doctor_checks(path))
-    print(json.dumps({"ok": ok, "checks": checks}, ensure_ascii=False, indent=2))
+    from .version import JEFF_VERSION
+    print(json.dumps({"ok": ok, "jeff_version": JEFF_VERSION, "checks": checks},
+                     ensure_ascii=False, indent=2))
     return 0 if ok else 2
 
 
@@ -257,7 +265,11 @@ def cmd_doctor(path: Path) -> int:
 def cmd_status(path: Path) -> int:
     data_dir = _resolve_data_dir(path)
     home = pit_home(data_dir)
-    report: dict = {"surface": "bossman-pit", "secret_free": True,
+    from bcc.build_identity import source_identity
+
+    from .version import JEFF_VERSION
+    report: dict = {"surface": "bossman-pit", "secret_free": True, "jeff_version": JEFF_VERSION,
+                    "build_sha": source_identity().get("build_sha"),
                     "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     report["config_present"] = path.is_file()
     report["process"] = "RUNNING" if _is_running(home) else "STOPPED"
@@ -265,14 +277,29 @@ def cmd_status(path: Path) -> int:
         try:
             settings = load(path)
             personalities = home / "personalities"
-            participants = len(list(personalities.iterdir())) if personalities.is_dir() else 0
+            # Status is scoped to configured participants. Old or revoked namespaces
+            # may intentionally have tighter ACLs and must never break the owner's
+            # status/passport screens (or be read just to compute an aggregate).
+            from .identity import derive_person_key, scoped_person_dir
+            scoped_dirs = [
+                scoped_person_dir(personalities, derive_person_key(
+                    person.user_id, bytes.fromhex(settings.identity_salt)))
+                for person in settings.people
+            ]
+            visible_dirs = [person_dir for person_dir in scoped_dirs if person_dir.is_dir()]
+            participants = len(visible_dirs)
             facts = 0
-            if personalities.is_dir():
-                for person_dir in personalities.iterdir():
-                    marker = person_dir / "facts.jsonl"
+            fact_scan_errors = 0
+            for person_dir in visible_dirs:
+                marker = person_dir / "facts.jsonl"
+                try:
                     if marker.is_file():
                         facts += sum(1 for line in marker.read_text(encoding="utf-8").splitlines()
                                      if line.strip())
+                except OSError:
+                    # Keep status available if one authorized namespace is temporarily
+                    # unreadable; do not expose the path or any participant's data.
+                    fact_scan_errors += 1
             report["allowlist"] = len(settings.people)
             from .blocklist import BlocklistError, PrivateBlocklist
             try:
@@ -281,6 +308,8 @@ def cmd_status(path: Path) -> int:
                 report["blocklist"] = {"error": str(exc)}
             report["chat_models"] = len(settings.chat_models)
             report["pit_storage"] = {"participants": participants, "facts": facts, "root": str(home)}
+            if fact_scan_errors:
+                report["pit_storage"]["fact_scan_errors"] = fact_scan_errors
             report["web"] = "SEARXNG" if settings.search_url else "KEYLESS_FALLBACK"
             report["local_models"] = list(settings.local_models) or "NONE"
             report["chat_route_mode"] = "LOCAL_ONLY_TEST" if settings.local_chat_only else "CLOUD_FREE"
@@ -296,8 +325,20 @@ def cmd_status(path: Path) -> int:
     report["media"] = photo_runtime_status(
         build_photo_services(core_token="", data_dir=data_dir).config)
     report["queue"] = {"pending": _queue_pending(home)}
+    from .heartbeat import WATCHDOG_DIR
+    watchdog = _read_json(home / WATCHDOG_DIR / "state.json")
+    report["watchdog"] = ({**watchdog, "alive": _is_running(home / WATCHDOG_DIR)}
+                          if watchdog else {"alive": False})
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if report["config_present"] else 2
+
+
+def _read_json(path: Path):
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def _is_running(home: Path) -> bool:
@@ -503,7 +544,7 @@ def cmd_start(path: Path) -> int:
     try:
         # Jeff never polls the owner's «Пульт» companion bot, and one bot token
         # has one poller on this machine even across different data dirs.
-        assert_not_companion_bot(settings.bot_token)
+        assert_not_companion_bot(settings.bot_token, data_dir=_resolve_data_dir(path))
         locks.enter_context(single_instance(home))
         locks.enter_context(token_poller_lock(settings.bot_token))
     except CompanionError as exc:
@@ -529,9 +570,51 @@ def cmd_start(path: Path) -> int:
                 asyncio.run(runtime.close())
 
 
+def cmd_watch(path: Path) -> int:
+    """Supervise ``pit start``: restart with backoff, one poller, clean STOP."""
+    import subprocess
+
+    from .heartbeat import WATCHDOG_DIR, Watchdog
+    settings = load(path)
+    if settings.web_only:
+        print("bossman pit: web-only конфигурация: Telegram-поллера нет.", file=sys.stderr)
+        return 2
+    data_dir = _resolve_data_dir(path)
+    home = pit_home(data_dir)
+    try:
+        guard = single_instance(home / WATCHDOG_DIR)
+        guard.__enter__()
+    except CompanionError as exc:
+        print(f"bossman pit: {exc}", file=sys.stderr)
+        return 3
+
+    def spawn():
+        logs = home / "logs"
+        logs.mkdir(parents=True, exist_ok=True)
+        out = (logs / "poller.out").open("ab")
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+        try:
+            return subprocess.Popen(
+                [sys.executable, "-m", "bcc.pit.cli", "start", "--data-dir", str(data_dir)],
+                stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, creationflags=flags)
+        finally:
+            out.close()
+
+    try:
+        why = Watchdog(home, spawn).run()
+    except KeyboardInterrupt:
+        why = "stopped"
+    finally:
+        guard.__exit__(None, None, None)
+    print(f"bossman pit watch: {why}")
+    return 0 if why in {"stopped", "exited"} else 2
+
+
 def cmd_stop(path: Path) -> int:
     home = pit_home(_resolve_data_dir(path))
-    if _is_running(home):
+    from .heartbeat import WATCHDOG_DIR
+    # A live watchdog must also see the flag while the poller is between restarts.
+    if _is_running(home) or _is_running(home / WATCHDOG_DIR):
         (home / STOP_FLAG).write_text(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                                       encoding="utf-8")
         print("Сигнал остановки записан; PIT завершит цикл опроса в течение ~25 секунд.")
@@ -562,6 +645,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_start(path)
     if command == "stop":
         return cmd_stop(path)
+    if command == "watch":
+        return cmd_watch(path)
     if command == "routes":
         return cmd_routes(path, argv)
     if command == "web-setup":
@@ -577,7 +662,7 @@ def main(argv: list[str] | None = None) -> int:
         from .passport_checkpoint import run_checkpoint
         report, checkpoint = run_checkpoint(load(path))
         print(json.dumps({"checkpoint": str(checkpoint), **report}, ensure_ascii=False))
-        return 0 if all(row["status"] != "MODEL_ERROR" for row in report["participants"]) else 1
+        return 0 if all(row["status"] not in {"MODEL_ERROR", "EMPTY_ANSWER"} for row in report["participants"]) else 1
     return 2
 
 

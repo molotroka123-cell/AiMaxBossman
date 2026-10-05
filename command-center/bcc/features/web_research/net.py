@@ -218,6 +218,7 @@ class PageRecord:
     bytes_read: int                      # 0 на попадании в кэш: байтов не было
     net_seconds: float                   # то же самое; расход бюджета считает ledger
     observation_id: str
+    source_truncated: bool = False       # тело длиннее PAGE_MAX_BYTES: прочитано только начало
 
 
 # Инъекция зависимости вместо импорта: `sources.py` импортирует ЭТОТ файл
@@ -383,8 +384,16 @@ class WebFetchAdapter(osiris.HttpFetchAdapter):
     async def fetch_bytes(self, url: str, *, headers: dict[str, str] | None = None,
                           timeout: float | None = None, max_bytes: int | None = None,
                           allowed_hosts: set[str] | None = None,
-                          allow_private: bool = False) -> RawResponse:
+                          allow_private: bool = False,
+                          truncate: bool = False) -> RawResponse:
         """GET с ОБЩИМ дедлайном. `timeout` — весь обмен, а не одно чтение.
+
+        `truncate=True` — только для чтения СТРАНИЦ: тело длиннее потолка не
+        отвергается, а обрезается до потолка с пометкой `x-bossman-truncated`
+        (живой замер: Alan Turing — 1,3 МБ HTML, Москва — 2,1 МБ; при потолке
+        400 КБ не читалась ни одна длинная статья). Ответы API и robots.txt
+        по-прежнему отвергаются целиком: обрезанный JSON — это мусор, а не
+        ответ.
 
         Имя параметра совпадает с осирисовским `fetch`, а смысл другой, и это
         сказано здесь, потому что молчаливое расхождение смыслов у одинаковых
@@ -431,6 +440,7 @@ class WebFetchAdapter(osiris.HttpFetchAdapter):
                     timeout=min(config.PER_READ_TIMEOUT, total),
                     max_redirects=3,
                     headers=sent,
+                    truncate=truncate,
                 )
         except TimeoutError as exc:
             raise osiris.SourceUnavailableError(
@@ -553,7 +563,8 @@ def install_adapter(svc: Any) -> None:
 
 
 async def _adapter_bytes(adapter: Any, url: str, *, timeout: float,
-                         max_bytes: int, allowed_hosts: set[str]) -> RawResponse:
+                         max_bytes: int, allowed_hosts: set[str],
+                         truncate: bool = False) -> RawResponse:
     """Байты у ЛЮБОГО адаптера, в том числе у стенда, знающего только `fetch`.
 
     Стенд по протоколу `osiris.FetchAdapter` обязан уметь `fetch` и не обязан
@@ -565,8 +576,11 @@ async def _adapter_bytes(adapter: Any, url: str, *, timeout: float,
     """
     getter = getattr(adapter, "fetch_bytes", None)
     if callable(getter):
+        # `truncate` передаётся только НАШЕМУ транспорту: чужой `fetch_bytes`
+        # (стенд теста) такого параметра не знает и не обязан знать.
+        extra = {"truncate": True} if truncate and isinstance(adapter, WebFetchAdapter) else {}
         return await getter(url, timeout=timeout, max_bytes=max_bytes,
-                            allowed_hosts=allowed_hosts)
+                            allowed_hosts=allowed_hosts, **extra)
     result = await adapter.fetch(url, headers={"User-Agent": osiris.USER_AGENT},
                                  timeout=timeout)
     body = (result.body or "").encode("utf-8", "replace")
@@ -860,7 +874,8 @@ def _check_disk_budget(st: osiris.OsirisStore) -> None:
 def _write_page_raw(st: osiris.OsirisStore, source: osiris.Source, subject: str,
                     url: str, *, raw: RawResponse, text: str, encoding: str,
                     replace_ratio: float, mojibake: bool, extract_chars: int,
-                    transport: str, fetched_at: datetime) -> str:
+                    transport: str, fetched_at: datetime,
+                    source_truncated: bool = False) -> str:
     """Записать сырьё под ключом-содержимым и вернуть дайджест (D1).
 
     Ключ — `sha256` ТЕЛА ОТВЕТА (байтов), а не `sha256(source_id|url)`, как в
@@ -904,6 +919,8 @@ def _write_page_raw(st: osiris.OsirisStore, source: osiris.Source, subject: str,
         "extract_max_chars": int(extract_chars),
         "extractor": html_text.EXTRACTOR_VERSION,
     }
+    if source_truncated:
+        record["source_truncated"] = True       # только когда правда: старые записи не меняются
     # Пишем СВОЕЙ атомарной записью, а не приватным `OsirisStore._write_json`:
     # приватная деталь чужого модуля имеет полное право поменяться без
     # предупреждения, а формат файла здесь и так задан полем в поле выше.
@@ -976,6 +993,7 @@ def _page_from_record(record: Mapping[str, Any], *, source_id: str, host: str,
         bytes_read=bytes_read,
         net_seconds=net_seconds,
         observation_id=observation_id,
+        source_truncated=bool(record.get("source_truncated")),
     )
 
 
@@ -1019,6 +1037,9 @@ def _observe_page(st: osiris.OsirisStore, source: osiris.Source, subject: str,
         "robots": page.robots_note,
         "url_note": config.MSG_REQUESTED_URL_ONLY,
     }
+    if page.source_truncated:
+        value["source_truncated"] = True
+        value["source_max_bytes"] = config.PAGE_MAX_BYTES
     if of:
         # Связь «из чего это выросло»: §9 проекта связывает наблюдения эпизода
         # через value["of"], и без неё дерево следа не собирается.
@@ -1148,7 +1169,8 @@ async def fetch_page(svc: Any, url: str, subject: str, *,
         raw = await _adapter_bytes(adapter, canon,
                                    timeout=config.TOTAL_DEADLINE_OPEN,
                                    max_bytes=config.PAGE_MAX_BYTES,
-                                   allowed_hosts=same_site(host))
+                                   allowed_hosts=same_site(host),
+                                   truncate=True)
     except PluginSecurityError:
         raise
     except osiris.OsirisError:
@@ -1187,6 +1209,7 @@ async def fetch_page(svc: Any, url: str, subject: str, *,
     #     битой, чем не увидеть вовсе, — но цитировать из неё запрещено, и это
     #     выражено полем `quotable`, а не оговоркой в документации.
     content_type = header_value(raw.headers, "content-type")
+    source_truncated = header_value(raw.headers, "x-bossman-truncated") == "1"
     text, encoding, ratio = html_text.decode_body(raw.content, content_type)
     mojibake = html_text.looks_mojibake(text)
     extraction = html_text.extract(text, base_url=canon,
@@ -1205,7 +1228,8 @@ async def fetch_page(svc: Any, url: str, subject: str, *,
     digest = _write_page_raw(st, source, subject, canon, raw=raw, text=text,
                              encoding=encoding, replace_ratio=ratio, mojibake=mojibake,
                              extract_chars=int(extract_chars or EXTRACT_MAX_CHARS),
-                             transport=transport, fetched_at=fetched_at)
+                             transport=transport, fetched_at=fetched_at,
+                             source_truncated=source_truncated)
     _remember_digest(svc, source.id, canon, digest)
 
     stored = st.read_raw(digest) or {}

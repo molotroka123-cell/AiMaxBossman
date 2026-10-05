@@ -64,6 +64,33 @@ const startApp = (id) => api.raw(url(id, '/start'), { method: 'POST' });
 const stopApp = (id) => api.raw(url(id, '/stop'), { method: 'POST' });
 const processInfo = (id) => api.raw(url(id, '/process'));
 
+/* UX-08: под кнопкой политики показывалась подсказка бэкенда как есть:
+   «включить — PUT /api/apps/control/policy {"enabled": true}» — вызов API с JSON
+   вместо человеческой фразы (а для нечитаемой политики — английский текст).
+   Текст здесь строится по источнику политики; бэкенд остаётся как был. */
+export function policyNote(policy) {
+  const p = policy || {};
+  switch (p.source) {
+    case 'deployment_lock':
+      return 'Политика закреплена при запуске Bossman — здесь её не изменить.';
+    case 'owner_setting_unreadable':
+      return 'Сохранённое решение не удалось прочитать, поэтому запуск запрещён. '
+        + 'Выберите его заново кнопкой выше.';
+    case 'environment':
+      return 'Значение по умолчанию задано настройкой среды; ваше решение кнопкой выше '
+        + 'переопределит его без перезапуска.';
+    case 'owner_setting':
+      return p.enabled
+        ? 'Запуск приложений разрешён вами. Запретить можно кнопкой выше — действует сразу.'
+        : 'Запуск приложений выключен вами. Включить можно кнопкой выше — действует сразу, перезапуск не нужен.';
+    default:
+      return p.enabled
+        ? 'Запуск приложений разрешён. Запретить можно кнопкой выше.'
+        : 'По умолчанию запуск приложений выключен. Нажмите «Разрешить запуск приложений» — '
+          + 'действует сразу, перезапуск не нужен.';
+  }
+}
+
 function policyControl(ctx, known) {
   const node = h('div.bx-panel', { style: { padding: '14px', marginBottom: '16px' } });
   const show = (policy) => {
@@ -80,7 +107,7 @@ function policyControl(ctx, known) {
         } catch (error) { button.disabled = false; toastError(error, 'Не удалось изменить политику приложений'); }
       },
     }, policy.enabled ? 'Запретить запуск приложений' : 'Разрешить запуск приложений');
-    node.replaceChildren(text, button, h('p', policy.hint || ''));
+    node.replaceChildren(text, button, h('p', policyNote(policy)));
   };
   if (known) show(known);
   else api.raw('/api/apps/control/policy').then(show).catch(error => {
@@ -176,7 +203,23 @@ function grid(apps, ctx) {
       h('div.bx-hero-pills',
         h('button.bx-btn.bx-btn-subtle.bx-btn-sm', {
           type: 'button',
-          onClick: async () => { await refreshApps(); ctx.refresh(); },
+          /* UX-12: клик не давал ни сообщения, ни признака работы, а при сбое проба падала
+             необработанной ошибкой. Кнопка занята на время проверки и отвечает тостом. */
+          onClick: async (event) => {
+            const button = event.currentTarget;
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            try {
+              await refreshApps();
+              toastOk('Состояние приложений обновлено');
+              ctx.refresh();
+            } catch (error) {
+              toastError(error, 'Не удалось проверить состояние приложений');
+            } finally {
+              button.disabled = false;
+              button.removeAttribute('aria-busy');
+            }
+          },
         }, icon('retry', 14), h('span', 'Проверить состояние')))),
     policyControl(ctx),
     h('div.bx-apps-grid', apps.map((app) => cardWithControl(app, ctx))));

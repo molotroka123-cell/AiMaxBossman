@@ -148,9 +148,10 @@ class Session:
     def add(self, task_id: int, text: str) -> None:
         # Only a pointer to the backend task + the owner's (secret-filtered)
         # words: the answer itself is read back from Bossman, not stored here.
-        self.turns.append({"task_id": task_id, "text": filter_history_line(text)[:4000],
-                           "at": time.strftime("%Y-%m-%dT%H:%M:%S")})
-        self.save()
+        # save() first merges turns the web chat appended meanwhile, so this
+        # turn lands after them, in the order the file saw them.
+        self.save(new_turn={"task_id": task_id, "text": filter_history_line(text)[:4000],
+                            "at": time.strftime("%Y-%m-%dT%H:%M:%S")})
 
     def live_turns(self) -> list[dict]:
         """Turns after the compaction point (all of them without /compact)."""
@@ -162,7 +163,35 @@ class Session:
         self.compact_tasks.append(task_id)
         self.save()
 
-    def save(self) -> None:
+    def save(self, new_turn: dict | None = None) -> None:
+        """Rewrite the session file atomically; `new_turn` (if any) goes last.
+
+        The web chat (features/chat_threads, POST /api/chat/threads/{id}/send)
+        appends turns to the SAME file. Rewriting it from memory alone would
+        drop them, so the file is re-read first and every turn with an integer
+        task_id that this session neither holds nor saw in the file when it last
+        wrote it is merged in, in file order, before `new_turn`. A turn this
+        session removed from memory itself is not brought back. summary and
+        compacted_at_turn stay the in-memory ones; merged turns land after the
+        compaction point. Not a cross-process lock: a web turn written between
+        this read and the os.replace below can still be lost."""
+        mine = {t.get("task_id") for t in self.turns if isinstance(t, dict)}
+        # Task ids in the file as of this session's last write; a freshly opened
+        # session read the file into memory, so memory is that base.
+        seen = getattr(self, "_saved_task_ids", None)
+        seen = mine if seen is None else seen
+        try:
+            on_disk = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            on_disk = None          # a new session (no file yet) or an unreadable one: nothing to merge
+        disk_turns = on_disk.get("turns") if isinstance(on_disk, dict) else None
+        for turn in disk_turns if isinstance(disk_turns, list) else []:
+            tid = turn.get("task_id") if isinstance(turn, dict) else None
+            if isinstance(tid, int) and not isinstance(tid, bool) and tid not in mine and tid not in seen:
+                self.turns.append(turn)
+                mine.add(tid)
+        if new_turn is not None:
+            self.turns.append(new_turn)
         data: dict[str, Any] = {"id": self.id, "turns": self.turns}
         if self.summary or self.compact_tasks:
             data.update(summary=self.summary, compacted_at_turn=self.compacted_at_turn,
@@ -170,6 +199,7 @@ class Session:
         tmp = self.path.with_suffix(".tmp")
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
         os.replace(tmp, self.path)
+        self._saved_task_ids = {t.get("task_id") for t in self.turns if isinstance(t, dict)}
 
 
 SUMMARY_LABEL = "Краткое содержание беседы до этого места (/compact):\n"

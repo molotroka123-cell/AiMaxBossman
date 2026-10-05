@@ -94,6 +94,30 @@ state until the owner executes the runner against a real model and supplies an
 exact-SHA redacted summary. The owner's local machine is the intended place for
 measurement.
 
+### Latest private owner run (2026-10-02)
+
+A real RC21 diagnostic was run on the owner machine against SHA
+`4b9049a097daf49e9fa6c3e8dedeb5f6a3591e33`, using the same local model in all
+four lanes and 940 paired items. The unchanged gate returned `NO_GO`, not PASS.
+The report is kept outside Git at
+`%USERPROFILE%\Bossman\ip-corpus-rc19\gate-report-rc21-candidate.json`; the
+full measurement is `measurement-rc21-candidate.json` in the same directory.
+
+The full/raw core mean is 1.1835, but individual metrics regress: reasoning
+accuracy 0.9263, coding correctness 0.9308, and unknown-task adaptation 0.9741.
+System/context coding correctness is 0.9692. The tool-retention point estimates
+are 1.0; full long-context accuracy is 0.90 (warning). An above-baseline mean
+does not cancel these per-metric blockers.
+
+The subsequent harness audit found that the read-only `analyst` profile inherited
+22 browser tools despite its stated local-only role, while the measured sandbox
+could execute only four file tools; its prompt-visible `log` tool was also not
+executable. The profile now opts out of Computer Use, and the isolated benchmark
+sandbox can write `log` only to its temporary journal. The regression-harness
+tests pass, but these changes have not yet been measured on a new exact commit.
+RC21 therefore remains a valid `NO_GO` for the SHA it measured, and is not
+evidence for the changed working tree or a Bossman 2.0 release.
+
 ## Diagnosis
 
 - `SYSTEM_CORE_REGRESSION` — system/policy instruction collision

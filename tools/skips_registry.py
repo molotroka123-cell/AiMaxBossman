@@ -121,7 +121,7 @@ def main(argv: list[str]) -> int:
         print(f"SKIPS_REGISTRY_CURRENT={'PASS' if ok else 'FAIL'} entries={len(rows)} without_reason={len(missing)}")
         return 0 if ok and not missing else 1
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(text, encoding="utf-8")
+    OUT.write_text(text, encoding="utf-8", newline="\n")   # LF on every OS (CI runs git diff --check)
     print(f"registry written: {OUT.relative_to(ROOT)} entries={len(rows)} without_reason={len(missing)}")
     return 0 if not missing else 1
 

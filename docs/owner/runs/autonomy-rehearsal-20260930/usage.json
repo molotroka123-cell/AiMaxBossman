@@ -1,0 +1,86 @@
+{
+ "per_call": [
+  {
+   "seq": 14,
+   "who": "claude",
+   "role": "writer",
+   "exit_code": 0,
+   "timed_out": false,
+   "usage": {
+    "cli_turns": 5,
+    "duration_ms": 20917,
+    "notional_usd": 0.061623,
+    "tokens_in": 120749,
+    "tokens_out": 2138
+   }
+  },
+  {
+   "seq": 28,
+   "who": "claude",
+   "role": "reviewer",
+   "exit_code": 0,
+   "timed_out": false,
+   "usage": {
+    "cli_turns": 2,
+    "duration_ms": 6702,
+    "notional_usd": 0.108169,
+    "tokens_in": 58293,
+    "tokens_out": 517
+   }
+  },
+  {
+   "seq": 32,
+   "who": "codex",
+   "role": "reviewer",
+   "exit_code": 0,
+   "timed_out": false,
+   "usage": {
+    "tokens_in": 40399,
+    "tokens_out": 310
+   }
+  }
+ ],
+ "totals": {
+  "claude": {
+   "cli_calls": 2,
+   "seconds": 27.619,
+   "tokens_in": 179042,
+   "tokens_out": 2655,
+   "notional_usd": 0.169792
+  },
+  "codex": {
+   "cli_calls": 1,
+   "seconds": 0.0,
+   "tokens_in": 40399,
+   "tokens_out": 310,
+   "notional_usd": 0.0
+  }
+ },
+ "note": "notional_usd is the CLI's list-price equivalent, NOT money: both CLIs run on the owner's subscription login (no API key); turns are CLI calls, cli_turns inside `claude -p` are in per_call.usage",
+ "timings": [
+  {
+   "exe": "claude.exe",
+   "role": "writer",
+   "seconds": 24.0,
+   "returncode": 0,
+   "timed_out": false,
+   "at": "10:24:31"
+  },
+  {
+   "exe": "claude.exe",
+   "role": "reviewer",
+   "seconds": 10.1,
+   "returncode": 0,
+   "timed_out": false,
+   "at": "10:24:43"
+  },
+  {
+   "exe": "codex.exe",
+   "role": "reviewer",
+   "seconds": 13.3,
+   "returncode": 0,
+   "timed_out": false,
+   "at": "10:24:56"
+  }
+ ]
+}

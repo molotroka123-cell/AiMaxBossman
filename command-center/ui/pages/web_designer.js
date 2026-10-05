@@ -696,7 +696,7 @@ function head(ctx) {
 }
 
 function editorPanel() {
-  attachEditor(h('textarea.bd-code', { spellcheck: 'false',
+  attachEditor(h('textarea.bd-code', { spellcheck: 'false', 'aria-label': 'Код страницы (HTML)',
     onInput: () => { state.dirty = true; scheduleSave(); },
     onKeyDown: (e) => {
       if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 's') {

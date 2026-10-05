@@ -1,0 +1,27 @@
+{
+ "checks": {
+  "acceptance": {
+   "detail": "pytest in the staged checkout: 10 passed in 0.02s",
+   "duration_s": 0.484,
+   "ok": true
+  },
+  "health": {
+   "detail": "/health/live -> 200",
+   "duration_s": 0.0,
+   "ok": true
+  },
+  "ready": {
+   "detail": "/health -> 200",
+   "duration_s": 0.016,
+   "ok": true
+  }
+ },
+ "data_dir": "C:\\Users\\asd\\AppData\\Local\\Temp\\bossman-staging-94cbd078-s7cz3pba",
+ "finished_at": "2026-09-30T17:24:58.499283Z",
+ "passed": true,
+ "port": 61442,
+ "reason": "",
+ "sha": "94cbd0785d1e0dfce5a608510b77b860104d35c5",
+ "started_at": "2026-09-30T17:24:57.146671Z",
+ "torn_down": true
+}

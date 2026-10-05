@@ -74,8 +74,11 @@ def verify(path: Path, minimum_tests: int | None = None, source_sha: str | None 
     elif len(clean) < (minimum_tests or 0):
         problems.append(f"{len(clean)} clean cases < {minimum_tests}")
     if source_sha:
-        found = properties(root).get("source_sha")
-        if found != source_sha:
+        # Merged JUnit suites must agree: first-property-wins could certify
+        # current-SHA cases together with cases measured on an older source.
+        found = {prop.get("value") for prop in root.iter("property")
+                 if prop.get("name") == "source_sha"}
+        if found != {source_sha}:
             problems.append(f"results.xml names source_sha {found!r}, expected {source_sha}")
     if problems:
         raise SystemExit(f"Required acceptance did not pass: {'; '.join(problems)}; counts={counts}")

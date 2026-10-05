@@ -89,6 +89,12 @@ used to rank candidates, never fabricated or probed as a paid side effect here.
             reasons.append("У модели агента неизвестна облачная цена (модель удалена из каталога "
                            "провайдера или каталог не синхронизирован). Выберите другую модель.")
             continue
+        if agent_id is None and model.get("status") == "unavailable":
+            # AFTER the catalog-price branch above, which names the withdrawn model precisely; this one
+            # only catches a model the registry marked «unavailable» whose price is still known.
+            reasons.append("Модель агента снята с живого каталога провайдера (статус «нет в каталоге»). "
+                           "Выберите другую модель или синхронизируйте каталог.")
+            continue
         if agent_id is None and free_only_refusal(provider, model):
             reasons.append("Модель агента не бесплатная (политика: только ':free' OpenRouter, "
                            "бесплатные провайдеры или локальные модели). Выберите другую модель.")

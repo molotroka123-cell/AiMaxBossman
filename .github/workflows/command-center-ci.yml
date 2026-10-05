@@ -34,7 +34,12 @@ jobs:
     # Full Command Center runs on the closure tree now take ~21-30 minutes.
     # 30m repeatedly killed otherwise-green py3.12/3.14 jobs at the runner cap;
     # 60m keeps the test/coverage contracts intact while allowing runner jitter.
-    timeout-minutes: 60
+    # 2026-09-30: 7235 tests now take 53-59m on py3.11/3.12 (measured over the
+    # last 30 runs); py3.12 was cancelled at 60m while at 94% with no failure.
+    # 90m restores headroom; per-test --timeout=180 still catches real hangs.
+    # 2026-10-01: the suite now runs on 4 xdist workers (see the Pytest step), ~20-25 min; the cap is 50m, so a
+    # return to the serial 60+ min regime fails loudly instead of being absorbed by another timeout bump.
+    timeout-minutes: 50
     # The same installed core runtime is required on all three interpreters:
     # v1.5 imports bossman_v3 and the coding path launches bossman.apprentice
     # from a child process. A source checkout on PYTHONPATH cannot prove that.
@@ -100,9 +105,38 @@ jobs:
         # минус допуск на дрожание среды (docs/testing/COVERAGE_BASELINE.md).
         # Он ловит удаление тестов и большие куски кода без них; качество проверок
         # держат адресные тесты инвариантов, а не процент.
+        # 2026-10-01: 8.3k tests took 58-78 min serially (py3.12 hit the 90 min cap). The suite is mostly I/O and
+        # subprocess bound, so the same job now runs it on 4 xdist workers (measured 18 min vs 67 min on the owner box).
+        # Nothing is dropped: same tests, same per-test timeout, same coverage floor. The job name is unchanged on
+        # purpose: exact-SHA certification and branch protection match `pytest (py3.x)`.
         run: >-
-          python -m pytest -q --durations=15 --timeout=180 --timeout-method=signal
-          --cov=bcc --cov-report=term:skip-covered --cov-fail-under=72
+          python -m pytest -q -n 4 --durations=15 --timeout=180 --timeout-method=signal
+          --ignore=tests/telegram_calls --cov=bcc --cov-report=
+
+      - name: Pytest - Telegram Calls tests (serial, adds to the same coverage)
+        # The call e2e/worker tests spawn real processes and are kept out of the parallel step; the two wall-clock-paced
+        # files below get their own step. The coverage floor is enforced on the union of the steps.
+        if: ${{ !cancelled() }}
+        working-directory: command-center
+        env:
+          BCC_DATA_DIR: ${{ runner.temp }}/bcc-data-calls
+          BCC_REQUIRE_BROWSER: "1"
+        run: >-
+          python -m pytest -q tests/telegram_calls --ignore=tests/telegram_calls/test_session.py
+          --ignore=tests/telegram_calls/test_selftest.py --durations=15 --timeout=180 --timeout-method=signal
+          --cov=bcc --cov-append --cov-report=term:skip-covered --cov-fail-under=72
+
+      - name: Pytest - wall-clock paced call tests (serial, NO coverage tracing)
+        # test_session (barge-in budget) and test_selftest (echo / false barge-in) run real-time DSP against the line
+        # clock. coverage's tracer made the same session read 0.69-0.81 s against a 0.6 s budget on the CI runner
+        # (run 36849703334, py3.11/3.12), so they run alone and untraced, with the budgets unchanged.
+        if: ${{ !cancelled() }}
+        working-directory: command-center
+        env:
+          BCC_DATA_DIR: ${{ runner.temp }}/bcc-data-calls-rt
+        run: >-
+          python -m pytest -q tests/telegram_calls/test_session.py tests/telegram_calls/test_selftest.py
+          --durations=10 --timeout=180 --timeout-method=signal
 
   core-runtime:
     # Тесты, которым нужен рантайм bossman-core рядом с Command Center (как в
@@ -206,6 +240,9 @@ jobs:
 
       - name: Running app frame retention contracts
         run: node --test command-center/ui/tests/app_view.test.mjs
+
+      - name: Telegram calls panel contracts
+        run: node --test command-center/ui/tests/telegram_calls.test.mjs
 
   windows-paths:
     # TRUTH-003 §16 / TL-01: только пути, где платформа реально ветвится (discovery, terminal

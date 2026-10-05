@@ -83,4 +83,6 @@ def _status_text(status: dict) -> str:
             f"новых сообщений {status.get('collected_new', 0)} · "
             f"участники {status.get('persons_done', 0)}/{status.get('persons_total', 0)} · "
             f"сообщения {status.get('messages_done', 0)}/{status.get('messages_total', 0)} · "
-            f"{status.get('rate_msgs_per_s', 0)} сообщ/с · фактов +{status.get('facts_added', 0)}")
+            f"{status.get('rate_msgs_per_s', 0)} сообщ/с · фактов +{status.get('facts_added', 0)}"
+            + (f" · абзацы {status.get('narratives_done', 0)}/{status.get('narratives_total', 0)}"
+               if status.get("phase") == "narrative" else ""))

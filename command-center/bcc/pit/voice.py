@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import time
 import wave
 from typing import Callable
 
@@ -102,11 +103,15 @@ def _decode_ogg_opus(audio: bytes) -> bytes:
 
 
 def _transcribe(audio: bytes) -> dict:
+    from .speech import record_latency
     clean_wav = _decode_ogg_opus(audio)
+    started = time.perf_counter()
     try:
         result = whisper.transcribe_audio(clean_wav, language="auto")
     except whisper.WhisperError as exc:
+        record_latency("stt", started, ok=False)
         raise VoiceError("VOICE_STT_UNAVAILABLE") from exc
+    record_latency("stt", started)
     if not str(result.get("text", "")).strip():
         raise VoiceError("VOICE_NO_SPEECH")
     return result

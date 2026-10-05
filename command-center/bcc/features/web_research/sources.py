@@ -66,9 +66,10 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import html
 import json
 import re
-from dataclasses import dataclass, field as dc_field
+from dataclasses import dataclass, field as dc_field, replace as dc_replace
 from datetime import datetime
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, Sequence
@@ -88,7 +89,7 @@ __all__ = [
     "install_parsers", "parsers",
     "parse_serp", "serp_observations", "page_text_observations",
     "search_subject", "query_of",
-    "backend_status", "readiness", "pick_backend", "run_search",
+    "backend_status", "readiness", "pick_backend", "backend_subject", "run_search",
 ]
 
 # Дата последней проверки условий использования объявленных источников.
@@ -263,19 +264,28 @@ BACKENDS: tuple[Backend, ...] = tuple(_backend(b) for b in (
     Backend(
         id="stackexchange",
         honest_capability=("вопросы и ответы Stack Overflow по программированию; "
-                           "ответы пишут люди и они бывают устаревшими"),
+                           "ответы пишут люди и они бывают устаревшими; страницы "
+                           "stackoverflow.com сайт закрывает для нашего клиента (HTTP 403), "
+                           "поэтому содержимое берётся только из выдержки в выдаче"),
         shape="json",
         order=30,
         keywords=("error", "exception", "traceback", "ошибка", "не работает",
                   "как исправить", "stack overflow", "stacktrace"),
+        # `search/excerpts`, а не `search/advanced`: второй отдаёт только заголовки,
+        # а сами страницы Stack Overflow нам не читаются (403 уже на robots.txt, с
+        # любым User-Agent), то есть модель получала список названий без единого
+        # слова содержимого. Выдержка — текст вопроса/ответа, найденный по запросу.
+        # Адрес вопроса собирается из числового `question_id`: у ответа и у вопроса
+        # он общий, дубли снимает разбор выдачи.
         hits_path="items",
         field_title="title",
-        field_url="link",
-        field_snippet="",
+        field_url="",
+        field_snippet="excerpt",
+        url_template="https://stackoverflow.com/questions/{question_id}",
         trusted_hosts=("stackoverflow.com",),
         decl=_api_decl(source_id="stackexchange",
                        base_url="https://api.stackexchange.com",
-                       path_template=("/2.3/search/advanced?order=desc&sort=relevance"
+                       path_template=("/2.3/search/excerpts?order=desc&sort=relevance"
                                       "&pagesize=10&site=stackoverflow&q={subject}"),
                        license_="CC BY-SA 4.0",
                        honest=("вопросы и ответы Stack Overflow по программированию; "
@@ -539,6 +549,29 @@ def _guard_target(value: str, *, what: str) -> str:
     return value
 
 
+_LIVE_FIELDS = ("live_status", "live_checked_at", "live_error")
+
+
+def _refresh_builtin(st, existing: osiris.Source, decl: Mapping[str, Any]) -> osiris.Source:
+    """Встроенный backend: объявление в коде главнее записи на диске.
+
+    `ensure_source` возвращал записанную когда-то карточку как есть, поэтому
+    правка объявления backend'а (путь API, парсер, лимит) не доходила ни до
+    одного экземпляра, где источник уже хоть раз использовался: живая проба
+    2026-09-30 получила выдачу по СТАРОМУ пути после правки кода. Живое
+    состояние (`live_*`) переносится: оно добыто настоящей сетью, а не кодом.
+    Источники, объявленные владельцем (их нет в реестре backend'ов), не трогаются.
+    """
+    fresh = osiris.normalize_source(dict(decl))
+    if ({k: v for k, v in existing.as_dict().items() if k not in _LIVE_FIELDS}
+            == {k: v for k, v in fresh.as_dict().items() if k not in _LIVE_FIELDS}):
+        return existing
+    _guard_target(str(decl.get("base_url") or ""), what="адрес источника")
+    fresh = dc_replace(fresh, **{name: getattr(existing, name) for name in _LIVE_FIELDS})
+    st.save_source(fresh)
+    return fresh
+
+
 def ensure_source(st, decl: Mapping[str, Any]) -> osiris.Source:
     """Объявить источник, если его ещё нет. Отказ — ИСКЛЮЧЕНИЕ, и это верно.
 
@@ -564,6 +597,8 @@ def ensure_source(st, decl: Mapping[str, Any]) -> osiris.Source:
     source_id = str(decl.get("id") or "")
     existing = st.sources().get(source_id)
     if existing is not None:
+        if source_id in BACKENDS_BY_ID:
+            return _refresh_builtin(st, existing, decl)
         return existing
     _guard_target(str(decl.get("base_url") or ""), what="адрес источника")
     source = osiris.normalize_source(dict(decl))
@@ -618,6 +653,9 @@ def _dig(payload: Any, path: str) -> Any:
     return cur
 
 
+_TAG_RE = re.compile(r"<[^<>]{0,300}>")
+
+
 def _text(value: Any, limit: int) -> str:
     """Внешний текст к печати: невидимое снято, пробелы схлопнуты, длина
     ограничена, команды ассистенту помечены.
@@ -631,6 +669,10 @@ def _text(value: Any, limit: int) -> str:
     """
     if not isinstance(value, str):
         value = "" if value is None else str(value)
+    if "<" in value or "&" in value:
+        # API отдают выдержки с подсветкой (`<span class="highlight">`) и сущностями
+        # (`&#39;`): в тексте для модели им не место, и тегов в нём быть не должно.
+        value = html.unescape(_TAG_RE.sub("", value))
     clean = html_text.normalize_ws(value)[:limit]
     return html_text.defang(clean)[0]
 
@@ -687,6 +729,7 @@ def _hit_rows(backend: Backend, node: Any) -> tuple[list[dict[str, Any]], int]:
     items = [node] if isinstance(node, dict) else list(node)
     rows: list[dict[str, Any]] = []
     dropped = 0
+    seen: set[str] = set()
     for raw in items:
         if len(rows) >= max(1, min(backend.max_hits, MAX_HITS_CAP)):
             break
@@ -697,9 +740,10 @@ def _hit_rows(backend: Backend, node: Any) -> tuple[list[dict[str, Any]], int]:
         if not isinstance(candidate, str) or not candidate.strip():
             candidate = _from_template(backend.url_template, raw) if backend.url_template else ""
         url, host = _clean_hit_url(candidate)
-        if not url:
+        if not url or url in seen:         # дубль (вопрос и его ответы): показывать дважды нечего
             dropped += 1
             continue
+        seen.add(url)
         rows.append({
             "rank": len(rows) + 1,
             "title": _text(_dig(raw, backend.field_title) if backend.field_title else "",
@@ -1222,6 +1266,34 @@ def pick_backend(svc, query: str, site: str = "", *,
     want = "wikipedia-opensearch-ru" if cyrillic * 3 >= max(1, len(text)) \
         else "wikipedia-opensearch-en"
     return next((b for b in ready if b.id == want), ready[0])
+
+
+# Ведущая вопросительная обвязка: «кто такой», «что такое», «who is», «what is».
+# OpenSearch Википедии ищет по ПРЕФИКСУ названия статьи, а не по смыслу фразы:
+# «who is Alan Turing» не начинает ни одно название, и честный движок отвечал
+# `empty_result` ровно на те вопросы, ради которых `pick_backend` и выбирает
+# Википедию по ключевым словам. Снимается только сама обвязка, а не слова
+# названия («история России» — это статья, поэтому «история» не снимается).
+_LEAD_IN = re.compile(
+    r"^(?:кто\s+так(?:ой|ая|ое|ие)|что\s+так(?:ое|ой|ая|ие)|что\s+(?:значит|означает)|"
+    r"расскажи\s+(?:мне\s+)?(?:про|о|об)|"
+    r"who\s+(?:is|was|are|were)|what\s+(?:is|was|are|were)|tell\s+me\s+about|"
+    r"define|explain)\s+(?:(?:an?|the)\s+)?", re.I)
+_LEAD_TAIL = re.compile(r"[\s?!.,:;]+$")
+
+
+def backend_subject(backend: Backend, subject: str) -> str:
+    """Текст, который РЕАЛЬНО уйдёт этому backend'у (и станет субъектом эпизода).
+
+    Для всех, кроме OpenSearch-источников, это тот же субъект без изменений.
+    Пустой остаток или остаток короче двух знаков означает «обвязка и была
+    всем запросом»: тогда запрос остаётся как есть — снять последнее слово
+    значило бы искать что-то другое, чем просили.
+    """
+    if backend.shape != "opensearch":
+        return subject
+    text = _LEAD_TAIL.sub("", _LEAD_IN.sub("", subject, count=1))
+    return text if len(text) >= 2 else subject
 
 
 # -------------------------------------------------------------------- поиск

@@ -55,6 +55,8 @@ export const FEATURE_PAGES = [
     () => import('../video_chat.js'), (m) => m.ChatPage),
   lazyPage({ id: 'home-v3', title: 'Главная', icon: 'home', nav: 'primary', section: 'main' },
     () => import('./home.js'), (m) => m.default),
+  lazyPage({ id: 'chat', title: 'Чат', icon: 'tasks', nav: 'primary', section: 'main' },
+    () => import('./chat.js'), (m) => m.default),
   lazyPage({ id: 'apps', title: 'Приложения', icon: 'empty', nav: 'primary', section: 'apps' },
     () => import('./apps.js'), (m) => m.default),
   lazyPage({ id: 'overview', title: 'Обзор', icon: 'home', nav: 'primary', section: 'system' },
@@ -118,6 +120,12 @@ export const FEATURE_PAGES = [
     () => import('./motion_studio.js'), (m) => m.default),
   lazyPage({ id: 'jeff-passports', title: 'Jeff · паспорта', icon: 'agents', nav: 'primary', section: 'brains' },
     () => import('./jeff_passports.js'), (m) => m.default),
+  lazyPage({ id: 'jeff-insights', title: 'Jeff · обзор', icon: 'agents', nav: 'more', section: 'brains' },
+    () => import('./jeff_insights.js'), (m) => m.default),
+  lazyPage({ id: 'autonomy', title: 'Автономия', icon: 'check', nav: 'more', section: 'system' },
+    () => import('./autonomy.js'), (m) => m.default),
+  lazyPage({ id: 'telegram_calls', title: 'Telegram-звонки', icon: 'activity', nav: 'more', section: 'apps' },
+    () => import('./telegram_calls.js'), (m) => m.default),
 ];
 
 /* Предзагрузка остальных страниц в простое: по одной, чтобы не отбирать сеть и

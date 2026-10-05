@@ -1,0 +1,703 @@
+{
+ "version": "jeff-math-corpus/1",
+ "language": "ru",
+ "count": 68,
+ "math_count": 58,
+ "control_count": 10,
+ "categories": {
+  "arith_big": 8,
+  "decimals_fractions": 7,
+  "percent_vat": 9,
+  "compound_interest": 4,
+  "unit_conversion": 7,
+  "average": 3,
+  "equation": 4,
+  "combinatorics": 4,
+  "time_date": 5,
+  "word_problem": 7,
+  "chat_control": 10
+ },
+ "scoring": "answer_type number: final number of the reply == answer (rounded to `decimals` when set); date: last DD.MM.YYYY; time: last HH:MM; weekday: last weekday word. See jeff_math_eval.py.",
+ "items": [
+  {
+   "category": "arith_big",
+   "question": "Сколько будет 48 271 × 9 356?",
+   "answer_type": "number",
+   "answer": "451623476",
+   "answer_decimal": "451623476",
+   "decimals": null,
+   "control": false,
+   "id": "arith_big-01"
+  },
+  {
+   "category": "arith_big",
+   "question": "Посчитай 123456789 * 987654321",
+   "answer_type": "number",
+   "answer": "121932631112635269",
+   "answer_decimal": "121932631112635269",
+   "decimals": null,
+   "control": false,
+   "id": "arith_big-02"
+  },
+  {
+   "category": "arith_big",
+   "question": "Вычисли 2^40",
+   "answer_type": "number",
+   "answer": "1099511627776",
+   "answer_decimal": "1099511627776",
+   "decimals": null,
+   "control": false,
+   "id": "arith_big-03"
+  },
+  {
+   "category": "arith_big",
+   "question": "Сколько будет 987654321 - 123456789 + 55555555?",
+   "answer_type": "number",
+   "answer": "919753087",
+   "answer_decimal": "919753087",
+   "decimals": null,
+   "control": false,
+   "id": "arith_big-04"
+  },
+  {
+   "category": "arith_big",
+   "question": "Чему равно 7919 * 7907 - 12345?",
+   "answer_type": "number",
+   "answer": "62603188",
+   "answer_decimal": "62603188",
+   "decimals": null,
+   "control": false,
+   "id": "arith_big-05"
+  },
+  {
+   "category": "arith_big",
+   "question": "Сколько будет 1 000 000 000 / 8 / 25?",
+   "answer_type": "number",
+   "answer": "5000000",
+   "answer_decimal": "5000000",
+   "decimals": null,
+   "control": false,
+   "id": "arith_big-06"
+  },
+  {
+   "category": "arith_big",
+   "question": "Найди значение выражения (345 + 678) * (912 - 456) / 12",
+   "answer_type": "number",
+   "answer": "38874",
+   "answer_decimal": "38874",
+   "decimals": null,
+   "control": false,
+   "id": "arith_big-07"
+  },
+  {
+   "category": "arith_big",
+   "question": "Сколько будет 17 в степени 6?",
+   "answer_type": "number",
+   "answer": "24137569",
+   "answer_decimal": "24137569",
+   "decimals": null,
+   "control": false,
+   "id": "arith_big-08"
+  },
+  {
+   "category": "decimals_fractions",
+   "question": "Сколько будет 12,75 * 8,4?",
+   "answer_type": "number",
+   "answer": "1071/10",
+   "answer_decimal": "107.1",
+   "decimals": null,
+   "control": false,
+   "id": "decimals_fractions-01"
+  },
+  {
+   "category": "decimals_fractions",
+   "question": "Посчитай 0.1 + 0.2 + 0.3 * 3",
+   "answer_type": "number",
+   "answer": "6/5",
+   "answer_decimal": "1.2",
+   "decimals": null,
+   "control": false,
+   "id": "decimals_fractions-02"
+  },
+  {
+   "category": "decimals_fractions",
+   "question": "Чему равно 3/7 + 2/5? Ответь десятичной дробью, округлив до 4 знаков.",
+   "answer_type": "number",
+   "answer": "4143/5000",
+   "answer_decimal": "0.8286",
+   "decimals": 4,
+   "control": false,
+   "id": "decimals_fractions-03"
+  },
+  {
+   "category": "decimals_fractions",
+   "question": "Раздели 22 на 7 и округли до 3 знаков после запятой.",
+   "answer_type": "number",
+   "answer": "3143/1000",
+   "answer_decimal": "3.143",
+   "decimals": 3,
+   "control": false,
+   "id": "decimals_fractions-04"
+  },
+  {
+   "category": "decimals_fractions",
+   "question": "Сколько будет 5,5 * 4,2 - 3,15?",
+   "answer_type": "number",
+   "answer": "399/20",
+   "answer_decimal": "19.95",
+   "decimals": null,
+   "control": false,
+   "id": "decimals_fractions-05"
+  },
+  {
+   "category": "decimals_fractions",
+   "question": "Чему равно (1/2 + 1/3 + 1/6) * 15,5?",
+   "answer_type": "number",
+   "answer": "31/2",
+   "answer_decimal": "15.5",
+   "decimals": null,
+   "control": false,
+   "id": "decimals_fractions-06"
+  },
+  {
+   "category": "decimals_fractions",
+   "question": "Сколько будет 0,75 * 0,8 * 120?",
+   "answer_type": "number",
+   "answer": "72",
+   "answer_decimal": "72",
+   "decimals": null,
+   "control": false,
+   "id": "decimals_fractions-07"
+  },
+  {
+   "category": "percent_vat",
+   "question": "Сколько будет 15% от 2 400?",
+   "answer_type": "number",
+   "answer": "360",
+   "answer_decimal": "360",
+   "decimals": null,
+   "control": false,
+   "id": "percent_vat-01"
+  },
+  {
+   "category": "percent_vat",
+   "question": "Товар стоит 3 500 рублей, скидка 18%. Сколько надо заплатить?",
+   "answer_type": "number",
+   "answer": "2870",
+   "answer_decimal": "2870",
+   "decimals": null,
+   "control": false,
+   "id": "percent_vat-02"
+  },
+  {
+   "category": "percent_vat",
+   "question": "Цена без НДС 12 500 рублей, НДС 20%. Сколько будет с НДС?",
+   "answer_type": "number",
+   "answer": "15000",
+   "answer_decimal": "15000",
+   "decimals": null,
+   "control": false,
+   "id": "percent_vat-03"
+  },
+  {
+   "category": "percent_vat",
+   "question": "Сумма с НДС 20% равна 7 200 рублей. Сколько из них НДС?",
+   "answer_type": "number",
+   "answer": "1200",
+   "answer_decimal": "1200",
+   "decimals": null,
+   "control": false,
+   "id": "percent_vat-04"
+  },
+  {
+   "category": "percent_vat",
+   "question": "Цена выросла на 25% и теперь составляет 1 500 рублей. Какой она была раньше?",
+   "answer_type": "number",
+   "answer": "1200",
+   "answer_decimal": "1200",
+   "decimals": null,
+   "control": false,
+   "id": "percent_vat-05"
+  },
+  {
+   "category": "percent_vat",
+   "question": "Зарплата 80 000 рублей, налог 13%. Сколько останется после уплаты налога?",
+   "answer_type": "number",
+   "answer": "69600",
+   "answer_decimal": "69600",
+   "decimals": null,
+   "control": false,
+   "id": "percent_vat-06"
+  },
+  {
+   "category": "percent_vat",
+   "question": "Сколько процентов составляет 45 от 360?",
+   "answer_type": "number",
+   "answer": "25/2",
+   "answer_decimal": "12.5",
+   "decimals": null,
+   "control": false,
+   "id": "percent_vat-07"
+  },
+  {
+   "category": "percent_vat",
+   "question": "Население города выросло с 250 000 до 290 000 человек. На сколько процентов оно выросло?",
+   "answer_type": "number",
+   "answer": "16",
+   "answer_decimal": "16",
+   "decimals": null,
+   "control": false,
+   "id": "percent_vat-08"
+  },
+  {
+   "category": "percent_vat",
+   "question": "Сколько будет 7,5% от 1 280?",
+   "answer_type": "number",
+   "answer": "96",
+   "answer_decimal": "96",
+   "decimals": null,
+   "control": false,
+   "id": "percent_vat-09"
+  },
+  {
+   "category": "compound_interest",
+   "question": "Вклад 100 000 рублей под 8% годовых на 3 года со сложным процентом, капитализация раз в год. Сколько будет на счёте через 3 года? Округли до копеек.",
+   "answer_type": "number",
+   "answer": "629856/5",
+   "answer_decimal": "125971.2",
+   "decimals": 2,
+   "control": false,
+   "id": "compound_interest-01"
+  },
+  {
+   "category": "compound_interest",
+   "question": "Положили 50 000 рублей под 12% годовых с ежемесячной капитализацией на 2 года. Какая сумма будет через 2 года? Округли до копеек.",
+   "answer_type": "number",
+   "answer": "6348673/100",
+   "answer_decimal": "63486.73",
+   "decimals": 2,
+   "control": false,
+   "id": "compound_interest-02"
+  },
+  {
+   "category": "compound_interest",
+   "question": "Простые проценты: 200 000 рублей под 6% годовых на 4 года. Сколько процентов начислят всего?",
+   "answer_type": "number",
+   "answer": "48000",
+   "answer_decimal": "48000",
+   "decimals": null,
+   "control": false,
+   "id": "compound_interest-03"
+  },
+  {
+   "category": "compound_interest",
+   "question": "Кредит 300 000 рублей под 10% годовых с ежеквартальной капитализацией на 2 года. Сколько долга накопится за 2 года? Округли до копеек.",
+   "answer_type": "number",
+   "answer": "36552087/100",
+   "answer_decimal": "365520.87",
+   "decimals": 2,
+   "control": false,
+   "id": "compound_interest-04"
+  },
+  {
+   "category": "unit_conversion",
+   "question": "Переведи 5 миль в километры.",
+   "answer_type": "number",
+   "answer": "25146/3125",
+   "answer_decimal": "8.04672",
+   "decimals": null,
+   "control": false,
+   "id": "unit_conversion-01"
+  },
+  {
+   "category": "unit_conversion",
+   "question": "Сколько секунд в 3,5 часах?",
+   "answer_type": "number",
+   "answer": "12600",
+   "answer_decimal": "12600",
+   "decimals": null,
+   "control": false,
+   "id": "unit_conversion-02"
+  },
+  {
+   "category": "unit_conversion",
+   "question": "Сколько градусов по Фаренгейту — это 37 градусов по Цельсию?",
+   "answer_type": "number",
+   "answer": "493/5",
+   "answer_decimal": "98.6",
+   "decimals": null,
+   "control": false,
+   "id": "unit_conversion-03"
+  },
+  {
+   "category": "unit_conversion",
+   "question": "Сколько килограммов в 12 фунтах? Округли до 2 знаков.",
+   "answer_type": "number",
+   "answer": "136/25",
+   "answer_decimal": "5.44",
+   "decimals": 2,
+   "control": false,
+   "id": "unit_conversion-04"
+  },
+  {
+   "category": "unit_conversion",
+   "question": "Скорость 90 км/ч. Сколько это в метрах в секунду?",
+   "answer_type": "number",
+   "answer": "25",
+   "answer_decimal": "25",
+   "decimals": null,
+   "control": false,
+   "id": "unit_conversion-05"
+  },
+  {
+   "category": "unit_conversion",
+   "question": "Сколько квадратных метров в 3,2 гектарах?",
+   "answer_type": "number",
+   "answer": "32000",
+   "answer_decimal": "32000",
+   "decimals": null,
+   "control": false,
+   "id": "unit_conversion-06"
+  },
+  {
+   "category": "unit_conversion",
+   "question": "В бассейне 2,5 кубометра воды. Сколько это литров?",
+   "answer_type": "number",
+   "answer": "2500",
+   "answer_decimal": "2500",
+   "decimals": null,
+   "control": false,
+   "id": "unit_conversion-07"
+  },
+  {
+   "category": "average",
+   "question": "Найди среднее арифметическое чисел 12, 15, 21, 8 и 19.",
+   "answer_type": "number",
+   "answer": "15",
+   "answer_decimal": "15",
+   "decimals": null,
+   "control": false,
+   "id": "average-01"
+  },
+  {
+   "category": "average",
+   "question": "Оценки по математике: 5, 4, 4, 3, 5, 5, 4. Какой средний балл? Округли до 2 знаков.",
+   "answer_type": "number",
+   "answer": "429/100",
+   "answer_decimal": "4.29",
+   "decimals": 2,
+   "control": false,
+   "id": "average-02"
+  },
+  {
+   "category": "average",
+   "question": "Среднее арифметическое трёх чисел равно 14, два из них 10 и 20. Чему равно третье число?",
+   "answer_type": "number",
+   "answer": "12",
+   "answer_decimal": "12",
+   "decimals": null,
+   "control": false,
+   "id": "average-03"
+  },
+  {
+   "category": "equation",
+   "question": "Реши уравнение 7x - 15 = 3x + 21",
+   "answer_type": "number",
+   "answer": "9",
+   "answer_decimal": "9",
+   "decimals": null,
+   "control": false,
+   "id": "equation-01"
+  },
+  {
+   "category": "equation",
+   "question": "Найди x: 2(x + 5) = 3x - 4",
+   "answer_type": "number",
+   "answer": "14",
+   "answer_decimal": "14",
+   "decimals": null,
+   "control": false,
+   "id": "equation-02"
+  },
+  {
+   "category": "equation",
+   "question": "Реши квадратное уравнение x² - 7x + 12 = 0. В ответе укажи только больший корень.",
+   "answer_type": "number",
+   "answer": "4",
+   "answer_decimal": "4",
+   "decimals": null,
+   "control": false,
+   "id": "equation-03"
+  },
+  {
+   "category": "equation",
+   "question": "Реши уравнение: 0,5x + 3 = 11",
+   "answer_type": "number",
+   "answer": "16",
+   "answer_decimal": "16",
+   "decimals": null,
+   "control": false,
+   "id": "equation-04"
+  },
+  {
+   "category": "combinatorics",
+   "question": "Сколько существует способов выбрать 4 человек из 12 для комитета?",
+   "answer_type": "number",
+   "answer": "495",
+   "answer_decimal": "495",
+   "decimals": null,
+   "control": false,
+   "id": "combinatorics-01"
+  },
+  {
+   "category": "combinatorics",
+   "question": "Сколькими способами можно расставить 7 различных книг на полке?",
+   "answer_type": "number",
+   "answer": "5040",
+   "answer_decimal": "5040",
+   "decimals": null,
+   "control": false,
+   "id": "combinatorics-02"
+  },
+  {
+   "category": "combinatorics",
+   "question": "Чему равно 10!",
+   "answer_type": "number",
+   "answer": "3628800",
+   "answer_decimal": "3628800",
+   "decimals": null,
+   "control": false,
+   "id": "combinatorics-03"
+  },
+  {
+   "category": "combinatorics",
+   "question": "В классе 20 учеников. Сколькими способами можно выбрать старосту, его заместителя и казначея (три разных человека на три разные должности)?",
+   "answer_type": "number",
+   "answer": "6840",
+   "answer_decimal": "6840",
+   "decimals": null,
+   "control": false,
+   "id": "combinatorics-04"
+  },
+  {
+   "category": "time_date",
+   "question": "Какая дата будет через 100 дней после 15.03.2024? Ответь в формате ДД.ММ.ГГГГ.",
+   "answer_type": "date",
+   "answer": "23.06.2024",
+   "answer_decimal": "23.06.2024",
+   "decimals": null,
+   "control": false,
+   "id": "time_date-01"
+  },
+  {
+   "category": "time_date",
+   "question": "Сколько дней между 12.02.2024 и 05.09.2024?",
+   "answer_type": "number",
+   "answer": "206",
+   "answer_decimal": "206",
+   "decimals": null,
+   "control": false,
+   "id": "time_date-02"
+  },
+  {
+   "category": "time_date",
+   "question": "Какой день недели был 1 января 2000 года?",
+   "answer_type": "weekday",
+   "answer": "суббота",
+   "answer_decimal": "суббота",
+   "decimals": null,
+   "control": false,
+   "id": "time_date-03"
+  },
+  {
+   "category": "time_date",
+   "question": "Сейчас 21:40. Который час будет через 5 часов 35 минут? Ответь в формате ЧЧ:ММ.",
+   "answer_type": "time",
+   "answer": "03:15",
+   "answer_decimal": "03:15",
+   "decimals": null,
+   "control": false,
+   "id": "time_date-04"
+  },
+  {
+   "category": "time_date",
+   "question": "Поезд отправился в 08:25 и прибыл в 17:10. Сколько минут он был в пути?",
+   "answer_type": "number",
+   "answer": "525",
+   "answer_decimal": "525",
+   "decimals": null,
+   "control": false,
+   "id": "time_date-05"
+  },
+  {
+   "category": "word_problem",
+   "question": "Поезд едет со скоростью 84 км/ч. Сколько километров он проедет за 3 часа 15 минут?",
+   "answer_type": "number",
+   "answer": "273",
+   "answer_decimal": "273",
+   "decimals": null,
+   "control": false,
+   "id": "word_problem-01"
+  },
+  {
+   "category": "word_problem",
+   "question": "В магазине купили 3 кг яблок по 129 рублей за кг и 2,5 кг груш по 188 рублей за кг. Сколько всего заплатили?",
+   "answer_type": "number",
+   "answer": "857",
+   "answer_decimal": "857",
+   "decimals": null,
+   "control": false,
+   "id": "word_problem-02"
+  },
+  {
+   "category": "word_problem",
+   "question": "Из бочки в 240 литров сначала вылили 35%, потом ещё 48 литров. Сколько литров осталось?",
+   "answer_type": "number",
+   "answer": "108",
+   "answer_decimal": "108",
+   "decimals": null,
+   "control": false,
+   "id": "word_problem-03"
+  },
+  {
+   "category": "word_problem",
+   "question": "Двое рабочих делают заказ: первый за 6 часов, второй за 3 часа. За сколько часов они сделают заказ вместе?",
+   "answer_type": "number",
+   "answer": "2",
+   "answer_decimal": "2",
+   "decimals": null,
+   "control": false,
+   "id": "word_problem-04"
+  },
+  {
+   "category": "word_problem",
+   "question": "Велосипедист проехал 45 км за 2,5 часа. С какой средней скоростью он ехал (в км/ч)?",
+   "answer_type": "number",
+   "answer": "18",
+   "answer_decimal": "18",
+   "decimals": null,
+   "control": false,
+   "id": "word_problem-05"
+  },
+  {
+   "category": "word_problem",
+   "question": "У Пети в 3 раза больше марок, чем у Васи, а вместе у них 156 марок. Сколько марок у Пети?",
+   "answer_type": "number",
+   "answer": "117",
+   "answer_decimal": "117",
+   "decimals": null,
+   "control": false,
+   "id": "word_problem-06"
+  },
+  {
+   "category": "word_problem",
+   "question": "Книга стоит 450 рублей. Её купили со скидкой 20%, а на сдачу с 1 000 рублей взяли ещё 2 тетради по 35 рублей. Сколько денег осталось?",
+   "answer_type": "number",
+   "answer": "570",
+   "answer_decimal": "570",
+   "decimals": null,
+   "control": false,
+   "id": "word_problem-07"
+  },
+  {
+   "category": "chat_control",
+   "question": "Привет! Как у тебя дела?",
+   "answer_type": "none",
+   "answer": "",
+   "answer_decimal": "",
+   "decimals": null,
+   "control": true,
+   "id": "chat_control-01"
+  },
+  {
+   "category": "chat_control",
+   "question": "Посоветуй, что почитать на выходные, мне нравится фантастика.",
+   "answer_type": "none",
+   "answer": "",
+   "answer_decimal": "",
+   "decimals": null,
+   "control": true,
+   "id": "chat_control-02"
+  },
+  {
+   "category": "chat_control",
+   "question": "Мне 25 лет, и я думаю сменить профессию. С чего начать?",
+   "answer_type": "none",
+   "answer": "",
+   "answer_decimal": "",
+   "decimals": null,
+   "control": true,
+   "id": "chat_control-03"
+  },
+  {
+   "category": "chat_control",
+   "question": "Объясни простыми словами, чем TCP отличается от UDP.",
+   "answer_type": "none",
+   "answer": "",
+   "answer_decimal": "",
+   "decimals": null,
+   "control": true,
+   "id": "chat_control-04"
+  },
+  {
+   "category": "chat_control",
+   "question": "Через 2-3 дня у меня собеседование, как лучше успокоиться?",
+   "answer_type": "none",
+   "answer": "",
+   "answer_decimal": "",
+   "decimals": null,
+   "control": true,
+   "id": "chat_control-05"
+  },
+  {
+   "category": "chat_control",
+   "question": "Напиши короткое стихотворение про осень в 4 строки.",
+   "answer_type": "none",
+   "answer": "",
+   "answer_decimal": "",
+   "decimals": null,
+   "control": true,
+   "id": "chat_control-06"
+  },
+  {
+   "category": "chat_control",
+   "question": "Мой номер 8-900-123-45-67, безопасно ли оставлять его на сайте объявлений?",
+   "answer_type": "none",
+   "answer": "",
+   "answer_decimal": "",
+   "decimals": null,
+   "control": true,
+   "id": "chat_control-07"
+  },
+  {
+   "category": "chat_control",
+   "question": "Встреча в 15:30 в понедельник, как лучше к ней подготовиться?",
+   "answer_type": "none",
+   "answer": "",
+   "answer_decimal": "",
+   "decimals": null,
+   "control": true,
+   "id": "chat_control-08"
+  },
+  {
+   "category": "chat_control",
+   "question": "Фильм на 10 из 10!!! Рекомендую. А ты что любишь смотреть?",
+   "answer_type": "none",
+   "answer": "",
+   "answer_decimal": "",
+   "decimals": null,
+   "control": true,
+   "id": "chat_control-09"
+  },
+  {
+   "category": "chat_control",
+   "question": "Я купил наушники за 5 000 рублей, но они мне не нравятся. Вернуть или оставить?",
+   "answer_type": "none",
+   "answer": "",
+   "answer_decimal": "",
+   "decimals": null,
+   "control": true,
+   "id": "chat_control-10"
+  }
+ ]
+}

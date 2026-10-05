@@ -21,7 +21,7 @@ import { routeVideoRequest, attachmentInput, attachedFiles } from '../video_chat
 
 import { api, listOf, pick } from '../api.js';
 import { h, icon, select, toast, toastOk, toastError, fmtGb, fmtRelative } from '../components.js';
-import { errorBanner } from './_shared.js';
+import { errorBanner, humanKind } from './_shared.js';
 import { statusText } from './_ui.js';
 import { appCard, appIcon } from './appcards.js';
 
@@ -458,7 +458,7 @@ function buildAgents(agents, graph, ctx) {
     }))
     : h('div.bx-empty', h('div', 'Агентов пока нет.'),
       h('button.bx-btn.bx-btn-subtle.bx-btn-sm',
-        { type: 'button', onClick: () => ctx.navigate('agents') }, 'Создать агента'));
+        { type: 'button', onClick: () => ctx.navigate('agents', { new: 1 }) }, 'Создать агента'));
 
   return panel('Агенты', body,
     h('button.bx-btn.bx-btn-ghost.bx-btn-sm',
@@ -537,33 +537,6 @@ function buildActivity(activity, ctx) {
       h('div.bx-spacer')),
     h('div.bx-panel-body',
       h('div.bx-feed', meaningful.slice(0, 6).map(feedItem))));
-}
-
-// Событие приходит как «agent.created» — техническая метка. Owner видит
-// человеческую фразу, а сырой kind остаётся в подсказке для отладки.
-const EVENT_LABEL = {
-  'agent.created': 'Создан агент', 'agent.updated': 'Изменён агент', 'agent.deleted': 'Удалён агент',
-  'model.created': 'Добавлена модель', 'model.status': 'Модель сменила состояние',
-  'model.degraded': 'Модель отвечает с ошибками',
-  'provider.created': 'Добавлен поставщик моделей',
-  'mission.created': 'Создана миссия', 'mission.started': 'Миссия запущена',
-  'mission.completed': 'Миссия завершена', 'mission.stopped': 'Миссия остановлена',
-  'task.created': 'Поставлена задача', 'task.started': 'Задача пошла в работу',
-  'task.completed': 'Задача выполнена', 'task.failed': 'Задача завершилась ошибкой',
-  'approval.created': 'Ждёт вашего решения', 'approval.decided': 'Решение принято',
-  'governor.intervention': 'Сработал присмотр за агентами',
-  'session.forked': 'Создано ответвление',
-};
-
-function humanKind(kind) {
-  if (EVENT_LABEL[kind]) return EVENT_LABEL[kind];
-  const head = kind.split('.')[0];
-  const byHead = {
-    agent: 'Событие агента', model: 'Событие модели', mission: 'Событие миссии',
-    task: 'Событие задачи', approval: 'Подтверждение', resource: 'Память и ресурсы',
-    recovery: 'Восстановление', governor: 'Присмотр',
-  };
-  return byHead[head] || 'Событие';
 }
 
 function feedItem(e) {

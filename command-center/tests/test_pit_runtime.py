@@ -432,7 +432,7 @@ def test_first_contact_gets_short_intro_and_silent_memory(tmp_path):
     person_key = runtime.vault.key_for_telegram(101)
 
     intro = asyncio.run(runtime.handle(person, message("/start")))
-    assert intro == "Привет, я Джефф 🙂 Рад знакомству."
+    assert intro.startswith("Привет, я Джефф 🙂 Рад знакомству.")      # still short; the 2026-10-01 training notice follows
     assert "?" not in intro.split("🙂")[-1] or "да/нет" not in intro
     consent = runtime.vault.consent(person_key)
     assert consent.memory_enabled and consent.remote_processing_enabled
@@ -836,7 +836,11 @@ def test_participant_chat_uses_free_cloud_even_when_local_model_is_available(tmp
     }
     person = runtime.settings.people[0]
     person_key = runtime.vault.key_for_telegram(101)
-    warm(runtime, person_key)
+    # The participant allowed cloud context, so the cloud already gets the conversation: no reason to move the
+    # follow-up to the local model (without that switch a live conversation prefers local, see
+    # test_jeff_owner_bugtest_fixes.test_b_follow_up_with_recent_history_prefers_the_local_route).
+    runtime.vault.set_consent(person_key, ConsentState(
+        memory_enabled=True, remote_processing_enabled=True, remote_personalization_enabled=True))
 
     assert asyncio.run(runtime.handle(person, message("привет", message_id=80))) == "готово"
     assert len(local.calls) == 0 and len(runtime.adapter.calls) == 1
@@ -1196,6 +1200,9 @@ def test_cloud_only_route_excludes_personal_memory_after_revocation(tmp_path):
     assert "только текущий запрос" in asyncio.run(runtime.handle(
         person, message("/privacy personalization off", message_id=84)))
     assert runtime.vault.consent(person_key).remote_personalization_enabled is False
+    # The conversation is no longer live (an hour old): the 70/30 mix sends the turn to the cloud, which must
+    # get neither the persona facts nor the old pairs. (A LIVE conversation would prefer the local model.)
+    runtime.store.db.execute("UPDATE history SET created=created-3600")
     assert asyncio.run(runtime.handle(person, message("Новый вопрос", message_id=85))) == "готово"
     payload = json.dumps(remote.calls[-1], ensure_ascii=False)
     assert "PRIVATE_MARKER_927" not in payload
@@ -1749,3 +1756,94 @@ def test_photo_analysis_runs_local_vision_when_ready(tmp_path, monkeypatch):
     assert "кот" in answer
     latest = runtime.vault.person_dir(person_key) / "media" / "latest.json"
     assert latest.is_file()
+
+
+def test_complex_cloud_request_starts_at_the_doubled_token_budget_and_a_plain_one_does_not(tmp_path):
+    """Live incident 2026-10-01 12:27Z: a long request on the reasoning cloud model came back finish=length at the base
+    budget after 75 s (thinking tokens count), and the retry then ran out of the turn: 'Ответ модели оборвался'."""
+    class Recording(FakeAdapter):
+        def __init__(self):
+            super().__init__()
+            self.limits: list[int] = []
+
+        async def chat(self, model, messages, **kw):
+            self.limits.append(kw["max_tokens"])
+            return await super().chat(model, messages, **kw)
+
+    def run(text, message_id):
+        runtime = make_runtime(tmp_path / f"r{message_id}", adapter=Recording())
+        person = runtime.settings.people[0]
+        key = runtime.vault.key_for_telegram(101)
+        runtime.vault.set_consent(key, ConsentState(memory_enabled=True, remote_processing_enabled=True))
+        runtime.catalog = {"free/model:free": ModelEndpoint(
+            id="free/model:free", provider="remote", capabilities=frozenset({"chat"}),
+            local=False, available=True, zero_cost=True, paid=False)}
+        assert asyncio.run(runtime.handle(person, message(text, message_id=message_id))) == "готово"
+        limits = runtime.adapter.limits
+        asyncio.run(runtime.close())
+        return limits, runtime.settings.max_tokens
+
+    long_text = "Подробно опиши план: " + "шаг за шагом, " * 40
+    limits, base = run(long_text, 31)
+    assert limits == [min(4096, base * 2)]
+    limits, base = run("расскажи про горы", 32)
+    assert limits == [base]
+
+
+def _training_file(runtime, person):
+    return runtime.vault.person_dir(runtime.vault.key_for_telegram(person.user_id)) / rt.TRAINING_FILE
+
+
+def _ready_runtime(tmp_path):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    key = runtime.vault.key_for_telegram(person.user_id)
+    runtime.vault.set_consent(key, ConsentState(memory_enabled=True, remote_processing_enabled=True))
+    runtime.catalog = {"free/model:free": ModelEndpoint(
+        id="free/model:free", provider="remote", capabilities=frozenset({"chat"}),
+        local=False, available=True, zero_cost=True, paid=False)}
+    runtime.catalog_checked_at = 1.0
+    return runtime, person
+
+
+def test_training_is_off_by_default_and_nothing_is_collected(tmp_path):
+    runtime, person = _ready_runtime(tmp_path)
+    asyncio.run(runtime.handle(person, message("расскажи про горы", message_id=41)))
+    assert runtime.store.history(person.key)                       # normal memory still works
+    assert not _training_file(runtime, person).exists()
+    assert "обучение на моих диалогах выключено" in asyncio.run(
+        runtime.handle(person, message("/privacy", message_id=42)))
+    asyncio.run(runtime.close())
+
+
+def test_training_opt_in_collects_redacted_pairs_and_opt_out_erases_them(tmp_path):
+    runtime, person = _ready_runtime(tmp_path)
+    answer = asyncio.run(runtime.handle(person, message("/privacy training on", message_id=43)))
+    assert "закрытый набор" in answer and "/privacy training off" in answer
+    secret = "sk-or-v1-" + "a1b2c3d4" * 8
+    asyncio.run(runtime.handle(person, message(f"мой ключ {secret}, расскажи про горы", message_id=44)))
+    path = _training_file(runtime, person)
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    assert len(rows) == 1 and secret not in json.dumps(rows, ensure_ascii=False) and rows[0]["assistant"] == "готово"
+    assert "включено" in asyncio.run(runtime.handle(person, message("/privacy", message_id=45)))
+    # the training file is never fed back into a prompt
+    assert all("training" not in json.dumps(call[1], ensure_ascii=False) for call in runtime.adapter.calls)
+    assert "стёрт" in asyncio.run(runtime.handle(person, message("/privacy training off", message_id=46)))
+    assert not path.exists()
+    asyncio.run(runtime.handle(person, message("ещё про моря", message_id=47)))
+    assert not path.exists()
+    asyncio.run(runtime.close())
+
+
+def test_first_contact_states_the_training_notice_and_starts_collection_with_it(tmp_path):
+    runtime = make_runtime(tmp_path)
+    person = runtime.settings.people[0]
+    key = runtime.vault.key_for_telegram(person.user_id)
+    assert not (runtime.vault.person_dir(key) / "consent.json").is_file()      # a genuinely new participant
+    reply = asyncio.run(runtime.handle(person, message("/start", message_id=51)))
+    assert "/privacy training off" in reply and "закрытый набор" in reply and "/memory" in reply
+    consent = runtime.vault.consent(key)
+    assert consent.memory_enabled and consent.training_use_enabled
+    assert "стёрт" in asyncio.run(runtime.handle(person, message("/privacy training off", message_id=52)))
+    assert runtime.vault.consent(key).training_use_enabled is False
+    asyncio.run(runtime.close())

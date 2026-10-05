@@ -92,10 +92,11 @@ tasks = sa.Table(
 task_runs = sa.Table(
     "task_runs", metadata,
     sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False),
+    sa.Column("task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="CASCADE"),
+              nullable=False, index=True),
     sa.Column("attempt", sa.Integer, default=0),
     # queued|leased|running|completed|failed|stopped
-    sa.Column("status", sa.String(16), default="queued"),
+    sa.Column("status", sa.String(16), default="queued", index=True),
     # для leased/running — срок аренды; для queued — «не раньше» (пауза перед retry)
     sa.Column("worker_lease_until", sa.DateTime),
     sa.Column("checkpoint", sa.JSON),                           # {messages, step, note}
@@ -138,7 +139,7 @@ run_events = sa.Table(
 approvals = sa.Table(
     "approvals", metadata,
     sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="CASCADE")),
+    sa.Column("task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="CASCADE"), index=True),
     sa.Column("run_id", sa.Integer, sa.ForeignKey("task_runs.id", ondelete="CASCADE")),
     sa.Column("kind", sa.String(48), nullable=False),
     sa.Column("preview", sa.Text, default=""),
@@ -389,7 +390,7 @@ tool_calls = sa.Table(
     sa.Column("id", sa.Integer, primary_key=True),
     sa.Column("run_id", sa.Integer, sa.ForeignKey("task_runs.id", ondelete="CASCADE"),
               nullable=False, index=True),
-    sa.Column("task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="CASCADE")),
+    sa.Column("task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="CASCADE"), index=True),
     sa.Column("step", sa.Integer, default=0),
     sa.Column("call_id", sa.String(80), default=""),            # id вызова от провайдера
     sa.Column("tool", sa.String(160), nullable=False),          # каноническое имя
@@ -577,6 +578,19 @@ for _table, _col, _sqltype in V2_NEW_COLUMNS:
             _coltype = sa.String(500)
         _default = "generic" if _col == "kind" else None
         _t.append_column(sa.Column(_col, _coltype, default=_default))
+
+
+# Индексы существующих таблиц. create_all индексы к УЖЕ созданным таблицам не добавляет
+# (как и колонки), поэтому они доезжают идемпотентным CREATE INDEX IF NOT EXISTS в
+# Database._migrate(). Измерено (perf 2026-09-30, 1755 прогонов с checkpoint): выборка
+# прогонов одной задачи и claim воркера без индекса — полный скан таблицы (3.5 мс -> 0.005 мс).
+# (имя индекса, таблица, колонка) — имя совпадает с тем, что даёт index=True в описании таблицы.
+V2_NEW_INDEXES: list[tuple[str, str, str]] = [
+    ("ix_task_runs_task_id", "task_runs", "task_id"),
+    ("ix_task_runs_status", "task_runs", "status"),
+    ("ix_tool_calls_task_id", "tool_calls", "task_id"),
+    ("ix_approvals_task_id", "approvals", "task_id"),
+]
 
 
 # --- Поколение схемы: защита отката -------------------------------------------
@@ -803,12 +817,31 @@ class Database:
         async with self.engine.begin() as conn:
             await conn.execute(sa.text(backfill))
 
+    async def _existing_columns(self) -> dict[str, set[str]] | None:
+        """{таблица: колонки} одним проходом PRAGMA. None — не SQLite: там ALTER идемпотентен
+        сам (`ADD COLUMN IF NOT EXISTS`). Раньше каждая из ~26 уже добавленных колонок давала
+        свой ALTER, своё соединение и своё исключение duplicate column на КАЖДОМ старте."""
+        if not self.url.startswith("sqlite"):
+            return None
+        found: dict[str, set[str]] = {}
+        try:
+            async with self.engine.connect() as conn:
+                for table in sorted({t for t, _c, _s in V2_NEW_COLUMNS}):
+                    rows = (await conn.execute(sa.text(f"PRAGMA table_info({table})"))).fetchall()
+                    found[table] = {str(r[1]) for r in rows}
+        except sa.exc.DBAPIError:
+            return None          # не удалось узнать — тогда старый путь «ALTER и ловим duplicate»
+        return found
+
     async def _migrate(self) -> None:
         """Идемпотентные ALTER для новых V2-колонок: create_all не расширяет
         существующие таблицы. Каждый ALTER — в своей транзакции: уже добавленная
         колонка не должна валить остальные."""
         sqlite = self.url.startswith("sqlite")
+        known = await self._existing_columns()
         for table, col, sqltype in V2_NEW_COLUMNS:
+            if known is not None and col in known.get(table, ()):
+                continue          # колонка уже есть: ни ALTER, ни исключения
             if_not = "" if sqlite else "IF NOT EXISTS "
             try:
                 async with self.engine.begin() as conn:
@@ -819,6 +852,9 @@ class Database:
                     continue      # колонка уже существует — идемпотентный случай
                 log.error("migration ALTER failed: %r", exc)
                 raise
+        async with self.engine.begin() as conn:
+            for name, table, col in V2_NEW_INDEXES:
+                await conn.execute(sa.text(f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({col})"))
 
     async def ping(self) -> bool:
         async with self.session() as s:

@@ -1,0 +1,41 @@
+{
+ "label": "SANDBOX_REHEARSAL, pin tестовый, не владельца",
+ "drill": "STOP during a real Claude writer turn",
+ "worker_pid": 18920,
+ "worker_alive_before_stop": true,
+ "cli_exit_code": 0,
+ "cli_seconds": 0.4,
+ "cli_killed": [
+  18920
+ ],
+ "worker_gone_after_s": 0.4,
+ "cycle_returned_after_s": 0.54,
+ "outcome": {
+  "state": "BLOCKED",
+  "reason": "owner STOP: autonomy STOP (stop drill (sandbox))"
+ },
+ "goal_state": "BLOCKED",
+ "candidate_committed": false,
+ "lease_released": true,
+ "journal_ok": true,
+ "journal_kinds": [
+  "autonomy.stop",
+  "writer_finished",
+  "writer_started",
+  "writer_stopped"
+ ],
+ "claude_calls": [
+  {
+   "exe": "claude.exe",
+   "role": "writer",
+   "seconds": 3.8,
+   "returncode": 15,
+   "timed_out": false,
+   "at": "10:25:50"
+  }
+ ],
+ "resume": {
+  "cleared": true,
+  "state_after_clear": false
+ }
+}

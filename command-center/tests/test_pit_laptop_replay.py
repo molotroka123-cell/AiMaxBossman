@@ -90,7 +90,10 @@ def raw_update(update_id: int, person_id: int, text: str) -> dict:
         "chat": {"id": person_id, "type": "private"}}}
 
 
-def test_two_hundred_mixed_updates_four_ids_no_cross_leak(tmp_path):
+def test_two_hundred_mixed_updates_four_ids_no_cross_leak(tmp_path, monkeypatch):
+    # 200 updates at machine speed are not a human burst: lift the Jeff 2.0 safety rate limits for this replay
+    monkeypatch.setenv("BOSSMAN_JEFF_J2_SAFETY_RATE_MAX", "100000")
+    monkeypatch.setenv("BOSSMAN_JEFF_J2_SAFETY_FLOOD_MAX", "100000")
     runtime = make_runtime(tmp_path)
     ids = [11, 12, 13, 14]
     # A and B exchange a distinctive marker; the other side must never see it.

@@ -21,6 +21,8 @@ import ipaddress
 import os
 import re
 import socket
+import unicodedata
+import weakref
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -174,6 +176,19 @@ class BrowserApprovalRequired(RuntimeError):
     def __init__(self, action: str, detail: str = ""):
         super().__init__(detail or f"browser action requires approval: {action}")
         self.action = action
+
+
+class BrowserConsequenceApprovalRequired(BrowserApprovalRequired):
+    """Клик с последствиями (оплата, отправка, публикация, удаление…).
+
+    Тот же ASK, что у `submit`: решение принимает владелец, а не агент. Причина
+    (`consequence["why"]`) попадает в вопрос владельцу, чтобы он видел, на что
+    именно нажимается, а не голый `ref`."""
+
+    def __init__(self, consequence: dict[str, Any]):
+        super().__init__("submit", f"клик с последствиями — {consequence.get('why') or '?'}; "
+                                   f"требуется подтверждение владельца (как browser.submit)")
+        self.consequence = consequence
 
 
 class BrowserTakeoverActive(RuntimeError):
@@ -671,9 +686,253 @@ _JS_IS_SECRET = """((el) => {
 })"""
 
 
+# Описание цели клика: ОДНО место, откуда берутся подпись, роль, тип и форма
+# элемента — и для снимка страницы, и для проверки прямо перед кликом. Клик
+# по <span> внутри <button> — это клик по кнопке, поэтому описывается ближайший
+# «интерактивный» предок, а не сам узел. Классификация — в Python
+# (`click_consequence`): словарь один и тестируется без браузера.
+_JS_DESCRIBE = """((el) => {
+  const clean = (s) => (s || '').replace(/\\s+/g, ' ').trim();
+  const hostSel = 'button,a[href],[role=button],[role=link],[role=menuitem],[role=tab],'
+    + 'input,summary,select,[onclick]';
+  const closest = el.closest ? el.closest(hostSel) : null;
+  const host = closest || el;
+  const tag = (host.tagName || '').toLowerCase();
+  const attr = (n) => (host.getAttribute ? host.getAttribute(n) : '') || '';
+  const type = attr('type').toLowerCase();
+  const inputButton = tag === 'input'
+    && ['submit', 'button', 'reset', 'image'].indexOf(type) >= 0;
+  const form = host.form || (host.closest ? host.closest('form') : null);
+  const img = host.querySelector ? host.querySelector('img[alt]') : null;
+  return {
+    tag, type, interactive: !!closest,
+    role: attr('role').toLowerCase(),
+    text: clean(inputButton ? attr('value') : (host.innerText || host.textContent)).slice(0, 200),
+    aria: clean(attr('aria-label')).slice(0, 200),
+    title: clean(attr('title')).slice(0, 200),
+    alt: clean(attr('alt') || (img ? img.getAttribute('alt') : '')).slice(0, 200),
+    value: inputButton ? clean(attr('value')).slice(0, 200) : '',
+    name: attr('name').slice(0, 120),
+    id: attr('id').slice(0, 120),
+    testid: (attr('data-testid') || attr('data-test') || attr('data-qa')).slice(0, 120),
+    cls: attr('class').slice(0, 200),
+    href: attr('href').slice(0, 500),
+    submit: !!form && (tag === 'button' || tag === 'input')
+      && (host.type === 'submit' || host.type === 'image'),
+    method: (attr('formmethod') || (form ? (form.getAttribute('method') || '') : '')
+             || 'get').toLowerCase(),
+    action: (attr('formaction') || (form ? (form.getAttribute('action') || '') : '')).slice(0, 500),
+  };
+})"""
+
+
 def _js(source: str) -> str:
-    """Подставить общий признак секретности в JS-выражение."""
-    return source.replace("__IS_SECRET__", _JS_IS_SECRET)
+    """Подставить общие JS-выражения (секретность поля, описание цели клика)."""
+    return source.replace("__IS_SECRET__", _JS_IS_SECRET).replace("__DESCRIBE__", _JS_DESCRIBE)
+
+
+# ------------------------------------------------ P0: клик с последствиями
+#
+# `browser.click` был AUTO для ЛЮБОГО элемента: «Оплатить», «Купить», «Опубликовать»,
+# «Отправить», «Удалить» нажимались без вопроса, а `fill_owner_fields` (AUTO) плюс
+# клик по кнопке отправки уносил данные владельца в обход ASK на `browser.submit`.
+# Политика `purchase/payment → deny` была меткой, которую ни один инструмент не
+# отправлял. Теперь цель клика классифицируется по подписи, роли, типу и форме, и
+# клик с последствиями требует решения владельца — ровно как `submit`.
+#
+# Словарь намеренно ловит БОЛЬШЕ, чем нужно: лишний вопрос стоит одного нажатия,
+# пропущенная оплата — денег. Обход переименованием закрыт: подпись берётся из
+# text/aria-label/title/alt/value/id/name/class, регистр и Unicode приводятся к
+# одному виду, кириллические двойники латиницы (и наоборот) складываются, буквы
+# через пробел («P a y») склеиваются. Структурный признак — кнопка отправки
+# формы с методом не GET — ловит кнопку с любой нейтральной подписью.
+
+_ZERO_WIDTH = dict.fromkeys(map(ord, "​‌‍⁠﻿­᠎"), None)
+_CYR_TO_LAT = str.maketrans({
+    "а": "a", "в": "b", "е": "e", "к": "k", "м": "m", "н": "h", "о": "o", "р": "p",
+    "с": "c", "т": "t", "у": "y", "х": "x", "і": "i", "ѕ": "s", "ј": "j", "ԁ": "d",
+    "ӏ": "l", "ԛ": "q", "ԝ": "w"})
+_LAT_TO_CYR = str.maketrans({
+    "a": "а", "e": "е", "o": "о", "p": "р", "c": "с", "y": "у", "x": "х", "k": "к",
+    "m": "м", "h": "н", "t": "т", "b": "в", "i": "и"})
+
+# Английские слова — целыми словами (иначе «post» ловил бы «postal», «order» —
+# «border»). Русские — основами с начала слова: «оплат» = оплатить/оплата/оплатите.
+_EN_STRONG: dict[str, tuple[str, frozenset[str]]] = {
+    "payment": ("оплата, покупка или заказ", frozenset({
+        "pay", "paying", "payment", "payments", "paynow", "purchase", "purchases",
+        "purchasing", "buy", "buying", "checkout", "order", "donate", "donation",
+        "deposit", "topup", "paypal", "stripe"})),
+    "subscribe": ("подписка", frozenset({"subscribe"})),
+    "publish": ("публикация или отправка", frozenset({
+        "publish", "publishing", "post", "posting", "tweet", "send", "sending",
+        "submit", "submitting"})),
+    "delete": ("удаление", frozenset({
+        "delete", "deleting", "remove", "erase", "destroy", "deactivate", "unsubscribe",
+        "terminate"})),
+    "transfer": ("перевод средств", frozenset({"transfer", "withdraw", "wire", "cashout"})),
+}
+_RU_STRONG: dict[str, tuple[str, ...]] = {
+    "payment": ("оплат", "платит", "платеж", "купит", "купи", "покуп", "заказ", "оформ",
+                "донат", "пожертв", "пополн", "перечисл"),
+    "subscribe": ("подписа", "подписк", "подпиш"),
+    "publish": ("опубликов", "публиков", "разместит", "запостит", "отправ", "разослат"),
+    "delete": ("удал", "стерет", "сотри", "уничтож", "деактив"),
+    "transfer": ("перевод", "перевед", "перевест"),
+}
+# Слабый словарь — вход, регистрация, бронь: только для кнопок и полей, не для
+# ссылок («Войти» в шапке сайта — это переход на страницу входа, а не вход).
+_EN_WEAK = frozenset({"login", "signin", "signup", "register", "book", "reserve"})
+_EN_WEAK_PAIRS = frozenset({("log", "in"), ("sign", "in"), ("sign", "up"),
+                            ("create", "account")})
+_RU_WEAK = ("войти", "войд", "вход", "авториз", "регистр", "зарегистр", "бронир", "забронир")
+_EN_STRONG_PAIRS = {("check", "out"): "payment", ("place", "order"): "payment",
+                    ("add", "payment"): "payment", ("buy", "now"): "payment"}
+# Сегменты пути ссылки/действия формы, которые сами по себе означают эффект.
+_PATH_STRONG = {"pay": "payment", "payment": "payment", "purchase": "payment",
+                "checkout": "payment", "buy": "payment", "order": "payment",
+                "delete": "delete", "remove": "delete", "destroy": "delete",
+                "unsubscribe": "delete", "transfer": "transfer", "publish": "publish",
+                "subscribe": "subscribe", "submit": "publish", "send": "publish"}
+_PROSE_WORDS = 5     # ссылка/не-кнопка длиннее — это текст статьи, а не команда
+
+
+def _fold_variants(raw: str) -> tuple[list[str], list[str]]:
+    """Слова подписи в двух видах: латинском и кириллическом (см. двойники выше)."""
+    text = unicodedata.normalize("NFKC", str(raw or "")).translate(_ZERO_WIDTH)
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    text = re.sub(r"(?<=[a-zа-яё])(?=[A-ZА-ЯЁ])", " ", text)     # buyNow → buy Now
+    text = text.casefold().replace("ё", "е")
+
+    def words(value: str) -> list[str]:
+        tokens = re.findall(r"[^\W_]+", value)
+        out: list[str] = []
+        run: list[str] = []
+        for tok in tokens + [""]:
+            if len(tok) == 1 and tok.isalpha():
+                run.append(tok)
+                continue
+            if len(run) >= 2:
+                out.append("".join(run))           # «p a y» → «pay»
+            else:
+                out.extend(run)
+            run = []
+            if tok:
+                out.append(tok)
+        return out
+
+    return words(text.translate(_CYR_TO_LAT)), words(text.translate(_LAT_TO_CYR))
+
+
+def _strong_hits(lat: list[str], cyr: list[str]) -> list[str]:
+    hits: list[str] = []
+    for category, (_why, vocab) in _EN_STRONG.items():
+        if any(word in vocab for word in lat):
+            hits.append(category)
+    for pair, category in _EN_STRONG_PAIRS.items():
+        if any(pair == (a, b) for a, b in zip(lat, lat[1:])):
+            hits.append(category)
+    for category, stems in _RU_STRONG.items():
+        if any(word.startswith(stems) for word in cyr):
+            hits.append(category)
+    return list(dict.fromkeys(hits))
+
+
+def _weak_hit(lat: list[str], cyr: list[str]) -> bool:
+    return (any(word in _EN_WEAK for word in lat)
+            or any(pair in _EN_WEAK_PAIRS for pair in zip(lat, lat[1:]))
+            or any(word.startswith(_RU_WEAK) for word in cyr))
+
+
+def _path_segments(value: str) -> list[str]:
+    path = urlparse(str(value or "")).path if "://" in str(value or "") else str(value or "")
+    path = path.split("?", 1)[0].split("#", 1)[0]
+    out = []
+    for seg in path.split("/"):
+        seg = seg.strip().lower().rsplit(".", 1)[0] if "." in seg else seg.strip().lower()
+        if seg:
+            out.append(seg)
+    return out
+
+
+def click_consequence(desc: Any) -> dict[str, Any] | None:
+    """Последствие клика по описанию цели (`_JS_DESCRIBE`). None — обычный клик.
+
+    Возвращает {"category", "label", "why"}; `why` — текст для владельца."""
+    if not isinstance(desc, dict):
+        return {"category": "unknown", "label": "",
+                "why": "не удалось определить, на что именно нажимает агент"}
+    tag = str(desc.get("tag") or "")
+    role = str(desc.get("role") or "")
+    is_link = tag == "a" and role not in ("button", "menuitem", "tab")
+    submit = bool(desc.get("submit"))
+    label = next((str(desc.get(k) or "").strip() for k in
+                  ("text", "aria", "title", "value", "alt", "name", "id")
+                  if str(desc.get(k) or "").strip()), "")[:80]
+
+    def verdict(category: str, why: str) -> dict[str, Any]:
+        return {"category": category, "label": label, "why": why}
+
+    visible = " ".join(str(desc.get(k) or "") for k in ("text", "aria", "title", "value", "alt"))
+    lat, cyr = _fold_variants(visible)
+    prose = (is_link or not desc.get("interactive")) and len(cyr) > _PROSE_WORDS
+    hits = [] if prose else _strong_hits(lat, cyr)
+    if not hits and not is_link:
+        # Идентификаторы элемента: кнопка-иконка без текста — `id="btn-pay"`.
+        ident = " ".join(str(desc.get(k) or "") for k in ("id", "name", "testid", "cls"))
+        ilat, icyr = _fold_variants(ident)
+        hits = _strong_hits(ilat, icyr)
+    if hits:
+        why = _EN_STRONG[hits[0]][0] if hits[0] in _EN_STRONG else hits[0]
+        return verdict(hits[0], f"{why}: «{label or '?'}»")
+    if not is_link and not prose and _weak_hit(lat, cyr):
+        return verdict("login", f"вход, регистрация или бронирование: «{label or '?'}»")
+    for source in ("action", "href") if (submit or is_link) else ():
+        for seg in _path_segments(str(desc.get(source) or "")):
+            if seg in _PATH_STRONG:
+                category = _PATH_STRONG[seg]
+                return verdict(category, f"адрес действия содержит «{seg}»: «{label or '?'}»")
+    method = str(desc.get("method") or "get").lower()
+    if submit and method != "get":
+        return verdict("form", f"отправка формы ({method.upper()}): «{label or '?'}»")
+    return None
+
+
+def selector_consequence(selector: str) -> dict[str, Any] | None:
+    """Грубый признак последствий по САМОМУ селектору (`text=Оплатить`, `#btn-pay`,
+    `button[type=submit]`). У хука политики инструмента страницы нет, поэтому это
+    только раннее предупреждение; точная проверка — по живому элементу в `click()`."""
+    lat, cyr = _fold_variants(str(selector or ""))
+    hits = _strong_hits(lat, cyr)
+    if not hits:
+        return None
+    why = _EN_STRONG[hits[0]][0] if hits[0] in _EN_STRONG else hits[0]
+    return {"category": hits[0], "label": str(selector)[:80],
+            "why": f"селектор указывает на {why}: {str(selector)[:80]!r}"}
+
+
+#: Менеджеры процесса — чтобы хук политики инструмента (у него нет ни сессии, ни
+#: менеджера, только аргументы вызова) мог посмотреть ЖИВОЙ последний снимок.
+_MANAGERS: "weakref.WeakSet[BrowserManager]" = weakref.WeakSet()
+
+
+def live_ref_info(ref: str) -> dict[str, Any] | None:
+    """Что известно о ссылке `ref` из последнего снимка любой живой сессии.
+
+    Ссылки вида `e<поколение>-<номер>` повторяются между сессиями, поэтому
+    совпадение ищется среди всех и «слабее» берётся ОПАСНОЕ: лишний вопрос
+    владельцу лучше пропущенной оплаты. Точная проверка идёт всё равно в
+    `BrowserManager.click` по живому элементу."""
+    found: dict[str, Any] | None = None
+    for mgr in list(_MANAGERS):
+        for sess in list(getattr(mgr, "_sessions", {}).values()):
+            info = (getattr(sess, "refs", None) or {}).get(ref)
+            if not info or info.get("generation") != getattr(sess, "generation", None):
+                continue
+            if info.get("consequence") or info.get("secret"):
+                return info
+            found = found or info
+    return found
 
 
 def _fingerprint(item: dict[str, Any]) -> str:
@@ -708,6 +967,19 @@ def _host_match(host: str, pattern: str) -> bool:
     return host == pattern or host.endswith("." + pattern)
 
 
+# Снимок делается сразу после `domcontentloaded`, а страницы, которые подгружают
+# текст по XHR/fetch уже ПОСЛЕ него (лента, карточки, «JS-рендеринг»), в этот
+# момент пусты: живая проба 2026-09-30 на quotes.toscrape.com/scroll дала 78
+# знаков вместо 1488 через три секунды. Ожидание ограничено и проглатывает
+# таймаут: страница с вечным long-poll никогда не «затихает», и брать надо то,
+# что успело появиться, а не зависать.
+SETTLE_TIMEOUT_MS = 3000
+# Прокрутка — чтение, а не действие: она только запускает ленивую подгрузку.
+# Потолок в экранах, а не в пикселях: модель называет число, не координату.
+MAX_SCROLL_SCREENS = 10
+SCROLL_PAUSE_S = 0.25
+
+
 class BrowserManager:
     """In-process Playwright manager.
 
@@ -724,6 +996,7 @@ class BrowserManager:
         self._sessions: dict[int, BrowserRuntimeSession] = {}
         self._lock = asyncio.Lock()
         self.preinstalled_executable = PREINSTALLED_CHROMIUM
+        _MANAGERS.add(self)
 
     @property
     def available(self) -> bool:
@@ -1112,6 +1385,9 @@ class BrowserManager:
         if expect_download:
             raise BrowserDownloadFailed("адрес открылся как страница, а не как файл — "
                                         "загрузки не было")
+        # Дожидаемся подгрузки ДО проверки адреса: клиентский редирект после
+        # загрузки тоже должен попасть под проверку «куда приехали».
+        await self._settle(sess.page)
         # Редирект с публичного сайта на приватную цель обходит проверку до goto:
         # проверяем, куда реально приехали, и уходим с такой страницы, не читая её.
         landed = str(getattr(sess.page, "url", "") or "")
@@ -1123,7 +1399,28 @@ class BrowserManager:
                 pass
             raise BrowserPolicyDenied("navigate", f"browser action denied: navigate — "
                                       f"редирект на {landed[:120]!r}: {why}")
-        return await self.snapshot(session_id, actor=actor, approved=True)
+        snap = await self.snapshot(session_id, actor=actor, approved=True)
+        # Код ответа сервера: без него страница 404/500 неотличима от пустой.
+        status = getattr(response, "status", None)
+        if isinstance(snap, dict) and isinstance(status, int) and not isinstance(status, bool):
+            snap["http_status"] = status
+        return snap
+
+    @staticmethod
+    async def _settle(page: Any, timeout_ms: int = SETTLE_TIMEOUT_MS) -> None:
+        """Дождаться, пока страница затихнет по сети. Таймаут — не ошибка."""
+        try:
+            await page.wait_for_load_state("networkidle", timeout=timeout_ms)
+        except Exception:  # noqa: BLE001 — long-poll, фейковая страница, закрытая вкладка
+            pass
+
+    async def _scroll(self, sess: "BrowserRuntimeSession", screens: int) -> None:
+        """Прокрутить вниз на `screens` экранов и дать ленивой подгрузке сработать."""
+        page = sess.page
+        for _ in range(max(0, min(int(screens), MAX_SCROLL_SCREENS))):
+            await page.evaluate("() => window.scrollBy(0, Math.max(300, window.innerHeight * 0.9))")
+            await asyncio.sleep(SCROLL_PAUSE_S)
+        await self._settle(page, 2000)
 
     @staticmethod
     async def _inline_document(response: Any, url: str, sess: Any = None) -> "_InlineDocument | None":
@@ -1206,13 +1503,43 @@ class BrowserManager:
             raise AmbiguousSelector(selector, count)
         return loc.first
 
+    async def _click_consequence(self, loc: Any) -> dict[str, Any] | None:
+        """Последствие клика по ЖИВОМУ элементу (не по снимку: страница могла
+        перерисоваться). Не смогли описать цель — считаем, что последствия есть."""
+        try:
+            desc = await loc.evaluate(_js("(el) => __DESCRIBE__(el)"))
+        except Exception:  # noqa: BLE001 — fail closed: неизвестная цель не нажимается молча
+            desc = None
+        return click_consequence(desc)
+
+    def _guard_consequence(self, sess: BrowserRuntimeSession, consequence: dict[str, Any],
+                           *, actor: str, approved: bool) -> None:
+        """Клик с последствиями решается политикой `submit`: ask → владелец,
+        deny → отказ. Человек за рулём (actor=human) решает сам."""
+        try:
+            self._guard(sess, "submit", actor=actor, approved=approved)
+        except BrowserApprovalRequired as exc:
+            raise BrowserConsequenceApprovalRequired(consequence) from exc
+
     async def click(self, session_id: int, selector: str = "", *,
                     ref: str = "", actor: str = "agent",
                     approved: bool = False,
-                    allow_download: bool | None = None) -> dict[str, Any]:
+                    allow_download: bool | None = None,
+                    consequence_approved: bool | None = None) -> dict[str, Any]:
+        """`consequence_approved` — решение ИМЕННО по кликам с последствиями.
+        Инструмент агента передаёт `approved=True` (AUTO/ASK уже решил канонический
+        слой), а сюда — есть ли строка одобрения владельца у этого вызова; None —
+        то же, что `approved`."""
         sess = self._session(session_id)
         self._guard(sess, "click", actor=actor, approved=approved)
         loc = await self._target(sess, selector, ref)
+        # P0: граница. Хук политики инструмента видит только аргументы и снимок;
+        # здесь проверяется элемент, который реально будет нажат.
+        consequence = await self._click_consequence(loc)
+        if consequence is not None:
+            self._guard_consequence(sess, consequence, actor=actor,
+                                    approved=approved if consequence_approved is None
+                                    else consequence_approved)
         self._drain_downloads(sess)
         source = str(sess.page.url or "")
         await loc.click(timeout=30000)
@@ -1231,6 +1558,13 @@ class BrowserManager:
         sess = self._session(session_id)
         self._guard(sess, "type", actor=actor, approved=approved)
         loc = await self._target(sess, selector, ref)
+        if actor != "human" and await loc.evaluate(_js("(el) => __IS_SECRET__(el)")):
+            # Пароль агент не вводит: ни из головы, ни «из контекста». Единственный
+            # путь — `fill_secret`, значение которого приходит из хранилища рантайма.
+            raise BrowserPolicyDenied(
+                "type", "ввод агентом в поле пароля/секрета запрещён: пароль подставляет "
+                        "только хранилище учётных данных (browser.login с credential_id) "
+                        "или сам владелец")
         await loc.fill(text, timeout=30000)
         return await self.status(session_id)
 
@@ -1280,18 +1614,26 @@ class BrowserManager:
 
     async def snapshot(self, session_id: int, *,
                        actor: str = "agent", approved: bool = False,
-                       max_text: int = 20000, max_interactive: int = 200) -> dict[str, Any]:
+                       max_text: int = 20000, max_interactive: int = 200,
+                       scroll_screens: int = 0, text_offset: int = 0) -> dict[str, Any]:
         sess = self._session(session_id)
         self._guard(sess, "snapshot", actor=actor, approved=approved)
         page = sess.page
+        if scroll_screens > 0:
+            # Чтение, а не действие: то же решение политики, что и у снимка.
+            await self._scroll(sess, scroll_screens)
         # DOM-first snapshot: cheap and deterministic. Vision only receives screenshot when needed.
         sess.generation += 1
         generation = sess.generation
         data = await page.evaluate(_js(
             """(limits) => {
               const isSecret = __IS_SECRET__;
+              const describe = __DESCRIBE__;
               const clean = (s) => (s || '').replace(/\\s+/g, ' ').trim();
-              const text = clean(document.body ? document.body.innerText : '').slice(0, limits.maxText);
+              const full = clean(document.body ? document.body.innerText : '');
+              // Окно текста: страница длиннее maxText читается по частям, а не
+              // обрезается навсегда после первых maxText знаков.
+              const text = full.slice(limits.textOffset, limits.textOffset + limits.maxText);
               const selectors = 'a,button,input,textarea,select,[role="button"],[role="link"],[tabindex]';
               const nodes = Array.from(document.querySelectorAll(selectors)).slice(0, limits.maxInteractive);
               // Ссылки прошлого поколения снимаем: иначе устаревший атрибут
@@ -1324,14 +1666,33 @@ class BrowserManager:
                   disabled: !!el.disabled,
                   secret,
                   filled: secret ? !!el.value : undefined,
+                  // Описание цели клика уходит только в Python (см. ниже) и до
+                  // модели не доходит: классификатор работает на стороне рантайма.
+                  // Исключение в описании одного узла не должно ронять весь снимок:
+                  // null = «не смогли описать» (Python пометит цель как неизвестную).
+                  desc: secret ? null : (() => { try { return describe(el); } catch (e) { return null; } })(),
                 };
               });
-              return { text, interactive };
+              return { text, total: full.length, interactive };
             }"""),
             {"maxText": max_text, "maxInteractive": max_interactive,
-             "generation": generation},
+             "generation": generation, "textOffset": max(0, int(text_offset))},
         )
         interactive = data.get("interactive") or []
+        # P0: последствие клика считается здесь, по тому же описанию, что и в
+        # `click()`. Модель видит только категорию (чтобы не тратить ход на клик,
+        # который всё равно упрётся в владельца); хук политики инструмента читает
+        # её из `sess.refs` — у него, кроме аргументов вызова, ничего нет.
+        consequences: dict[str, dict[str, Any]] = {}
+        for item in interactive:
+            if not isinstance(item, dict) or "desc" not in item:
+                continue                  # страница-двойник без описаний: нечего классифицировать
+            desc = item.pop("desc")
+            if not item.get("secret"):
+                found = click_consequence(desc)       # desc=None → «цель неизвестна» → ASK
+                if found:
+                    consequences[str(item.get("ref"))] = found
+                    item["consequence"] = found["category"]
         # Капча: распознаём и зовём человека. Автоматически не решаем — см.
         # CAPTCHA_MARKERS. Дальнейшие действия агента блокируются takeover'ом,
         # чтобы он не «дожимал» страницу вслепую и не тратил бюджет шагов.
@@ -1346,6 +1707,8 @@ class BrowserManager:
                 "generation": generation,
                 "fingerprint": _fingerprint(item),
                 "tag": item.get("tag"), "name": item.get("name"),
+                "secret": bool(item.get("secret")),
+                "consequence": consequences.get(str(item.get("ref"))),
             }
             for item in interactive if item.get("ref")
         }
@@ -1355,6 +1718,8 @@ class BrowserManager:
             "title": await page.title(),
             "generation": generation,
             "text": data.get("text") or "",
+            "text_offset": max(0, int(text_offset)),
+            "text_total": int(data.get("total") or 0),
             "interactive": interactive,
             "takeover": sess.takeover,
             "paused": sess.paused,

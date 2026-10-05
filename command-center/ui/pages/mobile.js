@@ -425,17 +425,43 @@ function browserBody(state, ctx) {
       } catch (e) { toastError(e, 'Не удалось выполнить действие'); }
     };
     const taken = Boolean(s.takeover);
+    // `live` приходит с бэкенда: строка сессии переживает рестарт, контекст Chromium —
+    // нет. Для такой сессии перехват и возврат невозможны (бэкенд ответит 409), поэтому
+    // кнопок управления нет — остаётся только «Закрыть», чтобы убрать строку.
+    const alive = s.live !== false;
     return h('div.cmd-item',
-      h('div.cmd-row', dot(taken ? 'paused' : 'running', { live: !taken }),
+      h('div.cmd-row', dot(!alive ? 'offline' : taken ? 'paused' : 'running', { live: alive && !taken }),
         h('span.cmd-agent-name', `#${s.id}`),
-        taken ? badge('вы за рулём', 'warn') : null),
+        !alive ? badge('не активна (после рестарта)', 'warn') : null,
+        alive && taken ? badge('вы за рулём', 'warn') : null),
       h('div.xsmall.dim.wrap-any', String(s.current_url || 'страница не открыта').slice(0, 120)),
       h('div.cmd-actions',
-        taken
-          ? h('button.cmd-btn.cmd-btn-primary', { type: 'button', onClick: () => act('resume') }, 'Вернуть агенту')
-          : h('button.cmd-btn', { type: 'button', onClick: () => act('takeover') }, 'Взять управление'),
+        !alive
+          ? null
+          : taken
+            ? h('button.cmd-btn.cmd-btn-primary', { type: 'button', onClick: () => act('resume') }, 'Вернуть агенту')
+            : h('button.cmd-btn', { type: 'button', onClick: () => act('takeover') }, 'Взять управление'),
         h('button.cmd-btn.cmd-btn-danger', { type: 'button', onClick: () => act('stop') }, 'Закрыть')));
   }));
+}
+
+/* UX-05: бридж кладёт в health.detail сырой след проб («/api/info: ConnectError; …»),
+   и Пульт показывал его владельцу как причину. Человеческая причина — по статусу
+   бриджа (online|unauthorized|incompatible_version|unavailable, R12) и его русской
+   подсказке; технический след остаётся только во всплывающей подсказке. */
+const OPENCODE_STATUS_TEXT = {
+  unavailable: 'OpenCode не запущен на этом компьютере.',
+  unauthorized: 'OpenCode просит пароль.',
+  incompatible_version: 'Эта версия OpenCode не поддерживается.',
+};
+
+export function opencodeReason(health, healthError) {
+  if (healthError) return { text: String(healthError), detail: '' };
+  const info = health || {};
+  const base = OPENCODE_STATUS_TEXT[String(info.status || '')] || 'Сервер OpenCode не отвечает.';
+  const hint = typeof info.hint === 'string' ? info.hint.trim() : '';
+  const detail = String(info.detail || info.error || info.message || '');
+  return { text: hint ? `${base} ${hint.charAt(0).toUpperCase()}${hint.slice(1)}` : base, detail };
 }
 
 function opencodeBody(state, ctx) {
@@ -444,15 +470,16 @@ function opencodeBody(state, ctx) {
     || (health && health.ok === false)
     /* бридж отвечает online|unauthorized|incompatible_version|unavailable (R12) */
     || (health && health.status && !['ok', 'online'].includes(health.status));
-  const reason = state.healthError
-    || (health && (health.detail || health.error || health.message))
-    || 'сервер opencode не отвечает';
+  const why_ = opencodeReason(health, state.healthError);
+  const reason = why_.text;
 
   if (state.error) return emptyNote('OpenCode недоступен', state.error);
   const live = state.items.filter((s) => !['aborted', 'finished', 'completed', 'failed']
     .includes(String(s.status || '')));
   if (!live.length) {
-    return emptyNote('Сессий OpenCode нет', unavailable ? String(reason) : '');
+    const note = emptyNote('Сессий OpenCode нет', unavailable ? String(reason) : '');
+    if (unavailable && why_.detail) note.title = why_.detail;
+    return note;
   }
   return h('div.stack.sm',
     unavailable ? h('div.xsmall.dim', `OpenCode недоступен: ${String(reason)} — прерывание может не сработать`) : null,

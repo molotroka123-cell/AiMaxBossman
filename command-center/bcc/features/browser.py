@@ -10,15 +10,13 @@ Chromium предустановлен: launch с executable_path из PLAYWRIGHT
 """
 from __future__ import annotations
 
-import uuid
-
 import sqlalchemy as sa
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from ..browser_runtime import INSTALL_HINT, PREINSTALLED_CHROMIUM
 from ..db import fetch_one, tasks as tasks_t, utcnow
-from ..v2.browser_control import (BrowserApprovalRequired, BrowserDownloadApprovalRequired,
+from ..v2.browser_control import (BrowserApprovalRequired, BrowserConsequenceApprovalRequired,
+                                  BrowserDownloadApprovalRequired,
                                   BrowserDownloadFailed, BrowserManager, BrowserPolicy,
                                   BrowserPolicyDenied, BrowserTakeoverActive, BrowserUnavailable)
 from ..v2.tables import browser_sessions as bs_t
@@ -151,7 +149,12 @@ async def act(session_id: int, request: Request):
             res = await mgr.type_text(session_id, body["selector"], body.get("text", ""),
                                       actor=actor, approved=approved)
         elif action == "snapshot":
-            res = await mgr.snapshot(session_id, actor=actor, approved=approved)
+            try:
+                screens = int(body.get("scroll") or 0)
+            except (TypeError, ValueError):
+                raise HTTPException(422, {"message": "snapshot: scroll — целое число экранов 0..10"})
+            res = await mgr.snapshot(session_id, actor=actor, approved=approved,
+                                     scroll_screens=max(0, min(screens, 10)))
         elif action == "back":
             res = await mgr.back(session_id, actor=actor)
         elif action == "reload":
@@ -164,7 +167,9 @@ async def act(session_id: int, request: Request):
         raise HTTPException(409, {"message": "активен Human Take Over — действия агента заблокированы"})
     except BrowserApprovalRequired as exc:
         aid = await svc.approvals.create(kind="browser", preview=preview)
-        detail = str(exc) if isinstance(exc, BrowserDownloadApprovalRequired) else "нужно подтверждение"
+        detail = (str(exc) if isinstance(exc, (BrowserDownloadApprovalRequired,
+                                               BrowserConsequenceApprovalRequired))
+                  else "нужно подтверждение")
         raise HTTPException(202, {"message": detail, "approval_id": aid.get("id")})
     except BrowserPolicyDenied as exc:
         raise HTTPException(403, {"message": f"действие запрещено политикой: {exc}"})
@@ -209,16 +214,32 @@ async def screenshot(session_id: int, request: Request):
         png = await _mgr(svc).screenshot(session_id, actor="human", approved=True)
     except LookupError:
         raise HTTPException(404, {"message": "сессия не запущена"})
-    path = svc.settings.data_dir / "browser" / f"shot-{session_id}-{uuid.uuid4().hex[:6]}.png"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(png)
-    return FileResponse(path, media_type="image/png")
+    # Байты ответа, а не файл: живая панель опрашивает кадр каждые 3 секунды, и
+    # прежний `shot-<sid>-<rand>.png` на каждый опрос — это ~1200 файлов в час
+    # на одну открытую панель, которые никто не удалял.
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "no-store"})
+
+
+async def _dead_session(svc, session_id: int) -> HTTPException:
+    """409 с понятным текстом вместо 500: строка сессии в БД жива, а рантайм-контекст —
+    нет (рестарт, закрытие). Заодно строка перестаёт врать, что сессия `running`."""
+    async with svc.db.session() as s:
+        await s.execute(sa.update(bs_t).where(bs_t.c.id == session_id,
+                                              bs_t.c.status.in_(("running", "created"))).values(
+            status="lost", updated_at=utcnow(), finished_at=utcnow()))
+        await s.commit()
+    return HTTPException(409, {"message": "сессия браузера не запущена (рестарт или закрытие) — "
+                                          "перехват и возобновление недоступны; откройте новую сессию",
+                               "code": "session_not_live"})
 
 
 @router.post("/browser/sessions/{session_id}/takeover")
 async def takeover(session_id: int, request: Request):
     svc = request.app.state.svc
-    res = await _mgr(svc).takeover(session_id)
+    try:
+        res = await _mgr(svc).takeover(session_id)
+    except LookupError:
+        raise await _dead_session(svc, session_id)
     await _record(svc, session_id, takeover=True)
     await svc.bus.emit("agent.warning", tool="browser", session_id=session_id, takeover=True)
     return res
@@ -236,7 +257,10 @@ async def resume(session_id: int, request: Request):
     a task the owner stopped meanwhile is not resurrected (engine.resume
     refuses anything but `paused`)."""
     svc = request.app.state.svc
-    res = await _mgr(svc).resume(session_id)
+    try:
+        res = await _mgr(svc).resume(session_id)
+    except LookupError:
+        raise await _dead_session(svc, session_id)
     await _record(svc, session_id, takeover=False, paused=False)
     res = dict(res) if isinstance(res, dict) else {"id": session_id}
     res["task_resumed"] = False
@@ -271,6 +295,8 @@ async def stop(session_id: int, request: Request):
     svc = request.app.state.svc
     await _mgr(svc).stop(session_id)
     await _record(svc, session_id, status="stopped", finished_at=utcnow())
+    from .tools_browser import drop_session_shots          # кольцо кадров агента
+    drop_session_shots(svc, session_id)
     return {"ok": True}
 
 

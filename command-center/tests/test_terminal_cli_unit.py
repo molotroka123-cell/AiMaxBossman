@@ -166,8 +166,16 @@ def test_bossman_entry_point_keeps_core_commands():
                  ["models", "list", "--all"], ["--help"]):
         assert not cli.is_terminal_call(argv), argv
     for argv in ([], ["chat"], ["exec", "--input-file", "f"], ["-p", "hi"], ["status", "--json"],
-                 ["keys", "set", "anthropic"], ["market", "status"]):
+                 ["keys", "set", "anthropic"], ["market", "status"], ["autonomy", "status"],
+                 ["autonomy", "constitution", "pin"]):
         assert cli.is_terminal_call(argv), argv
+
+
+def test_terminal_command_lists_are_the_same_in_both_entry_points():
+    cli = pytest.importorskip("bossman.cli")
+    from bcc.terminal_cli.cli import TERMINAL_COMMANDS
+    assert set(cli.TERMINAL_COMMANDS) == set(TERMINAL_COMMANDS)
+    assert len(TERMINAL_COMMANDS) == len(set(TERMINAL_COMMANDS))
 
 
 def test_market_terminal_uses_the_read_only_collector(tmp_path, capsys):

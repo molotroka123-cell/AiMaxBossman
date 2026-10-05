@@ -3,8 +3,12 @@ the same commit certify; skipped/cancelled/in-progress/other-SHA never do."""
 from __future__ import annotations
 
 import json
+import io
 import subprocess
 import sys
+import urllib.error
+import urllib.parse
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -18,9 +22,14 @@ REQ = ("root-ci", "Core CI", "CC CI")
 
 
 def _run(name, *, sha=SHA, status="completed", conclusion="success", number=1, attempt=1, rid=None):
+    rid = rid or number * 10 + attempt
     return {"name": name, "head_sha": sha, "status": status, "conclusion": conclusion,
-            "run_number": number, "run_attempt": attempt, "id": rid or number * 10 + attempt,
-            "html_url": f"https://example.invalid/{name}/{number}"}
+            "run_number": number, "run_attempt": attempt, "id": rid,
+            "html_url": f"https://example.invalid/{name}/{number}",
+            "jobs": [{"id": rid * 100, "run_id": rid, "head_sha": sha,
+                      "status": "completed", "conclusion": "success", "name": "checks"}],
+            "jobs_evidence": {"run_id": rid, "run_attempt": attempt, "head_sha": sha,
+                              "total_count": 1, "complete": True}}
 
 
 def test_all_required_green_on_exact_sha_is_certified():
@@ -171,7 +180,7 @@ def test_the_owner_scoreboard_is_required_too():
 def test_a_missing_windows_run_blocks_certification():
     """Поведенческая пара к объявлению выше."""
     sha = "c" * 40
-    runs = [{"name": name, "head_sha": sha, "status": "completed", "conclusion": "success"}
+    runs = [_run(name, sha=sha)
             for name in esc.DEFAULT_REQUIRED
             if name != "One-download Windows application"]
     report = esc.certify(sha, runs)
@@ -179,6 +188,247 @@ def test_a_missing_windows_run_blocks_certification():
     assert report["verdict"] != esc.CERTIFIED
 
     # Положительная половина: добавь недостающий прогон — и SHA сертифицируется.
-    runs.append({"name": "One-download Windows application", "head_sha": sha,
-                 "status": "completed", "conclusion": "success"})
+    runs.append(_run("One-download Windows application", sha=sha))
     assert esc.certify(sha, runs)["verdict"] == esc.CERTIFIED
+
+
+@pytest.mark.parametrize('fault', [
+    'missing_jobs', 'zero_jobs', 'missing_evidence', 'incomplete', 'wrong_total',
+    'duplicate_job', 'job_sha', 'job_run', 'job_attempt', 'envelope_sha',
+    'envelope_run', 'envelope_attempt', 'missing_job_id', 'invalid_job_id',
+    'invalid_run_id', 'invalid_attempt', 'malformed_job', 'bool_total',
+])
+def test_successful_run_requires_complete_bound_nonempty_jobs(fault):
+    run = _run('root-ci')
+    job = run['jobs'][0]
+    evidence = run['jobs_evidence']
+    if fault == 'missing_jobs':
+        del run['jobs']
+    elif fault == 'zero_jobs':
+        run['jobs'] = []
+        evidence['total_count'] = 0
+    elif fault == 'missing_evidence':
+        del run['jobs_evidence']
+    elif fault == 'incomplete':
+        evidence['complete'] = False
+    elif fault == 'wrong_total':
+        evidence['total_count'] = 2
+    elif fault == 'duplicate_job':
+        run['jobs'].append(dict(job))
+        evidence['total_count'] = 2
+    elif fault == 'job_sha':
+        job['head_sha'] = OTHER
+    elif fault == 'job_run':
+        job['run_id'] += 1
+    elif fault == 'job_attempt':
+        job['run_attempt'] = 2
+    elif fault.startswith('envelope_'):
+        key = {'envelope_sha': 'head_sha', 'envelope_run': 'run_id',
+               'envelope_attempt': 'run_attempt'}[fault]
+        evidence[key] = OTHER if key == 'head_sha' else evidence[key] + 1
+    elif fault == 'missing_job_id':
+        del job['id']
+    elif fault == 'invalid_job_id':
+        job['id'] = True
+    elif fault == 'invalid_run_id':
+        run['id'] = True
+    elif fault == 'invalid_attempt':
+        run['run_attempt'] = 0
+    elif fault == 'malformed_job':
+        run['jobs'] = [None]
+    elif fault == 'bool_total':
+        evidence['total_count'] = True
+    report = esc.certify(SHA, [run], ('root-ci',))
+    assert report['verdict'] != esc.CERTIFIED, fault
+    assert report['workflows']['root-ci']['result'] != 'PASS'
+
+
+@pytest.mark.parametrize('status,conclusion', [
+    ('completed', 'skipped'), ('completed', 'failure'), ('completed', 'cancelled'),
+    ('completed', 'neutral'), ('completed', 'timed_out'), ('completed', None),
+    ('queued', None), ('in_progress', 'success'), ('unknown', 'success'),
+])
+def test_job_must_itself_complete_successfully(status, conclusion):
+    run = _run('root-ci')
+    run['jobs'][0].update(status=status, conclusion=conclusion)
+    report = esc.certify(SHA, [run], ('root-ci',))
+    assert report['verdict'] == esc.NOT_CERTIFIED
+    if status != 'completed':
+        assert report['final'] is False
+
+
+def test_new_attempt_cannot_inherit_previous_jobs():
+    earlier = _run('root-ci', rid=40)
+    later = _run('root-ci', rid=40, attempt=2)
+    later['jobs_evidence'] = earlier['jobs_evidence']
+    assert esc.certify(SHA, [earlier, later], ('root-ci',))['verdict'] != esc.CERTIFIED
+
+
+def _mock_api(monkeypatch, responses):
+    calls = []
+
+    def open_request(request, timeout):
+        calls.append(request.full_url)
+        assert timeout == 30
+        value = responses[len(calls) - 1]
+        if isinstance(value, Exception):
+            raise value
+        return io.BytesIO(json.dumps(value).encode())
+
+    monkeypatch.setattr(esc.urllib.request, 'urlopen', open_request)
+    return calls
+
+
+def test_fetch_binds_all_job_pages_to_exact_attempt(monkeypatch):
+    run = _run('root-ci', rid=41, attempt=2)
+    job = run.pop('jobs')[0]
+    run.pop('jobs_evidence')
+    calls = _mock_api(monkeypatch, [
+        {'total_count': 1, 'workflow_runs': [run]},
+        {'total_count': 2, 'jobs': [job]},
+        {'total_count': 2, 'jobs': [{**job, 'id': job['id'] + 1, 'run_attempt': 2}]},
+    ])
+    fetched = esc.fetch_runs('owner/repo', SHA, None, per_page=1, required=('root-ci',))
+    assert esc.certify(SHA, fetched, ('root-ci',))['verdict'] == esc.CERTIFIED
+    assert len(calls) == 3
+    assert '/actions/runs/41/attempts/2/jobs?' in calls[1]
+    assert urllib.parse.parse_qs(urllib.parse.urlparse(calls[2]).query)['page'] == ['2']
+    assert fetched[0]['jobs_evidence'] == {
+        'run_id': 41, 'run_attempt': 2, 'head_sha': SHA, 'total_count': 2, 'complete': True}
+
+
+@pytest.mark.parametrize('fault', ['missing_total', 'missing_list', 'wrong_type',
+                                  'duplicate', 'truncated', 'changed_total', 'page_limit',
+                                  'http_error', 'wrong_run', 'wrong_sha', 'wrong_attempt'])
+def test_fetch_jobs_fails_closed_on_partial_or_unbound_evidence(monkeypatch, fault):
+    run = _run('root-ci', rid=41, attempt=2)
+    job = run.pop('jobs')[0]
+    run.pop('jobs_evidence')
+    first = {'total_count': 2, 'jobs': [job]}
+    second = {'total_count': 2, 'jobs': [{**job, 'id': job['id'] + 1}]}
+    max_pages = 5
+    if fault == 'missing_total':
+        first.pop('total_count')
+    elif fault == 'missing_list':
+        first.pop('jobs')
+    elif fault == 'wrong_type':
+        first['jobs'] = [None]
+    elif fault == 'duplicate':
+        second['jobs'] = [dict(job)]
+    elif fault == 'truncated':
+        second['jobs'] = []
+    elif fault == 'changed_total':
+        second['total_count'] = 3
+    elif fault == 'page_limit':
+        max_pages = 1
+    elif fault == 'http_error':
+        second = urllib.error.HTTPError('https://api.github.com/synthetic', 403, 'Forbidden', {}, None)
+    elif fault == 'wrong_run':
+        job['run_id'] += 1
+    elif fault == 'wrong_sha':
+        job['head_sha'] = OTHER
+    elif fault == 'wrong_attempt':
+        job['run_attempt'] = 1
+    _mock_api(monkeypatch, [{'total_count': 1, 'workflow_runs': [run]}, first, second])
+    with pytest.raises(esc.CertificationError):
+        esc.fetch_runs('owner/repo', SHA, None, per_page=1, max_pages=max_pages, required=('root-ci',))
+
+
+def test_fetch_does_not_certify_truncated_run_inventory(monkeypatch):
+    _mock_api(monkeypatch, [{'total_count': 2, 'workflow_runs': [_run('root-ci')]}])
+    with pytest.raises(esc.CertificationError, match='pagination'):
+        esc.fetch_runs('owner/repo', SHA, None, per_page=1, max_pages=1)
+
+
+def test_fetch_uses_only_latest_runs_jobs(monkeypatch):
+    old = _run('root-ci', rid=10)
+    latest = _run('root-ci', rid=11, number=2, attempt=3)
+    job = latest['jobs'][0]
+    for run in (old, latest):
+        run.pop('jobs')
+        run.pop('jobs_evidence')
+    calls = _mock_api(monkeypatch, [
+        {'total_count': 2, 'workflow_runs': [old, latest]},
+        {'total_count': 1, 'jobs': [job]},
+    ])
+    fetched = esc.fetch_runs('owner/repo', SHA, None, required=('root-ci',))
+    assert esc.certify(SHA, fetched, ('root-ci',))['verdict'] == esc.CERTIFIED
+    assert len(calls) == 2 and '/runs/11/attempts/3/jobs?' in calls[1]
+
+
+def test_fetch_ignores_unrelated_jobs_and_keeps_required_unfinished_status(monkeypatch):
+    ready = _run('root-ci', rid=51)
+    pending = _run('Core CI', rid=52, status='queued', conclusion=None)
+    unrelated = _run('Release certification', rid=53, status='in_progress', conclusion=None)
+    job = ready['jobs'][0]
+    for run in (ready, pending, unrelated):
+        run.pop('jobs')
+        run.pop('jobs_evidence')
+    calls = _mock_api(monkeypatch, [
+        {'total_count': 3, 'workflow_runs': [ready, pending, unrelated]},
+        {'total_count': 1, 'jobs': [job]},
+    ])
+    fetched = esc.fetch_runs('owner/repo', SHA, None, required=('root-ci', 'Core CI'))
+    assert len(calls) == 2 and '/runs/51/attempts/1/jobs?' in calls[1]
+    assert esc.certify(SHA, fetched, ('root-ci',))['verdict'] == esc.CERTIFIED
+    blocked = esc.certify(SHA, fetched, ('root-ci', 'Core CI'))
+    assert blocked['verdict'] == esc.NOT_CERTIFIED and blocked['final'] is False
+    assert blocked['workflows']['Core CI']['result'] == 'NOT_FINAL'
+
+
+@pytest.mark.parametrize('key', ['id', 'run_number', 'run_attempt'])
+@pytest.mark.parametrize('value', [None, 0, True, '2'])
+def test_malformed_new_run_cannot_be_discarded_in_favor_of_old_green(key, value):
+    old = _run('root-ci', rid=11)
+    new = _run('root-ci', rid=12, number=2, conclusion='failure')
+    new[key] = value
+    report = esc.certify(SHA, [old, new], ('root-ci',))
+    assert report['verdict'] != esc.CERTIFIED
+    assert report['workflows']['root-ci']['result'] == 'INSUFFICIENT_RUN_EVIDENCE'
+
+
+def test_fetch_rejects_malformed_relevant_order_before_fetching_jobs(monkeypatch):
+    old = _run('root-ci', rid=11)
+    new = _run('root-ci', rid=12, number=2, conclusion='failure')
+    del new['run_number']
+    calls = _mock_api(monkeypatch, [{'total_count': 2, 'workflow_runs': [old, new]}])
+    with pytest.raises(esc.CertificationError, match='run_number'):
+        esc.fetch_runs('owner/repo', SHA, None, required=('root-ci',))
+    assert len(calls) == 1
+
+
+def test_conflicting_duplicate_saved_run_cannot_keep_the_first_green():
+    green = _run('root-ci')
+    failed = {**green, 'conclusion': 'failure'}
+    for runs in ([green, failed], [failed, green]):
+        report = esc.certify(SHA, runs, ('root-ci',))
+        assert report['verdict'] != esc.CERTIFIED
+        assert report['workflows']['root-ci']['result'] == 'INSUFFICIENT_RUN_EVIDENCE'
+
+
+def test_saved_run_pages_must_match_declared_total_and_unique_ids():
+    first, second = _run('root-ci', rid=11), _run('Core CI', rid=12)
+    pages = [{'total_count': 2, 'workflow_runs': [first]},
+             {'total_count': 2, 'workflow_runs': [second]}]
+    assert esc._runs_from_payload(pages) == [first, second]
+    with pytest.raises(esc.CertificationError, match='incomplete'):
+        esc._runs_from_payload(pages[0])
+    with pytest.raises(esc.CertificationError, match='duplicate'):
+        esc._runs_from_payload([pages[0], pages[0]])
+    with pytest.raises(esc.CertificationError, match='changed'):
+        esc._runs_from_payload([pages[0], {**pages[1], 'total_count': 3}])
+    with pytest.raises(esc.CertificationError, match='total_count'):
+        esc._runs_from_payload([pages[0], {'workflow_runs': [second]}])
+
+
+def test_owner_release_scenario_79_synthetic_fixture_obeys_job_contract(tmp_path, monkeypatch):
+    scenario_dir = Path(__file__).resolve().parent / 'owner_scenarios'
+    monkeypatch.syspath_prepend(str(scenario_dir))
+    from scenario_runner import RunContext, PRODUCT_CONTRACTS
+    from scn_18_recovery_release import os79_certification_refuses_a_missing_required_run
+
+    context = RunContext(SimpleNamespace(depth=PRODUCT_CONTRACTS), tmp_path, None)
+    os79_certification_refuses_a_missing_required_run(context)
+    checks = [check.to_report() for check in context.checks]
+    assert checks and all(check['ok'] for check in checks), checks
+    assert {'positive', 'negative'} <= {check['kind'] for check in checks}

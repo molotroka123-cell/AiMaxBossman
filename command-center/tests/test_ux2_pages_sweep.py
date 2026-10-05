@@ -2,7 +2,8 @@
 Для каждой страницы: рендер без панели «Повторить», 0 ошибок консоли (кроме сетевого шума
 недоступных внешних сервисов), у каждой видимой кнопки есть имя (текст/aria-label/title),
 нет «кракозябр» (двойная UTF-8-кодировка), а кнопки-открывашки (Новый/Создать/Добавить/Настроить)
-реально открывают модальное окно, которое закрывается по Esc."""
+реально открывают модальное окно, которое закрывается по Esc, или выполняют
+явно проверенный контракт встроенной формы."""
 from __future__ import annotations
 
 import json
@@ -32,6 +33,40 @@ JS_AUDIT = """() => {
 }"""
 
 
+def _sweep_pages(page):
+    from scripts.ui_acceptance_sweep import page_ids
+
+    registered = page.evaluate("window.__bxPages")
+    by_id = {item['id']: item for item in registered}
+    routes = page_ids()
+    assert {route.split('?', 1)[0] for route in routes} == set(by_id), \
+        'The sweep inventory must cover the actual shell registry exactly'
+    return [{**by_id[route.split('?', 1)[0]], 'id': route} for route in routes]
+
+
+def _check_studio_empty_submit(page, button, hash_before):
+    """Studio's create button submits its inline form; an empty draft must not queue work."""
+    from playwright.sync_api import expect
+
+    expect(page.get_by_role('textbox', name='Промпт Studio', exact=True)).to_have_value('')
+    requests = []
+
+    def record_submission(request):
+        if request.method == 'POST' and request.url.split('?', 1)[0].endswith('/api/studio/jobs'):
+            requests.append(request.url)
+
+    page.on('request', record_submission)
+    try:
+        button.click()
+        expect(page.locator('#toast-root .toast-warn .toast-msg').filter(
+            has_text=re.compile('^Опишите желаемый результат\\.$'))).to_be_visible()
+        assert page.evaluate('location.hash') == hash_before
+        expect(page.locator('#modal-root .modal')).to_have_count(0)
+        assert requests == [], 'An empty Studio prompt must not submit a job'
+    finally:
+        page.remove_listener('request', record_submission)
+
+
 def test_every_page_renders_and_buttons_work(live, tmp_path):  # noqa: F811
     from playwright.sync_api import sync_playwright
 
@@ -43,7 +78,7 @@ def test_every_page_renders_and_buttons_work(live, tmp_path):  # noqa: F811
         page.on("console", lambda m: errors.append(f"[{page.url}] {m.text}") if m.type == "error" and not NETWORK_NOISE.search(m.text) else None)
         page.on("pageerror", lambda e: errors.append(f"[{page.url}] {e}"))
         _login(page, live)
-        pages = page.evaluate("window.__bxPages")
+        pages = _sweep_pages(page)
         assert len(pages) >= 25, pages
 
         for p in pages:
@@ -60,8 +95,14 @@ def test_every_page_renders_and_buttons_work(live, tmp_path):  # noqa: F811
                 if not btn.is_visible():
                     continue
                 hash_before = page.evaluate("location.hash")
-                btn.click()
                 try:
+                    # This is an inline submit, not a modal opener. Check its exact
+                    # validation contract instead of accepting arbitrary toast feedback.
+                    if (p['id'], label) == ('images?studio=1', 'Создать результат'):
+                        _check_studio_empty_submit(page, btn, hash_before)
+                        row['opened_modal'].append({'label': label, 'ok': True, 'kind': 'inline_validation'})
+                        continue
+                    btn.click()
                     # допустимые исходы: открылась модалка (закрываем Esc) или страница перешла на другой раздел
                     page.wait_for_function(
                         "([h]) => !!document.querySelector('#modal-root .modal') || location.hash !== h",
@@ -80,7 +121,7 @@ def test_every_page_renders_and_buttons_work(live, tmp_path):  # noqa: F811
             report.append(row)
         browser.close()
 
-    (tmp_path / "ux2_sweep.json").write_text(json.dumps(report, ensure_ascii=False, indent=1))
+    (tmp_path / "ux2_sweep.json").write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding='utf-8')
     lines = [f"{r['id']:<16} buttons={r['buttons']:<3} modal={','.join(('OK:' if m['ok'] else 'FAIL:') + m['label'] for m in r['opened_modal']) or '-'}" for r in report]
     print("\n" + "\n".join(lines))
 
@@ -112,7 +153,7 @@ def test_every_page_fits_mobile_viewport(live):  # noqa: F811
         page.on("console", lambda m: errors.append(f"[{page.url}] {m.text}") if m.type == "error" and not NETWORK_NOISE.search(m.text) else None)
         page.on("pageerror", lambda e: errors.append(f"[{page.url}] {e}"))
         _login(page, live)
-        pages = page.evaluate("window.__bxPages")
+        pages = _sweep_pages(page)
         for p in pages:
             page.goto(f"{live.url}/#/{p['id']}", wait_until="domcontentloaded")
             page.wait_for_function("!document.querySelector('#view .skeleton') && document.getElementById('view').childElementCount > 0", timeout=20000)

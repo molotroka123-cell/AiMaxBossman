@@ -161,7 +161,7 @@ class LiveApp:
         return f"http://127.0.0.1:{self.port}"
 
 
-def page_routes(src: str) -> list[str]:
+def page_routes(src: str, core_src: str | None = None) -> list[str]:
     """Маршруты обхода берутся из САМОГО реестра, включая режимы страницы.
 
     Страница может иметь не один экран: `images` показывает старую библиотеку
@@ -173,12 +173,29 @@ def page_routes(src: str) -> list[str]:
     по-прежнему обходится по своему идентификатору.
     """
     routes: list[str] = []
+    if core_src is not None:
+        # The shell combines the exported PAGES with FEATURE_PAGES. Reading only
+        # lazyPage metadata silently omitted all eight original application pages.
+        core = re.sub(r'/\*.*?\*/|//[^\n]*', '', core_src, flags=re.S)
+        exported = re.search(r'export\s+const\s+PAGES\s*=\s*\[([^\]]*)\]', core)
+        if exported is None:
+            raise ValueError('Core UI registry has no supported PAGES export')
+        definitions = dict(re.findall(
+            r"\bconst\s+(\w+)\s*=\s*\{\s*id:\s*'([^']+)'", core))
+        for name in (part.strip() for part in exported.group(1).split(',')):
+            if not name:
+                continue
+            if name not in definitions:
+                raise ValueError(f'Unknown core page in PAGES: {name}')
+            routes.append(definitions[name])
     for body in re.findall(r"lazyPage\(\{(.*?)\}\s*,", src, re.S):
         found = re.search(r"id:\s*'([^']+)'", body)
         if not found:
             continue
         declared = re.search(r"sweep:\s*\[([^\]]*)\]", body)
         routes.extend(re.findall(r"'([^']+)'", declared.group(1)) if declared else [found.group(1)])
+    if len(routes) != len(set(routes)):
+        raise ValueError('Duplicate UI sweep route')
     return routes
 
 
@@ -188,7 +205,8 @@ def page_ids() -> list[str]:
     Список, записанный здесь руками, разошёлся бы с `pages/index.js` при первой
     же новой странице, и обход тихо перестал бы её проверять.
     """
-    return page_routes((CC / "ui" / "pages" / "index.js").read_text(encoding="utf-8"))
+    return page_routes((CC / "ui" / "pages" / "index.js").read_text(encoding="utf-8"),
+                       (CC / "ui" / "pages.js").read_text(encoding="utf-8"))
 
 
 def _visible_controls(page) -> list[dict]:

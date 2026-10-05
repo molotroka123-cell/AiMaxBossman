@@ -23,7 +23,8 @@ from bcc.pit import jeff_settings as js
 from bcc.pit.cloud_budget import CloudBudget
 from bcc.pit.config import BEHAVIOR_SCALE_NAMES, config_path, default_behavior_scales, pit_home, save_setup
 from bcc.pit.models import ConsentState
-from bcc.pit.participant_context import PIT_ASSISTANT_SYSTEM, behavior_system_text, build_participant_context
+from bcc.pit.participant_context import (
+    MEMORY_OFF_RU, PIT_ASSISTANT_SYSTEM, behavior_system_text, build_participant_context)
 from bcc.pit.vault import PersonaVault
 from bcc.telegram_companion.config import Person
 
@@ -51,7 +52,8 @@ def system_for(data_dir: Path, tg_id: int, scales=None) -> str:
 
 
 def stock_system() -> str:
-    return PIT_ASSISTANT_SYSTEM + " " + behavior_system_text(default_behavior_scales())
+    # system_for() builds with memory disabled, so the stock text ends with the honest "memory is off" sentence
+    return PIT_ASSISTANT_SYSTEM + " " + behavior_system_text(default_behavior_scales()) + " " + MEMORY_OFF_RU
 
 
 def write(data_dir: Path, overlay) -> Path:
@@ -162,6 +164,43 @@ def test_change_applies_on_the_next_message_without_restart(tmp_path):
     assert system_for(tmp_path, TG_A) == stock_system()
     write(tmp_path, {"version": 1, "defaults": {"behavior_scales": js.PRESETS["brief"]}})
     assert "убирай повторы и лишний текст — 10/10" in system_for(tmp_path, TG_A)
+
+
+def test_angry_today_is_bounded_and_expires_without_changing_permissions(tmp_path):
+    expires = js.expiry_after(24)
+    write(tmp_path, {"version": 1,
+                     "defaults": {"behavior_scales": js.PRESETS["angry_today"],
+                                  "system_extra": js.PRESET_NOTES["angry_today"]},
+                     "style_expires_at": expires})
+    active = system_for(tmp_path, TG_A)
+    assert "говори прямо и ясно — 10/10" in active
+    assert "резко, сердито и предельно прямо" in active
+    assert "Не угрожай, не унижай, не дискриминируй и не трави" in active
+    assert "не даёт доступа к инструментам, компьютеру, файлам, командам или правам владельца" in active
+
+    # At expiry the general mood disappears on the next turn. A separate
+    # participant override continues to apply and is not erased by the timer.
+    raw = {"version": 1, "defaults": {"behavior_scales": js.PRESETS["angry_today"],
+                                       "system_extra": js.PRESET_NOTES["angry_today"]},
+           "style_expires_at": "2000-01-01T00:00:00Z",
+           "users": {key(tmp_path, TG_A): {"behavior_scales": {"warmth": 9}}}}
+    write(tmp_path, raw)
+    expired_a, expired_b = system_for(tmp_path, TG_A), system_for(tmp_path, TG_B)
+    assert "говори прямо и ясно — 10/10" not in expired_a
+    assert "отвечай дружелюбно и естественно — 9/10" in expired_a
+    assert "резко, сердито и предельно прямо" not in expired_b
+    assert "говори прямо и ясно — 5/10" in expired_b
+    assert js.style_expired(js.normalize(raw)) is True
+
+
+def test_style_expiry_is_aware_utc_and_duration_is_bounded():
+    from datetime import datetime, timezone
+    now = datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc)
+    assert js.expiry_after(24, now=now) == "2026-10-03T12:00:00Z"
+    with pytest.raises(js.OverlayError, match="between 1 and 24"):
+        js.expiry_after(25, now=now)
+    with pytest.raises(js.OverlayError, match="include a timezone"):
+        js.normalize({"version": 1, "style_expires_at": "2026-10-03T12:00:00"})
 
 
 def test_settings_survive_a_process_restart(tmp_path):
@@ -313,14 +352,18 @@ async def test_api_roundtrip_defaults_user_override_and_reset(env, pit_setup):
 
     r = await c.put("/api/jeff-settings", json={"defaults": {"behavior_scales": js.PRESETS["bold"],
                                                              "system_extra": "С огоньком"},
-                                                "budgets": {"usd_per_day": 1.5, "usd_per_job": 0.5}})
+                                                "budgets": {"usd_per_day": 1.5, "usd_per_job": 0.5},
+                                                "style_duration_hours": 24})
     assert r.status_code == 200, r.text
+    expiry = r.json()["settings"]["style_expires_at"]
+    assert not (await c.get("/api/jeff-settings")).json()["style_expired"]
     alice = labels["alice"]["key"]
     other = labels["Telegram · участник 1"]["key"]
     r = await c.put(f"/api/jeff-settings/users/{alice}", json={"behavior_scales": {"humor": 42}})
     assert r.status_code == 200 and r.json()["override"]["behavior_scales"] == {"humor": 10}
     saved = json.loads(js.settings_path(pit_setup).read_text(encoding="utf-8"))
     assert saved["defaults"]["behavior_scales"]["directness"] == 9
+    assert saved["style_expires_at"] == expiry
     assert saved["users"] == {alice: {"behavior_scales": {"humor": 10}}}
     assert saved["budgets"] == {"usd_per_day": 1.5, "usd_per_job": 0.5}
     got = (await c.get("/api/jeff-settings")).json()
@@ -347,6 +390,7 @@ async def test_api_roundtrip_defaults_user_override_and_reset(env, pit_setup):
     saved = json.loads(js.settings_path(pit_setup).read_text(encoding="utf-8"))
     assert saved["defaults"] == {"behavior_scales": {}, "system_extra": ""} and saved["users"] == {}
     assert saved["budgets"] == {"usd_per_day": 1.5, "usd_per_job": 0.5}
+    assert "style_expires_at" not in saved
     assert vault_system(alice) == stock_system() and vault_system(other) == stock_system()
 
 
@@ -358,6 +402,25 @@ async def test_api_reports_and_replaces_a_broken_file(env, pit_setup):
     assert r.status_code == 200
     assert json.loads(path.read_text(encoding="utf-8"))["defaults"]["behavior_scales"]["brevity"] == 10
     assert list(path.parent.glob("jeff-settings.json.invalid-*.bak"))
+
+
+async def test_api_clears_style_expiry_and_reports_an_expired_style(env, pit_setup):
+    path = js.settings_path(pit_setup)
+    r = await env.client.put("/api/jeff-settings", json={
+        "defaults": {"behavior_scales": js.PRESETS["angry_today"],
+                     "system_extra": js.PRESET_NOTES["angry_today"]},
+        "style_duration_hours": 24})
+    assert r.status_code == 200 and "style_expires_at" in r.json()["settings"]
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["style_expires_at"] = "2000-01-01T00:00:00Z"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    got = (await env.client.get("/api/jeff-settings")).json()
+    assert got["style_expired"] is True
+    cleared = await env.client.put("/api/jeff-settings", json={
+        "defaults": {"behavior_scales": js.PRESETS["bold"], "system_extra": ""},
+        "style_duration_hours": 0})
+    assert cleared.status_code == 200
+    assert "style_expires_at" not in cleared.json()["settings"]
 
 
 # -- UI page (real Chromium, same harness as the other lazy pages) --------------------------------
@@ -384,7 +447,9 @@ def test_ui_page_loads_applies_preset_and_resets(tmp_path):
                 page.click("[data-scope=js][data-preset=bold]")
                 assert page.input_value("[name=js-scale-directness]") == "9"
                 page.fill("[name=js-extra]", "С огоньком")
-                page.get_by_role("button", name="Сохранить", exact=True).click()
+                with page.expect_response(lambda r: r.url.endswith("/api/jeff-settings")
+                                          and r.request.method == "PUT" and r.status == 200):
+                    page.get_by_role("button", name="Сохранить", exact=True).click()
                 page.wait_for_function("() => document.querySelector('[data-testid=jeff-settings]') !== null", timeout=15000)
                 deadline = 50
                 while deadline and not path.is_file():
@@ -393,12 +458,25 @@ def test_ui_page_loads_applies_preset_and_resets(tmp_path):
                 saved = json.loads(path.read_text(encoding="utf-8"))
                 assert saved["defaults"]["behavior_scales"]["directness"] == 9
                 assert saved["defaults"]["system_extra"] == "С огоньком"
+                page.click("[data-scope=js][data-preset=angry_today]")
+                assert page.input_value("[name=js-scale-directness]") == "10"
+                assert page.input_value("[name=js-style-duration]") == "24"
+                assert "Сегодня говори резко, сердито" in page.input_value("[name=js-extra]")
+                with page.expect_response(lambda r: r.url.endswith("/api/jeff-settings")
+                                          and r.request.method == "PUT" and r.status == 200):
+                    page.get_by_role("button", name="Сохранить", exact=True).click()
+                page.wait_for_function("() => document.querySelector('[data-testid=jeff-settings]') !== null", timeout=15000)
+                saved = json.loads(path.read_text(encoding="utf-8"))
+                assert saved["defaults"]["behavior_scales"]["directness"] == 10
+                assert saved["defaults"]["system_extra"] == js.PRESET_NOTES["angry_today"]
+                assert js.style_expired(saved) is False
                 page.click("text=Откат к обычному")
                 page.wait_for_function(
                     "() => document.querySelector('[name=js-scale-directness]') && "
                     "document.querySelector('[name=js-extra]').value === ''", timeout=15000)
                 saved = json.loads(path.read_text(encoding="utf-8"))
                 assert saved["defaults"] == {"behavior_scales": {}, "system_extra": ""}
+                assert "style_expires_at" not in saved
             finally:
                 browser.close()
     finally:

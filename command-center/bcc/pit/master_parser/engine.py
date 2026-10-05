@@ -40,7 +40,9 @@ from ..categories import CATEGORIES
 from ..config import PITSettings, load, pit_home
 from ..models import EvidenceKind, MemoryCandidate, Sensitivity
 from ..vault import PersonaVault, _atomic_json
+from . import narrative as narr
 from . import sources as src
+from . import speed as speedmod
 from .corpus import Corpus, normalize
 from .passport_sink import PassportSink, PassportView, VaultPassportSink, blocked_telegram_ids
 
@@ -155,6 +157,10 @@ class Options:
     model: str = DEFAULT_MODEL
     local_url: str = DEFAULT_LOCAL_URL
     timeout: float = 180.0
+    settle: float = 0.5           # seconds to let Ollama finish unloading before the retry
+    narrative_chunk_chars: int = BATCH_CHAR_BUDGET
+    narrative: bool = True        # 2.0: two mini paragraphs per consenting participant
+    speed_report: str = ""        # optional path for the speed report JSON
     extra_roots: list[str] = field(default_factory=list)
 
 
@@ -185,6 +191,17 @@ class ModelRoute:
         self._cloud = cloud_adapter
         self._budget = budget
         self.calls = {"local": 0, "cloud": 0, "errors": 0}
+        self._resilient = None
+
+    def resilient(self):
+        """The local route with empty-answer detection and bounded runner recovery."""
+        if self._resilient is None:
+            from ..resilient_chat import ResilientChat
+            self._resilient = ResilientChat(
+                self.local(), self.options.model, timeout=self.options.timeout,
+                settle=self.options.settle,
+                on_call=lambda: self.calls.__setitem__("local", self.calls["local"] + 1))
+        return self._resilient
 
     def local(self):
         if self._local is None:
@@ -208,11 +225,11 @@ class ModelRoute:
                                        self.settings.cloud_daily_request_budget)
         return self._budget
 
-    async def complete(self, messages: list[dict], *, remote_ok: bool) -> tuple[str, str]:
+    async def complete(self, messages: list[dict], *, remote_ok: bool, scope: str = "",
+                       max_tokens: int = 1536) -> tuple[str, str]:
         try:
-            self.calls["local"] += 1
-            answer = await self.local().chat(self.options.model, messages, max_tokens=1536,
-                                             temperature=0.1, timeout=self.options.timeout)
+            answer = await self.resilient().chat(messages, scope=scope, max_tokens=max_tokens,
+                                                 temperature=0.1)
             if getattr(answer, "finish", "stop") == "length":
                 raise ValueError("local answer truncated")
             return str(answer.text), "local"
@@ -307,6 +324,9 @@ class MasterParser:
             "llm_calls": 0, "facts_added": 0, "conflicts": 0, "rate_msgs_per_s": 0.0}
         self._last_status = 0.0
         self._analysis_started = 0.0
+        self._narratives_by_key: dict[str, dict] = {}
+        self._analyze_seconds: dict[str, float] = {}
+        self._run_started = time.perf_counter()
         self._sem = asyncio.Semaphore(max(1, min(4, int(options.concurrency))))
 
     # -- plumbing --------------------------------------------------------------------------
@@ -404,8 +424,33 @@ class MasterParser:
         self._analysis_started = time.perf_counter()
         self._emit(force=True, phase="analyze", persons_total=len(plans),
                    messages_total=sum(len(plan["pending"]) for plan in plans))
-        rows = await asyncio.gather(*(self._analyze_person(corpus, plan) for plan in plans))
+        rows = await asyncio.gather(*(self._analyze_guarded(corpus, plan) for plan in plans))
         return list(rows)
+
+    async def _analyze_guarded(self, corpus: Corpus, plan: dict) -> dict:
+        """One participant's crash must not lose the others' work."""
+        row = plan["row"]
+        started = time.perf_counter()
+        try:
+            await self._analyze_person(corpus, plan)
+        except Exception as exc:  # noqa: BLE001
+            row["status"] = "ERROR"
+            row["last_error"] = type(exc).__name__
+            row["requeued"] = row["messages_pending"] - row["analyzed"]
+            self._emit(persons_done=self.status["persons_done"] + 1)
+        self._analyze_seconds[row["person_key"]] = time.perf_counter() - started
+        self._finish_row(row)
+        return row
+
+    def _finish_row(self, row: dict) -> None:
+        """Honest per-participant status: failed batches are never reported as OK."""
+        stats = self.route._resilient.stats if self.route._resilient else {}
+        for name, st in stats.items():
+            if name == row["person_key"] or name.startswith(row["person_key"] + "|"):
+                for field_name, value in st.as_dict().items():
+                    row["llm"][field_name] += value
+        if row["status"] == "OK" and row["llm_errors"]:
+            row["status"] = "PARTIAL" if row["analyzed"] else "LLM_FAILED"
 
     def _plan(self, corpus: Corpus, person: dict) -> dict:
         key = person["person_key"]
@@ -424,9 +469,11 @@ class MasterParser:
                            "remote": consent.remote_processing_enabled,
                            "sensitive": consent.sensitive_memory_enabled},
                "status": "OK", "analyzed": 0, "facts_added": [], "facts_known": 0,
-               "conflicts": [], "blocked": 0, "rejected": 0, "llm_errors": 0}
+               "conflicts": [], "blocked": 0, "rejected": 0, "llm_errors": 0,
+               "requeued": 0, "llm": {"calls": 0, "empty_answers": 0, "recoveries": 0}}
         if not allowed:
             row["status"] = status
+            row["messages_pending"] = 0   # not admitted: nothing is queued or analysed
             pending = []
         return {"row": row, "timeline": timeline, "pending": pending,
                 "remote_ok": allowed and self.sink.remote_allowed(key)}
@@ -503,10 +550,12 @@ class MasterParser:
         uids = list(labels.values())
         try:
             async with self._sem:
-                text, route = await self.route.complete(prompt, remote_ok=remote_ok)
+                text, route = await self.route.complete(prompt, remote_ok=remote_ok,
+                                                        scope=row["person_key"])
             facts = _parse_facts(text)
-        except Exception as exc:  # noqa: BLE001 — this batch is retried next run
+        except Exception as exc:  # noqa: BLE001 — this batch stays queued for the next run
             row["llm_errors"] += 1
+            row["requeued"] += len(uids)
             row["last_error"] = type(exc).__name__
             self._emit(messages_done=self.status["messages_done"] + len(uids))
             return
@@ -581,6 +630,77 @@ class MasterParser:
         self._emit(facts_added=self.status["facts_added"] + 1)
         return True
 
+    # -- narrative (2.0) -------------------------------------------------------------------
+    async def narrate(self, corpus: Corpus, rows: list[dict]) -> None:
+        """Two mini paragraphs per consenting participant from their whole correspondence."""
+        todo = [row for row in rows if row["status"] not in {"NO_MEMORY_CONSENT", "BLOCKED"}]
+        self._emit(force=True, phase="narrative", narratives_total=len(todo), narratives_done=0)
+
+        async def local_chat(messages, *, scope, max_tokens):
+            async with self._sem:   # local model only: never the cloud route
+                return await self.route.resilient().chat(messages, scope=scope,
+                                                         max_tokens=max_tokens, temperature=0.2)
+
+        async def one(row: dict) -> None:
+            key = row["person_key"]
+            started = time.perf_counter()
+            timeline = corpus.timeline(key)   # this participant only
+            collect = time.perf_counter() - started
+            info = {"status": "OK"}
+            row["narrative"] = info
+            try:
+                if sum(1 for m in timeline if m["role"] == "participant"
+                       and m["text"].strip()) < narr.MIN_PARTICIPANT_MESSAGES:
+                    info["status"] = "INSUFFICIENT_DATA"
+                    return
+                record = await narr.build_narrative(
+                    local_chat, timeline, scope=key + "|narrative",
+                    chunk_chars=self.options.narrative_chunk_chars)
+                record["timings"]["collect"] += collect
+                record["started_perf"] = started
+                t = time.perf_counter()
+                path = narr.save_narrative(self.pit, key, record, run_id=self.run_id,
+                                           model=self.options.model)
+                record["timings"]["write"] = time.perf_counter() - t
+                info.update(record_view(record), path=str(path))
+                row["_narrative_record"] = record
+            except narr.NarrativeRejected as exc:
+                info.update(status="REJECTED", error=str(exc)[:80])
+            except Exception as exc:  # noqa: BLE001 — honest status; facts are already saved
+                info.update(status="FAILED", error=type(exc).__name__)
+            finally:
+                self._emit(narratives_done=self.status.get("narratives_done", 0) + 1)
+
+        def record_view(record: dict) -> dict:
+            paragraphs = record["paragraphs"]
+            return {"provenance": record["provenance"],
+                    "chars": [len(paragraphs["context"]), len(paragraphs["personality"])]}
+
+        await asyncio.gather(*(one(row) for row in todo))
+
+    @staticmethod
+    def _collect_narratives(rows: list[dict]) -> dict[str, dict]:
+        return {row["person_key"]: row["_narrative_record"] for row in rows
+                if row.get("_narrative_record")}
+
+    def _fill_speed(self, rows: list[dict]) -> None:
+        stats_all = self.route._resilient.stats if self.route._resilient else {}
+        for row in rows:
+            if row["status"] in {"NO_MEMORY_CONSENT", "BLOCKED"}:
+                continue
+            key = row["person_key"]
+            mine = [st for name, st in stats_all.items()
+                    if name == key or name.startswith(key + "|")]
+            record = row.pop("_narrative_record", None)
+            provenance = (record or {}).get("provenance") or {}
+            messages = provenance.get("messages") or row["analyzed"] or row["messages_pending"]
+            row["speed"] = speedmod.person_speed(
+                messages=messages, chars=provenance.get("participant_chars", 0), stats=mine,
+                analyze_seconds=self._analyze_seconds.get(key, 0.0),
+                timings=(record or {}).get("timings"),
+                narrative_started_at=(record or {}).get("started_perf"),
+                run_started_at=self._run_started)
+
     # -- whole run -------------------------------------------------------------------------
     async def run(self) -> dict:
         started = time.perf_counter()
@@ -599,6 +719,11 @@ class MasterParser:
             t1 = time.perf_counter()
             participants = await self.analyze(corpus)
             analysis_seconds = time.perf_counter() - t1
+            if self.options.narrative and self.options.use_llm and not self.options.dry_run:
+                t2 = time.perf_counter()
+                await self.narrate(corpus, participants)
+                report["narrative_seconds"] = round(time.perf_counter() - t2, 3)
+                self._narratives_by_key = self._collect_narratives(participants)
         finally:
             corpus.close()
         analyzed = sum(p["analyzed"] for p in participants) if self.options.use_llm else \
@@ -620,9 +745,29 @@ class MasterParser:
             "blocked_participants": sum(1 for p in participants if p["status"] == "BLOCKED"),
             "messages_per_second": round(analyzed / analysis_seconds, 2) if analysis_seconds else 0.0,
         }
-        if (self.options.checkpoint and not self.options.dry_run
-                and report["totals"]["facts_added"] and self.options.use_llm):
+        if (self.options.checkpoint and not self.options.dry_run and self.options.use_llm
+                and (report["totals"]["facts_added"] or self._narratives_by_key)):
+            t3 = time.perf_counter()
             report["checkpoint"] = await self._checkpoint()
+            report["checkpoint"]["seconds"] = round(time.perf_counter() - t3, 3)
+        if self.options.dry_run:
+            for person in participants:
+                if person["status"] not in {"NO_MEMORY_CONSENT", "BLOCKED"}:
+                    person["narrative"] = {"status": "SKIPPED_DRY_RUN"}
+        elif self.options.use_llm and not self.options.narrative:
+            for person in participants:
+                person.setdefault("narrative", {"status": "DISABLED"})
+        self._fill_speed(participants)
+        resilient = self.route._resilient
+        report["speed"] = speedmod.build_report(
+            participants, resilient.latencies() if resilient else [], run_id=self.run_id,
+            model=self.options.model, wall_seconds=time.perf_counter() - started,
+            recoveries_unloaded=resilient.unloads if resilient else 0)
+        report["totals"]["narratives"] = {
+            name: sum(1 for p in participants if (p.get("narrative") or {}).get("status") == name)
+            for name in ("OK", "FAILED", "REJECTED", "INSUFFICIENT_DATA")}
+        if self.options.speed_report and not self.options.dry_run:
+            speedmod.write_reports(Path(self.options.speed_report), report["speed"])
         report["finished_at"] = _now()
         report["duration_seconds"] = round(time.perf_counter() - started, 3)
         report["revert"] = None if self.options.dry_run else \
@@ -635,13 +780,9 @@ class MasterParser:
 
     async def _checkpoint(self) -> dict:
         from ..passport_checkpoint import build_checkpoint, save_checkpoint
-        route = self.route
-
-        class _SameModel:   # the checkpoint reuses the already-loaded local model
-            async def chat(self_inner, _model, messages, **kw):
-                return await route.local().chat(route.options.model, messages, **kw)
         try:
-            summary = await build_checkpoint(self.settings, adapter=_SameModel())
+            summary = await build_checkpoint(self.settings, chat=self.route.resilient(),
+                                             narratives=self._narratives_by_key)
             summary["model"] = self.options.model
             path = save_checkpoint(self.settings, summary)
             return {"status": "saved", "path": str(path),

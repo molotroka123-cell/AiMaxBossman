@@ -102,3 +102,47 @@ def test_jeff_window_chats_for_real_and_stays_participant_safe(jeff_server):
             assert all(path.startswith("/api/jeff/") for path in api), api
         finally:
             browser.close()
+
+
+def test_jeff_window_keeps_the_whole_chat_after_f5_and_across_a_reconnect(jeff_server):
+    """Owner bug (c): 25 bubbles became 6 after F5. The chat is now served from the display transcript, and a
+    reconnect never redraws it from a shorter list (turns the server did not keep, e.g. while memory is paused)."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.goto(f"{jeff_server}/jeff.html", wait_until="domcontentloaded")
+            page.wait_for_selector("#login:not([hidden])")
+            page.fill("#login-username", "alice")
+            page.fill("#login-password", "correct horse 1")
+            page.click("#login-submit")
+            page.wait_for_selector("#app:not([hidden])")
+            page.locator(".bubble.assistant").first.wait_for()
+            for i in range(6):
+                page.fill("#message", f"вопрос номер {i}")
+                page.press("#message", "Enter")
+                page.locator(".bubble.assistant:not(.pending)").nth(i + 1).wait_for()
+            assert page.locator(".bubble").count() == 13                   # greeting + 6 turns x 2
+            page.reload(wait_until="domcontentloaded")
+            page.locator(".bubble").nth(12).wait_for()
+            assert page.locator(".bubble").count() == 13                   # was 12: no greeting, context window only
+
+            # two more turns after the participant paused memory: the server keeps nothing of them
+            for text in ("/pause_memory", "во время паузы А", "во время паузы Б"):
+                before = page.locator(".bubble").count()
+                page.fill("#message", text)
+                page.press("#message", "Enter")
+                page.locator(".bubble").nth(before + 1).wait_for()
+                page.locator(".bubble.assistant.pending").first.wait_for(state="detached")
+            shown = page.locator(".bubble").count()
+            assert shown == 19
+            page.context.set_offline(True)
+            page.locator("#connection-status[data-tone='bad']").wait_for(timeout=20000)
+            page.context.set_offline(False)
+            page.locator("#connection-status[data-tone='ok']").wait_for(timeout=20000)
+            page.wait_for_timeout(1500)                                    # the reconnect reload has run
+            assert page.locator(".bubble").count() == shown                # not wiped down to the stored 15
+        finally:
+            browser.close()

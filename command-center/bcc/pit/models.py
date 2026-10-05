@@ -26,6 +26,8 @@ class ConsentState:
     remote_personalization_enabled: bool = False
     training_use_enabled: bool = False
     discovery_enabled: bool = False
+    # Jeff 1.5: the participant can keep memory but stop Jeff using it to personalise replies.
+    personalization_enabled: bool = True
     version: str = "pit-consent/1"
     accepted_at: str | None = None
 

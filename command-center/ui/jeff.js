@@ -146,18 +146,71 @@ function appendBubble(el) {
   return el;
 }
 
-async function loadHistory(greeting) {
+async function loadHistory(greeting, { merge = false } = {}) {
   const root = $('#chat');
-  root.innerHTML = '';
   const data = await call('/api/jeff/history');
+  // Reconnect / server restart: never redraw the chat from a SHORTER list (turns the server did not keep, e.g.
+  // while memory is paused, would vanish). A list that is at least as long is the authoritative one.
+  const shown = root.querySelectorAll('.bubble:not(.pending)').length;
+  if (merge && data.messages.length < shown) return;
+  root.innerHTML = '';
   if (!data.messages.length && greeting) appendBubble(bubble('assistant', greeting, { disclosure: ['Знакомство'] }));
-  for (const m of data.messages) appendBubble(bubble(m.role, m.text));
+  for (const m of data.messages) {
+    appendBubble(bubble(m.role, m.text, { stopped: m.kind === 'stopped' || m.kind === 'error' }));
+  }
 }
 
 function setBusy(value) {
   busy = value;
   $('#stop').disabled = !value && !currentAudio;
   $('#send').disabled = value;
+}
+
+// Live reply: server-sent events from /api/jeff/chat/stream. `delta` appends visible text,
+// `reset` drops what was shown (that attempt was discarded), `final` is the authoritative
+// reply. Returns null when the stream cannot be opened so the caller uses the plain endpoint.
+async function chatStream(text, via, signal, onDelta, onReset) {
+  let res;
+  try {
+    res = await fetch('/api/jeff/chat/stream', {
+      method: 'POST', credentials: 'same-origin', signal,
+      headers: { 'Content-Type': 'application/json', 'X-Jeff-Request': '1' },
+      body: JSON.stringify({ text, via }) });
+  } catch (err) {
+    if (err?.name === 'AbortError') throw err;
+    return null;
+  }
+  if (res.status === 401) throw new JeffError(401, 'AUTH_REQUIRED');
+  if (!res.ok || !res.body) return null;
+  setOnline(true);
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let final = null;
+  const handle = (block) => {
+    let name = 'message';
+    let data = '';
+    for (const line of block.split('\n')) {
+      if (line.startsWith('event:')) name = line.slice(6).trim();
+      else if (line.startsWith('data:')) data += line.slice(5).trim();
+    }
+    let payload = {};
+    try { payload = JSON.parse(data || '{}'); } catch { return; }
+    if (name === 'delta') onDelta(String(payload.t || ''));
+    else if (name === 'reset') onReset();
+    else if (name === 'final') final = payload;
+  };
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let cut;
+    while ((cut = buffer.indexOf('\n\n')) >= 0) {
+      handle(buffer.slice(0, cut));
+      buffer = buffer.slice(cut + 2);
+    }
+  }
+  return final;
 }
 
 async function sendText(text, via = 'text') {
@@ -169,7 +222,17 @@ async function sendText(text, via = 'text') {
   setBusy(true);
   chatAbort = new AbortController();
   try {
-    const res = await call('/api/jeff/chat', { method: 'POST', json: { text: value, via }, signal: chatAbort.signal });
+    let live = '';
+    const showLive = () => {
+      const target = pending.querySelector('.bubble-text');
+      pending.classList.toggle('pending', !live);
+      if (target) target.innerHTML = live ? formatReply(live) : 'Jeff думает…';
+      $('#chat').scrollTop = $('#chat').scrollHeight;
+    };
+    const res = (await chatStream(value, via, chatAbort.signal,
+      (piece) => { live += piece; showLive(); },
+      () => { live = ''; showLive(); }))
+      || await call('/api/jeff/chat', { method: 'POST', json: { text: value, via }, signal: chatAbort.signal });
     pending.replaceWith(bubble('assistant', res.reply, { disclosure: res.disclosure, attachments: res.attachments, stopped: res.stopped }));
     if (prefs.speak && res.reply && !res.stopped) speak(res.reply);
   } catch (err) {
@@ -429,7 +492,7 @@ async function showApp(greeting) {
 
 async function reloadAfterReconnect() {
   if ($('#app').hidden || busy) return;
-  await Promise.all([loadIdentity(), loadHistory('').catch(() => {}), refreshMemory()]);
+  await Promise.all([loadIdentity(), loadHistory('', { merge: true }).catch(() => {}), refreshMemory()]);
 }
 
 setInterval(async () => {

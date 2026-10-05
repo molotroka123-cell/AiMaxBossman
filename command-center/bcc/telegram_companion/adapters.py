@@ -193,7 +193,7 @@ def markup(keyboard) -> dict:
 
 class Telegram:
     METHODS = frozenset({"getMe", "getWebhookInfo", "getUpdates", "sendMessage", "sendChatAction", "getFile",
-                         "answerCallbackQuery", "setMyCommands", "deleteMessage"})
+                         "answerCallbackQuery", "setMyCommands", "deleteMessage", "editMessageText"})
 
     async def send_voice(self, person: Person, source_text: str, synthesize,
                          *, reply_to_message_id: int | None = None,
@@ -431,6 +431,59 @@ class Telegram:
         result = await self.call("deleteMessage", {"chat_id": person.chat_id, "message_id": message_id})
         if result is not True:
             raise CompanionError("TELEGRAM_DELETE_UNVERIFIED")
+        return True
+
+    async def edit_message(self, person: Person, message_id: int, text: str,
+                           parse_mode: str | None = None, final: bool = False) -> bool:
+        """Edit one earlier bot message in place (Jeff's progressive replies).
+
+        Same guards and pacing as ``send``: identity, token scrub, egress guard, one
+        message per chat at a time and the per-chat rate gap. A live (non-final) edit
+        that Telegram rate-limits is given up on (the caller stops previewing); the final
+        edit waits once and retries. One message only: text must fit a single message.
+        """
+        if type(message_id) is not int or message_id <= 0:
+            raise CompanionError("TELEGRAM_MESSAGE_ID_INVALID")
+        clean = scrub(text, (self.settings.bot_token, self.settings.core_token,
+                            self.settings.cloud_token, self.settings.local_token))
+        from bossman.notifications.telegram_transport import _egress_guard_text
+        clean = _egress_guard_text(clean)
+        if not clean.strip() or len(clean) > 4000:
+            raise CompanionError("TELEGRAM_EDIT_TEXT_INVALID")
+        lock = self._send_locks.setdefault(person.chat_id, asyncio.Lock())
+        async with lock:
+            now = asyncio.get_running_loop().time()
+            await asyncio.sleep(max(0, self._sent_at.get(person.chat_id, 0) + 1.05 - now))
+            payload = {"chat_id": person.chat_id, "message_id": message_id, "text": clean,
+                       "disable_web_page_preview": True}
+            if parse_mode:
+                from .formatting import to_telegram_html
+                payload["text"] = to_telegram_html(clean)
+                payload["parse_mode"] = parse_mode
+            try:
+                if not self.authorize_delivery(person):
+                    raise CompanionError("IDENTITY_REVOKED")
+                try:
+                    body = await self.call("editMessageText", payload)
+                except RateLimited as exc:
+                    if not final:
+                        raise
+                    await asyncio.sleep(exc.retry_after)
+                    if not self.authorize_delivery(person):
+                        raise CompanionError("IDENTITY_REVOKED")
+                    body = await self.call("editMessageText", payload)
+                except CompanionError as exc:
+                    if not parse_mode or str(exc) != "UPSTREAM_HTTP_ERROR":
+                        raise
+                    payload.pop("parse_mode", None)
+                    payload["text"] = clean
+                    if not self.authorize_delivery(person):
+                        raise CompanionError("IDENTITY_REVOKED")
+                    body = await self.call("editMessageText", payload)
+            finally:
+                self._sent_at[person.chat_id] = asyncio.get_running_loop().time()
+        if not (body is True or (isinstance(body, dict) and body.get("message_id") == message_id)):
+            raise CompanionError("TELEGRAM_EDIT_UNVERIFIED")
         return True
 
     async def send(self, person: Person, text: str, keyboard=None,
@@ -818,13 +871,43 @@ def reply_text(body) -> str:
         raise CompanionError("MODEL_REPLY_INVALID") from None
 
 
+def _egress_guard(*, resolve: bool):
+    """Request hook of the INTERNET client: public targets only (SSRF guard).
+
+    Web pages are fetched from URLs chosen by third parties (search results), so a
+    name that resolves to 127.0.0.1 / a LAN address / cloud metadata must never be
+    contacted: the literal checks of Jeff's own URL filter do not see a hostname
+    such as `localtest.me` or `127.0.0.1.nip.io` (measured 2026-09-30: both fetched
+    a loopback service).  Reuses `plugin_security` (the same validation and the
+    all-addresses-public DNS check as `safe_get`).  Residual, named: the connect
+    resolves the name again (no IP pinning -- `psec.PinnedTransport` makes
+    DuckDuckGo answer 202 to every request after the second, measured), so a DNS
+    rebind inside that window is not closed here; the complete fix is
+    `psec.safe_get` in `bcc/pit/j2/research.py` (another lane).  With a proxy the
+    name is resolved by the proxy: only the literal checks apply.
+    """
+    from .. import plugin_security as psec
+
+    async def hook(request: httpx.Request) -> None:
+        try:
+            _, host = psec.validate_url(str(request.url))
+            if resolve:
+                await asyncio.to_thread(psec.resolve_pinned_ip, host)
+        except psec.PluginSecurityError as exc:
+            raise httpx.ConnectError(f"egress blocked: {exc}", request=request) from None
+    return hook
+
+
 class Models:
     def __init__(self, settings: Settings, home, *, transport=None):
         self.settings, self.home = settings, home
         self.local = httpx.AsyncClient(timeout=max(settings.local_timeout, settings.fast_timeout), trust_env=False,
                                        follow_redirects=False, transport=transport)
+        # Real network only: tests inject their own transport and stay offline.
+        hooks = {} if transport is not None else {"request": [_egress_guard(resolve=not settings.proxy)]}
         self.remote = httpx.AsyncClient(timeout=25, trust_env=False, follow_redirects=False,
-                                        proxy=settings.proxy or None, transport=transport)
+                                        proxy=settings.proxy or None, transport=transport,
+                                        event_hooks=hooks)
         self.lock = PriorityLock()
         self.retry_local_at = 0.0
         self.retry_fast_at = 0.0
