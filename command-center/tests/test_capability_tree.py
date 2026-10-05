@@ -264,6 +264,23 @@ def test_zone_work_starts_one_scoped_coding_task_and_reports(tmp_path, monkeypat
         assert client.get("/api/capability-tree").json()["work"][0]["task_id"] == out.json()["job"]["task_id"]
 
 
+def test_zone_work_passes_the_chosen_cloud_worker_and_local_means_default(tmp_path, monkeypatch):
+    created = []
+    app, _ = _zone_app(tmp_path, monkeypatch, created)
+    with TestClient(app) as client:
+        assert client.post("/api/capability-tree/work", json={"node_id": "leaf", "worker": "evil"}).status_code == 422
+        out = client.post("/api/capability-tree/work", json={"node_id": "leaf", "worker": "openrouter-free"})
+        assert out.status_code == 200 and created[-1].worker == "openrouter-free"
+        assert out.json()["job"]["worker"] == "openrouter-free" and "free" in out.json()["job"]["worker_label"]
+        workers = client.get("/api/capability-tree").json()["workers"]
+        assert workers[0]["id"] == "local" and {"openrouter-free", "nvidia-nim", "glm-flash"} <= {w["id"] for w in workers}
+    created.clear()
+    app2, _ = _zone_app(tmp_path / "second", monkeypatch, created)
+    with TestClient(app2) as client:
+        assert client.post("/api/capability-tree/work", json={"node_id": "leaf", "worker": "local"}).status_code == 200
+    assert created[-1].worker is None
+
+
 def test_lite_view_omits_the_seed_but_keeps_live_state(tmp_path, monkeypatch):
     created = []
     app, _ = _zone_app(tmp_path, monkeypatch, created)

@@ -3,6 +3,14 @@
   background:radial-gradient(ellipse at 50% 18%,#1d2a52 0%,#0c1430 48%,#060912 100%);
   box-shadow:0 18px 60px rgba(4,8,24,.45),inset 0 0 0 1px rgba(160,190,255,.12)}
 .ct-svg{display:block;width:100%;height:auto;min-height:320px}
+.ct-scene{position:relative;width:100%}
+.ct-canvas{display:block;width:100%;outline:none}
+.ct-canvas:focus-visible{box-shadow:inset 0 0 0 2px rgba(160,200,255,.7)}
+.ct-tip{position:absolute;left:0;top:0;pointer-events:none;opacity:0;transform:translate(-999px,-999px);
+  padding:6px 10px;border-radius:10px;background:rgba(10,16,40,.86);border:1px solid rgba(170,200,255,.35);
+  color:#eef4ff;font-size:12.5px;letter-spacing:.02em;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.35);
+  backdrop-filter:blur(6px);transition:opacity .15s ease}
+.ct-tip.is-on{opacity:1}
 .ct-star{fill:#dfe8ff;opacity:.55;animation:ct-twinkle 6s ease-in-out infinite}
 .ct-root{fill:none;stroke:#cfdcff;stroke-width:3;stroke-linecap:round;opacity:.35;filter:drop-shadow(0 0 4px #ffd98a)}
 .ct-trunk{fill:url(#ct-bark);opacity:.92}

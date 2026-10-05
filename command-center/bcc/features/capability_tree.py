@@ -215,8 +215,11 @@ async def tree(request: Request, lite: bool = False):
     live = {"activity": _activity(svc), "work": _work_state(svc)[1]["jobs"]}
     if lite:
         return live
+    from . import coding_tasks
+    workers = [{"id": "local", "label": "Локальная модель Bossman (бесплатно, на ПК)"}] + [
+        {"id": k, "label": v["label"]} for k, v in coding_tasks.WORKERS.items()]
     return {"tree": _seed(), **live, "notes": _read(root / "owner-notes.json", {}),
-            "scan": _read(root / "scan-latest.json", None)}
+            "scan": _read(root / "scan-latest.json", None), "workers": workers}
 
 
 @router.post("/note")
@@ -280,6 +283,7 @@ class WorkBody(BaseModel):
     node_id: str = Field(min_length=1, max_length=160, pattern=r"^[A-Za-z0-9_.:/-]+$")
     instruction: str = Field(default="", max_length=4000)
     source_repo: str | None = Field(default=None, max_length=1000)
+    worker: str | None = Field(default=None, max_length=40)  # coding_tasks.WORKERS id; None = local sidecar
 
 
 _WORK_LOCK = threading.Lock()
@@ -381,16 +385,22 @@ async def start_zone_work(body: WorkBody, request: Request):
     _, state = _work_state(svc)
     if any(j["node_id"] == node["id"] and j["status"] not in _DONE for j in state["jobs"]):
         raise HTTPException(409, {"code": "CAPABILITY_ZONE_ALREADY_RUNNING"})
+    picked = None if body.worker in (None, "", "local") else body.worker
+    if picked is not None and picked not in coding_tasks.WORKERS:
+        raise HTTPException(422, {"code": "UNKNOWN_WORKER", "workers": ["local", *sorted(coding_tasks.WORKERS)]})
     task = await coding_tasks.create_task(coding_tasks.TaskIn(
         instruction=_zone_instruction(node, body.instruction), source_repo=str(repo),
-        allowed_paths=files + test_dirs, verify_tests=verify, project_id="capability-tree"), request)
+        allowed_paths=files + test_dirs, verify_tests=verify, project_id="capability-tree",
+        timeout_seconds=1800, worker=picked), request)
+    worker = coding_tasks.WORKERS.get(picked or "", {}).get("label") or "локальная модель Bossman"
     job = {"node_id": node["id"], "label": node.get("label") or node["id"], "task_id": task["id"],
-           "status": task.get("status") or "running", "created_at": _now(), "files": files, "verify_tests": verify}
+           "status": task.get("status") or "running", "created_at": _now(), "files": files, "verify_tests": verify,
+           "worker": picked or "local", "worker_label": worker}
     with _WORK_LOCK:
         path, state = _work_state(svc)
         state["jobs"] = [j for j in state["jobs"] if j["node_id"] != node["id"]] + [job]
         _report(state, job, "started", f"Зона «{job['label']}»: Bossman начал работу (задача {job['task_id']}, "
-                f"файлов в области: {len(files)}, тестов для проверки: {len(verify)}).")
+                f"исполнитель: {worker}, файлов в области: {len(files)}, тестов для проверки: {len(verify)}).")
         _atomic(path, state)
     await svc.bus.emit("capability_tree.zone_work_started", node_id=node["id"], task_id=task["id"])
     return {"job": job, "task": task}
