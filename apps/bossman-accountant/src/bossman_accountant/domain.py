@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import date
 from typing import Any
 import hashlib
+import math
 
 INCOME_CATS = {"sales","revenue","services","interest","other_income"}
 
@@ -16,11 +17,16 @@ class AccountantEngine:
         self.s = store
 
     def import_transactions(self, rows: list[dict]):
-        added=0; duplicates=0
+        added=0; duplicates=0; rejected=0
         for row in rows:
+            amount = float(row["amount"])
+            if not math.isfinite(amount):
+                # NaN/inf cannot be summed or serialised; one such row would 500 every report.
+                rejected += 1
+                continue
             item = {
                 "id": row.get("id") or tx_id(row),
-                "date": row["date"], "amount": float(row["amount"]),
+                "date": row["date"], "amount": amount,
                 "currency": row.get("currency","CZK"),
                 "description": row.get("description",""),
                 "counterparty": row.get("counterparty",""),
@@ -29,8 +35,8 @@ class AccountantEngine:
             }
             try: self.s.kv_get("transactions", item["id"]); duplicates += 1
             except KeyError: self.s.kv_put("transactions", item["id"], item); added += 1
-        self.s.audit("accounting.transactions_imported", data={"added":added,"duplicates":duplicates})
-        return {"added":added,"duplicates":duplicates}
+        self.s.audit("accounting.transactions_imported", data={"added":added,"duplicates":duplicates,"rejected":rejected})
+        return {"added":added,"duplicates":duplicates,"rejected":rejected}
 
     def auto_category(self,row):
         t=(str(row.get("description",""))+" "+str(row.get("counterparty",""))).lower()
