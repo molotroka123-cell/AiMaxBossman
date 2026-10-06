@@ -395,7 +395,8 @@ export function openModal({ title, body, footer, wide = false, onClose } = {}) {
   const wrap = h('div.modal-wrap');
   const bodyEl = h('div.modal-body');
   const footEl = h('div.modal-foot');
-  const handle = { el: null, body: bodyEl, footer: footEl, close: () => {} };
+  // The page the window belongs to: a route change closes windows of the page the owner left (closeModalsNotOn).
+  const handle = { el: null, body: bodyEl, footer: footEl, close: () => {}, page: pageOfHash(location.hash) };
 
   const modal = h(`div.modal${wide ? '.wide' : ''}`, { role: 'dialog', 'aria-modal': 'true' },
     h('div.modal-head',
@@ -473,6 +474,18 @@ export function closeTopModal() {
 }
 
 export function hasOpenModal() { return openModals.length > 0; }
+
+/* A window opened on one page used to stay over the next one after a hash route change (no reload):
+   the «new agent» window from #/agents?new=1 sat over Chat/Apps and swallowed the next click
+   (CI pages sweep, 2026-10-06). Windows opened for the NEW page — e.g. a deep link that sets the
+   hash first and opens the window right after — are kept. */
+export function pageOfHash(hash) {
+  return String(hash || '').replace(/^#\/?/, '').split('?')[0];
+}
+
+export function closeModalsNotOn(page) {
+  for (const m of [...openModals].reverse()) if (m.page !== page) m.close();
+}
 
 /** Диалог подтверждения. → Promise<boolean> */
 export function confirmDialog({ title = 'Подтвердите действие', text = '', okText = 'Подтвердить', cancelText = 'Отмена', danger = false } = {}) {
