@@ -45,6 +45,8 @@ function lazyPage(meta, load, pick) {
 export const FEATURE_PAGES = [
   lazyPage({ id: 'capability-tree', title: 'Дерево развития', icon: 'agents', nav: 'primary', section: 'work' },
     () => import('./capability_tree.js'), (m) => m.default),
+  lazyPage({ id: 'poker-vision', title: 'Poker Vision', icon: 'search', nav: 'primary', section: 'apps' },
+    () => import('./poker_vision.js'), (m) => m.default),
   lazyPage({ id: 'oss', title: 'Локальные инструменты', icon: 'system', nav: 'more', section: 'system' },
     () => import('./oss.js'), (m) => m.default),
   lazyPage({ id: 'video-studio', title: 'Video Studio', icon: 'film', nav: 'primary', section: 'studio' },

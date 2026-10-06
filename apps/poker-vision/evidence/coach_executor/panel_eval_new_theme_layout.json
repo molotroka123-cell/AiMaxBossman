@@ -1,0 +1,14 @@
+{
+ "frames": 62,
+ "panel_open_found": 0,
+ "cells_truth": 0,
+ "cells_found": 0,
+ "values_right": 0,
+ "values_wrong": 0,
+ "raise_to_truth": 0,
+ "raise_to_right": 0,
+ "raise_to_wrong": 0,
+ "raise_to_unknown": 0,
+ "confirm_found": 0,
+ "wrong_examples": []
+}
