@@ -55,7 +55,12 @@ class EchoGuard:
         self._rx_acc: dict[int, list[float]] = {}      # slot -> levels of what came back
         self.fit_slots = int(fit_window_s * 1000 / SLOT_MS)
         self.min_confidence, self.excess_ratio, self.margin, self.strict_level = min_confidence, excess_ratio, margin, strict_level
-        self.min_fit_slots = 16                       # >= 512 ms of our own audio inside the fit window
+        # >= 1 s of our own audio before the FIRST echo path is accepted. With 16 slots (512 ms) a chance correlation of 0.5-0.6 won the
+        # lag search (delay 1-2 slots instead of the real 8), the prediction was then wrong and our own echo counted as double talk: a
+        # false barge-in that interrupted our own voice (the flaky offline `echo` self-test). Until then the verdict is the conservative
+        # `uncalibrated` one, which only lets a loud input through.
+        self.min_fit_slots = 32
+        self.no_echo_min_slots = 32                   # 'no echo path' needs >= 1 s of transmitted audio (unchanged)
         self.gain_range = (0.02, 1.5)
         self.no_echo_below = 0.3
         self.quiet_return_ratio = 0.05                # 'no echo' only if < -26 dB of what we sent comes back
@@ -132,7 +137,7 @@ class EchoGuard:
         active_mask = tx_win > self.tx_energy_floor
         active_slots = int(active_mask.sum())
         quiet_return = bool(active_slots) and float(rx_all[active_mask].mean()) < self.quiet_return_ratio * float(tx_win[active_mask].mean())
-        if (best is None or best[0] < self.no_echo_below) and active_slots >= 2 * self.min_fit_slots and quiet_return:
+        if (best is None or best[0] < self.no_echo_below) and active_slots >= self.no_echo_min_slots and quiet_return:
             # We have been transmitting for >= 1 s and nothing of it correlates with what comes back: no echo path.
             self._no_echo_votes += 1
             if self._no_echo_votes >= 2:                    # two consecutive looks (~1 s apart), not one unlucky window
