@@ -7,7 +7,7 @@ import { trackVideoProject } from './video_chat.js';
 import { api, ApiError, EventStream, hasSession, clearCsrf, listOf, UNAUTHORIZED_EVENT } from './api.js';
 import {
   h, append, clear, replace, icon, dot, empty, loading, toast, toastError, toastOk,
-  closeTopModal, hasOpenModal, debounce, fmtGb, fmtClock, fmtDuration,
+  closeTopModal, hasOpenModal, closeModalsNotOn, pageOfHash, debounce, fmtGb, fmtClock, fmtDuration,
 } from './components.js';
 import { PAGES, openTaskModal, openAgentModal, openScheduleModal, openModelWizard, stopAllRunning } from './pages.js';
 import { FEATURE_PAGES, preloadFeaturePages } from './pages/index.js';
@@ -235,6 +235,7 @@ function onRoute() {
   const { id, params } = parseHash();
   currentPage = id;
   currentParams = params;
+  closeModalsNotOn(pageOfHash(location.hash));
   setMenu(false);
   syncNav();
   const page = PAGE_BY_ID.get(id);

@@ -880,7 +880,11 @@ const AgentsPage = {
 
     if (agentsDeepLink.openNew) {
       agentsDeepLink.openNew = false;
-      setTimeout(() => openAgentModal(ctx, null, models), 0);
+      // Only while the owner is still on Agents: the list loads asynchronously, and a window opened after
+      // they left floated over Chat/Apps and swallowed their next click (CI pages sweep, 2026-10-06).
+      setTimeout(() => {
+        if (/^#\/agents(?:[?/]|$)/.test(location.hash)) openAgentModal(ctx, null, models);
+      }, 0);
     }
     return h('div.bx-page', head, body);
   },
