@@ -17,3 +17,15 @@ The GitHub API for these repositories was not reachable from the session (reposi
 
 GPU/AMD: everything above runs on CPU. **No AMD acceleration was enabled or measured** (NOT_RUN); nothing in the pipeline needs it
 (p50 ≈ 60 ms/frame at 520×900, ≈ 150 ms at 1170×2532).
+
+## Addendum 2026-10-06 — TexasSolver, DecisionHoldem (from the owner's table), not run
+Facts come from GitHub pages and search snippets (arxiv, openi.pcl.ac.cn, readthedocs were blocked from the build container); gaps are UNVERIFIED. **Nothing here was installed, run or timed.**
+
+| item | licence | what it is | Windows | role for Bossman | status |
+|---|---|---|---|---|---|
+| PokerKit 0.7.6 | MIT | rules/state/evaluation library, no solver | pure Python | rules oracle, PHH — **used** (20 000/20 000 showdowns agree) | PASS |
+| OpenSpiel 2.0.2 | Apache-2.0 | generic game framework; `universal_poker` (ACPC-style NLHE); full NLHE is too large for tabular CFR (own knowledge, docs blocked) | mainly Linux/macOS | comparison of strategies in small/abstracted games | NOT_RUN |
+| TexasSolver (`bupticybee/TexasSolver`) | **AGPL-3.0** (LICENSE file confirmed; network copyleft; README mentions a separate licensed list — terms UNVERIFIED) | postflop solver for given ranges + bet tree, heads-up IP vs OOP; CLI `console_solver -i input.txt`, JSON export; CPU multithreaded; a separate GPU project exists; v0.2.0 adds a GUI (release year UNVERIFIED) | prebuilt Windows/macOS/Linux releases (asset sizes UNVERIFIED) | offline reference strategies for fixed postflop spots (not live, not preflop, not multiway) | NOT_RUN |
+| DecisionHoldem | UNVERIFIED (repo not at `bupticybee/DecisionHoldem`; appears at openi.pcl.ac.cn/chenhao/DecisionHoldem) | heads-up NL hold'em agent: abstraction blueprint (linear CFR) + depth-limited subgame solving; reported >730 mbb/h vs Slumbot (paper, snippet only) | UNVERIFIED | heads-up research only; no multiway/multi-table by design | NOT_RUN |
+
+Time/RAM: only one number exists (TexasSolver README: 1600 MB RAM, 172 s on an unstated spot vs PioSolver 492 MB, 242 s) — not comparable and not measured by us. A fair comparison needs the same spots, the same machine, licence review of the exact repositories, and an AGPL decision (do not link/ship TexasSolver code inside Bossman; calling its binary as an external tool on the owner's PC is a separate legal question for the owner).
