@@ -1,0 +1,18 @@
+node_id: mod-healing
+unit: bcc.features.healing
+path: command-center/bcc/features/healing.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['command-center/tests/test_rc19_model_recovery.py', 'command-center/tests/test_ux_soak_healing_escalation_dedupe.py']
+
+$ python -c "importlib.import_module('bcc.features.healing')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.healing C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/healing.py
+
+[exit 0 in 0.9s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_rc19_model_recovery.py tests/test_ux_soak_healing_escalation_dedupe.py)
+......................                                                   [100%]
+22 passed in 22.53s
+
+[exit 0 in 24.8s]
+
+VERDICT: PASS 

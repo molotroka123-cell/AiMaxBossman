@@ -1,0 +1,19 @@
+node_id: module-0ca465774554
+unit: bossman.trading_learning.models
+path: bossman-core/bossman/trading_learning/models.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['bossman-core/tests/test_trading_claims.py', 'bossman-core/tests/test_trading_lookahead.py', 'bossman-core/tests/test_trading_paper_memory.py']
+
+$ python -c "importlib.import_module('bossman.trading_learning.models')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.trading_learning.models C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/trading_learning/models.py
+
+[exit 0 in 0.2s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_trading_claims.py tests/test_trading_lookahead.py tests/test_trading_paper_memory.py)
+........................................................................ [ 93%]
+.....                                                                    [100%]
+77 passed in 0.70s
+
+[exit 0 in 1.2s]
+
+VERDICT: PASS 

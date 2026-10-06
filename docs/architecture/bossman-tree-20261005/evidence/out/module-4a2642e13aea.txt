@@ -1,0 +1,18 @@
+node_id: module-4a2642e13aea
+unit: bossman.trading_learning.sanitize
+path: bossman-core/bossman/trading_learning/sanitize.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['bossman-core/tests/test_trading_claims.py', 'bossman-core/tests/test_trading_sanitize_gaps.py']
+
+$ python -c "importlib.import_module('bossman.trading_learning.sanitize')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.trading_learning.sanitize C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/trading_learning/sanitize.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_trading_claims.py tests/test_trading_sanitize_gaps.py)
+.............................................                            [100%]
+45 passed in 0.41s
+
+[exit 0 in 1.1s]
+
+VERDICT: PASS 

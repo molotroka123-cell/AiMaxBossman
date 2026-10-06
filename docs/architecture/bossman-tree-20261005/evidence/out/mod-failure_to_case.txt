@@ -1,0 +1,18 @@
+node_id: mod-failure_to_case
+unit: bcc.features.failure_to_case
+path: command-center/bcc/features/failure_to_case.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['command-center/tests/test_failure_to_case.py']
+
+$ python -c "importlib.import_module('bcc.features.failure_to_case')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.failure_to_case C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/failure_to_case.py
+
+[exit 0 in 1.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_failure_to_case.py)
+......                                                                   [100%]
+6 passed in 6.03s
+
+[exit 0 in 8.5s]
+
+VERDICT: PASS 

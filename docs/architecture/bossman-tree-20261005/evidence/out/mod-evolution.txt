@@ -1,0 +1,30 @@
+node_id: mod-evolution
+unit: bcc.features.evolution
+path: command-center/bcc/features/evolution.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['tests/test_evolution_api_bootstrap.py', 'command-center/tests/test_capability_tree.py']
+
+$ python -c "importlib.import_module('bcc.features.evolution')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.evolution C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/evolution.py
+
+[exit 0 in 0.9s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_evolution_api_bootstrap.py)
+.                                                                        [100%]
+1 passed in 1.00s
+
+[exit 0 in 1.6s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_capability_tree.py)
+....................                                                     [100%]
+============================== warnings summary ===============================
+tests/test_capability_tree.py::test_full_app_mounts_capability_tree
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\openapi\utils.py:303: UserWarning: Duplicate Operation ID file_commander_view_api_apps_file_commander_mini_view__app_path__get for function file_commander_view at C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\features\apps_control.py
+    warnings.warn(message, stacklevel=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+20 passed, 1 warning in 10.69s
+
+[exit 0 in 12.8s]
+
+VERDICT: PASS 

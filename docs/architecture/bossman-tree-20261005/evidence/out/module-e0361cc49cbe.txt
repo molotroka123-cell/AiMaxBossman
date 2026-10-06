@@ -1,0 +1,18 @@
+node_id: module-e0361cc49cbe
+unit: bossman.context_engine.compiler
+path: bossman-core/bossman/context_engine/compiler.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['bossman-core/tests/test_context_memory_recall_order.py', 'bossman-core/tests/test_stage9_agent_smoke.py']
+
+$ python -c "importlib.import_module('bossman.context_engine.compiler')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.context_engine.compiler C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/context_engine/compiler.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_context_memory_recall_order.py tests/test_stage9_agent_smoke.py)
+....s                                                                    [100%]
+4 passed, 1 skipped in 1.13s
+
+[exit 0 in 2.0s]
+
+VERDICT: PASS 

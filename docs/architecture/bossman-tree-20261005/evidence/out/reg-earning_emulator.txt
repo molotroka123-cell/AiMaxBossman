@@ -1,0 +1,18 @@
+node_id: reg-earning_emulator
+unit: bcc.earning_emulator
+path: command-center/bcc/earning_emulator.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['command-center/tests/test_earning_emulator.py']
+
+$ python -c "importlib.import_module('bcc.earning_emulator')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.earning_emulator C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/earning_emulator.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_earning_emulator.py)
+..................                                                       [100%]
+18 passed in 0.26s
+
+[exit 0 in 1.9s]
+
+VERDICT: PASS 

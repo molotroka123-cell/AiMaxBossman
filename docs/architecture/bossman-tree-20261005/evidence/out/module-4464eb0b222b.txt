@@ -1,0 +1,18 @@
+node_id: module-4464eb0b222b
+unit: bossman.context_engine.distill
+path: bossman-core/bossman/context_engine/distill.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['bossman-core/tests/test_memory_and_state_integrity.py']
+
+$ python -c "importlib.import_module('bossman.context_engine.distill')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.context_engine.distill C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/context_engine/distill.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_memory_and_state_integrity.py)
+.........                                                                [100%]
+9 passed in 0.92s
+
+[exit 0 in 1.6s]
+
+VERDICT: PASS 

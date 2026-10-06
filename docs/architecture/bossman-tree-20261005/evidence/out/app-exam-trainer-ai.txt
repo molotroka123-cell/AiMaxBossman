@@ -1,0 +1,18 @@
+node_id: app-exam-trainer-ai
+unit: exam_trainer_ai
+path: apps/exam-trainer-ai/README.md
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['tests']
+
+$ python -c "importlib.import_module('exam_trainer_ai')" [PYTHONPATH=apps/exam-trainer-ai/src;apps/exam-trainer-ai]
+IMPORTED exam_trainer_ai C:/Users/asd/Bossman/wt-green-0610/apps/exam-trainer-ai/src/exam_trainer_ai/__init__.py
+
+[exit 0 in 0.1s]
+
+$ (cd apps/exam-trainer-ai && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests)
+...                                                                      [100%]
+3 passed in 0.77s
+
+[exit 0 in 1.4s]
+
+VERDICT: PASS 

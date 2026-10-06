@@ -1,0 +1,18 @@
+node_id: module-cdb451a7640c
+unit: bossman.trading_learning.replay
+path: bossman-core/bossman/trading_learning/replay.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['bossman-core/tests/test_trading_lookahead.py']
+
+$ python -c "importlib.import_module('bossman.trading_learning.replay')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.trading_learning.replay C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/trading_learning/replay.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_trading_lookahead.py)
+..............                                                           [100%]
+14 passed in 0.18s
+
+[exit 0 in 0.9s]
+
+VERDICT: PASS 

@@ -1,0 +1,24 @@
+node_id: module-72d4da1606dd
+unit: bossman.learning_guard.runtime_bridge
+path: bossman-core/bossman/learning_guard/runtime_bridge.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['tests/test_audit_learn_store_location.py', 'bossman-core/tests/test_audit_learn_runtime_bridge.py', 'bossman-core/tests/test_audit_p0_runtime_wiring.py']
+
+$ python -c "importlib.import_module('bossman.learning_guard.runtime_bridge')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.learning_guard.runtime_bridge C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/learning_guard/runtime_bridge.py
+
+[exit 0 in 0.1s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_audit_learn_store_location.py)
+.....                                                                    [100%]
+5 passed in 0.19s
+
+[exit 0 in 0.8s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_audit_learn_runtime_bridge.py tests/test_audit_p0_runtime_wiring.py)
+........                                                                 [100%]
+8 passed in 0.81s
+
+[exit 0 in 1.3s]
+
+VERDICT: PASS 

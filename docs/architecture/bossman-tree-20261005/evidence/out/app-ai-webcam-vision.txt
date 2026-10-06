@@ -1,0 +1,44 @@
+node_id: app-ai-webcam-vision
+unit: ai_webcam_vision
+path: apps/ai-webcam-vision/README.md
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['tests']
+
+$ python -c "importlib.import_module('ai_webcam_vision')" [PYTHONPATH=apps/ai-webcam-vision/src;apps/ai-webcam-vision]
+IMPORTED ai_webcam_vision C:/Users/asd/Bossman/wt-green-0610/apps/ai-webcam-vision/src/ai_webcam_vision/__init__.py
+
+[exit 0 in 0.1s]
+
+$ (cd apps/ai-webcam-vision && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests)
+.................................................................F
+================================== FAILURES ===================================
+___________________ test_path_wins_over_the_bundled_binary ____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F8D350E3C0>
+ffmpeg_path = 'C:\\Users\\asd\\AppData\\Local\\Microsoft\\WinGet\\Links\\ffmpeg.EXE'
+tmp_path = WindowsPath('C:/Users/asd/AppData/Local/Temp/pytest-of-asd/pytest-3893/test_path_wins_over_the_bundle0')
+
+    def test_path_wins_over_the_bundled_binary(monkeypatch, ffmpeg_path, tmp_path):
+        """A system ffmpeg is preferred: PATH -> AWV_FFMPEG -> imageio_ffmpeg."""
+        fake_dir = tmp_path / "bin"
+        fake_dir.mkdir()
+        link = fake_dir / "ffmpeg"
+        shutil.copy(ffmpeg_path, link)
+        link.chmod(0o755)
+        monkeypatch.setenv("PATH", str(fake_dir))
+        monkeypatch.delenv("AWV_FFMPEG", raising=False)
+        runner = FfmpegRunner("ffmpeg")
+        info = runner.info()
+>       assert info.available is True
+E       AssertionError: assert False is True
+E        +  where False = FfmpegInfo(available=False, path=None, version=None, reason='ffmpeg binary not found; searched: PATH, AWV_FFMPEG, imageio_ffmpeg', source=None, searched=('PATH', 'AWV_FFMPEG', 'imageio_ffmpeg')).available
+
+tests\test_ffmpeg_discovery.py:66: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_ffmpeg_discovery.py::test_path_wins_over_the_bundled_binary
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 65 passed in 3.62s
+
+[exit 1 in 4.4s]
+
+VERDICT: FAIL tests_failed

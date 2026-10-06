@@ -1,0 +1,18 @@
+node_id: app-file-commander-mini
+unit: file_commander_mini
+path: apps/file-commander-mini/README.md
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['tests']
+
+$ python -c "importlib.import_module('file_commander_mini')" [PYTHONPATH=apps/file-commander-mini/src;apps/file-commander-mini]
+IMPORTED file_commander_mini C:/Users/asd/Bossman/wt-green-0610/apps/file-commander-mini/src/file_commander_mini/__init__.py
+
+[exit 0 in 0.1s]
+
+$ (cd apps/file-commander-mini && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests)
+..............................s.......s...                               [100%]
+40 passed, 2 skipped in 4.55s
+
+[exit 0 in 5.3s]
+
+VERDICT: PASS 

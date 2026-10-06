@@ -1,0 +1,18 @@
+node_id: app-bossman-accountant
+unit: bossman_accountant
+path: apps/bossman-accountant/README.md
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['tests']
+
+$ python -c "importlib.import_module('bossman_accountant')" [PYTHONPATH=apps/bossman-accountant/src;apps/bossman-accountant]
+IMPORTED bossman_accountant C:/Users/asd/Bossman/wt-green-0610/apps/bossman-accountant/src/bossman_accountant/__init__.py
+
+[exit 0 in 0.1s]
+
+$ (cd apps/bossman-accountant && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests)
+.....                                                                    [100%]
+5 passed in 1.13s
+
+[exit 0 in 1.9s]
+
+VERDICT: PASS 

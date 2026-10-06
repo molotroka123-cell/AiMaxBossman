@@ -1,0 +1,18 @@
+node_id: module-0eb18b3e4f15
+unit: bossman.trading_learning.routes
+path: bossman-core/bossman/trading_learning/routes.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['bossman-core/tests/test_coinwise_observation.py', 'bossman-core/tests/test_trading_pipeline_benchmark.py', 'bossman-core/tests/test_trading_wiring.py']
+
+$ python -c "importlib.import_module('bossman.trading_learning.routes')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.trading_learning.routes C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/trading_learning/routes.py
+
+[exit 0 in 1.6s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coinwise_observation.py tests/test_trading_pipeline_benchmark.py tests/test_trading_wiring.py)
+.............................................                            [100%]
+45 passed, 1 skipped in 1.33s
+
+[exit 0 in 2.3s]
+
+VERDICT: PASS 

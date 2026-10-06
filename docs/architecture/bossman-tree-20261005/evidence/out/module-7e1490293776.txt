@@ -1,0 +1,19 @@
+node_id: module-7e1490293776
+unit: bossman.cybersec.learning
+path: bossman-core/bossman/cybersec/learning.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['bossman-core/tests/test_cybersec_integration.py', 'bossman-core/tests/test_cybersec_v1.py']
+
+$ python -c "importlib.import_module('bossman.cybersec.learning')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.cybersec.learning C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/cybersec/learning.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cybersec_integration.py tests/test_cybersec_v1.py)
+........................................................................ [ 91%]
+.......                                                                  [100%]
+79 passed in 0.62s
+
+[exit 0 in 1.2s]
+
+VERDICT: PASS 

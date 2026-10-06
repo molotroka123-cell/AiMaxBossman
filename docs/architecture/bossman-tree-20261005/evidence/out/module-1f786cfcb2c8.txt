@@ -1,0 +1,19 @@
+node_id: module-1f786cfcb2c8
+unit: bossman.trading_learning.safety
+path: bossman-core/bossman/trading_learning/safety.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['bossman-core/tests/test_coinwise_observation.py', 'bossman-core/tests/test_trading_lookahead.py', 'bossman-core/tests/test_trading_paper_memory.py', 'bossman-core/tests/test_trading_pipeline_benchmark.py', 'bossman-core/tests/test_trading_safety.py']
+
+$ python -c "importlib.import_module('bossman.trading_learning.safety')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.trading_learning.safety C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/trading_learning/safety.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coinwise_observation.py tests/test_trading_lookahead.py tests/test_trading_paper_memory.py tests/test_trading_pipeline_benchmark.py tests/test_trading_safety.py)
+........................................................................ [ 69%]
+...............................                                          [100%]
+103 passed, 1 skipped in 1.78s
+
+[exit 0 in 2.8s]
+
+VERDICT: PASS 

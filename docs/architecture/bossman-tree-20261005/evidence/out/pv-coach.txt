@@ -1,0 +1,23 @@
+node_id: pv-coach
+unit: pokervision.coach
+path: apps/poker-vision/pokervision/coach.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['apps/poker-vision/tests/test_coach_known_hands.py', 'tests/test_blue_leaf_audit.py', 'apps/poker-vision/tests/test_policy_route.py']
+
+$ python -c "importlib.import_module('pokervision.coach')" [PYTHONPATH=apps/poker-vision]
+IMPORTED pokervision.coach C:/Users/asd/Bossman/wt-green-0610/apps/poker-vision/pokervision/coach.py
+
+[exit 0 in 0.1s]
+
+$ (cd apps/poker-vision && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coach_known_hands.py tests/test_policy_route.py)
+......................                                                   [100%]
+
+[exit 0 in 1.0s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_blue_leaf_audit.py)
+.........                                                                [100%]
+9 passed in 0.14s
+
+[exit 0 in 0.6s]
+
+VERDICT: PASS 

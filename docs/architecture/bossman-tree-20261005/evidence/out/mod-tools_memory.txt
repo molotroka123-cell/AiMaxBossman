@@ -1,0 +1,18 @@
+node_id: mod-tools_memory
+unit: bcc.features.tools_memory
+path: command-center/bcc/features/tools_memory.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['command-center/tests/test_fable_context_memory_authority.py', 'command-center/tests/test_oss_qdrant.py', 'command-center/tests/telegram_calls/test_postcall.py']
+
+$ python -c "importlib.import_module('bcc.features.tools_memory')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.tools_memory C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/tools_memory.py
+
+[exit 0 in 1.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_fable_context_memory_authority.py tests/test_oss_qdrant.py tests/telegram_calls/test_postcall.py)
+.......................ssss.s........ss....................              [100%]
+52 passed, 7 skipped in 25.74s
+
+[exit 0 in 27.9s]
+
+VERDICT: PASS 

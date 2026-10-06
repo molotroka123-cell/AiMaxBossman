@@ -1,0 +1,18 @@
+node_id: app-travel-architect
+unit: travel_architect
+path: apps/travel-architect/README.md
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['tests']
+
+$ python -c "importlib.import_module('travel_architect')" [PYTHONPATH=apps/travel-architect/src;apps/travel-architect]
+IMPORTED travel_architect C:/Users/asd/Bossman/wt-green-0610/apps/travel-architect/src/travel_architect/__init__.py
+
+[exit 0 in 0.1s]
+
+$ (cd apps/travel-architect && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests)
+...                                                                      [100%]
+3 passed in 0.61s
+
+[exit 0 in 1.2s]
+
+VERDICT: PASS 

@@ -1,0 +1,40 @@
+node_id: app-ai-3d-maker
+unit: ai_3d_maker
+path: apps/ai-3d-maker/README.md
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['tests']
+
+$ python -c "importlib.import_module('ai_3d_maker')" [PYTHONPATH=apps/ai-3d-maker/src;apps/ai-3d-maker]
+IMPORTED ai_3d_maker C:/Users/asd/Bossman/wt-green-0610/apps/ai-3d-maker/src/ai_3d_maker/__init__.py
+
+[exit 0 in 0.1s]
+
+$ (cd apps/ai-3d-maker && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests)
+........................................................................ [ 19%]
+...............................................s........................ [ 39%]
+..................................s...............s..................... [ 59%]
+........................................s............................... [ 79%]
+.........................F
+================================== FAILURES ===================================
+___________ test_curaengine_definition_is_identified_and_versioned ____________
+
+stub_bin = WindowsPath('C:/Users/asd/AppData/Local/Temp/pytest-of-asd/pytest-3883/test_curaengine_definition_is_0/bin')
+tmp_path = WindowsPath('C:/Users/asd/AppData/Local/Temp/pytest-of-asd/pytest-3883/test_curaengine_definition_is_0')
+
+    def test_curaengine_definition_is_identified_and_versioned(stub_bin, tmp_path):
+        write_stub(stub_bin, "CuraEngine", "exit 0\n")
+        definition = tmp_path / "elegoo_neptune3plus.def.json"
+        definition.write_text('{"name": "stub"}', encoding="utf-8")
+        info = curaengine_info("CuraEngine", str(definition))
+>       assert info["available"] is True
+E       assert False is True
+
+tests\test_slicer.py:70: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_slicer.py::test_curaengine_definition_is_identified_and_versioned
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 309 passed, 4 skipped in 7.98s
+
+[exit 1 in 8.8s]
+
+VERDICT: FAIL tests_failed

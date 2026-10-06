@@ -1,0 +1,18 @@
+node_id: module-6f6f10fdb204
+unit: bossman.learning_guard.models
+path: bossman-core/bossman/learning_guard/models.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['bossman-core/tests/test_apprentice_learning.py', 'bossman-core/tests/test_audit_learn_promotion.py', 'bossman-core/tests/test_learning_evidence_ledger.py', 'bossman-core/tests/test_pass3_autonomy_trainer.py', 'bossman-core/tests/audit001/test_f5_cross_corpus.py']
+
+$ python -c "importlib.import_module('bossman.learning_guard.models')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.learning_guard.models C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/learning_guard/models.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_learning.py tests/test_audit_learn_promotion.py tests/test_learning_evidence_ledger.py tests/test_pass3_autonomy_trainer.py tests/audit001/test_f5_cross_corpus.py)
+.....................................................                    [100%]
+53 passed in 1.37s
+
+[exit 0 in 2.0s]
+
+VERDICT: PASS 

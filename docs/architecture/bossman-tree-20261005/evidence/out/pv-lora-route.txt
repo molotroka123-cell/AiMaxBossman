@@ -1,0 +1,17 @@
+node_id: pv-lora-route
+unit: pokervision.policy_route
+path: apps/poker-vision/pokervision/policy_route.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['apps/poker-vision/tests/test_policy_route.py']
+
+$ python -c "importlib.import_module('pokervision.policy_route')" [PYTHONPATH=apps/poker-vision]
+IMPORTED pokervision.policy_route C:/Users/asd/Bossman/wt-green-0610/apps/poker-vision/pokervision/policy_route.py
+
+[exit 0 in 0.1s]
+
+$ (cd apps/poker-vision && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_policy_route.py)
+.........                                                                [100%]
+
+[exit 0 in 0.8s]
+
+VERDICT: PASS 

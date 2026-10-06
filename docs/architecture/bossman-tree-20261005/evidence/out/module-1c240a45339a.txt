@@ -1,0 +1,18 @@
+node_id: module-1c240a45339a
+unit: bossman.learning_guard.autonomy_trainer
+path: bossman-core/bossman/learning_guard/autonomy_trainer.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['bossman-core/tests/test_audit_learn_promotion.py', 'bossman-core/tests/test_pass3_autonomy_trainer.py', 'bossman-core/tests/audit001/test_f4_promotion_baseline.py', 'bossman-core/tests/audit001/test_f5_cross_corpus.py']
+
+$ python -c "importlib.import_module('bossman.learning_guard.autonomy_trainer')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.learning_guard.autonomy_trainer C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/learning_guard/autonomy_trainer.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_audit_learn_promotion.py tests/test_pass3_autonomy_trainer.py tests/audit001/test_f4_promotion_baseline.py tests/audit001/test_f5_cross_corpus.py)
+..................................................                       [100%]
+50 passed in 0.49s
+
+[exit 0 in 1.0s]
+
+VERDICT: PASS 

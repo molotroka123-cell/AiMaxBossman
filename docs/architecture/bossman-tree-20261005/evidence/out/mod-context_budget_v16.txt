@@ -1,0 +1,18 @@
+node_id: mod-context_budget_v16
+unit: bcc.features.context_budget_v16
+path: command-center/bcc/features/context_budget_v16.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['command-center/tests/test_bossnet_foundation_v16.py']
+
+$ python -c "importlib.import_module('bcc.features.context_budget_v16')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.context_budget_v16 C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/context_budget_v16.py
+
+[exit 0 in 0.5s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_bossnet_foundation_v16.py)
+........                                                                 [100%]
+8 passed in 0.29s
+
+[exit 0 in 1.9s]
+
+VERDICT: PASS 
