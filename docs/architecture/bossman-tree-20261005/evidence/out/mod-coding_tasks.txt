@@ -1,0 +1,29 @@
+node_id: mod-coding_tasks
+modules: ['command-center/bcc/features/coding_tasks.py']
+sha: d394085de749ae57c0778f158533470569b7d3e5
+
+node_id: _m_bcc_features_coding_tasks
+module: bcc.features.coding_tasks
+path: command-center/bcc/features/coding_tasks.py
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['command-center/tests/test_coding_tasks.py', 'command-center/tests/test_coding_tasks_cloud_readiness.py', 'command-center/tests/test_coding_tasks_local_sidecar.py', 'command-center/tests/test_capability_tree.py', 'command-center/tests/test_coding_apply.py', 'command-center/tests/test_coding_workers.py', 'command-center/tests/test_lab_agents.py', 'command-center/tests/test_leaf_plugins_real_handlers.py'] (candidates=10)
+
+$ python -c "importlib.import_module('bcc.features.coding_tasks')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.coding_tasks C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/coding_tasks.py
+
+[exit 0 in 1.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_tasks.py tests/test_coding_tasks_cloud_readiness.py tests/test_coding_tasks_local_sidecar.py tests/test_capability_tree.py tests/test_coding_apply.py tests/test_coding_workers.py tests/test_lab_agents.py tests/test_leaf_plugins_real_handlers.py)
+........................................................................ [ 70%]
+.............................s                                           [100%]
+============================== warnings summary ===============================
+tests/test_capability_tree.py::test_full_app_mounts_capability_tree
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\openapi\utils.py:303: UserWarning: Duplicate Operation ID file_commander_view_api_apps_file_commander_mini_view__app_path__get for function file_commander_view at C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\features\apps_control.py
+    warnings.warn(message, stacklevel=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+101 passed, 1 skipped, 1 warning in 149.34s (0:02:29)
+
+[exit 0 in 152.4s]
+
+VERDICT: PASS 

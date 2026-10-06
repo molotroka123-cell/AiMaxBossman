@@ -1,0 +1,62 @@
+node_id: agents-graph
+modules: ['command-center/bcc/features/agentmap.py', 'command-center/bcc/v2/agent_graph.py', 'command-center/bcc/v2/orchestration_schema.py']
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+
+node_id: _m_bcc_features_agentmap
+module: bcc.features.agentmap
+path: command-center/bcc/features/agentmap.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_leaf_agentmap.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.features.agentmap')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.agentmap C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/agentmap.py
+
+[exit 0 in 1.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_agentmap.py)
+....                                                                     [100%]
+4 passed in 3.02s
+
+[exit 0 in 5.3s]
+
+VERDICT: PASS 
+
+=====
+node_id: _m_bcc_v2_agent_graph
+module: bcc.v2.agent_graph
+path: command-center/bcc/v2/agent_graph.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_leaf_agentmap.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.v2.agent_graph')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.v2.agent_graph C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/v2/agent_graph.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_agentmap.py)
+....                                                                     [100%]
+4 passed in 2.95s
+
+[exit 0 in 5.4s]
+
+VERDICT: PASS 
+
+=====
+node_id: _m_bcc_v2_orchestration_schema
+module: bcc.v2.orchestration_schema
+path: command-center/bcc/v2/orchestration_schema.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_feat_nl_orchestra.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.v2.orchestration_schema')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.v2.orchestration_schema C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/v2/orchestration_schema.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_feat_nl_orchestra.py)
+.....                                                                    [100%]
+5 passed in 5.00s
+
+[exit 0 in 7.6s]
+
+VERDICT: PASS 

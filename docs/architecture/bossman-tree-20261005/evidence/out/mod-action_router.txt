@@ -1,0 +1,23 @@
+node_id: mod-action_router
+modules: ['command-center/bcc/features/action_router.py']
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+
+node_id: _m_bcc_features_action_router
+module: bcc.features.action_router
+path: command-center/bcc/features/action_router.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_action_router.py', 'command-center/tests/test_chat_context_not_a_request.py', 'command-center/tests/test_chat_threads.py', 'command-center/tests/test_golden_missions.py', 'command-center/tests/test_terminal_chat_claude_parity.py'] (candidates=5)
+
+$ python -c "importlib.import_module('bcc.features.action_router')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.action_router C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/action_router.py
+
+[exit 0 in 1.7s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_action_router.py tests/test_chat_context_not_a_request.py tests/test_chat_threads.py tests/test_golden_missions.py tests/test_terminal_chat_claude_parity.py)
+......ss..............................s................................. [ 79%]
+....s..............                                                      [100%]
+87 passed, 4 skipped in 81.97s (0:01:21)
+
+[exit 0 in 86.1s]
+
+VERDICT: PASS 

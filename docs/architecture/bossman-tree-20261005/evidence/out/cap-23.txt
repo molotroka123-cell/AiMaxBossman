@@ -1,0 +1,22 @@
+node_id: cap-23
+modules: ['command-center/bcc/features/cache_intel.py']
+sha: d394085de749ae57c0778f158533470569b7d3e5
+
+node_id: _m_bcc_features_cache_intel
+module: bcc.features.cache_intel
+path: command-center/bcc/features/cache_intel.py
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['command-center/tests/test_leaf_cache_intel.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.features.cache_intel')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.cache_intel C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/cache_intel.py
+
+[exit 0 in 1.5s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_cache_intel.py)
+.....                                                                    [100%]
+5 passed in 4.50s
+
+[exit 0 in 6.8s]
+
+VERDICT: PASS 

@@ -1,0 +1,22 @@
+node_id: mod-browser_help
+modules: ['command-center/bcc/features/browser_help.py']
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+
+node_id: _m_bcc_features_browser_help
+module: bcc.features.browser_help
+path: command-center/bcc/features/browser_help.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_browser_help_lookup.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.features.browser_help')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.browser_help C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/browser_help.py
+
+[exit 0 in 1.4s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_help_lookup.py)
+....................................................                     [100%]
+52 passed in 2.34s
+
+[exit 0 in 4.7s]
+
+VERDICT: PASS 

@@ -1,0 +1,28 @@
+node_id: mod-v15_economy
+modules: ['command-center/bcc/features/v15_economy.py']
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+
+node_id: _m_bcc_features_v15_economy
+module: bcc.features.v15_economy
+path: command-center/bcc/features/v15_economy.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['tests/test_v15_economy_orchestrator.py', 'command-center/tests/test_v15_economy_feature.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.features.v15_economy')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.v15_economy C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/v15_economy.py
+
+[exit 0 in 0.8s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_economy_orchestrator.py)
+.....                                                                    [100%]
+5 passed in 0.35s
+
+[exit 0 in 1.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_economy_feature.py)
+....                                                                     [100%]
+4 passed in 0.43s
+
+[exit 0 in 2.2s]
+
+VERDICT: PASS 

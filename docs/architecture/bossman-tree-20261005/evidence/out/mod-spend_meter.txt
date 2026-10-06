@@ -1,0 +1,22 @@
+node_id: mod-spend_meter
+modules: ['command-center/bcc/features/spend_meter.py']
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+
+node_id: _m_bcc_features_spend_meter
+module: bcc.features.spend_meter
+path: command-center/bcc/features/spend_meter.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_spend_meter.py', 'command-center/tests/test_spend_meter_studio_source.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.features.spend_meter')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.spend_meter C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/spend_meter.py
+
+[exit 0 in 1.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_spend_meter.py tests/test_spend_meter_studio_source.py)
+.........                                                                [100%]
+9 passed in 11.90s
+
+[exit 0 in 15.5s]
+
+VERDICT: PASS 

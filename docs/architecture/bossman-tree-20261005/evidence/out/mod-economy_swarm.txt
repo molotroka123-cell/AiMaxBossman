@@ -1,0 +1,28 @@
+node_id: mod-economy_swarm
+modules: ['command-center/bcc/features/economy_swarm.py']
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+
+node_id: _m_bcc_features_economy_swarm
+module: bcc.features.economy_swarm
+path: command-center/bcc/features/economy_swarm.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_economy_swarm.py', 'tests/test_bossman_15_economy_scripts.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.features.economy_swarm')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.economy_swarm C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/economy_swarm.py
+
+[exit 0 in 1.0s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_economy_swarm.py)
+......                                                                   [100%]
+6 passed in 0.45s
+
+[exit 0 in 2.5s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_bossman_15_economy_scripts.py)
+.....                                                                    [100%]
+5 passed in 0.14s
+
+[exit 0 in 0.8s]
+
+VERDICT: PASS 

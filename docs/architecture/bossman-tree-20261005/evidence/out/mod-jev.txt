@@ -1,0 +1,29 @@
+node_id: mod-jev
+modules: ['command-center/bcc/features/jev.py']
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+
+node_id: _m_bcc_features_jev
+module: bcc.features.jev
+path: command-center/bcc/features/jev.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['tests/test_jev_shadow_owner.py', 'command-center/tests/test_jev_bounded_router.py', 'command-center/tests/test_jev_browser_fastpath.py', 'command-center/tests/test_jev_decision.py', 'command-center/tests/test_jev_feature.py'] (candidates=5)
+
+$ python -c "importlib.import_module('bcc.features.jev')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.jev C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/jev.py
+
+[exit 0 in 1.0s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jev_shadow_owner.py)
+.....s.                                                                  [100%]
+6 passed, 1 skipped in 1.62s
+
+[exit 0 in 2.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jev_bounded_router.py tests/test_jev_browser_fastpath.py tests/test_jev_decision.py tests/test_jev_feature.py)
+..................................sssss................................. [ 96%]
+...                                                                      [100%]
+70 passed, 5 skipped in 41.40s
+
+[exit 0 in 43.3s]
+
+VERDICT: PASS 

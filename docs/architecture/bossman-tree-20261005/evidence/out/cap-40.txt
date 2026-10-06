@@ -1,0 +1,28 @@
+node_id: cap-40
+modules: ['command-center/bcc/features/missions.py']
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+
+node_id: _m_bcc_features_missions
+module: bcc.features.missions
+path: command-center/bcc/features/missions.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_capability_tree.py', 'command-center/tests/test_feat_missions.py', 'command-center/tests/test_mission010_execution_truth.py', 'command-center/tests/test_v21_e2e_mission.py', 'command-center/tests/test_v26_mission_plan_compile.py'] (candidates=5)
+
+$ python -c "importlib.import_module('bcc.features.missions')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.missions C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/missions.py
+
+[exit 0 in 0.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_capability_tree.py tests/test_feat_missions.py tests/test_mission010_execution_truth.py tests/test_v21_e2e_mission.py tests/test_v26_mission_plan_compile.py)
+..........................................s......                        [100%]
+============================== warnings summary ===============================
+tests/test_capability_tree.py::test_full_app_mounts_capability_tree
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\openapi\utils.py:303: UserWarning: Duplicate Operation ID file_commander_view_api_apps_file_commander_mini_view__app_path__post for function file_commander_view at C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\features\apps_control.py
+    warnings.warn(message, stacklevel=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+48 passed, 1 skipped, 1 warning in 41.18s
+
+[exit 0 in 43.5s]
+
+VERDICT: PASS 

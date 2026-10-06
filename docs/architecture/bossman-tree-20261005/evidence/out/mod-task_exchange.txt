@@ -1,0 +1,22 @@
+node_id: mod-task_exchange
+modules: ['command-center/bcc/features/task_exchange.py']
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+
+node_id: _m_bcc_features_task_exchange
+module: bcc.features.task_exchange
+path: command-center/bcc/features/task_exchange.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_task_exchange.py', 'command-center/tests/test_secrem_discovery.py', 'command-center/tests/test_secrem_sibling_sweep.py', 'command-center/tests/test_v6_apps_probe_cost.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bcc.features.task_exchange')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.task_exchange C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/task_exchange.py
+
+[exit 0 in 1.0s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_task_exchange.py tests/test_secrem_discovery.py tests/test_secrem_sibling_sweep.py tests/test_v6_apps_probe_cost.py)
+........................................................................ [100%]
+72 passed in 8.04s
+
+[exit 0 in 10.4s]
+
+VERDICT: PASS 

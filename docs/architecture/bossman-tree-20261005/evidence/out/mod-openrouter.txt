@@ -1,0 +1,37 @@
+node_id: mod-openrouter
+modules: ['command-center/bcc/features/openrouter.py']
+sha: d394085de749ae57c0778f158533470569b7d3e5
+
+node_id: _m_bcc_features_openrouter
+module: bcc.features.openrouter
+path: command-center/bcc/features/openrouter.py
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['command-center/tests/test_openrouter_connect_ui.py', 'command-center/tests/test_openrouter_provider_isolation.py', 'command-center/tests/v2/test_openrouter.py', 'command-center/tests/test_rc19_model_recovery.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bcc.features.openrouter')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.openrouter C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/openrouter.py
+
+[exit 0 in 0.9s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_openrouter_connect_ui.py tests/test_openrouter_provider_isolation.py tests/v2/test_openrouter.py tests/test_rc19_model_recovery.py)
+ss..........................................                             [100%]
+42 passed, 2 skipped in 41.78s
+
+[exit 0 in 43.8s]
+
+VERDICT: PASS 
+
+===== LIVE (free OpenRouter, $0) =====
+module: bcc.features.openrouter file inside worktree: OK
+connect: HTTP 200
+connect body: ok=True created=True models=466 catalog_error=None
+catalog: HTTP 200 free_items=16
+catalog: zero-priced :free models=16
+pin: nvidia/nemotron-3-ultra-550b-a55b:free -> model_id=1
+probe: HTTP 200
+  probe cap=chat advertised=True verified=True skipped=False detail=The user wants me to reply with exactly
+  probe cap=tools advertised=True verified=True skipped=False detail=[{"id": "call-6dafe6b7-8122-4d82-bef1-5726fa763ac0", "name": "bossman_probe", "arguments": {"value": 7}, "raw_arguments"
+  probe cap=structured_output advertised=False verified=None skipped=True detail=not advertised
+  probe cap=vision advertised=False verified=None skipped=True detail=not advertised
+  probe cap=streaming advertised=True verified=True skipped=False detail=stream_supported: 7 delta(s), 9 frame(s); The user wants me to count from 1 to 3. This is aThe user wants me to count fr
+RESULT verified_chat_model=nvidia/nemotron-3-ultra-550b-a55b:free cost=0 (price_in=price_out=0, :free only)

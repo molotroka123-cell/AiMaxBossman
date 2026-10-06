@@ -1,0 +1,13 @@
+module: bcc.features.openrouter file inside worktree: OK
+connect: HTTP 200
+connect body: ok=True created=True models=466 catalog_error=None
+catalog: HTTP 200 free_items=16
+catalog: zero-priced :free models=16
+pin: nvidia/nemotron-3-ultra-550b-a55b:free -> model_id=1
+probe: HTTP 200
+  probe cap=chat advertised=True verified=True skipped=False detail=The user wants me to reply with exactly
+  probe cap=tools advertised=True verified=True skipped=False detail=[{"id": "call-6dafe6b7-8122-4d82-bef1-5726fa763ac0", "name": "bossman_probe", "arguments": {"value": 7}, "raw_arguments"
+  probe cap=structured_output advertised=False verified=None skipped=True detail=not advertised
+  probe cap=vision advertised=False verified=None skipped=True detail=not advertised
+  probe cap=streaming advertised=True verified=True skipped=False detail=stream_supported: 7 delta(s), 9 frame(s); The user wants me to count from 1 to 3. This is aThe user wants me to count fr
+RESULT verified_chat_model=nvidia/nemotron-3-ultra-550b-a55b:free cost=0 (price_in=price_out=0, :free only)

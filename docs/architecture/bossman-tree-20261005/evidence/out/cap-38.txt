@@ -1,0 +1,23 @@
+node_id: cap-38
+modules: ['command-center/bcc/features/rave.py']
+sha: d394085de749ae57c0778f158533470569b7d3e5
+
+node_id: _m_bcc_features_rave
+module: bcc.features.rave
+path: command-center/bcc/features/rave.py
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['command-center/tests/test_rave_cli.py', 'command-center/tests/test_rave_engine.py', 'command-center/tests/test_rave_local_allow.py', 'command-center/tests/test_rave_owner_flow.py', 'command-center/tests/test_rave_pool.py', 'command-center/tests/test_rave_ui_flow.py'] (candidates=6)
+
+$ python -c "importlib.import_module('bcc.features.rave')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.rave C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/rave.py
+
+[exit 0 in 0.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_rave_cli.py tests/test_rave_engine.py tests/test_rave_local_allow.py tests/test_rave_owner_flow.py tests/test_rave_pool.py tests/test_rave_ui_flow.py)
+........................................................................ [ 80%]
+.................s                                                       [100%]
+89 passed, 1 skipped in 185.68s (0:03:05)
+
+[exit 0 in 188.7s]
+
+VERDICT: PASS 

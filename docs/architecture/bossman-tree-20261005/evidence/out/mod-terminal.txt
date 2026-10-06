@@ -1,0 +1,23 @@
+node_id: mod-terminal
+modules: ['command-center/bcc/features/terminal.py']
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+
+node_id: _m_bcc_features_terminal
+module: bcc.features.terminal
+path: command-center/bcc/features/terminal.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_terminal_backend_events.py', 'command-center/tests/test_terminal_chat_claude_parity.py', 'command-center/tests/test_terminal_chat_digit_args.py', 'command-center/tests/test_terminal_chat_models_unregistered.py', 'command-center/tests/test_terminal_cli_e2e.py', 'command-center/tests/test_terminal_cli_unit.py', 'command-center/tests/test_terminal_context_denial.py', 'command-center/tests/test_terminal_discovery_identity.py'] (candidates=16)
+
+$ python -c "importlib.import_module('bcc.features.terminal')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.terminal C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/terminal.py
+
+[exit 0 in 1.0s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_terminal_backend_events.py tests/test_terminal_chat_claude_parity.py tests/test_terminal_chat_digit_args.py tests/test_terminal_chat_models_unregistered.py tests/test_terminal_cli_e2e.py tests/test_terminal_cli_unit.py tests/test_terminal_context_denial.py tests/test_terminal_discovery_identity.py)
+................................s....................................... [ 64%]
+.......................................                                  [100%]
+110 passed, 1 skipped in 59.63s
+
+[exit 0 in 62.3s]
+
+VERDICT: PASS 

@@ -1,0 +1,703 @@
+[
+ {
+  "node_id": "cap-21",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.free_providers')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_free_providers.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:35:45+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "80198a0842859871681c25e3d85b3d2250323d6217da1a977cb512014f9f2624",
+  "output_tail": "node_id: cap-21\nmodules: ['command-center/bcc/features/free_providers.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_free_providers\nmodule: bcc.features.free_providers\npath: command-center/bcc/features/free_providers.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_free_providers.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.free_providers')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.free_providers C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/free_providers.py\n\n[exit 0 in 1.0s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_free_providers.py)\n......                                                                   [100%]\n6 passed in 3.42s\n\n[exit 0 in 5.4s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/free_providers.py"
+  ]
+ },
+ {
+  "node_id": "cap-25",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.tools_browser')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_reading_20260930.py tests/test_clip_guard.py tests/test_ops_terminal_browser.py tests/test_owner_input_v15.py tests/test_redteam_rc_20260921.py tests/test_secrem_browser_policy.py tests/test_secrem_f011_session_ownership.py tests/test_v21_tools_terminal_browser.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:35:46+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "8465282362e2c00ed4c0f5860b55bab725e512e219f7b05733405d6bf3c8a57c",
+  "output_tail": "back where the object was allocated.\n  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.\n    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))\n\ntests/test_redteam_rc_20260921.py::test_rt_f3_scope_policy_hostile_paths\n  C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\_pytest\\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-364 (_readerthread)\n  \n  Traceback (most recent call last):\n    File \"C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\threading.py\", line 1075, in _bootstrap_inner\n      self.run()\n    File \"C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\threading.py\", line 1012, in run\n      self._target(*self._args, **self._kwargs)\n    File \"C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\subprocess.py\", line 1599, in _readerthread\n      buffer.append(fh.read())\n                    ^^^^^^^^^\n    File \"<frozen codecs>\", line 322, in decode\n  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa4 in position 3: invalid start byte\n  \n  Enable tracemalloc to get traceback where the object was allocated.\n  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.\n    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n173 passed, 37 skipped, 3 warnings in 51.39s\n\n[exit 0 in 53.8s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/tools_browser.py"
+  ]
+ },
+ {
+  "node_id": "cap-26",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.jev')\" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jev_shadow_owner.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jev_bounded_router.py tests/test_jev_browser_fastpath.py tests/test_jev_decision.py tests/test_jev_feature.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:35:52+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "a980c2b5b0bcaa30df0103d10799c932206c041c8398730ce570edb9d27b84c9",
+  "output_tail": "node_id: cap-26\nmodules: ['command-center/bcc/features/jev.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_jev\nmodule: bcc.features.jev\npath: command-center/bcc/features/jev.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['tests/test_jev_shadow_owner.py', 'command-center/tests/test_jev_bounded_router.py', 'command-center/tests/test_jev_browser_fastpath.py', 'command-center/tests/test_jev_decision.py', 'command-center/tests/test_jev_feature.py'] (candidates=5)\n\n$ python -c \"importlib.import_module('bcc.features.jev')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.jev C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/jev.py\n\n[exit 0 in 1.0s]\n\n$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jev_shadow_owner.py)\n.....s.                                                                  [100%]\n6 passed, 1 skipped in 1.62s\n\n[exit 0 in 2.1s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jev_bounded_router.py tests/test_jev_browser_fastpath.py tests/test_jev_decision.py tests/test_jev_feature.py)\n..................................sssss................................. [ 96%]\n...                                                                      [100%]\n70 passed, 5 skipped in 41.40s\n\n[exit 0 in 43.3s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/jev.py"
+  ]
+ },
+ {
+  "node_id": "cap-40",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.missions')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_capability_tree.py tests/test_feat_missions.py tests/test_mission010_execution_truth.py tests/test_v21_e2e_mission.py tests/test_v26_mission_plan_compile.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:36:39+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "250cce1fb6444bd7b9b11be1fe5ce1751e754b902dcc2de90ce466a894726d60",
+  "output_tail": ": ['command-center/tests/test_capability_tree.py', 'command-center/tests/test_feat_missions.py', 'command-center/tests/test_mission010_execution_truth.py', 'command-center/tests/test_v21_e2e_mission.py', 'command-center/tests/test_v26_mission_plan_compile.py'] (candidates=5)\n\n$ python -c \"importlib.import_module('bcc.features.missions')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.missions C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/missions.py\n\n[exit 0 in 0.8s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_capability_tree.py tests/test_feat_missions.py tests/test_mission010_execution_truth.py tests/test_v21_e2e_mission.py tests/test_v26_mission_plan_compile.py)\n..........................................s......                        [100%]\n============================== warnings summary ===============================\ntests/test_capability_tree.py::test_full_app_mounts_capability_tree\n  C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\fastapi\\openapi\\utils.py:303: UserWarning: Duplicate Operation ID file_commander_view_api_apps_file_commander_mini_view__app_path__post for function file_commander_view at C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\features\\apps_control.py\n    warnings.warn(message, stacklevel=1)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n48 passed, 1 skipped, 1 warning in 41.18s\n\n[exit 0 in 43.5s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/missions.py"
+  ]
+ },
+ {
+  "node_id": "cap-41",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.control_plane')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_control_plane_autonomy_rave.py tests/telegram_calls/test_control_plane_calls.py tests/test_owner_control_view.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:36:41+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "ff035b995dfc613dd31f0c28a1a81224ab3fa01a058427e317ef8bab5d95d4eb",
+  "output_tail": "node_id: cap-41\nmodules: ['command-center/bcc/features/control_plane.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_control_plane\nmodule: bcc.features.control_plane\npath: command-center/bcc/features/control_plane.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_control_plane_autonomy_rave.py', 'command-center/tests/telegram_calls/test_control_plane_calls.py', 'command-center/tests/test_owner_control_view.py'] (candidates=3)\n\n$ python -c \"importlib.import_module('bcc.features.control_plane')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.control_plane C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/control_plane.py\n\n[exit 0 in 0.9s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_control_plane_autonomy_rave.py tests/telegram_calls/test_control_plane_calls.py tests/test_owner_control_view.py)\n.........................                                                [100%]\n25 passed in 25.78s\n\n[exit 0 in 28.1s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/control_plane.py"
+  ]
+ },
+ {
+  "node_id": "mod-action_router",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.action_router')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_action_router.py tests/test_chat_context_not_a_request.py tests/test_chat_threads.py tests/test_golden_missions.py tests/test_terminal_chat_claude_parity.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:37:10+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "2f359d475de229f2a7fcdf5594c60e5165b9482230562b5a4ce187c752b8821b",
+  "output_tail": "node_id: mod-action_router\nmodules: ['command-center/bcc/features/action_router.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_action_router\nmodule: bcc.features.action_router\npath: command-center/bcc/features/action_router.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_action_router.py', 'command-center/tests/test_chat_context_not_a_request.py', 'command-center/tests/test_chat_threads.py', 'command-center/tests/test_golden_missions.py', 'command-center/tests/test_terminal_chat_claude_parity.py'] (candidates=5)\n\n$ python -c \"importlib.import_module('bcc.features.action_router')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.action_router C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/action_router.py\n\n[exit 0 in 1.7s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_action_router.py tests/test_chat_context_not_a_request.py tests/test_chat_threads.py tests/test_golden_missions.py tests/test_terminal_chat_claude_parity.py)\n......ss..............................s................................. [ 79%]\n....s..............                                                      [100%]\n87 passed, 4 skipped in 81.97s (0:01:21)\n\n[exit 0 in 86.1s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/action_router.py"
+  ]
+ },
+ {
+  "node_id": "mod-browser",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.browser')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_approval_and_injection.py tests/test_browser_approvals_p1.py tests/test_browser_emulator_e2e.py tests/test_browser_headless_runpod.py tests/test_browser_pid_portability.py tests/test_browser_policy.py tests/test_browser_support_helper.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_download_b4.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:37:24+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "10e143738dee6952d0a4c3430bf856a56f9a0282da777b8458d1c50f1c0f542a",
+  "output_tail": "odule: bcc.features.browser\npath: command-center/bcc/features/browser.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['bossman-core/tests/test_browser_approval_and_injection.py', 'bossman-core/tests/test_browser_approvals_p1.py', 'bossman-core/tests/test_browser_emulator_e2e.py', 'bossman-core/tests/test_browser_headless_runpod.py', 'bossman-core/tests/test_browser_pid_portability.py', 'bossman-core/tests/test_browser_policy.py', 'bossman-core/tests/test_browser_support_helper.py', 'command-center/tests/test_browser_download_b4.py'] (candidates=22)\n\n$ python -c \"importlib.import_module('bcc.features.browser')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.browser C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/browser.py\n\n[exit 0 in 1.1s]\n\n$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_approval_and_injection.py tests/test_browser_approvals_p1.py tests/test_browser_emulator_e2e.py tests/test_browser_headless_runpod.py tests/test_browser_pid_portability.py tests/test_browser_policy.py tests/test_browser_support_helper.py)\n....................................................                     [100%]\n52 passed in 8.68s\n\n[exit 0 in 9.7s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_download_b4.py)\nssss                                                                     [100%]\n4 skipped in 0.23s\n\n[exit 0 in 1.9s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/browser.py"
+  ]
+ },
+ {
+  "node_id": "mod-browser_help",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.browser_help')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_help_lookup.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:37:37+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "941982c742654ab7243123d5c199697cfd8d4530def09c4e6eaacbf5219e8635",
+  "output_tail": "node_id: mod-browser_help\nmodules: ['command-center/bcc/features/browser_help.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_browser_help\nmodule: bcc.features.browser_help\npath: command-center/bcc/features/browser_help.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_browser_help_lookup.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.browser_help')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.browser_help C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/browser_help.py\n\n[exit 0 in 1.4s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_help_lookup.py)\n....................................................                     [100%]\n52 passed in 2.34s\n\n[exit 0 in 4.7s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/browser_help.py"
+  ]
+ },
+ {
+  "node_id": "mod-coding_limit_saver_v16",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.coding_limit_saver_v16')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_limit_saver_v16.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:37:44+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "142dba2ca52d691f99bdf9a46eb0d6b1ab2378bb657dc4b3fc578ece4f349c4a",
+  "output_tail": "node_id: mod-coding_limit_saver_v16\nmodules: ['command-center/bcc/features/coding_limit_saver_v16.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_coding_limit_saver_v16\nmodule: bcc.features.coding_limit_saver_v16\npath: command-center/bcc/features/coding_limit_saver_v16.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_coding_limit_saver_v16.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.coding_limit_saver_v16')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.coding_limit_saver_v16 C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/coding_limit_saver_v16.py\n\n[exit 0 in 0.8s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_limit_saver_v16.py)\n......                                                                   [100%]\n6 passed in 0.23s\n\n[exit 0 in 1.9s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/coding_limit_saver_v16.py"
+  ]
+ },
+ {
+  "node_id": "mod-control_plane",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.control_plane')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_control_plane_autonomy_rave.py tests/telegram_calls/test_control_plane_calls.py tests/test_owner_control_view.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:36:41+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "577e8d4a9d28c4fea09bc03fca0132febeec8e3e5b3a27fa2d4955eb8c5f1ca1",
+  "output_tail": "node_id: mod-control_plane\nmodules: ['command-center/bcc/features/control_plane.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_control_plane\nmodule: bcc.features.control_plane\npath: command-center/bcc/features/control_plane.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_control_plane_autonomy_rave.py', 'command-center/tests/telegram_calls/test_control_plane_calls.py', 'command-center/tests/test_owner_control_view.py'] (candidates=3)\n\n$ python -c \"importlib.import_module('bcc.features.control_plane')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.control_plane C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/control_plane.py\n\n[exit 0 in 0.9s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_control_plane_autonomy_rave.py tests/telegram_calls/test_control_plane_calls.py tests/test_owner_control_view.py)\n.........................                                                [100%]\n25 passed in 25.78s\n\n[exit 0 in 28.1s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/control_plane.py"
+  ]
+ },
+ {
+  "node_id": "mod-economy_swarm",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.economy_swarm')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_economy_swarm.py) && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_bossman_15_economy_scripts.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:38:38+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "d854c51d14a0ac90ce16bdf35e961500609054612358537949269fdb9f7efd5d",
+  "output_tail": "node_id: mod-economy_swarm\nmodules: ['command-center/bcc/features/economy_swarm.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_economy_swarm\nmodule: bcc.features.economy_swarm\npath: command-center/bcc/features/economy_swarm.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_economy_swarm.py', 'tests/test_bossman_15_economy_scripts.py'] (candidates=2)\n\n$ python -c \"importlib.import_module('bcc.features.economy_swarm')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.economy_swarm C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/economy_swarm.py\n\n[exit 0 in 1.0s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_economy_swarm.py)\n......                                                                   [100%]\n6 passed in 0.45s\n\n[exit 0 in 2.5s]\n\n$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_bossman_15_economy_scripts.py)\n.....                                                                    [100%]\n5 passed in 0.14s\n\n[exit 0 in 0.8s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/economy_swarm.py"
+  ]
+ },
+ {
+  "node_id": "mod-free_providers",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.free_providers')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_free_providers.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:35:45+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "7323206d0b85c8edd7c87659c2072d207b8a18fd62c0bf3c6a2be2ff62e6cec4",
+  "output_tail": "node_id: mod-free_providers\nmodules: ['command-center/bcc/features/free_providers.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_free_providers\nmodule: bcc.features.free_providers\npath: command-center/bcc/features/free_providers.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_free_providers.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.free_providers')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.free_providers C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/free_providers.py\n\n[exit 0 in 1.0s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_free_providers.py)\n......                                                                   [100%]\n6 passed in 3.42s\n\n[exit 0 in 5.4s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/free_providers.py"
+  ]
+ },
+ {
+  "node_id": "mod-jev",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.jev')\" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jev_shadow_owner.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jev_bounded_router.py tests/test_jev_browser_fastpath.py tests/test_jev_decision.py tests/test_jev_feature.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:35:52+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "29cffbf79ec747e782edcb1029255684145f34488ebb1b0768e13472ea8a6a8c",
+  "output_tail": "node_id: mod-jev\nmodules: ['command-center/bcc/features/jev.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_jev\nmodule: bcc.features.jev\npath: command-center/bcc/features/jev.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['tests/test_jev_shadow_owner.py', 'command-center/tests/test_jev_bounded_router.py', 'command-center/tests/test_jev_browser_fastpath.py', 'command-center/tests/test_jev_decision.py', 'command-center/tests/test_jev_feature.py'] (candidates=5)\n\n$ python -c \"importlib.import_module('bcc.features.jev')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.jev C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/jev.py\n\n[exit 0 in 1.0s]\n\n$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jev_shadow_owner.py)\n.....s.                                                                  [100%]\n6 passed, 1 skipped in 1.62s\n\n[exit 0 in 2.1s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jev_bounded_router.py tests/test_jev_browser_fastpath.py tests/test_jev_decision.py tests/test_jev_feature.py)\n..................................sssss................................. [ 96%]\n...                                                                      [100%]\n70 passed, 5 skipped in 41.40s\n\n[exit 0 in 43.3s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/jev.py"
+  ]
+ },
+ {
+  "node_id": "mod-missions",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.missions')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_capability_tree.py tests/test_feat_missions.py tests/test_mission010_execution_truth.py tests/test_v21_e2e_mission.py tests/test_v26_mission_plan_compile.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:36:39+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "cdf3526f89a57ecd1bac8d2c1bc212a07afb2cec7fd762ca1cc27e98b05895e7",
+  "output_tail": ": ['command-center/tests/test_capability_tree.py', 'command-center/tests/test_feat_missions.py', 'command-center/tests/test_mission010_execution_truth.py', 'command-center/tests/test_v21_e2e_mission.py', 'command-center/tests/test_v26_mission_plan_compile.py'] (candidates=5)\n\n$ python -c \"importlib.import_module('bcc.features.missions')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.missions C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/missions.py\n\n[exit 0 in 0.8s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_capability_tree.py tests/test_feat_missions.py tests/test_mission010_execution_truth.py tests/test_v21_e2e_mission.py tests/test_v26_mission_plan_compile.py)\n..........................................s......                        [100%]\n============================== warnings summary ===============================\ntests/test_capability_tree.py::test_full_app_mounts_capability_tree\n  C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\fastapi\\openapi\\utils.py:303: UserWarning: Duplicate Operation ID file_commander_view_api_apps_file_commander_mini_view__app_path__post for function file_commander_view at C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\features\\apps_control.py\n    warnings.warn(message, stacklevel=1)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n48 passed, 1 skipped, 1 warning in 41.18s\n\n[exit 0 in 43.5s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/missions.py"
+  ]
+ },
+ {
+  "node_id": "mod-nl_orchestra",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.nl_orchestra')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_nl_orchestra_parsing.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:38:43+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "8508f9915a04a277d8689d73bee104355836622a50bca6ee0d6e69f5cdc9bb44",
+  "output_tail": "node_id: mod-nl_orchestra\nmodules: ['command-center/bcc/features/nl_orchestra.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_nl_orchestra\nmodule: bcc.features.nl_orchestra\npath: command-center/bcc/features/nl_orchestra.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_nl_orchestra_parsing.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.nl_orchestra')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.nl_orchestra C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/nl_orchestra.py\n\n[exit 0 in 1.1s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_nl_orchestra_parsing.py)\n..............                                                           [100%]\n14 passed in 0.44s\n\n[exit 0 in 2.7s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/nl_orchestra.py"
+  ]
+ },
+ {
+  "node_id": "mod-nl_permissions",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.nl_permissions')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v21_nl_permissions.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:38:47+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "503c940aba742cf78356f51b1170b602d2144a17f2c8bac9740d69c99d7b0f8e",
+  "output_tail": "node_id: mod-nl_permissions\nmodules: ['command-center/bcc/features/nl_permissions.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_nl_permissions\nmodule: bcc.features.nl_permissions\npath: command-center/bcc/features/nl_permissions.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_v21_nl_permissions.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.nl_permissions')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.nl_permissions C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/nl_permissions.py\n\n[exit 0 in 1.0s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v21_nl_permissions.py)\n.............                                                            [100%]\n13 passed in 8.41s\n\n[exit 0 in 11.3s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/nl_permissions.py"
+  ]
+ },
+ {
+  "node_id": "mod-provider_fleet_v16",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.provider_fleet_v16')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_bossnet_foundation_v16.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:39:02+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "da088b454c5b416479787a47484056eca32522ece750d528149eed610dad0f1c",
+  "output_tail": "node_id: mod-provider_fleet_v16\nmodules: ['command-center/bcc/features/provider_fleet_v16.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_provider_fleet_v16\nmodule: bcc.features.provider_fleet_v16\npath: command-center/bcc/features/provider_fleet_v16.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_bossnet_foundation_v16.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.provider_fleet_v16')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.provider_fleet_v16 C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/provider_fleet_v16.py\n\n[exit 0 in 1.2s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_bossnet_foundation_v16.py)\n........                                                                 [100%]\n8 passed in 0.32s\n\n[exit 0 in 3.4s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/provider_fleet_v16.py"
+  ]
+ },
+ {
+  "node_id": "mod-router",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.router')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router_memory_pressure.py tests/test_jev_bounded_router.py tests/test_rc19_model_recovery.py tests/test_secrem_router_failclosed.py tests/test_v26_adaptive_router.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:39:07+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "4e96efc291fb11c8016850c17e045f3d6f2318c74b1e49695ce051cc41e2dc94",
+  "output_tail": "node_id: mod-router\nmodules: ['command-center/bcc/features/router.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_router\nmodule: bcc.features.router\npath: command-center/bcc/features/router.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['bossman-core/tests/test_router.py', 'command-center/tests/test_router_memory_pressure.py', 'command-center/tests/test_jev_bounded_router.py', 'command-center/tests/test_rc19_model_recovery.py', 'command-center/tests/test_secrem_router_failclosed.py', 'command-center/tests/test_v26_adaptive_router.py'] (candidates=6)\n\n$ python -c \"importlib.import_module('bcc.features.router')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.router C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/router.py\n\n[exit 0 in 1.5s]\n\n$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router.py)\n......                                                                   [100%]\n6 passed in 0.49s\n\n[exit 0 in 1.9s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router_memory_pressure.py tests/test_jev_bounded_router.py tests/test_rc19_model_recovery.py tests/test_secrem_router_failclosed.py tests/test_v26_adaptive_router.py)\n.....................................................                    [100%]\n53 passed in 47.30s\n\n[exit 0 in 51.0s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/router.py"
+  ]
+ },
+ {
+  "node_id": "mod-spend_meter",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.spend_meter')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_spend_meter.py tests/test_spend_meter_studio_source.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:39:12+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "80eb8c763c958de036e4ab0d05409c16c106d40c592567ac255dd67e97cd744c",
+  "output_tail": "node_id: mod-spend_meter\nmodules: ['command-center/bcc/features/spend_meter.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_spend_meter\nmodule: bcc.features.spend_meter\npath: command-center/bcc/features/spend_meter.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_spend_meter.py', 'command-center/tests/test_spend_meter_studio_source.py'] (candidates=2)\n\n$ python -c \"importlib.import_module('bcc.features.spend_meter')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.spend_meter C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/spend_meter.py\n\n[exit 0 in 1.3s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_spend_meter.py tests/test_spend_meter_studio_source.py)\n.........                                                                [100%]\n9 passed in 11.90s\n\n[exit 0 in 15.5s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/spend_meter.py"
+  ]
+ },
+ {
+  "node_id": "mod-task_exchange",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.task_exchange')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_task_exchange.py tests/test_secrem_discovery.py tests/test_secrem_sibling_sweep.py tests/test_v6_apps_probe_cost.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:39:29+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "31d8fae4d7cccc3ff8f51ea3fae0fedacfdff926fecc3afa9bfd8a01d3af2cb8",
+  "output_tail": "node_id: mod-task_exchange\nmodules: ['command-center/bcc/features/task_exchange.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_task_exchange\nmodule: bcc.features.task_exchange\npath: command-center/bcc/features/task_exchange.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_task_exchange.py', 'command-center/tests/test_secrem_discovery.py', 'command-center/tests/test_secrem_sibling_sweep.py', 'command-center/tests/test_v6_apps_probe_cost.py'] (candidates=4)\n\n$ python -c \"importlib.import_module('bcc.features.task_exchange')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.task_exchange C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/task_exchange.py\n\n[exit 0 in 1.0s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_task_exchange.py tests/test_secrem_discovery.py tests/test_secrem_sibling_sweep.py tests/test_v6_apps_probe_cost.py)\n........................................................................ [100%]\n72 passed in 8.04s\n\n[exit 0 in 10.4s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/task_exchange.py"
+  ]
+ },
+ {
+  "node_id": "mod-terminal",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.terminal')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_terminal_backend_events.py tests/test_terminal_chat_claude_parity.py tests/test_terminal_chat_digit_args.py tests/test_terminal_chat_models_unregistered.py tests/test_terminal_cli_e2e.py tests/test_terminal_cli_unit.py tests/test_terminal_context_denial.py tests/test_terminal_discovery_identity.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:39:41+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "89dbe6d14740e5499962b47a957263867cf7fcfdeeda9d20d3edf1d32c5e23ce",
+  "output_tail": "a01f190e2\n\nnode_id: _m_bcc_features_terminal\nmodule: bcc.features.terminal\npath: command-center/bcc/features/terminal.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_terminal_backend_events.py', 'command-center/tests/test_terminal_chat_claude_parity.py', 'command-center/tests/test_terminal_chat_digit_args.py', 'command-center/tests/test_terminal_chat_models_unregistered.py', 'command-center/tests/test_terminal_cli_e2e.py', 'command-center/tests/test_terminal_cli_unit.py', 'command-center/tests/test_terminal_context_denial.py', 'command-center/tests/test_terminal_discovery_identity.py'] (candidates=16)\n\n$ python -c \"importlib.import_module('bcc.features.terminal')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.terminal C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/terminal.py\n\n[exit 0 in 1.0s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_terminal_backend_events.py tests/test_terminal_chat_claude_parity.py tests/test_terminal_chat_digit_args.py tests/test_terminal_chat_models_unregistered.py tests/test_terminal_cli_e2e.py tests/test_terminal_cli_unit.py tests/test_terminal_context_denial.py tests/test_terminal_discovery_identity.py)\n................................s....................................... [ 64%]\n.......................................                                  [100%]\n110 passed, 1 skipped in 59.63s\n\n[exit 0 in 62.3s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/terminal.py"
+  ]
+ },
+ {
+  "node_id": "mod-tools_browser",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.tools_browser')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_reading_20260930.py tests/test_clip_guard.py tests/test_ops_terminal_browser.py tests/test_owner_input_v15.py tests/test_redteam_rc_20260921.py tests/test_secrem_browser_policy.py tests/test_secrem_f011_session_ownership.py tests/test_v21_tools_terminal_browser.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:35:46+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "83cb83635255303f3749b0f66b4ad6f05210ca92a7018b69fd2b7911b2250f42",
+  "output_tail": "back where the object was allocated.\n  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.\n    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))\n\ntests/test_redteam_rc_20260921.py::test_rt_f3_scope_policy_hostile_paths\n  C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\_pytest\\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-364 (_readerthread)\n  \n  Traceback (most recent call last):\n    File \"C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\threading.py\", line 1075, in _bootstrap_inner\n      self.run()\n    File \"C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\threading.py\", line 1012, in run\n      self._target(*self._args, **self._kwargs)\n    File \"C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\subprocess.py\", line 1599, in _readerthread\n      buffer.append(fh.read())\n                    ^^^^^^^^^\n    File \"<frozen codecs>\", line 322, in decode\n  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa4 in position 3: invalid start byte\n  \n  Enable tracemalloc to get traceback where the object was allocated.\n  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.\n    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n173 passed, 37 skipped, 3 warnings in 51.39s\n\n[exit 0 in 53.8s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/tools_browser.py"
+  ]
+ },
+ {
+  "node_id": "mod-tools_computer",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.tools_computer')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_stop_race.py tests/test_computer_use_tools.py tests/test_computer_verify_and_approval.py tests/test_cu_audit_orphan_replay.py tests/test_cu_rc19_hardening.py tests/test_owner_stop_lifecycle.py tests/test_redteam_rc_20260921.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:40:01+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "28c8670f1af0042cb92012dfc4046c3f040345686441be1d25cb7cfab80922bc",
+  "output_tail": "re the object was allocated.\n  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.\n    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))\n\ntests/test_redteam_rc_20260921.py::test_rt_f3_scope_policy_hostile_paths\n  C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\_pytest\\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-634 (_readerthread)\n  \n  Traceback (most recent call last):\n    File \"C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\threading.py\", line 1075, in _bootstrap_inner\n      self.run()\n    File \"C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\threading.py\", line 1012, in run\n      self._target(*self._args, **self._kwargs)\n    File \"C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\subprocess.py\", line 1599, in _readerthread\n      buffer.append(fh.read())\n                    ^^^^^^^^^\n    File \"<frozen codecs>\", line 322, in decode\n  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa4 in position 3: invalid start byte\n  \n  Enable tracemalloc to get traceback where the object was allocated.\n  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.\n    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n97 passed, 6 skipped, 3 warnings in 97.13s (0:01:37)\n\n[exit 0 in 99.9s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/tools_computer.py"
+  ]
+ },
+ {
+  "node_id": "mod-tools_terminal",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.tools_terminal')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_clip_guard.py tests/test_feat_terminal_map.py tests/test_secrem_f009_terminal.py tests/test_secrem_s3_sandbox_default_deny.py tests/test_terminal_context_denial.py tests/test_terminal_remote_script_binding.py tests/test_terminal_remote_script_dispatch.py tests/test_terminal_unrecoverable_delete.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:40:27+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "bd111e0b45e573a0e627018aa77fdaf031bbba33167a01bc6ce14effb9d56e50",
+  "output_tail": "located.\n  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.\n    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))\n\ntests/test_secrem_f009_terminal.py::test_ap001_a_planted_token_outside_the_roots_is_never_exfiltrated\n  C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\_pytest\\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-157 (_readerthread)\n  \n  Traceback (most recent call last):\n    File \"C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\threading.py\", line 1075, in _bootstrap_inner\n      self.run()\n    File \"C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\threading.py\", line 1012, in run\n      self._target(*self._args, **self._kwargs)\n    File \"C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\subprocess.py\", line 1599, in _readerthread\n      buffer.append(fh.read())\n                    ^^^^^^^^^\n    File \"<frozen codecs>\", line 322, in decode\n  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa4 in position 3: invalid start byte\n  \n  Enable tracemalloc to get traceback where the object was allocated.\n  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.\n    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n129 passed, 2 skipped, 2 warnings in 33.18s\n\n[exit 0 in 35.7s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/tools_terminal.py"
+  ]
+ },
+ {
+  "node_id": "mod-v15_economy",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.v15_economy')\" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_economy_orchestrator.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_economy_feature.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:40:45+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "44493dae719945ceeddd3c919f20ff35a27ebd5ffc349d33253643b93d65dae9",
+  "output_tail": "node_id: mod-v15_economy\nmodules: ['command-center/bcc/features/v15_economy.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_v15_economy\nmodule: bcc.features.v15_economy\npath: command-center/bcc/features/v15_economy.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['tests/test_v15_economy_orchestrator.py', 'command-center/tests/test_v15_economy_feature.py'] (candidates=2)\n\n$ python -c \"importlib.import_module('bcc.features.v15_economy')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.v15_economy C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/v15_economy.py\n\n[exit 0 in 0.8s]\n\n$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_economy_orchestrator.py)\n.....                                                                    [100%]\n5 passed in 0.35s\n\n[exit 0 in 1.2s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_economy_feature.py)\n....                                                                     [100%]\n4 passed in 0.43s\n\n[exit 0 in 2.2s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/v15_economy.py"
+  ]
+ },
+ {
+  "node_id": "free-NVIDIA-NIM",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.free_providers')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_free_providers.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:35:45+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "613a03dd5974aeceb57f9c6f12d2d4ac93e751005733e41cbda3389314a3c79a",
+  "output_tail": "node_id: free-NVIDIA-NIM\nmodules: ['command-center/bcc/features/free_providers.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_free_providers\nmodule: bcc.features.free_providers\npath: command-center/bcc/features/free_providers.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_free_providers.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.free_providers')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.free_providers C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/free_providers.py\n\n[exit 0 in 1.0s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_free_providers.py)\n......                                                                   [100%]\n6 passed in 3.42s\n\n[exit 0 in 5.4s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/free_providers.py"
+  ]
+ },
+ {
+  "node_id": "free-Groq",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.free_providers')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_free_providers.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:35:45+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "3373254c7cd4b29d52635db3bf9ff9efe1d16c76dd1f89734c799e2631e1b065",
+  "output_tail": "node_id: free-Groq\nmodules: ['command-center/bcc/features/free_providers.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_free_providers\nmodule: bcc.features.free_providers\npath: command-center/bcc/features/free_providers.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_free_providers.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.free_providers')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.free_providers C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/free_providers.py\n\n[exit 0 in 1.0s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_free_providers.py)\n......                                                                   [100%]\n6 passed in 3.42s\n\n[exit 0 in 5.4s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/free_providers.py"
+  ]
+ },
+ {
+  "node_id": "free-Google-AI-Studio",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.free_providers')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_free_providers.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:35:45+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "f2ed73927b8d6bafb57254b703524cb7f95208c6b3a2006efadcfedbc6042c53",
+  "output_tail": "node_id: free-Google-AI-Studio\nmodules: ['command-center/bcc/features/free_providers.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_free_providers\nmodule: bcc.features.free_providers\npath: command-center/bcc/features/free_providers.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_free_providers.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.free_providers')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.free_providers C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/free_providers.py\n\n[exit 0 in 1.0s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_free_providers.py)\n......                                                                   [100%]\n6 passed in 3.42s\n\n[exit 0 in 5.4s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/free_providers.py"
+  ]
+ },
+ {
+  "node_id": "agents-graph",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest (incl. test_leaf_* authored_by_lane)",
+  "command": "python -c \"importlib.import_module('bcc.features.agentmap')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_agentmap.py) && python -c \"importlib.import_module('bcc.v2.agent_graph')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_agentmap.py) && python -c \"importlib.import_module('bcc.v2.orchestration_schema')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_feat_nl_orchestra.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:40:49+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "8bacddfc14841348905f7c0036b7e74ca180da844ee1b544133d5717815102c4",
+  "output_tail": "]\n4 passed in 3.02s\n\n[exit 0 in 5.3s]\n\nVERDICT: PASS \n\n=====\nnode_id: _m_bcc_v2_agent_graph\nmodule: bcc.v2.agent_graph\npath: command-center/bcc/v2/agent_graph.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_leaf_agentmap.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.v2.agent_graph')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.v2.agent_graph C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/v2/agent_graph.py\n\n[exit 0 in 0.1s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_agentmap.py)\n....                                                                     [100%]\n4 passed in 2.95s\n\n[exit 0 in 5.4s]\n\nVERDICT: PASS \n\n=====\nnode_id: _m_bcc_v2_orchestration_schema\nmodule: bcc.v2.orchestration_schema\npath: command-center/bcc/v2/orchestration_schema.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_feat_nl_orchestra.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.v2.orchestration_schema')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.v2.orchestration_schema C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/v2/orchestration_schema.py\n\n[exit 0 in 0.1s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_feat_nl_orchestra.py)\n.....                                                                    [100%]\n5 passed in 5.00s\n\n[exit 0 in 7.6s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/agentmap.py",
+   "command-center/bcc/v2/agent_graph.py",
+   "command-center/bcc/v2/orchestration_schema.py"
+  ]
+ },
+ {
+  "node_id": "agents-lab",
+  "sha": "679d019e3978696b6c2ae4db52eef46a01f190e2",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.lab_agents')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_lab_agents.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:41:04+00:00",
+  "finished_at": "2026-10-06T22:41:42+00:00",
+  "output_sha256": "0ff51d69ffa33b9a1e0a70f148a94eb1935247385426424dbdfcf704d1c19760",
+  "output_tail": "node_id: agents-lab\nmodules: ['command-center/bcc/features/lab_agents.py']\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\n\nnode_id: _m_bcc_features_lab_agents\nmodule: bcc.features.lab_agents\npath: command-center/bcc/features/lab_agents.py\nsha: 679d019e3978696b6c2ae4db52eef46a01f190e2\ntest_files: ['command-center/tests/test_lab_agents.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.lab_agents')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.lab_agents C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/lab_agents.py\n\n[exit 0 in 0.9s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_lab_agents.py)\n..........                                                               [100%]\n10 passed in 9.79s\n\n[exit 0 in 12.2s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/lab_agents.py"
+  ]
+ },
+ {
+  "node_id": "cap-23",
+  "sha": "d394085de749ae57c0778f158533470569b7d3e5",
+  "probe": "import+pytest (incl. test_leaf_* authored_by_lane)",
+  "command": "python -c \"importlib.import_module('bcc.features.cache_intel')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_cache_intel.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:42:04+00:00",
+  "finished_at": "2026-10-06T22:42:14+00:00",
+  "output_sha256": "dbbed7709d843005c3d44076b6f0f18924d2e8f2f3cff99997960b3d6e77e97f",
+  "output_tail": "node_id: cap-23\nmodules: ['command-center/bcc/features/cache_intel.py']\nsha: d394085de749ae57c0778f158533470569b7d3e5\n\nnode_id: _m_bcc_features_cache_intel\nmodule: bcc.features.cache_intel\npath: command-center/bcc/features/cache_intel.py\nsha: d394085de749ae57c0778f158533470569b7d3e5\ntest_files: ['command-center/tests/test_leaf_cache_intel.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.cache_intel')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.cache_intel C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/cache_intel.py\n\n[exit 0 in 1.5s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_cache_intel.py)\n.....                                                                    [100%]\n5 passed in 4.50s\n\n[exit 0 in 6.8s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/cache_intel.py"
+  ]
+ },
+ {
+  "node_id": "cap-39",
+  "sha": "d394085de749ae57c0778f158533470569b7d3e5",
+  "probe": "import+pytest (incl. test_leaf_* authored_by_lane)",
+  "command": "python -c \"importlib.import_module('bcc.features.coding_sessions')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_coding_sessions.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:42:04+00:00",
+  "finished_at": "2026-10-06T22:42:14+00:00",
+  "output_sha256": "b06eb59a69c87c3400f9cec034a475d83185798d5ce41a156d4657c506531316",
+  "output_tail": "node_id: cap-39\nmodules: ['command-center/bcc/features/coding_sessions.py']\nsha: d394085de749ae57c0778f158533470569b7d3e5\n\nnode_id: _m_bcc_features_coding_sessions\nmodule: bcc.features.coding_sessions\npath: command-center/bcc/features/coding_sessions.py\nsha: d394085de749ae57c0778f158533470569b7d3e5\ntest_files: ['command-center/tests/test_leaf_coding_sessions.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.coding_sessions')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.coding_sessions C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/coding_sessions.py\n\n[exit 0 in 1.5s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_coding_sessions.py)\n.....                                                                    [100%]\n5 passed in 3.79s\n\n[exit 0 in 6.2s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/coding_sessions.py"
+  ]
+ },
+ {
+  "node_id": "mod-cache_intel",
+  "sha": "d394085de749ae57c0778f158533470569b7d3e5",
+  "probe": "import+pytest (incl. test_leaf_* authored_by_lane)",
+  "command": "python -c \"importlib.import_module('bcc.features.cache_intel')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_cache_intel.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:42:04+00:00",
+  "finished_at": "2026-10-06T22:42:14+00:00",
+  "output_sha256": "22ee3e7adfffb022bedd832a743d5ecd0d0e227146b2e4f98bfb26b474220b5b",
+  "output_tail": "node_id: mod-cache_intel\nmodules: ['command-center/bcc/features/cache_intel.py']\nsha: d394085de749ae57c0778f158533470569b7d3e5\n\nnode_id: _m_bcc_features_cache_intel\nmodule: bcc.features.cache_intel\npath: command-center/bcc/features/cache_intel.py\nsha: d394085de749ae57c0778f158533470569b7d3e5\ntest_files: ['command-center/tests/test_leaf_cache_intel.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.cache_intel')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.cache_intel C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/cache_intel.py\n\n[exit 0 in 1.5s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_cache_intel.py)\n.....                                                                    [100%]\n5 passed in 4.50s\n\n[exit 0 in 6.8s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/cache_intel.py"
+  ]
+ },
+ {
+  "node_id": "mod-coding_sessions",
+  "sha": "d394085de749ae57c0778f158533470569b7d3e5",
+  "probe": "import+pytest (incl. test_leaf_* authored_by_lane)",
+  "command": "python -c \"importlib.import_module('bcc.features.coding_sessions')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_coding_sessions.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:42:04+00:00",
+  "finished_at": "2026-10-06T22:42:14+00:00",
+  "output_sha256": "47410fc3c4a391d8e464bf5bb33b90355445facaf92f0bdaf62d55e11e23aa9e",
+  "output_tail": "node_id: mod-coding_sessions\nmodules: ['command-center/bcc/features/coding_sessions.py']\nsha: d394085de749ae57c0778f158533470569b7d3e5\n\nnode_id: _m_bcc_features_coding_sessions\nmodule: bcc.features.coding_sessions\npath: command-center/bcc/features/coding_sessions.py\nsha: d394085de749ae57c0778f158533470569b7d3e5\ntest_files: ['command-center/tests/test_leaf_coding_sessions.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.coding_sessions')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.coding_sessions C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/coding_sessions.py\n\n[exit 0 in 1.5s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_coding_sessions.py)\n.....                                                                    [100%]\n5 passed in 3.79s\n\n[exit 0 in 6.2s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/coding_sessions.py"
+  ]
+ },
+ {
+  "node_id": "mod-organization",
+  "sha": "d394085de749ae57c0778f158533470569b7d3e5",
+  "probe": "import+pytest (incl. test_leaf_* authored_by_lane)",
+  "command": "python -c \"importlib.import_module('bcc.features.organization')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_organization.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:42:04+00:00",
+  "finished_at": "2026-10-06T22:42:14+00:00",
+  "output_sha256": "5fa9eab70c0b86d24becfa8c4805393a0ccf2d2b2092a998fa2492788846b2fb",
+  "output_tail": "node_id: mod-organization\nmodules: ['command-center/bcc/features/organization.py']\nsha: d394085de749ae57c0778f158533470569b7d3e5\n\nnode_id: _m_bcc_features_organization\nmodule: bcc.features.organization\npath: command-center/bcc/features/organization.py\nsha: d394085de749ae57c0778f158533470569b7d3e5\ntest_files: ['command-center/tests/test_leaf_organization.py'] (candidates=1)\n\n$ python -c \"importlib.import_module('bcc.features.organization')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.organization C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/organization.py\n\n[exit 0 in 1.5s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_organization.py)\n..                                                                       [100%]\n2 passed in 2.17s\n\n[exit 0 in 4.4s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/organization.py"
+  ]
+ },
+ {
+  "node_id": "cap-38",
+  "sha": "d394085de749ae57c0778f158533470569b7d3e5",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.rave')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_rave_cli.py tests/test_rave_engine.py tests/test_rave_local_allow.py tests/test_rave_owner_flow.py tests/test_rave_pool.py tests/test_rave_ui_flow.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:43:44+00:00",
+  "finished_at": "2026-10-06T22:49:28+00:00",
+  "output_sha256": "b0f864029a76a6f94cbb1f19e5812eb0e932e7a7c639d22abce50465e22ad0d3",
+  "output_tail": "node_id: cap-38\nmodules: ['command-center/bcc/features/rave.py']\nsha: d394085de749ae57c0778f158533470569b7d3e5\n\nnode_id: _m_bcc_features_rave\nmodule: bcc.features.rave\npath: command-center/bcc/features/rave.py\nsha: d394085de749ae57c0778f158533470569b7d3e5\ntest_files: ['command-center/tests/test_rave_cli.py', 'command-center/tests/test_rave_engine.py', 'command-center/tests/test_rave_local_allow.py', 'command-center/tests/test_rave_owner_flow.py', 'command-center/tests/test_rave_pool.py', 'command-center/tests/test_rave_ui_flow.py'] (candidates=6)\n\n$ python -c \"importlib.import_module('bcc.features.rave')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.rave C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/rave.py\n\n[exit 0 in 0.8s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_rave_cli.py tests/test_rave_engine.py tests/test_rave_local_allow.py tests/test_rave_owner_flow.py tests/test_rave_pool.py tests/test_rave_ui_flow.py)\n........................................................................ [ 80%]\n.................s                                                       [100%]\n89 passed, 1 skipped in 185.68s (0:03:05)\n\n[exit 0 in 188.7s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/rave.py"
+  ]
+ },
+ {
+  "node_id": "mod-coding_recipes",
+  "sha": "d394085de749ae57c0778f158533470569b7d3e5",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.coding_recipes')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_recipes.py tests/test_coding_tasks_local_sidecar.py) && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_evolution_loop.py tests/test_tree_self_repair_cycle.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:43:44+00:00",
+  "finished_at": "2026-10-06T22:49:28+00:00",
+  "output_sha256": "589a6eeda16a588dfebd513d2b7ae5f4096b01405a3ea87e094166a7a2b89799",
+  "output_tail": "node_id: mod-coding_recipes\nmodules: ['command-center/bcc/features/coding_recipes.py']\nsha: d394085de749ae57c0778f158533470569b7d3e5\n\nnode_id: _m_bcc_features_coding_recipes\nmodule: bcc.features.coding_recipes\npath: command-center/bcc/features/coding_recipes.py\nsha: d394085de749ae57c0778f158533470569b7d3e5\ntest_files: ['command-center/tests/test_coding_recipes.py', 'tests/test_evolution_loop.py', 'tests/test_tree_self_repair_cycle.py', 'command-center/tests/test_coding_tasks_local_sidecar.py'] (candidates=4)\n\n$ python -c \"importlib.import_module('bcc.features.coding_recipes')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.coding_recipes C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/coding_recipes.py\n\n[exit 0 in 0.8s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_recipes.py tests/test_coding_tasks_local_sidecar.py)\n.....................................                                    [100%]\n37 passed in 41.35s\n\n[exit 0 in 44.0s]\n\n$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_evolution_loop.py tests/test_tree_self_repair_cycle.py)\n...............................                                          [100%]\n31 passed in 153.47s (0:02:33)\n\n[exit 0 in 154.5s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/coding_recipes.py"
+  ]
+ },
+ {
+  "node_id": "mod-coding_tasks",
+  "sha": "d394085de749ae57c0778f158533470569b7d3e5",
+  "probe": "import+pytest (incl. test_leaf_* authored_by_lane)",
+  "command": "python -c \"importlib.import_module('bcc.features.coding_tasks')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_tasks.py tests/test_coding_tasks_cloud_readiness.py tests/test_coding_tasks_local_sidecar.py tests/test_capability_tree.py tests/test_coding_apply.py tests/test_coding_workers.py tests/test_lab_agents.py tests/test_leaf_plugins_real_handlers.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:46:54+00:00",
+  "finished_at": "2026-10-06T22:49:28+00:00",
+  "output_sha256": "9e2d18f8f98c6862105f7fd2c8939205759dfed52550f26f9a2b69dd1db45c56",
+  "output_tail": ", 'command-center/tests/test_leaf_plugins_real_handlers.py'] (candidates=10)\n\n$ python -c \"importlib.import_module('bcc.features.coding_tasks')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.coding_tasks C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/coding_tasks.py\n\n[exit 0 in 1.3s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_tasks.py tests/test_coding_tasks_cloud_readiness.py tests/test_coding_tasks_local_sidecar.py tests/test_capability_tree.py tests/test_coding_apply.py tests/test_coding_workers.py tests/test_lab_agents.py tests/test_leaf_plugins_real_handlers.py)\n........................................................................ [ 70%]\n.............................s                                           [100%]\n============================== warnings summary ===============================\ntests/test_capability_tree.py::test_full_app_mounts_capability_tree\n  C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\fastapi\\openapi\\utils.py:303: UserWarning: Duplicate Operation ID file_commander_view_api_apps_file_commander_mini_view__app_path__get for function file_commander_view at C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\features\\apps_control.py\n    warnings.warn(message, stacklevel=1)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n101 passed, 1 skipped, 1 warning in 149.34s (0:02:29)\n\n[exit 0 in 152.4s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/coding_tasks.py"
+  ]
+ },
+ {
+  "node_id": "mod-rave",
+  "sha": "d394085de749ae57c0778f158533470569b7d3e5",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.rave')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_rave_cli.py tests/test_rave_engine.py tests/test_rave_local_allow.py tests/test_rave_owner_flow.py tests/test_rave_pool.py tests/test_rave_ui_flow.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:43:44+00:00",
+  "finished_at": "2026-10-06T22:49:28+00:00",
+  "output_sha256": "34938c4fec4026886e163b2a74fa7a4284d30038dd83df5e9f7fc5edfef35cb9",
+  "output_tail": "node_id: mod-rave\nmodules: ['command-center/bcc/features/rave.py']\nsha: d394085de749ae57c0778f158533470569b7d3e5\n\nnode_id: _m_bcc_features_rave\nmodule: bcc.features.rave\npath: command-center/bcc/features/rave.py\nsha: d394085de749ae57c0778f158533470569b7d3e5\ntest_files: ['command-center/tests/test_rave_cli.py', 'command-center/tests/test_rave_engine.py', 'command-center/tests/test_rave_local_allow.py', 'command-center/tests/test_rave_owner_flow.py', 'command-center/tests/test_rave_pool.py', 'command-center/tests/test_rave_ui_flow.py'] (candidates=6)\n\n$ python -c \"importlib.import_module('bcc.features.rave')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.rave C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/rave.py\n\n[exit 0 in 0.8s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_rave_cli.py tests/test_rave_engine.py tests/test_rave_local_allow.py tests/test_rave_owner_flow.py tests/test_rave_pool.py tests/test_rave_ui_flow.py)\n........................................................................ [ 80%]\n.................s                                                       [100%]\n89 passed, 1 skipped in 185.68s (0:03:05)\n\n[exit 0 in 188.7s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/rave.py"
+  ]
+ },
+ {
+  "node_id": "cap-22",
+  "sha": "d394085de749ae57c0778f158533470569b7d3e5",
+  "probe": "import+pytest + live free OpenRouter connect/catalog/pin/probe",
+  "command": "python -c \"importlib.import_module('bcc.features.openrouter')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_openrouter_connect_ui.py tests/test_openrouter_provider_isolation.py tests/v2/test_openrouter.py tests/test_rc19_model_recovery.py) && python tools/tree_proof/agcloud_live_probe.py",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:50:38+00:00",
+  "finished_at": "2026-10-06T22:51:23+00:00",
+  "output_sha256": "6f4c09e383e4d079b14fd9156261ced9b273a47540790514059f689d7ec73d6a",
+  "output_tail": "uter.py\n\n[exit 0 in 0.9s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_openrouter_connect_ui.py tests/test_openrouter_provider_isolation.py tests/v2/test_openrouter.py tests/test_rc19_model_recovery.py)\nss..........................................                             [100%]\n42 passed, 2 skipped in 41.78s\n\n[exit 0 in 43.8s]\n\nVERDICT: PASS \n\n===== LIVE (free OpenRouter, $0) =====\nmodule: bcc.features.openrouter file inside worktree: OK\nconnect: HTTP 200\nconnect body: ok=True created=True models=466 catalog_error=None\ncatalog: HTTP 200 free_items=16\ncatalog: zero-priced :free models=16\npin: nvidia/nemotron-3-ultra-550b-a55b:free -> model_id=1\nprobe: HTTP 200\n  probe cap=chat advertised=True verified=True skipped=False detail=The user wants me to reply with exactly\n  probe cap=tools advertised=True verified=True skipped=False detail=[{\"id\": \"call-6dafe6b7-8122-4d82-bef1-5726fa763ac0\", \"name\": \"bossman_probe\", \"arguments\": {\"value\": 7}, \"raw_arguments\"\n  probe cap=structured_output advertised=False verified=None skipped=True detail=not advertised\n  probe cap=vision advertised=False verified=None skipped=True detail=not advertised\n  probe cap=streaming advertised=True verified=True skipped=False detail=stream_supported: 7 delta(s), 9 frame(s); The user wants me to count from 1 to 3. This is aThe user wants me to count fr\nRESULT verified_chat_model=nvidia/nemotron-3-ultra-550b-a55b:free cost=0 (price_in=price_out=0, :free only)\n",
+  "verdict": "PASS",
+  "kind": "live_call",
+  "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/openrouter.py"
+  ]
+ },
+ {
+  "node_id": "mod-openrouter",
+  "sha": "d394085de749ae57c0778f158533470569b7d3e5",
+  "probe": "import+pytest + live free OpenRouter connect/catalog/pin/probe",
+  "command": "python -c \"importlib.import_module('bcc.features.openrouter')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_openrouter_connect_ui.py tests/test_openrouter_provider_isolation.py tests/v2/test_openrouter.py tests/test_rc19_model_recovery.py) && python tools/tree_proof/agcloud_live_probe.py",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:50:38+00:00",
+  "finished_at": "2026-10-06T22:51:23+00:00",
+  "output_sha256": "94ab87d018cb5b5094a145cdd0c0606d1293fa0e9fe81c3c41dd2054205dec13",
+  "output_tail": "uter.py\n\n[exit 0 in 0.9s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_openrouter_connect_ui.py tests/test_openrouter_provider_isolation.py tests/v2/test_openrouter.py tests/test_rc19_model_recovery.py)\nss..........................................                             [100%]\n42 passed, 2 skipped in 41.78s\n\n[exit 0 in 43.8s]\n\nVERDICT: PASS \n\n===== LIVE (free OpenRouter, $0) =====\nmodule: bcc.features.openrouter file inside worktree: OK\nconnect: HTTP 200\nconnect body: ok=True created=True models=466 catalog_error=None\ncatalog: HTTP 200 free_items=16\ncatalog: zero-priced :free models=16\npin: nvidia/nemotron-3-ultra-550b-a55b:free -> model_id=1\nprobe: HTTP 200\n  probe cap=chat advertised=True verified=True skipped=False detail=The user wants me to reply with exactly\n  probe cap=tools advertised=True verified=True skipped=False detail=[{\"id\": \"call-6dafe6b7-8122-4d82-bef1-5726fa763ac0\", \"name\": \"bossman_probe\", \"arguments\": {\"value\": 7}, \"raw_arguments\"\n  probe cap=structured_output advertised=False verified=None skipped=True detail=not advertised\n  probe cap=vision advertised=False verified=None skipped=True detail=not advertised\n  probe cap=streaming advertised=True verified=True skipped=False detail=stream_supported: 7 delta(s), 9 frame(s); The user wants me to count from 1 to 3. This is aThe user wants me to count fr\nRESULT verified_chat_model=nvidia/nemotron-3-ultra-550b-a55b:free cost=0 (price_in=price_out=0, :free only)\n",
+  "verdict": "PASS",
+  "kind": "live_call",
+  "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "reason": "",
+  "modules": [
+   "command-center/bcc/features/openrouter.py"
+  ]
+ }
+]

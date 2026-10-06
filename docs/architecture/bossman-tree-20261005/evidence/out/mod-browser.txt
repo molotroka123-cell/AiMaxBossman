@@ -1,0 +1,28 @@
+node_id: mod-browser
+modules: ['command-center/bcc/features/browser.py']
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+
+node_id: _m_bcc_features_browser
+module: bcc.features.browser
+path: command-center/bcc/features/browser.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['bossman-core/tests/test_browser_approval_and_injection.py', 'bossman-core/tests/test_browser_approvals_p1.py', 'bossman-core/tests/test_browser_emulator_e2e.py', 'bossman-core/tests/test_browser_headless_runpod.py', 'bossman-core/tests/test_browser_pid_portability.py', 'bossman-core/tests/test_browser_policy.py', 'bossman-core/tests/test_browser_support_helper.py', 'command-center/tests/test_browser_download_b4.py'] (candidates=22)
+
+$ python -c "importlib.import_module('bcc.features.browser')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.browser C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/browser.py
+
+[exit 0 in 1.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_approval_and_injection.py tests/test_browser_approvals_p1.py tests/test_browser_emulator_e2e.py tests/test_browser_headless_runpod.py tests/test_browser_pid_portability.py tests/test_browser_policy.py tests/test_browser_support_helper.py)
+....................................................                     [100%]
+52 passed in 8.68s
+
+[exit 0 in 9.7s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_download_b4.py)
+ssss                                                                     [100%]
+4 skipped in 0.23s
+
+[exit 0 in 1.9s]
+
+VERDICT: PASS 
