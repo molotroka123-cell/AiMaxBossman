@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 EVID = ROOT / "docs" / "architecture" / "bossman-tree-20261005" / "evidence"
 SEED = ROOT / "command-center" / "bcc" / "capability_tree_seed.json"
-KINDS = {"import", "pytest", "live_call", "ui"}
+KINDS = {"import", "pytest", "live_call", "ui", "audit"}
 ELIGIBLE = {"code", "branch"}
 REQUIRED = ("node_id", "sha", "probe", "command", "exit_code", "started_at",
             "finished_at", "output_sha256", "output_tail", "verdict", "kind")
@@ -75,8 +75,12 @@ def validate_receipt(rc, nodes: dict, parents: set, evid: Path, repo: Path) -> s
         return "not a leaf"
     if nodes[nid].get("status") not in ELIGIBLE:
         return f"status {nodes[nid].get('status')} not eligible"
-    if rc["verdict"] != "PASS":
+    if rc["verdict"] not in ("PASS", "RETIRE"):
         return "verdict not PASS"
+    if rc["verdict"] == "RETIRE" and (rc["kind"] != "audit" or len(str(rc.get("reason", "")).strip()) < 20):
+        return "retire needs kind=audit and a reason"
+    if rc["verdict"] == "PASS" and rc["kind"] == "audit":
+        return "audit receipts cannot turn green"
     if isinstance(rc["exit_code"], bool) or rc["exit_code"] != 0:
         return "exit_code != 0"
     if not isinstance(rc["command"], str) or not rc["command"].strip():
@@ -129,8 +133,12 @@ def apply(seed_path: Path = SEED, evid: Path = EVID, repo: Path = ROOT, write: b
             continue
         node = nodes[rc["node_id"]]
         date = str(rc["finished_at"])[:10]
-        node["status"] = "reported"
-        node["detail"] = (node.get("detail", "") + f" Прогон {date} @ {rc['sha'][:8]}: {rc['probe']}").strip()
+        if rc["verdict"] == "RETIRE":
+            node["status"] = "retired"
+            node["detail"] = (node.get("detail", "") + f" Выбыл {date} @ {rc['sha'][:8]}: {rc['reason']}").strip()
+        else:
+            node["status"] = "reported"
+            node["detail"] = (node.get("detail", "") + f" Прогон {date} @ {rc['sha'][:8]}: {rc['probe']}").strip()
         ref = f"docs/architecture/bossman-tree-20261005/evidence/{lane}#{rc['node_id']}"
         node.setdefault("sources", []).append(ref)
         accepted.append((lane, rc["node_id"], zone_of(nodes, rc["node_id"])))
@@ -144,7 +152,7 @@ def apply(seed_path: Path = SEED, evid: Path = EVID, repo: Path = ROOT, write: b
 
 def export(seed: dict, evid: Path) -> None:
     nodes = [{"id": n["id"], "label": n["label"], "parent": n.get("parent"), "status": n["status"],
-              "short": (n.get("detail") or "")[:160]} for n in seed["nodes"]]
+              "short": (n.get("detail") or "")[:160]} for n in seed["nodes"] if n["status"] != "retired"]
     evid.mkdir(parents=True, exist_ok=True)
     (evid / "tree.export.json").write_text(
         json.dumps({"schema": 1, "as_of": seed.get("as_of"), "nodes": nodes}, ensure_ascii=False, indent=1) + "\n",

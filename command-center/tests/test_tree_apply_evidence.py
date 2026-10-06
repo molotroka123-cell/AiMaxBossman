@@ -86,3 +86,16 @@ def test_dry_run_does_not_write(tmp_path):
 
 def test_scrub():
     assert "sk-" not in t.scrub("key sk-abcdefghijklmnopqrstuvwx end")
+
+
+def test_retire_is_audit_only_and_never_green(tmp_path):
+    repo, sha, seed, evid = _setup(tmp_path)
+    assert _run(repo, seed, evid, [_rc(sha, evid, verdict="RETIRE", kind="import", reason="x" * 30)])["accepted"] == []
+    assert _run(repo, seed, evid, [_rc(sha, evid, verdict="RETIRE", kind="audit", reason="short")])["accepted"] == []
+    assert _run(repo, seed, evid, [_rc(sha, evid, verdict="PASS", kind="audit")])["accepted"] == []
+    r = _run(repo, seed, evid, [_rc(sha, evid, verdict="RETIRE", kind="audit", reason="no importers, no route, no tests")], write=True)
+    assert len(r["accepted"]) == 1
+    st = {n["id"]: n["status"] for n in json.loads(seed.read_text(encoding="utf-8"))["nodes"]}
+    assert st["leaf"] == "retired"
+    exp = json.loads((evid / "tree.export.json").read_text(encoding="utf-8"))
+    assert "leaf" not in {n["id"] for n in exp["nodes"]}
