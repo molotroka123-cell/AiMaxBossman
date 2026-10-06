@@ -85,3 +85,11 @@ def test_a_module_re_exported_by_its_package_is_attributed_to_tests_that_import_
     assert bla.tests_for("bossman-core/bossman/guard/service.py", imports, {}) == ["t/test_guard.py"]
     assert bla.tests_for("bossman-core/bossman/guard/hidden.py", imports, {}) == []          # not re-exported: still untested
     assert bla.reexported_by_package("bossman-core/bossman/guard/__init__.py") is None
+
+
+def test_feature_modules_loaded_by_the_registry_are_found_by_test_name_as_the_weakest_basis():
+    imports = {"c/tests/test_feat_nl_orchestra.py": set(), "c/tests/test_nl_orchestra_parsing.py": set(), "c/tests/test_other.py": set()}
+    got = bla.tests_by_name("command-center/bcc/features/nl_orchestra.py", imports)
+    assert got == ["c/tests/test_feat_nl_orchestra.py", "c/tests/test_nl_orchestra_parsing.py"]
+    assert bla.tests_by_name("command-center/bcc/pit/nl_orchestra.py", imports) == []        # only the features directory
+    assert bla.tests_by_name("command-center/bcc/features/rave.py", imports) == []

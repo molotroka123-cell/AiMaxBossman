@@ -12,9 +12,9 @@ ai-webcam-vision 224 passed. Все JUnit-файлы и инструмент в�
 
 | Вердикт | Листьев | Что это значит |
 |---|---:|---|
-| covered | 439 | тесты, импортирующие модуль, прошли на этом прогоне |
-| covered-skipped | 2 | тесты есть, но не выполнялись (пропущены) |
-| untested | 33 | ни один тест не импортирует этот исходник |
+| covered | 452 | тесты, импортирующие модуль, прошли на этом прогоне |
+| covered-skipped | 4 | тесты есть, но не выполнялись (пропущены) |
+| untested | 18 | ни один тест не импортирует этот исходник |
 | non-python | 1 | не Python-источник, автотест не сопоставлен |
 
 ## Чего аудит НЕ доказывает (важно)
@@ -27,9 +27,9 @@ ai-webcam-vision 224 passed. Все JUnit-файлы и инструмент в�
 
 ## Решения по листьям (механические, по вердикту)
 
-* `covered` (439): **оставить в продукте**, дальше измерять пользу на задачах с базовым уровнем (не сделано).
-* `untested` (33): **доработать — добавить тест** до любых выводов (список ниже). За этот проход закрыт `bcc/pit/secret_filter.py` (15 тестов) — он учтён уже как покрытый.
-* `covered-skipped` (2, UI покера): **доработать** — проверка вживую в браузере; в облаке e2e-тесты страницы запускались отдельно (2 passed), в полном прогоне пропущены.
+* `covered` (452): **оставить в продукте**, дальше измерять пользу на задачах с базовым уровнем (не сделано).
+* `untested` (18): **доработать — добавить тест** до любых выводов (список ниже). За этот проход закрыт `bcc/pit/secret_filter.py` (15 тестов) — он учтён уже как покрытый.
+* `covered-skipped` (4, UI покера): **доработать** — проверка вживую в браузере; в облаке e2e-тесты страницы запускались отдельно (2 passed), в полном прогоне пропущены.
 * `non-python` (1): **отложить** до решения владельца.
 * **Исключено: 0.** Дубликаты кода не искались; найдено другое: у **28** исходных файлов больше одного листа (109 листьев делят файл с другим листом — «возможность» и «модуль» на один и тот же файл).
   Это дубли в карте, а не в коде; свёртка карты — отдельная работа, без проверки на действующих сценариях не делается.
@@ -42,27 +42,26 @@ ai-webcam-vision 224 passed. Все JUnit-файлы и инструмент в�
 * `command-center`, `test_the_wheel_carries_the_interface` и `test_real_chromium_app_window_renders_command_center`: падают **только в этой песочнице** (нет предустановленного Chromium по пути `/opt/pw-browsers/chromium-1243`, ограничения сборки wheel). В CI эти два теста проходили; на ПК не проверялось.
 * Незакрытые внешние гейты: `Intelligence Preservation` / `measured intelligence retention` (нужны парные замеры владельца), Windows-артефакт (ждёт раннера), самообучение (нужен ПК с ключами).
 
-## Листья без единого теста (33)
+## Зоны «Память и обучение» и «Агенты и оркестрация»
 
-Метод приписывает тест модулю, если тест его импортирует, загружает скрипт по пути или импортирует пакет, чей `__init__.py` реэкспортирует модуль (последнее добавлено после того, как первая версия аудита дала 60 «без теста»: `bossman/learning_guard/service.py` покрыт `test_learning_guard.py` через реэкспорт). Остаток — это оценка сверху: часть модулей может проверяться косвенно и всё равно значиться здесь.
+* Память и обучение: 57 синих листьев — {'covered': 57}.
+* Агенты и оркестрация: 19 — {'covered-skipped': 2, 'untested': 2, 'covered': 15}.
+* За этот проход добавлены тесты: `bossman/context_engine/telemetry.py` (4), помощники разбора `bcc/features/nl_orchestra.py` (14; нашли дефект: имя модели с дефисом, написанное ПОСЛЕ роли («главный ghost-model»), не помечалось как неизвестное, окно поиска слева было 5 знаков вместо 40 — исправлено, тест падает на старом коде).
+* Польза этих листьев не измерена; «проверено» не ставится.
+
+## Листья без единого теста (18)
+
+Основание сопоставления: импорт/путь — 445, по имени теста — 11 (самое слабое: модули `bcc/features` грузятся реестром и проверяются через HTTP, поэтому тест называется по модулю), нет — 19.
+Метод приписывает тест модулю, если тест его импортирует, загружает скрипт по пути, импортирует пакет с реэкспортом модуля или (слабее всего) называется по модулю в `test_feat_<имя>`. Остаток «без теста» — оценка сверху.
 
 | зона | id | исходник |
 |---|---|---|
 | agents | `cap-39` | `command-center/bcc/features/coding_sessions.py` |
 | agents | `mod-coding_sessions` | `command-center/bcc/features/coding_sessions.py` |
-| agents | `mod-nl_orchestra` | `command-center/bcc/features/nl_orchestra.py` |
-| agents | `mod-organization` | `command-center/bcc/features/organization.py` |
-| agents | `cap-38` | `command-center/bcc/features/rave.py` |
-| agents | `mod-rave` | `command-center/bcc/features/rave.py` |
-| computer | `cap-26` | `command-center/bcc/features/jev.py` |
-| computer | `mod-jev` | `command-center/bcc/features/jev.py` |
 | jeff | `module-d794cbd77cf3` | `command-center/bcc/pit/categories.py` |
 | jeff | `module-4a1f6b8497c8` | `command-center/bcc/pit/master_parser/corpus.py` |
 | jeff | `module-09f63bf64e58` | `command-center/bcc/pit/master_parser/passport_sink.py` |
-| media | `cap-30` | `command-center/bcc/features/studio.py` |
-| media | `mod-studio` | `command-center/bcc/features/studio.py` |
 | media | `mod-studio_review` | `command-center/bcc/features/studio_review.py` |
-| memory | `module-54de14cfacf9` | `bossman-core/bossman/context_engine/telemetry.py` |
 | ops | `module-73976a1cf54d` | `bossman-core/bossman/apprentice/_bootstrap.py` |
 | ops | `module-771a003071ca` | `bossman-core/bossman/benchmark/fixture_runtime.py` |
 | ops | `module-d3f5977af5ba` | `bossman-core/bossman/benchmark/sandbox_row.py` |
@@ -74,10 +73,4 @@ ai-webcam-vision 224 passed. Все JUnit-файлы и инструмент в�
 | ops | `module-ae9598734759` | `bossman-core/bossman/toolkit/office.py` |
 | ops | `mod-agentmap` | `command-center/bcc/features/agentmap.py` |
 | ops | `mod-benchlab` | `command-center/bcc/features/benchlab.py` |
-| ops | `mod-jeff_master_parser` | `command-center/bcc/features/jeff_master_parser.py` |
-| ops | `mod-opencode` | `command-center/bcc/features/opencode.py` |
-| ops | `mod-oss_integrations` | `command-center/bcc/features/oss_integrations.py` |
-| ops | `mod-owner_input` | `command-center/bcc/features/owner_input.py` |
-| ops | `mod-workflow` | `command-center/bcc/features/workflow.py` |
-| plugins | `plugins-oss` | `command-center/bcc/features/oss_integrations.py` |
 | pv | `pv-eval` | `apps/poker-vision/pokervision/eval/run_eval.py` |

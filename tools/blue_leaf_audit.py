@@ -129,6 +129,16 @@ RUN_DIRS = {"core": "bossman-core", "core-rerun": "bossman-core", "cc-rerun": "c
             "poker-lora": "apps/poker-lora", "ai-webcam-vision": "apps/ai-webcam-vision"}
 
 
+def tests_by_name(source: str, imports: dict[str, set[str]]) -> list[str]:
+    """Weakest attribution, used only when nothing imports the module: features are loaded by the registry and exercised over HTTP, so
+    their tests are named after them (``test_feat_<name>*.py`` / ``test_<name>*.py``). A name match is NOT proof that the test exercises the module."""
+    p = source.replace("\\", "/")
+    if "/bcc/features/" not in p or not p.endswith(".py"):
+        return []
+    stem = p.rsplit("/", 1)[1][:-3]
+    return sorted(t for t in imports if t.rsplit("/", 1)[1].startswith((f"test_feat_{stem}", f"test_{stem}")))
+
+
 def read_junit(files: list[Path]) -> dict[str, dict[str, int]]:
     """repo-relative test file -> {passed, failed, skipped}, from JUnit files named after the run (see RUN_DIRS)."""
     res: dict[str, dict[str, int]] = defaultdict(lambda: {"passed": 0, "failed": 0, "skipped": 0})
@@ -198,12 +208,16 @@ def main(argv: list[str] | None = None) -> int:
     for n in leaves:
         srcs = [s["path"] for s in n.get("sources", []) if s.get("path")]
         files = sorted({t for s in srcs for t in tests_for(s, imports, texts)})
+        basis = "import-or-path"
+        if not files:
+            files = sorted({t for s in srcs for t in tests_by_name(s, imports)})
+            basis = "name" if files else "none"
         outcomes = outcome_by_file(junit, files) if junit else {}
         v = classify({"sources": srcs}, files, outcomes)
         rows.append({"id": n["id"], "label": n["label"], "zone": n["parent"], "sources": srcs, "tests": files,
                      "passed": sum(o["passed"] for o in outcomes.values()),
                      "failed": sum(o["failed"] for o in outcomes.values()),
-                     "skipped": sum(o["skipped"] for o in outcomes.values()), **v})
+                     "skipped": sum(o["skipped"] for o in outcomes.values()), "basis": basis, **v})
     summary: dict[str, int] = defaultdict(int)
     for r in rows:
         summary[r["verdict"]] += 1
