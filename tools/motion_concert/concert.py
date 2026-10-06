@@ -48,7 +48,9 @@ OUT_W, OUT_H, OUT_FPS = 854, 480, 24          # final 16:9; 832x480 sources are 
 GEN_W, GEN_H = 832, 480
 S2V = {"model": "wan2.2_s2v_14B_fp8_scaled.safetensors", "text_encoder": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
        "vae": "wan_2.1_vae.safetensors", "audio_encoder": "wav2vec2_large_english_fp16.safetensors",
-       "steps": 20, "cfg": 6.0, "shift": 8.0, "sampler": "uni_pc", "scheduler": "simple",
+       "steps": 4, "cfg": 1.0, "shift": 8.0, "sampler": "uni_pc", "scheduler": "simple",
+       # owner-PC 06.10: 20 steps/CFG6 = ~2.9 h per shot; Lightning 4 steps/CFG1 = ~34 min, checked on fragment A
+       "lora": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors",
        "width": GEN_W, "height": GEN_H, "length": 77, "fps": 16}
 S2V_MAX_S = S2V["length"] / S2V["fps"]        # 4.8125 s: one S2V generation must cover its slot
 I2V = {"model": "Wan2.2-TI2V-5B-Q8_0.gguf", "vae": "wan2.2_vae.safetensors", "t5xxl": "umt5-xxl-encoder-Q8_0.gguf",
@@ -278,13 +280,14 @@ def build_plan(analysis: dict, duration: float, refs_dir: Path, s2v_target: floa
             ref = INSERTS[ins % len(INSERTS)]
             ins += 1
             prompt = I2V_PROMPT[ref]
-            params = dict(I2V, video_frames=i2v_frames(dur))
+            # owner-PC 06.10: TI2V-5B via sd.cpp measured ~4.7 h per 5 s insert; inserts use the S2V engine instead
+            params = dict(S2V)
         shots.append({
             "id": f"s{n:03d}", "take": 0, "start_s": round(blk["start_s"], 6), "end_s": round(blk["end_s"], 6),
             "dur_s": round(dur, 6), "start_frame": round(blk["start_s"] * OUT_FPS), "end_frame": round(blk["end_s"] * OUT_FPS),
             "kind": blk["kind"], "section": blk["section"], "energy": blk["energy"],
             "reference": {"name": ref, "path": str(refs_dir / REFS[ref]), "sha256": ref_sha[ref]},
-            "prompt": prompt, "negative": S2V_NEG if blk["kind"] == "s2v" else None,
+            "prompt": prompt, "negative": S2V_NEG,
             "seed": SEED_BASE + n, "params": params, "status": "planned", "output": None, "runs": []})
     return shots
 
@@ -420,7 +423,7 @@ def s2v_graph(shot: dict, audio_name: str, image_name: str, prefix: str) -> dict
         "7": {"class_type": "LoadImage", "inputs": {"image": image_name}},
         "8": {"class_type": "CLIPTextEncode", "inputs": {"text": shot["prompt"], "clip": ["2", 0]}},
         "9": {"class_type": "CLIPTextEncode", "inputs": {"text": shot["negative"] or "", "clip": ["2", 0]}},
-        "10": {"class_type": "ModelSamplingSD3", "inputs": {"shift": p["shift"], "model": ["1", 0]}},
+        "10": {"class_type": "ModelSamplingSD3", "inputs": {"shift": p["shift"], "model": ["15", 0] if p.get("lora") else ["1", 0]}},
         "11": {"class_type": "WanSoundImageToVideo", "inputs": {"positive": ["8", 0], "negative": ["9", 0], "vae": ["3", 0],
                "width": p["width"], "height": p["height"], "length": p["length"], "batch_size": 1,
                "audio_encoder_output": ["6", 0], "ref_image": ["7", 0]}},
@@ -429,6 +432,8 @@ def s2v_graph(shot: dict, audio_name: str, image_name: str, prefix: str) -> dict
                "negative": ["11", 1], "latent_image": ["11", 2], "denoise": 1.0}},
         "13": {"class_type": "VAEDecode", "inputs": {"samples": ["12", 0], "vae": ["3", 0]}},
         "14": {"class_type": "SaveImage", "inputs": {"images": ["13", 0], "filename_prefix": prefix}},
+        **({"15": {"class_type": "LoraLoaderModelOnly", "inputs": {"lora_name": p["lora"], "strength_model": 1.0,
+                                                                  "model": ["1", 0]}}} if p.get("lora") else {}),
     }
 
 
@@ -465,7 +470,8 @@ class Comfy:
         self.P.logs.mkdir(parents=True, exist_ok=True)
         self.log = open(self.P.logs / "comfyui.log", "a", encoding="utf-8")
         self.proc = subprocess.Popen([str(COMFY_PY), "main.py", "--listen", "127.0.0.1", "--port", str(COMFY_PORT),
-                                      "--disable-auto-launch"], cwd=COMFY, stdout=self.log, stderr=subprocess.STDOUT)
+                                      "--disable-auto-launch"], cwd=COMFY, stdout=self.log, stderr=subprocess.STDOUT,
+                                     env={**os.environ, "TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL": "1"})
         for _ in range(300):
             if comfy_up():
                 break
@@ -634,7 +640,7 @@ def cmd_run(P: Paths, a) -> int:
     try:
         for s in todo:
             check_stop(P)
-            if s["kind"] == "i2v" and comfy.proc is not None:
+            if "audio_encoder" not in s["params"] and comfy.proc is not None:
                 comfy.stop()                        # free the GPU before sd-cli starts
             s["take"] = int(s.get("take", 0)) + 1
             rec = {"take": s["take"], "started": time.strftime("%Y-%m-%dT%H:%M:%S"), "seed": s["seed"],
@@ -643,7 +649,7 @@ def cmd_run(P: Paths, a) -> int:
             save_manifest(P, m)
             t0 = time.time()
             try:
-                out = comfy.generate(P, m, s, rec, a.shot_timeout) if s["kind"] == "s2v" \
+                out = comfy.generate(P, m, s, rec, a.shot_timeout) if "audio_encoder" in s["params"] \
                     else i2v_generate(P, s, rec, a.shot_timeout)
                 ok, why = shot_output_ok(out, s["end_s"] - s["start_s"])
                 if not ok:

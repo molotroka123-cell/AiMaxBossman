@@ -55,10 +55,11 @@ def test_plan_split_is_about_70_30_with_rotating_inserts(tmp_path):
     assert all(s["reference"]["name"] == "singer" for s in shots if s["kind"] == "s2v")
     inserts = [s["reference"]["name"] for s in sorted(shots, key=lambda s: s["start_s"]) if s["kind"] == "i2v"]
     assert inserts[:4] == concert.INSERTS
+    # owner PC 06.10: TI2V-5B inserts measured ~4.7 h per 5 s, so inserts render with the same S2V engine
     for s in shots:
-        if s["kind"] == "i2v":
-            n = s["params"]["video_frames"]
-            assert n % 4 == 1 and n / 24 >= s["end_s"] - s["start_s"]
+        p = s["params"]
+        assert p["audio_encoder"] and p["steps"] == 4 and p["cfg"] == 1.0 and p["lora"]
+        assert p["length"] / p["fps"] >= s["end_s"] - s["start_s"]
 
 
 def test_assemble_copies_original_audio_and_marks_gaps(tmp_path, capsys):
