@@ -380,11 +380,25 @@ def stage_composite(job: Path, frames, mode: str) -> None:
         Image.fromarray((src * (1 - soft) + gen * soft).astype(np.uint8)).save(out / f"{i:04d}.png")
 
 
+_MP4_AUDIO_COPY = {"aac", "mp3", "alac", "opus"}
+
+
+def _audio_codec(src: Path) -> str | None:
+    probe = subprocess.run([ffmpeg_bin("ffprobe"), "-v", "error", "-select_streams", "a:0", "-show_entries",
+                            "stream=codec_name", "-of", "csv=p=0", str(src)], capture_output=True, text=True)
+    return probe.stdout.strip() or None
+
+
 def stage_encode(job: Path, src: Path, fps: int, start: float) -> Path:
     mp4 = job / "out.mp4"
+    n = len(list((job / "final").glob("*.png")))
+    # The source audio is copied, not re-encoded, when mp4 can hold it (owner 06.10), and cut to the video's
+    # exact length instead of -shortest; other codecs fall back to AAC.
+    codec = _audio_codec(src)
+    acodec = ["-c:a", "copy"] if codec in _MP4_AUDIO_COPY else ["-c:a", "aac"]
     subprocess.run([ffmpeg_bin("ffmpeg"), "-v", "error", "-y", "-framerate", str(fps), "-i", str(job / "final" / "%04d.png"),
                     "-ss", str(start), "-i", str(src), "-map", "0:v", "-map", "1:a?", "-c:v", "libx264", "-pix_fmt",
-                    "yuv420p", "-crf", "16", "-preset", "slow", "-c:a", "aac", "-shortest", str(mp4)], check=True)
+                    "yuv420p", "-crf", "16", "-preset", "slow", *acodec, "-t", f"{n / fps:.6f}", str(mp4)], check=True)
     # side-by-side review: source | control | result
     subprocess.run([ffmpeg_bin("ffmpeg"), "-v", "error", "-y", "-framerate", str(fps), "-i", str(job / "src" / "%04d.png"),
                     "-framerate", str(fps), "-i", str(job / "ctrl" / "%04d.png"), "-framerate", str(fps),
