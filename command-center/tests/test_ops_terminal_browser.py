@@ -687,6 +687,11 @@ async def test_browser_sessions_close_when_their_task_ends(env, monkeypatch):
     async def closed():
         return fake.stopped == [s1] or None
     await wait_for(closed, timeout=10)
+    # the handler stops the browser first and records "stopped" right after: wait for the row too, not only the
+    # browser call (CI py3.11 on 94327840 read "running" in between)
+    async def row_stopped():
+        return await _row_status(env, s1) == "stopped" or None
+    await wait_for(row_stopped, timeout=10)
     assert await _row_status(env, s1) == "stopped"
     assert await _row_status(env, s2) == "running", "чужая задача не должна терять браузер"
     assert await _row_status(env, s_done) == "stopped"
