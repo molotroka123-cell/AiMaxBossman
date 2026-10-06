@@ -229,3 +229,9 @@ Local bundle, PostgreSQL, Shipped app contracts, Solana, motion studio, root-ci.
 ## 9. Что осталось владельцу
 Собрать и поставить пакет (п. 3, `OWNER_MORNING_20261006.md`); комментарий с замером на коммите для `Intelligence Preservation`; `bossman call setup`; запись голоса 1–3 мин; GitHub environment для секрета `BOSSMAN_OPENROUTER_API_KEY`
 (аудит #9); утренний прогон самоулучшения (п. 7); решения по веткам (`handoff/continuation-20260929`, `feat/bossman-autonomy-funding`, `scratch/root-ci-debug-19`); merge PR в `main` — только вы.
+
+
+## Дополнение 06.10 (после финального отчёта): красный `pytest (py3.11)` в PR-прогоне `2f76be7b`
+- Что упало: `tests/test_answer_streaming.py::test_first_delta_reaches_event_stream_before_model_finishes` (1 из 8137; push-прогон того же SHA и py3.12/py3.14 — зелёные). Признак: `Left contains one more item: 25`.
+- Первопричина (воспроизведена, а не предположена): `TaskEngine._finish()` ставит `completed` и шлёт `task.completed`, а `task.finalized` (seq 25) эмитится ПОСЛЕ (`bcc/finalize.py`). Тест ждал только `status == completed`, снимал `all_now`, затем `tail`; поздний `task.finalized` попадал между снимками. Это гонка теста, продукт работает как задумано (порядок событий не менялся).
+- Воспроизведение: задержка эмита `task.finalized` на 0,3 с + пауза 0,6 с между снимками -> старый тест падает с тем же `Left contains one more item: 25`; исправленный проходит при той же задержке. Фикс: `done()` ждёт и `completed`, и событие `task.finalized`. Ограничение: это моё прямое воспроизведение механизма, а не повтор падения на раннере; частоту в CI я не измерял. Файл целиком: 7 passed x5 локально.

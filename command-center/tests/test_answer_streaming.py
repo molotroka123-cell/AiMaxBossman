@@ -141,8 +141,10 @@ async def test_first_delta_reaches_event_stream_before_model_finishes(tmp_path):
             gate.set()
 
             async def done():
+                # `_finish()` flips the status to completed BEFORE the finalizer emits `task.finalized`
+                # (bcc/finalize.py); snapshotting on the status alone races that last event.
                 t = (await client.get(f"/api/tasks/{tid}")).json()["task"]
-                return t["status"] == "completed"
+                return t["status"] == "completed" and "task.finalized" in [e["kind"] for e in await _events(client, tid)]
             await wait_for(done, timeout=15)
             evs = await _events(client, tid)
             answers = [e for e in evs if e["kind"] == "run.answer_delta"]
