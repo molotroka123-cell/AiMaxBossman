@@ -553,6 +553,29 @@ def _same_path(a: str, b: Path) -> bool:
         return False
 
 
+def process_kind(line: str) -> str | None:
+    """Which Bossman process a command line is (None: not one of ours)."""
+    if re.search(r"-m\s+bcc(\.app)?(\s|$)", line):
+        return "backend"
+    if "bcc.pit.cli" in line and re.search(r"\sstart(\s|$)", line):
+        return "jeff"
+    if "bcc.telegram_companion" in line:
+        return "companion"
+    if "bcc.desktop" in line or "bcc.jeff_desktop" in line:
+        return "window"
+    return None
+
+
+def data_dir_arg(cmd: list[str]) -> str | None:
+    """``--data-dir D`` and ``--data-dir=D`` (a launcher script may use either form)."""
+    for i, part in enumerate(cmd):
+        if part == "--data-dir" and i + 1 < len(cmd):
+            return cmd[i + 1]
+        if part.startswith("--data-dir="):
+            return part.split("=", 1)[1]
+    return None
+
+
 def find_processes(data_dir: Path) -> list[dict[str, Any]]:
     """Every Bossman process that serves or polls ``data_dir`` (needs psutil: system Python).
 
@@ -565,15 +588,7 @@ def find_processes(data_dir: Path) -> list[dict[str, Any]]:
         if not cmd or not str(p.info.get("name") or "").lower().startswith("python"):
             continue
         line = " ".join(cmd)
-        kind = None
-        if re.search(r"-m\s+bcc(\.app)?(\s|$)", line):
-            kind = "backend"
-        elif "bcc.pit.cli" in line and " start" in line:
-            kind = "jeff"
-        elif "bcc.telegram_companion" in line:
-            kind = "companion"
-        elif "bcc.desktop" in line or "bcc.jeff_desktop" in line:
-            kind = "window"
+        kind = process_kind(line)
         if not kind:
             continue
         try:
@@ -584,8 +599,9 @@ def find_processes(data_dir: Path) -> list[dict[str, Any]]:
         if not env.get("BCC_DATA_DIR") and "\\runtime\\python" in cmd[0].lower() and env.get("LOCALAPPDATA"):
             # an installed build without BCC_DATA_DIR serves %LOCALAPPDATA%\Bossman\CommandCenter
             mine = mine or _same_path(str(Path(env["LOCALAPPDATA"]) / "Bossman" / "CommandCenter"), data_dir)
-        if "--data-dir" in cmd:
-            mine = mine or _same_path(cmd[cmd.index("--data-dir") + 1], data_dir)
+        arg = data_dir_arg(cmd)
+        if arg:
+            mine = mine or _same_path(arg, data_dir)
         if not mine:
             continue
         ports = []

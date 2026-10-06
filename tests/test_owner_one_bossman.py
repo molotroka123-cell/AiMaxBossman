@@ -265,3 +265,19 @@ def test_companion_gets_only_its_own_secrets_from_companion_env(tmp_path, monkey
                      out=io.StringIO()) == 0
     assert seen["TG_COMPANION_BOT_TOKEN"] == "123:abc" and seen["TG_COMPANION_CORE_TOKEN"] == "core"
     assert "OPENROUTER_API_KEY" not in seen or seen["OPENROUTER_API_KEY"] == os.environ.get("OPENROUTER_API_KEY")
+
+
+@pytest.mark.parametrize("cmd", [
+    ["python.exe", "-m", "bcc.pit.cli", "start", "--data-dir", "D:/b"],
+    ["python.exe", "-m", "bcc.pit.cli", "start", "--data-dir=D:/b"],
+])
+def test_a_jeff_started_with_either_data_dir_form_is_found_by_switch(cmd):
+    assert ob.process_kind(" ".join(cmd)) == "jeff"
+    assert ob.data_dir_arg(cmd) == "D:/b"
+
+
+def test_only_a_start_command_is_a_running_jeff():
+    assert ob.process_kind("python -m bcc.pit.cli routes") is None
+    assert ob.process_kind("python -m bcc.pit.cli web-setup --data-dir x") is None
+    assert ob.process_kind("python -m bcc.pit.cli start") == "jeff"
+    assert ob.data_dir_arg(["python", "-m", "bcc.pit.cli", "start"]) is None
