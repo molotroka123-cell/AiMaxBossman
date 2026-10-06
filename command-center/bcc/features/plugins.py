@@ -339,11 +339,14 @@ async def _h_generic_external(cap: Capability):
             return _skip_no_cred(cap)
         # Кред есть, но эта среда не выполняет реальные внешние мутации в рамках
         # приёмки: честный отказ вместо необеспеченного PASS. Политика (ASK) и
-        # anti-replay уже применены движком ДО хендлера.
+        # anti-replay уже применены движком ДО хендлера. Действие НЕ выполнено —
+        # значит это ошибка: иначе модель видит успешный вызов и докладывает
+        # «отправлено» про письмо, которого не было.
         return ToolResult(
-            content=f"NOT_TESTED_LIVE: {cap.tool_name} готов, но живой вызов "
-                    f"внешнего сервиса в этой приёмке не выполняется.",
-            one_line=f"{cap.tool_name}: adapter ready", data={"ready": True})
+            content=f"NOT_TESTED_LIVE: {cap.tool_name} — живой вызов внешнего "
+                    f"сервиса в этой сборке не выполняется; действие НЕ выполнено.",
+            one_line=f"{cap.tool_name}: not performed", error=True,
+            data={"ready": True, "performed": False})
     return handler
 
 
