@@ -8,6 +8,7 @@ Use the clean installation's Python to execute this script.
 from __future__ import annotations
 
 import argparse
+import http.client
 import http.cookiejar
 import importlib
 import json
@@ -21,6 +22,13 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+
+
+# While the installed server is still booting a poll can be refused, time out OR be reset mid-response. urllib wraps only
+# the first two as URLError; a reset during `getresponse()` (WinError 10054 on the Windows runner) escapes as a bare
+# ConnectionError / http.client.HTTPException and used to abort the whole acceptance run instead of being retried.
+# A server that never comes up or exits still fails: the 60 s deadline and the `process.poll()` check are unchanged.
+NOT_READY_YET = (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException)
 
 
 def verified_source(manifest: Path, expected_sha: str | None = None) -> str:
@@ -129,9 +137,9 @@ def verify(work: Path, expected_sha: str | None = None) -> dict:
                 raise AssertionError(f"installed server exited: {(work / 'server.log').read_text()[-5000:]}")
             try:
                 identity = request("/api/identity")
-                assert identity["app"] == "bossman-command-center", identity
+                assert identity["app"] == "bossman-command-center-build-bound-v1", identity
                 return process, log
-            except (urllib.error.URLError, TimeoutError):
+            except NOT_READY_YET:
                 time.sleep(0.1)
         process.terminate()
         process.wait(timeout=20)

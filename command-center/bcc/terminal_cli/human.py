@@ -254,7 +254,10 @@ class ViewState:
     run_id: int | None = None
     model: str | None = None
     verdict: str | None = None
+    last_verdict_shown: tuple | None = None
     pending_approval: int | None = None
+    partial: str = ""                 # live answer text not yet ended by a line
+    partial_shown: bool = False       # a live answer was printed in this step
 
 
 class View:
@@ -369,6 +372,8 @@ class View:
     # -- records ------------------------------------------------------------
 
     def on_record(self, rec: dict) -> None:
+        if not (rec.get("type") == "assistant" and rec.get("partial")):
+            self._flush_partial()
         handler = getattr(self, "_r_" + str(rec.get("type")), None)
         if handler is not None:
             handler(rec)
@@ -397,6 +402,7 @@ class View:
             self._bossman([Text(f"{g.fail} {sanitize(rec['error'])}", style="error")])
 
     def _r_step(self, rec: dict) -> None:
+        self.state.partial_shown = False        # a tool step's live text is not a final answer
         self.state.step = rec.get("step") or self.state.step
         self.state.max_steps = rec.get("max_steps") or self.state.max_steps
         self.state.model = rec.get("model") or self.state.model
@@ -417,12 +423,43 @@ class View:
                              f"(/expand {len(self.state.blocks)})", style="muted"))
         self._bossman(body)
 
+    def _flush_partial(self) -> None:
+        text, self.state.partial = self.state.partial, ""
+        if text.strip():
+            self._bossman(format_answer(text))
+
     def _r_assistant(self, rec: dict) -> None:
+        if rec.get("partial"):
+            # Live answer: print each finished line (or a long run of words) as
+            # it arrives instead of waiting for the whole answer.
+            st = self.state
+            st.partial += rec.get("delta") or ""
+            st.partial_shown = True
+            while True:
+                head, nl, rest = st.partial.partition("\n")
+                if nl:
+                    st.partial = rest
+                    self._bossman(format_answer(head))
+                elif len(st.partial) >= 60 and " " in st.partial:
+                    head, _, st.partial = st.partial.rpartition(" ")
+                    self._bossman(format_answer(head))
+                    break
+                else:
+                    break
+            return
         self.state.blocks.append({"kind": "text", "text": rec.get("delta") or ""})
         self._bossman(format_answer(rec.get("delta") or ""))
 
+    def _r_assistant_reset(self, rec: dict) -> None:
+        self.state.partial = ""
+        self.state.partial_shown = False
+        self.note("  … ответ оборвался, повтор шага", "muted")
+
     def _r_assistant_message(self, rec: dict) -> None:
         self.state.blocks.append({"kind": "answer", "text": rec.get("text") or ""})
+        shown, self.state.partial_shown = self.state.partial_shown, False
+        if rec.get("streamed") and shown:
+            return                              # already printed live, piece by piece
         self._bossman(format_answer(rec.get("text") or ""))
 
     def _r_tool_use(self, rec: dict) -> None:
@@ -507,9 +544,21 @@ class View:
         self.state.usage = rec
 
     def _r_evaluation(self, rec: dict) -> None:
+        # The engine emits one record per gate hook; for an ordinary answer most say
+        # NOT_APPLICABLE. Printing each (with the warning glyph) buried every reply under
+        # identical lines (RC 1.9 soak). The machine stream keeps them all; here a
+        # meaningful verdict is shown once, NOT_APPLICABLE only with --verbose, and the
+        # closing line reports the last meaningful verdict.
         g = glyphs()
         verdict = sanitize(rec.get("verdict"))
-        self.state.verdict = verdict
+        if verdict != "NOT_APPLICABLE" or self.state.verdict in (None, "NOT_APPLICABLE"):
+            self.state.verdict = verdict
+        if verdict == "NOT_APPLICABLE" and not self.verbose:
+            return
+        key = (verdict, sanitize(rec.get("reasons") or ""), rec.get("run_id"))
+        if key == self.state.last_verdict_shown:
+            return
+        self.state.last_verdict_shown = key
         ok = verdict == "PASS"
         t = Text(f"{g.ok if ok else g.approval} проверка: {verdict}", style="tool.ok" if ok else "value.warn")
         if rec.get("reasons"):

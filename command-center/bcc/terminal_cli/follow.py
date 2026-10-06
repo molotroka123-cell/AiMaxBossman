@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from .api_client import BossmanError, Client, EventPump
+from .console import sanitize
 from .records import (EXIT_INTERRUPTED, STATE_EXIT, TERMINAL_STATUSES, model_kind, normalize,
                       record, state_of)
 
@@ -51,6 +52,10 @@ class FollowState:
     decided: set[int] = field(default_factory=set)
     last_seq: int = 0
     stream_down: bool = False
+    #: Why the task failed / was not admitted, as the backend said it in the
+    #: task.failed / task.blocked event. The final record falls back to it when
+    #: the closing GET brings no error (e.g. the GET itself failed).
+    error: str | None = None
 
     def absorb(self, rec: dict) -> None:
         t = rec.get("type")
@@ -60,6 +65,8 @@ class FollowState:
             self.run_id = rec["run_id"]
         if t == "task" and rec.get("status"):
             self.status = rec["status"]
+            if rec["status"] in ("failed", "blocked") and (rec.get("error") or rec.get("reason")):
+                self.error = str(rec.get("error") or rec.get("reason"))
         elif t == "step":
             self.status = "running"
             if rec.get("model"):
@@ -219,9 +226,14 @@ class Follower:
         if runs:
             self.state.run_id = runs[-1].get("id") or self.state.run_id
         if status != self.state.status:
-            self.state.status = status
+            # The poll can see «failed» before the stream event does. Its record
+            # carries the reason too: the view shows a status once, so a
+            # reason-less first record would hide the event's error.
+            error = data.get("error") if status in ("failed", "blocked") else None
             rec = record("task", subtype="status", task_id=self.state.task_id,
-                         run_id=self.state.run_id, status=status, source="poll")
+                         run_id=self.state.run_id, status=status, source="poll",
+                         error=sanitize(error) if error else None)
+            self.state.absorb(rec)
             self.sink(rec)
         if status in TERMINAL_STATUSES:
             self._drain(0.5)
@@ -300,14 +312,14 @@ class Follower:
         result_text = data.get("result")
         if result_text is None and self.state.answer and task_state == "PASS":
             result_text = self.state.answer
-        from .console import sanitize
+        error_text = data.get("error") or (self.state.error if task_state != "PASS" else None)
         return record(
             "result", ok=task_state not in ("DISCONNECTED",), task_state=task_state,
             status=self.state.status, task_id=self.state.task_id,
             run_id=last.get("id") or self.state.run_id,
             duration_ms=int((time.monotonic() - self.state.started) * 1000),
             result=sanitize(result_text) if result_text else None,
-            error=sanitize(data.get("error")) if data.get("error") else None,
+            error=sanitize(error_text) if error_text else None,
             usage=usage, model=model,
             model_kind=self.model_kind_hint or (model_kind(model) if model else None),
             approval_id=approval_id, note=note, cursor=self.state.last_seq,

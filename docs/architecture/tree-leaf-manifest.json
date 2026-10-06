@@ -1,0 +1,303 @@
+[
+ {
+  "slug": "video_studio_render",
+  "label": "Video Studio: компилятор filtergraph (preview и export)",
+  "parent": "media",
+  "source": "command-center/bcc/video_studio/render.py",
+  "tests": [
+   "command-center/tests/test_video_studio_render.py"
+  ]
+ },
+ {
+  "slug": "video_studio_service",
+  "label": "Video Studio: интеграция с хостом (БД, задачи, команды)",
+  "parent": "media",
+  "source": "command-center/bcc/video_studio/service.py",
+  "tests": [
+   "command-center/tests/test_video_studio_domain.py"
+  ]
+ },
+ {
+  "slug": "video_studio_storyboard",
+  "label": "Video Studio: раскадровка и рецепты кадров",
+  "parent": "media",
+  "source": "command-center/bcc/video_studio/storyboard.py",
+  "tests": [
+   "command-center/tests/test_video_storyboard.py"
+  ]
+ },
+ {
+  "slug": "video_studio_trained",
+  "label": "Video Studio: черновик команд от модели + валидация",
+  "parent": "media",
+  "source": "command-center/bcc/video_studio/trained.py",
+  "tests": [
+   "command-center/tests/test_video_studio_trained.py"
+  ]
+ },
+ {
+  "slug": "video_studio_shotcut",
+  "label": "Video Studio: обмен проектами Shotcut/MLT",
+  "parent": "media",
+  "source": "command-center/bcc/video_studio/shotcut.py",
+  "tests": [
+   "command-center/tests/test_video_studio_shotcut.py"
+  ]
+ },
+ {
+  "slug": "video_studio_interchange",
+  "label": "Video Studio: обмен OpenTimelineIO",
+  "parent": "media",
+  "source": "command-center/bcc/video_studio/interchange.py",
+  "tests": [
+   "command-center/tests/test_video_studio_interchange.py"
+  ]
+ },
+ {
+  "slug": "video_studio_analysis",
+  "label": "Video Studio: диагностика, тайминг субтитров, ASR",
+  "parent": "media",
+  "source": "command-center/bcc/video_studio/analysis.py",
+  "tests": []
+ },
+ {
+  "slug": "video_studio_retrieval",
+  "label": "Video Studio: поиск B-roll и дубликатов",
+  "parent": "media",
+  "source": "command-center/bcc/video_studio/retrieval.py",
+  "tests": []
+ },
+ {
+  "slug": "video_adapter_train",
+  "label": "Video Studio: обучение LoRA-адаптера команд",
+  "parent": "media",
+  "source": "tools/video_studio/train_adapter.py",
+  "tests": [
+   "command-center/tests/test_video_studio_trained.py"
+  ]
+ },
+ {
+  "slug": "studio_provider",
+  "label": "Studio: жизненный цикл провайдеров",
+  "parent": "media",
+  "source": "command-center/bcc/studio/provider.py",
+  "tests": [
+   "command-center/tests/test_studio_provider_states.py"
+  ]
+ },
+ {
+  "slug": "studio_sdcpp",
+  "label": "Studio: локальная генерация stable-diffusion.cpp",
+  "parent": "media",
+  "source": "command-center/bcc/studio/providers/sdcpp.py",
+  "tests": [
+   "command-center/tests/test_studio_sdcpp_hostile.py"
+  ]
+ },
+ {
+  "slug": "studio_comfyui",
+  "label": "Studio: провайдер ComfyUI",
+  "parent": "media",
+  "source": "command-center/bcc/studio/providers/comfyui.py",
+  "tests": []
+ },
+ {
+  "slug": "studio_openrouter",
+  "label": "Studio: провайдер OpenRouter (изображения и видео)",
+  "parent": "media",
+  "source": "command-center/bcc/studio/providers/openrouter.py",
+  "tests": [
+   "command-center/tests/test_studio_paid_dispatch_audit.py"
+  ]
+ },
+ {
+  "slug": "studio_governance",
+  "label": "Studio: бюджетные резервы по функциям",
+  "parent": "media",
+  "source": "command-center/bcc/studio/governance.py",
+  "tests": [
+   "command-center/tests/test_studio_paid_dispatch_audit.py"
+  ]
+ },
+ {
+  "slug": "studio_review",
+  "label": "Studio: локальный просмотр сгенерированных видео",
+  "parent": "media",
+  "source": "command-center/bcc/studio/review.py",
+  "tests": [
+   "command-center/tests/test_studio_vision_review.py"
+  ]
+ },
+ {
+  "slug": "oss_comfyui",
+  "label": "ComfyUI: ограниченный локальный адаптер",
+  "parent": "media",
+  "source": "command-center/bcc/oss/comfyui.py",
+  "tests": [
+   "command-center/tests/test_oss_comfyui.py"
+  ]
+ },
+ {
+  "slug": "web_designer_gen",
+  "label": "Web Designer: генерация сайтов",
+  "parent": "media",
+  "source": "command-center/bcc/web_designer_gen.py",
+  "tests": [
+   "command-center/tests/test_web_designer.py"
+  ]
+ },
+ {
+  "slug": "web_designer_visual",
+  "label": "Web Designer: визуальный редактор (версии)",
+  "parent": "media",
+  "source": "command-center/bcc/web_designer_visual.py",
+  "tests": [
+   "command-center/tests/test_web_designer_visual.py"
+  ]
+ },
+ {
+  "slug": "web_designer_ai_build",
+  "label": "Web Designer: сборка с помощью ИИ",
+  "parent": "media",
+  "source": "command-center/bcc/web_designer_ai_build.py",
+  "tests": []
+ },
+ {
+  "slug": "ai3d_pipeline",
+  "label": "3D Maker: пайплайн от запроса до печатаемого артефакта",
+  "parent": "media",
+  "source": "apps/ai-3d-maker/src/ai_3d_maker/pipeline.py",
+  "tests": [
+   "apps/ai-3d-maker/tests/test_pipeline.py"
+  ]
+ },
+ {
+  "slug": "ai3d_gcode",
+  "label": "3D Maker: сканер безопасности G-code",
+  "parent": "media",
+  "source": "apps/ai-3d-maker/src/ai_3d_maker/gcode.py",
+  "tests": [
+   "apps/ai-3d-maker/tests/test_gcode.py"
+  ]
+ },
+ {
+  "slug": "social_farm_media",
+  "label": "Social Farm: преобразование медиа без изменения исходника",
+  "parent": "media",
+  "source": "apps/social-farm/src/social_farm/media/transform.py",
+  "tests": [
+   "apps/social-farm/tests/unit/test_media_transform.py"
+  ]
+ },
+ {
+  "slug": "motion_make_video",
+  "label": "Motion Studio: сцена в видео (озвучка, музыка)",
+  "parent": "media",
+  "source": "tools/motion_studio/make_video.py",
+  "tests": [
+   "tests/test_motion_studio.py"
+  ]
+ },
+ {
+  "slug": "motion_epic",
+  "label": "Motion Studio: оффлайн-трейлер на Pillow",
+  "parent": "media",
+  "source": "tools/motion_studio/epic.py",
+  "tests": [
+   "tests/test_motion_epic.py"
+  ]
+ },
+ {
+  "slug": "genjutsu_tool",
+  "label": "Genjutsu: локальная замена персонажа и перенос движения",
+  "parent": "media",
+  "source": "tools/genjutsu/genjutsu.py",
+  "tests": []
+ },
+ {
+  "slug": "promo_video",
+  "label": "Промо-видео: рендер с саундтреком",
+  "parent": "media",
+  "source": "tools/promo_video/render.py",
+  "tests": []
+ },
+ {
+  "slug": "oss_piper",
+  "label": "Piper: локальный русский TTS",
+  "parent": "jeff",
+  "source": "command-center/bcc/oss/piper.py",
+  "tests": [
+   "command-center/tests/test_local_russian_voice.py"
+  ]
+ },
+ {
+  "slug": "oss_chatterbox",
+  "label": "Chatterbox: офлайн-клон голоса (отдельный воркер)",
+  "parent": "jeff",
+  "source": "command-center/bcc/oss/chatterbox_clone.py",
+  "tests": [
+   "command-center/tests/test_local_voice_clone.py"
+  ]
+ },
+ {
+  "slug": "oss_whisper",
+  "label": "Whisper: офлайн-распознавание речи",
+  "parent": "jeff",
+  "source": "command-center/bcc/oss/whisper.py",
+  "tests": []
+ },
+ {
+  "slug": "voice_capability",
+  "label": "Возможности голосовых провайдеров",
+  "parent": "jeff",
+  "source": "bossman-core/bossman/voice_capability.py",
+  "tests": [
+   "bossman-core/tests/test_v26_voice_capability.py"
+  ]
+ },
+ {
+  "slug": "earning_emulator",
+  "label": "Эмулятор заработка на удалённой вакансии (симуляция)",
+  "parent": "apps",
+  "source": "command-center/bcc/earning_emulator.py",
+  "tests": [
+   "command-center/tests/test_earning_emulator.py"
+  ]
+ },
+ {
+  "slug": "earning_emulator_cli",
+  "label": "Эмулятор заработка: командная строка (один GET публичной страницы)",
+  "parent": "apps",
+  "source": "tools/earning_emulator.py",
+  "tests": [
+   "tests/test_earning_emulator_cli.py"
+  ]
+ },
+ {
+  "slug": "leaf_usefulness_queue",
+  "label": "Очередь проверки листьев по полезности (гипотеза)",
+  "parent": "ops",
+  "source": "tools/leaf_usefulness_queue.py",
+  "tests": [
+   "tests/test_leaf_usefulness_queue.py"
+  ]
+ },
+ {
+  "slug": "tree_registry_sync",
+  "label": "Синхронизация дерева с реестром: уровни доказательств",
+  "parent": "ops",
+  "source": "tools/tree_registry_sync.py",
+  "tests": [
+   "tests/test_tree_registry_sync.py"
+  ]
+ },
+ {
+  "slug": "blue_leaf_audit_tool",
+  "label": "Аудит синих листьев по записанным прогонам тестов",
+  "parent": "ops",
+  "source": "tools/blue_leaf_audit.py",
+  "tests": [
+   "tests/test_blue_leaf_audit.py"
+  ]
+ }
+]

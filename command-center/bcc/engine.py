@@ -20,7 +20,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from . import run_provenance
 from .db import (Database, agents as agents_t, approvals as approvals_t,
                  checkpoints as checkpoints_t, fetch_one, models as models_t,
-                 run_events as run_events_t,
+                 providers as providers_t, run_events as run_events_t,
                  task_runs as runs_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow)
 from . import approval_scope as _scope
 from . import mission_budget as _budget
@@ -798,7 +798,8 @@ class TaskEngine:
             self._fences[run_id] = int(cur or 0)
         self._held_since.setdefault(run_id, utcnow())
         self._fenced_out.discard(run_id)
-        heartbeat = asyncio.create_task(self._heartbeat(run_id, asyncio.current_task()))
+        heartbeat_stop = asyncio.Event()
+        heartbeat = asyncio.create_task(self._heartbeat(run_id, asyncio.current_task(), heartbeat_stop))
         from .trace import current_trace_id, run_trace_id
         trace_token = current_trace_id.set(run_trace_id(run_id))       # TRUTH-003 §14: один trace на run
         try:
@@ -814,14 +815,15 @@ class TaskEngine:
             current_trace_id.reset(trace_token)
             self._fences.pop(run_id, None)
             self._held_since.pop(run_id, None)
-            heartbeat.cancel()
-            # Дожидаемся отмены heartbeat: он держит db-сессию в цикле
-            # `sleep → s.execute → s.commit`; без await он переживает execute()
-            # и виснет при закрытии пула на 3.12 (FABLE5 lifecycle audit).
+            # Wake the heartbeat and let any in-flight DB transaction finish.
+            # Cancelling it inside SQLite rollback can strand a checked-out
+            # connection even if we await the cancelled task afterwards.
+            heartbeat_stop.set()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await heartbeat
 
-    async def _heartbeat(self, run_id: int, owner: asyncio.Task | None = None) -> None:
+    async def _heartbeat(self, run_id: int, owner: asyncio.Task | None = None,
+                         stop: asyncio.Event | None = None) -> None:
         """Продление аренды: пока worker жив, run не считается протухшим.
 
         FL-01: продление УСЛОВНО по fence. 0 обновлённых строк = run перехвачен
@@ -829,7 +831,14 @@ class TaskEngine:
         без записи результата (см. execute)."""
         try:
             while True:
-                await asyncio.sleep(self.heartbeat_seconds)
+                if stop is None:
+                    await asyncio.sleep(self.heartbeat_seconds)
+                else:
+                    try:
+                        await asyncio.wait_for(stop.wait(), timeout=self.heartbeat_seconds)
+                        return
+                    except asyncio.TimeoutError:
+                        pass
                 if not await self._heartbeat_once(run_id):
                     self._fenced_out.add(run_id)
                     if owner is not None and not owner.done():
@@ -1011,16 +1020,18 @@ class TaskEngine:
         recovery_model = checkpoint.get("recovery_model_id")
         recovery_model = int(recovery_model) if isinstance(recovery_model, int) else None
         recovery_degrade = checkpoint.get("recovery_degrade")
-        if isinstance(recovery_degrade, dict) and recovery_degrade.get("tools") is False:
-            # Упрощённый путь: без инструментов. Это СУЖЕНИЕ возможностей, а не
-            # расширение прав — модель, которая не справилась с tool-calling,
-            # получает более простую задачу, а не больше доступа.
-            tool_schemas = None
 
         # V2.1: инструменты, выданные этому run'у. Пусто — поведение как в V2
         # (один вызов модели, без tools в payload).
         tool_specs = TOOLS.resolve(allowed_tools_for(task, agent))
         tool_schemas = [t.schema() for t in tool_specs] or None
+        if isinstance(recovery_degrade, dict) and recovery_degrade.get("tools") is False:
+            # Упрощённый путь: без инструментов. Это СУЖЕНИЕ возможностей, а не
+            # расширение прав — модель, которая не справилась с tool-calling,
+            # получает более простую задачу, а не больше доступа. Стоит ПОСЛЕ
+            # сборки схем: раньше их присваивание затирало это сужение, и
+            # ступень «упрощённый путь» повторяла тот же запрос (RC19).
+            tool_schemas = None
         policy_rules = agent_policy_rules(agent)
 
         # Возобновление после подтверждения человеком: в checkpoint лежит
@@ -1041,18 +1052,30 @@ class TaskEngine:
                     and not messages[-1].get("tool_calls"):
                 # финальный ответ уже есть (например, сохранён до паузы) — модель не дёргаем
                 break
+            answer_stream = _AnswerStream(self, task["id"], run_id, step + 1)
             try:
                 result, model = await self._call_model(task, agent, messages, run_id,
                                                        tools=tool_schemas,
-                                                       model_override=recovery_model)
+                                                       model_override=recovery_model,
+                                                       on_delta=answer_stream)
+                await answer_stream.flush()
             except ProviderError as exc:
                 # `kind` carries what the adapter knew about the failure; the
                 # text alone cannot always tell a network blip from a refusal.
                 await self._handle_failure(run_id, task, str(exc), messages, step,
-                                           kind=getattr(exc, "kind", None))
+                                           kind=getattr(exc, "kind", None),
+                                           failures=getattr(exc, "failed_models", None),
+                                           classify_text=getattr(exc, "classify_text", None))
                 return
             except LookupError as exc:
                 await self._fail_now(run_id, task["id"], str(exc))
+                return
+            except PermissionError as exc:
+                # Граница приватности (assert_provider_egress) отказала всем
+                # доступным путям. Это решение политики, а не сбой провайдера:
+                # раньше исключение улетало из execute(), run висел «running»
+                # до истечения аренды, и причина терялась (RC19).
+                await self._fail_now(run_id, task["id"], f"privacy: {exc}")
                 return
             except CriticalHookFailure as exc:
                 await self._fail_now(run_id, task["id"],
@@ -1135,7 +1158,8 @@ class TaskEngine:
             # and finalize below still decide that (task.completed / failed).
             await self._emit_stream("run.assistant_message", task_id=task["id"], run_id=run_id,
                                     step=step, model=alias, text=_clip_stream(answer),
-                                    chars=len(answer or ""))
+                                    chars=len(answer or ""),
+                                    streamed=bool(result.provider_meta.get("streamed")))
             await self._log(run_id, "info", "run.step",
                             f"шаг {step}/{max_steps}: ответ модели {alias} "
                             f"({result.tokens_out} токенов)")
@@ -1307,7 +1331,8 @@ class TaskEngine:
 
     async def _call_model(self, task: dict, agent: dict, messages: list[dict],
                           run_id: int, *, tools: list[dict] | None = None,
-                          model_override: int | None = None) -> tuple[ChatResult, dict]:
+                          model_override: int | None = None,
+                          on_delta: Any = None) -> tuple[ChatResult, dict]:
         from bossman_shared.privacy import execution_privacy
         from .provider_governance import memory_to_cloud_allowed, memory_withheld
         meta = task.get("meta") or {}
@@ -1317,7 +1342,8 @@ class TaskEngine:
         try:
             with execution_privacy(meta.get("privacy", "public")):
                 return await self._call_model_scoped(task, agent, messages, run_id, tools=tools,
-                                                     model_override=model_override)
+                                                     model_override=model_override,
+                                                     on_delta=on_delta)
         finally:
             memory_withheld.reset(sink)
             memory_to_cloud_allowed.reset(allow)
@@ -1330,23 +1356,73 @@ class TaskEngine:
 
     async def _call_model_scoped(self, task: dict, agent: dict, messages: list[dict],
                           run_id: int, *, tools: list[dict] | None = None,
-                          model_override: int | None = None) -> tuple[ChatResult, dict]:
+                          model_override: int | None = None,
+                          on_delta: Any = None) -> tuple[ChatResult, dict]:
         """Вызов модели: сначала pick_model-хук (Smart Router) может перекрыть выбор;
         при ошибке маршрута — модель агента; при её ошибке — fallback_model.
         `tools` — схемы ТОЛЬКО выданных этому run'у инструментов."""
         kw: dict[str, Any] = {"max_tokens": agent.get("max_tokens")}
         if tools:
             kw["tools"] = tools
+        if on_delta is not None:
+            kw["on_delta"] = on_delta       # adapters that cannot stream ignore it
+        meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
+        kind = task.get("kind") or "generic"
+        routed = bool(meta.get("route") or meta.get("force_model_id")
+                      or kind != "generic")
+
+        async def check_fallback_model(model_id: int | None,
+                                       *, configured_agent_model: bool = False,
+                                       recovery: bool = False) -> None:
+            # A pick_model hook returning None, or a routed provider failure,
+            # must not turn an excluded cloud model into an implicit fallback.
+            # The recovery ladder's alternate is checked even on an unrouted
+            # task: the owner configured the agent's models, not the one the
+            # ladder picked, so cloud consent and price apply to it (RC19:
+            # a local agent's task was recovered onto a paid cloud model).
+            if not routed and not recovery:
+                return
+            if self.services is None:
+                raise LookupError("router policy service unavailable")
+            from .features.router import check_forced_model
+            reasons = await check_forced_model(
+                self.services, model_id, meta=meta, agent=agent, kind=kind)
+            if configured_agent_model or recovery:
+                # Router health is a cached routing hint. An explicitly
+                # configured agent adapter may have recovered since its last
+                # probe; attempt it and let the real provider call decide.
+                # The ladder's alternate was chosen by MEASURED health already.
+                # Cloud consent, price and capability refusals stay hard.
+                reasons = [reason for reason in reasons if reason != "unhealthy/offline"]
+            if reasons:
+                raise ProviderError(
+                    f"router policy denied model {model_id}: "
+                    + "; ".join(reasons)[:300], kind="policy")
+
+        # Every model that failed on this call, for the recovery handler: it
+        # records the failure on THAT model (not on the agent's) and does not
+        # offer it again as the "different" model.
+        attempts: list[tuple[int, str, str | None]] = []
+
+        def failed(model_id: Any, exc: BaseException) -> None:
+            try:
+                attempts.append((int(model_id), str(exc), getattr(exc, "kind", None)))
+            except (TypeError, ValueError):
+                pass
+
         if model_override is not None:
             # Ступень «другая модель» лестницы восстановления. Действует только
             # на этот прогон и не переписывает конфигурацию агента: владелец её
             # задал, и молча менять её лестница не имеет права. Полномочия при
             # этом те же — меняется исполнитель, а не то, что ему позволено.
             try:
+                await check_fallback_model(model_override, recovery=True)
                 adapter, model = await self.registry.adapter_for(int(model_override))
                 result = await adapter.chat(model["name"], messages, **kw)
                 return result, model
-            except (ProviderError, LookupError) as exc:
+            except (ProviderError, LookupError, PermissionError) as exc:
+                if isinstance(exc, ProviderError):
+                    failed(model_override, exc)
                 await self._log(run_id, "warn", "recovery.alternate_failed",
                                 f"альтернативная модель {model_override} недоступна ({exc}) — "
                                 f"возвращаемся к модели агента")
@@ -1362,26 +1438,45 @@ class TaskEngine:
                 adapter, model = await self.registry.adapter_for(model_id)
                 result = await adapter.chat(model["name"], messages, **kw)
                 return result, model
-            except (ProviderError, LookupError) as exc:
+            except (ProviderError, LookupError, PermissionError) as exc:
+                if isinstance(exc, ProviderError):
+                    failed(model_id, exc)
                 await self._log(run_id, "warn", "router.fallback",
                                 f"маршрут (модель {model_id}) недоступен ({exc}) — модель агента")
                 await self.bus.emit("router.fallback", task_id=task["id"],
                                     model_id=model_id, reason=str(exc))
+        model = None
         try:
-            adapter, model = await self.registry.adapter_for(int(agent["model_id"]))
-        except (LookupError, TypeError):
-            raise LookupError("у агента не задана рабочая модель")
-        try:
+            # Отказ политики для модели агента — такой же повод идти к
+            # fallback_model, как и сбой провайдера: раньше проверка стояла вне
+            # try, и настроенный владельцем fallback даже не пробовался (RC19).
+            await check_fallback_model(agent.get("model_id"), configured_agent_model=True)
+            try:
+                adapter, model = await self.registry.adapter_for(int(agent["model_id"]))
+            except (LookupError, TypeError):
+                raise LookupError("у агента не задана рабочая модель")
             return await adapter.chat(model["name"], messages, **kw), model
         except ProviderError as exc:
+            failed(agent.get("model_id"), exc)
+            label = model["alias"] if model else f"#{agent.get('model_id')}"
             if not agent.get("fallback_model_id"):
+                exc.failed_models = attempts            # type: ignore[attr-defined]
                 raise
             await self._log(run_id, "warn", "model.fallback",
-                            f"модель {model['alias']} недоступна ({exc}) — пробуем fallback")
-            fb_adapter, fb_model = await self.registry.adapter_for(int(agent["fallback_model_id"]))
-            result = await fb_adapter.chat(fb_model["name"], messages, **kw)
-            await self.bus.emit("model.status", id=model["id"], alias=model["alias"],
-                                status="error", detail=str(exc))
+                            f"модель {label} недоступна ({exc}) — пробуем fallback")
+            fb_id = agent["fallback_model_id"]
+            fb_model: dict | None = None
+            try:
+                await check_fallback_model(fb_id, configured_agent_model=True)
+                fb_adapter, fb_model = await self.registry.adapter_for(int(fb_id))
+                result = await fb_adapter.chat(fb_model["name"], messages, **kw)
+            except ProviderError as fb_exc:
+                failed(fb_id, fb_exc)
+                raise _fallback_failure(label, exc, fb_model["alias"] if fb_model else f"#{fb_id}",
+                                        fb_exc, attempts) from fb_exc
+            if model is not None:
+                await self.bus.emit("model.status", id=model["id"], alias=model["alias"],
+                                    status="error", detail=str(exc))
             return result, fb_model
 
     # ---------- инструменты (V2.1, фаза A) ----------
@@ -1439,6 +1534,13 @@ class TaskEngine:
                 blocked = await context_denial(spec, call.arguments, ctx)
                 if blocked:
                     effect, reason = "deny", blocked
+                else:
+                    # Audit 2026-10-05 #5: bind downloaded-script sha256 etc. into the REAL arguments BEFORE the digest below,
+                    # so the owner approves (and the effect re-verifies) the exact bytes.
+                    from .tools import bind_arguments
+                    bound = await bind_arguments(spec, call.arguments)
+                    if bound:
+                        effect, reason = "deny", bound
             if effect == "deny":
                 await self._record_tool_call(run_id, task["id"], step, call, spec,
                                              effect="deny", status="denied", preview=reason)
@@ -2172,7 +2274,9 @@ class TaskEngine:
 
     async def _handle_failure(self, run_id: int, task: dict, error: str,
                               messages: list[dict], step: int,
-                              *, kind: str | None = None) -> None:
+                              *, kind: str | None = None,
+                              failures: list | None = None,
+                              classify_text: str | None = None) -> None:
         """Сбой провайдера: СМЕНА СТРАТЕГИИ, а не повтор того же запроса.
 
         Прежде здесь был только retry с экспоненциальной паузой: тот же
@@ -2196,15 +2300,27 @@ class TaskEngine:
         await self._call_hooks_soft("on_failure", task, run_id, error)
 
         checkpoint = (run or {}).get("checkpoint") or {}
-        failure_class = _recovery.classify_failure(error, kind=kind)
+        failure_class = _recovery.classify_failure(classify_text or error, kind=kind)
         ladder = _recovery.Ladder.from_dict(checkpoint.get("recovery_ladder"), failure_class)
         agent = await self._agent_of(task)
+        await self._record_runtime_failures(run_id, failures or [])
+        # The agent's declared fallback is already called by _call_model_scoped
+        # on every provider error, so it is not a DIFFERENT model for the
+        # ladder; neither is any model that just failed on this call (RC19:
+        # the dead :8082 fallback was "tried" again as the alternate).
+        tried = {int(m[0]) for m in failures or []}
+        if (agent or {}).get("fallback_model_id") is not None:
+            tried.add(int(agent["fallback_model_id"]))
+        # `attempt` counts every re-queue, strategy changes included; only the
+        # same-route repeats spend the owner's `max_retries` (RC19 P2-10).
+        retries_used = max(0, attempt - ladder.strategy_changes)
         rung = _recovery.next_rung(
             ladder,
             current_model_id=self._current_model_id(run, agent),
             fallback_model_id=(agent or {}).get("fallback_model_id"),
-            healthy_models=await self._healthy_models(),
-            retries_left=max(0, max_retries - attempt), max_retries=max_retries)
+            healthy_models=await self._healthy_models(task, agent),
+            retries_left=max(0, max_retries - retries_used), max_retries=max_retries,
+            tried=tried)
         await self.bus.emit("recovery.rung_selected", task_id=task["id"], run_id=run_id,
                             failure_class=failure_class, **rung.to_dict())
 
@@ -2252,7 +2368,7 @@ class TaskEngine:
         # маршрут»: это ровно то поведение, которое было, и у него есть
         # потребители (UI, тесты). Смена стратегии — новое событие.
         log_kind = "run.retry" if rung.name == _recovery.RETRY_SAME else "run.recovery"
-        message = (f"попытка {attempt + 1}/{max_retries} через {delay:.0f} с"
+        message = (f"попытка {retries_used + 1}/{max_retries} через {delay:.0f} с"
                    if rung.name == _recovery.RETRY_SAME
                    else f"{failure_class}: ступень {rung.name} — {rung.reason}")
         await self._log(run_id, "warn", log_kind, message)
@@ -2273,18 +2389,76 @@ class TaskEngine:
         model_id = (agent or {}).get("model_id")
         return int(model_id) if model_id is not None else None
 
-    async def _healthy_models(self) -> list[tuple[int, Any]]:
+    async def _healthy_models(self, task: dict | None = None,
+                              agent: dict | None = None) -> list[tuple[int, Any]]:
         """Измеренное здоровье моделей для выбора альтернативы (B5).
+
+        Только модели, которые этой задаче вообще РАЗРЕШЕНЫ: местные — всегда;
+        облачные — лишь с известной ценой (иначе их отвергнет provider
+        governance, и ступень сгорит впустую), при явном согласии на облако
+        (router.cloud_policy) и не для приватной задачи. Без этого лестница
+        уводила задачу местного агента на платную облачную модель без
+        согласия владельца (RC19).
 
         Телеметрия не имеет права ронять восстановление: если здоровье не
         читается, лестница просто не увидит альтернатив и пойдёт дальше."""
         try:
             from . import model_health as mh
+            from .provider_governance import known_prices
+            from .v2.model_router import derive_local
+            meta = (task or {}).get("meta")
+            meta = meta if isinstance(meta, dict) else {}
+            cloud_ok = False
+            if self.services is not None and meta.get("privacy") not in ("private", "local_only"):
+                from .features.router import _rules, cloud_policy
+                cloud_ok, _why = cloud_policy(meta, agent, await _rules(self.services))
             async with self.db.session() as s:
-                rows = (await s.execute(sa.select(models_t.c.id, models_t.c.health))).fetchall()
-            return [(int(r[0]), mh.HealthRecord.from_dict(r[1])) for r in rows]
+                rows = (await s.execute(sa.select(
+                    models_t.c.id, models_t.c.health, models_t.c.kind, models_t.c.pricing_known,
+                    models_t.c.price_in, models_t.c.price_out,
+                    providers_t.c.kind.label("provider_kind"),
+                    providers_t.c.base_url.label("provider_base_url")).select_from(
+                    models_t.join(providers_t, models_t.c.provider_id == providers_t.c.id)))).fetchall()
+            out = []
+            for r in rows:
+                m = r._mapping
+                local, _ = derive_local(m["kind"], m["provider_kind"], m["provider_base_url"])
+                if not local and not (cloud_ok and m["pricing_known"] and known_prices(m)):
+                    continue
+                out.append((int(m["id"]), mh.HealthRecord.from_dict(m["health"])))
+            return out
         except Exception:  # noqa: BLE001
             return []
+
+    async def _record_runtime_failures(self, run_id: int, failures: list) -> None:
+        """Сбой настоящего вызова — факт о ТОЙ модели, что упала (RC19).
+
+        Раньше реестр узнавал о мёртвом порте только от ручной проверки:
+        :8082 показывался «online», пока владелец сам не нажмёт «проверить».
+        Теперь провал записывается в здоровье модели (с cooldown из
+        model_health), а обрыв связи ещё и переводит статус в offline —
+        самоисцеление (features/healing) вернёт online, когда endpoint снова
+        ответит. Отказы наших собственных гейтов (цена, политика) и ошибки,
+        зависящие от запроса (контекст, способности), здоровьем модели не
+        считаются."""
+        from .reality import recovery as _recovery
+        seen: set[int] = set()
+        for model_id, text, kind in failures:
+            if model_id in seen:
+                continue
+            seen.add(model_id)
+            cls = _recovery.classify_failure(text, kind=kind)
+            status = (_recovery.HEALTH_STATUS.get(cls)
+                      if cls in _RUNTIME_HEALTH_CLASSES else None)
+            if status is None:
+                continue
+            try:
+                await self.registry.record_model_health(model_id, status, f"runtime: {text}"[:300])
+                if kind == "network":
+                    await self.registry.mark_runtime_offline(model_id, text)
+            except Exception:  # noqa: BLE001 — телеметрия не роняет восстановление
+                await self._log(run_id, "warn", "model.health_record_failed",
+                                f"не удалось записать сбой модели {model_id}")
 
     async def _check_interrupt(self, run_id: int, task_id: int, messages: list[dict],
                                step: int) -> bool:
@@ -2378,6 +2552,15 @@ class TaskEngine:
             except Exception:
                 pass
         async with self.db.session() as s:
+            # Recovery state belongs to the RUN, not to one step: dropping it
+            # here gave the next failure a fresh ladder (spent rungs re-earned)
+            # and sent a resumed run back to the model that had just failed.
+            prior = (await s.execute(sa.select(runs_t.c.checkpoint).where(
+                runs_t.c.id == run_id))).scalar()
+            if isinstance(prior, dict):
+                for key in _RECOVERY_CHECKPOINT_KEYS:
+                    if key in prior and key not in ckpt:
+                        ckpt[key] = prior[key]
             upd = await s.execute(sa.update(runs_t).where(
                 runs_t.c.id == run_id, self._fence_clause(run_id)).values(
                 checkpoint=ckpt, **values))
@@ -2567,7 +2750,8 @@ class TaskEngine:
         if reasoning:
             await self._emit_stream("run.reasoning_delta", **base, text=_clip_stream(reasoning),
                                     chars=len(reasoning), source="provider_message")
-        if result.has_tool_calls and (result.text or "").strip():
+        if (result.has_tool_calls and (result.text or "").strip()
+                and not result.provider_meta.get("streamed")):     # streamed text was shown live
             await self._emit_stream("run.assistant_delta", **base, text=_clip_stream(result.text),
                                     chars=len(result.text))
         context_window = model.get("context_window")
@@ -2607,6 +2791,57 @@ STREAM_TEXT_CHARS = 16_000
 STREAM_PREVIEW_CHARS = 2_000
 
 
+class _AnswerStream:
+    """Live answer text of ONE model call -> `run.answer_delta` events.
+
+    Passed to the adapter as `on_delta`: `await stream(text)` per piece,
+    `await stream(None)` = "discard what was shown" (the call failed mid-answer
+    and will be retried). Events are durable (cursor replay) and append-only:
+    `attempt` + `idx` order them. The first piece goes out at once; later ones
+    are coalesced to at most ~10 events/s so a fast model does not write a row
+    per token. The final answer is still saved once, by the run itself."""
+
+    INTERVAL_S = 0.1
+    MAX_BUFFER = 200
+
+    def __init__(self, engine: "Engine", task_id: int, run_id: int, step: int):
+        self.engine, self.task_id, self.run_id, self.step = engine, task_id, run_id, step
+        self.attempt = 0
+        self.idx = 0
+        self._buf: list[str] = []
+        self._size = 0
+        self._last = 0.0
+        self._sent = False
+
+    async def __call__(self, text: str | None) -> None:
+        if text is None:
+            self._buf, self._size = [], 0
+            if self._sent:
+                await self.engine._emit_stream("run.answer_reset", task_id=self.task_id,
+                                               run_id=self.run_id, step=self.step,
+                                               attempt=self.attempt)
+                self.attempt += 1
+                self.idx = 0
+                self._sent = False
+            return
+        self._buf.append(text)
+        self._size += len(text)
+        if (not self._sent or self._size >= self.MAX_BUFFER
+                or time.monotonic() - self._last >= self.INTERVAL_S):
+            await self.flush()
+
+    async def flush(self) -> None:
+        if not self._buf:
+            return
+        text, self._buf, self._size = "".join(self._buf), [], 0
+        await self.engine._emit_stream("run.answer_delta", task_id=self.task_id, run_id=self.run_id,
+                                       step=self.step, attempt=self.attempt, idx=self.idx,
+                                       text=_clip_stream(text))
+        self.idx += 1
+        self._sent = True
+        self._last = time.monotonic()
+
+
 def _clip_stream(text: str | None) -> str:
     text = text or ""
     if len(text) <= STREAM_TEXT_CHARS:
@@ -2643,6 +2878,34 @@ def _call_from_dict(data: dict) -> Any:
     return ToolCall(id=str(data.get("id") or ""), name=str(data.get("name") or ""),
                     arguments=dict(data.get("arguments") or {}),
                     raw_arguments=str(data.get("raw_arguments") or ""))
+
+
+#: Checkpoint keys written by the recovery ladder that must survive a step.
+_RECOVERY_CHECKPOINT_KEYS = ("recovery_ladder", "recovery_model_id", "recovery_degrade")
+
+#: Failure classes that say something about the MODEL rather than the request
+#: or our own gates; only these are written into its measured health.
+_RUNTIME_HEALTH_CLASSES = frozenset({"transient", "throttled", "unauthorized", "silent"})
+
+
+def _fallback_failure(label: str, exc: ProviderError, fb_label: str,
+                      fb_exc: ProviderError, attempts: list) -> ProviderError:
+    """Agent model AND its fallback failed: name both causes.
+
+    Only the fallback's error used to surface, so a model refused by the
+    pricing gate read as "no connection to :8082" and the owner never learned
+    why the configured model was not used (RC19). Recovery classifies by the
+    fallback's text, as before, unless the primary refusal was our own gate:
+    then repeating the same route cannot help, and the ladder must look for a
+    DIFFERENT model instead of retrying (`reality.recovery.POLICY`)."""
+    from .reality.recovery import POLICY_KINDS
+    primary_kind = getattr(exc, "kind", None)
+    kind = primary_kind if primary_kind in POLICY_KINDS else getattr(fb_exc, "kind", "http")
+    err = ProviderError(f"{label}: {exc}; fallback {fb_label}: {fb_exc}",
+                        kind=kind, hint=getattr(fb_exc, "hint", None) or getattr(exc, "hint", None))
+    err.failed_models = list(attempts)          # type: ignore[attr-defined]
+    err.classify_text = str(exc) if primary_kind in POLICY_KINDS else str(fb_exc)  # type: ignore[attr-defined]
+    return err
 
 
 def _cost(model: dict, result: ChatResult) -> float:

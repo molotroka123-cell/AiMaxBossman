@@ -64,6 +64,9 @@ def _properties(root: ET.Element) -> dict:
     found: dict = {}
     for prop in root.iter("property"):
         name = prop.get("name")
+        if name in ("source_sha", "archive_sha256", "run_id", "harness_sha") \
+                and name in found and found[name] != prop.get("value"):
+            raise ValueError("conflicting JUnit payload binding")
         if isinstance(name, str) and name not in found:
             found[name] = prop.get("value")
     return found

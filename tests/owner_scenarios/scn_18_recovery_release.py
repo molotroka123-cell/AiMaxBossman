@@ -355,7 +355,11 @@ def os79_certification_refuses_a_missing_required_run(ctx) -> None:
     def run(name: str, *, head=sha, status="completed", conclusion="success",
             number=1, attempt=1, ident=1) -> dict:
         return {"name": name, "head_sha": head, "status": status, "conclusion": conclusion,
-                "run_number": number, "run_attempt": attempt, "id": ident}
+                "run_number": number, "run_attempt": attempt, "id": ident,
+                "jobs": [{"id": ident * 100, "run_id": ident, "head_sha": head,
+                          "status": "completed", "conclusion": "success", "name": "synthetic checks"}],
+                "jobs_evidence": {"run_id": ident, "run_attempt": attempt, "head_sha": head,
+                                  "total_count": 1, "complete": True}}
 
     green = [run(name, ident=i) for i, name in enumerate(DEFAULT_REQUIRED, 1)]
     certified = certify(sha, green)

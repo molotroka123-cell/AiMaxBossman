@@ -640,9 +640,10 @@ NODE_SUITE = r"""
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 const PAGE = process.env.OPENROUTER_PAGE;
-const mod = await import(PAGE);
+const mod = await import(pathToFileURL(PAGE).href);
 const { providerBinding, connectRequest, refreshRequest, KEY_ENDPOINT } = mod;
 // Забор читает КОД, а не комментарии: в шапке файла дефект описан словами,
 // и запрет на его текст превратил бы документацию в ошибку сборки.
@@ -754,7 +755,8 @@ def test_ui_binds_only_to_the_identity_the_server_named(tmp_path):
         pytest.skip("Node недоступен: контракты страницы не исполнялись")
     suite = tmp_path / "openrouter_identity.test.mjs"
     suite.write_text(NODE_SUITE, encoding="utf-8")
-    result = subprocess.run([node, "--test", str(suite)], capture_output=True, text=True,
+    result = subprocess.run([node, "--experimental-default-type=module", "--test", str(suite)],
+                            capture_output=True, text=True,
                             timeout=60, check=False,
-                            env={**os.environ, "OPENROUTER_PAGE": str(UI_PAGE)})
+                            env={**os.environ, "OPENROUTER_PAGE": str(UI_PAGE.resolve())})
     assert result.returncode == 0, result.stdout + result.stderr

@@ -65,3 +65,31 @@ Verified success / all assigned; unnecessary approval rate; eligible-request ove
 Один run manifest связывает source/build/ZIP SHA, модели, grant/config hashes, tool schemas, dataset split, actual CLI commands, task/run IDs, receipts, tests и ошибки. Скриншоты реальные; приватные оригиналы локальны, в Git только безопасная копия/индекс. Sensitive holdout hashes/answers не публиковать в learner-visible workspace.
 
 Финальный status line: `BASE_PRODUCT`, `APP_FACTORY`, `SKILL_FACTORY`, `LOCAL_UNRESTRICTED`, `INTERNET`, `VOICE`, `PHONE`, `COMMERCE`, `SELF_REPAIR`, `TRANSFER`, `EXACT_SHA`, `OPEN_P0/P1/P2`. Не сворачивать разноцветную матрицу в безусловное «1.5 готова».
+
+---
+
+## ОБЯЗАТЕЛЬНЫЙ ПЕРЕХОД 1.5 → 1.6 В ТОМ ЖЕ OWNER-RUN
+
+**Цель одного прогона: закрыть Bossman 1.5 и без отдельного дня сразу перейти к Bossman 1.6.**
+
+Отдельная ветка 1.6:
+[feat/bossman-1.6-secret-intake-20260925](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-secret-intake-20260925)
+
+Переход разрешён при полном закрытии 1.5 или при состоянии **V1_5_NEAR_COMPLETE**:
+- software P0 = 0;
+- release-blocking P1 по коду = 0;
+- targeted/regression/hidden tests зелёные либо остаток относится только к soak/owner-live/внешней среде;
+- canonical 1.5 SHA зафиксирован;
+- оставшиеся OWNER_REQUIRED пункты перечислены и не требуют новой архитектуры.
+
+При достижении этого состояния координатор не ждёт нового дня:
+1. фиксирует checkpoint 1.5;
+2. оставляет длительные 1.5 soak/owner-live проверки идти отдельно;
+3. сразу переключает рабочий поток на ветку 1.6;
+4. закрывает 1.6 security/owner scenarios в этом же owner-run;
+5. в финале отдельно показывает статусы и evidence 1.5 и 1.6.
+
+Aster после перехода остаётся координатором и независимым аудитором, а не массовым кодером. Codex/Claude не должны снова становиться bulk-исполнителями: основная работа идёт через Bossman, local/free/дешёвые workers и политику экономии 1.5.
+
+Финальная цель одного owner-run:
+`BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED -> SELF_IMPROVEMENT_WITHOUT_PRIMARY_ASTER_CLAUDE_DEPENDENCY`.

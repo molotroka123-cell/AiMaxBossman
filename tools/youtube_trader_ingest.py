@@ -33,6 +33,20 @@ if str(ROOT) not in sys.path:
 
 from learning.trader_apprentice import LevelMap, Snapshot, analyze  # noqa: E402
 
+def utf8_console() -> None:
+    # Shipped runners start with `-I`, which ignores PYTHONUTF8/PYTHONIOENCODING:
+    # without this the first Cyrillic line dies with cp1252 on Windows.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
+utf8_console()
+
+
+
 YOUTUBE_HOSTS = {
     "youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"
 }
@@ -60,6 +74,8 @@ Extract this exact JSON object:
   "execution_price": number|null,
   "source_label": string|null,
   "instrument": string|null,
+  "venue": string|null,
+  "timeframe": string|null,
   "cvd": number|null,
   "open_interest": number|null,
   "long_liquidations": number|null,
@@ -81,6 +97,7 @@ Extract this exact JSON object:
 }}
 
 Rules: vision_confidence is 0..1. Keep chart and execution prices separate.
+Venue and timeframe must be read from the visible chart header; use null if unclear.
 If transcript disagrees with the visible chart, preserve visible values and put
 that disagreement in notes. Do not guess obscured digits."""
 
@@ -202,7 +219,14 @@ def choose_subtitle(paths: Iterable[Path]) -> Optional[Path]:
 
 
 def transcript_near(cues: list[Cue], timestamp: float, radius: float = 35.0, max_chars: int = 3500) -> str:
-    selected = [c.text for c in cues if c.end >= timestamp - radius and c.start <= timestamp + radius]
+    """Decision-time transcript: look backward only, never past the frame time.
+
+    The previous symmetric window included future teacher language (for example
+    "winner", "stopped", "perfect") and could leak outcomes into features.
+    Cues may overlap the frame, but a cue that starts after timestamp is future
+    information and is excluded.
+    """
+    selected = [c.text for c in cues if c.end >= timestamp - radius and c.start <= timestamp]
     return SPACE_RE.sub(" ", " ".join(selected)).strip()[:max_chars]
 
 
@@ -211,7 +235,7 @@ def download_video(url: str, workdir: Path, *, max_filesize_mb: int = 750) -> Pa
     template = str(workdir / "video.%(ext)s")
     cmd = [
         ytdlp, "--no-playlist", "--max-filesize", f"{max_filesize_mb}M",
-        "-f", "b[height<=720]/best[height<=720]/best", "-o", template, url,
+        "-f", "bv[height<=720]+ba/b[height<=720]/best", "-o", template, url,
     ]
     _run(cmd, timeout=1800)
     candidates = sorted(workdir.glob("video.*"))
@@ -233,6 +257,8 @@ def extract_frames(video: Path, frames_dir: Path, *, interval_seconds: int = 30,
 
 
 def _api_json(method: str, url: str, payload: Optional[dict] = None, *, timeout: int = 120) -> dict:
+    from tools.route_guard import assert_free_or_local
+    assert_free_or_local(url, str((payload or {}).get("model") or ""))   # local or OpenRouter :free only
     body = None if payload is None else json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=body, method=method)
     req.add_header("Accept", "application/json")
@@ -351,9 +377,22 @@ def observation_to_snapshot(obs: dict[str, Any], timestamp: float, video_id: str
     )
 
 
+def _series_identity(observation: dict[str, Any]) -> Optional[tuple[str, str, str]]:
+    """Only compare frames when the visible instrument, venue and timeframe agree."""
+    parts = [str(observation.get(key) or "").strip().casefold() for key in ("instrument", "venue", "timeframe")]
+    return tuple(parts) if all(parts) else None
+
+
 def _future_price(rows: list[dict[str, Any]], index: int, horizon_seconds: float) -> Optional[tuple[float, float]]:
     start_t = float(rows[index]["timestamp_seconds"])
+    identity = _series_identity(rows[index].get("observation") or {})
+    if identity is None:
+        return None
     for row in rows[index + 1 :]:
+        # A chart switch breaks the video sequence. Do not jump across it even
+        # if the presenter later returns to the original chart.
+        if _series_identity(row.get("observation") or {}) != identity:
+            break
         if float(row["timestamp_seconds"]) - start_t >= horizon_seconds:
             p = _number(row.get("observation", {}).get("chart_price"))
             if p is not None:
@@ -367,6 +406,7 @@ def attach_future_outcomes(rows: list[dict[str, Any]], horizons: Iterable[int] =
         outcomes: dict[str, Any] = {}
         if start is None or start <= 0:
             row["future_outcomes"] = outcomes
+            row["future_outcome_status"] = "UNKNOWN"
             continue
         for horizon in horizons:
             future = _future_price(rows, i, horizon)
@@ -377,22 +417,26 @@ def attach_future_outcomes(rows: list[dict[str, Any]], horizons: Iterable[int] =
                 "timestamp_seconds": ts,
                 "chart_price": price,
                 "return_pct": round((price - start) / start * 100.0, 4),
+                "evidence_status": "UNVERIFIED_VIDEO_FRAME_DELTA",
             }
         row["future_outcomes"] = outcomes
+        row["future_outcome_status"] = "UNVERIFIED_VIDEO_FRAME_DELTA" if outcomes else "UNKNOWN"
 
 
 def build_cases(observations: list[dict[str, Any]], video_id: str, title: str) -> list[dict[str, Any]]:
     cases: list[dict[str, Any]] = []
     previous_snapshot: Optional[Snapshot] = None
+    previous_identity: Optional[tuple[str, str, str]] = None
     for row in observations:
         obs = row.get("observation") or {}
         ts = float(row["timestamp_seconds"])
+        identity = _series_identity(obs)
         snapshot = observation_to_snapshot(obs, ts, video_id)
         deterministic = None
-        if snapshot is not None and previous_snapshot is not None:
+        if identity is not None and identity == previous_identity and snapshot is not None and previous_snapshot is not None:
             deterministic = analyze(previous_snapshot, snapshot, _level_map(obs)).to_dict()
-        if snapshot is not None:
-            previous_snapshot = snapshot
+        previous_snapshot = snapshot if identity is not None else None
+        previous_identity = identity
         cases.append({
             "case_id": f"yt-{video_id}-{int(ts):06d}",
             "learning_status": "UNVERIFIED",
@@ -403,6 +447,7 @@ def build_cases(observations: list[dict[str, Any]], video_id: str, title: str) -
             "frame": row.get("frame"),
             "transcript_excerpt": row.get("transcript_excerpt", ""),
             "observation": obs,
+            "series_identity_status": "RESOLVED" if identity else "UNKNOWN",
             "deterministic_analysis": deterministic,
             "teacher_claim_status": "UNVERIFIED",
             "future_outcomes": {},
@@ -515,4 +560,9 @@ def main(argv: Optional[list[str]] = None) -> int:
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError, ValueError):
+            pass
     raise SystemExit(main())

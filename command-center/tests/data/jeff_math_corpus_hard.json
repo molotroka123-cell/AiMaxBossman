@@ -1,0 +1,269 @@
+{
+ "version": "jeff-math-corpus-hard/1",
+ "language": "ru",
+ "count": 25,
+ "math_count": 25,
+ "control_count": 0,
+ "categories": {
+  "arith_hard": 10,
+  "compound_hard": 3,
+  "combinatorics_hard": 3,
+  "units_hard": 3,
+  "date_hard": 3,
+  "percent_hard": 3
+ },
+ "scoring": "answer_type number: final number of the reply == answer (rounded to `decimals` when set); date: last DD.MM.YYYY; time: last HH:MM; weekday: last weekday word. See jeff_math_eval.py.",
+ "items": [
+  {
+   "category": "arith_hard",
+   "question": "Сколько будет 8 765 432 × 6 543 219?",
+   "answer_type": "number",
+   "answer": "57354141205608",
+   "answer_decimal": "57354141205608",
+   "decimals": null,
+   "control": false,
+   "id": "arith_hard-01"
+  },
+  {
+   "category": "arith_hard",
+   "question": "Вычисли 3^45",
+   "answer_type": "number",
+   "answer": "2954312706550833698643",
+   "answer_decimal": "2954312706550833698643",
+   "decimals": null,
+   "control": false,
+   "id": "arith_hard-02"
+  },
+  {
+   "category": "arith_hard",
+   "question": "Посчитай 98765432123 / 12345 и округли до 3 знаков после запятой.",
+   "answer_type": "number",
+   "answer": "4000220013/500",
+   "answer_decimal": "8000440.026",
+   "decimals": 3,
+   "control": false,
+   "id": "arith_hard-03"
+  },
+  {
+   "category": "arith_hard",
+   "question": "Сколько будет 123456789012 + 987654321098 - 55555555555?",
+   "answer_type": "number",
+   "answer": "1055555554555",
+   "answer_decimal": "1055555554555",
+   "decimals": null,
+   "control": false,
+   "id": "arith_hard-04"
+  },
+  {
+   "category": "arith_hard",
+   "question": "Чему равно (17 + 29) * (113 - 58) * 7?",
+   "answer_type": "number",
+   "answer": "17710",
+   "answer_decimal": "17710",
+   "decimals": null,
+   "control": false,
+   "id": "arith_hard-05"
+  },
+  {
+   "category": "arith_hard",
+   "question": "Вычисли 2^100",
+   "answer_type": "number",
+   "answer": "1267650600228229401496703205376",
+   "answer_decimal": "1267650600228229401496703205376",
+   "decimals": null,
+   "control": false,
+   "id": "arith_hard-06"
+  },
+  {
+   "category": "arith_hard",
+   "question": "Сколько будет 999999 × 999999?",
+   "answer_type": "number",
+   "answer": "999998000001",
+   "answer_decimal": "999998000001",
+   "decimals": null,
+   "control": false,
+   "id": "arith_hard-07"
+  },
+  {
+   "category": "arith_hard",
+   "question": "Посчитай 12345,678 * 8,765",
+   "answer_type": "number",
+   "answer": "10820986767/100000",
+   "answer_decimal": "108209.86767",
+   "decimals": null,
+   "control": false,
+   "id": "arith_hard-08"
+  },
+  {
+   "category": "arith_hard",
+   "question": "Чему равно 25!",
+   "answer_type": "number",
+   "answer": "15511210043330985984000000",
+   "answer_decimal": "15511210043330985984000000",
+   "decimals": null,
+   "control": false,
+   "id": "arith_hard-09"
+  },
+  {
+   "category": "arith_hard",
+   "question": "Сколько будет 1/7 + 1/13 + 1/17? Округли до 6 знаков после запятой.",
+   "answer_type": "number",
+   "answer": "69651/250000",
+   "answer_decimal": "0.278604",
+   "decimals": 6,
+   "control": false,
+   "id": "arith_hard-10"
+  },
+  {
+   "category": "compound_hard",
+   "question": "Вклад 250 000 рублей под 7,5% годовых с ежемесячной капитализацией на 5 лет. Какая сумма будет через 5 лет? Округли до копеек.",
+   "answer_type": "number",
+   "answer": "1816618/5",
+   "answer_decimal": "363323.6",
+   "decimals": 2,
+   "control": false,
+   "id": "compound_hard-01"
+  },
+  {
+   "category": "compound_hard",
+   "question": "Положили 80 000 рублей под 11% годовых со сложным процентом (капитализация раз в год) на 12 лет. Сколько будет на счёте? Округли до копеек.",
+   "answer_type": "number",
+   "answer": "5597521/20",
+   "answer_decimal": "279876.05",
+   "decimals": 2,
+   "control": false,
+   "id": "compound_hard-02"
+  },
+  {
+   "category": "compound_hard",
+   "question": "Инвестиция 1 500 000 рублей под 9% годовых с ежеквартальной капитализацией на 7 лет. Какая сумма накопится? Округли до копеек.",
+   "answer_type": "number",
+   "answer": "279681749/100",
+   "answer_decimal": "2796817.49",
+   "decimals": 2,
+   "control": false,
+   "id": "compound_hard-03"
+  },
+  {
+   "category": "combinatorics_hard",
+   "question": "Сколькими способами можно выбрать 17 человек из 40?",
+   "answer_type": "number",
+   "answer": "88732378800",
+   "answer_decimal": "88732378800",
+   "decimals": null,
+   "control": false,
+   "id": "combinatorics_hard-01"
+  },
+  {
+   "category": "combinatorics_hard",
+   "question": "Сколько существует перестановок из 15 элементов?",
+   "answer_type": "number",
+   "answer": "1307674368000",
+   "answer_decimal": "1307674368000",
+   "decimals": null,
+   "control": false,
+   "id": "combinatorics_hard-02"
+  },
+  {
+   "category": "combinatorics_hard",
+   "question": "Сколькими способами можно расставить 12 различных книг на полке?",
+   "answer_type": "number",
+   "answer": "479001600",
+   "answer_decimal": "479001600",
+   "decimals": null,
+   "control": false,
+   "id": "combinatorics_hard-03"
+  },
+  {
+   "category": "units_hard",
+   "question": "Переведи 123,456 мили в километры. Округли до 3 знаков после запятой.",
+   "answer_type": "number",
+   "answer": "198683/1000",
+   "answer_decimal": "198.683",
+   "decimals": 3,
+   "control": false,
+   "id": "units_hard-01"
+  },
+  {
+   "category": "units_hard",
+   "question": "Сколько секунд в 9,75 суток?",
+   "answer_type": "number",
+   "answer": "842400",
+   "answer_decimal": "842400",
+   "decimals": null,
+   "control": false,
+   "id": "units_hard-02"
+  },
+  {
+   "category": "units_hard",
+   "question": "Переведи 451 градус по Фаренгейту в градусы Цельсия. Округли до 2 знаков после запятой.",
+   "answer_type": "number",
+   "answer": "11639/50",
+   "answer_decimal": "232.78",
+   "decimals": 2,
+   "control": false,
+   "id": "units_hard-03"
+  },
+  {
+   "category": "date_hard",
+   "question": "Какая дата будет через 1000 дней после 29.02.2024? Ответь в формате ДД.ММ.ГГГГ.",
+   "answer_type": "date",
+   "answer": "25.11.2026",
+   "answer_decimal": "25.11.2026",
+   "decimals": null,
+   "control": false,
+   "id": "date_hard-01"
+  },
+  {
+   "category": "date_hard",
+   "question": "Сколько дней между 03.11.1987 и 01.10.2026?",
+   "answer_type": "number",
+   "answer": "14212",
+   "answer_decimal": "14212",
+   "decimals": null,
+   "control": false,
+   "id": "date_hard-02"
+  },
+  {
+   "category": "date_hard",
+   "question": "Какой день недели будет 31 декабря 2099 года?",
+   "answer_type": "weekday",
+   "answer": "четверг",
+   "answer_decimal": "четверг",
+   "decimals": null,
+   "control": false,
+   "id": "date_hard-03"
+  },
+  {
+   "category": "percent_hard",
+   "question": "Сколько будет 17,35% от 48 920?",
+   "answer_type": "number",
+   "answer": "424381/50",
+   "answer_decimal": "8487.62",
+   "decimals": null,
+   "control": false,
+   "id": "percent_hard-01"
+  },
+  {
+   "category": "percent_hard",
+   "question": "Цена 7 890 рублей, скидка 23%. Сколько заплатим?",
+   "answer_type": "number",
+   "answer": "60753/10",
+   "answer_decimal": "6075.3",
+   "decimals": null,
+   "control": false,
+   "id": "percent_hard-02"
+  },
+  {
+   "category": "percent_hard",
+   "question": "Сумма с НДС 20% равна 98 760 рублей. Сколько из них НДС? Округли до копеек.",
+   "answer_type": "number",
+   "answer": "16460",
+   "answer_decimal": "16460",
+   "decimals": 2,
+   "control": false,
+   "id": "percent_hard-03"
+  }
+ ],
+ "note": "stress set written after the baseline of jeff-math-corpus/1; not used to tune the helper"
+}

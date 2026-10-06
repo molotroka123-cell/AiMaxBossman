@@ -1,4 +1,4 @@
-﻿"""FableTranscriptRecorder: durable corpus of every paid-model exchange."""
+"""FableTranscriptRecorder: durable corpus of every paid-model exchange."""
 from __future__ import annotations
 
 import json

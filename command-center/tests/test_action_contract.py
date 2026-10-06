@@ -64,6 +64,8 @@ def test_classify_apps():
 
 def test_classify_code_and_github_are_distinct():
     assert ac.classify("Исправь баг в коде").name == "CODE_ACTION"
+    assert ac.classify("Make the smallest code change, then run the project tests").name == "CODE_ACTION"
+    assert ac.classify("How can I make the smallest code change?") is None
     assert ac.classify("Запушь изменения в git").name == "GITHUB_ACTION"
 
 
@@ -93,6 +95,17 @@ def test_classify_leaves_informational_and_browser_prompts_alone():
     ) is None
 
 
+async def test_informational_code_question_still_completes_as_text(env):
+    env.svc.registry.adapter_factory = lambda m, p: FakeAdapter(
+        "The HUD counter can be updated after placement and removal."
+    )
+    stack = await make_stack(
+        env.client, prompt="Explain how the Godot HUD block counter works", max_steps=1)
+
+    status = await _run_task(env, stack["task"]["id"], timeout=15, until=FINISHED)
+    assert status == "completed"
+
+
 # ------------------------------------------------------------------ TERMINAL_FILE
 
 async def _allow_root(env, path) -> None:
@@ -119,6 +132,30 @@ async def test_terminal_text_only_claim_does_not_complete(env, tmp_path):
     status = await _run_task(env, stack["task"]["id"], timeout=15, until=FINISHED)
     assert status == "failed"
     assert not (work / "hello.txt").exists()
+
+
+async def test_bossblocks_code_change_plan_without_tools_does_not_complete(env):
+    """Owner task #56: a prose tool plan cannot count as a Godot code edit."""
+    prompt = (
+        "BOSSBLOCKS-001 owner 10-minute free/local coding continuation. "
+        "Work only inside C:/owner-run/bossblocks-001-game. Use the existing Godot project. "
+        "Add one small, visible gameplay improvement: show the current number of "
+        "player-placeable blocks in the HUD, updating after block placement and removal. "
+        "Keep the existing controls, save/load, and boundary protections. "
+        "Make the smallest code change, then run the project tests and a real Godot "
+        "headless launch. Report exact changed files, tests, launch result, and limitations."
+    )
+    env.svc.registry.adapter_factory = lambda m, p: FakeAdapter(
+        "Plan: call terminal.run to edit main.gd, then run tests. Changed files: main.gd. PASS."
+    )
+    stack = await make_stack(env.client, prompt=prompt, max_steps=2)
+
+    status = await _run_task(env, stack["task"]["id"], timeout=15, until=FINISHED)
+    assert status == "failed"
+    async with env.svc.db.session() as s:
+        rows = (await s.execute(sa.select(dbm.tool_calls).where(
+            dbm.tool_calls.c.task_id == stack["task"]["id"]))).fetchall()
+    assert rows == []
 
 
 def test_terminal_tool_name_is_not_mistaken_for_file_evidence():
@@ -830,3 +867,36 @@ def test_a_local_file_that_looks_like_a_host_is_still_an_obligation():
     inside a URL/email span is excluded."""
     evidence = ac._terminal_evidence("Use terminal.run to create notes.com.")
     assert evidence is not None and evidence.target == "notes.com"
+
+
+# Task #56 paraphrased: the fix above must not hinge on one English wording.
+CODE_CHANGE_PARAPHRASES = [
+    "Внеси изменения в код игры: добавь HUD",
+    "Сделай правки в коде Godot-проекта, добавь счётчик очков",
+    "Update main.gd to show the score",
+    "Implement a pause menu in the game",
+    "Добавь в игру меню паузы",
+    "Измени функцию save в scripts/main.gd",
+]
+# Negative control: asking ABOUT code is still an informational text task.
+CODE_QUESTIONS = [
+    "Объясни, что делает этот код",
+    "What does main.gd do?",
+    "Как в Godot добавить меню паузы?",
+    "Расскажи про игру Tetris",
+    "Посчитай 17*23, не трогай код и файлы",
+    "Summarize the game design document in chat",
+    "Какая функция в Python сортирует список?",
+    "напиши функцию",
+    "Write a function that reverses a string",
+]
+
+
+@pytest.mark.parametrize("prompt", CODE_CHANGE_PARAPHRASES)
+def test_paraphrased_code_change_requests_require_a_code_action(prompt):
+    assert ac.classify(prompt).name == "CODE_ACTION"
+
+
+@pytest.mark.parametrize("prompt", CODE_QUESTIONS)
+def test_questions_about_code_stay_informational(prompt):
+    assert ac.classify(prompt) is None

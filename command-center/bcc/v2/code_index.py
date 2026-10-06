@@ -465,6 +465,9 @@ class CodeIndex:
     # F-018: deny-лист чувствительных файлов (`*.env`, `*id_rsa*`, `*wallet*`)
     # из PermissionPolicy.safe_default — раньше не имел ни одного импортёра.
     read_policy: PermissionPolicy = field(default_factory=PermissionPolicy.safe_default)
+    # Audit 2026-10-05 #3: directories that are never indexed even though they lie under a root (the agents' private scratch area when
+    # the root is an ANCESTOR of it: the scratch check only looks at a root that is itself inside scratch).
+    exclude_dirs: tuple[Path, ...] = ()
     k1: float = 1.5
     b: float = 0.75
 
@@ -490,6 +493,9 @@ class CodeIndex:
         self.files = raw.get("files") or {}
         for h, c in (raw.get("chunks") or {}).items():
             self.chunks[h] = CodeChunk.from_json(h, c)
+        if self.exclude_dirs:                 # an index saved by an older build may already hold a neighbour's scratch
+            for rel in [r for r in self.files if self._is_excluded_rel(r)]:
+                self._drop_file(rel)
         saved = raw.get("status")
         if isinstance(saved, dict) and saved.get("phase") == "ready":
             self.status = saved
@@ -513,6 +519,10 @@ class CodeIndex:
             except (ValueError, OSError):
                 continue
         return path.as_posix()
+
+    def _is_excluded_rel(self, rel: str) -> bool:
+        excluded = [Path(d) for d in self.exclude_dirs]
+        return bool(excluded) and any(_within(Path(root) / rel, excluded) for root in self.roots)
 
     def _rules_for(self, root: Path) -> IgnoreRules:
         rules = IgnoreRules(DEFAULT_IGNORE_PATTERNS)
@@ -558,6 +568,8 @@ class CodeIndex:
                     continue
                 rp = p.resolve()
                 if not _within(rp, roots) or self.read_policy.denies_read(rp.name):
+                    continue
+                if self.exclude_dirs and _within(rp, [Path(d) for d in self.exclude_dirs]):
                     continue
                 if rp not in seen:
                     seen.add(rp)

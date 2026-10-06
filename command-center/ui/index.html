@@ -18,8 +18,10 @@
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="desktop.css">
 <link rel="stylesheet" href="pages/video_studio.css">
+<link rel="stylesheet" href="pages/capability_tree.css">
 </head>
 <body>
+<script src="intro.js"></script>
 
 <!-- ============ Экран входа ============ -->
 <div id="login" class="login" hidden>
@@ -31,9 +33,11 @@
     <p class="login-sub">Локальный control plane. Доступ по токену.</p>
     <label class="field">
       <span class="field-label">Токен доступа</span>
-      <input id="login-token" type="password" class="input mono" placeholder="вставьте токен" autocomplete="off" spellcheck="false">
+      <!-- Токен доступа — не пароль: type=password Edge/Chrome предлагают «сохранить
+           пароль» вопреки autocomplete=off. Маска — inline-стиль и CSS (.token-mask). -->
+      <input id="login-token" type="text" class="input mono secret-mask token-mask" placeholder="вставьте токен" autocomplete="one-time-code" autocapitalize="off" autocorrect="off" spellcheck="false" style="-webkit-text-security: disc" data-lpignore="true" data-1p-ignore="true" data-bwignore>
     </label>
-    <p class="login-hint">Токен напечатан в консоли сервера при старте.</p>
+    <p class="login-hint" id="login-hint">Токен напечатан в консоли сервера при старте.</p>
     <div id="login-error" class="login-error" hidden></div>
     <button type="submit" class="btn btn-primary btn-block" id="login-submit">Войти</button>
   </form>

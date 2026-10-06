@@ -1,4 +1,6 @@
 """Learning Quality Guard / Anti-Degradation Layer — все 10 требований."""
+import itertools
+
 import pytest
 
 import bossman.learning_guard as lg
@@ -6,9 +8,15 @@ from bossman.learning_guard import (ABResult, Candidate, PromotionStage,
                                      RollbackInfo, SecretHoldout, SecuritySnapshot)
 
 
+_SEQ = itertools.count()
+
+
 def _mk(n, task_class, raw_ok, guarded_ok, self_score=None):
-    return [ABResult(f"{task_class}-{i}", task_class, raw_ok, guarded_ok,
-                     bossman_self_score=self_score) for i in range(n)]
+    # Distinct tasks get distinct ids: evaluate_ab counts one row per task_id
+    # (audit 2026-09-28 — a repeated known task is not new evidence), and two
+    # _mk() calls used to reuse "code-0".."code-9" for what are different tasks.
+    return [ABResult(f"{task_class}-{next(_SEQ)}", task_class, raw_ok, guarded_ok,
+                     bossman_self_score=self_score) for _ in range(n)]
 
 
 # req.1 — same-model Raw vs Model+Bossman A/B: агрегируется по verified-полям

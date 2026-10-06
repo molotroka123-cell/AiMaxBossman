@@ -629,13 +629,45 @@ def check_telemetry_corpus() -> Check:
                  facts={"path": str(path), "records": existing, "env": tm.ENV_ROOT})
 
 
+def check_telegram_calls() -> Check:
+    """Telegram-звонки (опционально, выключены по умолчанию) — только WARN, никогда BLOCKED.
+
+    Звонки — дополнение, а не условие запуска Bossman: без аддона `calls` (telethon, py-tgcalls,
+    ntgcalls) приложение работает, а `bossman call doctor` назовёт недостающее по пунктам."""
+    mods = ("telethon", "pytgcalls", "ntgcalls")
+    facts: dict[str, Any] = {"module": _importable("bcc.telegram_calls"),
+                             "packages": {m: _importable(m) for m in mods}}
+    if not facts["module"]:
+        return Check("telegram_calls", WARN, "модуль звонков bcc.telegram_calls не импортируется",
+                     "pip install -e ./command-center рядом с bossman-core", facts)
+    missing = [m for m, ok in facts["packages"].items() if not ok]
+    if missing:
+        return Check("telegram_calls", WARN, "звонки выключены: нет пакетов аддона " + ", ".join(missing),
+                     "bossman call install (или пропустите: звонки не нужны для остальной работы)", facts)
+    # S6: голосовой тракт Jeff (ASR / TTS / локальная модель) и права на файлы звонков: PASS или WARN, никогда BLOCKED
+    try:
+        from bcc.telegram_calls.doctor_rows import jeff_call_rows
+        data_dir = Path(os.environ.get("BCC_DATA_DIR") or (REPO / "command-center" / "data")).expanduser()
+        rows = jeff_call_rows(data_dir)
+    except Exception as exc:  # noqa: BLE001 - строка диагностики не имеет права падать
+        rows = [{"check": "голосовой тракт", "status": WARN, "detail": f"не удалось проверить ({type(exc).__name__})",
+                 "remedy": "bossman call doctor"}]
+    facts["voice_rows"] = [{"check": r["check"], "status": r["status"]} for r in rows]
+    weak = [r for r in rows if r["status"] != PASS]
+    if weak:
+        return Check("telegram_calls", WARN, "; ".join(f"{r['check']}: {r['detail']}" for r in weak)[:400],
+                     "bossman call doctor: он назовёт, что именно поставить (звонки не нужны для остальной работы)", facts)
+    return Check("telegram_calls", PASS, "пакеты звонков, голос Jeff и права на файлы в порядке (сами звонки выключены, пока владелец не включит)",
+                 facts=facts)
+
+
 CHECKS: list[Callable[[], Check]] = [
     check_build_identity,
     check_python, check_python_packages, check_bossman_packages, check_node, check_ffmpeg,
     check_state_dir, check_evidence_key, check_journal_anchor, check_browser_runtime,
     check_model_endpoint, check_openai_endpoints, check_media_engine, check_openhands, check_hardware,
     check_windows_specific, check_computer_operator_deps,
-    check_gateway_url, check_cloud_providers, check_telemetry_corpus,
+    check_gateway_url, check_cloud_providers, check_telemetry_corpus, check_telegram_calls,
 ]
 
 

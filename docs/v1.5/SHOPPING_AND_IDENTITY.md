@@ -41,3 +41,28 @@ Task-specific grant может заранее разрешить один зак
 3. Отдельная реальная purchase-task владельца с бюджетом и адресом через vault. Покупка считается подтверждённой только с сопоставленным receipt/amount. Доставка наблюдается в последующей разрешённой задаче.
 
 Fixture PASS, preview PASS и REAL_PURCHASE_PASS не взаимозаменяемы. Нельзя сертификатом synthetic checkout объявлять «сам уже покупает домой».
+
+---
+
+## SAME-RUN HANDOFF: 1.5 → 1.6
+
+После завершения 1.5 или достижения `V1_5_NEAR_COMPLETE` тот же owner-run без отдельного дня продолжает работу в ветке 1.6:
+https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-secret-intake-20260925
+
+Цель одного прогона: `BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED`.
+
+---
+
+## Immediate handoff to Bossman 1.6
+
+As soon as Bossman 1.5 reaches OWNER_READY closure — or only explicitly non-blocking P2 / optional OWNER_REQUIRED items remain — continue the SAME owner run in:
+
+[Bossman 1.6 self-evolution branch](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-self-evolution-20260925)
+
+Start with `BOSSMAN_1_6_START_HERE.md`.
+
+One-run objective:
+
+`BOSSMAN_1_5_OWNER_READY -> 1.6 HANDOFF -> BOSSMAN_SELF_EVOLUTION_RUNNING`
+
+Do not use this handoff to hide an open 1.5 P0 or release-blocking P1. The goal is to close both stages in one continuous owner run whenever the critical 1.5 gates allow it.

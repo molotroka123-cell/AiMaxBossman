@@ -166,8 +166,16 @@ def test_bossman_entry_point_keeps_core_commands():
                  ["models", "list", "--all"], ["--help"]):
         assert not cli.is_terminal_call(argv), argv
     for argv in ([], ["chat"], ["exec", "--input-file", "f"], ["-p", "hi"], ["status", "--json"],
-                 ["keys", "set", "anthropic"], ["market", "status"]):
+                 ["keys", "set", "anthropic"], ["market", "status"], ["autonomy", "status"],
+                 ["autonomy", "constitution", "pin"]):
         assert cli.is_terminal_call(argv), argv
+
+
+def test_terminal_command_lists_are_the_same_in_both_entry_points():
+    cli = pytest.importorskip("bossman.cli")
+    from bcc.terminal_cli.cli import TERMINAL_COMMANDS
+    assert set(cli.TERMINAL_COMMANDS) == set(TERMINAL_COMMANDS)
+    assert len(TERMINAL_COMMANDS) == len(set(TERMINAL_COMMANDS))
 
 
 def test_market_terminal_uses_the_read_only_collector(tmp_path, capsys):
@@ -195,6 +203,19 @@ def test_start_without_optional_url_or_data_dir(monkeypatch, capsys):
     assert main(["start", "--json"]) == 0
     assert seen == {"url": None, "data_dir": None, "port": None}
     assert '"ok": true' in capsys.readouterr().out
+
+
+def test_exec_keeps_global_agent_and_model_unless_overridden():
+    from bcc.terminal_cli.cli import build_parser
+
+    parser = build_parser()
+    before = parser.parse_args(["--agent", "11", "--model", "local:qwen", "exec", "--text"])
+    assert before.agent == "11"
+    assert before.model == "local:qwen"
+
+    after = parser.parse_args(["exec", "--text", "--agent", "12", "--model", "cloud:x"])
+    assert after.agent == "12"
+    assert after.model == "cloud:x"
 
 
 # ----------------------------------------------------------------- launchers

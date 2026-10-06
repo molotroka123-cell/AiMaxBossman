@@ -1,0 +1,57 @@
+{
+  "schema": "bossman.v1.5.external-auditor-policy/1",
+  "role": "aster_external_auditor",
+  "mode": "READ_ONLY_COORDINATOR",
+  "principle": "Aster observes, starts, measures, audits and reports. Bossman and its authorized worker stack write/fix code.",
+  "allowed": [
+    "fetch_and_inspect",
+    "run_tests_and_benchmarks",
+    "launch_bossman_owner_run",
+    "launch_self_improvement_campaign",
+    "read_logs_and_evidence",
+    "compare_sha_and_artifacts",
+    "classify_p0_p1_p2",
+    "request_owner_input",
+    "prepare_owner_required_provider_packet",
+    "write_audit_report"
+  ],
+  "forbidden": [
+    "write_product_code",
+    "apply_patch",
+    "create_fix_commit",
+    "merge_fix",
+    "promote_candidate",
+    "self_certify_own_change",
+    "auto_register_provider_account",
+    "accept_provider_terms",
+    "solve_captcha",
+    "create_or_rotate_provider_key",
+    "create_extra_accounts_for_quota_evasion"
+  ],
+  "coding_authority": {
+    "primary": "bossman_self_repair",
+    "free_first_workers": [
+      "local_verified_coding_route",
+      "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "inclusionai/ling-3.0-flash-fin:free"
+    ],
+    "paid_finalizer": "z-ai/glm-5.3-flash",
+    "paid_only_after_verified_blocker": true,
+    "jev_routes_within_pre_authorized_set": true,
+    "jev_cannot_expand_authority": true
+  },
+  "provider_onboarding": {
+    "bossman_auto_signup": false,
+    "aster_auto_signup": false,
+    "mode": "OWNER_REQUIRED",
+    "owner_input_surface": "telegram_ux_cmd",
+    "flow": [
+      "Aster/Bossman researches legitimate provider and creates a concise packet",
+      "Owner receives official URL + required fields + expected local secret env name",
+      "Owner completes account/ToS/CAPTCHA/key creation",
+      "Owner can send ordinary field values through Telegram owner-input",
+      "Secrets go only to local vault/secret file, never model prompts",
+      "Bossman probes provider and records real capacity/cost/rate-limit evidence"
+    ]
+  }
+}

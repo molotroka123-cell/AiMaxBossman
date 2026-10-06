@@ -65,33 +65,23 @@ Core intelligence is the mean of reasoning, coding, structured-output, and unkno
 
 ## Current evidence
 
-A measured same-model run must be written to:
+A measured same-model run must remain outside Git on the owner's PC. A redacted
+summary can be attached as an owner-authored commit comment on the **same** SHA;
+CI fetches it and runs this unchanged gate. Without that comment, CI fails
+closed. Committing the measurement into the tree cannot satisfy `--expect-sha`,
+because the commit changes the SHA. See `INTELLIGENCE_MEASUREMENT.md` for the
+private-evidence and comment procedure. Contract tests passing are not evidence
+that intelligence was preserved.
 
-`docs/benchmark/intelligence-preservation-current.json`
+### How the evidence is produced
 
-The CI gate intentionally fails if this file is missing. Contract tests passing are not evidence that intelligence was preserved.
-
-### How the file is produced
-
-    python scripts/intelligence_retention_run.py \
-        --items docs/benchmark/retention-items-v1.json \
-        --model <the model the owner actually runs> \
-        --base-url http://127.0.0.1:8080/v1 \
-        --layer system=<Bossman system policy> \
-        --layer context=<compiled context> \
-        --layer tools=<tool surface> \
-        --out docs/benchmark/intelligence-preservation-current.json
-
-Until 2026-09-11 no such tool existed: the gate answered
-`INSUFFICIENT_EVIDENCE` not because intelligence had degraded but because the
-measurement could not be taken at all. The runner refuses rather than invents:
-
-* missing or indistinguishable lane layers abort with `FAKE_LANES` — identical
-  lanes would "prove" 100% retention while measuring nothing;
-* a metric with no observation in some lane aborts: a partial run is not a run;
-* an unreachable model aborts instead of returning a guess;
-* grading is deterministic and declared by the item, never judged by another
-  model, so a third party can recompute the verdict.
+Run `tools/intelligence_preservation_run.py` on the exact source SHA with the
+owner's local model and an independently reviewed, sufficient corpus. Keep the
+full report outside Git. `tools/intelligence_evidence_transport.py prepare`
+checks the paired rows and gate, then prepares a redacted commit-comment
+request. The owner reviews and posts it on the same SHA. CI fetches the comment
+and runs the unchanged gate. See `INTELLIGENCE_MEASUREMENT.md` for the exact
+procedure and its privacy limits.
 
 ### Why the gate is still red in CI
 
@@ -100,8 +90,33 @@ four lanes, with roughly a thousand paired items per metric to clear the 2%
 non-inferiority margin. The build environment has no model credentials and no
 local weights, so the run cannot happen there, and no runner output may be
 synthesised. `INTELLIGENCE_PRESERVATION=INSUFFICIENT_EVIDENCE` is the honest
-state until the owner executes the runner against a real model — the new local
-machine is the intended place for it.
+state until the owner executes the runner against a real model and supplies an
+exact-SHA redacted summary. The owner's local machine is the intended place for
+measurement.
+
+### Latest private owner run (2026-10-02)
+
+A real RC21 diagnostic was run on the owner machine against SHA
+`4b9049a097daf49e9fa6c3e8dedeb5f6a3591e33`, using the same local model in all
+four lanes and 940 paired items. The unchanged gate returned `NO_GO`, not PASS.
+The report is kept outside Git at
+`%USERPROFILE%\Bossman\ip-corpus-rc19\gate-report-rc21-candidate.json`; the
+full measurement is `measurement-rc21-candidate.json` in the same directory.
+
+The full/raw core mean is 1.1835, but individual metrics regress: reasoning
+accuracy 0.9263, coding correctness 0.9308, and unknown-task adaptation 0.9741.
+System/context coding correctness is 0.9692. The tool-retention point estimates
+are 1.0; full long-context accuracy is 0.90 (warning). An above-baseline mean
+does not cancel these per-metric blockers.
+
+The subsequent harness audit found that the read-only `analyst` profile inherited
+22 browser tools despite its stated local-only role, while the measured sandbox
+could execute only four file tools; its prompt-visible `log` tool was also not
+executable. The profile now opts out of Computer Use, and the isolated benchmark
+sandbox can write `log` only to its temporary journal. The regression-harness
+tests pass, but these changes have not yet been measured on a new exact commit.
+RC21 therefore remains a valid `NO_GO` for the SHA it measured, and is not
+evidence for the changed working tree or a Bossman 2.0 release.
 
 ## Diagnosis
 

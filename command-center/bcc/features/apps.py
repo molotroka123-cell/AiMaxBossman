@@ -31,6 +31,7 @@ import yaml
 from fastapi import APIRouter, HTTPException, Request
 
 from ..config import PKG_DIR, ROOT
+from ..portcheck import loopback_port_closed
 from . import Feature
 from ..single_flight import await_shared
 
@@ -185,6 +186,12 @@ async def _probe(app: dict[str, Any], client: httpx.AsyncClient | None = None) -
     base = f"http://127.0.0.1:{port}"
     out: dict[str, Any] = {"reachable": False, "status": "STOPPED", "detail": "",
                            "health": {}, "metrics": {}}
+    if (client is None or getattr(client, "bcc_network", False)) and await loopback_port_closed(int(port)):
+        # Порт закрыт: на Windows сетевой опрос ждал бы ~1.2-2 с до отказа. Результат тот же, что у
+        # ConnectError ниже (STOPPED + причина), но за миллисекунды. Только для настоящего сетевого клиента
+        # (_probe_client): подставной транспорт (MockTransport в тестах) отвечает и без слушающего порта.
+        out["detail"] = f"ConnectError: приложение не отвечает на {base}"
+        return out
     try:
         if client is None:
             async with _probe_client() as own:
@@ -217,7 +224,9 @@ async def _probe(app: dict[str, Any], client: httpx.AsyncClient | None = None) -
 
 
 def _probe_client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(timeout=PROBE_TIMEOUT, trust_env=False, verify=_ssl())
+    client = httpx.AsyncClient(timeout=PROBE_TIMEOUT, trust_env=False, verify=_ssl())
+    client.bcc_network = True        # настоящая сеть: закрытый порт можно определить без соединения
+    return client
 
 
 def _dig(payload: Any, path: str) -> Any:

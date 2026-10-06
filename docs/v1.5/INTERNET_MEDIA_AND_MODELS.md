@@ -49,3 +49,34 @@ Registry хранит executor/reviewer/STT/TTS/vision/image/video/tool-structur
 Для текущего hardware учитывать четыре категории: LLM/coding/agents, image, video, tool-calling/structured output. Голос — дополнительная роль. Кандидатов low-overrefusal, Xing/OCR и другие ранее выбранные модели сначала проверить по лицензии и runtime; названия из старого чата — discovery hints, не ready-to-install manifest.
 
 Новый checkpoint не обязан быть лучше старого. Главные метрики — verified task success, tool/schema accuracy, latency, RAM, стоимость, частота ненужных отказов и регрессий. После рецепта hybrid workflow выполнить restart и новую задачу с dry cloud plan/local preview без повторного платного расхода; это проверка reuse, а не доказанный causal transfer gain.
+
+---
+
+## SAME-RUN HANDOFF: 1.5 → 1.6
+
+После закрытия 1.5 **или** достижения `V1_5_NEAR_COMPLETE` этот же owner-run сразу продолжает работу в отдельной ветке 1.6:
+
+[feat/bossman-1.6-secret-intake-20260925](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-secret-intake-20260925)
+
+`V1_5_NEAR_COMPLETE` = нет software P0 и release-blocking P1, основные targeted/regression/hidden tests зелёные, canonical SHA зафиксирован, а остаток относится только к owner-live/soak/внешней среде.
+
+Не ждать отдельного следующего дня. Цель одного прогона:
+`BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED`.
+
+Evidence и финальные статусы 1.5 и 1.6 сохраняются раздельно по своим SHA.
+
+---
+
+## Immediate handoff to Bossman 1.6
+
+As soon as Bossman 1.5 reaches OWNER_READY closure — or only explicitly non-blocking P2 / optional OWNER_REQUIRED items remain — continue the SAME owner run in:
+
+[Bossman 1.6 self-evolution branch](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-self-evolution-20260925)
+
+Start with `BOSSMAN_1_6_START_HERE.md`.
+
+One-run objective:
+
+`BOSSMAN_1_5_OWNER_READY -> 1.6 HANDOFF -> BOSSMAN_SELF_EVOLUTION_RUNNING`
+
+Do not use this handoff to hide an open 1.5 P0 or release-blocking P1. The goal is to close both stages in one continuous owner run whenever the critical 1.5 gates allow it.

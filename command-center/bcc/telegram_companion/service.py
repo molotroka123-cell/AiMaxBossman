@@ -15,7 +15,12 @@ from .config import CompanionError, Person, Settings
 from .agent_bridge import AGENT_COMMANDS, AgentBridgeMixin
 from .console import CONSOLE_COMMANDS, CONSOLE_OFF, NO_DIRECT_SHELL, ConsoleMixin
 from .jev_bridge import JevBridgeMixin
+from .form_bridge import FORM_COMMANDS, FormBridgeMixin
+from .parse_bridge import PARSE_COMMANDS, ParseBridgeMixin
 from .store import Store
+from .secret_intake import (
+    SecretField, SecretIntakeError, SecretIntakeManager, looks_like_secret_message, request_caption,
+)
 
 HELP = ("Я Bossman, ваш ИИ-помощник на локальных моделях. Можно просто написать мне.\n\n"
         "/best — отвечать лучшей (самой умной) моделью; /best вопрос — один ответ ею\n"
@@ -29,8 +34,10 @@ HELP = ("Я Bossman, ваш ИИ-помощник на локальных мод
         "/menu — пульт владельца кнопками (статус, очередь, подтверждения, СТОП)\n"
         "/status — связь с компьютером (владелец)\n"
         "/task описание — подготовить поручение агенту Bossman\n"
+        "/fill Поле=значение; ... — заполнить видимую форму через Bossman, без отправки/оплаты\n"
         "/confirm код — подтвердить ровно это поручение\n"
         "/approvals — подтвердить или отклонить ожидающие действия Bossman (владелец)\n"
+        "/inputs — какие данные нужны Bossman для формы; /input ID key=value — ответить с телефона\n"
         "/stop — остановить всё, что ещё можно остановить; /pause — пауза; /resume — продолжить\n"
         "/evolution_status, /evolution_start, /evolution_pause, /evolution_resume, /evolution_stop, /evolution_report — цикл улучшения (владелец)\n"
         "/result ID — состояние и результат своей задачи\n"
@@ -101,8 +108,11 @@ def failure_text(code: str) -> str:
         "IMAGE_GEN_LOW_MEMORY": "Мало свободной памяти для генерации (нужно больше, чем свободно сейчас). Закройте тяжёлые задачи или выгрузите модель и попробуйте снова.",
         "IMAGE_ENGINE_NOT_CONFIGURED": "Генерация не настроена в Bossman: нет движка sd.cpp (BOSSMAN_SDCPP_BIN) или моделей с MANIFEST.json (BOSSMAN_MEDIA_MODELS). Картинку-заглушку я не присылаю.",
         "IMAGE_GEN_FAILED": "Генерация не удалась в Bossman Studio. Подробности — в Студии, раздел «Картинки».",
+        "IMAGE_RUNTIME_BLOCKED_BY_WINDOWS": "Windows заблокировал неподписанный локальный медиа-движок (Smart App Control). Клип не создан и не отправлен. Нужна подписанная сборка движка или решение владельца по защите Windows; автоматического повтора не будет.",
         "IMAGE_GEN_CANCELLED": "Генерация отменена.",
         "IMAGE_GEN_TIMEOUT": "Генерация не уложилась в отведённое время и отменена.",
+        "IMAGE_GEN_CANCEL_UNCONFIRMED": "Bossman не подтвердил остановку: генерация, возможно, ещё идёт. "
+                                        "Проверьте Студию (раздел «Картинки») и остановите её там.",
         "VIDEO_TOO_LARGE_FOR_TELEGRAM": "Клип готов и проверен, но он больше 48 МБ — Telegram такой не примет. Он лежит в Bossman Studio (раздел «Картинки» → видео).",
         "ANIMATE_NO_SOURCE": "Пришлите фото с подписью /animate 5 или /animate 10 (можно добавить, как оно должно двигаться), или нажмите «Оживить» под картинкой.",
         "IMAGE_BYTES_UNVERIFIED":"Bossman отдал файл, который не прошёл проверку (хеш или формат не совпали). Картинку не отправляю.",
@@ -178,7 +188,8 @@ def frame_for_video(data: bytes) -> tuple[bytes, tuple[int, int]]:
 
 ROUTE_TITLE = {"main": "🧠 Лучшая", "fast": "⚡ Быстрая"}
 BOT_COMMANDS = [("menu", "Пульт с кнопками"), ("status", "Состояние компьютера"), ("queue", "Очередь и подтверждения"),
-                ("task", "Новое поручение Bossman"), ("approvals", "Подтвердить или отклонить"),
+                ("task", "Новое поручение Bossman"), ("fill", "Заполнить видимую форму"),
+                ("approvals", "Подтвердить или отклонить"),
                 ("stop", "СТОП: остановить отменяемое"), ("pause", "Пауза: не начинать новое"),
                 ("resume", "Продолжить (с новым наблюдением)"),
                 ("evolution_status", "Цикл улучшения"), ("evolution_report", "Отчёт Evolution"),
@@ -239,9 +250,9 @@ def model_name(model_id: str) -> str:
     return re.sub(r"-0*1-of-\d+$", "", name)[:80] or "модель"
 
 
-class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
+class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin, ParseBridgeMixin):
     def __init__(self, settings: Settings, store: Store, telegram: Telegram, core: Core, models: Models,
-                 *, policy_provider=None):
+                 *, policy_provider=None, secret_executor=None):
         self.settings, self.store = settings, store
         self.telegram, self.core, self.models = telegram, core, models
         self.policy_provider = policy_provider or (lambda: self.settings)
@@ -253,11 +264,64 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
         # Button tokens live only in memory: after a restart every old button is stale.
         self.buttons = {}
         self.vision_tasks: set = set()
+        self.secret_cleanup_tasks: set = set()
         self.profile_building = False
         self.monitor_state = None
         self.monitor_failures = 0
+        self.secret_intake = SecretIntakeManager()
+        self.secret_executor = secret_executor
         if self.telegram is not None:
             self.telegram.authorize_delivery = self.delivery_allowed
+
+    async def _cleanup_owner_input_messages(self, person: Person, request_id: str) -> None:
+        """Delete checklist/screenshot/ack after runtime confirms fields FILLED."""
+        deadline = time.monotonic() + 1800
+        terminal = {"FILLED", "CANCELLED", "EXPIRED"}
+        while time.monotonic() < deadline:
+            try:
+                row = await self.core.owner_input(request_id)
+            except CompanionError:
+                await asyncio.sleep(2)
+                continue
+            status = str(row.get("status") or "")
+            if status in terminal:
+                ids = self.store.pop_transients(person.key, request_id)
+                for message_id in ids:
+                    if self.telegram is not None:
+                        with contextlib.suppress(CompanionError):
+                            await self.telegram.delete_message(person, message_id)
+                if self.store.get("active_owner_input:" + person.key) == request_id:
+                    self.store.put("active_owner_input:" + person.key, None)
+                return
+            await asyncio.sleep(2)
+
+    def schedule_owner_input_cleanup(self, person: Person, request_id: str) -> None:
+        if not re.fullmatch(r"[0-9a-f]{12}", str(request_id or "")):
+            return
+        task = asyncio.create_task(self._cleanup_owner_input_messages(person, request_id),
+                                   name=f"tg-secret-cleanup-{request_id}")
+        self.secret_cleanup_tasks.add(task)
+        task.add_done_callback(self.secret_cleanup_tasks.discard)
+
+    async def _cleanup_login_receipt_messages(self, person: Person, receipt_id: str,
+                                              delay_s: float = 90.0) -> None:
+        """Keep the post-login screenshot briefly, then erase all transient bot messages."""
+        await asyncio.sleep(max(5.0, min(float(delay_s), 300.0)))
+        ids = self.store.pop_transients(person.key, receipt_id)
+        for message_id in ids:
+            if self.telegram is not None:
+                with contextlib.suppress(CompanionError):
+                    await self.telegram.delete_message(person, message_id)
+
+    def schedule_login_receipt_cleanup(self, person: Person, receipt_id: str,
+                                       delay_s: float = 90.0) -> None:
+        if not re.fullmatch(r"[0-9a-f]{12}", str(receipt_id or "")):
+            return
+        task = asyncio.create_task(
+            self._cleanup_login_receipt_messages(person, receipt_id, delay_s),
+            name=f"tg-login-cleanup-{receipt_id}")
+        self.secret_cleanup_tasks.add(task)
+        task.add_done_callback(self.secret_cleanup_tasks.discard)
 
     def delivery_allowed(self, person: Person) -> bool:
         try:
@@ -275,6 +339,8 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
 
     def cloud_allowed(self, person: Person, message: dict) -> bool:
         try:
+            if self.secret_intake.active(person.key):
+                return False
             current = self.policy_provider()
             # A live local configuration edit may revoke or reduce a policy;
             # changed pricing/credential settings require restart, never stale authority.
@@ -309,6 +375,72 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
                 [b("🎞 Оживить фото", "/animate")],
                 [b("❓ Какая модель?", "/model"), b("ℹ️ Помощь", "/help")],
                 [b("🧹 Очистить историю", "/forget")]]
+
+    async def request_secret(self, person: Person, *, screenshot: bytes, fields: tuple[SecretField, ...],
+                             target: str, screenshot_redacted: bool = False,
+                             ttl_seconds: int = 180, executor=None) -> str:
+        """Ask the bound owner for one ephemeral credential payload.
+
+        The screenshot must be captured before secret entry and explicitly
+        redacted by the caller. Plaintext is never sent to a model.
+        """
+        if person.role != "owner":
+            raise CompanionError("SECRET_INTAKE_OWNER_ONLY")
+        chosen_executor = executor or self.secret_executor
+        if chosen_executor is None:
+            raise CompanionError("SECRET_EXECUTOR_NOT_CONFIGURED")
+        req = self.secret_intake.begin(
+            owner_key=person.key, chat_id=person.chat_id, target=target, fields=fields,
+            screenshot=screenshot, screenshot_redacted=screenshot_redacted,
+            executor=chosen_executor, ttl_seconds=ttl_seconds,
+        )
+        try:
+            message_id = await self.telegram.send_photo(person, screenshot, request_caption(req))
+            self.secret_intake.bind_request_message(person.key, req.session_id, message_id)
+        except Exception:
+            self.secret_intake.cancel(person.key)
+            raise
+        finally:
+            del screenshot
+        return req.session_id
+
+    async def _delete_secret_message(self, person: Person, message_id: int | None) -> bool:
+        if type(message_id) is not int or message_id <= 0:
+            return False
+        try:
+            return await self.telegram.delete_message(person, message_id)
+        except CompanionError:
+            return False
+
+    async def _consume_secret_update(self, person: Person, message: dict, update_id: int) -> None:
+        """Process plaintext without ever passing it through Store.ingest()."""
+        if not self.store.acknowledge_without_body(update_id):
+            return
+        message_id = message.get("message_id")
+        text = message.get("text") if isinstance(message.get("text"), str) else ""
+        try:
+            req, result = await self.secret_intake.consume(
+                owner_key=person.key, chat_id=person.chat_id, message_id=message_id, text=text,
+            )
+        except SecretIntakeError as exc:
+            deleted = await self._delete_secret_message(person, message_id)
+            suffix = "" if deleted else " Сообщение не удалось удалить автоматически — удалите его вручную."
+            await self.telegram.send(person, "🔐 Секрет не принят: " + str(exc) + "." + suffix)
+            return
+
+        secret_deleted = await self._delete_secret_message(person, req.secret_message_id)
+        request_deleted = False
+        if result.success and result.verified:
+            request_deleted = await self._delete_secret_message(person, req.request_message_id)
+        if result.success and result.verified:
+            msg = "🔐 Доступ подтверждён. Секрет не сохранён в Bossman."
+            if not (secret_deleted and request_deleted):
+                msg += " Telegram не подтвердил удаление всех сообщений — удалите их вручную."
+        else:
+            msg = "🔐 Вход не подтверждён. Сессия сожжена; для повтора нужен новый запрос."
+            if not secret_deleted:
+                msg += " Telegram не подтвердил удаление сообщения — удалите его вручную."
+        await self.telegram.send(person, msg)
 
     async def ingest_callback(self, update: dict):
         cb = update.get("callback_query")
@@ -351,6 +483,35 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
         message = update.get("message")
         person = self.authorized(message)
         text = message.get("text") if isinstance(message, dict) else None
+
+        # Secret lane is intercepted BEFORE the durable Store inbox. The next
+        # owner text for an active one-time session is never encrypted into
+        # SQLite/history/learning and never reaches a model.
+        if person and person.role == "owner" and isinstance(text, str):
+            pending_secret = self.secret_intake.pending(person.key)
+            if pending_secret is not None:
+                if text.strip().lower() == "/secret_cancel":
+                    self.secret_intake.cancel(person.key)
+                    self.store.acknowledge_without_body(update["update_id"])
+                    await self.telegram.send(person, "🔐 Локальная сессия ввода отменена.")
+                    return
+                reply = message.get("reply_to_message") if isinstance(message.get("reply_to_message"), dict) else {}
+                if reply.get("message_id") == pending_secret.request_message_id:
+                    return await self._consume_secret_update(person, message, update["update_id"])
+                # Do not capture unrelated owner chat while a request happens
+                # to be open. Only an explicit Reply to the request enters the
+                # ephemeral lane.
+            if looks_like_secret_message(text):
+                if not self.store.acknowledge_without_body(update["update_id"]):
+                    return
+                deleted = await self._delete_secret_message(person, message.get("message_id"))
+                warning = ("🔐 Похожее на секрет сообщение пришло без активной secret-сессии. "
+                           "Bossman его не сохранил и не обработал.")
+                if not deleted:
+                    warning += " Telegram не подтвердил удаление — удалите сообщение вручную."
+                await self.telegram.send(person, warning)
+                return
+
         valid = person and (person.key, "chat") in self.wake and isinstance(text, str) and 0 < len(text) <= 4000
         # Internal markers ("_callback", "_image", ...) are ours only; never taken from Telegram input.
         body = ({**{k: v for k, v in message.items() if not str(k).startswith("_")}, "_update_id": update["update_id"]}
@@ -515,15 +676,13 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
                                          [[self.button(person, "✖️ Отмена", "/cancel")]])
             while True:
                 if self.image_job["cancel"]:
-                    with contextlib.suppress(CompanionError):
-                        await self.core.studio_cancel(job_id)
+                    stopped = await self.stop_studio_job(job_id)
                     await self.send_partial_video(person, job_id, prompt, video, "остановлено вами")
-                    raise CompanionError("IMAGE_GEN_CANCELLED")
+                    raise CompanionError("IMAGE_GEN_CANCELLED" if stopped else "IMAGE_GEN_CANCEL_UNCONFIRMED")
                 if time.monotonic() - started > deadline:
-                    with contextlib.suppress(CompanionError):
-                        await self.core.studio_cancel(job_id)
+                    stopped = await self.stop_studio_job(job_id)
                     await self.send_partial_video(person, job_id, prompt, video, "вышло время")
-                    raise CompanionError("IMAGE_GEN_TIMEOUT")
+                    raise CompanionError("IMAGE_GEN_TIMEOUT" if stopped else "IMAGE_GEN_CANCEL_UNCONFIRMED")
                 job = await self.core.studio_job(job_id)
                 status = job.get("status")
                 if status == "completed":
@@ -531,6 +690,8 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
                 if status in {"failed", "cancelled"}:
                     if status == "cancelled":
                         await self.send_partial_video(person, job_id, prompt, video, "остановлено")
+                    if status == "failed" and "0xc0e90002" in str(job.get("error") or "").lower():
+                        raise CompanionError("IMAGE_RUNTIME_BLOCKED_BY_WINDOWS")
                     raise CompanionError("IMAGE_GEN_CANCELLED" if status == "cancelled" else "IMAGE_GEN_FAILED")
                 await asyncio.sleep(self.image_poll_seconds)
             runs = await self.core.studio_runs(job_id, surface)
@@ -574,6 +735,21 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
             return None   # the media itself is the reply
         finally:
             self.image_job = None
+
+    async def stop_studio_job(self, job_id: int) -> bool:
+        """Остановить задание Студии. True — только если Bossman подтвердил, что оно больше не идёт.
+
+        Прежде ошибка отмены глоталась, а владелец всё равно читал «Генерация отменена»,
+        хотя задание на сервере продолжало работать."""
+        try:
+            await self.core.studio_cancel(job_id)
+            return True
+        except CompanionError:
+            pass
+        try:
+            return (await self.core.studio_job(job_id)).get("status") in {"cancelled", "failed", "completed"}
+        except CompanionError:
+            return False
 
     async def english_prompt(self, prompt: str) -> str:
         """Cyrillic prompt -> English via the local model; the original is kept if translation fails."""
@@ -675,6 +851,20 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
             return Reply(title, self.main_menu(person))
         if command == "/jev":
             return await self.jev_command(person, arg, message)
+        if command == "/market_deep":
+            if person.role != "owner":
+                return "Глубокий анализ рынка доступен только владельцу."
+            from bcc.market.deep_request import parse_deep_command
+            from bcc.market.deep_analysis import run_deep
+            from bcc.market.ledger import Ledger, default_root
+            req = parse_deep_command(text)
+            if req is None:
+                return "Используйте /market_deep BTC, /market_deep BTC 6h или /market_deep BTC 24h."
+            ledger = Ledger(default_root("k1m6a"))
+            try:
+                return await run_deep(ledger, req)
+            finally:
+                ledger.close()
         if command == "/market_verbose":
             if person.role != "owner":
                 return "Только владелец может менять уведомления рынка."
@@ -690,6 +880,10 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
             return "Подробные уведомления рынка: " + ("включены" if arg.lower() == "on" else "выключены")
         if command in AGENT_COMMANDS:
             return await self.agent_command(person, command, arg, message)
+        if command in FORM_COMMANDS:
+            return await self.form_command(person, command, arg, message)
+        if command in PARSE_COMMANDS:
+            return await self.parse_command(person, command, arg, message)
         if command in REMOVED_DIRECT_COMMANDS:
             # Второй путь исполнения удалён: отказ даже владельцу и при включённом тумблере.
             return NO_DIRECT_SHELL if self.console_allowed(person) else CONSOLE_OFF
@@ -726,6 +920,9 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
         if command == "/cloud":
             if arg not in {"on", "off"}:
                 return "Для резерва Claude: /cloud on. При сбое локальной модели только новое ваше сообщение будет передано OpenRouter/Claude. Локальная история, результаты задач и файлы не передаются. Плата — в пределах локально заданного бюджета. /cloud off — отключить."
+            if arg == "on" and person.role != "owner":
+                # Paid cloud spends the owner's budget: only the owner opts in.
+                return "Облачный резерв включает только владелец."
             if arg == "on" and (self.settings.cloud_daily_usd <= 0 or not self.settings.cloud_token):
                 raise CompanionError("CLOUD_NOT_CONFIGURED")
             self.store.put("cloud:" + person.key, arg == "on")
@@ -770,6 +967,10 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
         if command == "/confirm":
             if self.store.get("delegation_locked", False):
                 return "Новые поручения заблокированы владельцем."
+            if not arg:
+                # Owner test 2026-10-05: a bare /confirm after /task was refused. With exactly one live
+                # proposal of THIS person it is unambiguous; several still need the code.
+                arg = self.store.only_pending(person.key) or ""
             if len(arg) != 12 or any(c not in "0123456789abcdef" for c in arg):
                 raise CompanionError("PROPOSAL_EXPIRED_OR_USED")
             proposal = self.store.consume(person.key, arg)
@@ -882,6 +1083,8 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
         the results quoted as untrusted data. No cloud, no tools, no invented sources."""
         if person.role != "owner":
             raise CompanionError("WEB_SEARCH_OWNER_ONLY")
+        if self.secret_intake.active(person.key):
+            return "🔐 Пока открыта локальная sensitive-сессия, веб-поиск и cloud-маршруты для этого чата выключены."
         if self.store.get("delegation_locked", False):
             return failure_text("WEB_SEARCH_LOCKED")
         s = self.settings
@@ -998,6 +1201,8 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
                 if not self.learning_enabled(person):
                     continue
                 old = self.store.profile(person.key) or {}
+                if old.get("edited_by_owner") and not force:
+                    continue            # the owner's hand-edited text is never replaced by a rebuild
                 since = int(old.get("last_log_id", 0))
                 if not force and self.store.log_count(person.key, since) < self.settings.profile_every:
                     continue
@@ -1121,12 +1326,30 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
                 self.store.finish(update_id, "failed")
                 continue
             try:
-                await self.telegram.send(person, answer, getattr(answer, "keyboard", None))
+                sent_id = await self.telegram.send(person, answer, getattr(answer, "keyboard", None))
             except CompanionError:
                 self.store.finish(update_id, "delivery_unknown")
             else:
                 self.store.finish(update_id, "done")
                 self.store.put("last_roundtrip:" + person.key, time.time())
+                command = text.partition(" ")[0].lower()
+                request_id = None
+                if command == "/inputs":
+                    request_id = self.store.get("active_owner_input:" + person.key)
+                elif command == "/input":
+                    candidate = text.partition(" ")[2].strip().partition(" ")[0]
+                    if re.fullmatch(r"[0-9a-f]{12}", candidate):
+                        request_id = candidate
+                if isinstance(request_id, str) and re.fullmatch(r"[0-9a-f]{12}", request_id):
+                    self.store.track_transient(person.key, request_id, sent_id)
+                    if command == "/input":
+                        # Delete the owner's value-bearing Telegram message too, not only
+                        # Bossman's acknowledgement. The local encrypted inbox is scrubbed
+                        # separately after acceptance; Telegram should retain no transient copy.
+                        incoming_id = message.get("message_id") if isinstance(message, dict) else None
+                        if type(incoming_id) is int and incoming_id > 0:
+                            self.store.track_transient(person.key, request_id, incoming_id)
+                        self.schedule_owner_input_cleanup(person, request_id)
             self.last_message[person.key] = time.monotonic()
 
     async def poll(self):
@@ -1207,6 +1430,143 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
                 continue  # uncertain send is not replayed on restart
             self.store.put(key, 'delivered')
 
+    async def notify_login_receipts(self):
+        """Ephemeral owner login trace: public login/field labels + one verified screenshot.
+
+        Passwords never transit this bridge. The browser runtime injects them from the
+        local encrypted vault. After a verified post-login receipt the temporary Telegram
+        messages are deleted automatically.
+        """
+        owner = next((p for p in self.settings.people if p.role == "owner"), None)
+        if owner is None or not self.console_allowed(owner):
+            return
+        try:
+            current = self.policy_provider()
+            if owner not in current.people:
+                return
+            rows = await self.core.login_receipts()
+        except (CompanionError, OSError, ValueError, TypeError):
+            return
+        for row in rows[:12]:
+            rid = str(row.get("id") or "")
+            if not re.fullmatch(r"[0-9a-f]{12}", rid):
+                continue
+            phase = str(row.get("phase") or "")
+            login = str(row.get("login") or "(логин не задан)")[:320]
+            labels = [str(x)[:120] for x in (row.get("next_fields") or [])
+                      if isinstance(x, (str, int, float))]
+            pre_key = "login_pre_notified:" + rid
+
+            if phase in {"PRE_LOGIN", "SUCCESS", "FAILED", "UNVERIFIED_POST_SUBMIT"} and self.store.get(pre_key) is None:
+                body = (
+                    "🔐 Локальный вход Bossman.\n"
+                    f"Аккаунт/логин: {login}\n"
+                    f"После входа могут понадобиться: {', '.join(labels) if labels else 'дополнительные поля не указаны'}\n"
+                    "Пароль хранится локально и подставляется runtime из encrypted vault. "
+                    "Telegram и cloud-модели пароль не получают."
+                )
+                try:
+                    mid = await self.telegram.send(owner, body)
+                except CompanionError:
+                    continue
+                self.store.track_transient(owner.key, rid, mid)
+                self.store.put(pre_key, "delivered")
+
+            if phase == "SUCCESS":
+                done_key = "login_success_notified:" + rid
+                if self.store.get(done_key) is not None:
+                    continue
+                try:
+                    png = await self.core.login_receipt_screenshot(rid)
+                    caption = (
+                        "✅ Post-login состояние подтверждено свежим локальным наблюдением. "
+                        "Это контрольный screenshot после входа. Временная цепочка будет удалена автоматически."
+                    )
+                    mid = await self.telegram.send_photo(owner, png, caption)
+                    self.store.track_transient(owner.key, rid, mid)
+                    await self.core.consume_login_receipt(rid)
+                except CompanionError:
+                    continue
+                self.store.put(done_key, "delivered")
+                self.schedule_login_receipt_cleanup(owner, rid, 90.0)
+                continue
+
+            if phase in {"FAILED", "UNVERIFIED_POST_SUBMIT"}:
+                done_key = "login_terminal_notified:" + rid
+                if self.store.get(done_key) is not None:
+                    continue
+                note = (
+                    "⚠️ Вход не подтверждён свежим post-login URL; Bossman не объявляет LOGIN PASS."
+                    if phase == "UNVERIFIED_POST_SUBMIT"
+                    else "⚠️ Локальный вход завершился ошибкой. Пароль в Telegram/cloud не отправлялся."
+                )
+                try:
+                    mid = await self.telegram.send(owner, note)
+                    self.store.track_transient(owner.key, rid, mid)
+                    await self.core.consume_login_receipt(rid)
+                except CompanionError:
+                    continue
+                self.store.put(done_key, "delivered")
+                self.schedule_login_receipt_cleanup(owner, rid, 45.0)
+
+    async def notify_owner_inputs(self):
+        """Proactively tell the owner about missing form fields; never include values."""
+        owner = next((p for p in self.settings.people if p.role == "owner"), None)
+        if owner is None or not self.console_allowed(owner):
+            return
+        try:
+            current = self.policy_provider()
+            if owner not in current.people:
+                return
+            rows = await self.core.owner_inputs()
+        except (CompanionError, OSError, ValueError, TypeError):
+            return
+        for row in rows[:10]:
+            rid = str(row.get("id") or "")
+            if not rid:
+                continue
+            key = "owner_input_notified:" + rid
+            if self.store.get(key) is not None:
+                continue
+            fields = row.get("fields") if isinstance(row.get("fields"), list) else []
+            labels = [str(f.get("label") or f.get("key"))[:80] for f in fields if isinstance(f, dict)]
+            body = (
+                "✍️ Bossman ждёт данные, чтобы продолжить форму.\n"
+                f"Запрос: {rid}\n"
+                f"Контекст: {str(row.get('context') or 'форма')[:300]}\n"
+                f"Поля: {', '.join(labels) or '(не указаны)'}\n\n"
+                f"Ответьте: /input {rid} key=value; key2=value\n"
+                "Bossman сам вставит значения. Отправка формы/регистрация/ToS остаются отдельным подтверждением."
+            )
+            self.store.put(key, "delivery_pending_or_unknown")
+            try:
+                await self.telegram.send(
+                    owner, body,
+                    [[self.button(owner, "✍️ Показать все запросы", "/inputs")]])
+            except CompanionError:
+                continue
+            self.store.put(key, "delivered")
+
+    async def notify_zone_reports(self):
+        """Relay development-tree zone work reports to the owner only (one sender, cursor-based)."""
+        owner = next((p for p in self.settings.people if p.role == "owner"), None)
+        if owner is None or not self.console_allowed(owner):
+            return
+        cursor = int(self.store.get("zone_report_cursor", 0) or 0)
+        try:
+            if owner not in self.policy_provider().people:
+                return
+            rows = await self.core.zone_reports(cursor)
+        except (CompanionError, OSError, ValueError, TypeError, AttributeError):  # older core: no tree reports
+            return
+        for row in sorted(rows, key=lambda r: r["seq"]):
+            # Advance first: an uncertain send is not replayed after a restart.
+            self.store.put("zone_report_cursor", row["seq"])
+            try:
+                await self.telegram.send(owner, "🌳 Дерево развития\n" + str(row.get("text") or "")[:3500])
+            except CompanionError:
+                continue
+
     async def monitor(self):
         owner = next(p for p in self.settings.people if p.role == "owner")
         ticks = 0
@@ -1217,6 +1577,9 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin):
                 self.store.prune()
                 self.store.prune_learning(self.settings.retention_days)
             await self.notify_tasks()
+            await self.notify_owner_inputs()
+            await self.notify_login_receipts()
+            await self.notify_zone_reports()
             with contextlib.suppress(CompanionError):
                 await self.refresh_profiles()
             if not self.store.get("watch", False):

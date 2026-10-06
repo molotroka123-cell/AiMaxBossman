@@ -292,9 +292,10 @@ def evaluate(payload: Mapping[str, Any], cfg: GateConfig | None = None) -> dict[
         for metric_name in CORE_METRICS:
             r = _ratio(_metric(lane, metric_name)[0], _metric(raw, metric_name)[0])
             per_metric[lane_name][metric_name] = r
-            if r < minimum and retention >= minimum:
+            if r < minimum:
                 findings.append(Finding("CORE_METRIC_REGRESSION", "BLOCKER",
-                                        f"{lane_name}/raw {metric_name}={r:.4f} < {minimum:.4f} (hidden by the core mean {retention:.4f})"))
+                                        f"{lane_name}/raw {metric_name}={r:.4f} < {minimum:.4f} "
+                                        f"(core mean {retention:.4f})"))
         bound = _core_retention_bound(lane, raw, z)
         core_bounds[lane_name] = bound
         if retention >= minimum and bound < minimum:

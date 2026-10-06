@@ -42,6 +42,30 @@ Set-Location $Repo
 function Write-Step($text) { Write-Host "`n==> $text" -ForegroundColor Cyan }
 function Write-Bad($text)  { Write-Host "    $text" -ForegroundColor Red }
 
+# Source installs must use the same owner state as installed releases.  The
+# command-center source default is <checkout>/command-center/data, which would
+# silently hide existing provider connections and create a new vault key.
+if (-not $env:BCC_DATA_DIR) {
+    if ($env:BOSSMAN_DATA_DIR) {
+        $env:BCC_DATA_DIR = $env:BOSSMAN_DATA_DIR
+    } else {
+        $LocalData = $env:LOCALAPPDATA
+        if (-not $LocalData) { $LocalData = [Environment]::GetFolderPath('LocalApplicationData') }
+        if (-not $LocalData) { Write-Bad "Не найден каталог данных владельца."; exit 2 }
+        $env:BCC_DATA_DIR = Join-Path $LocalData "Bossman\CommandCenter"
+    }
+}
+if ($env:BOSSMAN_DATA_DIR) {
+    $CoreData = [IO.Path]::GetFullPath($env:BCC_DATA_DIR)
+    $PitData = [IO.Path]::GetFullPath($env:BOSSMAN_DATA_DIR)
+    if (-not [String]::Equals($CoreData, $PitData, [StringComparison]::OrdinalIgnoreCase)) {
+        Write-Bad "BCC_DATA_DIR и BOSSMAN_DATA_DIR указывают на разные каталоги. Запуск остановлен."
+        exit 2
+    }
+} else {
+    $env:BOSSMAN_DATA_DIR = $env:BCC_DATA_DIR
+}
+
 # ---------------------------------------------------------------- 1. Python
 Write-Step "Python"
 $PythonExe = $null

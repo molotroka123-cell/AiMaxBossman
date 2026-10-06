@@ -25,7 +25,7 @@ from pathlib import Path
 TERMINAL_COMMANDS = frozenset({
     "chat", "exec", "status", "events", "result", "resume", "approve", "deny", "pause", "stop",
     "continue", "list", "keys", "code", "evolution", "repair", "run", "evolve", "start",
-    "version", "approvals", "tasks", "market",
+    "version", "approvals", "tasks", "market", "review", "rate", "call", "rave", "autonomy",
 })
 TERMINAL_FLAGS = ("-p", "--print", "--version", "--url", "--data-dir", "--plain", "--agent",
                   "--cwd", "--verbose", "--output-format", "--model", "--max-seconds",
@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(
         prog="bossman",
         epilog="Терминал Bossman 1.2: bossman [chat] | exec | -p \"…\" | status | events | result | "
-               "approve | deny | stop | keys | code … — `bossman chat --help`, docs/owner/TERMINAL.md")
+               "approve | deny | stop | keys | code | call … — `bossman chat --help`, `bossman call --help`, docs/owner/TERMINAL.md")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("serve")
@@ -97,10 +97,26 @@ def main(argv: list[str] | None = None) -> None:
                     help="опросить всех провайдеров, у которых есть ключ")
     pm.add_argument("--json", action="store_true", dest="as_json")
 
+    pit = sub.add_parser("pit",
+                         help="PIT-режим 1.7 (Jeff): setup | status | doctor | start | stop | "
+                              "routes | web-setup | web-user | passport-checkpoint …")
+    pit.add_argument("pit_args", nargs=argparse.REMAINDER)
+
+    raw = list(sys.argv[1:] if argv is None else argv)
+    if raw and raw[0] == "pit" and not ({"-h", "--help"} & set(raw[1:2])):
+        # The PIT CLI owns its own commands and flags (`routes --last 10`,
+        # `web-setup`, …): pass them through instead of re-listing a subset here.
+        from bcc.pit.cli import main as pit_main
+        sys.exit(int(pit_main(raw) or 0))
     args = p.parse_args(argv)
     if args.cmd == "serve":
         from .api import main as serve
         serve()
+    elif args.cmd == "pit":
+        # Bossman 1.7 PIT participant runtime (docs/v1.7): the owner launch
+        # surface lives in the existing `bossman` CLI, not a private script.
+        from bcc.pit.cli import main as pit_main
+        sys.exit(int(pit_main(argv) or 0))
     elif args.cmd == "task":
         asyncio.run(_task(args))
     elif args.cmd == "project":

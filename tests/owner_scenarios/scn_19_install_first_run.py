@@ -49,6 +49,8 @@ import sys
 import time
 from pathlib import Path
 
+import psutil
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "command-center"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -190,12 +192,24 @@ def _installed_server(ctx, pkg: Path, data: Path, *, tag: str, **extra: str):
                 time.sleep(0.2)
         yield call, log_path
     finally:
-        process.terminate()
+        # Windows venv python.exe can be a launcher whose child owns the log.
+        # Stop the complete installed-product process tree before closing it.
+        with contextlib.suppress(psutil.NoSuchProcess):
+            root = psutil.Process(process.pid)
+            descendants = root.children(recursive=True)
+            def depth(item):
+                with contextlib.suppress(psutil.NoSuchProcess):
+                    return len(item.parents())
+                return -1
+            descendants.sort(key=depth, reverse=True)
+            for child in descendants:
+                with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
+                    child.kill()
+            with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
+                root.kill()
+            psutil.wait_procs(descendants + [root], timeout=20)
         with contextlib.suppress(subprocess.TimeoutExpired):
             process.wait(timeout=20)
-        if process.poll() is None:
-            process.kill()
-            process.wait(timeout=10)
         log.close()
 
 
@@ -236,7 +250,7 @@ def os81_product_installs_and_starts(ctx) -> None:
     with _installed_server(ctx, pkg, data, tag="os81") as (call, log_path):
         identity = call("/api/identity", expect=200).json()
         ctx.positive("установленный продукт поднялся и назвал себя",
-                     identity.get("app") == "bossman-command-center"
+                     identity.get("app") == "bossman-command-center-build-bound-v1"
                      and identity.get("source") == "installed_build",
                      f"{identity.get('app')} / {identity.get('source')} / {identity.get('version')}")
         page = call("/", expect=200)
@@ -369,9 +383,17 @@ def os82_doctor_names_each_missing_thing(ctx) -> None:
     ctx.negative("блокер не заканчивается нулевым кодом возврата",
                  code_dir == 1 and report_dir["blocked"] >= 1,
                  f"код {code_dir}, блокеров {report_dir['blocked']}")
-    ctx.negative("отсутствие инструмента не выдаётся за блокер, а занятый порт — за исправность",
-                 code_tool == 0 and code_port == 0 and code_cfg == 0,
-                 f"инструмент={code_tool}, порт={code_port}, конфигурация={code_cfg}")
+    # На машине владельца другие проверки могут быть BLOCKED одновременно.
+    # Код процесса обязан отражать весь отчёт, а три проверки выше отдельно
+    # доказывают, что инструмент, порт и URL классифицированы как WARN.
+    ctx.negative("код доктора соответствует всем блокерам, без ложного нуля",
+                 all(code == (1 if report["blocked"] else 0)
+                     for code, report in ((code_tool, report_tool),
+                                          (code_port, report_port),
+                                          (code_cfg, report_cfg))),
+                 f"инструмент={code_tool}/{report_tool['blocked']}, "
+                 f"порт={code_port}/{report_port['blocked']}, "
+                 f"конфигурация={code_cfg}/{report_cfg['blocked']}")
 
     # Ключ владельца: доктор обязан называть ПЕРЕМЕННУЮ, а не её значение.
     secret = "sk-" + "or-" + "v1-" + "0" * 24
@@ -432,7 +454,8 @@ def os83_first_run_without_configuration(ctx) -> None:
     with _installed_server(ctx, pkg, data, tag="os83") as (call, log_path):
         identity = call("/api/identity", expect=200).json()
         ctx.positive("первый запуск дошёл до ответа, а не до трассы",
-                     identity.get("app") == "bossman-command-center", str(identity.get("app")))
+                     identity.get("app") == "bossman-command-center-build-bound-v1",
+                     str(identity.get("app")))
 
         health = call("/health")
         components = health.json()["components"]

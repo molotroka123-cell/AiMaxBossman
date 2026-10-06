@@ -53,7 +53,7 @@ def _unknown_names(text: str, known_names: list[str]) -> list[str]:
         tok = m.group(1)
         if tok.lower() in known_low:
             continue
-        window = text[max(0, m.start() - 5):m.end() + 40]
+        window = text[max(0, m.start() - 40):m.end() + 40]
         if any(k in window.lower() for k in MANAGER_KW + REVIEWER_KW + WORKER_KW):
             out.append(tok)
     return out

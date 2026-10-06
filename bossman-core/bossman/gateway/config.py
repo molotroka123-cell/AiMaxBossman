@@ -48,6 +48,10 @@ MISTRAL_BASE_URL = "https://api.mistral.ai"
 TOGETHER_KEY_ENV = "TOGETHER_API_KEY"
 TOGETHER_BASE_URL_ENV = "TOGETHER_BASE_URL"
 TOGETHER_BASE_URL = "https://api.together.xyz"
+# NVIDIA API (интеграция Nemotron, Kimi, etc.) — OpenAI-совместимый.
+NVIDIA_KEY_ENV = "NVIDIA_API_KEY"
+NVIDIA_BASE_URL_ENV = "NVIDIA_BASE_URL"
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com"
 ENV_FILE_ENV = "BOSSMAN_ENV_FILE"
 _CORE_ROOT = Path(__file__).resolve().parents[2]
 
@@ -298,6 +302,16 @@ def together_backend_config(**overrides: Any) -> BackendConfig:
                                   key_env=TOGETHER_KEY_ENV, **overrides)
 
 
+def nvidia_backend_config(**overrides: Any) -> BackendConfig:
+    """NVIDIA API (Nemotron, Kimi, etc.) — OpenAI-совместимый.
+
+    База БЕЗ /v1: версию Gateway добавляет сам.
+    """
+    return _openai_dialect_config("nvidia", base_url_env=NVIDIA_BASE_URL_ENV,
+                                  base_url=NVIDIA_BASE_URL,
+                                  key_env=NVIDIA_KEY_ENV, cloud=True, **overrides)
+
+
 def anthropic_backend_config(**overrides: Any) -> BackendConfig:
     """Anthropic — единственный из набора, кто говорит НЕ на диалекте OpenAI.
 
@@ -341,7 +355,16 @@ ENV_BACKENDS = (
     ("groq", GROQ_KEY_ENV, groq_backend_config),
     ("mistral", MISTRAL_KEY_ENV, mistral_backend_config),
     ("together", TOGETHER_KEY_ENV, together_backend_config),
+    ("nvidia", NVIDIA_KEY_ENV, nvidia_backend_config),
 )
+
+PAID_ENV_BACKENDS = frozenset({"zai", "openai", "anthropic", "google", "groq",
+                               "mistral", "together", "nvidia"})
+
+
+def _free_only() -> bool:
+    return os.getenv("BOSSMAN_ALLOW_PAID_CLOUD", "").strip().lower() not in {"1", "true", "yes"}
+
 
 # Все провайдеры, которых умеет собрать шлюз, включая локального.
 PROVIDER_CONFIGS: dict[str, Any] = {
@@ -353,10 +376,11 @@ PROVIDER_CONFIGS: dict[str, Any] = {
     "groq": groq_backend_config,
     "mistral": mistral_backend_config,
     "together": together_backend_config,
+    "nvidia": nvidia_backend_config,
     "ollama": ollama_backend_config,
 }
 
-AVAILABLE_PROVIDERS: tuple[str, ...] = tuple(PROVIDER_CONFIGS)
+AVAILABLE_PROVIDERS: tuple[str, ...] = tuple(sorted(PROVIDER_CONFIGS))
 
 
 def load_provider_config(provider: str, **overrides: Any) -> BackendConfig:
@@ -458,7 +482,13 @@ def load_gateway_config(path: str | Path | None = None) -> GatewayConfig:
     # ещё и правки yaml, о которой в интерфейсе не сказано нигде: ключ принят,
     # моделей нет, причина не названа. Явную запись из yaml (в том числе
     # enabled: false) это не трогает — там решение уже принято оператором.
+    # Owner rule: only OpenRouter (':free' models, enforced in the router) may
+    # appear from a bare key. A stray OPENAI/ANTHROPIC/... key in the environment
+    # must never silently become a paid fallback; those need an explicit yaml entry
+    # plus BOSSMAN_ALLOW_PAID_CLOUD=1.
     for name, key_env, factory in ENV_BACKENDS:
+        if name in PAID_ENV_BACKENDS and _free_only():
+            continue
         if name not in backends and os.getenv(key_env):
             backends[name] = factory()
 

@@ -249,51 +249,59 @@ pytestmark_browser = pytest.mark.skipif(not chromium_available(), reason=browser
 
 @pytestmark_browser
 async def test_model_drives_browser_end_to_end(env, fixture_site):
-    """§4: LLM → read_dom → type → click → read_dom → финальный ответ."""
+    """§4: LLM → read_dom → type → отправка → read_dom → финальный ответ.
+
+    P0 (2026-09-30): «Отправить» — клик с последствиями. Заполнение полей идёт AUTO, а сама
+    отправка — только через ASK-путь `browser.submit`: задача встаёт в waiting_approval, и
+    форма не отправлена, пока решения нет. (Отказ обычного `browser.click` по такой кнопке
+    и обратный контроль «ссылка остаётся AUTO» — в tests/test_ops_terminal_browser.py.)"""
     adapter = ToolAdapter([
         ("tool", "browser_open", {"url": fixture_site}),
         ("tool", "browser_type", {"selector": "#name", "text": "Тимур"}),
-        ("tool", "browser_click", {"selector": "#go"}),
+        ("tool", "browser_submit", {"selector": "#go"}),
         ("tool", "browser_read_dom", {}),
         ("text", "форма приняла имя Тимур"),
     ])
     stack = await _stack_with_tools(
-        env, ["browser.open", "browser.read_dom", "browser.type", "browser.click"],
+        env, ["browser.open", "browser.read_dom", "browser.type", "browser.submit"],
         adapter=adapter, max_steps=8)
     await env.client.patch(f"/api/agents/{stack['agent']['id']}",
                            json={"permissions": {"browser.read": True, "browser.control": True}})
 
-    assert await _run_task(env, stack["task"]["id"], timeout=90) == "completed"
+    assert await _run_task(env, stack["task"]["id"], timeout=90) == "waiting_approval"
+    assert len(adapter.seen_messages) == 3         # open и type прошли без вопроса, отправка ждёт
+    approval = (await env.client.get("/api/approvals?status=pending")).json()[0]
+    assert "browser.submit" in approval["preview"]
+    await env.client.post(f"/api/approvals/{approval['id']}", json={"approve": True, "by": "test"})
+    assert await _run_task(env, stack["task"]["id"], timeout=90, until=FINISHED) == "completed"
 
     first_dom = adapter.seen_messages[1][-1]["content"]
     assert "Форма заявки" in first_dom
     assert "[0] <input" in first_dom or "name=name" in first_dom
+    assert "НУЖНО ПОДТВЕРЖДЕНИЕ ВЛАДЕЛЬЦА" in first_dom        # кнопка помечена в снимке
     final_dom = adapter.seen_messages[4][-1]["content"]
     assert "Принято: Тимур" in final_dom          # страница реально изменилась
 
     async with env.svc.db.session() as s:
         rows = [dict(r._mapping) for r in (await s.execute(sa.select(tool_calls_t))).fetchall()]
-    assert [r["tool"] for r in rows] == ["browser.open", "browser.type", "browser.click",
+    assert [r["tool"] for r in rows] == ["browser.open", "browser.type", "browser.submit",
                                          "browser.read_dom"]
     assert all(r["status"] == "executed" and r["source"] == "browser" for r in rows)
 
 
 @pytestmark_browser
 async def test_human_takeover_blocks_agent_then_resume_works(env, fixture_site):
-    """Take Over: клик агента отклонён; после Resume агент снова работает."""
-    adapter = ToolAdapter([("tool", "browser_open", {"url": fixture_site}),
-                           ("text", "открыл")])
-    stack = await _stack_with_tools(env, ["browser.open", "browser.read_dom", "browser.click"],
-                                    adapter=adapter, max_steps=4)
-    await env.client.patch(f"/api/agents/{stack['agent']['id']}",
-                           json={"permissions": {"browser.read": True, "browser.control": True}})
-    assert await _run_task(env, stack["task"]["id"], timeout=90) == "completed"
+    """Take Over: клик агента отклонён; после Resume агент снова работает.
 
-    async with env.svc.db.session() as s:
-        from bcc.v2.tables import browser_sessions as bs_t
-        sid = int((await s.execute(sa.select(bs_t.c.id).order_by(bs_t.c.id.desc()))).first()[0])
+    Сессия создаётся напрямую (POST /api/browser/sessions), а не задачей агента: сессия
+    задачи закрывается вместе с ней (P1 жизненного цикла), а этот тест работает уже после."""
+    created = await env.client.post("/api/browser/sessions", json={})
+    if created.status_code == 503:
+        pytest.skip("Playwright недоступен в этом окружении")
+    sid = created.json()["session_id"]
 
     mgr = env.svc.browser
+    await mgr.navigate(sid, fixture_site, actor="agent", approved=True)
     await mgr.takeover(sid)
     from bcc.v2.browser_control import BrowserTakeoverActive
     with pytest.raises(BrowserTakeoverActive):

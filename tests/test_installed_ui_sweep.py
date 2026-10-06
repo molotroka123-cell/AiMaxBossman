@@ -56,6 +56,29 @@ def test_the_real_registry_still_sweeps_both_studio_screens():
     assert len(routes) == len(set(routes)), 'повторяющийся маршрут обхода'
 
 
+def test_source_sweep_includes_core_pages_from_the_exported_registry():
+    routes = _driver().page_ids()
+    core = {'home', 'models', 'agents', 'tasks', 'schedules', 'approvals', 'system', 'settings'}
+    assert core <= set(routes), f'core routes omitted: {core - set(routes)}'
+    assert 'images?studio=1' in routes
+    assert len(routes) == len(set(routes))
+
+
+def test_core_registry_parser_ignores_unexported_objects_and_rejects_unknown_exports():
+    driver = _driver()
+    source = """
+      const Status = { id: 'completed' };
+      const Tasks = { id: 'tasks', render() {} };
+      const Home = { id: 'home', render() {} };
+      export const PAGES = [Home, Tasks];
+    """
+    assert driver.page_routes('', source) == ['home', 'tasks']
+    with pytest.raises(ValueError, match='Unknown'):
+        driver.page_routes('', source.replace('Home, Tasks', 'Home, Unknown'))
+    with pytest.raises(ValueError, match='PAGES'):
+        driver.page_routes('', '')
+
+
 def test_stop_owned_tree_releases_child_working_directory(tmp_path):
     working = tmp_path / 'managed app with spaces'
     working.mkdir()
@@ -212,9 +235,17 @@ def test_loading_the_driver_does_not_repoint_the_top_level_tests_package():
     """
     sys.modules.pop('_sweep_driver_under_test', None)
     before = list(sys.path)
+    # Как разрешается корневой `tests.*` ДО загрузки драйвера: соседние тесты могут
+    # оставить в sys.path свои каталоги (command-center рядом с корнем), и тогда
+    # абсолютный ответ зависит от порядка запуска, а не от драйвера. Предмет
+    # проверки — что именно ЗАГРУЗКА ДРАЙВЕРА разрешение не меняет.
+    resolved_before = importlib.util.find_spec('tests.test_learning_trace')
     assert _driver().page_routes('') == []
     assert sys.path == before, 'загрузка драйвера изменила sys.path'
-    assert importlib.util.find_spec('tests.test_learning_trace') is not None
+    resolved_after = importlib.util.find_spec('tests.test_learning_trace')
+    assert (resolved_after is None) == (resolved_before is None), 'драйвер сломал разрешение tests.*'
+    if resolved_before is not None:
+        assert resolved_after.origin == resolved_before.origin
 
 
 def test_review_names_survive_a_windows_locale_console(tmp_path):

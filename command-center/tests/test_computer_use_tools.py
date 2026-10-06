@@ -60,6 +60,19 @@ class FakeDesktop:
     async def foreground(self):
         return {"title": self.title, "handle": getattr(self, "fg_handle", 1)}
 
+    # rc19: identity of the window's process and of the focused field, as the real
+    # `_Desktop` reads them from the OS. Default: Notepad, ordinary text field.
+    process = "notepad.exe"
+    password_focus = False
+
+    def window_process_allowed(self, handle):
+        # the REAL allowlist decision; only the OS lookups are faked
+        return tc.window_allowlisted(handle, pid_of=lambda h: 4242, name_of=lambda pid: self.process,
+                                     hosted_matcher=lambda h: False)
+
+    def focused_is_password(self):
+        return self.password_focus
+
 
 class FakeShots:
     async def capture(self):
@@ -81,6 +94,15 @@ def desk(env, monkeypatch):
 def _ctx(env, approval_id=None):
     return ToolContext(svc=env.svc, task={"id": 1}, run_id=1, agent={"permissions": {}},
                        approval_id=approval_id)
+
+
+async def _consumed_approval(env) -> int:
+    """A real owner approval the engine has accepted for execution (approved → consumed),
+    exactly what `_authorization_at_effect_time` hands the handler as ctx.approval_id."""
+    row = await env.svc.approvals.create("tool", "computer.act (test)")
+    await env.svc.approvals.decide(row["id"], True, "owner")
+    assert await env.svc.approvals.accept_for_execution(row["id"])
+    return int(row["id"])
 
 
 async def _act(env, desk, **args):
@@ -333,6 +355,28 @@ def test_launch_binds_new_window_to_launched_process():
     assert tc.attribute_new_window([], launched_pid=42, expected_exes={"notepad.exe"}) is None
 
 
+def test_calculator_launch_binds_only_verified_hosted_window():
+    """Win11 Calculator is framed by ApplicationFrameHost, not calc.exe."""
+    names = {10: "applicationframehost.exe", 11: "applicationframehost.exe",
+             12: "msedge.exe"}
+    new = [(101, "Unrelated UWP", 10), (102, "Калькулятор", 11),
+           (103, "Ad popup", 12)]
+    kwargs = {"launched_pid": 99, "expected_exes": {"calc.exe"},
+              "process_name": lambda p: names.get(p, ""),
+              "hosted_app": "calculator",
+              "hosted_window_matcher": lambda h: h == 102}
+    assert tc.attribute_new_window(new, **kwargs) == (102, "Калькулятор")
+    assert tc.attribute_new_window(new, **{**kwargs, "hosted_window_matcher": lambda h: False}) is None
+    assert tc.attribute_new_window(new, **{**kwargs, "hosted_app": "notepad"}) is None
+    assert tc._is_hosted_calculator_exe(
+        r"C:\Program Files\WindowsApps\Microsoft.WindowsCalculator_11.2607_x64__8wekyb3d8bbwe\CalculatorApp.exe"
+    )
+    assert not tc._is_hosted_calculator_exe(r"C:\Users\asd\CalculatorApp.exe")
+    assert not tc._is_hosted_calculator_exe(
+        r"C:\Program Files\WindowsApps\OtherPackage_1_x64\CalculatorApp.exe"
+    )
+
+
 async def test_launch_is_allowlist_only(env, desk):
     with pytest.raises(tc.ActRefused, match="allowlist"):
         await tc.act(env.svc, {"action": "launch", "target": "cmd.exe /c del *"})
@@ -358,8 +402,12 @@ async def test_consequential_target_needs_declared_semantic_and_ask(env, desk):
     granted = {"permissions": {"computer.control": True}}
     assert decide_effect(spec, {"action": "click", "target": "Удалить", "semantic": "delete"},
                          granted)[0] == "ask"
-    assert decide_effect(spec, {"action": "type", "text": "x"}, granted)[0] == "auto"
+    # rc19 CU-ONESHOT: the agent's computer.control grant no longer turns a desktop
+    # mutation into AUTO — every mutation is its own owner question (was "auto").
+    assert decide_effect(spec, {"action": "type", "text": "x"}, granted)[0] == "ask"
     assert decide_effect(spec, {"action": "type", "text": "x"}, {"permissions": {}})[0] == "ask"
+    # a passive wait stays approval-free for a granted agent
+    assert decide_effect(spec, {"action": "wait", "seconds": 1}, granted)[0] == "auto"
 
 
 async def test_model_claim_is_not_approval(env, desk):
@@ -380,15 +428,16 @@ async def test_model_claim_is_not_approval(env, desk):
     assert decide_effect(spec, {**base, "semantic": "noop"},
                          {"permissions": {"computer.control": True}})[0] == "ask"
     # Последствие, видимое ТОЛЬКО по переднему окну (подпись «OK» безобидна, окно —
-    # банк): движок даёт AUTO, и именно здесь раньше выставлялось
-    # _approved_consequence=True. Без approval_id — отказ обработчика, fail closed.
+    # банк): раньше движок давал AUTO, и именно здесь выставлялось
+    # _approved_consequence=True. rc19: движок спрашивает владельца (ASK), а без
+    # approval_id — отказ обработчика, fail closed.
     desk.desktop.title, desk.desktop.app = "Сбербанк Онлайн — перевод", "Sberbank"
     desk.desktop.extra = [{"name": "OK", "control_type": "Button",
                            "left": 200, "top": 0, "right": 260, "bottom": 30, "x": 230, "y": 15}]
     await tc.observe(env.svc)
     bank = {"action": "click", "target": "OK", "generation": desk.generation, "semantic": "noop",
             "_approved_consequence": True, "_approval_id": 7}
-    assert decide_effect(spec, bank, {"permissions": {"computer.control": True}})[0] == "auto"
+    assert decide_effect(spec, bank, {"permissions": {"computer.control": True}})[0] == "ask"
     res = await spec.handler(bank, _ctx(env, approval_id=None))
     assert res.error and "не выполнено" in res.content
     assert desk.desktop.executed == []
@@ -398,17 +447,18 @@ async def test_owner_approval_from_context_executes_bound_kind(env, desk):
     await tc.observe(env.svc)
     spec = REGISTRY.get("computer.act")
     base = {"action": "click", "target": "Удалить", "generation": desk.generation, "semantic": "delete"}
-    res = await spec.handler(base, _ctx(env, approval_id=41))
+    res = await spec.handler(base, _ctx(env, approval_id=await _consumed_approval(env)))
     assert not res.error, res.content
     assert desk.desktop.executed[-1][0] == "UI_INVOKE"
 
 
 async def test_approval_is_bound_to_the_consequence_kind(env, desk):
-    """Одобрено «pay», а кнопка — «Удалить»: одобрение не переносится."""
+    """Одобрено «send», а кнопка — «Удалить»: одобрение не переносится.
+    (rc19: was «pay» — payment is now refused outright, see test_cu_rc19_hardening.)"""
     await tc.observe(env.svc)
     spec = REGISTRY.get("computer.act")
     res = await spec.handler({"action": "click", "target": "Удалить", "generation": desk.generation,
-                              "semantic": "pay"}, _ctx(env, approval_id=41))
+                              "semantic": "send"}, _ctx(env, approval_id=await _consumed_approval(env)))
     assert res.error and "не переносится" in res.content
     assert desk.desktop.executed == []
 
@@ -429,8 +479,10 @@ async def test_approval_rechecked_on_fresh_screen_before_effect(env, desk):
 
     desk.desktop.snapshot = snapshot
     res = await spec.handler({"action": "click", "target": "Удалить", "generation": desk.generation,
-                              "semantic": "delete"}, _ctx(env, approval_id=41))
-    assert res.error and "перед эффектом" in res.content
+                              "semantic": "delete"}, _ctx(env, approval_id=await _consumed_approval(env)))
+    # rc19: the approved call re-reads the screen FIRST (approval rebinding), so the
+    # protected window is caught there by the policy — still before any effect.
+    assert res.error and ("перед эффектом" in res.content or "security surface" in res.content)
     assert desk.desktop.executed == []
 
 

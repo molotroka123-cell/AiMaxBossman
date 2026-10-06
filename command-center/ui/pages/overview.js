@@ -13,7 +13,7 @@ import {
   toast, toastOk, toastError, actionButton, field, textarea, select,
   fmtGb, fmtClock,
 } from '../components.js';
-import { idVal, errorBanner, pct } from './_shared.js';
+import { idVal, errorBanner, pct, humanKind } from './_shared.js';
 
 function titleFromPrompt(prompt) {
   const line = String(prompt || '').trim().split('\n')[0].trim();
@@ -204,12 +204,14 @@ function buildActivityPanel(activity) {
 function activityRow(e) {
   const kind = pick(e, ['kind', 'type'], 'event');
   const data = e.data && typeof e.data === 'object' ? e.data : {};
-  const text = pick(e, ['message', 'text', 'title']) || pick(data, ['message', 'title', 'prompt', 'reason'])
-    || (Object.keys(data).length ? JSON.stringify(data).slice(0, 140) : '');
+  /* UX-11: JSON.stringify(data) печатал владельцу {"enabled":false,"by":"owner"};
+     показываем человеческое название события и только готовый текст, а сырой kind
+     оставляем во всплывающей подсказке. */
+  const text = pick(e, ['message', 'text', 'title']) || pick(data, ['message', 'title', 'prompt', 'reason']) || '';
   return h('div.feed-item',
     h('span.feed-time', fmtClock(pick(e, ['ts', 'created_at']))),
-    h('span.feed-kind', kind),
-    h('span.feed-text', text || '—'));
+    h('span.feed-kind', { title: String(kind) }, humanKind(String(kind))),
+    h('span.feed-text', text ? String(text) : '—'));
 }
 
 export default OverviewPage;

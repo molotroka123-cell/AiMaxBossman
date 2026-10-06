@@ -1,0 +1,152 @@
+{
+ "seed": 20261006,
+ "hands_per_opponent": 8000,
+ "mode": "heads-up, duplicate deals (both seat assignments)",
+ "opponents": [
+  "LAG Trainer",
+  "Scared Money",
+  "Loose Limper",
+  "Trapper"
+ ],
+ "candidates": {
+  "baseline_student": {
+   "per_opponent_bb100": {
+    "LAG Trainer": {
+     "mean": -10.794,
+     "sd": 615.529,
+     "n": 4000,
+     "ci95_lo": -29.869,
+     "ci95_hi": 8.281
+    },
+    "Scared Money": {
+     "mean": 5.444,
+     "sd": 172.361,
+     "n": 4000,
+     "ci95_lo": 0.102,
+     "ci95_hi": 10.785
+    },
+    "Loose Limper": {
+     "mean": 1.869,
+     "sd": 284.576,
+     "n": 4000,
+     "ci95_lo": -6.95,
+     "ci95_hi": 10.688
+    },
+    "Trapper": {
+     "mean": 2.656,
+     "sd": 240.7,
+     "n": 4000,
+     "ci95_lo": -4.803,
+     "ci95_hi": 10.115
+    }
+   },
+   "pooled_bb100": {
+    "mean": -0.206,
+    "sd": 369.986,
+    "n": 16000,
+    "ci95_lo": -5.939,
+    "ci95_hi": 5.527
+   }
+  },
+  "vision_equity_policy": {
+   "per_opponent_bb100": {
+    "LAG Trainer": {
+     "mean": -34.638,
+     "sd": 1318.261,
+     "n": 4000,
+     "ci95_lo": -75.49,
+     "ci95_hi": 6.215
+    },
+    "Scared Money": {
+     "mean": -3.425,
+     "sd": 513.217,
+     "n": 4000,
+     "ci95_lo": -19.329,
+     "ci95_hi": 12.479
+    },
+    "Loose Limper": {
+     "mean": -4.325,
+     "sd": 687.351,
+     "n": 4000,
+     "ci95_lo": -25.626,
+     "ci95_hi": 16.976
+    },
+    "Trapper": {
+     "mean": 13.05,
+     "sd": 776.746,
+     "n": 4000,
+     "ci95_lo": -11.021,
+     "ci95_hi": 37.121
+    }
+   },
+   "pooled_bb100": {
+    "mean": -7.334,
+    "sd": 877.154,
+    "n": 16000,
+    "ci95_lo": -20.926,
+    "ci95_hi": 6.257
+   }
+  },
+  "botlab_learned": {
+   "per_opponent_bb100": {
+    "LAG Trainer": {
+     "mean": 66.675,
+     "sd": 853.663,
+     "n": 4000,
+     "ci95_lo": 40.22,
+     "ci95_hi": 93.13
+    },
+    "Scared Money": {
+     "mean": 16.062,
+     "sd": 495.226,
+     "n": 4000,
+     "ci95_lo": 0.716,
+     "ci95_hi": 31.409
+    },
+    "Loose Limper": {
+     "mean": 77.963,
+     "sd": 640.61,
+     "n": 4000,
+     "ci95_lo": 58.11,
+     "ci95_hi": 97.815
+    },
+    "Trapper": {
+     "mean": 47.487,
+     "sd": 673.48,
+     "n": 4000,
+     "ci95_lo": 26.617,
+     "ci95_hi": 68.358
+    }
+   },
+   "pooled_bb100": {
+    "mean": 52.047,
+    "sd": 678.197,
+    "n": 16000,
+    "ci95_lo": 41.538,
+    "ci95_hi": 62.555
+   }
+  }
+ },
+ "paired_vs_baseline": {
+  "vision_equity_policy": {
+   "mean": -7.128,
+   "sd": 929.881,
+   "n": 16000,
+   "ci95_lo": -21.537,
+   "ci95_hi": 7.28,
+   "supported_gain": false,
+   "supported_loss": false
+  },
+  "botlab_learned": {
+   "mean": 52.253,
+   "sd": 659.246,
+   "n": 16000,
+   "ci95_lo": 42.038,
+   "ci95_hi": 62.468,
+   "supported_gain": true,
+   "supported_loss": false
+  }
+ },
+ "exploitability": "NOT_COMPUTED: no-limit hold'em is not tractable for exact best response; bb/100 vs fixed training opponents is not exploitability",
+ "equity_note": "equity-vs-random is a heuristic input, not optimal strategy or a profit guarantee"
+}

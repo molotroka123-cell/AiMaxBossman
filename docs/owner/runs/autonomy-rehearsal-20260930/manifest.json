@@ -1,0 +1,64 @@
+{
+ "artifacts": {
+  "candidate_diff": {
+   "bytes": 682,
+   "path": "C:\\Users\\asd\\Bossman\\swarm-20260930\\autonomy\\sandbox\\run-20260930-102359\\artifacts\\candidate.diff",
+   "sha256": "29b9c26e66e574971aadbf4595f69ca23388bc2ca03e368dfc3724fd05e29eb2"
+  },
+  "cycle": {
+   "bytes": 10237,
+   "path": "C:\\Users\\asd\\Bossman\\swarm-20260930\\autonomy\\sandbox\\run-20260930-102359\\artifacts\\cycle.json",
+   "sha256": "22f8e370a45dfd0d3376fe1cb5c4238b12cb5a8121dc428e2d316ff805ce95db"
+  },
+  "evaluation": {
+   "bytes": 330,
+   "path": "C:\\Users\\asd\\Bossman\\swarm-20260930\\autonomy\\sandbox\\run-20260930-102359\\artifacts\\evaluation.json",
+   "sha256": "b0c6362a61d0fd2907e81436de37aaec2bff069623fd8872d63bfe8526d7a0fa"
+  },
+  "lessons": {
+   "bytes": 504,
+   "path": "C:\\Users\\asd\\Bossman\\swarm-20260930\\autonomy\\sandbox\\run-20260930-102359\\artifacts\\lessons.json",
+   "sha256": "18e08f6caa360555c07d734e5ae3ee1ba36901c725661ecc33769c69b630e07d"
+  },
+  "lessons_store_journal": {
+   "bytes": 3333,
+   "path": "C:\\Users\\asd\\Bossman\\swarm-20260930\\autonomy\\sandbox\\run-20260930-102359\\artifacts\\lessons-store-journal.jsonl",
+   "sha256": "c85c164a79064f16deae7bd73922d2502aefe35fc31d1ca14e545df6f7cc9199"
+  },
+  "staging": {
+   "bytes": 650,
+   "path": "C:\\Users\\asd\\Bossman\\swarm-20260930\\autonomy\\sandbox\\run-20260930-102359\\artifacts\\staging.json",
+   "sha256": "fa1baa00dce727f2b32949d17ad3bab13d7421a7d4a811c797e73d21738e3cf2"
+  },
+  "trace": {
+   "bytes": 3324,
+   "path": "C:\\Users\\asd\\Bossman\\swarm-20260930\\autonomy\\sandbox\\run-20260930-102359\\artifacts\\trace.json",
+   "sha256": "cb91a81f8d386c073fba4e15eed50293ee738e3cdcae034b0bdf9b8266b84942"
+  },
+  "usage": {
+   "bytes": 1686,
+   "path": "C:\\Users\\asd\\Bossman\\swarm-20260930\\autonomy\\sandbox\\run-20260930-102359\\artifacts\\usage.json",
+   "sha256": "9bfadac3f1bf311d95e91d677f9b2f21b9f3ca9ceadd0dfbd0b0aaa61c79fea5"
+  }
+ },
+ "candidate_sha": "94cbd0785d1e0dfce5a608510b77b860104d35c5",
+ "complete": true,
+ "created_at": "2026-09-30T17:24:59.356354Z",
+ "journal": {
+  "head": "a6211fb2301e9d6567ff978ba1499ba46a385bed3e2e1f08f3b36c863f141e8b",
+  "seq": 44
+ },
+ "label": "SANDBOX_REHEARSAL, pin tестовый, не владельца: SBX-0001",
+ "manifest_sha256": "8be686e54ccdf8da41762a2016599d8d1f268863ca360a9492c46463ebe4644b",
+ "missing": [],
+ "required": [
+  "candidate_diff",
+  "cycle",
+  "evaluation",
+  "lessons",
+  "staging",
+  "trace",
+  "usage"
+ ],
+ "schema": "bossman.autonomy.freeze_manifest.v1"
+}

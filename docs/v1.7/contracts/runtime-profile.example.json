@@ -1,0 +1,33 @@
+{
+  "schema_version": "bossman.pit.runtime-profile/1",
+  "mode": "laptop_remote_bootstrap",
+  "features": {
+    "pit": true,
+    "telegram": true,
+    "persona_memory": true,
+    "discovery": true,
+    "collection_mode": "high_recall"
+  },
+  "routing": {
+    "local_models_available": false,
+    "route_mode": "capability_first",
+    "primary_remote_alias": "GLM_5_3_OWNER_CONFIGURED",
+    "allow_zero_cost_fallback": true,
+    "allow_paid": false,
+    "web_for_fresh_queries": true
+  },
+  "ai_max_transition": {
+    "local_models_available": true,
+    "route_mode": "local_first_auto",
+    "per_message_confirmation_for_local_model_selection": false,
+    "per_message_confirmation_for_read_only_web_search": false
+  },
+  "participant_surface": {
+    "owner_console": false,
+    "computer_tools": false,
+    "shell_tools": false,
+    "admin_tools": false,
+    "own_memory": true,
+    "web_read_search": true
+  }
+}

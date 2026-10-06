@@ -1,0 +1,40 @@
+{
+ "meta": {
+  "title": "Thanks",
+  "bpm": 110,
+  "key": "F",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // THANKS",
+  "voice": "am_fenrir",
+  "duration": 6.0
+ },
+ "scenes": [
+  {
+   "type": "sticker",
+   "lottie": "noto_person_raising_both_hands_in_celebration",
+   "text": "THANK YOU",
+   "sub": "25 EARLY TESTERS",
+   "start": 0.0,
+   "end": 3.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Thank you, testers."
+    }
+   ]
+  },
+  {
+   "type": "end_card",
+   "text": "YOU ROCK",
+   "sub": "SEE YOU IN BETA 2",
+   "start": 3.0,
+   "end": 6.0,
+   "vo": [
+    {
+     "t": 3.1,
+     "text": "You rock."
+    }
+   ]
+  }
+ ]
+}

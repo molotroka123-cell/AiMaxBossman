@@ -14,6 +14,7 @@ V2.6 (модули B/G, за правилом rules["adaptive"]=true, OFF по �
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 
@@ -22,6 +23,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from ..db import (models as models_t, providers as providers_t, settings_kv,
                   task_runs as runs_t, tasks as tasks_t)
+from ..model_health import HealthRecord
 from ..v2.model_intelligence import TaskComplexityFeatures, classify_reasoning
 from ..v2.model_router import (MAX_CANDIDATES, ModelCandidate, RouteRequest,
                                candidate_digest, derive_local, disqualify, route,
@@ -174,7 +176,11 @@ async def _candidates(svc, rules: dict, *,
         local, _why = derive_local(m["kind"], m["provider_kind"], m["provider_base_url"])
         out.append(ModelCandidate(
             id=m["id"], alias=m["alias"],
-            online=m["status"] == "online",
+            # `status` is the last probe; a real call that failed since then
+            # put the model into a measured cooldown (engine records it), and
+            # routing onto it again inside that window repeats the failure.
+            online=(m["status"] == "online"
+                    and not HealthRecord.from_dict(m.get("health")).in_cooldown()),
             local=local,
             context_window=m["context_window"] or 8192,
             capabilities=advertised,
@@ -183,9 +189,98 @@ async def _candidates(svc, rules: dict, *,
             price_in=((m["price_in"] if m.get("pricing_known") else None) if not local else (m["price_in"] or 0.0)),
             price_out=((m["price_out"] if m.get("pricing_known") else None) if not local else (m["price_out"] or 0.0)),
             latency_ms=bench.get("latency_ms"), gen_tps=bench.get("gen_tps"),
+            memory_mb=(await _local_model_memory_mb(m, bench) if local else None),
             success_rate=success.get(m["alias"]),
             role_scores=role_scores.get(m["alias"], {})))
     return out
+
+
+# RC19. `disqualify` has always rejected a local model whose memory exceeds
+# `available_memory_mb`, but live routing never supplied either number: the
+# candidates had no `memory_mb` and the request took `available_memory_mb` only
+# from task meta. On the owner's unified-memory machine a busy pool therefore
+# never moved work to a free cloud model. Both numbers are now measured:
+# the pool with the same probe Jeff uses (bcc/pit/resources), the model from
+# its measured bench or the Ollama tag size, and a model that Ollama already
+# holds resident costs nothing extra. Unknown stays unknown (no rejection).
+_OLLAMA_CACHE_SECONDS = 30.0
+_ollama_cache: dict[str, tuple[float, dict[str, dict[str, float]]]] = {}
+DEFAULT_MEMORY_HEADROOM_MB = 8000
+
+
+def _ollama_inventory_sync(root: str) -> dict[str, dict[str, float]]:
+    """{tag: {"size_mb": .., "resident": 0|1}} from a local Ollama, {} on error."""
+    import urllib.request
+    out: dict[str, dict[str, float]] = {}
+    try:
+        for path, resident in (("/api/tags", 0.0), ("/api/ps", 1.0)):
+            with urllib.request.urlopen(root + path, timeout=1.5) as resp:
+                rows = json.load(resp).get("models") or []
+            for row in rows:
+                name = str(row.get("name") or row.get("model") or "")
+                if not name:
+                    continue
+                entry = out.setdefault(name, {"size_mb": 0.0, "resident": 0.0})
+                if resident:
+                    entry["resident"] = 1.0
+                elif row.get("size"):
+                    entry["size_mb"] = float(row["size"]) / (1024 * 1024)
+    except Exception:  # noqa: BLE001 — a missing Ollama means "unknown", not a failure
+        return {}
+    return out
+
+
+async def _ollama_inventory(base_url: str | None) -> dict[str, dict[str, float]]:
+    from urllib.parse import urlsplit
+    try:
+        parts = urlsplit(base_url or "")
+    except ValueError:
+        return {}
+    if not parts.scheme or not parts.hostname:
+        return {}
+    root = f"{parts.scheme}://{parts.netloc}"
+    now = asyncio.get_running_loop().time()
+    cached = _ollama_cache.get(root)
+    if cached and now - cached[0] < _OLLAMA_CACHE_SECONDS:
+        return cached[1]
+    inventory = await asyncio.to_thread(_ollama_inventory_sync, root)
+    _ollama_cache[root] = (now, inventory)
+    return inventory
+
+
+async def _local_model_memory_mb(m, bench: dict) -> float | None:
+    """Extra memory a local model needs now: 0 when resident, else bench/tag size."""
+    # Only called for derive_local() models, so the URL is a loopback/LAN
+    # endpoint; a non-Ollama server simply answers 404 → unknown size.
+    inventory = await _ollama_inventory(m.get("provider_base_url"))
+    tag = inventory.get(str(m.get("name") or ""))
+    if tag and tag.get("resident"):
+        return 0.0
+    if bench.get("ram_mb"):
+        return float(bench["ram_mb"])
+    if tag and tag.get("size_mb"):
+        return float(tag["size_mb"])
+    return None
+
+
+def _measure_pool_sync() -> tuple[int | None, str]:
+    from ..pit.resources import _measure_local_capacity
+    return _measure_local_capacity()
+
+
+async def live_available_memory_mb(rules: dict) -> tuple[float | None, dict]:
+    """Measured free memory minus owner headroom; (None, info) when unmeasured."""
+    headroom = int(rules.get("memory_headroom_mb") or DEFAULT_MEMORY_HEADROOM_MB)
+    try:
+        free_mb, probe = await asyncio.to_thread(_measure_pool_sync)
+    except Exception:  # noqa: BLE001 — telemetry never blocks routing
+        free_mb, probe = None, "error"
+    info = {"probe": probe, "free_mb": free_mb, "headroom_mb": headroom}
+    if free_mb is None:
+        return None, info
+    available = float(max(0, int(free_mb) - headroom))
+    info["available_mb"] = available
+    return available, info
 
 
 def cloud_policy(meta: dict, agent: dict | None, rules: dict) -> tuple[bool, str]:
@@ -224,6 +319,67 @@ def cloud_policy(meta: dict, agent: dict | None, rules: dict) -> tuple[bool, str
     return True, "; ".join(grants)
 
 
+def _jev_bounded_choice(req: RouteRequest, candidates: list[ModelCandidate],
+                        model_route: str):
+    """Jev chooses only a locality bucket; Smart Router still scores eligible models."""
+    eligible, _rejected = shortlist(req, candidates)
+    if model_route in ("local_fast", "local_reasoner"):
+        bucket = [m for m in eligible if m.local]
+    elif model_route == "cloud_reasoner":
+        bucket = [m for m in eligible if not m.local]
+    else:
+        return None
+    if not bucket:
+        return None
+    picked = route(req, bucket)
+    return picked if picked.model is not None else None
+
+
+async def _jev_route_hint(svc, task: dict, agent: dict, meta: dict,
+                          req: RouteRequest, candidates: list[ModelCandidate], baseline):
+    """Opt-in public/free Jev hint; every failure uses the unchanged Bossman route."""
+    state = getattr(svc, "jev", None)
+    if state is None or state.cfg.shadow:
+        return baseline, None
+    from ..jev import config as jev_config
+    from ..jev.decision import TaskContext
+    cfg = jev_config.load()
+    reason = None
+    chosen = baseline
+    if not cfg.active:
+        reason = "disabled"
+    elif not cfg.zero_cost_confirmed:
+        reason = "price_not_confirmed_free"
+    elif not jev_config.api_key():
+        reason = "owner_required_jev_key"
+    elif meta.get("jev_egress_allowed") is not True or meta.get("privacy") != "public" or not req.cloud_allowed:
+        reason = "egress_not_allowed"
+    else:
+        ctx = TaskContext(task_id=task.get("id"), kind=str(task.get("kind") or "generic"),
+                          prompt=str(task.get("prompt") or ""),
+                          tools=[str(t) for t in (agent.get("tools") or []) if isinstance(t, str)])
+        try:
+            decision = await asyncio.to_thread(state.provider.decide, ctx)
+            if decision.low_confidence:
+                reason = "low_confidence"
+            else:
+                hint = _jev_bounded_choice(req, candidates, decision.model_route)
+                if hint is None:
+                    reason = "no_authorized_candidate"
+                else:
+                    chosen = hint
+        except Exception as exc:  # Jev is never a task authority or hard dependency.
+            reason = getattr(exc, "reason", type(exc).__name__)
+    try:
+        state.recorder.write({"task_id": task.get("id"), "mode": "bounded_routing",
+                              "baseline_alias": baseline.model.alias if baseline.model else None,
+                              "selected_alias": chosen.model.alias if chosen.model else None,
+                              "fallback_reason": reason, "authoritative": False})
+    except Exception as exc:  # Evidence failure must also fail closed to Bossman's route.
+        return baseline, f"recorder_failed:{type(exc).__name__}"
+    return chosen, reason
+
+
 async def check_forced_model(svc, model_id, *, meta: dict | None, agent: dict | None,
                              kind: str | None) -> list[str]:
     """F-016: принудительная модель (meta.force_model_id, форк с model_id)
@@ -257,6 +413,75 @@ async def check_forced_model(svc, model_id, *, meta: dict | None, agent: dict | 
     return bad
 
 
+async def _memory_pressure_fallback(svc, task: dict, agent: dict | None, meta: dict,
+                                    rules: dict, kind: str):
+    """Unrouted task whose local agent model does not fit into measured memory.
+
+    Switches this run to the agent's configured fallback model only when that
+    model passes the same hard policy as any forced model (cloud consent,
+    price, capabilities) AND costs nothing (local, or cloud priced 0/0).
+    Otherwise the agent model stays and the reason is emitted, so the owner
+    sees why nothing moved. Never changes the agent's configuration.
+    """
+    agent = agent or {}
+    fallback_id = agent.get("fallback_model_id")
+    if not fallback_id or not agent.get("model_id") or not rules.get("live_memory", True):
+        return None
+    async with svc.db.session() as s:
+        row = (await s.execute(
+            sa.select(models_t,
+                      providers_t.c.kind.label("provider_kind"),
+                      providers_t.c.base_url.label("provider_base_url"))
+            .select_from(models_t.outerjoin(
+                providers_t, models_t.c.provider_id == providers_t.c.id))
+            .where(models_t.c.id == int(agent["model_id"])))).first()
+    if row is None:
+        return None
+    own = row._mapping
+    local, _why = derive_local(own["kind"], own["provider_kind"], own["provider_base_url"])
+    if not local:
+        return None
+    bench = own["bench"] if isinstance(own["bench"], dict) else {}
+    need = await _local_model_memory_mb(own, bench)
+    if need is None:
+        return None
+    available, info = (meta.get("available_memory_mb"), {"source": "task.meta"})
+    if available is None:
+        available, info = await live_available_memory_mb(rules)
+    if available is None or need <= float(available):
+        return None
+    reason = f"memory {need:.0f}MB > available {float(available):.0f}MB for {own['alias']}"
+    # The fallback is held to the SAME measured memory: a local fallback that
+    # does not fit either is not relief (check_forced_model otherwise sees only
+    # task.meta, which is empty when memory was measured live).
+    denied = await check_forced_model(svc, fallback_id, agent=agent, kind=kind,
+                                      meta={**meta, "available_memory_mb": float(available)})
+    fb = next((c for c in await _candidates(svc, rules, kind=kind)
+               if int(c.id) == int(fallback_id)), None)
+    if not denied and fb is not None and not fb.local and (fb.price_in or fb.price_out
+                                                           or fb.price_in is None
+                                                           or fb.price_out is None):
+        budget = meta.get("cloud_budget_usd")
+        if not (isinstance(budget, (int, float)) and not isinstance(budget, bool) and budget > 0):
+            denied = ["fallback is not free (price unknown or > 0) and no cloud budget"]
+    if denied or fb is None:
+        await svc.bus.emit("router.memory_pressure", task_id=task["id"],
+                           outcome="kept_agent_model", reason=reason,
+                           fallback_model_id=int(fallback_id),
+                           denied="; ".join(denied or ["unknown fallback model"])[:300])
+        return None
+    route_info = {"alias": fb.alias, "score": None, "task_type": kind,
+                  "reasons": [reason, "memory pressure → agent fallback model"],
+                  "rejected": {own["alias"]: [reason]}, "considered": 1, "total": 1,
+                  "fallback_from": own["alias"], "memory": info}
+    await svc.bus.emit("router.memory_pressure", task_id=task["id"],
+                       outcome="switched_to_fallback", reason=reason,
+                       fallback_model_id=int(fallback_id))
+    await svc.bus.emit("router.route_selected", task_id=task["id"],
+                       model_id=int(fb.id), alias=fb.alias, reason=reason[:300])
+    return {"model_id": int(fb.id), "route": route_info}
+
+
 async def _make_pick_hook(svc):
     async def pick_model(task, agent):
         rules = await _rules(svc)
@@ -265,7 +490,7 @@ async def _make_pick_hook(svc):
         # иначе оставляем модель агента (None) — не ломаем существующее поведение
         kind = task.get("kind") or "generic"
         if not (meta.get("route") or kind not in ("generic", None)):
-            return None
+            return await _memory_pressure_fallback(svc, task, agent, meta, rules, kind)
         # F-016: облако fail-closed — без явного разрешения кандидаты только местные
         cloud_allowed, cloud_why = cloud_policy(meta, agent, rules)
         prefer_local = bool(rules.get("prefer_local", True))
@@ -288,16 +513,23 @@ async def _make_pick_hook(svc):
                 prefer_local = False
                 require_verified = True
             # L0/L1 оставляют prefer_local как есть (обычно True) — дёшево/локально
+        available_memory = meta.get("available_memory_mb")
+        memory_info = None
+        if available_memory is None and rules.get("live_memory", True):
+            available_memory, memory_info = await live_available_memory_mb(rules)
         req = RouteRequest(
             task_type=kind, requires=_requires(kind, rules),
             min_context=int(meta.get("min_context") or 0),
             cloud_allowed=cloud_allowed,
             max_price_out=meta.get("max_price_out"),
-            available_memory_mb=meta.get("available_memory_mb"),
+            available_memory_mb=available_memory,
             prefer_local=prefer_local,
             max_candidates=int(rules.get("max_candidates") or MAX_CANDIDATES),
             require_verified=require_verified)
-        decision = route(req, await _candidates(svc, rules, kind=kind))
+        candidates = await _candidates(svc, rules, kind=kind)
+        decision = route(req, candidates)
+        decision, jev_fallback = await _jev_route_hint(svc, task, agent or {}, meta,
+                                                       req, candidates, decision)
         if decision.model is None:
             return None            # никого не выбрали → модель агента
         route_info = {"alias": decision.model.alias, "score": decision.score,
@@ -305,8 +537,13 @@ async def _make_pick_hook(svc):
                       "task_type": kind, "considered": decision.considered,
                       "total_candidates": decision.total,
                       "cloud_allowed": cloud_allowed, "cloud_policy": cloud_why}
+        if getattr(svc, "jev", None) is not None and not svc.jev.cfg.shadow:
+            route_info["jev"] = {"mode": "bounded_routing", "fallback": jev_fallback,
+                                 "authority": "smart_router"}
         if reasoning_info is not None:
             route_info["reasoning"] = reasoning_info
+        if memory_info is not None:
+            route_info["memory"] = memory_info
         await svc.bus.emit("router.route_selected", task_id=task["id"],
                            model_id=decision.model.id, alias=decision.model.alias,
                            reason="; ".join(decision.reasons)[:300])

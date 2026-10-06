@@ -1,0 +1,12 @@
+{"frame": "0000.png", "t_ms": 73034, "hand_idx": 5, "tag": "decision"}
+{"frame": "0001.png", "t_ms": 73706, "hand_idx": 5, "tag": "after_click_anim"}
+{"frame": "0002.png", "t_ms": 75619, "hand_idx": 5, "tag": "settled"}
+{"frame": "0003.png", "t_ms": 75944, "hand_idx": 5, "tag": "hand_over"}
+{"frame": "0004.png", "t_ms": 76547, "hand_idx": 6, "tag": "after_deal_anim"}
+{"frame": "0005.png", "t_ms": 78324, "hand_idx": 6, "tag": "deal_settled"}
+{"frame": "0006.png", "t_ms": 78624, "hand_idx": 6, "tag": "decision"}
+{"frame": "0007.png", "t_ms": 79090, "hand_idx": 6, "tag": "after_click_anim"}
+{"frame": "0008.png", "t_ms": 80876, "hand_idx": 6, "tag": "settled"}
+{"frame": "0009.png", "t_ms": 81345, "hand_idx": 6, "tag": "decision"}
+{"frame": "0010.png", "t_ms": 82160, "hand_idx": 6, "tag": "after_click_anim"}
+{"frame": "0011.png", "t_ms": 83892, "hand_idx": 6, "tag": "settled"}

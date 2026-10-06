@@ -246,3 +246,34 @@ def test_artifact_paths_cannot_overwrite_corpus_or_each_other(tmp_path, capsys, 
     assert runner.main(args + ["--gate-report", str(path)]) == 2
     assert "distinct paths" in capsys.readouterr().err
     assert (tmp_path / "synthetic-corpus.json").read_bytes() == original
+
+
+def _capture_client(monkeypatch, **kw):
+    seen = {}
+
+    def fake(endpoint, path, *, payload=None, timeout=None):
+        seen.update(payload=payload, timeout=timeout)
+        return {"model": "fixture:1", "done": True, "message": {"role": "assistant", "content": "ok"}}
+
+    monkeypatch.setattr(runner, "_ollama_json", fake)
+    runner.ollama_client("http://127.0.0.1:1", "fixture:1", **kw)([{"role": "user", "content": "q"}])
+    return seen
+
+
+def test_default_request_is_unchanged_without_a_think_field(monkeypatch):
+    seen = _capture_client(monkeypatch)
+    assert "think" not in seen["payload"] and seen["timeout"] == 120.0
+
+
+def test_think_off_and_timeout_reach_every_request(monkeypatch):
+    # RC19: Qwen reasoning made each item ~20 s and a request exceeded the fixed
+    # 120 s cap; the measurement now records and sends an explicit reasoning mode.
+    seen = _capture_client(monkeypatch, think=False, timeout=300.0)
+    assert seen["payload"]["think"] is False and seen["timeout"] == 300.0
+
+
+def test_cli_exposes_think_and_timeout_with_historical_defaults():
+    import inspect
+    src = inspect.getsource(runner.main)
+    assert '"--think"' in src and 'default="model-default"' in src
+    assert '"--request-timeout"' in src and "default=MODEL_TIMEOUT_SECONDS" in src

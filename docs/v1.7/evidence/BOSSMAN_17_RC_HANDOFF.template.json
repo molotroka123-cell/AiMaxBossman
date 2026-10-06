@@ -1,0 +1,63 @@
+{
+  "schema_version": "bossman.v1.7.rc-handoff/1",
+  "status": "NOT_RUN",
+  "source_branch": "feat/bossman-1.7-personal-identity-training-20260925",
+  "source_15_branch": "release/bossman-1.5-rc2-20260925",
+  "source_15_sha_observed": "21a8092b75763aefb741b4b150344a0673e01344",
+  "source_16_branch": "feat/bossman-1.6-bossnet-foundation-20260925",
+  "source_16_sha_observed": "c3b65e30d62383a054126a4c6726ed4a3bbf65a1",
+  "start_17_sha": null,
+  "tested_17_sha": null,
+  "laptop": {
+    "status": "NOT_RUN",
+    "live_telegram": false,
+    "free_only_route": false,
+    "web": false,
+    "memory": false,
+    "restart": false,
+    "two_id_isolation": false
+  },
+  "ai_max": {
+    "status": "NOT_RUN",
+    "local_first": false,
+    "local_route_share": null,
+    "vision": false,
+    "photo_edit": false,
+    "background_memory_latency_ok": false
+  },
+  "multiuser": {
+    "status": "NOT_RUN",
+    "participants": 0,
+    "cross_user_leaks": null
+  },
+  "behavior": {
+    "risk": "NOT_RUN",
+    "engagement": "NOT_RUN",
+    "profile_stability": "NOT_RUN",
+    "roleplay": "NOT_RUN",
+    "politics_religion_gate": "NOT_RUN"
+  },
+  "tests": {
+    "pit_foundation": "NOT_RUN",
+    "pit_photo": "NOT_RUN",
+    "telegram": "NOT_RUN",
+    "studio": "NOT_RUN",
+    "v15": "NOT_RUN",
+    "v16": "NOT_RUN"
+  },
+  "ci": {
+    "status": "NOT_RUN",
+    "runs": []
+  },
+  "soak": {
+    "status": "NOT_RUN",
+    "minutes": 0
+  },
+  "blockers": {
+    "p0": [],
+    "p1": [],
+    "p2": []
+  },
+  "convergence_source_ready": false,
+  "next_prompt": "docs/v1.7/NEXT_CHAT_CONVERGENCE_1_5_1_6_1_7_RU.md"
+}

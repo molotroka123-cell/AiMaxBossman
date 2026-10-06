@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bossman.local/schemas/autonomy/review.schema.json",
+  "title": "Bossman candidate review bound to one SHA and diff hash (bcc.autonomy.types.Review)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["goal_id", "reviewer", "sha", "diff_sha256", "verdict", "notes"],
+  "properties": {
+    "goal_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9]*(-[A-Z0-9]+)+$", "maxLength": 64},
+    "reviewer": {"enum": ["claude", "codex"]},
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+    "diff_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "verdict": {"enum": ["APPROVE", "REQUEST_CHANGES", "REJECT"]},
+    "notes": {"type": "string", "maxLength": 20000},
+    "evidence_sha256": {"type": "string", "pattern": "^([0-9a-f]{64})?$"}
+  }
+}

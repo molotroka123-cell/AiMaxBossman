@@ -434,6 +434,52 @@ def test_tool_choice_is_required_and_falls_back_to_auto_on_a_400():
     assert seen == ["required", "auto", "auto"]   # tried required once, then remembered auto
 
 
+def _fake_model_server(reject_reasoning: bool):
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    seen = []
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *_a):
+            return
+
+        def do_POST(self):  # noqa: N802
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            seen.append((body["tool_choice"], body.get("reasoning_effort")))
+            if reject_reasoning and "reasoning_effort" in body:
+                self.send_response(400); self.end_headers(); return
+            data = json.dumps({"choices": [{"message": {"role": "assistant", "content": "x"}}]}).encode()
+            self.send_response(200); self.send_header("Content-Length", str(len(data))); self.end_headers()
+            self.wfile.write(data)
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv, seen
+
+
+def test_loopback_model_is_asked_not_to_think():
+    # Owner box 05.10: thinking Qwen burned max_tokens reasoning and never emitted a tool call.
+    srv, seen = _fake_model_server(reject_reasoning=False)
+    try:
+        ls.Model(f"http://127.0.0.1:{srv.server_address[1]}", "m", None).chat(
+            [{"role": "user", "content": "hi"}], tools=ls.TOOL_SPECS[:1], timeout=10)
+    finally:
+        srv.shutdown()
+    assert seen == [("required", "none")]
+    assert ls.Model("https://api.example.com/v1", "m", "k").no_think is False  # remote APIs untouched
+
+
+def test_server_rejecting_reasoning_effort_still_works_and_is_remembered():
+    srv, seen = _fake_model_server(reject_reasoning=True)
+    try:
+        m = ls.Model(f"http://127.0.0.1:{srv.server_address[1]}", "m", None)
+        m.chat([{"role": "user", "content": "hi"}], tools=ls.TOOL_SPECS[:1], timeout=10)
+        m.chat([{"role": "user", "content": "hi"}], tools=ls.TOOL_SPECS[:1], timeout=10)
+    finally:
+        srv.shutdown()
+    assert seen == [("required", "none"), ("auto", "none"), ("auto", None), ("auto", None)]
+
+
 def test_guard_source_allows_the_windows_nul_device_spelled_with_backslashes():
     # The guard is exec'd source: a non-raw "\\.\nul" there becomes "\.<newline>ul",
     # and pytest's `\\.\nul` open was refused on Windows (NO_TEST_RESULTS).
@@ -507,3 +553,30 @@ def test_an_edit_in_between_or_a_changed_result_is_not_a_repeat(repo):
                        "protected_paths": []}, _Script(turns, seen), max_steps=10, test_timeout=30)
     assert res["repeats_without_progress"] == 0 and res["stop_reason"] == "finished"
     assert not any("ПОВТОР" in s for s in seen)
+
+
+def test_a_lone_surrogate_in_the_context_does_not_break_the_model_request(monkeypatch):
+    """NVIDIA answered HTTP 400 "lone leading surrogate in hex escape" to a \ud83d escape (2026-10-05)."""
+    seen = {}
+
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+        def read(self):
+            return b'{"ok": true}'
+
+    class Opener:
+        def open(self, req, timeout):
+            seen["body"] = req.data
+            return Resp()
+
+    monkeypatch.setattr(ls.urllib.request, "build_opener", lambda *_a: Opener())
+    out = ls._http("http://example.invalid/v1/chat/completions",
+                   {"messages": [{"role": "user", "content": "файл: \ud83d конец 😀"}]}, api_key=None, timeout=5)
+    assert out == {"ok": True}
+    body = seen["body"].decode("utf-8")              # valid UTF-8, no lone-surrogate escape
+    assert "\ud83d" not in body and "файл: ? конец 😀" in json.loads(body)["messages"][0]["content"]

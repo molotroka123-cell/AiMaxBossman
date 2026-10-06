@@ -17,8 +17,9 @@ from .store import Store, single_instance
 
 
 def default_config() -> Path:
-    base = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local" / "share")))
-    return base / "Bossman" / "telegram-companion" / "config.json"
+    """The canonical config: ``<BCC_DATA_DIR>/telegram-companion/config.json`` (see paths.py)."""
+    from .paths import companion_config_path
+    return companion_config_path()
 
 
 def setup(path: Path):
@@ -93,7 +94,11 @@ async def serve(path: Path):
     if not settings.enabled:
         raise CompanionError("COMPANION_DISABLED_IN_SETTINGS")
     from bcc.auth import _restrict_to_owner
-    with single_instance(path.parent):
+    from bcc.pit.bot_guard import token_poller_lock
+    # One poller per bot TOKEN machine-wide (the same kernel lock Jeff takes):
+    # «Пульт» configured with Jeff's token, or a second companion from another
+    # folder, is refused instead of stealing updates from the running poller.
+    with single_instance(path.parent), token_poller_lock(settings.bot_token):
         store = Store(path.parent)
         _restrict_to_owner(store.path)
         _restrict_to_owner(store.vault.path)
@@ -119,6 +124,27 @@ async def serve(path: Path):
             store.close()
 
 
+def _resolve_config(explicit: Path | None, *, setup: bool = False) -> Path:
+    """Explicit --config, else the canonical home; a legacy path follows its migration marker."""
+    from . import paths
+    if explicit is None:
+        explicit = default_config()
+        if not setup and not explicit.exists():
+            # The owner's own instance, companion not running: bring the legacy home over once.
+            result = paths.ensure_migrated()
+            if result is not None and result.get("status") == paths.STATUS_IN_USE:
+                print("TELEGRAM_COMPANION=" + paths.STATUS_IN_USE, flush=True)
+                return paths.legacy_config_path()
+            if result is not None and not result.get("ok"):
+                print("TELEGRAM_COMPANION=" + str(result.get("status")), flush=True)
+    if setup:
+        return explicit
+    followed = paths.follow_marker(explicit)
+    if followed != explicit:
+        print("TELEGRAM_COMPANION=HOME_MIGRATED_FOLLOWING_MARKER", flush=True)
+    return followed
+
+
 def main(argv=None):
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -126,14 +152,23 @@ def main(argv=None):
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     parser = argparse.ArgumentParser(description="Локальный Telegram-помощник Bossman; запуск отдельно от приложения.")
-    parser.add_argument("--config", type=Path, default=default_config())
+    parser.add_argument("--config", type=Path, default=None,
+                        help="по умолчанию <BCC_DATA_DIR>/telegram-companion/config.json")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--setup", action="store_true")
     mode.add_argument("--setup-console", action="store_true")
     mode.add_argument("--diagnose", action="store_true")
     mode.add_argument("--unlock-delegation", action="store_true")
+    mode.add_argument("--migrate", action="store_true",
+                      help="скопировать старую папку LOCALAPPDATA/Bossman/telegram-companion в <BCC_DATA_DIR>/telegram-companion")
     args = parser.parse_args(argv)
     try:
+        if args.migrate:
+            from . import paths
+            result = paths.migrate_to_data_dir()
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0 if result.get("ok") else 2
+        args.config = _resolve_config(args.config, setup=args.setup)
         if args.setup or (not args.config.exists() and not (args.setup_console or args.diagnose or args.unlock_delegation)):
             from .setup_ui import setup_browser
             setup_browser(args.config)

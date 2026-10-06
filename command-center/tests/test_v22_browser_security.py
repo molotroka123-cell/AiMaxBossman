@@ -187,8 +187,11 @@ async def test_password_value_never_reaches_the_model(mgr, site):
     """Дефект (г): `el.innerText || el.value` отдавал введённый пароль в снимок."""
     sid = await _session(mgr)
     await mgr.navigate(sid, f"{site}/login.html", actor="agent", approved=True)
-    # Заполняем поле пароля НАСТОЯЩИМ значением прямо на странице.
-    await mgr.type_text(sid, "#pass", CANARY, actor="agent", approved=True)
+    # Заполняем поле пароля НАСТОЯЩИМ значением прямо на странице. Агент в поле пароля
+    # не печатает (P0 2026-09-30: отказ, кроме `fill_secret` из хранилища) — значение
+    # вводит владелец. Снимок обязан не отдать его модели так же, как прежде; отказ
+    # агенту и путь через хранилище проверяются в tests/test_ops_terminal_browser.py.
+    await mgr.type_text(sid, "#pass", CANARY, actor="human")
 
     snap = await mgr.snapshot(sid, actor="agent", approved=True)
     blob = json.dumps(snap, ensure_ascii=False)

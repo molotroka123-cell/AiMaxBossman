@@ -639,6 +639,24 @@ def test_revoked_recipient_never_reaches_send_post():
     assert not calls
 
 
+def test_send_can_reply_to_participant_message_without_markup_injection():
+    payloads = []
+    def handler(request):
+        payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True, "result": {"message_id": 42}})
+    async def run():
+        tg = Telegram(cfg(bot_token="fixture"), transport=httpx.MockTransport(handler))
+        try:
+            await tg.send(OWNER, "Ответ", reply_to_message_id=7)
+            await tg.send(OWNER, "Без цитаты", reply_to_message_id=True)
+        finally:
+            await tg.close()
+    asyncio.run(run())
+    assert payloads[0]["reply_parameters"] == {
+        "message_id": 7, "allow_sending_without_reply": True}
+    assert "reply_parameters" not in payloads[1]
+
+
 def test_revocation_during_rate_limit_wait_blocks_retry(monkeypatch):
     calls=[];allowed=True
     def handler(r):
@@ -655,3 +673,20 @@ def test_revocation_during_rate_limit_wait_blocks_retry(monkeypatch):
         finally:await tg.close()
     asyncio.run(run())
     assert len(calls)==1
+
+
+def test_bare_confirm_uses_the_single_live_proposal_but_not_an_ambiguous_one(tmp_path):
+    """Owner test 2026-10-05: /task then a bare /confirm was refused (the code was required)."""
+    async def run():
+        app,store,core=app_for(tmp_path)
+        try:
+            await app.handle(OWNER,msg(text='/task first job'))
+            response=await app.handle(OWNER,msg(text='/confirm'))
+            assert 'queued' in response and core.calls==[('delegate','first job',10)]
+            with pytest.raises(CompanionError): await app.handle(OWNER,msg(text='/confirm'))   # nothing left
+            await app.handle(OWNER,msg(text='/task job a')); await app.handle(OWNER,msg(text='/task job b'))
+            with pytest.raises(CompanionError): await app.handle(OWNER,msg(text='/confirm'))   # two: needs the code
+            assert len(core.calls)==1
+        finally:
+            store.close()
+    asyncio.run(run())

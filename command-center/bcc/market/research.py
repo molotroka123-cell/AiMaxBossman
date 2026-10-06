@@ -28,10 +28,12 @@ from typing import Any
 from .ledger import default_root
 from .extract import ACCEPTED_EXTRACTORS
 from .schema import UNITS
+from .stat_guard import effective_sample_size
 
 HORIZONS_MIN = (1, 5, 15, 30)
 TOLERANCE_S = 30
 STATUS = "DATA_COLLECTION"
+PURGE_EMBARGO_MIN = max(HORIZONS_MIN)
 
 
 def _ts(s: str) -> datetime:
@@ -146,6 +148,13 @@ def build_table(rows: list[dict[str, Any]], asof: datetime) -> list[dict[str, An
 
 
 def split_by_day(table: list[dict[str, Any]]) -> dict[str, Any]:
+    """Chronological day split with purge/embargo around both boundaries.
+
+    A row's longest future label is 30 minutes. Rows whose label interval can
+    cross into the next split are marked purged, and the first 30 minutes of
+    the next split are embargoed. Holdout values remain present in the file but
+    are hidden from default hypothesis summaries.
+    """
     days = sorted({r["day"] for r in table})
     if len(days) < 3:
         for r in table:
@@ -156,24 +165,63 @@ def split_by_day(table: list[dict[str, Any]]) -> dict[str, Any]:
     train = days[: max(1, int(n * 0.6))]
     valid = days[len(train): len(train) + max(1, int(n * 0.2))]
     hold = days[len(train) + len(valid):]
+    if not valid or not hold:
+        for r in table:
+            r["split"] = "unsplit"
+        return {"days": days, "status": "INSUFFICIENT_DAYS",
+                "note": "train/valid/holdout all require at least one day"}
+
     assign = {**{d: "train" for d in train}, **{d: "valid" for d in valid}, **{d: "holdout" for d in hold}}
+    b1 = datetime.fromisoformat(valid[0] + "T00:00:00+00:00")
+    b2 = datetime.fromisoformat(hold[0] + "T00:00:00+00:00")
+    embargo = timedelta(minutes=PURGE_EMBARGO_MIN)
+    purged = 0
     for r in table:
-        r["split"] = assign[r["day"]]
-    return {"days": days, "train": train, "valid": valid, "holdout": hold, "status": "SPLIT_BY_DAY"}
+        t = _ts(r["t"])
+        end = t + timedelta(minutes=max(HORIZONS_MIN), seconds=TOLERANCE_S)
+        split = assign[r["day"]]
+        crosses = (
+            (split == "train" and end >= b1 - embargo)
+            or (split == "valid" and (t < b1 + embargo or end >= b2 - embargo))
+            or (split == "holdout" and t < b2 + embargo)
+        )
+        if crosses:
+            r["split"] = "purged"
+            purged += 1
+        else:
+            r["split"] = split
+    return {"days": days, "train": train, "valid": valid, "holdout": hold,
+            "purged_rows": purged, "embargo_minutes": PURGE_EMBARGO_MIN,
+            "status": "PURGED_SPLIT_BY_DAY"}
 
 
-def summarize(table: list[dict[str, Any]]) -> dict[str, Any]:
-    out: dict[str, Any] = {"rows": len(table), "status": STATUS, "trading_model_ready": False}
+def summarize(table: list[dict[str, Any]], *, reveal_holdout: bool = False) -> dict[str, Any]:
+    eligible = [r for r in table if r.get("split") in ("train", "valid")]
+    holdout = [r for r in table if r.get("split") == "holdout"]
+    if reveal_holdout:
+        eligible += holdout
+    out: dict[str, Any] = {
+        "rows": len(table),
+        "analysis_rows": len(eligible),
+        "holdout_rows": len(holdout),
+        "holdout_revealed": bool(reveal_holdout),
+        "effective_days": effective_sample_size(r["day"] for r in eligible),
+        "status": STATUS,
+        "trading_model_ready": False,
+    }
     for h in HORIZONS_MIN:
-        out[f"labels_ready_{h}m"] = sum(1 for r in table if r[f"ret_fwd_{h}m"] is not None)
+        out[f"labels_ready_{h}m"] = sum(1 for r in eligible if r[f"ret_fwd_{h}m"] is not None)
     buckets: dict[str, list[float]] = {}
-    for r in table:
+    for r in eligible:
         if r["bucket_price_oi"] and r["ret_fwd_5m"] is not None:
             buckets.setdefault(r["bucket_price_oi"], []).append(r["ret_fwd_5m"])
         if r["div_price_cvd"] and r["ret_fwd_5m"] is not None:
             buckets.setdefault("cvd:" + r["div_price_cvd"], []).append(r["ret_fwd_5m"])
-    out["hypotheses_fwd5m"] = {k: {"n": len(v), "mean": sum(v) / len(v)} for k, v in sorted(buckets.items())}
-    out["caveat"] = "descriptive only; n is tiny until many days are collected; no trading use"
+    out["hypotheses_fwd5m"] = {k: {"raw_n": len(v), "mean": sum(v) / len(v)}
+                                for k, v in sorted(buckets.items())}
+    out["caveat"] = (
+        "descriptive only; default summary excludes holdout and purged boundary rows; "
+        "raw N is not independent N; no trading use")
     return out
 
 
@@ -181,6 +229,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m bcc.market.research")
     ap.add_argument("--root", default=None)
     ap.add_argument("--asof", default=None, help="UTC time labels may use (default: now)")
+    ap.add_argument("--reveal-holdout", action="store_true",
+                    help="explicit final-evaluation view; never use while tuning")
     ns = ap.parse_args(argv)
     root = Path(ns.root) if ns.root else default_root()
     asof = _ts(ns.asof) if ns.asof else datetime.now(timezone.utc)
@@ -194,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
             w = csv.DictWriter(fh, fieldnames=list(table[0]), lineterminator="\n")
             w.writeheader()
             w.writerows(table)
-    summary = {"asof": asof.isoformat(), "split": split, **summarize(table)}
+    summary = {"asof": asof.isoformat(), "split": split, **summarize(table, reveal_holdout=ns.reveal_holdout)}
     (out_dir / f"summary-{stamp}.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1),
                                                    encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False, indent=1))

@@ -10,6 +10,7 @@ import os
 import secrets as _secrets
 import subprocess
 import sys
+import time
 import warnings
 from pathlib import Path
 
@@ -38,7 +39,10 @@ def _restrict_to_owner(path: Path) -> None:
     user = os.environ.get("USERNAME") or ""
     domain = os.environ.get("USERDOMAIN") or ""
     principal = f"{domain}\\{user}" if domain and user else (user or "%USERNAME%")
-    argv = ["icacls", str(path), "/inheritance:r", "/grant:r", f"{principal}:F"]
+    # Каталог получает НАСЛЕДУЕМЫЙ ACE: с обычным `:F` Windows пересчитывает права вложенных файлов, и каждый файл, у которого
+    # были только унаследованные ACE, остаётся с ПУСТЫМ DACL (D:AI) — не читается никем, даже владельцем.
+    grant = f"{principal}:(OI)(CI)F" if os.path.isdir(path) else f"{principal}:F"   # not Path(): os.name may be patched to nt
+    argv = ["icacls", str(path), "/inheritance:r", "/grant:r", grant]
     try:
         proc = subprocess.run(  # noqa: S603 — argv, без строки для оболочки
             argv, capture_output=True, text=True, encoding="utf-8",
@@ -72,7 +76,20 @@ class TokenAuth:
                 _restrict_to_owner(self.path)
                 return value, False
         token = _secrets.token_urlsafe(32)
-        fd = os.open(self.path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+        try:
+            # O_EXCL: два первых запуска одновременно (два ярлыка) не должны
+            # переписать токен друг друга — иначе в памяти сервера один токен,
+            # а в файле другой, и вход с токеном из файла получает 401.
+            fd = os.open(self.path, os.O_CREAT | os.O_WRONLY | os.O_EXCL, 0o600)
+        except FileExistsError:
+            deadline = time.monotonic() + 2.0
+            while time.monotonic() < deadline:
+                value = self.path.read_text(encoding="utf-8").strip()
+                if value:
+                    return value, False          # соперник успел первым — его токен
+                time.sleep(0.02)
+            # Пустой файл, который никто не дописывает, — прежнее поведение.
+            fd = os.open(self.path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(token)
         _restrict_to_owner(self.path)  # Windows: режим os.open ACL не ставит

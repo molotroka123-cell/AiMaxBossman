@@ -1,0 +1,53 @@
+{
+ "meta": {
+  "title": "Countdown",
+  "bpm": 128,
+  "key": "B",
+  "brand": "ORBIT",
+  "hud": "ORBIT // COUNTDOWN",
+  "voice": "am_fenrir",
+  "duration": 10.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "3 DAYS",
+   "kicker": "ORBIT LAUNCH",
+   "start": 0.0,
+   "end": 3.0,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Three days to go."
+    }
+   ]
+  },
+  {
+   "type": "sticker",
+   "lottie": "noto_rocket",
+   "text": "ALMOST",
+   "sub": "COUNTDOWN STARTED",
+   "start": 3.0,
+   "end": 6.5,
+   "vo": [
+    {
+     "t": 3.1,
+     "text": "The countdown has started."
+    }
+   ]
+  },
+  {
+   "type": "logo",
+   "name": "ORBIT",
+   "tagline": "LAUNCHING SOON",
+   "start": 6.5,
+   "end": 10.0,
+   "vo": [
+    {
+     "t": 6.6,
+     "text": "Orbit."
+    }
+   ]
+  }
+ ]
+}

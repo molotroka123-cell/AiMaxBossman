@@ -1,0 +1,58 @@
+{
+  "case_id": "LEARNING-2026-09-24-DPOC-BEARISH-EXPANSION-001",
+  "date": "2026-09-24",
+  "market": "BTC",
+  "source_type": "OWNER_SCREENSHOT_AND_PRIOR_VERIFIED_TELEGRAM_OBSERVATION",
+  "learning_status": "UNVERIFIED",
+  "purpose": "Teach Bossman to compare meaningful prior state and structural levels instead of only adjacent ~15s frames.",
+  "previous_observation": {
+    "price": 84715.0,
+    "cvd_billion": 75.08,
+    "oi_billion": 19.39,
+    "source_note": "Owner-provided prior Bossman Telegram output."
+  },
+  "current_visual_observation": {
+    "price_approx": [84450, 84500],
+    "cvd_billion_visual": 71.93,
+    "oi_billion_visual": 19.48,
+    "levels_visual": {
+      "dVAH_approx": 84893,
+      "dPOC_approx": 84410,
+      "dVAL_approx": 83864
+    },
+    "source_note": "Values read from owner-provided screenshot; keep UNVERIFIED until local calibrated extractor/reviewer confirms exact pixels."
+  },
+  "derived_candidate_state": {
+    "price": "DOWN",
+    "cvd": "DOWN",
+    "oi": "UP",
+    "candidate_regime": "BEARISH_LEVERAGE_EXPANSION",
+    "important_caveat": "OI is total open interest and does not identify long/short side by itself. The regime comes from joint Price/CVD/OI behavior."
+  },
+  "structural_interpretation": {
+    "decision_level": "dPOC",
+    "decision_level_approx": 84410,
+    "bullish_invalidation_of_bear_case": "Hold/reclaim dPOC with CVD stabilization/recovery weakens the bearish continuation interpretation.",
+    "bearish_confirmation": "Loss of dPOC followed by failed reclaim while CVD remains weak and OI stays elevated/rises strengthens bearish continuation evidence.",
+    "next_visible_lower_structure_approx": 83864,
+    "upper_visible_structure_approx": 84893
+  },
+  "training_lessons": [
+    "Do not classify market state only from adjacent 15-second samples when the deltas round to FLAT.",
+    "Maintain 15m, 30m and 60m comparisons from compatible VERIFIED series.",
+    "A large CVD deterioration with price down and OI up is materially different from NEUTRAL_BALANCE.",
+    "Structural levels must be part of the interpretation when explicitly visible and verified.",
+    "dPOC is a decision point, not an automatic long or short signal; require hold/reclaim or loss/failed-reclaim evidence.",
+    "Never print UNKNOWN level/scenario blocks when the data is simply unavailable; either verify levels or omit the block.",
+    "Never promote screenshot-read approximate levels into trusted memory without calibrated local verification."
+  ],
+  "future_labels_required": [
+    "15m outcome after observation",
+    "30m outcome after observation",
+    "60m outcome after observation",
+    "whether dPOC held, reclaimed, or was lost",
+    "CVD response around dPOC",
+    "OI response around dPOC"
+  ],
+  "promotion_rule": "Promote only after exact screenshot extraction is independently verified and future 15m/30m/60m outcomes are attached."
+}

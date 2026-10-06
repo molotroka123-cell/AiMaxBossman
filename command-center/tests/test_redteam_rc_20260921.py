@@ -20,6 +20,7 @@ import http.server
 import json
 import os
 import socketserver
+import subprocess
 import threading
 import time
 from datetime import timedelta
@@ -576,8 +577,8 @@ async def test_rt_p5_computer_act_via_engine_model_claims_never_execute_conseque
     calls computer.act on «Удалить» with (a) semantic=delete + _approved_consequence
     → engine ASK, waiting_approval, desktop executed nothing; (b) a benign label «OK»
     in a bank window (consequence visible only in the foreground) with semantic=noop +
-    _approved_consequence + _approval_id → engine AUTO, handler refuses, nothing
-    executed, run continues with the refusal as data. (A named «Удалить» with
+    _approved_consequence + _approval_id → engine ASK (rc19 CU-ONESHOT; before: AUTO
+    and a handler refusal), nothing executed. (A named «Удалить» with
     semantic=noop is an engine ASK since ask_consequence — covered by the unit suite.)"""
     pytest.importorskip("bossman.computer_operator.models")
     from bcc.features import tools_computer as tc
@@ -615,12 +616,14 @@ async def test_rt_p5_computer_act_via_engine_model_claims_never_execute_conseque
                                       "semantic": "noop", "_approved_consequence": True, "_approval_id": 7}),
             ("text", "перевёл")])
         task2 = await _another_task(env, stack, adapter2)
-        status = await _run_task(env, task2, until=FINISHED)
+        # rc19 CU-ONESHOT: the agent's computer.control grant no longer yields AUTO for a
+        # desktop mutation — the engine parks the call for the owner (was: AUTO, then the
+        # handler refused). Either way the desktop executed nothing.
+        status = await _run_task(env, task2)
         assert st.desktop.executed == [], "a model claim executed a consequential click"
         rows = await _tool_rows(env.svc, task_id=task2)
-        assert rows[-1]["effect"] == "auto" and rows[-1]["status"] == "error"
-        assert "не выполнено" in adapter2.seen_messages[1][-1]["content"]
-        assert status in FINISHED
+        assert rows[-1]["effect"] == "ask" and rows[-1]["status"] == "pending_approval"
+        assert status == "waiting_approval"
     finally:
         tc.availability, tc.SETTLE_S = original_avail, original_settle
 
@@ -685,6 +688,15 @@ def _fc_engine(tmp_path: Path, monkeypatch):
     return FileCommander(SQLiteStore("file-commander-mini"))
 
 
+def _directory_link(link: Path, target: Path) -> None:
+    if os.name == "nt":
+        result = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)],
+                                capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+    else:
+        link.symlink_to(target, target_is_directory=True)
+
+
 def test_rt_f1_spaces_and_cyrillic_names_move_once_and_are_replay_safe(tmp_path, monkeypatch):
     """RT-F1: 'Отчёт за март 2026 (финал).pdf' and 'мой  файл.jpg' (double space) are
     ordinary files: the plan moves them, bytes survive, a replay of the same approved
@@ -714,7 +726,7 @@ def test_rt_f1_spaces_and_cyrillic_names_move_once_and_are_replay_safe(tmp_path,
 
 
 def test_rt_f2_symlink_escape_dotdot_and_reserved_names_are_refused_before_effect(tmp_path, monkeypatch):
-    """RT-F2: (a) a symlinked file inside the root pointing outside is skipped by
+    """RT-F2: (a) a linked path inside the root pointing outside is skipped by
     scan and refused by allowed(); (b) `..` in an operation → PermissionError and no
     batch; (c) a destination outside the root smuggled into an approved plan is
     refused and NOTHING moved; (d) reserved-looking names (CON.txt, NUL) are ordinary
@@ -725,16 +737,31 @@ def test_rt_f2_symlink_escape_dotdot_and_reserved_names_are_refused_before_effec
     outside.mkdir()
     secret = outside / "secret.txt"
     secret.write_bytes(b"not yours")
-    (ws / "link.txt").symlink_to(secret)
-    (ws / "CON.pdf").write_bytes(b"con")
-    (ws / "NUL.jpg").write_bytes(b"nul")
+    if os.name == "nt":
+        link = ws / "linked-outside"
+        _directory_link(link, outside)
+        escaped = link / "secret.txt"
+        ordinary = ("report.pdf", "photo.jpg")
+    else:
+        link = ws / "link.txt"
+        link.symlink_to(secret)
+        escaped = link
+        ordinary = ("CON.pdf", "NUL.jpg")
+    (ws / ordinary[0]).write_bytes(b"con")
+    (ws / ordinary[1]).write_bytes(b"nul")
     (ws / "doc.pdf").write_bytes(b"%PDF")
     monkeypatch.setenv("FILE_COMMANDER_ROOTS", str(ws))
     eng = _fc_engine(tmp_path, monkeypatch)
     scanned = eng.scan(str(ws))
-    assert {f["name"] for f in scanned["files"]} == {"CON.pdf", "NUL.jpg", "doc.pdf"}
+    assert {f["name"] for f in scanned["files"]} == {*ordinary, "doc.pdf"}
     with pytest.raises(PermissionError):
-        eng.allowed(ws / "link.txt")
+        eng.allowed(escaped)
+    if os.name == "nt":
+        # DOS device aliases cannot be planted as ordinary files on Windows.
+        # The policy must reject them before any open or move reaches the OS.
+        for name in ("CON.pdf", "nul.jpg", "com1.txt", "LPT9.log", "AUX", "PRN."):
+            with pytest.raises(PermissionError, match="reserved Windows device"):
+                eng.allowed(ws / name)
     with pytest.raises(PermissionError):
         eng.allowed(ws / "sub" / ".." / "doc.pdf")
     plan = eng.organize_plan(str(ws))
@@ -747,13 +774,14 @@ def test_rt_f2_symlink_escape_dotdot_and_reserved_names_are_refused_before_effec
         eng.apply(evil, approve=True)
     assert (ws / "doc.pdf").exists() and not (outside / "stolen.pdf").exists()
     assert eng.s.kv_list("batches") == []
-    # the legit plan still works; CON.txt / NUL are moved as regular files
+    # The legitimate plan still works; POSIX also moves CON/NUL as regular files.
     applied = eng.apply(ops, approve=True)
     assert applied["status"] == "APPLIED"
-    for name in ("CON.pdf", "NUL.jpg"):
+    for name in ordinary:
         target = next(Path(op["dst"]) for op in ops if op["src"].endswith(name))
         assert target.is_file() and not target.is_symlink()
-    assert secret.read_bytes() == b"not yours" and (ws / "link.txt").is_symlink()
+    assert secret.read_bytes() == b"not yours"
+    assert link.is_junction() if os.name == "nt" else link.is_symlink()
 
 
 def test_rt_f3_scope_policy_hostile_paths(tmp_path):
@@ -769,8 +797,11 @@ def test_rt_f3_scope_policy_hostile_paths(tmp_path):
     (root / "файл с пробелами.txt").write_text("x", encoding="utf-8")
     outside = tmp_path / "elsewhere"
     outside.mkdir()
-    (root / "escape").symlink_to(outside, target_is_directory=True)
-    (root / "dangling").symlink_to(tmp_path / "nope")
+    _directory_link(root / "escape", outside)
+    if os.name == "nt":
+        _directory_link(root / "dangling", tmp_path / "nope")
+    else:
+        (root / "dangling").symlink_to(tmp_path / "nope")
     (root / "папка" / ".ssh").mkdir(parents=True)
     policy = ScopePolicy(authorized_roots=[root])
     assert policy.check(str(root / "файл с пробелами.txt"), mutating=True) == (root / "файл с пробелами.txt").resolve()

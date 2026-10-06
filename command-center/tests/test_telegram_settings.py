@@ -116,6 +116,8 @@ async def test_save_roundtrip_never_echoes_token_and_encrypts_it(env, tg):
     assert s.bot_token == TOKEN and s.local_model == OSS_ID and s.fast_model == FAST_ID
     assert s.local_timeout == 180 and s.default_route == "main" and s.max_tokens == 1024
     assert [p.user_id for p in s.people] == [11111, 22222]
+    # A FIRST save grants nobody an executor; a later save keeps one that already exists
+    # (test_telegram_store_location.py::test_put_settings_preserves_agent_id_and_unknown_keys).
     assert all(p.agent_id is None for p in s.people) and s.cloud_daily_usd == 0
 
     # Empty token keeps the saved one; other fields change.
@@ -402,13 +404,19 @@ async def test_token_endpoints_require_an_authenticated_owner(env, tg):
     assert _stored(tg.parent)["bot_token"] == TOKEN
 
 
-async def test_local_state_never_lands_in_the_repository(env, tg):
+async def test_local_state_never_lands_in_the_repository(env, tg, tmp_path, monkeypatch):
     """Скриншоты и память компаньона живут вне дерева репозитория."""
     from pathlib import Path
 
     import bcc
     repo = Path(bcc.__file__).resolve().parents[2]
     from bcc.telegram_companion.__main__ import default_config
+    assert repo not in default_config().resolve().parents
+    # ...and with no override at all the canonical home still follows BCC_DATA_DIR (isolated here).
+    monkeypatch.delenv("BOSSMAN_TELEGRAM_CONFIG")
+    monkeypatch.delenv("BOSSMAN_COMPANION_CONFIG", raising=False)
+    monkeypatch.setenv("BCC_DATA_DIR", str(tmp_path / "isolated-data"))
+    assert default_config() == tmp_path / "isolated-data" / "telegram-companion" / "config.json"
     assert repo not in default_config().resolve().parents
     import tempfile
     frames = Path(tempfile.gettempdir()) / "bossman-computer"

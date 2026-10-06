@@ -53,9 +53,15 @@ def test_double_clicking_open_project_creates_exactly_one_project(live):
             before = len(_projects(page))
 
             button = page.get_by_role("button", name="Открыть проект", exact=True)
-            button.click()
-            button.click(force=True, no_wait_after=True)   # второй клик владельца
+            # ONE double-click command: both clicks reach the browser together, as a human's two clicks do. Two separate Playwright calls
+            # (click, click) are as far apart as the runner's command latency: with a 1.5 s gap the second one is a legitimate SECOND click after the
+            # first request finished, and it created a second project (CI py3.12 2026-10-06; reproduced with an artificial gap).
+            button.dblclick(no_wait_after=True)
             page.locator("textarea.bd-code").wait_for(timeout=30000)
+            # The editor opens as soon as the FIRST request answers; a second request (no guard) may still be in flight. Count only after the
+            # network settles, otherwise a missing guard goes unnoticed (measured: with all three guards removed this test still passed).
+            page.wait_for_load_state("networkidle")
+            page.wait_for_timeout(1500)
 
             after = _projects(page)
             created = len(after) - before

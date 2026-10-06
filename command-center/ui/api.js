@@ -40,7 +40,7 @@ export function clearToken() { clearCsrf(); }
 /* ---------------- Ошибки ---------------- */
 
 export class ApiError extends Error {
-  constructor(message, { status = 0, hint = '', actions = null, path = '', code = '' } = {}) {
+  constructor(message, { status = 0, hint = '', actions = null, path = '', code = '', detail = null } = {}) {
     super(message || 'Неизвестная ошибка');
     this.name = 'ApiError';
     this.status = status;
@@ -48,6 +48,7 @@ export class ApiError extends Error {
     this.actions = actions;
     this.path = path;
     this.code = code;
+    this.detail = detail;
   }
   /* 401 — сессии нет; 403 code=csrf — сессия есть, но CSRF-токен этой вкладки
      потерян или от другого входа: без повторного входа ни один POST не пройдёт. */
@@ -73,6 +74,23 @@ function hintFor(status) {
   if (status === 422) return 'Проверьте обязательные поля.';
   if (status >= 500) return 'Подробности — в логах сервера.';
   return '';
+}
+
+/* UX-08: подсказка бэкенда иногда написана для разработчика: «включить — PUT
+   /api/apps/control/policy {"enabled": true}». Владельцу это не действие, а
+   вызов API с JSON. Для известных кодов даём человеческую фразу, а из прочих
+   подсказок выбрасываем части, где названа строка запроса (метод + /api/…),
+   — остальное (обычный русский текст) остаётся как есть. */
+const CODE_HINTS = {
+  APPS_CONTROL_DISABLED: 'Запуск приложений выключен. Включите его кнопкой '
+    + '«Разрешить запуск приложений» на странице «Приложения» — действует сразу.',
+};
+const API_CALL = /(?<![A-Za-z])(?:GET|POST|PUT|PATCH|DELETE)\s+\/api\//;
+
+export function humanHint(hint, code) {
+  if (code && CODE_HINTS[code]) return CODE_HINTS[code];
+  if (typeof hint !== 'string' || !API_CALL.test(hint)) return hint;
+  return hint.split(/\s*;\s*/).filter((part) => part && !API_CALL.test(part)).join('; ');
 }
 
 /* 401 требует входа; 403 означает отказ в действии при действующей сессии. */
@@ -161,9 +179,10 @@ async function rawRequest(method, path, body, { signal } = {}) {
       || (typeof e === 'string' ? e : '')
       || (data && typeof data.message === 'string' ? data.message : '')
       || humanStatus(res.status, path);
-    const hint = (e && typeof e === 'object' && e.hint) || hintFor(res.status);
+    const hint = humanHint((e && typeof e === 'object' && e.hint) || hintFor(res.status), code);
     const actions = (e && typeof e === 'object' && e.actions) || null;
-    throw new ApiError(message, { status: res.status, hint, actions, path, code });
+    throw new ApiError(message, { status: res.status, hint, actions, path, code,
+      detail: e && typeof e === 'object' ? e : null });
   }
   return data;
 }
@@ -206,8 +225,9 @@ export function pick(obj, keys, fallback = undefined) {
 
 export const api = {
   // V2: универсальный вызов для feature-страниц (контракты §8) — свои endpoint'ы
-  // фича зовёт через raw, не расширяя этот файл
-  raw: (path, { method = 'GET', body } = {}) => request(method, path, body),
+  // фича зовёт через raw, не расширяя этот файл. `signal` (AbortSignal) —
+  // необязательная отмена запроса; GET с сигналом не склеивается с чужими.
+  raw: (path, { method = 'GET', body, signal } = {}) => request(method, path, body, signal ? { signal } : undefined),
 
   // auth: токен → серверная сессия (cookie); в браузере остаётся только CSRF
   login: async (token) => {
@@ -225,6 +245,7 @@ export const api = {
   // Личность работающего кода. Отдельный вызов, а не поле /api/system: владелец
   // должен видеть SHA сразу после входа, до того как поедут метрики.
   identity: (opts) => GET('/api/identity', opts),
+  loginHint: (opts) => GET('/api/login-hint', opts),
   cacheEconomics: (opts) => GET('/api/cache/economics', opts),
   cacheIntelligence: (opts) => GET('/api/cache/intelligence', opts),
 
@@ -233,6 +254,8 @@ export const api = {
   providers: () => GET('/api/providers'),
   createProvider: (data) => POST('/api/providers', data),
   deleteProvider: (id) => DEL(`/api/providers/${encodeURIComponent(id)}`),
+  freeProviders: () => GET('/api/free-providers'),
+  connectFreeProvider: (name, apiKey) => POST(`/api/free-providers/${encodeURIComponent(name)}/connect`, { api_key: apiKey }),
 
   // models
   models: () => GET('/api/models'),
@@ -256,6 +279,8 @@ export const api = {
   preflightTask: (data) => POST('/api/tasks/preflight', data),
   task: (id) => GET(`/api/tasks/${encodeURIComponent(id)}`),
   taskAction: (id, action) => POST(`/api/tasks/${encodeURIComponent(id)}/${action}`),
+  activeOwnerWork: () => GET('/api/control-plane/active'),
+  stopAllOwnerWork: () => POST('/api/control-plane/stop-all'),
 
   // runs
   run: (id) => GET(`/api/runs/${encodeURIComponent(id)}`),

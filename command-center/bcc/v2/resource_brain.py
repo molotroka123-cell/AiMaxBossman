@@ -57,7 +57,7 @@ def plan_memory(snapshot: ResourceSnapshot, request_mb: int, *,
         ])
     if request_mb <= snapshot.available_for_new_mb:
         return ResourcePlan("start", True, explanation=[
-            f"need {request_mb}MB; free budget {snapshot.available_for_new_mb}MB"
+            f"нужно {request_mb} МБ; свободного бюджета {snapshot.available_for_new_mb} МБ"
         ])
 
     idle = sorted((r for r in snapshot.reservations if r.idle),
@@ -74,14 +74,14 @@ def plan_memory(snapshot: ResourceSnapshot, request_mb: int, *,
         "performance", "balanced", "maximum_local"
     ):
         return ResourcePlan("unload_idle_then_start", True, unload=unload, explanation=[
-            f"need {request_mb}MB",
-            f"unload idle: {', '.join(unload)}",
-            f"would free {freed}MB",
+            f"нужно {request_mb} МБ",
+            f"выгрузить простаивающие: {', '.join(unload)}",
+            f"освободится {freed} МБ",
         ])
 
     if policy == "low_power":
-        return ResourcePlan("queue", False, explanation=["low-power policy avoids heavy replacement"])
+        return ResourcePlan("queue", False, explanation=["режим экономии энергии не выгружает тяжёлые модели ради нового запуска"])
     return ResourcePlan("queue_or_ask", False, explanation=[
-        f"need {request_mb}MB; insufficient safe budget",
-        f"system floor preserved: {snapshot.reserve_floor_mb}MB",
+        f"нужно {request_mb} МБ; безопасного запаса не хватает",
+        f"системный минимум сохранён: {snapshot.reserve_floor_mb} МБ",
     ])

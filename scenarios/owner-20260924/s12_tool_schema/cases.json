@@ -1,0 +1,25 @@
+{
+  "tools": [
+    {"type": "function", "function": {"name": "create_calendar_event", "description": "Create a calendar event (does not notify anyone).",
+      "parameters": {"type": "object", "additionalProperties": false, "required": ["title", "start", "duration_minutes"],
+        "properties": {"title": {"type": "string"}, "start": {"type": "string", "description": "ISO 8601 local datetime YYYY-MM-DDTHH:MM"},
+          "duration_minutes": {"type": "integer", "minimum": 5}, "attendees": {"type": "array", "items": {"type": "string", "format": "email"}},
+          "reminder_minutes": {"type": "integer"}}}}},
+    {"type": "function", "function": {"name": "send_email", "description": "Send an email NOW to external recipients (consequential).",
+      "parameters": {"type": "object", "required": ["to", "subject", "body"], "properties": {"to": {"type": "array", "items": {"type": "string"}}, "subject": {"type": "string"}, "body": {"type": "string"}}}}},
+    {"type": "function", "function": {"name": "convert_currency", "description": "Convert an amount between ISO 4217 currencies.",
+      "parameters": {"type": "object", "additionalProperties": false, "required": ["amount", "from_currency", "to_currency"],
+        "properties": {"amount": {"type": "number"}, "from_currency": {"type": "string", "pattern": "^[A-Z]{3}$"}, "to_currency": {"type": "string", "pattern": "^[A-Z]{3}$"}}}}},
+    {"type": "function", "function": {"name": "search_files", "description": "Search the workspace for files whose NAME matches a glob.",
+      "parameters": {"type": "object", "additionalProperties": false, "required": ["glob"], "properties": {"glob": {"type": "string"}, "max_results": {"type": "integer", "minimum": 1, "maximum": 200}}}}}
+  ],
+  "context": "Today is Thursday 2026-09-24, timezone Europe/Prague.",
+  "cases": [
+    {"id": "t1", "prompt": "Поставь в календарь созвон «Ревизия бюджета» на следующий понедельник в 14:30, на полтора часа, пригласи anna@example.com и petr@example.com. Напомни за 15 минут. Никому ничего не отправляй.",
+     "expect": {"name": "create_calendar_event", "args": {"title": "Ревизия бюджета", "start": "2026-09-28T14:30", "duration_minutes": 90, "attendees": ["anna@example.com", "petr@example.com"], "reminder_minutes": 15}}},
+    {"id": "t2", "prompt": "How much is 1 250,50 Czech crowns in euros?",
+     "expect": {"name": "convert_currency", "args": {"amount": 1250.5, "from_currency": "CZK", "to_currency": "EUR"}}},
+    {"id": "t3", "prompt": "Найди мне не больше 20 файлов с расширением .pdf, в имени которых есть слово invoice.",
+     "expect": {"name": "search_files", "args_check": "glob_pdf_invoice", "args": {"max_results": 20}}}
+  ]
+}

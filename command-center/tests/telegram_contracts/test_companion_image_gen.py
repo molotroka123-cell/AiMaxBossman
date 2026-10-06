@@ -26,9 +26,9 @@ def cfg(**kw):
 
 
 class FakeStudio:
-    def __init__(self, *, available=True, finish='completed', polls=1, file_bytes=PNG, sha=None):
+    def __init__(self, *, available=True, finish='completed', polls=1, file_bytes=PNG, sha=None, error=None):
         self.available, self.finish, self.polls = available, finish, polls
-        self.file_bytes, self.sha = file_bytes, sha
+        self.file_bytes, self.sha, self.error = file_bytes, sha, error
         self.requests, self.created, self.cancelled = [], [], False
 
     def __call__(self, request):
@@ -46,7 +46,7 @@ class FakeStudio:
         if url.path == '/api/studio/jobs/7':
             self.polls -= 1
             status = 'running' if self.polls > 0 else ('cancelled' if self.cancelled else self.finish)
-            return httpx.Response(200, json={'id': 7, 'status': status})
+            return httpx.Response(200, json={'id': 7, 'status': status, 'error': self.error})
         if url.path == '/api/studio/runs':
             assert url.params['job_id'] == '7'
             return httpx.Response(200, json={'items': [{'id': 'run-abc', 'job_id': 7, 'mime': 'image/png',
@@ -130,6 +130,11 @@ def test_failed_job_reports_failure(tmp_path):
     assert reply == 'ERR:IMAGE_GEN_FAILED' and tg.photos() == []
 
 
+def test_windows_blocked_media_runtime_has_actionable_message(tmp_path):
+    reply, _, tg = run(tmp_path, FakeStudio(finish='failed', error='failed: provider_down (0xC0E90002)'))
+    assert reply == 'ERR:IMAGE_RUNTIME_BLOCKED_BY_WINDOWS' and tg.photos() == []
+
+
 def test_cancel_stops_the_studio_job(tmp_path):
     studio = FakeStudio(polls=10_000)
     async def cancel(app, person):
@@ -142,6 +147,31 @@ def test_cancel_stops_the_studio_job(tmp_path):
         assert 'Отменяю' in await app.handle(person, msg)
     reply, _, tg = run(tmp_path, studio, during=cancel)
     assert reply == 'ERR:IMAGE_GEN_CANCELLED' and studio.cancelled and tg.photos() == []
+
+
+class CancelRefusedStudio(FakeStudio):
+    """Bossman did not accept the stop (backend down/erroring); the job keeps running."""
+    def __call__(self, request):
+        if request.url.path == '/api/studio/jobs/7/cancel':
+            self.requests.append((request.method, request.url.path))
+            return httpx.Response(503, json={'detail': 'unavailable'})
+        return super().__call__(request)
+
+
+def test_unconfirmed_cancel_is_not_reported_as_cancelled(tmp_path):
+    """Audit 2026-09-28: a failed studio_cancel was swallowed and the owner still read
+    «Генерация отменена» while the server job kept running."""
+    studio = CancelRefusedStudio(polls=10_000)
+    async def cancel(app, person):
+        for _ in range(200):
+            if app.image_job and app.image_job['id']:
+                break
+            await asyncio.sleep(0.01)
+        app.image_job['cancel'] = True
+    reply, _, tg = run(tmp_path, studio, during=cancel)
+    assert reply == 'ERR:IMAGE_GEN_CANCEL_UNCONFIRMED' and not studio.cancelled and tg.photos() == []
+    from bcc.telegram_companion.service import failure_text
+    assert 'не подтвердил' in failure_text('IMAGE_GEN_CANCEL_UNCONFIRMED')
 
 
 def test_one_at_a_time_and_ram_and_llm_guards(tmp_path):

@@ -50,6 +50,7 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -387,7 +388,10 @@ def _http(url: str, payload: dict | None, *, api_key: str | None, timeout: float
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
-    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    # A lone surrogate (a file read with surrogateescape, a cut emoji) must not kill the call: NVIDIA's
+    # endpoint refused "\ud83d" escapes with HTTP 400 (2026-10-05). Raw UTF-8, broken halves become "?".
+    data = (json.dumps(payload, ensure_ascii=False).encode("utf-8", errors="replace")
+            if payload is not None else None)
     req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
     # Loopback model servers must not be sent through an HTTP proxy.
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -401,6 +405,11 @@ class Model:
         self.base = base if base.endswith("/v1") else base + "/v1"
         self.model = model
         self.api_key = api_key
+        #: A loopback runtime (Ollama/llama.cpp) is asked not to think. In thinking mode
+        #: the local Qwen spent the whole max_tokens budget reasoning and never emitted
+        #: the tool call (owner box 2026-10-05: 12 steps x ~125 s of no_tool_call, then a
+        #: timeout). A server that rejects the field gets a retry without it, remembered.
+        self.no_think = urllib.parse.urlsplit(self.base).hostname in {"127.0.0.1", "localhost", "::1"}
 
     def models(self, timeout: float = 10) -> list[str]:
         body = _http(self.base + "/models", None, api_key=self.api_key, timeout=timeout)
@@ -416,14 +425,22 @@ class Model:
         payload = {"model": self.model, "messages": messages, "temperature": 0, "max_tokens": 4096,
                    "tools": [{"type": "function", "function": t} for t in tools],
                    "tool_choice": self.tool_choice}
-        try:
-            body = _http(self.base + "/chat/completions", payload, api_key=self.api_key, timeout=timeout)
-        except urllib.error.HTTPError as exc:
-            if exc.code != 400 or self.tool_choice == "auto":
-                raise
-            self.tool_choice = "auto"
-            body = _http(self.base + "/chat/completions", {**payload, "tool_choice": "auto"},
-                         api_key=self.api_key, timeout=timeout)
+        if self.no_think:
+            payload["reasoning_effort"] = "none"
+        url = self.base + "/chat/completions"
+        while True:
+            try:
+                body = _http(url, payload, api_key=self.api_key, timeout=timeout)
+                break
+            except urllib.error.HTTPError as exc:
+                # Relax one optional field per 400, oldest first, and remember it.
+                if exc.code == 400 and self.tool_choice != "auto":
+                    self.tool_choice = payload["tool_choice"] = "auto"
+                elif exc.code == 400 and "reasoning_effort" in payload:
+                    self.no_think = False
+                    payload.pop("reasoning_effort")
+                else:
+                    raise
         choice = (body.get("choices") or [{}])[0]
         return choice.get("message") or {}
 
@@ -628,6 +645,13 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
             except (urllib.error.URLError, OSError, ValueError) as exc:
                 stop = "model_error"
                 summary = f"model call failed: {type(exc).__name__}"
+                if isinstance(exc, urllib.error.HTTPError):
+                    # The status and the provider's short reason are what makes a cloud failure
+                    # actionable (401 key, 400 payload, 429 rate limit); key-like strings are redacted.
+                    with contextlib.suppress(Exception):
+                        detail = exc.read(400).decode("utf-8", "replace")
+                        detail = re.sub(r"(sk-or-|nvapi-)[A-Za-z0-9_-]+", r"\1***", detail)
+                        summary += f" {exc.code}: {' '.join(detail.split())[:300]}"
                 break
             calls = parse_calls(msg)
             messages.append({"role": "assistant", "content": msg.get("content") or "",

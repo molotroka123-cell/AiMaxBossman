@@ -17,10 +17,15 @@ Endpoints (mounted under /api with the normal session/CSRF or token auth):
 
 Scope (owner decision 2026-09-22): Telegram is for CONVERSATION with local
 models (plus photo analysis and, when enabled, local image generation through
-Bossman Studio) only. Delegation (/task) is not available yet: this API always saves
-the owner without an executor, so the companion refuses /task and /confirm
-without calling Bossman. No computer, browser or file action is reachable
-from Telegram through this section.
+Bossman Studio) only. Delegation (/task) is not available yet: this API never
+GRANTS an executor. An executor (``agent_id``) the owner already has is kept
+by a save (2026-10-01: a save used to erase it silently) and removed only by
+the explicit ``clear_agent_ids`` field. No computer, browser or file action is
+reachable from Telegram through this section.
+
+Store location (2026-10-01): the companion home is ``<data_dir>/telegram-companion``
+of THIS instance (``bcc.telegram_companion.paths``), not a machine-global folder;
+the old machine-global %LOCALAPPDATA%/Bossman/telegram-companion is migrated once, by copy.
 
 Model choice is two roles, each bound to a live loopback endpoint and to the
 exact id that endpoint serves: "best" (smartest) and "fastest". In the
@@ -29,22 +34,44 @@ companion config they are stored as local_* (best) and fast_* (fastest).
 from __future__ import annotations
 
 import asyncio
+import contextvars
+import datetime as _dt
 import importlib.util
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
 
 import httpx
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from . import Feature
 
-router = APIRouter()
+# The serving instance's data dir for the current request (set by _bind_instance).
+_DATA_DIR: contextvars.ContextVar = contextvars.ContextVar("telegram_data_dir", default=None)
+_MIGRATION: dict = {}          # last automatic migration result, shown by GET /telegram/settings
+BACKUPS_KEPT = 10
+
+
+async def _bind_instance(request: Request) -> None:
+    """Resolve every route against THIS instance's companion home, migrating once if due."""
+    svc = getattr(request.app.state, "svc", None)
+    data_dir = getattr(getattr(svc, "settings", None), "data_dir", None)
+    _DATA_DIR.set(Path(data_dir) if data_dir else None)
+    from ..telegram_companion import paths
+    if paths.needs_migration(data_dir):
+        result = await asyncio.to_thread(paths.ensure_migrated, data_dir)
+        if result is not None:
+            _MIGRATION.clear()
+            _MIGRATION.update({k: v for k, v in result.items() if k in {"status", "ok", "reason", "to", "backup"}})
+
+
+router = APIRouter(dependencies=[Depends(_bind_instance)])
 
 SECRET_FIELDS = ("bot_token", "core_token", "local_token", "cloud_token", "proxy")
 TOKEN_RE = re.compile(r"^\d{5,16}:[A-Za-z0-9_-]{20,100}$")
@@ -65,11 +92,15 @@ _PROC: dict = {"proc": None, "started": None, "log": None}
 
 
 def config_path() -> Path:
-    override = os.environ.get("BOSSMAN_TELEGRAM_CONFIG")
-    if override:
-        return Path(override)
-    from ..telegram_companion.__main__ import default_config
-    return default_config()
+    """Canonical ``<data_dir>/telegram-companion/config.json`` of the serving instance
+    (an explicit BOSSMAN_TELEGRAM_CONFIG still wins)."""
+    from ..telegram_companion.paths import companion_config_path
+    return companion_config_path(_DATA_DIR.get())
+
+
+def _migration_pending() -> bool:
+    from ..telegram_companion import paths
+    return paths.legacy_pending(_DATA_DIR.get())
 
 
 # ---------------------------------------------------------------- storage
@@ -93,6 +124,32 @@ def _read_secrets(home: Path) -> dict:
         raise HTTPException(409, "Сохранённые ключи Telegram не расшифровываются. Удалите credentials.enc и сохраните заново.")
     data = json.loads(value)
     return data if isinstance(data, dict) else {}
+
+
+def _backup(target: Path) -> Path | None:
+    """Timestamped copy beside ``target`` before it is replaced; the newest BACKUPS_KEPT stay."""
+    if not target.is_file():
+        return None
+    from ..auth import _restrict_to_owner
+    stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    copy = target.with_name(f"{target.name}.bak-{stamp}")
+    shutil.copy2(target, copy)
+    _restrict_to_owner(copy)
+    old = sorted(target.parent.glob(target.name + ".bak-*"))
+    for stale in old[:-BACKUPS_KEPT]:
+        stale.unlink(missing_ok=True)
+    return copy
+
+
+def _write_keeping_backup(target: Path, text: str) -> None:
+    """Atomic write; the previous file is backed up first when the content changes."""
+    try:
+        same = target.is_file() and target.read_text(encoding="utf-8") == text
+    except (OSError, ValueError):
+        same = False
+    if not same:
+        _backup(target)
+    _atomic_write(target, text)
 
 
 def _atomic_write(target: Path, text: str) -> None:
@@ -245,6 +302,17 @@ class SettingsIn(BaseModel):
     owner_priority: bool = True
     delegation: bool = False
     enabled: bool = True
+    # Explicit, never implied: a save keeps every executor binding it finds.
+    clear_agent_ids: bool = False
+    # Explicit escapes for the two refusals below; the first one leaves a backup copy.
+    replace_corrupt_config: bool = False
+    take_over_instance: bool = False
+
+
+def _serving_data_dir(request: Request) -> str:
+    svc = getattr(request.app.state, "svc", None)
+    data_dir = getattr(getattr(svc, "settings", None), "data_dir", None)
+    return str(Path(data_dir).resolve()) if data_dir else ""
 
 
 @router.get("/telegram/settings")
@@ -254,7 +322,10 @@ async def get_settings():
         cfg = _read_config(path)
     except (OSError, ValueError):
         raise HTTPException(409, "config.json компаньона повреждён; исправьте или удалите его и сохраните заново") from None
-    return {**_public(cfg, _read_secrets(path.parent)), "status": _status()}
+    extra = {"migration": dict(_MIGRATION)} if _MIGRATION else {}
+    if _migration_pending():
+        extra["migration_pending"] = True
+    return {**_public(cfg, _read_secrets(path.parent)), "status": _status(), **extra}
 
 
 @router.put("/telegram/settings")
@@ -262,11 +333,26 @@ async def put_settings(body: SettingsIn, request: Request):
     from ..telegram_companion.config import CompanionError, Person, Settings
     path = config_path()
     home = path.parent
+    if _migration_pending():
+        raise HTTPException(409, "TELEGRAM_MIGRATION_PENDING: настройки Telegram ещё лежат в старой папке "
+                                 "%LOCALAPPDATA%\\Bossman\\telegram-companion. Остановите компаньон (Стоп) и "
+                                 "откройте раздел заново: папка будет скопирована, старая останется нетронутой.")
+    corrupt_backup = None
     try:
         existing = _read_config(path)
     except (OSError, ValueError):
+        if not body.replace_corrupt_config:
+            raise HTTPException(409, "config.json компаньона повреждён; сохранение остановлено, файл не тронут. "
+                                     "Исправьте его или повторите с replace_corrupt_config (копия будет сохранена).") from None
+        corrupt_backup = _backup(path)
         existing = {}
     secrets = _read_secrets(home)
+    here = _serving_data_dir(request)
+    foreign = existing.get("core_data_dir") or ""
+    if (foreign and here and not body.take_over_instance
+            and os.path.normcase(os.path.abspath(foreign)) != os.path.normcase(os.path.abspath(here))):
+        raise HTTPException(409, "TELEGRAM_OWNED_BY_OTHER_INSTANCE: эта настройка Telegram принадлежит другому "
+                                 "экземпляру Bossman; сохранение из этого не переключит компаньона.")
 
     if body.delegation:
         raise HTTPException(422, "Поручения из Telegram пока недоступны: Telegram — только для беседы.")
@@ -309,9 +395,24 @@ async def put_settings(body: SettingsIn, request: Request):
         if ids and model not in ids:
             raise HTTPException(422, f"{label}: сервер отдаёт другую модель. Выберите из списка: {', '.join(ids[:5])}")
 
-    # Chat-only: nobody gets an executor from this section.
-    people = [Person(body.owner_id, body.owner_id, "owner", None)]
-    people += [Person(gid, gid, "guest", None) for gid in body.guest_ids]
+    # Chat-only: this section never GRANTS an executor, but it never silently
+    # erases one either (the owner's live executor was dropped by every save).
+    bound = {}
+    for item in existing.get("people") or []:
+        if isinstance(item, dict) and type(item.get("agent_id")) is int and item["agent_id"] > 0:
+            bound[(item.get("user_id"), item.get("role"))] = item["agent_id"]
+
+    def executor(uid: int, role: str):
+        return None if body.clear_agent_ids else bound.get((uid, role))
+    people = [Person(body.owner_id, body.owner_id, "owner", executor(body.owner_id, "owner"))]
+    people += [Person(gid, gid, "guest", executor(gid, "guest")) for gid in body.guest_ids]
+    old_owner = next((p.get("user_id") for p in existing.get("people") or []
+                      if isinstance(p, dict) and p.get("role") == "owner"), None)
+    if isinstance(old_owner, int) and old_owner != body.owner_id:
+        warnings.append(f"Владелец сменился: профиль прежнего владельца ({old_owner}:{old_owner}) остаётся "
+                        "в хранилище, но в списке больше не виден.")
+    if corrupt_backup is not None:
+        warnings.append(f"Повреждённый config.json заменён; копия: {corrupt_backup.name}")
 
     cfg = {k: v for k, v in existing.items() if k not in SECRET_FIELDS}
     cfg.update({
@@ -329,17 +430,26 @@ async def put_settings(body: SettingsIn, request: Request):
                      if k.isdigit() and int(k) in {body.owner_id, *body.guest_ids}},
         "retention_days": body.retention_days, "owner_priority": body.owner_priority,
         "enabled": body.enabled,
-        "core_url": existing.get("core_url", DEFAULTS["core_url"]),
+        # The companion talks to THIS Command Center (the one issuing core_token):
+        # its real port, and its data root so the companion finds it again via
+        # backend.lock after a restart on another port (RC19 audit: an RC on
+        # 8820 had core_url 8800 and sent its token to a different backend).
+        "core_url": (f"http://127.0.0.1:{request.url.port}" if request.url.port
+                     else existing.get("core_url", DEFAULTS["core_url"])),
+        "core_data_dir": _serving_data_dir(request) or existing.get("core_data_dir", ""),
         # Telegram never falls back to a cloud model from this section.
         "cloud_daily_usd": 0.0, "cloud_model": "",
     })
     # Least privilege: chat-only needs no Command Center token (/status uses the
     # public liveness probe) and no cloud key.
-    new_secrets = {**{k: secrets.get(k, "") for k in SECRET_FIELDS},
-                   "bot_token": token, "cloud_token": "", "core_token": ""}
+    # A save never blanks a token it does not own: cloud_token is not set here at
+    # all, core_token is cleared only when image generation is turned OFF by this save.
+    new_secrets = {**{k: secrets.get(k, "") for k in SECRET_FIELDS}, "bot_token": token}
     if body.image_enabled:
         # /img goes through this Command Center's Studio API (provenance, verification, gallery).
         new_secrets["core_token"] = request.app.state.svc.auth.token
+    elif existing.get("image_enabled"):
+        new_secrets["core_token"] = ""
     try:
         Settings(**{**cfg, "people": tuple(people)}, **new_secrets)
     except (ValueError, TypeError) as exc:
@@ -351,8 +461,8 @@ async def put_settings(body: SettingsIn, request: Request):
     _restrict_to_owner(home)
     vault = Vault(home)
     _restrict_to_owner(vault.path)
-    _atomic_write(home / "credentials.enc", vault.encrypt(json.dumps(new_secrets)))
-    _atomic_write(path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
+    _write_keeping_backup(home / "credentials.enc", vault.encrypt(json.dumps(new_secrets)))
+    _write_keeping_backup(path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
     status = _status()
     if status["state"] == "running":
         warnings.append("Компаньон запущен: список людей применяется сразу, остальное — после перезапуска (Стоп → Старт).")
@@ -397,7 +507,7 @@ def _write_secrets(home: Path, secrets: dict) -> None:
     _restrict_to_owner(home)
     vault = Vault(home)
     _restrict_to_owner(vault.path)
-    _atomic_write(home / "credentials.enc", vault.encrypt(json.dumps(secrets)))
+    _write_keeping_backup(home / "credentials.enc", vault.encrypt(json.dumps(secrets)))
 
 
 @router.post("/telegram/token")
@@ -421,6 +531,7 @@ async def rotate_token(body: TokenIn):
     if token == secrets["bot_token"]:
         raise HTTPException(422, "Это тот же самый токен. Сначала выпустите новый в @BotFather.")
     await asyncio.to_thread(_stop)              # старый токен больше не опрашивает Telegram
+    _still_polling()                            # …и это проверено, а не предположено
     _write_secrets(home, {**secrets, "bot_token": token})
     return {"rotated": True, "bot_token_masked": _mask(token), "status": _status(),
             "next": "Старый токен отзовите в @BotFather (/revoke) — это делается вне Bossman. "
@@ -445,10 +556,14 @@ async def revoke_token():
         cfg = {}
     if cfg:
         cfg["enabled"] = False
-        _atomic_write(path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
+        _write_keeping_backup(path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
+    still_polling = _holder() is not None
     return {"revoked": True, "bot_token_masked": "", "status": _status(),
-            "next": "Токен стёрт локально. Обязательно отзовите его и в @BotFather (/revoke): "
-                    "пока он там жив, им может пользоваться тот, кто его видел."}
+            "poller_running": still_polling,
+            "next": ("Мост Telegram, запущенный не этим сервером, ещё работает со старым токеном: "
+                     "остановите его в Диспетчере задач. " if still_polling else "")
+                    + "Токен стёрт локально. Обязательно отзовите его и в @BotFather (/revoke): "
+                      "пока он там жив, им может пользоваться тот, кто его видел."}
 
 
 @router.post("/telegram/commands")
@@ -544,12 +659,18 @@ async def edit_profile(uid: int, body: ProfileIn):
 
 
 @router.delete("/telegram/profile/{uid}")
-async def delete_profile(uid: int):
+async def delete_profile(uid: int, confirm: str = ""):
+    """Owner-side delete. The OWNER's profile needs ``?confirm=owner`` (one click
+    erased it on 2026-09-30); every delete first snapshots the sealed row."""
     key = _key(uid)
+    owner = next((p for p in _people() if p.get("role") == "owner"), {})
+    if owner.get("user_id") == uid and confirm != "owner":
+        raise HTTPException(409, "OWNER_PROFILE_DELETE_NEEDS_CONFIRM: профиль владельца удаляется только с "
+                                 "явным подтверждением (?confirm=owner).")
     store = _store()
     if store is not None:
         try:
-            store.delete_profile(key)
+            store.delete_profile(key)          # snapshots the sealed row first
         finally:
             store.close()
     return {"ok": True}
@@ -619,8 +740,24 @@ def _last_code(log: Path | None) -> str:
     return codes[-1] if codes else ""
 
 
+def _holder() -> dict | None:
+    """A companion holding this config's poller lock, whoever started it."""
+    from ..telegram_companion.store import instance_holder
+    try:
+        return instance_holder(config_path().parent)
+    except OSError:
+        return None
+
+
 def _status() -> dict:
     proc = _PROC["proc"]
+    if proc is None or proc.poll() is not None:
+        # _PROC lives in memory: after a Command Center restart the companion
+        # it launched keeps running (own process group). Report it honestly.
+        holder = _holder()
+        if holder is not None:
+            return {"state": "running", "managed": False, "pid": holder.get("pid"),
+                    "last_error": _last_code(_PROC["log"])}
     if proc is None:
         return {"state": "stopped", "managed": False, "last_error": _last_code(_PROC["log"])}
     code = proc.poll()
@@ -634,6 +771,7 @@ def _status() -> dict:
 def _stop() -> None:
     proc = _PROC["proc"]
     if proc is None or proc.poll() is not None:
+        _stop_unmanaged()
         return
     proc.terminate()
     try:
@@ -641,6 +779,41 @@ def _stop() -> None:
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait(timeout=5)
+
+
+def _stop_unmanaged() -> None:
+    """Stop a companion this server did not start (e.g. before a restart).
+
+    Only the process that provably holds the poller lock is touched: its pid
+    AND creation time from poller.json must match a live process, so a reused
+    pid of an unrelated program is never terminated.
+    """
+    holder = _holder()
+    if not holder:
+        return
+    import psutil
+    try:
+        pid, created = int(holder.get("pid")), float(holder.get("created"))
+        target = psutil.Process(pid)
+        if abs(target.create_time() - created) > 1.0:
+            return
+        target.terminate()
+        try:
+            target.wait(timeout=5)
+        except psutil.TimeoutExpired:
+            target.kill()
+            target.wait(timeout=5)
+    except (psutil.Error, TypeError, ValueError):
+        return
+    deadline = time.monotonic() + 5
+    while _holder() is not None and time.monotonic() < deadline:
+        time.sleep(0.1)
+
+
+def _still_polling() -> None:
+    if _holder() is not None:
+        raise HTTPException(409, "Мост Telegram запущен не этим сервером и не остановился. "
+                                 "Остановите его в Диспетчере задач (python … telegram_companion) и повторите.")
 
 
 @router.get("/telegram/status")
@@ -662,6 +835,8 @@ async def start():
         raise HTTPException(409, "Не сохранён токен бота.")
     if _PROC["proc"] is not None and _PROC["proc"].poll() is None:
         return _status()
+    if _holder() is not None:
+        return _status()          # already running, started before a restart: no duplicate
     log = path.parent / "companion.log"
     flags = 0
     if os.name == "nt":

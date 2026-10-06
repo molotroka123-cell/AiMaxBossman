@@ -380,6 +380,16 @@ def test_the_negative_control_hides_the_doctor_and_restores_it(tmp_path, monkeyp
 
 # ------------------------------------------------ OA-04: owner runners ship
 
+def test_v15_economy_runtime_is_shipped_with_its_policy() -> None:
+    shipped = {name for _, name in bundle.SUPPORT_SCRIPTS}
+    for name in ("v15_economy_orchestrator.py", "youtube_trader_ingest.py",
+                 "youtube_trader_ingest_auto.py", "youtube_trader_ingest_batch.py",
+                 "distill_recorder.py"):
+        assert name in shipped, name
+    shipped_data = {name for _, name in bundle.SUPPORT_DATA}
+    assert "config/v1.5/economy-orchestrator.json" in shipped_data
+
+
 def test_the_owner_runners_ci_drives_are_shipped_in_the_archive() -> None:
     shipped = {name for _, name in bundle.SUPPORT_SCRIPTS}
     for name in ("installed_ui_sweep.py", "ui_acceptance_sweep.py", "live_openrouter_owner.py",

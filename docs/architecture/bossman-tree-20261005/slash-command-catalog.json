@@ -1,0 +1,212 @@
+[
+  {
+    "name": "help",
+    "usage": "/help",
+    "help": "список команд",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "status",
+    "usage": "/status",
+    "help": "подключение, сборка, модель, агент, режим, бюджеты",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "tasks",
+    "usage": "/tasks [N]",
+    "help": "последние задачи Bossman",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "models",
+    "usage": "/models [use <id|alias>]",
+    "help": "модели; use — сменить модель текущего агента",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "agent",
+    "usage": "/agent [<id|имя>]",
+    "help": "агенты; с аргументом — выбрать",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "skills",
+    "usage": "/skills [запрос]",
+    "help": "навыки; с запросом — какие подошли бы к задаче",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "tools",
+    "usage": "/tools",
+    "help": "инструменты текущего агента и их политика",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "memory",
+    "usage": "/memory <запрос>",
+    "help": "поиск по памяти и фактам",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "diff",
+    "usage": "/diff [coding-task-id]",
+    "help": "diff последней coding-задачи",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "code",
+    "usage": "/code --allow <путь> [--verify <тест>] <задача>",
+    "help": "coding task через coding path",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "rave",
+    "usage": "/rave \"<задача>\" --agents a,b | status|pause|resume|stop|diff <id>",
+    "help": "Agentic Rave: несколько агентов на один prompt",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "approve",
+    "usage": "/approve [id]",
+    "help": "одобрить ожидающее разрешение",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "deny",
+    "usage": "/deny [id]",
+    "help": "отклонить ожидающее разрешение",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "approvals",
+    "usage": "/approvals",
+    "help": "ожидающие разрешения",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "pause",
+    "usage": "/pause [task]",
+    "help": "пауза задачи",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "stop",
+    "usage": "/stop [task|all]",
+    "help": "остановить задачу; all — глобальный STOP",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "resume",
+    "usage": "/resume [task]",
+    "help": "продолжить задачу после паузы",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "computer",
+    "usage": "/computer [status|stop|resume]",
+    "help": "управление компьютером",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "evolve",
+    "usage": "/evolve [status|pause|resume|stop|report]",
+    "help": "цикл самоулучшения 1.1",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "keys",
+    "usage": "/keys [set <vendor>|remove <vendor>|import-env]",
+    "help": "ключи облачных моделей",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "panel",
+    "usage": "/panel",
+    "help": "панель контекста: workspace, задача, инструменты, память, бюджет",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "compact",
+    "usage": "/compact [инструкция]",
+    "help": "сжать беседу в резюме (задачей Bossman); дальше — резюме + новые ходы",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "context",
+    "usage": "/context",
+    "help": "что уйдёт со следующим сообщением: резюме, ходы, размер",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "cost",
+    "usage": "/cost",
+    "help": "токены и стоимость задач этой сессии (из Bossman)",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "export",
+    "usage": "/export [путь] [--force]",
+    "help": "сохранить беседу в Markdown",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "doctor",
+    "usage": "/doctor",
+    "help": "проверка: сборка, данные, агент, coding path, память, компьютер",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "expand",
+    "usage": "/expand [N]",
+    "help": "развернуть свёрнутый блок (мысли модели, вывод инструмента)",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "history",
+    "usage": "/history [on|off]",
+    "help": "история ввода: показать состояние / включить / выключить",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "clear",
+    "usage": "/clear",
+    "help": "очистить экран",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  },
+  {
+    "name": "exit",
+    "usage": "/exit",
+    "help": "выйти (задачи продолжают работу в Bossman)",
+    "path": "command-center/bcc/terminal_cli/slash.py",
+    "line": 13
+  }
+]

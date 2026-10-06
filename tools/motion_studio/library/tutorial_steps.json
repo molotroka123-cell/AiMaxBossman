@@ -1,0 +1,80 @@
+{
+ "meta": {
+  "title": "Install",
+  "bpm": 120,
+  "key": "A",
+  "brand": "BOSSMAN",
+  "hud": "BOSSMAN // INSTALL",
+  "voice": "am_fenrir",
+  "duration": 12.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "INSTALL",
+   "kicker": "3 STEPS · WINDOWS",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "Install in three steps."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "HOW TO",
+   "items": [
+    {
+     "t": 2.75,
+     "title": "1 DOWNLOAD",
+     "sub": "one zip file",
+     "icon": "cursor"
+    },
+    {
+     "t": 3.66,
+     "title": "2 UNZIP",
+     "sub": "anywhere you like",
+     "icon": "memory"
+    },
+    {
+     "t": 4.41,
+     "title": "3 RUN",
+     "sub": "start-bossman",
+     "icon": "bolt"
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "Download the zip."
+    },
+    {
+     "t": 3.66,
+     "text": "Unzip it."
+    },
+    {
+     "t": 4.41,
+     "text": "Run start."
+    }
+   ],
+   "start": 2.5,
+   "end": 8.5
+  },
+  {
+   "type": "sticker",
+   "lottie": "noto_white_heavy_check_mark",
+   "text": "DONE",
+   "sub": "THAT'S IT",
+   "start": 8.5,
+   "end": 12.0,
+   "vo": [
+    {
+     "t": 8.6,
+     "text": "That's it."
+    }
+   ]
+  }
+ ]
+}

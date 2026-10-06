@@ -14,6 +14,7 @@ import sqlalchemy as sa
 from bcc.db import models as models_t, providers as providers_t
 from bcc.features.forks import _force_model_hook
 from bcc.features.router import _candidates, _make_pick_hook, _save_rules, check_forced_model
+from bcc.providers import ProviderError
 from bcc.v2.model_router import derive_local
 
 from .conftest import FakeAdapter
@@ -98,6 +99,62 @@ async def test_zero_budget_denies_cloud_even_when_allowed(env):
     await _seed(env, "cloud-b", kind="cloud", base_url=CLOUD_URL)
     hook = await _make_pick_hook(env.svc)
     assert await hook(_task({"cloud_allowed": True, "cloud_budget_usd": 0}), {}) is None
+
+
+@pytest.mark.parametrize("meta", [
+    {"cloud_allowed": False},
+    {"cloud_allowed": True, "cloud_budget_usd": 0},
+])
+async def test_engine_never_uses_cloud_agent_when_router_has_no_eligible_model(
+        env, monkeypatch, meta):
+    cloud_id = await _seed(env, "cloud-agent", kind="cloud", base_url=CLOUD_URL)
+    cloud = FakeAdapter("remote answer")
+
+    async def adapter_for(model_id):
+        assert model_id == cloud_id
+        return cloud, {"id": cloud_id, "name": "cloud-agent", "alias": "cloud-agent"}
+
+    monkeypatch.setattr(env.svc.registry, "adapter_for", adapter_for)
+    agent = {"model_id": cloud_id, "max_tokens": 16, "permissions": {}}
+    with pytest.raises(ProviderError, match="router policy"):
+        await env.svc.engine._call_model_scoped(
+            _task(meta), agent, [{"role": "user", "content": "private"}], 1)
+    assert cloud.calls == 0
+
+
+@pytest.mark.parametrize("meta", [
+    {"cloud_allowed": False},
+    {"cloud_allowed": True, "cloud_budget_usd": 0},
+])
+async def test_engine_never_falls_back_from_failed_local_route_to_denied_cloud(
+        env, monkeypatch, meta):
+    local_id = await _seed(env, "local-route")
+    cloud_id = await _seed(env, "cloud-fallback", kind="cloud", base_url=CLOUD_URL)
+    local = FakeAdapter(fail_times=1)
+    cloud = FakeAdapter("remote answer")
+
+    async def adapter_for(model_id):
+        if model_id == local_id:
+            return local, {"id": local_id, "name": "local-route", "alias": "local-route"}
+        assert model_id == cloud_id
+        return cloud, {"id": cloud_id, "name": "cloud-fallback", "alias": "cloud-fallback"}
+
+    async def call_hooks(_name, *_args):
+        return [local_id]
+
+    async def no_op(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(env.svc.registry, "adapter_for", adapter_for)
+    monkeypatch.setattr(env.svc.engine, "_call_hooks", call_hooks)
+    monkeypatch.setattr(env.svc.engine, "_log", no_op)
+    monkeypatch.setattr(env.svc.bus, "emit", no_op)
+    agent = {"model_id": cloud_id, "max_tokens": 16, "permissions": {}}
+    with pytest.raises(ProviderError, match="router policy"):
+        await env.svc.engine._call_model_scoped(
+            _task(meta), agent, [{"role": "user", "content": "private"}], 1)
+    assert local.calls == 1
+    assert cloud.calls == 0
 
 
 # ------------------------------------------------------------ force_model_id через политику

@@ -39,7 +39,10 @@ def test_reordering_the_ab_rows_does_not_mint_a_fresh_key():
 
 def test_a_different_measurement_produces_a_different_key():
     assert _key() != _key(_ab(4))
-    assert _key() != _key(shadow_runs=21)
+    # Audit 2026-09-28: shadow_runs is a caller-declared count, not a measurement —
+    # keying on it let the same A/B be re-spent with shadow_runs=21 (see
+    # test_the_same_measurement_cannot_be_respent_by_restating_non_evidence_fields).
+    assert _key() == _key(shadow_runs=21)
     assert _key() != _key(after=SecuritySnapshot(leaks=1, scope_ref="corpus-a"))
     assert _key() != _key(after=SecuritySnapshot(containment_rate=1.0, scope_ref="corpus-b"))
 

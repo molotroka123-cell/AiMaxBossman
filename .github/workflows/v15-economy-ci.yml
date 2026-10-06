@@ -1,0 +1,153 @@
+name: Bossman 1.5 Economy CI
+
+on:
+  push:
+    branches:
+      - feat/bossman-1.5-economy-orchestrator-20260924
+      - integrate/bossman-1.7-unified-20260925
+    paths:
+      - 'command-center/bcc/economy_orchestrator.py'
+      - 'command-center/bcc/features/v15_economy.py'
+      - 'command-center/bcc/features/v15_owner_run.py'
+      - 'command-center/bcc/features/v15_self_repair.py'
+      - 'command-center/bcc/features/owner_input.py'
+      - 'command-center/bcc/owner_input.py'
+      - 'command-center/bcc/features/tools_browser.py'
+      - 'command-center/bcc/telegram_companion/**'
+      - 'command-center/ui/pages/v15_owner_run.js'
+      - 'command-center/ui/pages/index.js'
+      - 'command-center/tests/test_economy_orchestrator.py'
+      - 'command-center/tests/test_v15_economy_feature.py'
+      - 'tools/v15_economy_orchestrator.py'
+      - 'tools/bossman_15_owner_run.py'
+      - 'tools/bossman_15_owner_ctl.py'
+      - 'tools/bossman_15_self_improve.py'
+      - 'tools/v15_provider_pool.py'
+      - 'tools/build_windows_bundle.py'
+      - 'tools/bossman_15_economy_run.py'
+      - 'tools/bossman_15_ling_coder.py'
+      - 'tools/bossman_15_learning_compile.py'
+      - 'tools/distill_recorder.py'
+      - 'tools/worker_client.py'
+      - 'tools/youtube_trader_ingest*.py'
+      - 'config/v1.5/**'
+      - 'tests/test_v15_economy_orchestrator.py'
+      - 'tests/test_v15_owner_run.py'
+      - 'tests/test_v15_provider_pool.py'
+      - 'command-center/tests/test_owner_input_v15.py'
+      - 'command-center/tests/test_v15_self_repair.py'
+      - 'tests/test_bossman_15_economy_tools.py'
+      - 'tests/test_distill_recorder.py'
+      - 'tests/test_windows_bundle_contract.py'
+      - 'bossman-core/bossman_v3/society.py'
+      - 'bossman-core/bossman_v3/operating_graph.py'
+      - 'bossman-core/bossman_v3/resource_manager.py'
+      - 'bossman-core/bossman_v3/autonomy_kernel.py'
+      - 'bossman-core/bossman_v3/skill_factory/compiler.py'
+      - 'bossman-core/bossman_v3/self_improvement/scientist.py'
+      - 'bossman-core/tests/test_v15_autonomy_core.py'
+      - 'command-center/bcc/features/v15_autonomy.py'
+      - 'command-center/tests/test_v15_autonomy_feature.py'
+      - 'README.md'
+      - 'docs/v1.5/**'
+      - '.github/workflows/v15-economy-ci.yml'
+  pull_request:
+    paths:
+      - 'command-center/bcc/economy_orchestrator.py'
+      - 'command-center/bcc/features/v15_economy.py'
+      - 'command-center/bcc/features/v15_owner_run.py'
+      - 'command-center/bcc/features/v15_self_repair.py'
+      - 'command-center/bcc/features/owner_input.py'
+      - 'command-center/bcc/owner_input.py'
+      - 'command-center/bcc/features/tools_browser.py'
+      - 'command-center/bcc/telegram_companion/**'
+      - 'command-center/ui/pages/v15_owner_run.js'
+      - 'command-center/ui/pages/index.js'
+      - 'tools/v15_economy_orchestrator.py'
+      - 'tools/bossman_15_owner_run.py'
+      - 'tools/build_windows_bundle.py'
+      - 'config/v1.5/**'
+      - 'tests/test_v15_economy_orchestrator.py'
+      - 'tests/test_v15_owner_run.py'
+      - 'command-center/tests/test_owner_input_v15.py'
+      - 'command-center/tests/test_v15_self_repair.py'
+      - 'tests/test_bossman_15_economy_tools.py'
+      - 'bossman-core/bossman_v3/society.py'
+      - 'bossman-core/bossman_v3/operating_graph.py'
+      - 'bossman-core/bossman_v3/resource_manager.py'
+      - 'bossman-core/bossman_v3/autonomy_kernel.py'
+      - 'bossman-core/bossman_v3/skill_factory/compiler.py'
+      - 'bossman-core/bossman_v3/self_improvement/scientist.py'
+      - 'bossman-core/tests/test_v15_autonomy_core.py'
+      - 'command-center/bcc/features/v15_autonomy.py'
+      - 'command-center/tests/test_v15_autonomy_feature.py'
+      - 'README.md'
+      - 'docs/v1.5/**'
+      - '.github/workflows/v15-economy-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v15-economy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  economy-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install Bossman test runtime
+        run: |
+          python -m pip install --disable-pip-version-check -e . -e ./bossman-core -e './command-center[dev]' pytest
+      - name: Compile 1.5 economy surfaces
+        run: |
+          python -m py_compile \
+            command-center/bcc/economy_orchestrator.py \
+            command-center/bcc/features/v15_economy.py \
+            command-center/bcc/features/v15_owner_run.py \
+            command-center/bcc/features/v15_self_repair.py \
+            command-center/bcc/features/owner_input.py \
+            command-center/bcc/owner_input.py \
+            command-center/bcc/features/tools_browser.py \
+            command-center/bcc/telegram_companion/adapters.py \
+            command-center/bcc/telegram_companion/console.py \
+            command-center/bcc/telegram_companion/service.py \
+            tools/v15_economy_orchestrator.py \
+            tools/bossman_15_owner_run.py \
+            tools/bossman_15_owner_ctl.py \
+            tools/bossman_15_self_improve.py \
+            tools/v15_provider_pool.py \
+            tools/bossman_15_economy_run.py \
+            tools/bossman_15_ling_coder.py \
+            tools/bossman_15_learning_compile.py \
+            tools/distill_recorder.py \
+            bossman-core/bossman_v3/society.py \
+            bossman-core/bossman_v3/operating_graph.py \
+            bossman-core/bossman_v3/resource_manager.py \
+            bossman-core/bossman_v3/autonomy_kernel.py \
+            bossman-core/bossman_v3/skill_factory/compiler.py \
+            bossman-core/bossman_v3/self_improvement/scientist.py \
+            command-center/bcc/features/v15_autonomy.py
+          node --check command-center/ui/pages/v15_owner_run.js
+      - name: Economy, learning and packaging contracts
+        run: |
+          python -m pytest -q \
+            command-center/tests/test_economy_orchestrator.py \
+            command-center/tests/test_owner_input_v15.py \
+            command-center/tests/test_v15_self_repair.py \
+            tests/test_v15_economy_orchestrator.py \
+            tests/test_v15_owner_run.py \
+            tests/test_v15_provider_pool.py \
+            tests/test_bossman_15_economy_tools.py \
+            tests/test_distill_recorder.py \
+            bossman-core/tests/test_v15_autonomy_core.py \
+            command-center/tests/test_v15_autonomy_feature.py \
+            tests/test_windows_bundle_contract.py::test_v15_economy_runtime_is_shipped_with_its_policy

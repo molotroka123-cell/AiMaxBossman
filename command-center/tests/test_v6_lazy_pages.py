@@ -6,7 +6,8 @@
    и у модуля нет полей/функций, которых манифест не знает;
 2. до первой отрисовки оболочка НЕ тянет код всех страниц (иначе ленивость —
    слова), а переход на невиданную страницу догружает её модуль и рисует её;
-3. предзагрузка в простое действительно догружает остальные модули.
+3. opt-in предзагрузка в простое действительно догружает остальные модули;
+   в обычном холодном запуске не загружаются неоткрытые разделы.
 """
 from __future__ import annotations
 
@@ -108,11 +109,34 @@ def test_idle_preload_loads_the_remaining_modules(live):  # noqa: F811
         browser = _launch(pw)
         try:
             page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.add_init_script("window.__bxPreload = true;")  # полный idle-prefetch — только opt-in
             _login(page, live)
             page.wait_for_function(FIRST_RENDER_SNAPSHOT, timeout=20000)
             page.wait_for_function("""async () => {
               const { FEATURE_PAGES } = await import('/pages/index.js');
               return FEATURE_PAGES.every((p) => p.__loaded);
             }""", timeout=30000)
+        finally:
+            browser.close()
+
+
+def test_cold_landing_does_not_prefetch_unvisited_feature_modules(live):  # noqa: F811
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            cold_context = browser.new_context(viewport={"width": 1440, "height": 900})
+            page = cold_context.new_page()
+            _login(page, live)
+            page.wait_for_function(FIRST_RENDER_SNAPSHOT, timeout=20000)
+            # Allow the previous idle/timeout preloader enough time to run if
+            # it was accidentally left enabled.
+            page.wait_for_timeout(5000)
+            loaded = page.evaluate("""async () => {
+              const { FEATURE_PAGES } = await import('/pages/index.js');
+              return FEATURE_PAGES.filter((p) => p.__loaded).map((p) => p.id);
+            }""")
+            assert loaded == ["home-v3"], loaded
+            assert page.locator("#view[data-rendered='home-v3']").count() == 1
         finally:
             browser.close()

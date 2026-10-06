@@ -528,10 +528,18 @@ async def _ensure_models(svc, provider_id: int, remote_ids: list[str]) -> list[s
         alias = _alias_for(remote_id)
         async with svc.db.session() as s:
             exists = (await s.execute(sa.select(models_t.c.id).where(models_t.c.alias == alias))).first()
+            # A catalog synchronized earlier already knows this model's price.
+            # Without it the model is refused by provider governance on every
+            # call until the owner happens to press Sync (RC19 audit). No
+            # network here: startup never calls OpenRouter on its own.
+            card = (await s.execute(sa.select(catalog_t).where(
+                catalog_t.c.provider_id == provider_id, catalog_t.c.remote_id == remote_id,
+                catalog_t.c.stale.isnot(True)))).first()
         if exists:
             continue
+        prices = catalog_price_values(card._mapping) if card is not None else {}
         await svc.registry.create_model(provider_id=provider_id, name=remote_id, alias=alias, kind="cloud",
-                                        context_window=None)
+                                        context_window=None, **prices)
         created.append(alias)
     return created
 

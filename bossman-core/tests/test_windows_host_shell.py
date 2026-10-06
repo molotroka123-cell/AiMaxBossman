@@ -47,6 +47,7 @@ def _build_as_windows(cmd, ctx, *, sh_path):
         return shell._build_command(cmd, ctx)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX-ветка shell-сборки; Windows-поведение покрывают test_windows_* рядом")
 def test_posix_local_shell_unchanged(tmp_path, local_mode):
     """Linux-поведение не двигается ни на шаг."""
     assert shell._build_command("pytest -q", _Ctx(tmp_path)) == ["sh", "-c", "pytest -q"]

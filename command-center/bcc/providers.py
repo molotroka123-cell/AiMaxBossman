@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import time
@@ -16,6 +17,13 @@ from urllib.parse import urlparse
 
 CHAT_TIMEOUT = 600.0     # локальная модель на CPU думает долго
 HEALTH_TIMEOUT = 6.0     # проверка доступности должна быть быстрой
+# OpenRouter (и другие шлюзы) отвечают HTTP 200 с телом {"error": {"code": 503, ...}},
+# когда апстрим перегружен. Это временный отказ: две короткие повторные попытки,
+# затем названная ошибка с kind="rate_limit" (backoff), а не «модель молчит».
+TRANSIENT_RETRY_DELAYS: tuple[float, ...] = (2.0, 5.0)
+_TRANSIENT_CODES = frozenset({408, 429, 500, 502, 503, 504, 529})
+# Ответы на запрос со `stream`, после которых честно идём обычным вызовом.
+_STREAM_REJECTED = frozenset({400, 404, 405, 415, 422, 501})
 
 
 class ProviderError(RuntimeError):
@@ -114,12 +122,31 @@ class ProviderAdapter(Protocol):
     async def list_models(self) -> list[str]: ...
 
 
+def is_ollama_v1_url(url: str) -> bool:
+    """Loopback Ollama's OpenAI-compatible endpoint (default port 11434, path /v1)."""
+    try:
+        parts = urlparse(url or "")
+        port = parts.port
+    except ValueError:
+        return False
+    return ((parts.hostname or "").lower() in ("127.0.0.1", "localhost", "::1")
+            and port == 11434 and parts.path.rstrip("/") == "/v1")
+
+
 def is_local_url(url: str) -> bool:
     """Адрес на этой же машине или в локальной сети.
 
     Список намеренно широкий: `localhost`, петля, `.local`, приватные диапазоны
     RFC1918 и `host.docker.internal`. Ошибиться в сторону «не проксировать»
     безопасно — прокси для локального адреса не нужен никогда.
+
+    Link-local (169.254.0.0/16, fe80::/10) — единственное намеренное исключение
+    из `ipaddress.is_private`: это диапазон облачных metadata-эндпоинтов
+    (169.254.169.254 у AWS/GCP/Azure), а не адрес сервера владельца, и он не
+    должен считаться «локальным» здесь — этот же признак используют для
+    решения, можно ли передать провайдеру owner memory (`provider_governance`).
+    `discovery.py`/`model_router.py`/`browser_control.py` уже проводят эту
+    границу отдельно; `is_local_url` обязан совпадать с ними.
     """
     try:
         host = (urlparse(url).hostname or "").lower()
@@ -133,7 +160,8 @@ def is_local_url(url: str) -> bool:
         return True
     try:
         import ipaddress
-        return ipaddress.ip_address(host).is_private
+        ip = ipaddress.ip_address(host)
+        return ip.is_private and not (ip.is_link_local or ip.is_unspecified)
     except ValueError:
         return False
 
@@ -207,7 +235,7 @@ class _BaseAdapter:
             raise ProviderError(f"{_host(url)} не ответил за {int(timeout)} с", kind="network",
                                 hint="проверьте, что сервер модели запущен") from None
         except httpx.HTTPError as exc:
-            raise ProviderError(f"нет связи с {_host(url)}: {type(exc).__name__}", kind="network",
+            raise ProviderError(f"нет связи с {_host(url)}: {net_reason(exc)}", kind="network",
                                 hint="проверьте base_url и что endpoint поднят") from None
         if resp.status_code >= 400:
             raise ProviderError(_explain(resp), kind="http")
@@ -243,10 +271,44 @@ class OpenAICompatAdapter(_BaseAdapter):
             payload["tool_choice"] = kw.get("tool_choice") or "auto"
         if kw.get("response_format") is not None:
             payload["response_format"] = kw["response_format"]
-        resp = await self._request("POST", f"{self.base_url}/chat/completions",
-                                   timeout=kw.get("timeout", CHAT_TIMEOUT),
-                                   headers=self._headers(), json=payload)
-        data = _response_object(resp, what="chat/completions")
+        if kw.get("reasoning_effort") is not None:
+            payload["reasoning_effort"] = kw["reasoning_effort"]
+        elif is_ollama_v1_url(self.base_url):
+            # RC19: Ollama's /v1 returns a thinking model's private reasoning in
+            # `message.reasoning` (CMD showed it to the owner) and spends the
+            # answer budget on it. `think: false` is ignored on /v1;
+            # `reasoning_effort: "none"` switches thinking off (Ollama 0.34.4,
+            # owner host). Same policy as llama.cpp `--reasoning off` in
+            # start-models.ps1 and Jeff's native `think: false`. A caller that
+            # wants reasoning asks for it explicitly.
+            payload["reasoning_effort"] = "none"
+        if kw.get("on_delta") is not None:
+            # Live answer text (owner P1). None = this provider/model cannot
+            # stream right now: fall through to the ordinary whole-answer call.
+            streamed = await self._chat_streamed(model, payload, kw)
+            if streamed is not None:
+                return streamed
+        delays = iter(TRANSIENT_RETRY_DELAYS)
+        while True:
+            resp = await self._request("POST", f"{self.base_url}/chat/completions",
+                                       timeout=kw.get("timeout", CHAT_TIMEOUT),
+                                       headers=self._headers(), json=payload)
+            data = _response_object(resp, what="chat/completions")
+            upstream = _in_body_error(data)
+            if upstream is None:
+                break
+            code, message = upstream
+            if code not in _TRANSIENT_CODES:
+                raise ProviderError(f"провайдер отказал ({code}): {message}", kind="http")
+            delay = next(delays, None)
+            if delay is None:
+                raise ProviderError(f"провайдер временно перегружен ({code}): {message}",
+                                    kind="rate_limit", hint="повторите позже или выберите другую модель")
+            await asyncio.sleep(delay)
+        return self._result_from(data, model)
+
+    @staticmethod
+    def _result_from(data: dict, model: str) -> ChatResult:
         choices = data.get("choices") or []
         if not choices:
             raise ProviderError("модель вернула пустой ответ (нет choices)")
@@ -271,6 +333,60 @@ class OpenAICompatAdapter(_BaseAdapter):
             # по ним честная скорость (TEL-001), а не токены / вся латентность.
             provider_meta={k: data[k] for k in ("id", "provider", "usage", "timings") if k in data},
         )
+
+    async def _chat_streamed(self, model: str, payload: dict, kw: dict) -> ChatResult | None:
+        """The same request as `chat`, read as SSE; answer text goes to
+        `kw["on_delta"](text)` as it arrives. Returns None (nothing was shown)
+        when the provider cannot stream: it rejected `stream`, answered with a
+        plain JSON body, sent no usable frames, or failed before the first
+        token. After the first token a failure is a ProviderError, and the
+        consumer is told to discard what it showed (`on_delta(None)`)."""
+        from bossman_shared.privacy import assert_provider_egress
+        from .streaming import read_chat_stream
+        on_delta = kw["on_delta"]
+        url = f"{self.base_url}/chat/completions"
+        assert_provider_egress(self.kind, url)
+        body = {**payload, "stream": True, "stream_options": {"include_usage": True}}
+        timeout = kw.get("timeout", CHAT_TIMEOUT)
+        shown = False
+
+        async def push(text: str) -> None:
+            nonlocal shown
+            shown = True
+            await on_delta(text)
+
+        async def discard(reason: str) -> ProviderError:
+            if shown:
+                await on_delta(None)
+            return ProviderError(reason, kind="network",
+                                 hint="ответ оборван на середине: шаг будет повторён")
+
+        try:
+            async with self._client(timeout) as client:
+                async with client.stream("POST", url, headers=self._headers(), json=body) as resp:
+                    if resp.status_code >= 400:
+                        await resp.aread()
+                        if resp.status_code in _STREAM_REJECTED:
+                            return None
+                        raise ProviderError(_explain(resp), kind="http")
+                    if "text/event-stream" not in resp.headers.get("content-type", "").lower():
+                        await resp.aread()
+                        data = _response_object(resp, what="chat/completions")
+                        return None if _in_body_error(data) else self._result_from(data, model)
+                    cs = await read_chat_stream(resp.aiter_lines(), push)
+        except httpx.TimeoutException:
+            raise await discard(f"{_host(url)} не ответил за {int(timeout)} с") from None
+        except httpx.HTTPError as exc:
+            raise await discard(f"нет связи с {_host(url)}: {net_reason(exc)}") from None
+        if cs.error or not (cs.terminated or cs.finish_reason):
+            if not shown:
+                return None
+            raise await discard(f"поток ответа {_host(url)} оборван: {cs.error or 'нет завершения'}")
+        if not cs.has_output:
+            return None
+        result = self._result_from(cs.body(), model)
+        result.provider_meta["streamed"] = shown
+        return result
 
     async def health(self) -> Health:
         t0 = time.perf_counter()
@@ -323,6 +439,42 @@ class OpenAICompatAdapter(_BaseAdapter):
                 model["state"] = "loading"
             models.append(model)
         return models
+
+    async def list_model_pricing(self) -> dict[str, dict[str, float | None]]:
+        """Live per-model pricing from the same catalog, used by the free-only
+        PIT route. Unknown/absent price is returned as None: for PIT an unknown
+        price is not free and never silently routed. Local llama.cpp catalogs
+        simply return an empty mapping.
+        """
+        resp = await self._request("GET", f"{self.base_url}/models", timeout=HEALTH_TIMEOUT,
+                                   headers=self._headers())
+        data = _response_object(resp, what="models").get("data")
+        if not isinstance(data, list):
+            raise ProviderError("models: поле data должно быть списком", kind="protocol")
+        pricing: dict[str, dict[str, float | None]] = {}
+        for item in data:
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+                continue
+            raw = item.get("pricing")
+            if not isinstance(raw, dict):
+                pricing[item["id"]] = {"prompt": None, "completion": None}
+                continue
+            parsed: dict[str, float | None] = {}
+            for key in ("prompt", "completion"):
+                value = raw.get(key)
+                if isinstance(value, bool):
+                    parsed[key] = None
+                elif isinstance(value, (int, float)):
+                    parsed[key] = float(value)
+                elif isinstance(value, str):
+                    try:
+                        parsed[key] = float(value)
+                    except ValueError:
+                        parsed[key] = None
+                else:
+                    parsed[key] = None
+            pricing[item["id"]] = parsed
+        return pricing
 
 
 def model_catalog_problem(models: list[dict[str, Any]]) -> str:
@@ -498,12 +650,41 @@ def build_adapter(kind: str, base_url: str = "", api_key: str | None = None,
     return cls(base_url=base_url, api_key=api_key, transport=transport)  # type: ignore[return-value]
 
 
+def net_reason(exc: BaseException) -> str:
+    """Причина сетевого сбоя словами для человека.
+
+    Имя класса исключения («ConnectError») и английский текст httpx («All connection attempts
+    failed») владельцу ничего не говорят и в уведомление не попадают.
+    """
+    if isinstance(exc, httpx.TimeoutException):
+        return "не ответил вовремя"
+    if isinstance(exc, (httpx.ConnectError, httpx.ProxyError)):
+        return "соединение не установлено: сервер выключен, нет интернета или соединение закрыто прокси"
+    if isinstance(exc, (httpx.ReadError, httpx.RemoteProtocolError, httpx.WriteError)):
+        return "соединение оборвалось"
+    return "сетевой сбой"
+
+
 def _host(url: str) -> str:
     try:
         parsed = httpx.URL(url)
         return f"{parsed.scheme}://{parsed.netloc.decode()}"
     except Exception:
         return url
+
+
+def _in_body_error(data: dict) -> tuple[int, str] | None:
+    """(code, message) of an error a gateway put into a 200 body, else None."""
+    err = data.get("error") if isinstance(data, dict) else None
+    if not err or data.get("choices"):
+        return None
+    if isinstance(err, dict):
+        try:
+            code = int(err.get("code") or 0)
+        except (TypeError, ValueError):
+            code = 0
+        return code, str(err.get("message") or err)[:300]
+    return 0, str(err)[:300]
 
 
 def _explain(resp: httpx.Response) -> str:

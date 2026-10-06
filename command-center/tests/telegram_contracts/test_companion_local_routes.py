@@ -480,3 +480,19 @@ def test_model_name_labels():
     assert model_name(r'C:\m\gpt-oss\openai_gpt-oss-120b-MXFP4_MOE-00001-of-00002.gguf') == 'openai_gpt-oss-120b-MXFP4_MOE'
     assert model_name('C:/m/Qwen3.8-27B-UD-Q5_K_M.gguf') == 'Qwen3.8-27B-UD-Q5_K_M'
     assert model_name('main') == 'main'
+
+
+def test_companion_refuses_a_token_already_polled_elsewhere(tmp_path, monkeypatch):
+    """RC19: «Пульт» takes the same per-token kernel lock as Jeff, so it can never
+    run with Jeff's token (or twice) and steal the other poller's updates."""
+    from bcc.pit.bot_guard import token_poller_lock
+    from bcc.telegram_companion.__main__ import serve
+    monkeypatch.setenv('BOSSMAN_TELEGRAM_POLLER_LOCK_DIR', str(tmp_path / 'locks'))
+    monkeypatch.setenv('TG_COMPANION_BOT_TOKEN', '123456789:rc19-fake-token-for-lock-test-only')
+    path = tmp_path / 'companion' / 'config.json'
+    path.parent.mkdir()
+    path.write_text(json.dumps({'people': [{'user_id': 11111, 'chat_id': 11111, 'role': 'owner'}],
+                                'local_url': MAIN_URL, 'local_model': MAIN_ID, 'enabled': True}), encoding='utf-8')
+    with token_poller_lock('123456789:rc19-fake-token-for-lock-test-only'):   # Jeff already polls it
+        with pytest.raises(CompanionError, match='ANOTHER_POLLER_FOR_THIS_BOT_TOKEN'):
+            asyncio.run(serve(path))

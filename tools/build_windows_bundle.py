@@ -114,6 +114,19 @@ SUPPORT_SCRIPTS = (
     # Jev (browser fast path + decision provider) — только shadow и выключен по
     # умолчанию; раннер без флагов проверяет лишь ключ и конфиг (exit 3).
     (ROOT / "tools" / "jev_shadow_owner.py", "jev_shadow_owner.py"),
+    # Bossman 1.5 economy lane: public YouTube ingest + free-first worker swarm.
+    (ROOT / "tools" / "youtube_trader_ingest.py", "youtube_trader_ingest.py"),
+    (ROOT / "tools" / "youtube_trader_ingest_auto.py", "youtube_trader_ingest_auto.py"),
+    (ROOT / "tools" / "youtube_trader_ingest_batch.py", "youtube_trader_ingest_batch.py"),
+    (ROOT / "tools" / "worker_client.py", "worker_client.py"),
+    (ROOT / "tools" / "distill_recorder.py", "distill_recorder.py"),
+    (ROOT / "tools" / "v15_economy_orchestrator.py", "v15_economy_orchestrator.py"),
+    (ROOT / "tools" / "v15_provider_pool.py", "v15_provider_pool.py"),
+    (ROOT / "tools" / "bossman_15_self_improve.py", "bossman_15_self_improve.py"),
+    (ROOT / "tools" / "bossman_15_owner_run.py", "bossman_15_owner_run.py"),
+    (ROOT / "tools" / "bossman_15_owner_ctl.py", "bossman_15_owner_ctl.py"),
+    (ROOT / "tools" / "bossman_15_learning_compile.py", "bossman_15_learning_compile.py"),
+    (ROOT / "tools" / "bossman_15_ling_coder.py", "bossman_15_ling_coder.py"),
     # Same bounded evolution engine used by the product API; no second daemon.
     (ROOT / "tools" / "bossman_evolve.py", "bossman_evolve.py"),
     # Four-clip Bossfield preflight/editor; generation remains governed by Studio.
@@ -124,6 +137,11 @@ SUPPORT_DATA = (
     (ROOT / "tools" / "model_profiles.json", "model_profiles.json"),
     (ROOT / "config" / "evolution" / "owner-v1.1.json", "config/evolution/owner-v1.1.json"),
     (ROOT / "config" / "evolution" / "local-champions.json", "config/evolution/local-champions.json"),
+    (ROOT / "config" / "v1.5" / "economy-orchestrator.json", "config/v1.5/economy-orchestrator.json"),
+    (ROOT / "config" / "v1.5" / "provider-pool.json", "config/v1.5/provider-pool.json"),
+    (ROOT / "config" / "v1.5" / "self-improvement.json", "config/v1.5/self-improvement.json"),
+    (ROOT / "config" / "v1.5" / "model-routing-stack.json", "config/v1.5/model-routing-stack.json"),
+    (ROOT / "config" / "evolution" / "owner-v1.5-self-improve.json", "config/evolution/owner-v1.5-self-improve.json"),
 )
 
 # Профиль `Owner-Run.cmd self-improve-mvcr` вызывает эти файлы рядом с раннером.
@@ -258,6 +276,8 @@ if errorlevel 1 exit /b 1
 exit /b %ERRORLEVEL%
 """
 
+
+
 MEDIA_SETUP_CMD = r"""@echo off
 setlocal
 rem Local media engine (stable-diffusion.cpp) setup: validate | plan-download | download | configure.
@@ -280,6 +300,21 @@ if "%~1"=="" (
   "%BOSSMAN_HOME%runtime\python.exe" "%BOSSMAN_HOME%app-support\coaching_runner.py" --backend local --out "%LOCALAPPDATA%\Bossman\CommandCenter\owner-run\coaching"
 ) else (
   "%BOSSMAN_HOME%runtime\python.exe" "%BOSSMAN_HOME%app-support\coaching_runner.py" %*
+)
+exit /b %ERRORLEVEL%
+"""
+
+V15_OWNER_CMD = r"""@echo off
+setlocal
+rem Bossman 1.5 owner control: same authenticated API as the UX page.
+rem Usage: Bossman-1.5.cmd quick-test ^| start ^| status ^| stop
+set "BOSSMAN_HOME=%~dp0"
+call "%BOSSMAN_HOME%app-support\_env.cmd"
+if errorlevel 1 exit /b 1
+if "%~1"=="" (
+  "%BOSSMAN_HOME%runtime\python.exe" "%BOSSMAN_HOME%app-support\bossman_15_owner_ctl.py" status
+) else (
+  "%BOSSMAN_HOME%runtime\python.exe" "%BOSSMAN_HOME%app-support\bossman_15_owner_ctl.py" %*
 )
 exit /b %ERRORLEVEL%
 """
@@ -343,6 +378,7 @@ def launcher_files() -> dict[str, str]:
         "Evening-Test.cmd": EVENING_CMD,
         "Machine-Report.cmd": MACHINE_CMD,
         "Owner-Run.cmd": OWNER_RUN_CMD,
+        "Bossman-1.5.cmd": V15_OWNER_CMD,
         "Media-Setup.cmd": MEDIA_SETUP_CMD,
         "Coaching.cmd": COACHING_CMD,
         "Collect-Diagnostics.cmd": DIAGNOSTICS_CMD,
@@ -560,13 +596,36 @@ def normalize_bytecode(runtime: Path) -> dict:
     return {"normalized": done.returncode == 0, "mode": "unchecked-hash"}
 
 
+# What the shipped computer-use backend (bossman.computer_operator, Windows) needs at
+# run time. The lock pins them through the [runtime] extra; a bundle whose embedded
+# interpreter cannot import them must not pass as a product.
+COMPUTER_USE_MODULES = ("pywinauto", "pyautogui", "win32clipboard", "psutil")
+
+
+def _tree(root: Path) -> set[Path]:
+    return set(root.rglob("*")) if root.exists() else set()
+
+
+def _remove_new(root: Path, before: set[Path]) -> list[str]:
+    """Delete what appeared under `root` since `before` (files first, then empty dirs)."""
+    created = sorted(_tree(root) - before, key=lambda p: len(p.parts), reverse=True)
+    for path in created:
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            path.unlink(missing_ok=True)
+    return [p.relative_to(root).as_posix() for p in created]
+
+
 def verify_runtime(runtime: Path, wheels: Path, lock: dict | None = None) -> dict:
     """Ask the EMBEDDED interpreter, in isolated mode, what it can import and sees.
 
     The build machine's Python is not the one the owner runs. The product
     modules must import from the runtime, and — when locked — the set of
     installed distributions must be exactly the lock plus the Bossman wheels:
-    nothing missing, nothing extra, no other version.
+    nothing missing, nothing extra, no other version. The computer-use backend's
+    modules (COMPUTER_USE_MODULES) must import from the runtime and
+    ``WindowsDesktop.preflight()`` must report no gap.
     """
     python = runtime / "python.exe"
     probe = (
@@ -577,22 +636,51 @@ def verify_runtime(runtime: Path, wheels: Path, lock: dict | None = None) -> dic
         "for d in m.distributions():\n"
         "    name = norm(d.metadata['Name'])\n"
         "    seen.setdefault(name, set()).add(d.version)\n"
+        "cu = {}\n"
+        "try:\n"
+        + "".join(f"    import {mod}\n" for mod in COMPUTER_USE_MODULES)
+        + "    from bossman.computer_operator.adapters.windows import WindowsDesktop\n"
+        "    cu = {'modules': {n: getattr(sys.modules[n], '__file__', None) for n in "
+        + repr(COMPUTER_USE_MODULES) + "}, 'preflight': WindowsDesktop.preflight()}\n"
+        "except Exception as exc:\n"
+        "    cu = {'error': f'{type(exc).__name__}: {exc}'}\n"
         "print(json.dumps({'distributions': {k: sorted(v) for k, v in seen.items()},"
-        " 'bcc': bcc.__file__, 'executable': sys.executable, 'isolated': bool(sys.flags.isolated)}))\n"
+        " 'bcc': bcc.__file__, 'executable': sys.executable, 'isolated': bool(sys.flags.isolated),"
+        " 'computer_use': cu}))\n"
     )
-    done = subprocess.run([str(python), "-I", "-c", probe], cwd=str(runtime.parent),
-                          capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
+    # Importing pywinauto makes comtypes generate wrapper modules INSIDE the runtime
+    # (comtypes/gen). The probe must not change what is shipped: whatever it creates
+    # is removed again, so the archive holds exactly what pip installed.
+    before = _tree(runtime)
+    try:
+        done = subprocess.run([str(python), "-I", "-c", probe], cwd=str(runtime.parent),
+                              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
+    finally:
+        _remove_new(runtime, before)
     if done.returncode:
         raise RuntimeError("the embedded interpreter cannot import the product: " + (done.stderr or "")[-1500:])
     payload = json.loads(done.stdout.strip().splitlines()[-1])
     if not Path(payload["bcc"]).resolve().is_relative_to(runtime.resolve()):
         raise RuntimeError(f"the embedded interpreter imported bcc from outside the runtime: {payload['bcc']}")
+    computer_use = payload.get("computer_use")
+    if not isinstance(computer_use, dict) or "error" in computer_use or "modules" not in computer_use:
+        detail = (computer_use or {}).get("error") if isinstance(computer_use, dict) else None
+        raise RuntimeError("the embedded runtime cannot drive the Windows desktop (computer use): "
+                           + (detail or "the probe reported no computer-use result"))
+    if computer_use.get("preflight") is not None:
+        raise RuntimeError("the embedded runtime cannot drive the Windows desktop (computer use): "
+                           f"WindowsDesktop.preflight() = {computer_use['preflight']!r}")
+    outside = sorted(name for name, where in computer_use["modules"].items()
+                     if not where or not Path(where).resolve().is_relative_to(runtime.resolve()))
+    if outside:
+        raise RuntimeError(f"computer-use modules imported from outside the runtime: {outside}")
     seen = {name: versions for name, versions in payload["distributions"].items()}
     duplicated = sorted(name for name, versions in seen.items() if len(versions) > 1)
     if duplicated:
         raise RuntimeError(f"two versions of one distribution in the runtime: {duplicated}")
     result = {"verified_by_embedded_python": True, "distribution_count": len(seen),
-              "isolated": payload["isolated"]}
+              "isolated": payload["isolated"],
+              "computer_use": {"modules": sorted(computer_use["modules"]), "preflight": "PASS"}}
     if lock:
         expected = dict(lock["_pins"])
         for wheel in sorted(wheels.glob("*.whl")):

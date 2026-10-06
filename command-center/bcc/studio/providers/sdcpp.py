@@ -80,6 +80,8 @@ ENGINES = {
     "sdcpp:flux1-schnell": "flux1-schnell",
     "sdcpp:sdxl-base": "sdxl-base",
     "sdcpp:flux2-klein-4b": "flux2-klein-4b",
+    "sdcpp:qwen-image-2.1": "qwen-image-2.1",
+    "sdcpp:qwen-image-edit-2509": "qwen-image-edit-2509",
 }
 # Roles the argv needs per engine; every file listed in the manifest entry is hashed,
 # these must at least be present.
@@ -89,8 +91,10 @@ REQUIRED_ROLES = {
     "sdcpp:flux1-schnell": ("diffusion", "vae", "clip_l", "t5xxl"),
     "sdcpp:sdxl-base": ("model", "vae"),
     "sdcpp:flux2-klein-4b": ("diffusion", "vae", "llm"),
+    "sdcpp:qwen-image-2.1": ("diffusion", "vae", "llm", "llm_vision"),
+    "sdcpp:qwen-image-edit-2509": ("diffusion", "vae", "llm", "llm_vision"),
 }
-ALLOWED_INPUT_ROLES = frozenset({"start"})
+ALLOWED_INPUT_ROLES = frozenset({"start", "reference"})
 ALLOWED_INPUT_FORMATS = frozenset({"PNG", "JPEG"})
 MAX_INPUT_BYTES = 15 * 1024 * 1024          # consistent with dispatch.inputs_for
 MAX_INPUT_PIXELS = 32 * 1024 * 1024
@@ -102,6 +106,7 @@ MAX_LOG_LINES = 60
 CANCEL_WAIT_S = 15
 KILL_WAIT_S = 10
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
+WINDOWS_APP_CONTROL_BLOCK = 0xC0E90002
 
 _HASH_CACHE_LOCK_TOKEN = "installation_token"
 
@@ -583,6 +588,31 @@ def duration_mismatch(observed_ms, settings: dict, *, segments: int = 1) -> str 
     return None
 
 
+def classify_engine_exit(returncode: int, *, platform: str | None = None) -> tuple[str, str]:
+    """Name the Windows Smart App Control/App Control block instead of a media error.
+
+    0xC0E90002 is emitted before an unsigned/untrusted executable can initialize. It is
+    distinct from a model failure: retrying the same binary cannot produce an artifact.
+    """
+    system = os.name if platform is None else platform
+    code = int(returncode) & 0xFFFFFFFF
+    if system == "nt" and code == WINDOWS_APP_CONTROL_BLOCK:
+        return "provider_down", "Windows App Control blocked the unsigned media runtime (0xC0E90002)"
+    return "malformed", f"engine exit code {returncode}"
+
+
+def _qwen_vision(plane: GenerationPlane, files: dict[str, Path]) -> list[str]:
+    """The Qwen vision encoder (mmproj) only encodes reference images.
+
+    Live RC19 (Radeon 8060S, Vulkan): text-to-image WITH `--llm_vision` sat 48 min
+    at 5 % on the CPU with no GPU use; the same argv WITHOUT it ran on Vulkan0
+    (512x512, 20 steps, 13.2 s/it, correct image). Plain generation omits it.
+    """
+    if any(item.get("role") == "reference" for item in plane.media or ()):
+        return ["--llm_vision", str(files["llm_vision"])]
+    return []
+
+
 def _argv(cfg: dict, model_id: str, plane: GenerationPlane, settings: dict,
           files: dict[str, Path], out: Path, init: Path | None) -> list[str]:
     argv = [str(cfg["bin"])]
@@ -603,6 +633,15 @@ def _argv(cfg: dict, model_id: str, plane: GenerationPlane, settings: dict,
         # --offload-to-cpu keeps the 4B weights out of the iGPU buffer limit.
         argv += ["--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),
                  "--llm", str(files["llm"]), "--cfg-scale", "1.0",
+                 "--offload-to-cpu", "--diffusion-fa"]
+    elif model_id == "sdcpp:qwen-image-2.1":
+        argv += ["--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),
+                 "--llm", str(files["llm"]), *_qwen_vision(plane, files),
+                 "--cfg-scale", "6.0", "--sampling-method", "euler", "--offload-to-cpu"]
+    elif model_id == "sdcpp:qwen-image-edit-2509":
+        argv += ["--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),
+                 "--llm", str(files["llm"]), *_qwen_vision(plane, files),
+                 "--cfg-scale", "2.5", "--sampling-method", "euler", "--flow-shift", "3",
                  "--offload-to-cpu", "--diffusion-fa"]
     elif model_id == "sdcpp:sdxl-base":
         argv += ["-m", str(files["model"]), "--vae", str(files["vae"]),
@@ -833,6 +872,9 @@ def _sidecar_files(record: dict, work: Path) -> list[Path]:
     extra = record.get("segment_files")
     if isinstance(extra, list):
         values += extra
+    refs = record.get("reference_files")
+    if isinstance(refs, list):
+        values += refs
     for value in values:
         if isinstance(value, str) and value:
             p = Path(value)
@@ -1010,12 +1052,18 @@ class SdCppProvider:
         video = self.model["surface"] == "video"
         segments = segments_for(settings) if video else 1
         init_data = None
+        ref_data: list[tuple[bytes, str]] = []
         if plane.media:
-            if not video:
+            if plane.model in {"sdcpp:qwen-image-2.1", "sdcpp:qwen-image-edit-2509"}:
+                if len(plane.media) > 3 or any(item.get("role") != "reference" for item in plane.media):
+                    raise ValueError("media: Qwen accepts 1-3 reference images only")
+                ref_data = [await asyncio.to_thread(_decode_start_image, item) for item in plane.media]
+            elif not video:
                 raise ValueError("media: image model is text-to-image only")
-            if len(plane.media) != 1:
-                raise ValueError("media: exactly one start image")
-            init_data, init_ext = await asyncio.to_thread(_decode_start_image, plane.media[0])
+            else:
+                if len(plane.media) != 1 or plane.media[0].get("role") != "start":
+                    raise ValueError("media: exactly one start image")
+                init_data, init_ext = await asyncio.to_thread(_decode_start_image, plane.media[0])
         free = shutil.disk_usage(self.work).free
         if free < self.min_free_bytes:
             raise SdCppFailure("provider_down", f"disk space {free} bytes below minimum {self.min_free_bytes}")
@@ -1036,7 +1084,10 @@ class SdCppProvider:
             frame_files = [self.work / f"{rid}-s{i}-last.png" for i in range(segments - 1)]
         raw = raws[0]
         init = self.work / f"{rid}-start{init_ext}" if init_data is not None else None
+        refs = [self.work / f"{rid}-ref-{i}{ext}" for i, (_data, ext) in enumerate(ref_data)]
         argv = _argv(self.cfg, plane.model, plane, settings, files, raw, init)
+        for ref in refs:
+            argv += ["-r", str(ref)]
         me = _proc_identity(os.getpid()) or {}
         explicit = self._timeout_explicit
         segment_s = float(self.hard_timeout_s) if explicit else segment_deadline_s(self.model, settings)
@@ -1044,6 +1095,7 @@ class SdCppProvider:
         started = time.time()
         record = {"version": 1, "rid": rid, "pid": None, "create_time": None, "argv": argv,
                   "exe": None, "raw": str(raw), "init": None if init is None else str(init),
+                  "reference_files": [str(ref) for ref in refs],
                   "started": started, "studio_job_id": self.studio_job_id, "model": plane.model,
                   "owner_pid": os.getpid(), "owner_create_time": me.get("create_time"),
                   # The budget travels WITH the job: a later process reading this sidecar can tell
@@ -1059,7 +1111,10 @@ class SdCppProvider:
             raise ValueError("rid: a job with this request id already exists in the work dir")
         if init is not None:
             init.write_bytes(init_data)
+        for ref, (data, _ext) in zip(refs, ref_data):
+            ref.write_bytes(data)
         job = {"rid": rid, "settings": settings, "raw": raw, "init": init, "canceled": False, "fetched": False,
+               "refs": refs,
                "argv": argv, "files": files, "verified": verified, "binary": binary, "started": record["started"],
                "log": [], "proc": None, "pid": None, "create_time": None, "returncode": None, "peak_rss": 0,
                "elapsed_s": None, "failure": None, "failure_detail": None, "raw_meta": None,
@@ -1234,7 +1289,7 @@ class SdCppProvider:
             job["failure"] = "canceled"
             return
         if proc.returncode != 0:
-            job["failure"], job["failure_detail"] = "malformed", f"engine exit code {proc.returncode}"
+            job["failure"], job["failure_detail"] = classify_engine_exit(proc.returncode)
             return
         # Zero exit is not completion: the raw output must probe and decode.
         try:
@@ -1353,7 +1408,7 @@ class SdCppProvider:
         spared = set()
         if keep_partial:
             spared = {Path(p) for p in self._done_segment_files(job)}
-        for p in (job["raw"], job["init"], *job.get("raws", ()), *job.get("frame_files", ()),
+        for p in (job["raw"], job["init"], *job.get("refs", ()), *job.get("raws", ()), *job.get("frame_files", ()),
                   *self.work.glob(f"{job['rid']}*.part")):
             if p is not None and Path(p) not in spared:
                 with contextlib.suppress(OSError):

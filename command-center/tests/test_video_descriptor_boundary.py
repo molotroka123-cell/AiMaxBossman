@@ -82,14 +82,70 @@ async def drive(response, *, headers=None):
     return start["status"], {k.decode().lower(): v.decode() for k, v in start["headers"]}, body
 
 
-def descriptors() -> int:
+def descriptors(path: Path | None = None) -> int:
+    """Count open descriptors for the owned media file, not the whole process.
+
+    ``num_handles()`` on Windows counts every kernel object the process holds --
+    threads, events and IOCP completion handles that ``asyncio.to_thread`` (used
+    by ``blocking()``) creates and tears down independently of any file. Those
+    fluctuate for reasons that have nothing to do with the descriptor under
+    test, so a whole-process count cannot tell a real leak of THIS file's
+    handle from ordinary runtime churn. When a target path is given, count only
+    handles that resolve to it; that is the resource the security invariant
+    (verified descriptor, never a re-open) actually claims is not leaked.
+    """
     if os.path.isdir("/proc/self/fd"):
         return len(os.listdir("/proc/self/fd"))
     import psutil
     process = psutil.Process()
     if os.name == "nt":
+        if path is not None:
+            target = str(Path(path).resolve())
+            try:
+                return sum(1 for f in process.open_files() if f.path == target)
+            except (psutil.AccessDenied, PermissionError):
+                # In a long pytest process another test may leave a handle to a
+                # file pending deletion (C:\$Extend\$Deleted\...); open_files()
+                # then fails on os.stat of THAT path before reaching ours (RC19
+                # full regression). Fall back to asking the OS whether anything
+                # still holds the owned file: an exclusive open fails with a
+                # sharing violation exactly when a handle to it is open.
+                return _held_open_windows(target)
         return process.num_handles()   # num_fds() существует только на UNIX
     return process.num_fds()
+
+
+def _held_open_windows(target: str) -> int:
+    """1 when any handle to ``target`` is open (exclusive open refused), else 0."""
+    import ctypes
+    from ctypes import wintypes
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateFileW.restype = wintypes.HANDLE
+    k32.CreateFileW.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                                wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE)
+    k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    generic_read, no_sharing, open_existing = 0x80000000, 0, 3
+    handle = k32.CreateFileW(target, generic_read, no_sharing, None, open_existing, 0x80, None)
+    if handle in (None, ctypes.c_void_p(-1).value):
+        return 1 if ctypes.get_last_error() == 32 else 0      # ERROR_SHARING_VIOLATION
+    k32.CloseHandle(handle)
+    return 0
+
+
+def point_pathname_at(path: Path, attacker: Path) -> None:
+    """Replace a verified pathname with the attacker's real file inode.
+
+    A hard link exercises the same open-descriptor boundary on Windows hosts
+    without the privilege required to create a symbolic link.
+    """
+    try:
+        path.symlink_to(attacker)
+    except OSError as exc:
+        if os.name != "nt" or getattr(exc, "winerror", None) != 1314:
+            raise
+        os.link(attacker, path)
+    assert path.samefile(attacker), "the pathname must refer to the attacker's file"
 
 
 # --------------------------------------------------------------------------
@@ -112,7 +168,7 @@ async def test_verified_media_body_survives_pathname_replacement(tmp_path, attac
     if attack == "rewrite":
         path.write_bytes(attacker)
     else:
-        path.symlink_to(elsewhere)
+        point_pathname_at(path, elsewhere)
     assert path.read_bytes() == attacker, "the pathname really was re-pointed"
 
     status, headers, body = await drive(response)
@@ -213,7 +269,7 @@ async def test_export_download_serves_verified_bytes_after_pathname_replacement(
     elsewhere = artifact.with_suffix(".attacker")
     elsewhere.write_bytes(attacker)
     artifact.unlink()
-    artifact.symlink_to(elsewhere)
+    point_pathname_at(artifact, elsewhere)
     assert artifact.read_bytes() == attacker
 
     status, headers, body = await drive(response)
@@ -369,13 +425,13 @@ async def test_repeated_requests_do_not_leak_descriptors(tmp_path, monkeypatch):
         return await drive(descriptor_response(fd, info, range_header=range_header))
 
     await once()                                    # warm caches, imports, pools
-    before = descriptors()
+    before = descriptors(path)
     for _ in range(25):
         status, _, body = await once()
         assert status == 200 and body == original
         assert (await once("bytes=0-3"))[0] == 206
         assert (await once("bytes=99999-"))[0] == 416   # 416 must close it too
-    assert descriptors() <= before + 2, (before, descriptors())
+    assert descriptors(path) <= before, (before, descriptors(path))
 
 
 @pytest.mark.asyncio
@@ -384,13 +440,13 @@ async def test_failed_verification_and_abandoned_handles_leak_nothing(tmp_path, 
     service = studio(tmp_path, item)
     handle, _ = await VideoService.media_file(service, "p", item["id"])
     handle.close()
-    before = descriptors()
+    before = descriptors(path)
     for _ in range(20):
         # A refused read must not keep the descriptor it opened to check.
         with pytest.raises(ValueError):
             await service.media.resolve_for_read({**item, "sha256": "c" * 64})
         (await VideoService.media_file(service, "p", item["id"]))[0].close()
-    assert descriptors() <= before + 2, (before, descriptors())
+    assert descriptors(path) <= before, (before, descriptors(path))
 
 
 @pytest.mark.asyncio
@@ -399,7 +455,7 @@ async def test_body_aborted_by_the_client_still_closes_the_descriptor(tmp_path):
     handle, _ = await VideoService.media_file(studio(tmp_path, item), "p", item["id"])
     fd, info = handle.detach()
     response = descriptor_response(fd, info)
-    before = descriptors()
+    before = descriptors(path)
 
     async def receive():
         await asyncio.Event().wait()
@@ -411,6 +467,6 @@ async def test_body_aborted_by_the_client_still_closes_the_descriptor(tmp_path):
 
     with pytest.raises(ConnectionResetError):
         await response({"type": "http", "method": "GET", "path": "/", "headers": []}, receive, send)
-    assert descriptors() <= before
+    assert descriptors(path) <= before
     with pytest.raises(OSError):
         os.fstat(fd)

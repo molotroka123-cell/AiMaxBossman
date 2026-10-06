@@ -877,6 +877,7 @@ async def web_search(request: Request, body: dict):
         return {"ok": False, "code": "no_backends", "subject": subject,
                 "readiness": sources.readiness(svc), "hits": [],
                 "external_untrusted": True}
+    subject = sources.backend_subject(backend, subject)   # что реально уйдёт backend'у
 
     # Суточный лимит — резерв ДО обращения: узнать заранее, попадём ли мы в кэш,
     # нельзя, а списать «задним числом» уже ушедшие байты невозможно. Перерасход

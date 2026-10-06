@@ -80,6 +80,9 @@ _MAX_FILE_BYTES = 8 * 1024 * 1024        # per CHANGED file; unchanged files are
 _MAX_CHANGED_BYTES = 32 * 1024 * 1024
 # Owner's Bossman repo (2026-09-23): 3,523 tracked files, 74.1 MB — well inside.
 _MAX_SNAPSHOT_FILES = 10000
+#: Every git call on the sidecar-touched workspace is bounded: a stalled git (a
+#: filesystem/AV stall, a lock) must fail the run, not hang the verifier forever.
+GIT_TIMEOUT_S = 120
 
 
 @contextmanager
@@ -312,15 +315,19 @@ def _command_digest(path: Path) -> str:
 
 
 def _git(workspace: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", "-C", str(workspace), *args],
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(workspace), *args],
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=GIT_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise OpenHandsError(f"git {' '.join(args)} timed out after {GIT_TIMEOUT_S}s") from exc
     if proc.returncode:
         raise OpenHandsError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
     return proc.stdout
@@ -419,11 +426,14 @@ def _ignored_untracked(workspace: Path, untracked: Sequence[str]) -> set[str]:
     only when they were not touched by the run (the caller checks that)."""
     if not untracked:
         return set()
-    proc = subprocess.run(
-        ["git", "-C", str(workspace), "-c", "core.excludesFile=", "check-ignore", "--no-index",
-         "--stdin", "-z"],
-        input="\0".join(untracked) + "\0", text=True, encoding="utf-8", errors="replace",
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(workspace), "-c", "core.excludesFile=", "check-ignore", "--no-index",
+             "--stdin", "-z"],
+            input="\0".join(untracked) + "\0", text=True, encoding="utf-8", errors="replace",
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=GIT_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        return set()                              # same as any other failure: do not filter
     if proc.returncode not in (0, 1):          # 1 = nothing ignored; anything else: do not filter
         return set()
     return {p.replace("\\", "/") for p in proc.stdout.split("\0") if p}
@@ -452,10 +462,13 @@ def _filtered_blob_ids(workspace: Path, rels: Sequence[str]) -> dict[str, str]:
     hashing, which can only over-report, never hide."""
     if not rels:
         return {}
-    proc = subprocess.run(
-        ["git", "-C", str(workspace), "hash-object", "--stdin-paths"],
-        input="\n".join(rels) + "\n", text=True, encoding="utf-8", errors="replace",
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(workspace), "hash-object", "--stdin-paths"],
+            input="\n".join(rels) + "\n", text=True, encoding="utf-8", errors="replace",
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=GIT_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        return {}                                 # caller falls back to raw hashing
     if proc.returncode:
         return {}
     ids = proc.stdout.split()
@@ -724,6 +737,24 @@ class OpenHandsClient:
         if not isinstance(response, dict) or response.get("schema") != "bossman.openhands.v1" or response.get("status") not in {"completed", "failed"}:
             raise OpenHandsError("OpenHands sidecar returned an invalid response contract")
 
+        # Standard tool caches (pytest/ruff/mypy/pyc) are never reviewable
+        # content: the agent may legitimately run tests, and the cache it
+        # leaves behind is git-ignored noise that would otherwise look like a
+        # hidden change and refuse the whole run. Prune before evidence.
+        import shutil as _shutil
+        for cache_dir in (".pytest_cache", ".ruff_cache", ".mypy_cache"):
+            _shutil.rmtree(workspace / cache_dir, ignore_errors=True)
+        for pyc in workspace.rglob("__pycache__"):
+            _shutil.rmtree(pyc, ignore_errors=True)
+        # Literal "%SystemDrive%\..." trees are unexpanded-variable garbage the
+        # agent can produce in bash; they are never legitimate repo content.
+        for entry in list(workspace.iterdir()):
+            if "%SystemDrive%" in entry.name or entry.name.startswith("%"):
+                if entry.is_dir():
+                    _shutil.rmtree(entry, ignore_errors=True)
+                else:
+                    entry.unlink(missing_ok=True)
+
         head_after = _git(workspace, "rev-parse", "HEAD").strip()
         if head_after != head_before:
             raise OpenHandsError("OpenHands may not commit/reset/rewrite sandbox HEAD")
@@ -756,5 +787,9 @@ class OpenHandsClient:
         diff = _snapshot_diff(before_evidence, after_evidence, changed)
         if proc.returncode and response.get("status") != "failed":
             raise OpenHandsError(f"OpenHands sidecar exited {proc.returncode} without failed status")
+        if response.get("status") == "failed" and proc.stderr:
+            # Owner-visible bounded diagnostic: the sidecar suppresses secret-bearing
+            # detail on stdout; a bounded stderr tail names the real failure class.
+            response["stderr_tail"] = (proc.stderr or "")[-500:]
         return OpenHandsResult(str(response["status"]), changed, diff, response,
                                MappingProxyType(after_evidence))

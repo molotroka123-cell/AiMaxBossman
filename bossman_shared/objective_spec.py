@@ -49,7 +49,13 @@ def _validate(raw: dict) -> None:
     _number(raw["expires_at"], "expires_at", positive=True)
     _number(raw["priority"], "priority", integer=True)
     _number(raw["cooldown_seconds"], "cooldown_seconds")
-    for name in ("permission_refs", "conflict_keys", "stop_conditions", "allowed_triggers"):
+    # Observer-only drafts legitimately carry no permissions or exclusive
+    # resource claims. The UI documents an empty permission list as no
+    # authority beyond observation; keep the operational cadence/stop lists
+    # nonempty so an objective always has a trigger and a terminal guard.
+    for name in ("permission_refs", "conflict_keys"):
+        _strings(raw[name], name)
+    for name in ("stop_conditions", "allowed_triggers"):
         _strings(raw[name], name, nonempty=True)
     if not set(raw["allowed_triggers"]) <= {"source_change", "scheduled", "owner_request"}:
         _fail("unsupported trigger")

@@ -934,11 +934,12 @@ async def stop_app(app_id: str, data_dir: Path | None = None, *, svc=None) -> di
         code = rec.proc.poll()
         if code is None:
             return {"ok": False, "app_id": app_id, "stopped": False, "owned": True,
-                    "pid": pid, "port": port, "message": "process did not stop; refresh state and retry stop"}
+                    "pid": pid, "port": port, "message": "Процесс не остановился: обновите состояние и нажмите «Остановить» ещё раз."}
         _forget(rec, data_dir)
         return {"ok": True, "app_id": app_id, "stopped": True, "owned": True,
                 "pid": pid, "port": port, "signal": signal_used, "exit_code": code,
-                "message": f"{card['name']} остановлено ({signal_used})"}
+                "message": f"{card['name']} остановлено "
+                           f"({'штатно' if signal_used == 'terminate' else 'принудительно'})"}
 
 
 def process_info(app_id: str, data_dir: Path) -> dict[str, Any]:

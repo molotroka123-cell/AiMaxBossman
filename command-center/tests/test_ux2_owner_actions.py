@@ -17,6 +17,7 @@ import sqlalchemy as sa
 
 from bcc.db import (agents as agents_t, approvals as approvals_t, task_runs as runs_t,
                     tasks as tasks_t, utcnow)
+from bcc.v2.tables import terminal_sessions as terminal_t
 
 from .browser_support import chromium_available, reason as browser_reason
 from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
@@ -36,6 +37,45 @@ def _row(srv, table, row_id: int) -> dict:
             r = res.first()
             return dict(r._mapping) if r else {}
     return _call(srv, go)
+
+
+def test_terminal_ask_uses_recorded_owner_approval_in_browser(live):
+    """A real UI click must approve the returned record before starting a command."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        _login(page, live)
+        page.goto(live.url + "/#/terminal", wait_until="domcontentloaded")
+        page.get_by_role("button", name="В проекте").click()
+        page.locator("button.on", has_text="В проекте").wait_for(timeout=10000)
+        page.locator("textarea[placeholder='git status']").fill("echo UX011_APPROVED")
+        page.get_by_role("button", name="Проверить").click()
+        page.get_by_text("Спросит подтверждение").wait_for(timeout=10000)
+        page.get_by_role("button", name="Запустить", exact=True).click()
+        page.locator(".modal").wait_for(timeout=15000)
+        assert "Нужно ваше подтверждение" in page.locator(".modal h2").inner_text()
+
+        async def pending():
+            async with live.svc.db.session() as s:
+                rows = (await s.execute(sa.select(approvals_t).where(
+                    approvals_t.c.kind == "terminal", approvals_t.c.status == "pending"))).fetchall()
+                return [dict(row._mapping) for row in rows]
+        approvals = _call(live, pending)
+        assert len(approvals) == 1
+        aid = approvals[0]["id"]
+        assert "UX011_APPROVED" in approvals[0]["preview"]
+        page.locator(".modal").get_by_role("button", name="Разрешить запуск").click()
+        _wait_row(live, approvals_t, aid, lambda row: row.get("status") == "consumed",
+                  "terminal approval consumed")
+
+        async def sessions():
+            async with live.svc.db.session() as s:
+                rows = (await s.execute(sa.select(terminal_t))).fetchall()
+                return [dict(row._mapping) for row in rows]
+        assert any("UX011_APPROVED" in row["command"] for row in _call(live, sessions))
+        browser.close()
 
 
 def _wait_row(srv, table, row_id: int, predicate, what: str, timeout: float = 15.0) -> dict:
@@ -135,12 +175,14 @@ def test_owner_run_without_executor_is_blocked_and_recoverable(live):  # noqa: F
     from playwright.sync_api import sync_playwright
 
     errors: list[str] = []
+    warnings: list[str] = []
     task_id = _new_task(live, "Действие владельца · без исполнителя")
 
     with sync_playwright() as pw:
         browser = _launch(pw)
         page = browser.new_page(viewport={"width": 1440, "height": 900})
-        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        page.on("console", lambda m: errors.append(m.text) if m.type == "error"
+                else (warnings.append(m.text) if m.type == "warning" else None))
         page.on("pageerror", lambda e: errors.append(str(e)))
         _login(page, live)
         page.goto(live.url + "/#/tasks", wait_until="domcontentloaded")
@@ -173,12 +215,10 @@ def test_owner_run_without_executor_is_blocked_and_recoverable(live):  # noqa: F
         assert _call(live, lambda: _runs_of(live, task_id)), "прогон не создан"
         browser.close()
 
-    # Отказ движка ДОЛЖЕН быть слышен: toastError печатает причину в консоль.
-    # Это ожидаемое сообщение отказа, а не сбой страницы, поэтому из проверки
-    # «посторонних ошибок нет» исключается ровно оно и ничто другое.
-    unexpected = [e for e in errors if "Исполнитель не выбран или недоступен" not in e]
-    assert unexpected == [], unexpected
-    assert any("Исполнитель не выбран или недоступен" in e for e in errors), \
+    # Отказ движка ДОЛЖЕН быть слышен: toastError печатает причину в консоль. С UX-07 честный отказ 4xx идёт
+    # в console.warn (след остаётся), а console.error остаётся для сбоев программы: отказ — не «ошибка страницы».
+    assert errors == [], errors
+    assert any("Исполнитель не выбран или недоступен" in w for w in warnings), \
         "владелец не получил причину отказа"
 
 
@@ -236,6 +276,59 @@ def test_owner_approval_decisions_are_durable_and_single_use(live):  # noqa: F81
                                                           preview="ls ./artifacts")) is False
     # и подтверждение одного действия не годится для другого
     assert _row(live, approvals_t, allow_id)["status"] == "consumed"
+    assert errors == [], errors
+
+
+def test_terminal_ui_consumes_owner_approval_for_the_exact_command(live):  # noqa: F811
+    """An ASK command must run only after the UI decides its real approval row."""
+    from playwright.sync_api import sync_playwright
+    from bcc.v2.tables import terminal_sessions
+
+    command = "echo BOSSMAN_UX_011"
+
+    async def rows(table, predicate):
+        async with live.svc.db.session() as s:
+            result = await s.execute(sa.select(table).where(predicate))
+            return [dict(row._mapping) for row in result.fetchall()]
+
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        errors = []
+        run_requests = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.on("console", lambda message: errors.append(message.text) if message.type == "error" else None)
+        page.on("request", lambda request: run_requests.append(request)
+                if request.url.endswith("/api/terminal/run") else None)
+        _login(page, live)
+        page.goto(live.url + "/#/terminal", wait_until="domcontentloaded")
+        page.get_by_role("button", name="С правами системы").click()
+        page.get_by_role("textbox", name="Команда").fill(command)
+        with page.expect_response(lambda response: response.url.endswith("/api/terminal/run")) as first_run:
+            # A rapid double click must not create two approvals or two shells.
+            page.get_by_role("button", name="Запустить", exact=True).evaluate(
+                "button => { button.click(); button.click(); }")
+        first = first_run.value
+        assert first.status == 202, first.text()
+        assert first.json()["error"]["approval_id"] > 0
+
+        dialog = page.get_by_role("dialog")
+        dialog.wait_for(timeout=10000)
+        assert dialog.get_by_text("Нужно ваше подтверждение").is_visible()
+        pending = _call(live, lambda: rows(approvals_t, approvals_t.c.preview.like(f"%{command}%")))
+        assert len(pending) == 1 and pending[0]["status"] == "pending"
+        assert _call(live, lambda: rows(terminal_sessions, terminal_sessions.c.command == command)) == []
+
+        dialog.get_by_role("button", name="Разрешить и запустить").click()
+        page.get_by_text("Команда запущена").wait_for(timeout=15000)
+        approved = _wait_row(live, approvals_t, pending[0]["id"],
+                             lambda row: row.get("status") == "consumed",
+                             "Terminal did not consume the approved row")
+        sessions = _call(live, lambda: rows(terminal_sessions, terminal_sessions.c.command == command))
+        assert approved["decided_by"] == "ui"
+        assert len(sessions) == 1 and sessions[0]["mode"] == "system_admin"
+        assert len(run_requests) == 2  # one ASK, one exact approval consumption
+        browser.close()
     assert errors == [], errors
 
 

@@ -522,3 +522,22 @@ def test_a2_04_the_source_reaches_a_two_argument_gate_verbatim(tmp_path):
                        access_check=lambda d, s: seen.append((d, s)))
     mgr.create_task("посмотреть экран", source="core:rcd_x", owner_device_id="dev_x")
     assert seen == [("dev_x", "core:rcd_x")]
+
+
+# ---------- Security audit 2026-10-05: the WS path filters event kinds by scope like SSE ----------
+
+@pytest.mark.parametrize("scopes,kind,allowed", [
+    ({SCOPE_EVENTS}, "approval.created", False),
+    ({SCOPE_EVENTS}, "agent.updated", False),
+    ({SCOPE_CHAT, SCOPE_EVENTS}, "task.created", True),
+    ({SCOPE_CHAT, SCOPE_EVENTS}, "approval.created", False),
+    ({SCOPE_APPROVE, SCOPE_EVENTS}, "approval.created", True),
+])
+def test_ws_events_apply_the_per_kind_scope_filter(scopes, kind, allowed):
+    principal = Principal(device_id="d1", scopes=frozenset(scopes), name="phone")
+    assert api._ws_event_allowed(json.dumps({"kind": kind, "preview": "secret"}), principal) is allowed
+
+
+def test_ws_events_unparseable_message_is_admin_only():
+    assert api._ws_event_allowed("not json", Principal(device_id="d1", scopes=frozenset({SCOPE_CHAT, SCOPE_EVENTS}),
+                                                         name="phone")) is False

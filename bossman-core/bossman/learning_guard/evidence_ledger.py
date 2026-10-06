@@ -54,12 +54,32 @@ def _plain(value: Any) -> Any:
     return repr(value)
 
 
+#: What a measurement IS. Everything else on an ABResult (token counts, the
+#: audit-only self score) and the caller-declared ``shadow_runs`` count is not
+#: evidence: when it was part of the key, re-presenting the same A/B with
+#: ``shadow_runs=21`` or a tweaked token count minted a fresh key and the spent
+#: measurement promoted a second candidate.
+_AB_IDENTITY = ("task_id", "task_class", "raw_verified", "guarded_verified", "scope_ref")
+_SNAPSHOT_IDENTITY = ("leaks", "bypasses", "containment_rate", "scope_ref")
+
+
+def _identity(value: Any, fields: tuple[str, ...]) -> Any:
+    plain = _plain(value)
+    if isinstance(plain, dict):
+        return {k: plain.get(k) for k in fields}
+    return plain
+
+
 def evidence_key(ab_results: Iterable[Any], security_before: Any, security_after: Any,
-                 shadow_runs: int) -> str:
-    """Opaque digest of one measurement. Order of the A/B rows does not matter."""
-    rows = sorted(json.dumps(_plain(r), sort_keys=True, ensure_ascii=True) for r in ab_results)
-    blob = json.dumps({"ab": rows, "before": _plain(security_before), "after": _plain(security_after),
-                       "shadow_runs": int(shadow_runs)}, sort_keys=True, ensure_ascii=True)
+                 shadow_runs: int = 0) -> str:
+    """Opaque digest of one measurement, from its identity fields only. Order of the
+    A/B rows does not matter and a duplicated row adds nothing (a set).
+    ``shadow_runs`` is accepted for call compatibility and deliberately ignored."""
+    rows = sorted({json.dumps(_identity(r, _AB_IDENTITY), sort_keys=True, ensure_ascii=True)
+                   for r in ab_results})
+    blob = json.dumps({"ab": rows, "before": _identity(security_before, _SNAPSHOT_IDENTITY),
+                       "after": _identity(security_after, _SNAPSHOT_IDENTITY)},
+                      sort_keys=True, ensure_ascii=True)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 

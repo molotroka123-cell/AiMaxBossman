@@ -25,7 +25,7 @@ import pytest
 
 from bossman_v3.computer_agent.agent import UniversalComputerAgent
 from bossman_v3.contracts import (ApprovalDecision, ExecutionReceipt, Observation, PolicyDecision, SideEffectClass,
-                                  TypedAction, VerificationResult)
+                                  TypedAction, VerificationResult, utcnow_after)
 from bossman_v3.execution import PlanStep
 from bossman_v3.fleet import (CLOUD, FleetControlPlane, FleetExecutionBridge, FlightState, LocalNodeTransport,
                               NodeState, NodeStatus)
@@ -80,8 +80,12 @@ class _Executor:
 class _Observer:
     def __init__(self, w): self.w = w
     def observe_fresh(self, action, receipt):
-        return Observation(datetime.now(timezone.utc), "fs",
-                           {"exists": (self.w.root / str(action.args["name"])).exists()})
+        # Как настоящий наблюдатель: читать только после того, как часы ушли за начало
+        # исполнения — иначе на Windows (тик часов до 15.6 мс) запись и наблюдение
+        # попадают в одно показание, и ActionReceipt.fresh() честно отказывает.
+        utcnow_after(receipt.started_at)
+        exists = (self.w.root / str(action.args["name"])).exists()
+        return Observation(datetime.now(timezone.utc), "fs", {"exists": exists})
 
 
 class _Verifier:

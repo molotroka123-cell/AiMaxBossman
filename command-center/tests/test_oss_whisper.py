@@ -76,14 +76,14 @@ def test_invalid_or_unbounded_audio_never_loads_model(audio, monkeypatch, model_
 
 def test_truncated_recording_fails_before_native_decoder(monkeypatch, model_dir):
     observed = engine(monkeypatch)
-    with pytest.raises(whisper.WhisperError, match="truncated"):
+    with pytest.raises(whisper.WhisperError, match="обрезана"):
         whisper.transcribe_audio(recording()[:-4])
     assert "init" not in observed
 
 
 def test_byte_limit(monkeypatch):
     monkeypatch.setattr(whisper, "MAX_AUDIO_BYTES", 8)
-    with pytest.raises(whisper.WhisperError, match="32 MiB"):
+    with pytest.raises(whisper.WhisperError, match="32 МиБ"):
         whisper.transcribe_audio(recording())
 
 
@@ -106,8 +106,18 @@ def test_status_does_not_import_or_claim_verified_inference(monkeypatch, model_d
 
 def test_hub_id_cannot_trigger_model_download(monkeypatch):
     monkeypatch.setenv("BOSSMAN_WHISPER_MODEL_PATH", "Systran/faster-whisper-small")
-    with pytest.raises(whisper.WhisperError, match="absolute local"):
+    with pytest.raises(whisper.WhisperError, match="абсолютным путём"):
         whisper.transcribe_audio(recording())
+
+
+def test_installed_windows_model_is_discovered_without_task_environment(monkeypatch, tmp_path):
+    model = tmp_path / "Bossman" / "tool-cache" / "whisper-base-multilingual"
+    model.mkdir(parents=True)
+    for filename in ("model.bin", "tokenizer.json", "config.json"):
+        (model / filename).write_bytes(b"test fixture")
+    monkeypatch.delenv("BOSSMAN_WHISPER_MODEL_PATH", raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    assert whisper._model_directory() == model.resolve()
 
 
 def test_engine_failure_redacted_and_releases_work_slot(monkeypatch, model_dir):
@@ -122,7 +132,7 @@ def test_engine_failure_redacted_and_releases_work_slot(monkeypatch, model_dir):
 def test_parallel_request_is_rejected_without_loading(monkeypatch, model_dir):
     observed = engine(monkeypatch)
     with whisper._work_lock:
-        with pytest.raises(whisper.WhisperError, match="busy"):
+        with pytest.raises(whisper.WhisperError, match="занято"):
             whisper.transcribe_audio(recording())
     assert "init" not in observed
 
@@ -130,14 +140,14 @@ def test_parallel_request_is_rejected_without_loading(monkeypatch, model_dir):
 @pytest.mark.parametrize("timing", [(float("nan"), 1), (0, 400), (-1, 0)])
 def test_invalid_model_timestamp_is_rejected(monkeypatch, model_dir, timing):
     engine(monkeypatch, timing=timing)
-    with pytest.raises(whisper.WhisperError, match="timing"):
+    with pytest.raises(whisper.WhisperError, match="метки времени"):
         whisper.transcribe_audio(recording())
 
 
 @pytest.mark.parametrize("language", ["../../secret", "RU", None, ""])
 def test_invalid_language(monkeypatch, model_dir, language):
     observed = engine(monkeypatch)
-    with pytest.raises(whisper.WhisperError, match="language"):
+    with pytest.raises(whisper.WhisperError, match="Язык"):
         whisper.transcribe_audio(recording(), language=language)
     assert "init" not in observed
 

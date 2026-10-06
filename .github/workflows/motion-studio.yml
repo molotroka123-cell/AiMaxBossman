@@ -1,0 +1,39 @@
+name: motion studio (1.8 candidate)
+
+# Motion Studio's renderers need numpy + Pillow; root-ci installs neither on
+# purpose, so tests/test_motion_*.py skip there with a reason and run for real here.
+on:
+  push:
+    branches: ["feat/bossman-1.8-**"]
+    paths:
+      - 'tools/motion_studio/**'
+      - 'tests/test_motion_*.py'
+      - '.github/workflows/motion-studio.yml'
+  pull_request:
+    paths:
+      - 'tools/motion_studio/**'
+      - 'tests/test_motion_*.py'
+      - '.github/workflows/motion-studio.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  motion-tests:
+    name: motion studio pytest (numpy + Pillow)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install (exact versions)
+        run: |
+          sudo apt-get install -y --no-install-recommends fonts-dejavu-core
+          python -m pip install --quiet numpy==2.5.3 pillow==12.3.0 pytest==9.1.1
+      - name: Motion Studio tests
+        run: python -m pytest -q tests/test_motion_studio.py tests/test_motion_epic.py

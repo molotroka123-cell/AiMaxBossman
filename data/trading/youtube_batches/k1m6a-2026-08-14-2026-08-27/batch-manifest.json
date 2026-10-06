@@ -1,0 +1,175 @@
+{
+  "schema": "bossman.youtube-batch/1",
+  "source": {
+    "channel": "https://www.youtube.com/@k1m6a/streams",
+    "start": "2026-08-14",
+    "end": "2026-08-27"
+  },
+  "trust": "PUBLIC_UNTRUSTED_TEACHER",
+  "promotion": "QUARANTINE_ONLY",
+  "weights_changed": false,
+  "videos": [
+    {
+      "video_id": "DpdkIm_q344",
+      "url": "https://www.youtube.com/watch?v=DpdkIm_q344",
+      "upload_date": "2026-08-15",
+      "title": "Liquania's Got Talent Listening Party with Housty! #bitcoin #crypto #marketanalysis",
+      "duration": 4007,
+      "channel": "K1m6a",
+      "channel_id": "UC2KGf4oWao2NMOnIA88ZwJQ",
+      "availability": "public",
+      "learning_status": "UNVERIFIED",
+      "ingest": {
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "video_id": "gLIoP27_MQ4",
+      "url": "https://www.youtube.com/watch?v=gLIoP27_MQ4",
+      "upload_date": "2026-08-17",
+      "title": "Market Open with Mandalo! Day 121 #bitcoin #crypto #marketanalysis",
+      "duration": 11505,
+      "channel": "K1m6a",
+      "channel_id": "UC2KGf4oWao2NMOnIA88ZwJQ",
+      "availability": "public",
+      "learning_status": "UNVERIFIED",
+      "ingest": {
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "video_id": "DVFSfO5Cudg",
+      "url": "https://www.youtube.com/watch?v=DVFSfO5Cudg",
+      "upload_date": "2026-08-19",
+      "title": "Liquania's Got Talent Listening Party with Housty! #bitcoin #crypto #marketanalysis",
+      "duration": 4052,
+      "channel": "K1m6a",
+      "channel_id": "UC2KGf4oWao2NMOnIA88ZwJQ",
+      "availability": "public",
+      "learning_status": "UNVERIFIED",
+      "ingest": {
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "video_id": "irmLreaAK4A",
+      "url": "https://www.youtube.com/watch?v=irmLreaAK4A",
+      "upload_date": "2026-08-19",
+      "title": "Market Open with Mandalo! Day 122 #bitcoin #crypto #marketanalysis",
+      "duration": 14664,
+      "channel": "K1m6a",
+      "channel_id": "UC2KGf4oWao2NMOnIA88ZwJQ",
+      "availability": "public",
+      "learning_status": "UNVERIFIED",
+      "ingest": {
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "video_id": "1C6x8RUQ684",
+      "url": "https://www.youtube.com/watch?v=1C6x8RUQ684",
+      "upload_date": "2026-08-20",
+      "title": "Market Close with Mandalo! Day 123 #bitcoin #crypto #marketanalysis",
+      "duration": 8423,
+      "channel": "K1m6a",
+      "channel_id": "UC2KGf4oWao2NMOnIA88ZwJQ",
+      "availability": "public",
+      "learning_status": "UNVERIFIED",
+      "ingest": {
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "video_id": "6pYfEfZof3c",
+      "url": "https://www.youtube.com/watch?v=6pYfEfZof3c",
+      "upload_date": "2026-08-22",
+      "title": "Market Open with Mandalo! Day 124 #bitcoin #crypto #marketanalysis",
+      "duration": 6315,
+      "channel": "K1m6a",
+      "channel_id": "UC2KGf4oWao2NMOnIA88ZwJQ",
+      "availability": "public",
+      "learning_status": "UNVERIFIED",
+      "ingest": {
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "video_id": "mwSeZuZGkPA",
+      "url": "https://www.youtube.com/watch?v=mwSeZuZGkPA",
+      "upload_date": "2026-08-22",
+      "title": "Liquania's Got Talent Listening Party with Housty! #bitcoin #crypto #marketanalysis",
+      "duration": 4095,
+      "channel": "K1m6a",
+      "channel_id": "UC2KGf4oWao2NMOnIA88ZwJQ",
+      "availability": "public",
+      "learning_status": "UNVERIFIED",
+      "ingest": {
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "video_id": "syd-0nf8by0",
+      "url": "https://www.youtube.com/watch?v=syd-0nf8by0",
+      "upload_date": "2026-08-24",
+      "title": "Market Open with Mandalo! Day 125 #bitcoin #crypto #marketanalysis",
+      "duration": 11230,
+      "channel": "K1m6a",
+      "channel_id": "UC2KGf4oWao2NMOnIA88ZwJQ",
+      "availability": "public",
+      "learning_status": "UNVERIFIED",
+      "ingest": {
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "video_id": "FFLjFUT9shc",
+      "url": "https://www.youtube.com/watch?v=FFLjFUT9shc",
+      "upload_date": "2026-08-26",
+      "title": "Market Open with Mandalo! Day 126 #bitcoin #crypto #marketanalysis",
+      "duration": 11210,
+      "channel": "K1m6a",
+      "channel_id": "UC2KGf4oWao2NMOnIA88ZwJQ",
+      "availability": "public",
+      "learning_status": "UNVERIFIED",
+      "ingest": {
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "video_id": "kySI4Lf38rw",
+      "url": "https://www.youtube.com/watch?v=kySI4Lf38rw",
+      "upload_date": "2026-08-26",
+      "title": "Liquania's Got Talent Listening Party with Housty! #bitcoin #crypto #marketanalysis",
+      "duration": 4434,
+      "channel": "K1m6a",
+      "channel_id": "UC2KGf4oWao2NMOnIA88ZwJQ",
+      "availability": "public",
+      "learning_status": "UNVERIFIED",
+      "ingest": {
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "video_id": "AD1t15oc7tk",
+      "url": "https://www.youtube.com/watch?v=AD1t15oc7tk",
+      "upload_date": "2026-08-27",
+      "title": "Market Close with Mandalo! Day 127 #bitcoin #crypto #marketanalysis",
+      "duration": 7958,
+      "channel": "K1m6a",
+      "channel_id": "UC2KGf4oWao2NMOnIA88ZwJQ",
+      "availability": "public",
+      "learning_status": "UNVERIFIED",
+      "ingest": {
+        "status": "NOT_RUN"
+      }
+    }
+  ],
+  "summary": {
+    "discovered": 11,
+    "ingested_pass": 0,
+    "failed": 0,
+    "duplicates": 0,
+    "independent_episodes": 11,
+    "not_run": 11
+  }
+}

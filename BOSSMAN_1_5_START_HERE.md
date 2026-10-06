@@ -1,8 +1,11 @@
 # Bossman 1.5 — начать здесь
 
-Дата решения владельца: 2026-09-23. **Статус пакета: SPECIFICATION / NOT IMPLEMENTATION / NOT CERTIFICATION.**
+Дата решения владельца: 2026-09-23; обновление реализации: 2026-09-24.
 
-Единственная целевая ветка: `release/bossman-owner`. Не создавать вторую final-ветку или второй Bossman. Этот пакет добавляет требования и порядок сведения; сам по себе не включает автономию, не устанавливает модели, не звонит, не покупает и не объявляет код принятым.
+**Статус: CODE_COMPLETE / FROZEN FOR OWNER RUN / OWNER LIVE ACCEPTANCE PENDING.**
+
+Каноническая ветка 1.5: `feat/bossman-1.5-economy-orchestrator-20260924`.
+Bossman 1.0 остаётся отдельной release-линей до своего freeze/tag. Не переносить 1.5 feature-коммиты в 1.0 ради удобства.
 
 ## Что хочет владелец
 
@@ -10,11 +13,22 @@
 
 Подтверждённые направления: `LOCAL_UNRESTRICTED`, `AUTO_BUILD`, `AUTO_OPERATE`, `OWNER_BOUNDARY`. Свобода ответа модели и разрешение процесса совершить действие — разные механизмы. Не заменять технические границы слоганом «без ограничений». Нельзя гарантировать решение любой задачи или отсутствие всех отказов у любых весов.
 
-## Два последовательных результата
+## Что уже является продуктом 1.5
 
-**A. Свести сегодняшнюю работу.** Прочитать [мастер-промпт](docs/v1.5/CLAUDE_MERGE_MASTER.md) и [порядок слияния](docs/v1.5/MERGE_TODAY.md). Использовать существующую owner/fix-линию как место интеграции, сохранить этот пакет, проверить один кандидат и перенести его в `release/bossman-owner` только после обязательных gates. `main` не менять.
+- persistent autonomy kernel: роли, skill/memory refs, operating graph и cost/quality resource routing;
+- free-first economy orchestration;
+- runtime code-failure → durable repair inbox;
+- isolated local repair candidate branches;
+- executable-test requirement before coding worker can claim DONE;
+- scientific promotion gate with verifier + security non-regression + unseen transfer;
+- Telegram missing-form-data loop → browser runtime fill;
+- unified **Bossman 1.5** Command Center page;
+- unified `Bossman-1.5.cmd start|status|stop`;
+- Twitch OI/CVD verified collector + Telegram;
+- YouTube trading-learning ingestion with anti-lookahead and quarantine;
+- provider-pool onboarding that forbids automatic signup/quota evasion.
 
-**B. Реализовывать 1.5 из общей базы.** [Архитектура](docs/v1.5/PRODUCT_ARCHITECTURE.md), [права и свободный профиль](docs/v1.5/AUTONOMY_AND_UNRESTRICTED.md), [App/Skill Factory](docs/v1.5/CAPABILITY_FACTORY.md), [голос/звонки](docs/v1.5/VOICE_AND_PHONE.md), [покупки](docs/v1.5/SHOPPING_AND_IDENTITY.md), [интернет/медиа/модели](docs/v1.5/INTERNET_MEDIA_AND_MODELS.md), [приёмка](docs/v1.5/ACCEPTANCE_AND_LEARNING.md).
+Главный контракт: [AUTONOMY_SELF_REPAIR.md](docs/v1.5/AUTONOMY_SELF_REPAIR.md).
 
 ## Проверенный указатель на старт
 
@@ -25,3 +39,68 @@
 Ориентир обучения из owner-run: `SELF_REPAIR_SINGLE_CYCLE_PASS (coached)`; перенос улучшения — `NO_MEASURED_GAIN`. Это исторический результат конкретной конфигурации, не сертификат нового HEAD.
 
 Полный индекс и границы пакета: [docs/v1.5/README.md](docs/v1.5/README.md).
+
+## Завтра: закрытие 1.5
+
+Завтра не начинать новый coding sprint. Сначала выполнить focused 1.5 CI/target tests, затем один owner run:
+
+`Bossman-1.5.cmd quick-test → start → status`
+
+Параллельно должны работать:
+1. self-improvement / runtime self-repair;
+2. YouTube learning/economy;
+3. Twitch verified market collection;
+4. Telegram owner console + missing form inputs.
+
+Затем planted defect → isolated repair candidate → verifier → unseen transfer.
+
+Canonical directive: [docs/owner/CODEX_BOSSMAN_1_5_RUN_20260925.md](docs/owner/CODEX_BOSSMAN_1_5_RUN_20260925.md).
+
+
+## CODE FREEZE
+
+Кодовая линия 1.5 заморожена. Новые фичи до owner-run запрещены. Канонический freeze: [docs/v1.5/BOSSMAN_1_5_CODE_FREEZE_20260925.md](docs/v1.5/BOSSMAN_1_5_CODE_FREEZE_20260925.md).
+
+---
+
+## ОБЯЗАТЕЛЬНЫЙ ПЕРЕХОД 1.5 → 1.6 В ТОМ ЖЕ OWNER-RUN
+
+**Цель одного прогона: закрыть Bossman 1.5 и без отдельного дня сразу перейти к Bossman 1.6.**
+
+Отдельная ветка 1.6:
+[feat/bossman-1.6-secret-intake-20260925](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-secret-intake-20260925)
+
+Переход разрешён при полном закрытии 1.5 или при состоянии **V1_5_NEAR_COMPLETE**:
+- software P0 = 0;
+- release-blocking P1 по коду = 0;
+- targeted/regression/hidden tests зелёные либо остаток относится только к soak/owner-live/внешней среде;
+- canonical 1.5 SHA зафиксирован;
+- оставшиеся OWNER_REQUIRED пункты перечислены и не требуют новой архитектуры.
+
+При достижении этого состояния координатор не ждёт нового дня:
+1. фиксирует checkpoint 1.5;
+2. оставляет длительные 1.5 soak/owner-live проверки идти отдельно;
+3. сразу переключает рабочий поток на ветку 1.6;
+4. закрывает 1.6 security/owner scenarios в этом же owner-run;
+5. в финале отдельно показывает статусы и evidence 1.5 и 1.6.
+
+Aster после перехода остаётся координатором и независимым аудитором, а не массовым кодером. Codex/Claude не должны снова становиться bulk-исполнителями: основная работа идёт через Bossman, local/free/дешёвые workers и политику экономии 1.5.
+
+Финальная цель одного owner-run:
+`BOSSMAN_1_5_CLOSED -> BOSSMAN_1_6_CLOSED -> SELF_IMPROVEMENT_WITHOUT_PRIMARY_ASTER_CLAUDE_DEPENDENCY`.
+
+---
+
+## Immediate handoff to Bossman 1.6
+
+As soon as Bossman 1.5 reaches OWNER_READY closure — or only explicitly non-blocking P2 / optional OWNER_REQUIRED items remain — continue the SAME owner run in:
+
+[Bossman 1.6 self-evolution branch](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-self-evolution-20260925)
+
+Start with `BOSSMAN_1_6_START_HERE.md`.
+
+One-run objective:
+
+`BOSSMAN_1_5_OWNER_READY -> 1.6 HANDOFF -> BOSSMAN_SELF_EVOLUTION_RUNNING`
+
+Do not use this handoff to hide an open 1.5 P0 or release-blocking P1. The goal is to close both stages in one continuous owner run whenever the critical 1.5 gates allow it.

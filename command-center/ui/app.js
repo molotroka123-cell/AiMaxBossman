@@ -7,7 +7,7 @@ import { trackVideoProject } from './video_chat.js';
 import { api, ApiError, EventStream, hasSession, clearCsrf, listOf, UNAUTHORIZED_EVENT } from './api.js';
 import {
   h, append, clear, replace, icon, dot, empty, loading, toast, toastError, toastOk,
-  closeTopModal, hasOpenModal, debounce, fmtGb, fmtClock, fmtDuration,
+  closeTopModal, hasOpenModal, closeModalsNotOn, pageOfHash, debounce, fmtGb, fmtClock, fmtDuration,
 } from './components.js';
 import { PAGES, openTaskModal, openAgentModal, openScheduleModal, openModelWizard, stopAllRunning } from './pages.js';
 import { FEATURE_PAGES, preloadFeaturePages } from './pages/index.js';
@@ -84,7 +84,7 @@ const SECTIONS = [
 // Страница, не перечисленная здесь, идёт после перечисленных.
 const MAIN_ORDER = ['home-v3', 'apps', 'missions', 'agents', 'approvals'];
 const SECTION_ORDER = {
-  work: ['mission_console', 'missions', 'builder', 'objectives', 'control'],
+  work: ['capability-tree', 'mission_console', 'missions', 'builder', 'objectives', 'control'],
   studio: ['video-studio', 'web_designer', 'browser', 'coding', 'terminal',
            'images', 'web_research', 'trading_lab', 'bossman-chat'],
   brains: ['agentmap', 'orchestras', 'skills', 'router', 'openrouter', 'benchmarks'],
@@ -132,11 +132,12 @@ function mark(name) {
     performance.mark(name);
   } catch { /* отметка — наблюдатель, не условие работы */ }
 }
-/* V6 §C: код остальных страниц — DEFERRED_SAFE_AFTER_UI_READY. Грузим его в
-   простое после первой отрисовки, по одному модулю, чтобы переходы были
-   мгновенными, а первый кадр — не ждал 28 модулей. Ровно один раз. */
+/* V6 §C: по умолчанию страницы загружаются только при переходе. Полный
+   prefetch всех feature-модулей заметно увеличивал сетевой след холодной
+   главной; его можно включить явно для операторского профиля/диагностики. */
 let preloadScheduled = false;
 function schedulePreload() {
+  if (typeof window !== 'undefined' && window.__bxPreload !== true) return;
   if (preloadScheduled) return;
   preloadScheduled = true;
   const run = () => { preloadFeaturePages().catch(() => {}); };
@@ -234,6 +235,7 @@ function onRoute() {
   const { id, params } = parseHash();
   currentPage = id;
   currentParams = params;
+  closeModalsNotOn(pageOfHash(location.hash));
   setMenu(false);
   syncNav();
   const page = PAGE_BY_ID.get(id);
@@ -681,6 +683,7 @@ document.addEventListener('keydown', (e) => {
 
 function showLogin(message = '') {
   bus.stop();
+  thinking.reset();                 // the owner's process pane never outlives the session
   state.ready = false;
   lastRendered = null;
   el.shell.hidden = true;
@@ -688,6 +691,22 @@ function showLogin(message = '') {
   el.loginError.hidden = !message;
   el.loginError.textContent = message;
   setTimeout(() => el.loginToken.focus(), 40);
+  showTokenFileHint();
+}
+
+// RC19 owner run: the desktop shortcut starts the server without a console, so
+// «токен напечатан в консоли» pointed at nothing. Show where the token FILE is
+// (the path only; the token itself never reaches the page before login).
+async function showTokenFileHint() {
+  const hint = document.getElementById('login-hint');
+  if (!hint) return;
+  try {
+    const info = await api.loginHint();
+    if (info && info.token_file) {
+      hint.textContent = `Токен лежит в файле ${info.token_file}. Откройте его Блокнотом, `
+        + 'скопируйте строку и вставьте сюда (Ctrl+V). Входить нужно один раз — окно запомнит вход.';
+    }
+  } catch { /* keep the default hint */ }
 }
 
 function showShell() {
@@ -720,7 +739,7 @@ el.loginForm.addEventListener('submit', async (e) => {
     clearCsrf();
     el.loginError.hidden = false;
     el.loginError.textContent = err && err.status === 401
-      ? 'Токен не подошёл. Скопируйте его из консоли сервера.'
+      ? 'Токен не подошёл. Скопируйте его целиком из файла token (путь выше).'
       : (err && err.message) || 'Не удалось войти.';
   } finally {
     el.loginSubmit.classList.remove('busy');
@@ -748,6 +767,7 @@ async function boot() {
   mark('bossman:ui_ready');
   bus.start();
   onRoute();
+  maybeOpenEvolutionTree();
 
   /* Тестовый период: плашка и запись действий. Наблюдатель, а не условие
      запуска — его отказ не должен мешать приложению работать. */
@@ -767,9 +787,22 @@ async function boot() {
   loadCounts();
   loadTopStats();
   if (!statsTimer) statsTimer = setInterval(loadTopStats, 30000);
+  if (!evolutionTreeTimer) evolutionTreeTimer = setInterval(maybeOpenEvolutionTree, 5000);
+}
+
+async function maybeOpenEvolutionTree() {
+  try {
+    const data = await api.raw('/api/evolution/status');
+    if (!data || !data.loop_running || currentPage === 'capability-tree') return;
+    const key = `bcc.capability-tree.opened.${data.campaign_id || data.campaign || 'active'}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    navigate('capability-tree');
+  } catch { /* evolution may be absent in older installed builds */ }
 }
 
 let statsTimer = null;
+let evolutionTreeTimer = null;
 
 /* MF-032 / build identity: SHA работающей сборки в оболочке.
    Три состояния, и ни одно из них не молчит:

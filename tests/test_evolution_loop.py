@@ -160,7 +160,7 @@ def test_stop_during_an_attempt_cancels_it_quickly_and_resume_finishes_the_cycle
 def test_attempt_wall_clock_budget_times_out_keeps_evidence_and_moves_on(campaign):
     _repo, make = campaign
     cfg, work = make({"money": [{**GOOD_MONEY, "sleep_seconds": 60}], "price": [GOOD_PRICE]},
-                     max_cycles=2, attempt_minutes=0.03)
+                     max_cycles=2, attempt_minutes=0.1)      # 6 s: the legit 2nd attempt must fit on a slow Windows runner (1.8 s did not)
     state = L.EvolutionLoop(work, cfg).run()
     first, second = state["cycles"]
     assert first["outcome"] == "TIMEOUT" and (work / "cycles" / first["id"] / "attempt" / "attempt.json").is_file()
@@ -289,3 +289,51 @@ def test_recipe_built_from_a_verified_diff_is_executable_grammar(campaign, tmp_p
     except ImportError:
         pytest.skip("bcc not installed here (root CI); the product grammar is checked in command-center tests")
     assert validate_recipe(recipe) == []
+
+
+def test_the_owners_global_stop_file_halts_the_loop_like_its_own_stop(campaign, tmp_path):
+    """`<data dir>/computer/STOP` (`bossman stop --all`) is ONE stop for every loop: the evolution loop honours it too."""
+    _repo, make = campaign
+    data = tmp_path / "owner-data"
+    cfg, work = make({"money": [GOOD_MONEY]}, data_dir=str(data))
+    owner_stop = data / "computer" / "STOP"
+    owner_stop.parent.mkdir(parents=True)
+    owner_stop.write_text("{}", encoding="utf-8")
+    assert L.owner_stop_path(data) == owner_stop and L.owner_stop_path("") is None
+    state = L.EvolutionLoop(work, cfg).run()
+    assert state["status"] == "STOPPED" and state["cycles"] == []
+    assert L.status(work)["owner_stop"] is True and L.status(work)["stop_requested"] is None   # not the campaign's own file
+    owner_stop.unlink()                                                   # the owner resumes where they set it
+    assert L.status(work)["owner_stop"] is False
+    state = L.EvolutionLoop(work, overrides={"max_cycles": 1}).run()
+    assert state["status"] == "COMPLETED" and state["cycles"][0]["outcome"] == "ACCEPTED"
+
+
+def test_recipe_publishing_is_off_by_default_and_needs_an_explicit_owner_flag(campaign, tmp_path):
+    """An accepted candidate must not promote its own memory: a published recipe is VERIFIED retrieval context with no
+    owner approval, so the default is OFF and only `--publish-recipes` turns it on (`--no-recipes` still wins)."""
+    import argparse
+    repo, make = campaign
+    cfg, _work = make({"money": [GOOD_MONEY]})
+    assert cfg.publish_recipes is False and L.LoopConfig(suite="s", repo="r").publish_recipes is False
+    base = {"work": tmp_path / "fresh", "suite": str(repo / "evolution-suite.json"), "repo": str(repo)}
+    off, _ = L.config_from_args(argparse.Namespace(**base))
+    on, _ = L.config_from_args(argparse.Namespace(**base, publish_recipes=True))
+    both, _ = L.config_from_args(argparse.Namespace(**base, publish_recipes=True, no_recipes=True))
+    assert (off.publish_recipes, on.publish_recipes, both.publish_recipes) == (False, True, False)
+
+
+@pytest.mark.parametrize("backend,model,free", [
+    ("bossman_coding", None, True),                       # the owner's local sidecar
+    ("bossman_coding", "worker:openrouter-free", True),
+    ("bossman_coding", "worker:nemotron-ultra-free", True),
+    ("bossman_coding", "worker:glm-flash", False),        # paid: reservation + max_usd apply
+    ("bossman_coding", "worker:nvidia-nim", False),       # credit-based: counted, conservatively
+    ("mock_patch", None, True),
+    ("claude", "claude-x", False),
+])
+def test_only_free_routes_skip_the_loop_budget(backend, model, free):
+    """Security audit 2026-10-05: a paid cloud worker was treated as $0 and bypassed max_usd."""
+    from types import SimpleNamespace
+    fake = SimpleNamespace(config=SimpleNamespace(backend=backend, model=model))
+    assert L.EvolutionLoop.local_cost(fake) is free

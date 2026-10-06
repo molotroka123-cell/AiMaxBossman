@@ -59,6 +59,12 @@ PHASES = ("OBSERVE", "SELECT", "ATTEMPT", "VERIFY", "ACCEPT", "LEARN", "CHECKPOI
 UNREPLAYABLE = ("ATTEMPT", "ACCEPT")
 STATE_FILE, REPORT_FILE, LEASE_FILE = "loop-state.json", "loop-report.json", "loop.lease.json"
 STOP_FILE, PAUSE_FILE, HOLD_MARKER = "STOP", "PAUSE", "HOLDING"
+OWNER_STOP_PARTS = ("computer", "STOP")      # <data dir>/computer/STOP: the owner's global STOP (`stop --all`)
+
+
+def owner_stop_path(data_dir: str | os.PathLike | None) -> Path | None:
+    """The owner's global STOP file inside a Bossman data dir (None when the loop has no data dir)."""
+    return Path(data_dir).joinpath(*OWNER_STOP_PARTS) if data_dir else None
 HOLD_ENV = "BOSSMAN_EVOLUTION_TEST_HOLD_AT"      # test hook: "<cycle index>:<PHASE>"
 MAX_CYCLES_CAP = 200
 BACKENDS = ("bossman_coding", "mock_patch", "local", "claude")
@@ -107,7 +113,10 @@ class LoopConfig:
     attempt_usd: float = 0.5
     poll_seconds: float = 5.0
     allow_mock_lessons: bool = False
-    publish_recipes: bool = True
+    #: A coding recipe is retrieval context that a later task may use WITHOUT the owner's approval (the coding-recipes
+    #: route stores it VERIFIED). Self-improvement must not promote its own memory, so publishing is OFF unless the
+    #: owner asks for it (`--publish-recipes`). An accepted candidate is still recorded as a ref and in the learning store.
+    publish_recipes: bool = False
 
     def validate(self) -> None:
         if self.backend not in BACKENDS:
@@ -360,6 +369,12 @@ class EvolutionLoop:
 
     def local_cost(self) -> bool:
         # Loopback models and the mock cost no $; the product path runs the owner's local sidecar model.
+        # Security audit 2026-10-05: a cloud worker ("worker:<id>") is $0 only when it is a free route
+        # (allowlist ids ending in "-free"); a paid one (glm-flash, nvidia-nim credits) goes through the
+        # loop's per-attempt reservation and max_usd like any priced backend.
+        model = str(self.config.model or "")
+        if self.config.backend == "bossman_coding" and model.startswith("worker:"):
+            return model.removeprefix("worker:").endswith("-free")
         return self.config.backend in ("mock_patch", "local", "bossman_coding")
 
     def test_runner(self):
@@ -518,7 +533,11 @@ class EvolutionLoop:
 
     # ------------------------------------------------------------ controls
     def stop_requested(self) -> bool:
-        return (self.work / STOP_FILE).exists()
+        """The campaign STOP file or the owner's global STOP (`<data dir>/computer/STOP`): one STOP stops every loop."""
+        if (self.work / STOP_FILE).exists():
+            return True
+        owner = owner_stop_path(self.config.data_dir)
+        return bool(owner and owner.exists())
 
     def pause_requested(self) -> bool:
         return (self.work / PAUSE_FILE).exists()
@@ -1096,10 +1115,12 @@ def status(work: Path) -> dict:
     state = _read_json(work / STATE_FILE)
     lease = _read_json(work / LEASE_FILE)
     alive = bool(lease) and process_alive(lease) and lease.get("host") == socket.gethostname()
+    owner = owner_stop_path(((state or {}).get("config") or {}).get("data_dir"))
     out = {"campaign": str(work), "exists": state is not None, "loop_running": alive,
            "lease": {"pid": (lease or {}).get("pid"), "alive": alive, "stale": bool(lease) and not alive,
                      "heartbeat_at": (lease or {}).get("heartbeat_at")},
            "stop_requested": _control(work, STOP_FILE), "pause_requested": _control(work, PAUSE_FILE),
+           "owner_stop": bool(owner and owner.exists()),
            "free_ram_mb": free_ram_mb(), "gpu": "not measured by the loop (see the Command Center metrics page)"}
     if state is None:
         out["status"] = "NO_CAMPAIGN"
@@ -1118,7 +1139,7 @@ def status(work: Path) -> dict:
     verdict = (current or {}).get("verdict") or {}
     lesson = (current or {}).get("lesson") or {}
     out.update({
-        "status": status_value, "halt_reason": state.get("halt_reason"),
+        "status": status_value, "campaign_id": state.get("campaign_id"), "halt_reason": state.get("halt_reason"),
         "backend": state["config"].get("backend"), "model": attempt.get("model") or (state.get("backend_info") or {}).get("model"),
         "model_kind": attempt.get("model_kind") or (state.get("backend_info") or {}).get("model_kind"),
         "cycle": {"index": (current or {}).get("index"), "id": (current or {}).get("id"),
@@ -1236,7 +1257,9 @@ def add_loop_arguments(ap: argparse.ArgumentParser) -> None:
     ap.add_argument("--attempt-usd", type=float)
     ap.add_argument("--poll-seconds", type=float)
     ap.add_argument("--allow-mock-lessons", action="store_true")
-    ap.add_argument("--no-recipes", action="store_true")
+    ap.add_argument("--no-recipes", action="store_true", help="never publish recipes (this is the default)")
+    ap.add_argument("--publish-recipes", action="store_true",
+                    help="OWNER opt-in: publish accepted recipes as retrievable coding recipes (off by default)")
     ap.add_argument("--redo", help="replay ONE cycle whose outcome is UNKNOWN_OUTCOME (explicit owner decision)")
     ap.add_argument("--break-lease", action="store_true", help="take over a lease whose owner looks alive")
 
@@ -1249,7 +1272,7 @@ def config_from_args(args) -> tuple[LoopConfig | None, dict]:
         "min_free_ram_mb", "max_usd", "attempt_usd", "poll_seconds")}
     for flag, key, val in (("no_memory", "use_memory", False), ("add_root", "add_root", True),
                            ("allow_cloud", "allow_cloud", True), ("allow_mock_lessons", "allow_mock_lessons", True),
-                           ("no_recipes", "publish_recipes", False)):
+                           ("publish_recipes", "publish_recipes", True), ("no_recipes", "publish_recipes", False)):
         if getattr(args, flag, False):
             overrides[key] = val
     for key in ("token_file", "data_dir", "mock_script", "test_python"):

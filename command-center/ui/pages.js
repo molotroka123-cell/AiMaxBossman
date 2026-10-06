@@ -14,6 +14,7 @@ import {
 } from './components.js';
 import * as ui from './pages/_ui.js';
 import { telegramPanel } from './pages/telegram_settings.js';
+import { humanKind } from './pages/_shared.js';
 
 /* ============================================================
    Общие помощники
@@ -308,13 +309,14 @@ const HomePage = {
 function activityRow(e) {
   const kind = pick(e, ['kind', 'type'], 'event');
   const data = e.data && typeof e.data === 'object' ? e.data : {};
+  /* UX-11: без JSON.stringify(data) — владельцу не нужен {"enabled":false}; сырой kind — в подсказке. */
   const text = pick(e, ['message', 'text', 'title'])
     || pick(data, ['message', 'title', 'prompt'])
-    || (Object.keys(data).length ? JSON.stringify(data).slice(0, 160) : '');
+    || '';
   return h('div.feed-item',
     h('span.feed-time', fmtClock(pick(e, ['ts', 'created_at']))),
-    h('span.feed-kind', kind),
-    h('span.feed-text', text || '—'));
+    h('span.feed-kind', { title: String(kind) }, humanKind(String(kind))),
+    h('span.feed-text', text ? String(text) : '—'));
 }
 
 function errorBanner(err, ctx) {
@@ -349,13 +351,25 @@ const ModelsPage = {
       `${ui.plural(models.length, 'модель', 'модели', 'моделей')} · `
       + `${ui.plural(providers.length, 'поставщик', 'поставщика', 'поставщиков')}`,
       { actions: [
+        /* UX-01: без моделей кнопка раньше молча возвращалась — клик без реакции.
+           Теперь она выключена и объясняет почему; если проверка не ушла, это видно. */
         ui.btn('Проверить все', async () => {
           if (!models.length) return;
-          await Promise.allSettled(models.map((m) => api.checkModel(pick(m, ['id']))));
-          toastOk('Проверка запущена');
+          const results = await Promise.allSettled(models.map((m) => api.checkModel(pick(m, ['id']))));
+          const failed = results.filter((r) => r.status === 'rejected').length;
+          if (failed) {
+            toast(`Проверка не запустилась у ${failed} из ${models.length}`,
+              { type: 'warn', hint: 'Откройте карточку модели — там причина.' });
+          } else {
+            toastOk('Проверка запущена');
+          }
           ctx.refresh();
-        }, { iconName: 'retry', size: 'sm' }),
+        }, {
+          iconName: 'retry', size: 'sm', disabled: !models.length,
+          title: models.length ? 'Проверить доступность каждой модели' : 'Проверять нечего: моделей ещё нет',
+        }),
         ui.btn('Найти локальные', () => openDiscoveryModal(ctx), { iconName: 'search', size: 'sm' }),
+        ui.btn('Бесплатные облака', () => openFreeProvidersModal(ctx), { iconName: 'plus', size: 'sm' }),
         ui.btn('Добавить модель', () => openModelWizard(ctx), { variant: 'primary', iconName: 'plus', size: 'sm' }),
       ] });
 
@@ -530,6 +544,48 @@ async function openDiscoveryModal(ctx) {
     h('div.stack', epRows),
     h('div.section-title', { style: { margin: '8px 0 0' } }, 'Файлы моделей на диске'),
     fileRows));
+}
+
+// NVIDIA NIM / Groq: ключ проверяется каталогом на бэкенде, модели встают по 0/0 (free tier).
+async function openFreeProvidersModal(ctx) {
+  const modal = openModal({ title: 'Бесплатные облачные модели', wide: true, body: h('div'), footer: h('div') });
+  append(modal.footer, [h('div.spacer'),
+    h('button.btn', { type: 'button', onClick: () => modal.close() }, 'Закрыть')]);
+  let list = [];
+  try { list = listOf(await api.freeProviders(), 'providers'); }
+  catch (err) {
+    append(modal.body, h('div.small', (err && err.message) || 'Не удалось получить список'));
+    return;
+  }
+  const rows = list.map((p) => {
+    const keyEl = input({ type: 'password', placeholder: 'ключ API', class: 'input mono', autocomplete: 'new-password' });
+    const status = h('div.small.dim', p.has_key
+      ? `подключён (${p.key || '…'}), моделей: ${p.models_registered}`
+      : 'не подключён');
+    const connect = async () => {
+      const key = (keyEl.value || '').trim();
+      if (!key) { toast('Вставьте ключ', { type: 'warn' }); return; }
+      try {
+        const res = await api.connectFreeProvider(p.name, key);
+        keyEl.value = '';
+        toastOk(`${p.title}: ключ ${res.key || ''} сохранён, добавлено моделей: ${(res.models_added || []).length}`);
+        ctx.refresh();
+        modal.close();
+      } catch (err) {
+        toast((err && err.message) || 'Не удалось подключить', { type: 'warn', hint: err && err.hint });
+      }
+    };
+    return h('div.card', { style: { padding: '10px 12px' } },
+      h('div.row', h('div', { style: { flex: '1', minWidth: 0 } },
+        h('div', p.title, ' ', h('span.small.dim.mono', p.base_url)),
+        h('div.small.dim', p.free_terms), status)),
+      h('div.row', { style: { marginTop: '8px' } }, keyEl,
+        h('button.btn.btn-sm', { type: 'button', onClick: connect }, icon('plus', 12), h('span', 'Подключить')),
+        h('a.small', { href: p.signup_url, target: '_blank', rel: 'noopener noreferrer' }, 'получить ключ')));
+  });
+  append(modal.body, h('div.stack',
+    h('div.small.dim', 'Разгрузка OpenRouter: модели регистрируются с ценой 0/0 только для аккаунта без привязанной карты.'),
+    h('div.stack', rows)));
 }
 
 async function openModelWizard(ctx) {
@@ -782,10 +838,18 @@ function openModelEdit(ctx, m) {
    AGENTS
    ============================================================ */
 
+/* UX-03: «Создать агента» с главной вела на страницу «Агенты» и требовала второго
+   нажатия. Теперь #/agents?new=1 сразу открывает окно нового агента (один раз). */
+const agentsDeepLink = { openNew: false };
+
 const AgentsPage = {
   id: 'agents',
   title: 'Агенты',
   icon: 'agents',
+
+  async enter(_ctx, params) {
+    if (params && params.new) { agentsDeepLink.openNew = true; delete params.new; }
+  },
 
   async render(ctx) {
     const [agentsR, modelsR] = await Promise.allSettled([api.agents(), api.models()]);
@@ -814,6 +878,14 @@ const AgentsPage = {
           action: ui.btn('Создать агента', () => openAgentModal(ctx, null, models), { variant: 'primary', iconName: 'plus' }),
         });
 
+    if (agentsDeepLink.openNew) {
+      agentsDeepLink.openNew = false;
+      // Only while the owner is still on Agents: the list loads asynchronously, and a window opened after
+      // they left floated over Chat/Apps and swallowed their next click (CI pages sweep, 2026-10-06).
+      setTimeout(() => {
+        if (/^#\/agents(?:[?/]|$)/.test(location.hash)) openAgentModal(ctx, null, models);
+      }, 0);
+    }
     return h('div.bx-page', head, body);
   },
 
@@ -874,7 +946,10 @@ function agentCard(a, modelById, models, ctx) {
 export async function openAgentModal(ctx, agent = null, models = null) {
   let list = models || ctx.state.models;
   if (!list || !list.length) {
+    const page = location.hash.replace(/^#\/?/, '').split('?')[0];
     try { list = listOf(await api.models(), 'models'); ctx.state.models = list; } catch { list = []; }
+    // The owner left while the models loaded: do not float the window over the next page.
+    if (location.hash.replace(/^#\/?/, '').split('?')[0] !== page) return null;
   }
   const editing = !!agent;
 
@@ -1222,11 +1297,17 @@ async function loadTaskDetail(id, bodyEl, ctx) {
         h('pre.block', String(task.prompt))) : null,
       info,
       actions,
+      /* У выполненной задачи `error` прогона — сбой ДО ответа (например, модель
+         была недоступна и ответила запасная, см. Live-лог). Красная «Ошибка» над
+         готовым результатом читалась как провал (RC 1.9 soak). */
       error ? h('div',
-        h('div.section-title', 'Ошибка'),
-        h('pre.block', { style: { color: 'var(--err)' } }, String(error))) : null,
+        h('div.section-title', status === 'completed' ? 'Сбои до ответа' : 'Ошибка'),
+        h('pre.block', { style: { color: status === 'completed' ? 'var(--warn)' : 'var(--err)' } },
+          String(error))) : null,
       result ? h('div',
-        h('div.section-title', 'Результат'),
+        h('div.section-title', status === 'completed' ? 'Результат' : 'Ответ модели · задача не завершена'),
+        status !== 'completed' ? h('div.small', { style: { color: 'var(--warn)' } },
+          'Текст ответа не подтверждает выполнение действия.') : null,
         h('pre.block', String(result))) : null,
       h('div',
         h('div.row', { style: { marginBottom: '6px' } },
@@ -1286,26 +1367,40 @@ function appendLiveLog(ev) {
   if (nearBottom) taskState.logEl.scrollTop = taskState.logEl.scrollHeight;
 }
 
-/** Остановить все активные задачи (используется в командной палитре). */
+/** Общий STOP владельца (используется в командной палитре). */
 export async function stopAllRunning(ctx) {
-  let tasks = [];
-  try { tasks = listOf(await api.tasks(), 'tasks'); }
-  catch (e) { toastError(e, 'Не удалось получить список задач'); return; }
-
-  const active = tasks.filter((t) => ['running', 'queued', 'paused'].includes(String(t.status)));
-  if (!active.length) { toast('Активных задач нет', { type: 'info' }); return; }
+  let preview = null;
+  try { preview = await api.activeOwnerWork(); }
+  catch (e) { toastError(e, 'Не удалось получить полный список активных операций'); }
+  const unresolvedStudio = preview?.active?.studio_provider_unknown || [];
+  const count = Math.max(0, (Number(preview?.count) || 0) - unresolvedStudio.length);
+  const parts = Object.entries(preview?.active || {})
+    .filter(([plane, ids]) => plane !== 'studio_provider_unknown' && Array.isArray(ids) && ids.length)
+    .map(([plane, ids]) => `${plane}: ${ids.length}`);
 
   const ok = await confirmDialog({
-    title: 'Остановить все активные задачи?',
-    text: `Будут остановлены: ${active.map((t) => pick(t, ['title'], `#${pick(t, ['id'])}`)).slice(0, 8).join(', ')}${active.length > 8 ? ` и ещё ${active.length - 8}` : ''}.`,
-    okText: `Остановить (${active.length})`, danger: true,
+    title: 'Остановить все активные операции?',
+    text: `${count ? `Активно: ${parts.join(', ')}. ` : 'Активные операции не обнаружены. '}`
+      + 'STOP управления компьютером сохранится после перезапуска. '
+      + (unresolvedStudio.length ? `Studio: исход внешнего провайдера не подтверждён для ${unresolvedStudio.length} заданий. ` : '')
+      + (preview?.errors?.length ? 'Часть источников состояния недоступна; результат покажет ошибки. ' : '')
+      + 'Новые действия на компьютере потребуют «Продолжить».',
+    okText: 'Остановить всё', danger: true,
   });
   if (!ok) return;
 
-  const results = await Promise.allSettled(active.map((t) => api.taskAction(pick(t, ['id']), 'stop')));
-  const failed = results.filter((r) => r.status === 'rejected').length;
-  if (failed) toast(`Остановлено ${results.length - failed} из ${results.length}`, { type: 'warn', hint: 'Часть задач не приняла команду — обновите список.' });
-  else toastOk(`Остановлено задач: ${results.length}`);
+  let result;
+  try { result = await api.stopAllOwnerWork(); }
+  catch (e) { toastError(e, 'Глобальный STOP не подтверждён'); return; }
+  const stopped = Object.values(result.stopped || {}).reduce((n, ids) => n + ids.length, 0);
+  const remaining = Object.values(result.remaining || {}).reduce((n, ids) => n + ids.length, 0);
+  const requested = Object.values(result.requested || {}).reduce((n, ids) => n + ids.length, 0);
+  const unknown = result.provider_outcome_unknown || [];
+  if (result.ok === true) toastOk(`STOP подтверждён: завершено ${stopped} операций`);
+  else if (unknown.length) toast(`STOP частично подтверждён: завершено ${stopped}, ожидают проверки ${remaining || requested}, ошибок ${(result.errors || []).length}; исход Studio не подтверждён для ${unknown.length} заданий`,
+    { type: 'warn', hint: `OWNER_REQUIRED: проверьте результат у внешнего Studio-провайдера для job ID ${unknown.slice(0, 10).join(', ')}${unknown.length > 10 ? '…' : ''}. Повтор STOP не подтверждает внешний результат.` });
+  else toast(`STOP частично подтверждён: завершено ${stopped}, ожидают остановки ${remaining || requested}, ошибок ${(result.errors || []).length}`,
+    { type: 'warn', hint: 'Проверьте состояние операций и повторите STOP, если они ещё активны.' });
   ctx.refresh();
 }
 

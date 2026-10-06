@@ -1,0 +1,143 @@
+{
+  "url": "http://127.0.0.1:8935/",
+  "table": "NL10 (5c/10c)",
+  "dry_run": false,
+  "hands_requested": 10,
+  "hands_completed": 10,
+  "decisions": 15,
+  "start_stack": 1000,
+  "end_stack": 732,
+  "hand_results": [
+    {
+      "hand": 1,
+      "stack_before": 1000,
+      "stack_after": 1000,
+      "delta": 0,
+      "hero_acted": 1,
+      "log_tail": [
+        "Chris wins 39",
+        "[BB] Daniel_0 folds",
+        "[SB] AntonioBig folds",
+        "[BTN] Hero folds"
+      ]
+    },
+    {
+      "hand": 2,
+      "stack_before": 1000,
+      "stack_after": 1000,
+      "delta": 0,
+      "hero_acted": 1,
+      "log_tail": [
+        "AntonioBig wins 65",
+        "[BB] SwapMe folds",
+        "[SB] Daniel_0 folds",
+        "[BTN] AntonioBig raises to 50"
+      ]
+    },
+    {
+      "hand": 3,
+      "stack_before": 1000,
+      "stack_after": 1000,
+      "delta": 0,
+      "hero_acted": 1,
+      "log_tail": [
+        "AntonioBig wins 75",
+        "[BB] Chris folds",
+        "[SB] SwapMe folds",
+        "[BTN] Daniel_0 folds"
+      ]
+    },
+    {
+      "hand": 4,
+      "stack_before": 1000,
+      "stack_after": 1000,
+      "delta": 0,
+      "hero_acted": 1,
+      "log_tail": [
+        "SwapMe wins 65",
+        "[BB] Phil_OG folds",
+        "[SB] Chris folds",
+        "[BTN] SwapMe raises to 50"
+      ]
+    },
+    {
+      "hand": 5,
+      "stack_before": 1000,
+      "stack_after": 1005,
+      "delta": 5,
+      "hero_acted": 0,
+      "log_tail": [
+        "Hero wins 15",
+        "[SB] Phil_OG folds",
+        "[BTN] Chris folds",
+        "[CO] SwapMe folds"
+      ]
+    },
+    {
+      "hand": 6,
+      "stack_before": 1005,
+      "stack_after": 1000,
+      "delta": -5,
+      "hero_acted": 1,
+      "log_tail": [
+        "Phil_OG wins 295",
+        "[HJ] SwapMe folds",
+        "[BB] AntonioBig folds",
+        "[SB] Hero folds"
+      ]
+    },
+    {
+      "hand": 7,
+      "stack_before": 1000,
+      "stack_after": 1000,
+      "delta": 0,
+      "hero_acted": 1,
+      "log_tail": [
+        "Phil_OG wins 75",
+        "[BB] Daniel_0 folds",
+        "[SB] AntonioBig folds",
+        "[BTN] Hero folds"
+      ]
+    },
+    {
+      "hand": 8,
+      "stack_before": 1000,
+      "stack_after": 1000,
+      "delta": 0,
+      "hero_acted": 1,
+      "log_tail": [
+        "AntonioBig wins 65",
+        "[BB] SwapMe folds",
+        "[SB] Daniel_0 folds",
+        "[BTN] AntonioBig raises to 50"
+      ]
+    },
+    {
+      "hand": 9,
+      "stack_before": 1000,
+      "stack_after": 742,
+      "delta": -258,
+      "hero_acted": 5,
+      "log_tail": [
+        "Hero shows Kd Qh — Pair",
+        "Chris shows 6d 6h — Two Pair — WINS 521",
+        "[HJ] Hero calls 156",
+        "[BB] Chris raises to 156"
+      ]
+    },
+    {
+      "hand": 10,
+      "stack_before": 742,
+      "stack_after": 732,
+      "delta": -10,
+      "hero_acted": 3,
+      "log_tail": [
+        "Phil_OG wins 42",
+        "[UTG] Hero folds",
+        "[BB] Phil_OG raises to 17",
+        "[UTG] Hero checks"
+      ]
+    }
+  ],
+  "blocked_non_loopback_requests": []
+}

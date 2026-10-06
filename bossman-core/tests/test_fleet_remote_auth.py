@@ -71,7 +71,7 @@ def test_expired_probe_only_keys_cannot_dispatch(auths):
     with pytest.raises(NodeAuthDenied):limited.issue('node','probe','dispatch',{})
     with pytest.raises(NodeAuthDenied):limited.issue('node','expired','probe',{})
 
-@pytest.mark.parametrize('raw',[b'[]',b'{"x":1,"x":2}',b'{"x":NaN}',b'\xff',b'{',b'x'*(MAX_PACKET_BYTES+1)])
+@pytest.mark.parametrize('raw',[b'[]',b'{"x":1,"x":2}',b'{"x":NaN}',b'\xff',b'{',b'x'*(MAX_PACKET_BYTES+1)], ids=['empty-list','duplicate-keys','nan-value','invalid-ff-byte','unclosed-brace','over-max-packet'])
 def test_strict_bounded_json(raw):
     with pytest.raises(NodeAuthDenied):decode_packet(raw)
 

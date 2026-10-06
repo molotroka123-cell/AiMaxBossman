@@ -68,6 +68,15 @@ def main(argv: Sequence[str] | None = None) -> None:
         return
     host, port = args.host or settings.host, args.port or settings.port
     settings.ensure_dirs()
+    from .backend_lock import BackendAlreadyRunning, acquire
+    from .build_identity import source_identity
+    try:
+        # Held for the whole process; the OS releases it on exit or crash.
+        _lock = acquire(settings.data_dir, host=host, port=port,
+                        build_sha=source_identity().get("build_sha"))
+    except BackendAlreadyRunning as exc:
+        print(f"[bcc] {exc}", file=sys.stderr, flush=True)
+        raise SystemExit(5) from None
     application = create()
     if not is_loopback(host):
         # Сервис задуман локальным (наружу — только через VPN/Tailscale). Молча

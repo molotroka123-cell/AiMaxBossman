@@ -1,0 +1,16 @@
+{
+ "accepted": true,
+ "after": {
+  "functions_untested.count": 1.0,
+  "tests.failures": 0.0
+ },
+ "before": {
+  "functions_untested.count": 2.0,
+  "tests.failures": 0.0
+ },
+ "decision": "ACCEPT",
+ "measured_on": "candidate_worktree",
+ "reasons": [
+  "functions_untested.count: 2.0 -> 1.0 (improved, need > 0.0)"
+ ]
+}

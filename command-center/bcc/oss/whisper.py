@@ -30,14 +30,19 @@ class WhisperError(ValueError):
 def _model_directory() -> Path:
     configured = os.environ.get("BOSSMAN_WHISPER_MODEL_PATH", "").strip()
     if not configured:
-        raise WhisperError("Configure BOSSMAN_WHISPER_MODEL_PATH with an installed local model directory")
+        local_app_data = os.environ.get("LOCALAPPDATA", "").strip()
+        if local_app_data:
+            configured = str(Path(local_app_data) / "Bossman" / "tool-cache" /
+                             "whisper-base-multilingual")
+        else:
+            raise WhisperError("Укажите в BOSSMAN_WHISPER_MODEL_PATH каталог с установленной локальной моделью распознавания речи")
     path = Path(configured)
     if not path.is_absolute() or not path.is_dir():
-        raise WhisperError("Whisper model must be an existing absolute local directory")
+        raise WhisperError("Каталог модели Whisper не найден: нужен существующий локальный каталог, заданный абсолютным путём")
     # Upstream can fetch a fallback tokenizer even with local_files_only=True.
     # Requiring tokenizer.json prevents that path as well as model downloads.
     if not all((path / name).is_file() for name in ("model.bin", "config.json", "tokenizer.json")):
-        raise WhisperError("Whisper model is incomplete: model.bin, config.json and tokenizer.json are required")
+        raise WhisperError("Модель Whisper неполная: нужны model.bin, config.json и tokenizer.json")
     return path.resolve()
 
 
@@ -50,9 +55,9 @@ def status() -> dict:
         configured = True
     except (WhisperError, OSError) as exc:
         configured = False
-        reason = str(exc) if isinstance(exc, WhisperError) else "Local model directory is inaccessible"
+        reason = str(exc) if isinstance(exc, WhisperError) else "Каталог локальной модели недоступен"
     if not installed:
-        reason = "Install the speech extra: bossman-command-center[speech]"
+        reason = "Не установлен модуль распознавания речи: bossman-command-center[speech]"
     return {"provider": "faster-whisper", "package_installed": installed,
             "model_configured": configured, "status": "configured" if installed and configured else "unavailable",
             "inference_verified": False, "reason": reason, "device": "cpu", "compute_type": "int8",
@@ -63,20 +68,20 @@ def status() -> dict:
 
 def _validated_wav(audio: bytes) -> tuple[bytes, float]:
     if not isinstance(audio, bytes) or not 0 < len(audio) <= MAX_AUDIO_BYTES:
-        raise WhisperError("Audio must be nonempty WAV bytes, at most 32 MiB")
+        raise WhisperError("Нужна непустая запись WAV не больше 32 МиБ")
     try:
         with wave.open(io.BytesIO(audio), "rb") as source:
             channels, width, rate, frames, compression, _ = source.getparams()
             if compression != "NONE" or channels not in (1, 2) or width != 2 or not 8000 <= rate <= 48000:
-                raise WhisperError("Use PCM16 WAV, mono or stereo, at 8–48 kHz")
+                raise WhisperError("Нужен WAV PCM16, моно или стерео, 8–48 кГц")
             duration = frames / rate
             if not 0 < duration <= MAX_AUDIO_SECONDS:
-                raise WhisperError("Audio duration must be between zero and ten minutes")
+                raise WhisperError("Запись должна длиться от нуля до десяти минут")
             payload = source.readframes(frames)
             if len(payload) != frames * channels * width:
-                raise WhisperError("WAV audio is truncated")
+                raise WhisperError("Запись WAV обрезана")
     except (wave.Error, EOFError, RuntimeError, struct.error) as exc:
-        raise WhisperError("Unsupported audio: supply a PCM16 WAV recording") from exc
+        raise WhisperError("Формат записи не поддерживается: нужен WAV PCM16") from exc
     # Re-encode the validated PCM container to exclude hidden streams/metadata
     # before the native decoder sees it. No media URLs can reach the engine.
     output = io.BytesIO()
@@ -97,19 +102,19 @@ def transcribe_audio(audio: bytes, *, language: str = "auto") -> dict:
     needed by the user's LLM. No claim of wall-clock cancellation is made.
     """
     if not isinstance(language, str) or (language != "auto" and not re.fullmatch(r"[a-z]{2,3}", language)):
-        raise WhisperError("Use auto or a two/three-letter language code")
+        raise WhisperError("Язык: auto или двух-трёхбуквенный код")
     clean_audio, duration = _validated_wav(audio)
     try:
         model_path = _model_directory()
     except OSError as exc:
-        raise WhisperError("Local model directory is inaccessible") from exc
+        raise WhisperError("Каталог локальной модели недоступен") from exc
     if not _work_lock.acquire(blocking=False):
-        raise WhisperError("Speech recognition is busy; retry after the current recording")
+        raise WhisperError("Распознавание речи занято: повторите после текущей записи")
     try:
         try:
             from faster_whisper import WhisperModel
         except (ImportError, OSError) as exc:
-            raise WhisperError("Install or repair the speech extra: bossman-command-center[speech]") from exc
+            raise WhisperError("Установите или почините модуль распознавания речи: bossman-command-center[speech]") from exc
         try:
             model = WhisperModel(str(model_path), device="cpu", compute_type="int8",
                                  cpu_threads=4, num_workers=1, local_files_only=True)
@@ -121,15 +126,15 @@ def transcribe_audio(audio: bytes, *, language: str = "auto") -> dict:
             for segment in segments:
                 start, end, text = float(segment.start), float(segment.end), str(segment.text).strip()
                 if not all(map(math.isfinite, (start, end))) or not 0 <= start <= end <= duration + 1:
-                    raise WhisperError("Speech engine returned invalid segment timing")
+                    raise WhisperError("Движок речи вернул неверные метки времени")
                 text_chars += len(text)
                 if len(result) >= MAX_SEGMENTS or text_chars > MAX_TEXT_CHARS:
-                    raise WhisperError("Speech engine output exceeded the transcript limit")
+                    raise WhisperError("Расшифровка превысила допустимый размер")
                 result.append({"start": start, "end": end, "text": text})
             detected = str(info.language)
             probability = float(info.language_probability)
             if not re.fullmatch(r"[a-z]{2,3}", detected) or not math.isfinite(probability) or not 0 <= probability <= 1:
-                raise WhisperError("Speech engine returned invalid language metadata")
+                raise WhisperError("Движок речи вернул неверные данные о языке")
             return {"provider": "faster-whisper", "text": " ".join(row["text"] for row in result),
                     "segments": result, "language": detected, "language_probability": probability,
                     "duration_seconds": duration, "device": "cpu", "compute_type": "int8",
@@ -138,6 +143,6 @@ def transcribe_audio(audio: bytes, *, language: str = "auto") -> dict:
             raise
         except Exception as exc:
             # Native engine exceptions may contain model paths or source data.
-            raise WhisperError("Local speech recognition failed; check the installed model and speech runtime") from exc
+            raise WhisperError("Локальное распознавание речи не удалось: проверьте установленную модель и модуль речи") from exc
     finally:
         _work_lock.release()

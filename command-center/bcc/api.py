@@ -28,7 +28,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from . import db as dbm, discovery
 from . import __version__
 
-# Метка приложения для настольного лаунчера (GET /api/identity)
+# Stable health marker used by owner control and Telegram probes. Desktop
+# attachment has its own versioned marker in /api/identity.
 APP_IDENTITY = "bossman-command-center"
 # /api/events/stream: комментарий-пульс, чтобы прокси и клиент отличали тишину
 # задачи от оборванного соединения.
@@ -269,6 +270,8 @@ class Services:
         await self.db.close()
 
 
+EVENTS_WS_RECHECK_SECONDS = 15.0  # an open event stream re-checks its session this often
+
 def services(request: Request) -> Services:
     return request.app.state.svc
 
@@ -287,7 +290,9 @@ async def require_token(request: Request, x_bcc_token: str | None = Header(defau
     if sess is not None:
         if request.method not in SAFE_METHODS:
             sent = request.headers.get(CSRF_HEADER)
-            if not sent or not hmac.compare_digest(str(sent), str(sess["csrf"])):
+            # В байтах: compare_digest по str с не-ASCII бросает TypeError (500).
+            if not sent or not hmac.compare_digest(str(sent).encode("utf-8", "ignore"),
+                                                   str(sess["csrf"]).encode()):
                 # code="csrf": UI отличает «сессия есть, но CSRF-токен этой вкладки потерян/чужой»
                 # (лечится повторным входом) от политического 403 (сессия остаётся).
                 # Журнал тестового периода 51307af16b90: 4 таких 403 за 0 мс на POST
@@ -304,6 +309,21 @@ async def require_token(request: Request, x_bcc_token: str | None = Header(defau
             if not svc.settings.legacy_token_auth
             else f"войдите через /api/login или передайте заголовок {HEADER}")
     raise ApiError("нужна аутентификация", status=401, hint=hint)
+
+
+def _same_origin(origin: str, host: str) -> bool:
+    """Origin браузера — тот же адрес, по которому пришёл запрос (схема http/https).
+
+    WebSocket не защищён CORS, а SameSite не различает порты: страница с
+    http://127.0.0.1:<другой порт> несёт cookie владельца. Поэтому источник
+    сверяется явно; `null` (sandbox-iframe, file://) не совпадает ни с чем."""
+    from urllib.parse import urlsplit
+    try:
+        parts = urlsplit(origin)
+    except ValueError:
+        return False
+    return (parts.scheme in ("http", "https") and bool(host)
+            and parts.netloc.lower() == host.strip().lower())
 
 
 # ---------- модели запросов ----------
@@ -462,6 +482,7 @@ def create_app(settings: Settings | None = None, *, start_workers: bool = True,
 
     app = FastAPI(title="BOSSMAN Command Center", version="0.1", lifespan=lifespan)
     app.state.svc = svc
+    app.add_middleware(HostGuard, extra_hosts=_configured_hosts(svc.settings))
     _install_error_handlers(app)
     _install_testing_period_log(app)
     app.include_router(_health_router())
@@ -473,6 +494,73 @@ def create_app(settings: Settings | None = None, *, start_workers: bool = True,
                                dependencies=[Depends(require_token)])
     _mount_ui(app, svc.settings)
     return app
+
+
+#: Имена, которые публичный DNS не отдаёт: их не может «перепривязать» на
+#: 127.0.0.1 чужой сайт (DNS rebinding). *.ts.net — MagicDNS Tailscale, её
+#: записи задаёт Tailscale, а не владелец произвольного домена.
+_PRIVATE_NAME_SUFFIXES = (".localhost", ".local", ".ts.net")
+ALLOWED_HOSTS_ENV = "BCC_ALLOWED_HOSTS"
+
+
+def _configured_hosts(settings: Settings) -> frozenset[str]:
+    """Явно разрешённые имена: адрес привязки + BCC_ALLOWED_HOSTS (через запятую,
+    `*.example.org` — поддомены)."""
+    raw = [settings.host, *os.environ.get(ALLOWED_HOSTS_ENV, "").split(",")]
+    return frozenset(h.strip().strip("[]").lower().rstrip(".") for h in raw if h and h.strip())
+
+
+def host_allowed(host_header: str, extra_hosts: frozenset[str] = frozenset()) -> bool:
+    """Защита от DNS rebinding: Host должен быть адресом, а не чужим доменом.
+
+    Пропускаются IP-литералы (так ходят по 127.0.0.1, LAN и Tailscale-IP),
+    localhost и имена, которых нет в публичном DNS (одна метка, .local,
+    .localhost, .ts.net), плюс явно заданные владельцем. Имя вида
+    attacker.example, указывающее на 127.0.0.1, — отказ."""
+    value = (host_header or "").strip().lower()
+    if not value:
+        return True                    # HTTP/1.0 без Host — не браузер
+    if value.startswith("["):
+        name = value[1:value.find("]")] if "]" in value else value[1:]
+    else:
+        name = value.rsplit(":", 1)[0] if value.count(":") == 1 else value
+    name = name.rstrip(".")
+    import ipaddress
+    try:
+        ipaddress.ip_address(name)
+        return True
+    except ValueError:
+        pass
+    if name == "localhost" or "." not in name or name.endswith(_PRIVATE_NAME_SUFFIXES):
+        return True
+    for allowed in extra_hosts:
+        if name == allowed or (allowed.startswith("*.") and name.endswith(allowed[1:])):
+            return True
+    return False
+
+
+class HostGuard:
+    """ASGI-страж Host для HTTP и WebSocket (TrustedHost Starlette не знает
+    правила «любой IP-литерал», нужного для LAN/Tailscale по адресу)."""
+
+    def __init__(self, app, extra_hosts: frozenset[str] = frozenset()):
+        self.app = app
+        self.extra_hosts = extra_hosts
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            host = next((v.decode("latin-1") for k, v in scope.get("headers") or []
+                         if k == b"host"), "")
+            if not host_allowed(host, self.extra_hosts):
+                if scope["type"] == "websocket":
+                    await send({"type": "websocket.close", "code": 4421})
+                    return
+                await JSONResponse({"error": {
+                    "message": "недопустимый адрес сервера в заголовке Host",
+                    "hint": f"откройте Command Center по 127.0.0.1/localhost или добавьте имя "
+                            f"в {ALLOWED_HOSTS_ENV}"}}, status_code=421)(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
 
 
 def _install_testing_period_log(app: FastAPI) -> None:
@@ -551,14 +639,48 @@ def _install_error_handlers(app: FastAPI) -> None:
     async def _validation_error(_r: Request, exc: RequestValidationError):
         first = (exc.errors() or [{}])[0]
         where = ".".join(str(p) for p in first.get("loc", [])[1:]) or "тело запроса"
-        return JSONResponse({"error": {"message": f"неверный запрос: {where} — "
-                                                  f"{first.get('msg', 'некорректное значение')}",
+        return JSONResponse({"error": {"message": f"неверный запрос: {where} — {validation_reason(first)}",
                                        "hint": "проверьте поля запроса"}}, status_code=422)
 
     @app.exception_handler(Exception)
     async def _unhandled(_r: Request, exc: Exception):
         return JSONResponse({"error": {"message": f"внутренняя ошибка: {type(exc).__name__}",
                                        "hint": "подробности — в логе сервера"}}, status_code=500)
+
+
+_VALIDATION_WORDS = {
+    "missing": "поле обязательно",
+    "int_parsing": "нужно целое число", "int_type": "нужно целое число", "int_from_float": "нужно целое число",
+    "float_parsing": "нужно число", "float_type": "нужно число",
+    "bool_parsing": "нужно «да» или «нет»", "bool_type": "нужно «да» или «нет»",
+    "string_type": "нужна строка текста", "bytes_type": "нужна строка текста",
+    "list_type": "нужен список", "dict_type": "нужен объект", "model_attributes_type": "нужен объект",
+    "json_invalid": "тело запроса — не JSON", "literal_error": "недопустимое значение",
+    "enum": "недопустимое значение", "extra_forbidden": "лишнее поле", "none_required": "поле должно быть пустым",
+    "url_parsing": "некорректный адрес", "url_scheme": "некорректный адрес",
+}
+
+
+def validation_reason(error: dict) -> str:
+    """Причина отказа валидации по-русски: сырой английский текст pydantic («Input should be a valid
+    integer…») владельцу ничего не говорит."""
+    kind = str(error.get("type") or "")
+    ctx = error.get("ctx") or {}
+    if kind == "string_too_short":
+        return f"слишком коротко (не меньше {ctx.get('min_length', 1)} симв.)"
+    if kind == "string_too_long":
+        return f"слишком длинно (не больше {ctx.get('max_length', '?')} симв.)"
+    if kind == "too_short":
+        return f"слишком мало элементов (не меньше {ctx.get('min_length', 1)})"
+    if kind == "too_long":
+        return f"слишком много элементов (не больше {ctx.get('max_length', '?')})"
+    for key, word in (("greater_than_equal", "не меньше"), ("less_than_equal", "не больше"),
+                      ("greater_than", "больше чем"), ("less_than", "меньше чем")):
+        if kind == key:
+            bound = ctx.get(("ge" if key == "greater_than_equal" else "le" if key == "less_than_equal"
+                             else "gt" if key == "greater_than" else "lt"))
+            return f"{word} {bound}" if bound is not None else word
+    return _VALIDATION_WORDS.get(kind, "некорректное значение")
 
 
 def _mount_ui(app: FastAPI, settings: Settings) -> None:
@@ -575,15 +697,35 @@ def _public_router() -> APIRouter:
     async def identity(svc: Services = Depends(services)):
         """Кто слушает этот порт. Нужен настольному лаунчеру: прежде чем
         переиспользовать «уже запущенный сервер», он обязан убедиться, что это
-        именно Command Center, а не чужое приложение. Секретов здесь нет —
-        только имя приложения, версия, время старта и SHA работающего исходника.
+        именно Command Center нужного desktop-протокола и сборки, а не чужое
+        приложение. Секретов здесь нет — только маркер протокола, версия,
+        время старта и SHA работающего исходника.
 
         SHA здесь обязателен: владелец не должен гонять брейкер по одному
         чекауту, думая, что запущен другой. Недоказанный источник называется
         SOURCE_IDENTITY_UNKNOWN, а не подставляется догадкой."""
-        from .build_identity import source_identity
-        return {"app": APP_IDENTITY, "version": __version__,
-                "started_at": svc.started_at, **source_identity()}
+        from .build_identity import DESKTOP_APP_IDENTITY, data_dir_fingerprint, source_identity
+        return {"app": DESKTOP_APP_IDENTITY, "version": __version__,
+                "started_at": svc.started_at, "pid": os.getpid(),
+                "data_dir_fingerprint": data_dir_fingerprint(svc.settings.data_dir),
+                **source_identity()}
+
+    @router.get("/login-hint")
+    async def login_hint(request: Request, svc: Services = Depends(services)):
+        """Where the access token lives, for the login screen (RC19 owner run).
+
+        The desktop shortcut starts the server without a console, so «токен
+        напечатан в консоли» sent the owner to a console that does not exist.
+        This returns only the PATH of the token file (never the token), and
+        only to a loopback client — the same machine that can open the file.
+        """
+        from pathlib import Path
+
+        from .auth import TOKEN_FILE
+        host = request.client.host if request.client else ""
+        if host not in ("127.0.0.1", "::1", "localhost"):
+            return {"token_file": None}
+        return {"token_file": str(Path(svc.settings.data_dir) / TOKEN_FILE)}
 
     @router.post("/login")
     async def login(body: LoginIn, request: Request, response: Response,
@@ -614,6 +756,11 @@ def _public_router() -> APIRouter:
     @router.post("/logout")
     async def logout(request: Request, response: Response, svc: Services = Depends(services)):
         """Выход инвалидирует сессию на сервере, а не только в браузере."""
+        # Security audit 2026-10-05: SameSite does not separate ports, so a page on another local port could
+        # log the owner out. A browser always sends Origin on a cross-origin POST; a foreign one is refused.
+        origin = request.headers.get("origin")
+        if origin and not _same_origin(origin, request.headers.get("host", "")):
+            raise ApiError("чужой источник запроса", status=403)
         sid = request.cookies.get(COOKIE_NAME)
         revoked = await svc.sessions.revoke(sid) if sid else False
         response.delete_cookie(COOKIE_NAME, path="/")
@@ -622,6 +769,13 @@ def _public_router() -> APIRouter:
     @router.websocket("/events")
     async def events_ws(ws: WebSocket, token: str | None = Query(default=None)):
         svc: Services = ws.app.state.svc
+        # Cross-site WebSocket hijacking: браузер всегда шлёт Origin, и чужая
+        # страница (другой порт того же 127.0.0.1) не должна читать ленту
+        # владельца его же cookie. Клиент без Origin (CLI, скрипт) — не браузер.
+        origin = ws.headers.get("origin")
+        if origin is not None and not _same_origin(origin, ws.headers.get("host", "")):
+            await ws.close(code=4403)
+            return
         # cookie — основной путь: секрет не попадает ни в URL, ни в логи прокси
         sess = await svc.sessions.get(ws.cookies.get(COOKIE_NAME))
         if sess is None and not (svc.settings.legacy_token_auth and svc.auth.check(token)):
@@ -629,12 +783,25 @@ def _public_router() -> APIRouter:
             return
         await ws.accept()
         queue = svc.bus.subscribe()
-        from .events import STREAM_ONLY
+        from .events import STREAM_ONLY, WEB_LIVE
         try:
             await ws.send_json({"kind": "hello", "ts": utcnow().isoformat()})
+            sid = ws.cookies.get(COOKIE_NAME)
             while True:
-                msg = await queue.get()
-                if msg.get("kind") in STREAM_ONLY:
+                try:
+                    msg = await asyncio.wait_for(queue.get(), timeout=EVENTS_WS_RECHECK_SECONDS)
+                except asyncio.TimeoutError:
+                    msg = None
+                # Security audit 2026-10-05: an open stream must end with the session (logout, revoke, expiry).
+                if sess is not None and await svc.sessions.get(sid) is None:
+                    await ws.close(code=4401)
+                    return
+                if sess is None and not (svc.settings.legacy_token_auth and svc.auth.check(token)):
+                    await ws.close(code=4401)
+                    return
+                if msg is None:
+                    continue
+                if msg.get("kind") in STREAM_ONLY and msg.get("kind") not in WEB_LIVE:
                     # Построчный вывод модели/инструментов — для терминала
                     # (/api/events/stream); панели веба его не рисуют.
                     continue
@@ -915,10 +1082,17 @@ def _api_router() -> APIRouter:
                 stmt = stmt.where(tasks_t.c.status.in_(status.split(",")))
             res = await s.execute(stmt)
             rows = rows_dicts(res.fetchall())
+            # Последний run каждой задачи ОДНИМ запросом (раньше — по запросу на задачу: 101 запрос
+            # на страницу из 100 задач). Последний = наибольший id, как и в `ORDER BY id DESC LIMIT 1`.
+            last: dict[int, dict] = {}
+            if rows:
+                latest = (sa.select(sa.func.max(runs_t.c.id))
+                          .where(runs_t.c.task_id.in_([t["id"] for t in rows]))
+                          .group_by(runs_t.c.task_id))
+                res = await s.execute(sa.select(runs_t).where(runs_t.c.id.in_(latest)))
+                last = {r["task_id"]: r for r in rows_dicts(res.fetchall())}
             for task in rows:
-                run = await s.execute(sa.select(runs_t).where(runs_t.c.task_id == task["id"])
-                                      .order_by(runs_t.c.id.desc()).limit(1))
-                task["last_run"] = _run_public(dbm.row_dict(run.first()))
+                task["last_run"] = _run_public(last.get(task["id"]))
         return rows
 
     @router.post("/tasks/preflight")
@@ -1050,6 +1224,10 @@ def _api_router() -> APIRouter:
             run_id = await svc.engine.enqueue(task_id, only_if_idle=True)
             return await svc.engine.admission_result(task_id, run_id)
         if action == "stop":
+            # «Вся власть, выданная внутри миссии, умирает вместе с ней»: аренды
+            # задачи гасятся до остановки, чтобы retry не унаследовал старое «да».
+            from . import approval_scope as scope
+            await scope.revoke_for_task(svc, task_id)
             return await svc.engine.stop(task_id)
         if action == "pause":
             return await svc.engine.pause(task_id)
@@ -1106,11 +1284,21 @@ def _api_router() -> APIRouter:
         with `after` it first replays the stored history after that cursor,
         then continues live and drops live copies of what was replayed (`seq`).
         A client that fell behind gets `stream.lagged` with its cursor and
-        reconnects with `after=<cursor>` — it never silently misses events."""
+        reconnects with `after=<cursor>` — it never silently misses events.
+
+        A native EventSource reconnects to the same URL and names its cursor
+        only in the `Last-Event-ID` header (the last `id:` it received). When
+        the URL carries no `after`, that header is the cursor: missed events
+        are replayed once, nothing already shown comes twice. An explicit
+        `after` always wins over the header."""
         from starlette.responses import StreamingResponse
         from .events import TaskStreamFilter
         if task_id is None and run_id is None:
             raise ApiError("нужен task_id или run_id", status=422)
+        if after is None:
+            raw_last_id = (request.headers.get("last-event-id") or "").strip()
+            if raw_last_id.isascii() and raw_last_id.isdigit() and len(raw_last_id) <= 18:
+                after = int(raw_last_id)
         queue = svc.bus.subscribe()
         flt = TaskStreamFilter(task_id=task_id, run_id=run_id)
 
@@ -1134,16 +1322,24 @@ def _api_router() -> APIRouter:
                         if len(batch) < 500:
                             break
                     yield frame({"kind": "stream.replayed", "cursor": last_seq})
+                last_sent = time.monotonic()
                 while True:
                     if not svc.bus.is_subscribed(queue):
                         yield frame({"kind": "stream.lagged", "cursor": last_seq})
                         return
+                    # The keepalive clock runs from the last thing WRITTEN to the client. Events that the filter drops
+                    # (system.metrics, other tasks) used to restart the wait, so a quiet task stream never pinged and
+                    # the browser showed a false "connection lost" after ~45 s of silence.
+                    wait = STREAM_KEEPALIVE_S - (time.monotonic() - last_sent)
                     try:
-                        msg = await asyncio.wait_for(queue.get(), timeout=STREAM_KEEPALIVE_S)
+                        if wait <= 0:
+                            raise TimeoutError
+                        msg = await asyncio.wait_for(queue.get(), timeout=wait)
                     except TimeoutError:
                         if await request.is_disconnected():
                             return
                         yield ": keepalive\n\n"
+                        last_sent = time.monotonic()
                         continue
                     seq = msg.get("seq")
                     if isinstance(seq, int) and seq <= last_seq:
@@ -1153,6 +1349,7 @@ def _api_router() -> APIRouter:
                     if isinstance(seq, int):
                         last_seq = seq
                     yield frame(msg)
+                    last_sent = time.monotonic()
             finally:
                 svc.bus.unsubscribe(queue)
 
@@ -1209,8 +1406,15 @@ def _api_router() -> APIRouter:
         prepare = None
         if body.approve and body.lease is not None:
             async def prepare(session, approval):
-                lease = await _lease_from_parked_call(
-                    svc, approval, body.lease, body.by, session=session)
+                try:
+                    lease = await _lease_from_parked_call(
+                        svc, approval, body.lease, body.by, session=session)
+                except PermissionError as exc:
+                    # computer.act и т.п.: аренда запрещена политикой. Это ответ
+                    # владельцу (решение откатывается, вопрос остаётся), а не 500.
+                    raise ApiError(f"аренда не выдаётся: {exc}", status=409,
+                                   code="LEASE_NOT_ALLOWED",
+                                   hint="подтвердите без поля lease — одно действие") from None
                 if lease is None:
                     raise ApiError("аренду можно выдать только по ожидающему вызову "
                                    "этого подтверждения в активной задаче", status=409)

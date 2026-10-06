@@ -1,0 +1,671 @@
+"""``bossman pit setup|status|doctor|start|stop|routes|web|passport-checkpoint`` — owner surface.
+
+The owner launch contract (docs/v1.7): PIT starts from the existing ``bossman``
+CLI, secrets stay out of argv/logs/config, diagnostics are secret-free and
+fail closed.
+"""
+from __future__ import annotations
+
+import argparse
+import asyncio
+import contextlib
+import getpass
+import json
+import os
+import sys
+import time
+from pathlib import Path
+from urllib.parse import urlsplit
+
+from bcc.telegram_companion.config import CompanionError, Person
+from bcc.telegram_companion.store import single_instance
+
+from .config import (
+    DEFAULT_FREE_CHAT_MODELS,
+    config_path,
+    credentials_path,
+    default_data_dir,
+    load,
+    looks_like_repo,
+    pit_home,
+    save_setup,
+)
+from .photo_runtime import build_photo_services, photo_runtime_status
+from .runtime import STOP_FLAG, ParticipantRuntime, StopRequested
+
+COMMANDS = ("setup", "status", "doctor", "start", "stop", "routes", "web", "web-user",
+            "web-setup", "passport-checkpoint", "master-parse", "watch")
+
+
+def _resolve_path(argv: list[str]) -> Path:
+    parser = argparse.ArgumentParser(prog="bossman pit")
+    parser.add_argument("--data-dir", default="")
+    parser.add_argument("command", choices=COMMANDS)
+    ns, _ = parser.parse_known_args(argv)
+
+    data_dir = Path(ns.data_dir) if ns.data_dir else default_data_dir()
+    return config_path(data_dir)
+
+
+def _resolve_data_dir(path: Path) -> Path:
+    """config.json sits at <data_dir>/pit-v1.7/config.json."""
+    return path.parent.parent
+
+
+# -- setup ----------------------------------------------------------------------
+def cmd_setup(path: Path) -> int:
+    """Local secure setup. Tokens are typed, never passed through argv."""
+    if path.exists():
+        raise CompanionError("CONFIG_EXISTS_EDIT_LOCALLY_WITH_BACKUP")
+    print("Настройка PIT-режима Jeff (Bossman 1.7). Секреты не попадают в config.json.")
+    token = getpass.getpass("Токен Telegram-бота PIT (скрыт): ").strip()
+    if not token:
+        raise CompanionError("TELEGRAM_TOKEN_REQUIRED")
+    owner = input("Числовой Telegram ID участника (allowlist): ").strip()
+    if not owner.isdigit():
+        raise CompanionError("TELEGRAM_ID_REQUIRED")
+    print(f"Бесплатные модели через запятую [{', '.join(DEFAULT_FREE_CHAT_MODELS)}]:")
+    raw_models = input("Модели (Enter = по умолчанию): ").strip()
+    models = [model.strip() for model in raw_models.split(",") if model.strip()] \
+        or list(DEFAULT_FREE_CHAT_MODELS)
+    provider_key = getpass.getpass("Ключ провайдера (скрыт, OpenRouter): ").strip()
+    core_token = getpass.getpass("Токен локального Command Center (скрыт, можно пусто): ").strip()
+    search_url = input("SearXNG URL [пусто = keyless-фолбэк]: ").strip()
+    save_setup(
+        path,
+        people=[Person(user_id=int(owner), chat_id=int(owner), role="owner")],
+        chat_models=models,
+        provider_base_url="https://openrouter.ai/api/v1",
+        core_url="http://127.0.0.1:8800",
+        search_url=search_url,
+        allowlist_open=True,
+        bot_token=token,
+        provider_key=provider_key,
+        core_token=core_token,
+    )
+    print(f"Готово. Конфигурация: {path}")
+    print("Проверка: bossman pit doctor. Запуск: bossman pit start.")
+    return 0
+
+
+# -- doctor -----------------------------------------------------------------------
+async def _doctor_checks(path: Path) -> tuple[list[dict], bool]:
+    from bcc.providers import build_adapter
+    from bcc.telegram_companion.adapters import Telegram
+
+    checks: list[dict] = []
+    data_dir = _resolve_data_dir(path)
+    home = pit_home(data_dir)
+
+    def add(name: str, ok: bool, detail: str = "") -> None:
+        checks.append({"check": name, "status": "PASS" if ok else "FAIL", "detail": detail[:200]})
+
+    add("data_root_outside_repo", not looks_like_repo(home),
+        "runtime data must never live inside a Git checkout")
+    if not path.is_file() or not credentials_path(data_dir).is_file():
+        add("config", False, "config/credentials отсутствуют; запусти bossman pit setup")
+        return checks, False
+    try:
+        settings = load(path)
+        add("config", True, f"participants={len(settings.people)}, models={len(settings.chat_models)}")
+    except (ValueError, TypeError, CompanionError, OSError) as exc:
+        add("config", False, str(exc))
+        return checks, False
+
+    add("allowlist", len(settings.people) >= 1)
+    from .doctor_identity import identity_checks
+    checks.extend(await asyncio.to_thread(identity_checks, settings, home, data_dir))
+    from .blocklist import BlocklistError, PrivateBlocklist
+    try:
+        block_status = PrivateBlocklist.from_settings(settings).status()
+        add("private_blocklist", True, f"entries={block_status['entries']}")
+    except BlocklistError as exc:
+        add("private_blocklist", False, str(exc))
+    if settings.web_only:
+        checks.append({"check": "telegram", "status": "SKIP",
+                       "detail": "web-only Jeff window: no Telegram bot by design"})
+    else:
+        add("bot_token_present", bool(settings.bot_token))
+
+    # The public model catalog is accessible even with an expired API key.
+    # Validate the credential separately so doctor cannot report chat ready
+    # when every participant request would fail with 401.
+    if not settings.local_chat_only and urlsplit(settings.provider_base_url).hostname == "openrouter.ai":
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
+                response = await client.get(
+                    settings.provider_base_url.rstrip("/") + "/key",
+                    headers={"Authorization": f"Bearer {settings.provider_key}"},
+                )
+            add("provider_auth", response.status_code == 200,
+                f"HTTP {response.status_code}")
+        except Exception as exc:  # noqa: BLE001 — diagnostics must fail closed
+            add("provider_auth", False, type(exc).__name__)
+
+    transport_ok = False
+    try:
+        if settings.web_only:
+            raise _SkipTelegram
+        from .runtime import _transport_settings
+        transport = Telegram(_transport_settings(settings))
+        try:
+            await transport.preflight()
+            transport_ok = True
+        finally:
+            import contextlib
+            with contextlib.suppress(Exception):
+                await transport.close()
+    except _SkipTelegram:
+        pass
+    except CompanionError as exc:
+        add("telegram_auth", False, str(exc))
+    if transport_ok:
+        add("telegram_auth", True)
+
+    route_ok = False
+    try:
+        adapter = build_adapter("openai_compat", settings.provider_base_url,
+                                api_key=settings.provider_key or None)
+        probe = ParticipantRuntime.__new__(ParticipantRuntime)
+        probe.settings = settings
+        probe.home = pit_home(data_dir)
+        probe.adapter = adapter
+        probe.local_adapter = build_adapter("openai_compat", settings.local_url) \
+            if settings.local_url else None
+        # The catalog probe follows the same resource-arbitration contract as
+        # the live runtime.  Keep the diagnostic object structurally aligned
+        # with ParticipantRuntime.__init__ so doctor cannot report a false
+        # integration failure before it reaches the provider catalog.
+        from .resources import LocalCapacityGuard
+        probe.capacity_guard = LocalCapacityGuard()
+        probe.catalog = {}
+        probe.catalog_checked_at = 0.0
+        probe.local_checked_at = 0.0
+        probe.local_state = ""
+        probe._catalog_dirty = False
+        probe._payment_blocked_until = {}
+        endpoints = await ParticipantRuntime.refresh_catalog(probe)
+        local_ok = any(endpoint.local for endpoint in endpoints.values())
+        selected_models = settings.local_models if settings.local_chat_only else settings.chat_models
+        rows = [{"model": model, "status": "ZERO_COST_OK" if model in endpoints else "NOT_ELIGIBLE"}
+                for model in selected_models]
+        route_ok = bool(endpoints)
+        detail = json.dumps(rows, ensure_ascii=False)
+        if settings.local_models:
+            detail += f"; local={'OK' if local_ok else 'DOWN'}"
+        add("free_route", route_ok, detail)
+    except Exception as exc:  # noqa: BLE001 — doctor must not crash on a broken provider
+        add("free_route", False, str(exc))
+
+    paths = await _probe_web_paths(settings)
+    add("web", paths["active"] != "NONE",
+        f"active={paths['active']}; searxng={paths['searxng']['state']}"
+        + (f"({paths['searxng']['detail']})" if paths["searxng"]["detail"] else "")
+        + f"; keyless_ddg={paths['keyless_ddg']['state']}"
+        + (f"({paths['keyless_ddg']['detail']})" if paths["keyless_ddg"]["detail"] else ""))
+
+    media = photo_runtime_status(build_photo_services(core_token="", data_dir=data_dir).config)
+    # AI Max can expose generation before vision/edit. Each capability remains
+    # separately reported so a generation-only launch cannot imply vision.
+    media_ok = True
+    if media["ai_max_media_ready"] and not any(
+        media[key] for key in ("vision_configured", "image_edit_configured", "image_generation_configured")
+    ):
+        media_ok = False
+    add("ai_max_media", media_ok, json.dumps(media, ensure_ascii=False))
+
+    add("participant_tool_perimeter", _tool_perimeter(), "location/device/computer denied")
+    ok = all(item["status"] in {"PASS", "SKIP"} for item in checks)
+    return checks, ok
+
+
+class _SkipTelegram(Exception):
+    """Doctor path marker: a web-only configuration has no Telegram bot."""
+
+
+def with_suppressed_close(client) -> None:
+    import contextlib
+    with contextlib.suppress(Exception):
+        close = getattr(client, "close", None)
+        if close is not None:
+            close()
+
+
+async def _probe_web_paths(settings) -> dict:
+    """Which web-search path is alive (SearXNG / keyless DuckDuckGo): the doctor row says it instead of a bare PASS/FAIL."""
+    from bcc.telegram_companion.adapters import probe_search_paths
+    try:
+        return await probe_search_paths(settings)
+    except Exception as exc:  # noqa: BLE001 — a doctor must not crash on a broken network stack
+        return {"active": "NONE", "searxng": {"state": "UNKNOWN", "detail": type(exc).__name__},
+                "keyless_ddg": {"state": "UNKNOWN", "detail": type(exc).__name__}}
+
+
+async def _probe_web(settings) -> bool:
+    return (await _probe_web_paths(settings))["active"] != "NONE"
+
+
+def _tool_perimeter() -> bool:
+    from .policy import TelegramToolPolicy
+    policy = TelegramToolPolicy()
+    denied = ("geo.current", "geolocation.read", "location.current", "device.info",
+              "computer.control", "shell.exec", "admin.console")
+    return all(not policy.allows(name) for name in denied)
+
+
+def cmd_doctor(path: Path) -> int:
+    checks, ok = asyncio.run(_doctor_checks(path))
+    from .version import JEFF_VERSION
+    print(json.dumps({"ok": ok, "jeff_version": JEFF_VERSION, "checks": checks},
+                     ensure_ascii=False, indent=2))
+    return 0 if ok else 2
+
+
+# -- status --------------------------------------------------------------------------
+def cmd_status(path: Path) -> int:
+    data_dir = _resolve_data_dir(path)
+    home = pit_home(data_dir)
+    from bcc.build_identity import source_identity
+
+    from .version import JEFF_VERSION
+    report: dict = {"surface": "bossman-pit", "secret_free": True, "jeff_version": JEFF_VERSION,
+                    "build_sha": source_identity().get("build_sha"),
+                    "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    report["config_present"] = path.is_file()
+    report["process"] = "RUNNING" if _is_running(home) else "STOPPED"
+    if path.is_file():
+        try:
+            settings = load(path)
+            personalities = home / "personalities"
+            # Status is scoped to configured participants. Old or revoked namespaces
+            # may intentionally have tighter ACLs and must never break the owner's
+            # status/passport screens (or be read just to compute an aggregate).
+            from .identity import derive_person_key, scoped_person_dir
+            scoped_dirs = [
+                scoped_person_dir(personalities, derive_person_key(
+                    person.user_id, bytes.fromhex(settings.identity_salt)))
+                for person in settings.people
+            ]
+            visible_dirs = [person_dir for person_dir in scoped_dirs if person_dir.is_dir()]
+            participants = len(visible_dirs)
+            facts = 0
+            fact_scan_errors = 0
+            for person_dir in visible_dirs:
+                marker = person_dir / "facts.jsonl"
+                try:
+                    if marker.is_file():
+                        facts += sum(1 for line in marker.read_text(encoding="utf-8").splitlines()
+                                     if line.strip())
+                except OSError:
+                    # Keep status available if one authorized namespace is temporarily
+                    # unreadable; do not expose the path or any participant's data.
+                    fact_scan_errors += 1
+            report["allowlist"] = len(settings.people)
+            from .blocklist import BlocklistError, PrivateBlocklist
+            try:
+                report["blocklist"] = PrivateBlocklist.from_settings(settings).status()
+            except BlocklistError as exc:
+                report["blocklist"] = {"error": str(exc)}
+            report["chat_models"] = len(settings.chat_models)
+            report["pit_storage"] = {"participants": participants, "facts": facts, "root": str(home)}
+            if fact_scan_errors:
+                report["pit_storage"]["fact_scan_errors"] = fact_scan_errors
+            report["web"] = "SEARXNG" if settings.search_url else "KEYLESS_FALLBACK"
+            report["local_models"] = list(settings.local_models) or "NONE"
+            report["chat_route_mode"] = "LOCAL_ONLY_TEST" if settings.local_chat_only else "CLOUD_FREE"
+            report["route_stats"] = _route_stats(home)
+            transport_error = _store_state(home, "transport_error")
+            if transport_error:
+                report["last_transport_error"] = transport_error
+        except (ValueError, TypeError, CompanionError, OSError) as exc:
+            report["config_error"] = str(exc)[:200]
+    from . import heartbeat as pit_heartbeat
+    report["heartbeat"] = {"telegram": pit_heartbeat.read(home), "window": pit_heartbeat.read(home / "web"),
+                           "poller_processes": pit_heartbeat.jeff_process_count()}
+    report["media"] = photo_runtime_status(
+        build_photo_services(core_token="", data_dir=data_dir).config)
+    report["queue"] = {"pending": _queue_pending(home)}
+    from .heartbeat import WATCHDOG_DIR
+    watchdog = _read_json(home / WATCHDOG_DIR / "state.json")
+    report["watchdog"] = ({**watchdog, "alive": _is_running(home / WATCHDOG_DIR)}
+                          if watchdog else {"alive": False})
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0 if report["config_present"] else 2
+
+
+def _read_json(path: Path):
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _is_running(home: Path) -> bool:
+    """Probe the kernel-owned poller lock without disturbing a live process."""
+    lock_path = home / "poller.lock"
+    if not lock_path.exists():
+        return False
+    try:
+        file = lock_path.open("a+b")
+    except OSError:
+        return False
+    try:
+        file.seek(0)                     # lock byte 0, where the runtime holds it
+        if os.name == "nt":
+            import msvcrt
+            msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, 1)
+            msvcrt.locking(file.fileno(), msvcrt.LK_UNLCK, 1)
+            return False
+        import fcntl
+        try:
+            fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(file, fcntl.LOCK_UN)
+            return False
+        except OSError:
+            return True
+    except OSError:
+        return True
+    finally:
+        try:
+            file.close()
+        except OSError:
+            pass
+
+
+def _route_stats(home: Path) -> dict:
+    """Secret-free aggregates of the internal route log (no message content)."""
+    log_path = home / "logs" / "route_log.jsonl"
+    if not log_path.is_file():
+        return {}
+    rows = []
+    try:
+        for line in log_path.read_text(encoding="utf-8").splitlines()[-500:]:
+            if line.strip():
+                rows.append(json.loads(line))
+    except (OSError, ValueError):
+        return {}
+    if not rows:
+        return {}
+    per_model: dict[str, dict] = {}
+    latencies = []
+    for row in rows:
+        entry = per_model.setdefault(row.get("model", "?"),
+                                     {"ok": 0, "fail": 0, "latency_ms": []})
+        if row.get("ok"):
+            entry["ok"] += 1
+            latency = row.get("latency_ms")
+            if type(latency) is int and latency >= 0:
+                entry["latency_ms"].append(latency)
+                latencies.append(latency)
+        else:
+            entry["fail"] += 1
+    summary = {}
+    for model, entry in per_model.items():
+        lat = sorted(entry["latency_ms"])
+        summary[model] = {
+            "ok": entry["ok"], "fail": entry["fail"],
+            "p50_ms": lat[len(lat) // 2] if lat else None,
+            "p95_ms": lat[int(len(lat) * 0.95)] if lat else None,
+        }
+    return {"turns": len(rows), "by_model": summary}
+
+
+ROUTE_AUDIT_FIELDS = ("at", "surface", "model", "provider", "ok", "latency_ms", "finish",
+                      "tokens_in", "tokens_out", "error", "route_reason", "local_gate",
+                      "context_tokens_est")
+
+
+def read_route_audit(home: Path, *, last: int = 20) -> list[dict]:
+    """Owner-only: which model answered each Jeff turn. Never message content."""
+    log_path = Path(home) / "logs" / "route_log.jsonl"
+    if not log_path.is_file():
+        return []
+    rows = []
+    for line in log_path.read_text(encoding="utf-8").splitlines()[-max(1, int(last)):]:
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict):
+            rows.append({key: row.get(key) for key in ROUTE_AUDIT_FIELDS if key in row})
+    return rows
+
+
+def cmd_routes(path: Path, argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="bossman pit routes")
+    parser.add_argument("--last", type=int, default=20)
+    parser.add_argument("--json", action="store_true")
+    ns, _ = parser.parse_known_args(argv[1:])
+    home = pit_home(_resolve_data_dir(path))
+    rows = read_route_audit(home, last=max(1, min(ns.last, 2000)))
+    from .cloud_budget import CloudBudget
+    try:
+        daily = load(path).cloud_daily_request_budget
+    except Exception:  # noqa: BLE001 — the audit must still print the route log
+        daily = 0
+    summary = CloudBudget(home, daily).status()
+    if ns.json:
+        print(json.dumps({"summary": summary, "routes": rows}, ensure_ascii=False, indent=2))
+        return 0
+    print("Jeff: кто отвечал (только для владельца; участникам модель не раскрывается)")
+    print(json.dumps(summary, ensure_ascii=False))
+    for row in rows:
+        status = "OK " if row.get("ok") else "ERR"
+        print(f"{row.get('at','?')} {status} {row.get('surface','telegram'):<8} "
+              f"{row.get('provider','?'):<6} {row.get('model','?')} "
+              f"{row.get('latency_ms','?')}ms finish={row.get('finish') or '-'} "
+              f"tok={row.get('tokens_in',0)}/{row.get('tokens_out',0)} "
+              f"reason={row.get('route_reason') or '-'} err={row.get('error') or '-'} "
+              f"gate={row.get('local_gate') or '-'}")
+    return 0
+
+
+def _queue_pending(home: Path) -> int:
+    import sqlite3
+    db_path = home / "companion.sqlite3"
+    if not db_path.is_file():
+        return 0
+    try:
+        db = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=2)
+        count = db.execute("SELECT count(*) FROM inbox WHERE phase IN ('pending','processing')").fetchone()[0]
+        db.close()
+        return int(count)
+    except (sqlite3.Error, OSError):
+        return -1
+
+
+def _store_state(home: Path, key: str):
+    import sqlite3
+    db_path = home / "companion.sqlite3"
+    if not db_path.is_file():
+        return None
+    try:
+        db = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=2)
+        row = db.execute("SELECT value FROM state WHERE key=?", (key,)).fetchone()
+        db.close()
+        if not row:
+            return None
+        from bcc.secrets import Vault
+        value = Vault(home).decrypt(row[0])
+        return json.loads(value) if value else None
+    except Exception:
+        return None
+
+
+# -- start / stop ------------------------------------------------------------------------
+def _keep_system_awake():
+    """Windows: hold an awake state while the participant bot is alive.
+
+    The owner runs Jeff on a laptop that also sleeps on idle; a Telegram bot
+    that dies every time the machine naps is not a product. While this context
+    is held the system cannot sleep (the display still may). It is released on
+    any exit path, so stop/restart keeps working as before.
+    """
+    import contextlib
+
+    if os.name != "nt":
+        return contextlib.nullcontext()
+
+    import ctypes
+
+    ES_CONTINUOUS = 0x80000000
+    ES_SYSTEM_REQUIRED = 0x00000001
+
+    class _Awake:
+        def __enter__(self):
+            ctypes.windll.kernel32.SetThreadExecutionState(
+                ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+
+        def __exit__(self, *exc):
+            ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+            return False
+
+    return _Awake()
+
+
+def cmd_start(path: Path) -> int:
+    from bcc.telegram_companion.store import single_instance
+    settings = load(path)
+    if settings.web_only:
+        print("bossman pit: это web-only конфигурация окна Jeff; Telegram-бот здесь не настроен.",
+              file=sys.stderr)
+        return 2
+    from .blocklist import BlocklistError, PrivateBlocklist
+    try:
+        # The owner's private block rule must be readable before any poller exists.
+        PrivateBlocklist.from_settings(settings)
+    except BlocklistError as exc:
+        print(f"bossman pit: {exc}", file=sys.stderr)
+        return 2
+    home = pit_home(_resolve_data_dir(path))
+    from .bot_guard import assert_not_companion_bot, token_poller_lock
+    locks = contextlib.ExitStack()
+    try:
+        # Jeff never polls the owner's «Пульт» companion bot, and one bot token
+        # has one poller on this machine even across different data dirs.
+        assert_not_companion_bot(settings.bot_token, data_dir=_resolve_data_dir(path))
+        locks.enter_context(single_instance(home))
+        locks.enter_context(token_poller_lock(settings.bot_token))
+    except CompanionError as exc:
+        locks.close()
+        print(f"bossman pit: {exc}", file=sys.stderr)
+        return 3
+    (home / STOP_FLAG).unlink(missing_ok=True)
+    with locks, _keep_system_awake():
+        runtime = ParticipantRuntime(settings)
+        try:
+            asyncio.run(runtime.run())
+            return 0
+        except KeyboardInterrupt:
+            return 0
+        except StopRequested:
+            return 0
+        except CompanionError as exc:
+            print(f"bossman pit: {exc}", file=sys.stderr)
+            return 2
+        finally:
+            (home / STOP_FLAG).unlink(missing_ok=True)
+            with contextlib.suppress(Exception):
+                asyncio.run(runtime.close())
+
+
+def cmd_watch(path: Path) -> int:
+    """Supervise ``pit start``: restart with backoff, one poller, clean STOP."""
+    import subprocess
+
+    from .heartbeat import WATCHDOG_DIR, Watchdog
+    settings = load(path)
+    if settings.web_only:
+        print("bossman pit: web-only конфигурация: Telegram-поллера нет.", file=sys.stderr)
+        return 2
+    data_dir = _resolve_data_dir(path)
+    home = pit_home(data_dir)
+    try:
+        guard = single_instance(home / WATCHDOG_DIR)
+        guard.__enter__()
+    except CompanionError as exc:
+        print(f"bossman pit: {exc}", file=sys.stderr)
+        return 3
+
+    def spawn():
+        logs = home / "logs"
+        logs.mkdir(parents=True, exist_ok=True)
+        out = (logs / "poller.out").open("ab")
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+        try:
+            return subprocess.Popen(
+                [sys.executable, "-m", "bcc.pit.cli", "start", "--data-dir", str(data_dir)],
+                stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, creationflags=flags)
+        finally:
+            out.close()
+
+    try:
+        why = Watchdog(home, spawn).run()
+    except KeyboardInterrupt:
+        why = "stopped"
+    finally:
+        guard.__exit__(None, None, None)
+    print(f"bossman pit watch: {why}")
+    return 0 if why in {"stopped", "exited"} else 2
+
+
+def cmd_stop(path: Path) -> int:
+    home = pit_home(_resolve_data_dir(path))
+    from .heartbeat import WATCHDOG_DIR
+    # A live watchdog must also see the flag while the poller is between restarts.
+    if _is_running(home) or _is_running(home / WATCHDOG_DIR):
+        (home / STOP_FLAG).write_text(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                      encoding="utf-8")
+        print("Сигнал остановки записан; PIT завершит цикл опроса в течение ~25 секунд.")
+        return 0
+    (home / STOP_FLAG).unlink(missing_ok=True)
+    print("PIT сейчас не запущен.")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "pit":
+        argv = argv[1:]
+    if not argv:
+        argv = ["status"]
+    command = argv[0]
+    path = _resolve_path(argv)
+    if command == "setup":
+        return cmd_setup(path)
+    if command == "doctor":
+        return cmd_doctor(path)
+    if command == "status":
+        return cmd_status(path)
+    if command == "start":
+        return cmd_start(path)
+    if command == "stop":
+        return cmd_stop(path)
+    if command == "watch":
+        return cmd_watch(path)
+    if command == "routes":
+        return cmd_routes(path, argv)
+    if command == "web-setup":
+        from . import web
+        return web.cmd_web_setup(path, argv)
+    if command in {"web", "web-user"}:
+        from . import web
+        return web.cli_main(path, argv)
+    if command == "master-parse":
+        from .master_parser.cli import cli_main as master_parse
+        return master_parse(path, argv)
+    if command == "passport-checkpoint":
+        from .passport_checkpoint import run_checkpoint
+        report, checkpoint = run_checkpoint(load(path))
+        print(json.dumps({"checkpoint": str(checkpoint), **report}, ensure_ascii=False))
+        return 0 if all(row["status"] not in {"MODEL_ERROR", "EMPTY_ANSWER"} for row in report["participants"]) else 1
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

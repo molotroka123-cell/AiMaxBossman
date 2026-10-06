@@ -1,0 +1,13 @@
+{
+ "evaluator_vs_pokerkit": {
+  "hands": 20000,
+  "agree": 20000,
+  "disagree": 0,
+  "examples": []
+ },
+ "phh": {
+  "phh_chars": 266,
+  "round_trip_actions_equal": true,
+  "variant": "NT"
+ }
+}

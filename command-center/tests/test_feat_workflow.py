@@ -3,7 +3,7 @@ import asyncio
 
 import sqlalchemy as sa
 
-from bcc.db import approvals as approvals_t, tasks as tasks_t, utcnow
+from bcc.db import approvals as approvals_t, task_runs as runs_t, tasks as tasks_t, utcnow
 
 from .conftest import FakeAdapter, wait_for
 from .helpers import make_stack
@@ -58,7 +58,9 @@ async def test_graph_reflects_real_runs_and_metrics(env):
     nodes = {n["id"]: n for n in wf["graph"]["nodes"]}
     # узел модели появился из реального model_alias в task_runs
     assert "model:local-7b" in nodes
-    assert nodes["model:local-7b"]["meta"]["runs"] == 2
+    async with env.svc.db.session() as s:
+        run_states = (await s.execute(sa.select(runs_t.c.status, runs_t.c.error))).all()
+    assert nodes["model:local-7b"]["meta"]["runs"] == 2, run_states
     assert all(nodes[f"task:{t}"]["status"] == "success"
                for t in [n["meta"]["task_id"] for n in wf["graph"]["nodes"] if n["kind"] == "task"])
 

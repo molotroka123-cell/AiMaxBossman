@@ -1,0 +1,331 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>@font-face{font-family:'IBM Plex Mono';font-weight:400;src:url(fonts/IBMPlexMono-400.woff2) format('woff2');}
+@font-face{font-family:'IBM Plex Mono';font-weight:500;src:url(fonts/IBMPlexMono-500.woff2) format('woff2');}
+@font-face{font-family:'Onest';font-weight:500;src:url(fonts/Onest-500.woff2) format('woff2');}
+@font-face{font-family:'Onest';font-weight:800;src:url(fonts/Onest-800.woff2) format('woff2');}</style>
+<style>html,body{margin:0;background:#0a0c10}canvas{display:block}</style>
+</head><body>
+<canvas id="out" width="1920" height="1080"></canvas>
+<script>
+// BOSSMAN intro — 5.0 s deterministic motion graphic. renderFrame(t) draws one
+// output frame; SUB sub-frames per frame are averaged for true motion blur.
+const W = 1920, H = 1080, CX = W / 2, CY = H / 2, DUR = 5.0, FPS = 60, SUB = 4;
+const BG = '#0a0c10';
+const CYAN = [53, 228, 255], BLUE = [58, 91, 255], VIOLET = [180, 76, 255];
+
+const out = document.getElementById('out');
+const octx = out.getContext('2d');
+const work = document.createElement('canvas'); work.width = W; work.height = H;
+const ctx = work.getContext('2d');
+const wm = document.createElement('canvas'); wm.width = 1300; wm.height = 320;
+const wctx = wm.getContext('2d');
+const icon = new Image(); icon.src = '../../command-center/ui/icons/icon-1024.png';
+
+// ---------------------------------------------------------------- helpers
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const eOutExpo = k => k >= 1 ? 1 : 1 - Math.pow(2, -10 * k);
+const eInExpo = k => k <= 0 ? 0 : Math.pow(2, 10 * k - 10);
+const eInOut = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+const eOutBack = k => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
+const eOutElastic = k => k === 0 ? 0 : k === 1 ? 1 : Math.pow(2, -10 * k) * Math.sin((k * 10 - .75) * (2 * Math.PI / 3)) + 1;
+const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// deterministic particle sets
+const R1 = rng(7), BURST = Array.from({length: 110}, () => ({
+  a: R1() * Math.PI * 2, v: 380 + R1() * 1100, s: 1.5 + R1() * 3.5, c: [CYAN, BLUE, VIOLET][Math.floor(R1() * 3)], life: .7 + R1() * 1.3 }));
+const R2 = rng(42), DUST = Array.from({length: 70}, () => ({
+  x: R2() * W, y: R2() * H, s: .6 + R2() * 1.8, sp: 8 + R2() * 26, ph: R2() * 6.28 }));
+
+// ------------------------------------------------------------- background
+function background(t) {
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+  const on = eOutExpo(seg(t, .05, .9)) * (1 - eInExpo(seg(t, 4.35, 4.9)));
+  const pulse = 1 + .06 * Math.sin(t * 5.2);
+  let g = ctx.createRadialGradient(CX, CY, 0, CX, CY, 900 * pulse);
+  g.addColorStop(0, `rgba(30,48,170,${.55 * on})`);
+  g.addColorStop(.45, `rgba(40,20,120,${.22 * on})`);
+  g.addColorStop(1, 'rgba(10,12,16,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // dot grid revealed by an expanding radius
+  const rev = 1600 * eOutExpo(seg(t, .15, 1.3));
+  const drift = t * 14;
+  for (let y = -40; y < H + 40; y += 48) for (let x = -40; x < W + 40; x += 48) {
+    const px = x + (drift % 48), py = y;
+    const d = Math.hypot(px - CX, py - CY);
+    if (d > rev) continue;
+    const edge = clamp((rev - d) / 260);
+    const a = .10 * edge * on * (1 - clamp(d / 1100) * .7);
+    if (a < .004) continue;
+    ctx.fillStyle = `rgba(150,175,255,${a})`;
+    ctx.fillRect(px, py, 2, 2);
+  }
+  // floating dust
+  for (const p of DUST) {
+    const y = (p.y - t * p.sp + H) % H, x = p.x + Math.sin(t * .8 + p.ph) * 12;
+    ctx.fillStyle = `rgba(170,200,255,${.35 * on * (.5 + .5 * Math.sin(t * 2 + p.ph))})`;
+    ctx.beginPath(); ctx.arc(x, y, p.s, 0, 7); ctx.fill();
+  }
+}
+
+// ---------------------------------------------------------- intro streak
+function streak(t) {
+  const k = seg(t, 0, .55); if (k <= 0 || k >= 1) return;
+  const w = W * eOutExpo(k), a = 1 - eInExpo(seg(t, .3, .55));
+  const g = ctx.createLinearGradient(CX - w / 2, 0, CX + w / 2, 0);
+  g.addColorStop(0, 'rgba(53,228,255,0)'); g.addColorStop(.5, `rgba(235,250,255,${a})`); g.addColorStop(1, 'rgba(180,76,255,0)');
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = g; ctx.fillRect(CX - w / 2, CY - 1.5, w, 3);
+  ctx.shadowColor = rgba(CYAN, a); ctx.shadowBlur = 40; ctx.fillRect(CX - w / 4, CY - 1, w / 2, 2);
+  // vertical flare
+  const fh = 260 * eOutExpo(seg(t, .04, .3)) * a;
+  const vg = ctx.createLinearGradient(0, CY - fh, 0, CY + fh);
+  vg.addColorStop(0, 'rgba(255,255,255,0)'); vg.addColorStop(.5, `rgba(255,255,255,${.9 * a})`); vg.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = vg; ctx.fillRect(CX - 1, CY - fh, 2, fh * 2);
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- lobes
+const LOBES = [
+  {c: CYAN, a0: -Math.PI / 2, ph: 0},
+  {c: BLUE, a0: Math.PI * 5 / 6, ph: 2.1},
+  {c: VIOLET, a0: Math.PI / 6, ph: 4.2},
+];
+function lobeState(L, t) {
+  const k = seg(t, .32, 1.72);
+  const r = lerp(1150, 0, eInOut(k)) + 90 * Math.sin(k * Math.PI) * (1 - k);
+  const ang = L.a0 + eInOut(k) * Math.PI * 1.6;
+  const size = lerp(30, 150, eOutExpo(seg(t, .32, 1.2))) * (1 - .55 * eInExpo(seg(t, 1.45, 1.74)));
+  return {x: CX + Math.cos(ang) * r, y: CY + Math.sin(ang) * r * .72, size, ang};
+}
+function blob(x, y, R, c, alpha, t, ph, rot) {
+  ctx.beginPath();
+  const N = 64;
+  for (let i = 0; i <= N; i++) {
+    const th = i / N * Math.PI * 2;
+    const rr = R * (1 + .16 * Math.sin(3 * th + ph + t * 3) + .07 * Math.sin(5 * th - t * 4 + ph));
+    const px = x + Math.cos(th + rot) * rr, py = y + Math.sin(th + rot) * rr * .92;
+    i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+  }
+  const g = ctx.createRadialGradient(x - R * .3, y - R * .35, R * .1, x, y, R * 1.25);
+  g.addColorStop(0, `rgba(255,255,255,${.95 * alpha})`);
+  g.addColorStop(.35, rgba(c, .92 * alpha));
+  g.addColorStop(1, rgba(c.map(v => v * .35), .0));
+  ctx.fillStyle = g; ctx.shadowColor = rgba(c, .9 * alpha); ctx.shadowBlur = R * .9; ctx.fill();
+}
+function lobes(t) {
+  if (t < .3 || t > 1.8) return;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const L of LOBES) {
+    // light trail
+    for (let j = 6; j >= 1; j--) {
+      const s = lobeState(L, t - j * .028);
+      ctx.fillStyle = rgba(L.c, .10 * (1 - j / 7));
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.size * (.55 - j * .05), 0, 7); ctx.fill();
+    }
+    const s = lobeState(L, t);
+    const a = eOutExpo(seg(t, .32, .6)) * (1 - seg(t, 1.66, 1.8));
+    blob(s.x, s.y, s.size, L.c, a, t, L.ph, s.ang);
+  }
+  ctx.restore();
+}
+
+// ------------------------------------------------------ merge + shockwave
+function merge(t) {
+  const T0 = 1.70;
+  if (t < T0 - .1 || t > 3.4) return;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const fk = seg(t, T0 - .08, T0 + .45);
+  const fa = fk < .15 ? fk / .15 : 1 - eOutExpo((fk - .15) / .85);
+  const fr = 120 + 900 * eOutExpo(fk);
+  let g = ctx.createRadialGradient(CX, CY, 0, CX, CY, fr);
+  g.addColorStop(0, `rgba(255,255,255,${.95 * fa})`); g.addColorStop(.25, `rgba(120,220,255,${.5 * fa})`); g.addColorStop(1, 'rgba(60,40,200,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  for (const [d, c, lw] of [[0, CYAN, 16], [.07, VIOLET, 8], [.15, BLUE, 4]]) {
+    const k = seg(t, T0 + d, T0 + d + .9); if (k <= 0 || k >= 1) continue;
+    ctx.strokeStyle = rgba(c, (1 - k) * .9); ctx.lineWidth = lw * (1 - k) + .5;
+    ctx.shadowColor = rgba(c, 1); ctx.shadowBlur = 30;
+    ctx.beginPath(); ctx.ellipse(CX, CY, 60 + 1050 * eOutExpo(k), (60 + 1050 * eOutExpo(k)) * .82, 0, 0, 7); ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
+  for (const p of BURST) {
+    const age = t - T0; if (age < 0 || age > p.life) continue;
+    const k = age / p.life, dist = p.v * (1 - Math.exp(-age * 3.2)) / 3.2;
+    const x = CX + Math.cos(p.a) * dist, y = CY + Math.sin(p.a) * dist * .82;
+    ctx.strokeStyle = rgba(p.c, 1 - k); ctx.lineWidth = p.s;
+    const tl = 26 * (1 - k);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.cos(p.a) * tl, y - Math.sin(p.a) * tl * .82); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ----------------------------------------------------------------- layout
+const ICON_FINAL = 300, GAP = 70;
+const WORD = 'BOSSMAN', WSIZE = 176;
+function layout() {
+  ctx.font = `800 ${WSIZE}px Onest`;
+  const ww = ctx.measureText(WORD).width + (WORD.length - 1) * 6;
+  const total = ICON_FINAL + GAP + ww;
+  const left = CX - total / 2;
+  return {iconX: left + ICON_FINAL / 2, wordX: left + ICON_FINAL + GAP, ww};
+}
+
+// ------------------------------------------------------------------- icon
+function drawIcon(t, L) {
+  if (t < 1.66) return;
+  const k1 = seg(t, 1.66, 2.25), k2 = eInOut(seg(t, 2.22, 2.85));
+  const s = lerp(.15, 1.3, eOutBack(k1)) * lerp(1, ICON_FINAL / (360 * 1.3), k2);
+  const size = 360 * s;
+  const x = lerp(CX, L.iconX, k2), y = CY;
+  const rot = lerp(-.35, 0, eOutElastic(k1));
+  const a = clamp(k1 * 3);
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  // glow
+  ctx.globalAlpha = .55 * a; ctx.filter = 'blur(38px)';
+  ctx.drawImage(icon, -size * .55, -size * .55, size * 1.1, size * 1.1);
+  ctx.filter = 'none'; ctx.globalAlpha = a;
+  ctx.drawImage(icon, -size / 2, -size / 2, size, size);
+  ctx.restore();
+}
+
+// --------------------------------------------------------------- wordmark
+function drawWord(t, L) {
+  if (t < 2.4) return;
+  wctx.clearRect(0, 0, wm.width, wm.height);
+  wctx.font = `800 ${WSIZE}px Onest`; wctx.textBaseline = 'alphabetic';
+  let x = 10; const base = 220;
+  for (let i = 0; i < WORD.length; i++) {
+    const ch = WORD[i], cw = wctx.measureText(ch).width;
+    const k = eOutExpo(seg(t, 2.52 + i * .05, 2.52 + i * .05 + .55));
+    wctx.save();
+    wctx.beginPath(); wctx.rect(x - 4, 30, cw + 12, base + 44); wctx.clip();
+    wctx.globalAlpha = clamp(k * 1.6);
+    const g = wctx.createLinearGradient(0, base - WSIZE, 0, base + 20);
+    g.addColorStop(0, '#FFFFFF'); g.addColorStop(1, '#C9D6FF');
+    wctx.fillStyle = g;
+    wctx.fillText(ch, x, base + (1 - k) * 190);
+    wctx.restore();
+    x += cw + 6;
+  }
+  // light sweep, clipped to the glyphs
+  const sk = seg(t, 3.35, 3.95);
+  if (sk > 0 && sk < 1) {
+    wctx.save(); wctx.globalCompositeOperation = 'source-atop';
+    const sx = lerp(-300, wm.width + 300, eInOut(sk));
+    const g = wctx.createLinearGradient(sx - 160, 0, sx + 160, 0);
+    g.addColorStop(0, 'rgba(53,228,255,0)'); g.addColorStop(.5, 'rgba(120,240,255,.95)'); g.addColorStop(1, 'rgba(180,76,255,0)');
+    wctx.fillStyle = g; wctx.fillRect(0, 0, wm.width, wm.height);
+    wctx.restore();
+  }
+  ctx.drawImage(wm, L.wordX - 10, CY - 220 + 30);
+  // gradient underline
+  const uk = eOutExpo(seg(t, 2.95, 3.55));
+  if (uk > 0) {
+    const g = ctx.createLinearGradient(L.wordX, 0, L.wordX + L.ww, 0);
+    g.addColorStop(0, rgba(CYAN, 1)); g.addColorStop(.5, rgba(BLUE, 1)); g.addColorStop(1, rgba(VIOLET, 1));
+    ctx.fillStyle = g; ctx.shadowColor = rgba(CYAN, .8); ctx.shadowBlur = 18;
+    ctx.fillRect(L.wordX + 2, CY + 62, (L.ww - 4) * uk, 5);
+    ctx.shadowBlur = 0;
+  }
+}
+
+// ---------------------------------------------------------------- tagline
+const TAG = 'LOCAL-FIRST AI  ·  YOUR MACHINE  ·  YOUR RULES';
+function drawTag(t, L) {
+  if (t < 3.05) return;
+  const n = Math.floor(TAG.length * seg(t, 3.1, 3.85));
+  ctx.font = '500 30px "IBM Plex Mono"'; ctx.fillStyle = '#9FB3DA';
+  ctx.textBaseline = 'alphabetic';
+  let x = L.wordX + 2; const y = CY + 128;
+  const shown = TAG.slice(0, n);
+  // letter spacing
+  for (const ch of shown) { ctx.fillText(ch, x, y); x += ctx.measureText(ch).width + 2.2; }
+  if (Math.floor(t * 5) % 2 === 0 || n < TAG.length) { ctx.fillStyle = rgba(CYAN, 1); ctx.fillRect(x + 2, y - 24, 14, 28); }
+  // version chip
+  const vk = eOutBack(seg(t, 3.5, 3.9));
+  if (vk > 0) {
+    const cx = L.wordX + L.ww - 70, cy = CY - 148;
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(vk, vk);
+    ctx.strokeStyle = rgba(CYAN, .9); ctx.lineWidth = 2; ctx.fillStyle = 'rgba(53,228,255,.10)';
+    ctx.beginPath(); ctx.roundRect(-56, -22, 112, 44, 22); ctx.fill(); ctx.stroke();
+    ctx.font = '500 24px "IBM Plex Mono"'; ctx.fillStyle = '#DDF7FF'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('v1.7', 0, 1);
+    ctx.restore();
+  }
+}
+
+// -------------------------------------------------------------------- HUD
+function hud(t) {
+  const a = eOutExpo(seg(t, .2, .8)) * (1 - seg(t, 4.2, 4.6));
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.strokeStyle = 'rgba(160,185,255,.55)'; ctx.lineWidth = 2;
+  const m = 56, l = 46 * eOutExpo(seg(t, .2, .9));
+  for (const [x, y, sx, sy] of [[m, m, 1, 1], [W - m, m, -1, 1], [m, H - m, 1, -1], [W - m, H - m, -1, -1]]) {
+    ctx.beginPath(); ctx.moveTo(x + sx * l, y); ctx.lineTo(x, y); ctx.lineTo(x, y + sy * l); ctx.stroke();
+  }
+  ctx.font = '400 20px "IBM Plex Mono"'; ctx.fillStyle = 'rgba(160,185,255,.75)';
+  ctx.textBaseline = 'middle';
+  const f = Math.min(299, Math.floor(t * FPS));
+  ctx.fillText('BOSSMAN // BOOT', m + 22, m + 30);
+  ctx.textAlign = 'right';
+  ctx.fillText(`00:00:0${Math.floor(t)}:${String(f % FPS).padStart(2, '0')}`, W - m - 22, m + 30);
+  const stages = ['CORE', 'MEMORY', 'MODELS', 'AGENTS', 'READY'];
+  const si = Math.min(stages.length - 1, Math.floor(seg(t, .4, 3.6) * stages.length));
+  ctx.textAlign = 'left';
+  ctx.fillText(`SYS ▸ ${stages[si]}`, m + 22, H - m - 30);
+  // progress bar
+  const pk = eInOut(seg(t, .4, 4.0));
+  ctx.fillStyle = 'rgba(160,185,255,.18)'; ctx.fillRect(W - m - 322, H - m - 32, 300, 3);
+  ctx.fillStyle = rgba(CYAN, .9); ctx.fillRect(W - m - 322, H - m - 32, 300 * pk, 3);
+  ctx.restore();
+}
+
+// ------------------------------------------------------------------ frame
+function scene(t) {
+  const L = layout();
+  background(t);
+  // camera: settle zoom + tiny impact shake at the merge
+  const zoom = 1 + .045 * eInOut(seg(t, 2.2, 4.35)) - .08 * eInExpo(seg(t, 4.3, 4.85));
+  const sh = Math.exp(-Math.max(0, t - 1.7) * 9) * (t > 1.7 ? 7 : 0);
+  const out = 1 - eInExpo(seg(t, 4.3, 4.85));
+  ctx.save();
+  ctx.translate(CX + Math.sin(t * 90) * sh, CY + Math.cos(t * 77) * sh);
+  ctx.scale(zoom, zoom); ctx.translate(-CX, -CY);
+  ctx.globalAlpha = out;
+  streak(t); lobes(t); merge(t); drawWord(t, L); drawIcon(t, L); drawTag(t, L);
+  ctx.restore();
+  hud(t);
+  // outro: closing line, then land exactly on the app background
+  const ck = seg(t, 4.45, 4.8);
+  if (ck > 0 && ck < 1) {
+    const w = W * (1 - eInExpo(ck));
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createLinearGradient(CX - w / 2, 0, CX + w / 2, 0);
+    g.addColorStop(0, 'rgba(53,228,255,0)'); g.addColorStop(.5, `rgba(220,245,255,${1 - ck * .6})`); g.addColorStop(1, 'rgba(180,76,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(CX - w / 2, CY - 1.5, w, 3); ctx.restore();
+  }
+  const fade = seg(t, 4.7, 4.98);
+  if (fade > 0) { ctx.fillStyle = `rgba(10,12,16,${fade})`; ctx.fillRect(0, 0, W, H); }
+}
+
+window.renderFrame = function (t) {
+  for (let j = 0; j < SUB; j++) {
+    scene(Math.min(DUR, t + j / (FPS * SUB)));
+    octx.globalAlpha = 1 / (j + 1);
+    octx.drawImage(work, 0, 0);
+  }
+  octx.globalAlpha = 1;
+  return out.toDataURL('image/png');
+};
+window.ready = (async () => {
+  await new Promise(r => icon.complete ? r() : (icon.onload = r));
+  await document.fonts.load('800 176px Onest');
+  await document.fonts.load('500 30px "IBM Plex Mono"');
+  await document.fonts.load('400 20px "IBM Plex Mono"');
+  return true;
+})();
+</script></body></html>

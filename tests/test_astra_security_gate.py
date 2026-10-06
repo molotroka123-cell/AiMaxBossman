@@ -56,3 +56,23 @@ def test_pip_audit_crash_without_report_is_retried_but_never_passes_silently(
     assert report["pip-audit"]["status"] == expected_status
     assert calls["pip-audit"] == expected_calls
     assert rc == (0 if expected_status == "PASS" else 1)
+
+
+def test_windows_bundle_audits_the_shipped_lock_not_this_runner(tmp_path, monkeypatch):
+    # The CI gate audited the Linux runner's environment; the owner's archive installs from the
+    # hash-pinned lock. 2026-10-05: the lock carried pyjwt 2.14.0 (PYSEC-2026-4141) the gate never saw.
+    monkeypatch.setattr(gate.sys, "argv", ["gate", "--component", "windows-bundle", "--output", str(tmp_path)])
+    seen = []
+    def run(cmd, **kwargs):
+        seen.append(cmd)
+        (tmp_path / "pip-audit.json").write_text(json.dumps({"dependencies": [
+            {"name": "pyjwt", "version": "2.14.0", "vulns": [{"id": "PYSEC-2026-4141"}]}]}))
+        return SimpleNamespace(returncode=1)
+    monkeypatch.setattr(gate.subprocess, "run", run)
+    assert gate.main() == 1                                   # a finding in the shipped lock blocks
+    assert len(seen) == 1 and "bandit" not in seen[0]         # no SAST of source for a lock audit
+    cmd = seen[0]
+    assert cmd[cmd.index("-r") + 1].endswith("tools/windows_bundle_lock.txt")
+    assert "--require-hashes" in cmd and "--disable-pip" in cmd
+    report = json.loads((tmp_path / "summary.json").read_text())
+    assert report["pip-audit"]["status"] == "FINDINGS" and report["pip-audit"]["findings"] == 1

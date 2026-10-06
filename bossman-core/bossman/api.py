@@ -206,6 +206,16 @@ async def list_tasks(status: str | None = None, limit: int = 50):
 
 # ---------- события ----------
 
+def _ws_event_allowed(msg: str, principal) -> bool:
+    """Security audit 2026-10-05: the WS path applies the same per-kind scope filter as SSE
+    (remote_client.events.event_allowed); an events-only device got approval/agent events here."""
+    try:
+        kind = json.loads(msg).get("kind", "")
+    except (ValueError, TypeError, AttributeError):
+        kind = ""
+    return rc_events.event_allowed(str(kind or ""), principal.scopes)
+
+
 @app.websocket("/events")
 async def ws_events(ws: WebSocket):
     """Шина событий — только со скоупом events (Stage 6), проверка ДО подписки.
@@ -238,7 +248,7 @@ async def ws_events(ws: WebSocket):
                     await ws.close(code=1008)
                     return
                 checked = now
-            if msg is not None:
+            if msg is not None and _ws_event_allowed(msg, principal):
                 await ws.send_text(msg)
     except WebSocketDisconnect:
         pass

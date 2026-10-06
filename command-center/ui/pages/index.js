@@ -43,6 +43,10 @@ function lazyPage(meta, load, pick) {
 }
 
 export const FEATURE_PAGES = [
+  lazyPage({ id: 'capability-tree', title: 'Дерево развития', icon: 'agents', nav: 'primary', section: 'work' },
+    () => import('./capability_tree.js'), (m) => m.default),
+  lazyPage({ id: 'poker-vision', title: 'Poker Vision', icon: 'search', nav: 'primary', section: 'apps' },
+    () => import('./poker_vision.js'), (m) => m.default),
   lazyPage({ id: 'oss', title: 'Локальные инструменты', icon: 'system', nav: 'more', section: 'system' },
     () => import('./oss.js'), (m) => m.default),
   lazyPage({ id: 'video-studio', title: 'Video Studio', icon: 'film', nav: 'primary', section: 'studio' },
@@ -53,6 +57,8 @@ export const FEATURE_PAGES = [
     () => import('../video_chat.js'), (m) => m.ChatPage),
   lazyPage({ id: 'home-v3', title: 'Главная', icon: 'home', nav: 'primary', section: 'main' },
     () => import('./home.js'), (m) => m.default),
+  lazyPage({ id: 'chat', title: 'Чат', icon: 'tasks', nav: 'primary', section: 'main' },
+    () => import('./chat.js'), (m) => m.default),
   lazyPage({ id: 'apps', title: 'Приложения', icon: 'empty', nav: 'primary', section: 'apps' },
     () => import('./apps.js'), (m) => m.default),
   lazyPage({ id: 'overview', title: 'Обзор', icon: 'home', nav: 'primary', section: 'system' },
@@ -77,6 +83,8 @@ export const FEATURE_PAGES = [
     () => import('./browser.js'), (m) => m.default),
   lazyPage({ id: 'coding', title: 'Coding-сессии', icon: 'edit', nav: 'more', section: 'studio' },
     () => import('./coding.js'), (m) => m.default),
+  lazyPage({ id: 'rave', title: 'Agentic Rave', icon: 'agents', nav: 'more', section: 'studio' },
+    () => import('./rave.js'), (m) => m.default),
   lazyPage({ id: 'agentmap', title: 'Карта агентов', icon: 'agents', nav: 'more', section: 'brains' },
     () => import('./agentmap.js'), (m) => m.default),
   lazyPage({ id: 'orchestras', title: 'Команды агентов', icon: 'plus', nav: 'more', section: 'brains' },
@@ -96,6 +104,8 @@ export const FEATURE_PAGES = [
     () => import('./images.js'), (m) => m.default),
   lazyPage({ id: 'trading_lab', title: 'Обучение трейдингу', icon: 'activity', nav: 'more', section: 'studio' },
     () => import('./trading_lab.js'), (m) => m.default),
+  lazyPage({ id: 'v15-owner-run', title: 'Bossman 1.5', icon: 'bolt', nav: 'primary', section: 'brains' },
+    () => import('./v15_owner_run.js'), (m) => m.default),
   lazyPage({ id: 'mission_console', title: 'Операторский канал', icon: 'activity', nav: 'primary', section: 'work' },
     () => import('./mission_console.js'), (m) => m.default),
   lazyPage({ id: 'web_research', title: 'Поиск в интернете', icon: 'browser', nav: 'more', section: 'studio' },
@@ -106,6 +116,18 @@ export const FEATURE_PAGES = [
     () => import('./web_designer.js'), (m) => m.default),
   lazyPage({ id: 'objectives', title: 'Цели', icon: 'target', nav: 'more', section: 'work' },
     () => import('./objectives.js'), (m) => m.default),
+  lazyPage({ id: 'jeff-settings', title: 'Настройки Jeff', icon: 'agents', nav: 'more', section: 'brains' },
+    () => import('./jeff_settings.js'), (m) => m.default),
+  lazyPage({ id: 'motion-studio', title: 'Motion Studio', icon: 'bolt', nav: 'more', section: 'studio' },
+    () => import('./motion_studio.js'), (m) => m.default),
+  lazyPage({ id: 'jeff-passports', title: 'Jeff · паспорта', icon: 'agents', nav: 'primary', section: 'brains' },
+    () => import('./jeff_passports.js'), (m) => m.default),
+  lazyPage({ id: 'jeff-insights', title: 'Jeff · обзор', icon: 'agents', nav: 'more', section: 'brains' },
+    () => import('./jeff_insights.js'), (m) => m.default),
+  lazyPage({ id: 'autonomy', title: 'Автономия', icon: 'check', nav: 'more', section: 'system' },
+    () => import('./autonomy.js'), (m) => m.default),
+  lazyPage({ id: 'telegram_calls', title: 'Telegram-звонки', icon: 'activity', nav: 'more', section: 'apps' },
+    () => import('./telegram_calls.js'), (m) => m.default),
 ];
 
 /* Предзагрузка остальных страниц в простое: по одной, чтобы не отбирать сеть и

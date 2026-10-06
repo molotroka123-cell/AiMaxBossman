@@ -172,6 +172,9 @@ class ApiError(RuntimeError):
     """The Command Center API is unreachable or refused the call."""
 
 
+READINESS_TIMEOUT_S = 300.0
+
+
 class CommandCenterApi:
     """Loopback-only client of the Command Center (X-BCC-Token; never a proxy)."""
 
@@ -248,7 +251,9 @@ class BossmanCodingBackend:
         self.agent: dict | None = None
 
     def prepare(self, loop) -> dict:
-        status, ready = self.api.get("/api/coding-tasks/readiness")
+        # Readiness performs a live tool-call handshake with the student model; a cold
+        # local model takes ~45 s on the owner machine, beyond the 30 s request default.
+        status, ready = self.api.request("GET", "/api/coding-tasks/readiness", timeout=READINESS_TIMEOUT_S)
         if status != 200 or not isinstance(ready, dict):
             raise ApiError(f"coding tasks readiness answered {status}")
         if not ready.get("available"):
@@ -279,12 +284,17 @@ class BossmanCodingBackend:
         task = ctx.task
         allowed = list(dict.fromkeys(list(task.get("editable") or []) + list(v.new_test_prefixes(task))))
         timeout = int(min(7200, max(30, ctx.deadline - time.monotonic() - 30)))
-        return {"instruction": ctx.instruction, "source_repo": str(repo), "allowed_paths": allowed,
+        body = {"instruction": ctx.instruction, "source_repo": str(repo), "allowed_paths": allowed,
                 "protected_paths": ["conftest.py", "tests/conftest.py", "pytest.ini", "setup.cfg", "tox.ini",
                                     "pyproject.toml", "config/evolution", ".github"],
                 "model": self.model, "timeout_seconds": timeout,
                 "agent_id": (self.agent or {}).get("id"), "project_id": self.project_id,
                 "use_memory": bool(self.use_memory), "verify_tests": list(task.get("tests") or [])}
+        if self.model and self.model.startswith("worker:"):
+            # --model worker:<id> selects one of Command Center's allowlisted cloud workers
+            # (coding_tasks.WORKERS); the same sandbox, verifier and approvals apply.
+            body["worker"], body["model"] = self.model.split(":", 1)[1], None
+        return body
 
     def attempt(self, ctx: AttemptContext) -> AttemptResult:
         repo = student_clone(ctx)

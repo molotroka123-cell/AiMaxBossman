@@ -80,10 +80,14 @@ def _bootstrap(module) -> str:
             "from bossman_v3.self_improvement.loop import main; raise SystemExit(main(sys.argv[1:]))")
 
 
-def _worker_command(module, work: Path, repo: Path, suite: Path, body: StartBody, svc) -> list[str]:
+def _worker_command(module, work: Path, repo: Path, suite: Path, body: StartBody, svc,
+                    api_url: str | None = None) -> list[str]:
     argv = [sys.executable, "-I", "-c", _bootstrap(module), "loop", "--work", str(work), "--repo", str(repo),
             "--suite", str(suite), "--backend", body.backend, "--data-dir", str(svc.settings.data_dir),
             "--max-cycles", str(body.cycles)]
+    if api_url:
+        # The loop's default is :8800; `bcc --port 8801` does not reach settings.port.
+        argv += ["--api-url", api_url]
     if body.model:
         argv += ["--model", body.model]
     return argv
@@ -100,6 +104,18 @@ async def _reap(work: Path, tree, log) -> None:
 
 def _view(svc) -> dict:
     return _loop().status(_work(svc))
+
+
+def _owner_stop_active(svc) -> bool:
+    """The owner's global STOP (`<data>/computer/STOP`): the loop halts on it, so a campaign must not be (re)started
+    while it is set. Cleared where it was set (Computer Use resume)."""
+    return (Path(svc.settings.data_dir) / "computer" / "STOP").exists()
+
+
+def _refuse_while_owner_stop(svc) -> None:
+    if _owner_stop_active(svc):
+        raise HTTPException(409, {"code": "OWNER_STOP_ACTIVE",
+                                  "message": "the owner's global STOP is set; clear it before starting the loop"})
 
 
 @router.get("/status")
@@ -121,6 +137,7 @@ async def start(body: StartBody, request: Request):
     svc = request.app.state.svc
     module = _loop()
     work = _work(svc)
+    _refuse_while_owner_stop(svc)
     active = _ACTIVE.get(work)
     if active or module.status(work)["loop_running"]:
         raise HTTPException(409, {"code": "EVOLUTION_ALREADY_RUNNING"})
@@ -134,7 +151,8 @@ async def start(body: StartBody, request: Request):
     from bossman.apprentice.proc_tree import ProcessTree  # noqa: PLC0415
     logfile = (work / "loop-worker.log").open("ab")
     try:
-        tree = ProcessTree(_worker_command(module, work, repo, suite, body, svc),
+        tree = ProcessTree(_worker_command(module, work, repo, suite, body, svc,
+                                           api_url=str(request.base_url).rstrip("/")),
                            stdin=subprocess.DEVNULL, stdout=logfile, stderr=subprocess.STDOUT)
     except Exception:
         logfile.close()
@@ -143,7 +161,8 @@ async def start(body: StartBody, request: Request):
     task = asyncio.create_task(_reap(work, tree, logfile), name="bcc-evolution-reap")
     task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
     return {"status": "STARTING", "campaign": str(work), "pid": tree.pid,
-            "repo": str(repo), "cycles": body.cycles, "model": body.model}
+            "repo": str(repo), "cycles": body.cycles, "model": body.model,
+            "open_path": "#/capability-tree"}
 
 
 @router.post("/pause")
@@ -170,6 +189,7 @@ async def resume(request: Request):
     module = _loop()
     if not (work / "loop-state.json").is_file():
         raise HTTPException(404, {"code": "NO_CAMPAIGN"})
+    _refuse_while_owner_stop(svc)
     if _ACTIVE.get(work) or module.status(work)["loop_running"]:
         raise HTTPException(409, {"code": "EVOLUTION_STILL_RUNNING"})
     state = module._read_json(work / module.STATE_FILE) or {}

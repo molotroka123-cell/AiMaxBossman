@@ -28,8 +28,8 @@ class Patch(Strict):
 async def guard(coro):
     try:return await coro
     except rt.StudioError as e:raise HTTPException(409,{'reason':e.reason,'verdict':e.verdict,'message':str(e)}) from None
-    except KeyError:raise HTTPException(404,'Studio item not found') from None
-    except (RuntimeError,OSError):raise HTTPException(409,'Local bytes missing or changed') from None
+    except KeyError:raise HTTPException(404,'Не найдено: возможно, элемент уже удалён. Обновите страницу.') from None
+    except (RuntimeError,OSError):raise HTTPException(409,'Файл результата пропал или изменился на диске: создайте результат заново.') from None
     except (ValueError,PermissionError) as e:raise HTTPException(422,str(e)) from None
 
 @router.get('/models')
@@ -47,17 +47,33 @@ async def job(jid:int,request:Request):return await guard(rt.get_job(request.app
 @router.post('/jobs/{jid}/cancel')
 async def cancel(jid:int,request:Request):
     svc=request.app.state.svc
-    await guard(rt.get_job(svc,jid))
+    job=await guard(rt.get_job(svc,jid))
     async with svc.db.session() as s:
-        await s.execute(sa.update(image_jobs).where(image_jobs.c.id==jid,image_jobs.c.status.in_(['queued','running'])).values(status='cancelled',finished_at=utcnow()))
+        stopped=await s.execute(sa.update(image_jobs).where(image_jobs.c.id==jid,image_jobs.c.status.in_(['queued','running'])).values(status='cancelled',finished_at=utcnow()))
+        if stopped.rowcount and job['studio']['plane']['model'].startswith('openrouter:'):
+            # OpenRouter has no cancel endpoint: a request already sent keeps running and may be
+            # charged. Same marking as the global STOP (control_plane), so Retry cannot look safe.
+            # submit_started is written before the request and the provider gate rereads the
+            # cancelled row before sending, so a False read here means nothing was sent.
+            await s.execute(sa.update(jobs).where(jobs.c.job_id==jid,jobs.c.submit_started==True).values(  # noqa: E712
+                reason=rt.PROVIDER_UNKNOWN_REASON,verdict='OWNER_REQUIRED'))
         await s.commit()
     await svc.bus.emit('studio.job.cancelled',job_id=jid)
     return await rt.get_job(svc,jid)
+class Retry(Strict):
+    confirm_resubmit:bool=False
 @router.post('/jobs/{jid}/retry')
-async def retry(jid:int,request:Request):
+async def retry(jid:int,request:Request,body:Retry|None=None):
     old=await guard(rt.get_job(request.app.state.svc,jid))
-    if old['status'] not in ('failed','cancelled'):raise HTTPException(409,'Only stopped jobs may be retried')
-    if old['studio']['reason']=='interrupted_unknown':raise HTTPException(409,'Inspect external request before creating a fresh job')
+    if old['status'] not in ('failed','cancelled'):raise HTTPException(409,'Повторить можно только остановленную или неудавшуюся задачу.')
+    if old['studio']['reason'] in ('interrupted_unknown',rt.PROVIDER_UNKNOWN_REASON,rt.RECONCILE_REASON):
+        raise HTTPException(409,'Inspect external request before creating a fresh job')
+    if old['studio']['submit_started'] and old['studio']['plane']['model'].startswith('openrouter:') and not (body and body.confirm_resubmit):
+        # Audit 2026-09-28: a poll error after a paid submit, then Retry, paid twice without a word.
+        raise HTTPException(409,{'reason':'resubmit_requires_confirmation','verdict':'OWNER_REQUIRED',
+            'message':'The provider already received this request and may have charged for it. '
+                      'Retry with {"confirm_resubmit": true} to pay for a new generation.',
+            'provider_request_id':old['studio']['request_id']})
     plane=old['studio']['plane']
     return await guard(rt.create_job(request.app.state.svc,{**plane,'media':[{'run_id':m['run_id'],'role':m['role']} for m in plane['media']]}))
 @router.get('/runs')
@@ -76,7 +92,7 @@ async def list_runs(request:Request,surface:str='',favorite:bool=False,deleted:b
     return {'items':[rt.public_run(r) for r in rows],'total':total}
 async def run(svc,rid):
     row=await rt.one(svc,runs,runs.c.id,rid)
-    if not row:raise HTTPException(404,'Studio run not found')
+    if not row:raise HTTPException(404,'Результат не найден: возможно, он уже удалён.')
     return row
 @router.get('/runs/{rid}')
 async def get_run(rid:str,request:Request):return rt.public_run(await run(request.app.state.svc,rid))
@@ -84,16 +100,16 @@ async def get_run(rid:str,request:Request):return rt.public_run(await run(reques
 async def file(rid:str,request:Request):
     from bcc.video_studio.descriptor_stream import stream_verified
     svc=request.app.state.svc;row=await run(svc,rid)
-    if row['deleted']:raise HTTPException(404,'Run is in trash')
+    if row['deleted']:raise HTTPException(404,'Результат лежит в корзине: сначала верните его.')
     try:handle=await rt.verified_handle(svc,row)
-    except (ValueError,RuntimeError,OSError):raise HTTPException(409,'Output bytes missing or changed') from None
+    except (ValueError,RuntimeError,OSError):raise HTTPException(409,'Файл результата пропал или изменился на диске.') from None
     return stream_verified(handle,request,media_type=row['mime'])
 @router.patch('/runs/{rid}')
 async def patch(rid:str,body:Patch,request:Request):
     svc=request.app.state.svc;await run(svc,rid)
     changes=body.model_dump(exclude_unset=True)
-    if 'favorite' in changes and changes['favorite'] is None:raise HTTPException(422,'favorite must be boolean')
-    if changes.get('collection_id') is not None and not await rt.one(svc,image_collections,image_collections.c.id,changes['collection_id']):raise HTTPException(422,'collection_id missing')
+    if 'favorite' in changes and changes['favorite'] is None:raise HTTPException(422,'Отметка «Избранное» — только да или нет.')
+    if changes.get('collection_id') is not None and not await rt.one(svc,image_collections,image_collections.c.id,changes['collection_id']):raise HTTPException(422,'Коллекция не найдена: выберите другую.')
     if changes:
         async with svc.db.session() as s:
             await s.execute(sa.update(runs).where(runs.c.id==rid).values(**changes));await s.commit()
@@ -141,7 +157,7 @@ async def consent(body:Consent,request:Request):
     inputs=[];svc=request.app.state.svc
     for media in body.media:
         row=await run(svc,media.run_id)
-        if row['deleted']:raise HTTPException(422,'Reference is deleted')
+        if row['deleted']:raise HTTPException(422,'Референс удалён: выберите другой.')
         await guard(rt.verified_handle(svc,row,close=True))
         inputs.append({'run_id':row['id'],'role':media.role,'sha256':row['sha256']})
     return {'confirmation':await guard(confirm(svc,body.provider,inputs))}
@@ -192,17 +208,17 @@ class Package(Strict):ids:list[str]=Field(min_length=1,max_length=100)
 async def package(body:Package,request:Request):
     from bcc.studio.integrations import package as pack
     try:return await guard(pack(request.app.state.svc,body.ids))
-    except (RuntimeError,OSError):raise HTTPException(409,'Output bytes missing or changed') from None
+    except (RuntimeError,OSError):raise HTTPException(409,'Файл результата пропал или изменился на диске.') from None
 @router.get('/packages/{pid}')
 async def package_file(pid:str,request:Request):
     from bcc.studio.tables import config
     from bcc.video_studio.read_verification import open_verified
     from bcc.video_studio.descriptor_stream import stream_verified
     svc=request.app.state.svc;record=await rt.one(svc,config,config.c.key,'package:'+pid)
-    if not record:raise HTTPException(404,'Package not found')
+    if not record:raise HTTPException(404,'Архив не найден: соберите его заново.')
     info=record['value']
     try:handle=await open_verified(rt.storage(svc).resolve_existing(info['path']),info['sha256'],'Package changed',size=info['bytes'])
-    except (ValueError,OSError,RuntimeError):raise HTTPException(409,'Package bytes changed') from None
+    except (ValueError,OSError,RuntimeError):raise HTTPException(409,'Файлы архива изменились на диске: соберите его заново.') from None
     return stream_verified(handle,request,media_type='application/zip',filename='studio-results.zip')
 
 class WebTransfer(Strict):
@@ -214,9 +230,9 @@ async def web(rid:str,body:WebTransfer,request:Request):
     import base64,os
     from bcc.features.web_designer import EditIn,edit_project
     svc=request.app.state.svc;row=await run(svc,rid)
-    if row['deleted'] or row['surface']!='image' or row['mime']=='image/svg+xml' or row['file_bytes']>1024*1024:raise HTTPException(422,'Choose a raster image below 1 MiB for a self-contained website')
+    if row['deleted'] or row['surface']!='image' or row['mime']=='image/svg+xml' or row['file_bytes']>1024*1024:raise HTTPException(422,'Для самодостаточного сайта нужна растровая картинка меньше 1 МиБ.')
     try:handle=await rt.verified_handle(svc,row)
-    except (ValueError,RuntimeError,OSError):raise HTTPException(409,'Output changed') from None
+    except (ValueError,RuntimeError,OSError):raise HTTPException(409,'Файл результата изменился на диске.') from None
     # Positional read from offset 0, never a plain os.read: after
     # digest_descriptor the Windows pread fallback leaves the shared file
     # pointer at EOF, and a sequential read returned zero bytes there — a
@@ -230,7 +246,7 @@ async def web(rid:str,body:WebTransfer,request:Request):
             data+=block
     finally:handle.close()
     import hashlib
-    if hashlib.sha256(data).hexdigest()!=row['sha256']:raise HTTPException(409,'Output changed during read')
+    if hashlib.sha256(data).hexdigest()!=row['sha256']:raise HTTPException(409,'Файл результата изменился во время чтения: повторите.')
     return await edit_project(body.project_id,EditIn(op='attrs',path=body.path,tag='img',base_version=body.base_version,attrs={'src':f"data:{row['mime']};base64,"+base64.b64encode(data).decode(),'data-studio-provenance':rid}),request)
 
 @router.get('/capabilities')
@@ -256,12 +272,12 @@ async def memory_reference(rid:str,body:ReferenceNote,request:Request):
     from bcc.features.tools_memory import get_service,MemoryNotConfigured
     from bcc.oss.qdrant import QdrantUnavailable
     svc=request.app.state.svc;row=await run(svc,rid)
-    if row['deleted']:raise HTTPException(409,'Reference is in trash')
+    if row['deleted']:raise HTTPException(409,'Референс лежит в корзине: сначала верните его.')
     await guard(rt.verified_handle(svc,row,close=True))
     try:service=await get_service(svc)
     except (MemoryNotConfigured,FileNotFoundError):raise HTTPException(409,{'verdict':'OWNER_REQUIRED','reason':'Configure the existing notes vault first'}) from None
     content=f"Studio reference: {rid}\nSHA-256: {row['sha256']}\nSurface: {row['surface']}\nProvider: {row['provenance']['provider']}\nLocal gallery: /#/images?studio=1\n\nThis is an owner reference, not a trained identity or Soul ID."
     try:path=await service.remember(title=body.title,content=content,kind='note',project='Studio references',tags=['studio','reference'],filename='studio-reference-'+rid+'.md')
-    except FileExistsError:raise HTTPException(409,'A note for this reference already exists') from None
+    except FileExistsError:raise HTTPException(409,'Заметка для этого референса уже есть.') from None
     except QdrantUnavailable:raise HTTPException(503,{'saved':True,'reason':'Reference note saved; memory index unavailable'}) from None
     return {'path':str(path),'run_id':rid,'sha256':row['sha256']}

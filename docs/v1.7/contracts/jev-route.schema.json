@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bossman PIT Jev Route Decision",
+  "type": "object",
+  "required": [
+    "intent",
+    "needs_web",
+    "sensitivity",
+    "selected_model",
+    "fallback_chain",
+    "reason_code"
+  ],
+  "properties": {
+    "intent": {
+      "type": "string"
+    },
+    "needs_web": {
+      "type": "boolean"
+    },
+    "needs_vision": {
+      "type": "boolean"
+    },
+    "needs_code": {
+      "type": "boolean"
+    },
+    "sensitivity": {
+      "enum": [
+        "public",
+        "personal",
+        "sensitive",
+        "local_only"
+      ]
+    },
+    "persona_keys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "model_candidates": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "selected_model": {
+      "type": "string"
+    },
+    "fallback_chain": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expected_quality": {
+      "type": "number"
+    },
+    "expected_latency": {
+      "type": "number"
+    },
+    "expected_cost": {
+      "type": "number",
+      "minimum": 0
+    },
+    "privacy_risk": {
+      "type": "number",
+      "minimum": 0
+    },
+    "reason_code": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

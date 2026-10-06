@@ -1,0 +1,79 @@
+{
+ "meta": {
+  "title": "Hiring",
+  "bpm": 124,
+  "key": "E",
+  "brand": "NIMBUS",
+  "hud": "NIMBUS // HIRING",
+  "voice": "am_fenrir",
+  "duration": 12.0
+ },
+ "scenes": [
+  {
+   "type": "title",
+   "title": "HIRING",
+   "kicker": "NIMBUS IS GROWING",
+   "start": 0.0,
+   "end": 2.5,
+   "vo": [
+    {
+     "t": 0.1,
+     "text": "We are hiring."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "heading": "OPEN ROLES",
+   "items": [
+    {
+     "t": 2.75,
+     "title": "BACKEND",
+     "sub": "python · postgres",
+     "icon": "code"
+    },
+    {
+     "t": 3.66,
+     "title": "DESIGNER",
+     "sub": "product & brand",
+     "icon": "play"
+    },
+    {
+     "t": 4.57,
+     "title": "REMOTE",
+     "sub": "work from anywhere",
+     "icon": "plane"
+    }
+   ],
+   "vo": [
+    {
+     "t": 2.75,
+     "text": "Backend engineer."
+    },
+    {
+     "t": 3.66,
+     "text": "Product designer."
+    },
+    {
+     "t": 4.57,
+     "text": "Fully remote."
+    }
+   ],
+   "start": 2.5,
+   "end": 8.0
+  },
+  {
+   "type": "end_card",
+   "text": "APPLY NOW",
+   "sub": "LINK IN BIO",
+   "start": 8.0,
+   "end": 12.0,
+   "vo": [
+    {
+     "t": 8.1,
+     "text": "Apply now."
+    }
+   ]
+  }
+ ]
+}

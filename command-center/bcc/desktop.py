@@ -30,6 +30,7 @@ from typing import Callable, Sequence
 
 # Один и тот же переключатель для баннера окна и для анонса токена сервером.
 from .auth import TOKEN_STDOUT_ENV
+from .build_identity import DESKTOP_APP_IDENTITY
 
 # Кандидаты в порядке предпочтения: предустановленный Playwright-Chromium (его же
 # использует рантайм браузера), затем системные браузеры на Chromium-движке.
@@ -139,7 +140,35 @@ def browser_argv(browser: str, url: str, profile_dir: Path, *, window_size: str 
     ]
 
 
-APP_IDENTITY = "bossman-command-center"
+APP_IDENTITY = DESKTOP_APP_IDENTITY
+_LEGACY_APP_IDENTITY = "bossman-command-center"
+_BUILD_SHA = re.compile(r"[0-9a-f]{40}\Z")
+
+
+def _local_identity() -> dict:
+    """Identity of the code that is about to create the desktop window."""
+    from . import __version__
+    from .build_identity import source_identity
+
+    return {"app": APP_IDENTITY, "version": __version__, **source_identity(fresh=True)}
+
+
+def _same_build(local: dict, server: dict | None) -> bool:
+    """Only a proven, exact build may reuse a server from another process."""
+    if not server or local.get("app") != server.get("app") or local.get("version") != server.get("version"):
+        return False
+    local_sha, server_sha = local.get("build_sha"), server.get("build_sha")
+    return (local.get("source_identity") == server.get("source_identity") == "PASS"
+            and isinstance(local_sha, str) and isinstance(server_sha, str)
+            and _BUILD_SHA.fullmatch(local_sha) is not None
+            and local_sha == server_sha)
+
+
+def _identity_label(identity: dict) -> str:
+    sha = identity.get("build_sha")
+    if identity.get("source_identity") == "PASS" and isinstance(sha, str) and _BUILD_SHA.fullmatch(sha):
+        return sha[:12]
+    return "SOURCE_IDENTITY_UNKNOWN"
 
 
 def _get_json(url: str, timeout: float) -> dict | None:
@@ -373,6 +402,28 @@ def _pid_alive(pid: int) -> bool:
     except OSError:
         return False
     return True
+
+
+def _process_created(pid: int) -> float | None:
+    """Время создания процесса (секунды эпохи) или None, если узнать нельзя."""
+    try:
+        import psutil
+        return float(psutil.Process(pid).create_time())
+    except Exception:  # noqa: BLE001 — нет psutil/процесса/прав: признака просто нет
+        return None
+
+
+def _same_process(pid: int, created: object) -> bool:
+    """Тот ли это процесс, что записал замок, а не новый с тем же pid.
+
+    Windows быстро раздаёт pid заново: замок убитого запуска с живым чужим pid
+    запирал окно навсегда («окно уже запущено», а окна нет). Замок без отметки
+    (прежние сборки) и процесс, чьё время создания узнать нельзя, судим по pid,
+    как раньше."""
+    if not isinstance(created, (int, float)):
+        return True
+    actual = _process_created(pid)
+    return actual is None or abs(actual - float(created)) <= 1.0
 
 
 def _read_lock(data_dir: Path) -> dict | None:
@@ -614,6 +665,37 @@ class _RelaunchTakeover:
                  f"profile={self.profile_dir}")
 
 
+class _OrphanWindow:
+    """A live browser window on our profile that no launcher owns any more."""
+
+    def __init__(self, profile_dir: Path, holders: list):
+        self.profile_dir = Path(profile_dir)
+        self.scanner = _ProfileScanner(self.profile_dir)
+        self.holders = holders
+
+    def holder_pids(self) -> list[int]:
+        return [p.pid for p in self.holders]
+
+    def wait(self) -> None:
+        while True:
+            self.holders = [p for p in self.holders if _is_running(p)] or self.scanner.scan()
+            if not self.holders and not _profile_lock_held(self.profile_dir):
+                return
+            time.sleep(_HOLDER_POLL_S)
+
+
+def _orphan_window(profile_dir: Path) -> "_OrphanWindow | None":
+    """The profile is held by a live browser (its own lockfile or a process with
+    our --user-data-dir): that is the window of a launcher that died."""
+    try:
+        holders = _ProfileScanner(profile_dir).scan()
+    except Exception:  # noqa: BLE001 — diagnosis failure means "no signal", never a block
+        holders = []
+    if holders or _profile_lock_held(profile_dir):
+        return _OrphanWindow(profile_dir, holders)
+    return None
+
+
 def _is_running(p) -> bool:
     try:
         return p.is_running() and p.status() != "zombie"
@@ -786,17 +868,19 @@ class _BackgroundServer:
     """uvicorn в потоке — ровно тот же app, что у ``bcc``; останавливается вместе с окном."""
 
     def __init__(self, host: str, port: int) -> None:
-        import uvicorn
-
-        from .app import create
         from .config import settings
 
         settings.ensure_dirs()
-        self.server = uvicorn.Server(uvicorn.Config(create(), host=host, port=port, log_level="warning"))
+        self.host, self.port = host, port
+        # Приложение строится в start(), ПОСЛЕ замка данных: его конструктор
+        # заводит токен и ключ хранилища, и второй ярлык, проигравший гонку за
+        # замок, не должен успеть переписать токен победителя.
+        self.server = None
         self.error: str | None = None
+        #: Кто держит данные, если start() проиграл замок (иначе None).
+        self.holder: dict | None = None
         self._cause = _StartupCause()
         self._log = logging.getLogger("uvicorn.error")
-        self._log.addHandler(self._cause)
         self.thread = threading.Thread(target=self._serve, name="bcc-desktop-server", daemon=True)
 
     def _explain(self, exc: BaseException) -> str:
@@ -817,10 +901,47 @@ class _BackgroundServer:
             self.error = self._explain(exc)
 
     def start(self, url: str, timeout: float = 30.0) -> bool:
+        # One backend per data root: the window's in-process server takes the
+        # same lock as `bcc`, so a terminal-started server and this one can
+        # never write the same data at once.
+        from urllib.parse import urlsplit
+
+        from .backend_lock import BackendAlreadyRunning, acquire
+        from .build_identity import source_identity
+        from .config import settings
+        parts = urlsplit(url)
+        try:
+            self._data_lock = acquire(settings.data_dir, host=parts.hostname or "127.0.0.1",
+                                      port=parts.port or 0, kind="desktop",
+                                      build_sha=source_identity().get("build_sha"))
+        except BackendAlreadyRunning as exc:
+            self.error = str(exc)
+            self.holder = dict(exc.info)
+            return False
+        except OSError as exc:
+            # Замок данных не удалось занять и не удалось назвать держателя
+            # (например, backend.json заблокирован дольше отведённого).
+            self.error = f"не удалось занять замок данных {settings.data_dir}: {type(exc).__name__}: {exc}"
+            return False
+        try:
+            import uvicorn
+
+            from .app import create
+            self.server = uvicorn.Server(uvicorn.Config(create(), host=self.host, port=self.port,
+                                                        log_level="warning"))
+        except Exception as exc:  # noqa: BLE001 — причина уходит владельцу, а не трейсбеком в никуда
+            self.error = f"{type(exc).__name__}: {exc}"
+            return False
+        # После uvicorn.Config: он перенастраивает журналы uvicorn и снял бы
+        # обработчик, повешенный раньше.
+        self._log.addHandler(self._cause)
         self.thread.start()
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            if server_alive(url):
+            # A Command Center from another build can claim the port between
+            # run()'s first probe and uvicorn's bind. Its HTTP reply is not
+            # evidence that *this* server started.
+            if self.server.started and self.thread.is_alive() and server_alive(url):
                 return True
             if not self.thread.is_alive():
                 return False
@@ -830,9 +951,53 @@ class _BackgroundServer:
         return False
 
     def stop(self) -> None:
-        self.server.should_exit = True
-        self.thread.join(timeout=10)
+        if self.server is not None:
+            self.server.should_exit = True
+        if self.thread.is_alive():
+            self.thread.join(timeout=10)
         self._log.removeHandler(self._cause)
+        lock = getattr(self, "_data_lock", None)
+        if lock is not None:
+            lock.release()
+            self._data_lock = None
+
+
+#: Сколько окно ждёт, пока держатель данных начнёт отвечать. Держатель может
+#: стартовать прямо сейчас: второй ярлык, нажатый одновременно с первым,
+#: терминал или автозапуск. Раньше окно в эту секунду поднимало свой сервер,
+#: проигрывало замок и показывало «сервер не поднялся» вместо окна.
+HOLDER_WAIT_S = 60.0
+
+
+def _await_holder(data_dir: Path, timeout: float | None = None) -> dict:
+    """Дождаться, пока сервер, держащий эти данные, ответит как Command Center.
+
+    ``state``: ``answering`` (есть ``url``/``host``/``port``/``ident``), ``gone``
+    (замок освободился — держателя больше нет) или ``silent`` (держит, но не
+    ответил за отведённое время)."""
+    from .backend_lock import connect_host, running_backend
+
+    deadline = time.monotonic() + (HOLDER_WAIT_S if timeout is None else timeout)
+    holder: dict = {}
+    while True:
+        current = running_backend(data_dir)
+        if not current:
+            return {"state": "gone", "holder": holder}
+        holder = current
+        try:
+            h_port = int(current.get("port") or 0)
+        except (TypeError, ValueError):
+            h_port = 0
+        if h_port:
+            h_host = connect_host(current.get("host"))
+            h_url = f"http://{h_host}:{h_port}/"
+            ident = identify_server(h_url)
+            if ident:
+                return {"state": "answering", "url": h_url, "host": h_host, "port": h_port,
+                        "ident": ident, "holder": current}
+        if time.monotonic() >= deadline:
+            return {"state": "silent", "holder": holder}
+        time.sleep(0.3)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -854,6 +1019,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="создать ярлык BOSSMAN на рабочем столе (и в меню «Пуск» на Windows) и выйти")
     p.add_argument("--uninstall-shortcut", action="store_true", help="удалить созданные ярлыки и выйти")
     p.add_argument("--print-launcher", action="store_true", help="показать, что будет записано в ярлык, и выйти")
+    p.add_argument("--chat", action="store_true", help="открыть новый чат Bossman (/chat.html)")
     p.add_argument("--show-token", dest="show_token", action="store_true", default=True,
                    help="показать токен доступа в консоли при запуске (по умолчанию да)")
     p.add_argument("--no-show-token", dest="show_token", action="store_false",
@@ -863,6 +1029,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-console", dest="console", action="store_false",
                    help="ярлык запускает приложение без окна консоли")
     return p
+
+
+#: Страница нового настольного чата (ui/chat.html). Тот же сервер, те же задачи,
+#: память и подтверждения — это только другая поверхность того же Bossman.
+CHAT_PAGE = "chat.html"
+
+
+def window_url(base_url: str, *, chat: bool = False) -> str:
+    """Адрес, который открывает окно: корень Command Center или страница чата.
+
+    Сервер, его проверки (identity, занятый порт) и журнал запуска всегда
+    работают с корнем ``base_url``; ``--chat`` меняет только то, что показывает
+    окно. Без флага адрес окна не меняется — ``http://<host>:<port>/``.
+    """
+    if not chat:
+        return base_url
+    return base_url.rstrip("/") + "/" + CHAT_PAGE
 
 
 def _accepts_kwarg(func: Callable, name: str) -> bool:
@@ -880,8 +1063,11 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         out=sys.stdout) -> int:
     """Точка входа с инъекцией launcher'а для тестов.
 
-    Коды выхода: 0 ок, 2 нет браузера, 3 сервер не поднялся, 4 порт занят чужим
-    приложением, 5 не удалось создать ярлык."""
+    Коды выхода: 0 ок (и отказ открыть второе окно при живом замке, в том числе
+    с ``--chat``), 2 нет браузера или ``--chat`` вместе с ``--install-shortcut`` /
+    ``--uninstall-shortcut`` (ярлык BOSSMAN не меняется), 3 сервер не поднялся,
+    4 порт занят чужим приложением, 5 не удалось создать ярлык, 7 сервер другой
+    сборки."""
     from .config import settings
 
     if out is None:
@@ -914,6 +1100,21 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         from . import desktop_install
 
         spec = desktop_install.build_spec(host=host, port=port, console=args.console)
+        if args.chat and not args.print_launcher:
+            # Ярлык BOSSMAN один (то же имя и путь): `--install-shortcut --chat` заменил
+            # бы его ярлыком чата, а `--uninstall-shortcut --chat` удалил бы основной.
+            # Основной ярлык не трогаем; команду для своего ярлыка чата показывает
+            # `--print-launcher --chat`.
+            print("[bcc-desktop] --chat не меняет ярлык BOSSMAN: он по-прежнему открывает Command Center. "
+                  "Чат открывается командой `bcc-desktop --chat` или из Command Center → «Чат»; "
+                  "команду для отдельного ярлыка покажет `bcc-desktop --print-launcher --chat`.",
+                  file=out, flush=True)
+            return 2
+        if args.print_launcher and args.chat:
+            # Только показ: в команду ярлыка флаг попадает, когда его задали явно.
+            import dataclasses
+
+            spec = dataclasses.replace(spec, args=(*spec.args, "--chat"))
         if args.print_launcher:
             print(f"[bcc-desktop] команда ярлыка: {' '.join(spec.argv)}", file=out)
             print(f"[bcc-desktop] рабочий каталог: {spec.workdir}", file=out)
@@ -963,6 +1164,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     launch_id = uuid.uuid4().hex[:8]
     _append_run_log(data_dir, f"start pid={os.getpid()} launch={launch_id} url={url}")
     _record_launch(data_dir, launch_id, "start", browser=browser)
+    local_identity = _local_identity()
     lock = _read_lock(data_dir)
     if lock:
         # Второе окно на том же профиле Chrome не открывает, а молча завершается
@@ -979,30 +1181,99 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         # Убитый запуск (Stop-Process, закрытая консоль) не проходит finally и
         # оставляет замок с мёртвым pid. Одной проверки порта мало: на порту
         # может сидеть посторонний сервер, и тогда guard запирал бы окно навсегда.
-        owner_alive = _pid_alive(lock_pid)
+        owner_alive = _pid_alive(lock_pid) and _same_process(lock_pid, lock.get("pid_created"))
         if not owner_alive:
             _append_run_log(data_dir, f"stale-lock-cleared pid={lock_pid} port={lock_port}")
             try:
                 _desktop_lock_path(data_dir).unlink()
             except OSError:
                 pass
-        if owner_alive and lock_port and identify_server(f"http://{host}:{lock_port}/"):
+        lock_identity = identify_server(f"http://{host}:{lock_port}/") if owner_alive and lock_port else None
+        if owner_alive and _same_build(local_identity, lock_identity):
             msg = (f"[bcc-desktop] окно BOSSMAN уже запущено (порт {lock_port}) — второе окно "
                    "на том же профиле не открываю, иначе Chrome закроется сам.\n"
                    "[bcc-desktop] Совет: если окно ПУСТОЕ (страница не загрузилась) — "
                    "закройте его полностью и запустите BOSSMAN заново.")
+            if args.chat:
+                # Окно чата — тот же профиль Chrome, поэтому отдельным окном чат при живом
+                # окне BOSSMAN не открыть. Молча выйти нельзя: владелец не узнал бы, где чат.
+                chat_url = window_url(f"http://{host}:{lock_port}/", chat=True)
+                msg += ("\n[bcc-desktop] --chat: отдельное окно чата не открыто, пока работает окно BOSSMAN. "
+                        "Откройте чат в этом окне (Command Center → «Чат» → «Открыть чат») "
+                        f"или в браузере этого ПК: {chat_url}\n"
+                        "[bcc-desktop] Чтобы чат был отдельным окном, закройте окно BOSSMAN "
+                        "и запустите `bcc-desktop --chat` снова.")
             print(msg, file=out, flush=True)
             _append_run_log(data_dir, f"refused-second-window existing-port={lock_port}")
             _record_launch(data_dir, launch_id, "refused-second-window", code=0)
             _pause_console(out)
             return 0
 
+    from .backend_lock import running_backend
+
+    def build_mismatch(ident: dict) -> int:
+        own = _identity_label(local_identity)
+        running = _identity_label(ident)
+        print(f"[bcc-desktop] порт {port} занят Command Center другой сборки: "
+              f"окно {own}, сервер {running}. Закройте старый сервер или укажите другой --port.",
+              file=out, flush=True)
+        _append_run_log(data_dir, f"exit code=7 backend-build-mismatch port={port} "
+                                  f"window={own} server={running}")
+        _record_launch(data_dir, launch_id, "backend-build-mismatch", code=7)
+        _pause_console(out)
+        return 7
+
+    def attach(found: dict) -> None:
+        nonlocal host, port, url
+        if found["port"] != port or found["host"] != host:
+            # This data root is already served on another port (for example the
+            # terminal started it). Attach to THAT server; never start a second
+            # one on the window's default port over the same data.
+            print(f"[bcc-desktop] Bossman для этих данных уже работает: {found['url']} — подключаюсь к нему",
+                  file=out, flush=True)
+            _append_run_log(data_dir, f"attach-data-root-backend port={found['port']} "
+                                      f"pid={found['holder'].get('pid')}")
+        host, port, url = found["host"], found["port"], found["url"]
+
+    held_ident: dict | None = None
+    if running_backend(data_dir):
+        # Держатель есть, но может ещё стартовать: ждём его, а не поднимаем свой.
+        found = _await_holder(data_dir)
+        if found["state"] == "silent":
+            h = found["holder"]
+            print(f"[bcc-desktop] Bossman для этих данных уже запущен (pid {h.get('pid') or '?'}, "
+                  f"порт {h.get('port') or '?'}), но не ответил за {HOLDER_WAIT_S:.0f} с — второй "
+                  "сервер на тех же данных не запускаю. Подождите и запустите BOSSMAN снова.",
+                  file=out, flush=True)
+            _append_run_log(data_dir, f"exit code=3 data-root-holder-silent pid={h.get('pid')} "
+                                      f"port={h.get('port')}")
+            _record_launch(data_dir, launch_id, "data-root-holder-silent", code=3)
+            _pause_console(out)
+            return 3
+        if found["state"] == "answering":
+            attach(found)
+            held_ident = found["ident"]
+
     started: _BackgroundServer | None = None
-    ident = identify_server(url)
+    ident = held_ident if held_ident is not None else identify_server(url)
     if ident:
+        if not _same_build(local_identity, ident):
+            return build_mismatch(ident)
         print(f"[bcc-desktop] Command Center уже работает: {url} "
-              f"(версия {ident.get('version', '?')}) — подключаюсь к нему", file=out, flush=True)
+              f"(версия {ident.get('version', '?')}, сборка {_identity_label(ident)}) — подключаюсь к нему",
+              file=out, flush=True)
     elif port_busy(url):
+        # The old desktop protocol had no SHA check. Recognize its backend so
+        # the owner sees the real cause, but never attach the new window to it.
+        legacy = _get_json(url.rstrip("/") + "/api/identity", 2.0)
+        if legacy and legacy.get("app") == _LEGACY_APP_IDENTITY:
+            print(f"[bcc-desktop] порт {port} занят прежней сборкой Command Center "
+                  f"({_identity_label(legacy)}). Закройте старый сервер или укажите другой --port.",
+                  file=out, flush=True)
+            _append_run_log(data_dir, f"exit code=7 backend-legacy-identity port={port}")
+            _record_launch(data_dir, launch_id, "backend-build-mismatch", code=7)
+            _pause_console(out)
+            return 7
         # Порт занят чужим приложением: второй сервер тут не поднять, а открывать
         # чужой UI под именем BOSSMAN нельзя.
         print(f"[bcc-desktop] порт {port} занят другим приложением (это не Command Center) —"
@@ -1020,14 +1291,32 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     else:
         started = _BackgroundServer(host, port)
         if not started.start(url):
-            reason = started.error or "причина неизвестна"
-            print(f"[bcc-desktop] сервер не поднялся на {url}: {reason}", file=out, flush=True)
-            _append_run_log(data_dir, f"exit code=3 server-start-failed {reason}")
-            _record_launch(data_dir, launch_id, "server-start-failed", code=3, detail=reason)
-            started.stop()
-            _pause_console(out)
-            return 3
-        print(f"[bcc-desktop] сервер запущен: {url}", file=out, flush=True)
+            found = None
+            lost_to = getattr(started, "holder", None)
+            if lost_to is not None:
+                # Замок данных занял другой запуск (второй ярлык в ту же
+                # секунду): подключаемся к его серверу, а не падаем.
+                started.stop()
+                _append_run_log(data_dir, f"lost-data-root-race holder-pid={lost_to.get('pid')}")
+                found = _await_holder(data_dir)
+            if found is None or found["state"] != "answering":
+                reason = started.error or "причина неизвестна"
+                print(f"[bcc-desktop] сервер не поднялся на {url}: {reason}", file=out, flush=True)
+                _append_run_log(data_dir, f"exit code=3 server-start-failed {reason}")
+                _record_launch(data_dir, launch_id, "server-start-failed", code=3, detail=reason)
+                started.stop()
+                _pause_console(out)
+                return 3
+            started = None
+            attach(found)
+            ident = found["ident"]
+            if not _same_build(local_identity, ident):
+                return build_mismatch(ident)
+            print(f"[bcc-desktop] Command Center уже работает: {url} "
+                  f"(версия {ident.get('version', '?')}, сборка {_identity_label(ident)}) — подключаюсь к нему",
+                  file=out, flush=True)
+        else:
+            print(f"[bcc-desktop] сервер запущен: {url}", file=out, flush=True)
 
     if args.show_token:
         # Консоль принадлежит приложению только когда сервер поднят этим же
@@ -1052,8 +1341,9 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             print(f"[bcc-desktop] сервер запущен: {url}", file=out, flush=True)
         try:
             import webbrowser
-            opened = webbrowser.open(url)
-            print(f"[bcc-desktop] открываю веб-версию в браузере: {url} "
+            page_url = window_url(url, chat=args.chat)
+            opened = webbrowser.open(page_url)
+            print(f"[bcc-desktop] открываю веб-версию в браузере: {page_url} "
                   f"({'ок' if opened else 'не удалось — откройте вручную'})", file=out, flush=True)
         except KeyboardInterrupt:
             pass
@@ -1066,6 +1356,8 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         return 0
 
     print(f"[bcc-desktop] окно: {browser} (профиль {profile_dir})", file=out, flush=True)
+    # Серверные проверки выше шли по корню; окно открывает выбранную страницу.
+    win_url = window_url(url, chat=args.chat)
     # До try: иначе неожиданная ошибка внутри оставит t0 несвязанным, и вместо
     # причины владелец получил бы UnboundLocalError уже после finally.
     t0 = time.monotonic()
@@ -1073,7 +1365,8 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     try:
         try:
             _desktop_lock_path(data_dir).write_text(
-                json.dumps({"pid": os.getpid(), "port": port,
+                json.dumps({"pid": os.getpid(), "pid_created": _process_created(os.getpid()),
+                            "port": port,
                             "window_opened_at": time.strftime("%Y-%m-%dT%H:%M:%S")}),
                 encoding="utf-8")
             wrote_lock = True
@@ -1083,7 +1376,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         # чем именно и с какими флагами мы его запускали (секретов в argv нет).
         try:
             _append_run_log(data_dir, "browser-argv " + " ".join(
-                browser_argv(browser, url, profile_dir, window_size=args.window_size,
+                browser_argv(browser, win_url, profile_dir, window_size=args.window_size,
                              extra=tuple(args.browser_arg))))
         except Exception:  # noqa: BLE001 — журнал не должен мешать запуску
             pass
@@ -1101,8 +1394,22 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             if _accepts_kwarg(launcher, "log"):
                 # Перехват окна перезапустившимся браузером — отдельной строкой в журнал.
                 launch_kwargs["log"] = lambda msg: _append_run_log(data_dir, msg)
-            code = launcher(browser, url, profile_dir, extra=tuple(args.browser_arg),
-                            window_size=args.window_size, **launch_kwargs)
+            orphan = _orphan_window(profile_dir)
+            if orphan is not None:
+                # RC19 (F soak): the previous launcher died (its desktop.lock was
+                # stale) but its window lives on this profile and shows «Нет связи».
+                # Launching again made Chromium open a SECOND --app window. The
+                # server is back now, so the old window reconnects by itself: adopt
+                # it and live as long as it does, instead of opening another.
+                print("[bcc-desktop] окно BOSSMAN уже открыто — сервер снова работает, "
+                      "окно переподключится само; второе окно не открываю", file=out, flush=True)
+                _append_run_log(data_dir, f"adopt-existing-window holders={orphan.holder_pids()} "
+                                          f"profile={profile_dir}")
+                orphan.wait()
+                code = 0
+            else:
+                code = launcher(browser, win_url, profile_dir, extra=tuple(args.browser_arg),
+                                window_size=args.window_size, **launch_kwargs)
         except OSError as exc:
             # Раньше это улетало трейсбеком и консоль закрывалась вместе с ним:
             # владелец видел «открылась только командная строка» без причины.

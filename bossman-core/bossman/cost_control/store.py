@@ -360,6 +360,29 @@ class SQLiteBudgetStore:
                 if status is ReservationStatus.COMMITTED:
                     c.execute("COMMIT")
                     return self._reservation(row)
+                if status is ReservationStatus.EXPIRED:
+                    # The call outlived its TTL (long stream, host asleep) and the TTL
+                    # sweep already released the hold — but the provider still billed
+                    # it. Refusing here dropped real spend from every bucket, so the
+                    # next call was admitted against money already gone. Charge the
+                    # actual in full (the hold is gone, nothing to extend or release).
+                    links = c.execute(
+                        """SELECT rb.bucket_key,b.spent_usd FROM reservation_buckets rb
+                           JOIN buckets b ON b.bucket_key=rb.bucket_key
+                           WHERE rb.reservation_id=?""", (reservation_id,),
+                    ).fetchall()
+                    for link in links:
+                        c.execute("UPDATE buckets SET spent_usd=?,updated_at=? WHERE bucket_key=?",
+                                  (str(money(link["spent_usd"]) + actual), now, link["bucket_key"]))
+                    c.execute(
+                        "UPDATE reservations SET actual_usd=?,status=?,updated_at=? WHERE id=?",
+                        (str(actual), ReservationStatus.COMMITTED.value, now, reservation_id),
+                    )
+                    c.execute("COMMIT")
+                    fresh = c.execute(
+                        "SELECT * FROM reservations WHERE id=?", (reservation_id,)
+                    ).fetchone()
+                    return self._reservation(fresh)
                 if status is not ReservationStatus.ACTIVE:
                     raise BudgetError(f"cannot commit {status.value}")
                 estimate = money(row["estimated_usd"])

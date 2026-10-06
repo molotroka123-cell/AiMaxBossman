@@ -21,7 +21,7 @@ import { routeVideoRequest, attachmentInput, attachedFiles } from '../video_chat
 
 import { api, listOf, pick } from '../api.js';
 import { h, icon, select, toast, toastOk, toastError, fmtGb, fmtRelative } from '../components.js';
-import { errorBanner } from './_shared.js';
+import { errorBanner, humanKind } from './_shared.js';
 import { statusText } from './_ui.js';
 import { appCard, appIcon } from './appcards.js';
 
@@ -63,6 +63,9 @@ const MODES = [
    при возврате с другой страницы, а вместе с ней исчезала бы и набранная
    вручную формулировка поручения. */
 const state = { modes: new Set(['smart']), agentId: null, draft: '' };
+
+/* Предел поля `text` у /api/video-studio/chat (bcc/features/video_studio.py, Chat.text max_length=12000). */
+const VIDEO_ROUTER_MAX_TEXT = 12000;
 
 /* ---------------------------------------------------------------- мелочи */
 
@@ -268,9 +271,21 @@ function buildCommandBar(ctx, agents) {
   async function submit() {
     const text = input.value.trim();
     if (!text) { toast('Опишите задачу', { type: 'warn' }); input.focus(); return; }
+    if (text.length > VIDEO_ROUTER_MAX_TEXT && attachedFiles().length) {
+      // Media go only to a video project; silently dropping them would be worse.
+      toast(`Задание для видеопроекта длиннее ${VIDEO_ROUTER_MAX_TEXT} символов`, {
+        type: 'warn', hint: 'Сократите текст или уберите вложения, чтобы поставить обычную задачу.',
+      });
+      input.focus();
+      return;
+    }
     start.disabled = true;
     try {
-      if (await routeVideoRequest(text, attachedFiles(), ctx)) return;
+      // The video router accepts at most VIDEO_ROUTER_MAX_TEXT characters and
+      // answered a longer brief with a 422, so a long task could not be launched
+      // from here at all (RC 1.9 soak). Such a text is never a video request.
+      if (text.length <= VIDEO_ROUTER_MAX_TEXT
+          && await routeVideoRequest(text, attachedFiles(), ctx)) return;
     } catch (e) { toastError(e, 'Не удалось открыть видеопроект'); return; }
     finally { start.disabled = false; }
     const agent = state.agentId ?? (agents.length === 1 ? pick(agents[0], ['id']) : null);
@@ -443,7 +458,7 @@ function buildAgents(agents, graph, ctx) {
     }))
     : h('div.bx-empty', h('div', 'Агентов пока нет.'),
       h('button.bx-btn.bx-btn-subtle.bx-btn-sm',
-        { type: 'button', onClick: () => ctx.navigate('agents') }, 'Создать агента'));
+        { type: 'button', onClick: () => ctx.navigate('agents', { new: 1 }) }, 'Создать агента'));
 
   return panel('Агенты', body,
     h('button.bx-btn.bx-btn-ghost.bx-btn-sm',
@@ -522,33 +537,6 @@ function buildActivity(activity, ctx) {
       h('div.bx-spacer')),
     h('div.bx-panel-body',
       h('div.bx-feed', meaningful.slice(0, 6).map(feedItem))));
-}
-
-// Событие приходит как «agent.created» — техническая метка. Owner видит
-// человеческую фразу, а сырой kind остаётся в подсказке для отладки.
-const EVENT_LABEL = {
-  'agent.created': 'Создан агент', 'agent.updated': 'Изменён агент', 'agent.deleted': 'Удалён агент',
-  'model.created': 'Добавлена модель', 'model.status': 'Модель сменила состояние',
-  'model.degraded': 'Модель отвечает с ошибками',
-  'provider.created': 'Добавлен поставщик моделей',
-  'mission.created': 'Создана миссия', 'mission.started': 'Миссия запущена',
-  'mission.completed': 'Миссия завершена', 'mission.stopped': 'Миссия остановлена',
-  'task.created': 'Поставлена задача', 'task.started': 'Задача пошла в работу',
-  'task.completed': 'Задача выполнена', 'task.failed': 'Задача завершилась ошибкой',
-  'approval.created': 'Ждёт вашего решения', 'approval.decided': 'Решение принято',
-  'governor.intervention': 'Сработал присмотр за агентами',
-  'session.forked': 'Создано ответвление',
-};
-
-function humanKind(kind) {
-  if (EVENT_LABEL[kind]) return EVENT_LABEL[kind];
-  const head = kind.split('.')[0];
-  const byHead = {
-    agent: 'Событие агента', model: 'Событие модели', mission: 'Событие миссии',
-    task: 'Событие задачи', approval: 'Подтверждение', resource: 'Память и ресурсы',
-    recovery: 'Восстановление', governor: 'Присмотр',
-  };
-  return byHead[head] || 'Событие';
 }
 
 function feedItem(e) {
