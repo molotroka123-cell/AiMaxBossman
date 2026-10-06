@@ -1,0 +1,18 @@
+node_id: module-a2a8be1c06e1
+module: bcc.pit.model_route
+path: command-center/bcc/pit/model_route.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_jeff_1_8_route.py', 'command-center/tests/test_mandatory_model_policy.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.pit.model_route')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.model_route C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/model_route.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_1_8_route.py tests/test_mandatory_model_policy.py)
+..........................................                               [100%]
+42 passed in 14.13s
+
+[exit 0 in 16.8s]
+
+VERDICT: PASS 

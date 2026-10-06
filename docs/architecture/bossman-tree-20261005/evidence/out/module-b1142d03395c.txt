@@ -1,0 +1,19 @@
+node_id: module-b1142d03395c
+module: bcc.telegram_calls.types
+path: command-center/bcc/telegram_calls/types.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['command-center/tests/telegram_calls/test_account_login.py', 'command-center/tests/telegram_calls/test_account_store.py', 'command-center/tests/telegram_calls/test_addon.py'] (candidates=12)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.types')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.types C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/types.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_account_login.py tests/telegram_calls/test_account_store.py tests/telegram_calls/test_addon.py)
+........................................................................ [ 83%]
+..............                                                           [100%]
+86 passed in 4.42s
+
+[exit 0 in 6.1s]
+
+VERDICT: PASS 

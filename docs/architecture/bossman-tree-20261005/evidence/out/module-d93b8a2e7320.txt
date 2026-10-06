@@ -1,0 +1,55 @@
+node_id: module-d93b8a2e7320
+module: bcc.pit.vault
+path: command-center/bcc/pit/vault.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_jeff_1_5_passport.py', 'command-center/tests/test_jeff_2_insights.py', 'command-center/tests/test_jeff_2_media.py', 'command-center/tests/test_jeff_2_memory_palace.py', 'command-center/tests/test_jeff_2_persona.py', 'command-center/tests/test_jeff_admin.py', 'command-center/tests/test_jeff_memory_self_description.py', 'command-center/tests/test_jeff_settings_overlay.py'] (candidates=19)
+
+$ python -c "importlib.import_module('bcc.pit.vault')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.vault C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/vault.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_1_5_passport.py tests/test_jeff_2_insights.py tests/test_jeff_2_media.py tests/test_jeff_2_memory_palace.py tests/test_jeff_2_persona.py tests/test_jeff_admin.py tests/test_jeff_memory_self_description.py tests/test_jeff_settings_overlay.py)
+............................................................ss.......... [ 28%]
+........................................................................ [ 56%]
+........................................................................ [ 84%]
+....s.................................s                                  [100%]
+============================== warnings summary ===============================
+tests/test_jeff_1_5_passport.py::test_window_api_view_and_consent_isolated_and_audited
+tests/test_jeff_settings_overlay.py::test_jeff_window_chat_endpoint_honours_overlay_and_isolation
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\pit\web.py:410: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_jeff_1_5_passport.py::test_window_api_view_and_consent_isolated_and_audited
+tests/test_jeff_1_5_passport.py::test_window_api_view_and_consent_isolated_and_audited
+tests/test_jeff_settings_overlay.py::test_jeff_window_chat_endpoint_honours_overlay_and_isolation
+tests/test_jeff_settings_overlay.py::test_jeff_window_chat_endpoint_honours_overlay_and_isolation
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_jeff_1_5_passport.py::test_window_api_view_and_consent_isolated_and_audited
+tests/test_jeff_settings_overlay.py::test_jeff_window_chat_endpoint_honours_overlay_and_isolation
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\pit\web.py:913: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+251 passed, 4 skipped, 8 warnings in 55.39s
+
+[exit 0 in 58.3s]
+
+VERDICT: PASS 

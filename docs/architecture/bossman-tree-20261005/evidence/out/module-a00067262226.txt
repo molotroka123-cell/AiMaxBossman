@@ -1,0 +1,18 @@
+node_id: module-a00067262226
+module: bcc.telegram_calls.addon
+path: command-center/bcc/telegram_calls/addon.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/telegram_calls/test_addon.py', 'command-center/tests/telegram_calls/test_api_calls.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.addon')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.addon C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/addon.py
+
+[exit 0 in 0.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_addon.py tests/telegram_calls/test_api_calls.py)
+....................................................                     [100%]
+52 passed in 96.58s (0:01:36)
+
+[exit 0 in 99.0s]
+
+VERDICT: PASS 

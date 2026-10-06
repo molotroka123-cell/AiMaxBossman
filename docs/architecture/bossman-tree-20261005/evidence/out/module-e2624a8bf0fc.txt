@@ -1,0 +1,57 @@
+node_id: module-e2624a8bf0fc
+module: bcc.pit.speech_audit
+path: command-center/bcc/pit/speech_audit.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_jeff_audit_fixes.py', 'command-center/tests/test_mandatory_pre_tts_audit.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.pit.speech_audit')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.speech_audit C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/speech_audit.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_audit_fixes.py tests/test_mandatory_pre_tts_audit.py)
+........................................................................ [ 62%]
+...........................................                              [100%]
+============================== warnings summary ===============================
+tests/test_jeff_audit_fixes.py::test_d1_window_transcript_keeps_the_crisis_exchange
+tests/test_jeff_audit_fixes.py::test_d9_the_window_audits_and_refuses_to_speak_a_threat
+tests/test_mandatory_pre_tts_audit.py::test_jeff_window_speak_is_audited_before_tts
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\pit\web.py:410: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_jeff_audit_fixes.py::test_d1_window_transcript_keeps_the_crisis_exchange
+tests/test_jeff_audit_fixes.py::test_d1_window_transcript_keeps_the_crisis_exchange
+tests/test_jeff_audit_fixes.py::test_d9_the_window_audits_and_refuses_to_speak_a_threat
+tests/test_jeff_audit_fixes.py::test_d9_the_window_audits_and_refuses_to_speak_a_threat
+tests/test_mandatory_pre_tts_audit.py::test_jeff_window_speak_is_audited_before_tts
+tests/test_mandatory_pre_tts_audit.py::test_jeff_window_speak_is_audited_before_tts
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_jeff_audit_fixes.py::test_d1_window_transcript_keeps_the_crisis_exchange
+tests/test_jeff_audit_fixes.py::test_d9_the_window_audits_and_refuses_to_speak_a_threat
+tests/test_mandatory_pre_tts_audit.py::test_jeff_window_speak_is_audited_before_tts
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\pit\web.py:913: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+115 passed, 12 warnings in 42.02s
+
+[exit 0 in 44.7s]
+
+VERDICT: PASS 

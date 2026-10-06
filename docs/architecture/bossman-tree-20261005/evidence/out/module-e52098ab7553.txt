@@ -1,0 +1,18 @@
+node_id: module-e52098ab7553
+module: bcc.pit.voice
+path: command-center/bcc/pit/voice.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_pit_telegram_fake.py', 'command-center/tests/test_pit_voice.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.pit.voice')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.voice C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/voice.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_pit_telegram_fake.py tests/test_pit_voice.py)
+...................                                                      [100%]
+19 passed in 9.29s
+
+[exit 0 in 11.6s]
+
+VERDICT: PASS 

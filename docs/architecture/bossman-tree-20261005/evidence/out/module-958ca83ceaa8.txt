@@ -1,0 +1,18 @@
+node_id: module-958ca83ceaa8
+module: bcc.pit.policy
+path: command-center/bcc/pit/policy.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_cu_participant_perimeter.py', 'command-center/tests/test_pit_foundation.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.pit.policy')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.policy C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/policy.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cu_participant_perimeter.py tests/test_pit_foundation.py)
+....................................................                     [100%]
+52 passed in 6.06s
+
+[exit 0 in 8.6s]
+
+VERDICT: PASS 

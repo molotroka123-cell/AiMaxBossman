@@ -1,0 +1,51 @@
+node_id: module-eeb5c7530a12
+module: bcc.pit.models
+path: command-center/bcc/pit/models.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_cu_participant_perimeter.py', 'command-center/tests/test_jeff_1_5_passport.py', 'command-center/tests/test_jeff_2_insights.py', 'command-center/tests/test_jeff_2_media.py', 'command-center/tests/test_jeff_2_memory_palace.py', 'command-center/tests/test_jeff_2_persona.py', 'command-center/tests/test_jeff_admin.py', 'command-center/tests/test_jeff_memory_self_description.py'] (candidates=29)
+
+$ python -c "importlib.import_module('bcc.pit.models')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.models C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/models.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cu_participant_perimeter.py tests/test_jeff_1_5_passport.py tests/test_jeff_2_insights.py tests/test_jeff_2_media.py tests/test_jeff_2_memory_palace.py tests/test_jeff_2_persona.py tests/test_jeff_admin.py tests/test_jeff_memory_self_description.py)
+................................................................ss...... [ 31%]
+........................................................................ [ 62%]
+........................................................................ [ 93%]
+........s.....                                                           [100%]
+============================== warnings summary ===============================
+tests/test_jeff_1_5_passport.py::test_window_api_view_and_consent_isolated_and_audited
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\pit\web.py:410: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_jeff_1_5_passport.py::test_window_api_view_and_consent_isolated_and_audited
+tests/test_jeff_1_5_passport.py::test_window_api_view_and_consent_isolated_and_audited
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_jeff_1_5_passport.py::test_window_api_view_and_consent_isolated_and_audited
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\pit\web.py:913: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+227 passed, 3 skipped, 4 warnings in 37.23s
+
+[exit 0 in 39.5s]
+
+VERDICT: PASS 

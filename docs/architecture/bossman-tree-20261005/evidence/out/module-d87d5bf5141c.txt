@@ -1,0 +1,18 @@
+node_id: module-d87d5bf5141c
+module: bcc.telegram_calls.hardening
+path: command-center/bcc/telegram_calls/hardening.py
+sha: a9c4efb085fe7d4e43c7370433e2a7a77c0dfe5a
+test_files: ['command-center/tests/telegram_calls/test_hardening.py', 'command-center/tests/telegram_calls/test_acl_windows.py', 'command-center/tests/telegram_calls/test_calls_e2e_offline.py'] (candidates=5)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.hardening')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.hardening C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/hardening.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_hardening.py tests/telegram_calls/test_acl_windows.py tests/telegram_calls/test_calls_e2e_offline.py)
+....................s.....                                               [100%]
+25 passed, 1 skipped in 89.33s (0:01:29)
+
+[exit 0 in 90.8s]
+
+VERDICT: PASS 

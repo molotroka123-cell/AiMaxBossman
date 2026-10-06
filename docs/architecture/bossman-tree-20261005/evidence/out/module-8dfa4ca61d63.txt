@@ -1,0 +1,18 @@
+node_id: module-8dfa4ca61d63
+module: bcc.telegram_calls.audio.pcm
+path: command-center/bcc/telegram_calls/audio/pcm.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/telegram_calls/test_audio_pcm.py', 'command-center/tests/telegram_calls/test_loopback_echo_continuity.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.audio.pcm')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.audio.pcm C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/audio/pcm.py
+
+[exit 0 in 0.7s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_audio_pcm.py tests/telegram_calls/test_loopback_echo_continuity.py)
+................                                                         [100%]
+16 passed in 0.60s
+
+[exit 0 in 3.1s]
+
+VERDICT: PASS 

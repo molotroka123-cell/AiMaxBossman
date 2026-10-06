@@ -1,0 +1,54 @@
+node_id: module-9a23ec9fe2eb
+module: bcc.pit.cli
+path: command-center/bcc/pit/cli.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['tests/test_owner_one_bossman.py', 'command-center/tests/test_jeff_availability.py', 'command-center/tests/test_jeff_doctor_identity.py'] (candidates=11)
+
+$ python -c "importlib.import_module('bcc.pit.cli')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.cli C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/cli.py
+
+[exit 0 in 0.5s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_owner_one_bossman.py)
+...................                                                      [100%]
+19 passed in 0.82s
+
+[exit 0 in 1.4s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_availability.py tests/test_jeff_doctor_identity.py)
+.............................                                            [100%]
+============================== warnings summary ===============================
+tests/test_jeff_availability.py::test_window_health_endpoint_carries_the_heartbeat
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\pit\web.py:410: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_jeff_availability.py::test_window_health_endpoint_carries_the_heartbeat
+tests/test_jeff_availability.py::test_window_health_endpoint_carries_the_heartbeat
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_jeff_availability.py::test_window_health_endpoint_carries_the_heartbeat
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\pit\web.py:913: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+29 passed, 4 warnings in 18.53s
+
+[exit 0 in 20.8s]
+
+VERDICT: PASS 

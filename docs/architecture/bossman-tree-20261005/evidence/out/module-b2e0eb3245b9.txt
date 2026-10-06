@@ -1,0 +1,18 @@
+node_id: module-b2e0eb3245b9
+module: bcc.pit.ollama_native
+path: command-center/bcc/pit/ollama_native.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_jeff_1_8_local.py', 'command-center/tests/test_jeff_1_8_stream.py', 'command-center/tests/test_pit_master_parser_2_0.py', 'command-center/tests/test_pit_ollama_native.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bcc.pit.ollama_native')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.ollama_native C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/ollama_native.py
+
+[exit 0 in 0.5s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_1_8_local.py tests/test_jeff_1_8_stream.py tests/test_pit_master_parser_2_0.py tests/test_pit_ollama_native.py)
+.....................................                                    [100%]
+37 passed in 26.94s
+
+[exit 0 in 29.1s]
+
+VERDICT: PASS 

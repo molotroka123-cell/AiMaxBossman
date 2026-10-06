@@ -1,0 +1,18 @@
+node_id: module-cf717b6f2546
+module: bcc.telegram_calls.call.offline_mode
+path: command-center/bcc/telegram_calls/call/offline_mode.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/telegram_calls/test_api_calls.py', 'command-center/tests/telegram_calls/test_worker_and_stop_races.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.call.offline_mode')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.call.offline_mode C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/call/offline_mode.py
+
+[exit 0 in 0.4s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_api_calls.py tests/telegram_calls/test_worker_and_stop_races.py)
+...........................................................              [100%]
+59 passed in 108.13s (0:01:48)
+
+[exit 0 in 111.6s]
+
+VERDICT: PASS 

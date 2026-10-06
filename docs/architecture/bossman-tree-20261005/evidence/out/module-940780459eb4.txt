@@ -1,0 +1,18 @@
+node_id: module-940780459eb4
+module: bcc.telegram_calls.audio.vad
+path: command-center/bcc/telegram_calls/audio/vad.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/telegram_calls/test_endpointer.py', 'command-center/tests/telegram_calls/test_session.py', 'command-center/tests/telegram_calls/test_worker_and_stop_races.py', 'command-center/tests/telegram_calls/test_worker_dial_races.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.audio.vad')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.audio.vad C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/audio/vad.py
+
+[exit 0 in 0.4s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_endpointer.py tests/telegram_calls/test_session.py tests/telegram_calls/test_worker_and_stop_races.py tests/telegram_calls/test_worker_dial_races.py)
+................................................................         [100%]
+64 passed in 65.61s (0:01:05)
+
+[exit 0 in 68.7s]
+
+VERDICT: PASS 

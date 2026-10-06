@@ -1,0 +1,24 @@
+node_id: module-eddee4708a7d
+module: bcc.pit.secret_filter
+path: command-center/bcc/pit/secret_filter.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['tests/test_blue_leaf_audit.py', 'command-center/tests/test_pit_secret_filter.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.pit.secret_filter')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.secret_filter C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/secret_filter.py
+
+[exit 0 in 0.1s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_blue_leaf_audit.py)
+.........                                                                [100%]
+9 passed in 0.16s
+
+[exit 0 in 0.7s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_pit_secret_filter.py)
+...............                                                          [100%]
+15 passed in 0.30s
+
+[exit 0 in 2.0s]
+
+VERDICT: PASS 

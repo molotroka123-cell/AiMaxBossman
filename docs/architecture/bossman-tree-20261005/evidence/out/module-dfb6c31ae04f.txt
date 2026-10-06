@@ -1,0 +1,19 @@
+node_id: module-dfb6c31ae04f
+module: bcc.pit.resources
+path: command-center/bcc/pit/resources.py
+sha: a9c4efb085fe7d4e43c7370433e2a7a77c0dfe5a
+test_files: ['command-center/tests/test_pit_rc19_jeff.py', 'command-center/tests/test_pit_resources.py', 'command-center/tests/test_pit_runtime.py'] (candidates=5)
+
+$ python -c "importlib.import_module('bcc.pit.resources')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.resources C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/resources.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_pit_rc19_jeff.py tests/test_pit_resources.py tests/test_pit_runtime.py)
+........................................................................ [ 51%]
+....................................................................     [100%]
+140 passed in 89.98s (0:01:29)
+
+[exit 0 in 91.5s]
+
+VERDICT: PASS 

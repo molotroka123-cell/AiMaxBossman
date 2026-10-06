@@ -1,0 +1,19 @@
+node_id: module-b36c82e81920
+module: bcc.telegram_calls.account.credentials
+path: command-center/bcc/telegram_calls/account/credentials.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/telegram_calls/test_account_login.py', 'command-center/tests/telegram_calls/test_account_store.py', 'command-center/tests/telegram_calls/test_acl_windows.py', 'command-center/tests/telegram_calls/test_hardening.py', 'command-center/tests/telegram_calls/test_worker_and_stop_races.py'] (candidates=5)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.account.credentials')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.account.credentials C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/account/credentials.py
+
+[exit 0 in 0.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_account_login.py tests/telegram_calls/test_account_store.py tests/telegram_calls/test_acl_windows.py tests/telegram_calls/test_hardening.py tests/telegram_calls/test_worker_and_stop_races.py)
+........................................................................ [ 63%]
+.....s....................................                               [100%]
+113 passed, 1 skipped in 24.66s
+
+[exit 0 in 27.3s]
+
+VERDICT: PASS 

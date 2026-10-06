@@ -1,0 +1,18 @@
+node_id: module-a7105ffd5da5
+module: bcc.pit.discovery
+path: command-center/bcc/pit/discovery.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_pit_foundation.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.pit.discovery')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.discovery C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/discovery.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_pit_foundation.py)
+................................................                         [100%]
+48 passed in 1.70s
+
+[exit 0 in 3.9s]
+
+VERDICT: PASS 

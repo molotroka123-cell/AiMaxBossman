@@ -1,0 +1,19 @@
+node_id: reg-oss_whisper
+module: bcc.oss.whisper
+path: command-center/bcc/oss/whisper.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_oss_integrations.py', 'command-center/tests/test_oss_integrations_routes.py', 'command-center/tests/test_oss_whisper.py', 'command-center/tests/telegram_calls/test_doctor_row.py', 'command-center/tests/telegram_calls/test_manager.py', 'command-center/tests/telegram_calls/test_stt_real_path.py'] (candidates=6)
+
+$ python -c "importlib.import_module('bcc.oss.whisper')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.oss.whisper C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/oss/whisper.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_oss_integrations.py tests/test_oss_integrations_routes.py tests/test_oss_whisper.py tests/telegram_calls/test_doctor_row.py tests/telegram_calls/test_manager.py tests/telegram_calls/test_stt_real_path.py)
+........................................................................ [ 75%]
+........................                                                 [100%]
+96 passed in 16.01s
+
+[exit 0 in 17.7s]
+
+VERDICT: PASS 

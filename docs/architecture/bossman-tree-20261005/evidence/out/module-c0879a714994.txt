@@ -1,0 +1,18 @@
+node_id: module-c0879a714994
+module: bcc.telegram_calls.audio.echo
+path: command-center/bcc/telegram_calls/audio/echo.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/telegram_calls/test_echo.py', 'command-center/tests/telegram_calls/test_echo_early_fit.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.audio.echo')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.audio.echo C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/audio/echo.py
+
+[exit 0 in 0.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_echo.py tests/telegram_calls/test_echo_early_fit.py)
+...............                                                          [100%]
+15 passed in 0.72s
+
+[exit 0 in 4.8s]
+
+VERDICT: PASS 

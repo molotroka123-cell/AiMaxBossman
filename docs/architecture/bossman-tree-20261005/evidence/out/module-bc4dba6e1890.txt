@@ -1,0 +1,19 @@
+node_id: module-bc4dba6e1890
+module: bcc.pit.roleplay
+path: command-center/bcc/pit/roleplay.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_pit_foundation.py', 'command-center/tests/test_pit_runtime.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.pit.roleplay')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.roleplay C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/roleplay.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_pit_foundation.py tests/test_pit_runtime.py)
+........................................................................ [ 55%]
+.........................................................                [100%]
+129 passed in 94.16s (0:01:34)
+
+[exit 0 in 96.8s]
+
+VERDICT: PASS 

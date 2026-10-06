@@ -1,0 +1,18 @@
+node_id: module-9de94c4cb278
+module: bcc.telegram_calls.call.selftest
+path: command-center/bcc/telegram_calls/call/selftest.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/telegram_calls/test_selftest.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.call.selftest')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.call.selftest C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/call/selftest.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_selftest.py)
+...........                                                              [100%]
+11 passed in 33.80s
+
+[exit 0 in 35.8s]
+
+VERDICT: PASS 

@@ -1,0 +1,18 @@
+node_id: module-a090c121b689
+module: bcc.pit.master_parser.cli
+path: command-center/bcc/pit/master_parser/cli.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_pit_master_parser_2_0_narrative.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.pit.master_parser.cli')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.master_parser.cli C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/master_parser/cli.py
+
+[exit 0 in 0.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_pit_master_parser_2_0_narrative.py)
+.....................                                                    [100%]
+21 passed in 11.10s
+
+[exit 0 in 13.0s]
+
+VERDICT: PASS 

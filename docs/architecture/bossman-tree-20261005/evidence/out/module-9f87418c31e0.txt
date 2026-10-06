@@ -1,0 +1,64 @@
+node_id: module-9f87418c31e0
+module: bcc.pit.runtime
+path: command-center/bcc/pit/runtime.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_autonomy_probes.py', 'command-center/tests/test_cu_participant_perimeter.py', 'command-center/tests/test_jeff_1_8_local.py', 'command-center/tests/test_jeff_1_8_route.py', 'command-center/tests/test_jeff_1_8_stream.py', 'command-center/tests/test_jeff_1_8_telegram_stream.py', 'command-center/tests/test_jeff_1_8_web_stream.py', 'command-center/tests/test_jeff_audit_fixes.py'] (candidates=32)
+
+$ python -c "importlib.import_module('bcc.pit.runtime')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.runtime C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/runtime.py
+
+[exit 0 in 0.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_autonomy_probes.py tests/test_cu_participant_perimeter.py tests/test_jeff_1_8_local.py tests/test_jeff_1_8_route.py tests/test_jeff_1_8_stream.py tests/test_jeff_1_8_telegram_stream.py tests/test_jeff_1_8_web_stream.py tests/test_jeff_audit_fixes.py)
+........................................................................ [ 41%]
+........................................................................ [ 83%]
+............................                                             [100%]
+============================== warnings summary ===============================
+tests/test_jeff_1_8_web_stream.py::test_sse_delivers_deltas_then_one_final_reply_and_saves_it_once
+tests/test_jeff_1_8_web_stream.py::test_sse_reset_event_drops_a_discarded_attempt
+tests/test_jeff_1_8_web_stream.py::test_sse_without_streaming_adapter_still_ends_with_the_final_reply
+tests/test_jeff_1_8_web_stream.py::test_stop_ends_a_streaming_reply_quickly_and_saves_no_assistant_message
+tests/test_jeff_1_8_web_stream.py::test_sse_guards_match_the_plain_chat_endpoint
+tests/test_jeff_1_8_web_stream.py::test_health_serves_reply_latency_and_route_status
+tests/test_jeff_audit_fixes.py::test_d1_window_transcript_keeps_the_crisis_exchange
+tests/test_jeff_audit_fixes.py::test_d9_the_window_audits_and_refuses_to_speak_a_threat
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\pit\web.py:410: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_jeff_1_8_web_stream.py: 12 warnings
+tests/test_jeff_audit_fixes.py: 4 warnings
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_jeff_1_8_web_stream.py::test_sse_delivers_deltas_then_one_final_reply_and_saves_it_once
+tests/test_jeff_1_8_web_stream.py::test_sse_reset_event_drops_a_discarded_attempt
+tests/test_jeff_1_8_web_stream.py::test_sse_without_streaming_adapter_still_ends_with_the_final_reply
+tests/test_jeff_1_8_web_stream.py::test_stop_ends_a_streaming_reply_quickly_and_saves_no_assistant_message
+tests/test_jeff_1_8_web_stream.py::test_sse_guards_match_the_plain_chat_endpoint
+tests/test_jeff_1_8_web_stream.py::test_health_serves_reply_latency_and_route_status
+tests/test_jeff_audit_fixes.py::test_d1_window_transcript_keeps_the_crisis_exchange
+tests/test_jeff_audit_fixes.py::test_d9_the_window_audits_and_refuses_to_speak_a_threat
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\pit\web.py:913: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+172 passed, 32 warnings in 95.62s (0:01:35)
+
+[exit 0 in 98.2s]
+
+VERDICT: PASS 

@@ -1,0 +1,20 @@
+node_id: module-83a15f7aa768
+module: bcc.pit.math_assist
+path: command-center/bcc/pit/math_assist.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_jeff_math_assist.py', 'command-center/tests/test_jeff_math_runtime.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.pit.math_assist')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.math_assist C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/math_assist.py
+
+[exit 0 in 0.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_math_assist.py tests/test_jeff_math_runtime.py)
+........................................................................ [ 44%]
+........................................................................ [ 88%]
+...................                                                      [100%]
+163 passed in 43.52s
+
+[exit 0 in 45.9s]
+
+VERDICT: PASS 
