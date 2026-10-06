@@ -224,6 +224,16 @@ def test_actual_first_move_is_rolled_back_after_late_error(files, monkeypatch):
     assert eng.s.kv_list("batches")[0]["value"]["status"] == "ROLLED_BACK"
 
 
+def _child_env() -> dict:
+    """The crash child must import the same package under test, installed or not."""
+    import file_commander_mini
+
+    env = os.environ.copy()
+    src = str(Path(file_commander_mini.__file__).resolve().parents[1])
+    env["PYTHONPATH"] = os.pathsep.join(p for p in (src, env.get("PYTHONPATH", "")) if p)
+    return env
+
+
 def test_crash_after_real_effect_has_journal_and_explicit_recovery(files):
     root, eng = files
     source = root / "report.pdf"
@@ -241,7 +251,7 @@ domain.move_no_replace=crash
 domain.FileCommander(SQLiteStore("file-commander-mini")).apply(json.loads(sys.stdin.read()),True)
 '''
     result = subprocess.run([sys.executable, "-c", script], input=json.dumps(plan["operations"]), text=True,
-                            env=os.environ.copy(), capture_output=True, timeout=20)
+                            env=_child_env(), capture_output=True, timeout=20)
     assert result.returncode == 71, result.stderr
     restarted = FileCommander(SQLiteStore("file-commander-mini"))
     record = restarted.s.kv_list("batches")[0]["value"]
