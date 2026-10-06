@@ -8,6 +8,7 @@
     ai-3d-maker artifacts JOB               artifacts and checksums
     ai-3d-maker scan model.gcode            G-code safety scan
     ai-3d-maker confirm JOB                 show the human confirmation token
+    ai-3d-maker orca slice model.stl ...    slice with OrcaSlicer + G-code safety scan
 
 There is no CLI verb that starts a physical print. `printer.execute_physical`
 is reachable only through the confirmed control operation.
@@ -146,6 +147,13 @@ def _cmd_confirm(args, plane: ControlPlane) -> int:
     return 0
 
 
+def _cmd_orca(args, plane: ControlPlane) -> int:
+    # Slicing with OrcaSlicer + safety scan. No verb here sends G-code anywhere.
+    from . import orca
+
+    return orca.main(args.orca_args)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="ai-3d-maker", description=__doc__)
     parser.add_argument("--version", action="version", version=__version__)
@@ -194,6 +202,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("job_id")
     p.add_argument("--artifact", default=None)
     p.set_defaults(func=_cmd_confirm)
+
+    p = sub.add_parser("orca", help="OrcaSlicer: locate | profiles | slice | open (see ai_3d_maker.orca)")
+    p.add_argument("orca_args", nargs=argparse.REMAINDER)
+    p.set_defaults(func=_cmd_orca)
 
     return parser
 

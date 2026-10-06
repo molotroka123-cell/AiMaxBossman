@@ -47,6 +47,9 @@ commands:
   - /3d validate
   - /3d slice
   - /3d calibrate
+  # OrcaSlicer: `ai-3d-maker orca slice MODEL.stl --printer .. --process .. --filament .. --out DIR`
+  # Produces G-code + safety scan only; never sends anything to a printer.
+  - /3d orca
 
 permissions:
   filesystem.project_write: ask

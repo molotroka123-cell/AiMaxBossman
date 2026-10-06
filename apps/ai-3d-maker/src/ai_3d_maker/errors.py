@@ -76,3 +76,15 @@ class ConfirmationRequiredError(Ai3dError):
 
 class UnsafeGcodeError(Ai3dError):
     code = "UNSAFE_GCODE"
+
+
+class ProfileNotFoundError(Ai3dError):
+    """A named slicer preset (printer/process/filament) does not exist."""
+
+    code = "PROFILE_NOT_FOUND"
+
+
+class SlicerFailedError(Ai3dError):
+    """The slicer ran but produced no usable G-code (non-zero exit, timeout, no file)."""
+
+    code = "SLICER_FAILED"

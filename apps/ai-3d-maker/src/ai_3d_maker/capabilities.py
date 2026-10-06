@@ -105,6 +105,15 @@ def probe(settings: Settings) -> list[Capability]:
         reason=prusa.get("reason"), enables=["slicing", "gcode-generation"],
     ))
 
+    from .orca import locate_orca
+
+    orca_exe = locate_orca()
+    caps.append(Capability(
+        "orcaslicer", orca_exe is not None, "binary", path=str(orca_exe) if orca_exe else None,
+        reason=None if orca_exe else "orca-slicer not found (AI3D_ORCA_EXE, PATH, known installs)",
+        enables=["orca-slicing", "gcode-generation"],
+    ))
+
     caps.append(Capability(
         "physical-printer",
         available=False,
@@ -133,6 +142,8 @@ def capability_map(settings: Settings) -> dict:
         "step_export": by_name["cadquery"].available,
         "openscad_render": by_name["openscad"].available,
         "slicing": by_name["curaengine"].available or by_name["prusaslicer"].available,
+        # Standalone `ai-3d-maker orca slice`; the job pipeline's --slice does not use Orca.
+        "orca_slicing": by_name["orcaslicer"].available,
         "gcode_safety_scan": True,
         "print_dry_run": True,
         "physical_print": False,

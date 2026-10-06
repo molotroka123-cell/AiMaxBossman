@@ -17,7 +17,10 @@ import asyncio
 import json
 import os
 import platform
-import resource
+try:  # POSIX only; the owner machine is Windows, where this import fails.
+    import resource
+except ImportError:  # pragma: no cover - platform dependent
+    resource = None
 import time
 import uuid
 from pathlib import Path
@@ -221,7 +224,14 @@ class ControlPlane:
 
     # ------------------------------------------------------------ metrics
     def metrics(self) -> dict:
-        usage = resource.getrusage(resource.RUSAGE_SELF)
+        if resource is not None:
+            usage = resource.getrusage(resource.RUSAGE_SELF)
+            max_rss_kb, user_s, sys_s = usage.ru_maxrss, usage.ru_utime, usage.ru_stime
+        else:
+            # Windows: no getrusage. CPU times come from os.times(); peak RSS
+            # is not measured here, so it is reported as unknown, not as 0.
+            times = os.times()
+            max_rss_kb, user_s, sys_s = None, times.user, times.system
         return {
             "app": "ai-3d-maker",
             "version": __version__,
@@ -229,9 +239,9 @@ class ControlPlane:
             "jobs": self.store.metrics(),
             "process": {
                 "pid": os.getpid(),
-                "max_rss_kb": usage.ru_maxrss,
-                "user_cpu_s": round(usage.ru_utime, 3),
-                "system_cpu_s": round(usage.ru_stime, 3),
+                "max_rss_kb": max_rss_kb,
+                "user_cpu_s": round(user_s, 3),
+                "system_cpu_s": round(sys_s, 3),
                 "active_tasks": len(self._tasks),
             },
             "host": {

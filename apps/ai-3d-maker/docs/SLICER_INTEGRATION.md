@@ -1,9 +1,67 @@
 # Slicer integration
 
-**No slicer is installed on the host this was built on.** Neither CuraEngine
-nor PrusaSlicer nor OrcaSlicer is on PATH, so every slicing result here is
-`NOT_RUN` with the reason attached. Nothing in this repository has ever been
-sliced.
+## OrcaSlicer (real, measured 2026-10-06 on the owner PC)
+
+`src/ai_3d_maker/orca.py`, reachable as `ai-3d-maker orca ...` or
+`python -m ai_3d_maker.orca ...`:
+
+```
+python -m ai_3d_maker.orca locate
+python -m ai_3d_maker.orca profiles --kind process --printer "Elegoo Neptune 3 Plus 0.4 nozzle"
+python -m ai_3d_maker.orca slice model.stl --printer "Elegoo Neptune 3 Plus 0.4 nozzle" \
+    --process "0.20mm Standard @Elegoo N3Plus 0.4 nozzle" --filament "Elegoo PLA @EN3 Series" --out DIR
+python -m ai_3d_maker.orca open model.stl      # GUI, for the owner to look
+```
+
+Binary: OrcaSlicer 2.4.2 portable, `AI3D_ORCA_EXE` or auto-detected
+(`~/Bossman/apps-local/OrcaSlicer/orca-slicer.exe`). Result: `DIR/<stem>.gcode`,
+sha256, layers, estimated time, filament mm/cm3/g (parsed from Orca's own
+G-code comments) and the verdict of `gcode.scan_gcode` with the app printer
+profile. The run directory `DIR/<stem>.orca-run/` keeps the flattened presets,
+Orca stdout/stderr, Orca's `00000.log` on failure and `result.json`.
+
+Facts about the Orca CLI found on this host (not copied from Prusa/Bambu docs):
+
+- Flags (from the option table in `OrcaSlicer.dll`; `--help` prints nothing
+  because the exe is GUI-subsystem): `--slice N` (0 = all plates),
+  `--load-settings "machine.json;process.json"`, `--load-filaments "f.json;..."`,
+  `--outputdir DIR`, `--datadir DIR`, `--export-3mf FILE`, `--export-slicedata`,
+  `--load-slicedata`, `--export-stl(s)`, `--export-settings`, `--arrange 0|1`,
+  `--orient 0|1`, `--rotate*`, `--scale`, `--debug 0..5`, `--info`, `--pipe`.
+  Executed and confirmed here: `--slice`, `--load-settings`, `--load-filaments`,
+  `--outputdir`, `--datadir`, `--debug`, `--help`. The rest are only known to
+  exist in the option table.
+  There is **no** `--export-gcode` / `--output`; Orca writes `plate_<N>.gcode`
+  into `--outputdir`.
+- Bundled vendor presets cannot be loaded directly: the CLI does not follow
+  `inherits` (leaf preset -> exit -51, validation error). The module flattens
+  the chain root -> leaf; filament parents fall back to `OrcaFilamentLibrary`.
+- A flattened preset must say `"from": "system"` and carry its own name in
+  `printer_settings_id` / `print_settings_id` / `filament_settings_id`;
+  with `"from": "User"` Orca answers exit -17 ("process not compatible with
+  printer", text from Orca's `00000.log`).
+- Windows reports Orca's negative exit codes as unsigned (-17 -> 4294967279);
+  the module converts them back.
+- Each run uses a private `--datadir`, so the owner's Orca GUI configuration is
+  neither read nor changed, and a running GUI window did not interfere.
+
+Safety: the module has no code path that sends G-code to a printer, uploads
+anything or opens a network connection (Orca network traffic during a CLI run
+was not measured). Physical printing remains reachable only through
+`printer.confirm` with a per-job token and `AI3D_ALLOW_PHYSICAL_PRINT=1`.
+The job pipeline's `--slice` still uses CuraEngine/PrusaSlicer only; Orca is a
+separate command.
+
+Known scan result for Orca output: in strict mode (`AI3D_STRICT_GCODE=1`, the
+default) a 20 mm cube with the Neptune 3 Plus presets scans `WARN` with 99
+warnings, all `G17` (plane select before Orca's non-extruding spiral Z-hop
+arcs), which the scanner does not list as a known command. No ERROR.
+
+## CuraEngine / PrusaSlicer
+
+**Neither CuraEngine nor PrusaSlicer is installed on the host this was built
+on**, so every job-pipeline slicing result is `NOT_RUN` with the reason
+attached.
 
 The work that was possible was making the path honest rather than making the
 absence look like success.
