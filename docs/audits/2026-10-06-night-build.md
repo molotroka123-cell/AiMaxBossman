@@ -250,3 +250,35 @@ Local bundle, PostgreSQL, Shipped app contracts, Solana, motion studio, root-ci.
 - **Самоулучшение НЕ доказано:** попытки 1 (ошибка параметра: порт 8800 вместо 8801), 2 (`nemotron-ultra-free`: задача `failed`, файлы не менялись) и 3 (`openrouter-free`: `TREE_SELF_IMPROVE=FAILED`, изменён `discovery.py`, но создано 4 лишних тестовых файла и тронут `test_pit_foundation.py`, независимая проверка не пройдена). Дефект NaN остаётся.
 - **Моя правка по итогам попытки 3:** `WISH` в `tools/tree_self_improve.py` теперь жёстко ограничивает объём (только `bcc/pit/discovery.py` + одна тест-функция в существующем `test_pit_foundation.py`, новых файлов не создавать). Тест `test_the_wish_pins_the_scope_...` падает на старой формулировке и проходит на новой. Это не доказывает, что исполнитель теперь справится.
 - **Находки локального Claude, не исправленные:** (1) `owner_one_bossman Switch` не гасит старый Jeff, пока тот держит poller-lock (обойдено вручную; код Switch я не менял и без Windows не воспроизводил); (2) `test_agents_deeplink_stale_modal` падает на ПК владельца 3 из 3 против кода `12e003e7` (`race window was not exercised, 1 >= 2`) при заявленных 3/3 PASS у автора: вероятная причина (гипотеза, не доказана) в зависимости теста от состояния списка моделей на машине, передано автору теста; (3) pyjwt 2.14.0 (PYSEC-2026-4141, CVE-2026-102275) без изменений.
+
+
+## Чекпоинт 06.10 (10:10): CI на HEAD `d2571594`
+Same-product Terminal Run: пульт, CLI, дашборд и эта запись — одна поверхность одного Bossman. Лестница North Star: достигнут только `SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT`; `SELF_REPAIR_SINGLE_CYCLE_PASS` **не заявляется**.
+
+Коммиты после `66c2ade5` (все описаны выше): `b5505518`, `a40e5723` (гонка `test_answer_streaming`), `67d813a3` (опрос запуска сервера в приёмке, тест падает на старом коде), `12e003e7`, `2b95fef1` (окно нового агента — параллельная сессия), `3446ce6e` (отчёт ПК владельца), `d2571594` (запрос самоулучшения ограничен одним файлом и одним тестом, тест падает на старой формулировке). Нового кода продукта сверх перечисленного нет.
+
+### CI по job на `d2571594` (на момент записи)
+| Workflow | Итог | push-прогон | PR-прогон |
+|---|---|---|---|
+| root-ci | success | [37442467849](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442467849) | [37442479772](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442479772) |
+| Bossman Core CI | success | [37442467777](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442467777) | [37442480048](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442480048) |
+| ASTRA acceptance | success | [37442467782](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442467782) | [37442479802](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442479802) |
+| PostgreSQL run contracts | success | [37442467704](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442467704) | [37442479983](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442479983) |
+| Solana safety gates | success | [37442467681](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442467681) | [37442479785](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442479785) |
+| **Command Center CI** | **in_progress / pending (не завершён)** | [37442467977](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442467977) | [37442474720](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442474720), [37442480059](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442480059) |
+| Bossman 1.5 Economy CI | success | — | [37442479818](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442479818) |
+| Bossman 1.6 Foundation CI | success | — | [37442479920](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442479920) |
+| Bossman 1.6 Integration CI | success | — | [37442474913](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442474913) |
+| Bossman 1.7 PIT foundation | success | — | [37442479889](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442479889) |
+| Bossman internal benchmark | success | — | [37442479780](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442479780) |
+| Editors user safety | success | — | [37442479789](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442479789) |
+| Fable media and Fleet acceptance | success | — | [37442480027](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442480027) |
+| Local bundle (ubuntu + windows-latest) | success | — | [37442480297](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442480297) |
+| Shipped app contracts | success | — | [37442479718](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442479718) |
+| motion studio (1.8 candidate) | success | — | [37442479899](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442479899) |
+| Intelligence Preservation | **failure — штатный гейт** `INSUFFICIENT_EVIDENCE`, нужен замер владельца на точном коммите | — | [37442480002](https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37442480002) |
+
+- Этот чекпоинт — docs-only: код не менялся, поэтому результаты выше относятся и к HEAD с этой записью (`git diff d2571594 HEAD -- . ':!docs'` пуст). Прогон `Command Center CI` после этого коммита перезапускается; его итог по этому SHA **не заявляется**, пока не завершится.
+- **Артефакт Windows:** CI-пакета `BOSSMAN-Windows-x64-<sha12>.zip` нет. `Local bundle` производит малый бандл (~8 МБ: `bossman-local-windows-latest-d25715945a2a…`, `installed-owner-proof-…`), а не одно-скачиваемое приложение. Пакет на `12e003e7` собран на ПК владельца (его отчёт; SHA256 `AFA40DC4A996D7044D1AB4010226F06137BFE629B3F50A5E23168B7BB06961CD`), логов проверки я не видел. Запуск workflow из облака невозможен: `actions: write` нет, `goal/**` не входит в push-фильтр `windows-bundle` — владельцу нужно Actions → «One-download Windows application» → Run workflow.
+- **Самоулучшение: НЕ доказано** (`VERIFIED_CANDIDATE` нет; три попытки на ПК, ключей OpenRouter/NVIDIA в облаке нет, стаб не использовался). Следующий шаг на ПК после `git pull`: `python tools\tree_self_improve.py --worker openrouter-free`.
+- Побочная работа по просьбе владельца (вне этой ветки): витрина развития `molotroka123-cell/subtle-baklava-676893` (парсер без ИИ, статьи по 779 узлам, редакция путей/секретов, 18 unit-тестов + браузерная проверка); репозиторий Bossman она не меняет.
