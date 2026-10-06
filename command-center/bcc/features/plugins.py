@@ -266,7 +266,10 @@ def _sqlite_path_from_dsn(dsn: str) -> str | None:
 def _run_sqlite_read(path: str, sql: str, params, limit: int) -> list[dict]:
     """Реальное read-only исполнение: соединение mode=ro (гарантия на уровне БД)."""
     import sqlite3
-    uri = f"file:{os.path.abspath(path).replace(os.sep, '/')}?mode=ro"
+    from pathlib import Path
+    # as_uri() кодирует `#`, `%`, `?` и пробелы: без этого `#` в имени папки
+    # обрывал путь и отрезал `?mode=ro` — открывался другой файл и без read-only.
+    uri = f"{Path(os.path.abspath(path)).as_uri()}?mode=ro"
     con = sqlite3.connect(uri, uri=True, timeout=5.0)
     con.row_factory = sqlite3.Row
     try:
@@ -307,7 +310,17 @@ async def _h_obsidian_read(args, ctx: ToolContext) -> ToolResult:
         p = confine_path(root, str(args.get("path") or ""), must_exist=True)
     except (PluginSecurityError, FileNotFoundError) as exc:
         return ToolResult(content=f"blocked: {exc}", one_line="obsidian.read blocked", error=True)
-    return ToolResult(content=p.read_text("utf-8", "replace")[:200_000],
+    # Пустой путь, "." или подкаталог законно дают каталог внутри vault: read_text
+    # по нему бросал сырой PermissionError/IsADirectoryError с АБСОЛЮТНЫМ путём.
+    if not p.is_file():
+        return ToolResult(content="blocked: not a note file inside the vault",
+                          one_line="obsidian.read blocked", error=True)
+    try:
+        text = p.read_text("utf-8", "replace")
+    except OSError as exc:
+        return ToolResult(content=f"read error: {type(exc).__name__} ({p.name})",
+                          one_line="obsidian.read error", error=True)
+    return ToolResult(content=text[:200_000],
                       one_line=f"obsidian.read {p.name}", external=True)
 
 
@@ -339,11 +352,14 @@ async def _h_generic_external(cap: Capability):
             return _skip_no_cred(cap)
         # Кред есть, но эта среда не выполняет реальные внешние мутации в рамках
         # приёмки: честный отказ вместо необеспеченного PASS. Политика (ASK) и
-        # anti-replay уже применены движком ДО хендлера.
+        # anti-replay уже применены движком ДО хендлера. Действие НЕ выполнено —
+        # значит это ошибка: иначе модель видит успешный вызов и докладывает
+        # «отправлено» про письмо, которого не было.
         return ToolResult(
-            content=f"NOT_TESTED_LIVE: {cap.tool_name} готов, но живой вызов "
-                    f"внешнего сервиса в этой приёмке не выполняется.",
-            one_line=f"{cap.tool_name}: adapter ready", data={"ready": True})
+            content=f"NOT_TESTED_LIVE: {cap.tool_name} — живой вызов внешнего "
+                    f"сервиса в этой сборке не выполняется; действие НЕ выполнено.",
+            one_line=f"{cap.tool_name}: not performed", error=True,
+            data={"ready": True, "performed": False})
     return handler
 
 

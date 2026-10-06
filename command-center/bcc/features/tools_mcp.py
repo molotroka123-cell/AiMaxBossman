@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from typing import Any
 
@@ -209,10 +210,14 @@ def _spec_from_row(row: dict) -> MCPServerSpec:
                          enabled=bool(row.get("enabled", True)))
 
 
-async def _server_row(svc, ref: str | int) -> dict:
-    """Сервер по числовому id или по имени."""
+async def _server_row(svc, ref: str | int, *, by_name: bool = False) -> dict:
+    """Сервер по числовому id или по имени.
+
+    `by_name=True` — строго по имени. Нужен внутренним вызовам, которые держат
+    id РАНТАЙМА (он равен имени): сервер с именем «1» иначе нашёлся бы как
+    строка с id=1 — чужой сервер, и unhealthy получил бы он."""
     async with svc.db.session() as s:
-        cond = (mcp_servers_t.c.id == int(ref)) if str(ref).isdigit() \
+        cond = (mcp_servers_t.c.id == int(ref)) if (str(ref).isdigit() and not by_name) \
             else (mcp_servers_t.c.name == str(ref))
         row = (await s.execute(sa.select(mcp_servers_t).where(cond))).first()
     if row is None:
@@ -304,7 +309,7 @@ async def _emit_failure(svc, server_id: str, tool: str, detail: str) -> None:
         rt = runtime_of(svc)
         health = rt.health(server_id)
         if health is not None and health.status == "unhealthy":
-            row = await _server_row(svc, server_id)
+            row = await _server_row(svc, server_id, by_name=True)
             if row and str(row.get("status")) != "unhealthy":
                 await _mark(svc, int(row["id"]), "unhealthy", detail)
     except Exception:
@@ -551,10 +556,35 @@ async def server_prompts(ref: str, request: Request):
 async def call(ref: str, request: Request):
     """Ручной вызов оператором. Модель ходит НЕ сюда, а через tool-loop движка."""
     svc = request.app.state.svc
-    body = await request.json()
+    # Тело проверяется ДО поиска сервера и тем более до запуска его процесса:
+    # раньше список/строка/не-JSON давали 500, а нечисловой timeout падал уже
+    # после того, как `ensure` поднял процесс MCP-сервера.
+    try:
+        body = await request.json()
+    except ValueError:
+        raise HTTPException(422, {"message": "тело запроса — не JSON"}) from None
+    if not isinstance(body, dict):
+        raise HTTPException(422, {"message": "тело запроса должно быть JSON-объектом"})
     tool = body.get("tool")
-    if not tool:
-        raise HTTPException(422, {"message": "нужен tool"})
+    if not tool or not isinstance(tool, str):
+        raise HTTPException(422, {"message": "нужен tool (строка)"})
+    arguments = body.get("arguments")
+    if arguments is None:
+        arguments = {}
+    if not isinstance(arguments, dict):
+        raise HTTPException(422, {"message": "arguments должен быть объектом"})
+    raw_timeout = body.get("timeout")
+    if raw_timeout in (None, "", 0):        # прежнее `or 30`: пусто/0 = по умолчанию
+        timeout = 30.0
+    else:
+        try:
+            if isinstance(raw_timeout, bool):
+                raise TypeError
+            timeout = float(raw_timeout)
+        except (TypeError, ValueError):
+            raise HTTPException(422, {"message": "timeout должен быть числом секунд"}) from None
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise HTTPException(422, {"message": "timeout должен быть положительным числом секунд"})
     row = await _server_row(svc, ref)
     rt = runtime_of(svc)
     spec = _spec_from_row(row)
@@ -563,8 +593,7 @@ async def call(ref: str, request: Request):
         raise HTTPException(403, {"message": f"команда запуска MCP отклонена: {refusal}"})
     try:
         await rt.ensure(spec)
-        res = await rt.call_tool(row["name"], tool, body.get("arguments") or {},
-                                 timeout=float(body.get("timeout") or 30))
+        res = await rt.call_tool(row["name"], tool, arguments, timeout=timeout)
     except MCPUnavailable as exc:
         raise HTTPException(503, {"message": str(exc)})
     except MCPCallError as exc:
@@ -595,7 +624,7 @@ async def tick(svc) -> None:
         health = await rt.probe(status["server"])
         if health.status != "healthy":
             try:
-                row = await _server_row(svc, health.server_id)
+                row = await _server_row(svc, health.server_id, by_name=True)
                 await _mark(svc, int(row["id"]), health.status, health.detail)
             except HTTPException:
                 pass
