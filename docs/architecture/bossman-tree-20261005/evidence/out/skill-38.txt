@@ -1,0 +1,12 @@
+[ok] file exists command-center/bcc/skills_catalog/anthropics/webapp-testing/SKILL.md
+[ok] frontmatter block present 
+[ok] parse_skill: name 'webapp-testing'
+[ok] parse_skill: description non-empty len=204
+[ok] frontmatter parsed to dict keys=['description', 'license', 'name']
+[ok] body non-empty len=3574
+[ok] no critical policy violation []
+[ok] SkillCatalog discovers it 
+[ok] provenance sha256 matches (not QUARANTINED) status=UNVERIFIED reason=импортирован, владельцем не проверен
+[ok] provenance has licence licence={'spdx': 'Apache-2.0', 'upstream_path': 'skills/webapp-testing/LICENSE.txt', 'file': 'LICENSE.txt', 'modified': False, 'note': 'SKILL.md скопирован без изменений; фильтр политики применяется при загрузке, файл не правится'} keys=['grants', 'id', 'import_mode', 'imported_at', 'license', 'schema', 'selection', 'sha256', 'size_bytes', 'source', 'status', 'upstream_repo_hooks_excluded', 'upstream_skill_files_excluded', 'upstream_skill_files_imported']
+catalog status: UNVERIFIED id: anthropics/webapp-testing sha256: 51b7349e77ec63b7
+VERDICT PASS

@@ -1,0 +1,9 @@
+[ok] file exists .claude/skills/tests-that-find-bugs/SKILL.md
+[ok] frontmatter block present 
+[ok] parse_skill: name 'tests-that-find-bugs'
+[ok] parse_skill: description non-empty len=290
+[ok] frontmatter parsed to dict keys=['compatibility', 'description', 'metadata', 'name']
+[ok] body non-empty len=3632
+[ok] no critical policy violation []
+[ok] SkillLibrary(default_skill_roots).discover finds it 
+VERDICT PASS

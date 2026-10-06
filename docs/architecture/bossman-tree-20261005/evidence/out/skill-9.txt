@@ -1,0 +1,9 @@
+[ok] file exists .agents/skills/model-eval/SKILL.md
+[ok] frontmatter block present 
+[ok] parse_skill: name 'model-eval'
+[ok] parse_skill: description non-empty len=203
+[ok] frontmatter parsed to dict keys=['compatibility', 'description', 'metadata', 'name']
+[ok] body non-empty len=948
+[ok] no critical policy violation []
+[ok] SkillLibrary(default_skill_roots).discover finds it 
+VERDICT PASS

@@ -1,0 +1,9 @@
+[ok] file exists .agents/skills/context-builder/SKILL.md
+[ok] frontmatter block present 
+[ok] parse_skill: name 'context-builder'
+[ok] parse_skill: description non-empty len=200
+[ok] frontmatter parsed to dict keys=['compatibility', 'description', 'metadata', 'name']
+[ok] body non-empty len=1775
+[ok] no critical policy violation []
+[ok] SkillLibrary(default_skill_roots).discover finds it 
+VERDICT PASS

@@ -1,0 +1,9 @@
+[ok] file exists .claude/skills/atomicity-boundary/SKILL.md
+[ok] frontmatter block present 
+[ok] parse_skill: name 'atomicity-boundary'
+[ok] parse_skill: description non-empty len=301
+[ok] frontmatter parsed to dict keys=['compatibility', 'description', 'metadata', 'name']
+[ok] body non-empty len=3251
+[ok] no critical policy violation []
+[ok] SkillLibrary(default_skill_roots).discover finds it 
+VERDICT PASS

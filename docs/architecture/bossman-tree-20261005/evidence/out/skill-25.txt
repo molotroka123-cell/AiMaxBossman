@@ -1,0 +1,9 @@
+[ok] file exists .agents/skills/variant-analysis/SKILL.md
+[ok] frontmatter block present 
+[ok] parse_skill: name 'variant-analysis'
+[ok] parse_skill: description non-empty len=169
+[ok] frontmatter parsed to dict keys=['compatibility', 'description', 'license', 'metadata', 'name']
+[ok] body non-empty len=3127
+[ok] no critical policy violation []
+[ok] SkillLibrary(default_skill_roots).discover finds it 
+VERDICT PASS

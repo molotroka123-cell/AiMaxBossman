@@ -1,0 +1,9 @@
+[ok] file exists .agents/skills/safe-terminal/SKILL.md
+[ok] frontmatter block present 
+[ok] parse_skill: name 'safe-terminal'
+[ok] parse_skill: description non-empty len=166
+[ok] frontmatter parsed to dict keys=['compatibility', 'description', 'metadata', 'name']
+[ok] body non-empty len=1595
+[ok] no critical policy violation []
+[ok] SkillLibrary(default_skill_roots).discover finds it 
+VERDICT PASS

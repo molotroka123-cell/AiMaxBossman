@@ -1,0 +1,9 @@
+[ok] file exists .agents/skills/solana-volume-suite/SKILL.md
+[ok] frontmatter block present 
+[ok] parse_skill: name 'solana-volume-suite'
+[ok] parse_skill: description non-empty len=267
+[ok] frontmatter parsed to dict keys=['compatibility', 'description', 'metadata', 'name']
+[ok] body non-empty len=3171
+[FAIL] no critical policy violation ['telemetry']
+[ok] SkillLibrary(default_skill_roots).discover finds it 
+VERDICT FAIL

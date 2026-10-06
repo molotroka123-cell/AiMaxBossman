@@ -1,0 +1,9 @@
+[ok] file exists .agents/skills/skill-forge/SKILL.md
+[ok] frontmatter block present 
+[ok] parse_skill: name 'skill-forge'
+[ok] parse_skill: description non-empty len=194
+[ok] frontmatter parsed to dict keys=['compatibility', 'description', 'metadata', 'name']
+[ok] body non-empty len=1899
+[ok] no critical policy violation []
+[ok] SkillLibrary(default_skill_roots).discover finds it 
+VERDICT PASS

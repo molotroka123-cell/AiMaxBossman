@@ -1,0 +1,42 @@
+[
+ {
+  "label": "gepa-ai/gepa",
+  "reason": "MIT (verified). Reflective prompt/skill evolution; maps straight onto the self-improvement cycle and skill-lesson coaching. Not referenced in code yet."
+ },
+ {
+  "label": "SWE-agent/mini-swe-agent",
+  "reason": "MIT (verified). ~100-line bash-only agent loop; a hardened baseline worker/judge instead of growing our own loop. Not referenced."
+ },
+ {
+  "label": "microsoft/agent-lightning",
+  "reason": "MIT (verified). Trace-to-training for existing agents without rewriting them; fits the recorded-runs corpus. Not referenced."
+ },
+ {
+  "label": "lm-sys/RouteLLM",
+  "reason": "Licence not checked (API rate-limited; Apache-2.0 to be confirmed). Cost/quality router; matches local -> free -> max tier routing. Not referenced."
+ },
+ {
+  "label": "letta-ai/letta",
+  "reason": "Apache-2.0 (verified). Stateful agent memory server; candidate to replace hand-built memory curation. Not referenced."
+ },
+ {
+  "label": "modelcontextprotocol/python-sdk",
+  "reason": "Licence not checked (rate-limited; confirm MIT). Reference MCP implementation; adopt instead of custom MCP plumbing. Not referenced."
+ },
+ {
+  "label": "pydantic/pydantic-ai",
+  "reason": "Licence not checked (rate-limited; confirm MIT). Typed agent/tool contracts and evals; hardens tool-call validation. Not referenced."
+ },
+ {
+  "label": "yamadashy/repomix",
+  "reason": "Licence not checked (rate-limited; confirm MIT). Repo-to-context packer for context-builder / night-mission prompts. Not referenced."
+ },
+ {
+  "label": "Breakthrough/PySceneDetect",
+  "reason": "Licence not checked (rate-limited; confirm BSD-3). Proven shot detection for the video studio storyboard/analysis path. Not referenced."
+ },
+ {
+  "label": "caronc/apprise",
+  "reason": "Licence not checked (rate-limited; confirm BSD-2). One library for Telegram and other notifiers; replaces hand-rolled owner-report senders. Not referenced."
+ }
+]

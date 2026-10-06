@@ -1,0 +1,12 @@
+[ok] file exists command-center/bcc/skills_catalog/superpowers/test-driven-development/SKILL.md
+[ok] frontmatter block present 
+[ok] parse_skill: name 'test-driven-development'
+[ok] parse_skill: description non-empty len=79
+[ok] frontmatter parsed to dict keys=['description', 'name']
+[ok] body non-empty len=9424
+[ok] no critical policy violation []
+[ok] SkillCatalog discovers it 
+[ok] provenance sha256 matches (not QUARANTINED) status=UNVERIFIED reason=импортирован, владельцем не проверен
+[ok] provenance has licence licence={'spdx': 'MIT', 'upstream_path': 'LICENSE', 'file': '../LICENSE', 'modified': False, 'note': 'SKILL.md скопирован без изменений; фильтр политики применяется при загрузке, файл не правится'} keys=['grants', 'id', 'import_mode', 'imported_at', 'license', 'schema', 'selection', 'sha256', 'size_bytes', 'source', 'status', 'upstream_repo_hooks_excluded', 'upstream_skill_files_excluded', 'upstream_skill_files_imported']
+catalog status: UNVERIFIED id: superpowers/test-driven-development sha256: 64b03fce4aee5a97
+VERDICT PASS

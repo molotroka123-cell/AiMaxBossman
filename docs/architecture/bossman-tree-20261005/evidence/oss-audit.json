@@ -1,0 +1,1449 @@
+[
+ {
+  "id": "oss-1",
+  "label": "cloudflare/security-audit-skill",
+  "url": "https://github.com/cloudflare/security-audit-skill",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 25294,
+  "archived": false,
+  "pushed_at": "2026-09-14T19:29:02Z",
+  "referenced_in_code": [
+   "config/evolution/sources.lock.json"
+  ]
+ },
+ {
+  "id": "oss-2",
+  "label": "alibaba/open-code-review",
+  "url": "https://github.com/alibaba/open-code-review",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 44033,
+  "archived": false,
+  "pushed_at": "2026-10-05T06:43:52Z",
+  "referenced_in_code": [
+   "bossman-core/bossman_v3/self_improvement/campaign.py",
+   "config/evolution/sources.lock.json"
+  ]
+ },
+ {
+  "id": "oss-3",
+  "label": "NousResearch/hermes-agent",
+  "url": "https://github.com/NousResearch/hermes-agent",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 251671,
+  "archived": false,
+  "pushed_at": "2026-10-06T21:39:42Z",
+  "referenced_in_code": [
+   "config/evolution/sources.lock.json"
+  ]
+ },
+ {
+  "id": "oss-4",
+  "label": "gepa-ai/gepa",
+  "url": "https://github.com/gepa-ai/gepa",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 6887,
+  "archived": false,
+  "pushed_at": "2026-10-05T12:46:14Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-5",
+  "label": "karpathy/autoresearch",
+  "url": "https://github.com/karpathy/autoresearch",
+  "reachable": true,
+  "http": 200,
+  "license": "none-detected",
+  "stars": 97405,
+  "archived": false,
+  "pushed_at": "2026-03-26T00:07:37Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-6",
+  "label": "microsoft/agent-lightning",
+  "url": "https://github.com/microsoft/agent-lightning",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 18571,
+  "archived": false,
+  "pushed_at": "2026-09-29T08:13:46Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-7",
+  "label": "SWE-agent/mini-swe-agent",
+  "url": "https://github.com/SWE-agent/mini-swe-agent",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 8244,
+  "archived": false,
+  "pushed_at": "2026-10-06T00:35:14Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-9",
+  "label": "browser-use/jev-ultrafast",
+  "url": "https://github.com/browser-use/jev-ultrafast",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 22189,
+  "archived": false,
+  "pushed_at": "2026-09-30T01:24:38Z",
+  "referenced_in_code": [
+   "command-center/bcc/jev/NOTICE-jev-ultrafast.txt",
+   "command-center/bcc/jev/upstream.py"
+  ]
+ },
+ {
+  "id": "oss-10",
+  "label": "APUS-AI-Lab/fast-browser-use",
+  "url": "https://github.com/APUS-AI-Lab/fast-browser-use",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 207,
+  "archived": false,
+  "pushed_at": "2026-09-21T02:48:29Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-11",
+  "label": "mostlygeek/llama-swap",
+  "url": "https://github.com/mostlygeek/llama-swap",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 5873,
+  "archived": false,
+  "pushed_at": "2026-10-05T03:16:44Z",
+  "referenced_in_code": [
+   "bossman-core/bossman/api.py",
+   "bossman-core/bossman/config.py",
+   "bossman-core/bossman/sandbox/network.py",
+   "bossman-core/compose.core.yaml",
+   "bossman-infra/compose.server.yaml"
+  ]
+ },
+ {
+  "id": "oss-12",
+  "label": "open-webui/open-webui",
+  "url": "https://github.com/open-webui/open-webui",
+  "reachable": true,
+  "http": 200,
+  "license": "NOASSERTION",
+  "stars": 154094,
+  "archived": false,
+  "pushed_at": "2026-10-06T21:02:35Z",
+  "referenced_in_code": [
+   "bossman-core/compose.core.yaml",
+   "bossman-infra/compose.yaml"
+  ]
+ },
+ {
+  "id": "oss-13",
+  "label": "kyuz0/amd-strix-halo-toolboxes",
+  "url": "https://github.com/kyuz0/amd-strix-halo-toolboxes",
+  "reachable": true,
+  "http": 200,
+  "license": "none-detected",
+  "stars": 1976,
+  "archived": false,
+  "pushed_at": "2026-09-29T06:58:35Z",
+  "referenced_in_code": [
+   "bossman-infra/compose.server.yaml"
+  ]
+ },
+ {
+  "id": "oss-14",
+  "label": "searxng/searxng",
+  "url": "https://github.com/searxng/searxng",
+  "reachable": true,
+  "http": 200,
+  "license": "AGPL-3.0",
+  "stars": 38040,
+  "archived": false,
+  "pushed_at": "2026-10-04T06:19:54Z",
+  "referenced_in_code": [
+   ".github/workflows/oss-integrations.yml",
+   "command-center/bcc/features/oss_integrations.py",
+   "command-center/bcc/features/web_research/api.py",
+   "command-center/bcc/features/web_research/config.py",
+   "command-center/bcc/features/web_research/ledger.py"
+  ]
+ },
+ {
+  "id": "oss-15",
+  "label": "VoltAgent/awesome-agent-skills.",
+  "url": "https://github.com/VoltAgent/awesome-agent-skills.",
+  "reachable": false,
+  "http": 404,
+  "license": "unknown (HTTP 404)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-16",
+  "label": "ggml-org/llama.cpp",
+  "url": "https://github.com/ggml-org/llama.cpp",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 130502,
+  "archived": false,
+  "pushed_at": "2026-10-06T21:06:52Z",
+  "referenced_in_code": [
+   "apps/poker-lora/pokerlora/openai_policy.py",
+   "bossman-core/bossman/apprentice/local_sidecar.py",
+   "bossman-core/bossman/context.py",
+   "bossman-core/bossman/context_engine/service.py",
+   "bossman-core/tests/fixtures/context_golden/golden.json"
+  ]
+ },
+ {
+  "id": "oss-17",
+  "label": "docling-project/docling",
+  "url": "https://github.com/docling-project/docling",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 68459,
+  "archived": false,
+  "pushed_at": "2026-10-06T15:54:55Z",
+  "referenced_in_code": [
+   "command-center/bcc/features/file_intelligence.py",
+   "command-center/bcc/features/oss_integrations.py",
+   "command-center/bcc/oss/docling.py",
+   "command-center/bcc/pit/master_parser/documents.py",
+   "command-center/bcc/pit/master_parser/sources.py"
+  ]
+ },
+ {
+  "id": "oss-18",
+  "label": "qdrant/qdrant",
+  "url": "https://github.com/qdrant/qdrant",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 34950,
+  "archived": false,
+  "pushed_at": "2026-10-06T21:37:01Z",
+  "referenced_in_code": [
+   "command-center/bcc/features/oss_integrations.py",
+   "command-center/bcc/features/studio.py",
+   "command-center/bcc/features/tools_memory.py",
+   "command-center/bcc/oss/qdrant.py",
+   "command-center/bcc/v2/memory/service.py"
+  ]
+ },
+ {
+  "id": "oss-19",
+  "label": "SYSTRAN/faster-whisper",
+  "url": "https://github.com/SYSTRAN/faster-whisper",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 25730,
+  "archived": false,
+  "pushed_at": "2026-10-06T20:10:47Z",
+  "referenced_in_code": [
+   "command-center/bcc/features/oss_integrations.py",
+   "command-center/bcc/oss/whisper.py",
+   "command-center/bcc/pit/speech.py",
+   "command-center/bcc/pit/voice.py",
+   "command-center/bcc/telegram_calls/deps.py"
+  ]
+ },
+ {
+  "id": "oss-20",
+  "label": "Comfy-Org/ComfyUI",
+  "url": "https://github.com/Comfy-Org/ComfyUI",
+  "reachable": true,
+  "http": 200,
+  "license": "GPL-3.0",
+  "stars": 136335,
+  "archived": false,
+  "pushed_at": "2026-10-06T21:09:10Z",
+  "referenced_in_code": [
+   "command-center/bcc/features/control_plane.py",
+   "command-center/bcc/features/images.py",
+   "command-center/bcc/features/oss_integrations.py",
+   "command-center/bcc/features/studio.py",
+   "command-center/bcc/oss/comfyui.py"
+  ]
+ },
+ {
+  "id": "oss-21",
+  "label": "bytedance/UI-TARS",
+  "url": "https://github.com/bytedance/UI-TARS",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 11562,
+  "archived": false,
+  "pushed_at": "2026-01-27T04:57:26Z",
+  "referenced_in_code": [
+   ".github/workflows/oss-integrations.yml",
+   "bossman-core/bossman/computer_operator/uitars.py",
+   "bossman-core/tests/test_uitars_grounding.py",
+   "command-center/bcc/features/oss_integrations.py",
+   "command-center/bcc/oss/uitars.py"
+  ]
+ },
+ {
+  "id": "oss-22",
+  "label": "GrapesJS/grapesjs",
+  "url": "https://github.com/GrapesJS/grapesjs",
+  "reachable": true,
+  "http": 200,
+  "license": "NOASSERTION",
+  "stars": 26288,
+  "archived": false,
+  "pushed_at": "2026-10-06T07:20:33Z",
+  "referenced_in_code": [
+   ".github/workflows/oss-integrations.yml",
+   "command-center/bcc/features/oss_integrations.py",
+   "command-center/bcc/features/web_designer.py",
+   "command-center/bcc/hybrid/registry.py",
+   "command-center/bcc/web_designer_visual.py"
+  ]
+ },
+ {
+  "id": "oss-23",
+  "label": "0xranx/OpenContext",
+  "url": "https://github.com/0xranx/OpenContext",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 1257,
+  "archived": false,
+  "pushed_at": "2026-06-16T01:43:12Z",
+  "referenced_in_code": [
+   "command-center/bcc/hybrid/__init__.py",
+   "command-center/bcc/hybrid/context_store.py",
+   "command-center/bcc/hybrid/registry.py",
+   "command-center/tests/test_hybrid_context_store.py"
+  ]
+ },
+ {
+  "id": "oss-24",
+  "label": "hyperfield/ai-file-sorter",
+  "url": "https://github.com/hyperfield/ai-file-sorter",
+  "reachable": true,
+  "http": 200,
+  "license": "AGPL-3.0",
+  "stars": 1799,
+  "archived": false,
+  "pushed_at": "2026-10-04T20:16:42Z",
+  "referenced_in_code": [
+   "command-center/bcc/file_intelligence/discovery.py",
+   "command-center/setup.py",
+   "command-center/tests/fileintel_fake.py",
+   "command-center/tests/test_file_intelligence_contract.py",
+   "command-center/tests/test_installed_product_paths.py"
+  ]
+ },
+ {
+  "id": "oss-25",
+  "label": "Faceplugin-ltd/Open-Source-Face-Recognition-SDK",
+  "url": "https://github.com/Faceplugin-ltd/Open-Source-Face-Recognition-SDK",
+  "reachable": true,
+  "http": 200,
+  "license": "none-detected",
+  "stars": 2301,
+  "archived": false,
+  "pushed_at": "2026-10-02T08:53:24Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-26",
+  "label": "Vincentwei1021/video-shotcraft",
+  "url": "https://github.com/Vincentwei1021/video-shotcraft",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 10453,
+  "archived": false,
+  "pushed_at": "2026-10-05T09:12:26Z",
+  "referenced_in_code": [
+   "command-center/bcc/video_studio/storyboard.py"
+  ]
+ },
+ {
+  "id": "oss-27",
+  "label": "wandb/weave",
+  "url": "https://github.com/wandb/weave",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 1136,
+  "archived": false,
+  "pushed_at": "2026-10-06T21:38:04Z",
+  "referenced_in_code": [
+   "command-center/bcc/hybrid/registry.py"
+  ]
+ },
+ {
+  "id": "oss-28",
+  "label": "qdrant/qdrant-client",
+  "url": "https://github.com/qdrant/qdrant-client",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 1369,
+  "archived": false,
+  "pushed_at": "2026-10-06T09:45:36Z",
+  "referenced_in_code": [
+   "command-center/bcc/oss/qdrant.py",
+   "command-center/pyproject.toml",
+   "tools/build_windows_bundle.py",
+   "tools/windows_bundle_lock.txt"
+  ]
+ },
+ {
+  "id": "oss-29",
+  "label": "openclaw/openclaw",
+  "url": "https://github.com/openclaw/openclaw",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 391510,
+  "archived": false,
+  "pushed_at": "2026-10-06T21:39:45Z",
+  "referenced_in_code": [
+   "bossman-core/bossman_v3/adapters/command_center.py",
+   "command-center/bcc/features/action_contract.py",
+   "command-center/bcc/features/offline_mode.py",
+   "command-center/bcc/features/tools_openclaw.py",
+   "command-center/bcc/finalize.py"
+  ]
+ },
+ {
+  "id": "oss-30",
+  "label": "opendatalab/OmniDocBench",
+  "url": "https://github.com/opendatalab/OmniDocBench",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 2082,
+  "archived": false,
+  "pushed_at": "2026-09-11T10:01:16Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-31",
+  "label": "CopilotKit/OpenDots",
+  "url": "https://github.com/CopilotKit/OpenDots",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 3916,
+  "archived": false,
+  "pushed_at": "2026-10-06T19:31:40Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-32",
+  "label": "JustVugg/colibri",
+  "url": "https://github.com/JustVugg/colibri",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 39998,
+  "archived": false,
+  "pushed_at": "2026-10-06T21:39:14Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-33",
+  "label": "debpalash/VoiceStudio",
+  "url": "https://github.com/debpalash/VoiceStudio",
+  "reachable": true,
+  "http": 200,
+  "license": "AGPL-3.0",
+  "stars": 54201,
+  "archived": false,
+  "pushed_at": "2026-10-06T12:22:27Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-34",
+  "label": "facebookincubator/muse-gadget-sdk",
+  "url": "https://github.com/facebookincubator/muse-gadget-sdk",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 1534,
+  "archived": false,
+  "pushed_at": "2026-10-06T21:27:57Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-35",
+  "label": "chatwoot/chatwoot",
+  "url": "https://github.com/chatwoot/chatwoot",
+  "reachable": true,
+  "http": 200,
+  "license": "NOASSERTION",
+  "stars": 37590,
+  "archived": false,
+  "pushed_at": "2026-10-06T21:39:50Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-36",
+  "label": "chatwoot/docs",
+  "url": "https://github.com/chatwoot/docs",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 91,
+  "archived": false,
+  "pushed_at": "2026-09-25T10:31:11Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-37",
+  "label": "legenhand/n8n-nodes-instagram-api",
+  "url": "https://github.com/legenhand/n8n-nodes-instagram-api",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 1,
+  "archived": false,
+  "pushed_at": "2026-08-26T07:12:15Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-38",
+  "label": "devgine/n8n-ig-comments-management",
+  "url": "https://github.com/devgine/n8n-ig-comments-management",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 0,
+  "archived": false,
+  "pushed_at": "2026-08-16T20:39:07Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-39",
+  "label": "Boudofski/instagramautomation",
+  "url": "https://github.com/Boudofski/instagramautomation",
+  "reachable": true,
+  "http": 200,
+  "license": "NOASSERTION",
+  "stars": 2,
+  "archived": false,
+  "pushed_at": "2026-05-04T13:59:12Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-40",
+  "label": "aldoprianandi/ig-autodm-worker",
+  "url": "https://github.com/aldoprianandi/ig-autodm-worker",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 6,
+  "archived": false,
+  "pushed_at": "2026-09-06T03:42:54Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-41",
+  "label": "getzep/graphiti",
+  "url": "https://github.com/getzep/graphiti",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 31492,
+  "archived": false,
+  "pushed_at": "2026-10-06T20:43:31Z",
+  "referenced_in_code": [
+   "bossman-core/bossman_v3/operating_graph.py",
+   "command-center/bcc/db.py",
+   "command-center/bcc/v2/memory/facts.py"
+  ]
+ },
+ {
+  "id": "oss-42",
+  "label": "letta-ai/letta",
+  "url": "https://github.com/letta-ai/letta",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 25050,
+  "archived": false,
+  "pushed_at": "2026-09-10T17:59:08Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-43",
+  "label": "mem0ai/mem0",
+  "url": "https://github.com/mem0ai/mem0",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 66677,
+  "archived": false,
+  "pushed_at": "2026-10-06T05:29:57Z",
+  "referenced_in_code": [
+   "command-center/bcc/v2/memory/facts.py"
+  ]
+ },
+ {
+  "id": "oss-44",
+  "label": "HKUDS/LightRAG",
+  "url": "https://github.com/HKUDS/LightRAG",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 39999,
+  "archived": false,
+  "pushed_at": "2026-10-03T07:18:20Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-45",
+  "label": "aexy-io/graphzep",
+  "url": "https://github.com/aexy-io/graphzep",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 26,
+  "archived": false,
+  "pushed_at": "2025-08-24T09:21:56Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-46",
+  "label": "Zylann/godot_voxel",
+  "url": "https://github.com/Zylann/godot_voxel",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 3928,
+  "archived": false,
+  "pushed_at": "2026-10-01T17:20:33Z",
+  "referenced_in_code": [
+   "command-center/bcc/features/game_bootstrap_v16.py"
+  ]
+ },
+ {
+  "id": "oss-47",
+  "label": "godotengine/godot",
+  "url": "https://github.com/godotengine/godot",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 118200,
+  "archived": false,
+  "pushed_at": "2026-10-06T19:51:13Z",
+  "referenced_in_code": [
+   "command-center/bcc/features/action_contract.py",
+   "command-center/bcc/features/game_bootstrap_v16.py",
+   "command-center/tests/test_action_contract.py",
+   "tools/motion_studio/library/build_library.py",
+   "tools/motion_studio/library/game_trailer.json"
+  ]
+ },
+ {
+  "id": "oss-48",
+  "label": "XingChen-AGI/Xing4.0-29B-A4B",
+  "url": "https://github.com/XingChen-AGI/Xing4.0-29B-A4B",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 94,
+  "archived": false,
+  "pushed_at": "2026-09-24T09:00:57Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-49",
+  "label": "wide-trace/open-higgsfield",
+  "url": "https://github.com/wide-trace/open-higgsfield",
+  "reachable": true,
+  "http": 200,
+  "license": "none-detected",
+  "stars": 4047,
+  "archived": false,
+  "pushed_at": "2026-09-17T01:53:26Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-50",
+  "label": "mltframework/shotcut",
+  "url": "https://github.com/mltframework/shotcut",
+  "reachable": true,
+  "http": 200,
+  "license": "GPL-3.0",
+  "stars": 15362,
+  "archived": false,
+  "pushed_at": "2026-10-06T19:36:06Z",
+  "referenced_in_code": [
+   "command-center/bcc/features/video_studio.py",
+   "command-center/bcc/video_studio/interchange.py",
+   "command-center/bcc/video_studio/shotcut.py",
+   "command-center/bcc/video_studio/tools.py",
+   "command-center/tests/test_video_studio_queued_extensions.py"
+  ]
+ },
+ {
+  "id": "oss-51",
+  "label": "AcademySoftwareFoundation/OpenTimelineIO",
+  "url": "https://github.com/AcademySoftwareFoundation/OpenTimelineIO",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 2009,
+  "archived": false,
+  "pushed_at": "2026-10-01T20:06:51Z",
+  "referenced_in_code": [
+   "command-center/bcc/video_studio/interchange.py",
+   "command-center/pyproject.toml",
+   "command-center/tests/test_video_studio_interchange.py",
+   "command-center/tests/test_video_studio_otio_blocked.py",
+   "command-center/ui/pages/video_studio.js"
+  ]
+ },
+ {
+  "id": "oss-52",
+  "label": "ggml-org/whisper.cpp",
+  "url": "https://github.com/ggml-org/whisper.cpp",
+  "reachable": true,
+  "http": 200,
+  "license": "MIT",
+  "stars": 54177,
+  "archived": false,
+  "pushed_at": "2026-10-06T17:39:15Z",
+  "referenced_in_code": [
+   "command-center/bcc/video_studio/analysis.py",
+   "command-center/bcc/video_studio/media.py"
+  ]
+ },
+ {
+  "id": "oss-53",
+  "label": "Lightricks/LTX-2",
+  "url": "https://github.com/Lightricks/LTX-2",
+  "reachable": true,
+  "http": 200,
+  "license": "NOASSERTION",
+  "stars": 9607,
+  "archived": false,
+  "pushed_at": "2026-10-02T10:38:06Z",
+  "referenced_in_code": [
+   "config/v1.5/model-routing-stack.json",
+   "tests/test_v15_model_routing_stack.py"
+  ]
+ },
+ {
+  "id": "oss-54",
+  "label": "letta-ai/letta-code",
+  "url": "https://github.com/letta-ai/letta-code",
+  "reachable": true,
+  "http": 200,
+  "license": "Apache-2.0",
+  "stars": 3529,
+  "archived": false,
+  "pushed_at": "2026-10-06T21:32:38Z",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-55",
+  "label": "MineDojo/Voyager",
+  "url": "https://github.com/MineDojo/Voyager",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (HTTP 403, stopped)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-56",
+  "label": "lm-sys/RouteLLM",
+  "url": "https://github.com/lm-sys/RouteLLM",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-57",
+  "label": "ulab-uiuc/LLMRouter",
+  "url": "https://github.com/ulab-uiuc/LLMRouter",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-58",
+  "label": "ag2ai/ag2",
+  "url": "https://github.com/ag2ai/ag2",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-59",
+  "label": "OpenHands/benchmarks",
+  "url": "https://github.com/OpenHands/benchmarks",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": [
+   "bossman-core/bossman/v7/nightly_run.py",
+   "bossman-core/bossman_v3/benchmark_overlay/__init__.py",
+   "bossman-core/bossman_v3/benchmark_overlay/evaluator.py",
+   "bossman-core/bossman_v3/benchmark_overlay/scorer.py",
+   "bossman-core/bossman_v3/execution/telemetry.py"
+  ]
+ },
+ {
+  "id": "oss-60",
+  "label": "google/benchmark",
+  "url": "https://github.com/google/benchmark",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": [
+   ".github/workflows/bossman-benchmark.yml",
+   ".github/workflows/bossman-core-ci.yml",
+   ".github/workflows/bossman-v2-repair.yml",
+   ".github/workflows/intelligence-preservation.yml",
+   ".github/workflows/release-certification.yml"
+  ]
+ },
+ {
+  "id": "oss-61",
+  "label": "higgsfield-ai/higgsfield-client",
+  "url": "https://github.com/higgsfield-ai/higgsfield-client",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-62",
+  "label": "higgsfield-ai/higgsfield-js",
+  "url": "https://github.com/higgsfield-ai/higgsfield-js",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-63",
+  "label": "higgsfield-ai/cli",
+  "url": "https://github.com/higgsfield-ai/cli",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-64",
+  "label": "higgsfield-ai/skills",
+  "url": "https://github.com/higgsfield-ai/skills",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": [
+   ".github/workflows/command-center-ci.yml",
+   "bossman-core/bossman/apprentice/local_sidecar.py",
+   "bossman-core/bossman/apprentice/recording.py",
+   "bossman-core/bossman/apprentice/skills.py",
+   "bossman-core/bossman/apprentice/teacher.py"
+  ]
+ },
+ {
+  "id": "oss-65",
+  "label": "Lightricks/LTX-Desktop",
+  "url": "https://github.com/Lightricks/LTX-Desktop",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-66",
+  "label": "peter-evans/create-pull-request",
+  "url": "https://github.com/peter-evans/create-pull-request",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": [
+   ".github/workflows/bossman-v2-repair.yml"
+  ]
+ },
+ {
+  "id": "oss-67",
+  "label": "prompt-toolkit/python-prompt-toolkit",
+  "url": "https://github.com/prompt-toolkit/python-prompt-toolkit",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-68",
+  "label": "Textualize/rich",
+  "url": "https://github.com/Textualize/rich",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-69",
+  "label": "openai/codex",
+  "url": "https://github.com/openai/codex",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": [
+   "apps/file-commander-mini/src/file_commander_mini/safety.py",
+   "bossman-core/bossman/apprentice/openhands_client.py",
+   "bossman-core/tests/apprentice/test_openhands_evidence_independence.py",
+   "bossman-core/tests/apprentice/test_worktree_cleanup_honesty.py",
+   "command-center/bcc/autonomy/cli.py"
+  ]
+ },
+ {
+  "id": "oss-70",
+  "label": "huggingface/skills",
+  "url": "https://github.com/huggingface/skills",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": [
+   ".github/workflows/command-center-ci.yml",
+   "bossman-core/bossman/apprentice/local_sidecar.py",
+   "bossman-core/bossman/apprentice/recording.py",
+   "bossman-core/bossman/apprentice/skills.py",
+   "bossman-core/bossman/apprentice/teacher.py"
+  ]
+ },
+ {
+  "id": "oss-71",
+  "label": "obra/superpowers",
+  "url": "https://github.com/obra/superpowers",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": [
+   "command-center/bcc/v2/skill_catalog.py",
+   "command-center/tests/test_skill_catalog.py",
+   "command-center/tests/test_skill_catalog_crlf.py",
+   "tests/test_owner_run_self_improve.py",
+   "tools/validate_curated_agent_skills.py"
+  ]
+ },
+ {
+  "id": "oss-72",
+  "label": "anthropics/skills",
+  "url": "https://github.com/anthropics/skills",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": [
+   ".github/workflows/command-center-ci.yml",
+   "bossman-core/bossman/apprentice/local_sidecar.py",
+   "bossman-core/bossman/apprentice/recording.py",
+   "bossman-core/bossman/apprentice/skills.py",
+   "bossman-core/bossman/apprentice/teacher.py"
+  ]
+ },
+ {
+  "id": "oss-73",
+  "label": "NUS-HPC-AI-Lab/FOCUS",
+  "url": "https://github.com/NUS-HPC-AI-Lab/FOCUS",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": [
+   "bossman-core/bossman/apprentice/engine.py",
+   "bossman-core/bossman/benchmark/sandbox_cases/uca.py",
+   "bossman-core/bossman/computer_operator/adapters/playwright_browser.py",
+   "bossman-core/bossman/computer_operator/adapters/windows.py",
+   "bossman-core/bossman/computer_operator/capabilities.py"
+  ]
+ },
+ {
+  "id": "oss-74",
+  "label": "shaoguangwang/Q_Gate",
+  "url": "https://github.com/shaoguangwang/Q_Gate",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-75",
+  "label": "jinlab-imvr/ReMem",
+  "url": "https://github.com/jinlab-imvr/ReMem",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": [
+   "apps/social-farm/src/social_farm/browser/secrets.py",
+   "apps/social-farm/src/social_farm/browser/session.py",
+   "bossman-core/bossman/apprentice/live_workspace.py",
+   "bossman-core/bossman/apprentice/local_sidecar.py",
+   "bossman-core/bossman/context_engine/__init__.py"
+  ]
+ },
+ {
+  "id": "oss-76",
+  "label": "zhangce01/LENS",
+  "url": "https://github.com/zhangce01/LENS",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-77",
+  "label": "wuli55555/ISSF",
+  "url": "https://github.com/wuli55555/ISSF",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-78",
+  "label": "LeonHLJ/RSKP",
+  "url": "https://github.com/LeonHLJ/RSKP",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-79",
+  "label": "fuleinist/video-to-skill",
+  "url": "https://github.com/fuleinist/video-to-skill",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-80",
+  "label": "coah80/youtube-mcp",
+  "url": "https://github.com/coah80/youtube-mcp",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-81",
+  "label": "bradautomates/claude-video",
+  "url": "https://github.com/bradautomates/claude-video",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-82",
+  "label": "WebDevBar/watch-video",
+  "url": "https://github.com/WebDevBar/watch-video",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-83",
+  "label": "m-bain/whisperX",
+  "url": "https://github.com/m-bain/whisperX",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-84",
+  "label": "Breakthrough/PySceneDetect",
+  "url": "https://github.com/Breakthrough/PySceneDetect",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-85",
+  "label": "QwenLM/Qwen2.5-VL",
+  "url": "https://github.com/QwenLM/Qwen2.5-VL",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": [
+   "bossman-core/bossman/computer_operator/uitars.py",
+   "command-center/bcc/pit/photo_pipeline.py",
+   "command-center/bcc/pit/qwen_vision.py",
+   "command-center/tests/test_pit_photo_foundation.py"
+  ]
+ },
+ {
+  "id": "oss-86",
+  "label": "minseokii/OTT-Vid",
+  "url": "https://github.com/minseokii/OTT-Vid",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-87",
+  "label": "EvolvingLMMs-Lab/lmms-eval",
+  "url": "https://github.com/EvolvingLMMs-Lab/lmms-eval",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-88",
+  "label": "RomGai/VideoStir",
+  "url": "https://github.com/RomGai/VideoStir",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-89",
+  "label": "HKUDS/VideoRAG",
+  "url": "https://github.com/HKUDS/VideoRAG",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-90",
+  "label": "city1517/OneClip-RAG",
+  "url": "https://github.com/city1517/OneClip-RAG",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-91",
+  "label": "facebookresearch/egagent",
+  "url": "https://github.com/facebookresearch/egagent",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-92",
+  "label": "Co-Messi/HyperData-Terminal",
+  "url": "https://github.com/Co-Messi/HyperData-Terminal",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-93",
+  "label": "ccxt/ccxt",
+  "url": "https://github.com/ccxt/ccxt",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-94",
+  "label": "binance/binance-connector-python",
+  "url": "https://github.com/binance/binance-connector-python",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-95",
+  "label": "bybit-exchange/pybit",
+  "url": "https://github.com/bybit-exchange/pybit",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-96",
+  "label": "nautechsystems/nautilus_trader",
+  "url": "https://github.com/nautechsystems/nautilus_trader",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-97",
+  "label": "hummingbot/hummingbot",
+  "url": "https://github.com/hummingbot/hummingbot",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-98",
+  "label": "polakowo/vectorbt",
+  "url": "https://github.com/polakowo/vectorbt",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-99",
+  "label": "QuantConnect/Lean",
+  "url": "https://github.com/QuantConnect/Lean",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-100",
+  "label": "freqtrade/freqtrade",
+  "url": "https://github.com/freqtrade/freqtrade",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-101",
+  "label": "freqtrade/freqtrade-strategies",
+  "url": "https://github.com/freqtrade/freqtrade-strategies",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-102",
+  "label": "AI4Finance-Foundation/FinRL",
+  "url": "https://github.com/AI4Finance-Foundation/FinRL",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-103",
+  "label": "AI4Finance-Foundation/FinGPT",
+  "url": "https://github.com/AI4Finance-Foundation/FinGPT",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-104",
+  "label": "tradingview/lightweight-charts",
+  "url": "https://github.com/tradingview/lightweight-charts",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-105",
+  "label": "caronc/apprise",
+  "url": "https://github.com/caronc/apprise",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-106",
+  "label": "yamadashy/repomix",
+  "url": "https://github.com/yamadashy/repomix",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-107",
+  "label": "trailofbits/skills",
+  "url": "https://github.com/trailofbits/skills",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": [
+   ".github/workflows/command-center-ci.yml",
+   "bossman-core/bossman/apprentice/local_sidecar.py",
+   "bossman-core/bossman/apprentice/recording.py",
+   "bossman-core/bossman/apprentice/skills.py",
+   "bossman-core/bossman/apprentice/teacher.py"
+  ]
+ },
+ {
+  "id": "oss-108",
+  "label": "petergyang/no-ai-slop",
+  "url": "https://github.com/petergyang/no-ai-slop",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-109",
+  "label": "tonhowtf/omniget",
+  "url": "https://github.com/tonhowtf/omniget",
+  "reachable": false,
+  "http": 404,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-110",
+  "label": "Untrivial-ai/agent-orchestrator",
+  "url": "https://github.com/Untrivial-ai/agent-orchestrator",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-111",
+  "label": "pranshuparmar/witr",
+  "url": "https://github.com/pranshuparmar/witr",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-112",
+  "label": "artf/codemirror-formatting",
+  "url": "https://github.com/artf/codemirror-formatting",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-113",
+  "label": "openai/openai-agents-python",
+  "url": "https://github.com/openai/openai-agents-python",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-114",
+  "label": "langchain-ai/langgraph",
+  "url": "https://github.com/langchain-ai/langgraph",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-115",
+  "label": "pydantic/pydantic-ai",
+  "url": "https://github.com/pydantic/pydantic-ai",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-116",
+  "label": "crewAIInc/crewAI",
+  "url": "https://github.com/crewAIInc/crewAI",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-117",
+  "label": "modelcontextprotocol/python-sdk",
+  "url": "https://github.com/modelcontextprotocol/python-sdk",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-118",
+  "label": "PrefectHQ/fastmcp",
+  "url": "https://github.com/PrefectHQ/fastmcp",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": [
+   "command-center/tests/fixtures/mcp_echo_server.py"
+  ]
+ },
+ {
+  "id": "oss-119",
+  "label": "modelcontextprotocol/servers",
+  "url": "https://github.com/modelcontextprotocol/servers",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": [
+   ".github/workflows/closure-checkpoint.yml",
+   ".github/workflows/command-center-ci.yml",
+   ".github/workflows/v16-integration-ci.yml",
+   "bossman-core/bossman/apprentice/local_sidecar.py",
+   "bossman-core/bossman/apprentice/openhands_client.py"
+  ]
+ },
+ {
+  "id": "oss-120",
+  "label": "ComposioHQ/composio",
+  "url": "https://github.com/ComposioHQ/composio",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-121",
+  "label": "temporalio/sdk-python",
+  "url": "https://github.com/temporalio/sdk-python",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ },
+ {
+  "id": "oss-122",
+  "label": "SmythOS/smythos-studio",
+  "url": "https://github.com/SmythOS/smythos-studio",
+  "reachable": true,
+  "http": 200,
+  "license": "unknown (api stopped: HTTP 403)",
+  "referenced_in_code": []
+ }
+]

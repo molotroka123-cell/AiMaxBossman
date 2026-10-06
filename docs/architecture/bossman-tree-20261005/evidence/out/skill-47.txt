@@ -1,0 +1,12 @@
+[ok] file exists command-center/bcc/skills_catalog/superpowers/writing-plans/SKILL.md
+[ok] frontmatter block present 
+[ok] parse_skill: name 'writing-plans'
+[ok] parse_skill: description non-empty len=84
+[ok] frontmatter parsed to dict keys=['description', 'name']
+[ok] body non-empty len=8941
+[ok] no critical policy violation []
+[ok] SkillCatalog discovers it 
+[ok] provenance sha256 matches (not QUARANTINED) status=UNVERIFIED reason=импортирован, владельцем не проверен
+[ok] provenance has licence licence={'spdx': 'MIT', 'upstream_path': 'LICENSE', 'file': '../LICENSE', 'modified': False, 'note': 'SKILL.md скопирован без изменений; фильтр политики применяется при загрузке, файл не правится'} keys=['grants', 'id', 'import_mode', 'imported_at', 'license', 'schema', 'selection', 'sha256', 'size_bytes', 'source', 'status', 'upstream_repo_hooks_excluded', 'upstream_skill_files_excluded', 'upstream_skill_files_imported']
+catalog status: UNVERIFIED id: superpowers/writing-plans sha256: 0bc3d36590f7b2c3
+VERDICT PASS

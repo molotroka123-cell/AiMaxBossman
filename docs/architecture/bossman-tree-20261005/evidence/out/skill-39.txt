@@ -1,0 +1,12 @@
+[ok] file exists command-center/bcc/skills_catalog/huggingface/hf-mem/SKILL.md
+[ok] frontmatter block present 
+[ok] parse_skill: name 'hf-mem'
+[ok] parse_skill: description non-empty len=130
+[ok] frontmatter parsed to dict keys=['description', 'name']
+[ok] body non-empty len=3159
+[ok] no critical policy violation []
+[ok] SkillCatalog discovers it 
+[ok] provenance sha256 matches (not QUARANTINED) status=UNVERIFIED reason=импортирован, владельцем не проверен
+[ok] provenance has licence licence={'spdx': 'Apache-2.0', 'upstream_path': 'LICENSE', 'file': '../LICENSE', 'modified': False, 'note': 'SKILL.md скопирован без изменений; фильтр политики применяется при загрузке, файл не правится'} keys=['grants', 'id', 'import_mode', 'imported_at', 'license', 'schema', 'selection', 'sha256', 'size_bytes', 'source', 'status', 'upstream_repo_hooks_excluded', 'upstream_skill_files_excluded', 'upstream_skill_files_imported']
+catalog status: UNVERIFIED id: huggingface/hf-mem sha256: ee99f9d97e084aa6
+VERDICT PASS

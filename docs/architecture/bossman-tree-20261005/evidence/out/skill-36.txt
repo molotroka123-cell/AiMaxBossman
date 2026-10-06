@@ -1,0 +1,9 @@
+[ok] file exists bossman-core/skills/compact/SKILL.md
+[ok] frontmatter block present 
+[ok] parse_skill: name 'compact'
+[FAIL] parse_skill: description non-empty len=0
+[ok] frontmatter parsed to dict keys=['name', 'purpose', 'stage']
+[ok] body non-empty len=840
+[ok] no critical policy violation []
+[note] not under default_skill_roots; parsed directly only
+VERDICT FAIL
