@@ -14,6 +14,11 @@ import pytest
 from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
 from .browser_support import chromium_available, reason as browser_reason
 
+# An opener must show its modal (or navigate) within this window. 5 s was too tight for a CI runner running four browser workers for 25-30 min:
+# the button that failed changed from run to run (CI py3.11 2026-10-05, py3.12 2026-10-06) while the same code passed on the sibling jobs.
+# A button that really does nothing still fails after the window.
+OPEN_TIMEOUT_MS = 20000
+
 pytestmark = [pytest.mark.timeout(180), pytest.mark.skipif(not chromium_available(), reason=browser_reason())]
 
 NETWORK_NOISE = re.compile(r"net::ERR_|Failed to load resource|the server responded with a status of (404|501|503)", re.I)
@@ -106,14 +111,14 @@ def test_every_page_renders_and_buttons_work(live, tmp_path):  # noqa: F811
                     # допустимые исходы: открылась модалка (закрываем Esc) или страница перешла на другой раздел
                     page.wait_for_function(
                         "([h]) => !!document.querySelector('#modal-root .modal') || location.hash !== h",
-                        arg=[hash_before], timeout=5000)
+                        arg=[hash_before], timeout=OPEN_TIMEOUT_MS)
                     if page.evaluate("location.hash") != hash_before:
                         row["opened_modal"].append({"label": label, "ok": True, "nav": page.evaluate("location.hash")})
                         page.goto(f"{live.url}/#/{p['id']}", wait_until="domcontentloaded")
                         page.wait_for_function("!document.querySelector('#view .skeleton') && document.getElementById('view').childElementCount > 0", timeout=20000)
                     else:
                         page.keyboard.press("Escape")
-                        page.wait_for_selector("#modal-root .modal", state="detached", timeout=5000)
+                        page.wait_for_selector("#modal-root .modal", state="detached", timeout=OPEN_TIMEOUT_MS)
                         row["opened_modal"].append({"label": label, "ok": True})
                 except Exception as exc:  # noqa: BLE001
                     row["opened_modal"].append({"label": label, "ok": False, "error": str(exc).splitlines()[0]})
