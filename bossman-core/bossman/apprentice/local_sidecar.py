@@ -328,6 +328,15 @@ def _runner_cmd(module: str, *args: str) -> list[str]:
     return [*_interpreter(), "-B", "-s", "-X", "utf8", "-c", _BOOT, module, *args]
 
 
+def _assistant_message(msg: dict) -> dict:
+    """The model's turn as it goes back into the history. A turn with neither text nor tool calls is stored with a
+    short marker: strict providers reject an empty assistant message (owner PC 06.10, Cohere HTTP 400)."""
+    content = msg.get("content") or ""
+    if msg.get("tool_calls"):
+        return {"role": "assistant", "content": content, "tool_calls": msg["tool_calls"]}
+    return {"role": "assistant", "content": content or "(no tool call)"}
+
+
 def _pytest_available() -> bool:
     if not os.environ.get("BOSSMAN_VERIFY_PYTHON", "").strip():
         import importlib.util
@@ -683,8 +692,7 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
                         summary += f" {exc.code}: {' '.join(detail.split())[:300]}"
                 break
             calls = parse_calls(msg)
-            messages.append({"role": "assistant", "content": msg.get("content") or "",
-                             **({"tool_calls": msg["tool_calls"]} if msg.get("tool_calls") else {})})
+            messages.append(_assistant_message(msg))
             if not calls:
                 messages.append({"role": "user", "content": "Use a tool. When done and tests pass, call finish."})
                 log.append({"step": step, "tool": None, "ok": False, "t": round(time.monotonic() - started, 3),
