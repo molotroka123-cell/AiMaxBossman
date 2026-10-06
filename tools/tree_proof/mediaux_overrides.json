@@ -1,0 +1,322 @@
+{
+ "slash-help": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_help",
+  "only": true
+ },
+ "slash-status": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_status",
+  "only": true
+ },
+ "slash-tasks": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_tasks",
+  "only": true
+ },
+ "slash-models": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_models",
+  "only": true
+ },
+ "slash-agent": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_agent",
+  "only": true
+ },
+ "slash-skills": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_skills",
+  "only": true
+ },
+ "slash-tools": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_tools",
+  "only": true
+ },
+ "slash-memory": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_memory",
+  "only": true
+ },
+ "slash-diff": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_diff",
+  "only": true
+ },
+ "slash-code": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_code",
+  "only": true
+ },
+ "slash-rave": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_rave",
+  "only": true
+ },
+ "slash-approve": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_approve",
+  "only": true
+ },
+ "slash-deny": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_deny",
+  "only": true
+ },
+ "slash-approvals": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_approvals",
+  "only": true
+ },
+ "slash-pause": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_pause",
+  "only": true
+ },
+ "slash-stop": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_stop",
+  "only": true
+ },
+ "slash-resume": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_resume",
+  "only": true
+ },
+ "slash-computer": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_computer",
+  "only": true
+ },
+ "slash-evolve": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_evolve",
+  "only": true
+ },
+ "slash-keys": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_keys",
+  "only": true
+ },
+ "slash-panel": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_panel",
+  "only": true
+ },
+ "slash-compact": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_compact",
+  "only": true
+ },
+ "slash-context": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_context",
+  "only": true
+ },
+ "slash-cost": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_cost",
+  "only": true
+ },
+ "slash-export": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_export",
+  "only": true
+ },
+ "slash-doctor": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_doctor",
+  "only": true
+ },
+ "slash-expand": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_expand",
+  "only": true
+ },
+ "slash-history": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_history",
+  "only": true
+ },
+ "slash-clear": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_clear",
+  "only": true
+ },
+ "slash-exit": {
+  "module_path": "command-center/bcc/terminal_cli/slash.py",
+  "tests": [
+   "command-center/tests/test_leaf_slash_commands.py"
+  ],
+  "k": "test_slash_exit",
+  "only": true
+ },
+ "app-social-farm": {
+  "module_path": "apps/social-farm/src/social_farm/__init__.py",
+  "tests": [
+   "apps/social-farm/tests/unit"
+  ],
+  "cwd": "apps/social-farm",
+  "only": true
+ },
+ "cap-13": {
+  "tests": [
+   "command-center/tests/test_cli_entrypoint.py",
+   "command-center/tests/test_terminal_cli_unit.py",
+   "command-center/tests/test_terminal_chat_digit_args.py",
+   "command-center/tests/test_terminal_cli_e2e.py",
+   "command-center/tests/test_terminal_discovery_identity.py"
+  ],
+  "only": true
+ },
+ "cap-12": {
+  "tests": [
+   "command-center/tests/test_command_bar.py",
+   "command-center/tests/test_command_bar_path_segments.py",
+   "command-center/tests/test_command_bar_ui.py"
+  ],
+  "only": true
+ },
+ "cap-30": {
+  "tests": [
+   "command-center/tests/test_studio_cloud.py",
+   "command-center/tests/test_studio_integrations.py",
+   "command-center/tests/test_studio_deadline_limits.py",
+   "command-center/tests/test_studio_job_shows_requested_settings.py",
+   "command-center/tests/test_studio_gallery_ui.py"
+  ],
+  "only": true
+ },
+ "mod-studio_review": {
+  "tests": [
+   "command-center/tests/test_studio_vision_review.py"
+  ],
+  "only": true
+ },
+ "reg-video_adapter_train": {
+  "tests": [
+   "command-center/tests/test_video_studio_domain.py"
+  ],
+  "k": "test_training_and_holdout",
+  "only": true
+ },
+ "reg-motion_epic": {
+  "module_path": "tools/motion_studio/epic.py",
+  "tests": [
+   "tests/test_leaf_motion_epic.py"
+  ],
+  "cwd": ".",
+  "only": true
+ },
+ "reg-web_designer_ai_build": {
+  "tests": [
+   "command-center/tests/test_web_designer_creative_execution.py",
+   "command-center/tests/test_web_designer_ai_create_ui.py"
+  ],
+  "only": true
+ },
+ "reg-video_studio_render": {
+  "tests": [
+   "command-center/tests/test_video_studio_render.py",
+   "command-center/tests/test_video_export_receipt.py",
+   "command-center/tests/test_video_preview_speed_contract.py"
+  ],
+  "only": true
+ },
+ "reg-video_studio_service": {
+  "tests": [
+   "command-center/tests/test_video_studio_integration.py",
+   "command-center/tests/test_video_studio_owner_recovery.py",
+   "command-center/tests/test_video_studio_recovery_races.py"
+  ],
+  "only": true
+ }
+}
