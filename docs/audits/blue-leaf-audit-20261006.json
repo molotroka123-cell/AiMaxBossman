@@ -2,8 +2,8 @@
  "leaves": 475,
  "summary": {
   "non-python": 1,
-  "covered": 412,
-  "untested": 60,
+  "covered": 439,
+  "untested": 33,
   "covered-skipped": 2
  },
  "junit_files": [
@@ -3506,12 +3506,16 @@
    "sources": [
     "bossman-core/bossman/ai_lab/sanitizer.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_ai_lab_containment.py",
+    "bossman-core/tests/test_stage11_ai_lab.py",
+    "bossman-core/tests/test_stage13_ailab_redteam.py"
+   ],
+   "passed": 123,
    "failed": 0,
-   "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "skipped": 1,
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-73976a1cf54d",
@@ -4574,12 +4578,26 @@
    "sources": [
     "bossman-core/bossman/context_engine/compact.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_compact_plugins.py",
+    "bossman-core/tests/test_compact_structured.py",
+    "bossman-core/tests/test_context_engine_integration.py",
+    "bossman-core/tests/test_context_engine_reembed_fastpath.py",
+    "bossman-core/tests/test_context_engine_stage_2_222.py",
+    "bossman-core/tests/test_context_quality_benchmark.py",
+    "bossman-core/tests/test_fable_context_ablation.py",
+    "bossman-core/tests/test_fable_context_memory_authority.py",
+    "bossman-core/tests/test_fable_context_tool_overload.py",
+    "bossman-core/tests/test_memory_and_state_integrity.py",
+    "bossman-core/tests/test_memory_classes.py",
+    "bossman-core/tests/test_retrieval_extra.py",
+    "bossman-core/tests/test_search_everything.py"
+   ],
+   "passed": 119,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-e0361cc49cbe",
@@ -4654,12 +4672,26 @@
    "sources": [
     "bossman-core/bossman/context_engine/memory.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_compact_plugins.py",
+    "bossman-core/tests/test_compact_structured.py",
+    "bossman-core/tests/test_context_engine_integration.py",
+    "bossman-core/tests/test_context_engine_reembed_fastpath.py",
+    "bossman-core/tests/test_context_engine_stage_2_222.py",
+    "bossman-core/tests/test_context_quality_benchmark.py",
+    "bossman-core/tests/test_fable_context_ablation.py",
+    "bossman-core/tests/test_fable_context_memory_authority.py",
+    "bossman-core/tests/test_fable_context_tool_overload.py",
+    "bossman-core/tests/test_memory_and_state_integrity.py",
+    "bossman-core/tests/test_memory_classes.py",
+    "bossman-core/tests/test_retrieval_extra.py",
+    "bossman-core/tests/test_search_everything.py"
+   ],
+   "passed": 119,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-25fe3b1d97f3",
@@ -4685,9 +4717,21 @@
     "bossman-core/bossman/context_engine/plugins.py"
    ],
    "tests": [
-    "command-center/tests/test_capability_tree.py"
+    "bossman-core/tests/test_compact_plugins.py",
+    "bossman-core/tests/test_compact_structured.py",
+    "bossman-core/tests/test_context_engine_integration.py",
+    "bossman-core/tests/test_context_engine_reembed_fastpath.py",
+    "bossman-core/tests/test_context_engine_stage_2_222.py",
+    "bossman-core/tests/test_context_quality_benchmark.py",
+    "bossman-core/tests/test_fable_context_ablation.py",
+    "bossman-core/tests/test_fable_context_memory_authority.py",
+    "bossman-core/tests/test_fable_context_tool_overload.py",
+    "bossman-core/tests/test_memory_and_state_integrity.py",
+    "bossman-core/tests/test_memory_classes.py",
+    "bossman-core/tests/test_retrieval_extra.py",
+    "bossman-core/tests/test_search_everything.py"
    ],
-   "passed": 20,
+   "passed": 119,
    "failed": 0,
    "skipped": 0,
    "verdict": "covered",
@@ -4700,12 +4744,26 @@
    "sources": [
     "bossman-core/bossman/context_engine/retrieval.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_compact_plugins.py",
+    "bossman-core/tests/test_compact_structured.py",
+    "bossman-core/tests/test_context_engine_integration.py",
+    "bossman-core/tests/test_context_engine_reembed_fastpath.py",
+    "bossman-core/tests/test_context_engine_stage_2_222.py",
+    "bossman-core/tests/test_context_quality_benchmark.py",
+    "bossman-core/tests/test_fable_context_ablation.py",
+    "bossman-core/tests/test_fable_context_memory_authority.py",
+    "bossman-core/tests/test_fable_context_tool_overload.py",
+    "bossman-core/tests/test_memory_and_state_integrity.py",
+    "bossman-core/tests/test_memory_classes.py",
+    "bossman-core/tests/test_retrieval_extra.py",
+    "bossman-core/tests/test_search_everything.py"
+   ],
+   "passed": 119,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-c04cfc2bef49",
@@ -5220,12 +5278,15 @@
    "sources": [
     "bossman-core/bossman/dev_factory/evidence.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_dev_factory.py",
+    "bossman-core/tests/test_dev_factory_diff_windows.py"
+   ],
+   "passed": 43,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-904a8396aa6c",
@@ -5234,12 +5295,15 @@
    "sources": [
     "bossman-core/bossman/dev_factory/executor.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_dev_factory.py",
+    "bossman-core/tests/test_dev_factory_diff_windows.py"
+   ],
+   "passed": 43,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-4aacff2330d4",
@@ -5319,12 +5383,15 @@
    "sources": [
     "bossman-core/bossman/dev_factory/routes.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_dev_factory.py",
+    "bossman-core/tests/test_dev_factory_diff_windows.py"
+   ],
+   "passed": 43,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-9a1970f7c3e5",
@@ -5740,12 +5807,22 @@
    "sources": [
     "bossman-core/bossman/learning_guard/service.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/audit001/test_f4_promotion_baseline.py",
+    "bossman-core/tests/test_audit_learn_runtime_bridge.py",
+    "bossman-core/tests/test_audit_p0_runtime_wiring.py",
+    "bossman-core/tests/test_learning_guard.py",
+    "bossman-core/tests/test_pass3_autonomy_trainer.py",
+    "bossman-core/tests/test_runner_holdout_exclusion.py",
+    "bossman-core/tests/test_v26_phase3_learning_cache.py",
+    "tests/test_audit_learn_store_location.py",
+    "tests/test_import_operational_lessons.py"
+   ],
+   "passed": 99,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-725a466f4b8f",
@@ -5822,12 +5899,17 @@
    "sources": [
     "bossman-core/bossman/notifications/routes.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_auth_approval_findings.py",
+    "bossman-core/tests/test_notification_store_closes.py",
+    "bossman-core/tests/test_telegram_transport_response_truth.py",
+    "command-center/tests/test_local_russian_voice.py"
+   ],
+   "passed": 46,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-76a14f0ce102",
@@ -5873,12 +5955,17 @@
    "sources": [
     "bossman-core/bossman/notifications/subsystem.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_auth_approval_findings.py",
+    "bossman-core/tests/test_notification_store_closes.py",
+    "bossman-core/tests/test_telegram_transport_response_truth.py",
+    "command-center/tests/test_local_russian_voice.py"
+   ],
+   "passed": 46,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-46de893ccfc9",
@@ -5959,9 +6046,10 @@
     "bossman-core/bossman/profiles/router.py"
    ],
    "tests": [
-    "command-center/tests/test_mandatory_model_policy.py"
+    "bossman-core/tests/test_computer_control_authorization.py",
+    "bossman-core/tests/test_profiles.py"
    ],
-   "passed": 34,
+   "passed": 36,
    "failed": 0,
    "skipped": 0,
    "verdict": "covered",
@@ -6008,12 +6096,15 @@
    "sources": [
     "bossman-core/bossman/profiles/subsystem.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_computer_control_authorization.py",
+    "bossman-core/tests/test_profiles.py"
+   ],
+   "passed": 36,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-ca6830e0de16",
@@ -6219,12 +6310,22 @@
    "sources": [
     "bossman-core/bossman/remote_client/subsystem.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_auth_approval_findings.py",
+    "bossman-core/tests/test_core_auth_perimeter.py",
+    "bossman-core/tests/test_remote_client.py",
+    "bossman-core/tests/test_stage12_mobile_api.py",
+    "bossman-core/tests/test_stage12_security.py",
+    "bossman-core/tests/test_stage13_ailab_redteam.py",
+    "bossman-core/tests/test_stage13_auth_redteam.py",
+    "bossman-core/tests/test_stage4_7.py",
+    "bossman-core/tests/test_world_intelligence_pythia.py"
+   ],
+   "passed": 244,
    "failed": 0,
-   "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "skipped": 1,
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-8f7bb546924a",
@@ -6234,12 +6335,9 @@
     "bossman-core/bossman/research/engine.py"
    ],
    "tests": [
-    "bossman-core/tests/test_benchmark_truth.py",
-    "command-center/tests/test_autonomy_policy.py",
-    "command-center/tests/test_jeff_availability.py",
-    "tests/test_blue_leaf_audit.py"
+    "bossman-core/tests/test_v26_research.py"
    ],
-   "passed": 91,
+   "passed": 10,
    "failed": 0,
    "skipped": 0,
    "verdict": "covered",
@@ -6252,12 +6350,14 @@
    "sources": [
     "bossman-core/bossman/research/models.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_v26_research.py"
+   ],
+   "passed": 10,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-c5d464a7aa9e",
@@ -6282,12 +6382,28 @@
    "sources": [
     "bossman-core/bossman/resource_brain/brain.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_resource_brain.py",
+    "bossman-core/tests/test_sandbox_core.py",
+    "bossman-core/tests/test_sandbox_egress.py",
+    "bossman-core/tests/test_sandbox_egress_lockdown.py",
+    "bossman-core/tests/test_sandbox_safe_runtime.py",
+    "bossman-core/tests/test_sandbox_strong_runtimes.py",
+    "bossman-core/tests/test_stage11_ai_lab.py",
+    "bossman-core/tests/test_stage13_ailab_redteam.py",
+    "bossman-core/tests/test_stage4_7.py",
+    "bossman-core/tests/test_stage9_recovery.py",
+    "bossman-core/tests/test_stage9_resource_stress.py",
+    "bossman-core/tests/test_stage9_sandbox_e2e.py",
+    "bossman-core/tests/test_v15_autonomy_core.py",
+    "bossman-core/tests/test_video_factory.py",
+    "bossman-core/tests/test_video_factory_openrouter.py"
+   ],
+   "passed": 214,
    "failed": 0,
-   "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "skipped": 2,
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-2f9db2f18c1b",
@@ -6312,12 +6428,28 @@
    "sources": [
     "bossman-core/bossman/resource_brain/models.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_resource_brain.py",
+    "bossman-core/tests/test_sandbox_core.py",
+    "bossman-core/tests/test_sandbox_egress.py",
+    "bossman-core/tests/test_sandbox_egress_lockdown.py",
+    "bossman-core/tests/test_sandbox_safe_runtime.py",
+    "bossman-core/tests/test_sandbox_strong_runtimes.py",
+    "bossman-core/tests/test_stage11_ai_lab.py",
+    "bossman-core/tests/test_stage13_ailab_redteam.py",
+    "bossman-core/tests/test_stage4_7.py",
+    "bossman-core/tests/test_stage9_recovery.py",
+    "bossman-core/tests/test_stage9_resource_stress.py",
+    "bossman-core/tests/test_stage9_sandbox_e2e.py",
+    "bossman-core/tests/test_v15_autonomy_core.py",
+    "bossman-core/tests/test_video_factory.py",
+    "bossman-core/tests/test_video_factory_openrouter.py"
+   ],
+   "passed": 214,
    "failed": 0,
-   "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "skipped": 2,
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-dacafbe9e4ee",
@@ -6327,12 +6459,25 @@
     "bossman-core/bossman/resource_brain/probe.py"
    ],
    "tests": [
+    "bossman-core/tests/test_resource_brain.py",
+    "bossman-core/tests/test_sandbox_core.py",
+    "bossman-core/tests/test_sandbox_egress.py",
     "bossman-core/tests/test_sandbox_egress_lockdown.py",
-    "command-center/tests/test_autonomy_hands.py"
+    "bossman-core/tests/test_sandbox_safe_runtime.py",
+    "bossman-core/tests/test_sandbox_strong_runtimes.py",
+    "bossman-core/tests/test_stage11_ai_lab.py",
+    "bossman-core/tests/test_stage13_ailab_redteam.py",
+    "bossman-core/tests/test_stage4_7.py",
+    "bossman-core/tests/test_stage9_recovery.py",
+    "bossman-core/tests/test_stage9_resource_stress.py",
+    "bossman-core/tests/test_stage9_sandbox_e2e.py",
+    "bossman-core/tests/test_v15_autonomy_core.py",
+    "bossman-core/tests/test_video_factory.py",
+    "bossman-core/tests/test_video_factory_openrouter.py"
    ],
-   "passed": 18,
+   "passed": 214,
    "failed": 0,
-   "skipped": 0,
+   "skipped": 2,
    "verdict": "covered",
    "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
@@ -6343,12 +6488,28 @@
    "sources": [
     "bossman-core/bossman/resource_brain/routes.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_resource_brain.py",
+    "bossman-core/tests/test_sandbox_core.py",
+    "bossman-core/tests/test_sandbox_egress.py",
+    "bossman-core/tests/test_sandbox_egress_lockdown.py",
+    "bossman-core/tests/test_sandbox_safe_runtime.py",
+    "bossman-core/tests/test_sandbox_strong_runtimes.py",
+    "bossman-core/tests/test_stage11_ai_lab.py",
+    "bossman-core/tests/test_stage13_ailab_redteam.py",
+    "bossman-core/tests/test_stage4_7.py",
+    "bossman-core/tests/test_stage9_recovery.py",
+    "bossman-core/tests/test_stage9_resource_stress.py",
+    "bossman-core/tests/test_stage9_sandbox_e2e.py",
+    "bossman-core/tests/test_v15_autonomy_core.py",
+    "bossman-core/tests/test_video_factory.py",
+    "bossman-core/tests/test_video_factory_openrouter.py"
+   ],
+   "passed": 214,
    "failed": 0,
-   "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "skipped": 2,
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-5fcedb9e4e99",
@@ -6357,12 +6518,28 @@
    "sources": [
     "bossman-core/bossman/resource_brain/subsystem.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_resource_brain.py",
+    "bossman-core/tests/test_sandbox_core.py",
+    "bossman-core/tests/test_sandbox_egress.py",
+    "bossman-core/tests/test_sandbox_egress_lockdown.py",
+    "bossman-core/tests/test_sandbox_safe_runtime.py",
+    "bossman-core/tests/test_sandbox_strong_runtimes.py",
+    "bossman-core/tests/test_stage11_ai_lab.py",
+    "bossman-core/tests/test_stage13_ailab_redteam.py",
+    "bossman-core/tests/test_stage4_7.py",
+    "bossman-core/tests/test_stage9_recovery.py",
+    "bossman-core/tests/test_stage9_resource_stress.py",
+    "bossman-core/tests/test_stage9_sandbox_e2e.py",
+    "bossman-core/tests/test_v15_autonomy_core.py",
+    "bossman-core/tests/test_video_factory.py",
+    "bossman-core/tests/test_video_factory_openrouter.py"
+   ],
+   "passed": 214,
    "failed": 0,
-   "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "skipped": 2,
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-9d055871ddff",
@@ -6388,12 +6565,26 @@
    "sources": [
     "bossman-core/bossman/sandbox/dataset.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_core_subprocess_timeouts.py",
+    "bossman-core/tests/test_sandbox_core.py",
+    "bossman-core/tests/test_sandbox_dataset_gate.py",
+    "bossman-core/tests/test_sandbox_egress.py",
+    "bossman-core/tests/test_sandbox_egress_lockdown.py",
+    "bossman-core/tests/test_sandbox_redteam_findings.py",
+    "bossman-core/tests/test_sandbox_safe_runtime.py",
+    "bossman-core/tests/test_sandbox_security.py",
+    "bossman-core/tests/test_sandbox_strong_runtimes.py",
+    "bossman-core/tests/test_sandbox_toolbox.py",
+    "bossman-core/tests/test_sandbox_tools_and_broker.py",
+    "bossman-core/tests/test_stage9_recovery.py",
+    "bossman-core/tests/test_stage9_sandbox_e2e.py"
+   ],
+   "passed": 161,
    "failed": 0,
-   "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "skipped": 1,
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-9d8ee6730907",
@@ -6418,12 +6609,26 @@
    "sources": [
     "bossman-core/bossman/sandbox/manager.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_core_subprocess_timeouts.py",
+    "bossman-core/tests/test_sandbox_core.py",
+    "bossman-core/tests/test_sandbox_dataset_gate.py",
+    "bossman-core/tests/test_sandbox_egress.py",
+    "bossman-core/tests/test_sandbox_egress_lockdown.py",
+    "bossman-core/tests/test_sandbox_redteam_findings.py",
+    "bossman-core/tests/test_sandbox_safe_runtime.py",
+    "bossman-core/tests/test_sandbox_security.py",
+    "bossman-core/tests/test_sandbox_strong_runtimes.py",
+    "bossman-core/tests/test_sandbox_toolbox.py",
+    "bossman-core/tests/test_sandbox_tools_and_broker.py",
+    "bossman-core/tests/test_stage9_recovery.py",
+    "bossman-core/tests/test_stage9_sandbox_e2e.py"
+   ],
+   "passed": 161,
    "failed": 0,
-   "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "skipped": 1,
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-eb0be06d9db9",
@@ -6493,14 +6698,23 @@
     "bossman-core/bossman/sandbox/policy.py"
    ],
    "tests": [
-    "bossman-core/tests/test_apprentice_teacher.py",
-    "bossman-core/tests/test_audit_learn_workspace.py",
-    "command-center/tests/test_autonomy_bounded_loop.py",
-    "command-center/tests/test_autonomy_policy.py"
+    "bossman-core/tests/test_core_subprocess_timeouts.py",
+    "bossman-core/tests/test_sandbox_core.py",
+    "bossman-core/tests/test_sandbox_dataset_gate.py",
+    "bossman-core/tests/test_sandbox_egress.py",
+    "bossman-core/tests/test_sandbox_egress_lockdown.py",
+    "bossman-core/tests/test_sandbox_redteam_findings.py",
+    "bossman-core/tests/test_sandbox_safe_runtime.py",
+    "bossman-core/tests/test_sandbox_security.py",
+    "bossman-core/tests/test_sandbox_strong_runtimes.py",
+    "bossman-core/tests/test_sandbox_toolbox.py",
+    "bossman-core/tests/test_sandbox_tools_and_broker.py",
+    "bossman-core/tests/test_stage9_recovery.py",
+    "bossman-core/tests/test_stage9_sandbox_e2e.py"
    ],
-   "passed": 147,
+   "passed": 161,
    "failed": 0,
-   "skipped": 0,
+   "skipped": 1,
    "verdict": "covered",
    "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
@@ -6511,12 +6725,26 @@
    "sources": [
     "bossman-core/bossman/sandbox/resources.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_core_subprocess_timeouts.py",
+    "bossman-core/tests/test_sandbox_core.py",
+    "bossman-core/tests/test_sandbox_dataset_gate.py",
+    "bossman-core/tests/test_sandbox_egress.py",
+    "bossman-core/tests/test_sandbox_egress_lockdown.py",
+    "bossman-core/tests/test_sandbox_redteam_findings.py",
+    "bossman-core/tests/test_sandbox_safe_runtime.py",
+    "bossman-core/tests/test_sandbox_security.py",
+    "bossman-core/tests/test_sandbox_strong_runtimes.py",
+    "bossman-core/tests/test_sandbox_toolbox.py",
+    "bossman-core/tests/test_sandbox_tools_and_broker.py",
+    "bossman-core/tests/test_stage9_recovery.py",
+    "bossman-core/tests/test_stage9_sandbox_e2e.py"
+   ],
+   "passed": 161,
    "failed": 0,
-   "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "skipped": 1,
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-1622458b008a",
@@ -6525,12 +6753,26 @@
    "sources": [
     "bossman-core/bossman/sandbox/routes.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_core_subprocess_timeouts.py",
+    "bossman-core/tests/test_sandbox_core.py",
+    "bossman-core/tests/test_sandbox_dataset_gate.py",
+    "bossman-core/tests/test_sandbox_egress.py",
+    "bossman-core/tests/test_sandbox_egress_lockdown.py",
+    "bossman-core/tests/test_sandbox_redteam_findings.py",
+    "bossman-core/tests/test_sandbox_safe_runtime.py",
+    "bossman-core/tests/test_sandbox_security.py",
+    "bossman-core/tests/test_sandbox_strong_runtimes.py",
+    "bossman-core/tests/test_sandbox_toolbox.py",
+    "bossman-core/tests/test_sandbox_tools_and_broker.py",
+    "bossman-core/tests/test_stage9_recovery.py",
+    "bossman-core/tests/test_stage9_sandbox_e2e.py"
+   ],
+   "passed": 161,
    "failed": 0,
-   "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "skipped": 1,
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-5d128fcf8dab",
@@ -6590,12 +6832,26 @@
    "sources": [
     "bossman-core/bossman/sandbox/toolbox.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_core_subprocess_timeouts.py",
+    "bossman-core/tests/test_sandbox_core.py",
+    "bossman-core/tests/test_sandbox_dataset_gate.py",
+    "bossman-core/tests/test_sandbox_egress.py",
+    "bossman-core/tests/test_sandbox_egress_lockdown.py",
+    "bossman-core/tests/test_sandbox_redteam_findings.py",
+    "bossman-core/tests/test_sandbox_safe_runtime.py",
+    "bossman-core/tests/test_sandbox_security.py",
+    "bossman-core/tests/test_sandbox_strong_runtimes.py",
+    "bossman-core/tests/test_sandbox_toolbox.py",
+    "bossman-core/tests/test_sandbox_tools_and_broker.py",
+    "bossman-core/tests/test_stage9_recovery.py",
+    "bossman-core/tests/test_stage9_sandbox_e2e.py"
+   ],
+   "passed": 161,
    "failed": 0,
-   "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "skipped": 1,
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-aab05d5c4f1a",
@@ -6639,12 +6895,15 @@
    "sources": [
     "bossman-core/bossman/search_everything/connectors.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_search_everything.py",
+    "bossman-core/tests/test_stage4_7.py"
+   ],
+   "passed": 15,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-6fcdcfb4b872",
@@ -6654,12 +6913,10 @@
     "bossman-core/bossman/search_everything/engine.py"
    ],
    "tests": [
-    "bossman-core/tests/test_benchmark_truth.py",
-    "command-center/tests/test_autonomy_policy.py",
-    "command-center/tests/test_jeff_availability.py",
-    "tests/test_blue_leaf_audit.py"
+    "bossman-core/tests/test_search_everything.py",
+    "bossman-core/tests/test_stage4_7.py"
    ],
-   "passed": 91,
+   "passed": 15,
    "failed": 0,
    "skipped": 0,
    "verdict": "covered",
@@ -6673,9 +6930,10 @@
     "bossman-core/bossman/search_everything/router.py"
    ],
    "tests": [
-    "command-center/tests/test_mandatory_model_policy.py"
+    "bossman-core/tests/test_search_everything.py",
+    "bossman-core/tests/test_stage4_7.py"
    ],
-   "passed": 34,
+   "passed": 15,
    "failed": 0,
    "skipped": 0,
    "verdict": "covered",
@@ -6688,12 +6946,15 @@
    "sources": [
     "bossman-core/bossman/search_everything/service.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_search_everything.py",
+    "bossman-core/tests/test_stage4_7.py"
+   ],
+   "passed": 15,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-76ae682ed2e4",
@@ -6702,12 +6963,15 @@
    "sources": [
     "bossman-core/bossman/search_everything/tools.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_search_everything.py",
+    "bossman-core/tests/test_stage4_7.py"
+   ],
+   "passed": 15,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-59f6fbe27bd5",
@@ -7362,12 +7626,18 @@
    "sources": [
     "bossman-core/bossman/video_factory/routes.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_core_subprocess_timeouts.py",
+    "bossman-core/tests/test_stage4_7.py",
+    "bossman-core/tests/test_stage9_recovery.py",
+    "bossman-core/tests/test_video_factory.py",
+    "bossman-core/tests/test_video_factory_openrouter.py"
+   ],
+   "passed": 50,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-27cb1911d462",
@@ -7393,12 +7663,18 @@
    "sources": [
     "bossman-core/bossman/video_factory/subsystem.py"
    ],
-   "tests": [],
-   "passed": 0,
+   "tests": [
+    "bossman-core/tests/test_core_subprocess_timeouts.py",
+    "bossman-core/tests/test_stage4_7.py",
+    "bossman-core/tests/test_stage9_recovery.py",
+    "bossman-core/tests/test_video_factory.py",
+    "bossman-core/tests/test_video_factory_openrouter.py"
+   ],
+   "passed": 50,
    "failed": 0,
    "skipped": 0,
-   "verdict": "untested",
-   "note": "no test file imports this module"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "module-266a95659ed4",

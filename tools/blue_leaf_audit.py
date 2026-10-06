@@ -84,6 +84,24 @@ def build_index() -> tuple[dict[str, set[str]], dict[str, str]]:
     return imports, texts
 
 
+def reexported_by_package(source: str) -> str | None:
+    """Dotted name of the parent package when its ``__init__.py`` re-exports the module (``from .stem import ...``): tests that import the
+    package then exercise the module without ever naming it."""
+    p = source.replace("\\", "/")
+    if not p.endswith(".py") or p.endswith("/__init__.py"):
+        return None
+    init = ROOT / (p.rsplit("/", 1)[0] + "/__init__.py")
+    stem = p.rsplit("/", 1)[1][:-3]
+    try:
+        tree = ast.parse(init.read_text(encoding="utf-8", errors="replace"))
+    except (OSError, SyntaxError):
+        return None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.level == 1 and node.module == stem:
+            return dotted(p.rsplit("/", 1)[0] + "/__init__.py")
+    return None
+
+
 def tests_for(source: str, imports: dict[str, set[str]], texts: dict[str, str]) -> list[str]:
     mod = dotted(source)
     found: list[str] = []
@@ -93,6 +111,11 @@ def tests_for(source: str, imports: dict[str, set[str]], texts: dict[str, str]) 
                 found.append(t)
         if found:
             return sorted(set(found))
+        pkg = reexported_by_package(source)
+        if pkg:
+            found = [t for t, names in imports.items() if pkg in names]
+            if found:
+                return sorted(set(found))
     # scripts (tools/x.py, tools/x.ps1) are loaded by path, not imported: look for the path or the file name in the test text
     s = source.replace("\\", "/")
     for t, txt in texts.items():

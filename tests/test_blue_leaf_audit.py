@@ -72,3 +72,16 @@ def test_verdicts_never_claim_more_than_the_run_shows():
     assert bla.classify(leaf, [], {})["verdict"] == "untested"
     assert bla.classify({"sources": ["x/app.js"]}, [], {})["verdict"] == "non-python"
     assert bla.classify({"sources": []}, [], {})["verdict"] == "unclear"
+
+
+def test_a_module_re_exported_by_its_package_is_attributed_to_tests_that_import_the_package(tmp_path, monkeypatch):
+    pkg = tmp_path / "bossman-core" / "bossman" / "guard"
+    pkg.mkdir(parents=True)
+    (pkg / "__init__.py").write_text("from .service import run\nfrom . import other\n", encoding="utf-8")
+    (pkg / "service.py").write_text("def run(): ...\n", encoding="utf-8")
+    (pkg / "hidden.py").write_text("x = 1\n", encoding="utf-8")
+    monkeypatch.setattr(bla, "ROOT", tmp_path)
+    imports = {"t/test_guard.py": {"bossman.guard"}}
+    assert bla.tests_for("bossman-core/bossman/guard/service.py", imports, {}) == ["t/test_guard.py"]
+    assert bla.tests_for("bossman-core/bossman/guard/hidden.py", imports, {}) == []          # not re-exported: still untested
+    assert bla.reexported_by_package("bossman-core/bossman/guard/__init__.py") is None
