@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from typing import Any
 
@@ -555,10 +556,35 @@ async def server_prompts(ref: str, request: Request):
 async def call(ref: str, request: Request):
     """Ручной вызов оператором. Модель ходит НЕ сюда, а через tool-loop движка."""
     svc = request.app.state.svc
-    body = await request.json()
+    # Тело проверяется ДО поиска сервера и тем более до запуска его процесса:
+    # раньше список/строка/не-JSON давали 500, а нечисловой timeout падал уже
+    # после того, как `ensure` поднял процесс MCP-сервера.
+    try:
+        body = await request.json()
+    except ValueError:
+        raise HTTPException(422, {"message": "тело запроса — не JSON"}) from None
+    if not isinstance(body, dict):
+        raise HTTPException(422, {"message": "тело запроса должно быть JSON-объектом"})
     tool = body.get("tool")
-    if not tool:
-        raise HTTPException(422, {"message": "нужен tool"})
+    if not tool or not isinstance(tool, str):
+        raise HTTPException(422, {"message": "нужен tool (строка)"})
+    arguments = body.get("arguments")
+    if arguments is None:
+        arguments = {}
+    if not isinstance(arguments, dict):
+        raise HTTPException(422, {"message": "arguments должен быть объектом"})
+    raw_timeout = body.get("timeout")
+    if raw_timeout in (None, "", 0):        # прежнее `or 30`: пусто/0 = по умолчанию
+        timeout = 30.0
+    else:
+        try:
+            if isinstance(raw_timeout, bool):
+                raise TypeError
+            timeout = float(raw_timeout)
+        except (TypeError, ValueError):
+            raise HTTPException(422, {"message": "timeout должен быть числом секунд"}) from None
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise HTTPException(422, {"message": "timeout должен быть положительным числом секунд"})
     row = await _server_row(svc, ref)
     rt = runtime_of(svc)
     spec = _spec_from_row(row)
@@ -567,8 +593,7 @@ async def call(ref: str, request: Request):
         raise HTTPException(403, {"message": f"команда запуска MCP отклонена: {refusal}"})
     try:
         await rt.ensure(spec)
-        res = await rt.call_tool(row["name"], tool, body.get("arguments") or {},
-                                 timeout=float(body.get("timeout") or 30))
+        res = await rt.call_tool(row["name"], tool, arguments, timeout=timeout)
     except MCPUnavailable as exc:
         raise HTTPException(503, {"message": str(exc)})
     except MCPCallError as exc:
