@@ -163,7 +163,7 @@ const Page = {
       renderModeBar(desk);
       if (desk) {
         const id = desk.identity;
-        put(sourceBox, 
+        put(sourceBox,
           h('div.small', `${desk.source.kind === 'sandbox' ? 'Мой Poker Train в тестовом рабочем столе' : desk.source.kind === 'replay' ? 'Запись' : 'Окно'} · режим: ${MODES.find(m => m.value === desk.mode)?.label}`),
           id ? h('div.xsmall.dim', `идентичность: процесс ${id.process} · pid ${id.pid} · handle ${id.handle} · старт ${new Date(id.started_at * 1000).toLocaleTimeString()}`) : null,
           desk.window_reasons.length ? h('div.small', { style: { color: '#ff8a8a' } }, `окно: ${desk.window_reasons.join('; ')} — управление остановлено`) : h('div.xsmall.dim', 'окно: проверки пройдены'),
@@ -182,7 +182,7 @@ const Page = {
         }
         const rec = await api.raw('/api/poker-vision/recommendation');
         if (rec.ok) {
-          put(recBox, 
+          put(recBox,
             h('div', { 'data-rec-action': rec.action }, h('strong', `Рекомендация: ${rec.action}${rec.raise_to ? ' до ' + rec.raise_to : ''}`), h('span.dim', `  ·  эквити ≈ ${Math.round(rec.equity * 100)}% против случайных рук, шансы банка ${Math.round(rec.pot_odds * 100)}%`)),
             h('p.small', rec.explanation),
             h('table.pv-fields', h('tbody', rec.options.map(o => h('tr', { class: o.chosen ? 'pv-ok' : '' }, h('td', (o.chosen ? '▶ ' : '') + o.action), h('td', o.amount != null ? String(o.amount) : '—'), h('td', o.note))))),
