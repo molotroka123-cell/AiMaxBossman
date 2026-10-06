@@ -310,7 +310,17 @@ async def _h_obsidian_read(args, ctx: ToolContext) -> ToolResult:
         p = confine_path(root, str(args.get("path") or ""), must_exist=True)
     except (PluginSecurityError, FileNotFoundError) as exc:
         return ToolResult(content=f"blocked: {exc}", one_line="obsidian.read blocked", error=True)
-    return ToolResult(content=p.read_text("utf-8", "replace")[:200_000],
+    # Пустой путь, "." или подкаталог законно дают каталог внутри vault: read_text
+    # по нему бросал сырой PermissionError/IsADirectoryError с АБСОЛЮТНЫМ путём.
+    if not p.is_file():
+        return ToolResult(content="blocked: not a note file inside the vault",
+                          one_line="obsidian.read blocked", error=True)
+    try:
+        text = p.read_text("utf-8", "replace")
+    except OSError as exc:
+        return ToolResult(content=f"read error: {type(exc).__name__} ({p.name})",
+                          one_line="obsidian.read error", error=True)
+    return ToolResult(content=text[:200_000],
                       one_line=f"obsidian.read {p.name}", external=True)
 
 
