@@ -2787,9 +2787,9 @@
     {
       "id": "app-social-farm",
       "label": "social-farm",
-      "parent": "apps",
+      "parent": "media",
       "status": "code",
-      "detail": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно.",
+      "detail": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно. Перенесён в ветку «Motion и медиа» из зоны «apps» по просьбе владельца 06.10.2026 (значение узла и статус не менялись).",
       "sources": [
         {
           "path": "apps/social-farm/README.md",
@@ -2915,9 +2915,9 @@
     {
       "id": "skill-5",
       "label": "frontend-design",
-      "parent": "skills",
+      "parent": "media",
       "status": "recorded",
-      "detail": "SKILL.md найден; не означает подключение навыка в текущий runtime.",
+      "detail": "SKILL.md найден; не означает подключение навыка в текущий runtime. Перенесён в ветку «Motion и медиа» из зоны «skills» по просьбе владельца 06.10.2026 (значение узла и статус не менялись).",
       "sources": [
         {
           "path": ".agents/skills/frontend-design/SKILL.md",
@@ -3251,9 +3251,9 @@
     {
       "id": "skill-26",
       "label": "video-editing",
-      "parent": "skills",
+      "parent": "media",
       "status": "recorded",
-      "detail": "SKILL.md найден; не означает подключение навыка в текущий runtime.",
+      "detail": "SKILL.md найден; не означает подключение навыка в текущий runtime. Перенесён в ветку «Motion и медиа» из зоны «skills» по просьбе владельца 06.10.2026 (значение узла и статус не менялись).",
       "sources": [
         {
           "path": ".agents/skills/video-editing/SKILL.md",
@@ -13144,6 +13144,70 @@
       "external_url": "https://github.com/SmythOS/smythos-studio",
       "reference_paths": [
         "docs/oss/SMYTHOS_STUDIO_EVALUATION.md"
+      ]
+    },
+    {
+      "id": "media-genjutsu",
+      "label": "Genjutsu: motion transfer и object swap (Higgsfield) и локальный аналог",
+      "parent": "media",
+      "status": "recorded",
+      "detail": "Higgsfield Genjutsu: перенос движения из видео на нового персонажа и замена одного объекта в кадре. В документе — исследование и план; ни один локальный пайплайн на машине владельца ещё не запускался (метки ПРОВЕРЕНО / НЕ ПРОВЕРЕНО / ОЦЕНКА в самом документе).",
+      "sources": [
+        {
+          "path": "docs/genjutsu/GENJUTSU_LOCAL_RU.md"
+        }
+      ],
+      "next_action": "Запустить один локальный пайплайн на ПК владельца и записать замер; до этого — только план.",
+      "reference_paths": [
+        "docs/genjutsu/GENJUTSU_LOCAL_RU.md"
+      ]
+    },
+    {
+      "id": "media-genjutsu-skill",
+      "label": "Навык genjutsu-character-swap (локальная замена актёров)",
+      "parent": "media",
+      "status": "recorded",
+      "detail": "Инструкция агенту: заменить актёров короткого клипа людьми по их фото локально (Wan2.1 VACE через stable-diffusion.cpp), сохранив фон, камеру и музыку; перед работой — шаг согласия. Это файл навыка (только инструкции); в карте не утверждается, что он выполнялся и прошёл проверку.",
+      "sources": [
+        {
+          "path": ".agents/skills/genjutsu-character-swap/SKILL.md"
+        }
+      ],
+      "next_action": "Повторить на тестовом клипе с согласием участников и записать результат; без этого статус остаётся «записано».",
+      "reference_paths": [
+        ".agents/skills/genjutsu-character-swap/SKILL.md"
+      ]
+    },
+    {
+      "id": "media-design-home",
+      "label": "Редизайн главной: лаунчер приложений и агентов",
+      "parent": "media",
+      "status": "recorded",
+      "detail": "Отчёт о переделке главной страницы из панели разработчика в лаунчер (28.08.2026): что было, что стало, что осталось. Документ, не сертификат приёмки на текущем коде.",
+      "sources": [
+        {
+          "path": "docs/DESIGN_REWORK_BOSSMAN_HOME_REPORT.md"
+        }
+      ],
+      "next_action": "Сверить с текущим интерфейсом и закрыть пункты «что осталось».",
+      "reference_paths": [
+        "docs/DESIGN_REWORK_BOSSMAN_HOME_REPORT.md"
+      ]
+    },
+    {
+      "id": "media-ux2",
+      "label": "UX 2: итоговый отчёт и приёмка интерфейса",
+      "parent": "media",
+      "status": "recorded",
+      "detail": "Итоговый отчёт по второй волне UX и документ приёмки интерфейса. Документы описывают проверку на момент написания; на текущем SHA не перепроверялись.",
+      "sources": [
+        {
+          "path": "docs/ux/UX2_FINAL_REPORT.md"
+        }
+      ],
+      "next_action": "Перепрогнать UX-проверки на актуальном SHA в браузере.",
+      "reference_paths": [
+        "docs/ux/UX2_FINAL_REPORT.md"
       ]
     }
   ],
