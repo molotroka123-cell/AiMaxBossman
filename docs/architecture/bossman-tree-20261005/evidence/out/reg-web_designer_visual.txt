@@ -1,0 +1,19 @@
+node_id: reg-web_designer_visual
+module: bcc.web_designer_visual
+path: command-center/bcc/web_designer_visual.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_web_designer_visual.py', 'command-center/tests/test_web_designer_grapesjs_ui.py']
+
+$ python -c "importlib.import_module('bcc.web_designer_visual')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.web_designer_visual C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/web_designer_visual.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_web_designer_visual.py tests/test_web_designer_grapesjs_ui.py)
+.............ssss                                                        [100%]
+13 passed, 4 skipped in 2.05s
+
+[exit 0 in 3.8s]
+
+VERDICT: PASS 

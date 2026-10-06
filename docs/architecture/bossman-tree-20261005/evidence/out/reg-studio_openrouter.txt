@@ -1,0 +1,19 @@
+node_id: reg-studio_openrouter
+module: bcc.studio.providers.openrouter
+path: command-center/bcc/studio/providers/openrouter.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_openrouter_connect_ui.py', 'command-center/tests/test_openrouter_provider_isolation.py', 'command-center/tests/v2/test_openrouter.py', 'command-center/tests/test_bossfield_seedance25.py', 'command-center/tests/test_studio_cloud.py', 'command-center/tests/test_studio_paid_dispatch_audit.py']
+
+$ python -c "importlib.import_module('bcc.studio.providers.openrouter')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.studio.providers.openrouter C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/studio/providers/openrouter.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_openrouter_connect_ui.py tests/test_openrouter_provider_isolation.py tests/v2/test_openrouter.py tests/test_bossfield_seedance25.py tests/test_studio_cloud.py tests/test_studio_paid_dispatch_audit.py)
+ss..........................................................             [100%]
+58 passed, 2 skipped in 36.84s
+
+[exit 0 in 39.6s]
+
+VERDICT: PASS 

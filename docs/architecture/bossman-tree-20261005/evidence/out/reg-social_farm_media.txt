@@ -1,0 +1,19 @@
+node_id: reg-social_farm_media
+module: social_farm.media.transform
+path: apps/social-farm/src/social_farm/media/transform.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['apps/social-farm/tests/unit/test_media_transform.py']
+
+$ python -c "importlib.import_module('social_farm.media.transform')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED social_farm.media.transform C:/Users/asd/Bossman/wt-green-0610/apps/social-farm/src/social_farm/media/transform.py
+
+[exit 0 in 0.1s]
+
+$ (cd apps/social-farm && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/unit/test_media_transform.py)
+sss......                                                                [100%]
+6 passed, 3 skipped in 0.67s
+
+[exit 0 in 1.1s]
+
+VERDICT: PASS 

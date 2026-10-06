@@ -1,0 +1,19 @@
+node_id: cap-12
+module: bcc.features.command_bar
+path: command-center/bcc/features/command_bar.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_command_bar.py', 'command-center/tests/test_command_bar_path_segments.py', 'command-center/tests/test_command_bar_ui.py']
+
+$ python -c "importlib.import_module('bcc.features.command_bar')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.features.command_bar C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/command_bar.py
+
+[exit 0 in 1.1s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_command_bar.py tests/test_command_bar_path_segments.py tests/test_command_bar_ui.py)
+.........................ss                                              [100%]
+25 passed, 2 skipped in 22.06s
+
+[exit 0 in 24.1s]
+
+VERDICT: PASS 

@@ -1,0 +1,19 @@
+node_id: reg-video_studio_service
+module: bcc.video_studio.service
+path: command-center/bcc/video_studio/service.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_video_studio_integration.py', 'command-center/tests/test_video_studio_owner_recovery.py', 'command-center/tests/test_video_studio_recovery_races.py']
+
+$ python -c "importlib.import_module('bcc.video_studio.service')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.video_studio.service C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/video_studio/service.py
+
+[exit 0 in 0.4s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_video_studio_integration.py tests/test_video_studio_owner_recovery.py tests/test_video_studio_recovery_races.py)
+..................s.................                                     [100%]
+35 passed, 1 skipped in 28.93s
+
+[exit 0 in 31.0s]
+
+VERDICT: PASS 

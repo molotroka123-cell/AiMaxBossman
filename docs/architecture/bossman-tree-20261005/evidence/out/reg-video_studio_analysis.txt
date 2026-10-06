@@ -1,0 +1,19 @@
+node_id: reg-video_studio_analysis
+module: bcc.video_studio.analysis
+path: command-center/bcc/video_studio/analysis.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_video_studio_advanced.py', 'command-center/tests/test_video_studio_queued_extensions.py', 'command-center/tests/test_video_studio_render.py']
+
+$ python -c "importlib.import_module('bcc.video_studio.analysis')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.video_studio.analysis C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/video_studio/analysis.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_video_studio_advanced.py tests/test_video_studio_queued_extensions.py tests/test_video_studio_render.py)
+...s......s.....s.................................ss                     [100%]
+47 passed, 5 skipped in 45.65s
+
+[exit 0 in 47.6s]
+
+VERDICT: PASS 

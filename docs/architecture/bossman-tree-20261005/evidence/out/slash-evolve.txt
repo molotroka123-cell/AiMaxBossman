@@ -1,0 +1,19 @@
+node_id: slash-evolve
+module: bcc.terminal_cli.slash
+path: command-center/bcc/terminal_cli/slash.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest authored_by_lane
+test_files: ['command-center/tests/test_leaf_slash_commands.py']
+
+$ python -c "importlib.import_module('bcc.terminal_cli.slash')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.terminal_cli.slash C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/terminal_cli/slash.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_leaf_slash_commands.py -k "test_slash_evolve")
+.                                                                        [100%]
+1 passed, 29 deselected in 0.26s
+
+[exit 0 in 1.6s]
+
+VERDICT: PASS 

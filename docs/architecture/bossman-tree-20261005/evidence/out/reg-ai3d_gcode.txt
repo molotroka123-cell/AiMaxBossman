@@ -1,0 +1,20 @@
+node_id: reg-ai3d_gcode
+module: ai_3d_maker.gcode
+path: apps/ai-3d-maker/src/ai_3d_maker/gcode.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['apps/ai-3d-maker/tests/test_gcode.py', 'apps/ai-3d-maker/tests/test_control_contract.py', 'apps/ai-3d-maker/tests/test_printer_safety.py']
+
+$ python -c "importlib.import_module('ai_3d_maker.gcode')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED ai_3d_maker.gcode C:/Users/asd/Bossman/wt-green-0610/apps/ai-3d-maker/src/ai_3d_maker/gcode.py
+
+[exit 0 in 0.2s]
+
+$ (cd apps/ai-3d-maker && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_gcode.py tests/test_control_contract.py tests/test_printer_safety.py)
+........................................................................ [ 80%]
+............s....                                                        [100%]
+88 passed, 1 skipped in 2.70s
+
+[exit 0 in 3.3s]
+
+VERDICT: PASS 

@@ -1,0 +1,19 @@
+node_id: reg-video_studio_render
+module: bcc.video_studio.render
+path: command-center/bcc/video_studio/render.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_video_studio_render.py', 'command-center/tests/test_video_export_receipt.py', 'command-center/tests/test_video_preview_speed_contract.py']
+
+$ python -c "importlib.import_module('bcc.video_studio.render')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.video_studio.render C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/video_studio/render.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_video_studio_render.py tests/test_video_export_receipt.py tests/test_video_preview_speed_contract.py)
+.................................ss.............                         [100%]
+46 passed, 2 skipped in 51.52s
+
+[exit 0 in 53.5s]
+
+VERDICT: PASS 

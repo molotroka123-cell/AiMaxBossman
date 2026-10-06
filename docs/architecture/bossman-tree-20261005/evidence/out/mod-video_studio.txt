@@ -1,0 +1,20 @@
+node_id: mod-video_studio
+module: bcc.features.video_studio
+path: command-center/bcc/features/video_studio.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_video_studio_advanced.py', 'command-center/tests/test_video_studio_cfr_frames.py', 'command-center/tests/test_video_studio_color.py', 'command-center/tests/test_video_studio_container_choice.py', 'command-center/tests/test_video_studio_container_slop.py', 'command-center/tests/test_video_studio_domain.py']
+
+$ python -c "importlib.import_module('bcc.features.video_studio')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.features.video_studio C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/video_studio.py
+
+[exit 0 in 1.0s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_video_studio_advanced.py tests/test_video_studio_cfr_frames.py tests/test_video_studio_color.py tests/test_video_studio_container_choice.py tests/test_video_studio_container_slop.py tests/test_video_studio_domain.py)
+...s......s............................................................. [ 75%]
+........................                                                 [100%]
+94 passed, 2 skipped in 34.04s
+
+[exit 0 in 36.1s]
+
+VERDICT: PASS 

@@ -27,6 +27,7 @@ SEED = ROOT / "command-center/bcc/capability_tree_seed.json"
 EVID = ROOT / "docs/architecture/bossman-tree-20261005/evidence"
 OUT = EVID / "out"
 LANE = "mediaux"
+RETIRED_BY_AUDIT = {"reg-promo_video"}   # own receipt in mediaux-retire.json (see mediaux_retire.py)
 PY = sys.executable
 SECRET_RE = re.compile(r"(KEY|TOKEN|SECRET|PASSWORD|PROXY|CREDENTIAL)", re.I)
 ZONES = {"media", "ux"}
@@ -210,7 +211,7 @@ def leaves():
             i = nodes[i].get("parent")
         return chain[-2] if len(chain) >= 2 else None
     return [n for n in seed["nodes"] if n["id"] not in parents and zone(n["id"]) in ZONES
-            and n["status"] in ("code", "branch")]
+            and n["status"] in ("code", "branch") and n["id"] not in RETIRED_BY_AUDIT]
 
 
 def main():

@@ -1,0 +1,19 @@
+node_id: reg-studio_governance
+module: bcc.studio.governance
+path: command-center/bcc/studio/governance.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_studio_cloud.py', 'command-center/tests/test_studio_paid_dispatch_audit.py', 'command-center/tests/test_studio_video_contract_audit.py', 'command-center/tests/test_studio_zero_price_is_not_free.py']
+
+$ python -c "importlib.import_module('bcc.studio.governance')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.studio.governance C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/studio/governance.py
+
+[exit 0 in 0.5s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_studio_cloud.py tests/test_studio_paid_dispatch_audit.py tests/test_studio_video_contract_audit.py tests/test_studio_zero_price_is_not_free.py)
+...............................................                          [100%]
+47 passed in 23.49s
+
+[exit 0 in 25.6s]
+
+VERDICT: PASS 

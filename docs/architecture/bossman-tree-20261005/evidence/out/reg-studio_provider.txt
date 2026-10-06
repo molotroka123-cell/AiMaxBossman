@@ -1,0 +1,25 @@
+node_id: reg-studio_provider
+module: bcc.studio.provider
+path: command-center/bcc/studio/provider.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_provider_governance_memory.py', 'apps/social-farm/tests/unit/test_provider_errors.py', 'command-center/tests/test_bossfield_seedance25.py', 'command-center/tests/test_studio_cloud.py', 'command-center/tests/test_studio_provider_states.py', 'command-center/tests/test_studio_qwen_image21.py']
+
+$ python -c "importlib.import_module('bcc.studio.provider')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.studio.provider C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/studio/provider.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_provider_governance_memory.py tests/test_bossfield_seedance25.py tests/test_studio_cloud.py tests/test_studio_provider_states.py tests/test_studio_qwen_image21.py)
+........................................................................ [100%]
+72 passed in 12.22s
+
+[exit 0 in 14.3s]
+
+$ (cd apps/social-farm && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/unit/test_provider_errors.py)
+......ss                                                                 [100%]
+6 passed, 2 skipped in 0.03s
+
+[exit 0 in 0.6s]
+
+VERDICT: PASS 

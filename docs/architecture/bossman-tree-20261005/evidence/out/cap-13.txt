@@ -1,0 +1,20 @@
+node_id: cap-13
+module: bcc.terminal_cli.cli
+path: command-center/bcc/terminal_cli/cli.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_cli_entrypoint.py', 'command-center/tests/test_terminal_cli_unit.py', 'command-center/tests/test_terminal_chat_digit_args.py', 'command-center/tests/test_terminal_cli_e2e.py', 'command-center/tests/test_terminal_discovery_identity.py']
+
+$ python -c "importlib.import_module('bcc.terminal_cli.cli')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.terminal_cli.cli C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/terminal_cli/cli.py
+
+[exit 0 in 0.4s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_cli_entrypoint.py tests/test_terminal_cli_unit.py tests/test_terminal_chat_digit_args.py tests/test_terminal_cli_e2e.py tests/test_terminal_discovery_identity.py)
+........................................................................ [ 97%]
+..                                                                       [100%]
+74 passed in 38.57s
+
+[exit 0 in 40.3s]
+
+VERDICT: PASS 

@@ -1,0 +1,19 @@
+node_id: reg-oss_comfyui
+module: bcc.oss.comfyui
+path: command-center/bcc/oss/comfyui.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_oss_comfyui.py', 'command-center/tests/test_studio_provider_states.py']
+
+$ python -c "importlib.import_module('bcc.oss.comfyui')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.oss.comfyui C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/oss/comfyui.py
+
+[exit 0 in 0.3s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_oss_comfyui.py tests/test_studio_provider_states.py)
+....................................................................     [100%]
+68 passed in 8.23s
+
+[exit 0 in 10.0s]
+
+VERDICT: PASS 

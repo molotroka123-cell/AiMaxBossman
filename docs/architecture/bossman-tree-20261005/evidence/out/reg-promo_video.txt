@@ -1,0 +1,21 @@
+node_id: reg-promo_video
+path: tools/promo_video/render.py
+sha: 579c65fe133224c1450021dcfe7944f4ea996323
+
+$ git grep -nIE promo_video -- . :!docs/architecture/bossman-tree-20261005 :!command-center/bcc/capability_tree_seed.json :!docs/architecture/tree-registry.json :!docs/architecture/tree-leaf-manifest.json :!docs/audits :!tools/tree_proof
+[exit 0] hits=3 outside_own_dir=0
+tools/promo_video/render.py:1:"""Render the Bossman "32 days" promo (tools/promo_video/promo.html) and mux it with the soundtrack.
+tools/promo_video/render.py:6:    python tools/promo_video/render.py --work /tmp/promo --chromium <chrome>           # full render
+tools/promo_video/render.py:7:    python tools/promo_video/render.py --work /tmp/promo 3.0 13.2                      # preview PNGs
+
+$ git grep -nIE promo\.html -- . :!docs/architecture/bossman-tree-20261005 :!command-center/bcc/capability_tree_seed.json :!docs/architecture/tree-registry.json :!docs/architecture/tree-leaf-manifest.json :!docs/audits :!tools/tree_proof
+[exit 0] hits=3 outside_own_dir=0
+tools/promo_video/render.py:1:"""Render the Bossman "32 days" promo (tools/promo_video/promo.html) and mux it with the soundtrack.
+tools/promo_video/render.py:10:Per-day commit counts in promo.html are real `git log --date=short` counts for 2026-08-27..09-27.
+tools/promo_video/render.py:41:        page.goto((HERE / "promo.html").as_uri())
+
+AST: top-level defs=['main'] main_guard=True
+risk-words in module (security/approval/budget/backup/secret): False
+importers inside own dir: []
+
+VERDICT: RETIRE

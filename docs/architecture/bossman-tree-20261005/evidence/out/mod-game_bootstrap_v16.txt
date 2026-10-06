@@ -1,0 +1,19 @@
+node_id: mod-game_bootstrap_v16
+module: bcc.features.game_bootstrap_v16
+path: command-center/bcc/features/game_bootstrap_v16.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_game_bootstrap_v16.py']
+
+$ python -c "importlib.import_module('bcc.features.game_bootstrap_v16')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.features.game_bootstrap_v16 C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/game_bootstrap_v16.py
+
+[exit 0 in 0.4s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_game_bootstrap_v16.py)
+.....                                                                    [100%]
+5 passed in 0.21s
+
+[exit 0 in 1.3s]
+
+VERDICT: PASS 

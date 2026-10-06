@@ -1,0 +1,25 @@
+node_id: reg-studio_sdcpp
+module: bcc.studio.providers.sdcpp
+path: command-center/bcc/studio/providers/sdcpp.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_sdcpp_provider_safety.py', 'tests/test_media_bootstrap.py', 'command-center/tests/test_studio_deadline_limits.py', 'command-center/tests/test_studio_listing_does_not_block_loop.py', 'command-center/tests/test_studio_media_lifecycle.py', 'command-center/tests/test_studio_partial_job_layer.py']
+
+$ python -c "importlib.import_module('bcc.studio.providers.sdcpp')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.studio.providers.sdcpp C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/studio/providers/sdcpp.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_sdcpp_provider_safety.py tests/test_studio_deadline_limits.py tests/test_studio_listing_does_not_block_loop.py tests/test_studio_media_lifecycle.py tests/test_studio_partial_job_layer.py)
+..........................ss.............                                [100%]
+39 passed, 2 skipped in 36.00s
+
+[exit 0 in 38.0s]
+
+$ (cd . && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_media_bootstrap.py)
+...........................                                              [100%]
+27 passed in 0.62s
+
+[exit 0 in 1.0s]
+
+VERDICT: PASS 

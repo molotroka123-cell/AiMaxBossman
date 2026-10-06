@@ -1,0 +1,19 @@
+node_id: reg-motion_epic
+module: tools.motion_studio.epic
+path: tools/motion_studio/epic.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest authored_by_lane
+test_files: ['tests/test_leaf_motion_epic.py']
+
+$ python -c "importlib.import_module('tools.motion_studio.epic')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED tools.motion_studio.epic C:/Users/asd/Bossman/wt-green-0610/tools/motion_studio/epic.py
+
+[exit 0 in 0.2s]
+
+$ (cd . && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_leaf_motion_epic.py)
+.....                                                                    [100%]
+5 passed in 1.73s
+
+[exit 0 in 2.2s]
+
+VERDICT: PASS 

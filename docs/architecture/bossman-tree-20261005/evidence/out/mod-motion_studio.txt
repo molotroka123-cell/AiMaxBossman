@@ -1,0 +1,25 @@
+node_id: mod-motion_studio
+module: bcc.features.motion_studio
+path: command-center/bcc/features/motion_studio.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['tests/test_motion_studio.py', 'tests/test_motion_studio_bundle.py', 'command-center/tests/test_motion_studio_ui.py']
+
+$ python -c "importlib.import_module('bcc.features.motion_studio')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.features.motion_studio C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/motion_studio.py
+
+[exit 0 in 0.4s]
+
+$ (cd . && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_motion_studio.py tests/test_motion_studio_bundle.py)
+............................                                             [100%]
+28 passed in 0.94s
+
+[exit 0 in 1.6s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_motion_studio_ui.py)
+.........s.                                                              [100%]
+10 passed, 1 skipped in 9.33s
+
+[exit 0 in 11.3s]
+
+VERDICT: PASS 

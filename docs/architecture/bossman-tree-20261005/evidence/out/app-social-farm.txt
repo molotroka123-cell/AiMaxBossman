@@ -1,0 +1,25 @@
+node_id: app-social-farm
+module: social_farm
+path: apps/social-farm/src/social_farm/__init__.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['apps/social-farm/tests/unit']
+
+$ python -c "importlib.import_module('social_farm')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED social_farm C:/Users/asd/Bossman/wt-green-0610/apps/social-farm/src/social_farm/__init__.py
+
+[exit 0 in 0.1s]
+
+$ (cd apps/social-farm && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/unit)
+........................................................................ [ 15%]
+............ss.........s.......sssssssssssss............................ [ 31%]
+........................................................................ [ 47%]
+.......s..................................s............................. [ 63%]
+..............................ss........................................ [ 79%]
+...................sss......................s..................ss....... [ 94%]
+.......................                                                  [100%]
+429 passed, 26 skipped in 9.55s
+
+[exit 0 in 10.4s]
+
+VERDICT: PASS 

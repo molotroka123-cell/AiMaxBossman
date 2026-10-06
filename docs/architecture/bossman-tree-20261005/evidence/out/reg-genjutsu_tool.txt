@@ -1,0 +1,19 @@
+node_id: reg-genjutsu_tool
+module: tools.genjutsu.genjutsu
+path: tools/genjutsu/genjutsu.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['tests/test_genjutsu_composite_audio.py']
+
+$ python -c "importlib.import_module('tools.genjutsu.genjutsu')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED tools.genjutsu.genjutsu C:/Users/asd/Bossman/wt-green-0610/tools/genjutsu/genjutsu.py
+
+[exit 0 in 0.3s]
+
+$ (cd . && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_genjutsu_composite_audio.py)
+...                                                                      [100%]
+3 passed in 1.49s
+
+[exit 0 in 1.9s]
+
+VERDICT: PASS 

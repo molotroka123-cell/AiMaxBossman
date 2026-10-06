@@ -1,0 +1,16 @@
+[
+ {
+  "node_id": "reg-promo_video",
+  "sha": "579c65fe133224c1450021dcfe7944f4ea996323",
+  "probe": "grep+ast dead-code audit",
+  "command": "python tools/tree_proof/mediaux_retire.py [git grep -nIE promo_video -- . :!docs/architecture/bossman-tree-20261005 :!command-center/bcc/capability_tree_seed.json :!docs/architecture/tree-registry.json :!docs/architecture/tree-leaf-manifest.json :!docs/audits :!tools/tree_proof ; git grep -nIE promo\\.html -- . :!docs/architecture/bossman-tree-20261005 :!command-center/bcc/capability_tree_seed.json :!docs/architecture/tree-registry.json :!docs/architecture/tree-leaf-manifest.json :!docs/audits :!tools/tree_proof]",
+  "exit_code": 0,
+  "started_at": "2026-10-06T22:59:46+00:00",
+  "finished_at": "2026-10-06T22:59:46+00:00",
+  "output_sha256": "9ba5882012027009bdaf9ea70a243b07fb75d3f78acbf83c4919d21138e8e410",
+  "output_tail": "o/render.py\nsha: 579c65fe133224c1450021dcfe7944f4ea996323\n\n$ git grep -nIE promo_video -- . :!docs/architecture/bossman-tree-20261005 :!command-center/bcc/capability_tree_seed.json :!docs/architecture/tree-registry.json :!docs/architecture/tree-leaf-manifest.json :!docs/audits :!tools/tree_proof\n[exit 0] hits=3 outside_own_dir=0\ntools/promo_video/render.py:1:\"\"\"Render the Bossman \"32 days\" promo (tools/promo_video/promo.html) and mux it with the soundtrack.\ntools/promo_video/render.py:6:    python tools/promo_video/render.py --work /tmp/promo --chromium <chrome>           # full render\ntools/promo_video/render.py:7:    python tools/promo_video/render.py --work /tmp/promo 3.0 13.2                      # preview PNGs\n\n$ git grep -nIE promo\\.html -- . :!docs/architecture/bossman-tree-20261005 :!command-center/bcc/capability_tree_seed.json :!docs/architecture/tree-registry.json :!docs/architecture/tree-leaf-manifest.json :!docs/audits :!tools/tree_proof\n[exit 0] hits=3 outside_own_dir=0\ntools/promo_video/render.py:1:\"\"\"Render the Bossman \"32 days\" promo (tools/promo_video/promo.html) and mux it with the soundtrack.\ntools/promo_video/render.py:10:Per-day commit counts in promo.html are real `git log --date=short` counts for 2026-08-27..09-27.\ntools/promo_video/render.py:41:        page.goto((HERE / \"promo.html\").as_uri())\n\nAST: top-level defs=['main'] main_guard=True\nrisk-words in module (security/approval/budget/backup/secret): False\nimporters inside own dir: []\n\nVERDICT: RETIRE\n",
+  "verdict": "RETIRE",
+  "kind": "audit",
+  "reason": "Одноразовый скрипт рендера промо '32 дня' (даты 2026-08-27..09-27 зашиты в promo.html): ни одного импортёра, нет маршрута/CLI/манифеста, в документации не заявлен как функция, требует Chromium и Kokoro; не безопасность/бюджет/бэкап. Выпадает из дерева, файл остаётся в git."
+ }
+]

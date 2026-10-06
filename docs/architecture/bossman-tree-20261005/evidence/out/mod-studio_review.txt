@@ -1,0 +1,25 @@
+node_id: mod-studio_review
+module: bcc.features.studio_review
+path: command-center/bcc/features/studio_review.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_studio_vision_review.py']
+
+$ python -c "importlib.import_module('bcc.features.studio_review')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.features.studio_review C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/studio_review.py
+
+[exit 0 in 0.6s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_studio_vision_review.py)
+............................                                             [100%]
+============================== warnings summary ===============================
+tests/test_studio_vision_review.py::test_owner_feedback_becomes_a_rule_for_the_next_review
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\v2\memory\facts.py:682: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return to_naive_utc(default if default is not None else datetime.utcnow())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+28 passed, 1 warning in 15.38s
+
+[exit 0 in 17.3s]
+
+VERDICT: PASS 

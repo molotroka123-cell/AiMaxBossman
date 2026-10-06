@@ -1,0 +1,25 @@
+node_id: reg-video_studio_retrieval
+module: bcc.video_studio.retrieval
+path: command-center/bcc/video_studio/retrieval.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['bossman-core/tests/test_retrieval_extra.py', 'command-center/tests/test_video_studio_retrieval.py']
+
+$ python -c "importlib.import_module('bcc.video_studio.retrieval')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.video_studio.retrieval C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/video_studio/retrieval.py
+
+[exit 0 in 0.2s]
+
+$ (cd bossman-core && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_retrieval_extra.py)
+....                                                                     [100%]
+4 passed in 0.31s
+
+[exit 0 in 0.9s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_video_studio_retrieval.py)
+...                                                                      [100%]
+3 passed in 1.69s
+
+[exit 0 in 3.4s]
+
+VERDICT: PASS 

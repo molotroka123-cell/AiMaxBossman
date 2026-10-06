@@ -1,0 +1,19 @@
+node_id: reg-web_designer_gen
+module: bcc.web_designer_gen
+path: command-center/bcc/web_designer_gen.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_web_designer.py']
+
+$ python -c "importlib.import_module('bcc.web_designer_gen')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.web_designer_gen C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/web_designer_gen.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_web_designer.py)
+..........................................                               [100%]
+42 passed in 18.55s
+
+[exit 0 in 20.3s]
+
+VERDICT: PASS 

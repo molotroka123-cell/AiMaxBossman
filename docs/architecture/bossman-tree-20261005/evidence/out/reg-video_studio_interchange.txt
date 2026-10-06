@@ -1,0 +1,19 @@
+node_id: reg-video_studio_interchange
+module: bcc.video_studio.interchange
+path: command-center/bcc/video_studio/interchange.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_video_studio_interchange.py', 'command-center/tests/test_video_studio_otio_blocked.py']
+
+$ python -c "importlib.import_module('bcc.video_studio.interchange')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.video_studio.interchange C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/video_studio/interchange.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_video_studio_interchange.py tests/test_video_studio_otio_blocked.py)
+...                                                                      [100%]
+3 passed, 1 skipped in 2.89s
+
+[exit 0 in 4.9s]
+
+VERDICT: PASS 

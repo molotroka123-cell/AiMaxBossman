@@ -1,0 +1,19 @@
+node_id: reg-web_designer_ai_build
+module: bcc.web_designer_ai_build
+path: command-center/bcc/web_designer_ai_build.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+probe: import+pytest
+test_files: ['command-center/tests/test_web_designer_creative_execution.py', 'command-center/tests/test_web_designer_ai_create_ui.py']
+
+$ python -c "importlib.import_module('bcc.web_designer_ai_build')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src]
+IMPORTED bcc.web_designer_ai_build C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/web_designer_ai_build.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_web_designer_creative_execution.py tests/test_web_designer_ai_create_ui.py)
+...........................s                                             [100%]
+27 passed, 1 skipped in 2.21s
+
+[exit 0 in 3.8s]
+
+VERDICT: PASS 
