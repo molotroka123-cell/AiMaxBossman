@@ -1,0 +1,18 @@
+node_id: reg-leaf_usefulness_queue
+module: tools.leaf_usefulness_queue
+path: tools/leaf_usefulness_queue.py
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['tests/test_leaf_usefulness_queue.py']
+
+$ python -c "import tools.leaf_usefulness_queue" [PYTHONPATH=. first, then command-center;bossman-core;.]
+IMPORTED tools.leaf_usefulness_queue C:/Users/asd/Bossman/wt-green-0610/tools/leaf_usefulness_queue.py
+
+[exit 0 in 0.1s]
+
+$ (cd . && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_usefulness_queue.py)
+.....                                                                    [100%]
+5 passed in 0.06s
+
+[exit 0 in 0.8s]
+
+VERDICT: PASS 

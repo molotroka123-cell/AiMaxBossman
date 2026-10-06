@@ -1,6 +1,61 @@
-== plugin-9 plugin:github.repo_read probe=handler_live_call ==
-[plugin:github.repo_read] error=True one_line='plugin:github.repo_read: no credential'
-content: SKIP_EXTERNAL_CREDENTIAL: github.repo_read — нет креда GITHUB_TOKEN. Побочного эффекта нет.
-performed: None -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
-VERDICT FAIL
+node_id: plugin-9
+capability: plugin:github.repo_read
+sha: da3ca4d381af32d708c0e1e74b184023ea992205
 
+$ python -c <execute_tool plugin:github.repo_read live call> [cwd=command-center]
+CALL plugin:github.repo_read error=False | one_line: github.repo_read octocat/Hello-World
+CONTENT: {"full_name": "octocat/Hello-World", "description": "My first repository on GitHub!", "default_branch": "master", "private": false, "language": null, "stargazers_count": 3849, "forks_count": 6997, "pushed_at": "2024-08-20T23:54:42Z", "license": null}
+DATA: {"kind": "repo", "meta": {"full_name": "octocat/Hello-World", "description": "My first repository on GitHub!", "default_branch": "master", "private": false, "language": null, "stargazers_count": 3849, "forks_count": 6997, "pushed_at": "2024-08-20T23:54:42Z", "license": null}}
+CALL plugin:github.repo_read error=False | one_line: github.repo_read octocat/Hello-World/README: 13 bytes
+CONTENT: Hello World!\n
+DATA: {"kind": "file", "size": 13, "sha": "980a0d5f19a64b4b30a87d4206aade58726b60e3"}
+CALL plugin:github.repo_read error=True | one_line: github.repo_read blocked
+CONTENT: blocked: repo = owner/name, path без '..', ref — имя ветки/тега
+DATA: {}
+
+[exit 0 in 1.9s]
+
+$ (cd command-center && python -m pytest -v -rA -p no:cacheprovider --timeout=100 tests/test_leaf_plugins_real_handlers.py -k "github or four_leaves or policy")
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\asd\AppData\Local\Programs\Python\Python312\python.exe
+rootdir: C:\Users\asd\Bossman\wt-green-0610\command-center
+configfile: pyproject.toml
+plugins: anyio-4.15.1, platformdirs-4.12.3, asyncio-1.4.0, cov-7.1.0, timeout-2.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 100.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 27 items / 15 deselected / 12 selected
+
+tests/test_leaf_plugins_real_handlers.py::test_the_four_leaves_have_real_handlers_not_the_stub PASSED [  8%]
+tests/test_leaf_plugins_real_handlers.py::test_policy_ollama_github_mcp_list_are_auto_openrouter_asks PASSED [ 16%]
+tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args0] PASSED [ 25%]
+tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args1] PASSED [ 33%]
+tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args2] PASSED [ 41%]
+tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args3] PASSED [ 50%]
+tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args4] PASSED [ 58%]
+tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args5] PASSED [ 66%]
+tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args6] PASSED [ 75%]
+tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args7] PASSED [ 83%]
+tests/test_leaf_plugins_real_handlers.py::test_github_never_leaves_api_github_com PASSED [ 91%]
+tests/test_leaf_plugins_real_handlers.py::test_github_repo_read_live_public_repo PASSED [100%]
+
+=================================== PASSES ====================================
+=========================== short test summary info ===========================
+PASSED tests/test_leaf_plugins_real_handlers.py::test_the_four_leaves_have_real_handlers_not_the_stub
+PASSED tests/test_leaf_plugins_real_handlers.py::test_policy_ollama_github_mcp_list_are_auto_openrouter_asks
+PASSED tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args0]
+PASSED tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args1]
+PASSED tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args2]
+PASSED tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args3]
+PASSED tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args4]
+PASSED tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args5]
+PASSED tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args6]
+PASSED tests/test_leaf_plugins_real_handlers.py::test_github_inputs_are_confined_to_owner_name_and_safe_path[args7]
+PASSED tests/test_leaf_plugins_real_handlers.py::test_github_never_leaves_api_github_com
+PASSED tests/test_leaf_plugins_real_handlers.py::test_github_repo_read_live_public_repo
+====================== 12 passed, 15 deselected in 2.54s ======================
+
+[exit 0 in 4.0s]
+
+VERDICT: PASS 

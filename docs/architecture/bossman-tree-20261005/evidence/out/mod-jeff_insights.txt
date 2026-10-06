@@ -1,12 +1,25 @@
 node_id: mod-jeff_insights
 module: bcc.features.jeff_insights
 path: command-center/bcc/features/jeff_insights.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: [] (candidates=0)
+sha: da3ca4d381af32d708c0e1e74b184023ea992205
+test_files: ['command-center/tests/test_leaf_jeff_insights.py', 'command-center/tests/test_jeff_2_insights.py']
+plan_note: existing test_jeff_2_insights.py references this module and its /jeff-insights endpoints
 
-$ python -c "importlib.import_module('bcc.features.jeff_insights')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bcc.features.jeff_insights" [PYTHONPATH=command-center first, then command-center;bossman-core;.]
 IMPORTED bcc.features.jeff_insights C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/jeff_insights.py
 
 [exit 0 in 0.4s]
 
-VERDICT: FAIL no_tests
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_jeff_insights.py)
+...                                                                      [100%]
+3 passed in 1.98s
+
+[exit 0 in 3.7s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_jeff_2_insights.py)
+.........................................ss                              [100%]
+41 passed, 2 skipped in 6.45s
+
+[exit 0 in 8.2s]
+
+VERDICT: PASS 

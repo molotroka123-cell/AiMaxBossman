@@ -1,12 +1,18 @@
 node_id: module-59f6fbe27bd5
 module: bossman.toolkit._proc
 path: bossman-core/bossman/toolkit/_proc.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: [] (candidates=0)
+sha: da3ca4d381af32d708c0e1e74b184023ea992205
+test_files: ['bossman-core/tests/test_leaf_toolkit_proc.py']
 
-$ python -c "importlib.import_module('bossman.toolkit._proc')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bossman.toolkit._proc" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.]
 IMPORTED bossman.toolkit._proc C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/toolkit/_proc.py
 
 [exit 0 in 0.5s]
 
-VERDICT: FAIL no_tests
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_toolkit_proc.py)
+.......                                                                  [100%]
+7 passed in 2.83s
+
+[exit 0 in 3.3s]
+
+VERDICT: PASS 

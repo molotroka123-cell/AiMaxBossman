@@ -1,6 +1,30 @@
-== plugin-5 plugin:mcp.tool_list probe=handler_live_call ==
-[plugin:mcp.tool_list] error=True one_line='plugin:mcp.tool_list: not performed'
-content: NOT_TESTED_LIVE: plugin:mcp.tool_list — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.
-performed: False -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
-VERDICT FAIL
+node_id: plugin-5
+capability: plugin:mcp.tool_list
+sha: da3ca4d381af32d708c0e1e74b184023ea992205
 
+$ (cd command-center && python -m pytest -v -rA -p no:cacheprovider --timeout=100 tests/test_leaf_plugins_real_handlers.py -k "mcp_tool_list_live_real_server or mcp_tool_list_refuses or tool_list_needs")
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\asd\AppData\Local\Programs\Python\Python312\python.exe
+rootdir: C:\Users\asd\Bossman\wt-green-0610\command-center
+configfile: pyproject.toml
+plugins: anyio-4.15.1, platformdirs-4.12.3, asyncio-1.4.0, cov-7.1.0, timeout-2.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 100.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 27 items / 24 deselected / 3 selected
+
+tests/test_leaf_plugins_real_handlers.py::test_mcp_tool_list_needs_a_configured_server PASSED [ 33%]
+tests/test_leaf_plugins_real_handlers.py::test_mcp_tool_list_live_real_server PASSED [ 66%]
+tests/test_leaf_plugins_real_handlers.py::test_mcp_tool_list_refuses_command_outside_allowlist PASSED [100%]
+
+=================================== PASSES ====================================
+=========================== short test summary info ===========================
+PASSED tests/test_leaf_plugins_real_handlers.py::test_mcp_tool_list_needs_a_configured_server
+PASSED tests/test_leaf_plugins_real_handlers.py::test_mcp_tool_list_live_real_server
+PASSED tests/test_leaf_plugins_real_handlers.py::test_mcp_tool_list_refuses_command_outside_allowlist
+====================== 3 passed, 24 deselected in 3.34s =======================
+
+[exit 0 in 5.5s]
+
+VERDICT: PASS 

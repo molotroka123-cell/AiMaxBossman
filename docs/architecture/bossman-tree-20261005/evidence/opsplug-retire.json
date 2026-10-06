@@ -1,0 +1,16 @@
+[
+ {
+  "node_id": "mod-v15_owner",
+  "sha": "9fc68e0d8c986ff90d1037769377598a6039c43f",
+  "probe": "audit: duplicate/dead (git history + git grep)",
+  "command": "python tools/tree_proof/opsplug_retire.py mod-v15_owner command-center/bcc/features/v15_owner.py v15_owner",
+  "exit_code": 0,
+  "started_at": "2026-10-06T23:08:39+00:00",
+  "finished_at": "2026-10-06T23:08:39+00:00",
+  "output_sha256": "5f9bf5cd938ded5341fe59a85d5bb11d258f55e94aff903aa9ce55f8263a3062",
+  "output_tail": "node_id: mod-v15_owner\nsource: command-center/bcc/features/v15_owner.py\nword: v15_owner\n\n$ git log --oneline -n3 HEAD -- command-center/bcc/features/v15_owner.py\n8a2fbaad chore(v1.5): remove duplicate owner control backend\nf2f70648 feat(v1.5): add one-button owner run for market and self-improvement\n\n$ git log --diff-filter=D --oneline -n1 HEAD -- command-center/bcc/features/v15_owner.py\n8a2fbaad chore(v1.5): remove duplicate owner control backend\n\nfile_present_in_worktree: False\n\n$ git grep -nwI v15_owner -- . <exclude seed/evidence>\n(no references outside own file/tests)\n\nVERDICT: DEAD (no references; deleted in history as duplicate)\n",
+  "verdict": "RETIRE",
+  "kind": "audit",
+  "reason": "Дубликат: файл удалён из истории HEAD коммитом 8a2fbaad 'remove duplicate owner control backend'; живой аналог v15_owner_run.py; на слово v15_owner нет ни одной ссылки в коде, CI и конфиге."
+ }
+]

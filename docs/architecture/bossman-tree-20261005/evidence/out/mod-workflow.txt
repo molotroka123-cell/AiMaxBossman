@@ -1,12 +1,25 @@
 node_id: mod-workflow
 module: bcc.features.workflow
 path: command-center/bcc/features/workflow.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: [] (candidates=0)
+sha: da3ca4d381af32d708c0e1e74b184023ea992205
+test_files: ['command-center/tests/test_leaf_workflow.py', 'command-center/tests/test_feat_workflow.py']
+plan_note: existing test_feat_workflow.py references /api/workflow endpoints (this module's routes)
 
-$ python -c "importlib.import_module('bcc.features.workflow')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bcc.features.workflow" [PYTHONPATH=command-center first, then command-center;bossman-core;.]
 IMPORTED bcc.features.workflow C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/workflow.py
 
-[exit 0 in 1.0s]
+[exit 0 in 0.6s]
 
-VERDICT: FAIL no_tests
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_workflow.py)
+.....                                                                    [100%]
+5 passed in 1.48s
+
+[exit 0 in 3.0s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_feat_workflow.py)
+.....                                                                    [100%]
+5 passed in 7.66s
+
+[exit 0 in 9.4s]
+
+VERDICT: PASS 

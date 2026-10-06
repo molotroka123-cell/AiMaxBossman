@@ -1,22 +1,45 @@
 node_id: mod-osiris
 module: bcc.features.osiris
 path: command-center/bcc/features/osiris.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: ['command-center/tests/test_osiris.py', 'command-center/tests/test_searxng_setup.py', 'command-center/tests/test_web_access_20260930.py', 'command-center/tests/test_web_research_flag.py', 'command-center/tests/test_web_research_net.py', 'command-center/tests/test_web_research_refs.py', 'command-center/tests/test_web_research_safety.py'] (candidates=7)
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['command-center/tests/test_osiris.py', 'command-center/tests/test_searxng_setup.py', 'command-center/tests/test_web_access_20260930.py', 'command-center/tests/test_web_research_flag.py', 'command-center/tests/test_web_research_net.py', 'command-center/tests/test_web_research_refs.py', 'command-center/tests/test_web_research_safety.py']
 
-$ python -c "importlib.import_module('bcc.features.osiris')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bcc.features.osiris" [PYTHONPATH=command-center first, then command-center;bossman-core;.]
 IMPORTED bcc.features.osiris C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/osiris.py
 
-[exit 0 in 0.8s]
+[exit 0 in 1.9s]
 
-$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_osiris.py tests/test_searxng_setup.py tests/test_web_access_20260930.py tests/test_web_research_flag.py tests/test_web_research_net.py tests/test_web_research_refs.py tests/test_web_research_safety.py)
-........................................................................ [ 45%]
-..................................F
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_osiris.py)
+....................................                                     [100%]
+36 passed in 36.17s
+
+[exit 0 in 38.9s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_searxng_setup.py)
+................                                                         [100%]
+16 passed in 0.40s
+
+[exit 0 in 2.7s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_web_access_20260930.py)
+....................................                                     [100%]
+36 passed in 11.88s
+
+[exit 0 in 14.6s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_web_research_flag.py)
+.................                                                        [100%]
+17 passed in 15.36s
+
+[exit 0 in 18.0s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_web_research_net.py)
+.F..................                                                     [100%]
 ================================== FAILURES ===================================
 _________________ test_szhatyy_otvet_otvergaetsya_transportom _________________
 
-env = <tests.test_web_research_net.Env object at 0x000001DC7ED5FEC0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001DC7EAC04D0>
+env = <tests.test_web_research_net.Env object at 0x0000015278738E00>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000015276462930>
 
     async def test_szhatyy_otvet_otvergaetsya_transportom(env, monkeypatch):
         """Вред: `Accept-Encoding: identity` — просьба, а не гарантия (C2).
@@ -46,9 +69,8 @@ E       Failed: DID NOT RAISE PageRefused
 tests\test_web_research_net.py:375: Failed
 =========================== short test summary info ===========================
 FAILED tests/test_web_research_net.py::test_szhatyy_otvet_otvergaetsya_transportom
-!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
-1 failed, 106 passed in 43.29s
+1 failed, 19 passed in 19.00s
 
-[exit 1 in 45.2s]
+[exit 1 in 21.5s]
 
 VERDICT: FAIL tests_failed

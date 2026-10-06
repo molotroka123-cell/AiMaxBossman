@@ -1,0 +1,54 @@
+node_id: plugins-mcp
+module: bcc.features.tools_mcp
+path: command-center/bcc/features/tools_mcp.py
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['command-center/tests/test_bl110_mcp_delete_everywhere.py', 'command-center/tests/test_golden_missions.py', 'command-center/tests/test_mcp_numeric_server_name.py', 'command-center/tests/test_secrem_mcp_boundary.py', 'command-center/tests/test_secrem_sibling_sweep.py', 'command-center/tests/test_v21_mcp.py', 'command-center/tests/test_v22_fixes.py']
+
+$ python -c "import bcc.features.tools_mcp" [PYTHONPATH=command-center first, then command-center;bossman-core;.]
+IMPORTED bcc.features.tools_mcp C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/tools_mcp.py
+
+[exit 0 in 1.1s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_bl110_mcp_delete_everywhere.py)
+..                                                                       [100%]
+2 passed in 4.15s
+
+[exit 0 in 6.7s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_golden_missions.py)
+...s.........                                                            [100%]
+12 passed, 1 skipped in 51.47s
+
+[exit 0 in 54.6s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_mcp_numeric_server_name.py)
+...                                                                      [100%]
+3 passed in 4.76s
+
+[exit 0 in 7.0s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_secrem_mcp_boundary.py)
+.........                                                                [100%]
+9 passed in 2.30s
+
+[exit 0 in 4.5s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_secrem_sibling_sweep.py)
+...........................................                              [100%]
+43 passed in 0.66s
+
+[exit 0 in 2.5s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_v21_mcp.py)
+...............                                                          [100%]
+15 passed in 39.73s
+
+[exit 0 in 42.3s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_v22_fixes.py)
+.........                                                                [100%]
+9 passed in 0.52s
+
+[exit 0 in 2.1s]
+
+VERDICT: PASS 

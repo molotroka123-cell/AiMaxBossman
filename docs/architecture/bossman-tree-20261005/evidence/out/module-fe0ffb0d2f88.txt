@@ -1,12 +1,56 @@
 node_id: module-fe0ffb0d2f88
 module: bossman.resource_brain.routes
 path: bossman-core/bossman/resource_brain/routes.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: [] (candidates=0)
+sha: da3ca4d381af32d708c0e1e74b184023ea992205
+test_files: ['bossman-core/tests/test_leaf_resource_brain_routes.py']
 
-$ python -c "importlib.import_module('bossman.resource_brain.routes')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bossman.resource_brain.routes" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.]
 IMPORTED bossman.resource_brain.routes C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/resource_brain/routes.py
 
-[exit 0 in 1.3s]
+[exit 0 in 0.8s]
 
-VERDICT: FAIL no_tests
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_resource_brain_routes.py)
+...                                                                      [100%]
+============================== warnings summary ===============================
+tests/test_leaf_resource_brain_routes.py::test_admin_reads_snapshot_leases_and_pressure
+tests/test_leaf_resource_brain_routes.py::test_admin_reads_snapshot_leases_and_pressure
+tests/test_leaf_resource_brain_routes.py::test_scope_and_anonymous_are_refused_before_any_data_leaves
+  C:\Users\asd\Bossman\wt-green-0610\bossman-core\bossman\api.py:112: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_leaf_resource_brain_routes.py::test_admin_reads_snapshot_leases_and_pressure
+tests/test_leaf_resource_brain_routes.py::test_admin_reads_snapshot_leases_and_pressure
+tests/test_leaf_resource_brain_routes.py::test_admin_reads_snapshot_leases_and_pressure
+tests/test_leaf_resource_brain_routes.py::test_admin_reads_snapshot_leases_and_pressure
+tests/test_leaf_resource_brain_routes.py::test_scope_and_anonymous_are_refused_before_any_data_leaves
+tests/test_leaf_resource_brain_routes.py::test_scope_and_anonymous_are_refused_before_any_data_leaves
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_leaf_resource_brain_routes.py::test_admin_reads_snapshot_leases_and_pressure
+tests/test_leaf_resource_brain_routes.py::test_admin_reads_snapshot_leases_and_pressure
+tests/test_leaf_resource_brain_routes.py::test_scope_and_anonymous_are_refused_before_any_data_leaves
+  C:\Users\asd\Bossman\wt-green-0610\bossman-core\bossman\api.py:124: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3 passed, 12 warnings in 1.25s
+
+[exit 0 in 2.0s]
+
+VERDICT: PASS 

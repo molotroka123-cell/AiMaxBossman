@@ -1,12 +1,24 @@
 node_id: module-5579b793e038
 module: bossman.search_everything.service
 path: bossman-core/bossman/search_everything/service.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: [] (candidates=0)
+sha: da3ca4d381af32d708c0e1e74b184023ea992205
+test_files: ['bossman-core/tests/test_leaf_search_everything_service.py', 'bossman-core/tests/test_search_everything.py']
 
-$ python -c "importlib.import_module('bossman.search_everything.service')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bossman.search_everything.service" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.]
 IMPORTED bossman.search_everything.service C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/search_everything/service.py
 
-[exit 0 in 1.0s]
+[exit 0 in 0.8s]
 
-VERDICT: FAIL no_tests
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_search_everything_service.py)
+......                                                                   [100%]
+6 passed in 0.82s
+
+[exit 0 in 1.5s]
+
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_search_everything.py)
+...........                                                              [100%]
+11 passed in 0.92s
+
+[exit 0 in 1.6s]
+
+VERDICT: PASS 

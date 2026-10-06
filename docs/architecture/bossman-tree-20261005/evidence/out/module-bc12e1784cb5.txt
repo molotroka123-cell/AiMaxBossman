@@ -1,33 +1,60 @@
 node_id: module-bc12e1784cb5
 module: bossman.apprentice.durable
 path: bossman-core/bossman/apprentice/durable.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: ['bossman-core/tests/test_durable_live_owner_auth.py', 'bossman-core/tests/test_apprentice_live_safety.py', 'bossman-core/tests/test_e2e_real_gui.py', 'bossman-core/tests/test_e2e_real_outreach.py', 'bossman-core/tests/test_teacher_live.py', 'bossman-core/tests/audit001/test_f1_receipt_immutability.py', 'bossman-core/tests/audit001/test_f2_abandon_race.py', 'bossman-core/tests/audit001/test_f3_tx_poison.py'] (candidates=9)
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['bossman-core/tests/test_durable_live_owner_auth.py', 'bossman-core/tests/test_apprentice_live_safety.py', 'bossman-core/tests/test_e2e_real_gui.py', 'bossman-core/tests/test_e2e_real_outreach.py', 'bossman-core/tests/test_teacher_live.py', 'bossman-core/tests/audit001/test_f1_receipt_immutability.py', 'bossman-core/tests/audit001/test_f2_abandon_race.py', 'bossman-core/tests/audit001/test_f3_tx_poison.py']
 
-$ python -c "importlib.import_module('bossman.apprentice.durable')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bossman.apprentice.durable" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.]
 IMPORTED bossman.apprentice.durable C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/durable.py
 
-[exit 0 in 0.1s]
+[exit 0 in 0.2s]
 
-$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_durable_live_owner_auth.py tests/test_apprentice_live_safety.py tests/test_e2e_real_gui.py tests/test_e2e_real_outreach.py tests/test_teacher_live.py tests/audit001/test_f1_receipt_immutability.py tests/audit001/test_f2_abandon_race.py tests/audit001/test_f3_tx_poison.py)
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_durable_live_owner_auth.py)
+.......                                                                  [100%]
+7 passed in 2.05s
 
-=================================== ERRORS ====================================
-___________ ERROR collecting tests/test_durable_live_owner_auth.py ____________
-ImportError while importing test module 'C:\Users\asd\Bossman\wt-green-0610\bossman-core\tests\test_durable_live_owner_auth.py'.
-Hint: make sure your test modules/packages have valid Python names.
-Traceback:
-..\..\..\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:90: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests\test_durable_live_owner_auth.py:36: in <module>
-    from tests.test_apprentice_outreach import LISTING  # noqa: E402
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   ModuleNotFoundError: No module named 'tests.test_apprentice_outreach'
-=========================== short test summary info ===========================
-ERROR tests/test_durable_live_owner_auth.py
-!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
-1 error in 1.11s
+[exit 0 in 2.9s]
 
-[exit 1 in 1.9s]
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_apprentice_live_safety.py)
+.....                                                                    [100%]
+5 passed in 1.27s
 
-VERDICT: FAIL env_missing_dependency
+[exit 0 in 1.8s]
+
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_e2e_real_gui.py)
+ss                                                                       [100%]
+2 skipped in 0.19s
+
+[exit 0 in 0.7s]
+
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_e2e_real_outreach.py)
+s                                                                        [100%]
+1 skipped in 1.23s
+
+[exit 0 in 2.4s]
+
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_teacher_live.py)
+s                                                                        [100%]
+1 skipped in 0.32s
+
+[exit 0 in 0.9s]
+
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/audit001/test_f1_receipt_immutability.py)
+.......                                                                  [100%]
+7 passed in 3.40s
+
+[exit 0 in 4.0s]
+
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/audit001/test_f2_abandon_race.py)
+........                                                                 [100%]
+8 passed in 1.56s
+
+[exit 0 in 2.1s]
+
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/audit001/test_f3_tx_poison.py)
+.........                                                                [100%]
+9 passed in 1.53s
+
+[exit 0 in 2.3s]
+
+VERDICT: PASS 

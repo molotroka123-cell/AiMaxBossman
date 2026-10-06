@@ -1,57 +1,24 @@
 node_id: module-575dcc5a99f5
 module: bossman.computer_operator.applist
 path: bossman-core/bossman/computer_operator/applist.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: ['bossman-core/tests/test_computer_capabilities.py', 'bossman-core/tests/test_stage13_wiring_notepad.py'] (candidates=2)
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['bossman-core/tests/test_computer_capabilities.py', 'bossman-core/tests/test_stage13_wiring_notepad.py']
 
-$ python -c "importlib.import_module('bossman.computer_operator.applist')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bossman.computer_operator.applist" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.]
 IMPORTED bossman.computer_operator.applist C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/computer_operator/applist.py
 
 [exit 0 in 0.1s]
 
-$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_capabilities.py tests/test_stage13_wiring_notepad.py)
-.....................................................F
-================================== FAILURES ===================================
-_____________________ test_live_notepad_actually_launches _____________________
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_computer_capabilities.py)
+.........                                                                [100%]
+9 passed in 0.60s
 
-tmp_path = WindowsPath('C:/Users/asd/AppData/Local/Temp/pytest-of-asd/pytest-3057/test_live_notepad_actually_lau0')
+[exit 0 in 1.2s]
 
-    @requires_windows
-    async def test_live_notepad_actually_launches(tmp_path):
-        """Живой смоук: Блокнот РЕАЛЬНО запускается через продовый путь."""
-        from bossman.computer_operator.adapters.screenshot import LocalScreenshotProvider
-        from bossman.computer_operator.adapters.windows import WindowsDesktop
-    
-        procs = []
-    
-        async def rec(exe):
-            p = await spawn_detached(exe)     # настоящий запуск, argv-массивом
-            procs.append(p)
-            return p
-    
-        desktop = WindowsDesktop()
-        planner = FakePlanner([launch("notepad"), complete()])
-        m = ComputerOperatorManager(
-            store=JsonTaskStore(tmp_path / "tasks.json"),
-            planner=planner,
-            observer=Observer(desktop, LocalScreenshotProvider(root=tmp_path / "shots")),
-            action_router=ActionRouter([AppLaunchAdapter(launcher=rec), desktop]),
-            approval_create=_auto_create, approval_wait=_auto_wait,
-            event_emit=lambda *a, **k: None)
-        t = m.create_task("Открой Блокнот")
-        try:
-            state = await m.run(t.id)
->           assert procs and procs[0].returncode is None       # процесс живёт
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E           assert ([<Process 15664>] and 0 is None)
-E            +  where 0 = <Process 15664>.returncode
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_stage13_wiring_notepad.py)
+................................................                         [100%]
+48 passed in 2.64s
 
-tests\test_stage13_wiring_notepad.py:443: AssertionError
-=========================== short test summary info ===========================
-FAILED tests/test_stage13_wiring_notepad.py::test_live_notepad_actually_launches
-!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
-1 failed, 53 passed in 2.55s
+[exit 0 in 3.9s]
 
-[exit 1 in 3.4s]
-
-VERDICT: FAIL tests_failed
+VERDICT: PASS 

@@ -1,0 +1,17 @@
+node_id: mod-v15_owner
+source: command-center/bcc/features/v15_owner.py
+word: v15_owner
+
+$ git log --oneline -n3 HEAD -- command-center/bcc/features/v15_owner.py
+8a2fbaad chore(v1.5): remove duplicate owner control backend
+f2f70648 feat(v1.5): add one-button owner run for market and self-improvement
+
+$ git log --diff-filter=D --oneline -n1 HEAD -- command-center/bcc/features/v15_owner.py
+8a2fbaad chore(v1.5): remove duplicate owner control backend
+
+file_present_in_worktree: False
+
+$ git grep -nwI v15_owner -- . <exclude seed/evidence>
+(no references outside own file/tests)
+
+VERDICT: DEAD (no references; deleted in history as duplicate)

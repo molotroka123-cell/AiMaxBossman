@@ -1,12 +1,25 @@
 node_id: mod-benchlab
 module: bcc.features.benchlab
 path: command-center/bcc/features/benchlab.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: [] (candidates=0)
+sha: da3ca4d381af32d708c0e1e74b184023ea992205
+test_files: ['command-center/tests/test_leaf_benchlab.py', 'command-center/tests/test_feat_bench_opencode.py']
+plan_note: existing endpoint test test_feat_bench_opencode.py references /api/benchmarks (this module's routes)
 
-$ python -c "importlib.import_module('bcc.features.benchlab')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bcc.features.benchlab" [PYTHONPATH=command-center first, then command-center;bossman-core;.]
 IMPORTED bcc.features.benchlab C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/benchlab.py
 
-[exit 0 in 1.0s]
+[exit 0 in 0.7s]
 
-VERDICT: FAIL no_tests
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_benchlab.py)
+....                                                                     [100%]
+4 passed in 2.24s
+
+[exit 0 in 3.9s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_feat_bench_opencode.py)
+......                                                                   [100%]
+6 passed in 14.26s
+
+[exit 0 in 16.0s]
+
+VERDICT: PASS 

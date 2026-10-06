@@ -1,6 +1,44 @@
-== plugin-7 plugin:ollama.chat probe=handler_live_call ==
-[plugin:ollama.chat] error=True one_line='plugin:ollama.chat: not performed'
-content: NOT_TESTED_LIVE: plugin:ollama.chat — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.
-performed: False -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
-VERDICT FAIL
+node_id: plugin-7
+capability: plugin:ollama.chat
+sha: da3ca4d381af32d708c0e1e74b184023ea992205
 
+$ python -c <execute_tool plugin:ollama.chat live call> [cwd=command-center]
+CALL plugin:ollama.chat error=False | one_line: ollama.chat ace-decider-08b:latest: 2 tok
+CONTENT: pong
+DATA: {"performed": true, "model": "ace-decider-08b:latest", "local": true, "tokens_in": 19, "tokens_out": 2, "finish": "stop"}
+CALL plugin:ollama.chat error=True | one_line: ollama.chat blocked (cloud)
+CONTENT: blocked: облачные модели Ollama запрещены этим плагином (cloud_policy=never)
+DATA: {}
+
+[exit 0 in 4.0s]
+
+$ (cd command-center && python -m pytest -v -rA -p no:cacheprovider --timeout=100 tests/test_leaf_plugins_real_handlers.py -k "ollama or four_leaves or policy")
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\asd\AppData\Local\Programs\Python\Python312\python.exe
+rootdir: C:\Users\asd\Bossman\wt-green-0610\command-center
+configfile: pyproject.toml
+plugins: anyio-4.15.1, platformdirs-4.12.3, asyncio-1.4.0, cov-7.1.0, timeout-2.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 100.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 27 items / 22 deselected / 5 selected
+
+tests/test_leaf_plugins_real_handlers.py::test_the_four_leaves_have_real_handlers_not_the_stub PASSED [ 20%]
+tests/test_leaf_plugins_real_handlers.py::test_policy_ollama_github_mcp_list_are_auto_openrouter_asks PASSED [ 40%]
+tests/test_leaf_plugins_real_handlers.py::test_ollama_refuses_cloud_models PASSED [ 60%]
+tests/test_leaf_plugins_real_handlers.py::test_ollama_chat_live_local_model PASSED [ 80%]
+tests/test_leaf_plugins_real_handlers.py::test_ollama_unknown_model_is_an_error_not_success PASSED [100%]
+
+=================================== PASSES ====================================
+=========================== short test summary info ===========================
+PASSED tests/test_leaf_plugins_real_handlers.py::test_the_four_leaves_have_real_handlers_not_the_stub
+PASSED tests/test_leaf_plugins_real_handlers.py::test_policy_ollama_github_mcp_list_are_auto_openrouter_asks
+PASSED tests/test_leaf_plugins_real_handlers.py::test_ollama_refuses_cloud_models
+PASSED tests/test_leaf_plugins_real_handlers.py::test_ollama_chat_live_local_model
+PASSED tests/test_leaf_plugins_real_handlers.py::test_ollama_unknown_model_is_an_error_not_success
+====================== 5 passed, 22 deselected in 1.55s =======================
+
+[exit 0 in 2.8s]
+
+VERDICT: PASS 

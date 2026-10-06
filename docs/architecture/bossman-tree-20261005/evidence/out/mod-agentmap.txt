@@ -1,12 +1,18 @@
 node_id: mod-agentmap
 module: bcc.features.agentmap
 path: command-center/bcc/features/agentmap.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: [] (candidates=0)
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['command-center/tests/test_leaf_agentmap.py']
 
-$ python -c "importlib.import_module('bcc.features.agentmap')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bcc.features.agentmap" [PYTHONPATH=command-center first, then command-center;bossman-core;.]
 IMPORTED bcc.features.agentmap C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/agentmap.py
 
-[exit 0 in 1.0s]
+[exit 0 in 1.3s]
 
-VERDICT: FAIL no_tests
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_agentmap.py)
+....                                                                     [100%]
+4 passed in 2.90s
+
+[exit 0 in 5.6s]
+
+VERDICT: PASS 

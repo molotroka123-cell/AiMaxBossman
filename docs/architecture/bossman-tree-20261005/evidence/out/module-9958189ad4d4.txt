@@ -1,19 +1,54 @@
 node_id: module-9958189ad4d4
 module: bossman.apprentice.proc_tree
 path: bossman-core/bossman/apprentice/proc_tree.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: ['command-center/tests/test_capability_tree.py', 'command-center/tests/test_rave_engine.py', 'command-center/tests/test_rave_owner_flow.py', 'command-center/tests/test_rave_pool.py', 'command-center/tests/test_rave_ui_flow.py', 'bossman-core/tests/apprentice/test_local_sidecar.py'] (candidates=6)
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['command-center/tests/test_capability_tree.py', 'command-center/tests/test_rave_engine.py', 'command-center/tests/test_rave_owner_flow.py', 'command-center/tests/test_rave_pool.py', 'command-center/tests/test_rave_ui_flow.py', 'bossman-core/tests/apprentice/test_local_sidecar.py']
 
-$ python -c "importlib.import_module('bossman.apprentice.proc_tree')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bossman.apprentice.proc_tree" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.]
 IMPORTED bossman.apprentice.proc_tree C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/proc_tree.py
 
 [exit 0 in 0.2s]
 
-$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_capability_tree.py tests/test_rave_engine.py tests/test_rave_owner_flow.py tests/test_rave_pool.py tests/test_rave_ui_flow.py)
-........................................................................ [ 78%]
-.........
-[TIMEOUT after 120s]
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_capability_tree.py)
+....................                                                     [100%]
+============================== warnings summary ===============================
+tests/test_capability_tree.py::test_full_app_mounts_capability_tree
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\openapi\utils.py:303: UserWarning: Duplicate Operation ID file_commander_view_api_apps_file_commander_mini_view__app_path__get for function file_commander_view at C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\features\apps_control.py
+    warnings.warn(message, stacklevel=1)
 
-[exit 124 in 120s]
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+20 passed, 1 warning in 12.18s
 
-VERDICT: FAIL pytest_timeout
+[exit 0 in 14.9s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_rave_engine.py)
+...................                                                      [100%]
+19 passed in 61.41s (0:01:01)
+
+[exit 0 in 64.3s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_rave_owner_flow.py)
+...............................                                          [100%]
+31 passed in 67.29s (0:01:07)
+
+[exit 0 in 70.4s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_rave_pool.py)
+.....................                                                    [100%]
+21 passed in 57.64s
+
+[exit 0 in 60.0s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_rave_ui_flow.py)
+s                                                                        [100%]
+1 skipped in 0.31s
+
+[exit 0 in 2.0s]
+
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/apprentice/test_local_sidecar.py)
+...............s...........                                              [100%]
+26 passed, 1 skipped in 28.05s
+
+[exit 0 in 28.5s]
+
+VERDICT: PASS 

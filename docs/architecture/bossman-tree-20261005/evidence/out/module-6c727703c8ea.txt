@@ -1,33 +1,24 @@
 node_id: module-6c727703c8ea
 module: bossman.apprentice.owner_auth
 path: bossman-core/bossman/apprentice/owner_auth.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: ['bossman-core/tests/test_durable_live_owner_auth.py', 'bossman-core/tests/test_e2e_real_outreach.py'] (candidates=2)
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['bossman-core/tests/test_durable_live_owner_auth.py', 'bossman-core/tests/test_e2e_real_outreach.py']
 
-$ python -c "importlib.import_module('bossman.apprentice.owner_auth')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bossman.apprentice.owner_auth" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.]
 IMPORTED bossman.apprentice.owner_auth C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/owner_auth.py
 
-[exit 0 in 1.7s]
+[exit 0 in 2.2s]
 
-$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_durable_live_owner_auth.py tests/test_e2e_real_outreach.py)
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_durable_live_owner_auth.py)
+.......                                                                  [100%]
+7 passed in 2.20s
 
-=================================== ERRORS ====================================
-___________ ERROR collecting tests/test_durable_live_owner_auth.py ____________
-ImportError while importing test module 'C:\Users\asd\Bossman\wt-green-0610\bossman-core\tests\test_durable_live_owner_auth.py'.
-Hint: make sure your test modules/packages have valid Python names.
-Traceback:
-..\..\..\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:90: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests\test_durable_live_owner_auth.py:36: in <module>
-    from tests.test_apprentice_outreach import LISTING  # noqa: E402
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   ModuleNotFoundError: No module named 'tests.test_apprentice_outreach'
-=========================== short test summary info ===========================
-ERROR tests/test_durable_live_owner_auth.py
-!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
-1 error in 1.31s
+[exit 0 in 3.4s]
 
-[exit 1 in 2.3s]
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_e2e_real_outreach.py)
+s                                                                        [100%]
+1 skipped in 1.18s
 
-VERDICT: FAIL env_missing_dependency
+[exit 0 in 2.2s]
+
+VERDICT: PASS 

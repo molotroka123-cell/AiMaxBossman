@@ -1,0 +1,60 @@
+node_id: plugins-security
+module: bcc.plugin_security
+path: command-center/bcc/plugin_security.py
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['command-center/tests/test_plugin_security.py', 'command-center/tests/test_plugin_security_malformed_url.py', 'command-center/tests/test_leaf_plugins_real_handlers.py', 'command-center/tests/test_osiris.py', 'command-center/tests/test_plugins_adapter.py', 'command-center/tests/test_searxng_setup.py', 'command-center/tests/test_secrem_sibling_sweep.py', 'command-center/tests/test_secret_never_reaches_owner_journal.py']
+
+$ python -c "import bcc.plugin_security" [PYTHONPATH=command-center first, then command-center;bossman-core;.]
+IMPORTED bcc.plugin_security C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/plugin_security.py
+
+[exit 0 in 0.4s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_plugin_security.py)
+........................                                                 [100%]
+24 passed in 3.85s
+
+[exit 0 in 5.7s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_plugin_security_malformed_url.py)
+.............                                                            [100%]
+13 passed in 0.34s
+
+[exit 0 in 2.3s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_plugins_real_handlers.py)
+..........................s                                              [100%]
+26 passed, 1 skipped in 17.58s
+
+[exit 0 in 20.4s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_osiris.py)
+....................................                                     [100%]
+36 passed in 34.17s
+
+[exit 0 in 36.5s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_plugins_adapter.py)
+......................................................                   [100%]
+54 passed in 1.26s
+
+[exit 0 in 3.2s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_searxng_setup.py)
+................                                                         [100%]
+16 passed in 0.30s
+
+[exit 0 in 2.0s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_secrem_sibling_sweep.py)
+...........................................                              [100%]
+43 passed in 0.55s
+
+[exit 0 in 2.3s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_secret_never_reaches_owner_journal.py)
+...                                                                      [100%]
+3 passed in 0.52s
+
+[exit 0 in 2.4s]
+
+VERDICT: PASS 

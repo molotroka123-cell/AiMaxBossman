@@ -1,36 +1,42 @@
 node_id: module-eea9bcf7e3ac
 module: bossman.company.runtime
 path: bossman-core/bossman/company/runtime.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: ['command-center/tests/test_runtime_package_contract.py', 'command-center/tests/test_runtime_source_identity.py', 'bossman-core/tests/test_audit_p0_company_principals.py', 'bossman-core/tests/test_company_mode.py', 'bossman-core/tests/test_pass3_company_integrity.py'] (candidates=5)
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['command-center/tests/test_runtime_package_contract.py', 'command-center/tests/test_runtime_source_identity.py', 'bossman-core/tests/test_audit_p0_company_principals.py', 'bossman-core/tests/test_company_mode.py', 'bossman-core/tests/test_pass3_company_integrity.py']
 
-$ python -c "importlib.import_module('bossman.company.runtime')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bossman.company.runtime" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.]
 IMPORTED bossman.company.runtime C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/company/runtime.py
 
-[exit 0 in 0.1s]
+[exit 0 in 0.2s]
 
-$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_runtime_package_contract.py tests/test_runtime_source_identity.py)
-.............                                                            [100%]
-13 passed in 4.94s
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_runtime_package_contract.py)
+..                                                                       [100%]
+2 passed in 1.50s
 
-[exit 0 in 7.2s]
+[exit 0 in 2.9s]
 
-$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_audit_p0_company_principals.py tests/test_company_mode.py tests/test_pass3_company_integrity.py)
-...........F
-================================== FAILURES ===================================
-________________ test_runtime_denies_model_approver_end_to_end ________________
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_runtime_source_identity.py)
+...........                                                              [100%]
+11 passed in 4.04s
 
-    def test_runtime_denies_model_approver_end_to_end():
->       from tests.test_pass3_company_integrity import _plan, _task  # noqa: WPS433
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       ModuleNotFoundError: No module named 'tests.test_pass3_company_integrity'
+[exit 0 in 6.2s]
 
-tests\test_audit_p0_company_principals.py:45: ModuleNotFoundError
-=========================== short test summary info ===========================
-FAILED tests/test_audit_p0_company_principals.py::test_runtime_denies_model_approver_end_to_end
-!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
-1 failed, 11 passed in 0.49s
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_audit_p0_company_principals.py)
+............                                                             [100%]
+12 passed in 0.29s
 
-[exit 1 in 1.1s]
+[exit 0 in 1.0s]
 
-VERDICT: FAIL env_missing_dependency
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_company_mode.py)
+........................                                                 [100%]
+24 passed in 0.41s
+
+[exit 0 in 1.0s]
+
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_pass3_company_integrity.py)
+......                                                                   [100%]
+6 passed in 0.27s
+
+[exit 0 in 0.9s]
+
+VERDICT: PASS 

@@ -1,11 +1,44 @@
-== plugin-8 plugin:openrouter.chat probe=handler_live_call ==
-[plugin:openrouter.chat] error=True one_line='plugin:openrouter.chat: no credential'
-content: SKIP_EXTERNAL_CREDENTIAL: openrouter.chat — нет креда OPENROUTER_API_KEY. Побочного эффекта нет.
-performed: None -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
-VERDICT FAIL
+node_id: plugin-8
+capability: plugin:openrouter.chat
+sha: 9fc68e0d8c986ff90d1037769377598a6039c43f
 
-== plugin-8 plugin:openrouter.chat probe=approval_gate_refuses ==
-[plugin:openrouter.chat] default_effect=ask decide_effect(agent without grants)='ask' reason=по умолчанию для plugin:openrouter.chat
-NOTE: the outward effect was NOT exercised; only the approval gate was checked.
-VERDICT PASS
+$ python -c <execute_tool plugin:openrouter.chat live call> [cwd=command-center]
+CALL plugin:openrouter.chat error=False | one_line: openrouter.chat nvidia/nemotron-3-super-120b-a12b:free: 21 tok
+CONTENT: pong
+DATA: {"performed": true, "model": "nvidia/nemotron-3-super-120b-a12b:free", "local": false, "tokens_in": 24, "tokens_out": 21, "finish": "stop"}
+CALL plugin:openrouter.chat error=True | one_line: openrouter.chat blocked (paid model)
+CONTENT: blocked: плагин openrouter.chat принимает только бесплатные модели (…:free); платные идут через основной провайдер с лимитом расходов
+DATA: {}
 
+[exit 0 in 1.4s]
+
+$ (cd command-center && python -m pytest -v -rA -p no:cacheprovider --timeout=100 tests/test_leaf_plugins_real_handlers.py -k "openrouter or four_leaves or policy")
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\asd\AppData\Local\Programs\Python\Python312\python.exe
+rootdir: C:\Users\asd\Bossman\wt-green-0610\command-center
+configfile: pyproject.toml
+plugins: anyio-4.15.1, platformdirs-4.12.3, asyncio-1.4.0, cov-7.1.0, timeout-2.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 100.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 27 items / 22 deselected / 5 selected
+
+tests/test_leaf_plugins_real_handlers.py::test_the_four_leaves_have_real_handlers_not_the_stub PASSED [ 20%]
+tests/test_leaf_plugins_real_handlers.py::test_policy_ollama_github_mcp_list_are_auto_openrouter_asks PASSED [ 40%]
+tests/test_leaf_plugins_real_handlers.py::test_openrouter_refuses_paid_models_even_with_a_key PASSED [ 60%]
+tests/test_leaf_plugins_real_handlers.py::test_openrouter_without_any_key_skips_honestly PASSED [ 80%]
+tests/test_leaf_plugins_real_handlers.py::test_openrouter_chat_live_free_model PASSED [100%]
+
+=================================== PASSES ====================================
+=========================== short test summary info ===========================
+PASSED tests/test_leaf_plugins_real_handlers.py::test_the_four_leaves_have_real_handlers_not_the_stub
+PASSED tests/test_leaf_plugins_real_handlers.py::test_policy_ollama_github_mcp_list_are_auto_openrouter_asks
+PASSED tests/test_leaf_plugins_real_handlers.py::test_openrouter_refuses_paid_models_even_with_a_key
+PASSED tests/test_leaf_plugins_real_handlers.py::test_openrouter_without_any_key_skips_honestly
+PASSED tests/test_leaf_plugins_real_handlers.py::test_openrouter_chat_live_free_model
+====================== 5 passed, 22 deselected in 1.68s =======================
+
+[exit 0 in 3.0s]
+
+VERDICT: PASS 

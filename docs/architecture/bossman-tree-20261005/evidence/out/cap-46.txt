@@ -1,0 +1,36 @@
+node_id: cap-46
+module: bcc.features.resources
+path: command-center/bcc/features/resources.py
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['command-center/tests/test_metrics_async_read.py', 'command-center/tests/test_v6_resources_unmeasured.py', 'command-center/tests/test_video_studio_integration.py', 'command-center/tests/test_video_studio_recovery_races.py']
+
+$ python -c "import bcc.features.resources" [PYTHONPATH=command-center first, then command-center;bossman-core;.]
+IMPORTED bcc.features.resources C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/resources.py
+
+[exit 0 in 1.2s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_metrics_async_read.py)
+................                                                         [100%]
+16 passed in 1.06s
+
+[exit 0 in 3.3s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_v6_resources_unmeasured.py)
+......                                                                   [100%]
+6 passed in 3.50s
+
+[exit 0 in 6.2s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_video_studio_integration.py)
+..................s                                                      [100%]
+18 passed, 1 skipped in 22.86s
+
+[exit 0 in 26.1s]
+
+$ (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_video_studio_recovery_races.py)
+.......                                                                  [100%]
+7 passed in 8.65s
+
+[exit 0 in 12.0s]
+
+VERDICT: PASS 

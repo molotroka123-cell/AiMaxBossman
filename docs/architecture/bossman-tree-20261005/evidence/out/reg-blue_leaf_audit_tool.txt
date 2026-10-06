@@ -1,0 +1,18 @@
+node_id: reg-blue_leaf_audit_tool
+module: tools.blue_leaf_audit
+path: tools/blue_leaf_audit.py
+sha: d394085de749ae57c0778f158533470569b7d3e5
+test_files: ['tests/test_blue_leaf_audit.py']
+
+$ python -c "import tools.blue_leaf_audit" [PYTHONPATH=. first, then command-center;bossman-core;.]
+IMPORTED tools.blue_leaf_audit C:/Users/asd/Bossman/wt-green-0610/tools/blue_leaf_audit.py
+
+[exit 0 in 0.3s]
+
+$ (cd . && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_blue_leaf_audit.py)
+.........                                                                [100%]
+9 passed in 0.31s
+
+[exit 0 in 0.9s]
+
+VERDICT: PASS 

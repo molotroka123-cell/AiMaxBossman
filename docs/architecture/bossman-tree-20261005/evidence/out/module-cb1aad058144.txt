@@ -1,12 +1,18 @@
 node_id: module-cb1aad058144
 module: bossman.research.models
 path: bossman-core/bossman/research/models.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: [] (candidates=0)
+sha: da3ca4d381af32d708c0e1e74b184023ea992205
+test_files: ['bossman-core/tests/test_leaf_research_models.py']
 
-$ python -c "importlib.import_module('bossman.research.models')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bossman.research.models" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.]
 IMPORTED bossman.research.models C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/research/models.py
 
 [exit 0 in 0.1s]
 
-VERDICT: FAIL no_tests
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_research_models.py)
+.....                                                                    [100%]
+5 passed in 0.09s
+
+[exit 0 in 0.4s]
+
+VERDICT: PASS 

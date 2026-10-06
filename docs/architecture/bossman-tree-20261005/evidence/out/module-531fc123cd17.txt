@@ -1,12 +1,18 @@
 node_id: module-531fc123cd17
 module: bossman.profiles.subsystem
 path: bossman-core/bossman/profiles/subsystem.py
-sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
-test_files: [] (candidates=0)
+sha: da3ca4d381af32d708c0e1e74b184023ea992205
+test_files: ['bossman-core/tests/test_leaf_profiles_subsystem.py']
 
-$ python -c "importlib.import_module('bossman.profiles.subsystem')" [PYTHONPATH=command-center;bossman-core;.]
+$ python -c "import bossman.profiles.subsystem" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.]
 IMPORTED bossman.profiles.subsystem C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/profiles/subsystem.py
+
+[exit 0 in 0.8s]
+
+$ (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_profiles_subsystem.py)
+....                                                                     [100%]
+4 passed in 0.61s
 
 [exit 0 in 1.2s]
 
-VERDICT: FAIL no_tests
+VERDICT: PASS 
