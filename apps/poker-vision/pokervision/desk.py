@@ -47,7 +47,7 @@ def coach_allowed(spec: dict, adapter) -> tuple[bool, str]:
 class DeskMixin:
     # ------------------------------------------------------------ start / modes
     def start_desk(self, source: dict, adapter: str = "poker_train", desk_mode: str = "observe", seed: int = 1, sims: int = 300,
-                   max_hands: int = 40, auto_deal: bool = True, verify_timeout_s: float = 6.0, bench: dict | None = None) -> dict:
+                   max_hands: int = 40, auto_deal: bool = True, verify_timeout_s: float = 6.0, bench: dict | None = None, policy=None, policy_ctx=None) -> dict:
         if desk_mode not in DESK_MODES:
             raise ValueError(f"desk_mode: one of {DESK_MODES}")
         with self.lock:
@@ -75,7 +75,7 @@ class DeskMixin:
                 raise ValueError(f"unknown source kind {source.get('kind')!r}")
             self.rec = Reconciler(Config(stale_ms=1500))
             self.desk = {"mode": desk_mode, "paused": False, "source": dict(source), "lost": None, "window_reasons": [], "auto_deal": auto_deal,
-                         "recommendation": None, "rec_key": None, "executor": None, "verify_timeout_s": verify_timeout_s, "bench": bench or {}}
+                         "recommendation": None, "rec_key": None, "executor": None, "verify_timeout_s": verify_timeout_s, "bench": bench or {}, "policy": policy, "policy_ctx": policy_ctx}
             self.session = {"id": f"s{int(time.time())}", "mode": "desk", "adapter": adapter, "act": desk_mode == "control", "started": time.time(),
                             "path": source.get("path"), "url": source.get("url"), "source_kind": source.get("kind")}
             self._rng = random.Random(seed); self._sims = sims; self._max_hands = max_hands
@@ -226,7 +226,8 @@ class DeskMixin:
         if key == d["rec_key"]:
             return
         d["rec_key"] = key
-        rc = recommend(cm, self._rng, self._sims)
+        ctx = d["policy_ctx"]() if callable(d.get("policy_ctx")) else d.get("policy_ctx")
+        rc = recommend(cm, self._rng, self._sims, policy=d.get("policy"), ctx=ctx, review_root=self.data_dir / "poker_review")
         d["recommendation"] = rc
 
     def _control_step(self, fresh: Fresh) -> None:

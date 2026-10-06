@@ -1,0 +1,19 @@
+{
+ "seed": 20261006,
+ "spots_requested": 400,
+ "spots_kept": 400,
+ "spots_rejected": 0,
+ "examples": {
+  "train": 18553,
+  "val": 2443,
+  "test": 4518
+ },
+ "boards": {
+  "train": 290,
+  "val": 38,
+  "test": 72
+ },
+ "board_leak": [],
+ "sha256": "594922a5094d4e3f5d8e364cfa8c50ff1c1811134b986f3894f9ec2b24518b7e",
+ "format": "HU NLHE river, ranges given, abstracted bet sizes (solver.TreeConfig defaults)"
+}

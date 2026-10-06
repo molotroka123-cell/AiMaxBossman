@@ -82,9 +82,11 @@ def test_stop_ends_the_queue_immediately(make):
     svc = make("control", max_hands=10)
     assert wait_for(lambda: len(verified_actions(svc)) >= 1, 120)
     svc.stop()
-    n = len(svc.journal.read())
+    acts = lambda: len([r for r in svc.journal.read() if r.get("event") == "action"])       # no CLICK may happen after STOP (bookkeeping events may still be written)
+    n = acts()
+    assert wait_for(lambda: not svc.thread.is_alive(), 30)
     time.sleep(1.5)
-    assert len(svc.journal.read()) == n and not svc.thread.is_alive()
+    assert acts() == n
 
 
 def test_window_moved_between_actions_still_hits_the_right_button(make):
