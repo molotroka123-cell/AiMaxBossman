@@ -145,3 +145,87 @@ SearXNG OK/DOWN(причина)/NOT_CONFIGURED; DDG — OK только при H
   `bundle-acceptance.json` нет.** Что нажать владельцу — `docs/handoff/OWNER_MORNING_20261006.md`, п. 0.
 - CI Command Center на этой ветке: все последние прогоны `cancelled` (3 сессии пушат подряд, concurrency отменяет предыдущие) — завершённого вердикта CI
   по Command Center на ветке нет; нужна пауза в пушах, чтобы прогон дошёл до конца.
+
+---
+
+# ФИНАЛЬНЫЙ ОТЧЁТ (06.10.2026)
+
+Same-product Terminal Run: пульт, CLI и дашборд — один и тот же backend, данные, ключи и одобрения; ничего отдельного ночью не заводилось.
+Лестница North Star: достигнут только `SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT`. `SELF_REPAIR_SINGLE_CYCLE_PASS` **не заявляется** (самоулучшение не доказано, см. ниже);
+3-цикловых, переноса, soak и revenue-уровней нет.
+
+## 1. SHA
+**Проверенный SHA: `66c2ade506d8efcf1803f81d76aebacb99baca0c`** (ветка `goal/bossman-self-improvement-tree-20261005`, PR → main: #92).
+Коммит с этим отчётом отличается от `66c2ade5` только файлами в `docs/` (проверка: `git diff 66c2ade5 HEAD --stat -- . ':!docs'` пуст). Собирать пакет и ставить нужно ровно `66c2ade5`.
+
+## 2. CI по job'ам на точном SHA `66c2ade5`
+Push-прогоны (все success):
+| Workflow | Итог | Ссылка |
+|---|---|---|
+| root-ci (shared contracts, learning layer, tools) | success | https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37409163918 |
+| Bossman Core CI | success | https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37409163763 |
+| Command Center CI | success | https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37409163842 |
+| ASTRA acceptance | success | https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37409163847 |
+| PostgreSQL run contracts | success | https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37409163790 |
+| Solana safety gates | success | https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/37409163867 |
+
+Jobs Command Center CI (push, run 37409163842): `pytest (py3.11)` success · `pytest (py3.12)` success · `pytest (py3.14)` success · `core runtime (ubuntu)` success ·
+`core runtime (windows)` success · `windows paths (py3.12)` success · `секреты, JS, запрещённые файлы` success
+(ссылки: `…/runs/37409163842/job/112102636322`, `…636263`, `…636301`, `…636209`, `…636341`, `…636265`, `…635990`).
+
+PR-прогоны того же SHA (два набора, дубли): success — Core, ASTRA, 1.5 Economy, 1.6 Foundation, 1.6 Integration, 1.7 PIT, benchmark, Editors user safety, Fable media/Fleet,
+Local bundle, PostgreSQL, Shipped app contracts, Solana, motion studio, root-ci. **Красное, честно:**
+- `Command Center CI` (PR-вариант, run 37409168855): **failure** — 1 тест из 8137, `tests/test_web_designer_first_click_ui.py::test_one_click_selects_the_exact_node_not_its_neighbour[None]`
+  (py3.14: первый клик по iframe превью попал в `html#` до раскладки `h1`). Второй PR-прогон того же SHA (37409172336) и push-прогон — **success**. Это редкая UI-гонка, не исправлена (см. п. 8).
+- `Intelligence Preservation` (2 прогона: …/runs/37409168801, …/runs/37409172267): **failure** — штатный гейт `INSUFFICIENT_EVIDENCE: no owner-authored evidence comment on this exact commit`.
+  Это не код: нужен комментарий владельца с замером на точном коммите. Я его не подделывал и не выдаю за PASS.
+
+## 3. Артефакт Windows
+**Артефакта, sha256 и `bundle-acceptance.json` нет.** Причина: `run_workflow windows-bundle.yml` → `403 Resource not accessible by integration` (у токена интеграции нет `actions: write`);
+ветка `goal/**` не входит в push-фильтр workflow, на ней `windows-bundle` не запускался ни разу; собрать Windows-пакет на Linux нельзя. Что нажать: `docs/handoff/OWNER_MORNING_20261006.md`, п. 0
+(Actions → «One-download Windows application» → Run workflow на `66c2ade5`, или локальная сборка из 4 команд).
+
+## 4. Что влито из каких веток
+| Источник | Результат | SHA |
+|---|---|---|
+| `refs/pull/89/head` (PR #89, docs 2.1; ветки `pr89-latest` на remote уже нет) | merge, README → версия линии | `9b2318b3` |
+| `claude/bossman-freeze-closure-ohvmon` (docs) | merge | `54f0f38d` |
+| `telegram-live-calls-s7-work` `12db1299` (STOP/hangup побеждают дозвон) | cherry-pick -x (недостающее: `CallSession._dial_until_done`, замена STOP-файла) + 3 теста, падавших на линии | `ea558d2f` |
+| то же `a0087401` (DACL) / `a6a1b03b` (приёмка панели) | смысл уже был в коде; перенесены тесты (портативный DACL-тест, приёмка в Chromium, stop-all) | `ab6d6d71` |
+| `wip/*`, `handoff/continuation-20260929`, `feat/bossman-autonomy-funding`, `scratch/root-ci-debug-19` | **не влиты**; полезное выписано (чекпоинт 2) | — |
+
+## 5. Фиксы с тестами (каждый падает на старом коде, кроме отмеченного)
+- root-ci: сканер секретов (потоковое сканирование крупных текстовых журналов) + пометки на синтетических фикстурах; реестр пропусков; порядок импорта `scn_18` (`a4089ed4`).
+- Аудит #5 (`curl | sh`: привязка sha256 в диспетчере, исполняются ровно одобренные байты через stdin) — 4 теста, 3 падают на старом коде, 1 («подмена после одобрения») вхолостую без сети.
+- Аудит #3 (чужой scratch в индексе кода) — 3 теста, 2 падают на старом коде.
+- Веб-поиск Jeff (keyless-фолбэк при лежащем SearXNG, doctor показывает живой путь, отвергает бот-проверку 202) — 5 тестов; живой DuckDuckGo из облака не проверен.
+- `12db1299` порт (3 теста) · DACL-тест (портативный; с удалённым фиксом падает) · приёмка панели звонков.
+- Тестовая инфраструктура CI: `test_ux2_wizards` (рекордер тестового периода, `ci70`), `test_ux2_pages_sweep` (**реальная** гонка устаревшего DOM при переходе `images → images?studio=1`; воспроизведена задержкой fetch на 2,5 с; мой первый «фикс» с таймаутом 20 с был ошибочным диагнозом и откачен),
+  порт 8911 под `-n 4` (файловый замок, воспроизведено; без замка падает, с замком 49 passed), `test_double_submit_real_buttons` (один `dblclick` + подсчёт после networkidle; негативный контроль: без всех 4 слоёв защиты старый тест проходил, новый падает).
+- Тесты Jeff под новые решения владельца (голос по просьбе, текст первым, фильтр по сырому тексту) — версия параллельной сессии (`1eb61ae4`), моя идентичная по смыслу отброшена.
+- Параллельная сессия (`session_012Tc…`): capability-tree зоны (`d605cf18`), security lock Windows + OSS refresh (`0b9277e4`, `0c88f434`), file-intel EPUB (`46be558f`), CRLF (`6a7b9ebd`), jeff settings UI (`873459bc`),
+  **продуктовые фиксы**: stale-modal (`c38b0e96`: форма агента всплывала на чужой странице) и дубликат проекта в веб-дизайнере (`94327840`: кнопка раньше времени снова активна, пока страница перезагружается).
+
+## 6. Поправки к чекпоинтам выше (чтобы журнал не врал)
+- Чекпоинт 4: тест `test_autonomy_probes` — исправлен (версия коллеги, `1eb61ae4`).
+- Чекпоинт 6: `test_double_submit_real_buttons` — **не «среда»**, а реальная гонка продукта (исправлена `94327840`); четыре Jeff-теста — версия `1eb61ae4`, не моя; «CI Command Center — только cancelled» устарело: завершённый вердикт есть (п. 2).
+- Дважды (`c145eb36`, `1893e4c0`) я запушил с красным реестром пропусков (`tail` скрыл код возврата); исправлено следующим коммитом; в итоговом SHA реестр PASS (377 записей).
+
+## 7. Самоулучшение: **НЕ доказано**
+Нет ключей OpenRouter/NVIDIA в облаке; стаб не использовался; дефект `pit/discovery.py` (NaN первым в списке блокирует выбор через `max()`) воспроизведён и **намеренно оставлен**. Лист дерева «проверено» не получен.
+Утром: `python tools/tree_self_improve.py` (только $0-исполнители; вердикт `VERIFIED_CANDIDATE` — единственное доказательство).
+
+## 8. Открытые риски (не исправлено в `66c2ade5`)
+1. **`database is locked` в миссионных тестах** — три срабатывания за ночь: `test_golden_missions` mission_04 (`15803e95`) и mission_12 (`1893e4c0`), `test_v21_e2e_mission` (`94327840`). Ожидание весь `busy_timeout` 30 с на `UPDATE approvals/missions`.
+   В логах: `AsyncAdaptedQueuePool Exception during reset … CancelledError`. Параллельная сессия воспроизвела **утечку соединений** в `Database.session()` при многократной отмене (anyio cancel scope прерывает очистку; 30 прогонов → 50 предупреждений),
+   подготовила фикс (`asyncio.shield` + `wait_for` 10 с у очистки) и тест (3 из 4 падают на старом коде) — **не в `66c2ade5`**, в ветку пойдёт отдельным коммитом и будет **«непроверен CI»**, пока не пройдёт свой прогон.
+   Её оговорка дословно: «30-секундное удержание lock локально не воспроизведено; устраняет доказанную утечку и вероятную причину, не доказано, что чинит CI-lock». Связанная деталь: `bcc/features/tools_browser.py::close_sessions()` глотает ошибку `mark_session` через `suppress(Exception)`, при блокировке сессия браузера навсегда остаётся «running» в БД.
+   Для владельца: одобрение/запуск миссии может зависнуть до 30 с и упасть.
+2. **Редкие UI-гонки под нагрузкой раннера** (1–2 теста на ~8000, каждый раз другой): `test_web_designer_first_click_ui[None]` (py3.14, PR-вариант `66c2ade5`), `test_golden_missions`, `test_ops_terminal_browser::test_browser_sessions_close_when_their_task_ends`
+   (гонка внутри теста: `close_sessions()` сначала `stop()`, потом `mark_session`; тест-фикс у коллеги не запушен), `test_ux2_pages_sweep` (исправлено). На push-прогоне финального SHA все они зелёные.
+3. Windows lock-файл содержит `pyjwt 2.14.0` (PYSEC-2026-4141): пересобрать можно только на Windows-раннере (`windows_bundle_lock.py record`), после этого `python tools/astra_security_gate.py --component windows-bundle` должен дать PASS; в обязательный CI этот режим пока не подключён.
+4. Живой DuckDuckGo / живые звонки / голос / запуск Блокнота через пульт не проверялись (нет сети/ключей/ПК владельца).
+
+## 9. Что осталось владельцу
+Собрать и поставить пакет (п. 3, `OWNER_MORNING_20261006.md`); комментарий с замером на коммите для `Intelligence Preservation`; `bossman call setup`; запись голоса 1–3 мин; GitHub environment для секрета `BOSSMAN_OPENROUTER_API_KEY`
+(аудит #9); утренний прогон самоулучшения (п. 7); решения по веткам (`handoff/continuation-20260929`, `feat/bossman-autonomy-funding`, `scratch/root-ci-debug-19`); merge PR в `main` — только вы.

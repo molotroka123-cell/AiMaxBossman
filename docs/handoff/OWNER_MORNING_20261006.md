@@ -1,6 +1,6 @@
 # Утро 06.10.2026 — Bossman: что проверить (коротко)
 
-Ветка `goal/bossman-self-improvement-tree-20261005`, SHA на момент записи: **`@@SHA@@`**. Полный отчёт ночи: `docs/audits/2026-10-06-night-build.md`.
+Ветка `goal/bossman-self-improvement-tree-20261005`, SHA на момент записи: **`66c2ade506d8efcf1803f81d76aebacb99baca0c`**. Полный отчёт ночи: `docs/audits/2026-10-06-night-build.md`.
 Один и тот же Bossman: пульт, CLI и дашборд работают через один backend/данные/ключи/одобрения. Лестница North Star: достигнут только
 `SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT`; `SELF_REPAIR_SINGLE_CYCLE_PASS` ночью **не доказан** (см. п. 5).
 
