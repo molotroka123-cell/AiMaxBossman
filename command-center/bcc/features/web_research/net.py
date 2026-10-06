@@ -461,6 +461,8 @@ class WebFetchAdapter(osiris.HttpFetchAdapter):
                 code="content_encoding") from exc
 
         out = {str(k).lower(): str(v) for k, v in resp.headers.items()}
+        if "x-bossman-original-content-encoding" in out:  # safe_get decoded the body; the real header lives here
+            out["content-encoding"] = out.pop("x-bossman-original-content-encoding")
         allowed, why = content_encoding_ok(out)
         if not allowed:
             # C2: тело сюда доходит уже распакованным чужой библиотекой, но в

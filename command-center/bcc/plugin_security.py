@@ -261,6 +261,11 @@ async def safe_get(url: str, *, allow_private: bool = False,
                                      # aiter_bytes() already decoded the body; keeping content-encoding
                                      # makes httpx.Response decode it twice (DecodingError)
                                      "content-encoding", "transfer-encoding")}
+                # Исходную кодировку сохраняем под своим именем: потребители (web_research.net)
+                # проверяют по ней, что сервер не прислал неразрешённое сжатие.
+                for k, v in r.headers.items():
+                    if k.lower() == "content-encoding":
+                        head["x-bossman-original-content-encoding"] = v
                 if cut:
                     head["x-bossman-truncated"] = "1"
                 return httpx.Response(r.status_code, headers=head, content=b"".join(chunks))
