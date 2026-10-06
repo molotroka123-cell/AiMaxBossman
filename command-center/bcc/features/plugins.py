@@ -93,18 +93,19 @@ MANIFEST: list[Capability] = [
     Capability("ollama", "chat", "llm.local", "allow", False, "", "",
                ("127.0.0.1",), "Локальная модель через существующий провайдер-путь "
                "(cloud_policy=never; облачных вызовов нет).",
-               {"model": {"type": "string"}, "messages": {"type": "array"}},
-               ("model", "messages")),
+               {"model": {"type": "string"}, "messages": {"type": "array"},
+                "max_tokens": {"type": "integer"}}, ("model", "messages")),
     # --- cloud LLM: existing provider + Cost Governor authority, ASK ---
     Capability("openrouter", "chat", "llm.cloud.use", "ask", False, "",
                "OPENROUTER_API_KEY", ("openrouter.ai",),
                "Облачная модель через существующий провайдер + Cost Governor (ASK).",
-               {"model": {"type": "string"}, "messages": {"type": "array"}},
-               ("model", "messages")),
+               {"model": {"type": "string"}, "messages": {"type": "array"},
+                "max_tokens": {"type": "integer"}}, ("model", "messages")),
     # --- external connectors (credential-gated; read=allow, write/send=ask) ---
     Capability("github", "repo_read", "repo:read", "allow", False, "", "GITHUB_TOKEN",
-               ("api.github.com",), "Чтение репозитория (read-only).",
-               {"repo": {"type": "string"}, "path": {"type": "string"}}, ("repo",)),
+               ("api.github.com",), "Чтение публичного репозитория: метаданные, каталог, файл (read-only; токен необязателен).",
+               {"repo": {"type": "string"}, "path": {"type": "string"}, "ref": {"type": "string"}},
+               ("repo",)),
     Capability("github", "issue_create", "issues:write", "ask", False, "", "GITHUB_TOKEN",
                ("api.github.com",), "Создать issue (ASK).",
                {"repo": {"type": "string"}, "title": {"type": "string"},
@@ -346,6 +347,223 @@ async def _h_obsidian_write(args, ctx: ToolContext) -> ToolResult:
                       data={"bytes": len(content)})
 
 
+
+# --------------------------------------------------- реальные обработчики 06.10 (ollama / openrouter / github / mcp)
+# Эти четыре капабилити раньше отвечали общей заглушкой NOT_TESTED_LIVE. Теперь
+# каждая делает настоящую работу на тех же границах: фиксированные хосты, SSRF-
+# защита (safe_get), политика ALLOW/ASK и ключи — до хендлера, в движке.
+
+_OLLAMA_V1 = "http://127.0.0.1:11434/v1"          # единственный разрешённый адрес (петля)
+_OPENROUTER_V1 = "https://openrouter.ai/api/v1"   # фиксированный адрес; из аргументов не приходит
+_CHAT_ROLES = {"system", "user", "assistant"}
+_CHAT_MAX_MESSAGES = 40
+_CHAT_MAX_CHARS = 60_000
+_CHAT_MAX_TOKENS = 2048
+_MODEL_RE = _re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+ -]{0,198}$")
+_CLOUD_TAG_RE = _re.compile(r"(?i)[:-]cloud\b")
+
+
+def _validated_chat(args) -> tuple[str, list[dict], int] | str:
+    """(model, messages, max_tokens) либо строка-причина отказа."""
+    model = args.get("model")
+    if not isinstance(model, str) or not _MODEL_RE.match(model.strip()):
+        return "model: нужна строка-идентификатор модели"
+    msgs = args.get("messages")
+    if not isinstance(msgs, list) or not msgs or len(msgs) > _CHAT_MAX_MESSAGES:
+        return f"messages: непустой список, не более {_CHAT_MAX_MESSAGES}"
+    clean: list[dict] = []
+    total = 0
+    for m in msgs:
+        if not isinstance(m, dict) or m.get("role") not in _CHAT_ROLES or not isinstance(m.get("content"), str):
+            return "messages: каждый элемент = {role: system|user|assistant, content: str}"
+        total += len(m["content"])
+        clean.append({"role": m["role"], "content": m["content"]})
+    if total > _CHAT_MAX_CHARS:
+        return f"messages: суммарно не более {_CHAT_MAX_CHARS} символов"
+    try:
+        mt = int(args.get("max_tokens") or 512)
+    except (TypeError, ValueError):
+        return "max_tokens: целое число"
+    return model.strip(), clean, max(1, min(mt, _CHAT_MAX_TOKENS))
+
+
+async def _chat_via_provider(label: str, base_url: str, api_key: str | None, model: str,
+                             messages: list[dict], max_tokens: int, *, local: bool) -> ToolResult:
+    from .. import providers as _prov
+    try:
+        adapter = _prov.build_adapter("openai_compat", base_url, api_key)
+        res = await adapter.chat(model, messages, max_tokens=max_tokens, temperature=0.2, timeout=90.0)
+    except _prov.ProviderError as exc:
+        return ToolResult(content=f"{label}: {exc}", one_line=f"{label}: provider error", error=True,
+                          data={"performed": False})
+    except Exception as exc:                         # noqa: BLE001 — сеть/SDK: данные, не падение
+        return ToolResult(content=f"{label}: {type(exc).__name__}", one_line=f"{label}: error",
+                          error=True, data={"performed": False})
+    text = redact(res.text or "", secret_values=_known_secret_values() | ({api_key} if api_key else set()))
+    if not text:
+        return ToolResult(content=f"{label}: модель вернула пустой ответ", one_line=f"{label}: empty",
+                          error=True, data={"performed": False})
+    return ToolResult(content=text, one_line=f"{label} {res.model or model}: {res.tokens_out} tok",
+                      external=True,
+                      data={"performed": True, "model": res.model or model, "local": local,
+                            "tokens_in": res.tokens_in, "tokens_out": res.tokens_out, "finish": res.finish})
+
+
+async def _h_ollama_chat(args, ctx: ToolContext) -> ToolResult:
+    v = _validated_chat(args)
+    if isinstance(v, str):
+        return ToolResult(content=f"blocked: {v}", one_line="ollama.chat blocked", error=True)
+    model, messages, max_tokens = v
+    # Ollama маркирует облачные модели суффиксом `-cloud`/`:cloud`: плагин объявлен
+    # как cloud_policy=never, облако через него не ходит.
+    if _CLOUD_TAG_RE.search(model):
+        return ToolResult(content="blocked: облачные модели Ollama запрещены этим плагином (cloud_policy=never)",
+                          one_line="ollama.chat blocked (cloud)", error=True)
+    return await _chat_via_provider("ollama.chat", _OLLAMA_V1, None, model, messages, max_tokens, local=True)
+
+
+async def _openrouter_key(svc) -> str | None:
+    """Ключ: файл ключей владельца → хранилище/окружение (тот же порядок, что у cloud-worker)."""
+    try:
+        from .coding_tasks import _worker_key
+        return await _worker_key("OPENROUTER_API_KEY", svc)
+    except Exception:                                # noqa: BLE001
+        return await resolve_cred("OPENROUTER_API_KEY", svc)
+
+
+async def _h_openrouter_chat(args, ctx: ToolContext) -> ToolResult:
+    v = _validated_chat(args)
+    if isinstance(v, str):
+        return ToolResult(content=f"blocked: {v}", one_line="openrouter.chat blocked", error=True)
+    model, messages, max_tokens = v
+    # Этот адаптер — бесплатный путь: платные модели идут только через основной
+    # провайдер с Cost Governor и бюджетом. Здесь деньги не тратятся никогда.
+    if not model.endswith(":free"):
+        return ToolResult(content="blocked: плагин openrouter.chat принимает только бесплатные модели (…:free); "
+                                  "платные идут через основной провайдер с лимитом расходов",
+                          one_line="openrouter.chat blocked (paid model)", error=True)
+    key = await _openrouter_key(getattr(ctx, "svc", None))
+    if not key:
+        return _skip_no_cred(next(c for c in MANIFEST if c.tool_name == "plugin:openrouter.chat"))
+    return await _chat_via_provider("openrouter.chat", _OPENROUTER_V1, key, model, messages, max_tokens, local=False)
+
+
+_GH_REPO_RE = _re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
+_GH_REF_RE = _re.compile(r"^[A-Za-z0-9_./-]{1,200}$")
+_GH_FILE_LIMIT = 200_000
+
+
+def _gh_path_ok(path: str) -> bool:
+    if len(path) > 300 or "\\" in path or "\x00" in path:
+        return False
+    return all(seg not in ("", ".", "..") for seg in path.split("/")) if path else True
+
+
+async def _h_github_repo_read(args, ctx: ToolContext) -> ToolResult:
+    """Чтение публичного репозитория через api.github.com (только GET).
+
+    Токен не обязателен: публичные репозитории читаются анонимно (лимит GitHub ниже).
+    Если GITHUB_TOKEN задан, он уходит только на api.github.com — allowed_hosts
+    запрещает любой redirect на другой хост, так что заголовок не утечёт."""
+    import base64
+    import json as _json
+    from urllib.parse import quote
+    repo = str(args.get("repo") or "").strip()
+    path = str(args.get("path") or "").strip().strip("/")
+    ref = str(args.get("ref") or "").strip()
+    if not _GH_REPO_RE.match(repo) or not _gh_path_ok(path) or (ref and not _GH_REF_RE.match(ref)):
+        return ToolResult(content="blocked: repo = owner/name, path без '..', ref — имя ветки/тега",
+                          one_line="github.repo_read blocked", error=True)
+    url = f"https://api.github.com/repos/{repo}" + (f"/contents/{quote(path)}" if path else "")
+    if ref and path:
+        url += f"?ref={quote(ref, safe='')}"
+    headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+    token = (os.environ.get("GITHUB_TOKEN") or "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    try:
+        r = await safe_get(url, allowed_hosts={"api.github.com"}, max_bytes=2_000_000,
+                           timeout=20.0, headers=headers)
+    except PluginSecurityError as exc:
+        return ToolResult(content=f"blocked: {exc}", one_line=f"github.repo_read blocked: {exc}", error=True)
+    except Exception as exc:                         # noqa: BLE001 — сеть: данные, не падение
+        return ToolResult(content=f"github.repo_read: {type(exc).__name__}", one_line="github.repo_read error", error=True)
+    if r.status_code != 200:
+        why = {404: "не найдено (репозиторий/путь)", 403: "доступ/лимит GitHub (rate limit)",
+               401: "токен отклонён", 429: "лимит запросов GitHub"}.get(r.status_code, f"HTTP {r.status_code}")
+        return ToolResult(content=f"github.repo_read: {why}", one_line=f"github.repo_read {r.status_code}",
+                          error=True, data={"status": r.status_code})
+    try:
+        body = r.json()
+    except ValueError:
+        return ToolResult(content="github.repo_read: ответ не JSON", one_line="github.repo_read bad body", error=True)
+    secrets = _known_secret_values()
+    if isinstance(body, list):                       # каталог
+        items = [{"name": str(i.get("name")), "type": str(i.get("type")), "size": i.get("size")}
+                 for i in body[:500] if isinstance(i, dict)]
+        text = redact(_json.dumps(items, ensure_ascii=False), secret_values=secrets)
+        return ToolResult(content=text, one_line=f"github.repo_read {repo}/{path}: {len(items)} entries",
+                          external=True, data={"kind": "dir", "entries": items})
+    if not isinstance(body, dict):
+        return ToolResult(content="github.repo_read: неожиданная форма ответа", one_line="github.repo_read bad body", error=True)
+    if body.get("type") == "file":                   # файл
+        if body.get("encoding") != "base64" or int(body.get("size") or 0) > _GH_FILE_LIMIT * 4:
+            return ToolResult(content="github.repo_read: файл слишком большой или без base64-содержимого",
+                              one_line="github.repo_read too large", error=True, data={"size": body.get("size")})
+        try:
+            raw = base64.b64decode(str(body.get("content") or ""))
+        except (ValueError, TypeError):
+            return ToolResult(content="github.repo_read: повреждённое содержимое", one_line="github.repo_read bad body", error=True)
+        text = redact(raw.decode("utf-8", "replace")[:_GH_FILE_LIMIT], secret_values=secrets)
+        return ToolResult(content=text, one_line=f"github.repo_read {repo}/{path}: {len(raw)} bytes",
+                          external=True, data={"kind": "file", "size": len(raw), "sha": body.get("sha")})
+    meta = {k: body.get(k) for k in ("full_name", "description", "default_branch", "private", "language",
+                                     "stargazers_count", "forks_count", "pushed_at", "license")}
+    if isinstance(meta.get("license"), dict):
+        meta["license"] = meta["license"].get("spdx_id")
+    text = redact(_json.dumps(meta, ensure_ascii=False), secret_values=secrets)
+    return ToolResult(content=text, one_line=f"github.repo_read {repo}", external=True,
+                      data={"kind": "repo", "meta": meta})
+
+
+async def _h_mcp_tool_list(args, ctx: ToolContext) -> ToolResult:
+    """Инструменты УЖЕ настроенного MCP-сервера (имя из таблицы mcp_servers).
+
+    Произвольную команду плагин запустить не может: сервер берётся только из
+    настроенных, а launch_refusal (allowlist бинарников) применяется перед
+    стартом процесса — те же правила, что у обычного connect."""
+    svc = getattr(ctx, "svc", None)
+    name = str(args.get("server") or "").strip()
+    if svc is None or not name:
+        return ToolResult(content="blocked: нужен server (имя настроенного MCP-сервера) и сервисы Command Center",
+                          one_line="mcp.tool_list blocked", error=True)
+    from fastapi import HTTPException
+    from . import tools_mcp as _m
+    try:
+        row = await _m._server_row(svc, name, by_name=True)
+    except HTTPException:
+        return ToolResult(content=f"blocked: MCP-сервер {name!r} не настроен", one_line="mcp.tool_list unknown server", error=True)
+    if not row.get("enabled", True):
+        return ToolResult(content=f"blocked: MCP-сервер {name!r} выключен", one_line="mcp.tool_list disabled", error=True)
+    spec = _m._spec_from_row(row)
+    refusal = _m.launch_refusal(spec)
+    if refusal:
+        return ToolResult(content=f"blocked: {refusal}", one_line="mcp.tool_list blocked (allowlist)", error=True)
+    rt = _m.runtime_of(svc)
+    try:
+        await rt.ensure(spec)
+        views = await rt.list_tools(spec.id)
+    except (_m.MCPUnavailable, _m.MCPCallError) as exc:
+        return ToolResult(content=f"MCP-сервер {name} недоступен: {exc}", one_line="mcp.tool_list unavailable", error=True)
+    tools = [{"name": _m.sanitize_text(v.name, 120),
+              "description": _m.untrusted_description(spec.id, v.name, getattr(v, "description", ""))}
+             for v in views[:200]]
+    import json as _json
+    return ToolResult(content=_json.dumps(tools, ensure_ascii=False)[:_m.MCP_OUTPUT_LIMIT],
+                      one_line=f"mcp.tool_list {name}: {len(tools)} tools", external=True,
+                      data={"server": name, "tools": [t["name"] for t in tools]})
+
+
 async def _h_generic_external(cap: Capability):
     async def handler(args, ctx: ToolContext) -> ToolResult:
         if await resolve_cred(cap.credential_ref, getattr(ctx, "svc", None)) is None:
@@ -372,6 +590,14 @@ def _handler_for(cap: Capability):
         return _h_obsidian_read
     if cap.tool_name == "plugin:obsidian.write":
         return _h_obsidian_write
+    if cap.tool_name == "plugin:ollama.chat":
+        return _h_ollama_chat
+    if cap.tool_name == "plugin:openrouter.chat":
+        return _h_openrouter_chat
+    if cap.tool_name == "plugin:github.repo_read":
+        return _h_github_repo_read
+    if cap.tool_name == "plugin:mcp.tool_list":
+        return _h_mcp_tool_list
     # остальные — generic (credential-gated / ready), политика решает эффект
     return None  # заполняется в setup через фабрику (нужен cap в замыкании)
 
