@@ -53,8 +53,16 @@ def main(argv: list[str] | None = None) -> int:
     if a.worker != "template":
         print("REFUSED: в этой сборке подключён только worker=template; модель подключается на ПК владельца через Bossman")
         return 3
-    text = a.listing_file.read_text(encoding="utf-8") if a.listing_file else fetch(a.fetch)
-    rec = em.run(text, a.source or (a.fetch or str(a.listing_file)), worker_name=a.worker, ledger=a.ledger)
+    try:
+        text = a.listing_file.read_text(encoding="utf-8") if a.listing_file else fetch(a.fetch)
+    except (OSError, UnicodeDecodeError, ValueError) as exc:   # URLError is an OSError
+        print(f"ERROR: не удалось прочитать вакансию: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 4
+    try:
+        rec = em.run(text, a.source or (a.fetch or str(a.listing_file)), worker_name=a.worker, ledger=a.ledger)
+    except OSError as exc:
+        print(f"ERROR: не удалось записать журнал {a.ledger}: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 4
     print(json.dumps({k: rec[k] for k in ("verdict", "title", "kind", "invoice", "reasons", "real_money", "SIMULATED")}, ensure_ascii=False))
     return 0 if rec["verdict"] == "SIMULATED_DONE" else 2
 

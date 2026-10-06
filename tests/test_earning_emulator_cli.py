@@ -46,3 +46,35 @@ def test_fetch_accepts_only_http_urls():
     for bad in ("file:///etc/passwd", "ftp://x/y", "javascript:alert(1)"):
         with pytest.raises(ValueError):
             cli.fetch(bad)
+
+
+def test_unreadable_input_is_a_clear_error_not_a_traceback(tmp_path, capsys):
+    """Missing/undecodable listing, a non-http --fetch URL and an unwritable ledger exit 4 with a message."""
+    led = tmp_path / "led.jsonl"
+    binary = tmp_path / "bin.txt"
+    binary.write_bytes(b"\xff\xfe\x00not utf-8")
+    good = tmp_path / "l.txt"
+    good.write_text("Remote QA Tester\nTest our web app for 10 hours of testing, $20/hr. Write bug reports.", encoding="utf-8")
+    cases = [
+        ["--listing-file", str(tmp_path / "missing.txt"), "--ledger", str(led)],
+        ["--listing-file", str(binary), "--ledger", str(led)],
+        ["--listing-file", str(tmp_path), "--ledger", str(led)],
+        ["--fetch", "file:///etc/passwd", "--ledger", str(led)],
+        ["--listing-file", str(good), "--ledger", str(tmp_path)],          # the ledger path is a directory
+    ]
+    for argv in cases:
+        assert cli.main(argv) == 4, argv
+        err = capsys.readouterr().err
+        assert err.startswith("ERROR:"), (argv, err)
+    assert not led.exists()
+
+
+def test_a_network_failure_on_fetch_is_a_clear_error(tmp_path, capsys, monkeypatch):
+    import urllib.error
+
+    def offline(url):
+        raise urllib.error.URLError("offline")
+
+    monkeypatch.setattr(cli, "fetch", offline)
+    assert cli.main(["--fetch", "https://example.invalid/job", "--ledger", str(tmp_path / "led.jsonl")]) == 4
+    assert capsys.readouterr().err.startswith("ERROR:")

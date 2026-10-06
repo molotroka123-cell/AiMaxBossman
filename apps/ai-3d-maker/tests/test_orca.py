@@ -135,6 +135,26 @@ def test_missing_orca_is_capability_unavailable(cube_stl, tmp_path):
         orca.slice(cube_stl, PRINTER, PROCESS, FILAMENT, tmp_path / "out", orca=tmp_path / "no-orca.exe")
 
 
+def test_locating_orca_without_a_home_directory_does_not_crash(monkeypatch, tmp_path):
+    """A service / sandbox environment may have no HOME or USERPROFILE.
+
+    Path.home() then raises RuntimeError on Windows; locating Orca (and with it
+    the whole `capabilities` probe) must degrade to "not found", not crash.
+    """
+    def no_home():
+        raise RuntimeError("Could not determine home directory.")
+
+    monkeypatch.setattr(orca.Path, "home", staticmethod(no_home))
+    monkeypatch.delenv(orca.ORCA_ENV, raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.setenv("ProgramFiles", str(tmp_path / "no-program-files"))
+    assert orca.locate_orca() is None
+    exe = tmp_path / "orca-slicer.exe"
+    exe.write_bytes(b"")
+    monkeypatch.setenv(orca.ORCA_ENV, str(exe))
+    assert orca.locate_orca() == exe.resolve()
+
+
 def test_cli_reports_errors_as_json_with_nonzero_exit(tmp_path, capsys):
     code = orca.main(["slice", str(tmp_path / "nope.stl"), "--printer", "p", "--process", "q",
                       "--filament", "f", "--out", str(tmp_path / "o")])

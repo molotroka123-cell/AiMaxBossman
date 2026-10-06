@@ -76,7 +76,7 @@ def resource_snapshot() -> dict:
     }
     try:
         data["load_average"] = [round(v, 2) for v in os.getloadavg()]
-    except OSError:  # pragma: no cover - platform without loadavg
+    except (OSError, AttributeError):  # Windows has no os.getloadavg at all
         pass
     try:
         import psutil  # type: ignore

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -219,13 +220,26 @@ def test_the_package_imports_without_optional_dependencies():
     assert "OK" in proc.stdout
 
 
-def test_cli_capabilities_runs_as_a_subprocess(tmp_path):
+def _minimal_env(data_dir) -> dict:
+    """A deliberately minimal child environment.
+
+    On Windows the interpreter cannot even import asyncio without SYSTEMROOT
+    (WinSock init fails with WinError 10106), so that one variable is carried
+    over there; nothing else from the parent leaks in.
+    """
     env = {
         "PATH": "/usr/bin:/bin:/usr/local/bin",
         "PYTHONPATH": str(SRC),
-        "AI3D_DATA_DIR": str(tmp_path / "data"),
+        "AI3D_DATA_DIR": str(data_dir),
         "AI3D_PRINTER_PROFILE": str(APP_ROOT / "profiles" / "elegoo_neptune_3_plus.json"),
     }
+    if os.name == "nt":
+        env["SYSTEMROOT"] = os.environ.get("SYSTEMROOT", r"C:\Windows")
+    return env
+
+
+def test_cli_capabilities_runs_as_a_subprocess(tmp_path):
+    env = _minimal_env(tmp_path / "data")
     proc = subprocess.run(
         [sys.executable, "-m", "ai_3d_maker.main", "capabilities"],
         capture_output=True, text=True, env=env, timeout=120,
@@ -237,12 +251,7 @@ def test_cli_capabilities_runs_as_a_subprocess(tmp_path):
 
 
 def _cli(tmp_path, *args, data_dir: str | None = None) -> subprocess.CompletedProcess:
-    env = {
-        "PATH": "/usr/bin:/bin:/usr/local/bin",
-        "PYTHONPATH": str(SRC),
-        "AI3D_DATA_DIR": data_dir or str(tmp_path / "data"),
-        "AI3D_PRINTER_PROFILE": str(APP_ROOT / "profiles" / "elegoo_neptune_3_plus.json"),
-    }
+    env = _minimal_env(data_dir or str(tmp_path / "data"))
     return subprocess.run(
         [sys.executable, "-m", "ai_3d_maker.main", *args],
         capture_output=True, text=True, env=env, timeout=300,

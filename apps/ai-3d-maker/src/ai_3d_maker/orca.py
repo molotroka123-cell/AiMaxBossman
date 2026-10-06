@@ -81,11 +81,13 @@ def _candidates() -> list[Path]:
         found = shutil.which(name)
         if found:
             out.append(Path(found))
-    home = Path.home()
-    out += [
-        home / "Bossman" / "apps-local" / "OrcaSlicer" / "orca-slicer.exe",
-        Path(os.getenv("ProgramFiles") or r"C:\Program Files") / "OrcaSlicer" / "orca-slicer.exe",
-    ]
+    try:
+        home: Path | None = Path.home()
+    except RuntimeError:  # no HOME/USERPROFILE (service or sandbox env): skip the per-user install
+        home = None
+    if home is not None:
+        out.append(home / "Bossman" / "apps-local" / "OrcaSlicer" / "orca-slicer.exe")
+    out.append(Path(os.getenv("ProgramFiles") or r"C:\Program Files") / "OrcaSlicer" / "orca-slicer.exe")
     return out
 
 
