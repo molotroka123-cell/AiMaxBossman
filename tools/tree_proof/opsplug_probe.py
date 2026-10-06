@@ -33,6 +33,7 @@ OUT = EVID / "out"
 PY = sys.executable
 PKG_DIRS = {"command-center": "command-center", "bossman-core": "bossman-core", ".": "."}
 TEST_DIRS = [("command-center", "command-center/tests"), ("bossman-core", "bossman-core/tests"), (".", "tests")]
+PLAN_FILE = ROOT / "tools/tree_proof/opsplug_plan.json"
 PER_FILE_CAP = 105
 MAX_FILES = 8
 SECRET_RE = re.compile(r"(KEY|TOKEN|SECRET|PASSWORD|PROXY|CREDENTIAL)", re.I)
@@ -46,12 +47,17 @@ def head() -> str:
     return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
 
 
-def env_for(tmp: str, first: str) -> dict:
+def env_for(tmp: str, first: str, exclusive: bool = False) -> dict:
+    """bossman-core tests import helpers as `tests.<name>`; command-center/tests is a regular package and
+    would shadow bossman-core's namespace `tests`, so those tests run with command-center OFF the path."""
     env = {k: v for k, v in os.environ.items() if not SECRET_RE.search(k)}
     order = [first] + [d for d in ("command-center", "bossman-core", ".") if d != first]
+    if exclusive and first == "bossman-core":
+        order = ["bossman-core", "."]
     env.update(PYTHONPATH=os.pathsep.join(str(ROOT / d) for d in order), PYTHONIOENCODING="utf-8",
                PYTHONUTF8="1", LOCALAPPDATA=tmp, APPDATA=tmp, BCC_DATA_DIR=tmp, BOSSMAN_DATA_DIR=tmp,
-               PYTHONDONTWRITEBYTECODE="1", NO_PROXY="*")
+               PYTHONDONTWRITEBYTECODE="1", NO_PROXY="*", WORKSPACE_DIR=tmp,
+               BOSSMAN_COST_DB=str(Path(tmp) / "cost.db"), BOSSMAN_NOTIFICATION_DB=str(Path(tmp) / "notif.db"))
     return env
 
 
@@ -77,6 +83,11 @@ def find_tests(dotted: str, path: str):
                                + re.escape(name) + r"\b"))
     if path.startswith("tools/"):       # tools/x.py is also imported by file location in tests
         pats.append(re.compile(r"tools[\"'/\\ ,)]+\s*" + re.escape(name) + r"\.py|import\s+" + re.escape(name) + r"\b"))
+    GENERIC = {"routes", "models", "subsystem", "service", "runtime", "engine", "brain", "bridge", "resources",
+               "storage", "tasks", "verify", "reasoning", "workflow", "dataset", "toolbox", "office", "strategy"}
+    if len(name) >= 8 and name not in GENERIC and not path.startswith("tools/"):
+        # a distinctive module name used as a whole word (route prefix, import, endpoint) is a reference too
+        pats.append(re.compile(r"(?<![\w])" + re.escape(name) + r"(?![\w])"))
     found = {}
     for cwd, d in TEST_DIRS:
         base = ROOT / d
@@ -105,6 +116,15 @@ def run(cmd, cwd, env, cap):
         return 124, out + f"\n[TIMEOUT after {cap}s]\n", cap
 
 
+def load_plan() -> dict:
+    """node id -> {"tests": [explicit 'cwd:path'], "add": [extra 'cwd:path'], "note": why}. Explicit 'tests' replace
+    auto-discovery (used only to skip files that cannot run inside the 105s/command cap, with the reason in 'note')."""
+    try:
+        return json.loads(PLAN_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
 def probe(node, sha, extra, deselect):
     nid = node["id"]
     path = node["sources"][0]["path"] if isinstance(node["sources"][0], dict) else node["sources"][0]
@@ -113,7 +133,14 @@ def probe(node, sha, extra, deselect):
     tmp = tempfile.mkdtemp(prefix="opsplug_")
     log, cmds, reason, verdict = [], [], "", "FAIL"
     rootp = str(ROOT).replace("\\", "/")
-    if dotted.startswith("tools."):
+    if dotted.endswith(".__main__"):
+        parent = dotted.rsplit(".", 1)[0]
+        code = ("import importlib,sys,subprocess;m=importlib.import_module(%r);f=m.__file__.replace(chr(92),'/');"
+                "print('IMPORTED',%r,f);ok=f.lower().startswith(%r.lower());"
+                "r=subprocess.run([sys.executable,'-m',%r,'--help'],capture_output=True,text=True);"
+                "print('python -m',%r,'--help exit',r.returncode);sys.exit(0 if ok and r.returncode==0 else 3)"
+                ) % (parent, dotted, rootp, parent, parent)
+    elif dotted.startswith("tools."):
         code = ("import importlib.util,sys;sp=importlib.util.spec_from_file_location(%r,%r);m=importlib.util.module_from_spec(sp);"
                 "sys.modules[%r]=m;sp.loader.exec_module(m);f=m.__file__.replace(chr(92),'/');print('IMPORTED',%r,f);"
                 "sys.exit(0 if f.lower().startswith(%r.lower()) else 3)") % (dotted, str(ROOT / path), dotted, dotted, rootp)
@@ -124,10 +151,16 @@ def probe(node, sha, extra, deselect):
     rc, out, dt = run([PY, "-c", code], str(ROOT), env_for(tmp, pdir), 60)
     log.append(f"$ {cmds[-1]}\n{out}\n[exit {rc} in {dt}s]\n")
     exit_code, tests, passed, failed_any = rc, [], 0, False
+    plan = load_plan().get(nid, {})
     if rc != 0:
         reason = "import_outside_checkout" if rc == 3 else ("import_timeout" if rc == 124 else "import_failed")
     else:
-        tests = [(ROOT / p, c) for p, c in extra.get(nid, [])] or find_tests(dotted, path)[:MAX_FILES]
+        if plan.get("tests"):
+            tests = [(ROOT / x.split(":", 1)[1], x.split(":", 1)[0]) for x in plan["tests"]]
+        else:
+            tests = [(ROOT / p, c) for p, c in extra.get(nid, [])] or find_tests(dotted, path)[:MAX_FILES]
+            tests += [(ROOT / x.split(":", 1)[1], x.split(":", 1)[0]) for x in plan.get("add", [])
+                      if (ROOT / x.split(":", 1)[1]) not in {t for t, _ in tests}]
         if not tests:
             reason = "no_tests"
         for f, cwd in tests:
@@ -138,7 +171,7 @@ def probe(node, sha, extra, deselect):
             shown = f"(cd {cwd} && python -m pytest -q --timeout=60 -p no:cacheprovider {rel}" + \
                 "".join(f" --deselect {d}" for d in deselect.get(nid, [])) + ")"
             cmds.append(shown)
-            rc2, out2, dt2 = run(cmd, str(ROOT / cwd), env_for(tmp, PKG_DIRS[cwd]), PER_FILE_CAP)
+            rc2, out2, dt2 = run(cmd, str(ROOT / cwd), env_for(tmp, PKG_DIRS[cwd], exclusive=True), PER_FILE_CAP)
             log.append(f"$ {shown}\n{out2}\n[exit {rc2} in {dt2}s]\n")
             exit_code = rc2
             m = re.search(r"(\d+) passed", out2)
@@ -155,7 +188,8 @@ def probe(node, sha, extra, deselect):
             else:
                 reason = "all_skipped_or_zero_collected"
     text = (f"node_id: {nid}\nmodule: {dotted}\npath: {path}\nsha: {sha}\n"
-            f"test_files: {[os.path.relpath(f, ROOT).replace(chr(92), '/') for f, _ in tests]}\n\n"
+            f"test_files: {[os.path.relpath(f, ROOT).replace(chr(92), '/') for f, _ in tests]}\n"
+            + (f"plan_note: {plan['note']}\n" if plan.get("note") else "") + "\n"
             + "\n".join(log) + f"\nVERDICT: {verdict} {reason}\n")
     OUT.mkdir(parents=True, exist_ok=True)
     data = text.encode("utf-8")

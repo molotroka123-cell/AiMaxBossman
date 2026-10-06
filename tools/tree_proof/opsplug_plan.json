@@ -1,0 +1,180 @@
+{
+ "module-73976a1cf54d": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_apprentice_bootstrap.py"
+  ]
+ },
+ "mod-benchlab": {
+  "tests": [
+   "command-center:command-center/tests/test_leaf_benchlab.py",
+   "command-center:command-center/tests/test_feat_bench_opencode.py"
+  ],
+  "note": "existing endpoint test test_feat_bench_opencode.py references /api/benchmarks (this module's routes)"
+ },
+ "mod-jeff_insights": {
+  "tests": [
+   "command-center:command-center/tests/test_leaf_jeff_insights.py",
+   "command-center:command-center/tests/test_jeff_2_insights.py"
+  ],
+  "note": "existing test_jeff_2_insights.py references this module and its /jeff-insights endpoints"
+ },
+ "mod-workflow": {
+  "tests": [
+   "command-center:command-center/tests/test_leaf_workflow.py",
+   "command-center:command-center/tests/test_feat_workflow.py"
+  ],
+  "note": "existing test_feat_workflow.py references /api/workflow endpoints (this module's routes)"
+ },
+ "module-d3f5977af5ba": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_benchmark_sandbox_row.py"
+  ]
+ },
+ "module-ff7440d8b674": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_benchmark_main.py"
+  ]
+ },
+ "module-dadaec7d827b": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_benchmark_power.py",
+   "bossman-core:bossman-core/tests/test_benchmark_runtime.py",
+   "bossman-core:bossman-core/tests/test_benchmark_truth.py"
+  ],
+  "note": "tests/test_benchmark_gate.py excluded: 112s (> per-command cap) and 4/7 fail only because the shared worktree HEAD moved during the run (ShaMismatch race with concurrent committers); the earlier by-name matches test_engine_* belong to bcc.engine, not this module"
+ },
+ "module-028fe7482116": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_cybersec_integration.py",
+   "bossman-core:bossman-core/tests/test_cybersec_v1.py",
+   "bossman-core:bossman-core/tests/test_benchmark_power.py"
+  ],
+  "note": "tests/test_benchmark_gate.py excluded: 112s (> per-command cap) and fails only through the shared-worktree HEAD race (ShaMismatch)"
+ },
+ "module-6e615a668c7b": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_cost_control_routes.py"
+  ]
+ },
+ "module-df0754d72d22": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_cost_control_subsystem.py"
+  ]
+ },
+ "module-7280885daae5": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_dev_factory_routes.py"
+  ]
+ },
+ "module-725a466f4b8f": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_notifications_bridge.py"
+  ]
+ },
+ "module-45ef5a5cbb02": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_notifications_routes.py"
+  ]
+ },
+ "module-aaff14c2d261": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_notifications_subsystem.py"
+  ]
+ },
+ "module-531fc123cd17": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_profiles_subsystem.py"
+  ]
+ },
+ "module-5bfdc6603e86": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_remote_client_subsystem.py"
+  ]
+ },
+ "module-cb1aad058144": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_research_models.py"
+  ]
+ },
+ "module-0ef2333ef23c": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_resource_brain_brain.py",
+   "bossman-core:bossman-core/tests/test_resource_brain.py"
+  ]
+ },
+ "module-22827787ecc5": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_resource_brain_models.py",
+   "bossman-core:bossman-core/tests/test_resource_brain.py"
+  ]
+ },
+ "module-fe0ffb0d2f88": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_resource_brain_routes.py"
+  ]
+ },
+ "module-5fcedb9e4e99": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_resource_brain_subsystem.py",
+   "bossman-core:bossman-core/tests/test_resource_brain.py"
+  ]
+ },
+ "module-abd99037a01e": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_sandbox_dataset.py",
+   "bossman-core:bossman-core/tests/test_sandbox_core.py"
+  ]
+ },
+ "module-a11338c485f5": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_sandbox_resources.py",
+   "bossman-core:bossman-core/tests/test_sandbox_core.py"
+  ]
+ },
+ "module-1622458b008a": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_sandbox_routes.py",
+   "bossman-core:bossman-core/tests/test_sandbox_core.py"
+  ]
+ },
+ "module-0dc288edd324": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_sandbox_toolbox.py",
+   "bossman-core:bossman-core/tests/test_sandbox_core.py"
+  ]
+ },
+ "module-e11418351fd7": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_search_everything_connectors.py",
+   "bossman-core:bossman-core/tests/test_search_everything.py"
+  ]
+ },
+ "module-5579b793e038": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_search_everything_service.py",
+   "bossman-core:bossman-core/tests/test_search_everything.py"
+  ]
+ },
+ "module-59f6fbe27bd5": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_toolkit_proc.py"
+  ]
+ },
+ "module-ae9598734759": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_toolkit_office.py"
+  ]
+ },
+ "module-a71668fad443": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_video_factory_routes.py",
+   "bossman-core:bossman-core/tests/test_video_factory.py"
+  ]
+ },
+ "module-f21597ba1fd6": {
+  "tests": [
+   "bossman-core:bossman-core/tests/test_leaf_video_factory_subsystem.py",
+   "bossman-core:bossman-core/tests/test_video_factory.py"
+  ]
+ }
+}
