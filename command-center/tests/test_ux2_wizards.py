@@ -121,7 +121,9 @@ class Guard:
             if method == 'GET' and path in fixtures:
                 return await JSONResponse(fixtures[path])(scope,receive,send)
             allowed = method == 'GET' and (path in get_allowed or path == '/api/objectives/ux-wizard-synthetic')
-            allowed |= method == 'POST' and path in {'/api/login','/api/objectives/preview','/api/objectives'}
+            # '/api/testing/log' is the testing-period recorder (on by default) flushing its click log every 4 s from the page itself, not a wizard
+            # action: on a slow runner the wizard takes longer than one flush and the guard flagged it (CI py3.11 + py3.14, 2026-10-05).
+            allowed |= method == 'POST' and path in {'/api/login','/api/objectives/preview','/api/objectives','/api/testing/log'}
             if allowed and method == 'POST' and path == '/api/objectives':
                 from starlette.requests import Request
                 request = Request(scope, receive)
@@ -292,7 +294,9 @@ def objective_field(modal, label):
 
 
 def mutations(server):
-    return [r for r in server.get('/api/__ux_guard')['requests'] if r['method'] != 'GET' and r['path'] != '/api/login']
+    # the testing-period recorder's own click-log flush is page infrastructure, not a wizard mutation (see the Guard allowlist)
+    return [r for r in server.get('/api/__ux_guard')['requests']
+            if r['method'] != 'GET' and r['path'] not in ('/api/login', '/api/testing/log')]
 
 
 def test_model_wizard_validation_back_cancel(ui, server):
