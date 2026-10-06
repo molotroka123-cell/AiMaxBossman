@@ -1,0 +1,61 @@
+id: poker-vision
+name: Poker Vision
+version: "0.1.0"
+kind: workload
+contract: "1.0"
+description: >
+  Poker Train x Vision. Reads a poker table from pixels (cards, board, pot, stacks, bets, dealer, buttons) with a
+  per-field confidence/time/source, reconciles frames into a validated state and history, and feeds review/training.
+  UNKNOWN is a normal result. Acting is possible ONLY in the owner's own Poker Train on loopback; external UIs
+  (TON Poker in Telegram) are observe/replay only and need calibration plus held-out verification.
+
+control:
+  transport: http
+  base_path: /api/v1
+  auth: bearer_optional        # required whenever POKERVISION_TOKEN is set
+  calls:
+    health: GET /api/v1/health
+    capabilities: GET /api/v1/capabilities
+    session.start: POST /api/v1/session
+    session.stop: POST /api/v1/stop
+    status: GET /api/v1/status
+    state: GET /api/v1/state
+    overlay: GET /api/v1/overlay.png
+    history: GET /api/v1/history
+    labelqueue: GET /api/v1/labelqueue
+    metrics: GET /api/v1/metrics
+
+entrypoints:
+  standalone: true
+  cli: poker-vision
+  bossman_app: poker-vision page + /api/poker-vision proxy
+  autonomous: not_implemented
+
+permissions:
+  screen.capture.window: ask          # owner picks the window; never automatic
+  replay.read: auto
+  trainer.act: ask_own_loopback_only  # owner's Poker Train on 127.0.0.1 only
+  external.act: deny                  # no clicks/bets in any external client
+  external.live_advice: deny
+  money.bet: deny
+  network.egress: deny                # pipeline is local; the page proxy is loopback
+
+requirements:
+  python: ">=3.11"
+  compute: cpu
+  gpu: not_used
+
+default_port: 8931
+ui:
+  subtitle: Poker Train x Vision
+  icon: eye
+  accent: "#2f9e6b"
+  order: 12
+  health_path: /api/v1/health
+  metrics_path: /api/v1/metrics
+  facts:
+    - { label: Кадров, from: "metrics.frames", fallback: "—" }
+    - { label: "Задержка p95, мс", from: "metrics.latency_p95_ms", fallback: "—" }
+    - { label: Раздач, from: "metrics.hands", fallback: "—" }
+  actions:
+    - { id: open, label: "Открыть", primary: true }

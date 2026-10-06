@@ -52,6 +52,7 @@ class CallSettings:
     record_audio: bool = False                 # OFF by default; needs the owner's explicit choice
     auto_save_to_bossman_memory: bool = False  # OFF: the owner saves the summary / drafts tasks with one click (Jeff must not write owner data)
     vad: str = "auto"                          # auto | silero | energy
+    language: str = "ru"                       # ru | en | auto: what the other person speaks (STT language, fixed phrases, voice); "auto" = Whisper decides
     extra: dict = field(default_factory=dict)  # forward-compatible, ignored keys are kept, never executed
 
     def __post_init__(self):
@@ -73,6 +74,8 @@ class CallSettings:
             bad("idle_hangup_s must exceed idle_prompt_s")
         if self.echo_mode not in {"guard", "half_duplex"} or self.vad not in {"auto", "silero", "energy"}:
             bad("invalid enum value")
+        if self.language not in {"ru", "en", "auto"}:
+            bad("language must be ru, en or auto")
         v = self.stt_model_path
         if not isinstance(v, str) or len(v) > 500 or "\x00" in v:
             bad("stt_model_path invalid")

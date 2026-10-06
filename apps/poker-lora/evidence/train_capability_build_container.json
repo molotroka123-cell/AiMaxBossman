@@ -1,0 +1,19 @@
+{
+ "platform": "Linux-6.18.44-fc-v70-x86_64-with-glibc2.39",
+ "python": "3.11.15",
+ "modules": {
+  "torch": "missing (ModuleNotFoundError)",
+  "transformers": "missing (ModuleNotFoundError)",
+  "peft": "missing (ModuleNotFoundError)",
+  "accelerate": "missing (ModuleNotFoundError)",
+  "bitsandbytes": "missing (ModuleNotFoundError)",
+  "torch_directml": "missing (ModuleNotFoundError)",
+  "onnxruntime": "1.30.0"
+ },
+ "devices": [],
+ "verdict": "NOT_READY",
+ "notes": [
+  "torch not usable: ModuleNotFoundError",
+  "needs torch + transformers + peft and a CUDA or ROCm device; none of this proves training works until a smoke train completes"
+ ]
+}

@@ -27,6 +27,7 @@ from typing import Callable, Protocol
 
 from bcc.oss import piper as piper_mod
 from bcc.oss.piper import PiperError
+from bcc.pit import voice_language
 
 ENGINE_ENV = "BOSSMAN_JEFF_TTS_ENGINE"
 FLAG_ENV = "BOSSMAN_JEFF_TTS_COSYVOICE"
@@ -71,10 +72,12 @@ class PiperEngine:
     def status(self) -> dict:
         ok = all(_is_file(value) for value in self.paths())
         return {"engine": self.name, "candidate": False, "available": ok,
-                "reason_code": None if ok else "VOICE_ENGINE_UNAVAILABLE"}
+                "reason_code": None if ok else "VOICE_ENGINE_UNAVAILABLE",
+                "languages": {"ru": ok, "en": ok and bool(voice_language.english_model())}}
 
     def synthesize(self, text: str, *, stopped: Callable[[], bool] = lambda: False) -> bytes:
         exe, model, ffmpeg = self.paths()
+        model, _spoken = voice_language.pick_model(text, model)      # English text -> the owner's English voice when it is installed
         return self._synth(text, piper_executable=exe, model_path=model,
                            ffmpeg_executable=ffmpeg, stopped=stopped)
 

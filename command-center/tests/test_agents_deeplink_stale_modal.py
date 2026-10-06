@@ -61,6 +61,11 @@ def test_window_does_not_open_after_leaving_during_its_own_models_fetch(live):  
         try:
             page = browser.new_page(viewport={"width": 1440, "height": 900})
             _login(page, live)
+            # No /api/models of the shell may still be in flight: api.js joins concurrent identical GETs, so the page render
+            # would join that earlier request (which this test's route never sees) and the window's own re-fetch would become
+            # call #1 instead of #2. Found by tracing the page's fetch calls: 1 vs 2 routed calls depended on this timing.
+            page.wait_for_load_state("networkidle")
+            page.wait_for_timeout(600)
             calls = {"n": 0}
             held = []
 
