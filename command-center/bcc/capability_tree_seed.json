@@ -13128,6 +13128,23 @@
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/1e4425b26f5d592a5acf1ee348cfd93928a05e90/apps/poker-vision/pokervision/policy_route.py"
         }
       ]
+    },
+    {
+      "id": "oss-122",
+      "label": "SmythOS/smythos-studio",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "Открытый (MIT) визуальный конструктор агентов на TypeScript; запись-кандидат, не интеграция. Решение: отложить — дубль нашего конструктора агентов и второй стек (MySQL, Docker).",
+      "sources": [
+        {
+          "path": "docs/oss/SMYTHOS_STUDIO_EVALUATION.md"
+        }
+      ],
+      "next_action": "Не внедрять; вернуться только после измерения пользы на конкретной задаче и только как внешний сервис в песочнице.",
+      "external_url": "https://github.com/SmythOS/smythos-studio",
+      "reference_paths": [
+        "docs/oss/SMYTHOS_STUDIO_EVALUATION.md"
+      ]
     }
   ],
   "memory_protocol": {
