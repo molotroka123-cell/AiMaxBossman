@@ -51,3 +51,32 @@ def test_new_agent_window_does_not_follow_the_owner_to_another_page(live):  # no
             assert page.evaluate("() => document.querySelectorAll('#modal-root .modal').length") == 1
         finally:
             browser.close()
+
+
+def test_window_does_not_open_after_leaving_during_its_own_models_fetch(live):  # noqa: F811
+    """openAgentModal re-fetches an empty model list; the owner may leave while that fetch is in flight."""
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            _login(page, live)
+            calls = {"n": 0}
+
+            def models(route):
+                calls["n"] += 1
+                if calls["n"] == 1:   # the page render: empty list, fast
+                    route.fulfill(status=200, content_type="application/json", body='{"models": []}')
+                else:                 # the window's own re-fetch: slow, the owner leaves meanwhile
+                    time.sleep(1.5)
+                    route.continue_()
+            page.route("**/api/models*", models)
+            page.goto(f"{live.url}/#/agents?new=1", wait_until="domcontentloaded")
+            page.wait_for_function("() => document.querySelector('#view .bx-page')", timeout=20000)
+            page.evaluate("() => { location.hash = '#/chat'; }")
+            page.wait_for_timeout(3000)
+            page.unroute("**/api/models*")
+            assert calls["n"] >= 2, "the race window was not exercised"
+            assert page.evaluate("() => document.querySelectorAll('#modal-root .modal').length") == 0
+        finally:
+            browser.close()

@@ -946,7 +946,10 @@ function agentCard(a, modelById, models, ctx) {
 export async function openAgentModal(ctx, agent = null, models = null) {
   let list = models || ctx.state.models;
   if (!list || !list.length) {
+    const page = location.hash.replace(/^#\/?/, '').split('?')[0];
     try { list = listOf(await api.models(), 'models'); ctx.state.models = list; } catch { list = []; }
+    // The owner left while the models loaded: do not float the window over the next page.
+    if (location.hash.replace(/^#\/?/, '').split('?')[0] !== page) return null;
   }
   const editing = !!agent;
 
