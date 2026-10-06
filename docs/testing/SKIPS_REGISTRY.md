@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 390. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 391. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -164,6 +164,7 @@
 | `command-center/tests/test_terminal_chat_claude_parity.py:20` | importorskip | `—` | rich is a runtime dependency of the terminal client | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_terminal_chat_claude_parity.py:331` | skipif | `os.name == "nt"` | drive letters are real on Windows | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_terminal_chat_claude_parity.py:337` | skipif | `os.name != "nt"` | drive-relative / root-relative paths exist only on Windows | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_terminal_chat_digit_args.py:14` | importorskip | `—` | rich is a runtime dependency of the terminal client | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_terminal_chat_models_unregistered.py:13` | importorskip | `—` | rich is a runtime dependency of the terminal client | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_terminal_cli_e2e.py:22` | importorskip | `—` | bossman-core (scripted test model) not installed | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_terminal_cli_e2e.py:24` | importorskip | `—` | rich is a runtime dependency of the terminal client | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

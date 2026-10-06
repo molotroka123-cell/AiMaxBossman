@@ -302,6 +302,12 @@ def approvals_cell(effects: list[tuple[str, str]], pending: int) -> str:
 # ----------------------------------------------------------------- the chat
 
 
+def _ascii_int(text: str) -> int | None:
+    """An ASCII decimal number, else None. `str.isdigit()` is not enough: it
+    accepts «²» and «①», which int() rejects."""
+    return int(text) if re.fullmatch(r"[0-9]+", text) else None
+
+
 class Chat:
     def __init__(self, args, client: Client, view: View):
         self.args = args
@@ -657,7 +663,7 @@ class Chat:
 
     def cmd_tasks(self, p) -> None:
         from .cli import list_items
-        limit = int(p.args[0]) if p.args and p.args[0].isdigit() else 10
+        limit = (_ascii_int(p.args[0]) if p.args else None) or 10
         for t in list_items(self.client, "tasks", limit=limit):
             self.view.print(Text(f"  #{t['id']:<5} {t['status']:<17} {t['title']}", style="text"))
 
@@ -809,7 +815,11 @@ class Chat:
             self.last_coding_id = items[0]["id"] if items else self.last_coding_id
 
     def _decide_cmd(self, p, approve: bool) -> None:
-        aid = int(p.args[0]) if p.args and p.args[0].isdigit() else None
+        aid = _ascii_int(p.args[0]) if p.args else None
+        if p.args and aid is None:
+            # a typo must not become "the single pending approval"
+            self.view.error(slash.COMMANDS["approve" if approve else "deny"][0], "id — число")
+            return
         if aid is None:
             pending = self.pending_approvals()
             if self.last_task:
@@ -836,8 +846,8 @@ class Chat:
                                  f"{sanitize(a.get('preview'), keep_newlines=False)[:120]}", style="approval"))
 
     def _task_ref(self, p) -> int | None:
-        if p.args and p.args[0].isdigit():
-            return int(p.args[0])
+        if p.args:
+            return _ascii_int(p.args[0])     # a typo must not become "the last task"
         return (self.last_task or {}).get("id")
 
     def _task_action(self, p, action: str) -> None:
@@ -1181,7 +1191,7 @@ class Chat:
             self.view.print(t)
 
     def cmd_expand(self, p) -> None:
-        index = int(p.args[0]) if p.args and p.args[0].isdigit() else None
+        index = _ascii_int(p.args[0]) if p.args else None
         self.view.expand(index)
 
     def cmd_history(self, p) -> None:
