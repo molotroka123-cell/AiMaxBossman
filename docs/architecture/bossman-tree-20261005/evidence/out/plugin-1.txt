@@ -1,0 +1,5 @@
+== plugin-1 plugin:monitor.feed probe=live_feed_public_rss ==
+[plugin:monitor.feed] error=False one_line='http.get 200'
+content: <?xml version='1.0' encoding='UTF-8'?>\n<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">\n  <channel>\n    <title>Newest Python PEPs</title>\n    <link>https://peps.python.org/</link>\n    <description>Newest Python Enhancement Proposals (PEPs): Information on new language features and some meta-information like release procedure and schedules.</description>\n    <atom:link href="https://peps.python.org/peps.rss" rel="self"/>\n    <docs>https://cyber.harvard.edu/rss/rss.html</docs>\n    <language>en</language>\n    <lastBuildDate>Sat,
+VERDICT PASS
+

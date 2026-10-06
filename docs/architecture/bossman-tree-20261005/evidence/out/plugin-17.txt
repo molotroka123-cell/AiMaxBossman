@@ -1,0 +1,6 @@
+== plugin-17 plugin:telegram.status probe=handler_live_call ==
+[plugin:telegram.status] error=True one_line='plugin:telegram.status: no credential'
+content: SKIP_EXTERNAL_CREDENTIAL: telegram.status — нет креда TELEGRAM_BOT_TOKEN. Побочного эффекта нет.
+performed: None -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
+VERDICT FAIL
+

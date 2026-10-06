@@ -1,0 +1,7 @@
+== plugin-3 plugin:obsidian.read probe=temp_vault_read_and_traversal_block ==
+[plugin:obsidian.read] error=False one_line='obsidian.read n.md'
+content: hello vault
+[plugin:obsidian.read] error=True one_line='obsidian.read blocked'
+content: blocked: path escapes configured root
+VERDICT PASS
+

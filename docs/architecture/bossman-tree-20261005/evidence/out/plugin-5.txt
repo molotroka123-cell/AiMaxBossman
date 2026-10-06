@@ -1,0 +1,6 @@
+== plugin-5 plugin:mcp.tool_list probe=handler_live_call ==
+[plugin:mcp.tool_list] error=True one_line='plugin:mcp.tool_list: not performed'
+content: NOT_TESTED_LIVE: plugin:mcp.tool_list — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.
+performed: False -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
+VERDICT FAIL
+

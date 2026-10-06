@@ -1,0 +1,10 @@
+== plugin-4 plugin:obsidian.write probe=temp_vault_write_gate_and_confine ==
+[plugin:obsidian.write] default_effect=ask decide_effect(agent without grants)='ask' reason=право filesystem.write не выдано агенту
+NOTE: the outward effect was NOT exercised; only the approval gate was checked.
+[plugin:obsidian.write] error=False one_line='obsidian.write w.md'
+content: written 7 bytes → w.md
+[plugin:obsidian.write] error=True one_line='obsidian.write blocked'
+content: blocked: path escapes configured root
+on_disk: written escape_exists: False
+VERDICT PASS
+

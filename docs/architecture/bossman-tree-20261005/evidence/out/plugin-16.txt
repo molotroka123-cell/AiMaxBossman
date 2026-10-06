@@ -1,0 +1,5 @@
+== plugin-16 plugin:drive.write probe=approval_gate_refuses ==
+[plugin:drive.write] default_effect=ask decide_effect(agent without grants)='ask' reason=по умолчанию для plugin:drive.write
+NOTE: the outward effect was NOT exercised; only the approval gate was checked.
+VERDICT PASS
+

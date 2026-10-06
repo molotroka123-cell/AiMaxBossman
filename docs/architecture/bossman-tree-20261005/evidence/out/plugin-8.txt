@@ -1,0 +1,11 @@
+== plugin-8 plugin:openrouter.chat probe=handler_live_call ==
+[plugin:openrouter.chat] error=True one_line='plugin:openrouter.chat: no credential'
+content: SKIP_EXTERNAL_CREDENTIAL: openrouter.chat — нет креда OPENROUTER_API_KEY. Побочного эффекта нет.
+performed: None -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
+VERDICT FAIL
+
+== plugin-8 plugin:openrouter.chat probe=approval_gate_refuses ==
+[plugin:openrouter.chat] default_effect=ask decide_effect(agent without grants)='ask' reason=по умолчанию для plugin:openrouter.chat
+NOTE: the outward effect was NOT exercised; only the approval gate was checked.
+VERDICT PASS
+

@@ -1,0 +1,6 @@
+== plugin-13 plugin:calendar.search probe=handler_live_call ==
+[plugin:calendar.search] error=True one_line='plugin:calendar.search: no credential'
+content: SKIP_EXTERNAL_CREDENTIAL: calendar.search — нет креда GOOGLE_OAUTH. Побочного эффекта нет.
+performed: None -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
+VERDICT FAIL
+

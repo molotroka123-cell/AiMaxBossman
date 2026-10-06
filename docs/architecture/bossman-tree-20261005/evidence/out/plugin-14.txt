@@ -1,0 +1,5 @@
+== plugin-14 plugin:calendar.create probe=approval_gate_refuses ==
+[plugin:calendar.create] default_effect=ask decide_effect(agent without grants)='ask' reason=по умолчанию для plugin:calendar.create
+NOTE: the outward effect was NOT exercised; only the approval gate was checked.
+VERDICT PASS
+

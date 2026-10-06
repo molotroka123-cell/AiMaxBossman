@@ -1,0 +1,6 @@
+== plugin-21 plugin:browser.open probe=handler_live_call ==
+[plugin:browser.open] error=True one_line='plugin:browser.open: not performed'
+content: NOT_TESTED_LIVE: plugin:browser.open — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.
+performed: False -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
+VERDICT FAIL
+

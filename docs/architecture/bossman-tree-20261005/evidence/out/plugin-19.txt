@@ -1,0 +1,6 @@
+== plugin-19 plugin:n8n.workflow_list probe=handler_live_call ==
+[plugin:n8n.workflow_list] error=True one_line='plugin:n8n.workflow_list: no credential'
+content: SKIP_EXTERNAL_CREDENTIAL: n8n.workflow_list — нет креда N8N_API_KEY. Побочного эффекта нет.
+performed: None -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
+VERDICT FAIL
+

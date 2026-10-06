@@ -1,0 +1,5 @@
+== plugin-22 plugin:browser.form_submit probe=approval_gate_refuses ==
+[plugin:browser.form_submit] default_effect=ask decide_effect(agent without grants)='ask' reason=право browser.control не выдано агенту
+NOTE: the outward effect was NOT exercised; only the approval gate was checked.
+VERDICT PASS
+

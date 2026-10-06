@@ -1,0 +1,6 @@
+== plugin-15 plugin:drive.search probe=handler_live_call ==
+[plugin:drive.search] error=True one_line='plugin:drive.search: no credential'
+content: SKIP_EXTERNAL_CREDENTIAL: drive.search — нет креда GOOGLE_OAUTH. Побочного эффекта нет.
+performed: None -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
+VERDICT FAIL
+

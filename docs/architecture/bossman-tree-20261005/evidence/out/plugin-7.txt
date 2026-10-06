@@ -1,0 +1,6 @@
+== plugin-7 plugin:ollama.chat probe=handler_live_call ==
+[plugin:ollama.chat] error=True one_line='plugin:ollama.chat: not performed'
+content: NOT_TESTED_LIVE: plugin:ollama.chat — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.
+performed: False -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
+VERDICT FAIL
+

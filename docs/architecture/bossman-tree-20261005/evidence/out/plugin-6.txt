@@ -1,0 +1,5 @@
+== plugin-6 plugin:mcp.tool_call probe=approval_gate_refuses ==
+[plugin:mcp.tool_call] default_effect=ask decide_effect(agent without grants)='ask' reason=по умолчанию для plugin:mcp.tool_call
+NOTE: the outward effect was NOT exercised; only the approval gate was checked.
+VERDICT PASS
+

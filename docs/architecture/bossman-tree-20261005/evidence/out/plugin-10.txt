@@ -1,0 +1,5 @@
+== plugin-10 plugin:github.issue_create probe=approval_gate_refuses ==
+[plugin:github.issue_create] default_effect=ask decide_effect(agent without grants)='ask' reason=по умолчанию для plugin:github.issue_create
+NOTE: the outward effect was NOT exercised; only the approval gate was checked.
+VERDICT PASS
+

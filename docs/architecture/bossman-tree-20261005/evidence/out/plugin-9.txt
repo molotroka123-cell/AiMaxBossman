@@ -1,0 +1,6 @@
+== plugin-9 plugin:github.repo_read probe=handler_live_call ==
+[plugin:github.repo_read] error=True one_line='plugin:github.repo_read: no credential'
+content: SKIP_EXTERNAL_CREDENTIAL: github.repo_read — нет креда GITHUB_TOKEN. Побочного эффекта нет.
+performed: None -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
+VERDICT FAIL
+
