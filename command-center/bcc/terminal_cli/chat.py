@@ -685,7 +685,10 @@ class Chat:
         for m in list_items(self.client, "models"):
             mark = glyphs().done if m["id"] == current else " "
             badge = " MOCK_MODEL" if m.get("model_kind") == "MOCK_MODEL" else ""
-            self.view.print(Text(f" {mark} #{m['id']:<4} {m['alias']:<32} {m.get('locality') or '—':<6}"
+            if m.get("id") is None:          # listed by local Ollama, not registered in Bossman
+                badge += "  (не заведена в Bossman)"
+            ref = "—" if m.get("id") is None else m["id"]
+            self.view.print(Text(f" {mark} #{ref:<4} {m['alias']:<32} {m.get('locality') or '—':<6}"
                                  f" ctx {m.get('context_window') or '—'}{badge}",
                                  style="value.on" if mark.strip() else "text"))
 
