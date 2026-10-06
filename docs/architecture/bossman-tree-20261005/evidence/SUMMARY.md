@@ -1,0 +1,270 @@
+# Evidence summary
+
+Статусы дерева: blocked=11, branch=97, code=315, idea=6, mixed=14, prepared=1, recorded=180, reported=209
+
+Принято расписок: 198; отклонено: 55
+
+## По зонам
+
+- ops: 192
+- plugins: 5
+- skills: 1
+
+## Принятые
+
+- `mod-action_contract` (ops.json)
+- `mod-action_gate` (ops.json)
+- `mod-action_preview` (ops.json)
+- `mod-apps` (ops.json)
+- `mod-apps_control` (ops.json)
+- `mod-bossnet_nodes_v16` (ops.json)
+- `mod-chat_threads` (ops.json)
+- `mod-code_intel` (ops.json)
+- `mod-command_bar` (ops.json)
+- `mod-deep_fix` (ops.json)
+- `mod-diag_bundle` (ops.json)
+- `mod-file_intelligence` (ops.json)
+- `mod-forks` (ops.json)
+- `mod-governor` (ops.json)
+- `mod-jeff_master_parser` (ops.json)
+- `mod-jeff_settings` (ops.json)
+- `mod-lab_agents` (ops.json)
+- `mod-local_first` (ops.json)
+- `mod-market_metrics` (ops.json)
+- `mod-model_foundry_v16` (ops.json)
+- `mod-objectives` (ops.json)
+- `mod-offline_mode` (ops.json)
+- `mod-opencode` (ops.json)
+- `mod-oss_integrations` (ops.json)
+- `mod-owner_input` (ops.json)
+- `mod-plugins` (ops.json)
+- `mod-provenance` (ops.json)
+- `mod-qa_relay` (ops.json)
+- `mod-reality` (ops.json)
+- `mod-resources` (ops.json)
+- `mod-review_gate` (ops.json)
+- `mod-second_opinion` (ops.json)
+- `mod-simulation_world_v16` (ops.json)
+- `mod-skills` (ops.json)
+- `mod-snapshot` (ops.json)
+- `mod-telegram_calls` (ops.json)
+- `mod-telegram_settings` (ops.json)
+- `mod-testing_period` (ops.json)
+- `mod-tools_apps` (ops.json)
+- `mod-tools_code` (ops.json)
+- `mod-tools_facts` (ops.json)
+- `mod-tools_jeff` (ops.json)
+- `mod-tools_mcp` (ops.json)
+- `mod-tools_openclaw` (ops.json)
+- `mod-tools_opencode` (ops.json)
+- `mod-trading_lab` (ops.json)
+- `mod-unified_search` (ops.json)
+- `mod-v15_autonomy` (ops.json)
+- `mod-v15_owner_run` (ops.json)
+- `mod-v15_self_repair` (ops.json)
+- `mod-watchdog` (ops.json)
+- `mod-web_designer` (ops.json)
+- `module-637788ef482e` (ops.json)
+- `module-a1a2c4ccc239` (ops.json)
+- `module-cdb370a24157` (ops.json)
+- `module-5386412e9f11` (ops.json)
+- `module-39e925886668` (ops.json)
+- `module-a17a422c65d7` (ops.json)
+- `module-86282a9efa67` (ops.json)
+- `module-d41ad480551d` (ops.json)
+- `module-d4455ade6345` (ops.json)
+- `module-177f174d3f63` (ops.json)
+- `module-c23f35941e16` (ops.json)
+- `module-815783821b83` (ops.json)
+- `module-bc25cd9f1e01` (ops.json)
+- `module-42a06e3c1b71` (ops.json)
+- `module-049b601d5eaa` (ops.json)
+- `module-efdcd8d35b9c` (ops.json)
+- `module-ac2f6e6dc2d9` (ops.json)
+- `module-e2dd4b7bfb5d` (ops.json)
+- `module-816c15a6b6a4` (ops.json)
+- `module-0541863355da` (ops.json)
+- `module-522cf2e79840` (ops.json)
+- `module-edac8a22b815` (ops.json)
+- `module-b8a71e28fc47` (ops.json)
+- `module-1184b1105ced` (ops.json)
+- `module-771a003071ca` (ops.json)
+- `module-9f29d5a73f7f` (ops.json)
+- `module-f1cacda08a67` (ops.json)
+- `module-47931d1b717a` (ops.json)
+- `module-e297560d568b` (ops.json)
+- `module-fb39c9a64573` (ops.json)
+- `module-179cd95b7128` (ops.json)
+- `module-79d58034a65f` (ops.json)
+- `module-e376eaac5d8f` (ops.json)
+- `module-4b4b01b5e71a` (ops.json)
+- `module-1b34d40914f1` (ops.json)
+- `module-c64e6d1041b0` (ops.json)
+- `module-3f26dfe54c72` (ops.json)
+- `module-009f4807c914` (ops.json)
+- `module-2d3d2ae733c1` (ops.json)
+- `module-e6b90349c6c6` (ops.json)
+- `module-3a8ad5c2d247` (ops.json)
+- `module-c22cab3d4320` (ops.json)
+- `module-a270c9dbe40c` (ops.json)
+- `module-638ddbcb1a1b` (ops.json)
+- `module-1c2e0a6599c0` (ops.json)
+- `module-e99c091d1c06` (ops.json)
+- `module-dd118749492b` (ops.json)
+- `module-72f38f26214a` (ops.json)
+- `module-4efbb2fd9c4a` (ops.json)
+- `module-bc87c8d6bfa4` (ops.json)
+- `module-068b8f4fbeb2` (ops.json)
+- `module-0b1e4d69a90c` (ops.json)
+- `module-7a65bf88fb04` (ops.json)
+- `module-8de7f3a7cd44` (ops.json)
+- `module-d401165730fa` (ops.json)
+- `module-f6a4b22d7b2b` (ops.json)
+- `module-63389f3e655f` (ops.json)
+- `module-cc401f252307` (ops.json)
+- `module-a43ab3ee85df` (ops.json)
+- `module-0aa387ab63a9` (ops.json)
+- `module-4b4e00d7c711` (ops.json)
+- `module-103910b19c50` (ops.json)
+- `module-dc98760346bb` (ops.json)
+- `module-74b9d09c9a49` (ops.json)
+- `module-904a8396aa6c` (ops.json)
+- `module-4aacff2330d4` (ops.json)
+- `module-7f1adf1138f0` (ops.json)
+- `module-e2b6bd15aba1` (ops.json)
+- `module-3adca9c27bdb` (ops.json)
+- `module-9a1970f7c3e5` (ops.json)
+- `module-3f0a90670bba` (ops.json)
+- `module-b428d8c055bc` (ops.json)
+- `module-30ddab524cfc` (ops.json)
+- `module-5fd57fccff12` (ops.json)
+- `module-745ed9f64ff7` (ops.json)
+- `module-95e88c430e38` (ops.json)
+- `module-7fb28ee13497` (ops.json)
+- `module-4b5988e098bd` (ops.json)
+- `module-de7445e9d5f5` (ops.json)
+- `module-d5d8a9a7ab5c` (ops.json)
+- `module-a548c779a998` (ops.json)
+- `module-8dba9550a502` (ops.json)
+- `module-24bbe5117ab0` (ops.json)
+- `module-9a0163231b1b` (ops.json)
+- `module-0ce0daf3140c` (ops.json)
+- `module-76a14f0ce102` (ops.json)
+- `module-ddbf2f4b50d2` (ops.json)
+- `module-46de893ccfc9` (ops.json)
+- `module-2e5863355b9a` (ops.json)
+- `module-60f309b322d6` (ops.json)
+- `module-5c5bd2e61f67` (ops.json)
+- `module-99fc865d8c4b` (ops.json)
+- `module-ff3e6bc1044b` (ops.json)
+- `module-ca6830e0de16` (ops.json)
+- `module-8bd73fd35c48` (ops.json)
+- `module-28048916831a` (ops.json)
+- `module-883a6692992b` (ops.json)
+- `module-2bd9c1e2cdfd` (ops.json)
+- `module-37dec999ab57` (ops.json)
+- `module-f1437d4e2221` (ops.json)
+- `module-897d03f9aab0` (ops.json)
+- `module-6bfb88803a15` (ops.json)
+- `module-de0238268e77` (ops.json)
+- `module-8f7bb546924a` (ops.json)
+- `module-c5d464a7aa9e` (ops.json)
+- `module-2f9db2f18c1b` (ops.json)
+- `module-dacafbe9e4ee` (ops.json)
+- `module-9d055871ddff` (ops.json)
+- `module-9d8ee6730907` (ops.json)
+- `module-43a773f7d5a6` (ops.json)
+- `module-eb0be06d9db9` (ops.json)
+- `module-9c2c49d71c15` (ops.json)
+- `module-5c36f1523214` (ops.json)
+- `module-2eec9a135e0f` (ops.json)
+- `module-5d128fcf8dab` (ops.json)
+- `module-fdd1e1e7e9a0` (ops.json)
+- `module-e999698f8e9e` (ops.json)
+- `module-aab05d5c4f1a` (ops.json)
+- `module-0445b69844cc` (ops.json)
+- `module-6fcdcfb4b872` (ops.json)
+- `module-3e2b4af78a2e` (ops.json)
+- `module-76ae682ed2e4` (ops.json)
+- `module-5f3e261c2cf4` (ops.json)
+- `module-eb0bce4aaf5b` (ops.json)
+- `module-918d9d178fe3` (ops.json)
+- `module-2190e88ab8cb` (ops.json)
+- `module-cf0d1b5d4d86` (ops.json)
+- `module-6b8f5c457e7f` (ops.json)
+- `module-c2cd9f798b9b` (ops.json)
+- `module-7be51ff76449` (ops.json)
+- `module-a91069ddd708` (ops.json)
+- `module-cdbbc088b662` (ops.json)
+- `module-e84c7b61d7a6` (ops.json)
+- `module-464a2a956fa0` (ops.json)
+- `module-6285f40851f1` (ops.json)
+- `module-4c9ee5995fb6` (ops.json)
+- `module-3d62540e3028` (ops.json)
+- `module-27cb1911d462` (ops.json)
+- `module-266a95659ed4` (ops.json)
+- `module-7af8dc300eab` (ops.json)
+- `plugin-0` (plugins.json)
+- `plugin-1` (plugins.json)
+- `plugin-2` (plugins.json)
+- `plugin-3` (plugins.json)
+- `plugin-4` (plugins.json)
+- `skills-runtime` (skills.json)
+
+## Отклонённые
+
+- `mod-agentmap` (ops.json): verdict not PASS
+- `mod-autonomy` (ops.json): verdict not PASS
+- `mod-benchlab` (ops.json): verdict not PASS
+- `mod-jeff_insights` (ops.json): verdict not PASS
+- `mod-osiris` (ops.json): verdict not PASS
+- `mod-workflow` (ops.json): verdict not PASS
+- `module-73976a1cf54d` (ops.json): verdict not PASS
+- `module-a7ad0d90993c` (ops.json): verdict not PASS
+- `module-bc12e1784cb5` (ops.json): verdict not PASS
+- `module-4780a1d5fdf7` (ops.json): verdict not PASS
+- `module-d8ca33ba94f4` (ops.json): verdict not PASS
+- `module-6c727703c8ea` (ops.json): verdict not PASS
+- `module-9958189ad4d4` (ops.json): verdict not PASS
+- `module-ff7440d8b674` (ops.json): verdict not PASS
+- `module-dadaec7d827b` (ops.json): verdict not PASS
+- `module-d3f5977af5ba` (ops.json): verdict not PASS
+- `module-eea9bcf7e3ac` (ops.json): verdict not PASS
+- `module-575dcc5a99f5` (ops.json): verdict not PASS
+- `module-6e615a668c7b` (ops.json): verdict not PASS
+- `module-df0754d72d22` (ops.json): verdict not PASS
+- `module-028fe7482116` (ops.json): verdict not PASS
+- `module-7280885daae5` (ops.json): verdict not PASS
+- `module-725a466f4b8f` (ops.json): verdict not PASS
+- `module-45ef5a5cbb02` (ops.json): verdict not PASS
+- `module-aaff14c2d261` (ops.json): verdict not PASS
+- `module-531fc123cd17` (ops.json): verdict not PASS
+- `module-de49198eacce` (ops.json): verdict not PASS
+- `module-5bfdc6603e86` (ops.json): verdict not PASS
+- `module-cb1aad058144` (ops.json): verdict not PASS
+- `module-0ef2333ef23c` (ops.json): verdict not PASS
+- `module-22827787ecc5` (ops.json): verdict not PASS
+- `module-fe0ffb0d2f88` (ops.json): verdict not PASS
+- `module-5fcedb9e4e99` (ops.json): verdict not PASS
+- `module-abd99037a01e` (ops.json): verdict not PASS
+- `module-a11338c485f5` (ops.json): verdict not PASS
+- `module-1622458b008a` (ops.json): verdict not PASS
+- `module-0dc288edd324` (ops.json): verdict not PASS
+- `module-e11418351fd7` (ops.json): verdict not PASS
+- `module-5579b793e038` (ops.json): verdict not PASS
+- `module-59f6fbe27bd5` (ops.json): verdict not PASS
+- `module-ae9598734759` (ops.json): verdict not PASS
+- `module-a71668fad443` (ops.json): verdict not PASS
+- `module-f21597ba1fd6` (ops.json): verdict not PASS
+- `plugin-5` (plugins.json): verdict not PASS
+- `plugin-7` (plugins.json): verdict not PASS
+- `plugin-8` (plugins.json): verdict not PASS
+- `plugin-9` (plugins.json): verdict not PASS
+- `plugin-11` (plugins.json): verdict not PASS
+- `plugin-13` (plugins.json): verdict not PASS
+- `plugin-15` (plugins.json): verdict not PASS
+- `plugin-17` (plugins.json): verdict not PASS
+- `plugin-19` (plugins.json): verdict not PASS
+- `plugin-21` (plugins.json): verdict not PASS
+- `skill-22` (skills.json): status recorded not eligible
+- `skill-36` (skills.json): status recorded not eligible

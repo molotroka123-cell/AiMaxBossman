@@ -1,0 +1,5837 @@
+{
+ "schema": 1,
+ "as_of": "2026-10-05",
+ "nodes": [
+  {
+   "id": "bossman",
+   "label": "Bossman",
+   "parent": "",
+   "status": "blocked",
+   "short": "Единая готовность владельцу не доказана. Карта возможностей, не сертификат релиза."
+  },
+  {
+   "id": "jeff",
+   "label": "Jeff · собеседник",
+   "parent": "bossman",
+   "status": "mixed",
+   "short": "Раскрой ветку: статусы относятся к отдельным возможностям."
+  },
+  {
+   "id": "ux",
+   "label": "UX и CMD",
+   "parent": "bossman",
+   "status": "mixed",
+   "short": "Раскрой ветку: статусы относятся к отдельным возможностям."
+  },
+  {
+   "id": "apps",
+   "label": "Приложения и бизнес",
+   "parent": "bossman",
+   "status": "mixed",
+   "short": "Раскрой ветку: статусы относятся к отдельным возможностям."
+  },
+  {
+   "id": "models",
+   "label": "Локальные модели",
+   "parent": "bossman",
+   "status": "mixed",
+   "short": "Раскрой ветку: статусы относятся к отдельным возможностям."
+  },
+  {
+   "id": "cloud",
+   "label": "API · облака · free",
+   "parent": "bossman",
+   "status": "mixed",
+   "short": "Раскрой ветку: статусы относятся к отдельным возможностям."
+  },
+  {
+   "id": "computer",
+   "label": "Браузер и компьютер",
+   "parent": "bossman",
+   "status": "mixed",
+   "short": "Раскрой ветку: статусы относятся к отдельным возможностям."
+  },
+  {
+   "id": "media",
+   "label": "Motion и медиа",
+   "parent": "bossman",
+   "status": "mixed",
+   "short": "Раскрой ветку: статусы относятся к отдельным возможностям."
+  },
+  {
+   "id": "memory",
+   "label": "Память и обучение",
+   "parent": "bossman",
+   "status": "mixed",
+   "short": "Раскрой ветку: статусы относятся к отдельным возможностям."
+  },
+  {
+   "id": "agents",
+   "label": "Агенты и оркестрация",
+   "parent": "bossman",
+   "status": "mixed",
+   "short": "Раскрой ветку: статусы относятся к отдельным возможностям."
+  },
+  {
+   "id": "skills",
+   "label": "Навыки",
+   "parent": "bossman",
+   "status": "mixed",
+   "short": "Раскрой ветку: статусы относятся к отдельным возможностям."
+  },
+  {
+   "id": "plugins",
+   "label": "Плагины и коннекторы",
+   "parent": "bossman",
+   "status": "mixed",
+   "short": "Раскрой ветку: статусы относятся к отдельным возможностям."
+  },
+  {
+   "id": "ops",
+   "label": "Система и проверки",
+   "parent": "bossman",
+   "status": "mixed",
+   "short": "Раскрой ветку: статусы относятся к отдельным возможностям."
+  },
+  {
+   "id": "oss",
+   "label": "Open source · каталог",
+   "parent": "bossman",
+   "status": "mixed",
+   "short": "Раскрой ветку: статусы относятся к отдельным возможностям."
+  },
+  {
+   "id": "cap-0",
+   "label": "Диалог и ответы",
+   "parent": "jeff",
+   "status": "reported",
+   "short": "Живой ответ 7,3 с описан 1 октября; непрерывность сегодня не проверена."
+  },
+  {
+   "id": "cap-1",
+   "label": "Память участника и согласие",
+   "parent": "jeff",
+   "status": "code",
+   "short": "/memory, /pause_memory, /forget; приватные training.jsonl и очистка."
+  },
+  {
+   "id": "cap-2",
+   "label": "Паспорта и master parser",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Факты, источники, уверенность, checkpoint и consent; не доказательство самообучения весов."
+  },
+  {
+   "id": "cap-3",
+   "label": "Настроение и персона",
+   "parent": "jeff",
+   "status": "code",
+   "short": "participant/companion profile, behavior scores, roleplay policy; обновления в отдельных ветках."
+  },
+  {
+   "id": "cap-4",
+   "label": "Admin Panel",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Настройки Jeff, участники, presentation profile; единую работающую панель нужно подтвердить в выбранной сборке."
+  },
+  {
+   "id": "cap-5",
+   "label": "Telegram polling и изоляция",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Существующий runtime, identity, vault, guard и participant policy; live cross-user тест сегодня отсутствует."
+  },
+  {
+   "id": "cap-6",
+   "label": "Heartbeat · watchdog · restart",
+   "parent": "jeff",
+   "status": "reported",
+   "short": "37 минут с фейковыми Telegram/моделью: 8/8, 0 ложных рестартов. Это не production soak."
+  },
+  {
+   "id": "cap-7",
+   "label": "Голос · STT · TTS",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Голосовые маршруты и speech; качество реальной интонации и latency не подтверждены этой картой."
+  },
+  {
+   "id": "cap-8",
+   "label": "Фото · генерация · редактирование",
+   "parent": "jeff",
+   "status": "reported",
+   "short": "В отчёте 1 октября описана генерация и рассылка; полный набор моделей не проверен."
+  },
+  {
+   "id": "cap-9",
+   "label": "Рассылка",
+   "parent": "jeff",
+   "status": "reported",
+   "short": "В отчёте: 7/7 доставлено с owner approval."
+  },
+  {
+   "id": "cap-10",
+   "label": "Звонки",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Код, тесты и отдельные ветки есть; реальный двусторонний звонок и задержки не сертифицированы."
+  },
+  {
+   "id": "cap-11",
+   "label": "24–48 часов непрерывной работы",
+   "parent": "jeff",
+   "status": "blocked",
+   "short": "В октябрьском аудите soak NOT RUN; заявления о 100% усилении не доказаны."
+  },
+  {
+   "id": "cap-12",
+   "label": "Чат · история · streaming SSE",
+   "parent": "ux",
+   "status": "code",
+   "short": "Реализация и тесты присутствуют; drawer должен показывать этапы и краткое объяснение, а не обещать внутренние мысли модели."
+  },
+  {
+   "id": "cap-13",
+   "label": "CMD и пользовательские команды",
+   "parent": "ux",
+   "status": "code",
+   "short": "Каталог argparse ниже: объявления подкоманд, не доказанные запускаемые команды."
+  },
+  {
+   "id": "cap-14",
+   "label": "Ускорение UX на 30%",
+   "parent": "ux",
+   "status": "blocked",
+   "short": "Результат не доказан; прежний cold page прогон показал регрессию."
+  },
+  {
+   "id": "cap-15",
+   "label": "Текущий PRIMARY: Qwen3.8 Q5",
+   "parent": "models",
+   "status": "recorded",
+   "short": "По сохранённому отчёту 4 октября; текущую конфигурацию ПК здесь не наблюдали."
+  },
+  {
+   "id": "cap-16",
+   "label": "Кандидат Qwen3.6-35B-A3B Q5",
+   "parent": "models",
+   "status": "reported",
+   "short": "82,307% против 72,213% в сохранённом финале. Не внедрён; runner_sha отсутствует."
+  },
+  {
+   "id": "cap-17",
+   "label": "Muse · диагностический запуск",
+   "parent": "models",
+   "status": "reported",
+   "short": "Один диагностический сценарий прошёл; полного турнира и worker promotion нет."
+  },
+  {
+   "id": "cap-18",
+   "label": "Pi · MTP · Ornith · другие кандидаты",
+   "parent": "models",
+   "status": "recorded",
+   "short": "Pi не заменил PRIMARY; Ornith участвовал в коротком раунде. Модельный каталог не означает установку."
+  },
+  {
+   "id": "cap-19",
+   "label": "Uncensored модели",
+   "parent": "models",
+   "status": "recorded",
+   "short": "В отчёте встречается resident community uncensored Q8; не смешивать с PRIMARY и победителем турнира."
+  },
+  {
+   "id": "cap-20",
+   "label": "Colibri",
+   "parent": "models",
+   "status": "idea",
+   "short": "Низкий приоритет; память ограничена. Не включать в обязательную загрузку."
+  },
+  {
+   "id": "cap-21",
+   "label": "Free providers · лимиты · fallback",
+   "parent": "cloud",
+   "status": "code",
+   "short": "Пресеты и governor есть; free tier зависит от аккаунта, квоты и актуальных условий."
+  },
+  {
+   "id": "cap-22",
+   "label": "OpenRouter · OpenAI-compatible · Anthropic",
+   "parent": "cloud",
+   "status": "code",
+   "short": "Адаптеры, маршрутизация и настройки; наличие адаптера не доказывает подписку или авторизацию."
+  },
+  {
+   "id": "cap-23",
+   "label": "Кэширование и экономия",
+   "parent": "cloud",
+   "status": "code",
+   "short": "cache_intel, context budget, coding limit saver; экономия должна измеряться usage/cache receipts."
+  },
+  {
+   "id": "cap-24",
+   "label": "Токен-аудитор всех моделей в Telegram",
+   "parent": "cloud",
+   "status": "idea",
+   "short": "Частичная telemetry есть; единый точный дневной отчёт, включая Codex CLI, требует сквозных receipts."
+  },
+  {
+   "id": "cap-25",
+   "label": "Browser · bounded actions",
+   "parent": "computer",
+   "status": "code",
+   "short": "Browser runtime, help, tools и action gates."
+  },
+  {
+   "id": "cap-26",
+   "label": "Jev · desktop operator",
+   "parent": "computer",
+   "status": "code",
+   "short": "Адаптер и bounded operator; не доказано тотальное управление Windows."
+  },
+  {
+   "id": "cap-27",
+   "label": "Computer Use · observe/act",
+   "parent": "computer",
+   "status": "blocked",
+   "short": "Observe описан; действие WAIT_APPROVAL. Случай ложного сообщения об открытии calculator задокументирован."
+  },
+  {
+   "id": "cap-28",
+   "label": "OpenDots sidecar",
+   "parent": "computer",
+   "status": "idea",
+   "short": "Предложенный ограниченный UX sidecar; не заменяет ядро."
+  },
+  {
+   "id": "cap-29",
+   "label": "Motion Studio",
+   "parent": "media",
+   "status": "code",
+   "short": "Редактор, задания и экспорт имеют код; проверять конечный медиафайл и UX отдельно."
+  },
+  {
+   "id": "cap-30",
+   "label": "Video · Music · Images Studio",
+   "parent": "media",
+   "status": "code",
+   "short": "Модули студий и review; нуждаются в backend/model runtime для живого запуска."
+  },
+  {
+   "id": "cap-31",
+   "label": "YouTube / K1m6a → знания → навыки",
+   "parent": "media",
+   "status": "blocked",
+   "short": "Pipeline и документы есть; непрерывный перенос обучения в выполнение не доказан."
+  },
+  {
+   "id": "cap-32",
+   "label": "VoiceStudio · HunyuanImage · Open Muse SDK",
+   "parent": "media",
+   "status": "idea",
+   "short": "Каталог кандидатов, не установленные работающие приложения."
+  },
+  {
+   "id": "cap-33",
+   "label": "Контекст · retrieval · knowledge fabric",
+   "parent": "memory",
+   "status": "code",
+   "short": "Память, контекстные бюджеты, evidence graph, vault и retrieval имеют отдельные модули."
+  },
+  {
+   "id": "cap-34",
+   "label": "Обучение на ошибках",
+   "parent": "memory",
+   "status": "code",
+   "short": "failure_to_case, failure memory, repair/evolution; сохранение кейса не равно улучшению весов."
+  },
+  {
+   "id": "cap-35",
+   "label": "Автономное самоулучшение",
+   "parent": "memory",
+   "status": "blocked",
+   "short": "Аудит 3 октября NOT READY. 154 passed / 2 skipped; три live-цикла и перенос через restart не выполнены."
+  },
+  {
+   "id": "cap-36",
+   "label": "Unsloth · LoRA",
+   "parent": "memory",
+   "status": "idea",
+   "short": "AMD/Windows путь не доказан; описанный CUDA training не считать пригодным без проверки."
+  },
+  {
+   "id": "cap-37",
+   "label": "Память этого дерева",
+   "parent": "memory",
+   "status": "prepared",
+   "short": "JSON карта подготовлена для загрузки. В runtime Bossman ещё не импортирована."
+  },
+  {
+   "id": "cap-38",
+   "label": "Agentic Rave",
+   "parent": "agents",
+   "status": "code",
+   "short": "Многоагентные сессии и STOP; файловая изоляция и интегратор обязательны."
+  },
+  {
+   "id": "cap-39",
+   "label": "Codex / Claude через CMD",
+   "parent": "agents",
+   "status": "code",
+   "short": "CLI/coding sessions существуют; subscription login и общий сценарий нужно проверять отдельно."
+  },
+  {
+   "id": "cap-40",
+   "label": "Миссии · scheduler · долгие задачи",
+   "parent": "agents",
+   "status": "code",
+   "short": "Durable state, task exchange, mission lifecycle, checkpoint и recovery."
+  },
+  {
+   "id": "cap-41",
+   "label": "Организация · fleet · swarm",
+   "parent": "agents",
+   "status": "code",
+   "short": "Control plane, provider fleet, economy swarm, remote nodes; границы authority отдельно."
+  },
+  {
+   "id": "cap-42",
+   "label": "SwapMe admin · FreshVibes admin",
+   "parent": "apps",
+   "status": "code",
+   "short": "Owner journeys и бизнес-сценарии существуют; реальные учётки/публикация/доход не доказаны."
+  },
+  {
+   "id": "cap-43",
+   "label": "Freeze / owner-ready",
+   "parent": "ops",
+   "status": "blocked",
+   "short": "Сохранённый audit 2 октября: NO_GO. Нужен единый итоговый SHA, installed artifact и live прогон."
+  },
+  {
+   "id": "cap-44",
+   "label": "Модель: restart · fallback · память",
+   "parent": "ops",
+   "status": "reported",
+   "short": "4 октября изолированные сценарии описаны как PASS, но после dual restart health DEGRADED; Jeff/UX не проверены."
+  },
+  {
+   "id": "cap-45",
+   "label": "CI · тесты · intelligence retention",
+   "parent": "ops",
+   "status": "recorded",
+   "short": "Исторические CI и тестовые отчёты не переносятся на новый SHA. Текущие checks всех 251 веток не перечитаны."
+  },
+  {
+   "id": "cap-46",
+   "label": "Ресурсы · VRAM · offline · безопасность",
+   "parent": "ops",
+   "status": "code",
+   "short": "Budget, resources, offline, approvals, provenance, secrets vault и action contract."
+  },
+  {
+   "id": "mod-action_contract",
+   "label": "action_contract",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-action_gate",
+   "label": "action_gate",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-action_preview",
+   "label": "action_preview",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-action_router",
+   "label": "action_router",
+   "parent": "cloud",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-agentmap",
+   "label": "agentmap",
+   "parent": "ops",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-apps",
+   "label": "apps",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-apps_control",
+   "label": "apps_control",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-assistant_plan",
+   "label": "assistant_plan",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-autonomy",
+   "label": "autonomy",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-benchlab",
+   "label": "benchlab",
+   "parent": "ops",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-bossnet_nodes_v16",
+   "label": "bossnet_nodes_v16",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-browser",
+   "label": "browser",
+   "parent": "computer",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-browser_help",
+   "label": "browser_help",
+   "parent": "computer",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-cache_intel",
+   "label": "cache_intel",
+   "parent": "cloud",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-candidate_generator",
+   "label": "candidate_generator",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-chat_threads",
+   "label": "chat_threads",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-code_intel",
+   "label": "code_intel",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-coding_limit_saver_v16",
+   "label": "coding_limit_saver_v16",
+   "parent": "agents",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-coding_recipes",
+   "label": "coding_recipes",
+   "parent": "agents",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-coding_sessions",
+   "label": "coding_sessions",
+   "parent": "agents",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-coding_tasks",
+   "label": "coding_tasks",
+   "parent": "agents",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-command_bar",
+   "label": "command_bar",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-context_budget_v16",
+   "label": "context_budget_v16",
+   "parent": "memory",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-control_plane",
+   "label": "control_plane",
+   "parent": "agents",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-deep_fix",
+   "label": "deep_fix",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-diag_bundle",
+   "label": "diag_bundle",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-economy_swarm",
+   "label": "economy_swarm",
+   "parent": "agents",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-eval_engine",
+   "label": "eval_engine",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-evolution",
+   "label": "evolution",
+   "parent": "memory",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-failure_to_case",
+   "label": "failure_to_case",
+   "parent": "memory",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-file_intelligence",
+   "label": "file_intelligence",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-forks",
+   "label": "forks",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-free_providers",
+   "label": "free_providers",
+   "parent": "cloud",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-game_bootstrap_v16",
+   "label": "game_bootstrap_v16",
+   "parent": "media",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-governor",
+   "label": "governor",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-healing",
+   "label": "healing",
+   "parent": "memory",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-images",
+   "label": "images",
+   "parent": "media",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-jeff_insights",
+   "label": "jeff_insights",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-jeff_master_parser",
+   "label": "jeff_master_parser",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-jeff_settings",
+   "label": "jeff_settings",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-jev",
+   "label": "jev",
+   "parent": "computer",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-knowledge_fabric_v16",
+   "label": "knowledge_fabric_v16",
+   "parent": "memory",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-lab_agents",
+   "label": "lab_agents",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-local_first",
+   "label": "local_first",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-market_metrics",
+   "label": "market_metrics",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-memory_retrieval_v16",
+   "label": "memory_retrieval_v16",
+   "parent": "memory",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-mimik",
+   "label": "mimik",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-missions",
+   "label": "missions",
+   "parent": "agents",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-model_foundry_v16",
+   "label": "model_foundry_v16",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-motion_studio",
+   "label": "motion_studio",
+   "parent": "media",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-music_studio",
+   "label": "music_studio",
+   "parent": "media",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-nl_orchestra",
+   "label": "nl_orchestra",
+   "parent": "agents",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-nl_permissions",
+   "label": "nl_permissions",
+   "parent": "agents",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-objectives",
+   "label": "objectives",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-observatory",
+   "label": "observatory",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-offline_mode",
+   "label": "offline_mode",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-open_news",
+   "label": "open_news",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-opencode",
+   "label": "opencode",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-openrouter",
+   "label": "openrouter",
+   "parent": "cloud",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-organization",
+   "label": "organization",
+   "parent": "agents",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-osiris",
+   "label": "osiris",
+   "parent": "ops",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-oss_integrations",
+   "label": "oss_integrations",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-owner_input",
+   "label": "owner_input",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-pattern_miner",
+   "label": "pattern_miner",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-plugins",
+   "label": "plugins",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-promotion_gate",
+   "label": "promotion_gate",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-provenance",
+   "label": "provenance",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-provider_fleet_v16",
+   "label": "provider_fleet_v16",
+   "parent": "agents",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-qa_relay",
+   "label": "qa_relay",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-rave",
+   "label": "rave",
+   "parent": "agents",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-reality",
+   "label": "reality",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-resources",
+   "label": "resources",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-review_gate",
+   "label": "review_gate",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-router",
+   "label": "router",
+   "parent": "cloud",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-second_opinion",
+   "label": "second_opinion",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-simulation_world_v16",
+   "label": "simulation_world_v16",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-skills",
+   "label": "skills",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-snapshot",
+   "label": "snapshot",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-spend_meter",
+   "label": "spend_meter",
+   "parent": "cloud",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-studio",
+   "label": "studio",
+   "parent": "media",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-studio_review",
+   "label": "studio_review",
+   "parent": "media",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-task_exchange",
+   "label": "task_exchange",
+   "parent": "agents",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-telegram_calls",
+   "label": "telegram_calls",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-telegram_settings",
+   "label": "telegram_settings",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-terminal",
+   "label": "terminal",
+   "parent": "computer",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-testing_period",
+   "label": "testing_period",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-tools_apps",
+   "label": "tools_apps",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-tools_browser",
+   "label": "tools_browser",
+   "parent": "computer",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-tools_code",
+   "label": "tools_code",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-tools_computer",
+   "label": "tools_computer",
+   "parent": "computer",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-tools_facts",
+   "label": "tools_facts",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-tools_jeff",
+   "label": "tools_jeff",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-tools_mcp",
+   "label": "tools_mcp",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-tools_memory",
+   "label": "tools_memory",
+   "parent": "memory",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-tools_openclaw",
+   "label": "tools_openclaw",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-tools_opencode",
+   "label": "tools_opencode",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-tools_terminal",
+   "label": "tools_terminal",
+   "parent": "computer",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-trace_recorder",
+   "label": "trace_recorder",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-trading_lab",
+   "label": "trading_lab",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-twitter",
+   "label": "twitter",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-unified_search",
+   "label": "unified_search",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-v15_autonomy",
+   "label": "v15_autonomy",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-v15_economy",
+   "label": "v15_economy",
+   "parent": "cloud",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-v15_owner",
+   "label": "v15_owner",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-v15_owner_run",
+   "label": "v15_owner_run",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-v15_self_repair",
+   "label": "v15_self_repair",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-video_studio",
+   "label": "video_studio",
+   "parent": "media",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-viral_vfx",
+   "label": "viral_vfx",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "mod-watchdog",
+   "label": "watchdog",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-web_designer",
+   "label": "web_designer",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "mod-workflow",
+   "label": "workflow",
+   "parent": "ops",
+   "status": "code",
+   "short": "Модуль найден. Семантика и live работоспособность не сертифицированы."
+  },
+  {
+   "id": "app-ai-3d-maker",
+   "label": "ai-3d-maker",
+   "parent": "apps",
+   "status": "code",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно."
+  },
+  {
+   "id": "app-ai-webcam-vision",
+   "label": "ai-webcam-vision",
+   "parent": "apps",
+   "status": "code",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно."
+  },
+  {
+   "id": "app-bossman-accountant",
+   "label": "bossman-accountant",
+   "parent": "apps",
+   "status": "code",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно."
+  },
+  {
+   "id": "app-exam-trainer-ai",
+   "label": "exam-trainer-ai",
+   "parent": "apps",
+   "status": "code",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно."
+  },
+  {
+   "id": "app-file-commander-mini",
+   "label": "file-commander-mini",
+   "parent": "apps",
+   "status": "code",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно."
+  },
+  {
+   "id": "app-osiris",
+   "label": "osiris",
+   "parent": "apps",
+   "status": "code",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно."
+  },
+  {
+   "id": "app-pc-autopilot-mini",
+   "label": "pc-autopilot-mini",
+   "parent": "apps",
+   "status": "code",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно."
+  },
+  {
+   "id": "app-social-farm",
+   "label": "social-farm",
+   "parent": "media",
+   "status": "code",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно. Перенесён в ветку «Motion и медиа» из зоны «apps» по просьбе владельца 06.10.2026 (зна"
+  },
+  {
+   "id": "app-solana-volume-suite",
+   "label": "solana-volume-suite",
+   "parent": "apps",
+   "status": "code",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно."
+  },
+  {
+   "id": "app-travel-architect",
+   "label": "travel-architect",
+   "parent": "apps",
+   "status": "code",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно."
+  },
+  {
+   "id": "skill-0",
+   "label": "browser-research",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-1",
+   "label": "context-builder",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-2",
+   "label": "differential-review",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-3",
+   "label": "external-evidence-check",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-4",
+   "label": "failure-retrospective",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-5",
+   "label": "frontend-design",
+   "parent": "media",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime. Перенесён в ветку «Motion и медиа» из зоны «skills» по просьбе владельца 06.10.2026 (значение"
+  },
+  {
+   "id": "skill-6",
+   "label": "mcp-builder",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-7",
+   "label": "memory-curator",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-8",
+   "label": "memory-recall",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-9",
+   "label": "model-eval",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-10",
+   "label": "night-mission",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-11",
+   "label": "obsidian-knowledge",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-12",
+   "label": "openrouter-sync",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-13",
+   "label": "permission-auditor",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-14",
+   "label": "proof-before-done",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-15",
+   "label": "property-based-testing",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-16",
+   "label": "repo-audit",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-17",
+   "label": "requirement-clarify",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-18",
+   "label": "safe-code-change",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-19",
+   "label": "safe-terminal",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-20",
+   "label": "skill-evaluator",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-21",
+   "label": "skill-forge",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-22",
+   "label": "solana-volume-suite",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-23",
+   "label": "systematic-debugging",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-24",
+   "label": "test-driven-development",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-25",
+   "label": "variant-analysis",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-26",
+   "label": "video-editing",
+   "parent": "media",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime. Перенесён в ветку «Motion и медиа» из зоны «skills» по просьбе владельца 06.10.2026 (значение"
+  },
+  {
+   "id": "skill-27",
+   "label": "webapp-testing",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-28",
+   "label": "atomicity-boundary",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-29",
+   "label": "honest-verdict",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-30",
+   "label": "measure-do-not-assume",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-31",
+   "label": "negative-control",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-32",
+   "label": "parallel-agent-file-ownership",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-33",
+   "label": "port-do-not-merge",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-34",
+   "label": "reproduce-before-fixing",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-35",
+   "label": "tests-that-find-bugs",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-36",
+   "label": "compact",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-37",
+   "label": "skill-creator",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-38",
+   "label": "webapp-testing",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-39",
+   "label": "hf-mem",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-40",
+   "label": "huggingface-local-models",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-41",
+   "label": "receiving-code-review",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-42",
+   "label": "requesting-code-review",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-43",
+   "label": "systematic-debugging",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-44",
+   "label": "test-driven-development",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-45",
+   "label": "using-git-worktrees",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-46",
+   "label": "verification-before-completion",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-47",
+   "label": "writing-plans",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-48",
+   "label": "mimik",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-49",
+   "label": "open-news",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "skill-50",
+   "label": "game-3d-model",
+   "parent": "skills",
+   "status": "recorded",
+   "short": "SKILL.md найден; не означает подключение навыка в текущий runtime."
+  },
+  {
+   "id": "plugin-0",
+   "label": "http.get",
+   "parent": "plugins",
+   "status": "reported",
+   "short": "Capability manifest; scope: network.read. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: live_get_public_and_ssrf_block"
+  },
+  {
+   "id": "plugin-1",
+   "label": "monitor.feed",
+   "parent": "plugins",
+   "status": "reported",
+   "short": "Capability manifest; scope: network.read. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: live_feed_public_rss"
+  },
+  {
+   "id": "plugin-2",
+   "label": "sql.read",
+   "parent": "plugins",
+   "status": "reported",
+   "short": "Capability manifest; scope: db.read. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: sqlite_ro_select_and_write_denied"
+  },
+  {
+   "id": "plugin-3",
+   "label": "obsidian.read",
+   "parent": "plugins",
+   "status": "reported",
+   "short": "Capability manifest; scope: vault.read. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: temp_vault_read_and_traversal_block"
+  },
+  {
+   "id": "plugin-4",
+   "label": "obsidian.write",
+   "parent": "plugins",
+   "status": "reported",
+   "short": "Capability manifest; scope: vault.write. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: temp_vault_write_gate_and_confine"
+  },
+  {
+   "id": "plugin-5",
+   "label": "mcp.tool_list",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: mcp.read. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-6",
+   "label": "mcp.tool_call",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: mcp.execute. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-7",
+   "label": "ollama.chat",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: llm.local. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-8",
+   "label": "openrouter.chat",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: llm.cloud.use. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-9",
+   "label": "github.repo_read",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: repo:read. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-10",
+   "label": "github.issue_create",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: issues:write. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-11",
+   "label": "gmail.search",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: gmail.readonly. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-12",
+   "label": "gmail.send",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: gmail.send. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-13",
+   "label": "calendar.search",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: calendar.readonly. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-14",
+   "label": "calendar.create",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: calendar.events. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-15",
+   "label": "drive.search",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: drive.readonly. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-16",
+   "label": "drive.write",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: drive.file. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-17",
+   "label": "telegram.status",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: telegram.read. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-18",
+   "label": "telegram.send",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: telegram.send. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-19",
+   "label": "n8n.workflow_list",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: n8n.read. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-20",
+   "label": "n8n.workflow_run",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: n8n.execute. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-21",
+   "label": "browser.open",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: browser.navigate. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "plugin-22",
+   "label": "browser.form_submit",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Capability manifest; scope: browser.input. Авторизация/live эффект не проверены."
+  },
+  {
+   "id": "oss-1",
+   "label": "cloudflare/security-audit-skill",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-2",
+   "label": "alibaba/open-code-review",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-3",
+   "label": "NousResearch/hermes-agent",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-4",
+   "label": "gepa-ai/gepa",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-5",
+   "label": "karpathy/autoresearch",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-6",
+   "label": "microsoft/agent-lightning",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-7",
+   "label": "SWE-agent/mini-swe-agent",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-9",
+   "label": "browser-use/jev-ultrafast",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-10",
+   "label": "APUS-AI-Lab/fast-browser-use",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-11",
+   "label": "mostlygeek/llama-swap",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-12",
+   "label": "open-webui/open-webui",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-13",
+   "label": "kyuz0/amd-strix-halo-toolboxes",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-14",
+   "label": "searxng/searxng",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-15",
+   "label": "VoltAgent/awesome-agent-skills.",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-16",
+   "label": "ggml-org/llama.cpp",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-17",
+   "label": "docling-project/docling",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-18",
+   "label": "qdrant/qdrant",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-19",
+   "label": "SYSTRAN/faster-whisper",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-20",
+   "label": "Comfy-Org/ComfyUI",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-21",
+   "label": "bytedance/UI-TARS",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-22",
+   "label": "GrapesJS/grapesjs",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-23",
+   "label": "0xranx/OpenContext",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-24",
+   "label": "hyperfield/ai-file-sorter",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-25",
+   "label": "Faceplugin-ltd/Open-Source-Face-Recognition-SDK",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-26",
+   "label": "Vincentwei1021/video-shotcraft",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-27",
+   "label": "wandb/weave",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-28",
+   "label": "qdrant/qdrant-client",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-29",
+   "label": "openclaw/openclaw",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-30",
+   "label": "opendatalab/OmniDocBench",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-31",
+   "label": "CopilotKit/OpenDots",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-32",
+   "label": "JustVugg/colibri",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-33",
+   "label": "debpalash/VoiceStudio",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-34",
+   "label": "facebookincubator/muse-gadget-sdk",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-35",
+   "label": "chatwoot/chatwoot",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-36",
+   "label": "chatwoot/docs",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-37",
+   "label": "legenhand/n8n-nodes-instagram-api",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-38",
+   "label": "devgine/n8n-ig-comments-management",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-39",
+   "label": "Boudofski/instagramautomation",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-40",
+   "label": "aldoprianandi/ig-autodm-worker",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-41",
+   "label": "getzep/graphiti",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-42",
+   "label": "letta-ai/letta",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-43",
+   "label": "mem0ai/mem0",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-44",
+   "label": "HKUDS/LightRAG",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-45",
+   "label": "aexy-io/graphzep",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-46",
+   "label": "Zylann/godot_voxel",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-47",
+   "label": "godotengine/godot",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-48",
+   "label": "XingChen-AGI/Xing4.0-29B-A4B",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-49",
+   "label": "wide-trace/open-higgsfield",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-50",
+   "label": "mltframework/shotcut",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-51",
+   "label": "AcademySoftwareFoundation/OpenTimelineIO",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-52",
+   "label": "ggml-org/whisper.cpp",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-53",
+   "label": "Lightricks/LTX-2",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-54",
+   "label": "letta-ai/letta-code",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-55",
+   "label": "MineDojo/Voyager",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-56",
+   "label": "lm-sys/RouteLLM",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-57",
+   "label": "ulab-uiuc/LLMRouter",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-58",
+   "label": "ag2ai/ag2",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-59",
+   "label": "OpenHands/benchmarks",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-60",
+   "label": "google/benchmark",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-61",
+   "label": "higgsfield-ai/higgsfield-client",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-62",
+   "label": "higgsfield-ai/higgsfield-js",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-63",
+   "label": "higgsfield-ai/cli",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-64",
+   "label": "higgsfield-ai/skills",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-65",
+   "label": "Lightricks/LTX-Desktop",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-66",
+   "label": "peter-evans/create-pull-request",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-67",
+   "label": "prompt-toolkit/python-prompt-toolkit",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-68",
+   "label": "Textualize/rich",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-69",
+   "label": "openai/codex",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-70",
+   "label": "huggingface/skills",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-71",
+   "label": "obra/superpowers",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-72",
+   "label": "anthropics/skills",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-73",
+   "label": "NUS-HPC-AI-Lab/FOCUS",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-74",
+   "label": "shaoguangwang/Q_Gate",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-75",
+   "label": "jinlab-imvr/ReMem",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-76",
+   "label": "zhangce01/LENS",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-77",
+   "label": "wuli55555/ISSF",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-78",
+   "label": "LeonHLJ/RSKP",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-79",
+   "label": "fuleinist/video-to-skill",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-80",
+   "label": "coah80/youtube-mcp",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-81",
+   "label": "bradautomates/claude-video",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-82",
+   "label": "WebDevBar/watch-video",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-83",
+   "label": "m-bain/whisperX",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-84",
+   "label": "Breakthrough/PySceneDetect",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-85",
+   "label": "QwenLM/Qwen2.5-VL",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-86",
+   "label": "minseokii/OTT-Vid",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-87",
+   "label": "EvolvingLMMs-Lab/lmms-eval",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-88",
+   "label": "RomGai/VideoStir",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-89",
+   "label": "HKUDS/VideoRAG",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-90",
+   "label": "city1517/OneClip-RAG",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-91",
+   "label": "facebookresearch/egagent",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-92",
+   "label": "Co-Messi/HyperData-Terminal",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-93",
+   "label": "ccxt/ccxt",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-94",
+   "label": "binance/binance-connector-python",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-95",
+   "label": "bybit-exchange/pybit",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-96",
+   "label": "nautechsystems/nautilus_trader",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-97",
+   "label": "hummingbot/hummingbot",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-98",
+   "label": "polakowo/vectorbt",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-99",
+   "label": "QuantConnect/Lean",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-100",
+   "label": "freqtrade/freqtrade",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-101",
+   "label": "freqtrade/freqtrade-strategies",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-102",
+   "label": "AI4Finance-Foundation/FinRL",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-103",
+   "label": "AI4Finance-Foundation/FinGPT",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-104",
+   "label": "tradingview/lightweight-charts",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-105",
+   "label": "caronc/apprise",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-106",
+   "label": "yamadashy/repomix",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-107",
+   "label": "trailofbits/skills",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-108",
+   "label": "petergyang/no-ai-slop",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-109",
+   "label": "tonhowtf/omniget",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-110",
+   "label": "Untrivial-ai/agent-orchestrator",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-111",
+   "label": "pranshuparmar/witr",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "oss-112",
+   "label": "artf/codemirror-formatting",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+  },
+  {
+   "id": "slash-help",
+   "label": "/help",
+   "parent": "ux",
+   "status": "code",
+   "short": "список команд; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-status",
+   "label": "/status",
+   "parent": "ux",
+   "status": "code",
+   "short": "подключение, сборка, модель, агент, режим, бюджеты; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-tasks",
+   "label": "/tasks [N]",
+   "parent": "ux",
+   "status": "code",
+   "short": "последние задачи Bossman; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-models",
+   "label": "/models [use <id|alias>]",
+   "parent": "ux",
+   "status": "code",
+   "short": "модели; use — сменить модель текущего агента; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-agent",
+   "label": "/agent [<id|имя>]",
+   "parent": "ux",
+   "status": "code",
+   "short": "агенты; с аргументом — выбрать; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-skills",
+   "label": "/skills [запрос]",
+   "parent": "ux",
+   "status": "code",
+   "short": "навыки; с запросом — какие подошли бы к задаче; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-tools",
+   "label": "/tools",
+   "parent": "ux",
+   "status": "code",
+   "short": "инструменты текущего агента и их политика; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-memory",
+   "label": "/memory <запрос>",
+   "parent": "ux",
+   "status": "code",
+   "short": "поиск по памяти и фактам; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-diff",
+   "label": "/diff [coding-task-id]",
+   "parent": "ux",
+   "status": "code",
+   "short": "diff последней coding-задачи; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-code",
+   "label": "/code --allow <путь> [--verify <тест>] <задача>",
+   "parent": "ux",
+   "status": "code",
+   "short": "coding task через coding path; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-rave",
+   "label": "/rave \"<задача>\" --agents a,b | status|pause|resume|stop|diff <id>",
+   "parent": "ux",
+   "status": "code",
+   "short": "Agentic Rave: несколько агентов на один prompt; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-approve",
+   "label": "/approve [id]",
+   "parent": "ux",
+   "status": "code",
+   "short": "одобрить ожидающее разрешение; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-deny",
+   "label": "/deny [id]",
+   "parent": "ux",
+   "status": "code",
+   "short": "отклонить ожидающее разрешение; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-approvals",
+   "label": "/approvals",
+   "parent": "ux",
+   "status": "code",
+   "short": "ожидающие разрешения; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-pause",
+   "label": "/pause [task]",
+   "parent": "ux",
+   "status": "code",
+   "short": "пауза задачи; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-stop",
+   "label": "/stop [task|all]",
+   "parent": "ux",
+   "status": "code",
+   "short": "остановить задачу; all — глобальный STOP; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-resume",
+   "label": "/resume [task]",
+   "parent": "ux",
+   "status": "code",
+   "short": "продолжить задачу после паузы; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-computer",
+   "label": "/computer [status|stop|resume]",
+   "parent": "ux",
+   "status": "code",
+   "short": "управление компьютером; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-evolve",
+   "label": "/evolve [status|pause|resume|stop|report]",
+   "parent": "ux",
+   "status": "code",
+   "short": "цикл самоулучшения 1.1; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-keys",
+   "label": "/keys [set <vendor>|remove <vendor>|import-env]",
+   "parent": "ux",
+   "status": "code",
+   "short": "ключи облачных моделей; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-panel",
+   "label": "/panel",
+   "parent": "ux",
+   "status": "code",
+   "short": "панель контекста: workspace, задача, инструменты, память, бюджет; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-compact",
+   "label": "/compact [инструкция]",
+   "parent": "ux",
+   "status": "code",
+   "short": "сжать беседу в резюме (задачей Bossman); дальше — резюме + новые ходы; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-context",
+   "label": "/context",
+   "parent": "ux",
+   "status": "code",
+   "short": "что уйдёт со следующим сообщением: резюме, ходы, размер; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-cost",
+   "label": "/cost",
+   "parent": "ux",
+   "status": "code",
+   "short": "токены и стоимость задач этой сессии (из Bossman); команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-export",
+   "label": "/export [путь] [--force]",
+   "parent": "ux",
+   "status": "code",
+   "short": "сохранить беседу в Markdown; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-doctor",
+   "label": "/doctor",
+   "parent": "ux",
+   "status": "code",
+   "short": "проверка: сборка, данные, агент, coding path, память, компьютер; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-expand",
+   "label": "/expand [N]",
+   "parent": "ux",
+   "status": "code",
+   "short": "развернуть свёрнутый блок (мысли модели, вывод инструмента); команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-history",
+   "label": "/history [on|off]",
+   "parent": "ux",
+   "status": "code",
+   "short": "история ввода: показать состояние / включить / выключить; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-clear",
+   "label": "/clear",
+   "parent": "ux",
+   "status": "code",
+   "short": "очистить экран; команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "slash-exit",
+   "label": "/exit",
+   "parent": "ux",
+   "status": "code",
+   "short": "выйти (задачи продолжают работу в Bossman); команда зарегистрирована, живой запуск отдельно."
+  },
+  {
+   "id": "free-NVIDIA-NIM",
+   "label": "NVIDIA NIM",
+   "parent": "cloud",
+   "status": "code",
+   "short": "Free preset в коде. Доступ, квоты и работоспособность аккаунта не проверены."
+  },
+  {
+   "id": "free-Groq",
+   "label": "Groq",
+   "parent": "cloud",
+   "status": "code",
+   "short": "Free preset в коде. Доступ, квоты и работоспособность аккаунта не проверены."
+  },
+  {
+   "id": "free-Google-AI-Studio",
+   "label": "Google AI Studio",
+   "parent": "cloud",
+   "status": "code",
+   "short": "Free preset в коде. Доступ, квоты и работоспособность аккаунта не проверены."
+  },
+  {
+   "id": "module-637788ef482e",
+   "label": "bossman/ai_lab/candidates.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-a1a2c4ccc239",
+   "label": "bossman/ai_lab/export.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-cdb370a24157",
+   "label": "bossman/ai_lab/routes.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-5386412e9f11",
+   "label": "bossman/ai_lab/sanitizer.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-73976a1cf54d",
+   "label": "bossman/apprentice/_bootstrap.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-39e925886668",
+   "label": "bossman/apprentice/claude_code_client.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-a7ad0d90993c",
+   "label": "bossman/apprentice/composition.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-bc12e1784cb5",
+   "label": "bossman/apprentice/durable.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-a17a422c65d7",
+   "label": "bossman/apprentice/engine.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-86282a9efa67",
+   "label": "bossman/apprentice/errors.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-d41ad480551d",
+   "label": "bossman/apprentice/fable_direct.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-d4455ade6345",
+   "label": "bossman/apprentice/fable_transcript.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-177f174d3f63",
+   "label": "bossman/apprentice/flags.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-4780a1d5fdf7",
+   "label": "bossman/apprentice/guards.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-c23f35941e16",
+   "label": "bossman/apprentice/isolated_worktree.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-815783821b83",
+   "label": "bossman/apprentice/live_workspace.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-bc25cd9f1e01",
+   "label": "bossman/apprentice/local_sidecar.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-42a06e3c1b71",
+   "label": "bossman/apprentice/models.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-049b601d5eaa",
+   "label": "bossman/apprentice/openhands_client.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-efdcd8d35b9c",
+   "label": "bossman/apprentice/openhands_teacher_client.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-d8ca33ba94f4",
+   "label": "bossman/apprentice/outreach.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-6c727703c8ea",
+   "label": "bossman/apprentice/owner_auth.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-9958189ad4d4",
+   "label": "bossman/apprentice/proc_tree.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-ac2f6e6dc2d9",
+   "label": "bossman/apprentice/recording.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-e2dd4b7bfb5d",
+   "label": "bossman/apprentice/sanctions.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-816c15a6b6a4",
+   "label": "bossman/apprentice/scripted_model.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-ecf0929e5652",
+   "label": "bossman/apprentice/selector_repair.py",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-0541863355da",
+   "label": "bossman/apprentice/skills.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-522cf2e79840",
+   "label": "bossman/apprentice/teacher.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-edac8a22b815",
+   "label": "bossman/apprentice/teacher_sandbox.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-b8a71e28fc47",
+   "label": "bossman/apprentice/teacher_wiring_patch.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-ff7440d8b674",
+   "label": "bossman/benchmark/__main__.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-1184b1105ced",
+   "label": "bossman/benchmark/cli.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-dadaec7d827b",
+   "label": "bossman/benchmark/engine.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-771a003071ca",
+   "label": "bossman/benchmark/fixture_runtime.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-d3f5977af5ba",
+   "label": "bossman/benchmark/sandbox_row.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-9f29d5a73f7f",
+   "label": "bossman/benchmark/sandbox_runtime.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-4e4b608586a8",
+   "label": "bossman/cognitive/context.py",
+   "parent": "memory",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-f92b1c5ccf84",
+   "label": "bossman/cognitive/memory.py",
+   "parent": "memory",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-49743fcdb397",
+   "label": "bossman/cognitive/reasoning.py",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-930117f0081f",
+   "label": "bossman/cognitive/runtime.py",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-0ef222c310ce",
+   "label": "bossman/cognitive/storage.py",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-79b7a3bcfc36",
+   "label": "bossman/cognitive/tasks.py",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-7b69eef1f974",
+   "label": "bossman/cognitive/verify.py",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-f1cacda08a67",
+   "label": "bossman/company/model.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-47931d1b717a",
+   "label": "bossman/company/planner.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-eea9bcf7e3ac",
+   "label": "bossman/company/runtime.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-e297560d568b",
+   "label": "bossman/company/synthetic_seo.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-575dcc5a99f5",
+   "label": "bossman/computer_operator/applist.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-fb39c9a64573",
+   "label": "bossman/computer_operator/capabilities.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-179cd95b7128",
+   "label": "bossman/computer_operator/loop_guard.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-79d58034a65f",
+   "label": "bossman/computer_operator/manager.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-e376eaac5d8f",
+   "label": "bossman/computer_operator/models.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-4b4b01b5e71a",
+   "label": "bossman/computer_operator/obligations.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-1b34d40914f1",
+   "label": "bossman/computer_operator/observer.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-c64e6d1041b0",
+   "label": "bossman/computer_operator/planner.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-3f26dfe54c72",
+   "label": "bossman/computer_operator/policy.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-009f4807c914",
+   "label": "bossman/computer_operator/routes.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-2d3d2ae733c1",
+   "label": "bossman/computer_operator/secret_executor.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-e6b90349c6c6",
+   "label": "bossman/computer_operator/store.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-3a8ad5c2d247",
+   "label": "bossman/computer_operator/subsystem.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-c22cab3d4320",
+   "label": "bossman/computer_operator/uitars.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-a270c9dbe40c",
+   "label": "bossman/computer_operator/verifier.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-638ddbcb1a1b",
+   "label": "bossman/computer_operator/wiring.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-2efac2124b8a",
+   "label": "bossman/context_engine/chunking.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-fc4458307ec6",
+   "label": "bossman/context_engine/compact.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-e0361cc49cbe",
+   "label": "bossman/context_engine/compiler.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-4464eb0b222b",
+   "label": "bossman/context_engine/distill.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-1754cbd5cf01",
+   "label": "bossman/context_engine/embeddings.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-7337f0855536",
+   "label": "bossman/context_engine/ingest.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-5da7135e967e",
+   "label": "bossman/context_engine/memory.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-25fe3b1d97f3",
+   "label": "bossman/context_engine/models.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-8740ba43b723",
+   "label": "bossman/context_engine/plugins.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-35d5cb7d9ebd",
+   "label": "bossman/context_engine/retrieval.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-c04cfc2bef49",
+   "label": "bossman/context_engine/service.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-690bf4d0f3a1",
+   "label": "bossman/context_engine/store.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-54de14cfacf9",
+   "label": "bossman/context_engine/telemetry.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-91d844ed59bd",
+   "label": "bossman/context_engine/utils.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-1c2e0a6599c0",
+   "label": "bossman/cost_control/enforcer.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-e99c091d1c06",
+   "label": "bossman/cost_control/governor.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-dd118749492b",
+   "label": "bossman/cost_control/models.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-72f38f26214a",
+   "label": "bossman/cost_control/pricing.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-6e615a668c7b",
+   "label": "bossman/cost_control/routes.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-4efbb2fd9c4a",
+   "label": "bossman/cost_control/runtime.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-bc87c8d6bfa4",
+   "label": "bossman/cost_control/store.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-df0754d72d22",
+   "label": "bossman/cost_control/subsystem.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-028fe7482116",
+   "label": "bossman/cybersec/benchmark.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-068b8f4fbeb2",
+   "label": "bossman/cybersec/blast_radius.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-0b1e4d69a90c",
+   "label": "bossman/cybersec/defender.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-3d1858d49e75",
+   "label": "bossman/cybersec/evidence.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-7a65bf88fb04",
+   "label": "bossman/cybersec/gates.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-8de7f3a7cd44",
+   "label": "bossman/cybersec/guards.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-d401165730fa",
+   "label": "bossman/cybersec/ids.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-f6a4b22d7b2b",
+   "label": "bossman/cybersec/injection.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-7e1490293776",
+   "label": "bossman/cybersec/learning.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-63389f3e655f",
+   "label": "bossman/cybersec/recovery.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-cc401f252307",
+   "label": "bossman/cybersec/redteam.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-a43ab3ee85df",
+   "label": "bossman/cybersec/repo_scanner.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-0aa387ab63a9",
+   "label": "bossman/cybersec/secret_guardian.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-d68747affe30",
+   "label": "bossman/cybersec/security_memory.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-4b4e00d7c711",
+   "label": "bossman/cybersec/supply_chain.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-103910b19c50",
+   "label": "bossman/cybersec/training.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-dc98760346bb",
+   "label": "bossman/cybersec/trust.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-74b9d09c9a49",
+   "label": "bossman/dev_factory/editor.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-74d93ed6921a",
+   "label": "bossman/dev_factory/evidence.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-904a8396aa6c",
+   "label": "bossman/dev_factory/executor.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-4aacff2330d4",
+   "label": "bossman/dev_factory/factory.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-7f1adf1138f0",
+   "label": "bossman/dev_factory/models.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-e2b6bd15aba1",
+   "label": "bossman/dev_factory/planner.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-3adca9c27bdb",
+   "label": "bossman/dev_factory/reviewer.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-7280885daae5",
+   "label": "bossman/dev_factory/routes.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-9a1970f7c3e5",
+   "label": "bossman/dev_factory/store.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-3f0a90670bba",
+   "label": "bossman/dev_factory/subsystem.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-b428d8c055bc",
+   "label": "bossman/dev_factory/workspace.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-30ddab524cfc",
+   "label": "bossman/gateway/anthropic_protocol.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-5fd57fccff12",
+   "label": "bossman/gateway/app.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-745ed9f64ff7",
+   "label": "bossman/gateway/auth.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-95e88c430e38",
+   "label": "bossman/gateway/backends.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-7fb28ee13497",
+   "label": "bossman/gateway/client.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-4b5988e098bd",
+   "label": "bossman/gateway/config.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-de7445e9d5f5",
+   "label": "bossman/gateway/main.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-d5d8a9a7ab5c",
+   "label": "bossman/gateway/prompt_cache.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-a548c779a998",
+   "label": "bossman/gateway/router.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-8dba9550a502",
+   "label": "bossman/gateway/telemetry.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-8319884cf006",
+   "label": "bossman/learning_guard/ab.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-1c240a45339a",
+   "label": "bossman/learning_guard/autonomy_trainer.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-9bcb4ce56153",
+   "label": "bossman/learning_guard/evidence_ledger.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-e298a2a29a4b",
+   "label": "bossman/learning_guard/holdout.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-6f6f10fdb204",
+   "label": "bossman/learning_guard/models.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-07d13d7463b7",
+   "label": "bossman/learning_guard/promotion.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-72d4da1606dd",
+   "label": "bossman/learning_guard/runtime_bridge.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-d33b374941cd",
+   "label": "bossman/learning_guard/service.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-725a466f4b8f",
+   "label": "bossman/notifications/bridge.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-24bbe5117ab0",
+   "label": "bossman/notifications/dispatcher.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-9a0163231b1b",
+   "label": "bossman/notifications/models.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-0ce0daf3140c",
+   "label": "bossman/notifications/policy.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-45ef5a5cbb02",
+   "label": "bossman/notifications/routes.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-76a14f0ce102",
+   "label": "bossman/notifications/runtime.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-ddbf2f4b50d2",
+   "label": "bossman/notifications/store.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-aaff14c2d261",
+   "label": "bossman/notifications/subsystem.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-46de893ccfc9",
+   "label": "bossman/notifications/telegram_transport.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-2e5863355b9a",
+   "label": "bossman/profiles/gate.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-9d355deb8dee",
+   "label": "bossman/profiles/memory.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-60f309b322d6",
+   "label": "bossman/profiles/models.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-5c5bd2e61f67",
+   "label": "bossman/profiles/router.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-99fc865d8c4b",
+   "label": "bossman/profiles/service.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-ff3e6bc1044b",
+   "label": "bossman/profiles/store.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-531fc123cd17",
+   "label": "bossman/profiles/subsystem.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-ca6830e0de16",
+   "label": "bossman/projects/plan.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-8bd73fd35c48",
+   "label": "bossman/projects/planner.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-28048916831a",
+   "label": "bossman/projects/router.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-883a6692992b",
+   "label": "bossman/projects/runner.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-b52d0534a802",
+   "label": "bossman/reality/mission_ir.py",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-f538937e8cf0",
+   "label": "bossman/reality/strategy.py",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-fd070cf37fd7",
+   "label": "bossman/reality/world_state.py",
+   "parent": "ops",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-de49198eacce",
+   "label": "bossman/remote_client/auth.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-2bd9c1e2cdfd",
+   "label": "bossman/remote_client/events.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-37dec999ab57",
+   "label": "bossman/remote_client/mobile_api.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-f1437d4e2221",
+   "label": "bossman/remote_client/router.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-897d03f9aab0",
+   "label": "bossman/remote_client/security.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-6bfb88803a15",
+   "label": "bossman/remote_client/service.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-de0238268e77",
+   "label": "bossman/remote_client/store.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-5bfdc6603e86",
+   "label": "bossman/remote_client/subsystem.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-8f7bb546924a",
+   "label": "bossman/research/engine.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-cb1aad058144",
+   "label": "bossman/research/models.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-c5d464a7aa9e",
+   "label": "bossman/research/tools.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-0ef2333ef23c",
+   "label": "bossman/resource_brain/brain.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-2f9db2f18c1b",
+   "label": "bossman/resource_brain/ledger.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-22827787ecc5",
+   "label": "bossman/resource_brain/models.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-dacafbe9e4ee",
+   "label": "bossman/resource_brain/probe.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-fe0ffb0d2f88",
+   "label": "bossman/resource_brain/routes.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-5fcedb9e4e99",
+   "label": "bossman/resource_brain/subsystem.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-9d055871ddff",
+   "label": "bossman/sandbox/artifacts.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-abd99037a01e",
+   "label": "bossman/sandbox/dataset.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-9d8ee6730907",
+   "label": "bossman/sandbox/egress.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-43a773f7d5a6",
+   "label": "bossman/sandbox/manager.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-eb0be06d9db9",
+   "label": "bossman/sandbox/models.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-9c2c49d71c15",
+   "label": "bossman/sandbox/netguard.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-5c36f1523214",
+   "label": "bossman/sandbox/network.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-2eec9a135e0f",
+   "label": "bossman/sandbox/policy.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-a11338c485f5",
+   "label": "bossman/sandbox/resources.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-1622458b008a",
+   "label": "bossman/sandbox/routes.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-5d128fcf8dab",
+   "label": "bossman/sandbox/runtime.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-fdd1e1e7e9a0",
+   "label": "bossman/sandbox/secrets.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-e999698f8e9e",
+   "label": "bossman/sandbox/subsystem.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-0dc288edd324",
+   "label": "bossman/sandbox/toolbox.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-aab05d5c4f1a",
+   "label": "bossman/sandbox/tools.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-0445b69844cc",
+   "label": "bossman/sandbox/trajectory.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-e11418351fd7",
+   "label": "bossman/search_everything/connectors.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-6fcdcfb4b872",
+   "label": "bossman/search_everything/engine.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-3e2b4af78a2e",
+   "label": "bossman/search_everything/router.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-5579b793e038",
+   "label": "bossman/search_everything/service.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-76ae682ed2e4",
+   "label": "bossman/search_everything/tools.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-59f6fbe27bd5",
+   "label": "bossman/toolkit/_proc.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-5f3e261c2cf4",
+   "label": "bossman/toolkit/analysis.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-eb0bce4aaf5b",
+   "label": "bossman/toolkit/browser.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-918d9d178fe3",
+   "label": "bossman/toolkit/fileintel.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-2190e88ab8cb",
+   "label": "bossman/toolkit/files.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-cf0d1b5d4d86",
+   "label": "bossman/toolkit/gitops.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-6b8f5c457e7f",
+   "label": "bossman/toolkit/journal.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-c2cd9f798b9b",
+   "label": "bossman/toolkit/media.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-7be51ff76449",
+   "label": "bossman/toolkit/net.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-ae9598734759",
+   "label": "bossman/toolkit/office.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-a91069ddd708",
+   "label": "bossman/toolkit/shell.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-389fe1a92fa7",
+   "label": "bossman/trading_learning/adapters.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-2719fd94eacc",
+   "label": "bossman/trading_learning/backtest.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-6bf6aca94f5f",
+   "label": "bossman/trading_learning/benchmark.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-98c19da7eaec",
+   "label": "bossman/trading_learning/claims.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-10135418ed52",
+   "label": "bossman/trading_learning/cli.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-dca65ddd8cea",
+   "label": "bossman/trading_learning/frames.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-72a2f39e685d",
+   "label": "bossman/trading_learning/ingest.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-9b294ff2bf89",
+   "label": "bossman/trading_learning/lessons.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-23fb0a4fb4a5",
+   "label": "bossman/trading_learning/market.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-1e377785ed16",
+   "label": "bossman/trading_learning/memory.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-3b203abe62da",
+   "label": "bossman/trading_learning/metrics.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-0ca465774554",
+   "label": "bossman/trading_learning/models.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-b4a66a051db3",
+   "label": "bossman/trading_learning/paper.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-cdb451a7640c",
+   "label": "bossman/trading_learning/replay.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-0eb18b3e4f15",
+   "label": "bossman/trading_learning/routes.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-1f786cfcb2c8",
+   "label": "bossman/trading_learning/safety.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-4a2642e13aea",
+   "label": "bossman/trading_learning/sanitize.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-8c080805b7d7",
+   "label": "bossman/trading_learning/seed.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-e4cfe203dd2c",
+   "label": "bossman/trading_learning/strategy.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-2911cc4fe8e0",
+   "label": "bossman/trading_learning/telemetry.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-7c2b27fd9ac6",
+   "label": "bossman/trading_learning/verify.py",
+   "parent": "memory",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-cdbbc088b662",
+   "label": "bossman/v7/nightly_run.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-e84c7b61d7a6",
+   "label": "bossman/video_factory/ffmpeg.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-464a2a956fa0",
+   "label": "bossman/video_factory/model.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-6285f40851f1",
+   "label": "bossman/video_factory/pipeline.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-4c9ee5995fb6",
+   "label": "bossman/video_factory/providers.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-3d62540e3028",
+   "label": "bossman/video_factory/queue.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-a71668fad443",
+   "label": "bossman/video_factory/routes.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-27cb1911d462",
+   "label": "bossman/video_factory/service.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-f21597ba1fd6",
+   "label": "bossman/video_factory/subsystem.py",
+   "parent": "ops",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-266a95659ed4",
+   "label": "bossman/world_intelligence/routes.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-7af8dc300eab",
+   "label": "bossman/world_intelligence/subsystem.py",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+  },
+  {
+   "id": "module-ce4bec7cff7e",
+   "label": "pit/behavior_controller.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-eff0fd116111",
+   "label": "pit/behavior_scores.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-62de71348d62",
+   "label": "pit/blocklist.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-8ebcf42d990a",
+   "label": "pit/bot_guard.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-6e060497c158",
+   "label": "pit/broadcast.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-08b732dc1d84",
+   "label": "pit/call_surface.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-81ae3126d244",
+   "label": "pit/capabilities.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-d794cbd77cf3",
+   "label": "pit/categories.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-9a23ec9fe2eb",
+   "label": "pit/cli.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-f526d2fd0ef3",
+   "label": "pit/cloud_budget.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-e67d89bd6ff2",
+   "label": "pit/collector.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-f8c8574f9ee2",
+   "label": "pit/companion_profile.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-a28716ea704d",
+   "label": "pit/config.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-94819ae06213",
+   "label": "pit/context.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-7fe26d8e1063",
+   "label": "pit/crisis.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-a7105ffd5da5",
+   "label": "pit/discovery.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-9414ce79578c",
+   "label": "pit/doctor_identity.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-9818110824b0",
+   "label": "pit/heartbeat.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-83b0bd4a24b3",
+   "label": "pit/identity.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-67a5b6d5c767",
+   "label": "pit/identity_guard.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-10b906cde60e",
+   "label": "pit/j2/contract.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-e3621a3791e3",
+   "label": "pit/j2/director.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-1a35294a664a",
+   "label": "pit/j2/insights.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-643bc9bd9ef3",
+   "label": "pit/j2/media.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-64645c8f9fb0",
+   "label": "pit/j2/memory_palace.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-11fe3588a67d",
+   "label": "pit/j2/model_guard.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-b2924df01fad",
+   "label": "pit/j2/persona.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-9c7361a27b1a",
+   "label": "pit/j2/pipeline.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-67cee7d9cae4",
+   "label": "pit/j2/proactive.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-dc92260872d5",
+   "label": "pit/j2/quality_lab.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-5b78e96e567a",
+   "label": "pit/j2/research.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-91e8d95273c5",
+   "label": "pit/j2/safety.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-6f5944305093",
+   "label": "pit/jeff_settings.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-7afc7ce94420",
+   "label": "pit/latency.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-715359be81c9",
+   "label": "pit/learning_counters.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-d6fff5861410",
+   "label": "pit/master_parser/__main__.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-a090c121b689",
+   "label": "pit/master_parser/cli.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-4a1f6b8497c8",
+   "label": "pit/master_parser/corpus.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-d0bec156ed2c",
+   "label": "pit/master_parser/documents.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-b864400370f1",
+   "label": "pit/master_parser/engine.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-566f6d772d69",
+   "label": "pit/master_parser/narrative.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-09f63bf64e58",
+   "label": "pit/master_parser/passport_sink.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-7974acf47711",
+   "label": "pit/master_parser/sources.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-6429e61dd089",
+   "label": "pit/master_parser/speed.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-83a15f7aa768",
+   "label": "pit/math_assist.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-e3b155c353db",
+   "label": "pit/model_policy.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-a2a8be1c06e1",
+   "label": "pit/model_route.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-eeb5c7530a12",
+   "label": "pit/models.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-7a7a9e12efb7",
+   "label": "pit/moderate_discovery.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-b2e0eb3245b9",
+   "label": "pit/ollama_native.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-639c8365e585",
+   "label": "pit/participant_admin.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-011a03489f77",
+   "label": "pit/participant_context.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-5eb076bfba97",
+   "label": "pit/participant_profile.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-90209d82364c",
+   "label": "pit/passport.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-fa8e48038ace",
+   "label": "pit/passport_api.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-842ef81754c0",
+   "label": "pit/passport_checkpoint.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-01c789a2b739",
+   "label": "pit/passport_commands.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-2a4383829dfa",
+   "label": "pit/photo_commands.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-0787a5345c6d",
+   "label": "pit/photo_edit.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-8f42d3cc74e5",
+   "label": "pit/photo_pipeline.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-81fe82cd46bb",
+   "label": "pit/photo_runtime.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-958ca83ceaa8",
+   "label": "pit/policy.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-ca6609a6b448",
+   "label": "pit/presentation.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-291791405b2c",
+   "label": "pit/presentation_profile.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-f26b63157c2f",
+   "label": "pit/public_guard.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-476d3d1ef4a9",
+   "label": "pit/qwen_vision.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-7637ffa19df1",
+   "label": "pit/reply_stream.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-1d61f405af4c",
+   "label": "pit/resilient_chat.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-dfb6c31ae04f",
+   "label": "pit/resources.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-a513ff702c46",
+   "label": "pit/risk.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-bc4dba6e1890",
+   "label": "pit/roleplay.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-5ca4b43f294a",
+   "label": "pit/roleplay_commands.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-0a1e9aa39f26",
+   "label": "pit/router.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-9f87418c31e0",
+   "label": "pit/runtime.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-eddee4708a7d",
+   "label": "pit/secret_filter.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-9502d104e91e",
+   "label": "pit/speech.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-e2624a8bf0fc",
+   "label": "pit/speech_audit.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-0bd270fb5248",
+   "label": "pit/studio_image_edit.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-6ee86a43e787",
+   "label": "pit/tasks.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-2057e75206c8",
+   "label": "pit/telegram_contract.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-55c83e0493e7",
+   "label": "pit/topic_policy.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-ffd7b5564673",
+   "label": "pit/tts_engines.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-d93b8a2e7320",
+   "label": "pit/vault.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-2cab55c89d9c",
+   "label": "pit/version.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-e52098ab7553",
+   "label": "pit/voice.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-5c2af9d244e7",
+   "label": "pit/voice_bench.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-41bd7c7bdbe4",
+   "label": "pit/web.py",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-bf7480cb496c",
+   "label": "telegram_calls/__main__.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-b36c82e81920",
+   "label": "telegram_calls/account/credentials.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-46ca918cf2a2",
+   "label": "telegram_calls/account/guard.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-579cbbb18435",
+   "label": "telegram_calls/account/login.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-6f3b41ccd19f",
+   "label": "telegram_calls/account/stopflag.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-a00067262226",
+   "label": "telegram_calls/addon.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-aacf13d1fab5",
+   "label": "telegram_calls/addons.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-c0879a714994",
+   "label": "telegram_calls/audio/echo.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-ebc21c85581a",
+   "label": "telegram_calls/audio/endpointer.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-8dfa4ca61d63",
+   "label": "telegram_calls/audio/pcm.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-5a8578230115",
+   "label": "telegram_calls/audio/playout.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-940780459eb4",
+   "label": "telegram_calls/audio/vad.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-3fb56e2abdc6",
+   "label": "telegram_calls/call/loopback.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-679b42c085a9",
+   "label": "telegram_calls/call/manager.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-cf717b6f2546",
+   "label": "telegram_calls/call/offline_mode.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-4c04aa7a520a",
+   "label": "telegram_calls/call/pytgcalls_transport.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-9de94c4cb278",
+   "label": "telegram_calls/call/selftest.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-3c2cd6ed725d",
+   "label": "telegram_calls/call/session.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-0b449131095b",
+   "label": "telegram_calls/call/worker.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-27f9c4217e34",
+   "label": "telegram_calls/deps.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-8b9384b5a0ac",
+   "label": "telegram_calls/doctor.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-7a8593010c20",
+   "label": "telegram_calls/doctor_rows.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-7d6b56dd11d4",
+   "label": "telegram_calls/guard.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-d87d5bf5141c",
+   "label": "telegram_calls/hardening.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-5ab761d4c710",
+   "label": "telegram_calls/postcall.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-6858e3e84765",
+   "label": "telegram_calls/settings.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-d25f75686dc7",
+   "label": "telegram_calls/speech/brain.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-74990de09699",
+   "label": "telegram_calls/speech/factory.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-459def4e9443",
+   "label": "telegram_calls/speech/jeff_engines.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-0df0a7bc5733",
+   "label": "telegram_calls/speech/scripted.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-f4c52a69b401",
+   "label": "telegram_calls/speech/stt.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-7c917a080544",
+   "label": "telegram_calls/speech/testing.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-85f118831d7b",
+   "label": "telegram_calls/speech/text.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-b3a1a55f12b0",
+   "label": "telegram_calls/speech/tts.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-fb3e7ddff256",
+   "label": "telegram_calls/stopflag.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "module-b1142d03395c",
+   "label": "telegram_calls/types.py",
+   "parent": "jeff",
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+  },
+  {
+   "id": "ci-37304275631",
+   "label": "ASTRA acceptance · success",
+   "parent": "ops",
+   "status": "reported",
+   "short": "GitHub check 2026-10-05T11:38:52Z; claude/bossman-control-v03-43igbk; SHA 2c14c75a3d2839818524426bb43b472fbe7842ed. Только этот workflow, не весь продукт."
+  },
+  {
+   "id": "ci-37209801510",
+   "label": "root-ci (shared contracts, learning layer, tools) · failure",
+   "parent": "ops",
+   "status": "blocked",
+   "short": "GitHub check 2026-10-04T14:35:13Z; ux/ai-3d-maker-adapter-20261004; SHA 2c14c75a3d2839818524426bb43b472fbe7842ed. Только этот workflow, не весь продукт."
+  },
+  {
+   "id": "ci-37209801507",
+   "label": "Bossman Core CI · success",
+   "parent": "ops",
+   "status": "reported",
+   "short": "GitHub check 2026-10-04T14:35:13Z; ux/ai-3d-maker-adapter-20261004; SHA 2c14c75a3d2839818524426bb43b472fbe7842ed. Только этот workflow, не весь продукт."
+  },
+  {
+   "id": "ci-37209801489",
+   "label": "Command Center CI · success",
+   "parent": "ops",
+   "status": "reported",
+   "short": "GitHub check 2026-10-04T14:35:13Z; ux/ai-3d-maker-adapter-20261004; SHA 2c14c75a3d2839818524426bb43b472fbe7842ed. Только этот workflow, не весь продукт."
+  },
+  {
+   "id": "ci-37209801468",
+   "label": "ASTRA acceptance · success",
+   "parent": "ops",
+   "status": "reported",
+   "short": "GitHub check 2026-10-04T14:35:13Z; ux/ai-3d-maker-adapter-20261004; SHA 2c14c75a3d2839818524426bb43b472fbe7842ed. Только этот workflow, не весь продукт."
+  },
+  {
+   "id": "agents-graph",
+   "label": "Карта агентов · граф оркестров",
+   "parent": "agents",
+   "status": "code",
+   "short": "Граф строится из БД агентов/оркестров и живых run'ов. Код в этой сборке; живая работа не сертифицирована."
+  },
+  {
+   "id": "agents-lab",
+   "label": "Лаборатория агентов · сравнение стратегий",
+   "parent": "agents",
+   "status": "code",
+   "short": "Шесть сохранённых стратегий над одним sidecar; честное сравнение на одном кейсе. Код в этой сборке; живая работа не сертифицирована."
+  },
+  {
+   "id": "skills-runtime",
+   "label": "Движок навыков · загрузка, каталог, оценка",
+   "parent": "skills",
+   "status": "reported",
+   "short": "Код, который реально находит, дедуплицирует и оценивает SKILL.md. Без него зона навыков — только тексты. Код в этой сборке; живая работа не сертифицирована. Про"
+  },
+  {
+   "id": "plugins-mcp",
+   "label": "MCP · хаб и runtime",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Подключение MCP-серверов к общему реестру инструментов и разрешений. Код в этой сборке; живая работа не сертифицирована."
+  },
+  {
+   "id": "plugins-security",
+   "label": "Безопасность плагинов · scopes",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Проверка scope/approval для каждого capability manifest. Код в этой сборке; живая работа не сертифицирована."
+  },
+  {
+   "id": "plugins-oss",
+   "label": "OSS-движки · инвентарь",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Опциональные локальные движки (whisper, UI-TARS) и их наличие. Код в этой сборке; живая работа не сертифицирована."
+  },
+  {
+   "id": "oss-113",
+   "label": "openai/openai-agents-python",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "MIT; handoffs/guardrails/tracing — эталон для nl_orchestra и task_exchange, не замена движка. Ссылка, не установленная зависимость."
+  },
+  {
+   "id": "oss-114",
+   "label": "langchain-ai/langgraph",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "MIT; durable graph + checkpoint/interrupt — сверить с миссиями и WAIT_APPROVAL. Ссылка, не установленная зависимость."
+  },
+  {
+   "id": "oss-115",
+   "label": "pydantic/pydantic-ai",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "MIT; типизированные tool-вызовы и eval-хуки — образец для контрактов навыков. Ссылка, не установленная зависимость."
+  },
+  {
+   "id": "oss-116",
+   "label": "crewAIInc/crewAI",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Роли/процессы для fleet и swarm; только как UX-референс. Ссылка, не установленная зависимость."
+  },
+  {
+   "id": "oss-117",
+   "label": "modelcontextprotocol/python-sdk",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "MIT; официальный MCP SDK (pypi: mcp) — опора для mcp_runtime. Ссылка, не установленная зависимость."
+  },
+  {
+   "id": "oss-118",
+   "label": "PrefectHQ/fastmcp",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Apache-2.0; быстрые MCP-серверы для своих коннекторов Bossman. Ссылка, не установленная зависимость."
+  },
+  {
+   "id": "oss-119",
+   "label": "modelcontextprotocol/servers",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Справочные MCP-серверы (filesystem, git, fetch) для теста plugins-mcp. Ссылка, не установленная зависимость."
+  },
+  {
+   "id": "oss-120",
+   "label": "ComposioHQ/composio",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Apache-2.0; OAuth-коннекторы к сотням сервисов — только с одобрением владельца. Ссылка, не установленная зависимость."
+  },
+  {
+   "id": "oss-121",
+   "label": "temporalio/sdk-python",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "MIT; надёжные долгие воркфлоу — референс для recovery миссий. Ссылка, не установленная зависимость."
+  },
+  {
+   "id": "pv",
+   "label": "Poker Train × Vision",
+   "parent": "apps",
+   "status": "mixed",
+   "short": "Распознавание покерного стола по пикселям → проверенное состояние → история → разбор. Живая задача, SHA, прогон, метрики и блокеры пишутся в журнал узла (owner-"
+  },
+  {
+   "id": "pv-pipeline",
+   "label": "Конвейер: кадр → поля → сверка → история",
+   "parent": "pv",
+   "status": "code",
+   "short": "Адаптер Poker Train (якорь по картам героя, масштаб/DPI), валидаторы, временная сверка, границы раздач без склейки, события и PHH. Код есть; метрики холдаута — "
+  },
+  {
+   "id": "pv-adapter-ton",
+   "label": "Адаптер TON Poker (наблюдение/replay)",
+   "parent": "pv",
+   "status": "blocked",
+   "short": "Нет записей и разрешённого тестового стола: раскладка не выдумана, все поля UNKNOWN до калибровки и проверки на отложенных кадрах. Клики и подсказки в нём запре"
+  },
+  {
+   "id": "pv-act",
+   "label": "Автоматические действия: только свой тренажёр",
+   "parent": "pv",
+   "status": "code",
+   "short": "Клики через loopback-Playwright, гейты (STOP, устаревший/замёрзший кадр, pending-изменение, ход героя, проверка смены состояния). Во внешнем клиенте запрещено."
+  },
+  {
+   "id": "pv-eval",
+   "label": "Оценка: сплиты, baseline→after, p50/p95",
+   "parent": "pv",
+   "status": "code",
+   "short": "Сплиты по сессиям без пересечения раздач, новые темы/раскладки отдельно, naive-baseline на тех же кадрах, PokerKit-оракул, стратегии с CI, генерик-OCR. Отчёт: a"
+  },
+  {
+   "id": "pv-ui",
+   "label": "Страница Poker Vision и один backend",
+   "parent": "pv",
+   "status": "code",
+   "short": "Выбор окна/источника, live/replay, наложение полей, история, объяснение неопределённости, калибровка, STOP; страница, CLI и тесты используют один сервис."
+  },
+  {
+   "id": "pv-gpu",
+   "label": "Ускорение AMD / большая vision-модель",
+   "parent": "pv",
+   "status": "idea",
+   "short": "Не включалось и не измерялось: весь конвейер на CPU. OmniParser/PaddleOCR — NOT_RUN (веса недоступны в песочнице). Большая модель — только для неоднозначных кад"
+  },
+  {
+   "id": "pv-coach",
+   "label": "COACH: рекомендация с объяснением и неопределённостью",
+   "parent": "pv",
+   "status": "code",
+   "short": "Варианты, объяснение, дисклеймер (карты и диапазоны неизвестны, эквити против случайных рук). Подсказки включены только для адаптеров с прогоном: Poker Train (п"
+  },
+  {
+   "id": "pv-executor",
+   "label": "EXECUTOR: проверки → клик → подтверждение (только свой тренажёр)",
+   "parent": "pv",
+   "status": "code",
+   "short": "Роли Vision→Policy→Locator→Executor→Verifier. Прогон в песочнице без денег: 0 ошибочных кликов в сценариях сравнения. Не проверено: реальные окна Windows, Compu"
+  },
+  {
+   "id": "pv-source-panel",
+   "label": "Панель источника: выбор окна с превью, живой поток, overlay",
+   "parent": "pv",
+   "status": "code",
+   "short": "Выбор источника, MJPEG-поток, overlay карт/чисел/кнопок с confidence, режимы, пауза, смена источника, STOP. Захват реальных окон Windows — NOT_RUN."
+  },
+  {
+   "id": "pv-candidates",
+   "label": "Cygnet / Winnow-12B / Jev как кликер",
+   "parent": "pv",
+   "status": "blocked",
+   "short": "По источникам это модели типизированных решений, не UI-grounding; JevBench не про GUI и не про покер. Не запускались (веса недоступны, нет GPU). Выбран vision-л"
+  },
+  {
+   "id": "pv-lora",
+   "label": "Poker-LoRA: действие из проверенного состояния (HU NLHE, river)",
+   "parent": "pv",
+   "status": "code",
+   "short": "Данные из собственного решателя со смешанными стратегиями, сплит по бордам, валидатор, оценка с CI по спотам, реестр версий с откатом. Обучение LoRA не запускал"
+  },
+  {
+   "id": "pv-lora-train",
+   "label": "Обучение LoRA на Windows/AMD",
+   "parent": "pv-lora",
+   "status": "blocked",
+   "short": "Скрипты и env_check готовы; в контейнере NOT_READY (нет torch/peft/GPU). Возможность файнтюна на ПК владельца не проверена; RunPod только с разрешения."
+  },
+  {
+   "id": "pv-lora-route",
+   "label": "Маршрут Vision → политика → проверка ответа → executor",
+   "parent": "pv-lora",
+   "status": "code",
+   "short": "Ответ модели принимается только после проверки (легальное действие, сумма, вероятности) и отображения на кнопки; иначе эвристика и очередь разбора. В живом трен"
+  },
+  {
+   "id": "oss-122",
+   "label": "SmythOS/smythos-studio",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Открытый (MIT) визуальный конструктор агентов на TypeScript; запись-кандидат, не интеграция. Решение: отложить — дубль нашего конструктора агентов и второй стек"
+  },
+  {
+   "id": "media-genjutsu",
+   "label": "Genjutsu: motion transfer и object swap (Higgsfield) и локальный аналог",
+   "parent": "media",
+   "status": "recorded",
+   "short": "Higgsfield Genjutsu: перенос движения из видео на нового персонажа и замена одного объекта в кадре. В документе — исследование и план; ни один локальный пайплай"
+  },
+  {
+   "id": "media-genjutsu-skill",
+   "label": "Навык genjutsu-character-swap (локальная замена актёров)",
+   "parent": "media",
+   "status": "recorded",
+   "short": "Инструкция агенту: заменить актёров короткого клипа людьми по их фото локально (Wan2.1 VACE через stable-diffusion.cpp), сохранив фон, камеру и музыку; перед ра"
+  },
+  {
+   "id": "media-design-home",
+   "label": "Редизайн главной: лаунчер приложений и агентов",
+   "parent": "media",
+   "status": "recorded",
+   "short": "Отчёт о переделке главной страницы из панели разработчика в лаунчер (28.08.2026): что было, что стало, что осталось. Документ, не сертификат приёмки на текущем "
+  },
+  {
+   "id": "media-ux2",
+   "label": "UX 2: итоговый отчёт и приёмка интерфейса",
+   "parent": "media",
+   "status": "recorded",
+   "short": "Итоговый отчёт по второй волне UX и документ приёмки интерфейса. Документы описывают проверку на момент написания; на текущем SHA не перепроверялись."
+  },
+  {
+   "id": "reg-video_studio_render",
+   "label": "Video Studio: компилятор filtergraph (preview и export)",
+   "parent": "media",
+   "status": "code",
+   "short": "One deterministic filtergraph compiler for preview and export. Project ticks are converted only at the FFmpeg boundary. All filter expressions come from bounded"
+  },
+  {
+   "id": "reg-video_studio_service",
+   "label": "Video Studio: интеграция с хостом (БД, задачи, команды)",
+   "parent": "media",
+   "status": "code",
+   "short": "Video Studio host integration: canonical DB, tasks, commands and bounded uploads. Код есть; польза и живая работа не доказаны."
+  },
+  {
+   "id": "reg-video_studio_storyboard",
+   "label": "Video Studio: раскадровка и рецепты кадров",
+   "parent": "media",
+   "status": "code",
+   "short": "Раздел 10: раскадровка и рецепты кадров для Video Studio. Откуда это взялось и чего здесь НЕТ ----------------------------------- `video-shotcraft` разобран в `"
+  },
+  {
+   "id": "reg-video_studio_trained",
+   "label": "Video Studio: черновик команд от модели + валидация",
+   "parent": "media",
+   "status": "code",
+   "short": "Existing BCC provider transport -> untrusted model draft -> pure host validation. This module never applies a command or repairs predicted object identities. Th"
+  },
+  {
+   "id": "reg-video_studio_shotcut",
+   "label": "Video Studio: обмен проектами Shotcut/MLT",
+   "parent": "media",
+   "status": "code",
+   "short": "Local editable Shotcut/MLT exchange with an explicit, checked subset. MLT XML can itself invoke plugins and open resources. We only *write* a fixed allowlist gr"
+  },
+  {
+   "id": "reg-video_studio_interchange",
+   "label": "Video Studio: обмен OpenTimelineIO",
+   "parent": "media",
+   "status": "code",
+   "short": "OpenTimelineIO interchange, with explicit preservation/loss boundaries. OTIO is an interchange library, not a renderer. Foreign external references are never op"
+  },
+  {
+   "id": "reg-video_studio_analysis",
+   "label": "Video Studio: диагностика, тайминг субтитров, ASR",
+   "parent": "media",
+   "status": "code",
+   "short": "Local deterministic diagnostics, timed captions, and optional real local ASR. Diagnostics are observations, never unconditional quality failures: deliberate bla"
+  },
+  {
+   "id": "reg-video_studio_retrieval",
+   "label": "Video Studio: поиск B-roll и дубликатов",
+   "parent": "media",
+   "status": "code",
+   "short": "Evidence-linked local retrieval, B-roll candidates and measured duplicates. BM25 searches caption text and owner-provided media metadata. It is not visual scene"
+  },
+  {
+   "id": "reg-video_adapter_train",
+   "label": "Video Studio: обучение LoRA-адаптера команд",
+   "parent": "media",
+   "status": "code",
+   "short": "Train a separate LoRA command specialist and compare a fixed held-out suite. Uses synthetic, domain-validated editing examples; no private media is uploaded. Ba"
+  },
+  {
+   "id": "reg-studio_provider",
+   "label": "Studio: жизненный цикл провайдеров",
+   "parent": "media",
+   "status": "code",
+   "short": "Generation observations, never task-completion evidence. No network on import. Код есть; польза и живая работа не доказаны."
+  },
+  {
+   "id": "reg-studio_sdcpp",
+   "label": "Studio: локальная генерация stable-diffusion.cpp",
+   "parent": "media",
+   "status": "code",
+   "short": "Local AI generation through stable-diffusion.cpp (Vulkan) — Studio provider. Why this engine: on the owner's Radeon 8060S the LLM stack already runs on Vulkan ("
+  },
+  {
+   "id": "reg-studio_comfyui",
+   "label": "Studio: провайдер ComfyUI",
+   "parent": "media",
+   "status": "code",
+   "short": "Local Studio wrapper over the existing native ComfyUI implementation. No worker/poller is started here. Cancellation abandons this wrapper's job; ComfyUI has no"
+  },
+  {
+   "id": "reg-studio_openrouter",
+   "label": "Studio: провайдер OpenRouter (изображения и видео)",
+   "parent": "media",
+   "status": "code",
+   "short": "OpenRouter image/video shapes already used by repository scripts. HTTP is bounded; no implicit retry, no token on CDN, no guessed audio API. An injectable trans"
+  },
+  {
+   "id": "reg-studio_governance",
+   "label": "Studio: бюджетные резервы по функциям",
+   "parent": "media",
+   "status": "code",
+   "short": "Persistent per-feature reservations under the existing Governor/egress gate. Код есть; польза и живая работа не доказаны."
+  },
+  {
+   "id": "reg-studio_review",
+   "label": "Studio: локальный просмотр сгенерированных видео",
+   "parent": "media",
+   "status": "code",
+   "short": "Bossman Vision: a local look at every generated Studio video, taught by the owner. After a video run is persisted, frames are sampled with the bundled FFmpeg an"
+  },
+  {
+   "id": "reg-oss_comfyui",
+   "label": "ComfyUI: ограниченный локальный адаптер",
+   "parent": "media",
+   "status": "code",
+   "short": "Bounded local ComfyUI adapter using upstream /prompt, /history and /view APIs. No runtime/model download, custom nodes, cloud credentials or global interrupts. "
+  },
+  {
+   "id": "reg-web_designer_gen",
+   "label": "Web Designer: генерация сайтов",
+   "parent": "media",
+   "status": "code",
+   "short": "Генератор сайтов визуального веб-дизайнера: шаблоны, палитры, пошаговая сборка. Принцип честности: генерация детерминирована. Один и тот же запрос даёт один и т"
+  },
+  {
+   "id": "reg-web_designer_visual",
+   "label": "Web Designer: визуальный редактор (версии)",
+   "parent": "media",
+   "status": "code",
+   "short": "GrapesJS edits the body; Bossman retains the document, versions and CAS. Do not send executable/unsupported markup through a lossy component importer. The exist"
+  },
+  {
+   "id": "reg-web_designer_ai_build",
+   "label": "Web Designer: сборка с помощью ИИ",
+   "parent": "media",
+   "status": "code",
+   "short": "Local AI website creation through the canonical registry and creative brief. The existing Web Designer storage/preview/rollback remain the only editor. No cloud"
+  },
+  {
+   "id": "reg-ai3d_pipeline",
+   "label": "3D Maker: пайплайн от запроса до печатаемого артефакта",
+   "parent": "media",
+   "status": "code",
+   "short": "The job pipeline: explicit stages from request to a printable artifact. intake -> generate/import -> inspect -> repair -> re-inspect -> units/scale/orient/place"
+  },
+  {
+   "id": "reg-ai3d_gcode",
+   "label": "3D Maker: сканер безопасности G-code",
+   "parent": "media",
+   "status": "code",
+   "short": "G-code safety scanner. Generated G-code is executable machine control, not a document. This scanner is the last digital gate before anything is handed to a phys"
+  },
+  {
+   "id": "reg-social_farm_media",
+   "label": "Social Farm: преобразование медиа без изменения исходника",
+   "parent": "media",
+   "status": "code",
+   "short": "Преобразование медиа через ffmpeg. Исходник не трогается никогда. Этапы из `14_MEDIA_TRANSFORM_PIPELINE`: проба → целостность → профиль рендера → масштаб/поля →"
+  },
+  {
+   "id": "reg-motion_make_video",
+   "label": "Motion Studio: сцена в видео (озвучка, музыка)",
+   "parent": "media",
+   "status": "code",
+   "short": "Scene spec -> finished video: voice-over, original score, deterministic frames, MP4. python tools/motion_studio/make_video.py SPEC.json --work DIR [--tts-models"
+  },
+  {
+   "id": "reg-motion_epic",
+   "label": "Motion Studio: оффлайн-трейлер на Pillow",
+   "parent": "media",
+   "status": "code",
+   "short": "Offline neon trailer renderer for validated Motion Studio specs (Pillow). Код есть; польза и живая работа не доказаны."
+  },
+  {
+   "id": "reg-genjutsu_tool",
+   "label": "Genjutsu: локальная замена персонажа и перенос движения",
+   "parent": "media",
+   "status": "code",
+   "short": "Local Genjutsu test stack: character swap (Object Swap) and Motion Transfer on the owner's PC. Design and limits: bugtest-20261001/genjutsu/GENJUTSU_LOCAL_RU.md"
+  },
+  {
+   "id": "reg-promo_video",
+   "label": "Промо-видео: рендер с саундтреком",
+   "parent": "media",
+   "status": "code",
+   "short": "Render the Bossman \"32 days\" promo (tools/promo_video/promo.html) and mux it with the soundtrack. Pipeline: voice.py (Kokoro TTS lines) -> music.py (synthesized"
+  },
+  {
+   "id": "reg-oss_piper",
+   "label": "Piper: локальный русский TTS",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Bounded, local Russian speech synthesis for existing Bossman surfaces. Piper and a voice model are optional host assets. No model is downloaded or started until"
+  },
+  {
+   "id": "reg-oss_chatterbox",
+   "label": "Chatterbox: офлайн-клон голоса (отдельный воркер)",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Optional offline Russian voice clone using a separate, bounded local worker. The reference, model weights and Python environment are host assets, never packaged"
+  },
+  {
+   "id": "reg-oss_whisper",
+   "label": "Whisper: офлайн-распознавание речи",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Offline speech recognition using the optional upstream faster-whisper engine. Only a host-configured, already installed CTranslate2 model is accepted. The calle"
+  },
+  {
+   "id": "reg-voice_capability",
+   "label": "Возможности голосовых провайдеров",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Voice (V2.6, раздел 20) — слой provider-capability, и только он. Честный probe доступности голосовых провайдеров по tools/registry.yaml: STT — записи с can: tra"
+  },
+  {
+   "id": "reg-earning_emulator",
+   "label": "Эмулятор заработка на удалённой вакансии (симуляция)",
+   "parent": "apps",
+   "status": "code",
+   "short": "Earning EMULATOR: reads a public remote-job listing (text), drafts the deliverable, and writes a SIMULATED invoice to an append-only ledger. What it does NOT do"
+  },
+  {
+   "id": "reg-earning_emulator_cli",
+   "label": "Эмулятор заработка: командная строка (один GET публичной страницы)",
+   "parent": "apps",
+   "status": "code",
+   "short": "CLI for the earning emulator (bcc/earning_emulator.py). SIMULATION only: no application, no message, no login, no money. python tools/earning_emulator.py --list"
+  },
+  {
+   "id": "reg-leaf_usefulness_queue",
+   "label": "Очередь проверки листьев по полезности (гипотеза)",
+   "parent": "ops",
+   "status": "code",
+   "short": "Priority queue for verifying the blue («code written») leaves — a HYPOTHESIS, not a measurement. Inputs are facts readable from the checkout: the tree, the evid"
+  },
+  {
+   "id": "reg-tree_registry_sync",
+   "label": "Синхронизация дерева с реестром: уровни доказательств",
+   "parent": "ops",
+   "status": "code",
+   "short": "Sync the capability tree with the repository: add leaves for implemented code from a manifest, and write the per-leaf evidence registry. python tools/tree_regis"
+  },
+  {
+   "id": "reg-blue_leaf_audit_tool",
+   "label": "Аудит синих листьев по записанным прогонам тестов",
+   "parent": "ops",
+   "status": "code",
+   "short": "Per-leaf audit of the «code written» (blue) leaves of the capability tree. For every leaf with status ``code`` it answers, from the checkout and from JUnit file"
+  }
+ ]
+}

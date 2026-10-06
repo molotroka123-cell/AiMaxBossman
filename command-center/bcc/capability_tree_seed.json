@@ -900,15 +900,16 @@
       "id": "mod-action_contract",
       "label": "action_contract",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/action_contract.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/action_contract.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-action_contract"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -916,15 +917,16 @@
       "id": "mod-action_gate",
       "label": "action_gate",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/action_gate.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/action_gate.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-action_gate"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -932,15 +934,16 @@
       "id": "mod-action_preview",
       "label": "action_preview",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/action_preview.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/action_preview.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-action_preview"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -980,15 +983,16 @@
       "id": "mod-apps",
       "label": "apps",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/apps.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/apps.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-apps"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -996,15 +1000,16 @@
       "id": "mod-apps_control",
       "label": "apps_control",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/apps_control.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/apps_control.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-apps_control"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1060,15 +1065,16 @@
       "id": "mod-bossnet_nodes_v16",
       "label": "bossnet_nodes_v16",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/bossnet_nodes_v16.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/bossnet_nodes_v16.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-bossnet_nodes_v16"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1140,15 +1146,16 @@
       "id": "mod-chat_threads",
       "label": "chat_threads",
       "parent": "ops",
-      "status": "branch",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/chat_threads.py",
           "branch": "claude/bossman-1.9-owner-bugtest-20260930",
           "sha": "0ec2ff5292cc8a9aab0a1ea946819963ec4dcff4",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/0ec2ff5292cc8a9aab0a1ea946819963ec4dcff4/command-center/bcc/features/chat_threads.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-chat_threads"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1156,15 +1163,16 @@
       "id": "mod-code_intel",
       "label": "code_intel",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/code_intel.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/code_intel.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-code_intel"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1236,15 +1244,16 @@
       "id": "mod-command_bar",
       "label": "command_bar",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/command_bar.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/command_bar.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-command_bar"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1284,15 +1293,16 @@
       "id": "mod-deep_fix",
       "label": "deep_fix",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/deep_fix.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/deep_fix.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-deep_fix"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1300,15 +1310,16 @@
       "id": "mod-diag_bundle",
       "label": "diag_bundle",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/diag_bundle.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/diag_bundle.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-diag_bundle"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1380,15 +1391,16 @@
       "id": "mod-file_intelligence",
       "label": "file_intelligence",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/file_intelligence.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/file_intelligence.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-file_intelligence"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1396,15 +1408,16 @@
       "id": "mod-forks",
       "label": "forks",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/forks.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/forks.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-forks"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1444,15 +1457,16 @@
       "id": "mod-governor",
       "label": "governor",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/governor.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/governor.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-governor"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1508,15 +1522,16 @@
       "id": "mod-jeff_master_parser",
       "label": "jeff_master_parser",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/jeff_master_parser.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/jeff_master_parser.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-jeff_master_parser"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1524,15 +1539,16 @@
       "id": "mod-jeff_settings",
       "label": "jeff_settings",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/jeff_settings.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/jeff_settings.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-jeff_settings"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1572,15 +1588,16 @@
       "id": "mod-lab_agents",
       "label": "lab_agents",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/lab_agents.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/lab_agents.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-lab_agents"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1588,15 +1605,16 @@
       "id": "mod-local_first",
       "label": "local_first",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/local_first.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/local_first.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-local_first"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1604,15 +1622,16 @@
       "id": "mod-market_metrics",
       "label": "market_metrics",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/market_metrics.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/market_metrics.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-market_metrics"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1668,15 +1687,16 @@
       "id": "mod-model_foundry_v16",
       "label": "model_foundry_v16",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/model_foundry_v16.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/model_foundry_v16.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-model_foundry_v16"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1748,15 +1768,16 @@
       "id": "mod-objectives",
       "label": "objectives",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/objectives.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/objectives.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-objectives"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1780,15 +1801,16 @@
       "id": "mod-offline_mode",
       "label": "offline_mode",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/offline_mode.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/offline_mode.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-offline_mode"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1812,15 +1834,16 @@
       "id": "mod-opencode",
       "label": "opencode",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/opencode.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/opencode.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-opencode"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1876,15 +1899,16 @@
       "id": "mod-oss_integrations",
       "label": "oss_integrations",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/oss_integrations.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/oss_integrations.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-oss_integrations"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1892,15 +1916,16 @@
       "id": "mod-owner_input",
       "label": "owner_input",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/owner_input.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/owner_input.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-owner_input"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1924,15 +1949,16 @@
       "id": "mod-plugins",
       "label": "plugins",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-plugins"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1956,15 +1982,16 @@
       "id": "mod-provenance",
       "label": "provenance",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/provenance.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/provenance.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-provenance"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -1988,15 +2015,16 @@
       "id": "mod-qa_relay",
       "label": "qa_relay",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/qa_relay.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/qa_relay.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-qa_relay"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2020,15 +2048,16 @@
       "id": "mod-reality",
       "label": "reality",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/reality.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/reality.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-reality"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2036,15 +2065,16 @@
       "id": "mod-resources",
       "label": "resources",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/resources.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/resources.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-resources"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2052,15 +2082,16 @@
       "id": "mod-review_gate",
       "label": "review_gate",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/review_gate.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/review_gate.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-review_gate"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2084,15 +2115,16 @@
       "id": "mod-second_opinion",
       "label": "second_opinion",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/second_opinion.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/second_opinion.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-second_opinion"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2100,15 +2132,16 @@
       "id": "mod-simulation_world_v16",
       "label": "simulation_world_v16",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/simulation_world_v16.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/simulation_world_v16.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-simulation_world_v16"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2116,15 +2149,16 @@
       "id": "mod-skills",
       "label": "skills",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/skills.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/skills.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-skills"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2132,15 +2166,16 @@
       "id": "mod-snapshot",
       "label": "snapshot",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/snapshot.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/snapshot.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-snapshot"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2212,15 +2247,16 @@
       "id": "mod-telegram_calls",
       "label": "telegram_calls",
       "parent": "ops",
-      "status": "branch",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/telegram_calls.py",
           "branch": "claude/bossman-1.9-owner-bugtest-20260930",
           "sha": "0ec2ff5292cc8a9aab0a1ea946819963ec4dcff4",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/0ec2ff5292cc8a9aab0a1ea946819963ec4dcff4/command-center/bcc/features/telegram_calls.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-telegram_calls"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2228,15 +2264,16 @@
       "id": "mod-telegram_settings",
       "label": "telegram_settings",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/telegram_settings.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/telegram_settings.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-telegram_settings"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2260,15 +2297,16 @@
       "id": "mod-testing_period",
       "label": "testing_period",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/testing_period.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/testing_period.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-testing_period"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2276,15 +2314,16 @@
       "id": "mod-tools_apps",
       "label": "tools_apps",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_apps.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/tools_apps.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-tools_apps"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2308,15 +2347,16 @@
       "id": "mod-tools_code",
       "label": "tools_code",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_code.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/tools_code.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-tools_code"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2340,15 +2380,16 @@
       "id": "mod-tools_facts",
       "label": "tools_facts",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_facts.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/tools_facts.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-tools_facts"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2356,15 +2397,16 @@
       "id": "mod-tools_jeff",
       "label": "tools_jeff",
       "parent": "ops",
-      "status": "branch",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_jeff.py",
           "branch": "claude/bossman-1.9-owner-bugtest-20260930",
           "sha": "0ec2ff5292cc8a9aab0a1ea946819963ec4dcff4",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/0ec2ff5292cc8a9aab0a1ea946819963ec4dcff4/command-center/bcc/features/tools_jeff.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-tools_jeff"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2372,15 +2414,16 @@
       "id": "mod-tools_mcp",
       "label": "tools_mcp",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_mcp.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/tools_mcp.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-tools_mcp"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2404,15 +2447,16 @@
       "id": "mod-tools_openclaw",
       "label": "tools_openclaw",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_openclaw.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/tools_openclaw.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-tools_openclaw"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2420,15 +2464,16 @@
       "id": "mod-tools_opencode",
       "label": "tools_opencode",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_opencode.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/tools_opencode.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-tools_opencode"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2468,15 +2513,16 @@
       "id": "mod-trading_lab",
       "label": "trading_lab",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/trading_lab.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/trading_lab.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-trading_lab"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2500,15 +2546,16 @@
       "id": "mod-unified_search",
       "label": "unified_search",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/unified_search.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/unified_search.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-unified_search"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2516,15 +2563,16 @@
       "id": "mod-v15_autonomy",
       "label": "v15_autonomy",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/v15_autonomy.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/v15_autonomy.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-v15_autonomy"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2564,15 +2612,16 @@
       "id": "mod-v15_owner_run",
       "label": "v15_owner_run",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/v15_owner_run.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/v15_owner_run.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-v15_owner_run"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2580,15 +2629,16 @@
       "id": "mod-v15_self_repair",
       "label": "v15_self_repair",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/v15_self_repair.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/v15_self_repair.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-v15_self_repair"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2628,15 +2678,16 @@
       "id": "mod-watchdog",
       "label": "watchdog",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/watchdog.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/watchdog.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-watchdog"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -2644,15 +2695,16 @@
       "id": "mod-web_designer",
       "label": "web_designer",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/web_designer.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/web_designer.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-web_designer"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -3652,15 +3704,16 @@
       "id": "plugin-0",
       "label": "http.get",
       "parent": "plugins",
-      "status": "code",
-      "detail": "Capability manifest; scope: network.read. Авторизация/live эффект не проверены.",
+      "status": "reported",
+      "detail": "Capability manifest; scope: network.read. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: live_get_public_and_ssrf_block",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/plugins.json#plugin-0"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -3668,15 +3721,16 @@
       "id": "plugin-1",
       "label": "monitor.feed",
       "parent": "plugins",
-      "status": "code",
-      "detail": "Capability manifest; scope: network.read. Авторизация/live эффект не проверены.",
+      "status": "reported",
+      "detail": "Capability manifest; scope: network.read. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: live_feed_public_rss",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/plugins.json#plugin-1"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -3684,15 +3738,16 @@
       "id": "plugin-2",
       "label": "sql.read",
       "parent": "plugins",
-      "status": "code",
-      "detail": "Capability manifest; scope: db.read. Авторизация/live эффект не проверены.",
+      "status": "reported",
+      "detail": "Capability manifest; scope: db.read. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: sqlite_ro_select_and_write_denied",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/plugins.json#plugin-2"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -3700,15 +3755,16 @@
       "id": "plugin-3",
       "label": "obsidian.read",
       "parent": "plugins",
-      "status": "code",
-      "detail": "Capability manifest; scope: vault.read. Авторизация/live эффект не проверены.",
+      "status": "reported",
+      "detail": "Capability manifest; scope: vault.read. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: temp_vault_read_and_traversal_block",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/plugins.json#plugin-3"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -3716,15 +3772,16 @@
       "id": "plugin-4",
       "label": "obsidian.write",
       "parent": "plugins",
-      "status": "code",
-      "detail": "Capability manifest; scope: vault.write. Авторизация/live эффект не проверены.",
+      "status": "reported",
+      "detail": "Capability manifest; scope: vault.write. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: temp_vault_write_gate_and_confine",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/plugins.json#plugin-4"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -6795,15 +6852,16 @@
       "id": "module-637788ef482e",
       "label": "bossman/ai_lab/candidates.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/ai_lab/candidates.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/ai_lab/candidates.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-637788ef482e"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -6811,15 +6869,16 @@
       "id": "module-a1a2c4ccc239",
       "label": "bossman/ai_lab/export.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/ai_lab/export.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/ai_lab/export.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-a1a2c4ccc239"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -6827,15 +6886,16 @@
       "id": "module-cdb370a24157",
       "label": "bossman/ai_lab/routes.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/ai_lab/routes.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/ai_lab/routes.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-cdb370a24157"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -6843,15 +6903,16 @@
       "id": "module-5386412e9f11",
       "label": "bossman/ai_lab/sanitizer.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/ai_lab/sanitizer.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/ai_lab/sanitizer.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-5386412e9f11"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -6875,15 +6936,16 @@
       "id": "module-39e925886668",
       "label": "bossman/apprentice/claude_code_client.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/claude_code_client.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/claude_code_client.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-39e925886668"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -6923,15 +6985,16 @@
       "id": "module-a17a422c65d7",
       "label": "bossman/apprentice/engine.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/engine.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/engine.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-a17a422c65d7"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -6939,15 +7002,16 @@
       "id": "module-86282a9efa67",
       "label": "bossman/apprentice/errors.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/errors.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/errors.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-86282a9efa67"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -6955,15 +7019,16 @@
       "id": "module-d41ad480551d",
       "label": "bossman/apprentice/fable_direct.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/fable_direct.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/fable_direct.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-d41ad480551d"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -6971,15 +7036,16 @@
       "id": "module-d4455ade6345",
       "label": "bossman/apprentice/fable_transcript.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/fable_transcript.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/fable_transcript.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-d4455ade6345"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -6987,15 +7053,16 @@
       "id": "module-177f174d3f63",
       "label": "bossman/apprentice/flags.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/flags.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/flags.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-177f174d3f63"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7019,15 +7086,16 @@
       "id": "module-c23f35941e16",
       "label": "bossman/apprentice/isolated_worktree.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/isolated_worktree.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/isolated_worktree.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-c23f35941e16"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7035,15 +7103,16 @@
       "id": "module-815783821b83",
       "label": "bossman/apprentice/live_workspace.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/live_workspace.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/live_workspace.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-815783821b83"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7051,15 +7120,16 @@
       "id": "module-bc25cd9f1e01",
       "label": "bossman/apprentice/local_sidecar.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/local_sidecar.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/local_sidecar.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-bc25cd9f1e01"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7067,15 +7137,16 @@
       "id": "module-42a06e3c1b71",
       "label": "bossman/apprentice/models.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/models.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/models.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-42a06e3c1b71"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7083,15 +7154,16 @@
       "id": "module-049b601d5eaa",
       "label": "bossman/apprentice/openhands_client.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/openhands_client.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/openhands_client.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-049b601d5eaa"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7099,15 +7171,16 @@
       "id": "module-efdcd8d35b9c",
       "label": "bossman/apprentice/openhands_teacher_client.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/openhands_teacher_client.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/openhands_teacher_client.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-efdcd8d35b9c"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7163,15 +7236,16 @@
       "id": "module-ac2f6e6dc2d9",
       "label": "bossman/apprentice/recording.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/recording.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/recording.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-ac2f6e6dc2d9"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7179,15 +7253,16 @@
       "id": "module-e2dd4b7bfb5d",
       "label": "bossman/apprentice/sanctions.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/sanctions.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/sanctions.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-e2dd4b7bfb5d"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7195,15 +7270,16 @@
       "id": "module-816c15a6b6a4",
       "label": "bossman/apprentice/scripted_model.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/scripted_model.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/scripted_model.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-816c15a6b6a4"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7227,15 +7303,16 @@
       "id": "module-0541863355da",
       "label": "bossman/apprentice/skills.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/skills.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/skills.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-0541863355da"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7243,15 +7320,16 @@
       "id": "module-522cf2e79840",
       "label": "bossman/apprentice/teacher.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/teacher.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/teacher.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-522cf2e79840"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7259,15 +7337,16 @@
       "id": "module-edac8a22b815",
       "label": "bossman/apprentice/teacher_sandbox.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/teacher_sandbox.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/teacher_sandbox.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-edac8a22b815"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7275,15 +7354,16 @@
       "id": "module-b8a71e28fc47",
       "label": "bossman/apprentice/teacher_wiring_patch.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/teacher_wiring_patch.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/teacher_wiring_patch.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-b8a71e28fc47"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7307,15 +7387,16 @@
       "id": "module-1184b1105ced",
       "label": "bossman/benchmark/cli.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/benchmark/cli.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/benchmark/cli.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-1184b1105ced"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7339,15 +7420,16 @@
       "id": "module-771a003071ca",
       "label": "bossman/benchmark/fixture_runtime.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/benchmark/fixture_runtime.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/benchmark/fixture_runtime.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-771a003071ca"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7371,15 +7453,16 @@
       "id": "module-9f29d5a73f7f",
       "label": "bossman/benchmark/sandbox_runtime.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/benchmark/sandbox_runtime.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/benchmark/sandbox_runtime.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-9f29d5a73f7f"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7499,15 +7582,16 @@
       "id": "module-f1cacda08a67",
       "label": "bossman/company/model.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/company/model.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/company/model.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-f1cacda08a67"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7515,15 +7599,16 @@
       "id": "module-47931d1b717a",
       "label": "bossman/company/planner.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/company/planner.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/company/planner.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-47931d1b717a"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7547,15 +7632,16 @@
       "id": "module-e297560d568b",
       "label": "bossman/company/synthetic_seo.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/company/synthetic_seo.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/company/synthetic_seo.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-e297560d568b"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7579,15 +7665,16 @@
       "id": "module-fb39c9a64573",
       "label": "bossman/computer_operator/capabilities.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/capabilities.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/capabilities.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-fb39c9a64573"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7595,15 +7682,16 @@
       "id": "module-179cd95b7128",
       "label": "bossman/computer_operator/loop_guard.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/loop_guard.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/loop_guard.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-179cd95b7128"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7611,15 +7699,16 @@
       "id": "module-79d58034a65f",
       "label": "bossman/computer_operator/manager.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/manager.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/manager.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-79d58034a65f"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7627,15 +7716,16 @@
       "id": "module-e376eaac5d8f",
       "label": "bossman/computer_operator/models.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/models.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/models.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-e376eaac5d8f"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7643,15 +7733,16 @@
       "id": "module-4b4b01b5e71a",
       "label": "bossman/computer_operator/obligations.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/obligations.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/obligations.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-4b4b01b5e71a"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7659,15 +7750,16 @@
       "id": "module-1b34d40914f1",
       "label": "bossman/computer_operator/observer.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/observer.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/observer.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-1b34d40914f1"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7675,15 +7767,16 @@
       "id": "module-c64e6d1041b0",
       "label": "bossman/computer_operator/planner.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/planner.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/planner.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-c64e6d1041b0"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7691,15 +7784,16 @@
       "id": "module-3f26dfe54c72",
       "label": "bossman/computer_operator/policy.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/policy.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/policy.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-3f26dfe54c72"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7707,15 +7801,16 @@
       "id": "module-009f4807c914",
       "label": "bossman/computer_operator/routes.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/routes.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/routes.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-009f4807c914"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7723,15 +7818,16 @@
       "id": "module-2d3d2ae733c1",
       "label": "bossman/computer_operator/secret_executor.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/secret_executor.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/secret_executor.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-2d3d2ae733c1"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7739,15 +7835,16 @@
       "id": "module-e6b90349c6c6",
       "label": "bossman/computer_operator/store.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/store.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/store.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-e6b90349c6c6"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7755,15 +7852,16 @@
       "id": "module-3a8ad5c2d247",
       "label": "bossman/computer_operator/subsystem.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/subsystem.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/subsystem.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-3a8ad5c2d247"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7771,15 +7869,16 @@
       "id": "module-c22cab3d4320",
       "label": "bossman/computer_operator/uitars.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/uitars.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/uitars.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-c22cab3d4320"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7787,15 +7886,16 @@
       "id": "module-a270c9dbe40c",
       "label": "bossman/computer_operator/verifier.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/verifier.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/verifier.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-a270c9dbe40c"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -7803,15 +7903,16 @@
       "id": "module-638ddbcb1a1b",
       "label": "bossman/computer_operator/wiring.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/wiring.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/computer_operator/wiring.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-638ddbcb1a1b"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8043,15 +8144,16 @@
       "id": "module-1c2e0a6599c0",
       "label": "bossman/cost_control/enforcer.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cost_control/enforcer.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cost_control/enforcer.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-1c2e0a6599c0"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8059,15 +8161,16 @@
       "id": "module-e99c091d1c06",
       "label": "bossman/cost_control/governor.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cost_control/governor.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cost_control/governor.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-e99c091d1c06"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8075,15 +8178,16 @@
       "id": "module-dd118749492b",
       "label": "bossman/cost_control/models.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cost_control/models.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cost_control/models.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-dd118749492b"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8091,15 +8195,16 @@
       "id": "module-72f38f26214a",
       "label": "bossman/cost_control/pricing.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cost_control/pricing.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cost_control/pricing.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-72f38f26214a"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8123,15 +8228,16 @@
       "id": "module-4efbb2fd9c4a",
       "label": "bossman/cost_control/runtime.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cost_control/runtime.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cost_control/runtime.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-4efbb2fd9c4a"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8139,15 +8245,16 @@
       "id": "module-bc87c8d6bfa4",
       "label": "bossman/cost_control/store.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cost_control/store.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cost_control/store.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-bc87c8d6bfa4"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8187,15 +8294,16 @@
       "id": "module-068b8f4fbeb2",
       "label": "bossman/cybersec/blast_radius.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/blast_radius.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cybersec/blast_radius.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-068b8f4fbeb2"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8203,15 +8311,16 @@
       "id": "module-0b1e4d69a90c",
       "label": "bossman/cybersec/defender.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/defender.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cybersec/defender.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-0b1e4d69a90c"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8235,15 +8344,16 @@
       "id": "module-7a65bf88fb04",
       "label": "bossman/cybersec/gates.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/gates.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cybersec/gates.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-7a65bf88fb04"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8251,15 +8361,16 @@
       "id": "module-8de7f3a7cd44",
       "label": "bossman/cybersec/guards.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/guards.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cybersec/guards.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-8de7f3a7cd44"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8267,15 +8378,16 @@
       "id": "module-d401165730fa",
       "label": "bossman/cybersec/ids.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/ids.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cybersec/ids.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-d401165730fa"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8283,15 +8395,16 @@
       "id": "module-f6a4b22d7b2b",
       "label": "bossman/cybersec/injection.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/injection.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cybersec/injection.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-f6a4b22d7b2b"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8315,15 +8428,16 @@
       "id": "module-63389f3e655f",
       "label": "bossman/cybersec/recovery.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/recovery.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cybersec/recovery.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-63389f3e655f"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8331,15 +8445,16 @@
       "id": "module-cc401f252307",
       "label": "bossman/cybersec/redteam.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/redteam.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cybersec/redteam.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-cc401f252307"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8347,15 +8462,16 @@
       "id": "module-a43ab3ee85df",
       "label": "bossman/cybersec/repo_scanner.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/repo_scanner.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cybersec/repo_scanner.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-a43ab3ee85df"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8363,15 +8479,16 @@
       "id": "module-0aa387ab63a9",
       "label": "bossman/cybersec/secret_guardian.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/secret_guardian.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cybersec/secret_guardian.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-0aa387ab63a9"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8395,15 +8512,16 @@
       "id": "module-4b4e00d7c711",
       "label": "bossman/cybersec/supply_chain.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/supply_chain.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cybersec/supply_chain.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-4b4e00d7c711"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8411,15 +8529,16 @@
       "id": "module-103910b19c50",
       "label": "bossman/cybersec/training.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/training.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cybersec/training.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-103910b19c50"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8427,15 +8546,16 @@
       "id": "module-dc98760346bb",
       "label": "bossman/cybersec/trust.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/trust.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/cybersec/trust.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-dc98760346bb"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8443,15 +8563,16 @@
       "id": "module-74b9d09c9a49",
       "label": "bossman/dev_factory/editor.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/editor.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/dev_factory/editor.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-74b9d09c9a49"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8475,15 +8596,16 @@
       "id": "module-904a8396aa6c",
       "label": "bossman/dev_factory/executor.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/executor.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/dev_factory/executor.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-904a8396aa6c"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8491,15 +8613,16 @@
       "id": "module-4aacff2330d4",
       "label": "bossman/dev_factory/factory.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/factory.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/dev_factory/factory.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-4aacff2330d4"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8507,15 +8630,16 @@
       "id": "module-7f1adf1138f0",
       "label": "bossman/dev_factory/models.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/models.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/dev_factory/models.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-7f1adf1138f0"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8523,15 +8647,16 @@
       "id": "module-e2b6bd15aba1",
       "label": "bossman/dev_factory/planner.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/planner.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/dev_factory/planner.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-e2b6bd15aba1"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8539,15 +8664,16 @@
       "id": "module-3adca9c27bdb",
       "label": "bossman/dev_factory/reviewer.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/reviewer.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/dev_factory/reviewer.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-3adca9c27bdb"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8571,15 +8697,16 @@
       "id": "module-9a1970f7c3e5",
       "label": "bossman/dev_factory/store.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/store.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/dev_factory/store.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-9a1970f7c3e5"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8587,15 +8714,16 @@
       "id": "module-3f0a90670bba",
       "label": "bossman/dev_factory/subsystem.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/subsystem.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/dev_factory/subsystem.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-3f0a90670bba"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8603,15 +8731,16 @@
       "id": "module-b428d8c055bc",
       "label": "bossman/dev_factory/workspace.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/workspace.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/dev_factory/workspace.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-b428d8c055bc"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8619,15 +8748,16 @@
       "id": "module-30ddab524cfc",
       "label": "bossman/gateway/anthropic_protocol.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/anthropic_protocol.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/gateway/anthropic_protocol.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-30ddab524cfc"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8635,15 +8765,16 @@
       "id": "module-5fd57fccff12",
       "label": "bossman/gateway/app.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/app.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/gateway/app.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-5fd57fccff12"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8651,15 +8782,16 @@
       "id": "module-745ed9f64ff7",
       "label": "bossman/gateway/auth.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/auth.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/gateway/auth.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-745ed9f64ff7"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8667,15 +8799,16 @@
       "id": "module-95e88c430e38",
       "label": "bossman/gateway/backends.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/backends.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/gateway/backends.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-95e88c430e38"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8683,15 +8816,16 @@
       "id": "module-7fb28ee13497",
       "label": "bossman/gateway/client.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/client.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/gateway/client.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-7fb28ee13497"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8699,15 +8833,16 @@
       "id": "module-4b5988e098bd",
       "label": "bossman/gateway/config.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/config.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/gateway/config.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-4b5988e098bd"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8715,15 +8850,16 @@
       "id": "module-de7445e9d5f5",
       "label": "bossman/gateway/main.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/main.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/gateway/main.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-de7445e9d5f5"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8731,15 +8867,16 @@
       "id": "module-d5d8a9a7ab5c",
       "label": "bossman/gateway/prompt_cache.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/prompt_cache.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/gateway/prompt_cache.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-d5d8a9a7ab5c"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8747,15 +8884,16 @@
       "id": "module-a548c779a998",
       "label": "bossman/gateway/router.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/router.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/gateway/router.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-a548c779a998"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8763,15 +8901,16 @@
       "id": "module-8dba9550a502",
       "label": "bossman/gateway/telemetry.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/telemetry.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/gateway/telemetry.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-8dba9550a502"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8923,15 +9062,16 @@
       "id": "module-24bbe5117ab0",
       "label": "bossman/notifications/dispatcher.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/notifications/dispatcher.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/notifications/dispatcher.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-24bbe5117ab0"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8939,15 +9079,16 @@
       "id": "module-9a0163231b1b",
       "label": "bossman/notifications/models.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/notifications/models.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/notifications/models.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-9a0163231b1b"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8955,15 +9096,16 @@
       "id": "module-0ce0daf3140c",
       "label": "bossman/notifications/policy.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/notifications/policy.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/notifications/policy.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-0ce0daf3140c"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -8987,15 +9129,16 @@
       "id": "module-76a14f0ce102",
       "label": "bossman/notifications/runtime.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/notifications/runtime.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/notifications/runtime.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-76a14f0ce102"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9003,15 +9146,16 @@
       "id": "module-ddbf2f4b50d2",
       "label": "bossman/notifications/store.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/notifications/store.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/notifications/store.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-ddbf2f4b50d2"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9035,15 +9179,16 @@
       "id": "module-46de893ccfc9",
       "label": "bossman/notifications/telegram_transport.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/notifications/telegram_transport.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/notifications/telegram_transport.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-46de893ccfc9"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9051,15 +9196,16 @@
       "id": "module-2e5863355b9a",
       "label": "bossman/profiles/gate.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/profiles/gate.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/profiles/gate.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-2e5863355b9a"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9083,15 +9229,16 @@
       "id": "module-60f309b322d6",
       "label": "bossman/profiles/models.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/profiles/models.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/profiles/models.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-60f309b322d6"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9099,15 +9246,16 @@
       "id": "module-5c5bd2e61f67",
       "label": "bossman/profiles/router.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/profiles/router.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/profiles/router.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-5c5bd2e61f67"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9115,15 +9263,16 @@
       "id": "module-99fc865d8c4b",
       "label": "bossman/profiles/service.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/profiles/service.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/profiles/service.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-99fc865d8c4b"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9131,15 +9280,16 @@
       "id": "module-ff3e6bc1044b",
       "label": "bossman/profiles/store.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/profiles/store.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/profiles/store.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-ff3e6bc1044b"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9163,15 +9313,16 @@
       "id": "module-ca6830e0de16",
       "label": "bossman/projects/plan.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/projects/plan.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/projects/plan.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-ca6830e0de16"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9179,15 +9330,16 @@
       "id": "module-8bd73fd35c48",
       "label": "bossman/projects/planner.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/projects/planner.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/projects/planner.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-8bd73fd35c48"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9195,15 +9347,16 @@
       "id": "module-28048916831a",
       "label": "bossman/projects/router.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/projects/router.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/projects/router.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-28048916831a"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9211,15 +9364,16 @@
       "id": "module-883a6692992b",
       "label": "bossman/projects/runner.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/projects/runner.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/projects/runner.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-883a6692992b"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9291,15 +9445,16 @@
       "id": "module-2bd9c1e2cdfd",
       "label": "bossman/remote_client/events.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/remote_client/events.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/remote_client/events.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-2bd9c1e2cdfd"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9307,15 +9462,16 @@
       "id": "module-37dec999ab57",
       "label": "bossman/remote_client/mobile_api.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/remote_client/mobile_api.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/remote_client/mobile_api.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-37dec999ab57"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9323,15 +9479,16 @@
       "id": "module-f1437d4e2221",
       "label": "bossman/remote_client/router.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/remote_client/router.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/remote_client/router.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-f1437d4e2221"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9339,15 +9496,16 @@
       "id": "module-897d03f9aab0",
       "label": "bossman/remote_client/security.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/remote_client/security.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/remote_client/security.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-897d03f9aab0"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9355,15 +9513,16 @@
       "id": "module-6bfb88803a15",
       "label": "bossman/remote_client/service.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/remote_client/service.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/remote_client/service.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-6bfb88803a15"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9371,15 +9530,16 @@
       "id": "module-de0238268e77",
       "label": "bossman/remote_client/store.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/remote_client/store.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/remote_client/store.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-de0238268e77"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9403,15 +9563,16 @@
       "id": "module-8f7bb546924a",
       "label": "bossman/research/engine.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/research/engine.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/research/engine.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-8f7bb546924a"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9435,15 +9596,16 @@
       "id": "module-c5d464a7aa9e",
       "label": "bossman/research/tools.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/research/tools.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/research/tools.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-c5d464a7aa9e"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9467,15 +9629,16 @@
       "id": "module-2f9db2f18c1b",
       "label": "bossman/resource_brain/ledger.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/resource_brain/ledger.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/resource_brain/ledger.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-2f9db2f18c1b"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9499,15 +9662,16 @@
       "id": "module-dacafbe9e4ee",
       "label": "bossman/resource_brain/probe.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/resource_brain/probe.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/resource_brain/probe.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-dacafbe9e4ee"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9547,15 +9711,16 @@
       "id": "module-9d055871ddff",
       "label": "bossman/sandbox/artifacts.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/artifacts.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/sandbox/artifacts.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-9d055871ddff"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9579,15 +9744,16 @@
       "id": "module-9d8ee6730907",
       "label": "bossman/sandbox/egress.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/egress.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/sandbox/egress.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-9d8ee6730907"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9595,15 +9761,16 @@
       "id": "module-43a773f7d5a6",
       "label": "bossman/sandbox/manager.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/manager.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/sandbox/manager.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-43a773f7d5a6"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9611,15 +9778,16 @@
       "id": "module-eb0be06d9db9",
       "label": "bossman/sandbox/models.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/models.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/sandbox/models.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-eb0be06d9db9"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9627,15 +9795,16 @@
       "id": "module-9c2c49d71c15",
       "label": "bossman/sandbox/netguard.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/netguard.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/sandbox/netguard.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-9c2c49d71c15"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9643,15 +9812,16 @@
       "id": "module-5c36f1523214",
       "label": "bossman/sandbox/network.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/network.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/sandbox/network.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-5c36f1523214"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9659,15 +9829,16 @@
       "id": "module-2eec9a135e0f",
       "label": "bossman/sandbox/policy.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/policy.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/sandbox/policy.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-2eec9a135e0f"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9707,15 +9878,16 @@
       "id": "module-5d128fcf8dab",
       "label": "bossman/sandbox/runtime.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/runtime.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/sandbox/runtime.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-5d128fcf8dab"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9723,15 +9895,16 @@
       "id": "module-fdd1e1e7e9a0",
       "label": "bossman/sandbox/secrets.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/secrets.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/sandbox/secrets.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-fdd1e1e7e9a0"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9739,15 +9912,16 @@
       "id": "module-e999698f8e9e",
       "label": "bossman/sandbox/subsystem.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/subsystem.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/sandbox/subsystem.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-e999698f8e9e"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9771,15 +9945,16 @@
       "id": "module-aab05d5c4f1a",
       "label": "bossman/sandbox/tools.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/tools.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/sandbox/tools.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-aab05d5c4f1a"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9787,15 +9962,16 @@
       "id": "module-0445b69844cc",
       "label": "bossman/sandbox/trajectory.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/trajectory.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/sandbox/trajectory.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-0445b69844cc"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9819,15 +9995,16 @@
       "id": "module-6fcdcfb4b872",
       "label": "bossman/search_everything/engine.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/search_everything/engine.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/search_everything/engine.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-6fcdcfb4b872"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9835,15 +10012,16 @@
       "id": "module-3e2b4af78a2e",
       "label": "bossman/search_everything/router.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/search_everything/router.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/search_everything/router.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-3e2b4af78a2e"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9867,15 +10045,16 @@
       "id": "module-76ae682ed2e4",
       "label": "bossman/search_everything/tools.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/search_everything/tools.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/search_everything/tools.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-76ae682ed2e4"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9899,15 +10078,16 @@
       "id": "module-5f3e261c2cf4",
       "label": "bossman/toolkit/analysis.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/analysis.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/toolkit/analysis.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-5f3e261c2cf4"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9915,15 +10095,16 @@
       "id": "module-eb0bce4aaf5b",
       "label": "bossman/toolkit/browser.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/browser.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/toolkit/browser.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-eb0bce4aaf5b"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9931,15 +10112,16 @@
       "id": "module-918d9d178fe3",
       "label": "bossman/toolkit/fileintel.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/fileintel.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/toolkit/fileintel.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-918d9d178fe3"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9947,15 +10129,16 @@
       "id": "module-2190e88ab8cb",
       "label": "bossman/toolkit/files.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/files.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/toolkit/files.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-2190e88ab8cb"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9963,15 +10146,16 @@
       "id": "module-cf0d1b5d4d86",
       "label": "bossman/toolkit/gitops.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/gitops.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/toolkit/gitops.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-cf0d1b5d4d86"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9979,15 +10163,16 @@
       "id": "module-6b8f5c457e7f",
       "label": "bossman/toolkit/journal.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/journal.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/toolkit/journal.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-6b8f5c457e7f"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -9995,15 +10180,16 @@
       "id": "module-c2cd9f798b9b",
       "label": "bossman/toolkit/media.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/media.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/toolkit/media.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-c2cd9f798b9b"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -10011,15 +10197,16 @@
       "id": "module-7be51ff76449",
       "label": "bossman/toolkit/net.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/net.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/toolkit/net.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-7be51ff76449"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -10043,15 +10230,16 @@
       "id": "module-a91069ddd708",
       "label": "bossman/toolkit/shell.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/shell.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/toolkit/shell.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-a91069ddd708"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -10395,15 +10583,16 @@
       "id": "module-cdbbc088b662",
       "label": "bossman/v7/nightly_run.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/v7/nightly_run.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/v7/nightly_run.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-cdbbc088b662"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -10411,15 +10600,16 @@
       "id": "module-e84c7b61d7a6",
       "label": "bossman/video_factory/ffmpeg.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/video_factory/ffmpeg.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/video_factory/ffmpeg.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-e84c7b61d7a6"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -10427,15 +10617,16 @@
       "id": "module-464a2a956fa0",
       "label": "bossman/video_factory/model.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/video_factory/model.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/video_factory/model.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-464a2a956fa0"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -10443,15 +10634,16 @@
       "id": "module-6285f40851f1",
       "label": "bossman/video_factory/pipeline.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/video_factory/pipeline.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/video_factory/pipeline.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-6285f40851f1"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -10459,15 +10651,16 @@
       "id": "module-4c9ee5995fb6",
       "label": "bossman/video_factory/providers.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/video_factory/providers.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/video_factory/providers.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-4c9ee5995fb6"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -10475,15 +10668,16 @@
       "id": "module-3d62540e3028",
       "label": "bossman/video_factory/queue.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/video_factory/queue.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/video_factory/queue.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-3d62540e3028"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -10507,15 +10701,16 @@
       "id": "module-27cb1911d462",
       "label": "bossman/video_factory/service.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/video_factory/service.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/video_factory/service.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-27cb1911d462"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -10539,15 +10734,16 @@
       "id": "module-266a95659ed4",
       "label": "bossman/world_intelligence/routes.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/world_intelligence/routes.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/world_intelligence/routes.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-266a95659ed4"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -10555,15 +10751,16 @@
       "id": "module-7af8dc300eab",
       "label": "bossman/world_intelligence/subsystem.py",
       "parent": "ops",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "bossman-core/bossman/world_intelligence/subsystem.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/world_intelligence/subsystem.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/ops.json#module-7af8dc300eab"
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
@@ -12651,8 +12848,8 @@
       "id": "skills-runtime",
       "label": "Движок навыков · загрузка, каталог, оценка",
       "parent": "skills",
-      "status": "code",
-      "detail": "Код, который реально находит, дедуплицирует и оценивает SKILL.md. Без него зона навыков — только тексты. Код в этой сборке; живая работа не сертифицирована.",
+      "status": "reported",
+      "detail": "Код, который реально находит, дедуплицирует и оценивает SKILL.md. Без него зона навыков — только тексты. Код в этой сборке; живая работа не сертифицирована. Прогон 2026-10-06 @ 28a4bf72: pytest skill loader/catalog tests",
       "sources": [
         {
           "path": "command-center/bcc/features/skills.py"
@@ -12665,7 +12862,8 @@
         },
         {
           "path": "command-center/bcc/v2/skill_evaluation.py"
-        }
+        },
+        "docs/architecture/bossman-tree-20261005/evidence/skills.json#skills-runtime"
       ],
       "next_action": "Убедиться, что одноимённые навыки из .agents/skills и skills_catalog не конфликтуют (systematic-debugging, test-driven-development, webapp-testing)."
     },

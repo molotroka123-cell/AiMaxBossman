@@ -1,7 +1,7 @@
 [
  {
   "node_id": "mod-action_contract",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.action_contract')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_action_contract.py tests/test_action_contract_negation.py tests/test_action_contract_verified_computer_launch.py tests/test_chat_context_not_a_request.py tests/test_chat_threads.py tests/test_download_false_success.py tests/test_finalize_unclassified_failure.py tests/test_golden_missions.py)",
   "exit_code": 0,
@@ -14,11 +14,12 @@
   "reason": "",
   "module": "bcc.features.action_contract",
   "test_files_run": 8,
-  "test_candidates": 10
+  "test_candidates": 10,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-action_gate",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.action_gate')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_action_gate.py)",
   "exit_code": 0,
@@ -31,11 +32,12 @@
   "reason": "",
   "module": "bcc.features.action_gate",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-action_preview",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.action_preview')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_action_preview.py)",
   "exit_code": 0,
@@ -48,11 +50,12 @@
   "reason": "",
   "module": "bcc.features.action_preview",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-agentmap",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.agentmap')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -65,11 +68,12 @@
   "reason": "no_tests",
   "module": "bcc.features.agentmap",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-apps",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.apps')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apps_control.py tests/test_apps_control_child_encoding.py tests/test_apps_files_browser_owner.py tests/test_apps_files_http_owner.py tests/test_apps_files_lost_response.py tests/test_apps_launchable.py tests/test_apps_owner_path_regression.py tests/test_apps_pid_portability.py)",
   "exit_code": 0,
@@ -82,11 +86,12 @@
   "reason": "",
   "module": "bcc.features.apps",
   "test_files_run": 8,
-  "test_candidates": 14
+  "test_candidates": 14,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-apps_control",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.apps_control')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apps_control.py tests/test_apps_control_child_encoding.py tests/test_apps_launchable.py tests/test_apps_owner_path_regression.py tests/test_apps_pid_portability.py tests/test_apps_release_runtime.py tests/test_file_commander_proxy_identity.py tests/test_golden_missions.py)",
   "exit_code": 0,
@@ -99,11 +104,12 @@
   "reason": "",
   "module": "bcc.features.apps_control",
   "test_files_run": 8,
-  "test_candidates": 9
+  "test_candidates": 9,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-autonomy",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.autonomy')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_autonomy_api.py tests/test_autonomy_bounded_loop.py tests/test_autonomy_cli.py tests/test_autonomy_constitution.py tests/test_autonomy_cycle.py tests/test_autonomy_goals.py tests/test_autonomy_hands.py tests/test_autonomy_hands_default.py)",
   "exit_code": 1,
@@ -116,11 +122,12 @@
   "reason": "tests_failed",
   "module": "bcc.features.autonomy",
   "test_files_run": 8,
-  "test_candidates": 26
+  "test_candidates": 26,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-benchlab",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.benchlab')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -133,11 +140,12 @@
   "reason": "no_tests",
   "module": "bcc.features.benchlab",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-bossnet_nodes_v16",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.bossnet_nodes_v16')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_bossnet_foundation_v16.py)",
   "exit_code": 0,
@@ -150,11 +158,12 @@
   "reason": "",
   "module": "bcc.features.bossnet_nodes_v16",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-chat_threads",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.chat_threads')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_chat_threads.py tests/test_chat_cli_session_merge.py)",
   "exit_code": 0,
@@ -167,11 +176,12 @@
   "reason": "",
   "module": "bcc.features.chat_threads",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-code_intel",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.code_intel')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_code_intel_and_scorecard.py)",
   "exit_code": 0,
@@ -184,11 +194,12 @@
   "reason": "",
   "module": "bcc.features.code_intel",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-command_bar",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.command_bar')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_command_bar.py tests/test_command_bar_path_segments.py tests/test_command_bar_ui.py tests/test_smoke_live_owner.py tests/telegram_calls/test_api_calls.py)",
   "exit_code": 0,
@@ -201,11 +212,12 @@
   "reason": "",
   "module": "bcc.features.command_bar",
   "test_files_run": 5,
-  "test_candidates": 5
+  "test_candidates": 5,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-deep_fix",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.deep_fix')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_deep_fix_mode.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_deep_fix_gate.py)",
   "exit_code": 0,
@@ -218,11 +230,12 @@
   "reason": "",
   "module": "bcc.features.deep_fix",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-diag_bundle",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.diag_bundle')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_diag_bundle.py tests/telegram_calls/test_hardening.py)",
   "exit_code": 0,
@@ -235,11 +248,12 @@
   "reason": "",
   "module": "bcc.features.diag_bundle",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-file_intelligence",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.file_intelligence')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_file_intelligence_contract.py tests/test_file_intelligence_feature.py tests/test_file_intelligence_hostile.py tests/test_file_intelligence_recovery.py tests/test_oss_docling.py)",
   "exit_code": 0,
@@ -252,11 +266,12 @@
   "reason": "",
   "module": "bcc.features.file_intelligence",
   "test_files_run": 5,
-  "test_candidates": 5
+  "test_candidates": 5,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-forks",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.forks')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_secrem_router_failclosed.py)",
   "exit_code": 0,
@@ -269,11 +284,12 @@
   "reason": "",
   "module": "bcc.features.forks",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-governor",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.governor')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_feat_governor_review.py)",
   "exit_code": 0,
@@ -286,11 +302,12 @@
   "reason": "",
   "module": "bcc.features.governor",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-jeff_insights",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.jeff_insights')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -303,11 +320,12 @@
   "reason": "no_tests",
   "module": "bcc.features.jeff_insights",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-jeff_master_parser",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.jeff_master_parser')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_master_parser_surfaces.py)",
   "exit_code": 0,
@@ -320,11 +338,12 @@
   "reason": "",
   "module": "bcc.features.jeff_master_parser",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-jeff_settings",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.jeff_settings')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_settings_overlay.py tests/test_jeff_2_insights.py tests/test_jeff_admin.py tests/test_jeff_owner_bugtest_fixes.py)",
   "exit_code": 0,
@@ -337,11 +356,12 @@
   "reason": "",
   "module": "bcc.features.jeff_settings",
   "test_files_run": 4,
-  "test_candidates": 4
+  "test_candidates": 4,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-lab_agents",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.lab_agents')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_lab_agents.py)",
   "exit_code": 0,
@@ -354,11 +374,12 @@
   "reason": "",
   "module": "bcc.features.lab_agents",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-local_first",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.local_first')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_local_first.py)",
   "exit_code": 0,
@@ -371,11 +392,12 @@
   "reason": "",
   "module": "bcc.features.local_first",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-market_metrics",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.market_metrics')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_market_collector.py)",
   "exit_code": 0,
@@ -388,11 +410,12 @@
   "reason": "",
   "module": "bcc.features.market_metrics",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-model_foundry_v16",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.model_foundry_v16')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_bossnet_foundation_v16.py)",
   "exit_code": 0,
@@ -405,11 +428,12 @@
   "reason": "",
   "module": "bcc.features.model_foundry_v16",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-objectives",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.objectives')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_objectives_workspace.py)",
   "exit_code": 0,
@@ -422,11 +446,12 @@
   "reason": "",
   "module": "bcc.features.objectives",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-offline_mode",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.offline_mode')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_offline_mode.py)",
   "exit_code": 0,
@@ -439,11 +464,12 @@
   "reason": "",
   "module": "bcc.features.offline_mode",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-opencode",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.opencode')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_opencode_v2_bridge.py tests/test_opencode_worktree_roots.py)",
   "exit_code": 0,
@@ -456,11 +482,12 @@
   "reason": "",
   "module": "bcc.features.opencode",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-osiris",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.osiris')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_osiris.py tests/test_searxng_setup.py tests/test_web_access_20260930.py tests/test_web_research_flag.py tests/test_web_research_net.py tests/test_web_research_refs.py tests/test_web_research_safety.py)",
   "exit_code": 1,
@@ -473,11 +500,12 @@
   "reason": "tests_failed",
   "module": "bcc.features.osiris",
   "test_files_run": 7,
-  "test_candidates": 7
+  "test_candidates": 7,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-oss_integrations",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.oss_integrations')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_oss_integrations.py tests/test_oss_integrations_routes.py)",
   "exit_code": 0,
@@ -490,11 +518,12 @@
   "reason": "",
   "module": "bcc.features.oss_integrations",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-owner_input",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.owner_input')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_owner_input_v15.py)",
   "exit_code": 0,
@@ -507,11 +536,12 @@
   "reason": "",
   "module": "bcc.features.owner_input",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-plugins",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.plugins')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_plugins_adapter.py tests/test_plugins_obsidian_not_a_file.py tests/test_plugins_sql_uri_encoding.py tests/test_plugins_stub_not_success.py tests/test_capability_tree.py tests/test_feat_openrouter_owner_path.py tests/test_plugin_security.py tests/test_plugin_security_malformed_url.py)",
   "exit_code": 0,
@@ -524,11 +554,12 @@
   "reason": "",
   "module": "bcc.features.plugins",
   "test_files_run": 8,
-  "test_candidates": 9
+  "test_candidates": 9,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-provenance",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.provenance')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_provenance.py)",
   "exit_code": 0,
@@ -541,11 +572,12 @@
   "reason": "",
   "module": "bcc.features.provenance",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-qa_relay",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.qa_relay')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_qa_relay.py)",
   "exit_code": 0,
@@ -558,11 +590,12 @@
   "reason": "",
   "module": "bcc.features.qa_relay",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-reality",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.reality')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v7_reality.py tests/test_v7_reality_route_validation.py tests/test_v7_resource_aware_strategy.py tests/test_v7_world_runtime.py)",
   "exit_code": 0,
@@ -575,11 +608,12 @@
   "reason": "",
   "module": "bcc.features.reality",
   "test_files_run": 4,
-  "test_candidates": 4
+  "test_candidates": 4,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-resources",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.resources')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_metrics_async_read.py tests/test_v6_resources_unmeasured.py tests/test_video_studio_integration.py tests/test_video_studio_recovery_races.py)",
   "exit_code": 0,
@@ -592,11 +626,12 @@
   "reason": "",
   "module": "bcc.features.resources",
   "test_files_run": 4,
-  "test_candidates": 4
+  "test_candidates": 4,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-review_gate",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.review_gate')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_p0_review_deadlock.py tests/test_secrem_f012_verification.py)",
   "exit_code": 0,
@@ -609,11 +644,12 @@
   "reason": "",
   "module": "bcc.features.review_gate",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-second_opinion",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.second_opinion')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_second_opinion.py)",
   "exit_code": 0,
@@ -626,11 +662,12 @@
   "reason": "",
   "module": "bcc.features.second_opinion",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-simulation_world_v16",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.simulation_world_v16')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_bossnet_foundation_v16.py)",
   "exit_code": 0,
@@ -643,11 +680,12 @@
   "reason": "",
   "module": "bcc.features.simulation_world_v16",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-skills",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.skills')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/v2/test_skills.py tests/test_coding_tasks_local_sidecar.py tests/test_perf_20260930.py tests/test_skill_catalog.py tests/test_v22_skill_learning.py tests/test_v5_canary_production_caller.py)",
   "exit_code": 0,
@@ -660,11 +698,12 @@
   "reason": "",
   "module": "bcc.features.skills",
   "test_files_run": 6,
-  "test_candidates": 6
+  "test_candidates": 6,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-snapshot",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.snapshot')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_snapshot_kind_containment.py tests/test_v21_snapshot.py tests/test_v22_snapshot_derived.py)",
   "exit_code": 0,
@@ -677,11 +716,12 @@
   "reason": "",
   "module": "bcc.features.snapshot",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-telegram_calls",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.telegram_calls')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_global_stop_watcher.py tests/telegram_calls/test_worker_and_stop_races.py)",
   "exit_code": 0,
@@ -694,11 +734,12 @@
   "reason": "",
   "module": "bcc.features.telegram_calls",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-telegram_settings",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.telegram_settings')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_telegram_settings.py tests/test_telegram_settings_ui.py tests/test_backend_target_rc19.py tests/test_telegram_orphan_rc19.py tests/test_telegram_store_location.py)",
   "exit_code": 0,
@@ -711,11 +752,12 @@
   "reason": "",
   "module": "bcc.features.telegram_settings",
   "test_files_run": 5,
-  "test_candidates": 5
+  "test_candidates": 5,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-testing_period",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.testing_period')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_testing_period.py)",
   "exit_code": 0,
@@ -728,11 +770,12 @@
   "reason": "",
   "module": "bcc.features.testing_period",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-tools_apps",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.tools_apps')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_action_contract.py tests/test_apps_control.py)",
   "exit_code": 0,
@@ -745,11 +788,12 @@
   "reason": "",
   "module": "bcc.features.tools_apps",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-tools_code",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.tools_code')\" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_evolution_api_bootstrap.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_code_index_scratch_exclusion.py tests/test_code_intel_and_scorecard.py tests/test_lane4_p1_fixes.py tests/test_v22_code_tools.py tests/test_v22_scratch_isolation.py)",
   "exit_code": 0,
@@ -762,11 +806,12 @@
   "reason": "",
   "module": "bcc.features.tools_code",
   "test_files_run": 6,
-  "test_candidates": 6
+  "test_candidates": 6,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-tools_facts",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.tools_facts')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_fable_context_memory_authority.py tests/test_secrem_facts_boundary.py tests/test_v22_facts_api.py)",
   "exit_code": 0,
@@ -779,11 +824,12 @@
   "reason": "",
   "module": "bcc.features.tools_facts",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-tools_jeff",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.tools_jeff')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_broadcast.py)",
   "exit_code": 0,
@@ -796,11 +842,12 @@
   "reason": "",
   "module": "bcc.features.tools_jeff",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-tools_mcp",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.tools_mcp')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_bl110_mcp_delete_everywhere.py tests/test_golden_missions.py tests/test_mcp_numeric_server_name.py tests/test_secrem_mcp_boundary.py tests/test_secrem_sibling_sweep.py tests/test_v21_mcp.py tests/test_v22_fixes.py)",
   "exit_code": 0,
@@ -813,11 +860,12 @@
   "reason": "",
   "module": "bcc.features.tools_mcp",
   "test_files_run": 7,
-  "test_candidates": 7
+  "test_candidates": 7,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-tools_openclaw",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.tools_openclaw')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v23_openclaw_tools.py tests/test_v23_outbox_exactly_once.py)",
   "exit_code": 0,
@@ -830,11 +878,12 @@
   "reason": "",
   "module": "bcc.features.tools_openclaw",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-tools_opencode",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.tools_opencode')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_opencode_worktree_roots.py tests/test_secrem_f011_session_ownership.py)",
   "exit_code": 0,
@@ -847,11 +896,12 @@
   "reason": "",
   "module": "bcc.features.tools_opencode",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-trading_lab",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.trading_lab')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_trading_lab_unwired.py)",
   "exit_code": 0,
@@ -864,11 +914,12 @@
   "reason": "",
   "module": "bcc.features.trading_lab",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-unified_search",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.unified_search')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_unified_search.py)",
   "exit_code": 0,
@@ -881,11 +932,12 @@
   "reason": "",
   "module": "bcc.features.unified_search",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-v15_autonomy",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.v15_autonomy')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_autonomy_core.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_autonomy_feature.py tests/test_perf_20260930.py tests/test_runtime_package_contract.py)",
   "exit_code": 0,
@@ -898,11 +950,12 @@
   "reason": "",
   "module": "bcc.features.v15_autonomy",
   "test_files_run": 4,
-  "test_candidates": 4
+  "test_candidates": 4,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-v15_owner_run",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.v15_owner_run')\" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_owner_run.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_perf_20260930.py)",
   "exit_code": 0,
@@ -915,11 +968,12 @@
   "reason": "",
   "module": "bcc.features.v15_owner_run",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-v15_self_repair",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.v15_self_repair')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_self_repair.py)",
   "exit_code": 0,
@@ -932,11 +986,12 @@
   "reason": "",
   "module": "bcc.features.v15_self_repair",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-watchdog",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.watchdog')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_watchdog.py)",
   "exit_code": 0,
@@ -949,11 +1004,12 @@
   "reason": "",
   "module": "bcc.features.watchdog",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-web_designer",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.web_designer')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_web_designer.py tests/test_web_designer_ai_create_ui.py tests/test_web_designer_apply_idempotent_ui.py tests/test_web_designer_create_after_response.py tests/test_web_designer_creative_execution.py tests/test_web_designer_first_click_ui.py tests/test_web_designer_grapesjs_ui.py tests/test_web_designer_model_choice.py)",
   "exit_code": 0,
@@ -966,11 +1022,12 @@
   "reason": "",
   "module": "bcc.features.web_designer",
   "test_files_run": 8,
-  "test_candidates": 19
+  "test_candidates": 19,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "mod-workflow",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bcc.features.workflow')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -983,11 +1040,12 @@
   "reason": "no_tests",
   "module": "bcc.features.workflow",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-637788ef482e",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.ai_lab.candidates')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage11_ai_lab.py tests/test_stage13_ailab_redteam.py)",
   "exit_code": 0,
@@ -1000,11 +1058,12 @@
   "reason": "",
   "module": "bossman.ai_lab.candidates",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-a1a2c4ccc239",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.ai_lab.export')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_ai_lab_containment.py)",
   "exit_code": 0,
@@ -1017,11 +1076,12 @@
   "reason": "",
   "module": "bossman.ai_lab.export",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-cdb370a24157",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.ai_lab.routes')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_ai_lab_containment.py tests/test_stage13_ailab_redteam.py)",
   "exit_code": 0,
@@ -1034,11 +1094,12 @@
   "reason": "",
   "module": "bossman.ai_lab.routes",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-5386412e9f11",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.ai_lab.sanitizer')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_telegram_settings.py)",
   "exit_code": 0,
@@ -1051,11 +1112,12 @@
   "reason": "",
   "module": "bossman.ai_lab.sanitizer",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-73976a1cf54d",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice._bootstrap')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -1068,11 +1130,12 @@
   "reason": "no_tests",
   "module": "bossman.apprentice._bootstrap",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-39e925886668",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.claude_code_client')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_live_safety.py tests/test_teacher_isolation.py tests/test_teacher_live.py)",
   "exit_code": 0,
@@ -1085,11 +1148,12 @@
   "reason": "",
   "module": "bossman.apprentice.claude_code_client",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-a7ad0d90993c",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.composition')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_durable_live_owner_auth.py)",
   "exit_code": 2,
@@ -1102,11 +1166,12 @@
   "reason": "env_missing_dependency",
   "module": "bossman.apprentice.composition",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-bc12e1784cb5",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.durable')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_durable_live_owner_auth.py tests/test_apprentice_live_safety.py tests/test_e2e_real_gui.py tests/test_e2e_real_outreach.py tests/test_teacher_live.py tests/audit001/test_f1_receipt_immutability.py tests/audit001/test_f2_abandon_race.py tests/audit001/test_f3_tx_poison.py)",
   "exit_code": 1,
@@ -1119,11 +1184,12 @@
   "reason": "env_missing_dependency",
   "module": "bossman.apprentice.durable",
   "test_files_run": 8,
-  "test_candidates": 9
+  "test_candidates": 9,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-a17a422c65d7",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.engine')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_engine_lifecycle_drain.py tests/test_engine_stop.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_core.py tests/test_apprentice_e2e.py tests/test_apprentice_p0.py tests/test_e2e_real_gui.py tests/audit001/test_f1_receipt_immutability.py tests/audit001/test_f2_abandon_race.py)",
   "exit_code": 0,
@@ -1136,11 +1202,12 @@
   "reason": "",
   "module": "bossman.apprentice.engine",
   "test_files_run": 8,
-  "test_candidates": 8
+  "test_candidates": 8,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-86282a9efa67",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.errors')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_core.py tests/test_apprentice_e2e.py tests/test_apprentice_learning.py tests/test_apprentice_outreach.py tests/test_apprentice_p0.py tests/test_apprentice_recording.py tests/test_apprentice_sanctions.py tests/test_apprentice_teacher.py)",
   "exit_code": 0,
@@ -1153,11 +1220,12 @@
   "reason": "",
   "module": "bossman.apprentice.errors",
   "test_files_run": 8,
-  "test_candidates": 10
+  "test_candidates": 10,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-d41ad480551d",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.fable_direct')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_fable_budget.py tests/test_fable_budget_hard.py tests/test_fable_transcript.py tests/test_teacher_live.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_fable_hard_cap.py)",
   "exit_code": 0,
@@ -1170,11 +1238,12 @@
   "reason": "",
   "module": "bossman.apprentice.fable_direct",
   "test_files_run": 5,
-  "test_candidates": 5
+  "test_candidates": 5,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-d4455ade6345",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.fable_transcript')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_fable_transcript.py)",
   "exit_code": 0,
@@ -1187,11 +1256,12 @@
   "reason": "",
   "module": "bossman.apprentice.fable_transcript",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-177f174d3f63",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.flags')\" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_import_operational_lessons.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_core.py tests/test_apprentice_e2e.py tests/test_apprentice_learning.py tests/test_apprentice_outreach.py tests/test_apprentice_p0.py tests/test_apprentice_recording.py tests/test_apprentice_sanctions.py)",
   "exit_code": 0,
@@ -1204,11 +1274,12 @@
   "reason": "",
   "module": "bossman.apprentice.flags",
   "test_files_run": 8,
-  "test_candidates": 17
+  "test_candidates": 17,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-4780a1d5fdf7",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.guards')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_core.py tests/test_apprentice_e2e.py tests/test_apprentice_live_safety.py tests/test_apprentice_outreach.py tests/test_apprentice_p0.py tests/test_durable_live_owner_auth.py tests/test_e2e_real_gui.py tests/test_e2e_real_outreach.py)",
   "exit_code": 1,
@@ -1221,11 +1292,12 @@
   "reason": "env_missing_dependency",
   "module": "bossman.apprentice.guards",
   "test_files_run": 8,
-  "test_candidates": 12
+  "test_candidates": 12,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-c23f35941e16",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.isolated_worktree')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_audit_learn_isolated_worktree_evidence.py tests/apprentice/test_worktree_cleanup_honesty.py tests/apprentice/test_worktree_client_acceptance.py tests/apprentice/test_worktree_client_composition.py tests/apprentice/test_worktree_isolation.py)",
   "exit_code": 0,
@@ -1238,11 +1310,12 @@
   "reason": "",
   "module": "bossman.apprentice.isolated_worktree",
   "test_files_run": 5,
-  "test_candidates": 5
+  "test_candidates": 5,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-815783821b83",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.live_workspace')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_live_safety.py tests/test_audit_learn_workspace.py tests/test_teacher_isolation.py tests/test_teacher_live.py)",
   "exit_code": 0,
@@ -1255,11 +1328,12 @@
   "reason": "",
   "module": "bossman.apprentice.live_workspace",
   "test_files_run": 4,
-  "test_candidates": 4
+  "test_candidates": 4,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-bc25cd9f1e01",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.local_sidecar')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/apprentice/test_local_sidecar.py) && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_evolution_embedded_python.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_apply.py tests/test_coding_path_owner_tool.py tests/test_coding_tasks.py tests/test_coding_tasks_local_sidecar.py tests/test_coding_workers.py tests/test_runtime_package_contract.py)",
   "exit_code": 0,
@@ -1272,11 +1346,12 @@
   "reason": "",
   "module": "bossman.apprentice.local_sidecar",
   "test_files_run": 8,
-  "test_candidates": 11
+  "test_candidates": 11,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-42a06e3c1b71",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.models')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_adapter_p2_findings.py tests/test_apprentice_core.py tests/test_apprentice_e2e.py tests/test_apprentice_learning.py tests/test_apprentice_p0.py tests/test_apprentice_recording.py tests/test_apprentice_teacher.py tests/test_e2e_real_gui.py)",
   "exit_code": 0,
@@ -1289,11 +1364,12 @@
   "reason": "",
   "module": "bossman.apprentice.models",
   "test_files_run": 8,
-  "test_candidates": 11
+  "test_candidates": 11,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-049b601d5eaa",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.openhands_client')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/apprentice/test_openhands_client.py tests/test_audit_learn_git_timeouts.py tests/apprentice/test_local_sidecar.py tests/apprentice/test_openhands_evidence_independence.py tests/apprentice/test_openhands_live_sdk.py tests/apprentice/test_openhands_path_boundary.py tests/apprentice/test_openhands_release_evidence.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_tasks.py)",
   "exit_code": 0,
@@ -1306,11 +1382,12 @@
   "reason": "",
   "module": "bossman.apprentice.openhands_client",
   "test_files_run": 8,
-  "test_candidates": 10
+  "test_candidates": 10,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-efdcd8d35b9c",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.openhands_teacher_client')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_audit_learn_git_timeouts.py tests/apprentice/test_openhands_client.py tests/apprentice/test_openhands_integration.py tests/apprentice/test_openhands_release_evidence.py)",
   "exit_code": 0,
@@ -1323,11 +1400,12 @@
   "reason": "",
   "module": "bossman.apprentice.openhands_teacher_client",
   "test_files_run": 4,
-  "test_candidates": 4
+  "test_candidates": 4,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-d8ca33ba94f4",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.outreach')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_e2e.py tests/test_apprentice_outreach.py tests/test_durable_live_owner_auth.py tests/test_e2e_real_outreach.py tests/audit001/test_f1_receipt_immutability.py tests/audit001/test_f2_abandon_race.py)",
   "exit_code": 1,
@@ -1340,11 +1418,12 @@
   "reason": "env_missing_dependency",
   "module": "bossman.apprentice.outreach",
   "test_files_run": 6,
-  "test_candidates": 6
+  "test_candidates": 6,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-6c727703c8ea",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.owner_auth')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_durable_live_owner_auth.py tests/test_e2e_real_outreach.py)",
   "exit_code": 1,
@@ -1357,11 +1436,12 @@
   "reason": "env_missing_dependency",
   "module": "bossman.apprentice.owner_auth",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-9958189ad4d4",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.proc_tree')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_capability_tree.py tests/test_rave_engine.py tests/test_rave_owner_flow.py tests/test_rave_pool.py tests/test_rave_ui_flow.py)",
   "exit_code": 124,
@@ -1374,11 +1454,12 @@
   "reason": "pytest_timeout",
   "module": "bossman.apprentice.proc_tree",
   "test_files_run": 6,
-  "test_candidates": 6
+  "test_candidates": 6,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-ac2f6e6dc2d9",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.recording')\" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_import_operational_lessons.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_e2e.py tests/test_apprentice_learning.py tests/test_apprentice_p0.py tests/test_apprentice_recording.py tests/test_apprentice_teacher.py tests/test_teacher_live.py)",
   "exit_code": 0,
@@ -1391,11 +1472,12 @@
   "reason": "",
   "module": "bossman.apprentice.recording",
   "test_files_run": 7,
-  "test_candidates": 7
+  "test_candidates": 7,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-e2dd4b7bfb5d",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.sanctions')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_e2e.py tests/test_apprentice_sanctions.py tests/test_teacher_live.py)",
   "exit_code": 0,
@@ -1408,11 +1490,12 @@
   "reason": "",
   "module": "bossman.apprentice.sanctions",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-816c15a6b6a4",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.scripted_model')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/apprentice/test_scripted_model_routes.py tests/apprentice/test_local_sidecar.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_tasks_local_sidecar.py tests/test_terminal_cli_e2e.py)",
   "exit_code": 0,
@@ -1425,11 +1508,12 @@
   "reason": "",
   "module": "bossman.apprentice.scripted_model",
   "test_files_run": 4,
-  "test_candidates": 4
+  "test_candidates": 4,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-0541863355da",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.skills')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/v2/test_skills.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_e2e.py tests/test_apprentice_learning.py tests/test_apprentice_p0.py tests/test_apprentice_teacher.py tests/test_audit_learn_workspace.py tests/test_teacher_live.py tests/audit001/test_f4_promotion_baseline.py)",
   "exit_code": 0,
@@ -1442,11 +1526,12 @@
   "reason": "",
   "module": "bossman.apprentice.skills",
   "test_files_run": 8,
-  "test_candidates": 9
+  "test_candidates": 9,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-522cf2e79840",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.teacher')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_teacher_isolation.py tests/test_teacher_live.py tests/test_apprentice_e2e.py tests/test_apprentice_sanctions.py tests/test_apprentice_teacher.py tests/test_audit_learn_workspace.py tests/apprentice/test_openhands_integration.py)",
   "exit_code": 0,
@@ -1459,11 +1544,12 @@
   "reason": "",
   "module": "bossman.apprentice.teacher",
   "test_files_run": 7,
-  "test_candidates": 7
+  "test_candidates": 7,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-edac8a22b815",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.teacher_sandbox')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_teacher_isolation.py tests/apprentice/test_openhands_integration.py)",
   "exit_code": 0,
@@ -1476,11 +1562,12 @@
   "reason": "",
   "module": "bossman.apprentice.teacher_sandbox",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-b8a71e28fc47",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.apprentice.teacher_wiring_patch')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/apprentice/test_openhands_integration.py)",
   "exit_code": 0,
@@ -1493,11 +1580,12 @@
   "reason": "",
   "module": "bossman.apprentice.teacher_wiring_patch",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-ff7440d8b674",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.benchmark.__main__')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 2,
@@ -1510,11 +1598,12 @@
   "reason": "import_failed",
   "module": "bossman.benchmark.__main__",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-1184b1105ced",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.benchmark.cli')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cli_help_cp1252.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cli_entrypoint.py tests/telegram_calls/test_cli_call.py)",
   "exit_code": 0,
@@ -1527,11 +1616,12 @@
   "reason": "",
   "module": "bossman.benchmark.cli",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-dadaec7d827b",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.benchmark.engine')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_engine_lifecycle_drain.py tests/test_engine_stop.py) && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_blue_leaf_audit.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_benchmark_gate.py tests/test_benchmark_power.py tests/test_benchmark_runtime.py tests/test_benchmark_truth.py tests/test_core_subprocess_timeouts.py)",
   "exit_code": 124,
@@ -1544,11 +1634,12 @@
   "reason": "pytest_timeout",
   "module": "bossman.benchmark.engine",
   "test_files_run": 8,
-  "test_candidates": 9
+  "test_candidates": 9,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-771a003071ca",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.benchmark.fixture_runtime')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_benchmark_truth.py)",
   "exit_code": 0,
@@ -1561,11 +1652,12 @@
   "reason": "",
   "module": "bossman.benchmark.fixture_runtime",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-d3f5977af5ba",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.benchmark.sandbox_row')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -1578,11 +1670,12 @@
   "reason": "no_tests",
   "module": "bossman.benchmark.sandbox_row",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-9f29d5a73f7f",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.benchmark.sandbox_runtime')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_benchmark_truth.py)",
   "exit_code": 0,
@@ -1595,11 +1688,12 @@
   "reason": "",
   "module": "bossman.benchmark.sandbox_runtime",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-f1cacda08a67",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.company.model')\" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_model_bakeoff_latency.py tests/test_model_fetch.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_model_health.py tests/test_model_intelligence.py tests/test_model_probe_reasoning.py tests/test_model_speed_tel001.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_core.py tests/test_apprentice_live_safety.py)",
   "exit_code": 0,
@@ -1612,11 +1706,12 @@
   "reason": "",
   "module": "bossman.company.model",
   "test_files_run": 8,
-  "test_candidates": 15
+  "test_candidates": 15,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-47931d1b717a",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.company.planner')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_company_mode.py)",
   "exit_code": 0,
@@ -1629,11 +1724,12 @@
   "reason": "",
   "module": "bossman.company.planner",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-eea9bcf7e3ac",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.company.runtime')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_runtime_package_contract.py tests/test_runtime_source_identity.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_audit_p0_company_principals.py tests/test_company_mode.py tests/test_pass3_company_integrity.py)",
   "exit_code": 1,
@@ -1646,11 +1742,12 @@
   "reason": "env_missing_dependency",
   "module": "bossman.company.runtime",
   "test_files_run": 5,
-  "test_candidates": 5
+  "test_candidates": 5,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-e297560d568b",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.company.synthetic_seo')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_company_mode.py tests/test_pass3_company_integrity.py tests/test_v3_organization_company_bridge.py)",
   "exit_code": 0,
@@ -1663,11 +1760,12 @@
   "reason": "",
   "module": "bossman.company.synthetic_seo",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-575dcc5a99f5",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.applist')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_capabilities.py tests/test_stage13_wiring_notepad.py)",
   "exit_code": 1,
@@ -1680,11 +1778,12 @@
   "reason": "tests_failed",
   "module": "bossman.computer_operator.applist",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-fb39c9a64573",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.capabilities')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_capabilities.py tests/test_v26_operator_fixes.py)",
   "exit_code": 0,
@@ -1697,11 +1796,12 @@
   "reason": "",
   "module": "bossman.computer_operator.capabilities",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-179cd95b7128",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.loop_guard')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_loop_guard.py)",
   "exit_code": 0,
@@ -1714,11 +1814,12 @@
   "reason": "",
   "module": "bossman.computer_operator.loop_guard",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-79d58034a65f",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.manager')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_manager.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_loop_guard_manager.py tests/test_computer_operator_owner_control.py tests/test_computer_operator_recovery.py tests/test_operator_step_timeout.py tests/test_profiles.py tests/test_secrem_s2_operator_consequence.py tests/test_stage13_auth_redteam.py)",
   "exit_code": 0,
@@ -1731,11 +1832,12 @@
   "reason": "",
   "module": "bossman.computer_operator.manager",
   "test_files_run": 8,
-  "test_candidates": 10
+  "test_candidates": 10,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-e376eaac5d8f",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.models')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_adapter_orphan_input.py tests/test_adapter_p1_findings.py tests/test_adapter_p2_findings.py tests/test_apprentice_core.py tests/test_apprentice_e2e.py tests/test_apprentice_p0.py tests/test_apprentice_recording.py tests/test_at01_completion_obligations.py)",
   "exit_code": 0,
@@ -1748,11 +1850,12 @@
   "reason": "",
   "module": "bossman.computer_operator.models",
   "test_files_run": 8,
-  "test_candidates": 40
+  "test_candidates": 40,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-4b4b01b5e71a",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.obligations')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_at01_completion_obligations.py tests/test_operator_at01_at03_regression.py tests/test_stage13_auth_redteam.py)",
   "exit_code": 0,
@@ -1765,11 +1868,12 @@
   "reason": "",
   "module": "bossman.computer_operator.obligations",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-1b34d40914f1",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.observer')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_observation_pipeline.py tests/test_computer_operator_owner_control.py tests/test_stage13_wiring_notepad.py)",
   "exit_code": 0,
@@ -1782,11 +1886,12 @@
   "reason": "",
   "module": "bossman.computer_operator.observer",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-c64e6d1041b0",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.planner')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_operator_planner.py tests/test_stage13_wiring_notepad.py tests/test_v26_operator_fixes.py)",
   "exit_code": 0,
@@ -1799,11 +1904,12 @@
   "reason": "",
   "module": "bossman.computer_operator.planner",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-3f26dfe54c72",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.policy')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_policy_algebra.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_control_authorization.py tests/test_computer_operator_ask_consequence.py tests/test_computer_operator_coordinate_fallback.py tests/test_computer_operator_policy.py tests/test_control_001_coordinate_fallback.py tests/test_operator_core_findings.py tests/test_secrem_s2_operator_consequence.py)",
   "exit_code": 0,
@@ -1816,11 +1922,12 @@
   "reason": "",
   "module": "bossman.computer_operator.policy",
   "test_files_run": 8,
-  "test_candidates": 11
+  "test_candidates": 11,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-009f4807c914",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.routes')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_auth_approval_findings.py tests/test_computer_control_authorization.py tests/test_stage13_operator_redteam.py)",
   "exit_code": 0,
@@ -1833,11 +1940,12 @@
   "reason": "",
   "module": "bossman.computer_operator.routes",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-2d3d2ae733c1",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.secret_executor')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_secret_executor.py)",
   "exit_code": 0,
@@ -1850,11 +1958,12 @@
   "reason": "",
   "module": "bossman.computer_operator.secret_executor",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-e6b90349c6c6",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.store')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_loop_guard_manager.py tests/test_computer_operator_owner_control.py tests/test_computer_operator_recovery.py tests/test_operator_core_findings.py tests/test_profiles.py tests/test_secrem_s2_operator_consequence.py tests/test_stage13_auth_redteam.py tests/test_stage13_wiring_notepad.py)",
   "exit_code": 0,
@@ -1867,11 +1976,12 @@
   "reason": "",
   "module": "bossman.computer_operator.store",
   "test_files_run": 8,
-  "test_candidates": 8
+  "test_candidates": 8,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-3a8ad5c2d247",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.subsystem')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_adapter_p1_findings.py tests/test_computer_control_authorization.py tests/test_profiles.py tests/test_stage13_wiring_notepad.py tests/test_uitars_grounding.py tests/test_v26_operator_fixes.py)",
   "exit_code": 0,
@@ -1884,11 +1994,12 @@
   "reason": "",
   "module": "bossman.computer_operator.subsystem",
   "test_files_run": 6,
-  "test_candidates": 6
+  "test_candidates": 6,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-c22cab3d4320",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.uitars')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_uitars_grounding.py)",
   "exit_code": 0,
@@ -1901,11 +2012,12 @@
   "reason": "",
   "module": "bossman.computer_operator.uitars",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-a270c9dbe40c",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.verifier')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_operator_verifier.py tests/test_operator_core_findings.py)",
   "exit_code": 0,
@@ -1918,11 +2030,12 @@
   "reason": "",
   "module": "bossman.computer_operator.verifier",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-638ddbcb1a1b",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.computer_operator.wiring')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_adapter_p1_findings.py tests/test_at01_completion_obligations.py tests/test_at01_unknown_effect_freeze.py tests/test_auth_approval_findings.py tests/test_computer_control_authorization.py tests/test_computer_operator_owner_control.py tests/test_operator_at01_at03_regression.py tests/test_operator_core_findings.py)",
   "exit_code": 0,
@@ -1935,11 +2048,12 @@
   "reason": "",
   "module": "bossman.computer_operator.wiring",
   "test_files_run": 8,
-  "test_candidates": 13
+  "test_candidates": 13,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-1c2e0a6599c0",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cost_control.enforcer')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cost_enforcer_approval.py)",
   "exit_code": 0,
@@ -1952,11 +2066,12 @@
   "reason": "",
   "module": "bossman.cost_control.enforcer",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-e99c091d1c06",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cost_control.governor')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_budget_notification_integration.py tests/test_cost_enforcer_approval.py tests/test_cost_governor_adversarial.py tests/test_gateway_anthropic_contract.py tests/test_gateway_cost_governor.py)",
   "exit_code": 0,
@@ -1969,11 +2084,12 @@
   "reason": "",
   "module": "bossman.cost_control.governor",
   "test_files_run": 5,
-  "test_candidates": 5
+  "test_candidates": 5,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-dd118749492b",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cost_control.models')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_audit_learn_cost_expired.py tests/test_budget_notification_integration.py tests/test_cost_enforcer_approval.py tests/test_cost_governor.py tests/test_cost_governor_adversarial.py tests/test_cost_governor_concurrency.py tests/test_cost_restart_ttl.py tests/test_gateway_anthropic_contract.py)",
   "exit_code": 0,
@@ -1986,11 +2102,12 @@
   "reason": "",
   "module": "bossman.cost_control.models",
   "test_files_run": 8,
-  "test_candidates": 9
+  "test_candidates": 9,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-72f38f26214a",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cost_control.pricing')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cost_pricing.py tests/test_prompt_cache_openrouter.py)",
   "exit_code": 0,
@@ -2003,11 +2120,12 @@
   "reason": "",
   "module": "bossman.cost_control.pricing",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-6e615a668c7b",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cost_control.routes')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -2020,11 +2138,12 @@
   "reason": "no_tests",
   "module": "bossman.cost_control.routes",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-4efbb2fd9c4a",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cost_control.runtime')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_runtime_package_contract.py tests/test_runtime_source_identity.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_gateway_anthropic_contract.py tests/test_gateway_cost_governor.py)",
   "exit_code": 0,
@@ -2037,11 +2156,12 @@
   "reason": "",
   "module": "bossman.cost_control.runtime",
   "test_files_run": 4,
-  "test_candidates": 4
+  "test_candidates": 4,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-bc87c8d6bfa4",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cost_control.store')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_audit_learn_cost_expired.py tests/test_budget_notification_integration.py tests/test_cost_enforcer_approval.py tests/test_cost_governor.py tests/test_cost_governor_adversarial.py tests/test_cost_governor_concurrency.py tests/test_cost_restart_ttl.py tests/test_gateway_anthropic_contract.py)",
   "exit_code": 0,
@@ -2054,11 +2174,12 @@
   "reason": "",
   "module": "bossman.cost_control.store",
   "test_files_run": 8,
-  "test_candidates": 9
+  "test_candidates": 9,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-df0754d72d22",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cost_control.subsystem')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -2071,11 +2192,12 @@
   "reason": "no_tests",
   "module": "bossman.cost_control.subsystem",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-028fe7482116",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cybersec.benchmark')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_benchmark_gate.py tests/test_benchmark_power.py tests/test_benchmark_runtime.py tests/test_benchmark_truth.py tests/test_cybersec_integration.py tests/test_cybersec_v1.py)",
   "exit_code": 124,
@@ -2088,11 +2210,12 @@
   "reason": "pytest_timeout",
   "module": "bossman.cybersec.benchmark",
   "test_files_run": 6,
-  "test_candidates": 6
+  "test_candidates": 6,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-068b8f4fbeb2",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cybersec.blast_radius')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cybersec_v1.py)",
   "exit_code": 0,
@@ -2105,11 +2228,12 @@
   "reason": "",
   "module": "bossman.cybersec.blast_radius",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-0b1e4d69a90c",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cybersec.defender')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cybersec_v1.py)",
   "exit_code": 0,
@@ -2122,11 +2246,12 @@
   "reason": "",
   "module": "bossman.cybersec.defender",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-7a65bf88fb04",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cybersec.gates')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cybersec_integration.py tests/test_cybersec_v1.py)",
   "exit_code": 0,
@@ -2139,11 +2264,12 @@
   "reason": "",
   "module": "bossman.cybersec.gates",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-8de7f3a7cd44",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cybersec.guards')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_auth_approval_findings.py tests/test_cybersec_guards.py tests/test_v26_research.py)",
   "exit_code": 0,
@@ -2156,11 +2282,12 @@
   "reason": "",
   "module": "bossman.cybersec.guards",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-d401165730fa",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cybersec.ids')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cybersec_guards.py tests/test_cybersec_v1.py)",
   "exit_code": 0,
@@ -2173,11 +2300,12 @@
   "reason": "",
   "module": "bossman.cybersec.ids",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-f6a4b22d7b2b",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cybersec.injection')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cybersec_v1.py tests/test_runner_cybersec_wiring.py)",
   "exit_code": 0,
@@ -2190,11 +2318,12 @@
   "reason": "",
   "module": "bossman.cybersec.injection",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-63389f3e655f",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cybersec.recovery')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cybersec_integration.py tests/test_cybersec_v1.py)",
   "exit_code": 0,
@@ -2207,11 +2336,12 @@
   "reason": "",
   "module": "bossman.cybersec.recovery",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-cc401f252307",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cybersec.redteam')\" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_redteam_rc_learning_20260921.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_redteam_benchmark_attacks.py tests/test_cybersec_integration.py tests/test_cybersec_v1.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_redteam_rc_20260921.py)",
   "exit_code": 0,
@@ -2224,11 +2354,12 @@
   "reason": "",
   "module": "bossman.cybersec.redteam",
   "test_files_run": 5,
-  "test_candidates": 5
+  "test_candidates": 5,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-a43ab3ee85df",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cybersec.repo_scanner')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cybersec_v1.py)",
   "exit_code": 0,
@@ -2241,11 +2372,12 @@
   "reason": "",
   "module": "bossman.cybersec.repo_scanner",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-0aa387ab63a9",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cybersec.secret_guardian')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cybersec_guards.py tests/test_cybersec_integration.py tests/test_cybersec_v1.py)",
   "exit_code": 0,
@@ -2258,11 +2390,12 @@
   "reason": "",
   "module": "bossman.cybersec.secret_guardian",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-4b4e00d7c711",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cybersec.supply_chain')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cybersec_v1.py)",
   "exit_code": 0,
@@ -2275,11 +2408,12 @@
   "reason": "",
   "module": "bossman.cybersec.supply_chain",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-103910b19c50",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cybersec.training')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cybersec_integration.py)",
   "exit_code": 0,
@@ -2292,11 +2426,12 @@
   "reason": "",
   "module": "bossman.cybersec.training",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-dc98760346bb",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.cybersec.trust')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cybersec_v1.py)",
   "exit_code": 0,
@@ -2309,11 +2444,12 @@
   "reason": "",
   "module": "bossman.cybersec.trust",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-74b9d09c9a49",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.dev_factory.editor')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_dev_factory_editor.py)",
   "exit_code": 0,
@@ -2326,11 +2462,12 @@
   "reason": "",
   "module": "bossman.dev_factory.editor",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-904a8396aa6c",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.dev_factory.executor')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_executor_admission.py)",
   "exit_code": 0,
@@ -2343,11 +2480,12 @@
   "reason": "",
   "module": "bossman.dev_factory.executor",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-4aacff2330d4",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.dev_factory.factory')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_dev_factory_wiring.py)",
   "exit_code": 0,
@@ -2360,11 +2498,12 @@
   "reason": "",
   "module": "bossman.dev_factory.factory",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-7f1adf1138f0",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.dev_factory.models')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_dev_factory.py tests/test_dev_factory_diff_windows.py tests/test_dev_factory_editor.py tests/test_host_execution_argv.py tests/test_stage13_hostexec_redteam.py)",
   "exit_code": 0,
@@ -2377,11 +2516,12 @@
   "reason": "",
   "module": "bossman.dev_factory.models",
   "test_files_run": 5,
-  "test_candidates": 5
+  "test_candidates": 5,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-e2b6bd15aba1",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.dev_factory.planner')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_dev_factory.py tests/test_dev_factory_wiring.py tests/test_host_execution_argv.py tests/test_stage13_hostexec_redteam.py)",
   "exit_code": 0,
@@ -2394,11 +2534,12 @@
   "reason": "",
   "module": "bossman.dev_factory.planner",
   "test_files_run": 4,
-  "test_candidates": 4
+  "test_candidates": 4,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-3adca9c27bdb",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.dev_factory.reviewer')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_dev_factory_diff_windows.py)",
   "exit_code": 0,
@@ -2411,11 +2552,12 @@
   "reason": "",
   "module": "bossman.dev_factory.reviewer",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-7280885daae5",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.dev_factory.routes')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -2428,11 +2570,12 @@
   "reason": "no_tests",
   "module": "bossman.dev_factory.routes",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-9a1970f7c3e5",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.dev_factory.store')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_dev_factory.py)",
   "exit_code": 0,
@@ -2445,11 +2588,12 @@
   "reason": "",
   "module": "bossman.dev_factory.store",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-3f0a90670bba",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.dev_factory.subsystem')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_dev_factory_wiring.py)",
   "exit_code": 0,
@@ -2462,11 +2606,12 @@
   "reason": "",
   "module": "bossman.dev_factory.subsystem",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-b428d8c055bc",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.dev_factory.workspace')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_dev_factory_diff_windows.py)",
   "exit_code": 0,
@@ -2479,11 +2624,12 @@
   "reason": "",
   "module": "bossman.dev_factory.workspace",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-30ddab524cfc",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.gateway.anthropic_protocol')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_gateway_anthropic_contract.py)",
   "exit_code": 0,
@@ -2496,11 +2642,12 @@
   "reason": "",
   "module": "bossman.gateway.anthropic_protocol",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-5fd57fccff12",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.gateway.app')\" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_app_icon_assets.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_gateway_anthropic_contract.py tests/test_gateway_circuit_breaker.py tests/test_gateway_cloud_policy.py tests/test_gateway_cost_governor.py tests/test_gateway_failover_4xx.py tests/test_gateway_openrouter.py tests/test_gateway_stage3.py)",
   "exit_code": 0,
@@ -2513,11 +2660,12 @@
   "reason": "",
   "module": "bossman.gateway.app",
   "test_files_run": 8,
-  "test_candidates": 14
+  "test_candidates": 14,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-745ed9f64ff7",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.gateway.auth')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_auth_approval_findings.py tests/test_alias_and_auth_boundary.py tests/test_gateway_loopback_proxy.py)",
   "exit_code": 0,
@@ -2530,11 +2678,12 @@
   "reason": "",
   "module": "bossman.gateway.auth",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-95e88c430e38",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.gateway.backends')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_gateway_anthropic_contract.py tests/test_gateway_circuit_breaker.py tests/test_gateway_cloud_policy.py tests/test_gateway_cost_governor.py tests/test_gateway_failover_4xx.py tests/test_gateway_free_only_policy.py tests/test_gateway_openrouter.py tests/test_gateway_provider_composition.py)",
   "exit_code": 0,
@@ -2547,11 +2696,12 @@
   "reason": "",
   "module": "bossman.gateway.backends",
   "test_files_run": 8,
-  "test_candidates": 17
+  "test_candidates": 17,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-7fb28ee13497",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.gateway.client')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_gateway_client_stage3.py tests/test_live_run_findings_20260906.py tests/test_llm_gateway_stage3.py tests/test_secrem_429_retry.py tests/test_secrem_f008_gateway_failclosed.py tests/test_stage9_agent_smoke.py tests/test_stage9_gateway_e2e.py)",
   "exit_code": 0,
@@ -2564,11 +2714,12 @@
   "reason": "",
   "module": "bossman.gateway.client",
   "test_files_run": 7,
-  "test_candidates": 7
+  "test_candidates": 7,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-4b5988e098bd",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.gateway.config')\" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_local_hardware_ab_portability.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_alias_and_auth_boundary.py tests/test_gateway_anthropic_contract.py tests/test_gateway_circuit_breaker.py tests/test_gateway_cloud_policy.py tests/test_gateway_cost_governor.py tests/test_gateway_failover_4xx.py tests/test_gateway_free_only_policy.py)",
   "exit_code": 0,
@@ -2581,11 +2732,12 @@
   "reason": "",
   "module": "bossman.gateway.config",
   "test_files_run": 8,
-  "test_candidates": 20
+  "test_candidates": 20,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-de7445e9d5f5",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.gateway.main')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_gateway_cli_portability.py tests/test_secrem_f018_wiring.py)",
   "exit_code": 0,
@@ -2598,11 +2750,12 @@
   "reason": "",
   "module": "bossman.gateway.main",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-d5d8a9a7ab5c",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.gateway.prompt_cache')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_prompt_cache_openrouter.py tests/test_gateway_anthropic_contract.py tests/audit001/test_f6_cache_savings.py)",
   "exit_code": 0,
@@ -2615,11 +2768,12 @@
   "reason": "",
   "module": "bossman.gateway.prompt_cache",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-a548c779a998",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.gateway.router')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router.py tests/test_gateway_anthropic_contract.py tests/test_gateway_circuit_breaker.py tests/test_gateway_cloud_policy.py tests/test_gateway_cost_governor.py tests/test_gateway_failover_4xx.py tests/test_gateway_free_only_policy.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router_memory_pressure.py)",
   "exit_code": 0,
@@ -2632,11 +2786,12 @@
   "reason": "",
   "module": "bossman.gateway.router",
   "test_files_run": 8,
-  "test_candidates": 18
+  "test_candidates": 18,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-8dba9550a502",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.gateway.telemetry')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/audit001/test_f6_cache_savings.py)",
   "exit_code": 0,
@@ -2649,11 +2804,12 @@
   "reason": "",
   "module": "bossman.gateway.telemetry",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-725a466f4b8f",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.notifications.bridge')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -2666,11 +2822,12 @@
   "reason": "no_tests",
   "module": "bossman.notifications.bridge",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-24bbe5117ab0",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.notifications.dispatcher')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_notifications.py)",
   "exit_code": 0,
@@ -2683,11 +2840,12 @@
   "reason": "",
   "module": "bossman.notifications.dispatcher",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-9a0163231b1b",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.notifications.models')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_alias_and_auth_boundary.py tests/test_auth_approval_findings.py tests/test_notification_restart.py tests/test_notification_store_closes.py tests/test_notifications.py tests/test_telegram_callbacks.py)",
   "exit_code": 0,
@@ -2700,11 +2858,12 @@
   "reason": "",
   "module": "bossman.notifications.models",
   "test_files_run": 6,
-  "test_candidates": 6
+  "test_candidates": 6,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-0ce0daf3140c",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.notifications.policy')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_policy_algebra.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_budget_notification_integration.py tests/test_notifications.py)",
   "exit_code": 0,
@@ -2717,11 +2876,12 @@
   "reason": "",
   "module": "bossman.notifications.policy",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-45ef5a5cbb02",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.notifications.routes')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -2734,11 +2894,12 @@
   "reason": "no_tests",
   "module": "bossman.notifications.routes",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-76a14f0ce102",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.notifications.runtime')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_runtime_package_contract.py tests/test_runtime_source_identity.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_alias_and_auth_boundary.py)",
   "exit_code": 0,
@@ -2751,11 +2912,12 @@
   "reason": "",
   "module": "bossman.notifications.runtime",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-ddbf2f4b50d2",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.notifications.store')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_auth_approval_findings.py tests/test_notification_restart.py tests/test_notification_store_closes.py tests/test_notifications.py tests/test_telegram_callbacks.py tests/test_telegram_webhook_security.py)",
   "exit_code": 0,
@@ -2768,11 +2930,12 @@
   "reason": "",
   "module": "bossman.notifications.store",
   "test_files_run": 6,
-  "test_candidates": 6
+  "test_candidates": 6,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-aaff14c2d261",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.notifications.subsystem')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -2785,11 +2948,12 @@
   "reason": "no_tests",
   "module": "bossman.notifications.subsystem",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-46de893ccfc9",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.notifications.telegram_transport')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_telegram_transport_response_truth.py tests/test_alias_and_auth_boundary.py tests/test_approval_create_emits_event.py tests/test_auth_approval_findings.py tests/test_telegram_egress_guard.py tests/test_telegram_webhook_security.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_local_russian_voice.py tests/telegram_calls/test_call_voice_safety.py)",
   "exit_code": 0,
@@ -2802,11 +2966,12 @@
   "reason": "",
   "module": "bossman.notifications.telegram_transport",
   "test_files_run": 8,
-  "test_candidates": 8
+  "test_candidates": 8,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-2e5863355b9a",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.profiles.gate')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_gate_contract_requeue.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_control_authorization.py tests/test_profiles.py)",
   "exit_code": 0,
@@ -2819,11 +2984,12 @@
   "reason": "",
   "module": "bossman.profiles.gate",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-60f309b322d6",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.profiles.models')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_profiles.py)",
   "exit_code": 0,
@@ -2836,11 +3002,12 @@
   "reason": "",
   "module": "bossman.profiles.models",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-5c5bd2e61f67",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.profiles.router')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router_memory_pressure.py)",
   "exit_code": 0,
@@ -2853,11 +3020,12 @@
   "reason": "",
   "module": "bossman.profiles.router",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-99fc865d8c4b",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.profiles.service')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_control_authorization.py tests/test_profiles.py)",
   "exit_code": 0,
@@ -2870,11 +3038,12 @@
   "reason": "",
   "module": "bossman.profiles.service",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-ff3e6bc1044b",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.profiles.store')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_control_authorization.py tests/test_profiles.py tests/test_profiles_knowledge_isolation.py)",
   "exit_code": 0,
@@ -2887,11 +3056,12 @@
   "reason": "",
   "module": "bossman.profiles.store",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-531fc123cd17",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.profiles.subsystem')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -2904,11 +3074,12 @@
   "reason": "no_tests",
   "module": "bossman.profiles.subsystem",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-ca6830e0de16",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.projects.plan')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_core_subprocess_timeouts.py tests/test_memory_and_state_integrity.py tests/test_stage9_recovery.py)",
   "exit_code": 0,
@@ -2921,11 +3092,12 @@
   "reason": "",
   "module": "bossman.projects.plan",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-8bd73fd35c48",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.projects.planner')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_windows_text_encoding.py)",
   "exit_code": 0,
@@ -2938,11 +3110,12 @@
   "reason": "",
   "module": "bossman.projects.planner",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-28048916831a",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.projects.router')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router.py tests/test_core_subprocess_timeouts.py tests/test_memory_and_state_integrity.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router_memory_pressure.py)",
   "exit_code": 0,
@@ -2955,11 +3128,12 @@
   "reason": "",
   "module": "bossman.projects.router",
   "test_files_run": 4,
-  "test_candidates": 4
+  "test_candidates": 4,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-883a6692992b",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.projects.runner')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_runner_answer_contract.py tests/test_runner_cybersec_wiring.py tests/test_runner_holdout_exclusion.py tests/test_runner_memory_wiring.py tests/test_core_subprocess_timeouts.py tests/test_hardening_p0_p1.py tests/test_memory_and_state_integrity.py tests/test_secrem_f005_projects.py)",
   "exit_code": 0,
@@ -2972,11 +3146,12 @@
   "reason": "",
   "module": "bossman.projects.runner",
   "test_files_run": 8,
-  "test_candidates": 9
+  "test_candidates": 9,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-de49198eacce",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.remote_client.auth')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_auth_approval_findings.py tests/test_approval_wait_reminders.py tests/test_computer_control_authorization.py tests/test_core_auth_perimeter.py tests/test_durable_live_owner_auth.py tests/test_remote_client.py tests/test_stage12_mobile_api.py tests/test_stage12_security.py)",
   "exit_code": 1,
@@ -2989,11 +3164,12 @@
   "reason": "env_missing_dependency",
   "module": "bossman.remote_client.auth",
   "test_files_run": 8,
-  "test_candidates": 11
+  "test_candidates": 11,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-2bd9c1e2cdfd",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.remote_client.events')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_events_stream_keepalive.py tests/test_events_stream_last_event_id.py tests/test_events_stream_reconnect.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_approval_wait_reminders.py tests/test_auth_approval_findings.py tests/test_remote_client.py)",
   "exit_code": 0,
@@ -3006,11 +3182,12 @@
   "reason": "",
   "module": "bossman.remote_client.events",
   "test_files_run": 6,
-  "test_candidates": 6
+  "test_candidates": 6,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-37dec999ab57",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.remote_client.mobile_api')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage12_mobile_api.py tests/test_stage12_security.py)",
   "exit_code": 0,
@@ -3023,11 +3200,12 @@
   "reason": "",
   "module": "bossman.remote_client.mobile_api",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-f1437d4e2221",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.remote_client.router')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router.py tests/test_remote_client.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router_memory_pressure.py)",
   "exit_code": 0,
@@ -3040,11 +3218,12 @@
   "reason": "",
   "module": "bossman.remote_client.router",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-897d03f9aab0",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.remote_client.security')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_remote_client.py tests/test_stage12_security.py)",
   "exit_code": 0,
@@ -3057,11 +3236,12 @@
   "reason": "",
   "module": "bossman.remote_client.security",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-6bfb88803a15",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.remote_client.service')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_auth_approval_findings.py)",
   "exit_code": 0,
@@ -3074,11 +3254,12 @@
   "reason": "",
   "module": "bossman.remote_client.service",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-de0238268e77",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.remote_client.store')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_auth_approval_findings.py)",
   "exit_code": 0,
@@ -3091,11 +3272,12 @@
   "reason": "",
   "module": "bossman.remote_client.store",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-5bfdc6603e86",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.remote_client.subsystem')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3108,11 +3290,12 @@
   "reason": "no_tests",
   "module": "bossman.remote_client.subsystem",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-8f7bb546924a",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.research.engine')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_engine_lifecycle_drain.py tests/test_engine_stop.py)",
   "exit_code": 0,
@@ -3125,11 +3308,12 @@
   "reason": "",
   "module": "bossman.research.engine",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-cb1aad058144",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.research.models')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3142,11 +3326,12 @@
   "reason": "no_tests",
   "module": "bossman.research.models",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-c5d464a7aa9e",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.research.tools')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_tools.py tests/test_v26_research.py)",
   "exit_code": 0,
@@ -3159,11 +3344,12 @@
   "reason": "",
   "module": "bossman.research.tools",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-0ef2333ef23c",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.resource_brain.brain')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3176,11 +3362,12 @@
   "reason": "no_tests",
   "module": "bossman.resource_brain.brain",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-2f9db2f18c1b",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.resource_brain.ledger')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage9_resource_stress.py)",
   "exit_code": 0,
@@ -3193,11 +3380,12 @@
   "reason": "",
   "module": "bossman.resource_brain.ledger",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-22827787ecc5",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.resource_brain.models')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3210,11 +3398,12 @@
   "reason": "no_tests",
   "module": "bossman.resource_brain.models",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-dacafbe9e4ee",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.resource_brain.probe')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_probe_cache.py)",
   "exit_code": 0,
@@ -3227,11 +3416,12 @@
   "reason": "",
   "module": "bossman.resource_brain.probe",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-fe0ffb0d2f88",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.resource_brain.routes')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3244,11 +3434,12 @@
   "reason": "no_tests",
   "module": "bossman.resource_brain.routes",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-5fcedb9e4e99",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.resource_brain.subsystem')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3261,11 +3452,12 @@
   "reason": "no_tests",
   "module": "bossman.resource_brain.subsystem",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-9d055871ddff",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.artifacts')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_redteam_findings.py tests/test_sandbox_security.py)",
   "exit_code": 0,
@@ -3278,11 +3470,12 @@
   "reason": "",
   "module": "bossman.sandbox.artifacts",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-abd99037a01e",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.dataset')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3295,11 +3488,12 @@
   "reason": "no_tests",
   "module": "bossman.sandbox.dataset",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-9d8ee6730907",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.egress')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_egress.py)",
   "exit_code": 0,
@@ -3312,11 +3506,12 @@
   "reason": "",
   "module": "bossman.sandbox.egress",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-43a773f7d5a6",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.manager')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_manager.py)",
   "exit_code": 0,
@@ -3329,11 +3524,12 @@
   "reason": "",
   "module": "bossman.sandbox.manager",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-eb0be06d9db9",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.models')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_core.py tests/test_sandbox_egress.py tests/test_sandbox_egress_lockdown.py tests/test_sandbox_redteam_findings.py tests/test_sandbox_safe_runtime.py tests/test_sandbox_security.py tests/test_sandbox_strong_runtimes.py tests/test_sandbox_toolbox.py)",
   "exit_code": 0,
@@ -3346,11 +3542,12 @@
   "reason": "",
   "module": "bossman.sandbox.models",
   "test_files_run": 8,
-  "test_candidates": 9
+  "test_candidates": 9,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-9c2c49d71c15",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.netguard')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_core_subprocess_timeouts.py tests/test_sandbox_egress.py tests/test_sandbox_egress_lockdown.py tests/test_sandbox_redteam_findings.py tests/test_sandbox_safe_runtime.py)",
   "exit_code": 0,
@@ -3363,11 +3560,12 @@
   "reason": "",
   "module": "bossman.sandbox.netguard",
   "test_files_run": 5,
-  "test_candidates": 5
+  "test_candidates": 5,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-5c36f1523214",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.network')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_egress.py)",
   "exit_code": 0,
@@ -3380,11 +3578,12 @@
   "reason": "",
   "module": "bossman.sandbox.network",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-2eec9a135e0f",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.policy')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_policy_algebra.py)",
   "exit_code": 0,
@@ -3397,11 +3596,12 @@
   "reason": "",
   "module": "bossman.sandbox.policy",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-a11338c485f5",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.resources')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3414,11 +3614,12 @@
   "reason": "no_tests",
   "module": "bossman.sandbox.resources",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-1622458b008a",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.routes')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3431,11 +3632,12 @@
   "reason": "no_tests",
   "module": "bossman.sandbox.routes",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-5d128fcf8dab",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.runtime')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_runtime_package_contract.py tests/test_runtime_source_identity.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_safe_runtime.py tests/test_stage9_recovery.py tests/test_stage9_sandbox_e2e.py)",
   "exit_code": 0,
@@ -3448,11 +3650,12 @@
   "reason": "",
   "module": "bossman.sandbox.runtime",
   "test_files_run": 5,
-  "test_candidates": 5
+  "test_candidates": 5,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-fdd1e1e7e9a0",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.secrets')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_tools_and_broker.py tests/test_secrem_f018_wiring.py)",
   "exit_code": 0,
@@ -3465,11 +3668,12 @@
   "reason": "",
   "module": "bossman.sandbox.secrets",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-e999698f8e9e",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.subsystem')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage9_sandbox_e2e.py)",
   "exit_code": 0,
@@ -3482,11 +3686,12 @@
   "reason": "",
   "module": "bossman.sandbox.subsystem",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-0dc288edd324",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.toolbox')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3499,11 +3704,12 @@
   "reason": "no_tests",
   "module": "bossman.sandbox.toolbox",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-aab05d5c4f1a",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.tools')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_tools.py tests/test_sandbox_tools_and_broker.py)",
   "exit_code": 0,
@@ -3516,11 +3722,12 @@
   "reason": "",
   "module": "bossman.sandbox.tools",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-0445b69844cc",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.sandbox.trajectory')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_dataset_gate.py tests/test_sandbox_egress.py tests/test_sandbox_redteam_findings.py tests/test_sandbox_security.py)",
   "exit_code": 0,
@@ -3533,11 +3740,12 @@
   "reason": "",
   "module": "bossman.sandbox.trajectory",
   "test_files_run": 4,
-  "test_candidates": 4
+  "test_candidates": 4,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-e11418351fd7",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.search_everything.connectors')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3550,11 +3758,12 @@
   "reason": "no_tests",
   "module": "bossman.search_everything.connectors",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-6fcdcfb4b872",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.search_everything.engine')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_engine_lifecycle_drain.py tests/test_engine_stop.py)",
   "exit_code": 0,
@@ -3567,11 +3776,12 @@
   "reason": "",
   "module": "bossman.search_everything.engine",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-3e2b4af78a2e",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.search_everything.router')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router_memory_pressure.py)",
   "exit_code": 0,
@@ -3584,11 +3794,12 @@
   "reason": "",
   "module": "bossman.search_everything.router",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-5579b793e038",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.search_everything.service')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3601,11 +3812,12 @@
   "reason": "no_tests",
   "module": "bossman.search_everything.service",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-76ae682ed2e4",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.search_everything.tools')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_tools.py)",
   "exit_code": 0,
@@ -3618,11 +3830,12 @@
   "reason": "",
   "module": "bossman.search_everything.tools",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-59f6fbe27bd5",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.toolkit._proc')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3635,11 +3848,12 @@
   "reason": "no_tests",
   "module": "bossman.toolkit._proc",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-5f3e261c2cf4",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.toolkit.analysis')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v26_analysis_tool.py tests/test_windows_text_encoding.py)",
   "exit_code": 0,
@@ -3652,11 +3866,12 @@
   "reason": "",
   "module": "bossman.toolkit.analysis",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-eb0bce4aaf5b",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.toolkit.browser')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_approval_and_injection.py tests/test_browser_approvals_p1.py tests/test_browser_emulator_e2e.py tests/test_browser_headless_runpod.py tests/test_browser_pid_portability.py tests/test_browser_policy.py tests/test_browser_support_helper.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_download_b4.py)",
   "exit_code": 0,
@@ -3669,11 +3884,12 @@
   "reason": "",
   "module": "bossman.toolkit.browser",
   "test_files_run": 8,
-  "test_candidates": 17
+  "test_candidates": 17,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-918d9d178fe3",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.toolkit.fileintel')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_secrem_s1_fileintel_containment.py)",
   "exit_code": 0,
@@ -3686,11 +3902,12 @@
   "reason": "",
   "module": "bossman.toolkit.fileintel",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-2190e88ab8cb",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.toolkit.files')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_fs_write_exact_bytes.py tests/test_secrem_s1_fileintel_containment.py tests/test_secrem_sibling_sweep.py tests/test_stage9_agent_smoke.py tests/test_tools.py)",
   "exit_code": 0,
@@ -3703,11 +3920,12 @@
   "reason": "",
   "module": "bossman.toolkit.files",
   "test_files_run": 5,
-  "test_candidates": 5
+  "test_candidates": 5,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-cf0d1b5d4d86",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.toolkit.gitops')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_host_execution_argv.py tests/test_stage13_hostexec_redteam.py tests/test_toolkit_subprocess_timeouts.py tests/redteam/test_rt01_git_workspace_escape.py)",
   "exit_code": 0,
@@ -3720,11 +3938,12 @@
   "reason": "",
   "module": "bossman.toolkit.gitops",
   "test_files_run": 4,
-  "test_candidates": 4
+  "test_candidates": 4,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-6b8f5c457e7f",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.toolkit.journal')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage9_agent_smoke.py)",
   "exit_code": 0,
@@ -3737,11 +3956,12 @@
   "reason": "",
   "module": "bossman.toolkit.journal",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-c2cd9f798b9b",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.toolkit.media')\" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_media_bootstrap.py tests/test_media_ci_preflight.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_media_roundtrip_studio.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_host_execution_argv.py tests/test_secrem_sibling_sweep.py tests/test_stage13_hostexec_redteam.py tests/test_toolkit_subprocess_timeouts.py tests/test_tools.py)",
   "exit_code": 0,
@@ -3754,11 +3974,12 @@
   "reason": "",
   "module": "bossman.toolkit.media",
   "test_files_run": 8,
-  "test_candidates": 10
+  "test_candidates": 10,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-7be51ff76449",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.toolkit.net')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_astra_remediation.py tests/test_secrem_f004_http_ssrf.py tests/test_secrem_sibling_sweep.py)",
   "exit_code": 0,
@@ -3771,11 +3992,12 @@
   "reason": "",
   "module": "bossman.toolkit.net",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-ae9598734759",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.toolkit.office')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3788,11 +4010,12 @@
   "reason": "no_tests",
   "module": "bossman.toolkit.office",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-a91069ddd708",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.toolkit.shell')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_shell_host_approval.py tests/test_host_execution_argv.py tests/test_stage13_hostexec_redteam.py tests/test_v26_analysis_tool.py tests/test_windows_host_shell.py tests/test_windows_text_encoding.py)",
   "exit_code": 0,
@@ -3805,11 +4028,12 @@
   "reason": "",
   "module": "bossman.toolkit.shell",
   "test_files_run": 6,
-  "test_candidates": 6
+  "test_candidates": 6,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-cdbbc088b662",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.v7.nightly_run')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v7_nightly_run.py)",
   "exit_code": 0,
@@ -3822,11 +4046,12 @@
   "reason": "",
   "module": "bossman.v7.nightly_run",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-e84c7b61d7a6",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.video_factory.ffmpeg')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_core_subprocess_timeouts.py tests/test_video_factory.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_golden_missions.py)",
   "exit_code": 0,
@@ -3839,11 +4064,12 @@
   "reason": "",
   "module": "bossman.video_factory.ffmpeg",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-464a2a956fa0",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.video_factory.model')\" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_model_bakeoff_latency.py tests/test_model_fetch.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_model_health.py tests/test_model_intelligence.py tests/test_model_probe_reasoning.py tests/test_model_speed_tel001.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage9_recovery.py)",
   "exit_code": 0,
@@ -3856,11 +4082,12 @@
   "reason": "",
   "module": "bossman.video_factory.model",
   "test_files_run": 7,
-  "test_candidates": 7
+  "test_candidates": 7,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-6285f40851f1",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.video_factory.pipeline')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage9_recovery.py tests/test_video_factory_openrouter.py)",
   "exit_code": 0,
@@ -3873,11 +4100,12 @@
   "reason": "",
   "module": "bossman.video_factory.pipeline",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-4c9ee5995fb6",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.video_factory.providers')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_providers.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_video_factory.py tests/test_video_factory_openrouter.py)",
   "exit_code": 0,
@@ -3890,11 +4118,12 @@
   "reason": "",
   "module": "bossman.video_factory.providers",
   "test_files_run": 3,
-  "test_candidates": 3
+  "test_candidates": 3,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-3d62540e3028",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.video_factory.queue')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_queue_retry.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_video_factory.py)",
   "exit_code": 0,
@@ -3907,11 +4136,12 @@
   "reason": "",
   "module": "bossman.video_factory.queue",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-a71668fad443",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.video_factory.routes')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3924,11 +4154,12 @@
   "reason": "no_tests",
   "module": "bossman.video_factory.routes",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-27cb1911d462",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.video_factory.service')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage9_recovery.py tests/test_video_factory.py)",
   "exit_code": 0,
@@ -3941,11 +4172,12 @@
   "reason": "",
   "module": "bossman.video_factory.service",
   "test_files_run": 2,
-  "test_candidates": 2
+  "test_candidates": 2,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-f21597ba1fd6",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.video_factory.subsystem')\" [PYTHONPATH=command-center;bossman-core;.]",
   "exit_code": 0,
@@ -3958,11 +4190,12 @@
   "reason": "no_tests",
   "module": "bossman.video_factory.subsystem",
   "test_files_run": 0,
-  "test_candidates": 0
+  "test_candidates": 0,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-266a95659ed4",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.world_intelligence.routes')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_world_intelligence_pythia.py)",
   "exit_code": 0,
@@ -3975,11 +4208,12 @@
   "reason": "",
   "module": "bossman.world_intelligence.routes",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
   "node_id": "module-7af8dc300eab",
-  "sha": "3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a",
+  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
   "command": "python -c \"importlib.import_module('bossman.world_intelligence.subsystem')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_world_intelligence_pythia.py)",
   "exit_code": 0,
@@ -3992,6 +4226,7 @@
   "reason": "",
   "module": "bossman.world_intelligence.subsystem",
   "test_files_run": 1,
-  "test_candidates": 1
+  "test_candidates": 1,
+  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  }
 ]
