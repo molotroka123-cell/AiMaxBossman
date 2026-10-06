@@ -121,3 +121,5 @@
 `report.json` каждого `Owner-Run.cmd`, `diagnostics.zip`, файлы-улики шагов 2–8,
 таблица HW-01…HW-13 со статусами PASS / FAIL / OWNER_ACTION_REQUIRED / NOT_TESTED
 (`OWNER_ACCEPTANCE.md`). Только после этого — решение о теге стабильной 1.0.
+
+<!-- Сборка 06.10.2026: ночная ветка night/bossman-windows-bundle-20261006 (код = goal/bossman-self-improvement-tree-20261005 @ 6d9c1f56, добавлена только эта строка, чтобы workflow собрал архив). -->
