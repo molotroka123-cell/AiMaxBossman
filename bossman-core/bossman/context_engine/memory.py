@@ -166,10 +166,16 @@ class MemoryManager:
         new.updated_at=utcnow(); self.store.upsert_memory(old); self.store.upsert_memory(new)
 
     def retrieve(self, query: str, *, project: str="", limit: int=12) -> list[MemoryRecord]:
+        # Плагины уже ранжируют по релевантности запросу. Пересортировка только
+        # по importance ставила совпадающую запись позади посторонних «важных»,
+        # а компилятор режет секцию памяти с хвоста — и нужная запись терялась.
+        # Слияние: позиция в выдаче своего плагина, затем порядок плагинов.
+        ranked=[]
+        for pi,p in enumerate(self.plugins):
+            for rank,m in enumerate(p.retrieve(query,project,limit)): ranked.append((rank,pi,m))
         merged: dict[str,MemoryRecord]={}
-        for p in self.plugins:
-            for m in p.retrieve(query,project,limit): merged.setdefault(m.memory_id,m)
-        return sorted(merged.values(),key=lambda m:(m.importance,m.confidence),reverse=True)[:limit]
+        for _,_,m in sorted(ranked,key=lambda x:(x[0],x[1])): merged.setdefault(m.memory_id,m)
+        return list(merged.values())[:limit]
 
     def _detect_conflicts(self, candidate: MemoryRecord) -> None:
         # Conservative deterministic conflict marker. It avoids claiming logical
