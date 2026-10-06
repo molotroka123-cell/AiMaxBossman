@@ -1,0 +1,139 @@
+{
+ "run": "20261006_163001",
+ "config": {
+  "unet": "Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors",
+  "clip": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+  "vae": "wan_2.1_vae.safetensors",
+  "clip_vision": "clip_vision_h.safetensors",
+  "lora_lightx2v": "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+  "lora_relight": "wan2.2_animate_14B_relight_lora_bf16.safetensors",
+  "steps": 6,
+  "cfg": 1.0,
+  "shift": 8.0,
+  "sampler": "euler/simple",
+  "length_frames": 49,
+  "fps": 16,
+  "seed": 1234,
+  "mode": "mix",
+  "face": "real",
+  "prompt": "Young man, short dark wavy hair, full dark beard, plain black t-shirt, seated at a bar with relaxed natural movements. Warm soft key light from the left, gentle rim glow, realistic skin texture, sharp facial detail, cinematic ambiance, steady composition.",
+  "env": {
+   "TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL": "1"
+  },
+  "port": 8191
+ },
+ "free_ram_gb_at_start": 72.2,
+ "server_start_s": 26.3,
+ "runs": [
+  {
+   "res": "480x832",
+   "order": 0,
+   "cold": true,
+   "status": "server_exited",
+   "messages": [],
+   "wall_s": 120.4,
+   "model_load_events": [
+    {
+     "t_rel_s": 4.0,
+     "line": "\u001b[32m[INFO]\u001b[0m Requested to load CLIPVisionModelProjection"
+    },
+    {
+     "t_rel_s": 4.5,
+     "line": "\u001b[32m[INFO]\u001b[0m loaded completely; 79866.67 MB usable, 1208.10 MB loaded, full load: True"
+    },
+    {
+     "t_rel_s": 21.6,
+     "line": "\u001b[32m[INFO]\u001b[0m Requested to load WanTEModel"
+    },
+    {
+     "t_rel_s": 21.7,
+     "line": "\u001b[32m[INFO]\u001b[0m loaded completely;  6419.48 MB loaded, full load: True"
+    },
+    {
+     "t_rel_s": 39.3,
+     "line": "\u001b[32m[INFO]\u001b[0m Requested to load WanVAE"
+    },
+    {
+     "t_rel_s": 39.4,
+     "line": "\u001b[32m[INFO]\u001b[0m loaded completely; 71066.17 MB usable, 242.03 MB loaded, full load: True"
+    },
+    {
+     "t_rel_s": 89.6,
+     "line": "\u001b[32m[INFO]\u001b[0m Requested to load WAN22_Animate"
+    }
+   ],
+   "frames_saved": 0,
+   "peak_rss_gb_so_far": null,
+   "free_ram_gb_after": 13.5
+  }
+ ],
+ "system_stats": {
+  "system": {
+   "os": "win32",
+   "ram_total": 128470290432,
+   "ram_free": 76589477888,
+   "comfyui_version": "0.37.0",
+   "required_frontend_version": "1.53.6",
+   "installed_templates_version": "0.11.66",
+   "required_templates_version": "0.11.66",
+   "comfy_package_versions": [
+    {
+     "name": "comfyui-frontend-package",
+     "installed": "1.53.6",
+     "required": "1.53.6"
+    },
+    {
+     "name": "comfyui-workflow-templates",
+     "installed": "0.11.66",
+     "required": "0.11.66"
+    },
+    {
+     "name": "comfyui-embedded-docs",
+     "installed": "0.5.12",
+     "required": "0.5.12"
+    },
+    {
+     "name": "comfy-kitchen",
+     "installed": "0.2.35",
+     "required": "0.2.35"
+    },
+    {
+     "name": "comfy-aimdo",
+     "installed": "0.5.5",
+     "required": "0.5.5"
+    }
+   ],
+   "python_version": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+   "pytorch_version": "2.9.1+rocm7.2.1",
+   "embedded_python": false,
+   "deploy_environment": "local-git",
+   "argv": [
+    "main.py",
+    "--listen",
+    "127.0.0.1",
+    "--port",
+    "8191",
+    "--disable-auto-launch",
+    "--input-directory",
+    "C:\\Users\\asd\\Bossman\\media-work\\animate-test\\input",
+    "--output-directory",
+    "C:\\Users\\asd\\Bossman\\media-work\\animate-test\\comfy_out",
+    "--user-directory",
+    "C:\\Users\\asd\\Bossman\\media-work\\animate-test\\comfy_user",
+    "--temp-directory",
+    "C:\\Users\\asd\\Bossman\\media-work\\animate-test\\comfy_tmp"
+   ]
+  },
+  "devices": [
+   {
+    "name": "cuda:0 AMD Radeon(TM) 8060S Graphics : native",
+    "type": "cuda",
+    "index": 0,
+    "vram_total": 85672067072,
+    "vram_free": 85339271168,
+    "torch_vram_total": 2097152,
+    "torch_vram_free": 2097152
+   }
+  ]
+ }
+}
