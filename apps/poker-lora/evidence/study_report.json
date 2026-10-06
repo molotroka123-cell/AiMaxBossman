@@ -1,0 +1,354 @@
+{
+ "sha": "870cac29e14c3878abd4ad7831eca564ca1a4c94",
+ "dataset": {
+  "sha256": "594922a5094d4e3f5d8e364cfa8c50ff1c1811134b986f3894f9ec2b24518b7e",
+  "examples": {
+   "train": 18553,
+   "val": 2443,
+   "test": 4518
+  },
+  "boards": {
+   "train": 290,
+   "val": 38,
+   "test": 72
+  },
+  "spots_kept": 400,
+  "spots_rejected": 0,
+  "board_leak": []
+ },
+ "test_profile_spots": 40,
+ "policies": {
+  "random_legal": {
+   "examples": {
+    "n_examples": 4518,
+    "latency_ms_p50": 0.002,
+    "latency_ms_p95": 0.003,
+    "invalid_reasons": {},
+    "valid": {
+     "mean": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n_spots": 72
+    },
+    "ev_loss_valid": {
+     "mean": 11.40481,
+     "lo": 10.74656,
+     "hi": 12.10514,
+     "n_spots": 72
+    },
+    "ev_loss_all": {
+     "mean": 11.40481,
+     "lo": 10.74656,
+     "hi": 12.10514,
+     "n_spots": 72
+    },
+    "top1": {
+     "mean": 0.40815,
+     "lo": 0.39452,
+     "hi": 0.42228,
+     "n_spots": 72
+    },
+    "tv": {
+     "mean": 0.59506,
+     "lo": 0.5839,
+     "hi": 0.60647,
+     "n_spots": 72
+    },
+    "size_ok": {
+     "mean": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n_spots": 72
+    }
+   },
+   "profile": {
+    "invalid_share_in_play": 0.0,
+    "ev_loss_vs_equilibrium_pct_pot": {
+     "mean": 11.9433,
+     "lo": 10.64751,
+     "hi": 13.68923,
+     "n_spots": 40
+    },
+    "exploitability_pct_pot": {
+     "mean": 49.92125,
+     "lo": 45.85533,
+     "hi": 54.01327,
+     "n_spots": 40
+    },
+    "ev_vs_station_pct_pot": {
+     "mean": -0.28522,
+     "lo": -0.9714,
+     "hi": 0.41777,
+     "n_spots": 40
+    },
+    "ev_vs_nit_pct_pot": {
+     "mean": 0.94156,
+     "lo": -0.42828,
+     "hi": 2.36258,
+     "n_spots": 40
+    },
+    "ev_vs_maniac_pct_pot": {
+     "mean": -27.79671,
+     "lo": -29.51942,
+     "hi": -26.23368,
+     "n_spots": 40
+    }
+   },
+   "eval_seconds": 23.5
+  },
+  "always_check_call": {
+   "examples": {
+    "n_examples": 4518,
+    "latency_ms_p50": 0.002,
+    "latency_ms_p95": 0.003,
+    "invalid_reasons": {},
+    "valid": {
+     "mean": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n_spots": 72
+    },
+    "ev_loss_valid": {
+     "mean": 9.90383,
+     "lo": 9.08468,
+     "hi": 10.75624,
+     "n_spots": 72
+    },
+    "ev_loss_all": {
+     "mean": 9.90383,
+     "lo": 9.08468,
+     "hi": 10.75624,
+     "n_spots": 72
+    },
+    "top1": {
+     "mean": 0.42475,
+     "lo": 0.40933,
+     "hi": 0.44167,
+     "n_spots": 72
+    },
+    "tv": {
+     "mean": 0.57735,
+     "lo": 0.56227,
+     "hi": 0.59162,
+     "n_spots": 72
+    },
+    "size_ok": {
+     "mean": null,
+     "lo": null,
+     "hi": null,
+     "n_spots": 0
+    }
+   },
+   "profile": {
+    "invalid_share_in_play": 0.0,
+    "ev_loss_vs_equilibrium_pct_pot": {
+     "mean": 8.37444,
+     "lo": 7.17497,
+     "hi": 10.62369,
+     "n_spots": 40
+    },
+    "exploitability_pct_pot": {
+     "mean": 39.8548,
+     "lo": 34.22787,
+     "hi": 45.96116,
+     "n_spots": 40
+    },
+    "ev_vs_station_pct_pot": {
+     "mean": 0.0,
+     "lo": 0.0,
+     "hi": 0.0,
+     "n_spots": 40
+    },
+    "ev_vs_nit_pct_pot": {
+     "mean": -7.87781,
+     "lo": -8.05267,
+     "hi": -7.63261,
+     "n_spots": 40
+    },
+    "ev_vs_maniac_pct_pot": {
+     "mean": -0.0,
+     "lo": -0.0,
+     "hi": 0.0,
+     "n_spots": 40
+    }
+   },
+   "eval_seconds": 23.6
+  },
+  "equity_rule": {
+   "examples": {
+    "n_examples": 4518,
+    "latency_ms_p50": 0.809,
+    "latency_ms_p95": 1.441,
+    "invalid_reasons": {},
+    "valid": {
+     "mean": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n_spots": 72
+    },
+    "ev_loss_valid": {
+     "mean": 0.88885,
+     "lo": 0.75333,
+     "hi": 1.03269,
+     "n_spots": 72
+    },
+    "ev_loss_all": {
+     "mean": 0.88885,
+     "lo": 0.75333,
+     "hi": 1.03269,
+     "n_spots": 72
+    },
+    "top1": {
+     "mean": 0.7355,
+     "lo": 0.72002,
+     "hi": 0.75163,
+     "n_spots": 72
+    },
+    "tv": {
+     "mean": 0.27689,
+     "lo": 0.26391,
+     "hi": 0.28934,
+     "n_spots": 72
+    },
+    "size_ok": {
+     "mean": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n_spots": 71
+    }
+   },
+   "profile": {
+    "invalid_share_in_play": 0.0,
+    "ev_loss_vs_equilibrium_pct_pot": {
+     "mean": 0.78085,
+     "lo": 0.67553,
+     "hi": 0.91749,
+     "n_spots": 40
+    },
+    "exploitability_pct_pot": {
+     "mean": 15.62652,
+     "lo": 13.87267,
+     "hi": 17.36631,
+     "n_spots": 40
+    },
+    "ev_vs_station_pct_pot": {
+     "mean": 8.7002,
+     "lo": 7.92432,
+     "hi": 9.30232,
+     "n_spots": 40
+    },
+    "ev_vs_nit_pct_pot": {
+     "mean": -2.16811,
+     "lo": -2.44856,
+     "hi": -1.88129,
+     "n_spots": 40
+    },
+    "ev_vs_maniac_pct_pot": {
+     "mean": 32.92254,
+     "lo": 28.13725,
+     "hi": 37.42011,
+     "n_spots": 40
+    }
+   },
+   "eval_seconds": 38.3
+  },
+  "imitation_mlp": {
+   "examples": {
+    "n_examples": 4518,
+    "latency_ms_p50": 0.037,
+    "latency_ms_p95": 0.077,
+    "invalid_reasons": {},
+    "valid": {
+     "mean": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n_spots": 72
+    },
+    "ev_loss_valid": {
+     "mean": 1.61027,
+     "lo": 1.46241,
+     "hi": 1.79036,
+     "n_spots": 72
+    },
+    "ev_loss_all": {
+     "mean": 1.61027,
+     "lo": 1.46241,
+     "hi": 1.79036,
+     "n_spots": 72
+    },
+    "top1": {
+     "mean": 0.84462,
+     "lo": 0.82659,
+     "hi": 0.86071,
+     "n_spots": 72
+    },
+    "tv": {
+     "mean": 0.17964,
+     "lo": 0.17009,
+     "hi": 0.19189,
+     "n_spots": 72
+    },
+    "size_ok": {
+     "mean": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n_spots": 71
+    }
+   },
+   "profile": {
+    "invalid_share_in_play": 0.0,
+    "ev_loss_vs_equilibrium_pct_pot": {
+     "mean": 2.5517,
+     "lo": 2.21505,
+     "hi": 3.07847,
+     "n_spots": 40
+    },
+    "exploitability_pct_pot": {
+     "mean": 8.54413,
+     "lo": 7.63321,
+     "hi": 9.75752,
+     "n_spots": 40
+    },
+    "ev_vs_station_pct_pot": {
+     "mean": 7.86043,
+     "lo": 6.89726,
+     "hi": 8.85431,
+     "n_spots": 40
+    },
+    "ev_vs_nit_pct_pot": {
+     "mean": 3.28773,
+     "lo": 2.85546,
+     "hi": 3.72505,
+     "n_spots": 40
+    },
+    "ev_vs_maniac_pct_pot": {
+     "mean": 12.55062,
+     "lo": 9.76917,
+     "hi": 15.06995,
+     "n_spots": 40
+    }
+   },
+   "eval_seconds": 28.0
+  }
+ },
+ "train_seconds_imitation": 26.4,
+ "registry": {
+  "active": "v0_equity_rule",
+  "promoted": false,
+  "reasons": [
+   "EV-loss improvement not supported: paired CI of (baseline - candidate) = [-0.92684, -0.53747] % of pot over 72 spots"
+  ],
+  "paired_ev_loss_pct_pot": {
+   "mean": -0.72143,
+   "lo": -0.92684,
+   "hi": -0.53747,
+   "n_spots": 72
+  },
+  "versions": [
+   "v0_equity_rule",
+   "v1_imitation_standin"
+  ],
+  "rollback_to": null,
+  "active_after_rollback": "v0_equity_rule"
+ }
+}

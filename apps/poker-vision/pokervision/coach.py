@@ -31,12 +31,14 @@ class Recommendation:
     explanation: str = ""
     uncertainty: list = field(default_factory=list)
     disclaimer: str = DISCLAIMER
+    source: str = "heuristic"                  # heuristic | poker_lora
+    route_note: str = ""                       # why the model route was or was not used
 
     def to_dict(self) -> dict:
         d = self.decision
         return {"ok": self.ok, "why_not": self.why_not, "action": d.kind if d else None, "raise_to": d.raise_to if d else None,
                 "size_range": [d.size_min, d.size_max] if d and d.raise_to is not None else None, "equity": self.equity, "pot_odds": self.pot_odds,
-                "options": [o.__dict__ for o in self.options], "explanation": self.explanation, "uncertainty": self.uncertainty, "disclaimer": self.disclaimer,
+                "options": [o.__dict__ for o in self.options], "explanation": self.explanation, "uncertainty": self.uncertainty, "disclaimer": self.disclaimer, "source": self.source, "route_note": self.route_note,
                 "t_ms": d.t_ms if d else None}
 
 
@@ -50,8 +52,22 @@ def _size(info: VisibleInfo, strong: bool) -> tuple[float, float, float]:
     return min(ideal, cap), min(lo, cap), min(hi, cap)
 
 
-def recommend(cm, rng: random.Random, sims: int = 300) -> Recommendation:
-    """cm: reconcile.Committed (validated state). Returns a recommendation or the reason there is none."""
+def recommend(cm, rng: random.Random, sims: int = 300, policy=None, ctx: dict | None = None, review_root=None) -> Recommendation:
+    """cm: reconcile.Committed (validated state). Returns a recommendation or the reason there is none.
+    ``policy``/``ctx``: optional Poker-LoRA route (heads-up river only, ranges supplied and flagged as assumed); anything it cannot prove or any
+    answer that fails validation falls back to the heuristic below."""
+    note = ""
+    if policy is not None and ctx is not None:
+        from .policy_route import decide_with_policy
+        d, info = decide_with_policy(cm, policy, review_root=review_root, **ctx)
+        if d is not None:
+            labels = tuple(a[0] for a in cm.actions)
+            probs = info["probs"]
+            opts = [Option(a, None, f"вероятность {p:.0%} по модели", chosen=(a == max(probs, key=probs.get))) for a, p in sorted(probs.items(), key=lambda kv: -kv[1]) if p > 0.005]
+            return Recommendation(True, "", d, opts, None, None,
+                                  f"Poker-LoRA (heads-up, river): {d.kind}" + (f" до {d.raise_to:g}" if d.raise_to else "") + f". {info.get('explanation', '')} Диапазоны соперника ПРЕДПОЛОЖЕНЫ, не наблюдались.",
+                                  ["диапазоны заданы вручную и могут не совпадать с реальными"], source="poker_lora", route_note="model route used")
+        note = info["why"]
     unc = [f"поле {p}: есть конкурирующее чтение, ещё не подтверждено" for p in (cm.pending or [])]
     if cm.blocked:
         return Recommendation(False, "состояние заблокировано: " + "; ".join(cm.blocked), uncertainty=unc)
@@ -106,4 +122,4 @@ def recommend(cm, rng: random.Random, sims: int = 300) -> Recommendation:
             + (f" до {raise_to:g}" if raise_to else "") + f" — {ch.reason}.")
     if info.n_opponents > 1:
         unc.append("число соперников оценено по видимым стекам")
-    return Recommendation(True, "", d, opts, round(ch.equity, 3), round(ch.pot_odds, 3), expl, unc)
+    return Recommendation(True, "", d, opts, round(ch.equity, 3), round(ch.pot_odds, 3), expl, unc, route_note=note)
