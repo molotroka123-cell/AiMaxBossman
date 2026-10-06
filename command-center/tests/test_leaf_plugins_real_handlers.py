@@ -211,7 +211,7 @@ async def test_openrouter_chat_live_free_model():
     if not key:
         pytest.skip("no OpenRouter key available")
     model = os.environ.get("BOSSMAN_LIVE_OPENROUTER_MODEL", "nvidia/nemotron-3-super-120b-a12b:free")
-    r = await _call("plugin:openrouter.chat", {"model": model, "max_tokens": 64,
+    r = await _call("plugin:openrouter.chat", {"model": model, "max_tokens": 400,
                                                "messages": [{"role": "user", "content": "Reply with the single word: pong"}]})
     if r.error and ("перегружен" in r.content or "rate" in r.content.lower() or "429" in r.content):
         pytest.skip(f"free model throttled: {r.content[:80]}")

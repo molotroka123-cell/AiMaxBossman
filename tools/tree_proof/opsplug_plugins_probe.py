@@ -55,7 +55,7 @@ PLAN = {
                             ("plugin:ollama.chat", {"model": "x-cloud", "messages": [{"role": "user", "content": "hi"}]})],
                      k="ollama or four_leaves or policy", live="test_ollama_chat_live_local_model", real_key=False),
     "plugin-8": dict(tool="openrouter.chat",
-                     calls=[("plugin:openrouter.chat", {"model": "nvidia/nemotron-3-super-120b-a12b:free", "max_tokens": 48,
+                     calls=[("plugin:openrouter.chat", {"model": "nvidia/nemotron-3-super-120b-a12b:free", "max_tokens": 400,
                                                         "messages": [{"role": "user", "content": "Reply with the single word: pong"}]}),
                             ("plugin:openrouter.chat", {"model": "z-ai/glm-5.3-flash",
                                                         "messages": [{"role": "user", "content": "hi"}]})],
