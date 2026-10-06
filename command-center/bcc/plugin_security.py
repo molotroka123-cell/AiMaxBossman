@@ -257,7 +257,10 @@ async def safe_get(url: str, *, allow_private: bool = False,
                     chunks.append(chunk)
                 # Служебную метку ставим только мы: сервер не должен уметь её подделать.
                 head = {k: v for k, v in r.headers.items()
-                        if k.lower() not in ("content-length", "x-bossman-truncated")}
+                        if k.lower() not in ("content-length", "x-bossman-truncated",
+                                     # aiter_bytes() already decoded the body; keeping content-encoding
+                                     # makes httpx.Response decode it twice (DecodingError)
+                                     "content-encoding", "transfer-encoding")}
                 if cut:
                     head["x-bossman-truncated"] = "1"
                 return httpx.Response(r.status_code, headers=head, content=b"".join(chunks))
