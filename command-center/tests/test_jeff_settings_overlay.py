@@ -447,10 +447,14 @@ def test_ui_page_loads_applies_preset_and_resets(tmp_path):
                 page.click("[data-scope=js][data-preset=bold]")
                 assert page.input_value("[name=js-scale-directness]") == "9"
                 page.fill("[name=js-extra]", "С огоньком")
+                page.evaluate("document.querySelector('[data-testid=jeff-settings]').dataset.stale = '1'")
                 with page.expect_response(lambda r: r.url.endswith("/api/jeff-settings")
                                           and r.request.method == "PUT" and r.status == 200):
                     page.get_by_role("button", name="Сохранить", exact=True).click()
-                page.wait_for_function("() => document.querySelector('[data-testid=jeff-settings]') !== null", timeout=15000)
+                # Save calls ctx.refresh(): wait for the RE-RENDERED page, not the stale one still in the DOM.
+                # Otherwise the next preset click lands on the old DOM and the refresh resets it (CI py3.14: 9 != 10).
+                page.wait_for_function("() => { const n = document.querySelector('[data-testid=jeff-settings]'); "
+                                       "return n !== null && !n.dataset.stale; }", timeout=15000)
                 deadline = 50
                 while deadline and not path.is_file():
                     page.wait_for_timeout(100)
@@ -462,18 +466,15 @@ def test_ui_page_loads_applies_preset_and_resets(tmp_path):
                 assert page.input_value("[name=js-scale-directness]") == "10"
                 assert page.input_value("[name=js-style-duration]") == "24"
                 assert "Сегодня говори резко, сердито" in page.input_value("[name=js-extra]")
+                page.evaluate("document.querySelector('[data-testid=jeff-settings]').dataset.stale = '1'")
                 with page.expect_response(lambda r: r.url.endswith("/api/jeff-settings")
                                           and r.request.method == "PUT" and r.status == 200):
                     page.get_by_role("button", name="Сохранить", exact=True).click()
-                page.wait_for_function("() => document.querySelector('[data-testid=jeff-settings]') !== null", timeout=15000)
-                # Bounded poll, not a single read: on a loaded runner (CI py3.14, 2026-10-06) the file was read once while it still held
-                # the previous save (9). A UI that really sends a stale value still fails when the deadline passes.
+                # Save calls ctx.refresh(): wait for the RE-RENDERED page, not the stale one still in the DOM.
+                # Otherwise the next preset click lands on the old DOM and the refresh resets it (CI py3.14: 9 != 10).
+                page.wait_for_function("() => { const n = document.querySelector('[data-testid=jeff-settings]'); "
+                                       "return n !== null && !n.dataset.stale; }", timeout=15000)
                 saved = json.loads(path.read_text(encoding="utf-8"))
-                for _ in range(50):
-                    if saved["defaults"]["behavior_scales"].get("directness") == 10:
-                        break
-                    page.wait_for_timeout(100)
-                    saved = json.loads(path.read_text(encoding="utf-8"))
                 assert saved["defaults"]["behavior_scales"]["directness"] == 10
                 assert saved["defaults"]["system_extra"] == js.PRESET_NOTES["angry_today"]
                 assert js.style_expired(saved) is False
