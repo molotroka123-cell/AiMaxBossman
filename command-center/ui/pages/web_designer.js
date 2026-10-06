@@ -895,6 +895,7 @@ function emptyState(ctx, catalog) {
             state.mutating = true;
             const button = event?.currentTarget;
             if (button) button.disabled = true;
+            let created = false;
             try {
               const res = await api.raw('/api/web-designer/projects', { method: 'POST',
                 body: { name: name.value.trim() || 'Мой сайт', prompt: prompt.value.trim(),
@@ -903,9 +904,12 @@ function emptyState(ctx, catalog) {
               state.selected = null;
               try { localStorage.setItem(LAST_KEY, String(state.id)); } catch { /* приватный режим */ }
               toastOk('Проект создан');
+              created = true;
               ctx.refresh();
             } catch (e) { await operationError(e, 'Не удалось создать проект'); }
-            finally { state.mutating = false; if (button) button.disabled = false; }
+            // After a successful create the old button stays disabled until the editor replaces it: re-enabling it
+            // here let a second click during the reload create a duplicate project (CI py3.12, 2026-10-06).
+            finally { state.mutating = false; if (button && !created) button.disabled = false; }
           }, { variant: 'primary' }))),
       { icon: 'builder' }),
     panel('Или выберите заготовку',
