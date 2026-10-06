@@ -15,6 +15,7 @@ class MarkdownMemoryPlugin:
     folders without making them authoritative automatically.
     """
     name = "markdown-memory"
+    read_only = True
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root)
 
@@ -46,6 +47,7 @@ class MarkdownMemoryPlugin:
 class JsonMemoryPlugin:
     """Read-only bridge for exported plugin memories in a simple JSON format."""
     name = "json-memory"
+    read_only = True
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
 

@@ -53,7 +53,11 @@ class MemoryManager:
                        last_verified_at=now if verification else "",metadata=meta)
         self._detect_conflicts(m)
         self._merge_durable(m)
-        for p in self.plugins: p.write_candidate(m)
+        # Read-only мосты (Markdown/JSON) не принимают запись: вызывать их
+        # write_candidate значило падать, а стоящий первым — терять запись в store.
+        writers=[p for p in self.plugins if not getattr(p,"read_only",False)]
+        if not writers: raise RuntimeError("no writable memory plugin: the candidate would be lost")
+        for p in writers: p.write_candidate(m)
         return m
 
     # Durable-статусы: повторная дистилляция того же текста не вправе понижать
@@ -172,7 +176,14 @@ class MemoryManager:
         # Слияние: позиция в выдаче своего плагина, затем порядок плагинов.
         ranked=[]
         for pi,p in enumerate(self.plugins):
-            for rank,m in enumerate(p.retrieve(query,project,limit)): ranked.append((rank,pi,m))
+            try:
+                found=p.retrieve(query,project,limit)
+            except Exception:
+                # Битый read-only источник (испорченный JSON-экспорт) не стирает
+                # всю выдачу; ошибка собственного store по-прежнему видна.
+                if not getattr(p,"read_only",False): raise
+                continue
+            for rank,m in enumerate(found): ranked.append((rank,pi,m))
         merged: dict[str,MemoryRecord]={}
         for _,_,m in sorted(ranked,key=lambda x:(x[0],x[1])): merged.setdefault(m.memory_id,m)
         return list(merged.values())[:limit]
