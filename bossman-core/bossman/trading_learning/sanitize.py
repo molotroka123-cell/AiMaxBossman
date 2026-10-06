@@ -15,11 +15,14 @@ from dataclasses import dataclass
 # Паттерны инъекции. Список намеренно широкий: ложное срабатывание стоит
 # карантина одного claim'а, пропуск — исполненной команды.
 _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    # Между глаголом и «previous» допускаются до трёх служебных слов
+    # («the», «your», «all of the», «свои», «эти»): иначе обычная формулировка
+    # «ignore the previous instructions» проходила как чистые данные.
     ("instruction_override", re.compile(
-        r"(ignore|disregard|forget)\s+(all\s+)?(previous|prior|above|earlier)\s+"
-        r"(instructions?|rules?|prompts?)|"
-        r"(игнорируй|забудь|отмени)\s+(все\s+)?(предыдущие|прошлые|прежние)\s+"
-        r"(инструкции|правила|указания)", re.I)),
+        r"\b(ignore|disregard|forget)\s+((all|any|the|your|my|these|those|of)\s+){0,3}"
+        r"(previous|prior|above|earlier)\s+(instructions?|rules?|prompts?)|"
+        r"(игнорируй|забудь|отмени)\s+((все|всё|свои|твои|мои|эти|те)\s+){0,2}"
+        r"(предыдущие|прошлые|прежние)\s+(инструкции|правила|указания)", re.I)),
     ("role_hijack", re.compile(
         r"\b(you\s+are\s+now|act\s+as|system\s*:|assistant\s*:|new\s+system\s+prompt)\b|"
         r"(ты\s+теперь|действуй\s+как|системный\s+промпт)", re.I)),
@@ -38,7 +41,11 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 # Невидимые символы — классический способ спрятать инструкцию от человека.
-_INVISIBLE = re.compile(r"[\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]")
+# \u041c\u044f\u0433\u043a\u0438\u0439 \u043f\u0435\u0440\u0435\u043d\u043e\u0441 (U+00AD) \u0440\u0430\u0437\u0440\u044b\u0432\u0430\u0435\u0442 \u0441\u043b\u043e\u0432\u043e-\u0442\u0440\u0438\u0433\u0433\u0435\u0440 \u043d\u0435\u0437\u0430\u043c\u0435\u0442\u043d\u043e \u0434\u043b\u044f \u0433\u043b\u0430\u0437\u0430, \u0430 \u0431\u043b\u043e\u043a
+# Unicode tags (U+E0000\u2013U+E007F) \u043f\u0440\u044f\u0447\u0435\u0442 \u0446\u0435\u043b\u0443\u044e \u0438\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u044e, \u043a\u043e\u0442\u043e\u0440\u0443\u044e \u043c\u043e\u0434\u0435\u043b\u044c \u0447\u0438\u0442\u0430\u0435\u0442.
+_INVISIBLE = re.compile(
+    "[\u00ad\u034f\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff"
+    "\U000e0000-\U000e007f]")
 _MAX_LEN = 4000        # длинный «транскрипт» в модель не уходит — режем на входе
 
 
