@@ -52,7 +52,8 @@ def test_good_receipt_turns_green(tmp_path):
     node = {n["id"]: n for n in json.loads(seed.read_text(encoding="utf-8"))["nodes"]}["leaf"]
     assert node["status"] == "reported"
     assert f"Прогон 2026-10-06 @ {sha[:8]}: import ok" in node["detail"]
-    assert node["sources"] and dict(r["zones"]) == {"zone": 1}
+    assert node["sources"] and all(isinstance(x, dict) and x.get("path") for x in node["sources"])
+    assert dict(r["zones"]) == {"zone": 1}
     assert (evid / "SUMMARY.md").exists()
     exp = json.loads((evid / "tree.export.json").read_text(encoding="utf-8"))
     assert exp["schema"] == 1 and {"id", "label", "parent", "status", "short"} <= set(exp["nodes"][0])

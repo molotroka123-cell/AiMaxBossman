@@ -140,7 +140,8 @@ def apply(seed_path: Path = SEED, evid: Path = EVID, repo: Path = ROOT, write: b
             node["status"] = "reported"
             node["detail"] = (node.get("detail", "") + f" Прогон {date} @ {rc['sha'][:8]}: {rc['probe']}").strip()
         ref = f"docs/architecture/bossman-tree-20261005/evidence/{lane}#{rc['node_id']}"
-        node.setdefault("sources", []).append(ref)
+        node.setdefault("sources", []).append(
+            {"path": ref, "branch": "green/tree-leaves-20261006", "sha": rc["sha"], "kind": "receipt"})
         accepted.append((lane, rc["node_id"], zone_of(nodes, rc["node_id"])))
     if write:
         seed_path.write_text(json.dumps(seed, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
