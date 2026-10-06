@@ -845,6 +845,12 @@ def _fill_path(cap: Capability, args: dict[str, Any]) -> str:
     path = cap.path
     for name in cap.path_params:
         value = quote(str(args.get(name, "")), safe="")
+        if value and set(value) <= {"."}:
+            # «.» и «..» httpx схлопывает (RFC 3986 remove_dot_segments) ещё до
+            # отправки: «tasks.get .» уходил GET-ом на /api/tasks — список всех
+            # задач вместо одной. Процент-экранированные точки сегментом быть
+            # перестают, и маршрут остаётся тем, что показан владельцу.
+            value = value.replace(".", "%2E")
         path = re.sub(r"\{" + re.escape(name) + r"(:[^}]+)?\}", value, path)
     return path
 
