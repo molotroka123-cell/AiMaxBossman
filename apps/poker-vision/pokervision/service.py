@@ -24,6 +24,7 @@ from .reconcile import Config, Reconciler
 from .schema import Money
 from .sources import DirSource, LoopbackBrowserSource, NotLoopback, ScreenWindowSource, VideoSource, list_windows, window_support
 from .strategy import VisibleInfo, decide
+from .desk import DeskMixin
 
 EXPLAIN = {
     "no_anchor": "на кадре не найдены карты героя — нечего привязывать (нет раздачи или карты закрыты)",
@@ -50,7 +51,7 @@ def explain(reason: str) -> str:
     return reason or ""
 
 
-class VisionService:
+class VisionService(DeskMixin):
     def __init__(self, data_dir: str | Path, profile_dir: Path | None = None):
         self.data_dir = Path(data_dir); self.data_dir.mkdir(parents=True, exist_ok=True)
         self.profile_dir = profile_dir
@@ -70,6 +71,7 @@ class VisionService:
         self.decisions: list[dict] = []
         self.auto_act = False
         self.finished = False
+        self.desk = None; self.journal = None; self._frame_seq = 0
 
     def capabilities(self) -> dict:
         return {"version": __version__, "adapters": registry.available(), "windows": list_windows(), "window_support": window_support(),
@@ -303,6 +305,27 @@ class VisionService:
             ad.profile.save(self.profile_dir / f"{adapter}.json"); out["saved"] = True
         return out
 
+    def verify_roi(self, adapter: str, heldout_dir: str, context: str = "") -> dict:
+        """Re-check a SAVED profile on new held-out frames (changed scale, theme or window layout). The result is appended to a log;
+        a failing check withdraws trust: the saved profile is marked unverified until a passing check."""
+        import cv2
+        d = Path(heldout_dir)
+        truth = json.loads((d / "truth.json").read_text(encoding="utf-8"))
+        held = [(Frame(cv2.imread(str(d / name)), 0, f"verify:{d.name}", name), t) for name, t in truth.items() if (d / name).exists()]
+        ad = registry.get(adapter, self.profile_dir / f"{adapter}.json" if self.profile_dir else None)
+        if not getattr(ad, "profile", None):
+            raise ValueError(f"{adapter}: no saved profile to verify; calibrate first")
+        rep = ad.verify(held)
+        rec = {"t": time.time(), "adapter": adapter, "profile": ad.profile_id(), "context": context, "frames": len(held), "passed": rep.passed, "report": rep.__dict__}
+        if self.profile_dir:
+            self.profile_dir.mkdir(parents=True, exist_ok=True)
+            with (self.profile_dir / "verifications.jsonl").open("a", encoding="utf-8") as f:
+                f.write(json.dumps(rec, default=str) + "\n")
+            if not rep.passed:
+                ad.profile.data["verified"] = False
+                ad.profile.save(self.profile_dir / f"{adapter}.json")
+        return rec
+
     # ------------------------------------------------------------ views
     def status(self) -> dict:
         with self.lock:
@@ -313,7 +336,7 @@ class VisionService:
                     "latency_ms": {"p50": pct(0.5), "p95": pct(0.95), "n": len(lat)},
                     "hands": (len(self.rec.hands) + (1 if self.rec and self.rec.cur["frames"] else 0)) if self.rec else 0,
                     "actuator": ({"halted": self.actuator.halted, "clicks": len(self.actuator.log.entries)} if self.actuator else None),
-                    "layout": self.adapter.profile_id() if self.adapter else None}
+                    "layout": self.adapter.profile_id() if self.adapter else None, "desk": self.desk_status()}
 
     def state(self) -> dict:
         with self.lock:

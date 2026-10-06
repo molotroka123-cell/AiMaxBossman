@@ -106,6 +106,10 @@ def run(args) -> int:
                 break
             if "CONFIRM" in btns:  # raise panel open
                 snap("raise_panel")
+                presets = [b for b in pg.query_selector_all("button.btn-preset")]
+                if presets and rng.random() < args.preset_p:
+                    for _ in range(rng.randint(1, 2)):
+                        rng.choice(presets).click(); pg.wait_for_timeout(250); snap("panel_preset")
                 if rng.random() < 0.6:
                     btns["CONFIRM"].click()
                 else:
@@ -125,7 +129,7 @@ def run(args) -> int:
             if hero_stack and call_amt > 0.25 * hero_stack and "FOLD" in btns:
                 snap("decision"); btns["FOLD"].click(); pg.wait_for_timeout(150); snap("after_click_anim"); pg.wait_for_timeout(1400); snap("settled"); continue
             if r < 0.12 and "FOLD" in btns: pick = "FOLD"
-            elif r < 0.30 and "RAISE" in btns: pick = "RAISE"
+            elif r < 0.12 + args.raise_p and "RAISE" in btns: pick = "RAISE"
             elif "CHECK" in btns: pick = "CHECK"
             elif "CALL" in btns: pick = "CALL"
             else:
@@ -153,6 +157,8 @@ def main(argv=None) -> int:
     ap.add_argument("--vh", type=int, default=900)
     ap.add_argument("--dpr", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--raise-p", type=float, default=0.18, help="probability of opening the raise panel at a decision")
+    ap.add_argument("--preset-p", type=float, default=0.0, help="probability of clicking presets while the raise panel is open")
     return run(ap.parse_args(argv))
 
 

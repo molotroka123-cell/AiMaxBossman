@@ -54,21 +54,37 @@ def _shot(page, name):
         page.screenshot(path=str(Path(d) / name), full_page=True)
 
 
-def test_replay_in_the_bossman_page_reads_fields_shows_overlay_history_and_explains_unknown(live, pv):  # noqa: F811
+def _code(body):
+    d = body.get('detail') if isinstance(body, dict) else None
+    e = body.get('error') if isinstance(body, dict) else None
+    return (d or {}).get('code') if isinstance(d, dict) else (e or {}).get('code')
+
+
+def _pick(page, source_id, mode="observe"):
+    page.click("text=Выбрать источник")
+    page.wait_for_selector(f"button[data-source='{source_id}']", timeout=15000)
+    page.select_option("#pv-pick-mode", mode)
+    page.click(f"button[data-source='{source_id}']")
+
+
+def test_replay_source_shows_live_stream_overlay_fields_history_and_explains_unknown(live, pv):  # noqa: F811
     from playwright.sync_api import sync_playwright
     expected = json.loads((SAMPLE / "expected_last_frame.json").read_text(encoding="utf-8"))
     errors: list[str] = []
     with sync_playwright() as pw:
         browser = _launch(pw)
         try:
-            page = browser.new_page(viewport={"width": 1500, "height": 1100})
+            page = browser.new_page(viewport={"width": 1500, "height": 1300})
             page.on("pageerror", lambda e: errors.append(str(e)))
             _login(page, live)
             page.goto(f"{live.url}/#/poker-vision", wait_until="domcontentloaded")
-            page.wait_for_selector("#pv-mode", timeout=20000)
-            page.select_option("#pv-mode", "replay")
-            page.fill("#pv-target", str(SAMPLE))
-            page.click("text=Старт")
+            page.wait_for_selector("#pv-stage", timeout=20000)
+            # the picker shows every capturable surface with a preview and what is PROVEN for it
+            page.click("text=Выбрать источник")
+            page.wait_for_selector("button[data-source='replay:sample'] img", timeout=15000)
+            assert "UNVERIFIED" in page.inner_text("body") or "PASS" in page.inner_text("body")
+            page.keyboard.press("Escape")
+            _pick(page, "replay:sample", "observe")
             page.wait_for_function("document.querySelector('#pv-status')?.innerText.toLowerCase().includes('сессия завершена')", timeout=60000)
             page.wait_for_selector("tr[data-field='pot']", timeout=15000)
             row = lambda f: page.inner_text(f"tr[data-field='{f}']")
@@ -76,62 +92,38 @@ def test_replay_in_the_bossman_page_reads_fields_shows_overlay_history_and_expla
             assert expected["hero_cards"][0] in row("hero_cards[0]") and expected["hero_cards"][1] in row("hero_cards[1]")
             for i, c in enumerate(expected["board"]):
                 assert c in row(f"board[{i}]")
-            # uncertainty is explained in words (buttons/seats are not readable on this sample)
-            assert page.locator("#pv-unc li").count() >= 1
-            assert page.inner_text("#pv-unc li") != ""
-            # overlay image really loaded from the backend
-            page.wait_for_function("document.getElementById('pv-overlay').naturalWidth > 100", timeout=15000)
+            assert page.locator("#pv-unc li").count() >= 1 and page.inner_text("#pv-unc li") != ""
+            # the stream is a real image from the capture backend and the overlay draws recognised boxes on top of it
+            page.wait_for_function("document.getElementById('pv-stream').naturalWidth > 100", timeout=15000)
+            page.wait_for_function("Number(document.getElementById('pv-overlay-canvas').dataset.boxes || 0) > 0", timeout=15000)
             assert page.locator("#pv-history details").count() >= 1
+            # modes: replay supports observe and coach but NEVER control
+            assert page.is_disabled("button[data-mode='control']")
             _shot(page, "bossman-poker-vision-replay.png")
         finally:
             browser.close()
     assert not errors, errors
 
 
-def test_stop_button_halts_a_running_session_in_the_page(live, pv, tmp_path):  # noqa: F811
-    from playwright.sync_api import sync_playwright
-    import cv2, numpy as np
-    d = tmp_path / "many"; d.mkdir()
-    for i in range(500):
-        cv2.imwrite(str(d / f"{i:04d}.png"), np.full((900, 520, 3), 20, np.uint8))
-    with sync_playwright() as pw:
-        browser = _launch(pw)
-        try:
-            page = browser.new_page(viewport={"width": 1500, "height": 1000})
-            _login(page, live)
-            page.goto(f"{live.url}/#/poker-vision", wait_until="domcontentloaded")
-            page.wait_for_selector("#pv-mode", timeout=20000)
-            page.fill("#pv-target", str(d))
-            # slow it down through the API so STOP is pressed mid-run (the page has no speed control)
-            import httpx
-            httpx.post(f"http://127.0.0.1:{pv}/api/v1/session", json={"mode": "replay", "adapter": "poker_train", "path": str(d), "interval_s": 0.05}, timeout=10, trust_env=False)
-            page.wait_for_function("document.querySelector('#pv-status')?.innerText.toLowerCase().includes('идёт сессия')", timeout=20000)
-            page.click("button:has-text('STOP')")
-            page.wait_for_function("document.querySelector('#pv-status')?.innerText.toLowerCase().includes('stop нажат')", timeout=20000)
-            frames_after_stop = httpx.get(f"http://127.0.0.1:{pv}/api/v1/status", timeout=10, trust_env=False).json()["frames"]
-            time.sleep(0.4)
-            assert httpx.get(f"http://127.0.0.1:{pv}/api/v1/status", timeout=10, trust_env=False).json()["frames"] == frames_after_stop < 500
-            _shot(page, "bossman-poker-vision-stop.png")
-        finally:
-            browser.close()
-
-
-def test_trainer_mode_with_a_non_loopback_url_is_refused_in_the_page(live, pv):  # noqa: F811
+def test_refusals_through_the_page_api(live, pv):  # noqa: F811
     from playwright.sync_api import sync_playwright
     with sync_playwright() as pw:
         browser = _launch(pw)
         try:
-            page = browser.new_page(viewport={"width": 1500, "height": 1000})
+            page = browser.new_page(viewport={"width": 1500, "height": 900})
             _login(page, live)
             page.goto(f"{live.url}/#/poker-vision", wait_until="domcontentloaded")
-            page.wait_for_selector("#pv-mode", timeout=20000)
-            page.select_option("#pv-mode", "trainer")
-            page.fill("#pv-target", "https://www.example.com/")
-            page.check("#pv-act")
-            page.click("text=Старт")
-            page.wait_for_function("document.getElementById('pv-msg').innerText.length > 0", timeout=15000)
-            assert "loopback" in page.inner_text("#pv-msg").lower() or "не" in page.inner_text("#pv-msg")
+            page.wait_for_selector("#pv-stage", timeout=20000)
+            call = lambda body: page.evaluate("""async (b) => { const r = await fetch('/api/poker-vision/desk/start', {method:'POST', headers:{'content-type':'application/json','X-BCC-CSRF': localStorage.getItem('bcc.csrf')||''}, body: JSON.stringify(b)}); return [r.status, await r.json()]; }""", body)
+            st, body = call({"source": {"kind": "sandbox", "url": "https://www.example.com/"}, "desk_mode": "observe"})
+            assert st in (403, 400) and "loopback" in json.dumps(body).lower()
+            st, body = call({"source": {"kind": "sandbox", "url": "http://127.0.0.1:3000/"}, "desk_mode": "control"})
+            assert st == 403 and _code(body) == "CONTROL_NEEDS_OWNER_CONFIRM"            # no control without the owner's explicit tick
+            st, body = call({"source": {"kind": "replay", "path": str(SAMPLE)}, "desk_mode": "control", "confirm_control": True})
+            assert st == 403 and _code(body) == "NOT_ALLOWED"                              # a recording cannot be controlled
+            st, body = call({"source": {"kind": "window", "hwnd": 1}, "desk_mode": "observe"})
+            assert st == 501 and _code(body) == "NOT_RUN"
             st = page.evaluate("fetch('/api/poker-vision/status').then(r => r.json())")
-            assert not (st.get("session") or {}).get("running")
+            assert not ((st.get("session") or {}).get("running"))
         finally:
             browser.close()

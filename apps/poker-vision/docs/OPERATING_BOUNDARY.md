@@ -17,3 +17,15 @@ What enforces it (each has a test):
 * No money, bet-sizing for real stakes, anti-detection, or OS-level input exists anywhere in the package (`test_no_money_or_external_click_code_paths`).
 
 Connecting an external client does not authorise money bets or bypassing that client's restrictions; nothing here does either.
+
+## Update — COACH / EXECUTOR and the source panel
+
+| surface | Наблюдение | Подсказки (COACH) | Управление (EXECUTOR) |
+|---|---|---|---|
+| Poker Train in the sandbox desk (own trainer, loopback, no money) | yes | yes | **yes, only after the owner's explicit tick** (`confirm_control`) |
+| recorded frames | yes | yes | no |
+| any captured window / TON Poker / other client | yes (after calibration + held-out check for readings) | **no** (UNVERIFIED) | **no** (not implemented, not authorised) |
+
+* Control needs three independent things: the owner's tick in the page (`CONTROL_NEEDS_OWNER_CONFIRM` otherwise), an adapter with `act` (only `poker_train`), and a surface kind that is proven (`sandbox`). A recording or a window is refused with `NOT_ALLOWED`.
+* **No OS-level pointer backend is shipped.** The executor's pointer in this build is the sandbox page mouse. Clicking real desktop windows would need a separate owner decision, a separate adapter run on the exact SHA, and (for Bossman Computer Use) a change of its allow-list, which today lists only Notepad/Calculator and demands one owner approval per action. `ComputerUseBackend` is a thin client of that existing tool: whatever Computer Use refuses is a refusal here. Nothing here widens its perimeter.
+* Opening a window in Bossman is a DISPLAY of the capture, not hosting the foreign application. Any capturable surface may be shown; recognition, advice and control are enabled per interface only where a verifying run exists.

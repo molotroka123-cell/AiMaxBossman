@@ -35,6 +35,7 @@ class Frame:
     source: str
     frame_id: str = ""
     dpr_hint: float | None = None    # only for synthetic/replay sources that know it; never trusted blindly
+    meta: dict = field(default_factory=dict)   # capture facts, e.g. {'rect': window rect in physical px AT CAPTURE TIME}
 
     @property
     def h(self) -> int: return self.bgr.shape[0]

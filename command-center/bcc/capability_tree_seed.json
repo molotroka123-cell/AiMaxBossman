@@ -12774,6 +12774,78 @@
         }
       ],
       "next_action": "Измерить на машине владельца после проверки совместимости; включать только при выигрыше по метрикам."
+    },
+    {
+      "id": "pv-coach",
+      "label": "COACH: рекомендация с объяснением и неопределённостью",
+      "parent": "pv",
+      "status": "code",
+      "detail": "Варианты, объяснение, дисклеймер (карты и диапазоны неизвестны, эквити против случайных рук). Подсказки включены только для адаптеров с прогоном: Poker Train (песочница) — PASS; TON Poker и окна — UNVERIFIED.",
+      "sources": [
+        {
+          "path": "apps/poker-vision/pokervision/coach.py",
+          "branch": "poker-vision/coach-executor-20261006",
+          "sha": "a963599537f295c4266ec656ab35b233d632d71c",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/a963599537f295c4266ec656ab35b233d632d71c/apps/poker-vision/pokervision/coach.py"
+        }
+      ]
+    },
+    {
+      "id": "pv-executor",
+      "label": "EXECUTOR: проверки → клик → подтверждение (только свой тренажёр)",
+      "parent": "pv",
+      "status": "code",
+      "detail": "Роли Vision→Policy→Locator→Executor→Verifier. Прогон в песочнице без денег: 0 ошибочных кликов в сценариях сравнения. Не проверено: реальные окна Windows, Computer Use, DPR 2, другие раскладки.",
+      "sources": [
+        {
+          "path": "apps/poker-vision/pokervision/control/executor.py",
+          "branch": "poker-vision/coach-executor-20261006",
+          "sha": "a963599537f295c4266ec656ab35b233d632d71c",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/a963599537f295c4266ec656ab35b233d632d71c/apps/poker-vision/pokervision/control/executor.py"
+        },
+        {
+          "path": "apps/poker-vision/evidence/REPORT_COACH_EXECUTOR.md",
+          "branch": "poker-vision/coach-executor-20261006",
+          "sha": "a963599537f295c4266ec656ab35b233d632d71c",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/a963599537f295c4266ec656ab35b233d632d71c/apps/poker-vision/evidence/REPORT_COACH_EXECUTOR.md"
+        }
+      ]
+    },
+    {
+      "id": "pv-source-panel",
+      "label": "Панель источника: выбор окна с превью, живой поток, overlay",
+      "parent": "pv",
+      "status": "code",
+      "detail": "Выбор источника, MJPEG-поток, overlay карт/чисел/кнопок с confidence, режимы, пауза, смена источника, STOP. Захват реальных окон Windows — NOT_RUN.",
+      "sources": [
+        {
+          "path": "command-center/ui/pages/poker_vision.js",
+          "branch": "poker-vision/coach-executor-20261006",
+          "sha": "a963599537f295c4266ec656ab35b233d632d71c",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/a963599537f295c4266ec656ab35b233d632d71c/command-center/ui/pages/poker_vision.js"
+        },
+        {
+          "path": "apps/poker-vision/pokervision/desk.py",
+          "branch": "poker-vision/coach-executor-20261006",
+          "sha": "a963599537f295c4266ec656ab35b233d632d71c",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/a963599537f295c4266ec656ab35b233d632d71c/apps/poker-vision/pokervision/desk.py"
+        }
+      ]
+    },
+    {
+      "id": "pv-candidates",
+      "label": "Cygnet / Winnow-12B / Jev как кликер",
+      "parent": "pv",
+      "status": "blocked",
+      "detail": "По источникам это модели типизированных решений, не UI-grounding; JevBench не про GUI и не про покер. Не запускались (веса недоступны, нет GPU). Выбран vision-локатор по результатам сценариев.",
+      "sources": [
+        {
+          "path": "apps/poker-vision/docs/UI_CONTROL_CANDIDATES.md",
+          "branch": "poker-vision/coach-executor-20261006",
+          "sha": "a963599537f295c4266ec656ab35b233d632d71c",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/a963599537f295c4266ec656ab35b233d632d71c/apps/poker-vision/docs/UI_CONTROL_CANDIDATES.md"
+        }
+      ]
     }
   ],
   "memory_protocol": {

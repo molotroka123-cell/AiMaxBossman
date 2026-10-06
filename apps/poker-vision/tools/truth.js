@@ -47,11 +47,13 @@
     if (/^D$/.test(t) && el.children.length === 0) out.dealer = rect(el);
     if (/^(UTG\+1|UTG|MP|HJ|CO|BTN|SB|BB)$/.test(t) && el.children.length === 0 && rect(el).y < 100) { out.position = t; out.position_rect = rect(el); }
     if (el.tagName === 'DIV' && el.children.length === 0 && /^\d[\d.,]*[KM]?$/.test(t) && getComputedStyle(el).fontSize === '10px' && rect(el).y > 60 && rect(el).y < H * 0.65) out.bets.push({ text: t, value: num(t), ...textRect(el), vis: vis(el, textRect(el)) });
-    if (el.tagName === 'BUTTON') { const bt = el.innerText.trim().split('\n'); out.buttons.push({ label: bt[0], amount: bt[1] ? num(bt[1]) : null, ...rect(el) }); }
+    if (el.tagName === 'BUTTON') { const bt = el.innerText.trim().split('\n'); out.buttons.push({ label: bt[0], amount: bt[1] ? num(bt[1]) : null, amount_text: bt[1] || null, ...rect(el) }); }
   }
   out.hand_header = (document.body.innerText.match(/Hand #(\d+)/) || [])[1] || null;
   out.blinds = (document.body.innerText.match(/(\d[\d,]*\/\d[\d,]*)\s*·\s*Lvl/) || [])[1] || null;
   out.raise_panel = /RAISE TO/.test(document.body.innerText);
+  out.raise_to_text = null;
+  for (const el of all) { if (el.tagName === 'DIV' && el.children.length === 0 && getComputedStyle(el).fontSize === '28px' && /^[\d.,]+[KM]?$/.test(own(el)) && visible(el)) { out.raise_to_text = own(el); out.raise_to_rect = textRect(el); out.raise_to_vis = vis(el, out.raise_to_rect); } }
   const log = Array.from(document.querySelectorAll('div')).find(d => own(d) === 'HAND LOG');
   out.hand_log = log && log.parentElement ? log.parentElement.innerText.split('\n').slice(1).filter(Boolean) : [];
   out.winner_overlay = /wins|Winner|WIN/.test(document.body.innerText.slice(0, 4000));

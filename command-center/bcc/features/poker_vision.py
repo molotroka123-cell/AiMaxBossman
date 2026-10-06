@@ -157,6 +157,115 @@ async def overlay():
     return Response(r.content, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
+# ------------------------------------------------------------------ source panel (screen-share style), modes, stream, overlay
+class DeskStart(BaseModel):
+    source: dict
+    adapter: str = Field(default="poker_train", pattern=r"^[a-z_]{1,32}$")
+    desk_mode: str = Field(default="observe", pattern=r"^(observe|coach|control)$")
+    seed: int = 1
+    max_hands: int = Field(default=40, ge=1, le=200)
+    auto_deal: bool = True
+    confirm_control: bool = False         # the owner's explicit tick in the page; control is never started without it
+
+
+@router.get("/sources")
+async def sources():
+    return await _call("GET", "/api/v1/sources")
+
+
+@router.post("/desk/start")
+async def desk_start(body: DeskStart):
+    if body.desk_mode == "control" and not body.confirm_control:
+        raise HTTPException(403, {"code": "CONTROL_NEEDS_OWNER_CONFIRM", "message": "режим «Управление» запускается только после явного подтверждения владельца в странице"})
+    data = body.model_dump(); data.pop("confirm_control")
+    return await _call("POST", "/api/v1/desk/start", data)
+
+
+class DeskMode(BaseModel):
+    mode: str = Field(pattern=r"^(observe|coach|control)$")
+    confirm_control: bool = False
+
+
+@router.post("/desk/mode")
+async def desk_mode(body: DeskMode):
+    if body.mode == "control" and not body.confirm_control:
+        raise HTTPException(403, {"code": "CONTROL_NEEDS_OWNER_CONFIRM", "message": "режим «Управление» включается только явным подтверждением владельца"})
+    return await _call("POST", "/api/v1/desk/mode", {"mode": body.mode})
+
+
+class DeskPause(BaseModel):
+    paused: bool
+
+
+@router.post("/desk/pause")
+async def desk_pause(body: DeskPause):
+    return await _call("POST", "/api/v1/desk/pause", body.model_dump())
+
+
+@router.post("/desk/resume-executor")
+async def desk_resume():
+    return await _call("POST", "/api/v1/desk/resume-executor")
+
+
+class SandboxCmd(BaseModel):
+    args: dict = Field(default_factory=dict)
+
+
+@router.post("/desk/sandbox/{cmd}")
+async def desk_sandbox(cmd: str, body: SandboxCmd):
+    if cmd not in ("move", "resize", "minimize", "close", "reopen", "cover", "uncover"):
+        raise HTTPException(400, {"code": "BAD_COMMAND"})
+    return await _call("POST", f"/api/v1/desk/sandbox/{cmd}", body.model_dump())
+
+
+@router.get("/frame.jpg")
+async def frame_jpg():
+    r = await _call("GET", "/api/v1/frame.jpg", raw=True)
+    return Response(r.content, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/stream.mjpeg")
+async def stream_mjpeg():
+    """Live capture shown in the page. This is a DISPLAY of the capture, not the foreign app moved into Bossman."""
+    from fastapi.responses import StreamingResponse
+    client = httpx.AsyncClient(timeout=httpx.Timeout(None, connect=2.0), trust_env=False)
+    try:
+        req = client.build_request("GET", _base() + "/api/v1/stream.mjpeg")
+        r = await client.send(req, stream=True)
+    except httpx.HTTPError as exc:
+        await client.aclose()
+        raise HTTPException(503, {"code": "PV_SERVICE_DOWN", "message": f"сервис Poker Vision не отвечает: {type(exc).__name__}"}) from exc
+
+    async def gen():
+        try:
+            async for chunk in r.aiter_raw():
+                yield chunk
+        finally:
+            await r.aclose(); await client.aclose()
+    return StreamingResponse(gen(), media_type="multipart/x-mixed-replace; boundary=frame", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/overlay.json")
+async def overlay_json():
+    return await _call("GET", "/api/v1/overlay.json")
+
+
+@router.get("/recommendation")
+async def recommendation():
+    return await _call("GET", "/api/v1/recommendation")
+
+
+@router.get("/journal")
+async def journal():
+    return await _call("GET", "/api/v1/journal")
+
+
+@router.get("/journal/frame")
+async def journal_frame(name: str):
+    r = await _call("GET", "/api/v1/journal/frame?name=" + name, raw=True)
+    return Response(r.content, media_type="image/png")
+
+
 class TreeSync(BaseModel):
     task: str = Field(max_length=300)
     sha: str = Field(pattern=r"^[0-9a-f]{7,40}$")
