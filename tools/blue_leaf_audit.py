@@ -126,7 +126,8 @@ def tests_for(source: str, imports: dict[str, set[str]], texts: dict[str, str]) 
 
 # JUnit file stem -> the directory its run started in (classnames are relative to it)
 RUN_DIRS = {"core": "bossman-core", "core-rerun": "bossman-core", "cc-rerun": "command-center", "root-rerun": "", "cc": "command-center", "root": "", "poker-vision": "apps/poker-vision",
-            "poker-lora": "apps/poker-lora", "ai-webcam-vision": "apps/ai-webcam-vision"}
+            "poker-lora": "apps/poker-lora", "ai-webcam-vision": "apps/ai-webcam-vision",
+            "ai-3d-maker": "apps/ai-3d-maker", "social-farm": "apps/social-farm"}
 
 
 def tests_by_name(source: str, imports: dict[str, set[str]]) -> list[str]:

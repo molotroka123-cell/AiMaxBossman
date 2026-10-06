@@ -1,10 +1,10 @@
 {
- "leaves": 475,
+ "leaves": 505,
  "summary": {
   "non-python": 1,
-  "covered": 452,
+  "covered": 477,
   "covered-skipped": 4,
-  "untested": 18
+  "untested": 23
  },
  "junit_files": [
   "core.xml",
@@ -13,6 +13,8 @@
   "poker-vision.xml",
   "poker-lora.xml",
   "ai-webcam-vision.xml",
+  "ai-3d-maker.xml",
+  "social-farm.xml",
   "core-rerun.xml",
   "cc-rerun.xml"
  ],
@@ -9555,6 +9557,553 @@
     "apps/poker-vision/tests/test_policy_route.py"
    ],
    "passed": 9,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-video_studio_render",
+   "label": "Video Studio: компилятор filtergraph (preview и export)",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/video_studio/render.py"
+   ],
+   "tests": [
+    "command-center/tests/test_fable_video_chaos.py",
+    "command-center/tests/test_video_export_receipt.py",
+    "command-center/tests/test_video_preview_speed_contract.py",
+    "command-center/tests/test_video_studio_advanced.py",
+    "command-center/tests/test_video_studio_cfr_frames.py",
+    "command-center/tests/test_video_studio_color.py",
+    "command-center/tests/test_video_studio_domain.py",
+    "command-center/tests/test_video_studio_ffmpeg_cli.py",
+    "command-center/tests/test_video_studio_frame_split.py",
+    "command-center/tests/test_video_studio_p1_findings.py",
+    "command-center/tests/test_video_studio_render.py",
+    "command-center/tests/test_video_studio_shotcut.py"
+   ],
+   "passed": 191,
+   "failed": 0,
+   "skipped": 6,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-video_studio_service",
+   "label": "Video Studio: интеграция с хостом (БД, задачи, команды)",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/video_studio/service.py"
+   ],
+   "tests": [
+    "command-center/tests/test_fable_video_chaos.py",
+    "command-center/tests/test_video_descriptor_boundary.py",
+    "command-center/tests/test_video_export_receipt.py",
+    "command-center/tests/test_video_studio_container_choice.py",
+    "command-center/tests/test_video_studio_failure_codes.py",
+    "command-center/tests/test_video_studio_integration.py",
+    "command-center/tests/test_video_studio_p1_findings.py",
+    "command-center/tests/test_video_studio_read_verification.py"
+   ],
+   "passed": 118,
+   "failed": 0,
+   "skipped": 1,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-video_studio_storyboard",
+   "label": "Video Studio: раскадровка и рецепты кадров",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/video_studio/storyboard.py"
+   ],
+   "tests": [
+    "command-center/tests/test_video_storyboard.py"
+   ],
+   "passed": 13,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-video_studio_trained",
+   "label": "Video Studio: черновик команд от модели + валидация",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/video_studio/trained.py"
+   ],
+   "tests": [
+    "command-center/tests/test_video_studio_trained.py"
+   ],
+   "passed": 30,
+   "failed": 0,
+   "skipped": 1,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-video_studio_shotcut",
+   "label": "Video Studio: обмен проектами Shotcut/MLT",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/video_studio/shotcut.py"
+   ],
+   "tests": [
+    "command-center/tests/test_video_studio_shotcut.py"
+   ],
+   "passed": 2,
+   "failed": 0,
+   "skipped": 2,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-video_studio_interchange",
+   "label": "Video Studio: обмен OpenTimelineIO",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/video_studio/interchange.py"
+   ],
+   "tests": [
+    "command-center/tests/test_video_studio_interchange.py",
+    "command-center/tests/test_video_studio_otio_blocked.py"
+   ],
+   "passed": 3,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-video_studio_analysis",
+   "label": "Video Studio: диагностика, тайминг субтитров, ASR",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/video_studio/analysis.py"
+   ],
+   "tests": [
+    "command-center/tests/test_video_studio_advanced.py",
+    "command-center/tests/test_video_studio_render.py"
+   ],
+   "passed": 42,
+   "failed": 0,
+   "skipped": 4,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-video_studio_retrieval",
+   "label": "Video Studio: поиск B-roll и дубликатов",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/video_studio/retrieval.py"
+   ],
+   "tests": [
+    "command-center/tests/test_video_studio_retrieval.py"
+   ],
+   "passed": 3,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-video_adapter_train",
+   "label": "Video Studio: обучение LoRA-адаптера команд",
+   "zone": "media",
+   "sources": [
+    "tools/video_studio/train_adapter.py"
+   ],
+   "tests": [
+    "command-center/tests/test_video_studio_domain.py"
+   ],
+   "passed": 39,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-studio_provider",
+   "label": "Studio: жизненный цикл провайдеров",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/studio/provider.py"
+   ],
+   "tests": [
+    "command-center/tests/test_bossfield_seedance25.py",
+    "command-center/tests/test_studio_cloud.py",
+    "command-center/tests/test_studio_provider_states.py",
+    "command-center/tests/test_studio_qwen_image21.py",
+    "command-center/tests/test_studio_sdcpp_hostile.py"
+   ],
+   "passed": 135,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-studio_sdcpp",
+   "label": "Studio: локальная генерация stable-diffusion.cpp",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/studio/providers/sdcpp.py"
+   ],
+   "tests": [
+    "command-center/tests/test_sdcpp_provider_safety.py",
+    "command-center/tests/test_studio_deadline_limits.py",
+    "command-center/tests/test_studio_listing_does_not_block_loop.py",
+    "command-center/tests/test_studio_media_lifecycle.py",
+    "command-center/tests/test_studio_partial_job_layer.py",
+    "command-center/tests/test_studio_partial_segments.py",
+    "command-center/tests/test_studio_qwen_image21.py",
+    "command-center/tests/test_studio_sdcpp_hostile.py",
+    "command-center/tests/test_studio_sdcpp_output_contract.py",
+    "command-center/tests/test_studio_sdcpp_provider.py"
+   ],
+   "passed": 150,
+   "failed": 0,
+   "skipped": 2,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-studio_comfyui",
+   "label": "Studio: провайдер ComfyUI",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/studio/providers/comfyui.py"
+   ],
+   "tests": [
+    "command-center/tests/test_studio_provider_states.py"
+   ],
+   "passed": 34,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-studio_openrouter",
+   "label": "Studio: провайдер OpenRouter (изображения и видео)",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/studio/providers/openrouter.py"
+   ],
+   "tests": [
+    "command-center/tests/test_bossfield_seedance25.py",
+    "command-center/tests/test_studio_cloud.py",
+    "command-center/tests/test_studio_paid_dispatch_audit.py",
+    "command-center/tests/test_studio_video_contract_audit.py"
+   ],
+   "passed": 41,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-studio_governance",
+   "label": "Studio: бюджетные резервы по функциям",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/studio/governance.py"
+   ],
+   "tests": [
+    "command-center/tests/test_studio_cloud.py",
+    "command-center/tests/test_studio_paid_dispatch_audit.py",
+    "command-center/tests/test_studio_video_contract_audit.py",
+    "command-center/tests/test_studio_zero_price_is_not_free.py"
+   ],
+   "passed": 47,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-studio_review",
+   "label": "Studio: локальный просмотр сгенерированных видео",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/studio/review.py"
+   ],
+   "tests": [
+    "command-center/tests/test_studio_vision_review.py"
+   ],
+   "passed": 28,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-oss_comfyui",
+   "label": "ComfyUI: ограниченный локальный адаптер",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/oss/comfyui.py"
+   ],
+   "tests": [
+    "command-center/tests/test_oss_comfyui.py",
+    "command-center/tests/test_studio_provider_states.py"
+   ],
+   "passed": 68,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-web_designer_gen",
+   "label": "Web Designer: генерация сайтов",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/web_designer_gen.py"
+   ],
+   "tests": [
+    "command-center/tests/test_web_designer.py"
+   ],
+   "passed": 42,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-web_designer_visual",
+   "label": "Web Designer: визуальный редактор (версии)",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/web_designer_visual.py"
+   ],
+   "tests": [
+    "command-center/tests/test_web_designer_grapesjs_ui.py",
+    "command-center/tests/test_web_designer_visual.py"
+   ],
+   "passed": 17,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-web_designer_ai_build",
+   "label": "Web Designer: сборка с помощью ИИ",
+   "zone": "media",
+   "sources": [
+    "command-center/bcc/web_designer_ai_build.py"
+   ],
+   "tests": [],
+   "passed": 0,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "none",
+   "verdict": "untested",
+   "note": "no test file imports this module"
+  },
+  {
+   "id": "reg-ai3d_pipeline",
+   "label": "3D Maker: пайплайн от запроса до печатаемого артефакта",
+   "zone": "media",
+   "sources": [
+    "apps/ai-3d-maker/src/ai_3d_maker/pipeline.py"
+   ],
+   "tests": [
+    "command-center/tests/telegram_calls/test_j2_call_perimeter.py"
+   ],
+   "passed": 6,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-ai3d_gcode",
+   "label": "3D Maker: сканер безопасности G-code",
+   "zone": "media",
+   "sources": [
+    "apps/ai-3d-maker/src/ai_3d_maker/gcode.py"
+   ],
+   "tests": [],
+   "passed": 0,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "none",
+   "verdict": "untested",
+   "note": "no test file imports this module"
+  },
+  {
+   "id": "reg-social_farm_media",
+   "label": "Social Farm: преобразование медиа без изменения исходника",
+   "zone": "media",
+   "sources": [
+    "apps/social-farm/src/social_farm/media/transform.py"
+   ],
+   "tests": [],
+   "passed": 0,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "none",
+   "verdict": "untested",
+   "note": "no test file imports this module"
+  },
+  {
+   "id": "reg-motion_make_video",
+   "label": "Motion Studio: сцена в видео (озвучка, музыка)",
+   "zone": "media",
+   "sources": [
+    "tools/motion_studio/make_video.py"
+   ],
+   "tests": [
+    "command-center/tests/test_motion_studio_ui.py"
+   ],
+   "passed": 10,
+   "failed": 0,
+   "skipped": 1,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-motion_epic",
+   "label": "Motion Studio: оффлайн-трейлер на Pillow",
+   "zone": "media",
+   "sources": [
+    "tools/motion_studio/epic.py"
+   ],
+   "tests": [],
+   "passed": 0,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "none",
+   "verdict": "untested",
+   "note": "no test file imports this module"
+  },
+  {
+   "id": "reg-genjutsu_tool",
+   "label": "Genjutsu: локальная замена персонажа и перенос движения",
+   "zone": "media",
+   "sources": [
+    "tools/genjutsu/genjutsu.py"
+   ],
+   "tests": [],
+   "passed": 0,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "none",
+   "verdict": "untested",
+   "note": "no test file imports this module"
+  },
+  {
+   "id": "reg-promo_video",
+   "label": "Промо-видео: рендер с саундтреком",
+   "zone": "media",
+   "sources": [
+    "tools/promo_video/render.py"
+   ],
+   "tests": [
+    "command-center/tests/test_video_studio_container_choice.py"
+   ],
+   "passed": 9,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-oss_piper",
+   "label": "Piper: локальный русский TTS",
+   "zone": "jeff",
+   "sources": [
+    "command-center/bcc/oss/piper.py"
+   ],
+   "tests": [
+    "command-center/tests/test_jeff_1_8_voice.py",
+    "command-center/tests/test_local_russian_voice.py",
+    "command-center/tests/test_local_voice_clone.py"
+   ],
+   "passed": 30,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-oss_chatterbox",
+   "label": "Chatterbox: офлайн-клон голоса (отдельный воркер)",
+   "zone": "jeff",
+   "sources": [
+    "command-center/bcc/oss/chatterbox_clone.py"
+   ],
+   "tests": [
+    "command-center/tests/test_local_voice_clone.py"
+   ],
+   "passed": 3,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-oss_whisper",
+   "label": "Whisper: офлайн-распознавание речи",
+   "zone": "jeff",
+   "sources": [
+    "command-center/bcc/oss/whisper.py"
+   ],
+   "tests": [
+    "command-center/tests/telegram_calls/test_doctor_row.py",
+    "command-center/tests/telegram_calls/test_manager.py",
+    "command-center/tests/telegram_calls/test_stt_real_path.py",
+    "command-center/tests/test_oss_integrations.py",
+    "command-center/tests/test_oss_whisper.py"
+   ],
+   "passed": 83,
+   "failed": 0,
+   "skipped": 1,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-voice_capability",
+   "label": "Возможности голосовых провайдеров",
+   "zone": "jeff",
+   "sources": [
+    "bossman-core/bossman/voice_capability.py"
+   ],
+   "tests": [
+    "bossman-core/tests/test_v26_voice_capability.py"
+   ],
+   "passed": 7,
    "failed": 0,
    "skipped": 0,
    "basis": "import-or-path",

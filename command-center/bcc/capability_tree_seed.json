@@ -13209,6 +13209,539 @@
       "reference_paths": [
         "docs/ux/UX2_FINAL_REPORT.md"
       ]
+    },
+    {
+      "id": "reg-video_studio_render",
+      "label": "Video Studio: компилятор filtergraph (preview и export)",
+      "parent": "media",
+      "status": "code",
+      "detail": "One deterministic filtergraph compiler for preview and export. Project ticks are converted only at the FFmpeg boundary. All filter expressions come from bounded numeric data; user text lives in generated subtitle files. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/video_studio/render.py",
+          "sha": "6aece3f2ee050a8ed02638244ae7b9e3f21a9d32"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/video_studio/render.py",
+        "command-center/tests/test_video_studio_render.py"
+      ]
+    },
+    {
+      "id": "reg-video_studio_service",
+      "label": "Video Studio: интеграция с хостом (БД, задачи, команды)",
+      "parent": "media",
+      "status": "code",
+      "detail": "Video Studio host integration: canonical DB, tasks, commands and bounded uploads. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/video_studio/service.py",
+          "sha": "3fae41108e5379e0852355fcdb2c977e4195fce6"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/video_studio/service.py",
+        "command-center/tests/test_video_studio_domain.py"
+      ]
+    },
+    {
+      "id": "reg-video_studio_storyboard",
+      "label": "Video Studio: раскадровка и рецепты кадров",
+      "parent": "media",
+      "status": "code",
+      "detail": "Раздел 10: раскадровка и рецепты кадров для Video Studio. Откуда это взялось и чего здесь НЕТ ----------------------------------- `video-shotcraft` разобран в `docs/hybrid/THIRD_PARTY_DECISIONS.md` и принят как REFERENCE_ONLY: исполняемая его часть — это второ Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/video_studio/storyboard.py",
+          "sha": "95bf4ffdcddb1c49a9e37da1890fc35cab77d8fd"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/video_studio/storyboard.py",
+        "command-center/tests/test_video_storyboard.py"
+      ]
+    },
+    {
+      "id": "reg-video_studio_trained",
+      "label": "Video Studio: черновик команд от модели + валидация",
+      "parent": "media",
+      "status": "code",
+      "detail": "Existing BCC provider transport -> untrusted model draft -> pure host validation. This module never applies a command or repairs predicted object identities. The HTTP service supplies owner authorization, revision checks and admission. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/video_studio/trained.py",
+          "sha": "364248a2c32fbee2ce7c4e9879b2412341695e3c"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/video_studio/trained.py",
+        "command-center/tests/test_video_studio_trained.py"
+      ]
+    },
+    {
+      "id": "reg-video_studio_shotcut",
+      "label": "Video Studio: обмен проектами Shotcut/MLT",
+      "parent": "media",
+      "status": "code",
+      "detail": "Local editable Shotcut/MLT exchange with an explicit, checked subset. MLT XML can itself invoke plugins and open resources. We only *write* a fixed allowlist graph from an already validated Bossman project; arbitrary MLT is never executed by this adapter. Effe Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/video_studio/shotcut.py",
+          "sha": "364248a2c32fbee2ce7c4e9879b2412341695e3c"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/video_studio/shotcut.py",
+        "command-center/tests/test_video_studio_shotcut.py"
+      ]
+    },
+    {
+      "id": "reg-video_studio_interchange",
+      "label": "Video Studio: обмен OpenTimelineIO",
+      "parent": "media",
+      "status": "code",
+      "detail": "OpenTimelineIO interchange, with explicit preservation/loss boundaries. OTIO is an interchange library, not a renderer. Foreign external references are never opened automatically; all media still needs host import/relink validation. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/video_studio/interchange.py",
+          "sha": "6add2797b93b4feed93037df748048f22e0658dc"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/video_studio/interchange.py",
+        "command-center/tests/test_video_studio_interchange.py"
+      ]
+    },
+    {
+      "id": "reg-video_studio_analysis",
+      "label": "Video Studio: диагностика, тайминг субтитров, ASR",
+      "parent": "media",
+      "status": "code",
+      "detail": "Local deterministic diagnostics, timed captions, and optional real local ASR. Diagnostics are observations, never unconditional quality failures: deliberate black scenes and intentional silence are valid editorial choices. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/video_studio/analysis.py",
+          "sha": "364248a2c32fbee2ce7c4e9879b2412341695e3c"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/video_studio/analysis.py"
+      ]
+    },
+    {
+      "id": "reg-video_studio_retrieval",
+      "label": "Video Studio: поиск B-roll и дубликатов",
+      "parent": "media",
+      "status": "code",
+      "detail": "Evidence-linked local retrieval, B-roll candidates and measured duplicates. BM25 searches caption text and owner-provided media metadata. It is not visual scene understanding. Near-duplicate measurements use sampled decoded pixels and are review candidates, no Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/video_studio/retrieval.py",
+          "sha": "364248a2c32fbee2ce7c4e9879b2412341695e3c"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/video_studio/retrieval.py"
+      ]
+    },
+    {
+      "id": "reg-video_adapter_train",
+      "label": "Video Studio: обучение LoRA-адаптера команд",
+      "parent": "media",
+      "status": "code",
+      "detail": "Train a separate LoRA command specialist and compare a fixed held-out suite. Uses synthetic, domain-validated editing examples; no private media is uploaded. Base weights stay immutable. An adapter is never automatically promoted by loss. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/video_studio/train_adapter.py",
+          "sha": "364248a2c32fbee2ce7c4e9879b2412341695e3c"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/video_studio/train_adapter.py",
+        "command-center/tests/test_video_studio_trained.py"
+      ]
+    },
+    {
+      "id": "reg-studio_provider",
+      "label": "Studio: жизненный цикл провайдеров",
+      "parent": "media",
+      "status": "code",
+      "detail": "Generation observations, never task-completion evidence. No network on import. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/studio/provider.py",
+          "sha": "d05354112b314582fdeda1c4fff7621463b0946e"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/studio/provider.py",
+        "command-center/tests/test_studio_provider_states.py"
+      ]
+    },
+    {
+      "id": "reg-studio_sdcpp",
+      "label": "Studio: локальная генерация stable-diffusion.cpp",
+      "parent": "media",
+      "status": "code",
+      "detail": "Local AI generation through stable-diffusion.cpp (Vulkan) — Studio provider. Why this engine: on the owner's Radeon 8060S the LLM stack already runs on Vulkan (llama.cpp). The Wan 2.2 14B ComfyUI/ROCm path takes ~27 min for 81 frames at 42 GB peak (AMD ROCm bl Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/studio/providers/sdcpp.py",
+          "sha": "47c4a1a8e75aad35eb1f7a8964c8df8a0af4a247"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/studio/providers/sdcpp.py",
+        "command-center/tests/test_studio_sdcpp_hostile.py"
+      ]
+    },
+    {
+      "id": "reg-studio_comfyui",
+      "label": "Studio: провайдер ComfyUI",
+      "parent": "media",
+      "status": "code",
+      "detail": "Local Studio wrapper over the existing native ComfyUI implementation. No worker/poller is started here. Cancellation abandons this wrapper's job; ComfyUI has no per-prompt interruption in the existing client, so it may still compute remotely. Never issue a glo Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/studio/providers/comfyui.py",
+          "sha": "d05354112b314582fdeda1c4fff7621463b0946e"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/studio/providers/comfyui.py"
+      ]
+    },
+    {
+      "id": "reg-studio_openrouter",
+      "label": "Studio: провайдер OpenRouter (изображения и видео)",
+      "parent": "media",
+      "status": "code",
+      "detail": "OpenRouter image/video shapes already used by repository scripts. HTTP is bounded; no implicit retry, no token on CDN, no guessed audio API. An injectable transport exists for contract tests only, never owner evidence. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/studio/providers/openrouter.py",
+          "sha": "99970958c6f1b880c28e8595b452b92974a52b93"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/studio/providers/openrouter.py",
+        "command-center/tests/test_studio_paid_dispatch_audit.py"
+      ]
+    },
+    {
+      "id": "reg-studio_governance",
+      "label": "Studio: бюджетные резервы по функциям",
+      "parent": "media",
+      "status": "code",
+      "detail": "Persistent per-feature reservations under the existing Governor/egress gate. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/studio/governance.py",
+          "sha": "f219b35eadc3f1878980748b44a447c7f6df4b6a"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/studio/governance.py",
+        "command-center/tests/test_studio_paid_dispatch_audit.py"
+      ]
+    },
+    {
+      "id": "reg-studio_review",
+      "label": "Studio: локальный просмотр сгенерированных видео",
+      "parent": "media",
+      "status": "code",
+      "detail": "Bossman Vision: a local look at every generated Studio video, taught by the owner. After a video run is persisted, frames are sampled with the bundled FFmpeg and shown to a local vision model (llama.cpp with --mmproj, or a vision model in Bossman's Ollama). Th Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/studio/review.py",
+          "sha": "f7ff326a7291c0eb65de0bf6f57c7360124d3a5e"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/studio/review.py",
+        "command-center/tests/test_studio_vision_review.py"
+      ]
+    },
+    {
+      "id": "reg-oss_comfyui",
+      "label": "ComfyUI: ограниченный локальный адаптер",
+      "parent": "media",
+      "status": "code",
+      "detail": "Bounded local ComfyUI adapter using upstream /prompt, /history and /view APIs. No runtime/model download, custom nodes, cloud credentials or global interrupts. A prompt receipt is never treated as evidence that an image exists. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/oss/comfyui.py",
+          "sha": "16020d0b5297ef4542147d9960e08c4b89e07c41"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/oss/comfyui.py",
+        "command-center/tests/test_oss_comfyui.py"
+      ]
+    },
+    {
+      "id": "reg-web_designer_gen",
+      "label": "Web Designer: генерация сайтов",
+      "parent": "media",
+      "status": "code",
+      "detail": "Генератор сайтов визуального веб-дизайнера: шаблоны, палитры, пошаговая сборка. Принцип честности: генерация детерминирована. Один и тот же запрос даёт один и тот же сайт — тест может это проверить, а владелец получает предсказуемый результат без лотереи. «Жив Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/web_designer_gen.py",
+          "sha": "160edb8cc37c38affb8fcc3cb326609c649f7189"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/web_designer_gen.py",
+        "command-center/tests/test_web_designer.py"
+      ]
+    },
+    {
+      "id": "reg-web_designer_visual",
+      "label": "Web Designer: визуальный редактор (версии)",
+      "parent": "media",
+      "status": "code",
+      "detail": "GrapesJS edits the body; Bossman retains the document, versions and CAS. Do not send executable/unsupported markup through a lossy component importer. The existing source editor remains available for those documents. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/web_designer_visual.py",
+          "sha": "16020d0b5297ef4542147d9960e08c4b89e07c41"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/web_designer_visual.py",
+        "command-center/tests/test_web_designer_visual.py"
+      ]
+    },
+    {
+      "id": "reg-web_designer_ai_build",
+      "label": "Web Designer: сборка с помощью ИИ",
+      "parent": "media",
+      "status": "code",
+      "detail": "Local AI website creation through the canonical registry and creative brief. The existing Web Designer storage/preview/rollback remain the only editor. No cloud escalation and no claim that a model critique is browser evidence. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/web_designer_ai_build.py",
+          "sha": "a5d0bf9eecd55f6ad9d62673d14e737b9a3b46e8"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/web_designer_ai_build.py"
+      ]
+    },
+    {
+      "id": "reg-ai3d_pipeline",
+      "label": "3D Maker: пайплайн от запроса до печатаемого артефакта",
+      "parent": "media",
+      "status": "code",
+      "detail": "The job pipeline: explicit stages from request to a printable artifact. intake -> generate/import -> inspect -> repair -> re-inspect -> units/scale/orient/place -> printability verdict -> deterministic export -> [optional slice] -> [G-code safety scan] -> prin Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "apps/ai-3d-maker/src/ai_3d_maker/pipeline.py",
+          "sha": "27464807e45b7e91506276bd57bca781e1229ce3"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "apps/ai-3d-maker/src/ai_3d_maker/pipeline.py",
+        "apps/ai-3d-maker/tests/test_pipeline.py"
+      ]
+    },
+    {
+      "id": "reg-ai3d_gcode",
+      "label": "3D Maker: сканер безопасности G-code",
+      "parent": "media",
+      "status": "code",
+      "detail": "G-code safety scanner. Generated G-code is executable machine control, not a document. This scanner is the last digital gate before anything is handed to a physical machine. It is not a firmware emulator and does not claim to be. It models absolute / relative  Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "apps/ai-3d-maker/src/ai_3d_maker/gcode.py",
+          "sha": "28abf1497ab319a5d71ff8d826c7e1121cd58539"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "apps/ai-3d-maker/src/ai_3d_maker/gcode.py",
+        "apps/ai-3d-maker/tests/test_gcode.py"
+      ]
+    },
+    {
+      "id": "reg-social_farm_media",
+      "label": "Social Farm: преобразование медиа без изменения исходника",
+      "parent": "media",
+      "status": "code",
+      "detail": "Преобразование медиа через ffmpeg. Исходник не трогается никогда. Этапы из `14_MEDIA_TRANSFORM_PIPELINE`: проба → целостность → профиль рендера → масштаб/поля → перекодирование → повторная проба → контрольная сумма. Две вещи в этом списке важнее остальных. **« Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "apps/social-farm/src/social_farm/media/transform.py",
+          "sha": "2be2f947d8107815dc1f15e4fd3c7eccfa44362f"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "apps/social-farm/src/social_farm/media/transform.py",
+        "apps/social-farm/tests/unit/test_media_transform.py"
+      ]
+    },
+    {
+      "id": "reg-motion_make_video",
+      "label": "Motion Studio: сцена в видео (озвучка, музыка)",
+      "parent": "media",
+      "status": "code",
+      "detail": "Scene spec -> finished video: voice-over, original score, deterministic frames, MP4. python tools/motion_studio/make_video.py SPEC.json --work DIR [--tts-models DIR_WITH_KOKORO] [--chromium PATH] [--preview 3.0 13.2 ...] [--no-voice] Steps (each one checkable  Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/motion_studio/make_video.py",
+          "sha": "6ed6da8493cff0b65a3ebd8c58c9fe297572fc21"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/motion_studio/make_video.py",
+        "tests/test_motion_studio.py"
+      ]
+    },
+    {
+      "id": "reg-motion_epic",
+      "label": "Motion Studio: оффлайн-трейлер на Pillow",
+      "parent": "media",
+      "status": "code",
+      "detail": "Offline neon trailer renderer for validated Motion Studio specs (Pillow). Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/motion_studio/epic.py",
+          "sha": "dfaaaa3ffeb93ddd9c01704d1686ce91ef9e02d0"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/motion_studio/epic.py",
+        "tests/test_motion_epic.py"
+      ]
+    },
+    {
+      "id": "reg-genjutsu_tool",
+      "label": "Genjutsu: локальная замена персонажа и перенос движения",
+      "parent": "media",
+      "status": "code",
+      "detail": "Local Genjutsu test stack: character swap (Object Swap) and Motion Transfer on the owner's PC. Design and limits: bugtest-20261001/genjutsu/GENJUTSU_LOCAL_RU.md (sections 3.2-3.5). Engine: the already-allowed stable-diffusion.cpp Vulkan `sd-cli.exe` with Wan2. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/genjutsu/genjutsu.py",
+          "sha": "517c08d664bdd1f0740253022f0aff5e9846543b"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/genjutsu/genjutsu.py"
+      ]
+    },
+    {
+      "id": "reg-promo_video",
+      "label": "Промо-видео: рендер с саундтреком",
+      "parent": "media",
+      "status": "code",
+      "detail": "Render the Bossman \"32 days\" promo (tools/promo_video/promo.html) and mux it with the soundtrack. Pipeline: voice.py (Kokoro TTS lines) -> music.py (synthesized score + VO mix -> soundtrack.wav) -> render.py (deterministic canvas frames, sub-frame motion blur, Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/promo_video/render.py",
+          "sha": "b746db0fa59a0b926a7f5f4fc0cacc5765f10c33"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/promo_video/render.py"
+      ]
+    },
+    {
+      "id": "reg-oss_piper",
+      "label": "Piper: локальный русский TTS",
+      "parent": "jeff",
+      "status": "code",
+      "detail": "Bounded, local Russian speech synthesis for existing Bossman surfaces. Piper and a voice model are optional host assets. No model is downloaded or started until a caller explicitly requests synthesis. No shell is involved. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/oss/piper.py",
+          "sha": "62c0edcb059d9a6dc296f8221ddb856be4c6511b"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/oss/piper.py",
+        "command-center/tests/test_local_russian_voice.py"
+      ]
+    },
+    {
+      "id": "reg-oss_chatterbox",
+      "label": "Chatterbox: офлайн-клон голоса (отдельный воркер)",
+      "parent": "jeff",
+      "status": "code",
+      "detail": "Optional offline Russian voice clone using a separate, bounded local worker. The reference, model weights and Python environment are host assets, never packaged with Bossman. Callers must guard outgoing text before synthesis. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/oss/chatterbox_clone.py",
+          "sha": "31398e4fe96c6846ab3b77b78a5be4af3a4cde76"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/oss/chatterbox_clone.py",
+        "command-center/tests/test_local_voice_clone.py"
+      ]
+    },
+    {
+      "id": "reg-oss_whisper",
+      "label": "Whisper: офлайн-распознавание речи",
+      "parent": "jeff",
+      "status": "code",
+      "detail": "Offline speech recognition using the optional upstream faster-whisper engine. Only a host-configured, already installed CTranslate2 model is accepted. The caller supplies WAV bytes, never a server filesystem path or a remote URL. The synchronous entry point be Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/oss/whisper.py",
+          "sha": "bfd9faa5e8a35b23d89cdd989bb9418a46ff080c"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/oss/whisper.py"
+      ]
+    },
+    {
+      "id": "reg-voice_capability",
+      "label": "Возможности голосовых провайдеров",
+      "parent": "jeff",
+      "status": "code",
+      "detail": "Voice (V2.6, раздел 20) — слой provider-capability, и только он. Честный probe доступности голосовых провайдеров по tools/registry.yaml: STT — записи с can: transcribe/subtitles (whisper_local), TTS — с can: tts/voiceover (piper_local). «Доступен» значит прове Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "bossman-core/bossman/voice_capability.py",
+          "sha": "96939f2299b1b2f051043d27503b429f6bda5464"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "bossman-core/bossman/voice_capability.py",
+        "bossman-core/tests/test_v26_voice_capability.py"
+      ]
     }
   ],
   "memory_protocol": {
