@@ -62,19 +62,25 @@ def test_window_does_not_open_after_leaving_during_its_own_models_fetch(live):  
             page = browser.new_page(viewport={"width": 1440, "height": 900})
             _login(page, live)
             calls = {"n": 0}
+            held = []
 
             def models(route):
                 calls["n"] += 1
                 if calls["n"] == 1:   # the page render: empty list, fast
                     route.fulfill(status=200, content_type="application/json", body='{"models": []}')
-                else:                 # the window's own re-fetch: slow, the owner leaves meanwhile
-                    time.sleep(1.5)
-                    route.continue_()
+                else:                 # the window's own re-fetch: held until the owner has left
+                    held.append(route)
             page.route("**/api/models*", models)
             page.goto(f"{live.url}/#/agents?new=1", wait_until="domcontentloaded")
-            page.wait_for_function("() => document.querySelector('#view .bx-page')", timeout=20000)
+            for _ in range(200):      # wait for the re-fetch to be in flight (processes route events)
+                if held:
+                    break
+                page.wait_for_timeout(100)
             page.evaluate("() => { location.hash = '#/chat'; }")
-            page.wait_for_timeout(3000)
+            page.wait_for_timeout(300)
+            for route in held:
+                route.continue_()
+            page.wait_for_timeout(1500)
             page.unroute("**/api/models*")
             assert calls["n"] >= 2, "the race window was not exercised"
             assert page.evaluate("() => document.querySelectorAll('#modal-root .modal').length") == 0
