@@ -34,3 +34,14 @@ def test_free_worker_ids_exist_in_the_coding_allowlist_and_the_node_is_the_disco
     seed = json.loads((ROOT / "command-center" / "bcc" / "capability_tree_seed.json").read_text(encoding="utf-8"))
     node = next(n for n in seed["nodes"] if n["id"] == tsi.NODE_ID)
     assert any(s.get("path") == "command-center/bcc/pit/discovery.py" for s in node.get("sources") or [])
+
+
+def test_the_wish_pins_the_scope_to_one_source_file_and_one_existing_test_file():
+    """Owner-PC run 06.10: the free worker changed discovery.py but also created 4 extra test files and touched unrelated
+    tests, so the independent check failed. The wish must now name the only two files and forbid new ones."""
+    wish = tsi.WISH
+    assert "command-center/bcc/pit/discovery.py" in wish and "command-center/tests/test_pit_foundation.py" in wish
+    assert "новых файлов не создавай" in wish
+    for rel in ("command-center/bcc/pit/discovery.py", "command-center/tests/test_pit_foundation.py"):
+        assert (ROOT / rel).is_file(), rel                 # a wish naming a missing file would send the worker astray
+    assert "choose_discovery_question" in (ROOT / "command-center/tests/test_pit_foundation.py").read_text(encoding="utf-8")

@@ -23,7 +23,10 @@ FREE_WORKERS = ("local", "nemotron-ultra-free", "openrouter-free", "openrouter-c
 WISH = ("В bcc/pit/discovery.py функция choose_discovery_question выбирает кандидата через max(candidates, key=score). Если у "
         "кандидата поле NaN (например relevance=float('nan')), его score — NaN; когда он стоит ПЕРВЫМ в списке, max() его не "
         "вытесняет и функция возвращает None, хотя в списке есть хороший вопрос. Нужно: NaN-оценка считается неприемлемой "
-        "(как -inf), порядок кандидатов не влияет на результат. Сначала напиши тест, который падает на старом коде.")
+        "(как -inf), порядок кандидатов не влияет на результат. Сначала напиши тест, который падает на старом коде. "
+        "ОБЪЁМ (жёстко): меняй ТОЛЬКО command-center/bcc/pit/discovery.py и добавь ОДНУ тест-функцию в уже существующий "
+        "command-center/tests/test_pit_foundation.py рядом с тестами choose_discovery_question; новых файлов не создавай, "
+        "остальные файлы и тесты не трогай.")
 
 
 def verdict(job: dict[str, Any]) -> tuple[str, str]:
