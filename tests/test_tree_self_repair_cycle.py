@@ -90,3 +90,11 @@ def test_holdouts_run_and_keep_valid_behaviour_on_this_checkout():
     assert disc["total"] >= 60 and goal["total"] >= 9
     assert all(c["ok"] for c in disc["cases"] if c["case"].startswith("valid/"))
     assert all(c["ok"] for c in goal["cases"] if c["case"].startswith("valid:"))
+
+
+def test_paid_worker_needs_the_explicit_owner_flag(monkeypatch, capsys):
+    # without the flag glm-flash is refused (the $0 rule); the flag lifts it for that exact worker only
+    assert cyc.main(["--worker", "glm-flash", "--evidence", "x"]) == 2
+    assert "SELF_REPAIR=REFUSED" in capsys.readouterr().out
+    assert cyc.main(["--worker", "nvidia-nim", "--allow-paid-worker", "glm-flash", "--evidence", "x"]) == 2
+    assert cyc.OWNER_APPROVED_PAID == {"glm-flash": "z-ai/glm-5.3-flash"}

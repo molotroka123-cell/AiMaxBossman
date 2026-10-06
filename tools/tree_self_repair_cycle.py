@@ -31,6 +31,9 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from tree_self_improve import NODE_ID, refuse_worker  # noqa: E402
 
+# Owner 06.10: GLM 5.3 Flash via OpenRouter is approved (z-ai/glm-5.3-flash, $0.15/$0.50 per 1M tokens, verified on
+# openrouter.ai/api/v1/models 06.10). Only an explicit --allow-paid-worker naming it lifts the $0 rule, for that worker.
+OWNER_APPROVED_PAID = {"glm-flash": "z-ai/glm-5.3-flash"}
 PROJECT = "capability-tree"            # the project id tree zone tasks run under; recipes are recalled per project
 CASES: dict[str, dict[str, Any]] = {
     "discovery": {
@@ -174,6 +177,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--case", choices=sorted(CASES), default="discovery")
     ap.add_argument("--worker", default="openrouter-free")
+    ap.add_argument("--allow-paid-worker", choices=sorted(OWNER_APPROVED_PAID), default=None,
+                    help="owner-approved paid worker (exact one); the $0 rule stays for every other worker")
     ap.add_argument("--source-repo", help="checkout the tree works on (default: the backend's own choice)")
     ap.add_argument("--task", help="score an already finished coding task instead of starting a new one")
     ap.add_argument("--transfer", action="store_true", help="also require a recalled recipe (TRANSFER_PASS)")
@@ -184,7 +189,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--url")
     ap.add_argument("--data-dir")
     args = ap.parse_args(argv)
-    refusal = refuse_worker(args.worker)
+    refusal = None if args.allow_paid_worker and args.worker == args.allow_paid_worker else refuse_worker(args.worker)
     if refusal:
         print("SELF_REPAIR=REFUSED\n" + refusal)
         return 2
