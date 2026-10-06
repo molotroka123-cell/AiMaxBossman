@@ -76,3 +76,6 @@ class TableAdapter(ABC):
 
     def profile_id(self) -> str:
         return f"{self.id}@uncalibrated"
+
+    def reset(self) -> None:
+        """Forget per-session memory (e.g. confirmed scale). Called at every new session/source."""

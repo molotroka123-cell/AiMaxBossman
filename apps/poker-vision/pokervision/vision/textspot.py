@@ -22,7 +22,7 @@ def _projection_split(g: Glyph, med_w: float) -> list[Glyph] | None:
         if hi <= lo:
             return None
         j = lo + int(np.argmin(col[lo:hi]))
-        if col[j] > 0.7 * col.max():
+        if col[j] > 0.85 * col.max():
             return None                       # no real valley there: refuse to cut
         cuts.append(j)
     edges = [0] + cuts + [g.w]
@@ -30,7 +30,7 @@ def _projection_split(g: Glyph, med_w: float) -> list[Glyph] | None:
     for a, b in zip(edges, edges[1:]):
         m = g.mask[:, a:b]
         ys, xs = np.where(m)
-        if len(ys) < 4 or not (0.5 * med_w <= (xs.max() - xs.min() + 1) <= 1.5 * med_w):
+        if len(ys) < 4 or not (0.3 * med_w <= (xs.max() - xs.min() + 1) <= 1.5 * med_w):
             return None
         parts.append(Glyph(g.x0 + a + xs.min(), g.x0 + a + xs.max() + 1, g.y0 + ys.min(), g.y0 + ys.max() + 1,
                            m[ys.min():ys.max() + 1, xs.min():xs.max() + 1]))
@@ -54,7 +54,7 @@ def split_merged(gl: list[Glyph], gray: np.ndarray, v_min: int) -> list[Glyph]:
             thr, _ = cv2.threshold(patch, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             parts = segment((patch > max(thr, v_min)) & g.mask)
             parts = [p for p in parts if p.h >= 0.6 * g.h]
-            if len(parts) >= 2 and all(0.6 * med_w <= p.w <= 1.4 * med_w for p in parts):
+            if len(parts) >= 2 and all(0.35 * med_w <= p.w <= 1.5 * med_w for p in parts):
                 for p in parts:
                     out.append(Glyph(g.x0 + p.x0, g.x0 + p.x1, g.y0 + p.y0, g.y0 + p.y1, p.mask))
                 continue
@@ -89,10 +89,11 @@ def text_mask(bgr: np.ndarray, v_min: int = 140, otsu: bool = False, block: int 
     if otsu and mx.size:
         blk = max(int(block) | 1, 7)
         mx8 = np.ascontiguousarray(mx.astype(np.uint8))
-        white = bgr.min(2) >= 200                                  # white text: every channel high (a red/blue face has a low one)
+        white = bgr.min(2) >= 150                                  # white text: every channel high (a red/blue face has a low one)
         mean = cv2.blur(mx8, (blk, blk))
         dark_face = (mx8.astype(np.int16) - mean.astype(np.int16) > 40) & (mean < 120)   # coloured text on a dark face
-        return white | dark_face
+        dark_text = (mean.astype(np.int16) - mx8.astype(np.int16) > 70) & (mean > 150)           # dark text on a bright face (CONFIRM)
+        return white | dark_face | dark_text
     return mx >= v_min
 
 

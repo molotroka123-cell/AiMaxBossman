@@ -62,7 +62,8 @@ def _same(a, b) -> bool:
 
 
 class _Vote:
-    """Last-N readings of one scalar; commits on min_votes agreement; tracks competing candidate."""
+    """Commit rule (recency, not majority, so a real change is adopted quickly): the last ``min_votes`` usable readings
+    must agree. If the newest usable readings disagree with each other, the committed value is kept and flagged pending."""
     def __init__(self, cfg: Config):
         self.cfg = cfg
         self.buf: deque = deque(maxlen=cfg.window)
@@ -70,33 +71,23 @@ class _Vote:
         self.pending = False
 
     def push(self, f: Field | None) -> None:
-        if f is not None and f.known and f.confidence >= self.cfg.min_conf:
-            self.buf.append(f.value)
-        elif f is not None:
-            self.buf.append(None)          # unknown reading: counts as a frame, votes for nothing
-        if not self.buf:
+        if f is None:
             return
-        cands: list[list] = []
-        for v in self.buf:
-            if v is None:
-                continue
-            for c in cands:
-                if _same(c[0], v):
-                    c.append(v); break
-            else:
-                cands.append([v])
-        cands.sort(key=lambda c: -len(c))
-        if not cands:
+        if f.known and f.confidence >= self.cfg.min_conf:
+            self.buf.append(f.value)
+        else:
+            self.buf.append(None)          # unknown reading: a frame that votes for nothing
+        usable = [v for v in self.buf if v is not None]
+        k = self.cfg.min_votes
+        if len(usable) < k:
             self.pending = False
             return
-        top = cands[0]
-        newest = next((v for v in reversed(self.buf) if v is not None), None)
-        if len(top) >= self.cfg.min_votes and (len(cands) == 1 or len(top) > len(cands[1])):
-            # prefer the newest agreeing group if it is as strong (a real change), else the majority
-            self.value = top[-1]
+        tail = usable[-k:]
+        if all(_same(tail[0], v) for v in tail[1:]):
+            self.value = tail[-1]
             self.pending = False
         else:
-            self.pending = newest is not None and self.value is not None and not _same(newest, self.value)
+            self.pending = self.value is not None
 
     def reset(self) -> None:
         self.buf.clear(); self.value = None; self.pending = False
@@ -115,6 +106,8 @@ class Reconciler:
         self.frozen_since: int | None = None
         self.last_hash: str | None = None
         self.hands: list[dict] = []
+        self.frame_hand: dict[str, int | None] = {}      # frame_id -> hand id; None = ambiguous (never guessed)
+        self._cur_frames: list[tuple[str, tuple | None]] = []   # (frame_id, hero cards read on that frame)
         self.cur = self._fresh_hand(None)
         self.committed = Committed()
 
@@ -151,14 +144,13 @@ class Reconciler:
         return None
 
     def _peek_known(self, vote: _Vote, f: Field | None):
-        """Value this slot would commit if f were pushed now (without mutating)."""
+        """Value this slot would commit if f were pushed now (same recency rule as _Vote, without mutating)."""
         vals = [v for v in vote.buf if v is not None]
         if f is not None and f.known and f.confidence >= self.cfg.min_conf:
             vals = vals + [f.value]
-        if len(vals) >= self.cfg.min_votes:
-            from collections import Counter
-            v, c = Counter(vals).most_common(1)[0]
-            return v if c >= self.cfg.min_votes else None
+        k = self.cfg.min_votes
+        if len(vals) >= k and all(_same(vals[-k], v) for v in vals[-k:]):
+            return vals[-1]
         return None
 
     def _board_shrink_votes(self, n) -> int:
@@ -191,13 +183,29 @@ class Reconciler:
         validate_state(st)
         # --- vote counters for boundary evidence
         self._update_boundary_counters(st)
+        hero_read = tuple(f.value for f in st.hero_cards) if len(st.hero_cards) == 2 and all(f.known and f.confidence >= cfg.min_conf for f in st.hero_cards) else None
         b = self._boundary(st) if self.cur["frames"] > 0 else None
         if b is not None:
+            old_hero = tuple(self.committed.hero_cards) if all(self.committed.hero_cards) else None
+            new_hero = hero_read if hero_read and hero_read != old_hero else None
             self._close_hand(*b, t)
+            # frames after the last frame that still showed the old hero cards and before the first frame that shows the new
+            # ones cannot be assigned to either hand: they stay ambiguous (None) instead of being guessed
+            idx_old = max((k for k, (_, h) in enumerate(self._cur_frames) if old_hero and h == old_hero), default=-1)
+            moved = self._cur_frames[idx_old + 1:]
+            first_new = next((k for k, (_, h) in enumerate(moved) if new_hero and h == new_hero), None)
             self._new_hand_votes(); self.committed = Committed(); self.prev_state = None
             self.cur = self._fresh_hand(t)
+            self._cur_frames = []
+            for k, (fid, h) in enumerate(moved):
+                if first_new is not None and k >= first_new:
+                    self.frame_hand[fid] = self.cur["id"]; self._cur_frames.append((fid, h))
+                else:
+                    self.frame_hand[fid] = None
             if b[0] == "weak":
                 self.cur["linked"] = False
+        self.frame_hand[st.frame_id] = self.cur["id"]
+        self._cur_frames.append((st.frame_id, hero_read))
         self.cur["frames"] += 1
         self.cur["t_end"] = t
         # --- transition validation against the previous *usable* state

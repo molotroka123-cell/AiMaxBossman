@@ -18,8 +18,8 @@ import numpy as np
 
 from ..schema import Field, Money, Seat, TableState, UNKNOWN
 from ..parse import parse_money
-from ..vision.cards import CardBook, CardBox, find_card_boxes
-from ..vision.glyphs import GlyphBook, canon, is_sep, read_glyphs, features
+from ..vision.cards import CardBook, CardBox, find_back_boxes, find_card_boxes, split_corner
+from ..vision.glyphs import GlyphBook, WordBook, canon, is_sep, read_glyphs, features
 from ..vision.textspot import TextLine, spot_lines
 from .base import Capabilities, DetectResult, Frame, TableAdapter
 
@@ -35,6 +35,7 @@ class Profile:
     data: dict
     glyphs: GlyphBook
     cards: CardBook
+    words: WordBook = field(default_factory=WordBook)
 
     @property
     def id(self) -> str:
@@ -44,14 +45,16 @@ class Profile:
         d = dict(self.data)
         d["glyph_book"] = self.glyphs.to_json()
         d["card_book"] = self.cards.to_json()
+        d["word_book"] = self.words.to_json()
         return d
 
     @staticmethod
     def from_json(d: dict) -> "Profile":
         gb = GlyphBook.from_json(d.get("glyph_book", {}))
         cb = CardBook.from_json(d["card_book"]) if "card_book" in d else CardBook()
-        meta = {k: v for k, v in d.items() if k not in ("glyph_book", "card_book")}
-        return Profile(meta, gb, cb)
+        wb = WordBook.from_json(d.get("word_book", {}))
+        meta = {k: v for k, v in d.items() if k not in ("glyph_book", "card_book", "word_book")}
+        return Profile(meta, gb, cb, wb)
 
     def save(self, path: Path = PROFILE_PATH) -> str:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -95,8 +98,15 @@ class PokerTrainAdapter(TableAdapter):
         notes="act/advise only through the loopback-guarded actuator on the owner's own trainer",
     )
 
-    def __init__(self, profile: Profile | None = None):
+    def __init__(self, profile: Profile | None = None, naive: bool = False):
+        """``naive=True`` is the BASELINE used by the evaluation: the same pixels and exemplars but no UNKNOWN discipline
+        (no reject thresholds, no geometry/height/chip/layout checks) — it always answers."""
         self.profile = profile or Profile.load()
+        self.naive = naive
+        self.scale_hint: float | None = None          # scale confirmed on a fully visible hero pair (per adapter instance = per session)
+
+    def reset(self) -> None:
+        self.scale_hint = None
 
     # ------------------------------------------------------------------ detection
     def profile_id(self) -> str:
@@ -123,6 +133,15 @@ class PokerTrainAdapter(TableAdapter):
         P = self.profile.data
         H, W = frame.h, frame.w
         boxes = find_card_boxes(frame.bgr, (0, int(0.30 * H), W, int(0.82 * H)), min_w=12, max_w=int(0.30 * W))
+        # a card has an index (rank glyph) in its top-left corner; a bare white shape (button highlight, avatar rim) does not
+        boxes = [b for b in boxes if split_corner(b, frame.bgr) is not None]
+        # a card that is only partly visible (raise panel over its lower half) is trusted only when its width matches the
+        # scale confirmed on an earlier frame; stray white letters/shapes look like short "cards" otherwise
+        full = [b for b in boxes if b.visible_frac >= 0.9]
+        if not full and self.scale_hint:
+            want = P["hero_card_css_w"] * self.scale_hint
+            full = [b for b in boxes if abs(b.w / want - 1) <= 0.08]
+        boxes = full
         if not boxes:
             return None
         # hero = lowest group of 1-2 boxes of equal width and equal top
@@ -139,6 +158,8 @@ class PokerTrainAdapter(TableAdapter):
         if not (0.5 <= s <= 6.0):
             return None
         top = float(np.median([b.y for b in grp]))
+        if all(b.visible_frac >= 0.9 for b in grp):
+            self.scale_hint = s
         return {"s": s, "top": top, "boxes": grp}
 
     # ------------------------------------------------------------------ read
@@ -164,8 +185,12 @@ class PokerTrainAdapter(TableAdapter):
         cx = float(np.mean([b.cx for b in a["boxes"]])) if len(a["boxes"]) == 2 else None
         # --- hero cards
         hero: list[Field] = []
+        boxes: list[dict] = []
+        st.quality["boxes"] = boxes
         for b in a["boxes"]:
-            hero.append(self._read_card(frame, b, t, s, P["hero_card_css_w"], "hero"))
+            f_ = self._read_card(frame, b, t, s, P["hero_card_css_w"], "hero")
+            hero.append(f_)
+            boxes.append({"field": "hero_card", "x": int(b.x), "y": int(b.y), "w": int(b.w), "h": int(b.h), "ok": f_.known, "label": f_.value if f_.known else f_.reason})
         while len(hero) < 2:
             hero.append(U("card_not_found"))
         st.hero_cards = hero
@@ -185,9 +210,12 @@ class PokerTrainAdapter(TableAdapter):
 
     # ---- cards
     def _read_card(self, frame: Frame, b: CardBox, t: int, s: float, css_w: float, kind: str) -> Field:
-        if abs(b.w / (css_w * s) - 1) > 0.12:
+        if abs(b.w / (css_w * s) - 1) > 0.12 and not self.naive:
             return Field.unknown(t, SRC, "card_scale_mismatch_animating")
-        card, conf, why = self.profile.cards.read(b, frame.bgr)
+        if self.naive:
+            card, conf, why = self.profile.cards.read(b, frame.bgr, min_conf=-1.0, rank_max_d=1e9, suit_max_d=1e9, lax=True)
+        else:
+            card, conf, why = self.profile.cards.read(b, frame.bgr)
         if card is None:
             return Field.unknown(t, SRC, why, conf)
         return Field.ok(card, conf, t, SRC)
@@ -200,18 +228,26 @@ class PokerTrainAdapter(TableAdapter):
         boxes = [b for b in boxes if abs(b.y - (top + P["board_dy_css"] * s)) <= 0.12 * b.w and b.visible_frac > 0.9]
         fields = []
         for b in boxes:
-            fields.append(self._read_card(frame, b, t, s, P["board_card_css_w"], "board"))
+            f_ = self._read_card(frame, b, t, s, P["board_card_css_w"], "board")
+            fields.append(f_)
+            st.quality.setdefault("boxes", []).append({"field": "board_card", "x": int(b.x), "y": int(b.y), "w": int(b.w), "h": int(b.h), "ok": f_.known, "label": f_.value if f_.known else f_.reason})
         st.board = fields
         st.quality["board_x"] = [round(b.cx, 1) for b in boxes]
         n = len(boxes)
+        backs = find_back_boxes(frame.bgr, (0, max(y0, 0), frame.w, min(y1, frame.h)), int(0.8 * P["board_card_css_w"] * s), int(1.3 * P["board_card_css_w"] * s)) if not self.naive else []
+        if backs:
+            # a card back in the board zone = a card is being dealt/flipped: the count is not knowable on this frame
+            st.board_count = Field.unknown(t, SRC, f"card_back_in_board_zone n_white={n} n_back={len(backs)} (dealing)")
+            st.board = [f_.demote("board_in_motion") for f_ in fields]
+            return
         if n == 0:
-            st.board_count = Field.ok(0, 0.7, t, SRC)   # nothing white in the board zone; may also be mid-animation (reconciler decides)
+            st.board_count = Field.ok(0, 0.7, t, SRC)   # no card, no card back: empty board zone
             return
         pitch = [(boxes[i + 1].x - boxes[i].x) / (s * P["board_pitch_css"]) for i in range(n - 1)]
         centred = cx is None or abs(np.mean([b.cx for b in boxes]) - cx) <= 0.10 * boxes[0].w * n
         if cx is None and n >= 3:
             st.quality["board_cx"] = float(np.mean([b.cx for b in boxes]))
-        if n not in (3, 4, 5) or any(abs(p - 1) > 0.12 for p in pitch) or not centred:
+        if not self.naive and (n not in (3, 4, 5) or any(abs(p - 1) > 0.12 for p in pitch) or not centred):
             st.board_count = Field.unknown(t, SRC, f"board_layout_inconsistent n={n}")
             st.board = [f.demote("board_layout_inconsistent") for f in fields]
             return
@@ -257,15 +293,15 @@ class PokerTrainAdapter(TableAdapter):
         for g in gl:
             if is_sep(g, exp):
                 continue
-            if not (1 - tol <= g.h / exp <= 1 + tol + (0.35 if allow_dollar else 0.0)):
+            if not self.naive and not (1 - tol <= g.h / exp <= 1 + tol + (0.35 if allow_dollar else 0.0)):
                 return None, 0.0, f"glyph_height_off({g.h}px vs {exp:.1f})"
         L = self.profile.data.get("label_w_css", {}).get(key)
-        if L is not None and c_px is not None:
+        if L is not None and c_px is not None and not self.naive:
             x1 = line.x0 + gl[-1].x1
             w = gl[-1].x1 - gl[0].x0
             if abs(2 * (x1 - c_px) - w - L * s) > self.profile.data["label_w_tol_css"] * s:
                 return None, 0.0, "geometry_mismatch(clipped_or_foreign_text)"
-        r = read_glyphs(gl, exp, self.profile.glyphs, allowed=NUM_ALPHABET)
+        r = read_glyphs(gl, exp, self.profile.glyphs, allowed=NUM_ALPHABET, **({"min_conf": -1.0, "max_dist": 1e9} if self.naive else {"min_conf": self.profile.data.get("digit_min_conf", 0.30), "max_dist": self.profile.data.get("digit_max_dist", 3.5)}))
         if r.text is None:
             return None, r.confidence, r.reason
         text = r.text
@@ -301,6 +337,7 @@ class PokerTrainAdapter(TableAdapter):
                     continue
                 if m is not None:
                     cands.append((m, conf))
+                    st.quality.setdefault("boxes", []).append({"field": conflict_name, "x": int(ln.x0), "y": int(ln.y0), "w": int(ln.x1 - ln.x0), "h": int(ln.y1 - ln.y0), "ok": True, "label": m.raw})
                 else:
                     reasons.append(why)
             if not cands:
@@ -327,10 +364,12 @@ class PokerTrainAdapter(TableAdapter):
             ang = _angle(ln.cx - tc[0], ln.cy - tc[1])
             m, conf, why = self._numeric(ln, "seat", s, allow_dollar=True)
             if m is not None:
-                seats.append((ang, m, conf, ln)); continue
+                seats.append((ang, m, conf, ln))
+                st.quality.setdefault("boxes", []).append({"field": "seat_stack", "x": int(ln.x0), "y": int(ln.y0), "w": int(ln.x1 - ln.x0), "h": int(ln.y1 - ln.y0), "ok": True, "label": m.raw}); continue
             mb, confb, whyb = self._numeric(ln, "bet", s)
-            if mb is not None and self._chip_score(frame.bgr, ln, s) >= P["bet_chip_min"]:
-                bets.append((ang, mb, confb, ln)); continue
+            if mb is not None and (self.naive or self._chip_score(frame.bgr, ln, s) >= P["bet_chip_min"]):
+                bets.append((ang, mb, confb, ln))
+                st.quality.setdefault("boxes", []).append({"field": "bet", "x": int(ln.x0), "y": int(ln.y0), "w": int(ln.x1 - ln.x0), "h": int(ln.y1 - ln.y0), "ok": True, "label": mb.raw}); continue
             if mb is not None:
                 unreadable += 1          # a bare number without a chip icon: could be a seat stack whose "$" is covered
                 continue
@@ -358,6 +397,7 @@ class PokerTrainAdapter(TableAdapter):
             pills = [(slot_of(ang, P["slot_tol_deg"]), ln) for ang, m, conf, ln in seats if slot_of(ang, P["slot_tol_deg"]) is not None]
             hero_xy = (c, top + (P["hero_h_css"] / 2) * s)
             st.dealer_slot = self._dealer(chip, pills, hero_xy, tc, slots, s, P, t)
+            st.quality.setdefault("boxes", []).append({"field": "dealer_chip", "x": int(chip[0] - 10 * s), "y": int(chip[1] - 10 * s), "w": int(20 * s), "h": int(20 * s), "ok": st.dealer_slot.known, "label": st.dealer_slot.value if st.dealer_slot.known else st.dealer_slot.reason})
         st.seats = [seat_objs[k] for k in sorted(seat_objs)]
         visible = sum(1 for sd in st.seats if sd.stack.known)
         st.num_seats = Field.ok(visible, 0.6 if unreadable == 0 else 0.4, t, SRC)
@@ -445,18 +485,33 @@ class PokerTrainAdapter(TableAdapter):
         by0, by1 = y_start + run[0], y_start + run[1]
         zone = (0, by0 - int(2 * s), frame.w, by1 + int(2 * s))
         lines = spot_lines(frame.bgr, zone, (P["action_h_css"][0] * s, P["action_h_css"][1] * s), v_min=P["action_v_min"], max_gap=1.6, otsu=True)
-        toks = []
+        # 1) labels: whole-word matches against the fixed button vocabulary; 2) amounts: a digit line directly under a label
+        words, rest = [], []
         for ln in lines:
-            r = self._read_one(ln)
-            if r.text is None:
-                return self._actions_unknown(st, "button_text_unreadable")
-            toks.append((ln.cx, ln.cy, ln.height, r.text, r.confidence))
+            w, wconf, wd = self.profile.words.classify(ln.glyphs)
+            if w is not None and wconf >= 0.12 and wd <= self.profile.data.get("word_max_dist", 6.0):
+                words.append((ln.cx, ln.cy, ln.height, w, wconf, ln))
+            else:
+                rest.append(ln)
+        toks = [(x, y, h, w, c) for x, y, h, w, c, _ in words]
+        used = set()
+        for x, y, h, w, c, lnw in words:
+            under = [ln for ln in rest if id(ln) not in used and 0 < ln.cy - y < 3.2 * h and abs(ln.cx - x) < 2.5 * h]
+            if not under:
+                continue
+            ln = min(under, key=lambda q: q.cy)
+            r = read_glyphs(ln.glyphs, ln.height, self.profile.glyphs, allowed=NUM_ALPHABET, min_conf=0.2, max_dist=4.0)
+            if r.text:
+                m_ = parse_money(r.text)
+                if m_:
+                    toks.append((ln.cx, ln.cy, ln.height, m_.raw, r.confidence)); used.add(id(ln))
+        unreadable_lines = len(rest) - len(used)
         toks.sort()
         labels = [(x, y, txt, conf) for x, y, h, txt, conf in toks if txt in ACTION_VOCAB]
         nums = [(x, y, txt) for x, y, h, txt, conf in toks if txt[:1].isdigit()]
         junk = [txt for x, y, h, txt, conf in toks if txt not in ACTION_VOCAB and not txt[:1].isdigit()]
         if junk or not labels:
-            return self._actions_unknown(st, "button_vocabulary_mismatch")
+            return self._actions_unknown(st, "button_vocabulary_mismatch" if toks else "button_text_unreadable")
         acts = []
         for x, y, txt, conf in labels:
             amt = None
@@ -465,16 +520,23 @@ class PokerTrainAdapter(TableAdapter):
                 amt = parse_money(min(below)[1])
                 if amt is None:
                     return self._actions_unknown(st, "amount_malformed")
-            acts.append((ACTION_VOCAB[txt], amt.amount if amt else None))
+            value = amt.amount if amt else None
+            if value is None and ACTION_VOCAB[txt] == "CALL" and st.to_call.known:
+                value = st.to_call.value.amount            # the amount on the button is tiny; the "To call" field says the same thing
+            acts.append((ACTION_VOCAB[txt], value))
         names = [a for a, _ in acts]
         complete = (len(acts) == 3 and names[0] == "FOLD" and names[1] in ("CHECK", "CALL", "ALL IN")
                     and names[2] in ("RAISE", "CONFIRM", "ALL IN")
                     and all(amt is not None for a, amt in acts if a in ("CALL", "ALL IN")))
         st.hero_turn = Field.ok(True, 0.8, t, SRC) if "FOLD" in names else Field.unknown(t, SRC, "band_without_fold_button")
-        if not complete:
+        if not complete and not self.naive:
             st.actions = Field.unknown(t, SRC, f"incomplete_button_set {names}")
             return
         st.actions = Field.ok(acts, min(0.8, min(c for _, _, _, c in labels)), t, SRC)
+
+    def _looks_numeric(self, ln: TextLine) -> bool:
+        """Cheap pre-test: digit lines are not wider than ~0.8 x height per glyph and have no tall letter-like variance."""
+        return all(g.w <= 1.1 * ln.height for g in ln.glyphs) and ln.y1 - ln.y0 <= 1.6 * ln.height and self.profile.glyphs.classify(ln.glyphs[0], NUM_ALPHABET)[1] >= 0.3
 
     def _actions_unknown(self, st, why):
         st.hero_turn = Field.unknown(st.t_ms, SRC, why)
@@ -495,7 +557,7 @@ def calibrate_profile(labelled, source_note: str = "") -> Profile:
 
     Everything is measured from the labelled TRAIN frames: card size/pitch, where the number lines sit relative to the
     hero's cards, digit heights per field, seat slot angles, glyph and card exemplars."""
-    gb, cb = GlyphBook(max_per_class=40), CardBook(max_per_class=60)
+    gb, cb, wb = GlyphBook(max_per_class=40), CardBook(max_per_class=60), WordBook()
     keys = ("hero_w", "hero_h", "board_dy", "board_w", "board_h", "board_pitch", "seat_ang", "bet_ang", "dealer_d", "btn_h",
             "table_center_dy", "pot_dy", "call_dy", "stack_dy_c")
     meas: dict[str, list] = {k: [] for k in keys}
@@ -617,9 +679,12 @@ def calibrate_profile(labelled, source_note: str = "") -> Profile:
                 meas["btn_h"].append(b["h"])
                 lab = b["label"].replace(" ", "")
                 lns = spot_lines(img, _px(b, dpr), (5.0 * dpr, 20.0 * dpr), otsu=True, max_gap=1.6)
+                bx0, by0_, bx1, by1_ = _px(b, dpr)
+                lns = [q for q in lns if abs(q.cx - (bx0 + bx1) / 2) < 0.22 * (bx1 - bx0)]       # the label is centred in its button (not the floating P/F badge)
                 if lns:
                     ln = min(lns, key=lambda q: q.y0)
                     chars = list(lab)
+                    wb.add(canon(lab), ln.glyphs)                     # the whole label as one raster (robust to merged/odd glyphs)
                     if len(ln.glyphs) == len(chars):
                         for g, ch in zip(ln.glyphs, chars):
                             gb.add(ch, g, 'btn')
@@ -646,7 +711,7 @@ def calibrate_profile(labelled, source_note: str = "") -> Profile:
         "hero_card_css_w": med("hero_w", 56.0), "hero_h_css": med("hero_h", 80.0),
         "board_dy_css": med("board_dy", -212.0), "board_card_css_w": med("board_w", 54.0), "board_card_h_css": med("board_h", 76.0),
         "board_pitch_css": med("board_pitch", 62.0),
-        "num_v_min": NUM_V_MIN, "num_h_css": hcss, "num_h_tol": 0.22, "field_y_tol_css": 14.0,
+        "num_v_min": NUM_V_MIN, "digit_min_conf": 0.50, "digit_max_dist": 3.0, "num_h_css": hcss, "num_h_tol": 0.22, "field_y_tol_css": 14.0,
         "cy_dy": {"pot": pot_dy, "to_call": call_dy, "hero_stack": stack_dy},
         "label_w_css": {k: (float(np.median(v)) if v else None) for k, v in L_meas.items()}, "label_w_tol_css": 5.0,
         "info_dy": [pot_dy - 24.0, call_dy + 14.0],
@@ -656,7 +721,7 @@ def calibrate_profile(labelled, source_note: str = "") -> Profile:
         "table_dy": [-440.0, -30.0], "table_center_dy": med("table_center_dy", -172.0),
         "slot_angles": slots, "slot_tol_deg": 9.0, "bet_tol_deg": 14.0, "dealer_tol_deg": 20.0, "bet_chip_min": 0.12,
         "dealer_css_d": med("dealer_d", 20.0), "dealer_offsets": dealer_offsets, "dealer_off_tol_css": 9.0, "dealer_hero_css": 90.0,
-        "action_dy0": 60.0, "action_btn_h_css": med("btn_h", 54.0), "action_h_css": [6.0, 20.0], "action_v_min": 150,
+        "action_dy0": 60.0, "action_btn_h_css": med("btn_h", 54.0), "action_h_css": [6.0, 20.0], "action_v_min": 150, "word_max_dist": 6.0,
     }
     data["id"] = "poker_train@" + hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()[:8]
-    return Profile(data, gb, cb)
+    return Profile(data, gb, cb, wb)

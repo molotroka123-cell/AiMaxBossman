@@ -165,7 +165,7 @@ class LineRead:
 
 
 def is_sep(g: Glyph, med_h: float) -> bool:
-    return g.h <= 0.45 * med_h and g.w <= 0.5 * med_h
+    return g.h <= 0.55 * med_h and g.w <= 0.40 * med_h
 
 
 def read_glyphs(gl: list[Glyph], med_h: float, book: GlyphBook, min_conf: float = 0.10, max_dist: float = 4.8, allowed: frozenset | None = None) -> LineRead:
@@ -208,3 +208,50 @@ def read_line(gray: np.ndarray, book: GlyphBook, **kw) -> LineRead:
     if info["fg_frac"] > 0.42:
         return LineRead(None, 0.0, "foreground_too_dense")
     return read_glyphs(gl, info["median_h"], book, **kw)
+
+
+# ---------------------------------------------------------------- whole-word matching (fixed vocabularies: button labels)
+WORD_W, WORD_H = 64, 14
+
+
+def line_vector(glyphs: list[Glyph]) -> np.ndarray | None:
+    """Raster of a whole text line (glyph masks composed at their positions), resized to a fixed grid."""
+    if not glyphs:
+        return None
+    x0, x1 = min(g.x0 for g in glyphs), max(g.x1 for g in glyphs)
+    y0, y1 = min(g.y0 for g in glyphs), max(g.y1 for g in glyphs)
+    canvas = np.zeros((y1 - y0, x1 - x0), np.float32)
+    for g in glyphs:
+        canvas[g.y0 - y0:g.y1 - y0, g.x0 - x0:g.x1 - x0] = np.maximum(canvas[g.y0 - y0:g.y1 - y0, g.x0 - x0:g.x1 - x0], g.mask.astype(np.float32))
+    v = cv2.resize(canvas, (WORD_W, WORD_H), interpolation=cv2.INTER_AREA)
+    v = cv2.GaussianBlur(v, (3, 3), 0.8)
+    return np.append(v.ravel(), min((x1 - x0) / max(y1 - y0, 1), 12.0) * 2.0).astype(np.float32)
+
+
+@dataclass
+class WordBook:
+    exemplars: dict[str, list[np.ndarray]] = field(default_factory=dict)
+
+    def add(self, word: str, glyphs: list[Glyph], cap: int = 24) -> None:
+        v = line_vector(glyphs)
+        if v is None:
+            return
+        lst = self.exemplars.setdefault(word, [])
+        if len(lst) < cap and not any(float(np.sqrt(((e - v) ** 2).sum())) < 0.5 for e in lst):
+            lst.append(v)
+
+    def classify(self, glyphs: list[Glyph]) -> tuple[str | None, float, float]:
+        v = line_vector(glyphs)
+        if v is None or not self.exemplars:
+            return None, 0.0, 9e9
+        best = {w: min(float(np.sqrt(((e - v) ** 2).sum())) for e in lst) for w, lst in self.exemplars.items() if lst}
+        r = sorted(best.items(), key=lambda kv: kv[1])
+        d1 = r[0][1]; d2 = r[1][1] if len(r) > 1 else d1 + 5
+        return r[0][0], float(np.clip((d2 - d1) / max(d2, 1e-6), 0, 1)), d1
+
+    def to_json(self) -> dict:
+        return {w: [e.round(3).tolist() for e in lst] for w, lst in self.exemplars.items()}
+
+    @staticmethod
+    def from_json(d: dict) -> "WordBook":
+        return WordBook({w: [np.array(e, np.float32) for e in lst] for w, lst in d.items()})

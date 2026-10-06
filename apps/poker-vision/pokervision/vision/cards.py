@@ -58,6 +58,24 @@ def find_card_boxes(bgr: np.ndarray, roi: tuple[int, int, int, int], min_w: int,
     return out
 
 
+def find_back_boxes(bgr: np.ndarray, roi: tuple[int, int, int, int], min_w: int, max_w: int) -> list[tuple[int, int, int, int]]:
+    """Face-down cards (blue back). A card that is being dealt/flipped shows its back: it is a card, just unreadable."""
+    x0, y0, x1, y1 = roi
+    sub = bgr[y0:y1, x0:x1].astype(int)
+    if sub.size == 0:
+        return []
+    b, g, r = sub[:, :, 0], sub[:, :, 1], sub[:, :, 2]
+    m = ((b > r + 30) & (b > g + 8) & (b > 55)).astype(np.uint8) * 255
+    m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)))
+    cnts, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    out = []
+    for c in cnts:
+        x, y, w, h = cv2.boundingRect(c)
+        if min_w <= w <= max_w and 0.45 * w / CARD_ASPECT <= h <= 1.3 * w / CARD_ASPECT and cv2.contourArea(c) / (w * h) > 0.7:
+            out.append((x + x0, y + y0, w, h))
+    return out
+
+
 def _ink(patch_bgr: np.ndarray) -> np.ndarray:
     return patch_bgr[:, :, 1] < 165          # green channel low: black ink and red ink alike
 
@@ -184,11 +202,11 @@ class CardBook:
         d1 = r[0][1]; d2 = r[1][1] if len(r) > 1 else d1 + 1
         return r[0][0], float(np.clip((d2 - d1) / max(d2, 1e-6), 0, 1)), d1
 
-    def read(self, box: CardBox, bgr: np.ndarray, min_conf=0.10, rank_max_d=5.5, suit_max_d=5.0) -> tuple[str | None, float, str]:
+    def read(self, box: CardBox, bgr: np.ndarray, min_conf=0.10, rank_max_d=5.5, suit_max_d=5.0, lax: bool = False) -> tuple[str | None, float, str]:
         """Return (card|None, confidence, reason). Never guesses: weak match -> None with a reason."""
-        if box.visible_frac < 0.28:
+        if box.visible_frac < 0.28 and not lax:
             return None, 0.0, "too_occluded"
-        if box.fill < 0.85 and box.visible_frac >= 0.95:
+        if box.fill < 0.85 and box.visible_frac >= 0.95 and not lax:
             return None, 0.0, "not_rectangular"
         sc = split_corner(box, bgr)
         if sc is None:
@@ -217,10 +235,14 @@ class CardBook:
             return None, 0.0, "suit_unreadable"
         if len({v[0] for v in votes}) > 1:
             votes.sort(key=lambda v: -v[1])
-            if not (votes[0][1] >= 0.5 and votes[1][1] < 0.3):
+            if not (votes[0][1] >= 0.5 and votes[1][1] < 0.3) and not lax:
                 return None, min(v[1] for v in votes), "suit_votes_disagree"
             votes = votes[:1]                  # one vote is decisive and the other is weak: trust the decisive one
         sk, sconf, sd = max(votes, key=lambda v: v[1])
+        if len(votes) == 1 and not lax and (sconf < 0.5 or sd > 2.5):
+            # a single, small corner pip (centre pip covered) is easy to confuse at another scale (spade vs club):
+            # accept it only on a clear margin and a close match
+            return None, sconf, "suit_single_vote_weak"
         if sd > suit_max_d or sconf < min_conf:
             return None, sconf, "suit_ambiguous"
         conf = float(min(rconf, sconf) * 0.5 + 0.5 * min(1.0, box.visible_frac))
