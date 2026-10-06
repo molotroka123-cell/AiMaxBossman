@@ -190,7 +190,7 @@ class PokerTrainAdapter(TableAdapter):
         for b in a["boxes"]:
             f_ = self._read_card(frame, b, t, s, P["hero_card_css_w"], "hero")
             hero.append(f_)
-            boxes.append({"field": "hero_card", "x": int(b.x), "y": int(b.y), "w": int(b.w), "h": int(b.h), "ok": f_.known, "label": f_.value if f_.known else f_.reason})
+            boxes.append({"field": "hero_card", "x": int(b.x), "y": int(b.y), "w": int(b.w), "h": int(b.h), "ok": f_.known, "conf": round(f_.confidence, 2), "label": f_.value if f_.known else f_.reason})
         while len(hero) < 2:
             hero.append(U("card_not_found"))
         st.hero_cards = hero
@@ -230,7 +230,7 @@ class PokerTrainAdapter(TableAdapter):
         for b in boxes:
             f_ = self._read_card(frame, b, t, s, P["board_card_css_w"], "board")
             fields.append(f_)
-            st.quality.setdefault("boxes", []).append({"field": "board_card", "x": int(b.x), "y": int(b.y), "w": int(b.w), "h": int(b.h), "ok": f_.known, "label": f_.value if f_.known else f_.reason})
+            st.quality.setdefault("boxes", []).append({"field": "board_card", "x": int(b.x), "y": int(b.y), "w": int(b.w), "h": int(b.h), "ok": f_.known, "conf": round(f_.confidence, 2), "label": f_.value if f_.known else f_.reason})
         st.board = fields
         st.quality["board_x"] = [round(b.cx, 1) for b in boxes]
         n = len(boxes)
@@ -337,7 +337,7 @@ class PokerTrainAdapter(TableAdapter):
                     continue
                 if m is not None:
                     cands.append((m, conf))
-                    st.quality.setdefault("boxes", []).append({"field": conflict_name, "x": int(ln.x0), "y": int(ln.y0), "w": int(ln.x1 - ln.x0), "h": int(ln.y1 - ln.y0), "ok": True, "label": m.raw})
+                    st.quality.setdefault("boxes", []).append({"field": conflict_name, "x": int(ln.x0), "y": int(ln.y0), "w": int(ln.x1 - ln.x0), "h": int(ln.y1 - ln.y0), "ok": True, "conf": round(conf, 2), "label": m.raw})
                 else:
                     reasons.append(why)
             if not cands:
@@ -365,11 +365,11 @@ class PokerTrainAdapter(TableAdapter):
             m, conf, why = self._numeric(ln, "seat", s, allow_dollar=True)
             if m is not None:
                 seats.append((ang, m, conf, ln))
-                st.quality.setdefault("boxes", []).append({"field": "seat_stack", "x": int(ln.x0), "y": int(ln.y0), "w": int(ln.x1 - ln.x0), "h": int(ln.y1 - ln.y0), "ok": True, "label": m.raw}); continue
+                st.quality.setdefault("boxes", []).append({"field": "seat_stack", "x": int(ln.x0), "y": int(ln.y0), "w": int(ln.x1 - ln.x0), "h": int(ln.y1 - ln.y0), "ok": True, "conf": round(conf, 2), "label": m.raw}); continue
             mb, confb, whyb = self._numeric(ln, "bet", s)
             if mb is not None and (self.naive or self._chip_score(frame.bgr, ln, s) >= P["bet_chip_min"]):
                 bets.append((ang, mb, confb, ln))
-                st.quality.setdefault("boxes", []).append({"field": "bet", "x": int(ln.x0), "y": int(ln.y0), "w": int(ln.x1 - ln.x0), "h": int(ln.y1 - ln.y0), "ok": True, "label": mb.raw}); continue
+                st.quality.setdefault("boxes", []).append({"field": "bet", "x": int(ln.x0), "y": int(ln.y0), "w": int(ln.x1 - ln.x0), "h": int(ln.y1 - ln.y0), "ok": True, "conf": round(confb, 2), "label": mb.raw}); continue
             if mb is not None:
                 unreadable += 1          # a bare number without a chip icon: could be a seat stack whose "$" is covered
                 continue
@@ -483,6 +483,7 @@ class PokerTrainAdapter(TableAdapter):
             st.actions = Field.ok([], 0.55, t, SRC)
             return
         by0, by1 = y_start + run[0], y_start + run[1]
+        st.quality["band"] = (int(by0), int(by1), float(s))
         zone = (0, by0 - int(2 * s), frame.w, by1 + int(2 * s))
         lines = spot_lines(frame.bgr, zone, (P["action_h_css"][0] * s, P["action_h_css"][1] * s), v_min=P["action_v_min"], max_gap=1.6, otsu=True)
         # 1) labels: whole-word matches against the fixed button vocabulary; 2) amounts: a digit line directly under a label
@@ -538,6 +539,20 @@ class PokerTrainAdapter(TableAdapter):
             st.actions = Field.unknown(t, SRC, f"incomplete_button_set {names}")
             return
         st.actions = Field.ok(acts, min(0.8, min(c for _, _, _, c in labels)), t, SRC)
+        # click targets: the button is a full-height cell around its label; the box is the label line widened sideways (always inside
+        # the button) and as tall as the detected button band. Used by the executor/locator and drawn by the Bossman overlay.
+        btns = []
+        for x, y, h, w, c, lnw in words:
+            lab = ACTION_VOCAB.get(w)
+            if lab is None:
+                continue
+            ww = lnw.x1 - lnw.x0
+            bx0 = int(lnw.x0 - 0.5 * ww); bx1 = int(lnw.x1 + 0.5 * ww)
+            amt_ = next((a_[1] for a_ in acts if a_[0] == lab), None)
+            btns.append({"label": lab, "x": bx0, "y": int(by0), "w": bx1 - bx0, "h": int(by1 - by0), "amount": amt_, "conf": round(float(c), 3)})
+            st.quality.setdefault("boxes", []).append({"field": "button", "x": bx0, "y": int(by0), "w": bx1 - bx0, "h": int(by1 - by0), "ok": True,
+                                                       "label": lab + (f" {amt_:g}" if amt_ is not None else "")})
+        st.quality["buttons"] = btns
 
     def _looks_numeric(self, ln: TextLine) -> bool:
         """Cheap pre-test: digit lines are not wider than ~0.8 x height per glyph and have no tall letter-like variance."""

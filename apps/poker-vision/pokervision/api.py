@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from . import __version__
@@ -25,6 +26,28 @@ class StartBody(BaseModel):
     seed: int = 1
     bootstrap: str | None = None
     max_hands: int = 40
+
+
+class DeskStartBody(BaseModel):
+    source: dict
+    adapter: str = "poker_train"
+    desk_mode: str = "observe"
+    seed: int = 1
+    max_hands: int = 40
+    auto_deal: bool = True
+    verify_timeout_s: float = 6.0
+
+
+class ModeBody(BaseModel):
+    mode: str
+
+
+class PauseBody(BaseModel):
+    paused: bool
+
+
+class SandboxBody(BaseModel):
+    args: dict = {}
 
 
 class CalibBody(BaseModel):
@@ -64,6 +87,107 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             raise HTTPException(400, {"code": "BAD_REQUEST", "message": str(exc)})
         except RuntimeError as exc:
             raise HTTPException(409, {"code": "BUSY", "message": str(exc)})
+
+    # ---------------------------------------------------------------- desk: source panel, modes, stream, overlay
+    @app.get("/api/v1/sources", dependencies=[Depends(auth)])
+    def sources() -> dict:
+        from .catalog import list_sources, platform_note
+        return {"sources": list_sources(os.environ.get("POKERTRAIN_URL", "http://127.0.0.1:3000/")), **platform_note()}
+
+    @app.post("/api/v1/desk/start", dependencies=[Depends(auth)])
+    def desk_start(b: DeskStartBody) -> dict:
+        try:
+            return svc.start_desk(**b.model_dump())
+        except PermissionError as exc:
+            raise HTTPException(403, {"code": "NOT_ALLOWED", "message": str(exc)})
+        except NotImplementedError as exc:
+            raise HTTPException(501, {"code": "NOT_RUN", "message": str(exc)})
+        except NotLoopback as exc:
+            raise HTTPException(403, {"code": "REFUSED", "message": str(exc)})
+        except (ValueError, KeyError, FileNotFoundError) as exc:
+            raise HTTPException(400, {"code": "BAD_REQUEST", "message": str(exc)})
+        except RuntimeError as exc:
+            raise HTTPException(409, {"code": "BUSY", "message": str(exc)})
+
+    @app.post("/api/v1/desk/mode", dependencies=[Depends(auth)])
+    def desk_mode(b: ModeBody) -> dict:
+        try:
+            return svc.set_desk_mode(b.mode)
+        except PermissionError as exc:
+            raise HTTPException(403, {"code": "NOT_ALLOWED", "message": str(exc)})
+        except (ValueError, RuntimeError) as exc:
+            raise HTTPException(400, {"code": "BAD_REQUEST", "message": str(exc)})
+
+    @app.post("/api/v1/desk/pause", dependencies=[Depends(auth)])
+    def desk_pause(b: PauseBody) -> dict:
+        try:
+            return svc.set_paused(b.paused)
+        except RuntimeError as exc:
+            raise HTTPException(400, {"code": "BAD_REQUEST", "message": str(exc)})
+
+    @app.post("/api/v1/desk/resume-executor", dependencies=[Depends(auth)])
+    def desk_resume() -> dict:
+        return svc.resume_executor()
+
+    @app.post("/api/v1/desk/sandbox/{cmd}", dependencies=[Depends(auth)])
+    def desk_sandbox(cmd: str, b: SandboxBody) -> dict:
+        if cmd not in ("move", "resize", "minimize", "close", "reopen", "cover", "uncover"):
+            raise HTTPException(400, {"code": "BAD_REQUEST", "message": "unknown sandbox command"})
+        try:
+            return svc.sandbox_cmd(cmd, **b.args)
+        except PermissionError as exc:
+            raise HTTPException(403, {"code": "NOT_ALLOWED", "message": str(exc)})
+
+    @app.get("/api/v1/frame.jpg", dependencies=[Depends(auth)])
+    def frame_jpg() -> Response:
+        f = svc.frame_jpeg()
+        if f is None:
+            raise HTTPException(404, "no frame yet")
+        return Response(f[1], media_type="image/jpeg", headers={"Cache-Control": "no-store", "X-Frame-Seq": str(f[0])})
+
+    @app.get("/api/v1/stream.mjpeg", dependencies=[Depends(auth)])
+    async def stream() -> StreamingResponse:
+        import asyncio
+
+        async def gen():
+            last = -1
+            idle = 0
+            while True:
+                f = svc.frame_jpeg()
+                if f is not None and f[0] != last:
+                    last = f[0]; idle = 0
+                    yield b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: " + str(len(f[1])).encode() + b"\r\n\r\n" + f[1] + b"\r\n"
+                else:
+                    idle += 1
+                    if idle > 600 and not svc.status()["running"]:      # ~30 s without frames and no session: end the stream
+                        return
+                await asyncio.sleep(0.05)
+        return StreamingResponse(gen(), media_type="multipart/x-mixed-replace; boundary=frame", headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/v1/overlay.json", dependencies=[Depends(auth)])
+    def overlay_json() -> dict:
+        o = svc.overlay_json()
+        if o is None:
+            raise HTTPException(404, "no frame yet")
+        return o
+
+    @app.get("/api/v1/recommendation", dependencies=[Depends(auth)])
+    def recommendation() -> dict:
+        return svc.recommendation_view()
+
+    @app.get("/api/v1/journal", dependencies=[Depends(auth)])
+    def journal() -> dict:
+        return svc.journal_view()
+
+    @app.get("/api/v1/journal/frame", dependencies=[Depends(auth)])
+    def journal_frame(name: str) -> Response:
+        j = svc.journal
+        if not j or ".." in name or not name.startswith("frames/"):
+            raise HTTPException(404, "no such frame")
+        p = j.dir / name
+        if not p.exists():
+            raise HTTPException(404, "no such frame")
+        return Response(p.read_bytes(), media_type="image/png")
 
     @app.post("/api/v1/calibrate", dependencies=[Depends(auth)])
     def calibrate(b: CalibBody) -> dict:
