@@ -104,6 +104,17 @@ def _fable_ledger_off_the_real_machine(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _serialize_tests_that_bind_the_fixed_app_port(request):
+    """File Commander's default port (8911) is shared by several real-app tests: under pytest -n 4 two workers collided (see _port_lock)."""
+    from ._port_lock import FIXED_PORT_MODULES, exclusive_port_lock
+    if request.module.__name__.rsplit(".", 1)[-1] not in FIXED_PORT_MODULES:
+        yield
+        return
+    with exclusive_port_lock():
+        yield
+
+
+@pytest.fixture(autouse=True)
 def _probe_cache_off(monkeypatch):
     """Health probes are cached in the product (bcc.probe_cache); every test measures its own mocked state."""
     monkeypatch.setenv("BCC_PROBE_CACHE", "off")
