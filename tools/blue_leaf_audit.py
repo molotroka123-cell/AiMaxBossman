@@ -91,8 +91,9 @@ def tests_for(source: str, imports: dict[str, set[str]], texts: dict[str, str]) 
         for t, names in imports.items():
             if any(n == mod or n.startswith(mod + ".") for n in names):
                 found.append(t)
-        return sorted(set(found))
-    # scripts (tools/x.py, tools/x.ps1): tests load them by path
+        if found:
+            return sorted(set(found))
+    # scripts (tools/x.py, tools/x.ps1) are loaded by path, not imported: look for the path or the file name in the test text
     s = source.replace("\\", "/")
     for t, txt in texts.items():
         if s in txt or re.search(r"[\"'/]" + re.escape(Path(s).name) + r"[\"']", txt):
@@ -100,46 +101,46 @@ def tests_for(source: str, imports: dict[str, set[str]], texts: dict[str, str]) 
     return sorted(set(found))
 
 
+# JUnit file stem -> the directory its run started in (classnames are relative to it)
+RUN_DIRS = {"core": "bossman-core", "core-rerun": "bossman-core", "cc-rerun": "command-center", "root-rerun": "", "cc": "command-center", "root": "", "poker-vision": "apps/poker-vision",
+            "poker-lora": "apps/poker-lora", "ai-webcam-vision": "apps/ai-webcam-vision"}
+
+
 def read_junit(files: list[Path]) -> dict[str, dict[str, int]]:
-    """test file (repo-relative, best effort) -> {passed, failed, skipped}."""
+    """repo-relative test file -> {passed, failed, skipped}, from JUnit files named after the run (see RUN_DIRS)."""
     res: dict[str, dict[str, int]] = defaultdict(lambda: {"passed": 0, "failed": 0, "skipped": 0})
-    for jf in files:
+    # a «<run>-rerun.xml» REPLACES the counts of the test files it contains (a test file that failed for a reason outside the code,
+    # e.g. the checkout moved during the run, is re-executed and judged by the re-execution; both files stay named in the output)
+    for jf in sorted(files, key=lambda f: f.stem.endswith("-rerun")):
+        replaced: set[str] = set()
+        prefix = RUN_DIRS.get(jf.stem)
+        if prefix is None:
+            raise SystemExit(f"unknown JUnit file name {jf.name}: expected one of {sorted(RUN_DIRS)}.xml")
         root = ET.parse(jf).getroot()
         for case in root.iter("testcase"):
-            cls = case.get("classname", "")
-            parts = cls.split(".")
-            # classname is dotted path to the module (maybe plus a class): find the longest prefix that is a file
-            key = None
-            for i in range(len(parts), 0, -1):
-                cand = "/".join(parts[:i]) + ".py"
-                key = cand
-                break
+            parts = case.get("classname", "").split(".")
+            target = None
+            for i in range(len(parts), 0, -1):           # the classname may end with a test class: drop it until a file exists
+                cand = "/".join(x for x in [prefix, "/".join(parts[:i]) + ".py"] if x)
+                if (ROOT / cand).is_file():
+                    target = cand
+                    break
+            if target is None:
+                continue
+            if jf.stem.endswith("-rerun") and target not in replaced:
+                res[target] = {"passed": 0, "failed": 0, "skipped": 0}
+                replaced.add(target)
             kind = "passed"
             if case.find("failure") is not None or case.find("error") is not None:
                 kind = "failed"
             elif case.find("skipped") is not None:
                 kind = "skipped"
-            res[(jf.stem, key)][kind] += 1  # type: ignore[index]
-    return res  # type: ignore[return-value]
+            res[target][kind] += 1
+    return res
 
 
 def outcome_by_file(junit: dict, test_files: list[str]) -> dict[str, dict[str, int]]:
-    """Resolve junit classnames (dotted, relative to each run's cwd) to repo-relative test files."""
-    out: dict[str, dict[str, int]] = {}
-    for tf in test_files:
-        stem = tf[:-3].replace("/", ".")
-        agg = {"passed": 0, "failed": 0, "skipped": 0}
-        hit = False
-        for (_run, key), counts in junit.items():
-            k = key[:-3].replace("/", ".")
-            # a run started inside command-center/ reports "tests.test_x"; the repo-relative path is command-center/tests/test_x
-            if stem == k or stem.endswith("." + k) or k.endswith("." + stem):
-                hit = True
-                for n in agg:
-                    agg[n] += counts[n]
-        if hit:
-            out[tf] = agg
-    return out
+    return {tf: dict(junit[tf]) for tf in test_files if tf in junit}
 
 
 def classify(leaf: dict, files: list[str], outcomes: dict[str, dict[str, int]]) -> dict:
