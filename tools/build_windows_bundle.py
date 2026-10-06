@@ -921,6 +921,25 @@ def install_self_improve(home: Path) -> dict:
     return {"profile": "self-improve-mvcr", "files": shipped}
 
 
+MOTION_STUDIO_DIRS = ("motion_studio", "intro_video")  # make_video.py reaches ../intro_video/render.py
+
+
+def install_motion_studio(support: Path) -> dict:
+    """Motion Studio's tool for the installed backend (owner PC 06.10: «не найден в этой сборке»)."""
+    shipped: dict[str, str] = {}
+    for name in MOTION_STUDIO_DIRS:
+        source = ROOT / "tools" / name
+        if not (source / ("make_video.py" if name == "motion_studio" else "render.py")).is_file():
+            raise RuntimeError(f"motion studio tool missing: {source}")
+        for origin in sorted(p for p in source.rglob("*") if p.is_file() and "__pycache__" not in p.parts):
+            rel = origin.relative_to(source).as_posix()
+            target = support / name / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(origin, target)
+            shipped[f"app-support/{name}/{rel}"] = sha256_file(origin)
+    return {"path": "app-support/motion_studio", "files": shipped}
+
+
 def install_coaching_pack(target: Path) -> dict:
     """Пак coaching (train/holdout JSON) — файл в файл, без чужих файлов."""
     if not COACHING_PACK_SOURCE.is_dir():
@@ -971,6 +990,7 @@ def assemble(out: Path, sha: str, *, wheels: Path, work: Path,
     contents["icons"] = install_icons(out / "icons")
     contents["owner_run"] = install_support(out / "app-support")
     contents["self_improve"] = install_self_improve(out)
+    contents["motion_studio"] = install_motion_studio(out / "app-support")
     for name, body in launcher_files().items():
         target = out / name
         target.parent.mkdir(parents=True, exist_ok=True)
