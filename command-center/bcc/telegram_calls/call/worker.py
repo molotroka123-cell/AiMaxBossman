@@ -33,12 +33,14 @@ from ..settings import CallSettings, calls_home, load_settings
 from ..types import (AccountState, Brain, CallError, CallEvent, CallRecord, CallState as CS, Outcome, STTEngine,
                      TTSEngine)
 from ..audio.vad import VAD
+from ...pit import voice_language
+from ...pit.voice_language import call_phrases
 from .session import CallSession, SessionConfig
 
 log = logging.getLogger("bcc.telegram_calls.worker")
 MODE_ENV = "BOSSMAN_CALLS_MODE"               # "offline_test" only ever comes from the operator's environment, never from the API
 OFFLINE_MODE = "offline_test"
-DISCLOSURE = "Это Джефф, ИИ-ассистент."          # spoken before the first reply when the greeting did not say it (see SessionConfig)
+DISCLOSURE = voice_language.PHRASES["ru"]["disclosure"]          # spoken before the first reply when the greeting did not say it (see SessionConfig)
 
 
 from ..speech.factory import Engines  # noqa: E402  (re-exported for callers of the worker)
@@ -210,10 +212,12 @@ class Worker:
             raise
         if ctx.uncertain_previous:
             self.state.acknowledge_uncertain()                    # the owner confirmed it explicitly (only a dial that goes ahead spends it)
+        words = call_phrases(settings.language, settings.greeting)       # fixed phrases (incl. the AI disclosure) in the call's language
         cfg = SessionConfig(ring_timeout_s=float(settings.ring_timeout_s), max_call_s=float(settings.max_call_s),
                             idle_prompt_s=float(settings.idle_prompt_s), idle_hangup_s=float(settings.idle_hangup_s),
-                            barge_in=settings.barge_in, echo_mode=settings.echo_mode, greeting=settings.greeting,
-                            disclosure=DISCLOSURE)
+                            barge_in=settings.barge_in, echo_mode=settings.echo_mode, greeting=words["greeting"],
+                            disclosure=words["disclosure"], idle_prompt_text=words["idle_prompt_text"],
+                            repeat_prompt_text=words["repeat_prompt_text"], apology_text=words["apology_text"])
         session = CallSession(call_id=call_id, transport=transport, peer=peer, stt=engines.stt, tts=engines.tts,
                               brain=engines.brain, vad=engines.vad, cfg=cfg, on_event=self._on_session_event,
                               recorder=engines.recorder)

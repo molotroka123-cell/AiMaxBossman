@@ -21,7 +21,7 @@ from typing import Callable
 from bcc.oss import whisper
 from bcc.oss.piper import PiperError, synthesize_ogg
 
-from . import tts_engines
+from . import tts_engines, voice_language
 from .latency import LatencyStats
 from .presentation import spoken_reply_text
 
@@ -141,7 +141,7 @@ def _transcribe_wav(audio: bytes, *, language: str = "ru",
         raise SpeechError("VOICE_BUSY")
     try:
         segments, info = model.transcribe(
-            io.BytesIO(clean), language=language, beam_size=beam_size, vad_filter=True,
+            io.BytesIO(clean), language=voice_language.whisper_language(language), beam_size=beam_size, vad_filter=True,
             condition_on_previous_text=False)
         rows = []
         for segment in segments:

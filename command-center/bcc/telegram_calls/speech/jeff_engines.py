@@ -26,6 +26,7 @@ from typing import Any, AsyncIterator, Callable
 from ..audio.vad import make_vad
 from ..settings import CallSettings, data_dir
 from ..types import (CallError, CallSummary, CancelToken, STTResult, Turn)
+from ...pit.voice_language import EN_MODEL_ENV, pick_model
 from .factory import Engines
 
 log = logging.getLogger("bcc.telegram_calls.jeff_engines")
@@ -95,12 +96,15 @@ class JeffSTT:
     name = "jeff-whisper"
 
     def __init__(self, *, transcribe: Callable[..., dict], stopped: Callable[[], bool], model: str = "", status_fn=None,
-                 beam_size: int = STT_BEAM):
+                 beam_size: int = STT_BEAM, language: str = "ru"):
+        self.language = language                             # ru | en | auto (Whisper decides per utterance)
         self._transcribe, self._stopped, self.model = transcribe, stopped, model or "local"
         self._status_fn, self._beam = status_fn, beam_size
         self._lock = asyncio.Lock()                          # one decode at a time inside this process
 
-    def new_stream(self, *, language: str = "ru") -> _UtteranceStream:
+    def new_stream(self, *, language: str = "") -> _UtteranceStream:
+        if language:
+            self.language = language
         return _UtteranceStream(self)
 
     def status(self) -> dict[str, Any]:
@@ -112,7 +116,7 @@ class JeffSTT:
         async with self._lock:
             for attempt in range(BUSY_RETRIES):
                 try:
-                    res = await asyncio.to_thread(self._transcribe, wav, language="ru", stopped=self._stopped, beam_size=self._beam)
+                    res = await asyncio.to_thread(self._transcribe, wav, language=self.language, stopped=self._stopped, beam_size=self._beam)
                     break
                 except Exception as exc:  # noqa: BLE001 - SpeechError carries a stable code, everything else is generic
                     code = str(exc)
@@ -132,7 +136,7 @@ class JeffSTT:
         """Load the cached model now (during the ring), not in the middle of the first reply."""
         with_silence = _wav(b"\x00\x00" * 8000)
         try:
-            await asyncio.to_thread(self._transcribe, with_silence, language="ru", stopped=lambda: False, beam_size=1)
+            await asyncio.to_thread(self._transcribe, with_silence, language=self.language, stopped=lambda: False, beam_size=1)
         except Exception:  # noqa: BLE001 - VOICE_NO_SPEECH is the expected outcome; the model is loaded either way
             pass
 
@@ -143,8 +147,9 @@ class JeffTTS:
     name = "jeff-piper"
 
     def __init__(self, *, synthesize_pcm: Callable[..., tuple[bytes, int]], exe: str, model: str, egress_guard: Callable[[str], bool],
-                 stopped: Callable[[], bool], sample_rate: int = 22050, audit: Callable[[str], None] | None = None):
-        self._synth, self._exe, self._model = synthesize_pcm, exe, model
+                 stopped: Callable[[], bool], sample_rate: int = 22050, audit: Callable[[str], None] | None = None,
+                 model_en: str = ""):
+        self._synth, self._exe, self._model, self._model_en = synthesize_pcm, exe, model, model_en     # model_en = the owner's English voice or ""
         self._egress_ok, self._stopped = egress_guard, stopped
         self._audit = audit                                   # the pre-TTS audit of Jeff's other voice paths (hash only on a call)
         self.voice = Path(model).stem
@@ -160,9 +165,10 @@ class JeffTTS:
             raise CallError("TTS_UNAVAILABLE", detail="egress_guard")
         if self._audit is not None:
             self._audit(text)                                # raises CallError when it cannot be made durable or the text is a threat
+        model, _spoken = pick_model(text, self._model, self._model_en)      # English sentence -> English voice when installed
         try:
             pcm, rate = await asyncio.to_thread(
-                self._synth, text.strip(), piper_executable=self._exe, model_path=self._model,
+                self._synth, text.strip(), piper_executable=self._exe, model_path=model,
                 stopped=lambda: cancel.cancelled or self._stopped())
         except Exception as exc:  # noqa: BLE001
             if cancel.cancelled or str(exc) == "VOICE_STOPPED":
@@ -311,6 +317,12 @@ def make_call_audit(audit_dir: Path) -> Callable[[str], None]:
     return audit
 
 
+def _english_model(environ: Any) -> str:
+    """The owner's English Piper model from the SAME environment the Russian one comes from, only when complete (.onnx + .onnx.json)."""
+    path = str(environ.get(EN_MODEL_ENV, "") or "").strip()
+    return path if path and os.path.isabs(path) and Path(path).is_file() and Path(path + ".json").is_file() else ""
+
+
 def _read_sample_rate(model: str) -> int:
     try:
         cfg = json.loads(Path(model + ".json").read_text(encoding="utf-8"))
@@ -351,10 +363,12 @@ async def build_jeff_engines(settings: CallSettings, *, pit_settings: Any | None
     if runtime._blocked(settings.peer_user_id, settings.peer_user_id):
         await runtime.close()
         raise CallError("PEER_NOT_ALLOWED", detail="blocked")
-    stt = JeffSTT(transcribe=transcribe or speech.transcribe_wav, stopped=stopped,
+    stt = JeffSTT(transcribe=transcribe or speech.transcribe_wav, stopped=stopped, language=settings.language,
                   model=Path(environ.get("BOSSMAN_WHISPER_MODEL_PATH", "") or "whisper").name, status_fn=speech.asr_status)
+    model_en = _english_model(environ)
     tts = JeffTTS(synthesize_pcm=synthesize_pcm or piper.synthesize_pcm, exe=exe, model=model, egress_guard=_egress_guard,
-                  stopped=stopped, sample_rate=_read_sample_rate(model), audit=make_call_audit(runtime.home / "logs"))
+                  stopped=stopped, sample_rate=_read_sample_rate(model), audit=make_call_audit(runtime.home / "logs"),
+                  model_en=model_en)
     brain = JeffBrain(runtime, settings.peer_user_id, model=pit_settings.local_models[0], stopped=stopped)
     asyncio.get_running_loop().create_task(stt.warmup())
     return Engines(stt=stt, tts=tts, brain=brain, vad=make_vad(settings.vad),
