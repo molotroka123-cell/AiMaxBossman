@@ -98,3 +98,5 @@ bcc = ["telegram_calls/addon_lock.json", "skills_catalog/*/LICENSE", "skills_cat
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Same checkout first (bcc + bossman-core): see bossman-core/pyproject.toml, owner PC 06.10.
+pythonpath = [".", "../bossman-core"]

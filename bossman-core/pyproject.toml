@@ -57,6 +57,9 @@ include = ["bossman*"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# The checkout's own sources first: Bossman's verify sandbox runs a clean interpreter with only the workspace
+# root on PYTHONPATH, and an old editable install elsewhere must never answer `import bossman` (owner PC 06.10).
+pythonpath = ["."]
 markers = [
     "live: requires an explicitly enabled external service/session",
     "restart: destroys and recreates a process or durable store",

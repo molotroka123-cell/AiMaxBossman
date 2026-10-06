@@ -253,10 +253,30 @@ async def _sidecar_env(svc) -> dict[str, str]:
     return env
 
 
-async def readiness(svc) -> dict[str, Any]:
+async def readiness(svc, worker: str | None = None) -> dict[str, Any]:
+    """Can a coding task start now?
+
+    Local sidecar (worker=None): the full ``bossman.openhands.v1`` handshake with the configured
+    local command. A cloud worker never uses that command, so its readiness must not run it:
+    on the owner PC (06.10) every glm-flash task still handshook the LOCAL sidecar first, which
+    loaded a 27 GB Ollama model into the GPU for a task that never used it. A cloud worker is
+    ready when the runtime is installed and its key exists; the sidecar's own start is the check.
+    """
     oc, wt, reason = _runtime()
-    command = _sidecar_command() if oc is not None else os.environ.get(COMMAND_ENV, "").strip()
     roots = [str(r) for r in await allowed_roots(svc)]
+    if worker is not None:
+        out = {"available": False, "runtime": oc is not None, "sidecar_command": True, "worker": worker,
+               "roots": roots, "reason": "", "handshake": None}
+        if oc is None:
+            out["reason"] = reason
+        elif worker not in WORKERS:
+            out["reason"] = f"неизвестный исполнитель: {worker}"
+        elif not await _worker_key(WORKERS[worker]["key"], svc):
+            out["reason"] = f"нет ключа {WORKERS[worker]['key']} для исполнителя {worker}"
+        else:
+            out["available"] = True
+        return out
+    command = _sidecar_command() if oc is not None else os.environ.get(COMMAND_ENV, "").strip()
     out = {"available": False, "runtime": oc is not None, "sidecar_command": bool(command),
            "roots": roots, "reason": "", "handshake": None}
     if oc is None:
@@ -894,7 +914,7 @@ async def create_task(body: TaskIn, request: Request):
     svc = request.app.state.svc
     if body.worker is not None and body.worker not in WORKERS:
         raise HTTPException(422, {"code": "UNKNOWN_WORKER", "workers": sorted(WORKERS)})
-    ready = await readiness(svc)
+    ready = await readiness(svc, body.worker)
     if not ready["available"]:
         raise HTTPException(503, {"code": "OPENHANDS_UNAVAILABLE", "message": ready["reason"],
                                   "readiness": ready})
