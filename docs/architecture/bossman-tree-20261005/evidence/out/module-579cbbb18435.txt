@@ -1,0 +1,18 @@
+node_id: module-579cbbb18435
+module: bcc.telegram_calls.account.login
+path: command-center/bcc/telegram_calls/account/login.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_login_rate_limit.py', 'command-center/tests/test_login_token_file_hint.py', 'command-center/tests/test_login_token_not_offered_to_password_manager.py', 'command-center/tests/telegram_calls/test_account_login.py', 'command-center/tests/telegram_calls/test_hardening.py'] (candidates=5)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.account.login')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.account.login C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/account/login.py
+
+[exit 0 in 0.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_login_rate_limit.py tests/test_login_token_file_hint.py tests/test_login_token_not_offered_to_password_manager.py tests/telegram_calls/test_account_login.py tests/telegram_calls/test_hardening.py)
+........................................                                 [100%]
+40 passed in 7.76s
+
+[exit 0 in 10.2s]
+
+VERDICT: PASS 

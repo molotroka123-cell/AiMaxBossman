@@ -1,0 +1,18 @@
+node_id: module-3fb56e2abdc6
+module: bcc.telegram_calls.call.loopback
+path: command-center/bcc/telegram_calls/call/loopback.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/telegram_calls/test_loopback_echo_continuity.py', 'command-center/tests/telegram_calls/test_session.py', 'command-center/tests/telegram_calls/test_worker_and_stop_races.py', 'command-center/tests/telegram_calls/test_worker_dial_races.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.call.loopback')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.call.loopback C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/call/loopback.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_loopback_echo_continuity.py tests/telegram_calls/test_session.py tests/telegram_calls/test_worker_and_stop_races.py tests/telegram_calls/test_worker_dial_races.py)
+.....................................................                    [100%]
+53 passed in 64.04s (0:01:04)
+
+[exit 0 in 66.0s]
+
+VERDICT: PASS 

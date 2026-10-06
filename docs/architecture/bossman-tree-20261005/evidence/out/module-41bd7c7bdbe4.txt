@@ -1,0 +1,19 @@
+node_id: module-41bd7c7bdbe4
+module: bcc.pit.web
+path: command-center/bcc/pit/web.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_web_access_20260930.py', 'command-center/tests/test_web_designer.py', 'command-center/tests/test_web_designer_ai_create_ui.py', 'command-center/tests/test_web_designer_apply_idempotent_ui.py', 'command-center/tests/test_web_designer_create_after_response.py', 'command-center/tests/test_web_designer_creative_execution.py', 'command-center/tests/test_web_designer_first_click_ui.py', 'command-center/tests/test_web_designer_grapesjs_ui.py'] (candidates=33)
+
+$ python -c "importlib.import_module('bcc.pit.web')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.web C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/web.py
+
+[exit 0 in 1.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_web_access_20260930.py tests/test_web_designer.py tests/test_web_designer_ai_create_ui.py tests/test_web_designer_apply_idempotent_ui.py tests/test_web_designer_create_after_response.py tests/test_web_designer_creative_execution.py tests/test_web_designer_first_click_ui.py tests/test_web_designer_grapesjs_ui.py)
+........................................................................ [ 62%]
+......ssss...........................ssssss                              [100%]
+105 passed, 10 skipped in 35.07s
+
+[exit 0 in 37.4s]
+
+VERDICT: PASS 

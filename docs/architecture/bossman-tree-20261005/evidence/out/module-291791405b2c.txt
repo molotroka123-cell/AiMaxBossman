@@ -1,0 +1,18 @@
+node_id: module-291791405b2c
+module: bcc.pit.presentation_profile
+path: command-center/bcc/pit/presentation_profile.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_pit_presentation_profile.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.pit.presentation_profile')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.presentation_profile C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/presentation_profile.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_pit_presentation_profile.py)
+....                                                                     [100%]
+4 passed in 0.32s
+
+[exit 0 in 2.3s]
+
+VERDICT: PASS 

@@ -1,0 +1,20 @@
+node_id: module-67cee7d9cae4
+module: bcc.pit.j2.proactive
+path: command-center/bcc/pit/j2/proactive.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_jeff_2_insights.py', 'command-center/tests/test_jeff_2_proactive.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.pit.j2.proactive')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.j2.proactive C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/j2/proactive.py
+
+[exit 0 in 0.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_2_insights.py tests/test_jeff_2_proactive.py)
+.........................................ss............................. [ 46%]
+........................................................................ [ 92%]
+............                                                             [100%]
+154 passed, 2 skipped in 23.38s
+
+[exit 0 in 26.5s]
+
+VERDICT: PASS 

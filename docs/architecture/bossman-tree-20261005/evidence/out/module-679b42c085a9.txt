@@ -1,0 +1,18 @@
+node_id: module-679b42c085a9
+module: bcc.telegram_calls.call.manager
+path: command-center/bcc/telegram_calls/call/manager.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/telegram_calls/test_manager.py', 'command-center/tests/telegram_calls/test_acl_windows.py', 'command-center/tests/telegram_calls/test_worker_and_stop_races.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.call.manager')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.call.manager C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/call/manager.py
+
+[exit 0 in 0.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_manager.py tests/telegram_calls/test_acl_windows.py tests/telegram_calls/test_worker_and_stop_races.py)
+...............................................s....................     [100%]
+67 passed, 1 skipped in 31.35s
+
+[exit 0 in 34.1s]
+
+VERDICT: PASS 

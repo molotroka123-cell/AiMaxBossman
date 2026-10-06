@@ -1,0 +1,18 @@
+node_id: module-0b449131095b
+module: bcc.telegram_calls.call.worker
+path: command-center/bcc/telegram_calls/call/worker.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_worker_pool.py', 'command-center/tests/telegram_calls/test_worker_and_stop_races.py', 'command-center/tests/telegram_calls/test_worker_dial_races.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.call.worker')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.call.worker C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/call/worker.py
+
+[exit 0 in 0.5s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_worker_pool.py tests/telegram_calls/test_worker_and_stop_races.py tests/telegram_calls/test_worker_dial_races.py)
+.........................                                                [100%]
+25 passed in 16.54s
+
+[exit 0 in 19.2s]
+
+VERDICT: PASS 

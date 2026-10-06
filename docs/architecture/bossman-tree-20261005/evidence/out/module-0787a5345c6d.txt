@@ -1,0 +1,19 @@
+node_id: module-0787a5345c6d
+module: bcc.pit.photo_edit
+path: command-center/bcc/pit/photo_edit.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_pit_image_delivery_contracts.py', 'command-center/tests/test_pit_photo_foundation.py', 'command-center/tests/test_pit_runtime.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bcc.pit.photo_edit')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.photo_edit C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/photo_edit.py
+
+[exit 0 in 0.4s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_pit_image_delivery_contracts.py tests/test_pit_photo_foundation.py tests/test_pit_runtime.py)
+........................................................................ [ 67%]
+..................................                                       [100%]
+106 passed in 100.47s (0:01:40)
+
+[exit 0 in 102.6s]
+
+VERDICT: PASS 

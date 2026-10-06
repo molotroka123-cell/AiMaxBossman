@@ -1,0 +1,18 @@
+node_id: module-7a7a9e12efb7
+module: bcc.pit.moderate_discovery
+path: command-center/bcc/pit/moderate_discovery.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_pit_foundation.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.pit.moderate_discovery')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.moderate_discovery C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/moderate_discovery.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_pit_foundation.py)
+................................................                         [100%]
+48 passed in 1.74s
+
+[exit 0 in 3.6s]
+
+VERDICT: PASS 

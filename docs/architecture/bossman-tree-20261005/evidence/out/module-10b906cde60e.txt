@@ -1,0 +1,23 @@
+node_id: module-10b906cde60e
+module: bcc.pit.j2.contract
+path: command-center/bcc/pit/j2/contract.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_contract_keeps_agent_tools.py', 'command-center/tests/test_jeff_2_insights.py', 'command-center/tests/test_jeff_2_pipeline.py', 'command-center/tests/test_jeff_2_proactive.py', 'command-center/tests/test_jeff_2_quality_lab.py', 'command-center/tests/test_jeff_2_safety.py', 'command-center/tests/telegram_calls/test_j2_call_perimeter.py'] (candidates=7)
+
+$ python -c "importlib.import_module('bcc.pit.j2.contract')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.j2.contract C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/j2/contract.py
+
+[exit 0 in 0.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_contract_keeps_agent_tools.py tests/test_jeff_2_insights.py tests/test_jeff_2_pipeline.py tests/test_jeff_2_proactive.py tests/test_jeff_2_quality_lab.py tests/test_jeff_2_safety.py tests/telegram_calls/test_j2_call_perimeter.py)
+........................................................ss.............. [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 52%]
+........................................................................ [ 69%]
+........................................................................ [ 86%]
+......................................................                   [100%]
+412 passed, 2 skipped in 51.67s
+
+[exit 0 in 54.2s]
+
+VERDICT: PASS 

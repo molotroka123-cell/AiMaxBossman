@@ -1,0 +1,63 @@
+node_id: module-0a1e9aa39f26
+module: bcc.pit.router
+path: command-center/bcc/pit/router.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['bossman-core/tests/test_router.py', 'command-center/tests/test_router_memory_pressure.py', 'tests/test_blue_leaf_audit.py', 'command-center/tests/test_jeff_1_8_local.py', 'command-center/tests/test_jeff_availability.py', 'command-center/tests/test_jeff_owner_bugtest_fixes.py', 'command-center/tests/test_pit_foundation.py', 'command-center/tests/test_pit_laptop_replay.py'] (candidates=10)
+
+$ python -c "importlib.import_module('bcc.pit.router')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.router C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/router.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router.py)
+......                                                                   [100%]
+6 passed in 0.19s
+
+[exit 0 in 0.7s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router_memory_pressure.py tests/test_jeff_1_8_local.py tests/test_jeff_availability.py tests/test_jeff_owner_bugtest_fixes.py tests/test_pit_foundation.py tests/test_pit_laptop_replay.py)
+........................................................................ [ 58%]
+....................................................                     [100%]
+============================== warnings summary ===============================
+tests/test_jeff_availability.py: 1 warning
+tests/test_jeff_owner_bugtest_fixes.py: 14 warnings
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\pit\web.py:410: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_jeff_availability.py: 2 warnings
+tests/test_jeff_owner_bugtest_fixes.py: 28 warnings
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_jeff_availability.py: 1 warning
+tests/test_jeff_owner_bugtest_fixes.py: 14 warnings
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\pit\web.py:913: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+124 passed, 60 warnings in 118.60s (0:01:58)
+
+[exit 0 in 120.7s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_blue_leaf_audit.py)
+.........                                                                [100%]
+9 passed in 0.20s
+
+[exit 0 in 0.8s]
+
+VERDICT: PASS 

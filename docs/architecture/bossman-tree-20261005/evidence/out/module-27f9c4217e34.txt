@@ -1,0 +1,18 @@
+node_id: module-27f9c4217e34
+module: bcc.telegram_calls.deps
+path: command-center/bcc/telegram_calls/deps.py
+sha: 6891bbedb599d3e9c49f3fdfd92364d9edb5a93a
+test_files: ['command-center/tests/test_leaf_telegram_calls_deps.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.deps')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.deps C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/deps.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_telegram_calls_deps.py)
+....                                                                     [100%]
+4 passed in 0.16s
+
+[exit 0 in 1.2s]
+
+VERDICT: PASS 

@@ -1,0 +1,18 @@
+node_id: module-7637ffa19df1
+module: bcc.pit.reply_stream
+path: command-center/bcc/pit/reply_stream.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_jeff_1_8_stream.py', 'command-center/tests/test_jeff_1_8_telegram_stream.py', 'command-center/tests/test_mandatory_identity.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bcc.pit.reply_stream')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.reply_stream C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/reply_stream.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_1_8_stream.py tests/test_jeff_1_8_telegram_stream.py tests/test_mandatory_identity.py)
+........................................................                 [100%]
+56 passed in 44.44s
+
+[exit 0 in 46.6s]
+
+VERDICT: PASS 

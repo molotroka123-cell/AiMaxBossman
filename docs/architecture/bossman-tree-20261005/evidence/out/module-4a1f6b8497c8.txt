@@ -1,0 +1,18 @@
+node_id: module-4a1f6b8497c8
+module: bcc.pit.master_parser.corpus
+path: command-center/bcc/pit/master_parser/corpus.py
+sha: 6891bbedb599d3e9c49f3fdfd92364d9edb5a93a
+test_files: ['command-center/tests/test_leaf_master_parser_corpus.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.pit.master_parser.corpus')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.master_parser.corpus C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/master_parser/corpus.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_master_parser_corpus.py)
+........                                                                 [100%]
+8 passed in 0.24s
+
+[exit 0 in 1.2s]
+
+VERDICT: PASS 

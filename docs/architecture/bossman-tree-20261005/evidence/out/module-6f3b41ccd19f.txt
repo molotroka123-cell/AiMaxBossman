@@ -1,0 +1,19 @@
+node_id: module-6f3b41ccd19f
+module: bcc.telegram_calls.account.stopflag
+path: command-center/bcc/telegram_calls/account/stopflag.py
+sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
+test_files: ['command-center/tests/telegram_calls/test_account_store.py', 'command-center/tests/telegram_calls/test_api_calls.py', 'command-center/tests/telegram_calls/test_postcall.py', 'command-center/tests/telegram_calls/test_worker_and_stop_races.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.account.stopflag')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.account.stopflag C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/account/stopflag.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_account_store.py tests/telegram_calls/test_api_calls.py tests/telegram_calls/test_postcall.py tests/telegram_calls/test_worker_and_stop_races.py)
+........................................................................ [ 53%]
+..............................................................           [100%]
+134 passed in 90.04s (0:01:30)
+
+[exit 0 in 91.8s]
+
+VERDICT: PASS 

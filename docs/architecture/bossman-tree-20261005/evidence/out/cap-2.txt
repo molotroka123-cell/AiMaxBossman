@@ -1,0 +1,18 @@
+node_id: cap-2
+module: bcc.pit.passport_checkpoint
+path: command-center/bcc/pit/passport_checkpoint.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_pit_master_parser_2_0.py', 'command-center/tests/test_pit_passport_checkpoint.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.pit.passport_checkpoint')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.passport_checkpoint C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/passport_checkpoint.py
+
+[exit 0 in 0.6s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_pit_master_parser_2_0.py tests/test_pit_passport_checkpoint.py)
+........                                                                 [100%]
+8 passed in 7.90s
+
+[exit 0 in 9.8s]
+
+VERDICT: PASS 

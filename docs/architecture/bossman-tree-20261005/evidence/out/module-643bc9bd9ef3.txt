@@ -1,0 +1,24 @@
+node_id: module-643bc9bd9ef3
+module: bcc.pit.j2.media
+path: command-center/bcc/pit/j2/media.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['tests/test_media_bootstrap.py', 'tests/test_media_ci_preflight.py', 'command-center/tests/test_media_roundtrip_studio.py', 'command-center/tests/test_jeff_2_media.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bcc.pit.j2.media')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.j2.media C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/j2/media.py
+
+[exit 0 in 0.3s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_media_bootstrap.py tests/test_media_ci_preflight.py)
+..............................                                           [100%]
+30 passed in 0.94s
+
+[exit 0 in 1.6s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_media_roundtrip_studio.py tests/test_jeff_2_media.py)
+.....................................................................    [100%]
+69 passed in 16.90s
+
+[exit 0 in 19.5s]
+
+VERDICT: PASS 

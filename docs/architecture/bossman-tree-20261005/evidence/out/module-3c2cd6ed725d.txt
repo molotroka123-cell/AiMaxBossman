@@ -1,0 +1,18 @@
+node_id: module-3c2cd6ed725d
+module: bcc.telegram_calls.call.session
+path: command-center/bcc/telegram_calls/call/session.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_session_touch_throttle.py', 'command-center/tests/telegram_calls/test_session.py', 'command-center/tests/telegram_calls/test_jeff_english.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bcc.telegram_calls.call.session')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.telegram_calls.call.session C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/telegram_calls/call/session.py
+
+[exit 0 in 0.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_session_touch_throttle.py tests/telegram_calls/test_session.py tests/telegram_calls/test_jeff_english.py)
+.......................................                                  [100%]
+39 passed in 54.38s
+
+[exit 0 in 56.5s]
+
+VERDICT: PASS 

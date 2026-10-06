@@ -1,0 +1,14 @@
+{
+ "node_id": "cap-1",
+ "sha": "6891bbedb599d3e9c49f3fdfd92364d9edb5a93a",
+ "probe": "import+pytest (capability proxy: vault, passport_commands)",
+ "command": "python -c import bcc.pit.vault,bcc.pit.passport_commands && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_jeff_privacy_in_code.py tests/test_jeff_memory_self_description.py tests/test_jeff_2_memory_palace.py)",
+ "exit_code": 0,
+ "started_at": "2026-10-06T23:01:55+00:00",
+ "finished_at": "2026-10-06T23:02:05+00:00",
+ "output_sha256": "d34972da8e27c02888839d3c4fb1be8b4ce5c39a5a6a39e9ba3021abf5a39296",
+ "output_tail": "bcc\\pit\\web.py:410: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"startup\")\r\n\r\ntests/test_jeff_privacy_in_code.py::test_web_disclosure_does_not_claim_history_when_memory_is_paused\r\ntests/test_jeff_privacy_in_code.py::test_web_disclosure_does_not_claim_history_when_memory_is_paused\r\n  C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\fastapi\\applications.py:4681: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    return self.router.on_event(event_type)  # ty: ignore[deprecated]\r\n\r\ntests/test_jeff_privacy_in_code.py::test_web_disclosure_does_not_claim_history_when_memory_is_paused\r\n  C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\pit\\web.py:913: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n59 passed, 4 warnings in 9.17s\r\n\n[exit 0 in 10.2s]\nVERDICT: PASS\n",
+ "verdict": "PASS",
+ "kind": "pytest",
+ "reason": ""
+}

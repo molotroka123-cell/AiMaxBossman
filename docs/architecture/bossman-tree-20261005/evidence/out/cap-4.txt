@@ -1,0 +1,49 @@
+node_id: cap-4
+module: bcc.pit.participant_admin
+path: command-center/bcc/pit/participant_admin.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_jeff_2_media.py', 'command-center/tests/test_jeff_2_memory_palace.py', 'command-center/tests/test_jeff_admin.py', 'command-center/tests/test_jeff_owner_bugtest_fixes.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bcc.pit.participant_admin')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.participant_admin C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/participant_admin.py
+
+[exit 0 in 0.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_2_media.py tests/test_jeff_2_memory_palace.py tests/test_jeff_admin.py tests/test_jeff_owner_bugtest_fixes.py)
+........................................................................ [ 46%]
+..........................................s............................. [ 93%]
+..........                                                               [100%]
+============================== warnings summary ===============================
+tests/test_jeff_owner_bugtest_fixes.py: 14 warnings
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\pit\web.py:410: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_jeff_owner_bugtest_fixes.py: 28 warnings
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_jeff_owner_bugtest_fixes.py: 14 warnings
+  C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\pit\web.py:913: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+153 passed, 1 skipped, 56 warnings in 101.13s (0:01:41)
+
+[exit 0 in 103.6s]
+
+VERDICT: PASS 

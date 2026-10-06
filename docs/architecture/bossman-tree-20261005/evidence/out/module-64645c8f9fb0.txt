@@ -1,0 +1,18 @@
+node_id: module-64645c8f9fb0
+module: bcc.pit.j2.memory_palace
+path: command-center/bcc/pit/j2/memory_palace.py
+sha: 679d019e3978696b6c2ae4db52eef46a01f190e2
+test_files: ['command-center/tests/test_jeff_2_memory_palace.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.pit.j2.memory_palace')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.pit.j2.memory_palace C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/pit/j2/memory_palace.py
+
+[exit 0 in 0.4s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_2_memory_palace.py)
+..............................................                           [100%]
+46 passed in 5.62s
+
+[exit 0 in 8.0s]
+
+VERDICT: PASS 
