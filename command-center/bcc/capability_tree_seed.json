@@ -13742,6 +13742,96 @@
         "bossman-core/bossman/voice_capability.py",
         "bossman-core/tests/test_v26_voice_capability.py"
       ]
+    },
+    {
+      "id": "reg-earning_emulator",
+      "label": "Эмулятор заработка на удалённой вакансии (симуляция)",
+      "parent": "apps",
+      "status": "code",
+      "detail": "Earning EMULATOR: reads a public remote-job listing (text), drafts the deliverable, and writes a SIMULATED invoice to an append-only ledger. What it does NOT do, by construction (each is pinned by a test): it never applies, never messages anyone, never logs in Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/earning_emulator.py",
+          "sha": ""
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/earning_emulator.py",
+        "command-center/tests/test_earning_emulator.py"
+      ]
+    },
+    {
+      "id": "reg-earning_emulator_cli",
+      "label": "Эмулятор заработка: командная строка (один GET публичной страницы)",
+      "parent": "apps",
+      "status": "code",
+      "detail": "CLI for the earning emulator (bcc/earning_emulator.py). SIMULATION only: no application, no message, no login, no money. python tools/earning_emulator.py --listing-file listing.txt --source https://example/job --ledger ledger.jsonl python tools/earning_emulato Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/earning_emulator.py",
+          "sha": ""
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/earning_emulator.py",
+        "tests/test_earning_emulator_cli.py"
+      ]
+    },
+    {
+      "id": "reg-leaf_usefulness_queue",
+      "label": "Очередь проверки листьев по полезности (гипотеза)",
+      "parent": "ops",
+      "status": "code",
+      "detail": "Priority queue for verifying the blue («code written») leaves — a HYPOTHESIS, not a measurement. Inputs are facts readable from the checkout: the tree, the evidence registry, the static import graph, file size and heavy imports. Score = priority of the owner's Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/leaf_usefulness_queue.py",
+          "sha": ""
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/leaf_usefulness_queue.py",
+        "tests/test_leaf_usefulness_queue.py"
+      ]
+    },
+    {
+      "id": "reg-tree_registry_sync",
+      "label": "Синхронизация дерева с реестром: уровни доказательств",
+      "parent": "ops",
+      "status": "code",
+      "detail": "Sync the capability tree with the repository: add leaves for implemented code from a manifest, and write the per-leaf evidence registry. python tools/tree_registry_sync.py add --manifest docs/architecture/tree-leaf-manifest.json python tools/tree_registry_sync Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/tree_registry_sync.py",
+          "sha": "8d4a4be0bf355e66bd35eeb342fba66d537431d8"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/tree_registry_sync.py",
+        "tests/test_tree_registry_sync.py"
+      ]
+    },
+    {
+      "id": "reg-blue_leaf_audit_tool",
+      "label": "Аудит синих листьев по записанным прогонам тестов",
+      "parent": "ops",
+      "status": "code",
+      "detail": "Per-leaf audit of the «code written» (blue) leaves of the capability tree. For every leaf with status ``code`` it answers, from the checkout and from JUnit files produced by an actual test run: which source files the leaf names, which test files import them, a Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/blue_leaf_audit.py",
+          "sha": "8d4a4be0bf355e66bd35eeb342fba66d537431d8"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/blue_leaf_audit.py",
+        "tests/test_blue_leaf_audit.py"
+      ]
     }
   ],
   "memory_protocol": {

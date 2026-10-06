@@ -93,3 +93,18 @@ def test_feature_modules_loaded_by_the_registry_are_found_by_test_name_as_the_we
     assert got == ["c/tests/test_feat_nl_orchestra.py", "c/tests/test_nl_orchestra_parsing.py"]
     assert bla.tests_by_name("command-center/bcc/pit/nl_orchestra.py", imports) == []        # only the features directory
     assert bla.tests_by_name("command-center/bcc/features/rave.py", imports) == []
+
+
+def test_numbered_rerun_files_are_accepted_and_unknown_run_names_are_refused(tmp_path, monkeypatch):
+    import pytest
+    (tmp_path / "command-center" / "tests").mkdir(parents=True)
+    (tmp_path / "command-center" / "tests" / "test_m.py").write_text("", encoding="utf-8")
+    monkeypatch.setattr(bla, "ROOT", tmp_path)
+    a, b = tmp_path / "cc.xml", tmp_path / "cc-rerun2.xml"
+    _junit(a, [("tests.test_m", "x", "<failure/>")])
+    _junit(b, [("tests.test_m", "x", "")])
+    assert dict(bla.read_junit([a, b]))["command-center/tests/test_m.py"]["failed"] == 0
+    bad = tmp_path / "mystery.xml"
+    _junit(bad, [])
+    with pytest.raises(SystemExit):
+        bla.read_junit([bad])

@@ -1,9 +1,8 @@
 {
- "leaves": 505,
+ "leaves": 510,
  "summary": {
   "non-python": 1,
-  "covered": 477,
-  "covered-skipped": 4,
+  "covered": 486,
   "untested": 23
  },
  "junit_files": [
@@ -16,7 +15,8 @@
   "ai-3d-maker.xml",
   "social-farm.xml",
   "core-rerun.xml",
-  "cc-rerun.xml"
+  "cc-rerun.xml",
+  "root-rerun.xml"
  ],
  "meaning": "covered = tests importing the module passed; NOT proof of benefit or of live operation",
  "rows": [
@@ -398,12 +398,12 @@
    "tests": [
     "tests/test_blue_leaf_audit.py"
    ],
-   "passed": 0,
+   "passed": 9,
    "failed": 0,
    "skipped": 0,
    "basis": "import-or-path",
-   "verdict": "covered-skipped",
-   "note": "importing tests exist but none executed (skipped or not run)"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "cap-39",
@@ -1568,12 +1568,12 @@
    "tests": [
     "tests/test_blue_leaf_audit.py"
    ],
-   "passed": 0,
+   "passed": 9,
    "failed": 0,
    "skipped": 0,
    "basis": "import-or-path",
-   "verdict": "covered-skipped",
-   "note": "importing tests exist but none executed (skipped or not run)"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "mod-reality",
@@ -9465,12 +9465,12 @@
    "tests": [
     "tests/test_blue_leaf_audit.py"
    ],
-   "passed": 0,
+   "passed": 9,
    "failed": 0,
    "skipped": 0,
    "basis": "import-or-path",
-   "verdict": "covered-skipped",
-   "note": "importing tests exist but none executed (skipped or not run)"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "pv-coach",
@@ -9519,12 +9519,12 @@
    "tests": [
     "tests/test_blue_leaf_audit.py"
    ],
-   "passed": 0,
+   "passed": 9,
    "failed": 0,
    "skipped": 0,
    "basis": "import-or-path",
-   "verdict": "covered-skipped",
-   "note": "importing tests exist but none executed (skipped or not run)"
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
   },
   {
    "id": "pv-lora",
@@ -10104,6 +10104,91 @@
     "bossman-core/tests/test_v26_voice_capability.py"
    ],
    "passed": 7,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-earning_emulator",
+   "label": "Эмулятор заработка на удалённой вакансии (симуляция)",
+   "zone": "apps",
+   "sources": [
+    "command-center/bcc/earning_emulator.py"
+   ],
+   "tests": [
+    "command-center/tests/test_earning_emulator.py"
+   ],
+   "passed": 18,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-earning_emulator_cli",
+   "label": "Эмулятор заработка: командная строка (один GET публичной страницы)",
+   "zone": "apps",
+   "sources": [
+    "tools/earning_emulator.py"
+   ],
+   "tests": [
+    "tests/test_earning_emulator_cli.py"
+   ],
+   "passed": 4,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-leaf_usefulness_queue",
+   "label": "Очередь проверки листьев по полезности (гипотеза)",
+   "zone": "ops",
+   "sources": [
+    "tools/leaf_usefulness_queue.py"
+   ],
+   "tests": [
+    "tests/test_leaf_usefulness_queue.py"
+   ],
+   "passed": 5,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-tree_registry_sync",
+   "label": "Синхронизация дерева с реестром: уровни доказательств",
+   "zone": "ops",
+   "sources": [
+    "tools/tree_registry_sync.py"
+   ],
+   "tests": [
+    "tests/test_tree_registry_sync.py"
+   ],
+   "passed": 7,
+   "failed": 0,
+   "skipped": 0,
+   "basis": "import-or-path",
+   "verdict": "covered",
+   "note": "tests that import it passed (regression coverage only; benefit and live use not shown)"
+  },
+  {
+   "id": "reg-blue_leaf_audit_tool",
+   "label": "Аудит синих листьев по записанным прогонам тестов",
+   "zone": "ops",
+   "sources": [
+    "tools/blue_leaf_audit.py"
+   ],
+   "tests": [
+    "tests/test_blue_leaf_audit.py"
+   ],
+   "passed": 9,
    "failed": 0,
    "skipped": 0,
    "basis": "import-or-path",

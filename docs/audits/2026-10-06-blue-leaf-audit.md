@@ -6,14 +6,14 @@ Same-product Terminal Run: пульт, CLI, дашборд и Telegram — од�
 ## Что именно проверено
 
 Листья со статусом `code` в `command-center/bcc/capability_tree_seed.json` на ветке `goal/bossman-self-improvement-tree-20261005` (после влива линии poker-vision/poker-lora):
-**505 листьев**. Для каждого `tools/blue_leaf_audit.py` находит тестовые файлы, импортирующие его исходник (или загружающие скрипт по пути), и сверяет с
+**510 листьев**. Для каждого `tools/blue_leaf_audit.py` находит тестовые файлы, импортирующие его исходник (или загружающие скрипт по пути), и сверяет с
 результатом настоящего прогона в облаке (Linux, Python 3.11): `bossman-core` 3446 passed / `command-center` 8691 passed / корень 2980 passed / poker-vision 129 passed (10 skipped) / poker-lora 23 /
 ai-webcam-vision 224 passed. Все JUnit-файлы и инструмент воспроизводимы; данные по листьям — `docs/audits/blue-leaf-audit-20261006.json`.
 
 | Вердикт | Листьев | Что это значит |
 |---|---:|---|
-| covered | 477 | тесты, импортирующие модуль, прошли на этом прогоне |
-| covered-skipped | 4 | тесты есть, но не выполнялись (пропущены) |
+| covered | 486 | тесты, импортирующие модуль, прошли на этом прогоне |
+| covered-skipped | 0 | тесты есть, но не выполнялись (пропущены) |
 | untested | 23 | ни один тест не импортирует этот исходник |
 | non-python | 1 | не Python-источник, автотест не сопоставлен |
 

@@ -254,5 +254,50 @@
   "tests": [
    "bossman-core/tests/test_v26_voice_capability.py"
   ]
+ },
+ {
+  "slug": "earning_emulator",
+  "label": "Эмулятор заработка на удалённой вакансии (симуляция)",
+  "parent": "apps",
+  "source": "command-center/bcc/earning_emulator.py",
+  "tests": [
+   "command-center/tests/test_earning_emulator.py"
+  ]
+ },
+ {
+  "slug": "earning_emulator_cli",
+  "label": "Эмулятор заработка: командная строка (один GET публичной страницы)",
+  "parent": "apps",
+  "source": "tools/earning_emulator.py",
+  "tests": [
+   "tests/test_earning_emulator_cli.py"
+  ]
+ },
+ {
+  "slug": "leaf_usefulness_queue",
+  "label": "Очередь проверки листьев по полезности (гипотеза)",
+  "parent": "ops",
+  "source": "tools/leaf_usefulness_queue.py",
+  "tests": [
+   "tests/test_leaf_usefulness_queue.py"
+  ]
+ },
+ {
+  "slug": "tree_registry_sync",
+  "label": "Синхронизация дерева с реестром: уровни доказательств",
+  "parent": "ops",
+  "source": "tools/tree_registry_sync.py",
+  "tests": [
+   "tests/test_tree_registry_sync.py"
+  ]
+ },
+ {
+  "slug": "blue_leaf_audit_tool",
+  "label": "Аудит синих листьев по записанным прогонам тестов",
+  "parent": "ops",
+  "source": "tools/blue_leaf_audit.py",
+  "tests": [
+   "tests/test_blue_leaf_audit.py"
+  ]
  }
 ]

@@ -125,7 +125,7 @@ def tests_for(source: str, imports: dict[str, set[str]], texts: dict[str, str]) 
 
 
 # JUnit file stem -> the directory its run started in (classnames are relative to it)
-RUN_DIRS = {"core": "bossman-core", "core-rerun": "bossman-core", "cc-rerun": "command-center", "root-rerun": "", "cc": "command-center", "root": "", "poker-vision": "apps/poker-vision",
+RUN_DIRS = {"core": "bossman-core", "cc": "command-center", "root": "", "poker-vision": "apps/poker-vision",
             "poker-lora": "apps/poker-lora", "ai-webcam-vision": "apps/ai-webcam-vision",
             "ai-3d-maker": "apps/ai-3d-maker", "social-farm": "apps/social-farm"}
 
@@ -145,11 +145,12 @@ def read_junit(files: list[Path]) -> dict[str, dict[str, int]]:
     res: dict[str, dict[str, int]] = defaultdict(lambda: {"passed": 0, "failed": 0, "skipped": 0})
     # a «<run>-rerun.xml» REPLACES the counts of the test files it contains (a test file that failed for a reason outside the code,
     # e.g. the checkout moved during the run, is re-executed and judged by the re-execution; both files stay named in the output)
-    for jf in sorted(files, key=lambda f: f.stem.endswith("-rerun")):
+    for jf in sorted(files, key=lambda f: "-rerun" in f.stem):
         replaced: set[str] = set()
-        prefix = RUN_DIRS.get(jf.stem)
+        rerun = "-rerun" in jf.stem
+        prefix = RUN_DIRS.get(jf.stem.split("-rerun")[0])      # «cc-rerun», «cc-rerun2», … run in the same directory as «cc»
         if prefix is None:
-            raise SystemExit(f"unknown JUnit file name {jf.name}: expected one of {sorted(RUN_DIRS)}.xml")
+            raise SystemExit(f"unknown JUnit file name {jf.name}: expected <run>.xml or <run>-rerun*.xml with run in {sorted(RUN_DIRS)}")
         root = ET.parse(jf).getroot()
         for case in root.iter("testcase"):
             parts = case.get("classname", "").split(".")
@@ -161,7 +162,7 @@ def read_junit(files: list[Path]) -> dict[str, dict[str, int]]:
                     break
             if target is None:
                 continue
-            if jf.stem.endswith("-rerun") and target not in replaced:
+            if rerun and target not in replaced:
                 res[target] = {"passed": 0, "failed": 0, "skipped": 0}
                 replaced.add(target)
             kind = "passed"

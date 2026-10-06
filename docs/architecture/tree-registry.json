@@ -1,6 +1,6 @@
 {
  "schema": "bossman-tree-registry-1",
- "head": "d3c7b87bc65f1500b074ccf4a6d21b5f7d41e97a",
+ "head": "8d4a4be0bf355e66bd35eeb342fba66d537431d8",
  "leaves": [
   {
    "id": "jeff",
@@ -1963,12 +1963,12 @@
      "state": "PRESENT"
     },
     "tests": {
-     "state": "NOT_RUN",
+     "state": "PASSED_RECORDED_RUN",
      "files": [
       "tests/test_blue_leaf_audit.py"
      ],
      "basis": "import-or-path",
-     "passed": 0,
+     "passed": 9,
      "failed": 0,
      "skipped": 0
     },
@@ -1982,7 +1982,7 @@
      "evidence": null
     }
    },
-   "proven_through": "code",
+   "proven_through": "tests",
    "evidence": {
     "audit": "blue-leaf-audit-20261006.json",
     "ci": null,
@@ -4981,12 +4981,12 @@
      "state": "PRESENT"
     },
     "tests": {
-     "state": "NOT_RUN",
+     "state": "PASSED_RECORDED_RUN",
      "files": [
       "tests/test_blue_leaf_audit.py"
      ],
      "basis": "import-or-path",
-     "passed": 0,
+     "passed": 9,
      "failed": 0,
      "skipped": 0
     },
@@ -5000,7 +5000,7 @@
      "evidence": null
     }
    },
-   "proven_through": "code",
+   "proven_through": "tests",
    "evidence": {
     "audit": "blue-leaf-audit-20261006.json",
     "ci": null,
@@ -30589,12 +30589,12 @@
      "state": "PRESENT"
     },
     "tests": {
-     "state": "NOT_RUN",
+     "state": "PASSED_RECORDED_RUN",
      "files": [
       "tests/test_blue_leaf_audit.py"
      ],
      "basis": "import-or-path",
-     "passed": 0,
+     "passed": 9,
      "failed": 0,
      "skipped": 0
     },
@@ -30608,7 +30608,7 @@
      "evidence": null
     }
    },
-   "proven_through": "code",
+   "proven_through": "tests",
    "evidence": {
     "audit": "blue-leaf-audit-20261006.json",
     "ci": null,
@@ -30740,12 +30740,12 @@
      "state": "PRESENT"
     },
     "tests": {
-     "state": "NOT_RUN",
+     "state": "PASSED_RECORDED_RUN",
      "files": [
       "tests/test_blue_leaf_audit.py"
      ],
      "basis": "import-or-path",
-     "passed": 0,
+     "passed": 9,
      "failed": 0,
      "skipped": 0
     },
@@ -30759,7 +30759,7 @@
      "evidence": null
     }
    },
-   "proven_through": "code",
+   "proven_through": "tests",
    "evidence": {
     "audit": "blue-leaf-audit-20261006.json",
     "ci": null,
@@ -32272,12 +32272,202 @@
     "ci": null,
     "owner_pc": null
    }
+  },
+  {
+   "id": "reg-earning_emulator",
+   "label": "Эмулятор заработка на удалённой вакансии (симуляция)",
+   "zone_parent": "apps",
+   "source": "command-center/bcc/earning_emulator.py",
+   "sha": "",
+   "integration_status": "code",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "PASSED_RECORDED_RUN",
+     "files": [
+      "command-center/tests/test_earning_emulator.py"
+     ],
+     "basis": "import-or-path",
+     "passed": 18,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "tests",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-earning_emulator_cli",
+   "label": "Эмулятор заработка: командная строка (один GET публичной страницы)",
+   "zone_parent": "apps",
+   "source": "tools/earning_emulator.py",
+   "sha": "",
+   "integration_status": "code",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "PASSED_RECORDED_RUN",
+     "files": [
+      "tests/test_earning_emulator_cli.py"
+     ],
+     "basis": "import-or-path",
+     "passed": 4,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "tests",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-leaf_usefulness_queue",
+   "label": "Очередь проверки листьев по полезности (гипотеза)",
+   "zone_parent": "ops",
+   "source": "tools/leaf_usefulness_queue.py",
+   "sha": "",
+   "integration_status": "code",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "PASSED_RECORDED_RUN",
+     "files": [
+      "tests/test_leaf_usefulness_queue.py"
+     ],
+     "basis": "import-or-path",
+     "passed": 5,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "tests",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-tree_registry_sync",
+   "label": "Синхронизация дерева с реестром: уровни доказательств",
+   "zone_parent": "ops",
+   "source": "tools/tree_registry_sync.py",
+   "sha": "8d4a4be0bf355e66bd35eeb342fba66d537431d8",
+   "integration_status": "code",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "PASSED_RECORDED_RUN",
+     "files": [
+      "tests/test_tree_registry_sync.py"
+     ],
+     "basis": "import-or-path",
+     "passed": 7,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "tests",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-blue_leaf_audit_tool",
+   "label": "Аудит синих листьев по записанным прогонам тестов",
+   "zone_parent": "ops",
+   "source": "tools/blue_leaf_audit.py",
+   "sha": "8d4a4be0bf355e66bd35eeb342fba66d537431d8",
+   "integration_status": "code",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "PASSED_RECORDED_RUN",
+     "files": [
+      "tests/test_blue_leaf_audit.py"
+     ],
+     "basis": "import-or-path",
+     "passed": 9,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "tests",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
   }
  ],
  "proven_through_counts": {
   "none": 67,
-  "code": 284,
-  "tests": 476
+  "code": 280,
+  "tests": 485
  },
  "note": "tests = a recorded run in the cloud; ci = green on the stated SHA only when a CI evidence file is supplied; owner_pc only from an owner evidence file."
 }
