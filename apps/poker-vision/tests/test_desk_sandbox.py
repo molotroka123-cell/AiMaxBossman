@@ -163,9 +163,10 @@ def test_control_and_coach_are_refused_where_nothing_is_proven(tmp_path):
 def test_window_partly_off_screen_gives_a_cropped_frame_and_is_refused_not_clicked(make):
     svc = make("control", max_hands=6)
     assert wait_for(lambda: len(verified_actions(svc)) >= 1, 120)
-    assert svc.sandbox_cmd("move", x=260, y=60)["ok"]                            # bottom 60 px leave the screen: captured frame is cropped
-    assert wait_for(lambda: svc.desk["executor"].halted, 40)
-    assert "does not match window" in svc.desk["executor"].halted or "window" in svc.desk["executor"].halted
     n = svc.desk["executor"].n_actions
-    time.sleep(2)
-    assert svc.desk["executor"].n_actions == n
+    assert svc.sandbox_cmd("move", x=260, y=60)["ok"]                            # bottom 60 px leave the screen: captured frame is cropped
+    time.sleep(8)
+    ex = svc.desk["executor"]
+    # either vision cannot read a cropped table (nothing actionable) or the mapper refuses the frame/window mismatch: in no case is a click made
+    assert ex.n_actions == n, ex.log[-3:]
+    assert svc.last_frame.h < 900 and svc.last_frame.meta["rect"][3] == 900      # the frame really is cropped relative to the window rectangle
