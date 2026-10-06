@@ -153,6 +153,36 @@ class SandboxDesk:
     def click_phys(self, px: float, py: float) -> None:
         self.page.mouse.click(px / self.dpr, py / self.dpr)
 
+    def element_at(self, px: float, py: float, wid: str = "w1") -> str | None:
+        """Ground truth for the bench ONLY: label of the trainer button under a physical screen point (None: not a button / other window)."""
+        if self._topmost(px, py) != wid:
+            return "<other window>"
+        r = self.windows[wid]["rect"]
+        try:
+            return self._frame(wid).evaluate("([x,y])=>{const e=document.elementFromPoint(x,y);const b=e&&e.closest('button');return b?b.innerText.trim().split('\\n')[0]:null}",
+                                              [px / self.dpr - r.x, py / self.dpr - r.y])
+        except Exception:
+            return None
+
+    def dom_button_box(self, label: str, wid: str = "w1") -> Rect | None:
+        """DOM-oracle locator input for the bench ONLY: the button box in frame (physical) pixels relative to the window."""
+        f = self._frame(wid)
+        r = f.evaluate("(l)=>{const b=[...document.querySelectorAll('button')].filter(x=>x.innerText.trim().split('\\n')[0]===l);if(b.length!==1)return null;const q=b[0].getBoundingClientRect();return [q.x,q.y,q.width,q.height]}", label)
+        return None if r is None else Rect(r[0] * self.dpr, r[1] * self.dpr, r[2] * self.dpr, r[3] * self.dpr)
+
+    def dom_click(self, label: str, wid: str = "w1") -> bool:
+        """Harness-only: the owner reviewing a halt and unblocking the trainer by hand (e.g. closing a half-open raise panel with FOLD)."""
+        try:
+            b = [x for x in self._frame(wid).query_selector_all("button") if x.inner_text().strip().split("\n")[0] == label]
+            if len(b) == 1:
+                b[0].click(); return True
+        except Exception:
+            pass
+        return False
+
+    def cpu_throttle(self, rate: float) -> None:
+        self.ctx.new_cdp_session(self.page).send("Emulation.setCPUThrottlingRate", {"rate": rate})
+
     def now_ms(self) -> int:
         return int((time.monotonic() - self.t0) * 1000)
 

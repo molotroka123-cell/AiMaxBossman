@@ -305,6 +305,27 @@ class VisionService(DeskMixin):
             ad.profile.save(self.profile_dir / f"{adapter}.json"); out["saved"] = True
         return out
 
+    def verify_roi(self, adapter: str, heldout_dir: str, context: str = "") -> dict:
+        """Re-check a SAVED profile on new held-out frames (changed scale, theme or window layout). The result is appended to a log;
+        a failing check withdraws trust: the saved profile is marked unverified until a passing check."""
+        import cv2
+        d = Path(heldout_dir)
+        truth = json.loads((d / "truth.json").read_text(encoding="utf-8"))
+        held = [(Frame(cv2.imread(str(d / name)), 0, f"verify:{d.name}", name), t) for name, t in truth.items() if (d / name).exists()]
+        ad = registry.get(adapter, self.profile_dir / f"{adapter}.json" if self.profile_dir else None)
+        if not getattr(ad, "profile", None):
+            raise ValueError(f"{adapter}: no saved profile to verify; calibrate first")
+        rep = ad.verify(held)
+        rec = {"t": time.time(), "adapter": adapter, "profile": ad.profile_id(), "context": context, "frames": len(held), "passed": rep.passed, "report": rep.__dict__}
+        if self.profile_dir:
+            self.profile_dir.mkdir(parents=True, exist_ok=True)
+            with (self.profile_dir / "verifications.jsonl").open("a", encoding="utf-8") as f:
+                f.write(json.dumps(rec, default=str) + "\n")
+            if not rep.passed:
+                ad.profile.data["verified"] = False
+                ad.profile.save(self.profile_dir / f"{adapter}.json")
+        return rec
+
     # ------------------------------------------------------------ views
     def status(self) -> dict:
         with self.lock:

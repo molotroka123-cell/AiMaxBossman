@@ -87,10 +87,14 @@ class TrainerPanelReader:
         # "Raise to": the big gold number (digit height ~20 CSS px) above the slider; its y depends on how many preset rows the panel has,
         # so scan the whole panel band and accept only a line with that digit height (card corners and labels have other heights)
         rz = (int(img.shape[1] * 0.25), int(by0 - 262 * s), int(img.shape[1] * 0.75), int(by0 - 96 * s))
-        lines = [q for q in spot_lines(img, rz, (14.0 * s, 30.0 * s), v_min=150) if 16.0 * s <= q.height <= 26.0 * s]
-        if len(lines) == 1:
-            ln = lines[0]
+        lines = [q for q in spot_lines(img, rz, (14.0 * s, 30.0 * s), v_min=150)
+                 if 16.0 * s <= q.height <= 26.0 * s and (q.x1 - q.x0) >= 0.45 * q.height and abs(q.cx - img.shape[1] / 2) <= 0.2 * img.shape[1]
+                 and (not panel.presets or q.y1 < min(p.box.y for p in panel.presets) - 4 * s)]
+        vals = set()
+        for ln in lines:                                  # the same number can be segmented twice (glow); several lines must agree, else UNKNOWN
             r = read_glyphs(list(ln.glyphs), ln.height, self.book_rt, allowed=NUM, min_conf=0.25, max_dist=4.0)
             m = parse_money(r.text) if r.text else None
-            panel.raise_to = m.amount if m else None
+            vals.add(m.amount if m else None)
+        if len(vals) == 1 and None not in vals:
+            panel.raise_to = next(iter(vals))
         return panel

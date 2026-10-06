@@ -549,8 +549,10 @@ class PokerTrainAdapter(TableAdapter):
             ww = lnw.x1 - lnw.x0
             bx0 = int(lnw.x0 - 0.5 * ww); bx1 = int(lnw.x1 + 0.5 * ww)
             amt_ = next((a_[1] for a_ in acts if a_[0] == lab), None)
-            btns.append({"label": lab, "x": bx0, "y": int(by0), "w": bx1 - bx0, "h": int(by1 - by0), "amount": amt_, "conf": round(float(c), 3)})
-            st.quality.setdefault("boxes", []).append({"field": "button", "x": bx0, "y": int(by0), "w": bx1 - bx0, "h": int(by1 - by0), "ok": True,
+            half = 0.30 * P["action_btn_h_css"] * s                   # centred on the LABEL line (the saturated band can run past the button); always inside the button
+            by_ = int(y - half)
+            btns.append({"label": lab, "x": bx0, "y": by_, "w": bx1 - bx0, "h": int(2 * half), "amount": amt_, "conf": round(float(c), 3)})
+            st.quality.setdefault("boxes", []).append({"field": "button", "x": bx0, "y": by_, "w": bx1 - bx0, "h": int(2 * half), "ok": True,
                                                        "label": lab + (f" {amt_:g}" if amt_ is not None else "")})
         st.quality["buttons"] = btns
 

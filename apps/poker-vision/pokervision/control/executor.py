@@ -74,6 +74,7 @@ class Executor:
         self.stop, self.journal, self.panel, self.pointer_scale = stop, journal, panel, pointer_scale
         self.verify_timeout_s, self.settle_s, self.sleep, self.max_actions = verify_timeout_s, settle_s, sleep, max_actions
         self.halted: str | None = None
+        self.before_press_hook: Callable[[], None] | None = None     # bench/test only: perturb the world between preflight and the click
         self.n_actions = 0
         self.log: list[dict] = []
 
@@ -179,6 +180,17 @@ class Executor:
         self._check_stop("after locate")
         if snap.rect is None:
             raise Halt("window rect unknown")
+        # layout-shift / animation guard: the target must sit at the same place on the NEXT fresh frame too, otherwise the UI is still moving
+        fr2 = self._read()
+        loc2 = self.locator.locate(fr2.frame, fr2.state, label)
+        if loc2.target is None:
+            raise Transient("target vanished on the confirming frame: " + loc2.reason)
+        a, b = loc.target.box, loc2.target.box
+        tol = max(3.0, 0.004 * fr.frame.h)
+        if abs(a.x - b.x) > tol or abs(a.y - b.y) > tol or abs(a.w - b.w) > 2 * tol or abs(a.h - b.h) > 2 * tol:
+            raise Transient(f"target moved between two frames ({a.x:.0f},{a.y:.0f} -> {b.x:.0f},{b.y:.0f}): layout still shifting")
+        snap = self._window_check(fr2)
+        fr, loc = fr2, loc2
         mapper = ScreenMapper(fr.frame.w, fr.frame.h, snap.rect, self.pointer_scale)
         px, py = mapper.target_point(loc.target.box)
         sx, sy = mapper.frame_to_screen(loc.target.box.cx, loc.target.box.cy)
@@ -190,6 +202,15 @@ class Executor:
     # ------------------------------------------------------------ steps
     def _press_and_verify(self, d: PolicyDecision, label: str, fr: Fresh, tgt: Target, pt, final: bool, verify) -> dict:
         self._check_stop("before click")
+        if self.before_press_hook:
+            self.before_press_hook()
+            self._check_stop("after hook")
+        # last look immediately before the press: same window, same place as when the frame was captured, nothing on top at the point
+        snap = self._window_check(fr)
+        if pt is not None and snap.rect is not None:
+            owner = self.probe.owner_at(*ScreenMapper(fr.frame.w, fr.frame.h, snap.rect, 1.0).frame_to_screen(tgt.box.cx, tgt.box.cy))
+            if owner is not None and owner != self.guard.bound.handle:
+                raise Halt(f"another window is on top at the click point (handle {owner}) [last check]")
         before = self.journal.frame(f"before_{label}", fr.frame.bgr, fr.state) if self.journal else None
         t0 = time.time()
         out = self.backend.press(label, pt)

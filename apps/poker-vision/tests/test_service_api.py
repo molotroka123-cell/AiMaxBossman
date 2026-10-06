@@ -1,5 +1,6 @@
 import json
 import time
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -19,7 +20,10 @@ def make_frames(d, n=6):
 
 @pytest.fixture()
 def client(tmp_path):
-    return TestClient(create_app(tmp_path / "data"))
+    import shutil
+    prof = tmp_path / "profiles"                                     # tests must never write into the repository's profile directory
+    shutil.copytree(Path(__file__).resolve().parents[1] / "pokervision" / "adapters" / "profiles", prof)
+    return TestClient(create_app(tmp_path / "data", prof))
 
 
 def wait_done(c, secs=20):
@@ -119,3 +123,17 @@ def test_poisoned_calibration_is_not_saved(client, tmp_path):
     held = _labelled_dir(tmp_path / "held", values(20, 99))
     r = client.post("/api/v1/calibrate", json={"adapter": "ton_poker", "labelled_dir": str(cal), "heldout_dir": str(held), "rois": ROIS}).json()
     assert r["report"]["passed"] is False and r["saved"] is False
+
+
+def test_saved_profile_can_be_reverified_on_new_frames_and_a_failing_check_withdraws_trust(client, tmp_path):
+    from .test_roi_gate import ROIS, values
+    cal = _labelled_dir(tmp_path / "cal", ["1234567890", "9081726354", "5566778899", "1020304050"] + values(30, 1))
+    held = _labelled_dir(tmp_path / "held", values(20, 99))
+    assert client.post("/api/v1/calibrate", json={"adapter": "ton_poker", "labelled_dir": str(cal), "heldout_dir": str(held), "rois": ROIS}).json()["saved"]
+    good = _labelled_dir(tmp_path / "again", values(20, 7))
+    r = client.post("/api/v1/verify", json={"adapter": "ton_poker", "heldout_dir": str(good), "context": "same theme, new deals"}).json()
+    assert r["passed"] is True and r["frames"] >= 8
+    bad = _labelled_dir(tmp_path / "bad", values(20, 8), swap=str.maketrans("17", "71"))     # labels no longer match what is on screen (a changed look)
+    r2 = client.post("/api/v1/verify", json={"adapter": "ton_poker", "heldout_dir": str(bad), "context": "other theme"}).json()
+    assert r2["passed"] is False
+    assert client.post("/api/v1/verify", json={"adapter": "ton_poker", "heldout_dir": str(good), "context": "after failure"}).status_code == 200

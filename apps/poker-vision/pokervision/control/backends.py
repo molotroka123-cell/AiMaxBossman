@@ -1,6 +1,6 @@
 """Click backends. The executor decides IF and WHAT; a backend only performs one press on a located target.
 
-* PointerBackend  - screen pointer at mapped coordinates (Playwright page mouse in the sandbox; pyautogui/Win32 SendInput on Windows).
+* PointerBackend  - screen pointer at mapped coordinates (Playwright page mouse in the sandbox. NO OS-level pointer backend is shipped: acting on a real desktop window is not implemented).
 * ComputerUseBackend - delegates to Bossman's existing Computer Use (`computer.act`), addressing the element by NAME. The Computer Use
   perimeter (allow-listed processes, one owner approval per action, STOP epoch) stays in force: whatever it refuses is a refusal here."""
 from __future__ import annotations

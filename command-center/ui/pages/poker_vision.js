@@ -76,6 +76,7 @@ const Page = {
     const calRois = h('textarea.textarea', { id: 'pv-cal-rois', rows: 4, placeholder: '{"pot":[0.40,0.30,0.20,0.08],"hero_cards":[x,y,w,h],"board":[x,y,w,h]}  — доли кадра: стол, места, карты, банк, стеки, кнопки, поле суммы' });
     const calOut = h('pre.small', { id: 'pv-cal-out' }, 'Неизвестная раскладка: калибровка → проверка на отложенных кадрах (масштаб, тема, положение окна). Пока проверка не пройдена, все поля UNKNOWN, подсказки и управление выключены.');
 
+    const put = (box, ...nodes) => box.replaceChildren(...nodes.filter(Boolean));
     const err = (e) => (e && e.detail && (e.detail.message || e.detail.hint)) || (e && e.message) || String(e);
     const startStream = () => { stream.src = `/api/poker-vision/stream.mjpeg?ts=${Date.now()}`; };
 
@@ -162,7 +163,7 @@ const Page = {
       renderModeBar(desk);
       if (desk) {
         const id = desk.identity;
-        sourceBox.replaceChildren(
+        put(sourceBox, 
           h('div.small', `${desk.source.kind === 'sandbox' ? 'Мой Poker Train в тестовом рабочем столе' : desk.source.kind === 'replay' ? 'Запись' : 'Окно'} · режим: ${MODES.find(m => m.value === desk.mode)?.label}`),
           id ? h('div.xsmall.dim', `идентичность: процесс ${id.process} · pid ${id.pid} · handle ${id.handle} · старт ${new Date(id.started_at * 1000).toLocaleTimeString()}`) : null,
           desk.window_reasons.length ? h('div.small', { style: { color: '#ff8a8a' } }, `окно: ${desk.window_reasons.join('; ')} — управление остановлено`) : h('div.xsmall.dim', 'окно: проверки пройдены'),
@@ -181,14 +182,14 @@ const Page = {
         }
         const rec = await api.raw('/api/poker-vision/recommendation');
         if (rec.ok) {
-          recBox.replaceChildren(
+          put(recBox, 
             h('div', { 'data-rec-action': rec.action }, h('strong', `Рекомендация: ${rec.action}${rec.raise_to ? ' до ' + rec.raise_to : ''}`), h('span.dim', `  ·  эквити ≈ ${Math.round(rec.equity * 100)}% против случайных рук, шансы банка ${Math.round(rec.pot_odds * 100)}%`)),
             h('p.small', rec.explanation),
             h('table.pv-fields', h('tbody', rec.options.map(o => h('tr', { class: o.chosen ? 'pv-ok' : '' }, h('td', (o.chosen ? '▶ ' : '') + o.action), h('td', o.amount != null ? String(o.amount) : '—'), h('td', o.note))))),
             rec.uncertainty.length ? h('ul.small', ...rec.uncertainty.map(u => h('li', u))) : null,
             h('p.xsmall.dim', rec.disclaimer));
         } else {
-          recBox.replaceChildren(h('p.dim', { 'data-rec-none': '1' }, rec.why_not || 'нет рекомендации'));
+          put(recBox, h('p.dim', { 'data-rec-none': '1' }, rec.why_not || 'нет рекомендации'));
         }
         const hist = await api.raw('/api/poker-vision/history');
         histBox.replaceChildren(h('p.small', `раздач в истории: ${hist.hands.length} · решений тренажёра: ${hist.decisions.length}`),
@@ -199,7 +200,7 @@ const Page = {
         if (desk && desk.mode === 'control') {
           const j = await api.raw('/api/poker-vision/journal');
           const acts = j.records.filter(r => r.event === 'action' || r.event === 'halt' || r.event === 'decision_dropped');
-          journalBox.replaceChildren(h('p.xsmall.dim', `журнал решений · SHA ${String(j.sha).slice(0, 12)} · записей ${acts.length}`),
+          put(journalBox, h('p.xsmall.dim', `журнал решений · SHA ${String(j.sha).slice(0, 12)} · записей ${acts.length}`),
             ...acts.slice(-8).map(r => h('div.small', { 'data-journal': r.event }, r.event === 'action'
               ? `${r.decision.kind}${r.decision.raise_to ? ' до ' + r.decision.raise_to : ''} → ${r.label}: ${r.verified ? 'подтверждено' : 'НЕ подтверждено'} (${r.verify}) · ${r.latency_ms} мс · кадры ${r.before} → ${r.after}`
               : `${r.event}: ${r.reason}`)));

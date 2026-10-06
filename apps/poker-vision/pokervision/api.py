@@ -50,6 +50,12 @@ class SandboxBody(BaseModel):
     args: dict = {}
 
 
+class VerifyBody(BaseModel):
+    adapter: str = "ton_poker"
+    heldout_dir: str
+    context: str = ""
+
+
 class CalibBody(BaseModel):
     adapter: str = "ton_poker"
     labelled_dir: str
@@ -57,9 +63,9 @@ class CalibBody(BaseModel):
     rois: dict
 
 
-def create_app(data_dir: str | Path | None = None) -> FastAPI:
+def create_app(data_dir: str | Path | None = None, profile_dir: str | Path | None = None) -> FastAPI:
     data = Path(data_dir or os.environ.get("POKERVISION_DATA", Path.home() / ".pokervision"))
-    svc = VisionService(data, Path(__file__).parent / "adapters" / "profiles")
+    svc = VisionService(data, Path(profile_dir) if profile_dir else Path(__file__).parent / "adapters" / "profiles")
     app = FastAPI(title="Poker Vision", version=__version__)
     app.state.svc = svc
     token = os.environ.get("POKERVISION_TOKEN")
@@ -193,6 +199,13 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
     def calibrate(b: CalibBody) -> dict:
         try:
             return svc.calibrate_roi(b.adapter, b.labelled_dir, b.heldout_dir, b.rois)
+        except (ValueError, KeyError, FileNotFoundError) as exc:
+            raise HTTPException(400, {"code": "BAD_REQUEST", "message": str(exc)})
+
+    @app.post("/api/v1/verify", dependencies=[Depends(auth)])
+    def verify(b: VerifyBody) -> dict:
+        try:
+            return svc.verify_roi(b.adapter, b.heldout_dir, b.context)
         except (ValueError, KeyError, FileNotFoundError) as exc:
             raise HTTPException(400, {"code": "BAD_REQUEST", "message": str(exc)})
 

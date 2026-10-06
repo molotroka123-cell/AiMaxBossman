@@ -47,7 +47,7 @@ def coach_allowed(spec: dict, adapter) -> tuple[bool, str]:
 class DeskMixin:
     # ------------------------------------------------------------ start / modes
     def start_desk(self, source: dict, adapter: str = "poker_train", desk_mode: str = "observe", seed: int = 1, sims: int = 300,
-                   max_hands: int = 40, auto_deal: bool = True, verify_timeout_s: float = 6.0) -> dict:
+                   max_hands: int = 40, auto_deal: bool = True, verify_timeout_s: float = 6.0, bench: dict | None = None) -> dict:
         if desk_mode not in DESK_MODES:
             raise ValueError(f"desk_mode: one of {DESK_MODES}")
         with self.lock:
@@ -75,7 +75,7 @@ class DeskMixin:
                 raise ValueError(f"unknown source kind {source.get('kind')!r}")
             self.rec = Reconciler(Config(stale_ms=1500))
             self.desk = {"mode": desk_mode, "paused": False, "source": dict(source), "lost": None, "window_reasons": [], "auto_deal": auto_deal,
-                         "recommendation": None, "rec_key": None, "executor": None, "verify_timeout_s": verify_timeout_s}
+                         "recommendation": None, "rec_key": None, "executor": None, "verify_timeout_s": verify_timeout_s, "bench": bench or {}}
             self.session = {"id": f"s{int(time.time())}", "mode": "desk", "adapter": adapter, "act": desk_mode == "control", "started": time.time(),
                             "path": source.get("path"), "url": source.get("url"), "source_kind": source.get("kind")}
             self._rng = random.Random(seed); self._sims = sims; self._max_hands = max_hands
@@ -156,9 +156,14 @@ class DeskMixin:
         src = self.src
         guard = IdentityGuard(src.ident, (src.desk.rect_phys(src.wid).w, src.desk.rect_phys(src.wid).h), GuardConfig())
         panel = TrainerPanelReader()
-        return Executor(read_fresh=self._fresh, locator=VisionLocator(), backend=PointerBackend(src.click_phys), probe=src.desk, guard=guard,
-                        stop=self.stop_ev, journal=self.journal, panel=panel, pointer_scale=src.pointer_scale,
-                        verify_timeout_s=self.desk["verify_timeout_s"])
+        b = self.desk["bench"]
+        click = b["click_wrap"](src) if b.get("click_wrap") else src.click_phys
+        ex = Executor(read_fresh=self._fresh, locator=b.get("locator") or VisionLocator(), backend=PointerBackend(click), probe=src.desk, guard=guard,
+                      stop=self.stop_ev, journal=self.journal, panel=panel, pointer_scale=src.pointer_scale,
+                      verify_timeout_s=self.desk["verify_timeout_s"], **({"settle_s": b["settle_s"]} if "settle_s" in b else {}))
+        if b.get("before_press_hook"):
+            ex.before_press_hook = lambda: b["before_press_hook"](self)
+        return ex
 
     def _desk_loop(self) -> None:
         d = self.desk
@@ -234,8 +239,15 @@ class DeskMixin:
             return
         if len(self.decisions) >= self._max_hands * 6:
             return
-        res = ex.execute(rc.decision)
+        decision = rc.decision
+        if d["bench"].get("decide"):
+            decision = d["bench"]["decide"](self, rc, fresh) or decision
+        if d["bench"].get("pre_execute"):
+            d["bench"]["pre_execute"](self)
+        res = ex.execute(decision)
         d["rec_key"] = None
+        if d["bench"].get("post_execute"):
+            d["bench"]["post_execute"](self, decision, res)
         rec = {"hand": list(fresh.committed.hero_cards), "board": list(fresh.committed.board), "decision": rc.decision.kind, "raise_to": rc.decision.raise_to,
                "reason": rc.decision.reason, "equity": rc.equity, "ok": res.ok, "halted": res.halted, "steps": res.steps, "t": time.time(),
                "note": "equity vs random hands; not optimal play, not a profit claim"}

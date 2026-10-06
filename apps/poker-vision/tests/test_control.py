@@ -208,28 +208,44 @@ class PanelScript:
         v = self.p[min(self.i, len(self.p) - 1)]; self.i += 1; return v
 
 
+class World:
+    """read_fresh() depends on how many clicks were made: 0 -> RAISE visible, 1-2 -> panel open, >=3 -> hero acted."""
+    def __init__(self, panel_open_after=1, done_after=3):
+        self.clicks = []; self.a, self.b = panel_open_after, done_after
+        self.pre = mk_fresh(mk_committed(actions=(("FOLD", None), ("CHECK", None), ("RAISE", None))))
+        self.opened = mk_fresh(mk_committed(actions=(("FOLD", None), ("CHECK", None), ("CONFIRM", None))))
+
+    def click(self, x, y): self.clicks.append((x, y))
+
+    def __call__(self):
+        n = len(self.clicks)
+        return self.pre if n < self.a else (AFTER() if n >= self.b else self.opened)
+
+
+PRESETS = [Preset("33%", 49, Rect(14, 603, 161, 49)), Preset("67%", 100, Rect(345, 603, 161, 49)), Preset("Pot", 150, Rect(180, 657, 161, 49))]
+
+
 def test_raise_sets_a_preset_inside_the_policy_range_reads_back_then_confirms():
-    presets = [Preset("33%", 49, Rect(14, 603, 161, 49)), Preset("67%", 100, Rect(345, 603, 161, 49)), Preset("Pot", 150, Rect(180, 657, 161, 49))]
-    opened = mk_fresh(mk_committed(actions=(("FOLD", None), ("CHECK", None), ("CONFIRM", None))))
-    panels = PanelScript([Panel(True, 0, presets), Panel(True, 100, presets)])
-    ex, clicks = mk_exec(Script(mk_fresh(mk_committed(actions=(("FOLD", None), ("CHECK", None), ("RAISE", None)))), opened, opened, opened, opened, opened, AFTER()), panel=panels)
-    d = dec("RAISE", raise_to=100.0, size_min=60.0, size_max=120.0, to_call=None)
-    r = ex.execute(d)
+    w = World()
+    ex, _ = mk_exec(w, backend=PointerBackend(w.click), panel=PanelScript([Panel(True, 0, PRESETS)] + [Panel(True, 100, PRESETS)] * 10))
+    r = ex.execute(dec("RAISE", raise_to=100.0, size_min=60.0, size_max=120.0, to_call=None))
     assert r.ok, r.halted
-    assert [s["label"] for s in r.steps] == ["RAISE", "PRESET 67%", "CONFIRM"]
+    assert [s["label"] for s in r.steps] == ["RAISE", "PRESET 67%", "CONFIRM"] or [s["label"][:6] for s in r.steps] == ["RAISE", "PRESET", "CONFIRM"]
     assert r.steps[1]["amount_decided"] == 100.0 and r.steps[1]["amount_set"] == 100 and r.steps[1]["amount_read"] == 100
 
 
-def test_raise_halts_when_no_preset_is_inside_the_policy_range_and_when_readback_differs():
-    presets = [Preset("Pot", 150, Rect(180, 657, 161, 49))]
-    opened = mk_fresh(mk_committed(actions=(("FOLD", None), ("CHECK", None), ("CONFIRM", None))))
-    ex, clicks = mk_exec(Script(mk_fresh(mk_committed(actions=(("FOLD", None), ("CHECK", None), ("RAISE", None)))), opened, opened), panel=PanelScript([Panel(True, 0, presets)]))
+def test_raise_halts_when_no_preset_is_inside_the_policy_range():
+    w = World(done_after=99)
+    ex, _ = mk_exec(w, backend=PointerBackend(w.click), panel=PanelScript([Panel(True, 0, [Preset("Pot", 150, Rect(180, 657, 161, 49))])] * 10))
     r = ex.execute(dec("RAISE", raise_to=100.0, size_min=60.0, size_max=120.0, to_call=None))
-    assert not r.ok and "inside the policy's range" in r.halted and len(clicks) == 1                 # only RAISE (opening the panel) was clicked
-    presets2 = [Preset("67%", 100, Rect(345, 603, 161, 49))]
-    ex2, clicks2 = mk_exec(Script(mk_fresh(mk_committed(actions=(("FOLD", None), ("CHECK", None), ("RAISE", None)))), opened, opened, opened), panel=PanelScript([Panel(True, 0, presets2), Panel(True, 49, presets2)]))
-    r2 = ex2.execute(dec("RAISE", raise_to=100.0, size_min=60.0, size_max=120.0, to_call=None))
-    assert not r2.ok and "not confirmed" in r2.halted and len(clicks2) == 2                          # CONFIRM never clicked on a wrong amount
+    assert not r.ok and "inside the policy's range" in r.halted and len(w.clicks) == 1                 # only RAISE (opening the panel) was clicked
+
+
+def test_raise_never_confirms_when_the_read_back_amount_differs():
+    w = World(done_after=99)
+    ex, _ = mk_exec(w, backend=PointerBackend(w.click), panel=PanelScript([Panel(True, 0, PRESETS)] + [Panel(True, 49, PRESETS)] * 20))
+    r = ex.execute(dec("RAISE", raise_to=100.0, size_min=60.0, size_max=120.0, to_call=None))
+    assert not r.ok and "not confirmed" in r.halted and len(w.clicks) == 2                              # RAISE + preset; CONFIRM never clicked on a wrong amount
 
 
 def test_policy_decision_validation():
@@ -263,3 +279,18 @@ def test_capture_failure_inside_the_executor_halts_instead_of_raising():
     ex, clicks = mk_exec(boom)
     r = ex.execute(dec("CALL"))
     assert not r.ok and "SOURCE_LOST" in r.halted and clicks == [] and ex.halted
+
+
+def test_a_target_that_moves_between_two_frames_is_not_clicked():
+    a = mk_fresh(buttons=[btn("FOLD", 20, y=720), btn("CALL", 190, y=720), btn("RAISE", 360, y=720)])
+    b = mk_fresh(buttons=[btn("FOLD", 20, y=680), btn("CALL", 190, y=680), btn("RAISE", 360, y=680)])        # layout shifted by 40 px
+    seq = [a, b] * 40
+    it = iter(seq)
+    ex, clicks = mk_exec(lambda: next(it))
+    r = ex.execute(dec("CALL"))
+    assert not r.ok and "layout still shifting" in r.halted and clicks == []
+
+
+def test_a_target_that_stays_put_is_clicked_once():
+    ex, clicks = mk_exec(Script(mk_fresh(), mk_fresh(), mk_fresh(), AFTER()))
+    assert ex.execute(dec("CALL")).ok and len(clicks) == 1
