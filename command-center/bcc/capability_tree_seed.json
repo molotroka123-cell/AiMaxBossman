@@ -12846,6 +12846,63 @@
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/a963599537f295c4266ec656ab35b233d632d71c/apps/poker-vision/docs/UI_CONTROL_CANDIDATES.md"
         }
       ]
+    },
+    {
+      "id": "pv-lora",
+      "label": "Poker-LoRA: действие из проверенного состояния (HU NLHE, river)",
+      "parent": "pv",
+      "status": "code",
+      "detail": "Данные из собственного решателя со смешанными стратегиями, сплит по бордам, валидатор, оценка с CI по спотам, реестр версий с откатом. Обучение LoRA не запускалось (нет torch/GPU/весов); имитация на numpy — заглушка конвейера и реестром отклонена.",
+      "sources": [
+        {
+          "path": "apps/poker-lora/README_RU.md",
+          "branch": "poker-lora/hu-nlhe-20261006",
+          "sha": "1e4425b26f5d592a5acf1ee348cfd93928a05e90",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/1e4425b26f5d592a5acf1ee348cfd93928a05e90/apps/poker-lora/README_RU.md"
+        },
+        {
+          "path": "apps/poker-lora/evidence/REPORT.md",
+          "branch": "poker-lora/hu-nlhe-20261006",
+          "sha": "1e4425b26f5d592a5acf1ee348cfd93928a05e90",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/1e4425b26f5d592a5acf1ee348cfd93928a05e90/apps/poker-lora/evidence/REPORT.md"
+        }
+      ]
+    },
+    {
+      "id": "pv-lora-train",
+      "label": "Обучение LoRA на Windows/AMD",
+      "parent": "pv-lora",
+      "status": "blocked",
+      "detail": "Скрипты и env_check готовы; в контейнере NOT_READY (нет torch/peft/GPU). Возможность файнтюна на ПК владельца не проверена; RunPod только с разрешения.",
+      "sources": [
+        {
+          "path": "apps/poker-lora/train/env_check.py",
+          "branch": "poker-lora/hu-nlhe-20261006",
+          "sha": "1e4425b26f5d592a5acf1ee348cfd93928a05e90",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/1e4425b26f5d592a5acf1ee348cfd93928a05e90/apps/poker-lora/train/env_check.py"
+        },
+        {
+          "path": "apps/poker-lora/train/lora_train.py",
+          "branch": "poker-lora/hu-nlhe-20261006",
+          "sha": "1e4425b26f5d592a5acf1ee348cfd93928a05e90",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/1e4425b26f5d592a5acf1ee348cfd93928a05e90/apps/poker-lora/train/lora_train.py"
+        }
+      ]
+    },
+    {
+      "id": "pv-lora-route",
+      "label": "Маршрут Vision → политика → проверка ответа → executor",
+      "parent": "pv-lora",
+      "status": "code",
+      "detail": "Ответ модели принимается только после проверки (легальное действие, сумма, вероятности) и отображения на кнопки; иначе эвристика и очередь разбора. В живом тренажёре неприменим по умолчанию (не доказаны heads-up, позиция, история улицы).",
+      "sources": [
+        {
+          "path": "apps/poker-vision/pokervision/policy_route.py",
+          "branch": "poker-lora/hu-nlhe-20261006",
+          "sha": "1e4425b26f5d592a5acf1ee348cfd93928a05e90",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/1e4425b26f5d592a5acf1ee348cfd93928a05e90/apps/poker-vision/pokervision/policy_route.py"
+        }
+      ]
     }
   ],
   "memory_protocol": {
