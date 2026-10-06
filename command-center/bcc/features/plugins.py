@@ -266,7 +266,10 @@ def _sqlite_path_from_dsn(dsn: str) -> str | None:
 def _run_sqlite_read(path: str, sql: str, params, limit: int) -> list[dict]:
     """Реальное read-only исполнение: соединение mode=ro (гарантия на уровне БД)."""
     import sqlite3
-    uri = f"file:{os.path.abspath(path).replace(os.sep, '/')}?mode=ro"
+    from pathlib import Path
+    # as_uri() кодирует `#`, `%`, `?` и пробелы: без этого `#` в имени папки
+    # обрывал путь и отрезал `?mode=ro` — открывался другой файл и без read-only.
+    uri = f"{Path(os.path.abspath(path)).as_uri()}?mode=ro"
     con = sqlite3.connect(uri, uri=True, timeout=5.0)
     con.row_factory = sqlite3.Row
     try:
