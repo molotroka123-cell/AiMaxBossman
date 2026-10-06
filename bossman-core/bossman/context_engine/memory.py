@@ -53,7 +53,11 @@ class MemoryManager:
                        last_verified_at=now if verification else "",metadata=meta)
         self._detect_conflicts(m)
         self._merge_durable(m)
-        for p in self.plugins: p.write_candidate(m)
+        # Read-only мосты (Markdown/JSON) не принимают запись: вызывать их
+        # write_candidate значило падать, а стоящий первым — терять запись в store.
+        writers=[p for p in self.plugins if not getattr(p,"read_only",False)]
+        if not writers: raise RuntimeError("no writable memory plugin: the candidate would be lost")
+        for p in writers: p.write_candidate(m)
         return m
 
     # Durable-статусы: повторная дистилляция того же текста не вправе понижать
@@ -166,10 +170,23 @@ class MemoryManager:
         new.updated_at=utcnow(); self.store.upsert_memory(old); self.store.upsert_memory(new)
 
     def retrieve(self, query: str, *, project: str="", limit: int=12) -> list[MemoryRecord]:
+        # Плагины уже ранжируют по релевантности запросу. Пересортировка только
+        # по importance ставила совпадающую запись позади посторонних «важных»,
+        # а компилятор режет секцию памяти с хвоста — и нужная запись терялась.
+        # Слияние: позиция в выдаче своего плагина, затем порядок плагинов.
+        ranked=[]
+        for pi,p in enumerate(self.plugins):
+            try:
+                found=p.retrieve(query,project,limit)
+            except Exception:
+                # Битый read-only источник (испорченный JSON-экспорт) не стирает
+                # всю выдачу; ошибка собственного store по-прежнему видна.
+                if not getattr(p,"read_only",False): raise
+                continue
+            for rank,m in enumerate(found): ranked.append((rank,pi,m))
         merged: dict[str,MemoryRecord]={}
-        for p in self.plugins:
-            for m in p.retrieve(query,project,limit): merged.setdefault(m.memory_id,m)
-        return sorted(merged.values(),key=lambda m:(m.importance,m.confidence),reverse=True)[:limit]
+        for _,_,m in sorted(ranked,key=lambda x:(x[0],x[1])): merged.setdefault(m.memory_id,m)
+        return list(merged.values())[:limit]
 
     def _detect_conflicts(self, candidate: MemoryRecord) -> None:
         # Conservative deterministic conflict marker. It avoids claiming logical

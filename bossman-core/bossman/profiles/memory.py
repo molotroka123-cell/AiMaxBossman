@@ -10,10 +10,11 @@ context_engine namespace знаний профиля = `profile:<id>` (клад�
 """
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 from .models import Profile
-from .store import safe_id
+from .store import _SAFE, safe_id
 
 
 def profile_root(workspace_dir: str | Path, profile_id: str) -> Path:
@@ -22,6 +23,12 @@ def profile_root(workspace_dir: str | Path, profile_id: str) -> Path:
     sid = safe_id(profile_id)
     if not sid:
         raise ValueError("empty profile id")
+    # safe_id режет до 48 символов: у профиля с длинным именем это отрезало
+    # ровно случайный суффикс new_profile_id, и два профиля делили одну папку
+    # знаний. Длинный id → префикс + хэш полного санитизированного id.
+    full = _SAFE.sub("-", str(profile_id).strip().lower()).strip("-.")
+    if full != sid:
+        sid = f"{full[:39].rstrip('-.')}-{hashlib.sha256(full.encode('utf-8')).hexdigest()[:8]}"
     root = (base / sid).resolve()
     if base.resolve() not in root.parents and root != (base / sid).resolve():
         raise ValueError("profile root escapes workspace")
