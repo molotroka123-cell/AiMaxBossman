@@ -154,9 +154,12 @@ async def test_first_delta_reaches_event_stream_before_model_finishes(tmp_path):
             assert len(finals) == 1 and finals[0]["text"] == "Привет, мир" and finals[0]["streamed"] is True
             assert not [e for e in evs if e["kind"] == "run.assistant_delta"]  # no double delivery
             # reconnect: replay after a cursor gives exactly the tail, no duplicates
-            all_now = await _events(client, tid)
+            # Bookkeeping events can still arrive after "completed": read the tail FIRST and compare up to its last
+            # seq, so an event landing between the two reads cannot look like a replay error (CI py3.11, 2026-10-06).
             tail = await _events(client, tid, after=cursor)
-            assert [e["seq"] for e in tail] == [e["seq"] for e in all_now if e["seq"] > cursor]
+            all_now = await _events(client, tid)
+            last = tail[-1]["seq"] if tail else cursor
+            assert [e["seq"] for e in tail] == [e["seq"] for e in all_now if cursor < e["seq"] <= last]
             assert not {e["seq"] for e in tail} & {e["seq"] for e in all_now if e["seq"] <= cursor}
             assert len(model.requests) == 1 and model.requests[0].get("stream") is True
     finally:
