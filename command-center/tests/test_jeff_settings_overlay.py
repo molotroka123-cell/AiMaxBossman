@@ -466,7 +466,14 @@ def test_ui_page_loads_applies_preset_and_resets(tmp_path):
                                           and r.request.method == "PUT" and r.status == 200):
                     page.get_by_role("button", name="Сохранить", exact=True).click()
                 page.wait_for_function("() => document.querySelector('[data-testid=jeff-settings]') !== null", timeout=15000)
+                # Bounded poll, not a single read: on a loaded runner (CI py3.14, 2026-10-06) the file was read once while it still held
+                # the previous save (9). A UI that really sends a stale value still fails when the deadline passes.
                 saved = json.loads(path.read_text(encoding="utf-8"))
+                for _ in range(50):
+                    if saved["defaults"]["behavior_scales"].get("directness") == 10:
+                        break
+                    page.wait_for_timeout(100)
+                    saved = json.loads(path.read_text(encoding="utf-8"))
                 assert saved["defaults"]["behavior_scales"]["directness"] == 10
                 assert saved["defaults"]["system_extra"] == js.PRESET_NOTES["angry_today"]
                 assert js.style_expired(saved) is False
