@@ -111,10 +111,18 @@ def validate_url(url: str, *, allow_private: bool = False,
     интеграций (например, локальный Ollama/n8n на 127.0.0.1), задаётся вызовом,
     а не приходит из пользовательского ввода.
     """
-    p = urlparse(url)
-    if p.scheme not in {"http", "https"} or not p.hostname or p.username or p.password:
+    # Битый URL — это отказ политики, а не голый ValueError: вызывающие ловят
+    # только PluginSecurityError ("http://[::1" → ValueError из urlparse,
+    # ":99999"/":abc" → ValueError только при чтении .port, иначе — уже в httpx).
+    try:
+        p = urlparse(url)
+        hostname = p.hostname
+        _ = p.port
+    except ValueError as exc:
+        raise PluginSecurityError(f"invalid URL: {exc}") from None
+    if p.scheme not in {"http", "https"} or not hostname or p.username or p.password:
         raise PluginSecurityError("invalid URL (scheme/host/userinfo)")
-    host = p.hostname.lower().rstrip(".")
+    host = hostname.lower().rstrip(".")
     if allowed_hosts is not None and not any(
             host == d or host.endswith("." + d) for d in allowed_hosts):
         raise PluginSecurityError("host not allowlisted")
