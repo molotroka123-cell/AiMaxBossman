@@ -1,0 +1,25 @@
+node_id: module-0541863355da
+module: bossman.apprentice.skills
+path: bossman-core/bossman/apprentice/skills.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/v2/test_skills.py', 'bossman-core/tests/test_apprentice_e2e.py', 'bossman-core/tests/test_apprentice_learning.py', 'bossman-core/tests/test_apprentice_p0.py', 'bossman-core/tests/test_apprentice_teacher.py', 'bossman-core/tests/test_audit_learn_workspace.py', 'bossman-core/tests/test_teacher_live.py', 'bossman-core/tests/audit001/test_f4_promotion_baseline.py'] (candidates=9)
+
+$ python -c "importlib.import_module('bossman.apprentice.skills')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.skills C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/skills.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/v2/test_skills.py)
+.                                                                        [100%]
+1 passed in 0.29s
+
+[exit 0 in 2.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_e2e.py tests/test_apprentice_learning.py tests/test_apprentice_p0.py tests/test_apprentice_teacher.py tests/test_audit_learn_workspace.py tests/test_teacher_live.py tests/audit001/test_f4_promotion_baseline.py)
+................................................................s....... [ 88%]
+.........                                                                [100%]
+80 passed, 1 skipped in 4.98s
+
+[exit 0 in 5.7s]
+
+VERDICT: PASS 

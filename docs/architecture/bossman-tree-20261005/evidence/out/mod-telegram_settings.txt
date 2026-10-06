@@ -1,0 +1,19 @@
+node_id: mod-telegram_settings
+module: bcc.features.telegram_settings
+path: command-center/bcc/features/telegram_settings.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_telegram_settings.py', 'command-center/tests/test_telegram_settings_ui.py', 'command-center/tests/test_backend_target_rc19.py', 'command-center/tests/test_telegram_orphan_rc19.py', 'command-center/tests/test_telegram_store_location.py'] (candidates=5)
+
+$ python -c "importlib.import_module('bcc.features.telegram_settings')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.telegram_settings C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/telegram_settings.py
+
+[exit 0 in 0.6s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_telegram_settings.py tests/test_telegram_settings_ui.py tests/test_backend_target_rc19.py tests/test_telegram_orphan_rc19.py tests/test_telegram_store_location.py)
+..........................................s............................. [ 90%]
+........                                                                 [100%]
+79 passed, 1 skipped in 69.61s (0:01:09)
+
+[exit 0 in 72.0s]
+
+VERDICT: PASS 

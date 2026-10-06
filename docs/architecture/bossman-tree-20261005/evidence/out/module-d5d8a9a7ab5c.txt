@@ -1,0 +1,19 @@
+node_id: module-d5d8a9a7ab5c
+module: bossman.gateway.prompt_cache
+path: bossman-core/bossman/gateway/prompt_cache.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_prompt_cache_openrouter.py', 'bossman-core/tests/test_gateway_anthropic_contract.py', 'bossman-core/tests/audit001/test_f6_cache_savings.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bossman.gateway.prompt_cache')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.gateway.prompt_cache C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/gateway/prompt_cache.py
+
+[exit 0 in 0.4s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_prompt_cache_openrouter.py tests/test_gateway_anthropic_contract.py tests/audit001/test_f6_cache_savings.py)
+........................................................................ [ 96%]
+...                                                                      [100%]
+75 passed in 5.88s
+
+[exit 0 in 6.7s]
+
+VERDICT: PASS 

@@ -1,0 +1,18 @@
+node_id: module-815783821b83
+module: bossman.apprentice.live_workspace
+path: bossman-core/bossman/apprentice/live_workspace.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_apprentice_live_safety.py', 'bossman-core/tests/test_audit_learn_workspace.py', 'bossman-core/tests/test_teacher_isolation.py', 'bossman-core/tests/test_teacher_live.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bossman.apprentice.live_workspace')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.live_workspace C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/live_workspace.py
+
+[exit 0 in 0.2s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_live_safety.py tests/test_audit_learn_workspace.py tests/test_teacher_isolation.py tests/test_teacher_live.py)
+....................s.....s.s                                            [100%]
+26 passed, 3 skipped in 4.42s
+
+[exit 0 in 4.9s]
+
+VERDICT: PASS 

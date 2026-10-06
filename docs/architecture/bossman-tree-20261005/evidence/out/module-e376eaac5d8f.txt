@@ -1,0 +1,19 @@
+node_id: module-e376eaac5d8f
+module: bossman.computer_operator.models
+path: bossman-core/bossman/computer_operator/models.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_adapter_orphan_input.py', 'bossman-core/tests/test_adapter_p1_findings.py', 'bossman-core/tests/test_adapter_p2_findings.py', 'bossman-core/tests/test_apprentice_core.py', 'bossman-core/tests/test_apprentice_e2e.py', 'bossman-core/tests/test_apprentice_p0.py', 'bossman-core/tests/test_apprentice_recording.py', 'bossman-core/tests/test_at01_completion_obligations.py'] (candidates=40)
+
+$ python -c "importlib.import_module('bossman.computer_operator.models')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.computer_operator.models C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/computer_operator/models.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_adapter_orphan_input.py tests/test_adapter_p1_findings.py tests/test_adapter_p2_findings.py tests/test_apprentice_core.py tests/test_apprentice_e2e.py tests/test_apprentice_p0.py tests/test_apprentice_recording.py tests/test_at01_completion_obligations.py)
+........................................................................ [ 58%]
+....................................................                     [100%]
+124 passed in 11.44s
+
+[exit 0 in 12.2s]
+
+VERDICT: PASS 

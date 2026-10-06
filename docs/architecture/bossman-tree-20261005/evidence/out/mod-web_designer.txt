@@ -1,0 +1,19 @@
+node_id: mod-web_designer
+module: bcc.features.web_designer
+path: command-center/bcc/features/web_designer.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_web_designer.py', 'command-center/tests/test_web_designer_ai_create_ui.py', 'command-center/tests/test_web_designer_apply_idempotent_ui.py', 'command-center/tests/test_web_designer_create_after_response.py', 'command-center/tests/test_web_designer_creative_execution.py', 'command-center/tests/test_web_designer_first_click_ui.py', 'command-center/tests/test_web_designer_grapesjs_ui.py', 'command-center/tests/test_web_designer_model_choice.py'] (candidates=19)
+
+$ python -c "importlib.import_module('bcc.features.web_designer')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.web_designer C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/web_designer.py
+
+[exit 0 in 0.5s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_web_designer.py tests/test_web_designer_ai_create_ui.py tests/test_web_designer_apply_idempotent_ui.py tests/test_web_designer_create_after_response.py tests/test_web_designer_creative_execution.py tests/test_web_designer_first_click_ui.py tests/test_web_designer_grapesjs_ui.py tests/test_web_designer_model_choice.py)
+..........................................ssss.......................... [ 85%]
+.ssssss.....                                                             [100%]
+74 passed, 10 skipped in 30.70s
+
+[exit 0 in 33.2s]
+
+VERDICT: PASS 

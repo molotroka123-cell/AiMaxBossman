@@ -1,0 +1,18 @@
+node_id: mod-opencode
+module: bcc.features.opencode
+path: command-center/bcc/features/opencode.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_opencode_v2_bridge.py', 'command-center/tests/test_opencode_worktree_roots.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.features.opencode')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.opencode C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/opencode.py
+
+[exit 0 in 1.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_opencode_v2_bridge.py tests/test_opencode_worktree_roots.py)
+..................                                                       [100%]
+18 passed in 24.53s
+
+[exit 0 in 26.4s]
+
+VERDICT: PASS 

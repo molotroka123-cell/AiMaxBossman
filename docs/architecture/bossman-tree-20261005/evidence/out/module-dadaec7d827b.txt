@@ -1,0 +1,30 @@
+node_id: module-dadaec7d827b
+module: bossman.benchmark.engine
+path: bossman-core/bossman/benchmark/engine.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_engine_lifecycle_drain.py', 'command-center/tests/test_engine_stop.py', 'tests/test_blue_leaf_audit.py', 'bossman-core/tests/test_benchmark_gate.py', 'bossman-core/tests/test_benchmark_power.py', 'bossman-core/tests/test_benchmark_runtime.py', 'bossman-core/tests/test_benchmark_truth.py', 'bossman-core/tests/test_core_subprocess_timeouts.py'] (candidates=9)
+
+$ python -c "importlib.import_module('bossman.benchmark.engine')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.benchmark.engine C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/benchmark/engine.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_engine_lifecycle_drain.py tests/test_engine_stop.py)
+.......                                                                  [100%]
+7 passed in 8.65s
+
+[exit 0 in 10.8s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_blue_leaf_audit.py)
+.........                                                                [100%]
+9 passed in 0.19s
+
+[exit 0 in 0.7s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_benchmark_gate.py tests/test_benchmark_power.py tests/test_benchmark_runtime.py tests/test_benchmark_truth.py tests/test_core_subprocess_timeouts.py)
+.
+[TIMEOUT after 120s]
+
+[exit 124 in 120s]
+
+VERDICT: FAIL pytest_timeout

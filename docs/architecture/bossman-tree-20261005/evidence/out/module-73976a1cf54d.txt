@@ -1,0 +1,12 @@
+node_id: module-73976a1cf54d
+module: bossman.apprentice._bootstrap
+path: bossman-core/bossman/apprentice/_bootstrap.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: [] (candidates=0)
+
+$ python -c "importlib.import_module('bossman.apprentice._bootstrap')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice._bootstrap C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/_bootstrap.py
+
+[exit 0 in 0.1s]
+
+VERDICT: FAIL no_tests

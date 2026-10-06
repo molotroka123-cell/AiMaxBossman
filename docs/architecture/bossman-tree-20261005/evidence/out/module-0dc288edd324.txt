@@ -1,0 +1,12 @@
+node_id: module-0dc288edd324
+module: bossman.sandbox.toolbox
+path: bossman-core/bossman/sandbox/toolbox.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: [] (candidates=0)
+
+$ python -c "importlib.import_module('bossman.sandbox.toolbox')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.sandbox.toolbox C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/sandbox/toolbox.py
+
+[exit 0 in 1.2s]
+
+VERDICT: FAIL no_tests

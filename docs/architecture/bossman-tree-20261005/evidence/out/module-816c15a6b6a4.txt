@@ -1,0 +1,24 @@
+node_id: module-816c15a6b6a4
+module: bossman.apprentice.scripted_model
+path: bossman-core/bossman/apprentice/scripted_model.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/apprentice/test_scripted_model_routes.py', 'command-center/tests/test_coding_tasks_local_sidecar.py', 'command-center/tests/test_terminal_cli_e2e.py', 'bossman-core/tests/apprentice/test_local_sidecar.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bossman.apprentice.scripted_model')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.scripted_model C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/scripted_model.py
+
+[exit 0 in 0.2s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/apprentice/test_scripted_model_routes.py tests/apprentice/test_local_sidecar.py)
+..................s...........                                           [100%]
+29 passed, 1 skipped in 24.72s
+
+[exit 0 in 25.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_tasks_local_sidecar.py tests/test_terminal_cli_e2e.py)
+.............                                                            [100%]
+13 passed in 58.84s
+
+[exit 0 in 61.3s]
+
+VERDICT: PASS 

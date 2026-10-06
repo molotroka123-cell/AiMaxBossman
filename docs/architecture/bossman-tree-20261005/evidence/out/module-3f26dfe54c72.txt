@@ -1,0 +1,25 @@
+node_id: module-3f26dfe54c72
+module: bossman.computer_operator.policy
+path: bossman-core/bossman/computer_operator/policy.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_policy_algebra.py', 'bossman-core/tests/test_computer_control_authorization.py', 'bossman-core/tests/test_computer_operator_ask_consequence.py', 'bossman-core/tests/test_computer_operator_coordinate_fallback.py', 'bossman-core/tests/test_computer_operator_policy.py', 'bossman-core/tests/test_control_001_coordinate_fallback.py', 'bossman-core/tests/test_operator_core_findings.py', 'bossman-core/tests/test_secrem_s2_operator_consequence.py'] (candidates=11)
+
+$ python -c "importlib.import_module('bossman.computer_operator.policy')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.computer_operator.policy C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/computer_operator/policy.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_policy_algebra.py)
+.........                                                                [100%]
+9 passed in 0.33s
+
+[exit 0 in 2.0s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_control_authorization.py tests/test_computer_operator_ask_consequence.py tests/test_computer_operator_coordinate_fallback.py tests/test_computer_operator_policy.py tests/test_control_001_coordinate_fallback.py tests/test_operator_core_findings.py tests/test_secrem_s2_operator_consequence.py)
+........................................................................ [ 77%]
+.....................                                                    [100%]
+93 passed in 2.87s
+
+[exit 0 in 3.8s]
+
+VERDICT: PASS 

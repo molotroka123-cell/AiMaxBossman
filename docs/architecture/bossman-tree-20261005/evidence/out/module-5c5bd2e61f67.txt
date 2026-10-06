@@ -1,0 +1,24 @@
+node_id: module-5c5bd2e61f67
+module: bossman.profiles.router
+path: bossman-core/bossman/profiles/router.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_router.py', 'command-center/tests/test_router_memory_pressure.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.profiles.router')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.profiles.router C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/profiles/router.py
+
+[exit 0 in 1.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router.py)
+......                                                                   [100%]
+6 passed in 0.25s
+
+[exit 0 in 0.7s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router_memory_pressure.py)
+.......                                                                  [100%]
+7 passed in 14.52s
+
+[exit 0 in 16.5s]
+
+VERDICT: PASS 

@@ -1,0 +1,24 @@
+node_id: module-0ce0daf3140c
+module: bossman.notifications.policy
+path: bossman-core/bossman/notifications/policy.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_policy_algebra.py', 'bossman-core/tests/test_budget_notification_integration.py', 'bossman-core/tests/test_notifications.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bossman.notifications.policy')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.notifications.policy C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/notifications/policy.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_policy_algebra.py)
+.........                                                                [100%]
+9 passed in 0.39s
+
+[exit 0 in 2.0s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_budget_notification_integration.py tests/test_notifications.py)
+......                                                                   [100%]
+6 passed in 2.95s
+
+[exit 0 in 3.5s]
+
+VERDICT: PASS 

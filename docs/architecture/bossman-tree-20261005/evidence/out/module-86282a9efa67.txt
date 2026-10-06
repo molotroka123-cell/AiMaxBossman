@@ -1,0 +1,19 @@
+node_id: module-86282a9efa67
+module: bossman.apprentice.errors
+path: bossman-core/bossman/apprentice/errors.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_apprentice_core.py', 'bossman-core/tests/test_apprentice_e2e.py', 'bossman-core/tests/test_apprentice_learning.py', 'bossman-core/tests/test_apprentice_outreach.py', 'bossman-core/tests/test_apprentice_p0.py', 'bossman-core/tests/test_apprentice_recording.py', 'bossman-core/tests/test_apprentice_sanctions.py', 'bossman-core/tests/test_apprentice_teacher.py'] (candidates=10)
+
+$ python -c "importlib.import_module('bossman.apprentice.errors')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.errors C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/errors.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_core.py tests/test_apprentice_e2e.py tests/test_apprentice_learning.py tests/test_apprentice_outreach.py tests/test_apprentice_p0.py tests/test_apprentice_recording.py tests/test_apprentice_sanctions.py tests/test_apprentice_teacher.py)
+........................................................................ [ 74%]
+.........................                                                [100%]
+97 passed in 2.85s
+
+[exit 0 in 3.5s]
+
+VERDICT: PASS 

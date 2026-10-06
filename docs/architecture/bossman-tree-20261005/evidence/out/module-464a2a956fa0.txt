@@ -1,0 +1,30 @@
+node_id: module-464a2a956fa0
+module: bossman.video_factory.model
+path: bossman-core/bossman/video_factory/model.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['tests/test_model_bakeoff_latency.py', 'tests/test_model_fetch.py', 'command-center/tests/test_model_health.py', 'command-center/tests/test_model_intelligence.py', 'command-center/tests/test_model_probe_reasoning.py', 'command-center/tests/test_model_speed_tel001.py', 'bossman-core/tests/test_stage9_recovery.py'] (candidates=7)
+
+$ python -c "importlib.import_module('bossman.video_factory.model')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.video_factory.model C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/video_factory/model.py
+
+[exit 0 in 1.2s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_model_bakeoff_latency.py tests/test_model_fetch.py)
+.............................................s......                     [100%]
+51 passed, 1 skipped in 15.08s
+
+[exit 0 in 15.6s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_model_health.py tests/test_model_intelligence.py tests/test_model_probe_reasoning.py tests/test_model_speed_tel001.py)
+...............................................................          [100%]
+63 passed in 13.37s
+
+[exit 0 in 15.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage9_recovery.py)
+...                                                                      [100%]
+3 passed in 0.88s
+
+[exit 0 in 1.5s]
+
+VERDICT: PASS 

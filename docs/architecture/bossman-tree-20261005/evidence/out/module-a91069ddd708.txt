@@ -1,0 +1,19 @@
+node_id: module-a91069ddd708
+module: bossman.toolkit.shell
+path: bossman-core/bossman/toolkit/shell.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_shell_host_approval.py', 'bossman-core/tests/test_host_execution_argv.py', 'bossman-core/tests/test_stage13_hostexec_redteam.py', 'bossman-core/tests/test_v26_analysis_tool.py', 'bossman-core/tests/test_windows_host_shell.py', 'bossman-core/tests/test_windows_text_encoding.py'] (candidates=6)
+
+$ python -c "importlib.import_module('bossman.toolkit.shell')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.toolkit.shell C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/toolkit/shell.py
+
+[exit 0 in 0.5s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_shell_host_approval.py tests/test_host_execution_argv.py tests/test_stage13_hostexec_redteam.py tests/test_v26_analysis_tool.py tests/test_windows_host_shell.py tests/test_windows_text_encoding.py)
+........................................................................ [ 61%]
+......................s......................                            [100%]
+116 passed, 1 skipped in 3.68s
+
+[exit 0 in 4.5s]
+
+VERDICT: PASS 

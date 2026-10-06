@@ -1,0 +1,54 @@
+node_id: mod-osiris
+module: bcc.features.osiris
+path: command-center/bcc/features/osiris.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_osiris.py', 'command-center/tests/test_searxng_setup.py', 'command-center/tests/test_web_access_20260930.py', 'command-center/tests/test_web_research_flag.py', 'command-center/tests/test_web_research_net.py', 'command-center/tests/test_web_research_refs.py', 'command-center/tests/test_web_research_safety.py'] (candidates=7)
+
+$ python -c "importlib.import_module('bcc.features.osiris')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.osiris C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/osiris.py
+
+[exit 0 in 0.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_osiris.py tests/test_searxng_setup.py tests/test_web_access_20260930.py tests/test_web_research_flag.py tests/test_web_research_net.py tests/test_web_research_refs.py tests/test_web_research_safety.py)
+........................................................................ [ 45%]
+..................................F
+================================== FAILURES ===================================
+_________________ test_szhatyy_otvet_otvergaetsya_transportom _________________
+
+env = <tests.test_web_research_net.Env object at 0x000001DC7ED5FEC0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001DC7EAC04D0>
+
+    async def test_szhatyy_otvet_otvergaetsya_transportom(env, monkeypatch):
+        """Вред: `Accept-Encoding: identity` — просьба, а не гарантия (C2).
+    
+        Враждебный сервер сжимает ответ независимо от заголовка. Дальше два разных
+        несчастья: чужая библиотека распаковывает кусок ЦЕЛИКОМ до всякого потолка,
+        а `psec.safe_get` копирует `Content-Encoding` в ответ, положив туда уже
+        распакованное тело, — то есть любое последующее рассуждение о теле
+        опирается на заведомо неверный заголовок.
+    
+        Проверяется, что тело не идёт в дело: отказ типизирован кодом
+        `content_encoding`, а не растворён в общем «источник недоступен».
+        """
+        # Байты действительно сжаты: объявить `gzip` и прислать открытый текст
+        # значило бы проверять обработку битого ответа, а вред здесь другой —
+        # ответ ПРАВИЛЬНО сжат, чужая библиотека распакует его молча и целиком.
+        mock = MockNet(lambda request: httpx.Response(
+            200, headers={"content-type": "text/html; charset=utf-8",
+                          "content-encoding": "gzip"},
+            content=gzip.compress(PAGE_HTML.encode("utf-8"))))
+        mock.install(monkeypatch)
+    
+>       with pytest.raises(net.PageRefused) as caught:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PageRefused
+
+tests\test_web_research_net.py:375: Failed
+=========================== short test summary info ===========================
+FAILED tests/test_web_research_net.py::test_szhatyy_otvet_otvergaetsya_transportom
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 106 passed in 43.29s
+
+[exit 1 in 45.2s]
+
+VERDICT: FAIL tests_failed

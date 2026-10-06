@@ -1,0 +1,24 @@
+node_id: mod-deep_fix
+module: bcc.features.deep_fix
+path: command-center/bcc/features/deep_fix.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_deep_fix_mode.py', 'command-center/tests/test_deep_fix_gate.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.features.deep_fix')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.deep_fix C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/deep_fix.py
+
+[exit 0 in 1.0s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_deep_fix_mode.py)
+........                                                                 [100%]
+8 passed in 0.49s
+
+[exit 0 in 0.9s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_deep_fix_gate.py)
+...                                                                      [100%]
+3 passed in 4.50s
+
+[exit 0 in 6.6s]
+
+VERDICT: PASS 

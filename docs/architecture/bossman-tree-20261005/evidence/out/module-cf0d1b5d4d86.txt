@@ -1,0 +1,19 @@
+node_id: module-cf0d1b5d4d86
+module: bossman.toolkit.gitops
+path: bossman-core/bossman/toolkit/gitops.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_host_execution_argv.py', 'bossman-core/tests/test_stage13_hostexec_redteam.py', 'bossman-core/tests/test_toolkit_subprocess_timeouts.py', 'bossman-core/tests/redteam/test_rt01_git_workspace_escape.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bossman.toolkit.gitops')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.toolkit.gitops C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/toolkit/gitops.py
+
+[exit 0 in 0.5s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_host_execution_argv.py tests/test_stage13_hostexec_redteam.py tests/test_toolkit_subprocess_timeouts.py tests/redteam/test_rt01_git_workspace_escape.py)
+........................................................................ [ 75%]
+...........s............                                                 [100%]
+95 passed, 1 skipped in 12.72s
+
+[exit 0 in 13.5s]
+
+VERDICT: PASS 

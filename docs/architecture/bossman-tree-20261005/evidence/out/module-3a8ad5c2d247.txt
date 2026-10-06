@@ -1,0 +1,19 @@
+node_id: module-3a8ad5c2d247
+module: bossman.computer_operator.subsystem
+path: bossman-core/bossman/computer_operator/subsystem.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_adapter_p1_findings.py', 'bossman-core/tests/test_computer_control_authorization.py', 'bossman-core/tests/test_profiles.py', 'bossman-core/tests/test_stage13_wiring_notepad.py', 'bossman-core/tests/test_uitars_grounding.py', 'bossman-core/tests/test_v26_operator_fixes.py'] (candidates=6)
+
+$ python -c "importlib.import_module('bossman.computer_operator.subsystem')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.computer_operator.subsystem C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/computer_operator/subsystem.py
+
+[exit 0 in 0.4s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_adapter_p1_findings.py tests/test_computer_control_authorization.py tests/test_profiles.py tests/test_stage13_wiring_notepad.py tests/test_uitars_grounding.py tests/test_v26_operator_fixes.py)
+........................................................................ [ 56%]
+.......................................................                  [100%]
+127 passed in 3.80s
+
+[exit 0 in 4.8s]
+
+VERDICT: PASS 

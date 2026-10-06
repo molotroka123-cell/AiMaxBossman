@@ -1,0 +1,18 @@
+node_id: module-8f7bb546924a
+module: bossman.research.engine
+path: bossman-core/bossman/research/engine.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_engine_lifecycle_drain.py', 'command-center/tests/test_engine_stop.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.research.engine')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.research.engine C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/research/engine.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_engine_lifecycle_drain.py tests/test_engine_stop.py)
+.......                                                                  [100%]
+7 passed in 9.96s
+
+[exit 0 in 11.8s]
+
+VERDICT: PASS 

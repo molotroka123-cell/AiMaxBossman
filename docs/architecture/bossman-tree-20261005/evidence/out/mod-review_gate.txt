@@ -1,0 +1,18 @@
+node_id: mod-review_gate
+module: bcc.features.review_gate
+path: command-center/bcc/features/review_gate.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_p0_review_deadlock.py', 'command-center/tests/test_secrem_f012_verification.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.features.review_gate')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.review_gate C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/review_gate.py
+
+[exit 0 in 0.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_p0_review_deadlock.py tests/test_secrem_f012_verification.py)
+..................................                                       [100%]
+34 passed in 28.32s
+
+[exit 0 in 30.3s]
+
+VERDICT: PASS 

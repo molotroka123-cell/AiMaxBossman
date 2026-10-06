@@ -1,0 +1,18 @@
+node_id: mod-qa_relay
+module: bcc.features.qa_relay
+path: command-center/bcc/features/qa_relay.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_qa_relay.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.features.qa_relay')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.qa_relay C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/qa_relay.py
+
+[exit 0 in 0.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_qa_relay.py)
+...............................................                          [100%]
+47 passed in 23.84s
+
+[exit 0 in 25.9s]
+
+VERDICT: PASS 

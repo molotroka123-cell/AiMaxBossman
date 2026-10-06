@@ -1,0 +1,18 @@
+node_id: module-e99c091d1c06
+module: bossman.cost_control.governor
+path: bossman-core/bossman/cost_control/governor.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_budget_notification_integration.py', 'bossman-core/tests/test_cost_enforcer_approval.py', 'bossman-core/tests/test_cost_governor_adversarial.py', 'bossman-core/tests/test_gateway_anthropic_contract.py', 'bossman-core/tests/test_gateway_cost_governor.py'] (candidates=5)
+
+$ python -c "importlib.import_module('bossman.cost_control.governor')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.cost_control.governor C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/cost_control/governor.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_budget_notification_integration.py tests/test_cost_enforcer_approval.py tests/test_cost_governor_adversarial.py tests/test_gateway_anthropic_contract.py tests/test_gateway_cost_governor.py)
+...................................................................      [100%]
+67 passed in 2.66s
+
+[exit 0 in 3.4s]
+
+VERDICT: PASS 

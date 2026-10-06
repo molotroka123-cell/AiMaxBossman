@@ -1,0 +1,19 @@
+node_id: mod-skills
+module: bcc.features.skills
+path: command-center/bcc/features/skills.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/v2/test_skills.py', 'command-center/tests/test_coding_tasks_local_sidecar.py', 'command-center/tests/test_perf_20260930.py', 'command-center/tests/test_skill_catalog.py', 'command-center/tests/test_v22_skill_learning.py', 'command-center/tests/test_v5_canary_production_caller.py'] (candidates=6)
+
+$ python -c "importlib.import_module('bcc.features.skills')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.skills C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/skills.py
+
+[exit 0 in 1.0s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/v2/test_skills.py tests/test_coding_tasks_local_sidecar.py tests/test_perf_20260930.py tests/test_skill_catalog.py tests/test_v22_skill_learning.py tests/test_v5_canary_production_caller.py)
+........................................................................ [ 92%]
+......                                                                   [100%]
+78 passed in 64.02s (0:01:04)
+
+[exit 0 in 66.2s]
+
+VERDICT: PASS 

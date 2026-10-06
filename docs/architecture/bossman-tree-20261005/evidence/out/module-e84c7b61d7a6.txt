@@ -1,0 +1,24 @@
+node_id: module-e84c7b61d7a6
+module: bossman.video_factory.ffmpeg
+path: bossman-core/bossman/video_factory/ffmpeg.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_core_subprocess_timeouts.py', 'bossman-core/tests/test_video_factory.py', 'command-center/tests/test_golden_missions.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bossman.video_factory.ffmpeg')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.video_factory.ffmpeg C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/video_factory/ffmpeg.py
+
+[exit 0 in 1.2s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_core_subprocess_timeouts.py tests/test_video_factory.py)
+....................................                                     [100%]
+36 passed in 32.46s
+
+[exit 0 in 33.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_golden_missions.py)
+...s.........                                                            [100%]
+12 passed, 1 skipped in 51.08s
+
+[exit 0 in 53.1s]
+
+VERDICT: PASS 

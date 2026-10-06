@@ -1,0 +1,18 @@
+node_id: module-30ddab524cfc
+module: bossman.gateway.anthropic_protocol
+path: bossman-core/bossman/gateway/anthropic_protocol.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_gateway_anthropic_contract.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bossman.gateway.anthropic_protocol')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.gateway.anthropic_protocol C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/gateway/anthropic_protocol.py
+
+[exit 0 in 0.3s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_gateway_anthropic_contract.py)
+.......................................................                  [100%]
+55 passed in 1.86s
+
+[exit 0 in 2.7s]
+
+VERDICT: PASS 

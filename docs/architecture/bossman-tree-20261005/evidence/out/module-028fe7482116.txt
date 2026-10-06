@@ -1,0 +1,18 @@
+node_id: module-028fe7482116
+module: bossman.cybersec.benchmark
+path: bossman-core/bossman/cybersec/benchmark.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_benchmark_gate.py', 'bossman-core/tests/test_benchmark_power.py', 'bossman-core/tests/test_benchmark_runtime.py', 'bossman-core/tests/test_benchmark_truth.py', 'bossman-core/tests/test_cybersec_integration.py', 'bossman-core/tests/test_cybersec_v1.py'] (candidates=6)
+
+$ python -c "importlib.import_module('bossman.cybersec.benchmark')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.cybersec.benchmark C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/cybersec/benchmark.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_benchmark_gate.py tests/test_benchmark_power.py tests/test_benchmark_runtime.py tests/test_benchmark_truth.py tests/test_cybersec_integration.py tests/test_cybersec_v1.py)
+.
+[TIMEOUT after 120s]
+
+[exit 124 in 120s]
+
+VERDICT: FAIL pytest_timeout

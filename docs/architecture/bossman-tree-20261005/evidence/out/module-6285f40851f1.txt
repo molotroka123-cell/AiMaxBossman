@@ -1,0 +1,18 @@
+node_id: module-6285f40851f1
+module: bossman.video_factory.pipeline
+path: bossman-core/bossman/video_factory/pipeline.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_stage9_recovery.py', 'bossman-core/tests/test_video_factory_openrouter.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.video_factory.pipeline')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.video_factory.pipeline C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/video_factory/pipeline.py
+
+[exit 0 in 1.2s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage9_recovery.py tests/test_video_factory_openrouter.py)
+..........                                                               [100%]
+10 passed in 1.09s
+
+[exit 0 in 1.8s]
+
+VERDICT: PASS 

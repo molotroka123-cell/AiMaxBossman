@@ -1,0 +1,18 @@
+node_id: module-a270c9dbe40c
+module: bossman.computer_operator.verifier
+path: bossman-core/bossman/computer_operator/verifier.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_computer_operator_verifier.py', 'bossman-core/tests/test_operator_core_findings.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.computer_operator.verifier')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.computer_operator.verifier C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/computer_operator/verifier.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_operator_verifier.py tests/test_operator_core_findings.py)
+................................                                         [100%]
+32 passed in 0.78s
+
+[exit 0 in 1.2s]
+
+VERDICT: PASS 

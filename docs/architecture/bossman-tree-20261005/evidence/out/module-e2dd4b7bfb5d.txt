@@ -1,0 +1,18 @@
+node_id: module-e2dd4b7bfb5d
+module: bossman.apprentice.sanctions
+path: bossman-core/bossman/apprentice/sanctions.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_apprentice_e2e.py', 'bossman-core/tests/test_apprentice_sanctions.py', 'bossman-core/tests/test_teacher_live.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bossman.apprentice.sanctions')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.sanctions C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/sanctions.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_e2e.py tests/test_apprentice_sanctions.py tests/test_teacher_live.py)
+....................s                                                    [100%]
+20 passed, 1 skipped in 1.51s
+
+[exit 0 in 2.1s]
+
+VERDICT: PASS 

@@ -1,0 +1,18 @@
+node_id: module-cdbbc088b662
+module: bossman.v7.nightly_run
+path: bossman-core/bossman/v7/nightly_run.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_v7_nightly_run.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bossman.v7.nightly_run')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.v7.nightly_run C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/v7/nightly_run.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v7_nightly_run.py)
+.......................................................                  [100%]
+55 passed in 1.16s
+
+[exit 0 in 1.6s]
+
+VERDICT: PASS 

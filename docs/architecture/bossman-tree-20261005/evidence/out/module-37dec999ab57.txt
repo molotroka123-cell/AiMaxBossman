@@ -1,0 +1,18 @@
+node_id: module-37dec999ab57
+module: bossman.remote_client.mobile_api
+path: bossman-core/bossman/remote_client/mobile_api.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_stage12_mobile_api.py', 'bossman-core/tests/test_stage12_security.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.remote_client.mobile_api')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.remote_client.mobile_api C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/remote_client/mobile_api.py
+
+[exit 0 in 1.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage12_mobile_api.py tests/test_stage12_security.py)
+..............                                                           [100%]
+14 passed in 1.23s
+
+[exit 0 in 1.8s]
+
+VERDICT: PASS 

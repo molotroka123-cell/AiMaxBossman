@@ -1,0 +1,18 @@
+node_id: mod-simulation_world_v16
+module: bcc.features.simulation_world_v16
+path: command-center/bcc/features/simulation_world_v16.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_bossnet_foundation_v16.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.features.simulation_world_v16')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.simulation_world_v16 C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/simulation_world_v16.py
+
+[exit 0 in 0.4s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_bossnet_foundation_v16.py)
+........                                                                 [100%]
+8 passed in 0.74s
+
+[exit 0 in 2.1s]
+
+VERDICT: PASS 

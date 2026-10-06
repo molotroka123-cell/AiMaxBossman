@@ -1,0 +1,12 @@
+node_id: module-5579b793e038
+module: bossman.search_everything.service
+path: bossman-core/bossman/search_everything/service.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: [] (candidates=0)
+
+$ python -c "importlib.import_module('bossman.search_everything.service')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.search_everything.service C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/search_everything/service.py
+
+[exit 0 in 1.0s]
+
+VERDICT: FAIL no_tests

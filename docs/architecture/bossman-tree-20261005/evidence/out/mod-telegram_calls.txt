@@ -1,0 +1,18 @@
+node_id: mod-telegram_calls
+module: bcc.features.telegram_calls
+path: command-center/bcc/features/telegram_calls.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/telegram_calls/test_global_stop_watcher.py', 'command-center/tests/telegram_calls/test_worker_and_stop_races.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.features.telegram_calls')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.telegram_calls C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/telegram_calls.py
+
+[exit 0 in 0.6s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_global_stop_watcher.py tests/telegram_calls/test_worker_and_stop_races.py)
+......................                                                   [100%]
+22 passed in 10.23s
+
+[exit 0 in 12.3s]
+
+VERDICT: PASS 

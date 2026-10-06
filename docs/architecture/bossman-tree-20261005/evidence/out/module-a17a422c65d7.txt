@@ -1,0 +1,24 @@
+node_id: module-a17a422c65d7
+module: bossman.apprentice.engine
+path: bossman-core/bossman/apprentice/engine.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_engine_lifecycle_drain.py', 'command-center/tests/test_engine_stop.py', 'bossman-core/tests/test_apprentice_core.py', 'bossman-core/tests/test_apprentice_e2e.py', 'bossman-core/tests/test_apprentice_p0.py', 'bossman-core/tests/test_e2e_real_gui.py', 'bossman-core/tests/audit001/test_f1_receipt_immutability.py', 'bossman-core/tests/audit001/test_f2_abandon_race.py'] (candidates=8)
+
+$ python -c "importlib.import_module('bossman.apprentice.engine')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.engine C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/engine.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_engine_lifecycle_drain.py tests/test_engine_stop.py)
+.......                                                                  [100%]
+7 passed in 6.62s
+
+[exit 0 in 8.6s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_core.py tests/test_apprentice_e2e.py tests/test_apprentice_p0.py tests/test_e2e_real_gui.py tests/audit001/test_f1_receipt_immutability.py tests/audit001/test_f2_abandon_race.py)
+...............................................ss...............         [100%]
+62 passed, 2 skipped in 5.26s
+
+[exit 0 in 6.1s]
+
+VERDICT: PASS 

@@ -1,0 +1,24 @@
+node_id: module-4efbb2fd9c4a
+module: bossman.cost_control.runtime
+path: bossman-core/bossman/cost_control/runtime.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_runtime_package_contract.py', 'command-center/tests/test_runtime_source_identity.py', 'bossman-core/tests/test_gateway_anthropic_contract.py', 'bossman-core/tests/test_gateway_cost_governor.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bossman.cost_control.runtime')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.cost_control.runtime C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/cost_control/runtime.py
+
+[exit 0 in 0.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_runtime_package_contract.py tests/test_runtime_source_identity.py)
+.............                                                            [100%]
+13 passed in 4.74s
+
+[exit 0 in 6.9s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_gateway_anthropic_contract.py tests/test_gateway_cost_governor.py)
+.............................................................            [100%]
+61 passed in 1.93s
+
+[exit 0 in 2.6s]
+
+VERDICT: PASS 

@@ -1,0 +1,24 @@
+node_id: module-3d62540e3028
+module: bossman.video_factory.queue
+path: bossman-core/bossman/video_factory/queue.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_queue_retry.py', 'bossman-core/tests/test_video_factory.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.video_factory.queue')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.video_factory.queue C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/video_factory/queue.py
+
+[exit 0 in 0.9s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_queue_retry.py)
+..                                                                       [100%]
+2 passed in 7.28s
+
+[exit 0 in 9.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_video_factory.py)
+.....................                                                    [100%]
+21 passed in 2.44s
+
+[exit 0 in 3.0s]
+
+VERDICT: PASS 

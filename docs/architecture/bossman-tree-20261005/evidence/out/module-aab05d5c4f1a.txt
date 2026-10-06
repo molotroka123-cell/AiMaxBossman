@@ -1,0 +1,18 @@
+node_id: module-aab05d5c4f1a
+module: bossman.sandbox.tools
+path: bossman-core/bossman/sandbox/tools.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_tools.py', 'bossman-core/tests/test_sandbox_tools_and_broker.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.sandbox.tools')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.sandbox.tools C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/sandbox/tools.py
+
+[exit 0 in 1.3s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_tools.py tests/test_sandbox_tools_and_broker.py)
+......................                                                   [100%]
+22 passed in 2.02s
+
+[exit 0 in 2.7s]
+
+VERDICT: PASS 

@@ -1,0 +1,18 @@
+node_id: module-72f38f26214a
+module: bossman.cost_control.pricing
+path: bossman-core/bossman/cost_control/pricing.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_cost_pricing.py', 'bossman-core/tests/test_prompt_cache_openrouter.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.cost_control.pricing')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.cost_control.pricing C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/cost_control/pricing.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cost_pricing.py tests/test_prompt_cache_openrouter.py)
+............                                                             [100%]
+12 passed in 0.64s
+
+[exit 0 in 1.3s]
+
+VERDICT: PASS 

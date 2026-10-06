@@ -1,0 +1,12 @@
+node_id: module-fe0ffb0d2f88
+module: bossman.resource_brain.routes
+path: bossman-core/bossman/resource_brain/routes.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: [] (candidates=0)
+
+$ python -c "importlib.import_module('bossman.resource_brain.routes')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.resource_brain.routes C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/resource_brain/routes.py
+
+[exit 0 in 1.3s]
+
+VERDICT: FAIL no_tests

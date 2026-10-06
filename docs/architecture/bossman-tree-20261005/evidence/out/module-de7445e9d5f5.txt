@@ -1,0 +1,18 @@
+node_id: module-de7445e9d5f5
+module: bossman.gateway.main
+path: bossman-core/bossman/gateway/main.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_gateway_cli_portability.py', 'bossman-core/tests/test_secrem_f018_wiring.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.gateway.main')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.gateway.main C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/gateway/main.py
+
+[exit 0 in 0.7s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_gateway_cli_portability.py tests/test_secrem_f018_wiring.py)
+........s                                                                [100%]
+8 passed, 1 skipped in 7.74s
+
+[exit 0 in 8.7s]
+
+VERDICT: PASS 

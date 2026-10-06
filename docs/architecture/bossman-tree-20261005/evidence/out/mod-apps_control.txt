@@ -1,0 +1,19 @@
+node_id: mod-apps_control
+module: bcc.features.apps_control
+path: command-center/bcc/features/apps_control.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_apps_control.py', 'command-center/tests/test_apps_control_child_encoding.py', 'command-center/tests/test_apps_launchable.py', 'command-center/tests/test_apps_owner_path_regression.py', 'command-center/tests/test_apps_pid_portability.py', 'command-center/tests/test_apps_release_runtime.py', 'command-center/tests/test_file_commander_proxy_identity.py', 'command-center/tests/test_golden_missions.py'] (candidates=9)
+
+$ python -c "importlib.import_module('bcc.features.apps_control')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.apps_control C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/apps_control.py
+
+[exit 0 in 0.9s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apps_control.py tests/test_apps_control_child_encoding.py tests/test_apps_launchable.py tests/test_apps_owner_path_regression.py tests/test_apps_pid_portability.py tests/test_apps_release_runtime.py tests/test_file_commander_proxy_identity.py tests/test_golden_missions.py)
+.............................................................s.s........ [ 66%]
+..........................s.........                                     [100%]
+105 passed, 3 skipped in 95.62s (0:01:35)
+
+[exit 0 in 98.3s]
+
+VERDICT: PASS 

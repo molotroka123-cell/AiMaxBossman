@@ -1,0 +1,18 @@
+node_id: module-efdcd8d35b9c
+module: bossman.apprentice.openhands_teacher_client
+path: bossman-core/bossman/apprentice/openhands_teacher_client.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_audit_learn_git_timeouts.py', 'bossman-core/tests/apprentice/test_openhands_client.py', 'bossman-core/tests/apprentice/test_openhands_integration.py', 'bossman-core/tests/apprentice/test_openhands_release_evidence.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bossman.apprentice.openhands_teacher_client')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.openhands_teacher_client C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/openhands_teacher_client.py
+
+[exit 0 in 0.2s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_audit_learn_git_timeouts.py tests/apprentice/test_openhands_client.py tests/apprentice/test_openhands_integration.py tests/apprentice/test_openhands_release_evidence.py)
+...............ssss...s....                                              [100%]
+22 passed, 5 skipped in 16.98s
+
+[exit 0 in 17.7s]
+
+VERDICT: PASS 

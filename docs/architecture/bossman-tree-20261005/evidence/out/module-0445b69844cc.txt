@@ -1,0 +1,18 @@
+node_id: module-0445b69844cc
+module: bossman.sandbox.trajectory
+path: bossman-core/bossman/sandbox/trajectory.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_sandbox_dataset_gate.py', 'bossman-core/tests/test_sandbox_egress.py', 'bossman-core/tests/test_sandbox_redteam_findings.py', 'bossman-core/tests/test_sandbox_security.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bossman.sandbox.trajectory')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.sandbox.trajectory C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/sandbox/trajectory.py
+
+[exit 0 in 1.2s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_dataset_gate.py tests/test_sandbox_egress.py tests/test_sandbox_redteam_findings.py tests/test_sandbox_security.py)
+................ss....s.......................ss.......                  [100%]
+50 passed, 5 skipped in 1.91s
+
+[exit 0 in 2.6s]
+
+VERDICT: PASS 

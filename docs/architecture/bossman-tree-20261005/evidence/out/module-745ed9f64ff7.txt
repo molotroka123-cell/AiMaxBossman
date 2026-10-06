@@ -1,0 +1,48 @@
+node_id: module-745ed9f64ff7
+module: bossman.gateway.auth
+path: bossman-core/bossman/gateway/auth.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_auth_approval_findings.py', 'bossman-core/tests/test_alias_and_auth_boundary.py', 'bossman-core/tests/test_gateway_loopback_proxy.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bossman.gateway.auth')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.gateway.auth C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/gateway/auth.py
+
+[exit 0 in 0.7s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_auth_approval_findings.py tests/test_alias_and_auth_boundary.py tests/test_gateway_loopback_proxy.py)
+.......................................................                  [100%]
+============================== warnings summary ===============================
+bossman\api.py:112
+  C:\Users\asd\Bossman\wt-green-0610\bossman-core\bossman\api.py:112: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+bossman\api.py:124
+  C:\Users\asd\Bossman\wt-green-0610\bossman-core\bossman\api.py:124: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+55 passed, 4 warnings in 4.14s
+
+[exit 0 in 5.2s]
+
+VERDICT: PASS 

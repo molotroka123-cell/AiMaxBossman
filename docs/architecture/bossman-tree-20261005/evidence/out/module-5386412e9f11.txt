@@ -1,0 +1,18 @@
+node_id: module-5386412e9f11
+module: bossman.ai_lab.sanitizer
+path: bossman-core/bossman/ai_lab/sanitizer.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_telegram_settings.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bossman.ai_lab.sanitizer')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.ai_lab.sanitizer C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/ai_lab/sanitizer.py
+
+[exit 0 in 1.0s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_telegram_settings.py)
+..........................................                               [100%]
+42 passed in 39.44s
+
+[exit 0 in 41.9s]
+
+VERDICT: PASS 

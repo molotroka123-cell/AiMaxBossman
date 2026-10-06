@@ -1,0 +1,18 @@
+node_id: module-9d8ee6730907
+module: bossman.sandbox.egress
+path: bossman-core/bossman/sandbox/egress.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_sandbox_egress.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bossman.sandbox.egress')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.sandbox.egress C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/sandbox/egress.py
+
+[exit 0 in 1.3s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_egress.py)
+........ss..                                                             [100%]
+10 passed, 2 skipped in 0.88s
+
+[exit 0 in 1.6s]
+
+VERDICT: PASS 

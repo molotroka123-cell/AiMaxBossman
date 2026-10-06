@@ -1,0 +1,34 @@
+node_id: module-a7ad0d90993c
+module: bossman.apprentice.composition
+path: bossman-core/bossman/apprentice/composition.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_durable_live_owner_auth.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bossman.apprentice.composition')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.composition C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/composition.py
+
+[exit 0 in 1.4s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_durable_live_owner_auth.py)
+
+=================================== ERRORS ====================================
+___________ ERROR collecting tests/test_durable_live_owner_auth.py ____________
+ImportError while importing test module 'C:\Users\asd\Bossman\wt-green-0610\bossman-core\tests\test_durable_live_owner_auth.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_durable_live_owner_auth.py:36: in <module>
+    from tests.test_apprentice_outreach import LISTING  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   ModuleNotFoundError: No module named 'tests.test_apprentice_outreach'
+=========================== short test summary info ===========================
+ERROR tests/test_durable_live_owner_auth.py
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 1.11s
+
+[exit 2 in 1.8s]
+
+VERDICT: FAIL env_missing_dependency

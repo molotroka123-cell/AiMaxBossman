@@ -1,0 +1,19 @@
+node_id: mod-reality
+module: bcc.features.reality
+path: command-center/bcc/features/reality.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_v7_reality.py', 'command-center/tests/test_v7_reality_route_validation.py', 'command-center/tests/test_v7_resource_aware_strategy.py', 'command-center/tests/test_v7_world_runtime.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bcc.features.reality')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.reality C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/reality.py
+
+[exit 0 in 0.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v7_reality.py tests/test_v7_reality_route_validation.py tests/test_v7_resource_aware_strategy.py tests/test_v7_world_runtime.py)
+........................................................................ [ 59%]
+.................................................                        [100%]
+121 passed in 43.23s
+
+[exit 0 in 45.3s]
+
+VERDICT: PASS 

@@ -1,0 +1,18 @@
+node_id: mod-provenance
+module: bcc.features.provenance
+path: command-center/bcc/features/provenance.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_provenance.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.features.provenance')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.provenance C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/provenance.py
+
+[exit 0 in 0.7s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_provenance.py)
+...............                                                          [100%]
+15 passed in 6.58s
+
+[exit 0 in 8.5s]
+
+VERDICT: PASS 

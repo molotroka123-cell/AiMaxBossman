@@ -1,0 +1,19 @@
+node_id: module-0aa387ab63a9
+module: bossman.cybersec.secret_guardian
+path: bossman-core/bossman/cybersec/secret_guardian.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_cybersec_guards.py', 'bossman-core/tests/test_cybersec_integration.py', 'bossman-core/tests/test_cybersec_v1.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bossman.cybersec.secret_guardian')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.cybersec.secret_guardian C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/cybersec/secret_guardian.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cybersec_guards.py tests/test_cybersec_integration.py tests/test_cybersec_v1.py)
+........................................................................ [ 81%]
+................                                                         [100%]
+88 passed in 0.73s
+
+[exit 0 in 1.3s]
+
+VERDICT: PASS 

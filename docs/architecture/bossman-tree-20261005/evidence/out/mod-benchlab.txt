@@ -1,0 +1,12 @@
+node_id: mod-benchlab
+module: bcc.features.benchlab
+path: command-center/bcc/features/benchlab.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: [] (candidates=0)
+
+$ python -c "importlib.import_module('bcc.features.benchlab')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.benchlab C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/benchlab.py
+
+[exit 0 in 1.0s]
+
+VERDICT: FAIL no_tests

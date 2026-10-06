@@ -1,0 +1,18 @@
+node_id: mod-market_metrics
+module: bcc.features.market_metrics
+path: command-center/bcc/features/market_metrics.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_market_collector.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.features.market_metrics')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.market_metrics C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/market_metrics.py
+
+[exit 0 in 0.5s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_market_collector.py)
+...................................                                      [100%]
+35 passed in 3.13s
+
+[exit 0 in 5.0s]
+
+VERDICT: PASS 

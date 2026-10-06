@@ -1,0 +1,20 @@
+node_id: mod-action_contract
+module: bcc.features.action_contract
+path: command-center/bcc/features/action_contract.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_action_contract.py', 'command-center/tests/test_action_contract_negation.py', 'command-center/tests/test_action_contract_verified_computer_launch.py', 'command-center/tests/test_chat_context_not_a_request.py', 'command-center/tests/test_chat_threads.py', 'command-center/tests/test_download_false_success.py', 'command-center/tests/test_finalize_unclassified_failure.py', 'command-center/tests/test_golden_missions.py'] (candidates=10)
+
+$ python -c "importlib.import_module('bcc.features.action_contract')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.action_contract C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/action_contract.py
+
+[exit 0 in 1.0s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_action_contract.py tests/test_action_contract_negation.py tests/test_action_contract_verified_computer_launch.py tests/test_chat_context_not_a_request.py tests/test_chat_threads.py tests/test_download_false_success.py tests/test_finalize_unclassified_failure.py tests/test_golden_missions.py)
+........................................................................ [ 34%]
+........................................................................ [ 68%]
+..............................s..........................s.........      [100%]
+209 passed, 2 skipped in 105.03s (0:01:45)
+
+[exit 0 in 108.3s]
+
+VERDICT: PASS 

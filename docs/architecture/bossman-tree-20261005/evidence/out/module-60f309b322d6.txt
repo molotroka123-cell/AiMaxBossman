@@ -1,0 +1,18 @@
+node_id: module-60f309b322d6
+module: bossman.profiles.models
+path: bossman-core/bossman/profiles/models.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_profiles.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bossman.profiles.models')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.profiles.models C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/profiles/models.py
+
+[exit 0 in 1.0s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_profiles.py)
+........................                                                 [100%]
+24 passed in 1.19s
+
+[exit 0 in 2.0s]
+
+VERDICT: PASS 

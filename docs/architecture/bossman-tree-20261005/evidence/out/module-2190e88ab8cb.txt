@@ -1,0 +1,18 @@
+node_id: module-2190e88ab8cb
+module: bossman.toolkit.files
+path: bossman-core/bossman/toolkit/files.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_fs_write_exact_bytes.py', 'bossman-core/tests/test_secrem_s1_fileintel_containment.py', 'bossman-core/tests/test_secrem_sibling_sweep.py', 'bossman-core/tests/test_stage9_agent_smoke.py', 'bossman-core/tests/test_tools.py'] (candidates=5)
+
+$ python -c "importlib.import_module('bossman.toolkit.files')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.toolkit.files C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/toolkit/files.py
+
+[exit 0 in 0.5s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_fs_write_exact_bytes.py tests/test_secrem_s1_fileintel_containment.py tests/test_secrem_sibling_sweep.py tests/test_stage9_agent_smoke.py tests/test_tools.py)
+.......................................................s............     [100%]
+67 passed, 1 skipped in 10.26s
+
+[exit 0 in 10.8s]
+
+VERDICT: PASS 

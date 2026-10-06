@@ -1,0 +1,25 @@
+node_id: module-049b601d5eaa
+module: bossman.apprentice.openhands_client
+path: bossman-core/bossman/apprentice/openhands_client.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/apprentice/test_openhands_client.py', 'bossman-core/tests/test_audit_learn_git_timeouts.py', 'command-center/tests/test_coding_tasks.py', 'bossman-core/tests/apprentice/test_local_sidecar.py', 'bossman-core/tests/apprentice/test_openhands_evidence_independence.py', 'bossman-core/tests/apprentice/test_openhands_live_sdk.py', 'bossman-core/tests/apprentice/test_openhands_path_boundary.py', 'bossman-core/tests/apprentice/test_openhands_release_evidence.py'] (candidates=10)
+
+$ python -c "importlib.import_module('bossman.apprentice.openhands_client')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.openhands_client C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/openhands_client.py
+
+[exit 0 in 0.2s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/apprentice/test_openhands_client.py tests/test_audit_learn_git_timeouts.py tests/apprentice/test_local_sidecar.py tests/apprentice/test_openhands_evidence_independence.py tests/apprentice/test_openhands_live_sdk.py tests/apprentice/test_openhands_path_boundary.py tests/apprentice/test_openhands_release_evidence.py)
+.........................s....................ss................ssssssss [ 66%]
+ss......................ssss...s....                                     [100%]
+90 passed, 18 skipped in 60.60s (0:01:00)
+
+[exit 0 in 61.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_tasks.py)
+............                                                             [100%]
+12 passed in 13.89s
+
+[exit 0 in 16.4s]
+
+VERDICT: PASS 

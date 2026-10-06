@@ -1,0 +1,18 @@
+node_id: mod-code_intel
+module: bcc.features.code_intel
+path: command-center/bcc/features/code_intel.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_code_intel_and_scorecard.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.features.code_intel')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.code_intel C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/code_intel.py
+
+[exit 0 in 0.6s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_code_intel_and_scorecard.py)
+.....................                                                    [100%]
+21 passed in 1.35s
+
+[exit 0 in 3.2s]
+
+VERDICT: PASS 

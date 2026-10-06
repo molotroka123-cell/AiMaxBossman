@@ -1,0 +1,18 @@
+node_id: module-c64e6d1041b0
+module: bossman.computer_operator.planner
+path: bossman-core/bossman/computer_operator/planner.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_computer_operator_planner.py', 'bossman-core/tests/test_stage13_wiring_notepad.py', 'bossman-core/tests/test_v26_operator_fixes.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bossman.computer_operator.planner')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.computer_operator.planner C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/computer_operator/planner.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_operator_planner.py tests/test_stage13_wiring_notepad.py tests/test_v26_operator_fixes.py)
+..............................................................           [100%]
+62 passed in 2.47s
+
+[exit 0 in 3.3s]
+
+VERDICT: PASS 

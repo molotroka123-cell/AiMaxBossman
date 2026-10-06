@@ -1,0 +1,19 @@
+node_id: module-9958189ad4d4
+module: bossman.apprentice.proc_tree
+path: bossman-core/bossman/apprentice/proc_tree.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_capability_tree.py', 'command-center/tests/test_rave_engine.py', 'command-center/tests/test_rave_owner_flow.py', 'command-center/tests/test_rave_pool.py', 'command-center/tests/test_rave_ui_flow.py', 'bossman-core/tests/apprentice/test_local_sidecar.py'] (candidates=6)
+
+$ python -c "importlib.import_module('bossman.apprentice.proc_tree')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.proc_tree C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/proc_tree.py
+
+[exit 0 in 0.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_capability_tree.py tests/test_rave_engine.py tests/test_rave_owner_flow.py tests/test_rave_pool.py tests/test_rave_ui_flow.py)
+........................................................................ [ 78%]
+.........
+[TIMEOUT after 120s]
+
+[exit 124 in 120s]
+
+VERDICT: FAIL pytest_timeout

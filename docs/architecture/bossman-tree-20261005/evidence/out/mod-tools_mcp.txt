@@ -1,0 +1,19 @@
+node_id: mod-tools_mcp
+module: bcc.features.tools_mcp
+path: command-center/bcc/features/tools_mcp.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_bl110_mcp_delete_everywhere.py', 'command-center/tests/test_golden_missions.py', 'command-center/tests/test_mcp_numeric_server_name.py', 'command-center/tests/test_secrem_mcp_boundary.py', 'command-center/tests/test_secrem_sibling_sweep.py', 'command-center/tests/test_v21_mcp.py', 'command-center/tests/test_v22_fixes.py'] (candidates=7)
+
+$ python -c "importlib.import_module('bcc.features.tools_mcp')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.tools_mcp C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/tools_mcp.py
+
+[exit 0 in 0.7s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_bl110_mcp_delete_everywhere.py tests/test_golden_missions.py tests/test_mcp_numeric_server_name.py tests/test_secrem_mcp_boundary.py tests/test_secrem_sibling_sweep.py tests/test_v21_mcp.py tests/test_v22_fixes.py)
+.....s.................................................................. [ 76%]
+......................                                                   [100%]
+93 passed, 1 skipped in 75.65s (0:01:15)
+
+[exit 0 in 78.1s]
+
+VERDICT: PASS 

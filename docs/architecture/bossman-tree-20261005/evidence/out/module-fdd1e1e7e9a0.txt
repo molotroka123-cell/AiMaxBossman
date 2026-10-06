@@ -1,0 +1,18 @@
+node_id: module-fdd1e1e7e9a0
+module: bossman.sandbox.secrets
+path: bossman-core/bossman/sandbox/secrets.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_sandbox_tools_and_broker.py', 'bossman-core/tests/test_secrem_f018_wiring.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.sandbox.secrets')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.sandbox.secrets C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/sandbox/secrets.py
+
+[exit 0 in 1.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_tools_and_broker.py tests/test_secrem_f018_wiring.py)
+..............s                                                          [100%]
+14 passed, 1 skipped in 4.60s
+
+[exit 0 in 5.5s]
+
+VERDICT: PASS 

@@ -1,0 +1,20 @@
+node_id: mod-file_intelligence
+module: bcc.features.file_intelligence
+path: command-center/bcc/features/file_intelligence.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_file_intelligence_contract.py', 'command-center/tests/test_file_intelligence_feature.py', 'command-center/tests/test_file_intelligence_hostile.py', 'command-center/tests/test_file_intelligence_recovery.py', 'command-center/tests/test_oss_docling.py'] (candidates=5)
+
+$ python -c "importlib.import_module('bcc.features.file_intelligence')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.file_intelligence C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/file_intelligence.py
+
+[exit 0 in 0.5s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_file_intelligence_contract.py tests/test_file_intelligence_feature.py tests/test_file_intelligence_hostile.py tests/test_file_intelligence_recovery.py tests/test_oss_docling.py)
+........................................................................ [ 48%]
+..........ss......ssss.................................................. [ 96%]
+.sssss                                                                   [100%]
+139 passed, 11 skipped in 16.10s
+
+[exit 0 in 17.9s]
+
+VERDICT: PASS 

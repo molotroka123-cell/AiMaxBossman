@@ -1,0 +1,31 @@
+node_id: module-c2cd9f798b9b
+module: bossman.toolkit.media
+path: bossman-core/bossman/toolkit/media.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['tests/test_media_bootstrap.py', 'tests/test_media_ci_preflight.py', 'command-center/tests/test_media_roundtrip_studio.py', 'bossman-core/tests/test_host_execution_argv.py', 'bossman-core/tests/test_secrem_sibling_sweep.py', 'bossman-core/tests/test_stage13_hostexec_redteam.py', 'bossman-core/tests/test_toolkit_subprocess_timeouts.py', 'bossman-core/tests/test_tools.py'] (candidates=10)
+
+$ python -c "importlib.import_module('bossman.toolkit.media')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.toolkit.media C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/toolkit/media.py
+
+[exit 0 in 0.5s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_media_bootstrap.py tests/test_media_ci_preflight.py)
+..............................                                           [100%]
+30 passed in 1.94s
+
+[exit 0 in 2.3s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_media_roundtrip_studio.py)
+.....................                                                    [100%]
+21 passed in 16.69s
+
+[exit 0 in 18.6s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_host_execution_argv.py tests/test_secrem_sibling_sweep.py tests/test_stage13_hostexec_redteam.py tests/test_toolkit_subprocess_timeouts.py tests/test_tools.py)
+........................................................................ [ 53%]
+.................................................s.............          [100%]
+134 passed, 1 skipped in 13.55s
+
+[exit 0 in 14.2s]
+
+VERDICT: PASS 

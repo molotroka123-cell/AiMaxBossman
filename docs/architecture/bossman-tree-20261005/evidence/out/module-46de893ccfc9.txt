@@ -1,0 +1,54 @@
+node_id: module-46de893ccfc9
+module: bossman.notifications.telegram_transport
+path: bossman-core/bossman/notifications/telegram_transport.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_telegram_transport_response_truth.py', 'bossman-core/tests/test_alias_and_auth_boundary.py', 'bossman-core/tests/test_approval_create_emits_event.py', 'bossman-core/tests/test_auth_approval_findings.py', 'bossman-core/tests/test_telegram_egress_guard.py', 'bossman-core/tests/test_telegram_webhook_security.py', 'command-center/tests/test_local_russian_voice.py', 'command-center/tests/telegram_calls/test_call_voice_safety.py'] (candidates=8)
+
+$ python -c "importlib.import_module('bossman.notifications.telegram_transport')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.notifications.telegram_transport C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/notifications/telegram_transport.py
+
+[exit 0 in 0.3s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_telegram_transport_response_truth.py tests/test_alias_and_auth_boundary.py tests/test_approval_create_emits_event.py tests/test_auth_approval_findings.py tests/test_telegram_egress_guard.py tests/test_telegram_webhook_security.py)
+..............................................................           [100%]
+============================== warnings summary ===============================
+bossman\api.py:112
+  C:\Users\asd\Bossman\wt-green-0610\bossman-core\bossman\api.py:112: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+bossman\api.py:124
+  C:\Users\asd\Bossman\wt-green-0610\bossman-core\bossman\api.py:124: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+62 passed, 4 warnings in 6.04s
+
+[exit 0 in 6.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_local_russian_voice.py tests/telegram_calls/test_call_voice_safety.py)
+.............................                                            [100%]
+29 passed in 22.84s
+
+[exit 0 in 24.3s]
+
+VERDICT: PASS 

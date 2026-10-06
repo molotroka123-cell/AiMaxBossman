@@ -1,0 +1,19 @@
+node_id: module-eb0be06d9db9
+module: bossman.sandbox.models
+path: bossman-core/bossman/sandbox/models.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_sandbox_core.py', 'bossman-core/tests/test_sandbox_egress.py', 'bossman-core/tests/test_sandbox_egress_lockdown.py', 'bossman-core/tests/test_sandbox_redteam_findings.py', 'bossman-core/tests/test_sandbox_safe_runtime.py', 'bossman-core/tests/test_sandbox_security.py', 'bossman-core/tests/test_sandbox_strong_runtimes.py', 'bossman-core/tests/test_sandbox_toolbox.py'] (candidates=9)
+
+$ python -c "importlib.import_module('bossman.sandbox.models')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.sandbox.models C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/sandbox/models.py
+
+[exit 0 in 1.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_core.py tests/test_sandbox_egress.py tests/test_sandbox_egress_lockdown.py tests/test_sandbox_redteam_findings.py tests/test_sandbox_safe_runtime.py tests/test_sandbox_security.py tests/test_sandbox_strong_runtimes.py tests/test_sandbox_toolbox.py)
+....................ss..sssssss..s.......sssssssssss................ss.. [ 60%]
+..............................................s.                         [100%]
+96 passed, 24 skipped in 1.84s
+
+[exit 0 in 2.6s]
+
+VERDICT: PASS 

@@ -1,0 +1,18 @@
+node_id: mod-resources
+module: bcc.features.resources
+path: command-center/bcc/features/resources.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_metrics_async_read.py', 'command-center/tests/test_v6_resources_unmeasured.py', 'command-center/tests/test_video_studio_integration.py', 'command-center/tests/test_video_studio_recovery_races.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bcc.features.resources')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.resources C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/resources.py
+
+[exit 0 in 0.7s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_metrics_async_read.py tests/test_v6_resources_unmeasured.py tests/test_video_studio_integration.py tests/test_video_studio_recovery_races.py)
+........................................s.......                         [100%]
+47 passed, 1 skipped in 20.72s
+
+[exit 0 in 22.6s]
+
+VERDICT: PASS 

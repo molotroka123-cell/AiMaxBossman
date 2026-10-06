@@ -1,0 +1,24 @@
+node_id: mod-v15_autonomy
+module: bcc.features.v15_autonomy
+path: command-center/bcc/features/v15_autonomy.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_v15_autonomy_core.py', 'command-center/tests/test_v15_autonomy_feature.py', 'command-center/tests/test_perf_20260930.py', 'command-center/tests/test_runtime_package_contract.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bcc.features.v15_autonomy')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.v15_autonomy C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/v15_autonomy.py
+
+[exit 0 in 0.5s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_autonomy_core.py)
+......                                                                   [100%]
+6 passed in 1.22s
+
+[exit 0 in 2.0s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_autonomy_feature.py tests/test_perf_20260930.py tests/test_runtime_package_contract.py)
+................                                                         [100%]
+16 passed in 5.89s
+
+[exit 0 in 7.9s]
+
+VERDICT: PASS 

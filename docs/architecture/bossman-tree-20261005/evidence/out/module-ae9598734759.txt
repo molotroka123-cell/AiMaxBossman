@@ -1,0 +1,12 @@
+node_id: module-ae9598734759
+module: bossman.toolkit.office
+path: bossman-core/bossman/toolkit/office.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: [] (candidates=0)
+
+$ python -c "importlib.import_module('bossman.toolkit.office')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.toolkit.office C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/toolkit/office.py
+
+[exit 0 in 0.5s]
+
+VERDICT: FAIL no_tests

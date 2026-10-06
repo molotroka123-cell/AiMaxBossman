@@ -1,0 +1,24 @@
+node_id: module-eb0bce4aaf5b
+module: bossman.toolkit.browser
+path: bossman-core/bossman/toolkit/browser.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_browser_approval_and_injection.py', 'bossman-core/tests/test_browser_approvals_p1.py', 'bossman-core/tests/test_browser_emulator_e2e.py', 'bossman-core/tests/test_browser_headless_runpod.py', 'bossman-core/tests/test_browser_pid_portability.py', 'bossman-core/tests/test_browser_policy.py', 'bossman-core/tests/test_browser_support_helper.py', 'command-center/tests/test_browser_download_b4.py'] (candidates=17)
+
+$ python -c "importlib.import_module('bossman.toolkit.browser')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.toolkit.browser C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/toolkit/browser.py
+
+[exit 0 in 0.5s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_approval_and_injection.py tests/test_browser_approvals_p1.py tests/test_browser_emulator_e2e.py tests/test_browser_headless_runpod.py tests/test_browser_pid_portability.py tests/test_browser_policy.py tests/test_browser_support_helper.py)
+....................................................                     [100%]
+52 passed in 10.93s
+
+[exit 0 in 11.4s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_download_b4.py)
+ssss                                                                     [100%]
+4 skipped in 0.22s
+
+[exit 0 in 1.5s]
+
+VERDICT: PASS 

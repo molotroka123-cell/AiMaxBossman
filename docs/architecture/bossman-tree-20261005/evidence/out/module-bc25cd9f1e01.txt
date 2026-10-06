@@ -1,0 +1,30 @@
+node_id: module-bc25cd9f1e01
+module: bossman.apprentice.local_sidecar
+path: bossman-core/bossman/apprentice/local_sidecar.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/apprentice/test_local_sidecar.py', 'tests/test_evolution_embedded_python.py', 'command-center/tests/test_coding_apply.py', 'command-center/tests/test_coding_path_owner_tool.py', 'command-center/tests/test_coding_tasks.py', 'command-center/tests/test_coding_tasks_local_sidecar.py', 'command-center/tests/test_coding_workers.py', 'command-center/tests/test_runtime_package_contract.py'] (candidates=11)
+
+$ python -c "importlib.import_module('bossman.apprentice.local_sidecar')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.local_sidecar C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/local_sidecar.py
+
+[exit 0 in 0.2s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/apprentice/test_local_sidecar.py)
+...............s...........                                              [100%]
+26 passed, 1 skipped in 26.84s
+
+[exit 0 in 27.4s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_evolution_embedded_python.py)
+.....                                                                    [100%]
+5 passed in 12.10s
+
+[exit 0 in 12.7s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_apply.py tests/test_coding_path_owner_tool.py tests/test_coding_tasks.py tests/test_coding_tasks_local_sidecar.py tests/test_coding_workers.py tests/test_runtime_package_contract.py)
+............................................                             [100%]
+44 passed in 107.57s (0:01:47)
+
+[exit 0 in 110.0s]
+
+VERDICT: PASS 

@@ -1,0 +1,18 @@
+node_id: module-27cb1911d462
+module: bossman.video_factory.service
+path: bossman-core/bossman/video_factory/service.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_stage9_recovery.py', 'bossman-core/tests/test_video_factory.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.video_factory.service')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.video_factory.service C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/video_factory/service.py
+
+[exit 0 in 1.0s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage9_recovery.py tests/test_video_factory.py)
+........................                                                 [100%]
+24 passed in 2.82s
+
+[exit 0 in 3.5s]
+
+VERDICT: PASS 

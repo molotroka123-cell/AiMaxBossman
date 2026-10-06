@@ -1,0 +1,26 @@
+node_id: module-7a65bf88fb04
+module: bossman.cybersec.gates
+path: bossman-core/bossman/cybersec/gates.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_cybersec_integration.py', 'bossman-core/tests/test_cybersec_v1.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.cybersec.gates')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.cybersec.gates C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/cybersec/gates.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cybersec_integration.py tests/test_cybersec_v1.py)
+........................................................................ [ 91%]
+.......                                                                  [100%]
+============================== warnings summary ===============================
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\pathlib.py:95
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\pathlib.py:95: PytestWarning: (rm_rf) error removing \\?\C:\Users\asd\AppData\Local\Temp\pytest-of-asd\garbage-dcb17a85-b93d-4d0f-86a0-4414da06144c
+  <class 'OSError'>: [WinError 145] Папка не пуста: '\\\\?\\C:\\Users\\asd\\AppData\\Local\\Temp\\pytest-of-asd\\garbage-dcb17a85-b93d-4d0f-86a0-4414da06144c'
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+79 passed, 1 warning in 0.69s
+
+[exit 0 in 1.3s]
+
+VERDICT: PASS 

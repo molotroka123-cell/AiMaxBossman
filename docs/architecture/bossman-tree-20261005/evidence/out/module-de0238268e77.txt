@@ -1,0 +1,48 @@
+node_id: module-de0238268e77
+module: bossman.remote_client.store
+path: bossman-core/bossman/remote_client/store.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_auth_approval_findings.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bossman.remote_client.store')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.remote_client.store C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/remote_client/store.py
+
+[exit 0 in 1.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_auth_approval_findings.py)
+...............................                                          [100%]
+============================== warnings summary ===============================
+bossman\api.py:112
+  C:\Users\asd\Bossman\wt-green-0610\bossman-core\bossman\api.py:112: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+bossman\api.py:124
+  C:\Users\asd\Bossman\wt-green-0610\bossman-core\bossman\api.py:124: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+31 passed, 4 warnings in 5.25s
+
+[exit 0 in 6.1s]
+
+VERDICT: PASS 

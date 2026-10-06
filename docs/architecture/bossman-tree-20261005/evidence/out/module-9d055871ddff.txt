@@ -1,0 +1,18 @@
+node_id: module-9d055871ddff
+module: bossman.sandbox.artifacts
+path: bossman-core/bossman/sandbox/artifacts.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_sandbox_redteam_findings.py', 'bossman-core/tests/test_sandbox_security.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.sandbox.artifacts')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.sandbox.artifacts C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/sandbox/artifacts.py
+
+[exit 0 in 1.3s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_redteam_findings.py tests/test_sandbox_security.py)
+..s.......................ss.......                                      [100%]
+32 passed, 3 skipped in 1.20s
+
+[exit 0 in 1.9s]
+
+VERDICT: PASS 

@@ -1,0 +1,12 @@
+node_id: module-a71668fad443
+module: bossman.video_factory.routes
+path: bossman-core/bossman/video_factory/routes.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: [] (candidates=0)
+
+$ python -c "importlib.import_module('bossman.video_factory.routes')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.video_factory.routes C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/video_factory/routes.py
+
+[exit 0 in 1.0s]
+
+VERDICT: FAIL no_tests

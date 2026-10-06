@@ -1,0 +1,50 @@
+node_id: mod-autonomy
+module: bcc.features.autonomy
+path: command-center/bcc/features/autonomy.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_autonomy_api.py', 'command-center/tests/test_autonomy_bounded_loop.py', 'command-center/tests/test_autonomy_cli.py', 'command-center/tests/test_autonomy_constitution.py', 'command-center/tests/test_autonomy_cycle.py', 'command-center/tests/test_autonomy_goals.py', 'command-center/tests/test_autonomy_hands.py', 'command-center/tests/test_autonomy_hands_default.py'] (candidates=26)
+
+$ python -c "importlib.import_module('bcc.features.autonomy')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.autonomy C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/autonomy.py
+
+[exit 0 in 0.6s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_autonomy_api.py tests/test_autonomy_bounded_loop.py tests/test_autonomy_cli.py tests/test_autonomy_constitution.py tests/test_autonomy_cycle.py tests/test_autonomy_goals.py tests/test_autonomy_hands.py tests/test_autonomy_hands_default.py)
+................F
+================================== FAILURES ===================================
+_______ test_tree_runner_kills_the_whole_worker_tree_when_stop_appears ________
+
+tmp_path = WindowsPath('C:/Users/asd/AppData/Local/Temp/pytest-of-asd/pytest-2958/test_tree_runner_kills_the_who0')
+
+    async def test_tree_runner_kills_the_whole_worker_tree_when_stop_appears(tmp_path):
+        import psutil
+        root = tmp_path / "autonomy"
+        pids: list[int] = []
+        procs: list = []
+    
+        def on_pid(pid: int) -> None:
+            pids.append(pid)
+            procs.append(psutil.Process(pid))               # keeps the create time: a reused pid is not "still running"
+    
+        runner = TreeRunner(stop_check=stopmod.checker(root), poll_s=0.1, on_pid=on_pid)
+        loop = asyncio.get_running_loop()
+        loop.call_later(0.8, lambda: stopmod.request_stop(root, by="t", reason="kill it"))
+        started = time.monotonic()
+        res = await runner.run([sys.executable, "-c", "import time; time.sleep(120)"], cwd=tmp_path, stdin=b"",
+                               timeout=120.0, env=None)
+        assert time.monotonic() - started < 60 and runner.stopped.startswith("owner STOP")
+>       assert res.timed_out is False and pids and not procs[0].is_running()
+E       AssertionError: assert (False is False and [28076] and not True)
+E        +  where False = ProcResult(returncode=1, stdout=b'', stderr=b'', timed_out=False).timed_out
+E        +  and   True = is_running()
+E        +    where is_running = psutil.Process(pid=28076, name='python.exe', status='terminated', started='14:42:53').is_running
+
+tests\test_autonomy_bounded_loop.py:162: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_autonomy_bounded_loop.py::test_tree_runner_kills_the_whole_worker_tree_when_stop_appears
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 16 passed in 16.65s
+
+[exit 1 in 18.9s]
+
+VERDICT: FAIL tests_failed

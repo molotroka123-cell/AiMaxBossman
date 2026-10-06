@@ -1,0 +1,25 @@
+node_id: module-1184b1105ced
+module: bossman.benchmark.cli
+path: bossman-core/bossman/benchmark/cli.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_cli_help_cp1252.py', 'command-center/tests/test_cli_entrypoint.py', 'command-center/tests/telegram_calls/test_cli_call.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bossman.benchmark.cli')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.benchmark.cli C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/benchmark/cli.py
+
+[exit 0 in 0.2s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cli_help_cp1252.py)
+.                                                                        [100%]
+1 passed in 0.51s
+
+[exit 0 in 1.0s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cli_entrypoint.py tests/telegram_calls/test_cli_call.py)
+........................................................................ [ 94%]
+....                                                                     [100%]
+76 passed in 4.94s
+
+[exit 0 in 6.8s]
+
+VERDICT: PASS 

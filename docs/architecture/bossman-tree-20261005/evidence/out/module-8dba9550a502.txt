@@ -1,0 +1,18 @@
+node_id: module-8dba9550a502
+module: bossman.gateway.telemetry
+path: bossman-core/bossman/gateway/telemetry.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/audit001/test_f6_cache_savings.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bossman.gateway.telemetry')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.gateway.telemetry C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/gateway/telemetry.py
+
+[exit 0 in 0.3s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/audit001/test_f6_cache_savings.py)
+..........                                                               [100%]
+10 passed in 1.48s
+
+[exit 0 in 2.1s]
+
+VERDICT: PASS 

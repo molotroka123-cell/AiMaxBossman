@@ -1,0 +1,19 @@
+node_id: module-95e88c430e38
+module: bossman.gateway.backends
+path: bossman-core/bossman/gateway/backends.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_gateway_anthropic_contract.py', 'bossman-core/tests/test_gateway_circuit_breaker.py', 'bossman-core/tests/test_gateway_cloud_policy.py', 'bossman-core/tests/test_gateway_cost_governor.py', 'bossman-core/tests/test_gateway_failover_4xx.py', 'bossman-core/tests/test_gateway_free_only_policy.py', 'bossman-core/tests/test_gateway_openrouter.py', 'bossman-core/tests/test_gateway_provider_composition.py'] (candidates=17)
+
+$ python -c "importlib.import_module('bossman.gateway.backends')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.gateway.backends C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/gateway/backends.py
+
+[exit 0 in 0.4s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_gateway_anthropic_contract.py tests/test_gateway_circuit_breaker.py tests/test_gateway_cloud_policy.py tests/test_gateway_cost_governor.py tests/test_gateway_failover_4xx.py tests/test_gateway_free_only_policy.py tests/test_gateway_openrouter.py tests/test_gateway_provider_composition.py)
+........................................................................ [ 54%]
+............................................................             [100%]
+132 passed in 10.56s
+
+[exit 0 in 11.5s]
+
+VERDICT: PASS 

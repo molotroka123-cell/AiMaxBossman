@@ -1,0 +1,19 @@
+node_id: module-637788ef482e
+module: bossman.ai_lab.candidates
+path: bossman-core/bossman/ai_lab/candidates.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_stage11_ai_lab.py', 'bossman-core/tests/test_stage13_ailab_redteam.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.ai_lab.candidates')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.ai_lab.candidates C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/ai_lab/candidates.py
+
+[exit 0 in 1.6s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage11_ai_lab.py tests/test_stage13_ailab_redteam.py)
+........................................................................ [ 69%]
+.........s.....................                                          [100%]
+102 passed, 1 skipped in 4.10s
+
+[exit 0 in 5.0s]
+
+VERDICT: PASS 

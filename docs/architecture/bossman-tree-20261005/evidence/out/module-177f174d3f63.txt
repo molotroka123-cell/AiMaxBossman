@@ -1,0 +1,25 @@
+node_id: module-177f174d3f63
+module: bossman.apprentice.flags
+path: bossman-core/bossman/apprentice/flags.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['tests/test_import_operational_lessons.py', 'bossman-core/tests/test_apprentice_core.py', 'bossman-core/tests/test_apprentice_e2e.py', 'bossman-core/tests/test_apprentice_learning.py', 'bossman-core/tests/test_apprentice_outreach.py', 'bossman-core/tests/test_apprentice_p0.py', 'bossman-core/tests/test_apprentice_recording.py', 'bossman-core/tests/test_apprentice_sanctions.py'] (candidates=17)
+
+$ python -c "importlib.import_module('bossman.apprentice.flags')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.flags C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/flags.py
+
+[exit 0 in 0.1s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_import_operational_lessons.py)
+....................                                                     [100%]
+20 passed in 13.53s
+
+[exit 0 in 14.0s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_core.py tests/test_apprentice_e2e.py tests/test_apprentice_learning.py tests/test_apprentice_outreach.py tests/test_apprentice_p0.py tests/test_apprentice_recording.py tests/test_apprentice_sanctions.py)
+........................................................................ [ 92%]
+......                                                                   [100%]
+78 passed in 2.62s
+
+[exit 0 in 3.3s]
+
+VERDICT: PASS 

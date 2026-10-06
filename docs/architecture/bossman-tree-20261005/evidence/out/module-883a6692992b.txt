@@ -1,0 +1,18 @@
+node_id: module-883a6692992b
+module: bossman.projects.runner
+path: bossman-core/bossman/projects/runner.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_runner_answer_contract.py', 'bossman-core/tests/test_runner_cybersec_wiring.py', 'bossman-core/tests/test_runner_holdout_exclusion.py', 'bossman-core/tests/test_runner_memory_wiring.py', 'bossman-core/tests/test_core_subprocess_timeouts.py', 'bossman-core/tests/test_hardening_p0_p1.py', 'bossman-core/tests/test_memory_and_state_integrity.py', 'bossman-core/tests/test_secrem_f005_projects.py'] (candidates=9)
+
+$ python -c "importlib.import_module('bossman.projects.runner')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.projects.runner C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/projects/runner.py
+
+[exit 0 in 0.6s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_runner_answer_contract.py tests/test_runner_cybersec_wiring.py tests/test_runner_holdout_exclusion.py tests/test_runner_memory_wiring.py tests/test_core_subprocess_timeouts.py tests/test_hardening_p0_p1.py tests/test_memory_and_state_integrity.py tests/test_secrem_f005_projects.py)
+.................ssss......................................              [100%]
+55 passed, 4 skipped in 32.84s
+
+[exit 0 in 33.7s]
+
+VERDICT: PASS 

@@ -1,0 +1,12 @@
+node_id: module-f21597ba1fd6
+module: bossman.video_factory.subsystem
+path: bossman-core/bossman/video_factory/subsystem.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: [] (candidates=0)
+
+$ python -c "importlib.import_module('bossman.video_factory.subsystem')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.video_factory.subsystem C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/video_factory/subsystem.py
+
+[exit 0 in 0.9s]
+
+VERDICT: FAIL no_tests

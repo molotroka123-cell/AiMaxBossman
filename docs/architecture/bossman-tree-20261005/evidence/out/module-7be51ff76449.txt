@@ -1,0 +1,19 @@
+node_id: module-7be51ff76449
+module: bossman.toolkit.net
+path: bossman-core/bossman/toolkit/net.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_astra_remediation.py', 'bossman-core/tests/test_secrem_f004_http_ssrf.py', 'bossman-core/tests/test_secrem_sibling_sweep.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bossman.toolkit.net')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.toolkit.net C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/toolkit/net.py
+
+[exit 0 in 0.5s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_astra_remediation.py tests/test_secrem_f004_http_ssrf.py tests/test_secrem_sibling_sweep.py)
+........................................................................ [ 52%]
+.................................................................        [100%]
+137 passed in 14.37s
+
+[exit 0 in 15.1s]
+
+VERDICT: PASS 

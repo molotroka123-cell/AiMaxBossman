@@ -1,0 +1,18 @@
+node_id: module-522cf2e79840
+module: bossman.apprentice.teacher
+path: bossman-core/bossman/apprentice/teacher.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_teacher_isolation.py', 'bossman-core/tests/test_teacher_live.py', 'bossman-core/tests/test_apprentice_e2e.py', 'bossman-core/tests/test_apprentice_sanctions.py', 'bossman-core/tests/test_apprentice_teacher.py', 'bossman-core/tests/test_audit_learn_workspace.py', 'bossman-core/tests/apprentice/test_openhands_integration.py'] (candidates=7)
+
+$ python -c "importlib.import_module('bossman.apprentice.teacher')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.teacher C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/teacher.py
+
+[exit 0 in 0.3s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_teacher_isolation.py tests/test_teacher_live.py tests/test_apprentice_e2e.py tests/test_apprentice_sanctions.py tests/test_apprentice_teacher.py tests/test_audit_learn_workspace.py tests/apprentice/test_openhands_integration.py)
+s.....s.s...........................................................     [100%]
+65 passed, 3 skipped in 5.21s
+
+[exit 0 in 6.0s]
+
+VERDICT: PASS 

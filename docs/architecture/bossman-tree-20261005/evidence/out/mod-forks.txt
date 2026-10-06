@@ -1,0 +1,18 @@
+node_id: mod-forks
+module: bcc.features.forks
+path: command-center/bcc/features/forks.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_secrem_router_failclosed.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.features.forks')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.forks C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/forks.py
+
+[exit 0 in 0.6s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_secrem_router_failclosed.py)
+.................                                                        [100%]
+17 passed in 9.06s
+
+[exit 0 in 10.5s]
+
+VERDICT: PASS 

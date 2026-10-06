@@ -1,0 +1,24 @@
+node_id: module-28048916831a
+module: bossman.projects.router
+path: bossman-core/bossman/projects/router.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_router.py', 'command-center/tests/test_router_memory_pressure.py', 'bossman-core/tests/test_core_subprocess_timeouts.py', 'bossman-core/tests/test_memory_and_state_integrity.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bossman.projects.router')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.projects.router C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/projects/router.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router.py tests/test_core_subprocess_timeouts.py tests/test_memory_and_state_integrity.py)
+..............................                                           [100%]
+30 passed in 31.98s
+
+[exit 0 in 32.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router_memory_pressure.py)
+.......                                                                  [100%]
+7 passed in 16.13s
+
+[exit 0 in 18.2s]
+
+VERDICT: PASS 

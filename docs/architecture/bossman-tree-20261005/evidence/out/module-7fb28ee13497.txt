@@ -1,0 +1,18 @@
+node_id: module-7fb28ee13497
+module: bossman.gateway.client
+path: bossman-core/bossman/gateway/client.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_gateway_client_stage3.py', 'bossman-core/tests/test_live_run_findings_20260906.py', 'bossman-core/tests/test_llm_gateway_stage3.py', 'bossman-core/tests/test_secrem_429_retry.py', 'bossman-core/tests/test_secrem_f008_gateway_failclosed.py', 'bossman-core/tests/test_stage9_agent_smoke.py', 'bossman-core/tests/test_stage9_gateway_e2e.py'] (candidates=7)
+
+$ python -c "importlib.import_module('bossman.gateway.client')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.gateway.client C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/gateway/client.py
+
+[exit 0 in 0.4s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_gateway_client_stage3.py tests/test_live_run_findings_20260906.py tests/test_llm_gateway_stage3.py tests/test_secrem_429_retry.py tests/test_secrem_f008_gateway_failclosed.py tests/test_stage9_agent_smoke.py tests/test_stage9_gateway_e2e.py)
+................................s.......                                 [100%]
+39 passed, 1 skipped in 5.53s
+
+[exit 0 in 6.4s]
+
+VERDICT: PASS 

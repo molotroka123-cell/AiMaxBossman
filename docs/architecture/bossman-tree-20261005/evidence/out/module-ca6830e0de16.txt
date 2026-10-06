@@ -1,0 +1,18 @@
+node_id: module-ca6830e0de16
+module: bossman.projects.plan
+path: bossman-core/bossman/projects/plan.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_core_subprocess_timeouts.py', 'bossman-core/tests/test_memory_and_state_integrity.py', 'bossman-core/tests/test_stage9_recovery.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bossman.projects.plan')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.projects.plan C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/projects/plan.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_core_subprocess_timeouts.py tests/test_memory_and_state_integrity.py tests/test_stage9_recovery.py)
+...........................                                              [100%]
+27 passed in 33.05s
+
+[exit 0 in 33.7s]
+
+VERDICT: PASS 

@@ -1,0 +1,19 @@
+node_id: module-42a06e3c1b71
+module: bossman.apprentice.models
+path: bossman-core/bossman/apprentice/models.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_adapter_p2_findings.py', 'bossman-core/tests/test_apprentice_core.py', 'bossman-core/tests/test_apprentice_e2e.py', 'bossman-core/tests/test_apprentice_learning.py', 'bossman-core/tests/test_apprentice_p0.py', 'bossman-core/tests/test_apprentice_recording.py', 'bossman-core/tests/test_apprentice_teacher.py', 'bossman-core/tests/test_e2e_real_gui.py'] (candidates=11)
+
+$ python -c "importlib.import_module('bossman.apprentice.models')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.models C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/models.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_adapter_p2_findings.py tests/test_apprentice_core.py tests/test_apprentice_e2e.py tests/test_apprentice_learning.py tests/test_apprentice_p0.py tests/test_apprentice_recording.py tests/test_apprentice_teacher.py tests/test_e2e_real_gui.py)
+........................................................................ [ 64%]
+......................................ss                                 [100%]
+110 passed, 2 skipped in 2.97s
+
+[exit 0 in 3.7s]
+
+VERDICT: PASS 

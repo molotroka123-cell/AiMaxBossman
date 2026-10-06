@@ -1,0 +1,18 @@
+node_id: module-edac8a22b815
+module: bossman.apprentice.teacher_sandbox
+path: bossman-core/bossman/apprentice/teacher_sandbox.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_teacher_isolation.py', 'bossman-core/tests/apprentice/test_openhands_integration.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.apprentice.teacher_sandbox')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.teacher_sandbox C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/teacher_sandbox.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_teacher_isolation.py tests/apprentice/test_openhands_integration.py)
+s.....s......                                                            [100%]
+11 passed, 2 skipped in 0.70s
+
+[exit 0 in 1.3s]
+
+VERDICT: PASS 

@@ -1,0 +1,12 @@
+node_id: module-0ef2333ef23c
+module: bossman.resource_brain.brain
+path: bossman-core/bossman/resource_brain/brain.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: [] (candidates=0)
+
+$ python -c "importlib.import_module('bossman.resource_brain.brain')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.resource_brain.brain C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/resource_brain/brain.py
+
+[exit 0 in 1.0s]
+
+VERDICT: FAIL no_tests

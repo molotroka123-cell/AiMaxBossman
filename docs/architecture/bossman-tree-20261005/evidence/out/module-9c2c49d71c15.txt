@@ -1,0 +1,18 @@
+node_id: module-9c2c49d71c15
+module: bossman.sandbox.netguard
+path: bossman-core/bossman/sandbox/netguard.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_core_subprocess_timeouts.py', 'bossman-core/tests/test_sandbox_egress.py', 'bossman-core/tests/test_sandbox_egress_lockdown.py', 'bossman-core/tests/test_sandbox_redteam_findings.py', 'bossman-core/tests/test_sandbox_safe_runtime.py'] (candidates=5)
+
+$ python -c "importlib.import_module('bossman.sandbox.netguard')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.sandbox.netguard C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/sandbox/netguard.py
+
+[exit 0 in 1.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_core_subprocess_timeouts.py tests/test_sandbox_egress.py tests/test_sandbox_egress_lockdown.py tests/test_sandbox_redteam_findings.py tests/test_sandbox_safe_runtime.py)
+.......................ss..sssssss..s.......sssssssssss                  [100%]
+34 passed, 21 skipped in 31.99s
+
+[exit 0 in 32.8s]
+
+VERDICT: PASS 

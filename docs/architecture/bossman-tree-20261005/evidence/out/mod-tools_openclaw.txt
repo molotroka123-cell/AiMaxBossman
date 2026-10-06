@@ -1,0 +1,18 @@
+node_id: mod-tools_openclaw
+module: bcc.features.tools_openclaw
+path: command-center/bcc/features/tools_openclaw.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_v23_openclaw_tools.py', 'command-center/tests/test_v23_outbox_exactly_once.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.features.tools_openclaw')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.tools_openclaw C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/tools_openclaw.py
+
+[exit 0 in 0.7s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v23_openclaw_tools.py tests/test_v23_outbox_exactly_once.py)
+.....................                                                    [100%]
+21 passed in 6.79s
+
+[exit 0 in 8.5s]
+
+VERDICT: PASS 

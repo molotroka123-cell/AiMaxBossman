@@ -1,0 +1,12 @@
+node_id: module-d3f5977af5ba
+module: bossman.benchmark.sandbox_row
+path: bossman-core/bossman/benchmark/sandbox_row.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: [] (candidates=0)
+
+$ python -c "importlib.import_module('bossman.benchmark.sandbox_row')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.benchmark.sandbox_row C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/benchmark/sandbox_row.py
+
+[exit 0 in 0.2s]
+
+VERDICT: FAIL no_tests

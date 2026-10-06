@@ -1,0 +1,18 @@
+node_id: mod-offline_mode
+module: bcc.features.offline_mode
+path: command-center/bcc/features/offline_mode.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_offline_mode.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.features.offline_mode')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.offline_mode C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/offline_mode.py
+
+[exit 0 in 0.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_offline_mode.py)
+...........                                                              [100%]
+11 passed in 37.34s
+
+[exit 0 in 39.3s]
+
+VERDICT: PASS 

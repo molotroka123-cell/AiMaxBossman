@@ -1,0 +1,24 @@
+node_id: module-2e5863355b9a
+module: bossman.profiles.gate
+path: bossman-core/bossman/profiles/gate.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_gate_contract_requeue.py', 'bossman-core/tests/test_computer_control_authorization.py', 'bossman-core/tests/test_profiles.py'] (candidates=3)
+
+$ python -c "importlib.import_module('bossman.profiles.gate')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.profiles.gate C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/profiles/gate.py
+
+[exit 0 in 1.0s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_gate_contract_requeue.py)
+..                                                                       [100%]
+2 passed in 3.74s
+
+[exit 0 in 5.6s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_control_authorization.py tests/test_profiles.py)
+....................................                                     [100%]
+36 passed in 1.99s
+
+[exit 0 in 2.8s]
+
+VERDICT: PASS 

@@ -1,0 +1,24 @@
+node_id: mod-v15_owner_run
+module: bcc.features.v15_owner_run
+path: command-center/bcc/features/v15_owner_run.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['tests/test_v15_owner_run.py', 'command-center/tests/test_perf_20260930.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.features.v15_owner_run')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.v15_owner_run C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/v15_owner_run.py
+
+[exit 0 in 0.4s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_owner_run.py)
+...                                                                      [100%]
+3 passed in 0.11s
+
+[exit 0 in 0.6s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_perf_20260930.py)
+...........                                                              [100%]
+11 passed in 3.91s
+
+[exit 0 in 5.8s]
+
+VERDICT: PASS 

@@ -1,0 +1,18 @@
+node_id: mod-second_opinion
+module: bcc.features.second_opinion
+path: command-center/bcc/features/second_opinion.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_second_opinion.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.features.second_opinion')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.second_opinion C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/second_opinion.py
+
+[exit 0 in 0.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_second_opinion.py)
+............                                                             [100%]
+12 passed in 3.39s
+
+[exit 0 in 5.4s]
+
+VERDICT: PASS 

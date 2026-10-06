@@ -1,0 +1,30 @@
+node_id: module-f1cacda08a67
+module: bossman.company.model
+path: bossman-core/bossman/company/model.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['tests/test_model_bakeoff_latency.py', 'tests/test_model_fetch.py', 'command-center/tests/test_model_health.py', 'command-center/tests/test_model_intelligence.py', 'command-center/tests/test_model_probe_reasoning.py', 'command-center/tests/test_model_speed_tel001.py', 'bossman-core/tests/test_apprentice_core.py', 'bossman-core/tests/test_apprentice_live_safety.py'] (candidates=15)
+
+$ python -c "importlib.import_module('bossman.company.model')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.company.model C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/company/model.py
+
+[exit 0 in 0.2s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_model_bakeoff_latency.py tests/test_model_fetch.py)
+.............................................s......                     [100%]
+51 passed, 1 skipped in 14.29s
+
+[exit 0 in 15.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_model_health.py tests/test_model_intelligence.py tests/test_model_probe_reasoning.py tests/test_model_speed_tel001.py)
+...............................................................          [100%]
+63 passed in 16.80s
+
+[exit 0 in 19.2s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_core.py tests/test_apprentice_live_safety.py)
+.............................                                            [100%]
+29 passed in 1.50s
+
+[exit 0 in 2.1s]
+
+VERDICT: PASS 

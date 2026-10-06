@@ -1,0 +1,18 @@
+node_id: module-6b8f5c457e7f
+module: bossman.toolkit.journal
+path: bossman-core/bossman/toolkit/journal.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_stage9_agent_smoke.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bossman.toolkit.journal')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.toolkit.journal C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/toolkit/journal.py
+
+[exit 0 in 0.4s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage9_agent_smoke.py)
+.s                                                                       [100%]
+1 passed, 1 skipped in 0.83s
+
+[exit 0 in 1.5s]
+
+VERDICT: PASS 

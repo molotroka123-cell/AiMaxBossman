@@ -1,0 +1,15 @@
+node_id: module-ff7440d8b674
+module: bossman.benchmark.__main__
+path: bossman-core/bossman/benchmark/__main__.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: [] (candidates=0)
+
+$ python -c "importlib.import_module('bossman.benchmark.__main__')" [PYTHONPATH=command-center;bossman-core;.]
+usage: python -m bossman.benchmark [-h]
+                                   {run,run-isolated,compare-isolated,compare,report}
+                                   ...
+python -m bossman.benchmark: error: the following arguments are required: command
+
+[exit 2 in 0.2s]
+
+VERDICT: FAIL import_failed

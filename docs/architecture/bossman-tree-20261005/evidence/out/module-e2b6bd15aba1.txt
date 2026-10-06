@@ -1,0 +1,19 @@
+node_id: module-e2b6bd15aba1
+module: bossman.dev_factory.planner
+path: bossman-core/bossman/dev_factory/planner.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_dev_factory.py', 'bossman-core/tests/test_dev_factory_wiring.py', 'bossman-core/tests/test_host_execution_argv.py', 'bossman-core/tests/test_stage13_hostexec_redteam.py'] (candidates=4)
+
+$ python -c "importlib.import_module('bossman.dev_factory.planner')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.dev_factory.planner C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/dev_factory/planner.py
+
+[exit 0 in 1.3s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_dev_factory.py tests/test_dev_factory_wiring.py tests/test_host_execution_argv.py tests/test_stage13_hostexec_redteam.py)
+........................................................................ [ 60%]
+...............................................                          [100%]
+119 passed in 4.07s
+
+[exit 0 in 5.1s]
+
+VERDICT: PASS 

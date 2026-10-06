@@ -1,0 +1,24 @@
+node_id: module-ac2f6e6dc2d9
+module: bossman.apprentice.recording
+path: bossman-core/bossman/apprentice/recording.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['tests/test_import_operational_lessons.py', 'bossman-core/tests/test_apprentice_e2e.py', 'bossman-core/tests/test_apprentice_learning.py', 'bossman-core/tests/test_apprentice_p0.py', 'bossman-core/tests/test_apprentice_recording.py', 'bossman-core/tests/test_apprentice_teacher.py', 'bossman-core/tests/test_teacher_live.py'] (candidates=7)
+
+$ python -c "importlib.import_module('bossman.apprentice.recording')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.recording C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/recording.py
+
+[exit 0 in 0.5s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_import_operational_lessons.py)
+....................                                                     [100%]
+20 passed in 13.47s
+
+[exit 0 in 14.7s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_e2e.py tests/test_apprentice_learning.py tests/test_apprentice_p0.py tests/test_apprentice_recording.py tests/test_apprentice_teacher.py tests/test_teacher_live.py)
+..........................................................s              [100%]
+58 passed, 1 skipped in 2.30s
+
+[exit 0 in 3.1s]
+
+VERDICT: PASS 

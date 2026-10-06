@@ -1,0 +1,18 @@
+node_id: module-897d03f9aab0
+module: bossman.remote_client.security
+path: bossman-core/bossman/remote_client/security.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_remote_client.py', 'bossman-core/tests/test_stage12_security.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.remote_client.security')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.remote_client.security C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/remote_client/security.py
+
+[exit 0 in 0.9s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_remote_client.py tests/test_stage12_security.py)
+...................................                                      [100%]
+35 passed in 1.59s
+
+[exit 0 in 2.4s]
+
+VERDICT: PASS 

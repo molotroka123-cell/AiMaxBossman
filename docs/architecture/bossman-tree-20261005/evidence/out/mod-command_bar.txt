@@ -1,0 +1,18 @@
+node_id: mod-command_bar
+module: bcc.features.command_bar
+path: command-center/bcc/features/command_bar.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_command_bar.py', 'command-center/tests/test_command_bar_path_segments.py', 'command-center/tests/test_command_bar_ui.py', 'command-center/tests/test_smoke_live_owner.py', 'command-center/tests/telegram_calls/test_api_calls.py'] (candidates=5)
+
+$ python -c "importlib.import_module('bcc.features.command_bar')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.command_bar C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/command_bar.py
+
+[exit 0 in 1.2s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_command_bar.py tests/test_command_bar_path_segments.py tests/test_command_bar_ui.py tests/test_smoke_live_owner.py tests/telegram_calls/test_api_calls.py)
+.........................ssss.......................................     [100%]
+64 passed, 4 skipped in 92.73s (0:01:32)
+
+[exit 0 in 95.0s]
+
+VERDICT: PASS 

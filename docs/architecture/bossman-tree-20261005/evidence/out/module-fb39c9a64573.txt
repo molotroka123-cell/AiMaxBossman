@@ -1,0 +1,18 @@
+node_id: module-fb39c9a64573
+module: bossman.computer_operator.capabilities
+path: bossman-core/bossman/computer_operator/capabilities.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_computer_capabilities.py', 'bossman-core/tests/test_v26_operator_fixes.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bossman.computer_operator.capabilities')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.computer_operator.capabilities C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/computer_operator/capabilities.py
+
+[exit 0 in 0.1s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_capabilities.py tests/test_v26_operator_fixes.py)
+...................                                                      [100%]
+19 passed in 0.74s
+
+[exit 0 in 1.4s]
+
+VERDICT: PASS 

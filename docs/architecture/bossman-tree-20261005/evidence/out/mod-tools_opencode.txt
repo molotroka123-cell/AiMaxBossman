@@ -1,0 +1,18 @@
+node_id: mod-tools_opencode
+module: bcc.features.tools_opencode
+path: command-center/bcc/features/tools_opencode.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_opencode_worktree_roots.py', 'command-center/tests/test_secrem_f011_session_ownership.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.features.tools_opencode')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.tools_opencode C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/tools_opencode.py
+
+[exit 0 in 0.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_opencode_worktree_roots.py tests/test_secrem_f011_session_ownership.py)
+.........                                                                [100%]
+9 passed in 10.11s
+
+[exit 0 in 11.9s]
+
+VERDICT: PASS 

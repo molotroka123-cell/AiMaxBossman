@@ -1,0 +1,19 @@
+node_id: mod-apps
+module: bcc.features.apps
+path: command-center/bcc/features/apps.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_apps_control.py', 'command-center/tests/test_apps_control_child_encoding.py', 'command-center/tests/test_apps_files_browser_owner.py', 'command-center/tests/test_apps_files_http_owner.py', 'command-center/tests/test_apps_files_lost_response.py', 'command-center/tests/test_apps_launchable.py', 'command-center/tests/test_apps_owner_path_regression.py', 'command-center/tests/test_apps_pid_portability.py'] (candidates=14)
+
+$ python -c "importlib.import_module('bcc.features.apps')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.apps C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/apps.py
+
+[exit 0 in 0.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apps_control.py tests/test_apps_control_child_encoding.py tests/test_apps_files_browser_owner.py tests/test_apps_files_http_owner.py tests/test_apps_files_lost_response.py tests/test_apps_launchable.py tests/test_apps_owner_path_regression.py tests/test_apps_pid_portability.py)
+............................................s.s.................s.s..... [ 83%]
+..............                                                           [100%]
+82 passed, 4 skipped in 66.22s (0:01:06)
+
+[exit 0 in 68.5s]
+
+VERDICT: PASS 

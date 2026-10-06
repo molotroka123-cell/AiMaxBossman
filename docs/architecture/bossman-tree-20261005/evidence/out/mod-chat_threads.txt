@@ -1,0 +1,18 @@
+node_id: mod-chat_threads
+module: bcc.features.chat_threads
+path: command-center/bcc/features/chat_threads.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_chat_threads.py', 'command-center/tests/test_chat_cli_session_merge.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.features.chat_threads')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.chat_threads C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/chat_threads.py
+
+[exit 0 in 1.1s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_chat_threads.py tests/test_chat_cli_session_merge.py)
+.............................                                            [100%]
+29 passed in 21.47s
+
+[exit 0 in 23.7s]
+
+VERDICT: PASS 

@@ -1,0 +1,52 @@
+node_id: module-7af8dc300eab
+module: bossman.world_intelligence.subsystem
+path: bossman-core/bossman/world_intelligence/subsystem.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_world_intelligence_pythia.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bossman.world_intelligence.subsystem')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.world_intelligence.subsystem C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/world_intelligence/subsystem.py
+
+[exit 0 in 0.3s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_world_intelligence_pythia.py)
+.....................                                                    [100%]
+============================== warnings summary ===============================
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+  C:\Users\asd\Bossman\wt-green-0610\bossman-core\bossman\api.py:112: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+  C:\Users\asd\Bossman\wt-green-0610\bossman-core\bossman\api.py:124: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+21 passed, 8 warnings in 1.93s
+
+[exit 0 in 2.7s]
+
+VERDICT: PASS 

@@ -1,0 +1,19 @@
+node_id: mod-tools_apps
+module: bcc.features.tools_apps
+path: command-center/bcc/features/tools_apps.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_action_contract.py', 'command-center/tests/test_apps_control.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.features.tools_apps')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.tools_apps C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/tools_apps.py
+
+[exit 0 in 0.7s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_action_contract.py tests/test_apps_control.py)
+........................................................................ [ 55%]
+.........................................................                [100%]
+129 passed in 81.50s (0:01:21)
+
+[exit 0 in 84.0s]
+
+VERDICT: PASS 

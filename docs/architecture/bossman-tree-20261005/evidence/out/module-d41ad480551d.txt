@@ -1,0 +1,24 @@
+node_id: module-d41ad480551d
+module: bossman.apprentice.fable_direct
+path: bossman-core/bossman/apprentice/fable_direct.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_fable_budget.py', 'bossman-core/tests/test_fable_budget_hard.py', 'bossman-core/tests/test_fable_transcript.py', 'bossman-core/tests/test_teacher_live.py', 'command-center/tests/test_fable_hard_cap.py'] (candidates=5)
+
+$ python -c "importlib.import_module('bossman.apprentice.fable_direct')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.apprentice.fable_direct C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/apprentice/fable_direct.py
+
+[exit 0 in 0.4s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_fable_budget.py tests/test_fable_budget_hard.py tests/test_fable_transcript.py tests/test_teacher_live.py)
+.....................s                                                   [100%]
+21 passed, 1 skipped in 2.03s
+
+[exit 0 in 2.6s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_fable_hard_cap.py)
+..............                                                           [100%]
+14 passed in 10.00s
+
+[exit 0 in 12.2s]
+
+VERDICT: PASS 

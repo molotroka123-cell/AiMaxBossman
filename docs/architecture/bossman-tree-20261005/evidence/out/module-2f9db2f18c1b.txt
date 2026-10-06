@@ -1,0 +1,18 @@
+node_id: module-2f9db2f18c1b
+module: bossman.resource_brain.ledger
+path: bossman-core/bossman/resource_brain/ledger.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['bossman-core/tests/test_stage9_resource_stress.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bossman.resource_brain.ledger')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bossman.resource_brain.ledger C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/resource_brain/ledger.py
+
+[exit 0 in 1.0s]
+
+$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage9_resource_stress.py)
+......                                                                   [100%]
+6 passed in 1.02s
+
+[exit 0 in 1.9s]
+
+VERDICT: PASS 

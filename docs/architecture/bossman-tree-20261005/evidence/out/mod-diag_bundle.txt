@@ -1,0 +1,18 @@
+node_id: mod-diag_bundle
+module: bcc.features.diag_bundle
+path: command-center/bcc/features/diag_bundle.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_diag_bundle.py', 'command-center/tests/telegram_calls/test_hardening.py'] (candidates=2)
+
+$ python -c "importlib.import_module('bcc.features.diag_bundle')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.diag_bundle C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/diag_bundle.py
+
+[exit 0 in 0.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_diag_bundle.py tests/telegram_calls/test_hardening.py)
+..........................                                               [100%]
+26 passed in 15.65s
+
+[exit 0 in 17.3s]
+
+VERDICT: PASS 

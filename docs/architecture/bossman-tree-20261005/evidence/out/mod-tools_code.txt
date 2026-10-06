@@ -1,0 +1,24 @@
+node_id: mod-tools_code
+module: bcc.features.tools_code
+path: command-center/bcc/features/tools_code.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['tests/test_evolution_api_bootstrap.py', 'command-center/tests/test_code_index_scratch_exclusion.py', 'command-center/tests/test_code_intel_and_scorecard.py', 'command-center/tests/test_lane4_p1_fixes.py', 'command-center/tests/test_v22_code_tools.py', 'command-center/tests/test_v22_scratch_isolation.py'] (candidates=6)
+
+$ python -c "importlib.import_module('bcc.features.tools_code')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.tools_code C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/tools_code.py
+
+[exit 0 in 0.6s]
+
+$ (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_evolution_api_bootstrap.py)
+.                                                                        [100%]
+1 passed in 0.66s
+
+[exit 0 in 1.0s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_code_index_scratch_exclusion.py tests/test_code_intel_and_scorecard.py tests/test_lane4_p1_fixes.py tests/test_v22_code_tools.py tests/test_v22_scratch_isolation.py)
+.............................................                            [100%]
+45 passed in 17.51s
+
+[exit 0 in 19.2s]
+
+VERDICT: PASS 

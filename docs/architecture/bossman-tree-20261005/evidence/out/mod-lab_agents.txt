@@ -1,0 +1,18 @@
+node_id: mod-lab_agents
+module: bcc.features.lab_agents
+path: command-center/bcc/features/lab_agents.py
+sha: 3c6f39dcd9382fc8ce10cdbfda9f0f9de9e1706a
+test_files: ['command-center/tests/test_lab_agents.py'] (candidates=1)
+
+$ python -c "importlib.import_module('bcc.features.lab_agents')" [PYTHONPATH=command-center;bossman-core;.]
+IMPORTED bcc.features.lab_agents C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/lab_agents.py
+
+[exit 0 in 0.8s]
+
+$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_lab_agents.py)
+..........                                                               [100%]
+10 passed in 8.89s
+
+[exit 0 in 10.7s]
+
+VERDICT: PASS 
