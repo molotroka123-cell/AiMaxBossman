@@ -49,7 +49,12 @@ _PROCS: dict[str, asyncio.subprocess.Process] = {}
 
 def tool_dir() -> Path:
     override = os.environ.get("BOSSMAN_MOTION_STUDIO_DIR", "").strip()
-    return Path(override) if override else Path(__file__).resolve().parents[3] / "tools" / "motion_studio"
+    if override:
+        return Path(override)
+    source = Path(__file__).resolve().parents[3] / "tools" / "motion_studio"
+    # Installed bundle: this module sits in runtime/Lib/site-packages; the builder ships the tool to app-support.
+    installed = Path(sys.executable).resolve().parents[1] / "app-support" / "motion_studio"
+    return installed if not source.is_dir() and installed.is_dir() else source
 
 
 def _root(request: Request) -> Path:

@@ -312,6 +312,13 @@ def _scratch_env(scratch: Path, workspace: Path) -> dict[str, str]:
 
 
 def _interpreter() -> list[str]:
+    # The installed bundle's runtime has no pytest, so pytest-style zone tests could not run under Bossman's own check
+    # (owner PC 06.10: a correct candidate recorded as exit=1). The owner may name an interpreter that has it.
+    override = os.environ.get("BOSSMAN_VERIFY_PYTHON", "").strip()
+    if override:
+        if not Path(override).is_file():
+            raise ToolError(f"BOSSMAN_VERIFY_PYTHON is not an existing interpreter: {override}")
+        return [override]
     return [sys.executable]
 
 
@@ -321,9 +328,36 @@ def _runner_cmd(module: str, *args: str) -> list[str]:
     return [*_interpreter(), "-B", "-s", "-X", "utf8", "-c", _BOOT, module, *args]
 
 
+def _assistant_message(msg: dict) -> dict:
+    """The model's turn as it goes back into the history. A turn with neither text nor tool calls is stored with a
+    short marker: strict providers reject an empty assistant message (owner PC 06.10, Cohere HTTP 400)."""
+    content = msg.get("content") or ""
+    if msg.get("tool_calls"):
+        return {"role": "assistant", "content": content, "tool_calls": msg["tool_calls"]}
+    return {"role": "assistant", "content": content or "(no tool call)"}
+
+
 def _pytest_available() -> bool:
-    import importlib.util
-    return importlib.util.find_spec("pytest") is not None
+    if not os.environ.get("BOSSMAN_VERIFY_PYTHON", "").strip():
+        import importlib.util
+        return importlib.util.find_spec("pytest") is not None
+    probe = subprocess.run([*_interpreter(), "-c", "import importlib.util, sys; "
+                            "sys.exit(0 if importlib.util.find_spec('pytest') else 1)"],
+                           capture_output=True, timeout=60)
+    return probe.returncode == 0
+
+
+_PYTEST_IMPORT = re.compile(r"^\s*(?:import pytest|from pytest\b)", re.MULTILINE)
+
+
+def _needs_pytest(root: Path, paths: list[str]) -> bool:
+    for rel in paths:
+        path = root / rel
+        if path.suffix == ".py" and path.is_file():
+            with contextlib.suppress(OSError):
+                if _PYTEST_IMPORT.search(path.read_text(encoding="utf-8", errors="replace")):
+                    return True
+    return False
 
 
 def tool_run_tests(ws: Workspace, args: dict, *, scratch: Path, deadline: float, test_timeout: int) -> dict:
@@ -334,6 +368,10 @@ def tool_run_tests(ws: Workspace, args: dict, *, scratch: Path, deadline: float,
     paths = [ws.resolve(p)[1] for p in raw_paths]
     if runner == "auto":
         runner = "pytest" if _pytest_available() else "unittest"
+        if runner == "unittest" and _needs_pytest(ws.root, paths):
+            # unittest would die on `import pytest` and look like the candidate failed
+            raise ToolError("these tests need pytest, which this runtime lacks: they cannot be run here "
+                            "(set BOSSMAN_VERIFY_PYTHON to an interpreter with pytest)")
     if runner == "pytest":
         if not _pytest_available():
             raise ToolError("pytest is not installed in this runtime; use runner=unittest")
@@ -654,8 +692,7 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
                         summary += f" {exc.code}: {' '.join(detail.split())[:300]}"
                 break
             calls = parse_calls(msg)
-            messages.append({"role": "assistant", "content": msg.get("content") or "",
-                             **({"tool_calls": msg["tool_calls"]} if msg.get("tool_calls") else {})})
+            messages.append(_assistant_message(msg))
             if not calls:
                 messages.append({"role": "user", "content": "Use a tool. When done and tests pass, call finish."})
                 log.append({"step": step, "tool": None, "ok": False, "t": round(time.monotonic() - started, 3),

@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 386. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 387. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -262,6 +262,7 @@
 | `bossman-core/tests/apprentice/test_openhands_release_evidence.py:22` | skipif | `os.name == "nt"` | Windows does not expose POSIX executable mode | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_release_evidence.py:29` | skipif | `os.name == "nt"` | Windows does not expose POSIX permission bits | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_release_evidence.py:76` | skipif | `os.name == "nt"` | symlink creation requires Windows privileges | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/apprentice/test_verify_runtime_pytest.py:59` | skip | `—` | this test process has no pytest to point at | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_worktree_client_acceptance.py:272` | skip | `—` | файловая система не даёт создать символическую ссылку | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_ai_lab_containment.py:73` | skip | `—` | symlink not permitted on this fs | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_apprentice_live_safety.py:74` | skip | `—` | symlink creation unavailable on this Windows account | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

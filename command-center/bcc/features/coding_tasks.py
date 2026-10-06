@@ -245,6 +245,11 @@ async def _sidecar_env(svc) -> dict[str, str]:
     model = os.environ.get("BOSSMAN_OPENHANDS_MODEL", "").strip()
     if model:
         env["BOSSMAN_OPENHANDS_MODEL"] = model
+    # The owner's test interpreter (a path, not a secret): without it the worker's own run_tests fell back to
+    # unittest on pytest-style tests in the installed bundle (owner PC 06.10, task cecbba1c42a9).
+    verify_python = os.environ.get("BOSSMAN_VERIFY_PYTHON", "").strip()
+    if verify_python and Path(verify_python).is_file():
+        env["BOSSMAN_VERIFY_PYTHON"] = verify_python
     return env
 
 
