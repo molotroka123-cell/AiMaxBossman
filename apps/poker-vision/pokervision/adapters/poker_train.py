@@ -489,7 +489,8 @@ class PokerTrainAdapter(TableAdapter):
         words, rest = [], []
         for ln in lines:
             w, wconf, wd = self.profile.words.classify(ln.glyphs)
-            if w is not None and wconf >= 0.12 and wd <= self.profile.data.get("word_max_dist", 6.0):
+            wide = (ln.x1 - ln.x0) >= 2.2 * ln.height                      # labels are words; an amount like "10" is not wide enough to be one
+            if w is not None and wide and wconf >= 0.12 and wd <= self.profile.data.get("word_max_dist", 3.5):
                 words.append((ln.cx, ln.cy, ln.height, w, wconf, ln))
             else:
                 rest.append(ln)
@@ -521,6 +522,10 @@ class PokerTrainAdapter(TableAdapter):
                 if amt is None:
                     return self._actions_unknown(st, "amount_malformed")
             value = amt.amount if amt else None
+            if value is not None and ACTION_VOCAB[txt] == "CALL" and st.to_call.known and abs(st.to_call.value.amount - value) > max(st.to_call.value.step, 1.0):
+                # two independent reads of the same number (the "To call" field and the CALL button) disagree: trust neither
+                st.to_call = Field.unknown(st.t_ms, SRC, f"to_call_disagrees_with_CALL_button ({st.to_call.value.raw} vs {value:g})")
+                return self._actions_unknown(st, "CALL_amount_disagrees_with_to_call_field")
             if value is None and ACTION_VOCAB[txt] == "CALL" and st.to_call.known:
                 value = st.to_call.value.amount            # the amount on the button is tiny; the "To call" field says the same thing
             acts.append((ACTION_VOCAB[txt], value))
@@ -685,6 +690,15 @@ def calibrate_profile(labelled, source_note: str = "") -> Profile:
                     ln = min(lns, key=lambda q: q.y0)
                     chars = list(lab)
                     wb.add(canon(lab), ln.glyphs)                     # the whole label as one raster (robust to merged/odd glyphs)
+                    if b.get("amount") is not None:                   # the small white amount under CALL / ALL IN: learn its own digit shapes
+                        below = [q for q in lns if q.cy > ln.cy + 0.6 * ln.height]
+                        if below:
+                            ln2 = min(below, key=lambda q: q.cy)
+                            txt = f"{int(b['amount']):,}"
+                            if len(ln2.glyphs) == len([c for c in txt if c != ","]) + txt.count(","):
+                                for g, ch in zip(ln2.glyphs, txt):
+                                    if ch not in ",.":
+                                        gb.add(ch, g, "btnamt")
                     if len(ln.glyphs) == len(chars):
                         for g, ch in zip(ln.glyphs, chars):
                             gb.add(ch, g, 'btn')
@@ -711,7 +725,7 @@ def calibrate_profile(labelled, source_note: str = "") -> Profile:
         "hero_card_css_w": med("hero_w", 56.0), "hero_h_css": med("hero_h", 80.0),
         "board_dy_css": med("board_dy", -212.0), "board_card_css_w": med("board_w", 54.0), "board_card_h_css": med("board_h", 76.0),
         "board_pitch_css": med("board_pitch", 62.0),
-        "num_v_min": NUM_V_MIN, "digit_min_conf": 0.50, "digit_max_dist": 3.0, "num_h_css": hcss, "num_h_tol": 0.22, "field_y_tol_css": 14.0,
+        "num_v_min": NUM_V_MIN, "digit_min_conf": 0.30, "digit_max_dist": 3.5, "num_h_css": hcss, "num_h_tol": 0.22, "field_y_tol_css": 14.0,
         "cy_dy": {"pot": pot_dy, "to_call": call_dy, "hero_stack": stack_dy},
         "label_w_css": {k: (float(np.median(v)) if v else None) for k, v in L_meas.items()}, "label_w_tol_css": 5.0,
         "info_dy": [pot_dy - 24.0, call_dy + 14.0],
@@ -721,7 +735,7 @@ def calibrate_profile(labelled, source_note: str = "") -> Profile:
         "table_dy": [-440.0, -30.0], "table_center_dy": med("table_center_dy", -172.0),
         "slot_angles": slots, "slot_tol_deg": 9.0, "bet_tol_deg": 14.0, "dealer_tol_deg": 20.0, "bet_chip_min": 0.12,
         "dealer_css_d": med("dealer_d", 20.0), "dealer_offsets": dealer_offsets, "dealer_off_tol_css": 9.0, "dealer_hero_css": 90.0,
-        "action_dy0": 60.0, "action_btn_h_css": med("btn_h", 54.0), "action_h_css": [6.0, 20.0], "action_v_min": 150, "word_max_dist": 6.0,
+        "action_dy0": 60.0, "action_btn_h_css": med("btn_h", 54.0), "action_h_css": [6.0, 20.0], "action_v_min": 150, "word_max_dist": 3.5,
     }
     data["id"] = "poker_train@" + hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()[:8]
     return Profile(data, gb, cb, wb)

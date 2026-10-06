@@ -55,6 +55,7 @@ const Page = {
       } catch (e) { calOut.textContent = (e.detail && e.detail.message) || e.message; }
     };
     let caps = null;
+    let attached = false;
 
     const refreshCaps = async () => {
       try {
@@ -83,7 +84,9 @@ const Page = {
     };
 
     const tick = async () => {
-      if (!statusBox.isConnected) { clearInterval(timer); timer = null; return; }
+      // страница ещё не вставлена в DOM (render → await refreshCaps → attach): не гасим таймер, пока она не была подключена
+      if (statusBox.isConnected) attached = true;
+      else { if (attached) { clearInterval(timer); timer = null; } return; }
       let st;
       try { st = await api.raw('/api/poker-vision/status'); } catch { return; }
       const s = st.session;

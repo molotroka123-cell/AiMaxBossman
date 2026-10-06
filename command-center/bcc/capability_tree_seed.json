@@ -12614,6 +12614,166 @@
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
+    },
+    {
+      "id": "pv",
+      "label": "Poker Train × Vision",
+      "parent": "apps",
+      "status": "mixed",
+      "detail": "Распознавание покерного стола по пикселям → проверенное состояние → история → разбор. Живая задача, SHA, прогон, метрики и блокеры пишутся в журнал узла (owner-notes) страницей Poker Vision. Не сертификат: смотри дочерние узлы.",
+      "sources": [
+        {
+          "path": "apps/poker-vision/README_RU.md",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/README_RU.md"
+        },
+        {
+          "path": "apps/poker-vision/app.manifest.yaml",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/app.manifest.yaml"
+        }
+      ],
+      "next_action": "Прогнать адаптер на точном SHA через страницу Poker Vision и записать итог в узел."
+    },
+    {
+      "id": "pv-pipeline",
+      "label": "Конвейер: кадр → поля → сверка → история",
+      "parent": "pv",
+      "status": "code",
+      "detail": "Адаптер Poker Train (якорь по картам героя, масштаб/DPI), валидаторы, временная сверка, границы раздач без склейки, события и PHH. Код есть; метрики холдаута — в evidence/REPORT.md.",
+      "sources": [
+        {
+          "path": "apps/poker-vision/pokervision/adapters/poker_train.py",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/pokervision/adapters/poker_train.py"
+        },
+        {
+          "path": "apps/poker-vision/pokervision/reconcile.py",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/pokervision/reconcile.py"
+        },
+        {
+          "path": "apps/poker-vision/pokervision/validate.py",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/pokervision/validate.py"
+        },
+        {
+          "path": "apps/poker-vision/pokervision/history.py",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/pokervision/history.py"
+        }
+      ],
+      "next_action": "Расширить полноту чтения ставок/стеков соперников на новых темах (сейчас много UNKNOWN)."
+    },
+    {
+      "id": "pv-adapter-ton",
+      "label": "Адаптер TON Poker (наблюдение/replay)",
+      "parent": "pv",
+      "status": "blocked",
+      "detail": "Нет записей и разрешённого тестового стола: раскладка не выдумана, все поля UNKNOWN до калибровки и проверки на отложенных кадрах. Клики и подсказки в нём запрещены в коде.",
+      "sources": [
+        {
+          "path": "apps/poker-vision/pokervision/adapters/ton_poker.py",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/pokervision/adapters/ton_poker.py"
+        },
+        {
+          "path": "apps/poker-vision/docs/TON_POKER.md",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/docs/TON_POKER.md"
+        }
+      ],
+      "next_action": "Владелец даёт 30+ размеченных кадров и отдельную папку отложенных кадров; затем калибровка на странице."
+    },
+    {
+      "id": "pv-act",
+      "label": "Автоматические действия: только свой тренажёр",
+      "parent": "pv",
+      "status": "code",
+      "detail": "Клики через loopback-Playwright, гейты (STOP, устаревший/замёрзший кадр, pending-изменение, ход героя, проверка смены состояния). Во внешнем клиенте запрещено.",
+      "sources": [
+        {
+          "path": "apps/poker-vision/pokervision/actuator.py",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/pokervision/actuator.py"
+        },
+        {
+          "path": "apps/poker-vision/pokervision/service.py",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/pokervision/service.py"
+        }
+      ],
+      "next_action": "Повторить живой прогон на точном SHA сборки владельца (Windows)."
+    },
+    {
+      "id": "pv-eval",
+      "label": "Оценка: сплиты, baseline→after, p50/p95",
+      "parent": "pv",
+      "status": "code",
+      "detail": "Сплиты по сессиям без пересечения раздач, новые темы/раскладки отдельно, naive-baseline на тех же кадрах, PokerKit-оракул, стратегии с CI, генерик-OCR. Отчёт: apps/poker-vision/evidence/REPORT.md.",
+      "sources": [
+        {
+          "path": "apps/poker-vision/pokervision/eval/run_eval.py",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/pokervision/eval/run_eval.py"
+        },
+        {
+          "path": "apps/poker-vision/evidence/REPORT.md",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/evidence/REPORT.md"
+        }
+      ],
+      "next_action": "Пополнить обучающий набор форматами K/M и новыми темами; повторить holdout на свежем наборе."
+    },
+    {
+      "id": "pv-ui",
+      "label": "Страница Poker Vision и один backend",
+      "parent": "pv",
+      "status": "code",
+      "detail": "Выбор окна/источника, live/replay, наложение полей, история, объяснение неопределённости, калибровка, STOP; страница, CLI и тесты используют один сервис.",
+      "sources": [
+        {
+          "path": "command-center/ui/pages/poker_vision.js",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/command-center/ui/pages/poker_vision.js"
+        },
+        {
+          "path": "command-center/bcc/features/poker_vision.py",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/command-center/bcc/features/poker_vision.py"
+        }
+      ],
+      "next_action": "Выбор окна и захват mss проверить на Windows владельца (NOT_RUN в контейнере)."
+    },
+    {
+      "id": "pv-gpu",
+      "label": "Ускорение AMD / большая vision-модель",
+      "parent": "pv",
+      "status": "idea",
+      "detail": "Не включалось и не измерялось: весь конвейер на CPU. OmniParser/PaddleOCR — NOT_RUN (веса недоступны в песочнице). Большая модель — только для неоднозначных кадров неизвестных UI.",
+      "sources": [
+        {
+          "path": "apps/poker-vision/docs/OSS_DECISIONS.md",
+          "branch": "poker-vision/pipeline-20261005",
+          "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
+          "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/docs/OSS_DECISIONS.md"
+        }
+      ],
+      "next_action": "Измерить на машине владельца после проверки совместимости; включать только при выигрыше по метрикам."
     }
   ],
   "memory_protocol": {

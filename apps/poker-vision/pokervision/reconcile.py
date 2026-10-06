@@ -24,7 +24,7 @@ class Config:
     min_votes: int = 2
     min_conf: float = 0.35
     stale_ms: int = 1500          # wall-clock age of the newest frame above which it is stale
-    freeze_ms: int = 4000         # byte-identical frames for this long => source frozen
+    freeze_ms: int = 8000         # byte-identical FULL frames for this long => source frozen (only used for sources without a liveness probe)
     max_gap_ms: int = 4000        # a time hole larger than this is recorded as a gap in the history
 
 

@@ -116,7 +116,7 @@ class VisionService:
             self.auto_act = bool(act and mode == "trainer")
             self.session = {"id": f"s{int(time.time())}", "mode": mode, "adapter": adapter, "act": self.auto_act, "started": time.time(),
                             "path": path, "url": url}
-            self._rng = random.Random(seed); self._sims = sims; self._max_frames = max_frames; self._interval = interval_s; self._max_hands = max_hands
+            self._rng = random.Random(seed); self._sims = sims; self._max_frames = max_frames; self._interval = interval_s; self._max_hands = max_hands; self._stuck_s = 12.0
             self.thread = threading.Thread(target=self._loop, name="pokervision-loop", daemon=True)
             self.thread.start()
             return self.status()
@@ -152,7 +152,10 @@ class VisionService:
                     break
                 st = self.adapter.read(fr)
                 now_ms = self.src.now_ms() if hasattr(self.src, "now_ms") else None     # live: age = capture clock now - frame time
-                cm = self.rec.push(st, now_ms=now_ms, frame_bytes=fr.bgr[::16, ::16].tobytes())
+                has_probe = hasattr(self.src, "alive")
+                cm = self.rec.push(st, now_ms=now_ms, frame_bytes=None if has_probe else fr.bgr.tobytes())     # pixel-freeze test only without a liveness probe
+                if has_probe and not self.src.alive():
+                    cm.blocked.append("SOURCE_NOT_RESPONDING (page liveness probe failed)")
                 with self.lock:
                     self.last_frame, self.last_state, self.committed = fr, st, cm
                     self.frames += 1
@@ -191,11 +194,21 @@ class VisionService:
 
     def _maybe_act(self, cm, fr: Frame) -> None:
         act = self.actuator
+        # watchdog: it is hero's turn but the state stays unactionable (buttons unreadable, blocked) -> stop acting, say why
+        if cm.hero_turn is True:
+            self._turn_since = getattr(self, "_turn_since", None) or time.time()
+            if time.time() - self._turn_since > self._stuck_s and not act.halted:
+                act.halt(f"hero's turn for {self._stuck_s:.0f}s but the state is not actionable: " + ("; ".join(cm.blocked) or "actions unreadable"))
+        else:
+            self._turn_since = None
         why = act.guard(cm, self.src.now_ms() if hasattr(self.src, 'now_ms') else fr.t_ms, self.adapter.capabilities)
         if why:
             return
         if not cm.actions or not cm.pot or not cm.hero_stack:
             return
+        cur = self.last_state.actions if self.last_state is not None else None
+        if cur is None or not cur.known or [tuple(a) for a in cur.value] != [tuple(a) for a in cm.actions]:
+            return                                                  # the committed buttons are not what is on screen right now: wait
         labels = tuple(a[0] for a in cm.actions)
         amounts = {a[0]: a[1] for a in cm.actions}
         # the amount to call comes from what is on the buttons (CHECK => 0, CALL n => n); never silently 0 when it is unknown
@@ -226,14 +239,19 @@ class VisionService:
             if label == "RAISE":
                 time.sleep(0.4); act.click("CONFIRM")
         except ActionRefused as exc:
-            act.halt(str(exc)); rec["refused"] = str(exc)
+            rec["refused"] = str(exc)
+            self._refused = getattr(self, "_refused", 0) + 1
+            if self._refused >= 3 or not str(exc).startswith("button"):
+                act.halt(str(exc))                                  # repeated/unknown refusal: stop and say why
+            self.decisions.append(rec); return
+        self._refused = 0
         self.decisions.append(rec)
         # verify: within a few frames hero must no longer be on turn with the same state; otherwise halt (ambiguity)
         deadline = time.time() + 6.0
         base = (cm.pot.amount, len(cm.board))
         while time.time() < deadline and not self.stop_ev.is_set():
             fr2 = self.src.read(); st2 = self.adapter.read(fr2)
-            cm2 = self.rec.push(st2, now_ms=fr2.t_ms, frame_bytes=fr2.bgr[::16, ::16].tobytes())
+            cm2 = self.rec.push(st2, now_ms=fr2.t_ms)
             with self.lock:
                 self.last_frame, self.last_state, self.committed = fr2, st2, cm2
                 self.frames += 1

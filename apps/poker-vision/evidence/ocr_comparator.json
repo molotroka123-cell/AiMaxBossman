@@ -1,0 +1,43 @@
+{
+ "frames": 100,
+ "generic_ocr_rapidocr": {
+  "pot": [
+   62,
+   38,
+   0
+  ],
+  "to_call": [
+   41,
+   0,
+   1
+  ],
+  "hero_stack": [
+   81,
+   0,
+   0
+  ]
+ },
+ "template_reader_after": {
+  "pot": [
+   100,
+   0,
+   0
+  ],
+  "to_call": [
+   23,
+   0,
+   19
+  ],
+  "hero_stack": [
+   79,
+   0,
+   2
+  ]
+ },
+ "latency_ms": {
+  "rapidocr_per_crop_p50": 2687.9,
+  "rapidocr_per_crop_p95": 6634.0,
+  "whole_pipeline_per_frame_p50": 72.5
+ },
+ "cells": "ok / wrong / unknown(no number)"
+}

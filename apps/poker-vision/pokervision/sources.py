@@ -109,6 +109,13 @@ class LoopbackBrowserSource:
     def now_ms(self) -> int:
         return int((time.monotonic() - self.t0) * 1000)
 
+    def alive(self) -> bool:
+        """Liveness probe of the page itself: an idle UI waiting for the hero is NOT a frozen capture."""
+        try:
+            return bool(self.page.evaluate("() => performance.now() > 0"))
+        except Exception:
+            return False
+
     def read(self) -> Frame | None:
         import numpy as np
         png = self.page.screenshot()
