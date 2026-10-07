@@ -1,0 +1,100 @@
+{
+ "recipe": {
+  "id": "tree-selfrepair-d7f61c18f309",
+  "title": "Bossman self-repair: command-center/bcc/pit/discovery.py",
+  "symptom": "В bcc/pit/discovery.py выбор вопроса (choose_discovery_question / score) ломается на некорректных числах. Прошлая попытка (задача 904e7a3c02be) закрыла только NaN в relevance, uncertainty и future_utility; остались annoyance_cost и sensitivity_risk, а также +inf/-inf и None в любом числовом поле. Контракт: кандидат, у которого любое числовое поле не является конечным числом, НИКОГДА не выбирается и не роняет выбор; неизвестный риск нельзя превращать в безопасный ноль; результат не зависит от порядка кандидатов; корректные кандидаты выбираются как раньше. Сначала напиши тест, который падает на старом коде. ОБЪЁМ (жёстко): меняй ТОЛЬКО command-center/bcc/pit/discovery.py и добавь тест-функции в уже существующий command-center/tests/test_pit_foundation.py; новых файлов не создавай.",
+  "cause": "Некорректное число (NaN/±inf/None/отрицательное) проходило проверку как допустимое: сравнения с NaN ложны. До исправления holdout 37/72; падали: annoyance_cost=-inf, annoyance_cost=None, annoyance_cost=nan, future_utility=+inf, future_utility=None, future_utility=nan, relevance=+inf, relevance=None, relevance=nan, sensitivity_risk=-inf, sensitivity_risk=None, sensitivity_risk=nan",
+  "diagnosis": "Скрытый holdout discovery_nonfinite.py на базе 916f7c5ee95f воспроизводит дефект по результату, а не по наличию проверки.",
+  "action": "Исполнитель Bossman (nvidia-nim/nvidia/nemotron-3-super-120b-a12b, задача d7f61c18f309): Fixed the discovery scoring function to handle non-numeric and non-finite values (NaN, inf, None) by adding a type check and math.isfinite check before computing the score. Added a test to ensure that candidates with such values are never selected. | Изменённые строки: import math ;     if candidate.previously_skipped: ;         return float(\"-inf\") ;     # Check the five numeric fields for being finite numbers. ;     for field in ( ;         \"relevance\", ;         \"uncertainty\", ;         \"future_utility\", ;         \"annoyance_cost\", ;         \"sensitivity_risk\", ;     ): ;         value = getattr(candidate, field) ;         if not isinstance(value, (int, float)) or not math.isfinite(value): ;             return float(\"-inf\") ;     if candidate.sensitivity_risk >= 0.5:",
+  "counterexample": "Не трогать корректные значения: valid/best_wins/abc, valid/best_wins/acb, valid/best_wins/bac, valid/best_wins/bca, valid/best_wins/cab, valid/best_wins/cba",
+  "required_check": {
+   "tool": "run_tests",
+   "args": {
+    "paths": [
+     "command-center/tests/test_discovery.py",
+     "command-center/tests/test_pit_foundation.py"
+    ]
+   }
+  },
+  "applies_when": {
+   "project_id": "capability-tree",
+   "language": "python",
+   "keywords": [
+    "nan",
+    "inf",
+    "non-finite",
+    "float",
+    "budget",
+    "score",
+    "max",
+    "comparison",
+    "isfinite",
+    "cost",
+    "threshold"
+   ]
+  },
+  "steps": [
+   {
+    "tool": "read_file",
+    "args": {
+     "path": "command-center/bcc/pit/discovery.py"
+    }
+   },
+   {
+    "tool": "search",
+    "args": {
+     "pattern": "float(",
+     "path": "command-center/bcc/pit/discovery.py"
+    }
+   },
+   {
+    "tool": "run_tests",
+    "args": {
+     "paths": [
+      "command-center/tests/test_discovery.py",
+      "command-center/tests/test_pit_foundation.py"
+     ]
+    }
+   }
+  ],
+  "provenance": {
+   "who": "bossman-worker:nvidia-nim/nvidia/nemotron-3-super-120b-a12b",
+   "source": "student",
+   "assistance_level": "hint",
+   "what": "verified self-repair recipe",
+   "code_refs": [
+    "command-center/bcc/pit/discovery.py"
+   ],
+   "test_refs": [
+    "tools/tree_holdout/discovery_nonfinite.py"
+   ],
+   "evidence_refs": [
+    "coding-task:d7f61c18f309"
+   ]
+  },
+  "status": "VERIFIED",
+  "project_id": "capability-tree",
+  "scope": "project"
+ },
+ "evidence": {
+  "source": "tools/tree_holdout/discovery_nonfinite.py@916f7c5ee95f5ff0369b951fed5d7ddb65a7c458+task:d7f61c18f309",
+  "expected": "PASS",
+  "actual": "PASS",
+  "head_sha": "916f7c5ee95f5ff0369b951fed5d7ddb65a7c458",
+  "environment": "owner-pc Windows 11 python 3.12.10"
+ },
+ "verifier": {
+  "principal_id": "tree-holdout:discovery_nonfinite",
+  "independence_class": "external_tool"
+ },
+ "saved": {
+  "recipe_id": "tree-selfrepair-d7f61c18f309",
+  "lesson_id": "coach-lesson:4c9b36d34f16b762",
+  "status": "VERIFIED",
+  "version": 3,
+  "project_id": "capability-tree",
+  "scope": "project",
+  "kind": "student_fix",
+  "learning_dir": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\learning"
+ }
+}
