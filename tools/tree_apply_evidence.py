@@ -32,6 +32,26 @@ _SECRET = re.compile(r"(sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|AIza[0-
                      r"xox[abp]-[A-Za-z0-9-]{10,}|(?i:bearer)\s+[A-Za-z0-9._-]{20,}|"
                      r"(?i:(api[_-]?key|token|secret|password)\s*[=:]\s*)\S{8,})")
 
+STALE = {
+    "Семантика и live работоспособность не сертифицированы.": "{p}; полная семантика и сквозная живая работа не сертифицированы.",
+    "Авторизация/live эффект не проверены.": "{p}.",
+    "Код в этой сборке; живая работа не сертифицирована.": "Код в этой сборке; {p}, живая работа не сертифицирована.",
+}
+
+
+def proof_phrase(rc: dict) -> str:
+    if rc.get("kind") == "live_call":
+        return "Проверено вживую на указанном коммите"
+    return "Импорт и существующие тесты прошли на указанном коммите"
+
+
+def refresh_detail(detail: str, rc: dict) -> str:
+    """Replace boilerplate 'not verified' sentences that the receipt has just made untrue."""
+    for old, new in STALE.items():
+        detail = detail.replace(old, new.format(p=proof_phrase(rc)))
+    return detail
+
+
 
 def scrub(text: str) -> str:
     """Helper for lanes: redact obvious secrets before storing output_tail."""
@@ -138,7 +158,7 @@ def apply(seed_path: Path = SEED, evid: Path = EVID, repo: Path = ROOT, write: b
             node["detail"] = (node.get("detail", "") + f" Выбыл {date} @ {rc['sha'][:8]}: {rc['reason']}").strip()
         else:
             node["status"] = "reported"
-            node["detail"] = (node.get("detail", "") + f" Прогон {date} @ {rc['sha'][:8]}: {rc['probe']}").strip()
+            node["detail"] = (refresh_detail(node.get("detail", ""), rc) + f" Прогон {date} @ {rc['sha'][:8]}: {rc['probe']}").strip()
         ref = f"docs/architecture/bossman-tree-20261005/evidence/{lane}#{rc['node_id']}"
         node.setdefault("sources", []).append(
             {"path": ref, "branch": "green/tree-leaves-20261006", "sha": rc["sha"], "kind": "receipt"})

@@ -1062,7 +1062,7 @@
       "label": "action_contract",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/action_contract.py",
@@ -1085,7 +1085,7 @@
       "label": "action_gate",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/action_gate.py",
@@ -1108,7 +1108,7 @@
       "label": "action_preview",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/action_preview.py",
@@ -1131,7 +1131,7 @@
       "label": "action_router",
       "parent": "cloud",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/action_router.py",
@@ -1154,7 +1154,7 @@
       "label": "agentmap",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest+authored_by_lane",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest+authored_by_lane",
       "sources": [
         {
           "path": "command-center/bcc/features/agentmap.py",
@@ -1177,7 +1177,7 @@
       "label": "apps",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/apps.py",
@@ -1200,7 +1200,7 @@
       "label": "apps_control",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/apps_control.py",
@@ -1255,7 +1255,7 @@
       "label": "benchlab",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane",
       "sources": [
         {
           "path": "command-center/bcc/features/benchlab.py",
@@ -1278,7 +1278,7 @@
       "label": "bossnet_nodes_v16",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/bossnet_nodes_v16.py",
@@ -1301,7 +1301,7 @@
       "label": "browser",
       "parent": "computer",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/browser.py",
@@ -1324,7 +1324,7 @@
       "label": "browser_help",
       "parent": "computer",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/browser_help.py",
@@ -1347,7 +1347,7 @@
       "label": "cache_intel",
       "parent": "cloud",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest (incl. test_leaf_* authored_by_lane)",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest (incl. test_leaf_* authored_by_lane)",
       "sources": [
         {
           "path": "command-center/bcc/features/cache_intel.py",
@@ -1386,7 +1386,7 @@
       "label": "chat_threads",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/chat_threads.py",
@@ -1409,7 +1409,7 @@
       "label": "code_intel",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/code_intel.py",
@@ -1432,7 +1432,7 @@
       "label": "coding_limit_saver_v16",
       "parent": "agents",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/coding_limit_saver_v16.py",
@@ -1455,7 +1455,7 @@
       "label": "coding_recipes",
       "parent": "agents",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/coding_recipes.py",
@@ -1478,7 +1478,7 @@
       "label": "coding_sessions",
       "parent": "agents",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest (incl. test_leaf_* authored_by_lane)",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest (incl. test_leaf_* authored_by_lane)",
       "sources": [
         {
           "path": "command-center/bcc/features/coding_sessions.py",
@@ -1501,7 +1501,7 @@
       "label": "coding_tasks",
       "parent": "agents",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest (incl. test_leaf_* authored_by_lane)",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest (incl. test_leaf_* authored_by_lane)",
       "sources": [
         {
           "path": "command-center/bcc/features/coding_tasks.py",
@@ -1524,7 +1524,7 @@
       "label": "command_bar",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/command_bar.py",
@@ -1547,7 +1547,7 @@
       "label": "context_budget_v16",
       "parent": "memory",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/context_budget_v16.py",
@@ -1570,7 +1570,7 @@
       "label": "control_plane",
       "parent": "agents",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/control_plane.py",
@@ -1593,7 +1593,7 @@
       "label": "deep_fix",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/deep_fix.py",
@@ -1616,7 +1616,7 @@
       "label": "diag_bundle",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/diag_bundle.py",
@@ -1639,7 +1639,7 @@
       "label": "economy_swarm",
       "parent": "agents",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/economy_swarm.py",
@@ -1678,7 +1678,7 @@
       "label": "evolution",
       "parent": "memory",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/evolution.py",
@@ -1701,7 +1701,7 @@
       "label": "failure_to_case",
       "parent": "memory",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/failure_to_case.py",
@@ -1724,7 +1724,7 @@
       "label": "file_intelligence",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/file_intelligence.py",
@@ -1747,7 +1747,7 @@
       "label": "forks",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/forks.py",
@@ -1770,7 +1770,7 @@
       "label": "free_providers",
       "parent": "cloud",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/free_providers.py",
@@ -1793,7 +1793,7 @@
       "label": "game_bootstrap_v16",
       "parent": "media",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/game_bootstrap_v16.py",
@@ -1816,7 +1816,7 @@
       "label": "governor",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/governor.py",
@@ -1839,7 +1839,7 @@
       "label": "healing",
       "parent": "memory",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/healing.py",
@@ -1862,7 +1862,7 @@
       "label": "images",
       "parent": "media",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/images.py",
@@ -1885,7 +1885,7 @@
       "label": "jeff_insights",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane",
       "sources": [
         {
           "path": "command-center/bcc/features/jeff_insights.py",
@@ -1908,7 +1908,7 @@
       "label": "jeff_master_parser",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/jeff_master_parser.py",
@@ -1931,7 +1931,7 @@
       "label": "jeff_settings",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/jeff_settings.py",
@@ -1954,7 +1954,7 @@
       "label": "jev",
       "parent": "computer",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/jev.py",
@@ -1977,7 +1977,7 @@
       "label": "knowledge_fabric_v16",
       "parent": "memory",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/knowledge_fabric_v16.py",
@@ -2000,7 +2000,7 @@
       "label": "lab_agents",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/lab_agents.py",
@@ -2023,7 +2023,7 @@
       "label": "local_first",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/local_first.py",
@@ -2046,7 +2046,7 @@
       "label": "market_metrics",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/market_metrics.py",
@@ -2069,7 +2069,7 @@
       "label": "memory_retrieval_v16",
       "parent": "memory",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/memory_retrieval_v16.py",
@@ -2108,7 +2108,7 @@
       "label": "missions",
       "parent": "agents",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/missions.py",
@@ -2131,7 +2131,7 @@
       "label": "model_foundry_v16",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/model_foundry_v16.py",
@@ -2154,7 +2154,7 @@
       "label": "motion_studio",
       "parent": "media",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/motion_studio.py",
@@ -2177,7 +2177,7 @@
       "label": "music_studio",
       "parent": "media",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/music_studio.py",
@@ -2200,7 +2200,7 @@
       "label": "nl_orchestra",
       "parent": "agents",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/nl_orchestra.py",
@@ -2223,7 +2223,7 @@
       "label": "nl_permissions",
       "parent": "agents",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/nl_permissions.py",
@@ -2246,7 +2246,7 @@
       "label": "objectives",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/objectives.py",
@@ -2285,7 +2285,7 @@
       "label": "offline_mode",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/offline_mode.py",
@@ -2324,7 +2324,7 @@
       "label": "opencode",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/opencode.py",
@@ -2347,7 +2347,7 @@
       "label": "openrouter",
       "parent": "cloud",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest + live free OpenRouter connect/catalog/pin/probe",
+      "detail": "Модуль найден. Проверено вживую на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest + live free OpenRouter connect/catalog/pin/probe",
       "sources": [
         {
           "path": "command-center/bcc/features/openrouter.py",
@@ -2370,7 +2370,7 @@
       "label": "organization",
       "parent": "agents",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest (incl. test_leaf_* authored_by_lane)",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest (incl. test_leaf_* authored_by_lane)",
       "sources": [
         {
           "path": "command-center/bcc/features/organization.py",
@@ -2409,7 +2409,7 @@
       "label": "oss_integrations",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/oss_integrations.py",
@@ -2432,7 +2432,7 @@
       "label": "owner_input",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/owner_input.py",
@@ -2471,7 +2471,7 @@
       "label": "plugins",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
@@ -2510,7 +2510,7 @@
       "label": "provenance",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/provenance.py",
@@ -2533,7 +2533,7 @@
       "label": "provider_fleet_v16",
       "parent": "agents",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/provider_fleet_v16.py",
@@ -2556,7 +2556,7 @@
       "label": "qa_relay",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/qa_relay.py",
@@ -2579,7 +2579,7 @@
       "label": "rave",
       "parent": "agents",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/rave.py",
@@ -2602,7 +2602,7 @@
       "label": "reality",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/reality.py",
@@ -2625,7 +2625,7 @@
       "label": "resources",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/resources.py",
@@ -2648,7 +2648,7 @@
       "label": "review_gate",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/review_gate.py",
@@ -2671,7 +2671,7 @@
       "label": "router",
       "parent": "cloud",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/router.py",
@@ -2694,7 +2694,7 @@
       "label": "second_opinion",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/second_opinion.py",
@@ -2717,7 +2717,7 @@
       "label": "simulation_world_v16",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/simulation_world_v16.py",
@@ -2740,7 +2740,7 @@
       "label": "skills",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/skills.py",
@@ -2763,7 +2763,7 @@
       "label": "snapshot",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/snapshot.py",
@@ -2786,7 +2786,7 @@
       "label": "spend_meter",
       "parent": "cloud",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/spend_meter.py",
@@ -2809,7 +2809,7 @@
       "label": "studio",
       "parent": "media",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest env_excluded=2",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest env_excluded=2",
       "sources": [
         {
           "path": "command-center/bcc/features/studio.py",
@@ -2832,7 +2832,7 @@
       "label": "studio_review",
       "parent": "media",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/studio_review.py",
@@ -2855,7 +2855,7 @@
       "label": "task_exchange",
       "parent": "agents",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/task_exchange.py",
@@ -2878,7 +2878,7 @@
       "label": "telegram_calls",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/telegram_calls.py",
@@ -2901,7 +2901,7 @@
       "label": "telegram_settings",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/telegram_settings.py",
@@ -2924,7 +2924,7 @@
       "label": "terminal",
       "parent": "computer",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/terminal.py",
@@ -2947,7 +2947,7 @@
       "label": "testing_period",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/testing_period.py",
@@ -2970,7 +2970,7 @@
       "label": "tools_apps",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_apps.py",
@@ -2993,7 +2993,7 @@
       "label": "tools_browser",
       "parent": "computer",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_browser.py",
@@ -3016,7 +3016,7 @@
       "label": "tools_code",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_code.py",
@@ -3039,7 +3039,7 @@
       "label": "tools_computer",
       "parent": "computer",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_computer.py",
@@ -3062,7 +3062,7 @@
       "label": "tools_facts",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_facts.py",
@@ -3085,7 +3085,7 @@
       "label": "tools_jeff",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_jeff.py",
@@ -3108,7 +3108,7 @@
       "label": "tools_mcp",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_mcp.py",
@@ -3131,7 +3131,7 @@
       "label": "tools_memory",
       "parent": "memory",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_memory.py",
@@ -3154,7 +3154,7 @@
       "label": "tools_openclaw",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_openclaw.py",
@@ -3177,7 +3177,7 @@
       "label": "tools_opencode",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_opencode.py",
@@ -3200,7 +3200,7 @@
       "label": "tools_terminal",
       "parent": "computer",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_terminal.py",
@@ -3239,7 +3239,7 @@
       "label": "trading_lab",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/trading_lab.py",
@@ -3278,7 +3278,7 @@
       "label": "unified_search",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/unified_search.py",
@@ -3301,7 +3301,7 @@
       "label": "v15_autonomy",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/v15_autonomy.py",
@@ -3324,7 +3324,7 @@
       "label": "v15_economy",
       "parent": "cloud",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/v15_economy.py",
@@ -3370,7 +3370,7 @@
       "label": "v15_owner_run",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/v15_owner_run.py",
@@ -3393,7 +3393,7 @@
       "label": "v15_self_repair",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/v15_self_repair.py",
@@ -3416,7 +3416,7 @@
       "label": "video_studio",
       "parent": "media",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b8469: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/video_studio.py",
@@ -3455,7 +3455,7 @@
       "label": "watchdog",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/watchdog.py",
@@ -3478,7 +3478,7 @@
       "label": "web_designer",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/web_designer.py",
@@ -3501,7 +3501,7 @@
       "label": "workflow",
       "parent": "ops",
       "status": "reported",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane",
       "sources": [
         {
           "path": "command-center/bcc/features/workflow.py",
@@ -4542,7 +4542,7 @@
       "label": "http.get",
       "parent": "plugins",
       "status": "reported",
-      "detail": "Capability manifest; scope: network.read. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: live_get_public_and_ssrf_block",
+      "detail": "Capability manifest; scope: network.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: live_get_public_and_ssrf_block",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
@@ -4565,7 +4565,7 @@
       "label": "monitor.feed",
       "parent": "plugins",
       "status": "reported",
-      "detail": "Capability manifest; scope: network.read. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: live_feed_public_rss",
+      "detail": "Capability manifest; scope: network.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: live_feed_public_rss",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
@@ -4588,7 +4588,7 @@
       "label": "sql.read",
       "parent": "plugins",
       "status": "reported",
-      "detail": "Capability manifest; scope: db.read. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: sqlite_ro_select_and_write_denied",
+      "detail": "Capability manifest; scope: db.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: sqlite_ro_select_and_write_denied",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
@@ -4611,7 +4611,7 @@
       "label": "obsidian.read",
       "parent": "plugins",
       "status": "reported",
-      "detail": "Capability manifest; scope: vault.read. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: temp_vault_read_and_traversal_block",
+      "detail": "Capability manifest; scope: vault.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: temp_vault_read_and_traversal_block",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
@@ -4634,7 +4634,7 @@
       "label": "obsidian.write",
       "parent": "plugins",
       "status": "reported",
-      "detail": "Capability manifest; scope: vault.write. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 20e2c879: temp_vault_write_gate_and_confine",
+      "detail": "Capability manifest; scope: vault.write. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: temp_vault_write_gate_and_confine",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
@@ -4657,7 +4657,7 @@
       "label": "mcp.tool_list",
       "parent": "plugins",
       "status": "reported",
-      "detail": "Capability manifest; scope: mcp.read. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ da3ca4d3: live_call+pytest authored_by_lane",
+      "detail": "Capability manifest; scope: mcp.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ da3ca4d3: live_call+pytest authored_by_lane",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
@@ -4696,7 +4696,7 @@
       "label": "ollama.chat",
       "parent": "plugins",
       "status": "reported",
-      "detail": "Capability manifest; scope: llm.local. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ da3ca4d3: live_call+pytest authored_by_lane",
+      "detail": "Capability manifest; scope: llm.local. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ da3ca4d3: live_call+pytest authored_by_lane",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
@@ -4719,7 +4719,7 @@
       "label": "openrouter.chat",
       "parent": "plugins",
       "status": "reported",
-      "detail": "Capability manifest; scope: llm.cloud.use. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ 9fc68e0d: live_call+pytest authored_by_lane",
+      "detail": "Capability manifest; scope: llm.cloud.use. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 9fc68e0d: live_call+pytest authored_by_lane",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
@@ -4742,7 +4742,7 @@
       "label": "github.repo_read",
       "parent": "plugins",
       "status": "reported",
-      "detail": "Capability manifest; scope: repo:read. Авторизация/live эффект не проверены. Прогон 2026-10-06 @ da3ca4d3: live_call+pytest authored_by_lane",
+      "detail": "Capability manifest; scope: repo:read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ da3ca4d3: live_call+pytest authored_by_lane",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
@@ -16155,7 +16155,7 @@
       "label": "Карта агентов · граф оркестров",
       "parent": "agents",
       "status": "reported",
-      "detail": "Граф строится из БД агентов/оркестров и живых run'ов. Код в этой сборке; живая работа не сертифицирована. Прогон 2026-10-06 @ 679d019e: import+pytest (incl. test_leaf_* authored_by_lane)",
+      "detail": "Граф строится из БД агентов/оркестров и живых run'ов. Код в этой сборке; Импорт и существующие тесты прошли на указанном коммите, живая работа не сертифицирована. Прогон 2026-10-06 @ 679d019e: import+pytest (incl. test_leaf_* authored_by_lane)",
       "sources": [
         {
           "path": "command-center/bcc/features/agentmap.py"
@@ -16181,7 +16181,7 @@
       "label": "Лаборатория агентов · сравнение стратегий",
       "parent": "agents",
       "status": "reported",
-      "detail": "Шесть сохранённых стратегий над одним sidecar; честное сравнение на одном кейсе. Код в этой сборке; живая работа не сертифицирована. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "detail": "Шесть сохранённых стратегий над одним sidecar; честное сравнение на одном кейсе. Код в этой сборке; Импорт и существующие тесты прошли на указанном коммите, живая работа не сертифицирована. Прогон 2026-10-06 @ 679d019e: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/lab_agents.py"
@@ -16201,7 +16201,7 @@
       "label": "Движок навыков · загрузка, каталог, оценка",
       "parent": "skills",
       "status": "reported",
-      "detail": "Код, который реально находит, дедуплицирует и оценивает SKILL.md. Без него зона навыков — только тексты. Код в этой сборке; живая работа не сертифицирована. Прогон 2026-10-06 @ 28a4bf72: pytest skill loader/catalog tests",
+      "detail": "Код, который реально находит, дедуплицирует и оценивает SKILL.md. Без него зона навыков — только тексты. Код в этой сборке; Импорт и существующие тесты прошли на указанном коммите, живая работа не сертифицирована. Прогон 2026-10-06 @ 28a4bf72: pytest skill loader/catalog tests",
       "sources": [
         {
           "path": "command-center/bcc/features/skills.py"
@@ -16230,7 +16230,7 @@
       "label": "MCP · хаб и runtime",
       "parent": "plugins",
       "status": "reported",
-      "detail": "Подключение MCP-серверов к общему реестру инструментов и разрешений. Код в этой сборке; живая работа не сертифицирована. Прогон 2026-10-06 @ d394085d: import+pytest",
+      "detail": "Подключение MCP-серверов к общему реестру инструментов и разрешений. Код в этой сборке; Импорт и существующие тесты прошли на указанном коммите, живая работа не сертифицирована. Прогон 2026-10-06 @ d394085d: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_mcp.py"
@@ -16256,7 +16256,7 @@
       "label": "Безопасность плагинов · scopes",
       "parent": "plugins",
       "status": "reported",
-      "detail": "Проверка scope/approval для каждого capability manifest. Код в этой сборке; живая работа не сертифицирована. Прогон 2026-10-06 @ d394085d: import+pytest+authored_by_lane",
+      "detail": "Проверка scope/approval для каждого capability manifest. Код в этой сборке; Импорт и существующие тесты прошли на указанном коммите, живая работа не сертифицирована. Прогон 2026-10-06 @ d394085d: import+pytest+authored_by_lane",
       "sources": [
         {
           "path": "command-center/bcc/plugin_security.py"
@@ -16276,7 +16276,7 @@
       "label": "OSS-движки · инвентарь",
       "parent": "plugins",
       "status": "reported",
-      "detail": "Опциональные локальные движки (whisper, UI-TARS) и их наличие. Код в этой сборке; живая работа не сертифицирована. Прогон 2026-10-06 @ d394085d: import+pytest",
+      "detail": "Опциональные локальные движки (whisper, UI-TARS) и их наличие. Код в этой сборке; Импорт и существующие тесты прошли на указанном коммите, живая работа не сертифицирована. Прогон 2026-10-06 @ d394085d: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/oss_integrations.py"

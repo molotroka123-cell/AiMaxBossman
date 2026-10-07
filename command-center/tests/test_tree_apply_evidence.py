@@ -100,3 +100,16 @@ def test_retire_is_audit_only_and_never_green(tmp_path):
     assert st["leaf"] == "retired"
     exp = json.loads((evid / "tree.export.json").read_text(encoding="utf-8"))
     assert "leaf" not in {n["id"] for n in exp["nodes"]}
+
+
+def test_green_leaf_loses_the_not_verified_boilerplate(tmp_path):
+    repo, sha, seed, evid = _setup(tmp_path)
+    data = json.loads(seed.read_text(encoding="utf-8"))
+    for n in data["nodes"]:
+        if n["id"] == "leaf":
+            n["detail"] = "Модуль найден. Семантика и live работоспособность не сертифицированы."
+    seed.write_text(json.dumps(data), encoding="utf-8")
+    _run(repo, seed, evid, [_rc(sha, evid)], write=True)
+    detail = {n["id"]: n for n in json.loads(seed.read_text(encoding="utf-8"))["nodes"]}["leaf"]["detail"]
+    assert "Семантика и live работоспособность не сертифицированы." not in detail
+    assert "Импорт и существующие тесты прошли" in detail and "Прогон 2026-10-06" in detail
