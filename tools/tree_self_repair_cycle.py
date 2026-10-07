@@ -194,6 +194,11 @@ def stages(rec: dict, check: dict, case: dict, saved: dict | None, transfer: boo
     return out
 
 
+def wire_worker(name: str):
+    """The API takes worker=None for Bossman's local sidecar model; 'local' is only the tool's name for it."""
+    return None if name == "local" else name
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--case", choices=sorted(CASES), default="discovery")
@@ -222,7 +227,7 @@ def main(argv: list[str] | None = None) -> int:
             task_id = args.task
             if not task_id:
                 if case["mode"] == "tree":
-                    body = {"node_id": case["node"], "instruction": case["wish"], "worker": args.worker}
+                    body = {"node_id": case["node"], "instruction": case["wish"], "worker": wire_worker(args.worker)}
                     if args.source_repo:
                         body["source_repo"] = args.source_repo
                     task_id = client.post("/api/capability-tree/work", body)["job"]["task_id"]
@@ -230,7 +235,7 @@ def main(argv: list[str] | None = None) -> int:
                     task_id = client.post("/api/coding-tasks", {
                         "instruction": case["wish"], "source_repo": args.source_repo, "allowed_paths": case["allowed"],
                         "verify_tests": case["verify_tests"], "project_id": PROJECT, "timeout_seconds": 1800,
-                        "worker": args.worker})["id"]
+                        "worker": wire_worker(args.worker)})["id"]
                 print(f"task {task_id} started ({args.case}, worker {args.worker})", flush=True)
             deadline = time.monotonic() + args.timeout
             rec = client.get(f"/api/coding-tasks/{task_id}")

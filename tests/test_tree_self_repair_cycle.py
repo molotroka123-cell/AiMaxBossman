@@ -173,3 +173,8 @@ def test_holdout_flags_exactly_the_defect_cases_on_an_implementation_that_fails_
         assert failed and all(c.startswith(DEFECT_PREFIXES) for c in failed), failed
         assert any(c.startswith("reader holds") for c in failed)
     assert not any(c.startswith("valid/") for c in failed), failed
+
+
+def test_local_worker_is_sent_to_the_api_as_none_and_cloud_workers_unchanged():
+    assert cyc.wire_worker("local") is None
+    assert cyc.wire_worker("nvidia-nim") == "nvidia-nim" and cyc.wire_worker("openrouter-free") == "openrouter-free"
