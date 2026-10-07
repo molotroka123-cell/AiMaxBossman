@@ -4490,6 +4490,15 @@
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
     },
     {
+      "id": "skill-51",
+      "label": "executing-plans",
+      "parent": "skills",
+      "status": "prepared",
+      "detail": "Навык импортирован в каталог (superpowers@5bf4e780, MIT, provenance + sha256), выбирается по фразам про исполнение плана; живой запуск не доказан.",
+      "sources": [],
+      "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
+    },
+    {
       "id": "skill-48",
       "label": "mimik",
       "parent": "skills",

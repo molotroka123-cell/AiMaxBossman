@@ -1,0 +1,103 @@
+{
+  "schema": "bossman.skill_provenance.v1",
+  "id": "superpowers/executing-plans",
+  "source": {
+    "repo": "obra/superpowers",
+    "url": "https://github.com/obra/superpowers",
+    "commit": "5bf4e78011075bcfc0dc295f0724994cd123ee71",
+    "path": "skills/executing-plans/SKILL.md",
+    "raw_url": "https://raw.githubusercontent.com/obra/superpowers/5bf4e78011075bcfc0dc295f0724994cd123ee71/skills/executing-plans/SKILL.md"
+  },
+  "license": {
+    "spdx": "MIT",
+    "upstream_path": "LICENSE",
+    "file": "../LICENSE",
+    "modified": false,
+    "note": "SKILL.md скопирован без изменений; фильтр политики применяется при загрузке, файл не правится"
+  },
+  "sha256": "f38e8f2ddcf079f65493adc713c1fed78421dfaf5f4dbf6b3a6b2b1d95466e71",
+  "size_bytes": 20405,
+  "imported_at": "2026-10-07",
+  "import_mode": "text-only: SKILL.md verbatim; no scripts, hooks, examples or references; nothing executed; no telemetry; no auto-update",
+  "status": "UNVERIFIED",
+  "upstream_skill_files_excluded": [
+    {
+      "path": "skills/executing-plans/scripts/task-start",
+      "kind": "script",
+      "imported": false,
+      "reason": "исполняемый скрипт: не импортируется (каталог text-only); SKILL.md ссылается на scripts/task-start, scripts/task-done и ../subagent-driven-development/scripts/* — они недоступны, ссылки остаются как есть"
+    },
+    {
+      "path": "skills/executing-plans/scripts/task-done",
+      "kind": "script",
+      "imported": false,
+      "reason": "исполняемый скрипт: не импортируется (каталог text-only); SKILL.md ссылается на scripts/task-start, scripts/task-done и ../subagent-driven-development/scripts/* — они недоступны, ссылки остаются как есть"
+    }
+  ],
+  "upstream_skill_files_imported": [],
+  "upstream_repo_hooks_excluded": [
+    {
+      "path": "hooks/hooks.json",
+      "reason": "хук/плагин/автоматизация репозитория: не импортируется"
+    },
+    {
+      "path": "hooks/hooks-cursor.json",
+      "reason": "хук/плагин/автоматизация репозитория: не импортируется"
+    },
+    {
+      "path": "hooks/run-hook.cmd",
+      "reason": "хук/плагин/автоматизация репозитория: не импортируется"
+    },
+    {
+      "path": "hooks/session-start",
+      "reason": "хук/плагин/автоматизация репозитория: не импортируется"
+    },
+    {
+      "path": ".opencode/plugins/superpowers.js",
+      "reason": "хук/плагин/автоматизация репозитория: не импортируется"
+    },
+    {
+      "path": ".pi/extensions/superpowers.ts",
+      "reason": "хук/плагин/автоматизация репозитория: не импортируется"
+    },
+    {
+      "path": ".hermes-plugin/__init__.py",
+      "reason": "хук/плагин/автоматизация репозитория: не импортируется"
+    },
+    {
+      "path": "index.js",
+      "reason": "хук/плагин/автоматизация репозитория: не импортируется"
+    },
+    {
+      "path": "package.json",
+      "reason": "хук/плагин/автоматизация репозитория: не импортируется"
+    },
+    {
+      "path": "scripts/bump-version.sh",
+      "reason": "хук/плагин/автоматизация репозитория: не импортируется"
+    }
+  ],
+  "grants": {
+    "tools": [],
+    "permissions": []
+  },
+  "selection": {
+    "priority": 30,
+    "triggers": [
+      "execute the plan",
+      "executing the plan",
+      "executing plan",
+      "implement the plan",
+      "follow the plan",
+      "carry out the plan",
+      "run the plan",
+      "inline execution",
+      "выполни план",
+      "выполнить план",
+      "реализуй план",
+      "исполни план",
+      "по плану"
+    ],
+    "note": "триггеры отбора написаны в Bossman, не upstream; только фразы про исполнение готового плана, чтобы не пересекаться с багфикс-набором"
+  }
+}
