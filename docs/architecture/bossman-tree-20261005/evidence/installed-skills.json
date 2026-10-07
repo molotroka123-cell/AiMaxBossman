@@ -1,0 +1,16 @@
+[
+  {
+    "node_id": "skills-runtime",
+    "sha": "84f721c6fe48172498681a5880562dcfc6b94e17",
+    "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
+    "command": "(cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard command-center/tests/test_skill_catalog.py command-center/tests/test_skill_catalog_crlf.py command-center/tests/test_skill_discovery_memoized.py command-center/tests/test_feat_skills.py)",
+    "exit_code": 0,
+    "started_at": "2026-10-07T11:40:03+00:00",
+    "finished_at": "2026-10-07T11:40:16+00:00",
+    "output_sha256": "2c3dc7285fcf5d847b1e9784ddd167f24a7b656b6010ae472c93c2969d669869",
+    "output_tail": "node_id: skills-runtime\ninstalled_build: BOSSMAN-Windows-x64-84f721c6fe48 (source_sha 84f721c6fe48172498681a5880562dcfc6b94e17)\nsite-packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-84f721c6fe48\\runtime\\Lib\\site-packages\noriginal receipt: skills.json sha=28a4bf72cb67c9e7a51503d761bae73542fd5f8a command=C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\python.exe -m pytest -q -x -p no:cacheprovider command-center/tests/test_skill_catalog.py command-center/tests/test_skill_catalog_crlf.py command-center/tests/test_skill_discovery_memoized.py command-center/tests/test_feat_skills.py\n\n\n$ (cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard command-center/tests/test_skill_catalog.py command-center/tests/test_skill_catalog_crlf.py command-center/tests/test_skill_discovery_memoized.py command-center/tests/test_feat_skills.py)\n[step shared by 1 leaf(s); exit 0 in 13.0s; reason=None]\n...........................................                              [100%]\r\n43 passed in 10.84s\r\n\n[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0\n\n\nVERDICT PASS\n",
+    "verdict": "PASS",
+    "kind": "installed_pytest",
+    "installed_build": "BOSSMAN-Windows-x64-84f721c6fe48"
+  }
+]
