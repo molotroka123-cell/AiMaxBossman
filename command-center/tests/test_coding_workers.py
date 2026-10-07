@@ -51,6 +51,7 @@ def test_a_cloud_worker_task_gets_only_its_own_key_and_command(tmp_path, monkeyp
     async def key(name, _svc):
         return f"secret-for-{name}"
     monkeypatch.setattr(ct, "_worker_key", key)
+    monkeypatch.delenv("BOSSMAN_VERIFY_PYTHON", raising=False)  # the owner PC sets it; its forwarding has its own test
     body = ct.TaskIn(instruction="x", source_repo=str(tmp_path), allowed_paths=["a.py"], worker="nvidia-nim")
     asyncio.run(ct._run(_svc(tmp_path), {"id": "abcdef123456"}, tmp_path, body))
     assert seen["env"] == {"BOSSMAN_WORKER_API_KEY": "secret-for-NVIDIA_API_KEY"}

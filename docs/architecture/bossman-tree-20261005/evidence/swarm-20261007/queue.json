@@ -1,0 +1,204 @@
+{
+ "generated": "2026-10-07",
+ "wt_head": "6869f67a",
+ "stats": {
+  "nodes": 831,
+  "leaves": 815,
+  "status": {
+   "reported": 556,
+   "recorded": 180,
+   "branch": 32,
+   "code": 31,
+   "mixed": 14,
+   "blocked": 11,
+   "idea": 6,
+   "prepared": 1
+  },
+  "leaf_status": {
+   "reported": 556,
+   "recorded": 180,
+   "branch": 32,
+   "code": 30,
+   "blocked": 10,
+   "idea": 6,
+   "prepared": 1
+  },
+  "receipts": {
+   "PASS": 609,
+   "FAIL": 69,
+   "RETIRE": 2
+  }
+ },
+ "site": {
+  "url": "https://subtle-baklava-676893.netlify.app/",
+  "home_links": "6 internal/assets all 200 (+fonts)",
+  "articles": "14 zone files 200, 831 cards, 136 external links: 131x200",
+  "tree_json_sha256": "0674bdfd7dfcb10427a529bc519296215c0ee8858a332571e0e818127ceda0d2",
+  "sample_cards_checked": 20
+ },
+ "discrepancies": [
+  "site 556 reported == tree.export.json 556 (831 nodes, 0 status diffs, ids identical); meta head 6869f67ad8ef: site NOT stale",
+  "11 reported leaves without PASS receipt: cap-0, cap-6, cap-8, cap-9, cap-16, cap-17, cap-44 and ci-37304275631, ci-37209801507, ci-37209801489, ci-37209801468 (seeded/CI evidence, not receipts)",
+  "0 non-reported leaves with PASS receipt; 22 nodes have only FAIL receipts and none is green (consistent)",
+  "mod-autonomy has status branch with FAIL receipt (TreeRunner test), still red now",
+  "article external links: github.com/tonhowtf/omniget 404 (real); higgsfield.ai/genjutsu and /blog 404 only due to trailing backtick in article text (markdown artefact)",
+  "HANDOFF_GREEN_LEAVES says reported 209; registry now 556 (later checkpoint, handoff text outdated)"
+ ],
+ "queue": [
+  {
+   "id": "Q1",
+   "leaf": "mod-autonomy",
+   "files": [
+    "command-center/bcc/autonomy/workers.py (TreeRunner.run)"
+   ],
+   "defect": "TreeRunner.run returns after tree.kill before the killed worker is reaped: test asserts process not is_running, got True (3/3 deterministic on Windows; receipt ops.json FAIL tests_failed)",
+   "repro": "cd command-center && python -m pytest -q -p no:cacheprovider tests/test_autonomy_bounded_loop.py::test_tree_runner_kills_the_whole_worker_tree_when_stop_appears",
+   "accept": "that test green 3 of 3 runs, other 16 tests in test_autonomy_*.py still pass, diff only workers.py",
+   "deps": [],
+   "risk": "medium: process handling, Windows Job Object semantics",
+   "cost": "~40k tokens, 10-15 steps",
+   "kind": "CODE+TEST",
+   "pair": "Q6",
+   "checked_sha": "bb6bb6f0e7c6defab1a2164db9f3a7a02a2c7e9860f7456811e2b7d01092a815",
+   "reproduced": true
+  },
+  {
+   "id": "Q2",
+   "leaf": "bcc/pit/discovery.py",
+   "files": [
+    "command-center/bcc/pit/discovery.py"
+   ],
+   "defect": "choose_discovery_question lets NaN/inf/None numeric fields win or crash (TypeError)",
+   "repro": "python tools/tree_holdout/discovery_nonfinite.py --repo <wt>",
+   "accept": "holdout exit 0 (12 FAIL -> 0), valid behaviour unchanged, existing pit tests green",
+   "deps": [
+    "BOSSMAN_VERIFY_PYTHON in worker sidecar (selfrepair blocker 1)"
+   ],
+   "risk": "low",
+   "cost": "~25k tokens, 8 steps (small file)",
+   "kind": "CODE+TEST",
+   "pair": "Q3",
+   "checked_sha": "67fa22d32a0284ccb05adea5aa601b847bd49af634dd43e6c4597e28c29582ed",
+   "reproduced": true,
+   "note": "free workers failed 4/4 cycles (no pytest feedback in sidecar); owner restart/forward env needed"
+  },
+  {
+   "id": "Q3",
+   "leaf": "bcc/autonomy/goals.py",
+   "files": [
+    "command-center/bcc/autonomy/goals.py"
+   ],
+   "defect": "GoalStore.charge(cost_usd=nan/inf/negative/str-nan) leaves budget unbound; NaN usage on disk not treated as exceeded",
+   "repro": "python tools/tree_holdout/goal_budget_nonfinite.py --repo <wt>",
+   "accept": "holdout exit 0 (5 FAIL -> 0), valid charging unchanged, tests/test_autonomy_goals.py green",
+   "deps": [
+    "Q2 recipe (transfer test)"
+   ],
+   "risk": "low-medium: money cap",
+   "cost": "~25k tokens, 8 steps",
+   "kind": "CODE+TEST",
+   "pair": "Q2",
+   "checked_sha": "5810e64458e7527f31f1dbfcbcdf10234719004da2a18d46858b31a1c64c6650",
+   "reproduced": true,
+   "note": "selfrepair: NOT_RUN, source_repo must be inside owner allowed roots (OWNER)"
+  },
+  {
+   "id": "Q4",
+   "leaf": "skill-36 compact",
+   "files": [
+    "bossman-core/skills/compact/SKILL.md"
+   ],
+   "defect": "frontmatter has `purpose` but no `description`; parse_skill description len=0",
+   "repro": "python tools/tree_proof/skills_oss_probe.py skill-worker bossman-core/skills/compact/SKILL.md  (VERDICT FAIL)",
+   "accept": "probe VERDICT PASS; one-file doc edit",
+   "deps": [],
+   "risk": "very low",
+   "cost": "~8k tokens, 3 steps",
+   "kind": "CODE",
+   "pair": "Q5 (missing-field/test class)",
+   "checked_sha": "61ba6ca76333b8a1ee46b8555ed61ff0fcc15c797587e53084c685f5919ed4d2",
+   "reproduced": true
+  },
+  {
+   "id": "Q5",
+   "leaf": "plugin http / safe_get",
+   "files": [
+    "command-center/bcc/plugin_security.py",
+    "command-center/tests/test_plugin_security.py"
+   ],
+   "defect": "safe_get handles content-encoding after aiter_bytes decode, but no gzip regression test exists (grep gzip in plugin tests: 0)",
+   "repro": "cd command-center && python -m pytest -q tests/test_plugin_security.py -k gzip  (expected 0 selected; write test with httpx.MockTransport gzip body)",
+   "accept": "new test passes and fails if content-encoding handling is removed",
+   "deps": [],
+   "risk": "low",
+   "cost": "~20k tokens, 6 steps",
+   "kind": "TEST",
+   "pair": "Q4",
+   "checked_sha": "e7937dc0c89f0d6c368f9a8ff36bfafd458be7acdadf6413653310d4a5e7ccfb",
+   "reproduced": "n/a (absence verified by grep)"
+  },
+  {
+   "id": "Q6",
+   "leaf": "self_improvement runner",
+   "files": [
+    "bossman-core/bossman_v3/self_improvement/runner.py (atomic_json)"
+   ],
+   "defect": "os.replace PermissionError flake on Windows (AV/indexer lock); no retry",
+   "repro": "UNKNOWN: flake not reproduced; stress loop of atomic_json on one path from 2 threads",
+   "accept": "bounded retry/backoff on PermissionError; 200-iteration stress green",
+   "deps": [],
+   "risk": "low",
+   "cost": "~20k tokens",
+   "kind": "CODE+TEST",
+   "pair": "Q1 (Windows timing class)",
+   "checked_sha": "27f20f40630cc2639bb20b95423ae406a2570d6dd0f1f70677476d173ababf26",
+   "reproduced": false
+  },
+  {
+   "id": "Q7",
+   "leaf": "app-ai-webcam-vision",
+   "files": [
+    "apps/ai-webcam-vision/tests/test_storage.py",
+    "apps/ai-webcam-vision/tests/test_privacy_defaults.py"
+   ],
+   "defect": "chmod 0o600 is a no-op on NTFS: st_mode 666 != 600; 2 tests fail on Windows. Not a product defect; fix = skipif win32 or ACL check (owner decision)",
+   "repro": "cd apps/ai-webcam-vision && PYTHONPATH=src python -m pytest -q tests/test_storage.py tests/test_privacy_defaults.py  (2 failed, 16 passed)",
+   "accept": "Windows: explicit skip with reason or ACL check; POSIX unchanged",
+   "deps": [
+    "OWNER decision: skip vs icacls"
+   ],
+   "risk": "low, but weakening a test must be explicit",
+   "cost": "~10k tokens",
+   "kind": "TEST+OWNER_HW",
+   "pair": "Q4",
+   "checked_sha": "74d2435782789ec99b8c46a8e507c56ae07c1db918ca2126e9d2422e141f137c",
+   "reproduced": true
+  },
+  {
+   "id": "Q8",
+   "leaf": "skill-22 solana-volume-suite",
+   "files": [
+    ".agents/skills/solana-volume-suite/SKILL.md"
+   ],
+   "defect": "scan_policy critical 'telemetry' (description and WS /ws/telemetry line)",
+   "repro": "python tools/tree_proof/skills_oss_probe.py skill-worker .agents/skills/solana-volume-suite/SKILL.md",
+   "accept": "no critical violation without hiding real telemetry; owner decides wording vs policy exception",
+   "deps": [
+    "OWNER"
+   ],
+   "risk": "medium: policy-dodge risk",
+   "cost": "~10k tokens",
+   "kind": "CODE+OWNER",
+   "pair": "",
+   "checked_sha": "1488e979344b96668b430052d17c5c84c6aae7d2d5dab6df07876f6fef6e6ff4",
+   "reproduced": "receipt only (rerun UNKNOWN)"
+  }
+ ],
+ "unknown": [
+  "browser click/open of branches not exercised (data files only)",
+  "atomic_json flake not reproduced",
+  "skill-22 rerun not done",
+  "exact CI status"
+ ],
+ "note": "checked_sha = sha256 of the target file at 6869f67a; skip re-check if unchanged"
+}
