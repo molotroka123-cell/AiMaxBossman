@@ -143,8 +143,8 @@ MANIFEST: list[Capability] = [
     Capability("n8n", "workflow_run", "n8n.execute", "ask", True, "", "N8N_API_KEY",
                ("*configured-n8n*",), "Запуск workflow (ASK; url валидируется от SSRF).",
                {"workflow_id": {"type": "string"}}, ("workflow_id",)),
-    Capability("browser", "open", "browser.navigate", "allow", False, "browser.read", "",
-               ("*allowlisted*",), "Открыть/прочитать страницу (существующий браузер).",
+    Capability("browser", "open", "browser.navigate", "ask", False, "browser.read", "",
+               ("*public*",), "Открыть страницу в существующем браузере Bossman (только чтение, SSRF-защита; ASK).",
                {"url": {"type": "string"}}, ("url",)),
     Capability("browser", "form_submit", "browser.input", "ask", True, "browser.control", "",
                ("*allowlisted*",), "Отправка формы (ASK, существующий браузер).",
@@ -625,6 +625,44 @@ async def _h_telegram_status(args, ctx) -> ToolResult:
                       data={"performed": True, "status": status})
 
 
+async def _h_browser_open(args, ctx) -> ToolResult:
+    url = str(args.get("url") or "").strip()
+    if not url or len(url) > 2000:
+        return ToolResult(content="blocked: нужен url (http/https)",
+                          one_line="browser.open blocked", error=True,
+                          data={"performed": False})
+    from ..v2.browser_control import resolved_target_refusal
+    refusal = await asyncio.to_thread(resolved_target_refusal, url)
+    if refusal:
+        return ToolResult(content=f"blocked: {refusal}",
+                          one_line="browser.open blocked (ssrf)", error=True,
+                          data={"performed": False})
+    svc = getattr(ctx, "svc", None)
+    task = getattr(ctx, "task", None) or {}
+    if svc is None or not task.get("id"):
+        return ToolResult(content="blocked: browser.open нужен запуск внутри задачи Bossman (svc и task)",
+                          one_line="browser.open blocked", error=True,
+                          data={"performed": False})
+    from . import tools_browser
+    res = await tools_browser._open({"url": url}, ctx)
+    if res.error:
+        return ToolResult(content=res.content, one_line=res.one_line, error=True,
+                          data={**(res.data or {}), "performed": False})
+    title = ""
+    for line in res.content.splitlines():
+        if line.startswith("Заголовок: "):
+            title = line[len("Заголовок: "):].strip()
+            break
+    content = redact(res.content[:8000], secret_values=_known_secret_values())
+    return ToolResult(content=content,
+                      one_line=f"browser.open: {title[:80]}",
+                      external=True,
+                      data={"performed": True,
+                            "url": (res.data or {}).get("url"),
+                            "session_id": (res.data or {}).get("session_id"),
+                            "title": title})
+
+
 async def _h_generic_external(cap: Capability):
     async def handler(args, ctx: ToolContext) -> ToolResult:
         if await resolve_cred(cap.credential_ref, getattr(ctx, "svc", None)) is None:
@@ -661,6 +699,8 @@ def _handler_for(cap: Capability):
         return _h_mcp_tool_list
     if cap.tool_name == "plugin:telegram.status":
         return _h_telegram_status
+    if cap.tool_name == "plugin:browser.open":
+        return _h_browser_open
     # остальные — generic (credential-gated / ready), политика решает эффект
     return None  # заполняется в setup через фабрику (нужен cap в замыкании)
 

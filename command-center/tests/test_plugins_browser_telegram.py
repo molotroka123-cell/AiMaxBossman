@@ -67,3 +67,103 @@ async def test_telegram_status_bad_config_is_error(tmp_path, monkeypatch):
     r = await _call("plugin:telegram.status", {})
     assert r.error
     assert r.data["performed"] is False
+
+
+# --- plugin:browser.open (real handler over the existing browser tool) ---
+
+import pytest
+
+from bcc.tools import decide_effect
+from bcc.features import tools_browser
+from .helpers import make_stack
+
+
+async def test_browser_open_is_real_and_ask():
+    await P.setup(None)
+    spec = REGISTRY.get("plugin:browser.open")
+    assert spec.handler is P._h_browser_open
+    assert spec.default_effect == "ask"
+    assert decide_effect(spec, {}, {})[0] == "ask"
+
+
+@pytest.mark.parametrize("url", [
+    "http://127.0.0.1:8801/api/health",
+    "http://localhost/",
+    "http://169.254.169.254/latest/meta-data",
+    "http://10.0.0.5/",
+    "file:///C:/Windows/win.ini",
+    "javascript:alert(1)",
+    "http://user:pw@example.com/",
+])
+async def test_browser_open_refuses_unsafe_targets(url, monkeypatch):
+    monkeypatch.delenv("BCC_BROWSER_ALLOW_PRIVATE", raising=False)
+    called = []
+    monkeypatch.setattr(tools_browser, "_open", lambda *a, **k: called.append(1))
+    r = await _call("plugin:browser.open", {"url": url})
+    assert r.error and r.content.startswith("blocked:"), r.content
+    assert r.data["performed"] is False
+    assert called == []
+
+
+async def test_browser_open_needs_a_task(monkeypatch):
+    monkeypatch.delenv("BCC_BROWSER_ALLOW_PRIVATE", raising=False)
+    r = await _call("plugin:browser.open", {"url": "https://93.184.215.14/"})
+    assert r.error
+    assert r.content.startswith("blocked:"), r.content
+    assert r.data["performed"] is False
+
+
+async def test_browser_open_uses_existing_browser_tool(env, monkeypatch):
+    class Fake:
+        def __init__(self):
+            self.calls = []
+
+        def is_live(self, sid):
+            return True
+
+        async def start(self, sid, policy, headless=True):
+            pass
+
+        async def stop(self, sid):
+            pass
+
+        async def navigate(self, sid, url, **kw):
+            self.calls.append((url, kw))
+            return {"url": url, "title": "Fake Title", "text": "hello plugin body",
+                    "interactive": []}
+
+    fake = Fake()
+    monkeypatch.setattr(tools_browser, "_mgr", lambda svc: fake)
+    stack = await make_stack(env.client)
+    await P.setup(None)
+    ctx = ToolContext(svc=env.svc, task=stack["task"], run_id=1, agent={}, workspace="", call_id="b")
+    r = await execute_tool(REGISTRY.get("plugin:browser.open"), {"url": "https://93.184.215.14/"}, ctx)
+    assert not r.error, r.content
+    assert r.data["performed"] is True and r.data["title"] == "Fake Title"
+    assert "hello plugin body" in r.content
+    assert fake.calls[0][0] == "https://93.184.215.14/"
+    assert fake.calls[0][1].get("allow_download") is False
+
+
+def _live_ok():
+    from bcc.browser_runtime import chromium_executable
+    if not chromium_executable():
+        return False
+    try:
+        return httpx.get("https://example.com/", timeout=5, trust_env=False).status_code == 200
+    except Exception:
+        return False
+
+
+@pytest.mark.skipif(not _live_ok(), reason="no chromium or no internet")
+async def test_browser_open_live_example_com(env):
+    stack = await make_stack(env.client)
+    await P.setup(None)
+    ctx = ToolContext(svc=env.svc, task=stack["task"], run_id=1, agent={}, workspace="", call_id="b")
+    try:
+        r = await execute_tool(REGISTRY.get("plugin:browser.open"), {"url": "https://example.com/"}, ctx)
+        assert not r.error, r.content
+        assert r.data["performed"] is True
+        assert "Example Domain" in r.data["title"]
+    finally:
+        await tools_browser.close_task_sessions(env.svc, stack["task"]["id"])
