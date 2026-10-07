@@ -222,7 +222,7 @@ def install_fake_pytgcalls(monkeypatch):
     class Flag(int):
         def __and__(self, other):
             return Flag(int(self) & int(other))
-    Status = pytypes.SimpleNamespace(BUSY_CALL=Flag(4), LEFT_CALL=Flag(7))
+    Status = pytypes.SimpleNamespace(BUSY_CALL=Flag(4), LEFT_CALL=Flag(7), INCOMING_CALL=Flag(32))
     ChatUpdate = pytypes.SimpleNamespace(Status=Status)
     Device = pytypes.SimpleNamespace(MICROPHONE="mic")
     Direction = pytypes.SimpleNamespace(INCOMING="in")
@@ -284,7 +284,8 @@ async def test_engine_registers_handlers_wraps_connection_changes_and_disables_p
     log, Session, Status = install_fake_pytgcalls(monkeypatch)
     eng = pt.PyTgCallsEngine(client=object())
     assert Session.notice_displayed is True                          # no stdout banner, no version check to GitHub raw
-    assert [flt[0] for flt, _ in log["updates"]] == ["stream_frame", "chat_update"]
+    assert [flt[0] for flt, _ in log["updates"]] == ["stream_frame", "chat_update", "chat_update"]   # frames, call left, incoming call
+    assert log["updates"][2][0][1] == Status.INCOMING_CALL
     frames, ends, media = [], [], []
     eng.set_frame_handler(frames.append)
     eng.set_end_handler(ends.append)

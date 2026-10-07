@@ -748,6 +748,22 @@ class Core:
         return body
 
 
+    async def answering_reports(self) -> list:
+        """Reports of incoming calls the owner has not been told about (the answering machine's outbox). Scrubbed by the backend."""
+        body = await self._request("GET", "/api/telegram/calls/answering/reports?pending=true&limit=10")
+        rows = body.get("items") if isinstance(body, dict) else None
+        if not isinstance(rows, list):
+            raise CompanionError("ANSWERING_REPORTS_INVALID")
+        return [r for r in rows if isinstance(r, dict) and re.fullmatch(r"ar-[0-9a-f]{12}", str(r.get("id") or ""))]
+
+    async def ack_answering_report(self, report_id: str) -> dict:
+        if not re.fullmatch(r"ar-[0-9a-f]{12}", str(report_id or "")):
+            raise CompanionError("ANSWERING_REPORT_ID_INVALID")
+        body = await self._request("POST", f"/api/telegram/calls/answering/reports/{report_id}/delivered", {})
+        if not isinstance(body, dict) or body.get("id") != report_id or body.get("delivered") is not True:
+            raise CompanionError("ANSWERING_REPORT_ACK_UNKNOWN")
+        return body
+
     async def login_receipts(self) -> list:
         """Pending safe login receipts: login/account labels only, never passwords."""
         body = await self._request("GET", "/api/browser/login-receipts")

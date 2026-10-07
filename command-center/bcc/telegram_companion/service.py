@@ -1509,6 +1509,42 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
                 self.store.put(done_key, "delivered")
                 self.schedule_login_receipt_cleanup(owner, rid, 45.0)
 
+    async def notify_answering_reports(self):
+        """Tell the OWNER (and nobody else) about an incoming call the answering machine took or missed.
+
+        The text (``notice``) is rendered by the Command Center from the already scrubbed report; this method only delivers it
+        and knows nothing about calls, transcripts or callers. Delivery is
+        at-least-once: the report is acknowledged AFTER the send, so a crash in between sends it again rather than losing it
+        (a notice the owner already saw twice is better than a call he never heard about). It needs the owner console: with the
+        console off the report simply stays in the outbox. Nothing here reads a token or places a call.
+        """
+        owner = next((p for p in self.settings.people if p.role == "owner"), None)
+        if owner is None or not self.console_allowed(owner):
+            return
+        try:
+            if owner not in self.policy_provider().people:
+                return
+            rows = await self.core.answering_reports()
+        except (CompanionError, OSError, ValueError, TypeError):
+            return
+        for row in rows[:5]:
+            rid = str(row.get("id") or "")
+            notice = row.get("notice")
+            if not rid or self.store.get("answering_sent:" + rid) is not None:
+                if rid:                                         # sent earlier, the acknowledgement was lost: repeat only that
+                    with contextlib.suppress(CompanionError):
+                        await self.core.ack_answering_report(rid)
+                continue
+            if not isinstance(notice, str) or not notice.strip():
+                continue                                        # nothing to say; never invent a text from the raw report
+            try:
+                await self.telegram.send(owner, notice[:3500])
+            except CompanionError:
+                continue                                        # not sent: it stays in the outbox
+            self.store.put("answering_sent:" + rid, "delivered")
+            with contextlib.suppress(CompanionError):
+                await self.core.ack_answering_report(rid)
+
     async def notify_owner_inputs(self):
         """Proactively tell the owner about missing form fields; never include values."""
         owner = next((p for p in self.settings.people if p.role == "owner"), None)
@@ -1580,6 +1616,7 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
             await self.notify_owner_inputs()
             await self.notify_login_receipts()
             await self.notify_zone_reports()
+            await self.notify_answering_reports()
             with contextlib.suppress(CompanionError):
                 await self.refresh_profiles()
             if not self.store.get("watch", False):

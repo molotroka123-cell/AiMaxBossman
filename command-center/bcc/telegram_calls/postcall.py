@@ -306,7 +306,11 @@ async def process_record(svc: Any, state: CallState, rec: dict, *, auto_save: bo
     result: dict[str, Any] = {"auto": bool(auto_save), "at": round(time.time(), 1),
                               "memory": {"status": "not_saved"}, "draft_tasks": [],
                               "drafts": {"ids": [], "count": 0, "proposed": len(proposals(rec))}}
-    if auto_save:
+    if auto_save and rec.get("direction") == "incoming":
+        # An answered incoming call is logged by the answering machine (its own report, delivered to the owner); the owner's
+        # opt-in "auto save" is about calls HE placed, and a stranger's words never become owner memory or tasks by themselves.
+        result["memory"] = {"status": "skipped", "reason": "incoming_call"}
+    elif auto_save:
         try:
             result["memory"] = await write_memory_note(svc, rec)
             drafts = await create_draft_tasks(svc, rec)

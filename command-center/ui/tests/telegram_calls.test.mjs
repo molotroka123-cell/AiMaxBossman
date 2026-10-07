@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path';
 // The module must be importable in Node: no top-level document, window or fetch.
 assert.equal(typeof document, 'undefined');
 const mod = await import('../pages/telegram_calls.js');
-const { accountStep, callWords, controlState, peerPickState, isTestMode, summarizeHistoryItem, fmtMs, errorText, BASE, EVENT_KINDS } = mod;
+const { accountStep, callWords, controlState, peerPickState, isTestMode, summarizeHistoryItem, fmtMs, errorText, answeringWords, BASE, EVENT_KINDS } = mod;
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SOURCE = readFileSync(join(here, '..', 'pages', 'telegram_calls.js'), 'utf8');
@@ -211,4 +211,29 @@ test('formatting and error text helpers never invent numbers', () => {
   assert.equal(fmtMs(511.6), '512 мс');
   assert.equal(errorText(null), null);
   assert.deepEqual(errorText({ message: 'Звонки выключены.', hint: 'Включите.' }), { message: 'Звонки выключены.', hint: 'Включите.' });
+});
+
+test('answeringWords: off by default, honest about what is not verified, and says why it would not answer', () => {
+  assert.equal(answeringWords(undefined).on, false);
+  assert.equal(answeringWords(st()).on, false);
+  assert.match(answeringWords(st({ answering: { enabled: false } })).text, /выключен/);
+  const unarmed = answeringWords(st({ answering: { enabled: true, armed: false } }));
+  assert.equal(unarmed.on, true);
+  assert.equal(unarmed.tone, 'warn');
+  assert.match(unarmed.text, /не запущен/);
+  const live = answeringWords(st({ answering: { enabled: true, armed: true, ready_state: 'ready', ring_delay_s: 12, live_tested: false } }));
+  assert.equal(live.tone, 'ok');
+  assert.match(live.text, /за 12 с/);
+  assert.match(live.text, /не проверен в живую/);
+  assert.doesNotMatch(answeringWords(st({ answering: { enabled: true, armed: true, ready_state: 'ready', ring_delay_s: 12, live_tested: true } })).text, /не проверен/);
+  assert.match(answeringWords(st({ answering: { enabled: true, armed: true, ready_state: 'loading', ring_delay_s: 12 } })).text, /будет пропущен/);
+  const stopped = answeringWords(st({ answering: { enabled: true, armed: true, ready_state: 'ready', ring_delay_s: 5, stopped: true, pending_reports: 2 } }));
+  assert.equal(stopped.tone, 'warn');
+  assert.match(stopped.text, /STOP/);
+  assert.match(stopped.text, /ещё не отправленных вам в Telegram: 2/);
+});
+
+test('the answering toggle only ever sends the answering_machine setting', () => {
+  assert.match(SOURCE, /body: \{ answering_machine: !!on \}/);
+  assert.doesNotMatch(SOURCE, /answer_greeting|answer_allow|answer_deny/);
 });

@@ -76,6 +76,16 @@ def main() -> int:
             (HOME / "STOP").write_text("{}", encoding="utf-8") if not (HOME / "STOP").exists() else None
             confirmed = MODE != "unconfirmed_stop"
             out({"id": rid, "ok": True, "result": {"stopped": True, "hangup_confirmed": confirmed, "stop_flag": True}})
+        elif op == "answering.start":
+            out({"id": rid, "ok": True, "result": {"answering": {"armed": True, "ready_state": "loading"}}})
+            out({"event": "answering", "data": {"kind": "armed", "transport": "loopback"}})
+            if MODE == "answering_report":                          # a finished incoming call: ids only, plus text that must be dropped
+                out({"event": "answering", "data": {"kind": "report", "report_id": "ar-0123456789ab", "outcome": "message_taken",
+                                                    "notify": True, "answered": True, "text": "TRANSCRIPT-MUST-NOT-LEAK",
+                                                    "transcript": "NOR-THIS"}})
+        elif op == "answering.stop":
+            out({"id": rid, "ok": True, "result": {"answering": {"armed": False}}})
+            out({"event": "answering", "data": {"kind": "disarmed"}})
         elif op == "resume":
             out({"id": rid, "ok": True, "result": {"stop_flag": False}})
         elif op == "shutdown":

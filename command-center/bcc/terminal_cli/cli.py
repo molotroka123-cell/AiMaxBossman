@@ -324,7 +324,10 @@ def _build_call_parser(sub) -> None:
                "  bossman call events [--after N] [--follow]  ход звонка (без текста разговора)\n"
                "  bossman call history [--limit N]            прошлые звонки: краткий итог, без расшифровки и аудио\n"
                "  bossman call save-memory <id> | draft-tasks <id>   итог звонка -> память Bossman · предложенные задачи -> ЧЕРНОВИКИ (только по вашей команде)\n"
-               "  bossman call doctor | selftest [сценарий]   диагностика · проверка аудиоконтура без Telegram\n"
+               "  bossman call answer on | off | status       автоответчик: Джефф берёт входящий вместо вас (выключен по умолчанию)\n"
+               "  bossman call answer config [--ring-delay S] [--max-call S] [--allow ID] [--deny ID] [--greeting ТЕКСТ] ...\n"
+               "  bossman call answer reports [id] [--pending]   журнал входящих: кто, когда, сколько, что сказал, что нужно\n"
+               "  bossman call doctor | selftest [сценарий]   диагностика · проверка аудиоконтура без Telegram (answering-machine — автоответчик)\n"
                "  bossman call install [--dry-run]            зависимости звонков\n"
                "  bossman call logout                         забыть сессию\n"
                "Коды выхода: 0 успех · 2 неверный вызов · 5 заблокировано (не подключён, звонки выключены, STOP…) · 6 остановлен · "
@@ -374,7 +377,26 @@ def _build_call_parser(sub) -> None:
     p.add_argument("call_id")
     leaf("doctor", "локальная диагностика: зависимости, права, журнал, голос (никому не звонит)")
     p = leaf("selftest", "проверка аудиоконтура БЕЗ Telegram («ТЕСТ БЕЗ TELEGRAM»): selftest [сценарий]")
-    p.add_argument("scenario", nargs="?", default="all", choices=("all", "basic", "barge_in", "echo", "stop", "no_redial"))
+    p.add_argument("scenario", nargs="?", default="all",
+                   choices=("all", "basic", "barge_in", "echo", "stop", "no_redial", "answering-machine", "answering_machine"))
+    p = leaf("answer", "автоответчик для входящих звонков: answer on | off | status | config | reports")
+    pa = p.add_subparsers(dest="answer_cmd")
+    leaf("on", "включить автоответчик (по умолчанию выключен; решает только владелец)", parent=pa)
+    leaf("off", "выключить автоответчик", parent=pa)
+    leaf("status", "включён ли, слушает ли, сколько отчётов ждёт отправки", parent=pa)
+    q = leaf("config", "настройки: задержка до ответа, максимум длительности, списки звонящих, приветствие", parent=pa)
+    q.add_argument("--ring-delay", type=int, dest="ring_delay", default=None, help="секунд до того, как ответит Джефф (по умолчанию 12; 0..60)")
+    q.add_argument("--max-call", type=int, dest="max_call", default=None, help="максимум длительности звонка, секунд (по умолчанию 180; 30..900)")
+    q.add_argument("--allow", type=int, action="append", default=None, metavar="ID", help="добавить Telegram id в список разрешённых (пусто = любой)")
+    q.add_argument("--deny", type=int, action="append", default=None, metavar="ID", help="добавить Telegram id в чёрный список (побеждает разрешённых)")
+    q.add_argument("--clear-allow", action="store_true", dest="clear_allow", help="очистить список разрешённых")
+    q.add_argument("--clear-deny", action="store_true", dest="clear_deny", help="очистить чёрный список")
+    q.add_argument("--allow-unknown", choices=("yes", "no"), dest="allow_unknown", default=None, help="отвечать ли звонящим, которых нельзя опознать")
+    q.add_argument("--greeting", default=None, help="что Джефф говорит в начале (должно сказать, что отвечает ассистент; до 240 символов)")
+    q = leaf("reports", "журнал входящих звонков: reports [id] [--pending] [--limit N]", parent=pa)
+    q.add_argument("report_id", nargs="?", default=None)
+    q.add_argument("--pending", action="store_true", help="только ещё не отправленные владельцу в Telegram")
+    q.add_argument("--limit", type=int, default=10)
     p = leaf("install", "зависимости звонков: установка на стороне Bossman по вашей команде (sha256 проверяется до записи)")
     p.add_argument("--dry-run", action="store_true", help="только показать, что будет установлено")
     leaf("logout", "забыть сессию Telegram, сбросить собеседника и выключить звонки")

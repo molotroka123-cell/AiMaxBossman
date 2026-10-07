@@ -30,7 +30,7 @@ from ..audio.playout import Playout
 from ..audio.vad import VAD, WINDOW_BYTES, WINDOW_MS
 from ..speech.text import SentenceChunker
 from ..types import (ANALYSIS_RATE, Brain, CallError, CallEvent, CallRecord, CallState, CallSummary,
-                     CallTransport, CancelToken, Outcome, PeerRef, Phase, STTEngine, STTStream,
+                     CallTransport, CancelToken, IncomingCall, Outcome, PeerRef, Phase, STTEngine, STTStream,
                      TransportEvent, TransportEventKind, TTSEngine, Turn, TurnMetrics)
 
 _WORD = re.compile(r"\w", re.UNICODE)
@@ -67,14 +67,24 @@ class SessionConfig:
     pace: float = 1.0                     # 1.0 = real time; tests may use 0 (no pacing)
     history_chars: int = 6000
     endpoint: EndpointConfig = field(default_factory=EndpointConfig)
+    # ---- incoming calls (answering machine); all off for the owner's outgoing calls
+    answer_timeout_s: float = 30.0        # how long ``transport.accept`` may take to bring the media up
+    greet_always: bool = False            # speak the greeting even when the caller already said hello (the disclosure is not optional)
+    greeting_uninterruptible: bool = False  # a barge-in cannot cut the greeting short: the caller must hear who answers
+    keep_transcript: bool = False         # keep the words in ``session.transcript`` for the answering log (never in ``record``)
+    closing_text: str = ""                # spoken once, ``closing_lead_s`` before ``max_call_s``
+    closing_lead_s: float = 8.0
 
 
 class CallSession:
     def __init__(self, *, call_id: str, transport: CallTransport, peer: PeerRef, stt: STTEngine, tts: TTSEngine,
                  brain: Brain, vad: VAD, cfg: SessionConfig | None = None,
                  on_event: Callable[[CallEvent], None] | None = None, recorder: Any = None,
-                 clock: Callable[[], float] = time.monotonic, wall: Callable[[], float] = time.time):
+                 clock: Callable[[], float] = time.monotonic, wall: Callable[[], float] = time.time,
+                 incoming: IncomingCall | None = None):
         self.call_id, self.transport, self.peer = call_id, transport, peer
+        self.incoming = incoming                       # a call that rang on the owner's account: ``accept``, never ``dial``
+        self.transcript: list[dict] = []               # filled at teardown only when ``cfg.keep_transcript``
         self.stt, self.tts, self.brain, self.vad = stt, tts, brain, vad
         self.cfg = cfg or SessionConfig()
         self._on_event, self.recorder, self._clock, self._wall = on_event, recorder, clock, wall
@@ -82,7 +92,8 @@ class CallSession:
         self.record = CallRecord(call_id=call_id, transport=transport.name, peer_user_id=peer.user_id,
                                  started_at=wall(), recorded_audio=recorder is not None,
                                  models={"stt": f"{stt.name}:{stt.model}", "llm": f"{brain.route}:{brain.model}",
-                                         "tts": f"{tts.name}:{tts.voice}"})
+                                         "tts": f"{tts.name}:{tts.voice}"},
+                                 direction="incoming" if incoming is not None else "outgoing")
         for key in ("barge_ins", "echo_blocked", "echo_text_suppressed", "stt_empty", "stt_errors",
                     "brain_errors", "tts_errors", "rx_dropped", "hangup_confirmed", "playout_underruns"):
             self.record.counters[key] = 0
@@ -132,6 +143,10 @@ class CallSession:
         self._recent_spoken: deque[tuple[float, str]] = deque(maxlen=6)
         self._echo_block_run = 0
         self._end_call_after_speech = False
+        self._greeting_active = False
+        self._closing_said = False
+        self._draining = False
+        self.interrupted_by_hangup = False             # the peer hung up while they were speaking (their last words may be cut)
         self._loop: asyncio.AbstractEventLoop | None = None
         self._used = False
         self._disclosed = False                      # the AI disclosure has been spoken on this call
@@ -140,6 +155,11 @@ class CallSession:
     @property
     def outcome(self) -> Outcome | None:
         return self._outcome
+
+    @property
+    def connected(self) -> bool:
+        """The media was up at some point (an answered / connected call), whatever happened afterwards."""
+        return self._active_since is not None
 
     async def run(self) -> CallRecord:
         if self._used:                                # one CallSession = at most one dial, ever
@@ -219,11 +239,17 @@ class CallSession:
         if self._stopping or self._outcome is not None:   # STOP / hangup during the (slow) start: the phone must not ring after it
             return
         try:
-            await self._dial_until_done()            # exactly once, never retried; STOP / hangup interrupt the ringing
+            if self.incoming is not None:
+                await self._accept_until_done()      # an incoming call is only ever answered: this session never dials
+            else:
+                await self._dial_until_done()        # exactly once, never retried; STOP / hangup interrupt the ringing
         except CallError as exc:
             mapping = {"CALL_DECLINED": Outcome.DECLINED, "CALL_BUSY": Outcome.BUSY, "CALL_NO_ANSWER": Outcome.NO_ANSWER,
                        "PEER_PRIVACY": Outcome.FAILED, "DEPENDENCIES_MISSING": Outcome.FAILED, "NOT_LOGGED_IN": Outcome.FAILED}
-            outcome = mapping.get(exc.code, Outcome.UNKNOWN)     # anything else: we may have rung the phone
+            incoming = self.incoming is not None
+            if incoming:                             # nothing was dialled: failing to answer is provable, never "unknown"
+                mapping["CALL_DISCARDED"] = Outcome.FAILED
+            outcome = mapping.get(exc.code, Outcome.FAILED if incoming else Outcome.UNKNOWN)     # else: we may have rung the phone
             self.emit("error", code=exc.code)
             self._finish(outcome, exc.code)
             return
@@ -255,6 +281,30 @@ class CallSession:
                 if not task.done():
                     task.cancel()
 
+    async def _accept_until_done(self) -> None:
+        """``transport.accept`` raced against the end of the call: a STOP or hangup while the media comes up cancels the accept
+        and the teardown hangs up through the transport (which declines a call that was never answered)."""
+        accept = getattr(self.transport, "accept", None)
+        if accept is None:
+            raise CallError("INCOMING_NOT_SUPPORTED")
+        loop = asyncio.get_running_loop()
+        task = loop.create_task(accept(self.incoming, answer_timeout=self.cfg.answer_timeout_s), name="calls-accept")
+        ended = loop.create_task(self._done.wait(), name="calls-accept-ended")
+        try:
+            await asyncio.wait({task, ended}, timeout=self.cfg.answer_timeout_s + 5.0, return_when=asyncio.FIRST_COMPLETED)
+            if not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await task
+                if self._outcome is None:
+                    raise CallError("CALL_NO_ANSWER", detail="accept_timeout")
+                return
+            task.result()
+        finally:
+            for t in (task, ended):
+                if not t.done():
+                    t.cancel()
+
     async def _converse(self) -> None:
         self.playout.start()
         loop = asyncio.get_running_loop()
@@ -263,8 +313,31 @@ class CallSession:
                        loop.create_task(self._greet(), name="calls-greet")]
         await self._done.wait()
 
+    async def _drain_for_log(self) -> None:
+        """The call ended on its own (the peer hung up): keep the peer's last words for the answering log. A turn whose STT is
+        still running is awaited (and not answered); an utterance that was still open is transcribed. STOP keeps nothing."""
+        if not self.cfg.keep_transcript or self._stopping or self._outcome == Outcome.STOPPED:
+            return
+        self._draining = True
+        task = self._turn_task
+        try:
+            if task is not None and not task.done() and self._stage == "stt":
+                with contextlib.suppress(asyncio.CancelledError, asyncio.TimeoutError, Exception):
+                    await asyncio.wait_for(asyncio.shield(task), self.cfg.stt_timeout_s)
+            stream, self._stt_stream = self._stt_stream, None
+            if self._utt_open and stream is not None:
+                self._utt_open = False
+                with contextlib.suppress(asyncio.CancelledError, asyncio.TimeoutError, Exception):
+                    res = await asyncio.wait_for(stream.finalize(), self.cfg.stt_timeout_s)
+                    text = (res.text or "").strip()
+                    if text and _WORD.search(text):
+                        self._history.append(Turn("user", text))
+        except Exception:  # noqa: BLE001 - keeping the last words is best effort
+            pass
+
     async def _teardown(self) -> None:
         try:
+            await self._drain_for_log()
             self._cancel.cancel("teardown")
             self.playout.invalidate()
             if self._stt_stream is not None:
@@ -302,6 +375,11 @@ class CallSession:
             self.record.outcome = self._outcome
             self.record.error_code = self._error_code
             self.record.summary = await self._summary()
+            if self.cfg.keep_transcript:               # only the answering machine's log keeps words, and never through ``record``
+                self.transcript = [{"role": t.role, "text": t.text, "interrupted": bool(t.interrupted)}
+                                   for t in self._history if t.text.strip()]
+                for pending in self._pending_user:
+                    self.transcript.append({"role": "user", "text": pending, "interrupted": False})
             self._history.clear()                      # transcript is not kept
             self._pending_user.clear()
             self._set_state(CallState.ENDED)
@@ -324,9 +402,11 @@ class CallSession:
         turns = list(self._history)
         user_turns = sum(1 for t in turns if t.role == "user")
         dur = (self.record.ended_at or self._wall()) - self.record.started_at
+        kind = "Входящий звонок на автоответчик" if self.incoming is not None else "Звонок ассистента на выбранный аккаунт"
         mechanical = CallSummary(
-            text=(f"Звонок ассистента на выбранный аккаунт: {user_turns} реплик собеседника, {dur:.0f} с, "
-                  f"исход: {self._outcome.value if self._outcome else 'unknown'}. Содержание не сохранялось."),
+            text=(f"{kind}: {user_turns} реплик собеседника, {dur:.0f} с, "
+                  f"исход: {self._outcome.value if self._outcome else 'unknown'}. "
+                  + ("Содержание — в журнале автоответчика." if self.cfg.keep_transcript else "Содержание не сохранялось.")),
             agreed_tasks=[], generated_by="mechanical")
         if user_turns == 0 or self._outcome in (Outcome.STOPPED,) or self._stopping:      # STOP starts no new model call
             return mechanical
@@ -413,6 +493,8 @@ class CallSession:
             self.emit("log", msg="media_reconnected")
         elif ev.kind == TransportEventKind.ENDED:
             if self._outcome is None:
+                if ev.reason == "peer_hangup":
+                    self.interrupted_by_hangup = bool(self._utt_open or self.ep.in_speech)
                 if ev.reason in ("peer_hangup", "local_hangup"):
                     self._finish(Outcome.COMPLETED)
                 else:
@@ -497,6 +579,8 @@ class CallSession:
             pass
 
     def _barge_in_wanted(self, now: float) -> bool:
+        if self._greeting_active and self.cfg.greeting_uninterruptible:
+            return False                                 # the caller must hear who answers before anything else
         run = self.ep.run
         if run.windows == 0:
             self._echo_block_run = 0
@@ -633,6 +717,8 @@ class CallSession:
             m.user_chars = len(text)
             self.record.turns.append(m)
             self.emit("turn", turn=m.turn_id, user_chars=m.user_chars, stt_ms=m.stt_ms)
+            if self._draining:                                 # the peer is gone: keep the words, answer nobody
+                return
             self._stage = "respond"
             await self._respond(text, m)
         finally:
@@ -782,17 +868,24 @@ class CallSession:
 
     # ================================================================== greeting / watchdog
     async def _greet(self) -> None:
-        try:
-            await asyncio.wait_for(self._user_spoke.wait(), self.cfg.greet_wait_s)
-            return                                     # the callee spoke first («алло»): just listen and answer
-        except asyncio.TimeoutError:
-            pass
+        if self.cfg.greet_always:
+            await asyncio.sleep(self.cfg.greet_wait_s)      # an answering machine always says who it is, hello or not
+        else:
+            try:
+                await asyncio.wait_for(self._user_spoke.wait(), self.cfg.greet_wait_s)
+                return                                 # the callee spoke first («алло»): just listen and answer
+            except asyncio.TimeoutError:
+                pass
         if self.cfg.greeting and not self._stopping and self._outcome is None:
             m = TurnMetrics(turn_id=0)
             self._gen_metrics[self.playout.generation] = m
             if _DISCLOSES.search(self.cfg.greeting):
                 self._disclosed = True
-            await self._say_canned(self.cfg.greeting)
+            self._greeting_active = True
+            try:
+                await self._say_canned(self.cfg.greeting)
+            finally:
+                self._greeting_active = False
 
     async def _watchdog(self) -> None:
         while not self._done.is_set():
@@ -801,6 +894,11 @@ class CallSession:
             if self._active_since is not None and now - self._active_since >= self.cfg.max_call_s:
                 self._finish(Outcome.MAX_DURATION, "MAX_DURATION")
                 return
+            lead = min(self.cfg.closing_lead_s, self.cfg.max_call_s / 3.0)
+            if (self.cfg.closing_text and not self._closing_said and self._active_since is not None
+                    and now - self._active_since >= self.cfg.max_call_s - lead and not self._stopping):
+                self._closing_said = True                # one polite line before the hard cut-off
+                asyncio.get_running_loop().create_task(self._say_canned(self.cfg.closing_text))
             if self._disconnected_at is not None and now - self._disconnected_at >= self.cfg.reconnect_grace_s:
                 self._finish(Outcome.CONNECTION_LOST, "CONNECTION_LOST")
                 return

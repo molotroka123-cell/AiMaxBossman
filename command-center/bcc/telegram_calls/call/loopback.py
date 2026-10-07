@@ -18,7 +18,8 @@ from typing import Callable
 import numpy as np
 
 from ..audio.pcm import StreamResampler, to_float, to_pcm
-from ..types import AudioFormat, CallError, PeerRef, TransportEvent, TransportEventKind
+from ..types import (AudioFormat, CallError, GONE_ANSWERED_ELSEWHERE, GONE_CALLER_HANGUP, IncomingCall, PeerRef,
+                     TransportEvent, TransportEventKind)
 
 
 class LoopbackTransport:
@@ -47,6 +48,12 @@ class LoopbackTransport:
         self.closed = False
         self.ended = False
         self.media_up = False
+        self.accept_calls = 0                            # incoming side: how many times this transport answered (at most one)
+        self.connected_once = False
+        self.accept_error: CallError | None = None
+        self.driver = None                               # optional ``async def (transport)``: the synthetic caller, started on connect
+        self._driver_task: asyncio.Task | None = None
+        self._on_hangup: Callable[[str], None] | None = None   # set by LoopbackLine: the caller side learns that we hung up / declined
         self._rng = np.random.default_rng(7)
         self._rx_frames: deque[bytes] = deque()          # driver audio waiting for its 20 ms slot
         self._echo_ticks: dict[int, np.ndarray] = {}     # tick index -> echo samples to mix in
@@ -68,9 +75,27 @@ class LoopbackTransport:
         if self.ring_s > ring_timeout:
             raise CallError("CALL_NO_ANSWER")
         self.media_up = True
+        self.connected_once = True
         self._t0 = self._clock()
         self._line_task = asyncio.get_running_loop().create_task(self._line(), name="loopback-line")
         self._emit(TransportEventKind.CONNECTED)
+
+    async def accept(self, call: IncomingCall, *, answer_timeout: float) -> None:
+        """Answer the ringing call this transport was made for. Never dials; at most once."""
+        self.accept_calls += 1
+        if self.accept_calls > 1:
+            raise CallError("CALL_IN_PROGRESS", detail="accept_twice")
+        if self.ended:                                   # the caller was already gone
+            raise CallError("CALL_DISCARDED")
+        if self.accept_error is not None:
+            raise self.accept_error
+        self.media_up = True
+        self.connected_once = True
+        self._t0 = self._clock()
+        self._line_task = asyncio.get_running_loop().create_task(self._line(), name="loopback-line")
+        self._emit(TransportEventKind.CONNECTED)
+        if self.driver is not None:
+            self._driver_task = asyncio.get_running_loop().create_task(self.driver(self), name="loopback-caller-script")
 
     async def _line(self) -> None:
         """The far end's microphone line: one 20 ms frame per tick = driver audio (or silence) + delayed echo."""
@@ -126,10 +151,14 @@ class LoopbackTransport:
         if not self.ended:
             self.ended = True
             self.media_up = False
+            if self._on_hangup is not None:
+                self._on_hangup(reason)
             self._emit(TransportEventKind.ENDED, "local_hangup")
 
     async def close(self) -> None:
         self.closed = True
+        if self._driver_task is not None and not self._driver_task.done():
+            self._driver_task.cancel()
 
     # ------------------------------------------------------------ driver side (the synthetic interlocutor)
     def inject(self, pcm: bytes) -> None:
@@ -167,3 +196,92 @@ class LoopbackTransport:
     def _emit(self, kind: TransportEventKind, reason: str = "") -> None:
         if self._event_cb is not None:
             self._event_cb(TransportEvent(kind, reason, self._clock()))
+
+
+class LoopbackLine:
+    """The incoming-call hook of the loopback engine (``CallLine``): NOT Telegram. A test or the offline self-test makes the
+    phone "ring" with ``ring`` and plays the caller with ``caller_hangup`` / ``owner_answers_elsewhere`` / the transport's
+    ``feed_realtime``. Everything the machine did to the call is recorded (``accepted``, ``rejected``, ``declined_by_hangup``)."""
+
+    name = "loopback"
+    live_tested = False
+
+    def __init__(self, *, transport_kwargs: dict | None = None, driver=None, clock: Callable[[], float] = time.time):
+        self._kw = dict(transport_kwargs or {})
+        self.driver = driver
+        self._clock = clock
+        self._incoming_cb: Callable[[IncomingCall], None] | None = None
+        self._gone_cb: Callable[[str, str], None] | None = None
+        self.listening = False
+        self.listen_calls = 0
+        self.closed = False
+        self.rung: list[IncomingCall] = []
+        self.transports: dict[str, LoopbackTransport] = {}
+        self.rejected: list[tuple[str, str]] = []             # (call_ref, reason): we declined a call we had not answered
+        self.declined_by_hangup: list[tuple[str, str]] = []   # a transport hung up before it ever connected
+        self.gone: dict[str, str] = {}
+        self._n = 0
+
+    # ------------------------------------------------------------ CallLine
+    async def listen(self) -> None:
+        self.listen_calls += 1
+        self.listening = True
+
+    def set_incoming_callback(self, cb) -> None:
+        self._incoming_cb = cb
+
+    def set_gone_callback(self, cb) -> None:
+        self._gone_cb = cb
+
+    def new_transport(self, call: IncomingCall) -> LoopbackTransport:
+        tr = LoopbackTransport(**self._kw)
+        tr.driver = self.driver
+        if self.gone.get(call.call_ref) in (GONE_CALLER_HANGUP, "rejected"):   # the caller is gone / we declined: accept must fail
+            tr.ended = True
+        tr._on_hangup = lambda reason, ref=call.call_ref, t=tr: self._transport_hung_up(ref, t, reason)
+        self.transports[call.call_ref] = tr
+        return tr
+
+    async def reject(self, call: IncomingCall, reason: str = "rejected") -> None:
+        self.rejected.append((call.call_ref, reason))
+        self.gone.setdefault(call.call_ref, "rejected")
+
+    async def close(self) -> None:
+        self.closed = True
+        self.listening = False
+
+    def _transport_hung_up(self, ref: str, tr: LoopbackTransport, reason: str) -> None:
+        if not tr.connected_once:                             # hung up (declined) before the call was ever answered
+            self.declined_by_hangup.append((ref, reason))
+
+    # ------------------------------------------------------------ the far end (tests / offline self-test)
+    def ring(self, caller_id: int | None = 777001, label: str = "", *, ref: str | None = None) -> IncomingCall:
+        self._n += 1
+        call = IncomingCall(call_ref=ref or f"lo-in-{self._n}", caller_id=caller_id, caller_label=label,
+                            received_at=self._clock(), transport="loopback")
+        self.rung.append(call)
+        if self._incoming_cb is not None and self.listening:
+            self._incoming_cb(call)
+        return call
+
+    def caller_hangup(self, call: IncomingCall | str) -> None:
+        ref = call.call_ref if isinstance(call, IncomingCall) else call
+        tr = self.transports.get(ref)
+        if tr is not None and tr.connected_once:
+            tr.peer_hangup()                                  # an answered call: the transport reports ENDED(peer_hangup)
+            return
+        if tr is not None:
+            tr.ended = True                                   # a transport made but not yet connected: accept() will refuse
+        self.gone[ref] = GONE_CALLER_HANGUP
+        if self._gone_cb is not None:
+            self._gone_cb(ref, GONE_CALLER_HANGUP)
+
+    def owner_answers_elsewhere(self, call: IncomingCall | str) -> None:
+        ref = call.call_ref if isinstance(call, IncomingCall) else call
+        self.gone[ref] = GONE_ANSWERED_ELSEWHERE
+        if self._gone_cb is not None:
+            self._gone_cb(ref, GONE_ANSWERED_ELSEWHERE)
+
+    @property
+    def accepted(self) -> list[str]:
+        return [ref for ref, tr in self.transports.items() if tr.connected_once]

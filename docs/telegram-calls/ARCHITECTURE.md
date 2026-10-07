@@ -78,3 +78,44 @@ the two real accounts, on the owner's machine, can produce the PASS for the real
 * Bus events: `telegram_call.state` (state/phase/call_id/transport), `telegram_call.ended` (outcome, turns, latency p50): text-free, ≤ ~5/s.
 * CLI: `bossman call setup|status|contacts|peer|enable|disable|dial|hangup|stop|resume|events|history|save-memory|draft-tasks|doctor|selftest|install|logout` (`bossman call --help`).
 * Latency, echo and intelligibility on a real line are **not** claimed anywhere until they are measured on the owner's machine (see `ACCEPTANCE.md`).
+
+## Incoming calls: the answering machine (автоответчик)
+
+Status: **emulator-verified only. No incoming call has ever reached this code on a real Telegram account** (ACCEPTANCE rows AM-9…AM-12).
+It is the same Jeff call surface (`surface="call"`) answering a call that rings on the owner's account; no second brain, store, queue
+or Telegram engine.
+
+```
+phone rings ─► CallLine (loopback | py-tgcalls) ─► AnsweringMachine (in the worker) ─ ring delay ─► accept ─► CallSession(incoming=...)
+                  ▲ gone: caller hung up / owner answered elsewhere                                              │ AnsweringBrain(JeffBrain)
+                  │                                                                                              ▼
+owner STOP ───────┴─► machine.stop(): decline while ringing, hang up while answered        report  ar-<id>.json  (calls home / answering /)
+                                                                                                │ outbox: notify && !delivered
+Telegram companion (owner console) ◄── GET /api/telegram/calls/answering/reports?pending=true ◄─┘ ─► POST .../delivered
+```
+
+* **Settings** (`config.json`, owner-only through the owner-authenticated API/CLI, nothing a caller says reaches them):
+  `answering_machine` (default **off**), `answer_ring_delay_s` (12; 0..60), `answer_max_call_s` (180; 30..900),
+  `answer_allow_ids` (empty = any caller), `answer_deny_ids` (wins over the allow-list), `answer_allow_unknown` (true),
+  `answer_greeting` (must say that an assistant answers and must not claim to be the owner or a human).
+* **Transport hook** (`types.CallLine`, `types.AnswerableTransport`): `listen`, `set_incoming_callback`, `set_gone_callback`,
+  `new_transport(call)` (its `accept` answers, `dial` is never used), `reject`. Implemented by `call/loopback.LoopbackLine` (emulator) and
+  `call/pytgcalls_transport.PyTgCallsLine` + `PyTgCallsTransport.accept` (py-tgcalls 3.0.0: `ChatUpdate.INCOMING_CALL` -> `play()` answers ->
+  `leave_call()` declines). **The py-tgcalls path is written from the library source and tested against a fake engine only.**
+* **Decisions** (`answering.AnsweringMachine`), all re-read from disk when the call rings and again before answering:
+  off / not armed / STOP / another call in progress / denied / engines not ready -> the call is **not answered and not declined** (the
+  owner's phone keeps ringing) and is logged with a reason; STOP while ringing is the one case that declines. The owner picking up in time
+  (the line reports the call gone) means Jeff never joins. One incoming call at a time. A caller hanging up ends the call cleanly and the
+  caller's last words are still transcribed. The machine never places a call: there is no dial, callback or retry in it.
+* **Honesty and privacy**: the greeting is always spoken in full (not interruptible, spoken even when the caller says hello first);
+  the reply brief tells the model it is the owner's assistant, not the owner; a caller's request for the owner's credentials, personal
+  data or settings, or for breaking the rules, gets a fixed refusal and never reaches the model (`answering_policy.private_request`);
+  a reply that looks like a secret is replaced before any of it is spoken; the log is scrubbed of known secrets, tokens and phone numbers.
+* **The log**: the owner asked for a transcript, so the words of an answered call are kept ONLY in the answering report (and delivered to the
+  owner); `history.jsonl`, IPC records, bus events and the event ring stay text-free and caller-free. The post-call auto-save to Bossman
+  memory / draft tasks skips incoming calls.
+* **STOP**: calls STOP file (written first by every STOP path, including the global one) stops answering until the owner resumes; stop-all
+  sees an armed machine as the `calls` plane. The settings are not touched. After a worker restart the machine is not listening until the
+  owner arms it again (`bossman call answer on`): the worker still starts only on an owner action.
+* **Delivery**: a polled outbox (like the browser login receipts), not a push: the companion sends one notice to the owner console and
+  then acknowledges (at-least-once, never twice to the owner). Nothing in the calls module talks to Telegram's Bot API or reads a token.
