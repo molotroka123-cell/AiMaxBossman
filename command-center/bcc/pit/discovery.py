@@ -1,9 +1,35 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import StrEnum
 
 from .behavior_scores import discovery_threshold_adjustment
+
+_NUMERIC_FIELDS = (
+    "relevance",
+    "uncertainty",
+    "future_utility",
+    "annoyance_cost",
+    "sensitivity_risk",
+)
+
+
+def _is_finite_number(value: object) -> bool:
+    if not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except OverflowError:
+        return False
+
+
+def _is_selectable(candidate: DiscoveryCandidate) -> bool:
+    """Any non-finite numeric field is unknown risk, never a safe zero."""
+    return all(
+        _is_finite_number(getattr(candidate, field, None))
+        for field in _NUMERIC_FIELDS
+    )
 
 
 class DiscoveryMode(StrEnum):
@@ -25,6 +51,10 @@ class DiscoveryCandidate:
 
 
 def score(candidate: DiscoveryCandidate) -> float:
+    # Check finiteness first: a None/NaN sensitivity_risk must neither crash
+    # the comparison nor slip past the suppression check below.
+    if not _is_selectable(candidate):
+        return float("-inf")
     if candidate.previously_skipped or candidate.sensitivity_risk >= 0.5:
         return float("-inf")
     return (
