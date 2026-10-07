@@ -106,7 +106,7 @@
 ## 4. Локальный Genjutsu (перенос движения + замена объекта + липсинк-концерт)
 ### 4.1 Что уже есть
 - Планы: `Bossman_Motion_Concert_Faint\GENJUTSU_LOCAL_ALTERNATIVES_AND_SPEED.md` (сравнение проектов), `GENJUTSU_WAN_ANIMATE2_FINETUNE_PLAN.md` (Animate/Animate-2, baseline -> LoRA -> fine-tune, протокол сравнения, источники на 06.10).
-- Код/репозитории владельца: `C:\Users\asd\Bossman-genjutsu`, `C:\Users\asd\Bossman\wt-motion-animation-56` (содержимое сегодня НЕ изучалось, только листинг корня). `genjutsu.py` по плану от 06.10: VACE + поза/маски + композит фона + звук, статус «код есть, запуск на ПК не доказан». Код не запускался.
+- Код/репозитории владельца: `<HOME>\Bossman-genjutsu`, `<BOSSMAN_ROOT>\wt-motion-animation-56` (содержимое сегодня НЕ изучалось, только листинг корня). `genjutsu.py` по плану от 06.10: VACE + поза/маски + композит фона + звук, статус «код есть, запуск на ПК не доказан». Код не запускался.
 - Веса Animate в ComfyUI на 06.10: НЕ найдены [ИЗ ФАЙЛОВ]. Тест Animate-14B fp8 (KJ, scaled) 06.10 16:30: ComfyUI молча завершился на загрузке WAN22_Animate, 0 кадров, нет traceback; свободно 76 GB RAM (не память) [ИЗ ФАЙЛОВ: CONCERT_WORKFLOW_AUDIT_20261006.md]. Лог: `media-work\animate-test\comfyui_20261006_163001.log`.
 - Higgsfield Genjutsu (эталон): motion_control (перенос движения) и replace_object (замена объекта) через MCP; базовая модель не раскрыта, метрик нет [ИЗ ФАЙЛОВ].
 
