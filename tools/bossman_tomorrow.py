@@ -37,7 +37,8 @@ CAP_USD = 1.00
 PAID_ESTIMATE_USD = 0.10          # conservative upper bound per paid cycle (GLM 5.3 Flash costs cents)
 MAX_PAID_PER_CASE = 2
 CASES = ("goal-budget", "atomic-json")          # 'discovery' already passed (cycle 23)
-LADDER = ("local", "openrouter-free", "nemotron-ultra-free", "nvidia-nim", "glm-flash")
+# owner 07.10: product code is written ONLY by free or local models; the paid GLM rung is gone (paid models audit, they do not code)
+LADDER = ("local", "openrouter-free", "nemotron-ultra-free", "nvidia-nim")
 RUNG_TIMEOUT = {"local": 1500, "openrouter-free": 1200, "nemotron-ultra-free": 1200, "nvidia-nim": 1200, "glm-flash": 1200}
 ZONES = ("plugins", "skills", "ops", "jeff", "memapps", "mediaux", "agcloud")
 HEAVY = {"selfrepair", "replay", "ux"}
