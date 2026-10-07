@@ -100,7 +100,8 @@ def test_paid_worker_needs_the_explicit_owner_flag(monkeypatch, capsys):
     assert cyc.main(["--worker", "glm-flash", "--evidence", "x"]) == 2
     assert "SELF_REPAIR=REFUSED" in capsys.readouterr().out
     assert cyc.main(["--worker", "some-other-paid", "--allow-paid-worker", "glm-flash", "--evidence", "x"]) == 2
-    assert cyc.OWNER_APPROVED_PAID == {"glm-flash": "z-ai/glm-5.3-flash"}
+    # owner 07.10: Haiku 5.5 approved next to GLM Flash; anything else stays refused
+    assert cyc.OWNER_APPROVED_PAID == {"glm-flash": "z-ai/glm-5.3-flash", "haiku-5.5": "anthropic/claude-haiku-5.5"}
 
 
 # ---- case `atomic-json` (audit 07.10): wiring + holdout behave on a known-good and a known-bad implementation ----

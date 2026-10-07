@@ -33,7 +33,7 @@ from tree_self_improve import NODE_ID, refuse_worker  # noqa: E402
 
 # Owner 06.10: GLM 5.3 Flash via OpenRouter is approved (z-ai/glm-5.3-flash, $0.15/$0.50 per 1M tokens, verified on
 # openrouter.ai/api/v1/models 06.10). Only an explicit --allow-paid-worker naming it lifts the $0 rule, for that worker.
-OWNER_APPROVED_PAID = {"glm-flash": "z-ai/glm-5.3-flash"}
+OWNER_APPROVED_PAID = {"glm-flash": "z-ai/glm-5.3-flash", "haiku-5.5": "anthropic/claude-haiku-5.5"}  # Haiku: owner 07.10
 PROJECT = "capability-tree"            # the project id tree zone tasks run under; recipes are recalled per project
 CASES: dict[str, dict[str, Any]] = {
     "discovery": {

@@ -122,6 +122,9 @@ WORKERS: dict[str, dict[str, str]] = {
                             "key": "OPENROUTER_API_KEY", "label": "OpenRouter · Nemotron 3 Ultra 550B (free)"},
     "glm-flash": {"endpoint": "https://openrouter.ai/api/v1", "model": "z-ai/glm-5.3-flash",
                   "key": "OPENROUTER_API_KEY", "label": "OpenRouter · GLM 5.3 Flash (paid, ~$0.00004/call)"},
+    # owner 07.10: Haiku 5.5 via OpenRouter ($0.10/$0.50 per M, tools, 1M ctx) for self-repair step 3 and audits
+    "haiku-5.5": {"endpoint": "https://openrouter.ai/api/v1", "model": "anthropic/claude-haiku-5.5",
+                  "key": "OPENROUTER_API_KEY", "label": "OpenRouter · Claude Haiku 5.5 (paid, cheap)"},
 }
 #: The owner's local provider key file (user ACL); read only when the vault/env has no key.
 OWNER_KEYS_FILE = Path(os.environ.get("LOCALAPPDATA", "")) / "Bossman" / "keys" / "provider-keys.env"
