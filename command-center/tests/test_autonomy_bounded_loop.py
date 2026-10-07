@@ -159,7 +159,10 @@ async def test_tree_runner_kills_the_whole_worker_tree_when_stop_appears(tmp_pat
     res = await runner.run([sys.executable, "-c", "import time; time.sleep(120)"], cwd=tmp_path, stdin=b"",
                            timeout=120.0, env=None)
     assert time.monotonic() - started < 60 and runner.stopped.startswith("owner STOP")
-    assert res.timed_out is False and pids and not procs[0].is_running()
+    # Windows keeps a dead process visible to is_running() for ~50 ms while the Popen handle is open;
+    # wait for the exit instead of sampling once (the process itself is already gone, see 07.10 probes).
+    gone, alive = psutil.wait_procs(procs[:1], timeout=5)
+    assert res.timed_out is False and pids and not alive
 
 
 async def test_request_stop_kills_processes_registered_with_the_lease(world):
