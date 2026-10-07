@@ -1,0 +1,190 @@
+{
+ "1": {
+  "class_type": "UNETLoader",
+  "inputs": {
+   "unet_name": "wan2.2_s2v_14B_fp8_scaled.safetensors",
+   "weight_dtype": "default"
+  }
+ },
+ "10": {
+  "class_type": "ModelSamplingSD3",
+  "inputs": {
+   "model": [
+    "15",
+    0
+   ],
+   "shift": 8.0
+  }
+ },
+ "11": {
+  "class_type": "WanSoundImageToVideo",
+  "inputs": {
+   "audio_encoder_output": [
+    "6",
+    0
+   ],
+   "batch_size": 1,
+   "height": "{{height}}",
+   "length": "{{frames}}",
+   "negative": [
+    "9",
+    0
+   ],
+   "positive": [
+    "8",
+    0
+   ],
+   "ref_image": [
+    "7",
+    0
+   ],
+   "vae": [
+    "3",
+    0
+   ],
+   "width": "{{width}}"
+  }
+ },
+ "12": {
+  "class_type": "KSampler",
+  "inputs": {
+   "cfg": 1.0,
+   "denoise": 1.0,
+   "latent_image": [
+    "11",
+    2
+   ],
+   "model": [
+    "10",
+    0
+   ],
+   "negative": [
+    "11",
+    1
+   ],
+   "positive": [
+    "11",
+    0
+   ],
+   "sampler_name": "uni_pc",
+   "scheduler": "simple",
+   "seed": "{{seed}}",
+   "steps": 4
+  }
+ },
+ "13": {
+  "class_type": "VAEDecode",
+  "inputs": {
+   "samples": [
+    "12",
+    0
+   ],
+   "vae": [
+    "3",
+    0
+   ]
+  }
+ },
+ "14": {
+  "class_type": "CreateVideo",
+  "inputs": {
+   "audio": [
+    "5",
+    0
+   ],
+   "fps": "{{fps}}",
+   "images": [
+    "13",
+    0
+   ]
+  }
+ },
+ "15": {
+  "class_type": "LoraLoaderModelOnly",
+  "inputs": {
+   "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors",
+   "model": [
+    "1",
+    0
+   ],
+   "strength_model": 1.0
+  }
+ },
+ "16": {
+  "class_type": "SaveVideo",
+  "inputs": {
+   "codec": "auto",
+   "filename_prefix": "BOSSMAN/direct",
+   "format": "mp4",
+   "video": [
+    "14",
+    0
+   ]
+  }
+ },
+ "2": {
+  "class_type": "CLIPLoader",
+  "inputs": {
+   "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+   "device": "default",
+   "type": "wan"
+  }
+ },
+ "3": {
+  "class_type": "VAELoader",
+  "inputs": {
+   "vae_name": "wan_2.1_vae.safetensors"
+  }
+ },
+ "4": {
+  "class_type": "AudioEncoderLoader",
+  "inputs": {
+   "audio_encoder_name": "wav2vec2_large_english_fp16.safetensors"
+  }
+ },
+ "5": {
+  "class_type": "LoadAudio",
+  "inputs": {
+   "audio": "{{audio}}"
+  }
+ },
+ "6": {
+  "class_type": "AudioEncoderEncode",
+  "inputs": {
+   "audio": [
+    "5",
+    0
+   ],
+   "audio_encoder": [
+    "4",
+    0
+   ]
+  }
+ },
+ "7": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "image": "{{image}}"
+  }
+ },
+ "8": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "clip": [
+    "2",
+    0
+   ],
+   "text": "{{prompt}}"
+  }
+ },
+ "9": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "clip": [
+    "2",
+    0
+   ],
+   "text": "{{negative}}"
+  }
+ }
+}

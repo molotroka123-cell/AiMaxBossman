@@ -1,6 +1,6 @@
 """Direct Generation window API (authenticated like every feature router, under /api).
 
-  GET  /direct-gen/models                 installed video models + real availability/reason
+  GET  /direct-gen/models                 installed photo + video models (kind) with real availability/reason
   GET  /direct-gen/status                 runtime reachability, memory, queue, ASSISTED availability
   POST /direct-gen/jobs                   create a job (mode DIRECT: prompt goes to the model as written)
   GET  /direct-gen/jobs, /jobs/{id}       this participant's history / one job
@@ -33,6 +33,7 @@ class JobIn(BaseModel):
     duration: float = 4
     resolution: str = Field(default="480x320", max_length=16)
     seed: int | None = None
+    steps: int | None = Field(default=None, ge=1, le=200)
     mode: str = Field(default="DIRECT", max_length=16)
     assist_id: str | None = Field(default=None, max_length=64)
     assist_choice: str | None = Field(default=None, max_length=16)
