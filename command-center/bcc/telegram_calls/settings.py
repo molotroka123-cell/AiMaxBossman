@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -36,6 +37,29 @@ def secret_home() -> Path:
     return Path(override).parent if override else data_dir()
 
 
+#: the spoken line of the answering machine when nothing else is configured: honest about WHO answers, never "I am the owner"
+DEFAULT_ANSWER_GREETING = ("Здравствуйте! Это Джефф, ИИ-ассистент владельца. Он сейчас не может ответить. "
+                           "Я приму сообщение: скажите, кто вы и что ему передать?")
+MAX_ANSWER_LIST = 200
+_ASSISTANT_WORDS = re.compile(r"(?i)ассистент|автоответчик|помощник|секретар|искусственн|\bии\b|\bai\b|\bбот\b|нейросет")
+_HUMAN_CLAIM = re.compile(r"(?i)\bя\s+(?:сам|человек|живой|владелец|хозяин)\b|\bэто\s+сам\b|\bговорит\s+(?:сам|владелец|хозяин)\b"
+                          r"|\bi\s+am\s+(?:a\s+)?(?:human|the\s+owner)(?!['’])\b|\bthis\s+is\s+the\s+owner(?!['’])\b")
+
+
+def check_answer_greeting(text: str) -> str | None:
+    """None when the answering-machine greeting is honest, else a short reason: it must say that an assistant (not the owner,
+    not a person) is speaking, and must never claim to be the human owner."""
+    if not isinstance(text, str) or not text.strip():
+        return "greeting is empty"
+    if len(text) > 240:
+        return "greeting too long"
+    if _HUMAN_CLAIM.search(text):
+        return "greeting must not claim to be the owner or a human"
+    if not _ASSISTANT_WORDS.search(text):
+        return "greeting must say that an assistant answers"
+    return None
+
+
 @dataclass(frozen=True)
 class CallSettings:
     enabled: bool = False                      # calls are OFF until the owner switches them on
@@ -53,6 +77,14 @@ class CallSettings:
     auto_save_to_bossman_memory: bool = False  # OFF: the owner saves the summary / drafts tasks with one click (Jeff must not write owner data)
     vad: str = "auto"                          # auto | silero | energy
     language: str = "ru"                       # ru | en | auto: what the other person speaks (STT language, fixed phrases, voice); "auto" = Whisper decides
+    # ---- answering machine (incoming calls). OFF by default; only the owner can change these (the API/CLI are owner-authenticated)
+    answering_machine: bool = False            # Jeff takes an incoming call when the owner does not
+    answer_ring_delay_s: int = 12              # the owner gets this long to pick up himself; if he does, Jeff never joins
+    answer_max_call_s: int = 180               # hard cut-off of an answered call
+    answer_allow_ids: list = field(default_factory=list)   # callers allowed to be answered; empty = any caller
+    answer_deny_ids: list = field(default_factory=list)    # callers never answered (the owner's phone keeps ringing)
+    answer_allow_unknown: bool = True          # a caller the engine cannot identify may be answered
+    answer_greeting: str = DEFAULT_ANSWER_GREETING
     extra: dict = field(default_factory=dict)  # forward-compatible, ignored keys are kept, never executed
 
     def __post_init__(self):
@@ -83,6 +115,20 @@ class CallSettings:
             bad("greeting too long")
         if not isinstance(self.extra, dict):
             bad("extra must be an object")
+        if type(self.answering_machine) is not bool or type(self.answer_allow_unknown) is not bool:
+            bad("answering_machine and answer_allow_unknown must be booleans")
+        for name, lo, hi in (("answer_ring_delay_s", 0, 60), ("answer_max_call_s", 30, 900)):
+            v = getattr(self, name)
+            if type(v) is not int or not lo <= v <= hi:
+                bad(f"{name} must be an integer {lo}..{hi}")
+        for name in ("answer_allow_ids", "answer_deny_ids"):
+            v = getattr(self, name)
+            if (not isinstance(v, list) or len(v) > MAX_ANSWER_LIST or len(set(v)) != len(v)
+                    or any(type(i) is not int or not 0 < i < 2 ** 52 for i in v)):
+                bad(f"{name} must be a list of up to {MAX_ANSWER_LIST} distinct Telegram user ids")
+        reason = check_answer_greeting(self.answer_greeting)
+        if reason:
+            bad(reason)
 
     @property
     def peer(self) -> PeerRef | None:

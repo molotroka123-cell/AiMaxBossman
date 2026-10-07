@@ -23,12 +23,21 @@ class Engines:
     notes: dict | None = None                 # what was actually used (models, fallbacks) — shown by status/doctor
 
 
-async def build_engines(settings: CallSettings, mode: str = "", stopped: Callable[[], bool] = lambda: False) -> Engines:
+async def build_engines(settings: CallSettings, mode: str = "", stopped: Callable[[], bool] = lambda: False, *,
+                        answering: bool = False) -> Engines:
     if mode == "offline_test":
         from .scripted import ScriptedBrain, ScriptedSTT, ToneTTS
         from ..audio.vad import make_vad
+        if answering:
+            from ..call.selftest import ANSWERING_CALLER_LINES, ANSWERING_REPLIES
+            stt = ScriptedSTT()
+            for line in ANSWERING_CALLER_LINES:                    # what the synthetic caller of the offline line says, in order
+                stt.expect(line)
+            return Engines(stt=stt, tts=ToneTTS(), vad=make_vad(settings.vad),
+                           brain=ScriptedBrain(list(ANSWERING_REPLIES)),
+                           notes={"engines": "scripted (offline test mode)", "mode": "answering"})
         return Engines(stt=ScriptedSTT(), tts=ToneTTS(),
                        brain=ScriptedBrain(["Привет! Я тебя слышу.", "Я умею разговаривать голосом и запоминать итоги.", "До свидания! [конец]"]),
                        vad=make_vad(settings.vad), notes={"engines": "scripted (offline test mode)"})
     from .jeff_engines import build_jeff_engines
-    return await build_jeff_engines(settings, stopped=stopped)
+    return await build_jeff_engines(settings, stopped=stopped, answering=answering)

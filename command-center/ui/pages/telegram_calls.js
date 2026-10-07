@@ -67,6 +67,23 @@ export function isTestMode(st) {
   return !!(st && (st.mode === 'offline_test' || st.transport === 'loopback' || st.test_label));
 }
 
+/** Автоответчик словами (входящие звонки). Не обещает ничего сверх того, что известно: настоящий приём ещё не проверен в живую. */
+export function answeringWords(st) {
+  const a = st && st.answering;
+  if (!a || !a.enabled) return { on: false, tone: 'dim', text: 'Автоответчик выключен (так задано по умолчанию): входящие звонят только вам.' };
+  if (!a.armed) {
+    return { on: true, tone: 'warn', text: 'Включён в настройках, но не запущен: входящие не принимаются. Подключите аккаунт и повторите включение.' };
+  }
+  const ready = { ready: 'готов', loading: 'модели загружаются — входящий будет пропущен', failed: 'модели не загрузились — входящий будет пропущен' }[a.ready_state] || 'готовится';
+  let text = `Слушает, ${ready}. Если вы не возьмёте трубку за ${a.ring_delay_s} с, ответит Джефф (представится ассистентом).`;
+  if (a.in_call) text += ' Сейчас отвечает на звонок.';
+  else if (a.ringing) text += ' Идёт звонок: ждёт, ответите ли вы сами.';
+  if (a.stopped) text += ' ОСТАНОВЛЕН (STOP): не отвечает, пока вы не нажмёте «Продолжить».';
+  if (a.pending_reports) text += ` Отчётов, ещё не отправленных вам в Telegram: ${a.pending_reports}.`;
+  if (!a.live_tested) text += ' Приём настоящих входящих ещё не проверен в живую.';
+  return { on: true, tone: a.stopped || a.ready_state !== 'ready' ? 'warn' : 'ok', text };
+}
+
 /** Что можно нажать сейчас и ПОЧЕМУ нельзя остальное (title у каждой недоступной кнопки). */
 export function controlState(st, { confirmUnknown = false } = {}) {
   const stopTitle = 'Остановить звонок и заблокировать звонки, пока вы не нажмёте «Продолжить»';
@@ -362,6 +379,12 @@ class CallsView {
     r.autoSaveBox = h('input', { type: 'checkbox', name: 'tc-autosave' });
     r.autoSaveBox.addEventListener('change', () => this.setAutoSave(r.autoSaveBox.checked));
 
+    const ans = toggle(false, (on) => this.setAnswering(on), 'Автоответчик: Джефф берёт входящий вместо вас, если вы не ответили');
+    r.ansInput = ans.querySelector('input');
+    r.ansInput.name = 'tc-answering';
+    r.ansInput.setAttribute('aria-label', 'Автоответчик для входящих звонков');
+    r.ansStatus = h('div.small', { 'data-testid': 'tc-answering-status' });
+
     r.liveState = h('span.tc-live-state', { 'data-testid': 'tc-live-state' }, STATE_WORDS.idle);
     r.livePhase = h('span.small.dim', { 'data-testid': 'tc-live-phase' });
     r.live = h('div.tc-live', r.liveState, r.livePhase);
@@ -384,6 +407,8 @@ class CallsView {
     return h('div.stack.sm',
       h('div.row', sw, h('b', 'Разрешить звонки'), r.enabledHint),
       h('label.check', r.autoSaveBox, h('span', 'Сразу записывать краткий итог звонка в память Bossman (по умолчанию выключено)')),
+      h('div.row', ans, h('b', 'Автоответчик (входящие)')),
+      r.ansStatus,
       r.uncertainNote,
       r.live,
       h('div.row', r.dial, r.hangup, r.stop, r.resume),
@@ -432,6 +457,10 @@ class CallsView {
     r.enabledInput.checked = !!st.enabled;
     r.enabledHint.textContent = st.enabled ? 'включены' : 'выключены';
     if (st.postcall) r.autoSaveBox.checked = !!st.postcall.auto_save_to_bossman_memory;
+    const aw = answeringWords(st);
+    r.ansInput.checked = aw.on;
+    r.ansStatus.textContent = aw.text;
+    r.ansStatus.className = `small tc-answering-${aw.tone}`;
 
     const stopped = st.stop || {};
     r.stopNote.hidden = !stopped.active;
@@ -582,6 +611,14 @@ class CallsView {
     const res = await this.run(() => api.raw(`${BASE}/settings`, { method: 'PUT', body: { enabled: !!on } }),
       { ok: on ? 'Звонки разрешены' : 'Звонки выключены', fail: 'Настройка не сохранена' });
     if (!res && this.st) this.refs.enabledInput.checked = !!this.st.enabled;
+  }
+
+  async setAnswering(on) {
+    const res = await this.run(() => api.raw(`${BASE}/settings`, { method: 'PUT', body: { answering_machine: !!on } }),
+      { ok: on ? 'Автоответчик включён' : 'Автоответчик выключен', fail: 'Настройка не сохранена' });
+    const err = res && res.answering && res.answering.error;
+    if (err) toastError(err, 'Автоответчик включён в настройках, но не запущен');
+    if (!res && this.st) this.refs.ansInput.checked = !!(this.st.answering && this.st.answering.enabled);
   }
 
   async setAutoSave(on) {

@@ -16,6 +16,18 @@ Verified facts this module is built on (source reading + a native two-instance m
   stdout is its IPC channel and Bossman makes no unrequested external calls, so ``notice_displayed`` is set before ``start``;
 * Telethon's private ``_call/_sender/...`` are used by py-tgcalls' Telethon adapter: both packages are pinned exactly.
 
+INCOMING CALLS (answering machine) -- NOT LIVE-TESTED. ``PyTgCallsLine`` / ``PyTgCallsTransport.accept`` are written from the
+py-tgcalls 3.0.0 source and covered by unit tests against a fake engine only; no incoming call has ever reached this code on a
+real account. What the source says (pytgcalls/methods/internal/handle_mtproto_updates.py, connect_call.py, calls/leave_call.py):
+* a ringing P2P call arrives as ``ChatUpdate(user_id, Status.INCOMING_CALL)`` (``chat_id`` is the caller's user id) once the app
+  is started; py-tgcalls has already stored the key-exchange data for it, so ``play(user_id, MediaStream, CallConfig(timeout))``
+  ANSWERS it (``data.outgoing`` is False -> ``accept_call`` instead of ``request_call``) and returns when media is connected;
+* ``leave_call(user_id)`` on a call that has not been answered yet DECLINES it (``is_p2p_waiting`` -> ``discard_call``);
+* a call that stops ringing (caller gave up, or another device of the owner answered) arrives as a LEFT_CALL ``ChatUpdate``;
+  the library does not pass the discard reason on, so the line reports ``unknown`` (the owner is still told about the call).
+Unverified on a real account: that the owner's own phone keeps ringing while this session listens, that a decline by this
+session ends the ring on the owner's other devices, and the exact update seen when the owner answers elsewhere.
+
 Everything heavy is imported lazily; the ``_Engine`` seam is what the unit tests replace.
 """
 from __future__ import annotations
@@ -25,7 +37,8 @@ import logging
 import time
 from typing import Any, Callable, Protocol
 
-from ..types import AudioFormat, CallError, PeerRef, TransportEvent, TransportEventKind
+from ..types import (AudioFormat, CallError, GONE_UNKNOWN, IncomingCall, PeerRef, TransportEvent,
+                     TransportEventKind)
 
 log = logging.getLogger("bcc.telegram_calls.transport")
 
@@ -72,6 +85,8 @@ class _Engine(Protocol):
     def set_frame_handler(self, cb: Callable[[bytes], None]) -> None: ...
     def set_end_handler(self, cb: Callable[[bool], None]) -> None: ...   # (busy) -> None: the call was discarded
     def set_media_handler(self, cb: Callable[[bool], None]) -> None: ...  # (connected)
+    def set_incoming_handler(self, cb: Callable[[int], None]) -> None: ...  # (caller user id): a call is ringing
+    def set_left_handler(self, cb: Callable[[int, bool], None]) -> None: ...  # (user id, busy): any call went away
     async def close(self) -> None: ...
 
 
@@ -90,7 +105,15 @@ class PyTgCallsEngine:
         self._frame_cb: Callable[[bytes], None] | None = None
         self._end_cb: Callable[[bool], None] | None = None
         self._media_cb: Callable[[bool], None] | None = None
+        self._incoming_cb: Callable[[int], None] | None = None
+        self._left_cb: Callable[[int, bool], None] | None = None
         self._ended = False
+        self._started = False
+
+        async def on_incoming(_, update) -> None:       # NOT live-tested: a P2P call is ringing on this account
+            cb = self._incoming_cb
+            if cb is not None:
+                cb(int(getattr(update, "chat_id", 0) or 0))
 
         async def on_frames(_, update) -> None:         # runs once per 10 ms frame: must not block
             cb = self._frame_cb
@@ -99,15 +122,19 @@ class PyTgCallsEngine:
                     cb(frame.frame)
 
         async def on_left(_, update) -> None:
+            busy = bool(update.status & ChatUpdate.Status.BUSY_CALL)
+            left = self._left_cb
+            if left is not None:
+                left(int(getattr(update, "chat_id", 0) or 0), busy)
             if self._ended:
                 return
             self._ended = True
-            busy = bool(update.status & ChatUpdate.Status.BUSY_CALL)
             if self._end_cb is not None:
                 self._end_cb(busy)
 
         self._app.on_update(filters.stream_frame(Direction.INCOMING, Device.MICROPHONE))(on_frames)
         self._app.on_update(filters.chat_update(ChatUpdate.Status.LEFT_CALL))(on_left)
+        self._app.on_update(filters.chat_update(ChatUpdate.Status.INCOMING_CALL))(on_incoming)
         self._wrap_connection_changes()
 
     def _wrap_connection_changes(self) -> None:
@@ -130,11 +157,15 @@ class PyTgCallsEngine:
         self._app._handle_connection_changed = wrapped
 
     async def start(self) -> None:
+        if self._started:                                # the line starts the app once; a per-call transport reuses it
+            return
         await self._app.start()
+        self._started = True
 
     async def play(self, user_id: int, ring_timeout: int) -> None:
         from pytgcalls.types import CallConfig, ExternalMedia, MediaStream
         from pytgcalls.types.raw import AudioParameters
+        self._ended = False                              # a new call on a shared app: its end must be reported again
         stream = MediaStream(ExternalMedia.AUDIO, audio_parameters=AudioParameters(TX_RATE, 1))
         await self._app.play(user_id, stream, CallConfig(timeout=ring_timeout))
 
@@ -159,6 +190,12 @@ class PyTgCallsEngine:
     def set_media_handler(self, cb):
         self._media_cb = cb
 
+    def set_incoming_handler(self, cb):
+        self._incoming_cb = cb
+
+    def set_left_handler(self, cb):
+        self._left_cb = cb
+
     async def close(self) -> None:
         return None
 
@@ -168,8 +205,10 @@ class PyTgCallsTransport:
 
     name = "telegram"
 
-    def __init__(self, engine: _Engine, *, connect_grace_s: float = 30.0, clock: Callable[[], float] = time.monotonic):
+    def __init__(self, engine: _Engine, *, connect_grace_s: float = 30.0, clock: Callable[[], float] = time.monotonic,
+                 engine_started: bool = False):
         self._engine = engine
+        self._engine_started = engine_started          # a per-call transport of a ``PyTgCallsLine`` shares the line's running app
         self.audio_format = AudioFormat(sample_rate=TX_RATE)
         self.rx_sample_rate, self.frame_ms = RX_RATE, FRAME_MS
         self._frame_bytes = self.audio_format.frame_bytes(FRAME_MS)
@@ -194,6 +233,8 @@ class PyTgCallsTransport:
         self._event_cb = cb
 
     async def start(self) -> None:
+        if self._engine_started:
+            return
         try:
             await asyncio.wait_for(self._engine.start(), 30)
         except CallError:
@@ -217,6 +258,29 @@ class PyTgCallsTransport:
             if isinstance(exc, asyncio.TimeoutError):
                 # We do not know whether the phone rang: the session records UNKNOWN for anything that is not provable.
                 err = CallError("TELEGRAM_NETWORK", detail="dial_timeout")
+            raise err from None
+        self._connected = True
+        self._emit(TransportEventKind.CONNECTED)
+
+    async def accept(self, call: IncomingCall, *, answer_timeout: float) -> None:
+        """Answer a ringing incoming call (NOT live-tested). ``play`` on a call that is ringing IN answers it; there is no dial."""
+        if self._dialed:
+            raise CallError("CALL_IN_PROGRESS", detail="accept_twice")      # a transport instance answers at most once
+        if not call.known:
+            raise CallError("CALL_DISCARDED", detail="no_caller_id")
+        self._dialed = True
+        self._peer = PeerRef(int(call.caller_id), call.caller_label[:120])
+        try:
+            await asyncio.wait_for(self._engine.play(self._peer.user_id, int(answer_timeout)), answer_timeout + self._grace)
+            await asyncio.wait_for(self._engine.record(self._peer.user_id), 10)
+        except asyncio.CancelledError:
+            raise
+        except BaseException as exc:  # noqa: BLE001
+            err = map_call_error(exc if isinstance(exc, Exception) else RuntimeError())
+            if type(exc).__name__ == "CallDiscarded":
+                err = CallError("CALL_DISCARDED", detail="CallDiscarded")  # the caller gave up while we were answering
+            elif isinstance(exc, asyncio.TimeoutError):
+                err = CallError("CALL_NO_ANSWER", detail="accept_timeout")
             raise err from None
         self._connected = True
         self._emit(TransportEventKind.CONNECTED)
@@ -297,3 +361,84 @@ class PyTgCallsTransport:
 def build_transport(client: Any) -> PyTgCallsTransport:
     """Factory used by the worker: real engine over the already authorised Telethon client (inside the running loop)."""
     return PyTgCallsTransport(PyTgCallsEngine(client))
+
+
+class PyTgCallsLine:
+    """``CallLine`` over the py-tgcalls engine (NOT live-tested, see the module docstring): one long-lived app that watches for
+    ringing P2P calls and hands out one ``PyTgCallsTransport`` per call. It never answers or dials by itself."""
+
+    name = "telegram"
+    live_tested = False
+
+    def __init__(self, engine: _Engine, *, clock: Callable[[], float] = time.time):
+        self._engine = engine
+        self._clock = clock
+        self._incoming_cb: Callable[[IncomingCall], None] | None = None
+        self._gone_cb: Callable[[str, str], None] | None = None
+        self._ringing: dict[int, IncomingCall] = {}
+        self._n = 0
+        engine.set_incoming_handler(self._on_incoming)
+        engine.set_left_handler(self._on_left)
+
+    def set_incoming_callback(self, cb: Callable[[IncomingCall], None]) -> None:
+        self._incoming_cb = cb
+
+    def set_gone_callback(self, cb: Callable[[str, str], None]) -> None:
+        self._gone_cb = cb
+
+    async def listen(self) -> None:
+        try:
+            await asyncio.wait_for(self._engine.start(), 30)
+        except CallError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            raise map_call_error(exc) from None
+
+    def new_transport(self, call: IncomingCall) -> PyTgCallsTransport:
+        self._ringing.pop(int(call.caller_id or 0), None)            # from now on its end is the transport's ENDED event
+        return PyTgCallsTransport(self._engine, engine_started=True)
+
+    async def reject(self, call: IncomingCall, reason: str = "rejected") -> None:
+        self._ringing.pop(int(call.caller_id or 0), None)
+        if not call.known:
+            return
+        try:
+            await self._engine.leave_call(int(call.caller_id))      # on a call that was not answered this declines it
+        except Exception as exc:  # noqa: BLE001 - already gone is the same outcome for us
+            err = map_call_error(exc)
+            if err.code != "CONNECTION_LOST":
+                log.warning("decline of an incoming call failed: %s", err.code)
+
+    async def close(self) -> None:
+        await self._engine.close()
+
+    # ------------------------------------------------------------ engine callbacks
+    def _on_incoming(self, user_id: int) -> None:
+        if user_id in self._ringing:
+            return
+        self._n += 1
+        call = IncomingCall(call_ref=f"tg-in-{self._n}", caller_id=user_id, caller_label="", received_at=self._clock(),
+                            transport="telegram")
+        self._ringing[user_id] = call
+        cb = self._incoming_cb
+        if cb is not None:
+            try:
+                cb(call)
+            except Exception:  # noqa: BLE001
+                log.exception("incoming call observer failed")
+
+    def _on_left(self, user_id: int, busy: bool) -> None:
+        call = self._ringing.pop(user_id, None)
+        if call is None:
+            return                                                   # an answered call: its transport reports ENDED itself
+        cb = self._gone_cb
+        if cb is not None:
+            try:
+                cb(call.call_ref, GONE_UNKNOWN)
+            except Exception:  # noqa: BLE001
+                log.exception("incoming call observer failed")
+
+
+def build_line(client: Any) -> PyTgCallsLine:
+    """Factory used by the worker for the answering machine: the real engine over the authorised Telethon client."""
+    return PyTgCallsLine(PyTgCallsEngine(client))

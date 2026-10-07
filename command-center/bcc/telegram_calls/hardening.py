@@ -239,7 +239,7 @@ def check_owner_only(path: Path) -> AclReport:
 
 def check_calls_home(home: Path, secret_key: Path | None = None) -> list[AclReport]:
     """The files that matter: the calls directory, credentials.enc, config, state/history, the log, the Vault key."""
-    names = ["credentials.enc", "config.json", "state.json", "history.jsonl", "worker.log", "STOP"]
+    names = ["credentials.enc", "config.json", "state.json", "history.jsonl", "worker.log", "STOP", "answering"]
     reports = [check_owner_only(home)] + [check_owner_only(home / n) for n in names]
     if secret_key is not None:
         reports.append(check_owner_only(secret_key))

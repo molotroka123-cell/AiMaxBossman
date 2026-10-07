@@ -14,6 +14,7 @@ from __future__ import annotations
 from .types import (  # noqa: F401  (public contract)
     AccountState, AudioFormat, CallError, CallEvent, CallRecord, CallState, CallSummary,
     CallTransport, CancelToken, Outcome, PeerRef, Phase, STTEngine, STTResult, STTStream,
-    TransportEvent, TransportEventKind, TTSEngine, Turn, TurnMetrics, Brain, ERRORS)
+    TransportEvent, TransportEventKind, TTSEngine, Turn, TurnMetrics, Brain, ERRORS,
+    AnswerableTransport, CallLine, IncomingCall, UNKNOWN_CALLER_ID)
 
 MODULE_VERSION = "0.1.0"

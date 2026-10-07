@@ -192,13 +192,22 @@ _SUMMARY_SYSTEM = (
     "сделать; если такого нет, верни пустой список. Не выдумывай.")
 
 
+_ANSWERING_SUMMARY_SYSTEM = (
+    "Ты пишешь владельцу краткий отчёт о входящем звонке на автоответчик. Верни ТОЛЬКО JSON вида "
+    '{"summary": "...", "agreed_tasks": []}. summary — 2-3 коротких предложения в третьем лице: кто звонил (если назвался), '
+    "что ему нужно, насколько это срочно, просил ли он перезвонить. Без длинных цитат, без выдуманных фактов, без инструкций "
+    "кому-либо. Не включай пароли, коды и номера карт, даже если их назвали. agreed_tasks всегда пустой список.")
+
+
 class JeffBrain:
     """Jeff on a call, seen as the session's ``Brain``."""
 
     route = "jeff"
 
-    def __init__(self, runtime: Any, peer_user_id: int, *, model: str = "local", stopped: Callable[[], bool] = lambda: False):
+    def __init__(self, runtime: Any, peer_user_id: int, *, model: str = "local", stopped: Callable[[], bool] = lambda: False,
+                 summary_system: str = _SUMMARY_SYSTEM):
         self.runtime, self.peer, self.model, self._stopped = runtime, peer_user_id, model, stopped
+        self._summary_system = summary_system
         self._last_update: int | None = None
         self._call_id = ""
 
@@ -247,7 +256,7 @@ class JeffBrain:
         if adapter is None or not transcript:
             raise CallError("BRAIN_UNAVAILABLE", detail="no_local_model")
         result = await asyncio.wait_for(adapter.chat(
-            model, [{"role": "system", "content": _SUMMARY_SYSTEM}, {"role": "user", "content": transcript}],
+            model, [{"role": "system", "content": self._summary_system}, {"role": "user", "content": transcript}],
             max_tokens=260, timeout=20), timeout=22)
         text = _strip_fences(result.text)
         try:
@@ -333,8 +342,11 @@ def _read_sample_rate(model: str) -> int:
 
 async def build_jeff_engines(settings: CallSettings, *, pit_settings: Any | None = None, transcribe: Callable | None = None,
                              synthesize_pcm: Callable | None = None, env: dict | None = None,
-                             stopped: Callable[[], bool] = lambda: False) -> Engines:
-    """Assemble the real engines. Raises ``CallError`` with a code the doctor explains; never substitutes a cloud engine."""
+                             stopped: Callable[[], bool] = lambda: False, answering: bool = False) -> Engines:
+    """Assemble the real engines. Raises ``CallError`` with a code the doctor explains; never substitutes a cloud engine.
+
+    ``answering=True`` is the answering machine: the same call surface, with the reply brief of a message-taking assistant and a
+    summary prompt that asks for who / what / callback instead of agreed tasks. ``settings.peer_user_id`` is then the CALLER."""
     from bcc.pit import config as pit_config, speech
     from bcc.pit.call_surface import CallParticipantRuntime
     from bcc.oss import piper
@@ -359,7 +371,11 @@ async def build_jeff_engines(settings: CallSettings, *, pit_settings: Any | None
     if not stt_ready.get("available"):
         raise CallError("STT_UNAVAILABLE", detail=str(stt_ready.get("reason_code") or "not_configured"))
 
-    runtime = CallParticipantRuntime(pit_settings)           # created on the worker's event-loop thread (SQLite is thread-bound)
+    runtime_cls, summary_system = CallParticipantRuntime, _SUMMARY_SYSTEM
+    if answering:
+        from .answering_runtime import AnsweringParticipantRuntime
+        runtime_cls, summary_system = AnsweringParticipantRuntime, _ANSWERING_SUMMARY_SYSTEM
+    runtime = runtime_cls(pit_settings)                      # created on the worker's event-loop thread (SQLite is thread-bound)
     if runtime._blocked(settings.peer_user_id, settings.peer_user_id):
         await runtime.close()
         raise CallError("PEER_NOT_ALLOWED", detail="blocked")
@@ -369,8 +385,9 @@ async def build_jeff_engines(settings: CallSettings, *, pit_settings: Any | None
     tts = JeffTTS(synthesize_pcm=synthesize_pcm or piper.synthesize_pcm, exe=exe, model=model, egress_guard=_egress_guard,
                   stopped=stopped, sample_rate=_read_sample_rate(model), audit=make_call_audit(runtime.home / "logs"),
                   model_en=model_en)
-    brain = JeffBrain(runtime, settings.peer_user_id, model=pit_settings.local_models[0], stopped=stopped)
+    brain = JeffBrain(runtime, settings.peer_user_id, model=pit_settings.local_models[0], stopped=stopped,
+                      summary_system=summary_system)
     asyncio.get_running_loop().create_task(stt.warmup())
     return Engines(stt=stt, tts=tts, brain=brain, vad=make_vad(settings.vad),
                    notes={"engines": "jeff (local Whisper / Piper / local model)", "stt": stt.model, "tts": tts.voice,
-                          "llm": pit_settings.local_models[0], "surface": "call"})
+                          "llm": pit_settings.local_models[0], "surface": "call", **({"mode": "answering"} if answering else {})})

@@ -33,6 +33,7 @@ from typing import Any, Awaitable, Callable
 
 from .. import deps
 from ..account.credentials import CredentialStore
+from ..answering_store import AnsweringStore
 from ..account.guard import DialContext, check_dial
 from ..account.stopflag import CallState
 from ..hardening import check_calls_home, redact
@@ -53,7 +54,7 @@ _BANNED_EVENT_KEYS = frozenset({
 _OUTCOME_ERROR = {"declined": "CALL_DECLINED", "busy": "CALL_BUSY", "no_answer": "CALL_NO_ANSWER",
                   "connection_lost": "CONNECTION_LOST", "max_duration": "MAX_DURATION",
                   "silence_timeout": "SILENCE_TIMEOUT"}
-SELFTEST_SCENARIOS = ("all", "basic", "barge_in", "echo", "stop", "no_redial")
+SELFTEST_SCENARIOS = ("all", "basic", "barge_in", "echo", "stop", "no_redial", "answering_machine")
 
 Callback = Callable[..., Any]
 
@@ -89,7 +90,7 @@ def scrub_event(data: dict) -> dict:
 class CallsManager:
     def __init__(self, data_dir: Path, *, home: Path | None = None, vault: Any = None,
                  worker_argv: list[str] | tuple[str, ...] | None = None, env: dict[str, str] | None = None,
-                 on_record: Callback | None = None, on_state: Callback | None = None,
+                 on_record: Callback | None = None, on_state: Callback | None = None, on_report: Callback | None = None,
                  stop_ack_s: float = 3.0, hello_timeout_s: float = 25.0, clock: Callable[[], float] = time.time):
         self.data_dir = Path(data_dir)
         self.home = Path(home) if home is not None else self.data_dir / "telegram-calls"
@@ -99,6 +100,7 @@ class CallsManager:
         self._env_override = dict(env) if env is not None else None
         self.on_record = on_record
         self.on_state = on_state
+        self.on_report = on_report
         self.stop_ack_s = stop_ack_s
         self.hello_timeout_s = hello_timeout_s
         self._clock = clock
@@ -118,6 +120,7 @@ class CallsManager:
         self._last_record: dict | None = None
         self._selftest_running = False
         self._stop_latched = False              # in memory: the dial stays blocked even if the durable STOP file cannot be written
+        self._answering: dict = {"armed": False}                       # what the worker last told us (events / start / stop)
         self._cache: dict[str, tuple[float, Any]] = {}
         self.stderr_lines = 0
         self._permissions_checked = False       # first status() tightens a restored/copied folder once
@@ -257,6 +260,8 @@ class CallsManager:
             self._ingest_record(msg["record"])
         elif kind == "selftest":
             self._event("selftest", scenario=_scrub(msg.get("scenario")), verdict=_scrub(msg.get("verdict")))
+        elif kind == "answering" and isinstance(msg.get("data"), dict):
+            self._ingest_answering(msg["data"])
 
     async def _request_raw(self, op: str, args: dict | None, *, timeout: float) -> dict:
         proc = self._proc
@@ -320,6 +325,34 @@ class CallsManager:
         if kind in ("state", "phase") and self.on_state is not None:
             self._spawn_bg(self._safe(self.on_state, kind, self.call_view()))
 
+    def _ingest_answering(self, data: dict) -> None:
+        """An answering-machine event of the worker. Text-free, caller-free (no ids, no names): only what the panel needs."""
+        step = str(data.get("kind") or "log")[:24]
+        clean = scrub_event({k: v for k, v in data.items() if k != "kind"})
+        if step == "armed":
+            self._answering = {**self._answering, "armed": True}
+        elif step == "disarmed":
+            self._answering = {**self._answering, "armed": False}
+        elif step in ("ready", "not_ready"):
+            self._answering = {**self._answering, "ready_state": step if step == "not_ready" else "ready"}
+        self._event("answering", step=step, **clean)
+        if step == "report":
+            self._cache.pop("answering_pending", None)
+            call_id = clean.get("call_id")
+            if isinstance(call_id, str) and call_id:
+                self._spawn_bg(self._annotate_answering(call_id, str(clean.get("report_id") or ""), str(clean.get("outcome") or "")))
+            if self.on_report is not None:
+                self._spawn_bg(self._safe(self.on_report, {"report_id": clean.get("report_id"), "outcome": clean.get("outcome"),
+                                                           "notify": clean.get("notify"), "answered": clean.get("answered")}))
+
+    async def _annotate_answering(self, call_id: str, report_id: str, outcome: str) -> None:
+        """Point the call's history entry at its report. Done HERE (one process, the history lock) and not in the worker: the
+        manager annotates the same entry after every record, and two processes rewriting one file would lose an update."""
+        from ..postcall import annotate_history
+        with contextlib.suppress(Exception):
+            await asyncio.to_thread(annotate_history, self.state, call_id, None,
+                                    postcall={"answering": {"report_id": report_id, "outcome": outcome}})
+
     def _ingest_record(self, rec: dict) -> None:
         self._active_call = None
         self._dial_pending = False
@@ -357,6 +390,7 @@ class CallsManager:
             return
         self._proc = None
         self._hello = None
+        self._answering = {"armed": False}                             # a restarted worker is not listening until the owner says so
         call = self._active_call                                       # captured BEFORE any await: a failing dial() resets its flags
         dial_pending = self._dial_pending
         for fut in list(self._pending.values()):
@@ -499,6 +533,64 @@ class CallsManager:
             return {"call_id": result.get("call_id"), "accepted": True, "transport": result.get("transport"),
                     "models": dict(result.get("models") or {}), "notes": _safe_notes(result.get("notes"))}
 
+    # ------------------------------------------------------------------ owner actions: answering machine
+    async def answering_start(self, *, global_stop: bool = False) -> dict:
+        """Arm the answering machine (owner action; the worker starts only now). Refuses what it cannot honour: the setting is
+        off, the account is not logged in, STOP is set. It never places a call."""
+        try:
+            settings = self.settings()
+        except (ValueError, OSError):
+            raise CallError("ANSWERING_NOT_ENABLED", detail="settings_unreadable") from None
+        if not settings.answering_machine:
+            raise CallError("ANSWERING_NOT_ENABLED")
+        ctx = self._dial_context(global_stop=global_stop)
+        if not ctx.deps_ok:
+            raise CallError("DEPENDENCIES_MISSING")
+        if ctx.account == AccountState.NO_CREDENTIALS:
+            raise CallError("NO_CREDENTIALS")
+        if ctx.account != AccountState.READY:
+            raise CallError("NOT_LOGGED_IN")
+        if ctx.stop_active:
+            raise CallError("STOP_ACTIVE")
+        result = await self.request("answering.start", {}, timeout=90.0)
+        self._answering = {**self._answering, **(result.get("answering") or {}), "armed": True}
+        self._event("answering", step="start")
+        return {"answering": dict(self._answering)}
+
+    async def answering_stop(self) -> dict:
+        """Stop answering new calls. A call that is being answered is ended by hangup / STOP, not by this."""
+        if self.running:
+            with contextlib.suppress(CallError):
+                result = await self.request("answering.stop", {}, timeout=15.0, spawn=False)
+                self._answering = {**self._answering, **(result.get("answering") or {}), "armed": False}
+        self._answering = {**self._answering, "armed": False}
+        self._event("answering", step="stop")
+        return {"answering": dict(self._answering)}
+
+    async def answering_simulate(self, caller_id: int | None = None, label: str = "") -> dict:
+        """Offline test mode only: make the loopback line ring. The worker refuses it against real Telegram."""
+        return await self.request("answering.simulate", {"caller_id": caller_id or 0, "label": label[:60]}, timeout=15.0, spawn=False)
+
+    def answering_store(self) -> AnsweringStore:
+        return AnsweringStore(self.home)
+
+    def reports(self, *, pending: bool = False, limit: int = 20) -> list[dict]:
+        store = self.answering_store()
+        return store.pending(limit) if pending else store.list(limit)
+
+    def report(self, report_id: str) -> dict | None:
+        return self.answering_store().get(report_id)
+
+    def ack_report(self, report_id: str) -> bool:
+        """The Telegram companion told the owner: the report leaves the outbox (it stays in the log)."""
+        ok = self.answering_store().ack(report_id)
+        self._cache.pop("answering_pending", None)
+        return ok
+
+    @property
+    def answering_armed(self) -> bool:
+        return bool(self._answering.get("armed")) and self.running
+
     async def hangup(self) -> dict:
         if not self.running:
             return {"ended": False}
@@ -594,7 +686,7 @@ class CallsManager:
     # ------------------------------------------------------------------ permissions (ACL of what we own)
     def _own_files(self) -> list[Path]:
         return [self.home, *(self.home / n for n in ("credentials.enc", "config.json", "state.json", "history.jsonl",
-                                                     "worker.log", "STOP"))]
+                                                     "worker.log", "STOP", "answering"))]
 
     def heal_permissions(self) -> list[str]:
         """Owner-only permissions for every file of this module. Returns the names that had to be tightened."""
@@ -681,6 +773,9 @@ class CallsManager:
             call = {"call_id": wc.get("call_id"), "state": wc.get("state"), "phase": wc.get("phase"),
                     "transport": wc.get("transport"), "models": dict(wc.get("models") or {}),
                     "started_at": wc.get("started_at"), "latency_ms": wc.get("latency_ms")}
+        answering = self._answering_view(settings, (worker_status or {}).get("answering"))
+        answering["pending_reports"] = await self._cached("answering_pending", 3.0, lambda: len(self.answering_store().pending(50)),
+                                                          thread=True)
         offline = self.offline
         transport = ((call or {}).get("transport") or (last or {}).get("transport")
                      or ("loopback" if offline else "telegram"))
@@ -710,11 +805,26 @@ class CallsManager:
             "latency": latency,
             "models": models,
             "selftest_running": self._selftest_running,
+            "answering": answering,
             "deps": {"ready": bool(probe.get("ready_for_telegram_call")), "missing": list(probe.get("missing_required") or []),
                      "packages": {k: bool(v.get("installed")) for k, v in (probe.get("packages") or {}).items()}},
             "acl": {"ok": all(r["ok"] for r in acl), "problems": [r for r in acl if not r["ok"]]},
             "last_seq": self._seq,
         }
+
+    def _answering_view(self, settings: CallSettings, worker: dict | None) -> dict:
+        w = worker if isinstance(worker, dict) else {}
+        armed = bool(w.get("armed")) if worker is not None else bool(self._answering.get("armed")) and self.running
+        return {"enabled": settings.answering_machine, "armed": armed,
+                "listening": armed and settings.answering_machine,
+                "ready_state": w.get("ready_state") or self._answering.get("ready_state") or ("idle" if not armed else "loading"),
+                "ready_error": w.get("ready_error"), "ringing": bool(w.get("ringing")), "in_call": bool(w.get("in_call")),
+                "stopped": bool(w.get("stopped")), "transport": w.get("transport") or ("loopback" if self.offline else "telegram"),
+                "live_tested": bool(w.get("live_tested", False)), "counters": dict(w.get("counters") or {}),
+                "last_report_id": w.get("last_report_id"),
+                "ring_delay_s": settings.answer_ring_delay_s, "max_call_s": settings.answer_max_call_s,
+                "allow_count": len(settings.answer_allow_ids), "deny_count": len(settings.answer_deny_ids),
+                "allow_unknown": settings.answer_allow_unknown}
 
     # ------------------------------------------------------------------ doctor
     async def doctor(self, *, global_stop: bool = False) -> list[dict]:
@@ -772,6 +882,18 @@ class CallsManager:
         for voice_row in (await asyncio.to_thread(asr_row), await asyncio.to_thread(tts_row, self.data_dir, self._child_env()),
                           await asyncio.to_thread(model_row, self.data_dir)):
             row(voice_row["check"], voice_row["status"], voice_row["detail"], voice_row["remedy"])
+        try:
+            ans = self.settings()
+        except (ValueError, OSError):
+            ans = None
+        if ans is None or not ans.answering_machine:
+            row("Автоответчик", "PASS", "выключен (так задано по умолчанию); включается только владельцем: bossman call answer on")
+        elif offline:
+            row("Автоответчик", "WARN", "включён в тестовом режиме: входящие эмулируются, настоящий звонок не принимается",
+                "Настоящий приём проверяется только на машине владельца")
+        else:
+            row("Автоответчик", "WARN", "включён, но приём входящих через Telegram ЕЩЁ НЕ ПРОВЕРЕН на настоящем звонке",
+                "Нужен вход владельца (bossman call setup) и один настоящий входящий звонок; до этого полагайтесь на ТЕСТ БЕЗ TELEGRAM")
         return rows
 
     def _vault_row(self) -> tuple[str, str, str]:

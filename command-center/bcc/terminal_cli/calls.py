@@ -32,7 +32,8 @@ TEST_LABEL = "ТЕСТ БЕЗ TELEGRAM"
 BLOCKED_CODES = frozenset({
     "NOT_ENABLED", "NO_CREDENTIALS", "NOT_LOGGED_IN", "PEER_NOT_SELECTED", "PEER_NOT_ALLOWED", "PEER_IS_SELF", "STOP_ACTIVE",
     "UNCERTAIN_PREVIOUS_CALL", "CALL_IN_PROGRESS", "DEPENDENCIES_MISSING", "SESSION_REVOKED", "LOGIN_NOT_PENDING",
-    "PEER_PRIVACY", "BRAIN_NOT_CONFIGURED", "PEER_NOT_CONFIRMED", "CONFIRM_REQUIRED", "MEMORY_NOT_CONFIGURED", "NO_PROPOSED_TASKS"})
+    "PEER_PRIVACY", "BRAIN_NOT_CONFIGURED", "PEER_NOT_CONFIRMED", "CONFIRM_REQUIRED", "MEMORY_NOT_CONFIGURED", "NO_PROPOSED_TASKS",
+    "ANSWERING_NOT_ENABLED", "ANSWERING_NOT_READY", "INCOMING_NOT_SUPPORTED", "REPORT_NOT_FOUND"})
 
 STATE_WORDS = {"idle": "нет звонка", "dialing": "набираем", "ringing": "звонит", "active": "идёт разговор",
                "ending": "завершаем", "ended": "нет звонка"}
@@ -131,6 +132,7 @@ def status_lines(st: dict) -> list[str]:
     lines.append("  зависимости звонков: " + ("готовы" if deps.get("ready") else "не хватает: " + ", ".join(deps.get("missing") or ["?"])))
     peer = st.get("peer")
     lines.append("Тестовый собеседник: " + (f"{peer.get('label') or 'без имени'} (id {peer.get('user_id')})" if peer else "не выбран"))
+    lines.append(answer_line(st.get("answering") or {}))
     stop = st.get("stop") or {}
     stop_txt = "нет" if not stop.get("active") else ("STOP звонков" if stop.get("call") else "общий STOP Bossman")
     lines.append(f"Звонки: {'включены' if st.get('enabled') else 'выключены'} · STOP: {stop_txt}")
@@ -161,6 +163,25 @@ def status_lines(st: dict) -> list[str]:
     if acl and not acl.get("ok", True):
         lines.append("Права на файлы звонков шире нужного: bossman call doctor")
     return lines
+
+
+def answer_line(a: dict) -> str:
+    if not a.get("enabled"):
+        return "Автоответчик: выключен (так задано по умолчанию)"
+    if not a.get("armed"):
+        return "Автоответчик: включён в настройках, но не запущен (bossman call answer on) — входящие не принимаются"
+    state = {"ready": "готов", "loading": "модели загружаются — входящий будет пропущен", "failed": "модели не загрузились — входящий будет пропущен",
+             "idle": "готовится"}.get(a.get("ready_state") or "", "готовится")
+    extra = ""
+    if a.get("in_call"):
+        extra = ", сейчас отвечает на звонок"
+    elif a.get("ringing"):
+        extra = ", идёт звонок (ждёт, ответите ли вы сами)"
+    if a.get("stopped"):
+        extra += ", ОСТАНОВЛЕН (STOP): не отвечает до `bossman call resume`"
+    pending = f", отчётов ждут отправки: {a['pending_reports']}" if a.get("pending_reports") else ""
+    live = "" if a.get("live_tested") else " [приём настоящих входящих ещё не проверен в живую]"
+    return f"Автоответчик: слушает, {state}; пауза до ответа {a.get('ring_delay_s')} с{extra}{pending}{live}"
 
 
 def cmd_status(args) -> int:
@@ -508,6 +529,103 @@ def cmd_draft_tasks(args) -> int:
     return _run(args, run, what="call draft-tasks")
 
 
+# ----------------------------------------------------------------- answering machine (incoming calls)
+
+
+def _answer_switch(args, on: bool) -> int:
+    def run(client: Client, out) -> int:
+        res = client.request("PUT", f"{BASE}/settings", json={"answering_machine": on}) or {}
+        ans = res.get("answering") or {}
+        if not on:
+            return _emit(out, "call_answer", ["Автоответчик выключен: входящие звонит вам, как обычно."], answering=ans, enabled=False)
+        err = ans.get("error") or {}
+        if err:
+            return _emit(out, "call_answer", ["Автоответчик включён в настройках, но не запущен: " + sanitize(str(err.get("message") or err.get("code"))),
+                                              ("Что сделать: " + sanitize(str(err["hint"]))) if err.get("hint") else ""],
+                         EXIT_BLOCKED, answering=ans, enabled=True, error=err.get("code"))
+        return _emit(out, "call_answer", ["Автоответчик включён и слушает. Если вы не возьмёте трубку за паузу, ответит Джефф "
+                                          "(представится ассистентом), а итог придёт вам в Telegram.",
+                                          "Приём настоящих входящих ещё НЕ проверен в живую: проверка — `bossman call selftest answering-machine`."],
+                     answering=ans, enabled=True)
+    return _run(args, run, what="call answer on" if on else "call answer off")
+
+
+def _answer_status(args) -> int:
+    def run(client: Client, out) -> int:
+        a = client.get(f"{BASE}/answering") or {}
+        return _emit(out, "call_answer_status", [answer_line(a)], **{k: v for k, v in a.items() if k != "stop"})
+    return _run(args, run, what="call answer status")
+
+
+def _answer_config(args) -> int:
+    cli = _cli()
+    out = cli.Out(getattr(args, "output_format", None) or "text")
+    body: dict[str, Any] = {}
+    if getattr(args, "ring_delay", None) is not None:
+        body["answer_ring_delay_s"] = args.ring_delay
+    if getattr(args, "max_call", None) is not None:
+        body["answer_max_call_s"] = args.max_call
+    if getattr(args, "allow_unknown", None) is not None:
+        body["answer_allow_unknown"] = args.allow_unknown == "yes"
+    if getattr(args, "greeting", None) is not None:
+        body["answer_greeting"] = args.greeting
+    if getattr(args, "clear_allow", False) and getattr(args, "allow", None):
+        return cli.fail(out, _usage("--clear-allow и --allow вместе не имеют смысла"), what="call answer config")
+    if getattr(args, "clear_deny", False) and getattr(args, "deny", None):
+        return cli.fail(out, _usage("--clear-deny и --deny вместе не имеют смысла"), what="call answer config")
+
+    def run(client: Client, out) -> int:
+        patch = dict(body)
+        if getattr(args, "allow", None) or getattr(args, "deny", None) or getattr(args, "clear_allow", False) or getattr(args, "clear_deny", False):
+            current = client.get(f"{BASE}/settings") or {}
+            if getattr(args, "allow", None) or getattr(args, "clear_allow", False):
+                patch["answer_allow_ids"] = [] if args.clear_allow else sorted({*(current.get("answer_allow_ids") or []), *args.allow})
+            if getattr(args, "deny", None) or getattr(args, "clear_deny", False):
+                patch["answer_deny_ids"] = [] if args.clear_deny else sorted({*(current.get("answer_deny_ids") or []), *args.deny})
+        if not patch:
+            raise _usage("нечего менять: укажите --ring-delay, --max-call, --allow, --deny, --allow-unknown или --greeting")
+        res = client.request("PUT", f"{BASE}/settings", json=patch) or {}
+        lines = [f"Пауза до ответа: {res.get('answer_ring_delay_s')} с · максимум звонка: {res.get('answer_max_call_s')} с · "
+                 f"неопознанные: {'отвечаем' if res.get('answer_allow_unknown') else 'не отвечаем'}",
+                 f"Разрешённые: {res.get('answer_allow_ids') or 'любой звонящий'} · чёрный список: {res.get('answer_deny_ids') or 'пусто'}"]
+        return _emit(out, "call_answer_config", lines, settings={k: v for k, v in res.items() if k.startswith("answer")})
+    return _run(args, run, what="call answer config")
+
+
+def _answer_reports(args) -> int:
+    from ..telegram_calls.answering_store import render_notice
+
+    def run(client: Client, out) -> int:
+        rid = getattr(args, "report_id", None)
+        if rid:
+            report = client.get(f"{BASE}/answering/reports/{rid}") or {}
+            return _emit(out, "call_answer_report", [sanitize(line) if line else "" for line in render_notice(report).splitlines()], report=report)
+        limit = max(1, min(int(getattr(args, "limit", 10) or 10), 200))
+        params = {"limit": limit}
+        if getattr(args, "pending", False):
+            params["pending"] = "true"
+        items = (client.get(f"{BASE}/answering/reports", params=params) or {}).get("items") or []
+        lines = []
+        for r in items:
+            when = time.strftime("%Y-%m-%d %H:%M", time.localtime(r["received_at"])) if isinstance(r.get("received_at"), (int, float)) else "?"
+            who = sanitize(str((r.get("caller") or {}).get("label") or "") or ("id " + str((r.get("caller") or {}).get("id")) if (r.get("caller") or {}).get("known") else "неизвестный"))
+            mark = " [ТЕСТ БЕЗ TELEGRAM]" if r.get("test") else ""
+            lines.append(f"  {r.get('id')}  {when}  {who}  {sanitize(str(r.get('outcome_label') or r.get('outcome')))}{mark}"
+                         + ("  (не отправлен владельцу)" if r.get("notify") and not r.get("delivered") else ""))
+        return _emit(out, "call_answer_reports", lines or ["  входящих звонков в журнале нет"], items=items)
+    return _run(args, run, what="call answer reports")
+
+
+def cmd_answer(args) -> int:
+    action = getattr(args, "answer_cmd", None)
+    if action is None:
+        cli = _cli()
+        return cli.fail(cli.Out(getattr(args, "output_format", None) or "text"),
+                        _usage("нужно действие: answer on | off | status | config | reports"), what="call answer")
+    return {"on": lambda a: _answer_switch(a, True), "off": lambda a: _answer_switch(a, False), "status": _answer_status,
+            "config": _answer_config, "reports": _answer_reports}[action](args)
+
+
 # ----------------------------------------------------------------- checks
 
 
@@ -525,7 +643,7 @@ def cmd_doctor(args) -> int:
 
 def cmd_selftest(args) -> int:
     def run(client: Client, out) -> int:
-        scenario = getattr(args, "scenario", None) or "all"
+        scenario = (getattr(args, "scenario", None) or "all").replace("-", "_")        # `answering-machine` == `answering_machine`
         out.say(f"{TEST_LABEL}: проверяю аудиоконтур ({scenario}); настоящий звонок не совершается. Это займёт до минуты…")
         res = client.request("POST", f"{BASE}/selftest", json={"scenario": scenario}, timeout=480) or {}
         lines = [f"  [{r.get('verdict')}] {r.get('scenario')}: " + ", ".join(f"{'✓' if v else '✗'} {k}" for k, v in (r.get("checks") or {}).items())
@@ -595,7 +713,7 @@ HANDLERS = {
     "setup": cmd_setup, "status": cmd_status, "contacts": cmd_contacts, "peer": cmd_peer, "enable": cmd_enable,
     "disable": cmd_disable, "dial": cmd_dial, "hangup": cmd_hangup, "stop": cmd_stop, "resume": cmd_resume,
     "events": cmd_events, "history": cmd_history, "save-memory": cmd_save_memory, "draft-tasks": cmd_draft_tasks, "doctor": cmd_doctor,
-    "selftest": cmd_selftest, "install": cmd_install, "logout": cmd_logout,
+    "selftest": cmd_selftest, "install": cmd_install, "logout": cmd_logout, "answer": cmd_answer,
 }
 
 

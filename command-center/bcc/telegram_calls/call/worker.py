@@ -52,7 +52,9 @@ TransportFactory = Callable[[Any], Any]
 class Worker:
     def __init__(self, home: Path | None = None, *, write: Callable[[dict], None],
                  engines_factory: EnginesFactory | None = None, transport_factory: TransportFactory | None = None,
-                 account: TelegramAccount | None = None, mode: str | None = None):
+                 account: TelegramAccount | None = None, mode: str | None = None,
+                 line_factory: Callable[[Any], Any] | None = None,
+                 answering_engines_factory: EnginesFactory | None = None):
         self.home = home or calls_home()
         self._write = write
         self.mode = mode if mode is not None else os.environ.get(MODE_ENV, "")
@@ -62,6 +64,10 @@ class Worker:
         self.account = account or self._make_account()
         self._engines_factory = engines_factory
         self._transport_factory = transport_factory
+        self._line_factory = line_factory
+        self._answering_engines_factory = answering_engines_factory
+        self.answering: Any = None                              # AnsweringMachine, built on the owner's "answering.start"
+        self._line: Any = None
         self.session: CallSession | None = None
         self._call_task: asyncio.Task | None = None
         self._last_record: dict | None = None
@@ -130,14 +136,15 @@ class Worker:
         s = self.session
         return {"account": self.account.public(), "mode": self.mode or "telegram",
                 "call": self._call_view(), "last_record": self._last_record,
-                "uncertain_previous": self.state.is_uncertain(), "stop": self.state.stop_is_set()}
+                "uncertain_previous": self.state.is_uncertain(), "stop": self.state.stop_is_set(),
+                "answering": self.answering.status() if self.answering is not None else {"armed": False}}
 
     def _call_view(self) -> dict | None:
         s = self.session
         if s is None:
             return None
         return {"call_id": s.call_id, "state": s.record.state.value, "phase": s.phase.value, "transport": s.transport.name,
-                "models": dict(s.record.models), "counters": dict(s.record.counters),
+                "direction": s.record.direction, "models": dict(s.record.models), "counters": dict(s.record.counters),
                 "latency_ms": s.record.as_dict()["latency_ms"], "started_at": s.record.started_at}
 
     async def op_events(self, args: dict) -> dict:
@@ -178,7 +185,8 @@ class Worker:
     def _dial_guard(self, args: dict) -> tuple[CallSettings, Any, DialContext]:
         """The dial guard with FRESH settings from disk. Evaluated twice per dial (before and after the slow engine build)."""
         settings = load_settings(self.home)                      # fresh, never cached
-        ctx = DialContext(account=self.account.state(), me_id=self.account.me_id(), active_call=self.session is not None,
+        ctx = DialContext(account=self.account.state(), me_id=self.account.me_id(),
+                          active_call=self.session is not None or (self.answering is not None and self.answering.busy),
                           stop_active=self.state.stop_is_set() or bool(args.get("global_stop")),
                           uncertain_previous=self.state.is_uncertain(),
                           deps_ok=True if self.offline else deps.probe()["ready_for_telegram_call"])
@@ -243,8 +251,9 @@ class Worker:
         from .pytgcalls_transport import build_transport
         return build_transport(await self.account.ensure_client())
 
-    async def _run_call(self, session: CallSession) -> None:
+    async def _run_call(self, session: CallSession, *, incoming: bool = False) -> dict:
         record: CallRecord | None = None
+        data: dict = {"call_id": session.call_id, "outcome": None}
         try:
             record = await session.run()
         except Exception:  # noqa: BLE001 - CallSession.run does not raise; belt and braces
@@ -254,17 +263,93 @@ class Worker:
             # (the dial guard would refuse everything until a restart) or swallow the record.
             outcome = record.outcome if record is not None else None
             data = record.as_dict() if record is not None else {"call_id": session.call_id, "outcome": None}
+            if incoming and isinstance(data.get("summary"), dict):
+                # history.jsonl and the IPC record stay text-free: the words of the caller live ONLY in the answering log
+                data["summary"] = {"text": f"Входящий звонок на автоответчик, исход: {data.get('outcome') or 'unknown'}. "
+                                           "Содержание — в журнале автоответчика.", "agreed_tasks": [], "generated_by": "mechanical"}
             self._last_record = data
-            try:
-                self.state.note_call_finished(session.call_id, outcome)
-            except OSError:
-                log.warning("state write failed")
+            if not incoming:                      # nothing was dialled for an incoming call: it never makes the next dial "uncertain"
+                try:
+                    self.state.note_call_finished(session.call_id, outcome)
+                except OSError:
+                    log.warning("state write failed")
             try:
                 self.state.append_history(data)
             except OSError:
                 log.warning("history write failed")
             self.session = None
             self.emit({"event": "record", "record": data})
+        return data
+
+    # ------------------------------------------------------------ ops: answering machine (incoming calls)
+    async def _answering_engines(self, settings: CallSettings, mode: str) -> Engines:
+        factory = self._answering_engines_factory or self._engines_factory
+        if factory is not None:
+            return await factory(settings, mode)
+        from ..speech.factory import build_engines
+        return await build_engines(settings, mode, answering=True)
+
+    async def _build_line(self) -> Any:
+        if self._line_factory is not None:
+            return self._line_factory(await self.account.ensure_client())
+        if self.offline:
+            from .loopback import LoopbackLine
+            from .selftest import answering_caller_script
+            return LoopbackLine(driver=answering_caller_script())
+        from .pytgcalls_transport import build_line
+        return build_line(await self.account.ensure_client())
+
+    async def _caller_label(self, user_id: int) -> str:
+        user = await self.account.confirm_user(user_id)           # the same read-only lookup the peer picker uses
+        return str(user.get("label") or "")
+
+    def _on_incoming_session(self, session: CallSession | None) -> None:
+        self.session = session
+
+    async def _run_incoming(self, session: CallSession) -> dict:
+        return await self._run_call(session, incoming=True)
+
+    async def op_answering_start(self, args: dict) -> dict:
+        """The owner arms the answering machine. Needs the setting, a logged-in account, no STOP; never places a call."""
+        settings = load_settings(self.home)                      # fresh, never cached
+        if not settings.answering_machine:
+            raise CallError("ANSWERING_NOT_ENABLED")
+        if not self.offline:
+            state = self.account.state()
+            if state == AccountState.NO_CREDENTIALS:
+                raise CallError("NO_CREDENTIALS")
+            if state != AccountState.READY:
+                raise CallError("NOT_LOGGED_IN")
+            if not deps.probe()["ready_for_telegram_call"]:
+                raise CallError("DEPENDENCIES_MISSING")
+        if self.state.stop_is_set():
+            raise CallError("STOP_ACTIVE")
+        if self.answering is None:
+            from ..answering import AnsweringMachine
+            self._line = await self._build_line()
+            self.answering = AnsweringMachine(
+                home=self.home, line=self._line, engines_factory=self._answering_engines,
+                settings_loader=lambda: load_settings(self.home), stop_active=self.state.stop_is_set, mode=self.mode,
+                run_session=self._run_incoming, emit=self.emit, secrets=self._secrets, on_session=self._on_incoming_session,
+                session_event=self._on_session_event, label_resolver=self._caller_label,
+                busy_probe=lambda: self.session is not None or self._dialing)
+        await self.answering.arm()
+        return {"answering": self.answering.status()}
+
+    async def op_answering_stop(self, args: dict) -> dict:
+        if self.answering is not None:
+            self.answering.disarm()
+        return {"answering": self.answering.status() if self.answering is not None else {"armed": False}}
+
+    async def op_answering_simulate(self, args: dict) -> dict:
+        """Offline test mode ONLY: make the loopback line ring, as a synthetic caller. Refused against real Telegram."""
+        if not self.offline:
+            raise CallError("INTERNAL", detail="offline_only")
+        if self.answering is None or self._line is None:
+            raise CallError("ANSWERING_NOT_ENABLED")
+        from .offline_mode import OFFLINE_PEER_ID
+        call = self._line.ring(int(args.get("caller_id") or OFFLINE_PEER_ID), str(args.get("label") or "Тестовый звонящий")[:60])
+        return {"call_ref": call.call_ref}
 
     def _on_session_event(self, ev: CallEvent) -> None:
         d = ev.as_dict()
@@ -287,6 +372,8 @@ class Worker:
             log.warning("stop flag write failed")
         if self.session is not None:
             self.session.stop(reason)
+        if self.answering is not None:                             # declines a ringing call, hangs up an answered one
+            self.answering.stop(reason)
 
     async def op_stop(self, args: dict) -> dict:
         reason = str(args.get("reason") or "owner_stop")[:40]
@@ -301,14 +388,18 @@ class Worker:
             # asyncio.wait never cancels the call task on timeout (and never re-raises its failure into the STOP path)
             done, _pending = await asyncio.wait({self._call_task}, timeout=max(0.1, deadline - loop.time()))
             confirmed = bool(done) and confirmed
+        if self.answering is not None and not await self.answering.wait_idle(max(0.1, deadline - loop.time())):
+            confirmed = False                                      # a ringing/answered incoming call is part of the same STOP
         return {"stopped": True, "hangup_confirmed": confirmed, "stop_flag": self.state.stop_is_set()}
 
     async def op_resume(self, args: dict) -> dict:
         self.state.clear_stop()
+        if self.answering is not None:
+            self.answering.resume()
         return {"stop_flag": False}
 
     async def op_selftest(self, args: dict) -> dict:
-        if self.session is not None:
+        if self.session is not None or (self.answering is not None and self.answering.busy):
             raise CallError("CALL_IN_PROGRESS")
         from .selftest import run_selftest
         settings = load_settings(self.home)
@@ -316,6 +407,11 @@ class Worker:
                                   mode=self.mode, emit=self.emit)
 
     async def op_shutdown(self, args: dict) -> dict:
+        if self.answering is not None:
+            await self.answering.shutdown()
+        if self._line is not None:
+            with contextlib.suppress(Exception):
+                await self._line.close()
         if self.session is not None:
             self.session.stop("shutdown")
             if self._call_task is not None:
