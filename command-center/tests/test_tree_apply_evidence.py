@@ -223,3 +223,11 @@ def test_installed_hash_mismatch_when_output_file_is_edited(tmp_path):
     (evid / "out" / "installed-leaf.txt").write_text("tampered", encoding="utf-8")
     r = _irun(repo, seed, evid, [rc])
     assert r["accepted"] == [] and r["rejected"][0][2] == "output hash mismatch"
+
+
+def test_written_files_use_lf_not_crlf(tmp_path):
+    """Windows text-mode writes turned LF files into CRLF (595 files of whole-file diffs, 07.10)."""
+    repo, sha, seed, evid = _setup(tmp_path)
+    _run(repo, seed, evid, [_rc(sha, evid)], write=True)
+    for f in (seed, evid / "tree.export.json", evid / "SUMMARY.md"):
+        assert b"\r\n" not in f.read_bytes(), f.name

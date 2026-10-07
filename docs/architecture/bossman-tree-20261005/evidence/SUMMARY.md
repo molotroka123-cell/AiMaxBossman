@@ -1,396 +1,334 @@
 # Evidence summary
 
-Статусы дерева: blocked=11, branch=32, code=31, idea=6, mixed=14, prepared=1, recorded=180, reported=556, retired=2
+Статусы дерева: blocked=11, branch=32, code=31, idea=6, mixed=14, prepared=2, recorded=180, reported=555, retired=2, working=1
 
-Принято расписок: 349; отклонено: 267
+Принято расписок: 0; отклонено: 633
 
 ## По зонам
 
-- agents: 19
-- apps: 10
-- cloud: 13
-- computer: 9
-- jeff: 125
-- media: 35
-- memory: 53
-- ops: 46
-- plugins: 7
-- ux: 32
+- нет
 
 ## Принятые
 
-- `cap-21` (agcloud.json)
-- `cap-25` (agcloud.json)
-- `cap-26` (agcloud.json)
-- `cap-40` (agcloud.json)
-- `cap-41` (agcloud.json)
-- `mod-action_router` (agcloud.json)
-- `mod-browser` (agcloud.json)
-- `mod-browser_help` (agcloud.json)
-- `mod-coding_limit_saver_v16` (agcloud.json)
-- `mod-control_plane` (agcloud.json)
-- `mod-economy_swarm` (agcloud.json)
-- `mod-free_providers` (agcloud.json)
-- `mod-jev` (agcloud.json)
-- `mod-missions` (agcloud.json)
-- `mod-nl_orchestra` (agcloud.json)
-- `mod-nl_permissions` (agcloud.json)
-- `mod-provider_fleet_v16` (agcloud.json)
-- `mod-router` (agcloud.json)
-- `mod-spend_meter` (agcloud.json)
-- `mod-task_exchange` (agcloud.json)
-- `mod-terminal` (agcloud.json)
-- `mod-tools_browser` (agcloud.json)
-- `mod-tools_computer` (agcloud.json)
-- `mod-tools_terminal` (agcloud.json)
-- `mod-v15_economy` (agcloud.json)
-- `free-NVIDIA-NIM` (agcloud.json)
-- `free-Groq` (agcloud.json)
-- `free-Google-AI-Studio` (agcloud.json)
-- `agents-graph` (agcloud.json)
-- `agents-lab` (agcloud.json)
-- `cap-23` (agcloud.json)
-- `cap-39` (agcloud.json)
-- `mod-cache_intel` (agcloud.json)
-- `mod-coding_sessions` (agcloud.json)
-- `mod-organization` (agcloud.json)
-- `cap-38` (agcloud.json)
-- `mod-coding_recipes` (agcloud.json)
-- `mod-coding_tasks` (agcloud.json)
-- `mod-rave` (agcloud.json)
-- `cap-22` (agcloud.json)
-- `mod-openrouter` (agcloud.json)
-- `cap-1` (jeffa.json)
-- `cap-2` (jeffa.json)
-- `cap-3` (jeffa.json)
-- `cap-4` (jeffa.json)
-- `cap-5` (jeffa.json)
-- `cap-7` (jeffa.json)
-- `module-011a03489f77` (jeffa.json)
-- `module-01c789a2b739` (jeffa.json)
-- `module-0787a5345c6d` (jeffa.json)
-- `module-08b732dc1d84` (jeffa.json)
-- `module-09f63bf64e58` (jeffa.json)
-- `module-0a1e9aa39f26` (jeffa.json)
-- `module-0b449131095b` (jeffa.json)
-- `module-0bd270fb5248` (jeffa.json)
-- `module-0df0a7bc5733` (jeffa.json)
-- `module-10b906cde60e` (jeffa.json)
-- `module-11fe3588a67d` (jeffa.json)
-- `module-1a35294a664a` (jeffa.json)
-- `module-1d61f405af4c` (jeffa.json)
-- `module-2057e75206c8` (jeffa.json)
-- `module-27f9c4217e34` (jeffa.json)
-- `module-291791405b2c` (jeffa.json)
-- `module-2a4383829dfa` (jeffa.json)
-- `module-2cab55c89d9c` (jeffa.json)
-- `module-3c2cd6ed725d` (jeffa.json)
-- `module-3fb56e2abdc6` (jeffa.json)
-- `module-41bd7c7bdbe4` (jeffa.json)
-- `module-459def4e9443` (jeffa.json)
-- `module-46ca918cf2a2` (jeffa.json)
-- `module-476d3d1ef4a9` (jeffa.json)
-- `module-4a1f6b8497c8` (jeffa.json)
-- `module-4c04aa7a520a` (jeffa.json)
-- `module-55c83e0493e7` (jeffa.json)
-- `module-566f6d772d69` (jeffa.json)
-- `module-579cbbb18435` (jeffa.json)
-- `module-5a8578230115` (jeffa.json)
-- `module-5ab761d4c710` (jeffa.json)
-- `module-5b78e96e567a` (jeffa.json)
-- `module-5c2af9d244e7` (jeffa.json)
-- `module-5ca4b43f294a` (jeffa.json)
-- `module-5eb076bfba97` (jeffa.json)
-- `module-62de71348d62` (jeffa.json)
-- `module-639c8365e585` (jeffa.json)
-- `module-6429e61dd089` (jeffa.json)
-- `module-643bc9bd9ef3` (jeffa.json)
-- `module-64645c8f9fb0` (jeffa.json)
-- `module-679b42c085a9` (jeffa.json)
-- `module-67a5b6d5c767` (jeffa.json)
-- `module-67cee7d9cae4` (jeffa.json)
-- `module-6858e3e84765` (jeffa.json)
-- `module-6e060497c158` (jeffa.json)
-- `module-6ee86a43e787` (jeffa.json)
-- `module-6f3b41ccd19f` (jeffa.json)
-- `module-6f5944305093` (jeffa.json)
-- `module-715359be81c9` (jeffa.json)
-- `module-74990de09699` (jeffa.json)
-- `module-7637ffa19df1` (jeffa.json)
-- `module-7974acf47711` (jeffa.json)
-- `module-7a7a9e12efb7` (jeffa.json)
-- `module-7a8593010c20` (jeffa.json)
-- `module-7afc7ce94420` (jeffa.json)
-- `module-7fe26d8e1063` (jeffa.json)
-- `module-81ae3126d244` (jeffa.json)
-- `module-81fe82cd46bb` (jeffa.json)
-- `module-83a15f7aa768` (jeffb.json)
-- `module-83b0bd4a24b3` (jeffb.json)
-- `module-842ef81754c0` (jeffb.json)
-- `module-85f118831d7b` (jeffb.json)
-- `module-8dfa4ca61d63` (jeffb.json)
-- `module-8ebcf42d990a` (jeffb.json)
-- `module-8f42d3cc74e5` (jeffb.json)
-- `module-90209d82364c` (jeffb.json)
-- `module-91e8d95273c5` (jeffb.json)
-- `module-940780459eb4` (jeffb.json)
-- `module-9414ce79578c` (jeffb.json)
-- `module-94819ae06213` (jeffb.json)
-- `module-958ca83ceaa8` (jeffb.json)
-- `module-9818110824b0` (jeffb.json)
-- `module-9c7361a27b1a` (jeffb.json)
-- `module-9de94c4cb278` (jeffb.json)
-- `module-9f87418c31e0` (jeffb.json)
-- `module-a00067262226` (jeffb.json)
-- `module-a090c121b689` (jeffb.json)
-- `module-a2a8be1c06e1` (jeffb.json)
-- `module-a513ff702c46` (jeffb.json)
-- `module-a7105ffd5da5` (jeffb.json)
-- `module-b2924df01fad` (jeffb.json)
-- `module-b2e0eb3245b9` (jeffb.json)
-- `module-b36c82e81920` (jeffb.json)
-- `module-b864400370f1` (jeffb.json)
-- `module-bc4dba6e1890` (jeffb.json)
-- `module-c0879a714994` (jeffb.json)
-- `module-ca6609a6b448` (jeffb.json)
-- `module-ce4bec7cff7e` (jeffb.json)
-- `module-cf717b6f2546` (jeffb.json)
-- `module-d0bec156ed2c` (jeffb.json)
-- `module-d93b8a2e7320` (jeffb.json)
-- `module-dc92260872d5` (jeffb.json)
-- `module-e2624a8bf0fc` (jeffb.json)
-- `module-e3621a3791e3` (jeffb.json)
-- `module-e3b155c353db` (jeffb.json)
-- `module-e52098ab7553` (jeffb.json)
-- `module-e67d89bd6ff2` (jeffb.json)
-- `module-ebc21c85581a` (jeffb.json)
-- `module-eddee4708a7d` (jeffb.json)
-- `module-eeb5c7530a12` (jeffb.json)
-- `module-eff0fd116111` (jeffb.json)
-- `module-f26b63157c2f` (jeffb.json)
-- `module-f526d2fd0ef3` (jeffb.json)
-- `module-f8c8574f9ee2` (jeffb.json)
-- `module-ffd7b5564673` (jeffb.json)
-- `reg-oss_chatterbox` (jeffb.json)
-- `reg-oss_piper` (jeffb.json)
-- `reg-oss_whisper` (jeffb.json)
-- `reg-voice_capability` (jeffb.json)
-- `module-9502d104e91e` (jeffb.json)
-- `module-d87d5bf5141c` (jeffb.json)
-- `module-dfb6c31ae04f` (jeffb.json)
-- `module-fa8e48038ace` (jeffb.json)
-- `module-9a23ec9fe2eb` (jeffb.json)
-- `module-a28716ea704d` (jeffb.json)
-- `module-b1142d03395c` (jeffb.json)
-- `module-bf7480cb496c` (jeffb.json)
-- `module-d6fff5861410` (jeffb.json)
-- `module-d794cbd77cf3` (jeffb.json)
-- `reg-promo_video` (mediaux-retire.json)
-- `cap-29` (mediaux.json)
-- `cap-12` (mediaux.json)
-- `mod-game_bootstrap_v16` (mediaux.json)
-- `cap-13` (mediaux.json)
-- `mod-images` (mediaux.json)
-- `cap-30` (mediaux.json)
-- `mod-motion_studio` (mediaux.json)
-- `mod-studio_review` (mediaux.json)
-- `mod-studio` (mediaux.json)
-- `app-social-farm` (mediaux.json)
-- `slash-help` (mediaux.json)
-- `slash-status` (mediaux.json)
-- `slash-tasks` (mediaux.json)
-- `slash-models` (mediaux.json)
-- `slash-agent` (mediaux.json)
-- `slash-skills` (mediaux.json)
-- `slash-tools` (mediaux.json)
-- `slash-memory` (mediaux.json)
-- `slash-diff` (mediaux.json)
-- `mod-music_studio` (mediaux.json)
-- `slash-code` (mediaux.json)
-- `slash-rave` (mediaux.json)
-- `slash-approve` (mediaux.json)
-- `slash-deny` (mediaux.json)
-- `slash-approvals` (mediaux.json)
-- `slash-pause` (mediaux.json)
-- `slash-stop` (mediaux.json)
-- `mod-video_studio` (mediaux.json)
-- `slash-resume` (mediaux.json)
-- `slash-computer` (mediaux.json)
-- `slash-evolve` (mediaux.json)
-- `slash-keys` (mediaux.json)
-- `slash-panel` (mediaux.json)
-- `slash-compact` (mediaux.json)
-- `slash-context` (mediaux.json)
-- `slash-cost` (mediaux.json)
-- `slash-export` (mediaux.json)
-- `slash-doctor` (mediaux.json)
-- `slash-expand` (mediaux.json)
-- `slash-history` (mediaux.json)
-- `slash-clear` (mediaux.json)
-- `slash-exit` (mediaux.json)
-- `reg-video_studio_storyboard` (mediaux.json)
-- `reg-video_studio_trained` (mediaux.json)
-- `reg-video_studio_shotcut` (mediaux.json)
-- `reg-video_studio_interchange` (mediaux.json)
-- `reg-video_studio_service` (mediaux.json)
-- `reg-video_studio_retrieval` (mediaux.json)
-- `reg-video_adapter_train` (mediaux.json)
-- `reg-video_studio_render` (mediaux.json)
-- `reg-studio_provider` (mediaux.json)
-- `reg-studio_comfyui` (mediaux.json)
-- `reg-video_studio_analysis` (mediaux.json)
-- `reg-studio_governance` (mediaux.json)
-- `reg-studio_sdcpp` (mediaux.json)
-- `reg-studio_openrouter` (mediaux.json)
-- `reg-oss_comfyui` (mediaux.json)
-- `reg-studio_review` (mediaux.json)
-- `reg-web_designer_visual` (mediaux.json)
-- `reg-web_designer_ai_build` (mediaux.json)
-- `reg-ai3d_pipeline` (mediaux.json)
-- `reg-social_farm_media` (mediaux.json)
-- `reg-ai3d_gcode` (mediaux.json)
-- `reg-motion_epic` (mediaux.json)
-- `reg-genjutsu_tool` (mediaux.json)
-- `reg-web_designer_gen` (mediaux.json)
-- `cap-33` (memapps.json)
-- `cap-34` (memapps.json)
-- `cap-42` (memapps.json)
-- `mod-context_budget_v16` (memapps.json)
-- `mod-evolution` (memapps.json)
-- `mod-failure_to_case` (memapps.json)
-- `mod-healing` (memapps.json)
-- `mod-knowledge_fabric_v16` (memapps.json)
-- `mod-memory_retrieval_v16` (memapps.json)
-- `mod-tools_memory` (memapps.json)
-- `app-bossman-accountant` (memapps.json)
-- `app-exam-trainer-ai` (memapps.json)
-- `app-file-commander-mini` (memapps.json)
-- `app-pc-autopilot-mini` (memapps.json)
-- `app-travel-architect` (memapps.json)
-- `module-2efac2124b8a` (memapps.json)
-- `module-fc4458307ec6` (memapps.json)
-- `module-e0361cc49cbe` (memapps.json)
-- `module-4464eb0b222b` (memapps.json)
-- `module-1754cbd5cf01` (memapps.json)
-- `module-7337f0855536` (memapps.json)
-- `module-5da7135e967e` (memapps.json)
-- `module-25fe3b1d97f3` (memapps.json)
-- `module-8740ba43b723` (memapps.json)
-- `module-35d5cb7d9ebd` (memapps.json)
-- `module-c04cfc2bef49` (memapps.json)
-- `module-690bf4d0f3a1` (memapps.json)
-- `module-54de14cfacf9` (memapps.json)
-- `module-91d844ed59bd` (memapps.json)
-- `module-3d1858d49e75` (memapps.json)
-- `module-7e1490293776` (memapps.json)
-- `module-d68747affe30` (memapps.json)
-- `module-74d93ed6921a` (memapps.json)
-- `module-8319884cf006` (memapps.json)
-- `module-1c240a45339a` (memapps.json)
-- `module-9bcb4ce56153` (memapps.json)
-- `module-e298a2a29a4b` (memapps.json)
-- `module-6f6f10fdb204` (memapps.json)
-- `module-07d13d7463b7` (memapps.json)
-- `module-72d4da1606dd` (memapps.json)
-- `module-d33b374941cd` (memapps.json)
-- `module-9d355deb8dee` (memapps.json)
-- `module-389fe1a92fa7` (memapps.json)
-- `module-2719fd94eacc` (memapps.json)
-- `module-98c19da7eaec` (memapps.json)
-- `module-9b294ff2bf89` (memapps.json)
-- `module-23fb0a4fb4a5` (memapps.json)
-- `module-1e377785ed16` (memapps.json)
-- `module-3b203abe62da` (memapps.json)
-- `module-0ca465774554` (memapps.json)
-- `module-b4a66a051db3` (memapps.json)
-- `module-cdb451a7640c` (memapps.json)
-- `module-0eb18b3e4f15` (memapps.json)
-- `module-1f786cfcb2c8` (memapps.json)
-- `module-4a2642e13aea` (memapps.json)
-- `module-8c080805b7d7` (memapps.json)
-- `module-e4cfe203dd2c` (memapps.json)
-- `module-2911cc4fe8e0` (memapps.json)
-- `module-7c2b27fd9ac6` (memapps.json)
-- `pv-coach` (memapps.json)
-- `pv-lora-route` (memapps.json)
-- `reg-earning_emulator` (memapps.json)
-- `reg-earning_emulator_cli` (memapps.json)
-- `mod-v15_owner` (opsplug-retire.json)
-- `module-575dcc5a99f5` (opsplug.json)
-- `module-bc12e1784cb5` (opsplug.json)
-- `module-eea9bcf7e3ac` (opsplug.json)
-- `cap-46` (opsplug.json)
-- `mod-agentmap` (opsplug.json)
-- `module-a7ad0d90993c` (opsplug.json)
-- `module-4780a1d5fdf7` (opsplug.json)
-- `module-d8ca33ba94f4` (opsplug.json)
-- `module-6c727703c8ea` (opsplug.json)
-- `module-9958189ad4d4` (opsplug.json)
-- `module-de49198eacce` (opsplug.json)
-- `plugins-mcp` (opsplug.json)
-- `plugins-security` (opsplug.json)
-- `plugins-oss` (opsplug.json)
-- `reg-leaf_usefulness_queue` (opsplug.json)
-- `reg-tree_registry_sync` (opsplug.json)
-- `reg-blue_leaf_audit_tool` (opsplug.json)
-- `module-73976a1cf54d` (opsplug.json)
-- `mod-benchlab` (opsplug.json)
-- `mod-jeff_insights` (opsplug.json)
-- `mod-workflow` (opsplug.json)
-- `module-d3f5977af5ba` (opsplug.json)
-- `module-ff7440d8b674` (opsplug.json)
-- `module-dadaec7d827b` (opsplug.json)
-- `module-028fe7482116` (opsplug.json)
-- `module-6e615a668c7b` (opsplug.json)
-- `module-df0754d72d22` (opsplug.json)
-- `module-7280885daae5` (opsplug.json)
-- `module-725a466f4b8f` (opsplug.json)
-- `module-45ef5a5cbb02` (opsplug.json)
-- `module-aaff14c2d261` (opsplug.json)
-- `module-531fc123cd17` (opsplug.json)
-- `module-5bfdc6603e86` (opsplug.json)
-- `module-cb1aad058144` (opsplug.json)
-- `module-0ef2333ef23c` (opsplug.json)
-- `module-22827787ecc5` (opsplug.json)
-- `module-fe0ffb0d2f88` (opsplug.json)
-- `module-5fcedb9e4e99` (opsplug.json)
-- `module-abd99037a01e` (opsplug.json)
-- `module-a11338c485f5` (opsplug.json)
-- `module-1622458b008a` (opsplug.json)
-- `module-0dc288edd324` (opsplug.json)
-- `module-e11418351fd7` (opsplug.json)
-- `module-5579b793e038` (opsplug.json)
-- `module-59f6fbe27bd5` (opsplug.json)
-- `module-ae9598734759` (opsplug.json)
-- `module-a71668fad443` (opsplug.json)
-- `module-f21597ba1fd6` (opsplug.json)
-- `plugin-5` (opsplug.json)
-- `plugin-7` (opsplug.json)
-- `plugin-9` (opsplug.json)
-- `plugin-8` (opsplug.json)
 
 ## Отклонённые
 
+- `cap-21` (agcloud.json): status reported not eligible
+- `cap-25` (agcloud.json): status reported not eligible
+- `cap-26` (agcloud.json): status reported not eligible
+- `cap-40` (agcloud.json): status reported not eligible
+- `cap-41` (agcloud.json): status reported not eligible
+- `mod-action_router` (agcloud.json): status reported not eligible
+- `mod-browser` (agcloud.json): status reported not eligible
+- `mod-browser_help` (agcloud.json): status reported not eligible
+- `mod-coding_limit_saver_v16` (agcloud.json): status reported not eligible
+- `mod-control_plane` (agcloud.json): status reported not eligible
+- `mod-economy_swarm` (agcloud.json): status reported not eligible
+- `mod-free_providers` (agcloud.json): status reported not eligible
+- `mod-jev` (agcloud.json): status reported not eligible
+- `mod-missions` (agcloud.json): status reported not eligible
+- `mod-nl_orchestra` (agcloud.json): status reported not eligible
+- `mod-nl_permissions` (agcloud.json): status reported not eligible
+- `mod-provider_fleet_v16` (agcloud.json): status reported not eligible
+- `mod-router` (agcloud.json): status reported not eligible
+- `mod-spend_meter` (agcloud.json): status reported not eligible
+- `mod-task_exchange` (agcloud.json): status reported not eligible
+- `mod-terminal` (agcloud.json): status reported not eligible
+- `mod-tools_browser` (agcloud.json): status reported not eligible
+- `mod-tools_computer` (agcloud.json): status reported not eligible
+- `mod-tools_terminal` (agcloud.json): status reported not eligible
+- `mod-v15_economy` (agcloud.json): status reported not eligible
+- `free-NVIDIA-NIM` (agcloud.json): status reported not eligible
+- `free-Groq` (agcloud.json): status reported not eligible
+- `free-Google-AI-Studio` (agcloud.json): status reported not eligible
+- `agents-graph` (agcloud.json): status reported not eligible
+- `agents-lab` (agcloud.json): status reported not eligible
+- `cap-23` (agcloud.json): status reported not eligible
+- `cap-39` (agcloud.json): status reported not eligible
+- `mod-cache_intel` (agcloud.json): status reported not eligible
+- `mod-coding_sessions` (agcloud.json): status reported not eligible
+- `mod-organization` (agcloud.json): status reported not eligible
+- `cap-38` (agcloud.json): status reported not eligible
+- `mod-coding_recipes` (agcloud.json): status reported not eligible
+- `mod-coding_tasks` (agcloud.json): status reported not eligible
+- `mod-rave` (agcloud.json): status reported not eligible
+- `cap-22` (agcloud.json): status reported not eligible
+- `mod-openrouter` (agcloud.json): status reported not eligible
+- `cap-1` (jeffa.json): status reported not eligible
+- `cap-2` (jeffa.json): status reported not eligible
+- `cap-3` (jeffa.json): status reported not eligible
+- `cap-4` (jeffa.json): status reported not eligible
+- `cap-5` (jeffa.json): status reported not eligible
+- `cap-7` (jeffa.json): status reported not eligible
+- `module-011a03489f77` (jeffa.json): status reported not eligible
+- `module-01c789a2b739` (jeffa.json): status reported not eligible
+- `module-0787a5345c6d` (jeffa.json): status reported not eligible
+- `module-08b732dc1d84` (jeffa.json): status reported not eligible
+- `module-09f63bf64e58` (jeffa.json): status reported not eligible
+- `module-0a1e9aa39f26` (jeffa.json): status reported not eligible
+- `module-0b449131095b` (jeffa.json): status reported not eligible
+- `module-0bd270fb5248` (jeffa.json): status reported not eligible
+- `module-0df0a7bc5733` (jeffa.json): status reported not eligible
+- `module-10b906cde60e` (jeffa.json): status reported not eligible
+- `module-11fe3588a67d` (jeffa.json): status reported not eligible
+- `module-1a35294a664a` (jeffa.json): status reported not eligible
+- `module-1d61f405af4c` (jeffa.json): status reported not eligible
+- `module-2057e75206c8` (jeffa.json): status reported not eligible
+- `module-27f9c4217e34` (jeffa.json): status reported not eligible
+- `module-291791405b2c` (jeffa.json): status reported not eligible
+- `module-2a4383829dfa` (jeffa.json): status reported not eligible
+- `module-2cab55c89d9c` (jeffa.json): status reported not eligible
+- `module-3c2cd6ed725d` (jeffa.json): status reported not eligible
+- `module-3fb56e2abdc6` (jeffa.json): status reported not eligible
+- `module-41bd7c7bdbe4` (jeffa.json): status reported not eligible
+- `module-459def4e9443` (jeffa.json): status reported not eligible
+- `module-46ca918cf2a2` (jeffa.json): status reported not eligible
+- `module-476d3d1ef4a9` (jeffa.json): status reported not eligible
+- `module-4a1f6b8497c8` (jeffa.json): status reported not eligible
+- `module-4c04aa7a520a` (jeffa.json): status reported not eligible
+- `module-55c83e0493e7` (jeffa.json): status reported not eligible
+- `module-566f6d772d69` (jeffa.json): status reported not eligible
+- `module-579cbbb18435` (jeffa.json): status reported not eligible
+- `module-5a8578230115` (jeffa.json): status reported not eligible
+- `module-5ab761d4c710` (jeffa.json): status reported not eligible
+- `module-5b78e96e567a` (jeffa.json): status reported not eligible
+- `module-5c2af9d244e7` (jeffa.json): status reported not eligible
+- `module-5ca4b43f294a` (jeffa.json): status reported not eligible
+- `module-5eb076bfba97` (jeffa.json): status reported not eligible
+- `module-62de71348d62` (jeffa.json): status reported not eligible
+- `module-639c8365e585` (jeffa.json): status reported not eligible
+- `module-6429e61dd089` (jeffa.json): status reported not eligible
+- `module-643bc9bd9ef3` (jeffa.json): status reported not eligible
+- `module-64645c8f9fb0` (jeffa.json): status reported not eligible
+- `module-679b42c085a9` (jeffa.json): status reported not eligible
+- `module-67a5b6d5c767` (jeffa.json): status reported not eligible
+- `module-67cee7d9cae4` (jeffa.json): status reported not eligible
+- `module-6858e3e84765` (jeffa.json): status reported not eligible
+- `module-6e060497c158` (jeffa.json): status reported not eligible
+- `module-6ee86a43e787` (jeffa.json): status reported not eligible
+- `module-6f3b41ccd19f` (jeffa.json): status reported not eligible
+- `module-6f5944305093` (jeffa.json): status reported not eligible
+- `module-715359be81c9` (jeffa.json): status reported not eligible
+- `module-74990de09699` (jeffa.json): status reported not eligible
+- `module-7637ffa19df1` (jeffa.json): status reported not eligible
+- `module-7974acf47711` (jeffa.json): status reported not eligible
+- `module-7a7a9e12efb7` (jeffa.json): status reported not eligible
+- `module-7a8593010c20` (jeffa.json): status reported not eligible
+- `module-7afc7ce94420` (jeffa.json): status reported not eligible
+- `module-7fe26d8e1063` (jeffa.json): status reported not eligible
+- `module-81ae3126d244` (jeffa.json): status reported not eligible
+- `module-81fe82cd46bb` (jeffa.json): status reported not eligible
+- `module-83a15f7aa768` (jeffb.json): status reported not eligible
+- `module-83b0bd4a24b3` (jeffb.json): status reported not eligible
+- `module-842ef81754c0` (jeffb.json): status reported not eligible
+- `module-85f118831d7b` (jeffb.json): status reported not eligible
+- `module-8dfa4ca61d63` (jeffb.json): status reported not eligible
+- `module-8ebcf42d990a` (jeffb.json): status reported not eligible
+- `module-8f42d3cc74e5` (jeffb.json): status reported not eligible
+- `module-90209d82364c` (jeffb.json): status reported not eligible
+- `module-91e8d95273c5` (jeffb.json): status reported not eligible
+- `module-940780459eb4` (jeffb.json): status reported not eligible
+- `module-9414ce79578c` (jeffb.json): status reported not eligible
+- `module-94819ae06213` (jeffb.json): status reported not eligible
+- `module-958ca83ceaa8` (jeffb.json): status reported not eligible
+- `module-9818110824b0` (jeffb.json): status reported not eligible
+- `module-9c7361a27b1a` (jeffb.json): status reported not eligible
+- `module-9de94c4cb278` (jeffb.json): status reported not eligible
+- `module-9f87418c31e0` (jeffb.json): status reported not eligible
+- `module-a00067262226` (jeffb.json): status reported not eligible
+- `module-a090c121b689` (jeffb.json): status reported not eligible
+- `module-a2a8be1c06e1` (jeffb.json): status reported not eligible
+- `module-a513ff702c46` (jeffb.json): status reported not eligible
+- `module-a7105ffd5da5` (jeffb.json): status working not eligible
+- `module-b2924df01fad` (jeffb.json): status reported not eligible
+- `module-b2e0eb3245b9` (jeffb.json): status reported not eligible
+- `module-b36c82e81920` (jeffb.json): status reported not eligible
+- `module-b864400370f1` (jeffb.json): status reported not eligible
+- `module-bc4dba6e1890` (jeffb.json): status reported not eligible
+- `module-c0879a714994` (jeffb.json): status reported not eligible
+- `module-ca6609a6b448` (jeffb.json): status reported not eligible
+- `module-ce4bec7cff7e` (jeffb.json): status reported not eligible
+- `module-cf717b6f2546` (jeffb.json): status reported not eligible
+- `module-d0bec156ed2c` (jeffb.json): status reported not eligible
+- `module-d93b8a2e7320` (jeffb.json): status reported not eligible
+- `module-dc92260872d5` (jeffb.json): status reported not eligible
+- `module-e2624a8bf0fc` (jeffb.json): status reported not eligible
+- `module-e3621a3791e3` (jeffb.json): status reported not eligible
+- `module-e3b155c353db` (jeffb.json): status reported not eligible
+- `module-e52098ab7553` (jeffb.json): status reported not eligible
+- `module-e67d89bd6ff2` (jeffb.json): status reported not eligible
+- `module-ebc21c85581a` (jeffb.json): status reported not eligible
+- `module-eddee4708a7d` (jeffb.json): status reported not eligible
+- `module-eeb5c7530a12` (jeffb.json): status reported not eligible
+- `module-eff0fd116111` (jeffb.json): status reported not eligible
+- `module-f26b63157c2f` (jeffb.json): status reported not eligible
+- `module-f526d2fd0ef3` (jeffb.json): status reported not eligible
+- `module-f8c8574f9ee2` (jeffb.json): status reported not eligible
+- `module-ffd7b5564673` (jeffb.json): status reported not eligible
+- `reg-oss_chatterbox` (jeffb.json): status reported not eligible
+- `reg-oss_piper` (jeffb.json): status reported not eligible
+- `reg-oss_whisper` (jeffb.json): status reported not eligible
+- `reg-voice_capability` (jeffb.json): status reported not eligible
+- `module-9502d104e91e` (jeffb.json): status reported not eligible
+- `module-d87d5bf5141c` (jeffb.json): status reported not eligible
+- `module-dfb6c31ae04f` (jeffb.json): status reported not eligible
+- `module-fa8e48038ace` (jeffb.json): status reported not eligible
+- `module-9a23ec9fe2eb` (jeffb.json): status reported not eligible
+- `module-a28716ea704d` (jeffb.json): status reported not eligible
+- `module-b1142d03395c` (jeffb.json): status reported not eligible
+- `module-bf7480cb496c` (jeffb.json): status reported not eligible
+- `module-d6fff5861410` (jeffb.json): status reported not eligible
+- `module-d794cbd77cf3` (jeffb.json): status reported not eligible
+- `reg-promo_video` (mediaux-retire.json): status retired not eligible
+- `cap-29` (mediaux.json): status reported not eligible
+- `cap-12` (mediaux.json): status reported not eligible
+- `mod-game_bootstrap_v16` (mediaux.json): status reported not eligible
+- `cap-13` (mediaux.json): status reported not eligible
+- `mod-images` (mediaux.json): status reported not eligible
+- `cap-30` (mediaux.json): status reported not eligible
+- `mod-motion_studio` (mediaux.json): status reported not eligible
+- `mod-studio_review` (mediaux.json): status reported not eligible
+- `mod-studio` (mediaux.json): status reported not eligible
+- `app-social-farm` (mediaux.json): status reported not eligible
+- `slash-help` (mediaux.json): status reported not eligible
+- `slash-status` (mediaux.json): status reported not eligible
+- `slash-tasks` (mediaux.json): status reported not eligible
+- `slash-models` (mediaux.json): status reported not eligible
+- `slash-agent` (mediaux.json): status reported not eligible
+- `slash-skills` (mediaux.json): status reported not eligible
+- `slash-tools` (mediaux.json): status reported not eligible
+- `slash-memory` (mediaux.json): status reported not eligible
+- `slash-diff` (mediaux.json): status reported not eligible
+- `mod-music_studio` (mediaux.json): status reported not eligible
+- `slash-code` (mediaux.json): status reported not eligible
+- `slash-rave` (mediaux.json): status reported not eligible
+- `slash-approve` (mediaux.json): status reported not eligible
+- `slash-deny` (mediaux.json): status reported not eligible
+- `slash-approvals` (mediaux.json): status reported not eligible
+- `slash-pause` (mediaux.json): status reported not eligible
+- `slash-stop` (mediaux.json): status reported not eligible
+- `mod-video_studio` (mediaux.json): status reported not eligible
+- `slash-resume` (mediaux.json): status reported not eligible
+- `slash-computer` (mediaux.json): status reported not eligible
+- `slash-evolve` (mediaux.json): status reported not eligible
+- `slash-keys` (mediaux.json): status reported not eligible
+- `slash-panel` (mediaux.json): status reported not eligible
+- `slash-compact` (mediaux.json): status reported not eligible
+- `slash-context` (mediaux.json): status reported not eligible
+- `slash-cost` (mediaux.json): status reported not eligible
+- `slash-export` (mediaux.json): status reported not eligible
+- `slash-doctor` (mediaux.json): status reported not eligible
+- `slash-expand` (mediaux.json): status reported not eligible
+- `slash-history` (mediaux.json): status reported not eligible
+- `slash-clear` (mediaux.json): status reported not eligible
+- `slash-exit` (mediaux.json): status reported not eligible
+- `reg-video_studio_storyboard` (mediaux.json): status reported not eligible
+- `reg-video_studio_trained` (mediaux.json): status reported not eligible
+- `reg-video_studio_shotcut` (mediaux.json): status reported not eligible
+- `reg-video_studio_interchange` (mediaux.json): status reported not eligible
+- `reg-video_studio_service` (mediaux.json): status reported not eligible
+- `reg-video_studio_retrieval` (mediaux.json): status reported not eligible
+- `reg-video_adapter_train` (mediaux.json): status reported not eligible
+- `reg-video_studio_render` (mediaux.json): status reported not eligible
+- `reg-studio_provider` (mediaux.json): status reported not eligible
+- `reg-studio_comfyui` (mediaux.json): status reported not eligible
+- `reg-video_studio_analysis` (mediaux.json): status reported not eligible
+- `reg-studio_governance` (mediaux.json): status reported not eligible
+- `reg-studio_sdcpp` (mediaux.json): status reported not eligible
+- `reg-studio_openrouter` (mediaux.json): status reported not eligible
+- `reg-oss_comfyui` (mediaux.json): status reported not eligible
+- `reg-studio_review` (mediaux.json): status reported not eligible
+- `reg-web_designer_visual` (mediaux.json): status reported not eligible
+- `reg-web_designer_ai_build` (mediaux.json): status reported not eligible
+- `reg-ai3d_pipeline` (mediaux.json): status reported not eligible
+- `reg-social_farm_media` (mediaux.json): status reported not eligible
 - `reg-motion_make_video` (mediaux.json): verdict not PASS
+- `reg-ai3d_gcode` (mediaux.json): status reported not eligible
+- `reg-motion_epic` (mediaux.json): status reported not eligible
+- `reg-genjutsu_tool` (mediaux.json): status reported not eligible
+- `reg-web_designer_gen` (mediaux.json): status reported not eligible
+- `cap-33` (memapps.json): status reported not eligible
+- `cap-34` (memapps.json): status reported not eligible
+- `cap-42` (memapps.json): status reported not eligible
+- `mod-context_budget_v16` (memapps.json): status reported not eligible
+- `mod-evolution` (memapps.json): status reported not eligible
+- `mod-failure_to_case` (memapps.json): status reported not eligible
+- `mod-healing` (memapps.json): status reported not eligible
+- `mod-knowledge_fabric_v16` (memapps.json): status reported not eligible
+- `mod-memory_retrieval_v16` (memapps.json): status reported not eligible
+- `mod-tools_memory` (memapps.json): status reported not eligible
 - `app-ai-3d-maker` (memapps.json): verdict not PASS
 - `app-ai-webcam-vision` (memapps.json): verdict not PASS
+- `app-bossman-accountant` (memapps.json): status reported not eligible
+- `app-exam-trainer-ai` (memapps.json): status reported not eligible
+- `app-file-commander-mini` (memapps.json): status reported not eligible
+- `app-pc-autopilot-mini` (memapps.json): status reported not eligible
+- `app-travel-architect` (memapps.json): status reported not eligible
+- `module-2efac2124b8a` (memapps.json): status reported not eligible
+- `module-fc4458307ec6` (memapps.json): status reported not eligible
+- `module-e0361cc49cbe` (memapps.json): status reported not eligible
+- `module-4464eb0b222b` (memapps.json): status reported not eligible
+- `module-1754cbd5cf01` (memapps.json): status reported not eligible
+- `module-7337f0855536` (memapps.json): status reported not eligible
+- `module-5da7135e967e` (memapps.json): status reported not eligible
+- `module-25fe3b1d97f3` (memapps.json): status reported not eligible
+- `module-8740ba43b723` (memapps.json): status reported not eligible
+- `module-35d5cb7d9ebd` (memapps.json): status reported not eligible
+- `module-c04cfc2bef49` (memapps.json): status reported not eligible
+- `module-690bf4d0f3a1` (memapps.json): status reported not eligible
+- `module-54de14cfacf9` (memapps.json): status reported not eligible
+- `module-91d844ed59bd` (memapps.json): status reported not eligible
+- `module-3d1858d49e75` (memapps.json): status reported not eligible
+- `module-7e1490293776` (memapps.json): status reported not eligible
+- `module-d68747affe30` (memapps.json): status reported not eligible
+- `module-74d93ed6921a` (memapps.json): status reported not eligible
+- `module-8319884cf006` (memapps.json): status reported not eligible
+- `module-1c240a45339a` (memapps.json): status reported not eligible
+- `module-9bcb4ce56153` (memapps.json): status reported not eligible
+- `module-e298a2a29a4b` (memapps.json): status reported not eligible
+- `module-6f6f10fdb204` (memapps.json): status reported not eligible
+- `module-07d13d7463b7` (memapps.json): status reported not eligible
+- `module-72d4da1606dd` (memapps.json): status reported not eligible
+- `module-d33b374941cd` (memapps.json): status reported not eligible
+- `module-9d355deb8dee` (memapps.json): status reported not eligible
+- `module-389fe1a92fa7` (memapps.json): status reported not eligible
+- `module-2719fd94eacc` (memapps.json): status reported not eligible
 - `module-6bf6aca94f5f` (memapps.json): verdict not PASS
+- `module-98c19da7eaec` (memapps.json): status reported not eligible
 - `module-10135418ed52` (memapps.json): verdict not PASS
 - `module-dca65ddd8cea` (memapps.json): verdict not PASS
 - `module-72a2f39e685d` (memapps.json): verdict not PASS
+- `module-9b294ff2bf89` (memapps.json): status reported not eligible
+- `module-23fb0a4fb4a5` (memapps.json): status reported not eligible
+- `module-1e377785ed16` (memapps.json): status reported not eligible
+- `module-3b203abe62da` (memapps.json): status reported not eligible
+- `module-0ca465774554` (memapps.json): status reported not eligible
+- `module-b4a66a051db3` (memapps.json): status reported not eligible
+- `module-cdb451a7640c` (memapps.json): status reported not eligible
+- `module-0eb18b3e4f15` (memapps.json): status reported not eligible
+- `module-1f786cfcb2c8` (memapps.json): status reported not eligible
+- `module-4a2642e13aea` (memapps.json): status reported not eligible
+- `module-8c080805b7d7` (memapps.json): status reported not eligible
+- `module-e4cfe203dd2c` (memapps.json): status reported not eligible
+- `module-2911cc4fe8e0` (memapps.json): status reported not eligible
+- `module-7c2b27fd9ac6` (memapps.json): status reported not eligible
 - `pv-pipeline` (memapps.json): verdict not PASS
 - `pv-act` (memapps.json): verdict not PASS
 - `pv-eval` (memapps.json): verdict not PASS
+- `pv-coach` (memapps.json): status reported not eligible
 - `pv-executor` (memapps.json): verdict not PASS
+- `pv-lora-route` (memapps.json): status reported not eligible
+- `reg-earning_emulator` (memapps.json): status reported not eligible
+- `reg-earning_emulator_cli` (memapps.json): status reported not eligible
 - `app-solana-volume-suite` (memapps.json): verdict not PASS
 - `mod-action_contract` (ops.json): status reported not eligible
 - `mod-action_gate` (ops.json): status reported not eligible
 - `mod-action_preview` (ops.json): status reported not eligible
-- `mod-agentmap` (ops.json): verdict not PASS
+- `mod-agentmap` (ops.json): status reported not eligible
 - `mod-apps` (ops.json): status reported not eligible
 - `mod-apps_control` (ops.json): status reported not eligible
 - `mod-autonomy` (ops.json): verdict not PASS
-- `mod-benchlab` (ops.json): verdict not PASS
+- `mod-benchlab` (ops.json): status reported not eligible
 - `mod-bossnet_nodes_v16` (ops.json): status reported not eligible
 - `mod-chat_threads` (ops.json): status reported not eligible
 - `mod-code_intel` (ops.json): status reported not eligible
@@ -400,7 +338,7 @@
 - `mod-file_intelligence` (ops.json): status reported not eligible
 - `mod-forks` (ops.json): status reported not eligible
 - `mod-governor` (ops.json): status reported not eligible
-- `mod-jeff_insights` (ops.json): verdict not PASS
+- `mod-jeff_insights` (ops.json): status reported not eligible
 - `mod-jeff_master_parser` (ops.json): status reported not eligible
 - `mod-jeff_settings` (ops.json): status reported not eligible
 - `mod-lab_agents` (ops.json): status reported not eligible
@@ -440,30 +378,30 @@
 - `mod-v15_self_repair` (ops.json): status reported not eligible
 - `mod-watchdog` (ops.json): status reported not eligible
 - `mod-web_designer` (ops.json): status reported not eligible
-- `mod-workflow` (ops.json): verdict not PASS
+- `mod-workflow` (ops.json): status reported not eligible
 - `module-637788ef482e` (ops.json): status reported not eligible
 - `module-a1a2c4ccc239` (ops.json): status reported not eligible
 - `module-cdb370a24157` (ops.json): status reported not eligible
 - `module-5386412e9f11` (ops.json): status reported not eligible
-- `module-73976a1cf54d` (ops.json): verdict not PASS
+- `module-73976a1cf54d` (ops.json): status reported not eligible
 - `module-39e925886668` (ops.json): status reported not eligible
-- `module-a7ad0d90993c` (ops.json): verdict not PASS
-- `module-bc12e1784cb5` (ops.json): verdict not PASS
+- `module-a7ad0d90993c` (ops.json): status reported not eligible
+- `module-bc12e1784cb5` (ops.json): status reported not eligible
 - `module-a17a422c65d7` (ops.json): status reported not eligible
 - `module-86282a9efa67` (ops.json): status reported not eligible
 - `module-d41ad480551d` (ops.json): status reported not eligible
 - `module-d4455ade6345` (ops.json): status reported not eligible
 - `module-177f174d3f63` (ops.json): status reported not eligible
-- `module-4780a1d5fdf7` (ops.json): verdict not PASS
+- `module-4780a1d5fdf7` (ops.json): status reported not eligible
 - `module-c23f35941e16` (ops.json): status reported not eligible
 - `module-815783821b83` (ops.json): status reported not eligible
 - `module-bc25cd9f1e01` (ops.json): status reported not eligible
 - `module-42a06e3c1b71` (ops.json): status reported not eligible
 - `module-049b601d5eaa` (ops.json): status reported not eligible
 - `module-efdcd8d35b9c` (ops.json): status reported not eligible
-- `module-d8ca33ba94f4` (ops.json): verdict not PASS
-- `module-6c727703c8ea` (ops.json): verdict not PASS
-- `module-9958189ad4d4` (ops.json): verdict not PASS
+- `module-d8ca33ba94f4` (ops.json): status reported not eligible
+- `module-6c727703c8ea` (ops.json): status reported not eligible
+- `module-9958189ad4d4` (ops.json): status reported not eligible
 - `module-ac2f6e6dc2d9` (ops.json): status reported not eligible
 - `module-e2dd4b7bfb5d` (ops.json): status reported not eligible
 - `module-816c15a6b6a4` (ops.json): status reported not eligible
@@ -471,17 +409,17 @@
 - `module-522cf2e79840` (ops.json): status reported not eligible
 - `module-edac8a22b815` (ops.json): status reported not eligible
 - `module-b8a71e28fc47` (ops.json): status reported not eligible
-- `module-ff7440d8b674` (ops.json): verdict not PASS
+- `module-ff7440d8b674` (ops.json): status reported not eligible
 - `module-1184b1105ced` (ops.json): status reported not eligible
-- `module-dadaec7d827b` (ops.json): verdict not PASS
+- `module-dadaec7d827b` (ops.json): status reported not eligible
 - `module-771a003071ca` (ops.json): status reported not eligible
-- `module-d3f5977af5ba` (ops.json): verdict not PASS
+- `module-d3f5977af5ba` (ops.json): status reported not eligible
 - `module-9f29d5a73f7f` (ops.json): status reported not eligible
 - `module-f1cacda08a67` (ops.json): status reported not eligible
 - `module-47931d1b717a` (ops.json): status reported not eligible
-- `module-eea9bcf7e3ac` (ops.json): verdict not PASS
+- `module-eea9bcf7e3ac` (ops.json): status reported not eligible
 - `module-e297560d568b` (ops.json): status reported not eligible
-- `module-575dcc5a99f5` (ops.json): verdict not PASS
+- `module-575dcc5a99f5` (ops.json): status reported not eligible
 - `module-fb39c9a64573` (ops.json): status reported not eligible
 - `module-179cd95b7128` (ops.json): status reported not eligible
 - `module-79d58034a65f` (ops.json): status reported not eligible
@@ -501,11 +439,11 @@
 - `module-e99c091d1c06` (ops.json): status reported not eligible
 - `module-dd118749492b` (ops.json): status reported not eligible
 - `module-72f38f26214a` (ops.json): status reported not eligible
-- `module-6e615a668c7b` (ops.json): verdict not PASS
+- `module-6e615a668c7b` (ops.json): status reported not eligible
 - `module-4efbb2fd9c4a` (ops.json): status reported not eligible
 - `module-bc87c8d6bfa4` (ops.json): status reported not eligible
-- `module-df0754d72d22` (ops.json): verdict not PASS
-- `module-028fe7482116` (ops.json): verdict not PASS
+- `module-df0754d72d22` (ops.json): status reported not eligible
+- `module-028fe7482116` (ops.json): status reported not eligible
 - `module-068b8f4fbeb2` (ops.json): status reported not eligible
 - `module-0b1e4d69a90c` (ops.json): status reported not eligible
 - `module-7a65bf88fb04` (ops.json): status reported not eligible
@@ -525,7 +463,7 @@
 - `module-7f1adf1138f0` (ops.json): status reported not eligible
 - `module-e2b6bd15aba1` (ops.json): status reported not eligible
 - `module-3adca9c27bdb` (ops.json): status reported not eligible
-- `module-7280885daae5` (ops.json): verdict not PASS
+- `module-7280885daae5` (ops.json): status reported not eligible
 - `module-9a1970f7c3e5` (ops.json): status reported not eligible
 - `module-3f0a90670bba` (ops.json): status reported not eligible
 - `module-b428d8c055bc` (ops.json): status reported not eligible
@@ -539,64 +477,64 @@
 - `module-d5d8a9a7ab5c` (ops.json): status reported not eligible
 - `module-a548c779a998` (ops.json): status reported not eligible
 - `module-8dba9550a502` (ops.json): status reported not eligible
-- `module-725a466f4b8f` (ops.json): verdict not PASS
+- `module-725a466f4b8f` (ops.json): status reported not eligible
 - `module-24bbe5117ab0` (ops.json): status reported not eligible
 - `module-9a0163231b1b` (ops.json): status reported not eligible
 - `module-0ce0daf3140c` (ops.json): status reported not eligible
-- `module-45ef5a5cbb02` (ops.json): verdict not PASS
+- `module-45ef5a5cbb02` (ops.json): status reported not eligible
 - `module-76a14f0ce102` (ops.json): status reported not eligible
 - `module-ddbf2f4b50d2` (ops.json): status reported not eligible
-- `module-aaff14c2d261` (ops.json): verdict not PASS
+- `module-aaff14c2d261` (ops.json): status reported not eligible
 - `module-46de893ccfc9` (ops.json): status reported not eligible
 - `module-2e5863355b9a` (ops.json): status reported not eligible
 - `module-60f309b322d6` (ops.json): status reported not eligible
 - `module-5c5bd2e61f67` (ops.json): status reported not eligible
 - `module-99fc865d8c4b` (ops.json): status reported not eligible
 - `module-ff3e6bc1044b` (ops.json): status reported not eligible
-- `module-531fc123cd17` (ops.json): verdict not PASS
+- `module-531fc123cd17` (ops.json): status reported not eligible
 - `module-ca6830e0de16` (ops.json): status reported not eligible
 - `module-8bd73fd35c48` (ops.json): status reported not eligible
 - `module-28048916831a` (ops.json): status reported not eligible
 - `module-883a6692992b` (ops.json): status reported not eligible
-- `module-de49198eacce` (ops.json): verdict not PASS
+- `module-de49198eacce` (ops.json): status reported not eligible
 - `module-2bd9c1e2cdfd` (ops.json): status reported not eligible
 - `module-37dec999ab57` (ops.json): status reported not eligible
 - `module-f1437d4e2221` (ops.json): status reported not eligible
 - `module-897d03f9aab0` (ops.json): status reported not eligible
 - `module-6bfb88803a15` (ops.json): status reported not eligible
 - `module-de0238268e77` (ops.json): status reported not eligible
-- `module-5bfdc6603e86` (ops.json): verdict not PASS
+- `module-5bfdc6603e86` (ops.json): status reported not eligible
 - `module-8f7bb546924a` (ops.json): status reported not eligible
-- `module-cb1aad058144` (ops.json): verdict not PASS
+- `module-cb1aad058144` (ops.json): status reported not eligible
 - `module-c5d464a7aa9e` (ops.json): status reported not eligible
-- `module-0ef2333ef23c` (ops.json): verdict not PASS
+- `module-0ef2333ef23c` (ops.json): status reported not eligible
 - `module-2f9db2f18c1b` (ops.json): status reported not eligible
-- `module-22827787ecc5` (ops.json): verdict not PASS
+- `module-22827787ecc5` (ops.json): status reported not eligible
 - `module-dacafbe9e4ee` (ops.json): status reported not eligible
-- `module-fe0ffb0d2f88` (ops.json): verdict not PASS
-- `module-5fcedb9e4e99` (ops.json): verdict not PASS
+- `module-fe0ffb0d2f88` (ops.json): status reported not eligible
+- `module-5fcedb9e4e99` (ops.json): status reported not eligible
 - `module-9d055871ddff` (ops.json): status reported not eligible
-- `module-abd99037a01e` (ops.json): verdict not PASS
+- `module-abd99037a01e` (ops.json): status reported not eligible
 - `module-9d8ee6730907` (ops.json): status reported not eligible
 - `module-43a773f7d5a6` (ops.json): status reported not eligible
 - `module-eb0be06d9db9` (ops.json): status reported not eligible
 - `module-9c2c49d71c15` (ops.json): status reported not eligible
 - `module-5c36f1523214` (ops.json): status reported not eligible
 - `module-2eec9a135e0f` (ops.json): status reported not eligible
-- `module-a11338c485f5` (ops.json): verdict not PASS
-- `module-1622458b008a` (ops.json): verdict not PASS
+- `module-a11338c485f5` (ops.json): status reported not eligible
+- `module-1622458b008a` (ops.json): status reported not eligible
 - `module-5d128fcf8dab` (ops.json): status reported not eligible
 - `module-fdd1e1e7e9a0` (ops.json): status reported not eligible
 - `module-e999698f8e9e` (ops.json): status reported not eligible
-- `module-0dc288edd324` (ops.json): verdict not PASS
+- `module-0dc288edd324` (ops.json): status reported not eligible
 - `module-aab05d5c4f1a` (ops.json): status reported not eligible
 - `module-0445b69844cc` (ops.json): status reported not eligible
-- `module-e11418351fd7` (ops.json): verdict not PASS
+- `module-e11418351fd7` (ops.json): status reported not eligible
 - `module-6fcdcfb4b872` (ops.json): status reported not eligible
 - `module-3e2b4af78a2e` (ops.json): status reported not eligible
-- `module-5579b793e038` (ops.json): verdict not PASS
+- `module-5579b793e038` (ops.json): status reported not eligible
 - `module-76ae682ed2e4` (ops.json): status reported not eligible
-- `module-59f6fbe27bd5` (ops.json): verdict not PASS
+- `module-59f6fbe27bd5` (ops.json): status reported not eligible
 - `module-5f3e261c2cf4` (ops.json): status reported not eligible
 - `module-eb0bce4aaf5b` (ops.json): status reported not eligible
 - `module-918d9d178fe3` (ops.json): status reported not eligible
@@ -605,7 +543,7 @@
 - `module-6b8f5c457e7f` (ops.json): status reported not eligible
 - `module-c2cd9f798b9b` (ops.json): status reported not eligible
 - `module-7be51ff76449` (ops.json): status reported not eligible
-- `module-ae9598734759` (ops.json): verdict not PASS
+- `module-ae9598734759` (ops.json): status reported not eligible
 - `module-a91069ddd708` (ops.json): status reported not eligible
 - `module-cdbbc088b662` (ops.json): status reported not eligible
 - `module-e84c7b61d7a6` (ops.json): status reported not eligible
@@ -613,13 +551,66 @@
 - `module-6285f40851f1` (ops.json): status reported not eligible
 - `module-4c9ee5995fb6` (ops.json): status reported not eligible
 - `module-3d62540e3028` (ops.json): status reported not eligible
-- `module-a71668fad443` (ops.json): verdict not PASS
+- `module-a71668fad443` (ops.json): status reported not eligible
 - `module-27cb1911d462` (ops.json): status reported not eligible
-- `module-f21597ba1fd6` (ops.json): verdict not PASS
+- `module-f21597ba1fd6` (ops.json): status reported not eligible
 - `module-266a95659ed4` (ops.json): status reported not eligible
 - `module-7af8dc300eab` (ops.json): status reported not eligible
+- `mod-v15_owner` (opsplug-retire.json): status retired not eligible
+- `module-575dcc5a99f5` (opsplug.json): status reported not eligible
+- `module-bc12e1784cb5` (opsplug.json): status reported not eligible
+- `module-eea9bcf7e3ac` (opsplug.json): status reported not eligible
+- `cap-46` (opsplug.json): status reported not eligible
+- `mod-agentmap` (opsplug.json): status reported not eligible
 - `mod-autonomy` (opsplug.json): verdict not PASS
 - `mod-osiris` (opsplug.json): verdict not PASS
+- `module-a7ad0d90993c` (opsplug.json): status reported not eligible
+- `module-4780a1d5fdf7` (opsplug.json): status reported not eligible
+- `module-d8ca33ba94f4` (opsplug.json): status reported not eligible
+- `module-6c727703c8ea` (opsplug.json): status reported not eligible
+- `module-9958189ad4d4` (opsplug.json): status reported not eligible
+- `module-de49198eacce` (opsplug.json): status reported not eligible
+- `plugins-mcp` (opsplug.json): status reported not eligible
+- `plugins-security` (opsplug.json): status reported not eligible
+- `plugins-oss` (opsplug.json): status reported not eligible
+- `reg-leaf_usefulness_queue` (opsplug.json): status reported not eligible
+- `reg-tree_registry_sync` (opsplug.json): status reported not eligible
+- `reg-blue_leaf_audit_tool` (opsplug.json): status reported not eligible
+- `module-73976a1cf54d` (opsplug.json): status reported not eligible
+- `mod-benchlab` (opsplug.json): status reported not eligible
+- `mod-jeff_insights` (opsplug.json): status reported not eligible
+- `mod-workflow` (opsplug.json): status reported not eligible
+- `module-d3f5977af5ba` (opsplug.json): status reported not eligible
+- `module-ff7440d8b674` (opsplug.json): status reported not eligible
+- `module-dadaec7d827b` (opsplug.json): status reported not eligible
+- `module-028fe7482116` (opsplug.json): status reported not eligible
+- `module-6e615a668c7b` (opsplug.json): status reported not eligible
+- `module-df0754d72d22` (opsplug.json): status reported not eligible
+- `module-7280885daae5` (opsplug.json): status reported not eligible
+- `module-725a466f4b8f` (opsplug.json): status reported not eligible
+- `module-45ef5a5cbb02` (opsplug.json): status reported not eligible
+- `module-aaff14c2d261` (opsplug.json): status reported not eligible
+- `module-531fc123cd17` (opsplug.json): status reported not eligible
+- `module-5bfdc6603e86` (opsplug.json): status reported not eligible
+- `module-cb1aad058144` (opsplug.json): status reported not eligible
+- `module-0ef2333ef23c` (opsplug.json): status reported not eligible
+- `module-22827787ecc5` (opsplug.json): status reported not eligible
+- `module-fe0ffb0d2f88` (opsplug.json): status reported not eligible
+- `module-5fcedb9e4e99` (opsplug.json): status reported not eligible
+- `module-abd99037a01e` (opsplug.json): status reported not eligible
+- `module-a11338c485f5` (opsplug.json): status reported not eligible
+- `module-1622458b008a` (opsplug.json): status reported not eligible
+- `module-0dc288edd324` (opsplug.json): status reported not eligible
+- `module-e11418351fd7` (opsplug.json): status reported not eligible
+- `module-5579b793e038` (opsplug.json): status reported not eligible
+- `module-59f6fbe27bd5` (opsplug.json): status reported not eligible
+- `module-ae9598734759` (opsplug.json): status reported not eligible
+- `module-a71668fad443` (opsplug.json): status reported not eligible
+- `module-f21597ba1fd6` (opsplug.json): status reported not eligible
+- `plugin-5` (opsplug.json): status reported not eligible
+- `plugin-7` (opsplug.json): status reported not eligible
+- `plugin-9` (opsplug.json): status reported not eligible
+- `plugin-8` (opsplug.json): status reported not eligible
 - `plugin-0` (plugins.json): status reported not eligible
 - `plugin-1` (plugins.json): status reported not eligible
 - `plugin-2` (plugins.json): status reported not eligible
@@ -638,3 +629,20 @@
 - `skill-22` (skills.json): status recorded not eligible
 - `skill-36` (skills.json): status recorded not eligible
 - `skills-runtime` (skills.json): status reported not eligible
+- `None` (ux-sweep-desktop-raw.json): unreadable lane file
+- `None` (ux-sweep-notes.json): unreadable lane file
+- `None` (ux-sweep.json): unreadable lane file
+- `module-a7105ffd5da5` (installed-final.json): status working is not reported (green first)
+- `plugin-0` (installed-plugins.json): output hash mismatch
+- `plugin-1` (installed-plugins.json): output hash mismatch
+- `plugin-2` (installed-plugins.json): output hash mismatch
+- `plugin-3` (installed-plugins.json): output hash mismatch
+- `plugin-4` (installed-plugins.json): output hash mismatch
+- `plugin-5` (installed-plugins.json): output hash mismatch
+- `plugin-7` (installed-plugins.json): output hash mismatch
+- `plugin-8` (installed-plugins.json): output hash mismatch
+- `plugin-9` (installed-plugins.json): output hash mismatch
+- `plugins-mcp` (installed-plugins.json): output hash mismatch
+- `plugins-oss` (installed-plugins.json): output hash mismatch
+- `plugins-security` (installed-plugins.json): output hash mismatch
+- `skills-runtime` (installed-skills.json): output hash mismatch

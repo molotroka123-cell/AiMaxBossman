@@ -1,0 +1,16 @@
+[
+  {
+    "node_id": "module-a7105ffd5da5",
+    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "probe": "hidden discovery_nonfinite holdout 72/72 against the INSTALLED build code (module loaded from the installed site-packages); same code was repaired by a Bossman worker (cycle 23)",
+    "command": "runtime\\python.exe -I -X utf8 installed_holdout.py  (imports bcc.pit.discovery from the installed build; asserts __file__ is inside BOSSMAN-Windows-x64-eba6dc592ad9; runs tools/tree_holdout/discovery_nonfinite.cases)",
+    "exit_code": 0,
+    "started_at": "2026-10-07T14:09:00Z",
+    "finished_at": "2026-10-07T14:09:00Z",
+    "output_sha256": "0cb2ecff690c31c3b1bebe9c01e7b4accb4c296af8dbfa5ef7b516f60fe757ca",
+    "output_tail": "module file: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bcc\\pit\\discovery.py\r\nHOLDOUT on INSTALLED code: 72/72 passed\r\n",
+    "verdict": "PASS",
+    "kind": "installed_pytest",
+    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+  }
+]

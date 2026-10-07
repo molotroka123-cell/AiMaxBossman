@@ -13655,8 +13655,8 @@
       "id": "module-a7105ffd5da5",
       "label": "pit/discovery.py",
       "parent": "jeff",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ eba6dc59: hidden discovery_nonfinite holdout 72/72 against the INSTALLED build code (module loaded from the installed site-packages); same code was repaired by a Bossman worker (cycle 23)",
       "sources": [
         {
           "path": "command-center/bcc/pit/discovery.py",
@@ -13670,6 +13670,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-a7105ffd5da5"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-final.json#module-a7105ffd5da5",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."

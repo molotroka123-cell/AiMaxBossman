@@ -1,0 +1,2 @@
+module file: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\pit\discovery.py
+HOLDOUT on INSTALLED code: 72/72 passed

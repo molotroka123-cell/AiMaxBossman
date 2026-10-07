@@ -231,7 +231,7 @@ def apply(seed_path: Path = SEED, evid: Path = EVID, repo: Path = ROOT, write: b
             {"path": ref, "branch": "green/tree-leaves-20261006", "sha": rc["sha"], "kind": "receipt"})
         accepted.append((lane, rc["node_id"], zone_of(nodes, rc["node_id"])))
     if write:
-        seed_path.write_text(json.dumps(seed, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        seed_path.write_text(json.dumps(seed, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
         export(seed, evid)
         summary(seed, evid, accepted, rejected)
     return {"seed": seed, "accepted": accepted, "rejected": rejected,
@@ -244,7 +244,7 @@ def export(seed: dict, evid: Path) -> None:
     evid.mkdir(parents=True, exist_ok=True)
     (evid / "tree.export.json").write_text(
         json.dumps({"schema": 1, "as_of": seed.get("as_of"), "nodes": nodes}, ensure_ascii=False, indent=1) + "\n",
-        encoding="utf-8")
+        encoding="utf-8", newline="\n")
 
 
 def summary(seed: dict, evid: Path, accepted, rejected) -> None:
@@ -255,7 +255,7 @@ def summary(seed: dict, evid: Path, accepted, rejected) -> None:
     lines += [f"- {z}: {c}" for z, c in sorted(zc.items())] or ["- нет"]
     lines += ["", "## Принятые", ""] + [f"- `{n}` ({lane})" for lane, n, _ in accepted]
     lines += ["", "## Отклонённые", ""] + [f"- `{n}` ({lane}): {r}" for lane, n, r in rejected]
-    (evid / "SUMMARY.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (evid / "SUMMARY.md").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
 def main(argv=None) -> int:
