@@ -5561,7 +5561,7 @@
     },
     {
       "id": "oss-15",
-      "label": "VoltAgent/awesome-agent-skills.",
+      "label": "VoltAgent/awesome-agent-skills",
       "parent": "oss",
       "status": "recorded",
       "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции.",
@@ -5574,7 +5574,7 @@
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA.",
-      "external_url": "https://github.com/VoltAgent/awesome-agent-skills.",
+      "external_url": "https://github.com/VoltAgent/awesome-agent-skills",
       "reference_paths": [
         "docs/skills/VOLTAGENT_AGENT_SKILLS.md"
       ]
@@ -8305,8 +8305,8 @@
       "id": "module-637788ef482e",
       "label": "bossman/ai_lab/candidates.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/ai_lab/candidates.py",
@@ -8320,6 +8320,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-637788ef482e"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-637788ef482e",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8328,8 +8334,8 @@
       "id": "module-a1a2c4ccc239",
       "label": "bossman/ai_lab/export.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/ai_lab/export.py",
@@ -8343,6 +8349,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-a1a2c4ccc239"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-a1a2c4ccc239",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8351,8 +8363,8 @@
       "id": "module-cdb370a24157",
       "label": "bossman/ai_lab/routes.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/ai_lab/routes.py",
@@ -8366,6 +8378,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-cdb370a24157"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-cdb370a24157",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8420,8 +8438,8 @@
       "id": "module-39e925886668",
       "label": "bossman/apprentice/claude_code_client.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/claude_code_client.py",
@@ -8435,6 +8453,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-39e925886668"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-39e925886668",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8489,8 +8513,8 @@
       "id": "module-a17a422c65d7",
       "label": "bossman/apprentice/engine.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 3, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/engine.py",
@@ -8504,6 +8528,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-a17a422c65d7"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-a17a422c65d7",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8512,8 +8542,8 @@
       "id": "module-86282a9efa67",
       "label": "bossman/apprentice/errors.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/errors.py",
@@ -8527,6 +8557,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-86282a9efa67"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-86282a9efa67",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8535,8 +8571,8 @@
       "id": "module-d41ad480551d",
       "label": "bossman/apprentice/fable_direct.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/fable_direct.py",
@@ -8550,6 +8586,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-d41ad480551d"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-d41ad480551d",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8558,8 +8600,8 @@
       "id": "module-d4455ade6345",
       "label": "bossman/apprentice/fable_transcript.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/fable_transcript.py",
@@ -8573,6 +8615,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-d4455ade6345"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-d4455ade6345",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8581,8 +8629,8 @@
       "id": "module-177f174d3f63",
       "label": "bossman/apprentice/flags.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/flags.py",
@@ -8596,6 +8644,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-177f174d3f63"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-177f174d3f63",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8627,8 +8681,8 @@
       "id": "module-c23f35941e16",
       "label": "bossman/apprentice/isolated_worktree.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/isolated_worktree.py",
@@ -8642,6 +8696,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-c23f35941e16"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-c23f35941e16",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8650,8 +8710,8 @@
       "id": "module-815783821b83",
       "label": "bossman/apprentice/live_workspace.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/live_workspace.py",
@@ -8665,6 +8725,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-815783821b83"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-815783821b83",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8673,8 +8739,8 @@
       "id": "module-bc25cd9f1e01",
       "label": "bossman/apprentice/local_sidecar.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 3 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/local_sidecar.py",
@@ -8688,6 +8754,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-bc25cd9f1e01"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-bc25cd9f1e01",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8696,8 +8768,8 @@
       "id": "module-42a06e3c1b71",
       "label": "bossman/apprentice/models.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/models.py",
@@ -8711,6 +8783,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-42a06e3c1b71"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-42a06e3c1b71",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8719,8 +8797,8 @@
       "id": "module-049b601d5eaa",
       "label": "bossman/apprentice/openhands_client.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/openhands_client.py",
@@ -8734,6 +8812,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-049b601d5eaa"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-049b601d5eaa",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8742,8 +8826,8 @@
       "id": "module-efdcd8d35b9c",
       "label": "bossman/apprentice/openhands_teacher_client.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/openhands_teacher_client.py",
@@ -8757,6 +8841,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-efdcd8d35b9c"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-efdcd8d35b9c",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8834,8 +8924,8 @@
       "id": "module-ac2f6e6dc2d9",
       "label": "bossman/apprentice/recording.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/recording.py",
@@ -8849,6 +8939,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-ac2f6e6dc2d9"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-ac2f6e6dc2d9",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8857,8 +8953,8 @@
       "id": "module-e2dd4b7bfb5d",
       "label": "bossman/apprentice/sanctions.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/sanctions.py",
@@ -8872,6 +8968,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-e2dd4b7bfb5d"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-e2dd4b7bfb5d",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8880,8 +8982,8 @@
       "id": "module-816c15a6b6a4",
       "label": "bossman/apprentice/scripted_model.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/scripted_model.py",
@@ -8895,6 +8997,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-816c15a6b6a4"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-816c15a6b6a4",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8919,8 +9027,8 @@
       "id": "module-0541863355da",
       "label": "bossman/apprentice/skills.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/skills.py",
@@ -8934,6 +9042,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-0541863355da"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-0541863355da",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8942,8 +9056,8 @@
       "id": "module-522cf2e79840",
       "label": "bossman/apprentice/teacher.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/teacher.py",
@@ -8957,6 +9071,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-522cf2e79840"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-522cf2e79840",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8965,8 +9085,8 @@
       "id": "module-edac8a22b815",
       "label": "bossman/apprentice/teacher_sandbox.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/teacher_sandbox.py",
@@ -8980,6 +9100,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-edac8a22b815"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-edac8a22b815",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -8988,8 +9114,8 @@
       "id": "module-b8a71e28fc47",
       "label": "bossman/apprentice/teacher_wiring_patch.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/apprentice/teacher_wiring_patch.py",
@@ -9003,6 +9129,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-b8a71e28fc47"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-b8a71e28fc47",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -9034,8 +9166,8 @@
       "id": "module-1184b1105ced",
       "label": "bossman/benchmark/cli.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/benchmark/cli.py",
@@ -9049,6 +9181,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-1184b1105ced"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-1184b1105ced",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -9261,8 +9399,8 @@
       "id": "module-f1cacda08a67",
       "label": "bossman/company/model.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 3 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2, 2, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/company/model.py",
@@ -9276,6 +9414,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-f1cacda08a67"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-f1cacda08a67",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -9284,8 +9428,8 @@
       "id": "module-47931d1b717a",
       "label": "bossman/company/planner.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/company/planner.py",
@@ -9299,6 +9443,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-47931d1b717a"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-47931d1b717a",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -9330,8 +9480,8 @@
       "id": "module-e297560d568b",
       "label": "bossman/company/synthetic_seo.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/company/synthetic_seo.py",
@@ -9345,6 +9495,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-e297560d568b"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-e297560d568b",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -9376,8 +9532,8 @@
       "id": "module-fb39c9a64573",
       "label": "bossman/computer_operator/capabilities.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/capabilities.py",
@@ -9391,6 +9547,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-fb39c9a64573"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-fb39c9a64573",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -9399,8 +9561,8 @@
       "id": "module-179cd95b7128",
       "label": "bossman/computer_operator/loop_guard.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/loop_guard.py",
@@ -9414,6 +9576,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-179cd95b7128"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-179cd95b7128",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -9445,8 +9613,8 @@
       "id": "module-e376eaac5d8f",
       "label": "bossman/computer_operator/models.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/models.py",
@@ -9460,6 +9628,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-e376eaac5d8f"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-e376eaac5d8f",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -9537,8 +9711,8 @@
       "id": "module-3f26dfe54c72",
       "label": "bossman/computer_operator/policy.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 3, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/policy.py",
@@ -9552,6 +9726,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-3f26dfe54c72"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-3f26dfe54c72",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -9560,8 +9740,8 @@
       "id": "module-009f4807c914",
       "label": "bossman/computer_operator/routes.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/routes.py",
@@ -9575,6 +9755,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-009f4807c914"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-009f4807c914",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -9583,8 +9769,8 @@
       "id": "module-2d3d2ae733c1",
       "label": "bossman/computer_operator/secret_executor.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/secret_executor.py",
@@ -9598,6 +9784,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-2d3d2ae733c1"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-2d3d2ae733c1",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -9652,8 +9844,8 @@
       "id": "module-c22cab3d4320",
       "label": "bossman/computer_operator/uitars.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/uitars.py",
@@ -9667,6 +9859,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-c22cab3d4320"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-c22cab3d4320",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -9675,8 +9873,8 @@
       "id": "module-a270c9dbe40c",
       "label": "bossman/computer_operator/verifier.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/verifier.py",
@@ -9690,6 +9888,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-a270c9dbe40c"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-a270c9dbe40c",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -9698,8 +9902,8 @@
       "id": "module-638ddbcb1a1b",
       "label": "bossman/computer_operator/wiring.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/computer_operator/wiring.py",
@@ -9713,6 +9917,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-638ddbcb1a1b"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-638ddbcb1a1b",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10043,8 +10253,8 @@
       "id": "module-1c2e0a6599c0",
       "label": "bossman/cost_control/enforcer.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/cost_control/enforcer.py",
@@ -10058,6 +10268,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-1c2e0a6599c0"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-1c2e0a6599c0",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10066,8 +10282,8 @@
       "id": "module-e99c091d1c06",
       "label": "bossman/cost_control/governor.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/cost_control/governor.py",
@@ -10081,6 +10297,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-e99c091d1c06"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-e99c091d1c06",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10089,8 +10311,8 @@
       "id": "module-dd118749492b",
       "label": "bossman/cost_control/models.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/cost_control/models.py",
@@ -10104,6 +10326,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-dd118749492b"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-dd118749492b",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10112,8 +10340,8 @@
       "id": "module-72f38f26214a",
       "label": "bossman/cost_control/pricing.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/cost_control/pricing.py",
@@ -10127,6 +10355,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-72f38f26214a"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-72f38f26214a",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10158,8 +10392,8 @@
       "id": "module-4efbb2fd9c4a",
       "label": "bossman/cost_control/runtime.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 3, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/cost_control/runtime.py",
@@ -10173,6 +10407,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-4efbb2fd9c4a"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-4efbb2fd9c4a",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10181,8 +10421,8 @@
       "id": "module-bc87c8d6bfa4",
       "label": "bossman/cost_control/store.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/cost_control/store.py",
@@ -10196,6 +10436,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-bc87c8d6bfa4"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-bc87c8d6bfa4",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10250,8 +10496,8 @@
       "id": "module-068b8f4fbeb2",
       "label": "bossman/cybersec/blast_radius.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 5)",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/blast_radius.py",
@@ -10265,6 +10511,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-068b8f4fbeb2"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-068b8f4fbeb2",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10273,8 +10525,8 @@
       "id": "module-0b1e4d69a90c",
       "label": "bossman/cybersec/defender.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 5)",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/defender.py",
@@ -10288,6 +10540,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-0b1e4d69a90c"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-0b1e4d69a90c",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10319,8 +10577,8 @@
       "id": "module-7a65bf88fb04",
       "label": "bossman/cybersec/gates.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/gates.py",
@@ -10334,6 +10592,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-7a65bf88fb04"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-7a65bf88fb04",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10342,8 +10606,8 @@
       "id": "module-8de7f3a7cd44",
       "label": "bossman/cybersec/guards.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/guards.py",
@@ -10357,6 +10621,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-8de7f3a7cd44"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-8de7f3a7cd44",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10365,8 +10635,8 @@
       "id": "module-d401165730fa",
       "label": "bossman/cybersec/ids.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/ids.py",
@@ -10380,6 +10650,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-d401165730fa"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-d401165730fa",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10388,8 +10664,8 @@
       "id": "module-f6a4b22d7b2b",
       "label": "bossman/cybersec/injection.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/injection.py",
@@ -10403,6 +10679,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-f6a4b22d7b2b"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-f6a4b22d7b2b",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10434,8 +10716,8 @@
       "id": "module-63389f3e655f",
       "label": "bossman/cybersec/recovery.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/recovery.py",
@@ -10449,6 +10731,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-63389f3e655f"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-63389f3e655f",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10457,8 +10745,8 @@
       "id": "module-cc401f252307",
       "label": "bossman/cybersec/redteam.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 3 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/redteam.py",
@@ -10472,6 +10760,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-cc401f252307"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-cc401f252307",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10480,8 +10774,8 @@
       "id": "module-a43ab3ee85df",
       "label": "bossman/cybersec/repo_scanner.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 5)",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/repo_scanner.py",
@@ -10495,6 +10789,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-a43ab3ee85df"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-a43ab3ee85df",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10503,8 +10803,8 @@
       "id": "module-0aa387ab63a9",
       "label": "bossman/cybersec/secret_guardian.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/secret_guardian.py",
@@ -10518,6 +10818,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-0aa387ab63a9"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-0aa387ab63a9",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10549,8 +10855,8 @@
       "id": "module-4b4e00d7c711",
       "label": "bossman/cybersec/supply_chain.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 5)",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/supply_chain.py",
@@ -10564,6 +10870,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-4b4e00d7c711"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-4b4e00d7c711",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10572,8 +10884,8 @@
       "id": "module-103910b19c50",
       "label": "bossman/cybersec/training.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/training.py",
@@ -10587,6 +10899,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-103910b19c50"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-103910b19c50",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10595,8 +10913,8 @@
       "id": "module-dc98760346bb",
       "label": "bossman/cybersec/trust.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 5)",
       "sources": [
         {
           "path": "bossman-core/bossman/cybersec/trust.py",
@@ -10610,6 +10928,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-dc98760346bb"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-dc98760346bb",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10618,8 +10942,8 @@
       "id": "module-74b9d09c9a49",
       "label": "bossman/dev_factory/editor.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/editor.py",
@@ -10633,6 +10957,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-74b9d09c9a49"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-74b9d09c9a49",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10664,8 +10994,8 @@
       "id": "module-904a8396aa6c",
       "label": "bossman/dev_factory/executor.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/executor.py",
@@ -10679,6 +11009,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-904a8396aa6c"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-904a8396aa6c",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10687,8 +11023,8 @@
       "id": "module-4aacff2330d4",
       "label": "bossman/dev_factory/factory.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/factory.py",
@@ -10702,6 +11038,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-4aacff2330d4"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-4aacff2330d4",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10710,8 +11052,8 @@
       "id": "module-7f1adf1138f0",
       "label": "bossman/dev_factory/models.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/models.py",
@@ -10725,6 +11067,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-7f1adf1138f0"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-7f1adf1138f0",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10733,8 +11081,8 @@
       "id": "module-e2b6bd15aba1",
       "label": "bossman/dev_factory/planner.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/planner.py",
@@ -10748,6 +11096,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-e2b6bd15aba1"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-e2b6bd15aba1",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10756,8 +11110,8 @@
       "id": "module-3adca9c27bdb",
       "label": "bossman/dev_factory/reviewer.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/reviewer.py",
@@ -10771,6 +11125,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-3adca9c27bdb"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-3adca9c27bdb",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10802,8 +11162,8 @@
       "id": "module-9a1970f7c3e5",
       "label": "bossman/dev_factory/store.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/store.py",
@@ -10817,6 +11177,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-9a1970f7c3e5"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-9a1970f7c3e5",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10825,8 +11191,8 @@
       "id": "module-3f0a90670bba",
       "label": "bossman/dev_factory/subsystem.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/subsystem.py",
@@ -10840,6 +11206,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-3f0a90670bba"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-3f0a90670bba",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10848,8 +11220,8 @@
       "id": "module-b428d8c055bc",
       "label": "bossman/dev_factory/workspace.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/dev_factory/workspace.py",
@@ -10863,6 +11235,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-b428d8c055bc"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-b428d8c055bc",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10871,8 +11249,8 @@
       "id": "module-30ddab524cfc",
       "label": "bossman/gateway/anthropic_protocol.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/anthropic_protocol.py",
@@ -10886,6 +11264,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-30ddab524cfc"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-30ddab524cfc",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10894,8 +11278,8 @@
       "id": "module-5fd57fccff12",
       "label": "bossman/gateway/app.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/app.py",
@@ -10909,6 +11293,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-5fd57fccff12"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-5fd57fccff12",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10940,8 +11330,8 @@
       "id": "module-95e88c430e38",
       "label": "bossman/gateway/backends.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/backends.py",
@@ -10955,6 +11345,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-95e88c430e38"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-95e88c430e38",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -10963,8 +11359,8 @@
       "id": "module-7fb28ee13497",
       "label": "bossman/gateway/client.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/client.py",
@@ -10978,6 +11374,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-7fb28ee13497"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-7fb28ee13497",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11009,8 +11411,8 @@
       "id": "module-de7445e9d5f5",
       "label": "bossman/gateway/main.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/main.py",
@@ -11024,6 +11426,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-de7445e9d5f5"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-de7445e9d5f5",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11032,8 +11440,8 @@
       "id": "module-d5d8a9a7ab5c",
       "label": "bossman/gateway/prompt_cache.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/prompt_cache.py",
@@ -11047,6 +11455,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-d5d8a9a7ab5c"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-d5d8a9a7ab5c",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11078,8 +11492,8 @@
       "id": "module-8dba9550a502",
       "label": "bossman/gateway/telemetry.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/gateway/telemetry.py",
@@ -11093,6 +11507,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-8dba9550a502"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-8dba9550a502",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11308,8 +11728,8 @@
       "id": "module-24bbe5117ab0",
       "label": "bossman/notifications/dispatcher.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/notifications/dispatcher.py",
@@ -11323,6 +11743,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-24bbe5117ab0"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-24bbe5117ab0",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11354,8 +11780,8 @@
       "id": "module-0ce0daf3140c",
       "label": "bossman/notifications/policy.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 3, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/notifications/policy.py",
@@ -11369,6 +11795,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-0ce0daf3140c"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-0ce0daf3140c",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11423,8 +11855,8 @@
       "id": "module-ddbf2f4b50d2",
       "label": "bossman/notifications/store.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/notifications/store.py",
@@ -11438,6 +11870,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-ddbf2f4b50d2"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-ddbf2f4b50d2",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11492,8 +11930,8 @@
       "id": "module-2e5863355b9a",
       "label": "bossman/profiles/gate.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/profiles/gate.py",
@@ -11507,6 +11945,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-2e5863355b9a"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-2e5863355b9a",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11538,8 +11982,8 @@
       "id": "module-60f309b322d6",
       "label": "bossman/profiles/models.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/profiles/models.py",
@@ -11553,6 +11997,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-60f309b322d6"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-60f309b322d6",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11584,8 +12034,8 @@
       "id": "module-99fc865d8c4b",
       "label": "bossman/profiles/service.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/profiles/service.py",
@@ -11599,6 +12049,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-99fc865d8c4b"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-99fc865d8c4b",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11607,8 +12063,8 @@
       "id": "module-ff3e6bc1044b",
       "label": "bossman/profiles/store.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/profiles/store.py",
@@ -11622,6 +12078,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-ff3e6bc1044b"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-ff3e6bc1044b",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11676,8 +12138,8 @@
       "id": "module-8bd73fd35c48",
       "label": "bossman/projects/planner.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/projects/planner.py",
@@ -11691,6 +12153,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-8bd73fd35c48"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-8bd73fd35c48",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11816,8 +12284,8 @@
       "id": "module-2bd9c1e2cdfd",
       "label": "bossman/remote_client/events.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/remote_client/events.py",
@@ -11831,6 +12299,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-2bd9c1e2cdfd"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-2bd9c1e2cdfd",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11839,8 +12313,8 @@
       "id": "module-37dec999ab57",
       "label": "bossman/remote_client/mobile_api.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/remote_client/mobile_api.py",
@@ -11854,6 +12328,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-37dec999ab57"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-37dec999ab57",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11885,8 +12365,8 @@
       "id": "module-897d03f9aab0",
       "label": "bossman/remote_client/security.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/remote_client/security.py",
@@ -11900,6 +12380,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-897d03f9aab0"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-897d03f9aab0",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11908,8 +12394,8 @@
       "id": "module-6bfb88803a15",
       "label": "bossman/remote_client/service.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/remote_client/service.py",
@@ -11923,6 +12409,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-6bfb88803a15"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-6bfb88803a15",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11931,8 +12423,8 @@
       "id": "module-de0238268e77",
       "label": "bossman/remote_client/store.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/remote_client/store.py",
@@ -11946,6 +12438,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-de0238268e77"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-de0238268e77",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11977,8 +12475,8 @@
       "id": "module-8f7bb546924a",
       "label": "bossman/research/engine.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 3)",
       "sources": [
         {
           "path": "bossman-core/bossman/research/engine.py",
@@ -11992,6 +12490,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-8f7bb546924a"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-8f7bb546924a",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12023,8 +12527,8 @@
       "id": "module-c5d464a7aa9e",
       "label": "bossman/research/tools.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/research/tools.py",
@@ -12038,6 +12542,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-c5d464a7aa9e"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-c5d464a7aa9e",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12069,8 +12579,8 @@
       "id": "module-2f9db2f18c1b",
       "label": "bossman/resource_brain/ledger.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/resource_brain/ledger.py",
@@ -12084,6 +12594,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-2f9db2f18c1b"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-2f9db2f18c1b",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12115,8 +12631,8 @@
       "id": "module-dacafbe9e4ee",
       "label": "bossman/resource_brain/probe.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/resource_brain/probe.py",
@@ -12130,6 +12646,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-dacafbe9e4ee"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-dacafbe9e4ee",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12184,8 +12706,8 @@
       "id": "module-9d055871ddff",
       "label": "bossman/sandbox/artifacts.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/artifacts.py",
@@ -12199,6 +12721,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-9d055871ddff"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-9d055871ddff",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12230,8 +12758,8 @@
       "id": "module-9d8ee6730907",
       "label": "bossman/sandbox/egress.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/egress.py",
@@ -12245,6 +12773,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-9d8ee6730907"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-9d8ee6730907",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12253,8 +12787,8 @@
       "id": "module-43a773f7d5a6",
       "label": "bossman/sandbox/manager.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/manager.py",
@@ -12268,6 +12802,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-43a773f7d5a6"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-43a773f7d5a6",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12276,8 +12816,8 @@
       "id": "module-eb0be06d9db9",
       "label": "bossman/sandbox/models.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/models.py",
@@ -12291,6 +12831,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-eb0be06d9db9"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-eb0be06d9db9",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12322,8 +12868,8 @@
       "id": "module-5c36f1523214",
       "label": "bossman/sandbox/network.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/network.py",
@@ -12337,6 +12883,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-5c36f1523214"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-5c36f1523214",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12345,8 +12897,8 @@
       "id": "module-2eec9a135e0f",
       "label": "bossman/sandbox/policy.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 3)",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/policy.py",
@@ -12360,6 +12912,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-2eec9a135e0f"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-2eec9a135e0f",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12414,8 +12972,8 @@
       "id": "module-5d128fcf8dab",
       "label": "bossman/sandbox/runtime.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 3, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/runtime.py",
@@ -12429,6 +12987,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-5d128fcf8dab"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-5d128fcf8dab",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12460,8 +13024,8 @@
       "id": "module-e999698f8e9e",
       "label": "bossman/sandbox/subsystem.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/subsystem.py",
@@ -12475,6 +13039,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-e999698f8e9e"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-e999698f8e9e",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12529,8 +13099,8 @@
       "id": "module-0445b69844cc",
       "label": "bossman/sandbox/trajectory.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/sandbox/trajectory.py",
@@ -12544,6 +13114,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-0445b69844cc"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-0445b69844cc",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12575,8 +13151,8 @@
       "id": "module-6fcdcfb4b872",
       "label": "bossman/search_everything/engine.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 3)",
       "sources": [
         {
           "path": "bossman-core/bossman/search_everything/engine.py",
@@ -12590,6 +13166,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-6fcdcfb4b872"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-6fcdcfb4b872",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12644,8 +13226,8 @@
       "id": "module-76ae682ed2e4",
       "label": "bossman/search_everything/tools.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/search_everything/tools.py",
@@ -12659,6 +13241,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-76ae682ed2e4"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-76ae682ed2e4",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12690,8 +13278,8 @@
       "id": "module-5f3e261c2cf4",
       "label": "bossman/toolkit/analysis.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/analysis.py",
@@ -12705,6 +13293,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-5f3e261c2cf4"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-5f3e261c2cf4",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12713,8 +13307,8 @@
       "id": "module-eb0bce4aaf5b",
       "label": "bossman/toolkit/browser.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/browser.py",
@@ -12728,6 +13322,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-eb0bce4aaf5b"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-eb0bce4aaf5b",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12736,8 +13336,8 @@
       "id": "module-918d9d178fe3",
       "label": "bossman/toolkit/fileintel.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/fileintel.py",
@@ -12751,6 +13351,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-918d9d178fe3"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-918d9d178fe3",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12759,8 +13365,8 @@
       "id": "module-2190e88ab8cb",
       "label": "bossman/toolkit/files.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/files.py",
@@ -12774,6 +13380,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-2190e88ab8cb"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-2190e88ab8cb",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12782,8 +13394,8 @@
       "id": "module-cf0d1b5d4d86",
       "label": "bossman/toolkit/gitops.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/gitops.py",
@@ -12797,6 +13409,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-cf0d1b5d4d86"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-cf0d1b5d4d86",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12805,8 +13423,8 @@
       "id": "module-6b8f5c457e7f",
       "label": "bossman/toolkit/journal.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/journal.py",
@@ -12820,6 +13438,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-6b8f5c457e7f"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-6b8f5c457e7f",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12828,8 +13452,8 @@
       "id": "module-c2cd9f798b9b",
       "label": "bossman/toolkit/media.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 3 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/media.py",
@@ -12843,6 +13467,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-c2cd9f798b9b"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-c2cd9f798b9b",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12851,8 +13481,8 @@
       "id": "module-7be51ff76449",
       "label": "bossman/toolkit/net.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/net.py",
@@ -12866,6 +13496,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-7be51ff76449"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-7be51ff76449",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -12897,8 +13533,8 @@
       "id": "module-a91069ddd708",
       "label": "bossman/toolkit/shell.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/toolkit/shell.py",
@@ -12912,6 +13548,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-a91069ddd708"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-a91069ddd708",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13421,8 +14063,8 @@
       "id": "module-464a2a956fa0",
       "label": "bossman/video_factory/model.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 3 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2, 2, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/video_factory/model.py",
@@ -13436,6 +14078,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-464a2a956fa0"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-464a2a956fa0",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13444,8 +14092,8 @@
       "id": "module-6285f40851f1",
       "label": "bossman/video_factory/pipeline.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/video_factory/pipeline.py",
@@ -13459,6 +14107,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-6285f40851f1"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-6285f40851f1",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13467,8 +14121,8 @@
       "id": "module-4c9ee5995fb6",
       "label": "bossman/video_factory/providers.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/video_factory/providers.py",
@@ -13482,6 +14136,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-4c9ee5995fb6"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-4c9ee5995fb6",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13490,8 +14150,8 @@
       "id": "module-3d62540e3028",
       "label": "bossman/video_factory/queue.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/video_factory/queue.py",
@@ -13505,6 +14165,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-3d62540e3028"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-3d62540e3028",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13536,8 +14202,8 @@
       "id": "module-27cb1911d462",
       "label": "bossman/video_factory/service.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "bossman-core/bossman/video_factory/service.py",
@@ -13551,6 +14217,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-27cb1911d462"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-27cb1911d462",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13582,8 +14254,8 @@
       "id": "module-266a95659ed4",
       "label": "bossman/world_intelligence/routes.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/world_intelligence/routes.py",
@@ -13597,6 +14269,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-266a95659ed4"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-266a95659ed4",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13605,8 +14283,8 @@
       "id": "module-7af8dc300eab",
       "label": "bossman/world_intelligence/subsystem.py",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2)",
       "sources": [
         {
           "path": "bossman-core/bossman/world_intelligence/subsystem.py",
@@ -13620,6 +14298,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "module-7af8dc300eab"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#module-7af8dc300eab",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."

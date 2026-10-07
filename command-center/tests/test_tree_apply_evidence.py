@@ -225,6 +225,79 @@ def test_installed_hash_mismatch_when_output_file_is_edited(tmp_path):
     assert r["accepted"] == [] and r["rejected"][0][2] == "output hash mismatch"
 
 
+# ---- stage 3: a 'recorded' (reference-only) leaf goes green only by an 'integration' receipt ----
+
+def _integ(head, evid, repo, nid="rec", paths=("bcc/oss/thing.py",), **kw):
+    for p in paths:
+        if (isinstance(p, str) and not p.startswith(("/", "missing")) and ".." not in p
+                and not Path(p).is_absolute()):
+            f = repo / p
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text("# integration\n", encoding="utf-8")
+    rc = _rc(head, evid, nid=nid, kind="integration", integration_code=list(paths),
+             probe="pytest tests/test_oss_thing.py: 5 passed; bcc.oss.thing loaded")
+    rc.update(kw)
+    return rc
+
+
+def test_integration_receipt_promotes_recorded_leaf(tmp_path):
+    repo, sha, seed, evid = _setup(tmp_path)
+    r = _run(repo, seed, evid, [_integ(sha, evid, repo)], write=True)
+    assert r["rejected"] == [] and len(r["accepted"]) == 1
+    node = _status(seed)["rec"]
+    assert node["status"] == "reported"
+    assert "Прогон 2026-10-06" in node["detail"] and node["sources"][-1]["kind"] == "receipt"
+
+
+def test_other_kinds_never_touch_a_recorded_leaf(tmp_path):
+    repo, sha, seed, evid = _setup(tmp_path)
+    bad = [_rc(sha, evid, nid="rec", kind=k) for k in ("import", "pytest", "live_call", "ui")]
+    bad.append(_rc(sha, evid, nid="rec", kind="audit", verdict="RETIRE", reason="dead upstream repository, 404 everywhere"))
+    bad.append(_rc(sha, evid, nid="rec", kind="pytest", integration_code=["seed.json"]))
+    r = _run(repo, seed, evid, bad)
+    assert r["accepted"] == [] and len(r["rejected"]) == len(bad)
+    assert all("recorded" in why for _, _, why in r["rejected"])
+    assert _status(seed)["rec"]["status"] == "recorded"
+
+
+def test_integration_receipt_needs_integration_code(tmp_path):
+    repo, sha, seed, evid = _setup(tmp_path)
+    for paths in ((), None, "bcc/oss/thing.py", [1]):
+        rc = _integ(sha, evid, repo)
+        if paths is None:
+            rc.pop("integration_code")
+        else:
+            rc["integration_code"] = paths if not isinstance(paths, tuple) else list(paths)
+        r = _run(repo, seed, evid, [rc])
+        assert r["accepted"] == [] and "integration_code" in r["rejected"][0][2], paths
+    assert _status(seed)["rec"]["status"] == "recorded"
+
+
+def test_integration_code_path_must_exist_inside_repo(tmp_path):
+    repo, sha, seed, evid = _setup(tmp_path)
+    for paths in (["missing/nope.py"], ["bcc/oss/thing.py", "missing/also.py"], ["../outside.py"],
+                  [str(tmp_path / "seed.json")], ["/etc/passwd"]):
+        r = _run(repo, seed, evid, [_integ(sha, evid, repo, paths=tuple(paths))])
+        assert r["accepted"] == [] and "integration_code" in r["rejected"][0][2], paths
+    assert _status(seed)["rec"]["status"] == "recorded"
+
+
+def test_integration_receipt_keeps_the_usual_checks(tmp_path):
+    repo, sha, seed, evid = _setup(tmp_path)
+    bad = [_integ(sha, evid, repo, verdict="FAIL"), _integ(sha, evid, repo, exit_code=1),
+           _integ(sha, evid, repo, output_sha256="0" * 64), _integ(sha, evid, repo, sha="a" * 40),
+           _integ(sha, evid, repo, verdict="RETIRE", reason="x" * 30)]
+    r = _run(repo, seed, evid, bad)
+    assert r["accepted"] == [] and len(r["rejected"]) == len(bad)
+
+
+def test_integration_kind_does_not_widen_code_leaves(tmp_path):
+    """Existing rules unchanged: code/branch leaves keep their own kinds; 'integration' is for recorded leaves."""
+    repo, sha, seed, evid = _setup(tmp_path)
+    r = _run(repo, seed, evid, [_integ(sha, evid, repo, nid="leaf")])
+    assert r["accepted"] == [] and _status(seed)["leaf"]["status"] == "code"
+
+
 def test_written_files_use_lf_not_crlf(tmp_path):
     """Windows text-mode writes turned LF files into CRLF (595 files of whole-file diffs, 07.10)."""
     repo, sha, seed, evid = _setup(tmp_path)

@@ -9,6 +9,12 @@ Receipt fields: node_id, sha, probe, command, exit_code, started_at, finished_at
 output_sha256, output_tail (<=1500 chars, scrubbed), verdict, model (optional),
 kind in {import, pytest, live_call, ui}. The full output must be stored at
 evidence/out/<node_id>.txt and its sha256 must equal output_sha256.
+
+A 'recorded' leaf (an OSS/reference entry, NOT a claim of installation) may be promoted to
+'reported' ONLY by a receipt of kind 'integration' (PASS, exit 0, hash ok, sha ancestor of HEAD)
+that also names a non-empty 'integration_code' list of repo-relative paths that exist in the
+repo: the Bossman code that uses the project. No other kind may touch a 'recorded' leaf, and
+'integration' is not a kind for code/branch leaves.
 """
 from __future__ import annotations
 
@@ -29,6 +35,8 @@ INSTALLED_KINDS = {"installed_pytest", "installed_import"}
 INSTALLED_PREFIX = "installed-"
 BUILDS_FILE = "installed-builds.json"
 ELIGIBLE = {"code", "branch"}
+INTEGRATION_KIND = "integration"
+RECORDED = "recorded"
 REQUIRED = ("node_id", "sha", "probe", "command", "exit_code", "started_at",
             "finished_at", "output_sha256", "output_tail", "verdict", "kind")
 _SECRET = re.compile(r"(sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,}|"
@@ -136,6 +144,23 @@ def validate_installed(rc, nodes: dict, parents: set, evid: Path, repo: Path, la
     return None
 
 
+def check_integration_code(paths, repo: Path) -> str | None:
+    """Non-empty list of repo-relative paths, each existing inside the repo."""
+    if not isinstance(paths, list) or not paths:
+        return "integration_code must be a non-empty list of repo paths"
+    root = repo.resolve()
+    for p in paths:
+        if not isinstance(p, str) or not p.strip():
+            return "integration_code entry is not a path"
+        norm = p.replace("\\", "/")
+        if norm.startswith("/") or re.match(r"^[A-Za-z]:", norm) or ".." in norm.split("/"):
+            return f"integration_code path not repo-relative: {p}"
+        full = (root / norm).resolve()
+        if root not in full.parents or not full.exists():
+            return f"integration_code path does not exist in the repo: {p}"
+    return None
+
+
 def validate_receipt(rc, nodes: dict, parents: set, evid: Path, repo: Path) -> str | None:
     """Return None if valid, else a rejection reason."""
     if not isinstance(rc, dict):
@@ -150,8 +175,16 @@ def validate_receipt(rc, nodes: dict, parents: set, evid: Path, repo: Path) -> s
         return "bad node id"
     if nid in parents:
         return "not a leaf"
-    if nodes[nid].get("status") not in ELIGIBLE:
-        return f"status {nodes[nid].get('status')} not eligible"
+    status = nodes[nid].get("status")
+    if status == RECORDED:
+        if rc["kind"] != INTEGRATION_KIND:
+            return "status recorded: only an integration receipt may promote a reference leaf"
+        if rc["verdict"] != "PASS":
+            return "status recorded: integration receipt must be PASS"
+    elif status not in ELIGIBLE:
+        return f"status {status} not eligible"
+    elif rc["kind"] == INTEGRATION_KIND:
+        return "integration receipts are only for recorded leaves"
     if rc["verdict"] not in ("PASS", "RETIRE"):
         return "verdict not PASS"
     if rc["verdict"] == "RETIRE" and (rc["kind"] != "audit" or len(str(rc.get("reason", "")).strip()) < 20):
@@ -162,7 +195,7 @@ def validate_receipt(rc, nodes: dict, parents: set, evid: Path, repo: Path) -> s
         return "exit_code != 0"
     if not isinstance(rc["command"], str) or not rc["command"].strip():
         return "empty command"
-    if not isinstance(rc["kind"], str) or rc["kind"] not in KINDS:
+    if not isinstance(rc["kind"], str) or rc["kind"] not in KINDS | {INTEGRATION_KIND}:
         return "bad kind"
     if not isinstance(rc["probe"], str) or not rc["probe"].strip():
         return "empty probe"
@@ -170,6 +203,10 @@ def validate_receipt(rc, nodes: dict, parents: set, evid: Path, repo: Path) -> s
         return "output_tail too long"
     if rc.get("model") is not None and not isinstance(rc.get("model"), str):
         return "bad model"
+    if rc["kind"] == INTEGRATION_KIND:
+        bad = check_integration_code(rc.get("integration_code"), repo)
+        if bad:
+            return bad
     out = evid / "out" / f"{nid.replace('/', '_')}.txt"
     if not out.is_file():
         return "output file missing"
