@@ -96,5 +96,80 @@ def test_paid_worker_needs_the_explicit_owner_flag(monkeypatch, capsys):
     # without the flag glm-flash is refused (the $0 rule); the flag lifts it for that exact worker only
     assert cyc.main(["--worker", "glm-flash", "--evidence", "x"]) == 2
     assert "SELF_REPAIR=REFUSED" in capsys.readouterr().out
-    assert cyc.main(["--worker", "nvidia-nim", "--allow-paid-worker", "glm-flash", "--evidence", "x"]) == 2
+    assert cyc.main(["--worker", "some-other-paid", "--allow-paid-worker", "glm-flash", "--evidence", "x"]) == 2
     assert cyc.OWNER_APPROVED_PAID == {"glm-flash": "z-ai/glm-5.3-flash"}
+
+
+# ---- case `atomic-json` (audit 07.10): wiring + holdout behave on a known-good and a known-bad implementation ----
+import json  # noqa: E402
+import os  # noqa: E402
+import time  # noqa: E402
+import types  # noqa: E402
+import uuid  # noqa: E402
+
+from tree_holdout import atomic_json_replace  # noqa: E402
+
+ATOMIC = cyc.CASES["atomic-json"]
+DEFECT_PREFIXES = ("reader holds", "8 concurrent", "4 writers")
+
+
+def _impl(retry: bool):
+    def atomic_json(path, value):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
+        try:
+            with tmp.open("w", encoding="utf-8") as stream:
+                json.dump(value, stream, ensure_ascii=False, indent=2, allow_nan=False)
+            for attempt in range(200 if retry else 1):
+                try:
+                    os.replace(tmp, path)
+                    return
+                except PermissionError:
+                    if attempt == 199 or not retry:
+                        raise
+                    time.sleep(0.02)
+        finally:
+            tmp.unlink(missing_ok=True)
+    return types.SimpleNamespace(atomic_json=atomic_json)
+
+
+def test_atomic_case_is_wired_to_an_existing_holdout_and_a_scoped_task():
+    assert (ROOT / ATOMIC["holdout"]).is_file() and ATOMIC["mode"] == "task"
+    assert ATOMIC["target"] in ATOMIC["allowed"] and all(p in ATOMIC["allowed"] for p in ATOMIC["verify_tests"])
+    assert "os.replace" not in ATOMIC["wish"].split("Сначала")[0].replace("PermissionError на os.replace", "")  # no patch in the wish
+    assert (ROOT / ATOMIC["target"]).is_file() and (ROOT / ATOMIC["verify_tests"][0]).is_file()
+
+
+def test_atomic_scope_is_the_case_allow_list_not_the_discovery_rule():
+    ok = cyc.stages(rec(changed_files=ATOMIC["allowed"]), check(), ATOMIC, None, False)
+    assert ok["SCOPE_RESPECTED"] is True
+    bad = cyc.stages(rec(changed_files=[ATOMIC["target"], "command-center/tests/test_other.py"]), check(), ATOMIC, None, False)
+    assert bad["SCOPE_RESPECTED"] is False
+
+
+def test_atomic_recipe_passes_the_store_grammar_and_names_its_own_cause():
+    recipe, _, _ = cyc.build_recipe(rec(changed_files=ATOMIC["allowed"]), ATOMIC, check())
+    assert validate_recipe(recipe) == []
+    assert "os.replace" in recipe["cause"] and "NaN" not in recipe["cause"]
+    assert "permissionerror" in recipe["applies_when"]["keywords"]
+    assert recipe["steps"][1]["args"]["pattern"] == "os.replace"
+
+
+def test_discovery_and_goal_budget_recipes_keep_their_old_defaults():
+    recipe, _, _ = cyc.build_recipe(rec(), CASE, check())
+    assert "NaN" in recipe["cause"] and recipe["steps"][1]["args"]["pattern"] == "float("
+    assert "nan" in recipe["applies_when"]["keywords"]
+
+
+def test_holdout_passes_every_case_on_an_implementation_that_survives_the_race():
+    rows = atomic_json_replace.cases(_impl(retry=True), lambda v: v)
+    assert len(rows) == 10 and all(r["ok"] for r in rows), [r for r in rows if not r["ok"]]
+
+
+def test_holdout_flags_exactly_the_defect_cases_on_an_implementation_that_fails_when_the_destination_is_open():
+    rows = atomic_json_replace.cases(_impl(retry=False), lambda v: v)
+    failed = [r["case"] for r in rows if not r["ok"]]
+    if os.name == "nt":            # only Windows refuses to replace an open file; on POSIX the base passes too
+        assert failed and all(c.startswith(DEFECT_PREFIXES) for c in failed), failed
+        assert any(c.startswith("reader holds") for c in failed)
+    assert not any(c.startswith("valid/") for c in failed), failed

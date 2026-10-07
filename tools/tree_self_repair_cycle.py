@@ -60,6 +60,25 @@ CASES: dict[str, dict[str, Any]] = {
                  "всегда срабатывал. Сначала тест, который падает на старом коде. ОБЪЁМ: меняй только "
                  "command-center/bcc/autonomy/goals.py и добавь тест-функции в command-center/tests/test_autonomy_goals.py."),
     },
+    "atomic-json": {
+        # audit 07.10: found on the owner PC; mode task needs source_repo = a checkout inside the owner's allowed roots
+        "mode": "task", "target": "bossman-core/bossman_v3/self_improvement/runner.py",
+        "holdout": "tools/tree_holdout/atomic_json_replace.py",
+        "verify_tests": ["bossman-core/tests/test_v3_self_improvement.py"],
+        "allowed": ["bossman-core/bossman_v3/self_improvement/runner.py", "bossman-core/tests/test_v3_self_improvement.py"],
+        "search": "os.replace",
+        "cause": ("Запись состояния через os.replace падала на Windows, пока другой дескриптор держал файл-назначение "
+                  "(читатель или параллельная запись): гонка считалась ошибкой, а не ожидаемым состоянием"),
+        "keywords": ["atomic", "os.replace", "permissionerror", "windows", "race", "retry", "json", "tmp", "lock"],
+        # a symptom, not a patch: the fix has to come from the worker
+        "wish": ("Аудит на Windows: bossman_v3/self_improvement/runner.py, функция atomic_json. При работающей кампании запись "
+                 "state/evidence иногда падает с PermissionError на os.replace, хотя файл просто читает другой процесс или "
+                 "пишет параллельный поток. Найди причину и исправь так, чтобы атомарная запись переживала такую гонку, "
+                 "не оставляла временных файлов и не меняла прежнее поведение (редактирование секретов, allow_nan=False). "
+                 "Сначала тест, который падает на старом коде. ОБЪЁМ: меняй только "
+                 "bossman-core/bossman_v3/self_improvement/runner.py и добавь тест-функции в "
+                 "bossman-core/tests/test_v3_self_improvement.py."),
+    },
 }
 
 
@@ -124,8 +143,8 @@ def build_recipe(rec: dict, case: dict, check: dict) -> tuple[dict, dict, dict]:
         "id": f"tree-selfrepair-{rec['id']}",
         "title": f"Bossman self-repair: {case['target']}",
         "symptom": case["wish"][:1200],
-        "cause": ("Некорректное число (NaN/±inf/None/отрицательное) проходило проверку как допустимое: сравнения с NaN "
-                  f"ложны. До исправления holdout {before.get('total', 0) - before.get('failed', 0)}/{before.get('total')}; "
+        "cause": (f"{case.get('cause') or 'Некорректное число (NaN/±inf/None/отрицательное) проходило проверку как допустимое: сравнения с NaN ложны'}. "
+                  f"До исправления holdout {before.get('total', 0) - before.get('failed', 0)}/{before.get('total')}; "
                   f"падали: {', '.join(fails[:12])}"),
         "diagnosis": f"Скрытый holdout {Path(case['holdout']).name} на базе {check['base_commit'][:12]} воспроизводит дефект "
                      "по результату, а не по наличию проверки.",
@@ -134,10 +153,11 @@ def build_recipe(rec: dict, case: dict, check: dict) -> tuple[dict, dict, dict]:
         "counterexample": "Не трогать корректные значения: " + ", ".join(valid or ["valid cases of the holdout"]),
         "required_check": {"tool": "run_tests", "args": {"paths": paths}},
         "applies_when": {"project_id": PROJECT, "language": "python",
-                         "keywords": ["nan", "inf", "non-finite", "float", "budget", "score", "max", "comparison",
-                                      "isfinite", "cost", "threshold"]},
+                         "keywords": case.get("keywords") or [
+                             "nan", "inf", "non-finite", "float", "budget", "score", "max", "comparison",
+                             "isfinite", "cost", "threshold"]},
         "steps": [{"tool": "read_file", "args": {"path": case["target"]}},
-                  {"tool": "search", "args": {"pattern": "float(", "path": case["target"]}},
+                  {"tool": "search", "args": {"pattern": case.get("search", "float("), "path": case["target"]}},
                   {"tool": "run_tests", "args": {"paths": paths}}],
         "provenance": {"who": f"bossman-worker:{worker}", "source": "student", "assistance_level": "hint",
                        "what": "verified self-repair recipe", "code_refs": [case["target"]],
@@ -160,7 +180,8 @@ def stages(rec: dict, check: dict, case: dict, saved: dict | None, transfer: boo
         "MODEL_PATCH_CREATED": rec.get("status") == "completed" and case["target"] in changed,
         "BOSSMAN_ZONE_CHECK_PASS": bool(ver.get("ran") and ver.get("passed")),
         "HOLDOUT_PASS_ON_PATCH": after.get("passed") is True,
-        "SCOPE_RESPECTED": all(p == case["target"] or p.startswith("command-center/tests/test_") for p in changed),
+        "SCOPE_RESPECTED": all((p in case["allowed"]) if case.get("allowed") else
+                               (p == case["target"] or p.startswith("command-center/tests/test_")) for p in changed),
     }
     out["INDEPENDENT_VERIFICATION_PASS"] = bool(out["DEFECT_REPRODUCED"] and out["MODEL_PATCH_CREATED"]
                                                 and out["BOSSMAN_ZONE_CHECK_PASS"] and out["HOLDOUT_PASS_ON_PATCH"])
