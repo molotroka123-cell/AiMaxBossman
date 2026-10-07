@@ -128,3 +128,9 @@ def test_generated_paths_and_pycache_do_not_count_as_unrelated(env):
 def test_missing_site_clone_is_refused(tmp_path):
     with pytest.raises(p.Refused):
         p.publish(tmp_path / "nope", ROOT_FOR_TEST, push=False, log=quiet)
+
+
+def test_push_pulls_a_fast_forward_and_refuses_when_the_site_diverged():
+    import inspect
+    src = inspect.getsource(p.publish)
+    assert '"pull", "--ff-only", "origin", "main"' in src and "cannot fast-forward" in src

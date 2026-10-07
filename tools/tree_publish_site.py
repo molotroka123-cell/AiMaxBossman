@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SITE = Path(r"C:\Users\asd\AppData\Local\Temp\claude\C--Users-asd\88c0997b-4206-413b-933a-31f0613060f8\scratchpad\site-repo")
+DEFAULT_SITE = Path(r"C:\Users\asd\Bossman\site-tree-publisher")
 GENERATED = ("data/", "ai/", "llms.txt")
 SEED_REL = "command-center/bcc/capability_tree_seed.json"
 EVID_REL = "docs/architecture/bossman-tree-20261005/evidence"
@@ -95,6 +95,10 @@ def publish(site: Path, source: Path = ROOT, registry: Path | None = None, push:
         branch = _git(site, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
         if branch != "main":
             raise Refused(f"site clone is on '{branch}', not main")
+        # другая сессия тоже пишет в сайт: подтягиваем её коммиты перемоткой, при расхождении отказываемся
+        pull = _git(site, "pull", "--ff-only", "origin", "main")
+        if pull.returncode:
+            raise Refused("site clone cannot fast-forward to origin/main (diverged?): " + (pull.stderr or pull.stdout).strip()[:200])
     r = run_apply(source, python)
     log(r.stdout.strip() or r.stderr.strip())
     if r.returncode:
