@@ -6,20 +6,85 @@
    DIRECT: prompt уходит в выбранную модель как есть. ASSISTED: локальный Qwen
    предлагает версию, показываются оба текста, выбирает человек.
    Процент — только из реальных шагов ComfyUI; иначе этап и прошедшее время.
-   Страница не перерисовывается целиком: поля формы живут между опросами.
+
+   Дизайн: токены bx-* (theme.css) + pages/direct_gen.css, без внешних
+   ресурсов. Форма и плеер не перерисовываются при опросе: обновляются
+   только изменившиеся узлы (иначе сбрасывались бы поля и воспроизведение).
+   Доступность: нативные radio/details/label, role=status для смены этапа,
+   role=alert для ошибок, видимый фокус, prefers-reduced-motion.
    ============================================================ */
 
 import { api } from '../api.js';
-import { h, toastOk, toastError, actionButton, field, textarea, select } from '../components.js';
-import { panel, pageHead, pill } from './_ui.js';
+import { h, toastOk, toastError, icon } from '../components.js';
+import { panel, pageHead, pill, btn, meter } from './_ui.js';
 
-const STATUS_LABEL = { queued: 'в очереди', loading: 'загрузка', generating: 'генерация', postprocessing: 'сохранение и проверка', completed: 'готово', failed: 'ошибка', cancelled: 'остановлено' };
+const STATUS_LABEL = { queued: 'В очереди', loading: 'Загрузка модели', generating: 'Генерация', postprocessing: 'Сохранение и проверка', completed: 'Готово', failed: 'Ошибка', cancelled: 'Остановлено' };
+const STATUS_SHORT = { queued: 'в очереди', loading: 'загрузка', generating: 'генерация', postprocessing: 'сохранение', completed: 'готово', failed: 'ошибка', cancelled: 'остановлено' };
 const STATUS_TONE = { queued: 'idle', loading: 'warn', generating: 'warn', postprocessing: 'warn', completed: 'ok', failed: 'err', cancelled: 'idle' };
+const STAGES = [['queued', 'Очередь'], ['loading', 'Загрузка'], ['generating', 'Генерация'], ['postprocessing', 'Проверка'], ['completed', 'Готово']];
+const STAGE_NOTE = {
+  loading: 'Модель загружается в память.',
+  generating: 'Идёт генерация кадров.',
+  postprocessing: 'Файл сохраняется и проверяется (ffprobe).',
+};
 const LIVE = new Set(['queued', 'loading', 'generating', 'postprocessing']);
-const POLL_MS = 1500;
+const POLL_LIVE_MS = 1500;
+const POLL_IDLE_MS = 5000;
+const MAX_PROMPT = 8000;
+const RES_PRESETS = [[480, 320], [640, 384], [832, 480], [1024, 576], [1280, 720]];
 const base = '/api/direct-gen';
+const LEGAL = 'Только для совершеннолетних; материалы реальных людей без их согласия не создавать';
+
+/* Человеческие заголовки кодов. Исходный текст ошибки всегда показывается ниже без правок. */
+const ERRORS = {
+  model_unavailable: ['Модель недоступна', 'Не хватает весов или проверенного workflow-шаблона. Ничего не скачивается автоматически: положите файлы и обновите страницу.'],
+  runtime_unreachable: ['ComfyUI не отвечает', 'Запустите ComfyUI на этом компьютере и повторите. Задача не создавалась.'],
+  out_of_memory: ['Не хватило памяти', 'Уменьшите разрешение или длительность, закройте тяжёлые приложения и повторите с тем же seed.'],
+  runtime_error: ['Ошибка среды выполнения', 'ComfyUI вернул ошибку. Её текст показан ниже без изменений.'],
+  rejected: ['Запрос отклонён', 'Модель или ComfyUI не приняли задачу. Текст отказа ниже; prompt не менялся.'],
+  timeout: ['Время ожидания вышло', 'Результат не появился за отведённое время. Можно повторить с тем же seed.'],
+  empty_output: ['Пустой результат', 'ComfyUI завершил работу, но файл пустой.'],
+  bad_output: ['Файл не прошёл проверку', 'Результат сохранён, но не распознан как воспроизводимое видео.'],
+  interrupted: ['Запуск был прерван', 'Bossman перезапускали во время задачи; она не возобновлялась. Повторите вручную.'],
+  assist_unavailable: ['ASSISTED недоступен', 'Нет подходящей локальной модели Qwen в реестре. Режим DIRECT работает без неё.'],
+  assist_failed: ['Qwen не ответил', 'Версия не получена. Можно создать задачу в режиме DIRECT с вашим текстом.'],
+  invalid_prompt: ['Некорректный prompt', `Нужен текст длиной от 1 до ${MAX_PROMPT} символов.`],
+  invalid_duration: ['Недопустимая длительность', 'Проверьте предел длительности выбранной модели.'],
+  invalid_resolution: ['Недопустимое разрешение', 'Стороны должны быть в пределах модели и кратны её шагу.'],
+  invalid_seed: ['Недопустимый seed', 'Нужно неотрицательное целое число.'],
+  image_required: ['Нужно референс-изображение', 'Эта модель принимает только запуск с референсом.'],
+  audio_required: ['Нужен аудиофайл', 'Эта модель принимает только запуск с аудио.'],
+  image_unsupported: ['Изображение не поддерживается', 'Workflow этой модели не принимает изображение: уберите файл.'],
+  audio_unsupported: ['Аудио не поддерживается', 'Workflow этой модели не принимает аудио: уберите файл.'],
+  unknown_model: ['Неизвестная модель', 'Обновите страницу и выберите модель из списка.'],
+  already_finished: ['Задача уже завершена', 'Останавливать нечего.'],
+};
 
 const errText = (e) => (e && e.message) || String(e);
+const pad2 = (n) => String(n).padStart(2, '0');
+function fmtClock(sec) {
+  const s = Math.max(0, Math.round(Number(sec) || 0));
+  return `${Math.floor(s / 60)}:${pad2(s % 60)}`;
+}
+function fmtBytes(n) {
+  if (!Number.isFinite(n)) return '—';
+  if (n >= 1048576) return `${(n / 1048576).toFixed(1)} МБ`;
+  if (n >= 1024) return `${Math.round(n / 1024)} КБ`;
+  return `${n} Б`;
+}
+function fmtWhen(iso) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? String(iso).slice(0, 16) : `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+/* Сообщения каталога на английском: переводим известные обороты, остальное оставляем как есть. */
+function humanReason(text) {
+  return String(text || '')
+    .replace(/weights missing on disk: /g, 'Нет весов на диске: ')
+    .replace(/no verified workflow template installed \(([^)]+)\)/g, 'Нет проверенного workflow-шаблона ($1)')
+    .replace(/ANIMATE needs a driving video and pose inputs; the Direct window has no such input yet/,
+      'ANIMATE требует управляющее видео и позы; такого входа в этом окне пока нет');
+}
 
 function readB64(file) {
   return new Promise((resolve, reject) => {
@@ -31,60 +96,197 @@ function readB64(file) {
   });
 }
 
-function progressView(job) {
-  const p = job.progress || { kind: 'none' };
-  const wrap = h('div.stack.sm', { dataset: { testid: 'dg-progress' } });
-  if (p.kind === 'steps') {
-    wrap.append(h('progress', { max: p.max, value: p.value, style: { width: '100%' } }),
-      h('div.small', `Шаг ${p.value} из ${p.max} (${p.percent}%) — данные ComfyUI`));
-  } else if (LIVE.has(job.status)) {
-    wrap.append(h('div.small.dim', 'Процент недоступен: модель не сообщает шаги. Показаны этап и прошедшее время.'));
+/* Пословный diff (LCS): показывает, что именно изменила редактура. Ничего не скрывает. */
+function wordDiff(a, b) {
+  const x = a.split(/(\s+)/).filter(Boolean);
+  const y = b.split(/(\s+)/).filter(Boolean);
+  if (x.length * y.length > 400000) return [[a], [b]];
+  const n = x.length; const m = y.length;
+  const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i -= 1) {
+    for (let j = m - 1; j >= 0; j -= 1) {
+      dp[i][j] = x[i] === y[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
   }
-  return wrap;
+  const left = []; const right = [];
+  let i = 0; let j = 0;
+  const mark = (tag, s) => (/^\s+$/.test(s) ? s : h(tag, s));
+  while (i < n && j < m) {
+    if (x[i] === y[j]) { left.push(x[i]); right.push(y[j]); i += 1; j += 1; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { left.push(mark('del', x[i])); i += 1; }
+    else { right.push(mark('ins', y[j])); j += 1; }
+  }
+  while (i < n) { left.push(mark('del', x[i])); i += 1; }
+  while (j < m) { right.push(mark('ins', y[j])); j += 1; }
+  return [left, right];
 }
 
-function jobView(job, onChange) {
-  const live = LIVE.has(job.status);
-  const body = h('div.stack.sm', { dataset: { testid: 'dg-job', job: job.job_id } },
-    h('div.row.tight', { style: { gap: '8px', flexWrap: 'wrap' } },
-      pill(STATUS_LABEL[job.status] || job.status, { tone: STATUS_TONE[job.status] || 'idle', live }),
-      h('span.small', `${job.model} · ${job.mode} · seed ${job.params.seed} · ${job.params.width}×${job.params.height} · ${job.params.duration} с (${job.params.frames} кадров)`),
-      h('span.small.dim', `прошло ${job.elapsed_s} с` + (job.status === 'queued' ? ` · позиция в очереди ${job.queue_position}` : ''))),
-    progressView(job));
-  const actions = h('div.row.tight', { style: { gap: '8px', flexWrap: 'wrap' } });
-  if (live) {
-    actions.append(actionButton('STOP', async () => {
-      try { await api.raw(`${base}/jobs/${job.job_id}/cancel`, { method: 'POST', body: {} }); onChange(); }
-      catch (e) { toastError(e); }
-    }, { cls: 'btn btn-sm btn-danger' }));
-  } else {
-    actions.append(actionButton('Повторить с тем же seed', async () => {
-      try { const j = await api.raw(`${base}/jobs/${job.job_id}/retry`, { method: 'POST', body: {} }); toastOk('Повтор запущен', `seed ${j.params.seed}`); onChange(j.job_id); }
-      catch (e) { toastError(e); }
-    }, { cls: 'btn btn-sm' }));
-  }
-  body.append(actions);
-  if (job.status === 'completed' && job.result) {
-    const url = `${base}/jobs/${encodeURIComponent(job.job_id)}/file`;
-    body.append(job.result.mime.startsWith('video/')
-      ? h('video', { src: url, controls: true, preload: 'metadata', style: { maxWidth: '520px', width: '100%' } })
-      : h('img', { src: url, alt: 'result', style: { maxWidth: '520px' } }),
-    h('div.row.tight', { style: { gap: '8px' } },
-      h('a.btn.btn-sm', { href: url, download: 'bossman-direct' }, 'Сохранить'),
-      h('span.small.dim', `${job.result.bytes} байт · sha256 ${job.result.sha256.slice(0, 16)}… · ` +
-        (job.result.verified ? `проверен ffprobe, ${job.result.duration_s} с` : `не проверен независимо (${job.result.reason || 'нет данных'})`))));
-  }
-  if (job.error) {
-    body.append(h('div.small', { style: { color: 'var(--err)' }, dataset: { testid: 'dg-error' } },
-      `Ошибка [${job.error.code}]: ${job.error.message}`));
-  }
-  if (job.warning) body.append(h('div.small.dim', job.warning));
-  body.append(h('details', h('summary.small', 'Журнал и происхождение'),
-    h('pre.xsmall.mono', { style: { whiteSpace: 'pre-wrap', maxHeight: '180px', overflow: 'auto' } },
-      job.timeline.map((t) => `${t.at}  ${t.stage}${t.note ? '  ' + t.note : ''}`).join('\n') +
-      '\n\n' + JSON.stringify({ raw_prompt: job.raw_prompt, effective_prompt: job.effective_prompt, negative: job.negative, provenance: job.provenance }, null, 1))));
-  return body;
+function errorBlock(code, message, extra) {
+  const [title, hint] = ERRORS[code] || [`Ошибка [${code || 'unknown'}]`, ''];
+  return h('div.dg-alert', { role: 'alert', dataset: { testid: 'dg-error' } },
+    h('div.dg-alert-title', title),
+    hint ? h('div.dg-alert-hint', hint) : null,
+    h('pre.dg-raw', `[${code || 'unknown'}] ${message || ''}`),
+    extra || null);
 }
+
+/* Черновик живёт в памяти вкладки между переходами по меню; на диск не пишется. */
+let DRAFT = null;
+
+/* ------------------------------------------------------------------ задача */
+
+function createJobView(hooks) {
+  const announce = h('div.dg-sr', { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' });
+  const statusEl = h('div.dg-big-status');
+  const elapsedEl = h('div.dg-elapsed', { 'aria-hidden': 'true' });
+  const metaEl = h('div.dg-small', { dataset: { testid: 'dg-meta' } });
+  const stageEls = STAGES.map(([, label]) => h('li.dg-stage', label));
+  const stagesEl = h('ol.dg-stages', { 'aria-label': 'Этапы задачи' }, stageEls);
+  const noteEl = h('div.dg-small');
+  const progressBox = h('div.dg-stack', { dataset: { testid: 'dg-progress' } });
+  const errBox = h('div');
+  const warnBox = h('div');
+  const placeholder = h('div.dg-stage-ph');
+  const mediaBox = h('div.dg-stage-box', placeholder);
+  const resultInfo = h('div.dg-small');
+
+  const stopBtn = btn('STOP', () => hooks.stop(state.id), { variant: 'danger', iconName: 'stop', title: 'Остановить задачу (STOP)' });
+  stopBtn.classList.add('dg-btn-tight'); stopBtn.dataset.testid = 'dg-stop-job';
+  const retryBtn = btn('Повторить с тем же seed', () => hooks.retry(state.id), { variant: 'primary', iconName: 'retry' });
+  retryBtn.classList.add('dg-btn-tight');
+  const formBtn = btn('Взять в форму', () => hooks.toForm(state.job), { variant: 'subtle', title: 'Подставить prompt и параметры этой задачи в форму' });
+  formBtn.classList.add('dg-btn-tight');
+  const saveLink = h('a', { class: 'bx-btn bx-btn-secondary dg-btn-tight', href: '#', download: 'bossman-direct', hidden: true, dataset: { testid: 'dg-save' } },
+    icon('check', 14), h('span', 'Сохранить'));
+
+  const logList = h('ol.dg-small', { style: { margin: '0', paddingLeft: '18px' } });
+  const provPre = h('pre.dg-raw', { tabindex: '0', 'aria-label': 'Параметры и происхождение (JSON)' });
+  const logBox = h('details.dg-details', { dataset: { testid: 'dg-log' } },
+    h('summary', 'Журнал этапов и происхождение'),
+    h('div.dg-details-body.dg-stack', logList, provPre));
+
+  const state = { id: null, job: null, mediaKey: null, errSig: '', warnSig: '', logSig: '', announceKey: '' };
+  let progressEl = null;
+
+  const el = h('div.dg-job', { dataset: { testid: 'dg-job-view' } },
+    h('div.dg-stack', mediaBox, resultInfo),
+    h('div.dg-stack', announce,
+      h('div.dg-row', statusEl, elapsedEl), metaEl, stagesEl, progressBox, noteEl,
+      h('div.dg-row', stopBtn, retryBtn, saveLink, formBtn), errBox, warnBox, logBox));
+
+  function buildMedia(job) {
+    const url = `${base}/jobs/${encodeURIComponent(job.job_id)}/file`;
+    const note = h('div.dg-stage-ph', { hidden: true }, 'Браузер не смог воспроизвести этот файл. Его можно сохранить и открыть во внешнем плеере.');
+    if (job.result.mime && job.result.mime.startsWith('image/')) return [h('img', { src: url, alt: 'Результат генерации' })];
+    const v = h('video', { src: url, controls: true, preload: 'metadata', playsinline: true, 'aria-label': 'Результат генерации' });
+    v.addEventListener('error', () => { v.hidden = true; note.hidden = false; });
+    return [v, note];
+  }
+
+  let progMode = '';
+  function setProgress(job) {
+    const p = job.progress || { kind: 'none' };
+    if (p.kind === 'steps') {
+      if (!progressEl) {
+        progressEl = {
+          bar: h('progress.dg-progress', { 'aria-label': 'Прогресс по шагам ComfyUI' }),
+          txt: h('div.dg-small.dg-num'),
+        };
+      }
+      progressEl.bar.max = p.max; progressEl.bar.value = p.value;
+      progressEl.txt.textContent = `Шаг ${p.value} из ${p.max} (${p.percent}%): данные ComfyUI`;
+      if (progMode !== 'steps') { progMode = 'steps'; progressBox.replaceChildren(progressEl.bar, progressEl.txt); }
+    } else {
+      const mode = LIVE.has(job.status) ? 'text' : '';
+      if (progMode !== mode) {
+        progMode = mode;
+        progressBox.replaceChildren(...(mode ? [h('div.dg-small.dg-dim', 'Процент недоступен: модель не сообщает шаги. Показаны этап и прошедшее время.')] : []));
+      }
+    }
+  }
+
+  function setStages(job) {
+    const live = LIVE.has(job.status);
+    const reached = job.timeline.map((t) => t.stage).filter((s) => LIVE.has(s));
+    const lastLive = reached.length ? reached[reached.length - 1] : 'queued';
+    const failed = job.status === 'failed'; const stopped = job.status === 'cancelled';
+    const nowIdx = live ? STAGES.findIndex(([k]) => k === job.stage) : -1;
+    stageEls.forEach((li, i) => {
+      const key = STAGES[i][0];
+      let cls = 'dg-stage'; let cur = false; let label = STAGES[i][1];
+      if (job.status === 'completed') cls += ' is-done is-ok';
+      else if (live) {
+        if (i < nowIdx) cls += ' is-done';
+        else if (i === nowIdx) { cls += ' is-now' + (key === 'queued' ? '' : ' is-pulse'); cur = true; }
+      } else {
+        const lastIdx = STAGES.findIndex(([k]) => k === lastLive);
+        if (i < lastIdx) cls += ' is-done';
+        else if (i === lastIdx) { cls += failed ? ' is-bad' : ' is-stopped'; cur = true; }
+        if (key === 'completed') { cls = 'dg-stage' + (failed ? ' is-bad' : ' is-stopped'); label = failed ? 'Ошибка' : 'Остановлено'; }
+      }
+      if (li.className !== cls) li.className = cls;
+      if (li.textContent !== label) li.textContent = label;
+      if (cur || (job.status === 'completed' && key === 'completed') || (!live && key === 'completed' && (failed || stopped))) li.setAttribute('aria-current', 'step');
+      else li.removeAttribute('aria-current');
+    });
+  }
+
+  function update(job) {
+    if (job.job_id !== state.id) { state.id = job.job_id; state.errSig = ''; state.warnSig = ''; state.logSig = ''; progressEl = null; progMode = ''; progressBox.replaceChildren(); }
+    state.job = job;
+    const live = LIVE.has(job.status);
+    const label = STATUS_LABEL[job.status] || job.status;
+    if (statusEl.textContent !== label) statusEl.textContent = label;
+    elapsedEl.textContent = job.status === 'queued' && !job.elapsed_s ? '' : fmtClock(job.elapsed_s);
+    const p = job.params;
+    metaEl.textContent = `${job.model} · ${job.mode} · seed ${p.seed} · ${p.width}×${p.height} · ${p.duration} с (${p.frames} кадров)`
+      + (job.status === 'queued' ? ` · позиция в очереди: ${job.queue_position}` : '');
+    setStages(job); setProgress(job);
+    noteEl.textContent = STAGE_NOTE[job.stage] && live ? STAGE_NOTE[job.stage] : '';
+
+    const key = announceKeyOf(job);
+    if (key !== state.announceKey) { state.announceKey = key; announce.textContent = `Задача: ${label}`; }
+
+    stopBtn.hidden = !live; retryBtn.hidden = live;
+    const done = job.status === 'completed' && job.result;
+    saveLink.hidden = !done;
+    if (done) saveLink.href = `${base}/jobs/${encodeURIComponent(job.job_id)}/file`;
+
+    const mk = done ? `${job.job_id}:${job.result.sha256}` : '';
+    if (mk !== state.mediaKey) { state.mediaKey = mk; mediaBox.replaceChildren(...(done ? buildMedia(job) : [placeholder])); }
+    placeholder.textContent = {
+      queued: 'Задача в очереди. Превью появится после генерации.',
+      loading: 'Модель загружается. Превью появится после генерации.',
+      generating: 'Идёт генерация. Превью появится после сохранения файла.',
+      postprocessing: 'Файл сохраняется и проверяется.',
+      failed: 'Результата нет: см. сообщение об ошибке справа.',
+      cancelled: 'Задача остановлена, результата нет.',
+      completed: 'Результат недоступен.',
+    }[job.status] || '';
+    resultInfo.textContent = done
+      ? `${fmtBytes(job.result.bytes)} · sha256 ${String(job.result.sha256).slice(0, 16)}… · `
+        + (job.result.verified ? `проверен ffprobe, ${job.result.duration_s} с` : `не проверен независимо (${job.result.reason || 'нет данных'})`)
+      : '';
+
+    const es = job.error ? `${job.error.code}|${job.error.message}` : '';
+    if (es !== state.errSig) { state.errSig = es; errBox.replaceChildren(...(job.error ? [errorBlock(job.error.code, job.error.message)] : [])); }
+    const ws = job.warning || '';
+    if (ws !== state.warnSig) { state.warnSig = ws; warnBox.replaceChildren(...(ws ? [h('div.dg-info', ws)] : [])); }
+
+    const ls = `${job.timeline.length}|${job.status}`;
+    if (ls !== state.logSig) {
+      state.logSig = ls;
+      logList.replaceChildren(...job.timeline.map((t) => h('li', `${fmtWhen(t.at)} · ${STATUS_SHORT[t.stage] || t.stage}${t.note ? `: ${t.note}` : ''}`)));
+      const sent = job.effective_prompt === job.raw_prompt ? 'отправлен в модель без изменений' : 'отправлено в модель (отличается от оригинала)';
+      provPre.textContent = JSON.stringify({ raw_prompt: job.raw_prompt, effective_prompt: job.effective_prompt, prompt_status: sent, negative: job.negative, provenance: job.provenance }, null, 1);
+    }
+  }
+  const announceKeyOf = (job) => `${job.job_id}|${job.status}`;
+
+  return { el, update, current: () => state.job };
+}
+
+/* ------------------------------------------------------------------ страница */
 
 const DirectGenPage = {
   id: 'direct-gen',
@@ -93,121 +295,362 @@ const DirectGenPage = {
   nav: 'more',
   section: 'studio',
 
-  async render(ctx) {
+  async render() {
     const head = pageHead('Прямой генератор видео',
-      'Локальная генерация для совершеннолетних. DIRECT: ваш текст уходит в выбранную модель без изменений и без промежуточной модерации. Отказы, нехватка памяти и ошибки показываются как есть. Не для несовершеннолетних и не для интимных изображений реальных людей без их согласия.');
-    const state = { models: [], jobs: [], current: null, assist: null };
-    const modelSel = select([], { name: 'dg-model' });
-    const modelNote = h('div.small', { dataset: { testid: 'dg-model-note' } });
-    const modeSel = select([{ value: 'DIRECT', label: 'DIRECT — как написано' }, { value: 'ASSISTED', label: 'ASSISTED — с редактурой Qwen (вы выбираете)' }], { name: 'dg-mode', value: 'DIRECT' });
-    const prompt = textarea({ rows: 8, name: 'dg-prompt', placeholder: 'Опишите сцену', style: { width: '100%', fontSize: '1.05em' } });
-    const negative = textarea({ rows: 2, name: 'dg-negative', placeholder: 'Negative (необязательно)' });
-    const image = h('input', { type: 'file', accept: 'image/*', name: 'dg-image' });
-    const audio = h('input', { type: 'file', accept: 'audio/*', name: 'dg-audio' });
-    const duration = h('input.input', { type: 'number', min: 1, step: 0.5, value: 4, name: 'dg-duration' });
-    const resolution = h('input.input', { type: 'text', value: '480x320', name: 'dg-resolution' });
-    const seed = h('input.input', { type: 'number', min: 0, placeholder: 'случайный', name: 'dg-seed' });
-    const statusBox = h('div.stack.sm', { dataset: { testid: 'dg-status' } });
-    const assistBox = h('div.stack.sm', { dataset: { testid: 'dg-assist' } });
-    const jobBox = h('div.stack.sm');
-    const historyBox = h('div.stack.sm');
+      'Локальная генерация. DIRECT: ваш текст уходит в модель без изменений и без промежуточной модерации; отказы и ошибки показываются как есть.');
+    const state = { models: [], jobs: [], current: null, assist: null, modelId: null, mode: 'DIRECT', tick: 0, modelSig: '', histSig: '' };
+    const D = DRAFT || {};
 
-    const selected = () => state.models.find((m) => m.id === modelSel.value);
-    const showModel = () => {
-      const m = selected();
-      modelNote.replaceChildren();
-      if (!m) return;
-      modelNote.append(
-        pill(m.available ? 'доступна' : 'недоступна', { tone: m.available ? 'ok' : 'err' }),
-        h('span.small', ` ${m.modes.join('/')} · ${m.runtime} · до ${m.max_seconds} с · стороны ${m.min_side}–${m.max_side} кратно ${m.side_multiple} · ${m.fps} к/с`),
-        m.reason ? h('div.small', { style: { color: 'var(--err)' } }, m.reason) : null,
-        m.requires_image ? h('div.small', 'Нужно референс-изображение.') : null,
-        m.requires_audio ? h('div.small', 'Нужен аудиофайл.') : null,
-        h('div.small.dim', `источник ${m.source} · ревизия ${m.revision} · лицензия ${m.license} · sha256 ${m.sha256 === 'UNKNOWN' ? 'UNKNOWN' : m.sha256.slice(0, 16) + '…'}`));
+    /* ---- форма ---- */
+    const prompt = h('textarea.dg-prompt', { id: 'dg-prompt', name: 'dg-prompt', rows: 8, maxlength: String(MAX_PROMPT + 2000), placeholder: 'Опишите сцену: что в кадре, где, как движется камера', 'aria-describedby': 'dg-prompt-hint dg-prompt-count' });
+    prompt.value = D.prompt || '';
+    const count = h('div.dg-count', { id: 'dg-prompt-count' });
+    const negative = h('textarea.dg-input', { id: 'dg-negative', name: 'dg-negative', rows: 2, placeholder: 'Чего не должно быть в кадре (необязательно)' });
+    negative.value = D.negative || '';
+    const duration = h('input.dg-input', { id: 'dg-duration', name: 'dg-duration', type: 'number', min: '0.5', step: '0.5', value: D.duration || '4', inputmode: 'decimal' });
+    const resolution = h('input.dg-input', { id: 'dg-resolution', name: 'dg-resolution', type: 'text', value: D.resolution || '480x320', pattern: '\\d{3,4}x\\d{3,4}', inputmode: 'numeric', autocomplete: 'off', 'aria-describedby': 'dg-res-note' });
+    const seed = h('input.dg-input', { id: 'dg-seed', name: 'dg-seed', type: 'number', min: '0', step: '1', placeholder: 'случайный', inputmode: 'numeric' });
+    if (D.seed !== undefined && D.seed !== null && D.seed !== '') seed.value = D.seed;
+    const image = h('input.dg-file', { id: 'dg-image', name: 'dg-image', type: 'file', accept: 'image/*' });
+    const audio = h('input.dg-file', { id: 'dg-audio', name: 'dg-audio', type: 'file', accept: 'audio/*' });
+    const imgPreview = h('div.dg-note', { 'aria-live': 'polite' });
+    const resChips = h('div.dg-chips', { role: 'group', 'aria-label': 'Типовые разрешения' });
+    const durNote = h('div.dg-note', { id: 'dg-dur-note' });
+    const resNote = h('div.dg-note', { id: 'dg-res-note' });
+    const paramSum = h('span.dg-details-sum.dg-num', { 'aria-hidden': 'true' });
+    const createErr = h('div', { dataset: { testid: 'dg-create-error' } });
+    const assistBox = h('div.dg-stack', { dataset: { testid: 'dg-assist' } });
+
+    const lab = (text, id, note) => h('div', h('label.dg-label', { for: id }, text), note || null);
+
+    const paramsBox = h('details.dg-details', { dataset: { testid: 'dg-params' } },
+      h('summary', 'Параметры', paramSum),
+      h('div.dg-details-body', h('div.dg-fields',
+        h('div', lab('Длительность, с', 'dg-duration'), duration, durNote),
+        h('div', lab('Разрешение', 'dg-resolution'), resolution, resNote, resChips),
+        h('div', lab('Seed', 'dg-seed'), seed, h('div.dg-note', 'Пусто: случайный. Seed каждой задачи сохраняется для повтора.')),
+        h('div.is-wide', lab('Negative', 'dg-negative'), negative),
+        h('div', lab('Референс-изображение', 'dg-image'), image, imgPreview),
+        h('div', lab('Аудио (для S2V)', 'dg-audio'), audio))));
+    if (D.paramsOpen) paramsBox.open = true;
+    paramsBox.addEventListener('toggle', () => { DRAFT = { ...(DRAFT || {}), paramsOpen: paramsBox.open }; });
+
+    /* ---- режим ---- */
+    const modeRadio = (value, title, sub) => {
+      const input = h('input', { type: 'radio', name: 'dg-mode', value, id: `dg-mode-${value}`, checked: value === (D.mode || 'DIRECT') });
+      input.addEventListener('change', () => { if (input.checked) setMode(value); });
+      return h('label.dg-seg-opt', { for: input.id }, input, h('span.dg-seg-t', title), h('span.dg-seg-s', sub));
     };
-    modelSel.addEventListener('change', showModel);
+    const modeGroup = h('div.dg-seg', { role: 'radiogroup', 'aria-label': 'Режим' },
+      modeRadio('DIRECT', 'DIRECT', 'как написано'), modeRadio('ASSISTED', 'ASSISTED', 'с предложением Qwen'));
+    const modeNote = h('div.dg-hint', { id: 'dg-prompt-hint' });
 
-    const body = async (extra = {}) => ({
-      model: modelSel.value, prompt: prompt.value, negative: negative.value,
-      duration: Number(duration.value), resolution: resolution.value.trim(),
-      seed: seed.value === '' ? null : Number(seed.value), mode: modeSel.value,
-      image_b64: await readB64(image.files[0]), audio_b64: await readB64(audio.files[0]), ...extra,
+    /* ---- модели ---- */
+    const modelCards = h('fieldset.dg-cards', { dataset: { testid: 'dg-models' } }, h('legend.dg-sr', 'Видео-модель'));
+    const modelDetail = h('div.dg-stack', { dataset: { testid: 'dg-model-note' } });
+    const statusBox = h('div.dg-stack', { dataset: { testid: 'dg-status' } });
+
+    /* ---- задача и история ---- */
+    const jobView = createJobView({
+      stop: async (id) => { try { await api.raw(`${base}/jobs/${id}/cancel`, { method: 'POST', body: {} }); await refresh(); } catch (e) { toastError(e); await refresh(); } },
+      retry: async (id) => {
+        try { const j = await api.raw(`${base}/jobs/${id}/retry`, { method: 'POST', body: {} }); toastOk('Повтор запущен', `seed ${j.params.seed}`); state.current = j.job_id; await refresh(); focusJob(); }
+        catch (e) { toastError(e); }
+      },
+      toForm: (job) => loadToForm(job),
     });
-    const submit = async (extra) => {
-      try {
-        const job = await api.raw(`${base}/jobs`, { method: 'POST', body: await body(extra) });
-        state.current = job.job_id;
-        toastOk('Задача создана', `seed ${job.params.seed}`);
-        await refresh();
-      } catch (e) { toastError(e); }
+    const jobEmpty = h('div.bx-blank', h('span.bx-blank-icon', icon('play', 24)),
+      h('div.bx-blank-title', 'Задач пока не было'),
+      h('div.bx-blank-hint', 'Напишите prompt и нажмите «Создать». Здесь появятся этапы, время, превью, кнопки «Сохранить» и «Повторить с тем же seed», а также журнал.'));
+    const jobHost = h('div', { tabindex: '-1', class: 'dg-anchor', role: 'region', 'aria-label': 'Текущая задача', dataset: { testid: 'dg-job' } }, jobEmpty);
+    const histBox = h('div');
+
+    /* ---- вычисления ---- */
+    const selected = () => state.models.find((m) => m.id === state.modelId);
+    const countUpdate = () => {
+      const n = prompt.value.length;
+      count.textContent = `${n} / ${MAX_PROMPT}`;
+      count.classList.toggle('is-over', n > MAX_PROMPT);
+    };
+    const sumUpdate = () => {
+      paramSum.textContent = `${duration.value || '?'} с · ${resolution.value || '?'} · seed ${seed.value === '' ? 'случайный' : seed.value}`;
+      resChips.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.res === resolution.value.trim() ? 'true' : 'false'));
+    };
+    const saveDraft = () => {
+      DRAFT = { ...(DRAFT || {}), prompt: prompt.value, negative: negative.value, duration: duration.value, resolution: resolution.value, seed: seed.value, mode: state.mode, model: state.modelId };
+    };
+    const setMode = (mode) => {
+      state.mode = mode;
+      modeNote.textContent = mode === 'DIRECT'
+        ? 'Текст уходит в модель как написан. Ctrl+Enter: создать.'
+        : 'Сначала локальный Qwen предложит версию. Вы увидите оба текста и выберете сами: ничего не применяется молча.';
+      createBtn.querySelector('span:last-child').textContent = mode === 'DIRECT' ? 'Создать' : 'Создать: сначала версия Qwen';
+      if (mode === 'DIRECT') { state.assist = null; showAssist(); }
+      saveDraft();
+    };
+    const applyLimits = () => {
+      const m = selected();
+      resChips.replaceChildren();
+      if (!m) { durNote.textContent = ''; resNote.textContent = ''; return; }
+      duration.max = String(m.max_seconds);
+      durNote.textContent = `Не больше ${m.max_seconds} с · ${m.fps} к/с`;
+      resNote.textContent = `Каждая сторона ${m.min_side}–${m.max_side}, кратно ${m.side_multiple}`;
+      for (const [w, hh] of RES_PRESETS) {
+        if (w < m.min_side || hh < m.min_side || w > m.max_side || hh > m.max_side || w % m.side_multiple || hh % m.side_multiple) continue;
+        const val = `${w}x${hh}`;
+        const chip = h('button.dg-chip', { type: 'button', dataset: { res: val }, 'aria-pressed': 'false' }, `${w}×${hh}`);
+        chip.addEventListener('click', () => { resolution.value = val; sumUpdate(); saveDraft(); });
+        resChips.append(chip);
+      }
+      sumUpdate();
     };
 
-    const showAssist = () => {
+    const renderModelDetail = () => {
+      const m = selected();
+      modelDetail.replaceChildren();
+      if (!m) { modelDetail.append(h('div.dg-info', 'Каталог моделей пуст.')); return; }
+      const sha = m.sha256 === 'UNKNOWN' ? 'UNKNOWN' : `${m.sha256.slice(0, 16)}…`;
+      modelDetail.append(...[
+        h('div.dg-small', { 'aria-live': 'polite' }, `Выбрана: ${m.label} · до ${m.max_seconds} с · ${m.fps} к/с`),
+        m.requires_image ? h('div.dg-small', 'Нужно референс-изображение (поле в «Параметрах»).') : null,
+        m.requires_audio ? h('div.dg-small', 'Нужен аудиофайл (поле в «Параметрах»).') : null,
+        h('div.dg-note', `Источник ${m.source} · ревизия ${m.revision} · лицензия ${m.license} · sha256 ${sha}`),
+      ].filter(Boolean));
+    };
+
+    const renderModels = (force) => {
+      const sig = JSON.stringify(state.models.map((m) => [m.id, m.available, m.reason]));
+      if (!force && sig === state.modelSig) return;
+      state.modelSig = sig;
+      const hadFocus = modelCards.contains(document.activeElement);
+      modelCards.replaceChildren(h('legend.dg-sr', 'Видео-модель'), ...state.models.map((m) => {
+        const input = h('input', { type: 'radio', name: 'dg-model', value: m.id, id: `dg-model-${m.id}`, checked: m.id === state.modelId, 'aria-describedby': `dg-model-${m.id}-d` });
+        input.addEventListener('change', () => { if (input.checked) { state.modelId = m.id; renderModels(true); renderModelDetail(); applyLimits(); saveDraft(); } });
+        return h('label', { class: `dg-card${m.id === state.modelId ? ' is-on' : ''}${m.available ? '' : ' is-off'}`, for: input.id },
+          input,
+          h('div.dg-card-in',
+            h('div.dg-card-top', h('span.dg-card-name', m.label), pill(m.available ? 'доступна' : 'недоступна', { tone: m.available ? 'ok' : 'err' })),
+            h('div.dg-card-meta', `${m.modes.join(' / ')} · ${m.runtime}`),
+            h('div.dg-card-reason', { id: `dg-model-${m.id}-d` }, m.available ? 'Веса и workflow-шаблон на месте.' : [h('b', 'Почему недоступна: '), humanReason(m.reason)])));
+      }));
+      if (hadFocus) modelCards.querySelector('input:checked')?.focus();
+    };
+
+    const modelsHelp = h('details.dg-details', { dataset: { testid: 'dg-models-help' } },
+      h('summary', 'Как сделать модель доступной'),
+      h('div.dg-details-body.dg-small',
+        'Веса ищутся в каталоге моделей ComfyUI (переменная BOSSMAN_COMFYUI_MODELS_DIR; по умолчанию Bossman/media-runtime/ComfyUI/models в домашней папке). ',
+        'Проверенный workflow-шаблон <id модели>.json кладётся в папку direct-gen/workflows каталога данных Bossman. ',
+        'Ничего не скачивается и не подставляется автоматически; платной замены нет.'));
+
+    /* ---- сообщения ---- */
+    const showCreateErr = (e, fallbackCode) => {
+      const code = (e && e.code) || fallbackCode || 'unknown';
+      createErr.replaceChildren(errorBlock(code, errText(e)));
+    };
+    const clearCreateErr = () => createErr.replaceChildren();
+
+    /* ---- ASSISTED ---- */
+    function showAssist() {
       assistBox.replaceChildren();
       const a = state.assist;
       if (!a) return;
+      const [l, r] = wordDiff(a.original, a.suggested);
       assistBox.append(
-        h('div.small', `Версия предложена моделью ${a.model}. Ничего не применено — выберите сами.`),
-        h('div.row', { style: { gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap' } },
-          h('div.stack.sm', { style: { flex: '1 1 280px' } }, h('strong.small', 'Оригинал'), h('pre.small', { style: { whiteSpace: 'pre-wrap' } }, a.original)),
-          h('div.stack.sm', { style: { flex: '1 1 280px' } }, h('strong.small', 'Версия Qwen'), h('pre.small', { style: { whiteSpace: 'pre-wrap' } }, a.suggested))),
-        h('div.row.tight', { style: { gap: '8px' } },
-          actionButton('Создать с оригиналом', () => submit({ prompt: a.original, mode: 'ASSISTED', assist_id: a.assist_id, assist_choice: 'original' }), { cls: 'btn' }),
-          actionButton('Создать с версией Qwen', () => submit({ prompt: a.original, mode: 'ASSISTED', assist_id: a.assist_id, assist_choice: 'suggested' }), { cls: 'btn btn-primary' })));
-    };
+        h('div.dg-info', `Версию предложила модель ${a.model}. Ничего не применено и не отправлено: выберите сами. Зелёным отмечено добавленное, красным удалённое.`),
+        h('div.dg-compare',
+          h('section.dg-cmp-col', { 'aria-labelledby': 'dg-cmp-o' }, h('h3', { id: 'dg-cmp-o' }, 'Оригинал'), h('p.dg-cmp-text', l)),
+          h('section.dg-cmp-col', { 'aria-labelledby': 'dg-cmp-s' }, h('h3', { id: 'dg-cmp-s' }, `Версия ${a.model}`), h('p.dg-cmp-text', r))),
+        h('div.dg-actions',
+          btn('Создать с оригиналом', () => submit({ prompt: a.original, mode: 'ASSISTED', assist_id: a.assist_id, assist_choice: 'original' }), { variant: 'secondary' }),
+          btn('Создать с версией Qwen', () => submit({ prompt: a.original, mode: 'ASSISTED', assist_id: a.assist_id, assist_choice: 'suggested' }), { variant: 'primary' }),
+          btn('Отклонить обе', () => { state.assist = null; showAssist(); prompt.focus(); }, { variant: 'ghost' })));
+    }
 
-    const create = actionButton('Создать', async () => {
-      if (modeSel.value === 'ASSISTED') {
-        try { state.assist = await api.raw(`${base}/assist`, { method: 'POST', body: { prompt: prompt.value } }); showAssist(); }
-        catch (e) { state.assist = null; showAssist(); toastError(e); }
+    /* ---- создание ---- */
+    const body = async (extra = {}) => ({
+      model: state.modelId, prompt: prompt.value, negative: negative.value,
+      duration: Number(duration.value), resolution: resolution.value.trim(),
+      seed: seed.value === '' ? null : Number(seed.value), mode: state.mode,
+      image_b64: await readB64(image.files[0]), audio_b64: await readB64(audio.files[0]), ...extra,
+    });
+    async function submit(extra) {
+      clearCreateErr();
+      try {
+        const job = await api.raw(`${base}/jobs`, { method: 'POST', body: await body(extra) });
+        state.current = job.job_id;
+        state.assist = null; showAssist();
+        toastOk('Задача создана', `seed ${job.params.seed}`);
+        await refresh();
+        focusJob();
+      } catch (e) { showCreateErr(e); }
+    }
+    function focusJob() {
+      const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      jobHost.focus({ preventScroll: true });
+      jobHost.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+    }
+    const checkPrompt = () => {
+      if (prompt.value.trim()) { prompt.removeAttribute('aria-invalid'); return true; }
+      prompt.setAttribute('aria-invalid', 'true');
+      createErr.replaceChildren(errorBlock('invalid_prompt', 'prompt пуст'));
+      prompt.focus();
+      return false;
+    };
+    const create = async () => {
+      clearCreateErr();
+      if (!checkPrompt()) return;
+      if (state.mode === 'ASSISTED') {
+        try { state.assist = await api.raw(`${base}/assist`, { method: 'POST', body: { prompt: prompt.value } }); showAssist(); assistBox.querySelector('button')?.focus(); }
+        catch (e) { state.assist = null; showAssist(); showCreateErr(e, 'assist_failed'); }
         return;
       }
       await submit();
-    }, { cls: 'btn btn-primary' });
+    };
+    const createBtn = btn('Создать', create, { variant: 'primary', size: 'lg', iconName: 'bolt' });
+    createBtn.classList.add('dg-create'); createBtn.dataset.testid = 'dg-create';
+    const stopBtn = btn('STOP', async () => { const j = jobView.current(); if (j && LIVE.has(j.status)) await jobView_stop(j.job_id); },
+      { variant: 'danger', size: 'lg', iconName: 'stop', title: 'Остановить текущую задачу (STOP)', disabled: true });
+    stopBtn.classList.add('dg-stop'); stopBtn.dataset.testid = 'dg-stop';
+    async function jobView_stop(id) {
+      try { await api.raw(`${base}/jobs/${id}/cancel`, { method: 'POST', body: {} }); } catch (e) { toastError(e); }
+      await refresh();
+    }
 
-    const refresh = async (focusId) => {
-      if (focusId) state.current = focusId;
-      try {
-        const [st, list] = await Promise.all([api.raw(`${base}/status`), api.raw(`${base}/jobs`)]);
-        state.jobs = list.jobs;
-        statusBox.replaceChildren(
-          pill(st.runtime.reachable ? 'ComfyUI на связи' : 'ComfyUI недоступен', { tone: st.runtime.reachable ? 'ok' : 'err' }),
-          st.runtime.reason ? h('span.small', ` ${st.runtime.reason}`) : null,
-          h('span.small', st.memory.measured ? ` · память: занято ${Math.round(st.memory.used_mb / 1024)} из ${Math.round(st.memory.total_mb / 1024)} ГБ, свободно ${Math.round(st.memory.free_mb / 1024)} ГБ` : ' · память: не измерена'),
-          h('span.small.dim', ` · очередь: ${st.queue.running ? 'идёт 1' : 'пусто'}, ждут ${st.queue.waiting}`),
-          h('div.small', st.assist.available ? `ASSISTED: Qwen ${st.assist.model}` : `ASSISTED недоступен: ${st.assist.reason}`));
-      } catch (e) { statusBox.replaceChildren(h('div.small', { style: { color: 'var(--err)' } }, errText(e))); }
-      const job = state.jobs.find((j) => j.job_id === state.current) || state.jobs[0];
-      jobBox.replaceChildren(job ? jobView(job, refresh) : h('div.small.dim', 'Задач пока не было.'));
-      historyBox.replaceChildren(...state.jobs.slice(0, 15).map((j) => h('div.row.tight', { style: { gap: '8px' } },
-        pill(STATUS_LABEL[j.status] || j.status, { tone: STATUS_TONE[j.status] || 'idle' }),
-        h('a.small', { href: '#', onclick: (ev) => { ev.preventDefault(); state.current = j.job_id; refresh(); } }, `${j.created_at.slice(0, 19)} · ${j.model} · seed ${j.params.seed}`))));
+    function loadToForm(job) {
+      prompt.value = job.raw_prompt; negative.value = job.negative || '';
+      duration.value = job.params.duration; resolution.value = `${job.params.width}x${job.params.height}`;
+      seed.value = job.params.seed;
+      if (state.models.some((m) => m.id === job.model)) { state.modelId = job.model; renderModels(true); renderModelDetail(); applyLimits(); }
+      modeGroup.querySelector('#dg-mode-DIRECT').checked = true; setMode('DIRECT');
+      countUpdate(); sumUpdate(); saveDraft();
+      prompt.scrollIntoView({ block: 'center', behavior: 'auto' });
+      prompt.focus();
+      toastOk('Параметры подставлены', 'Prompt и seed скопированы в форму');
+    }
+
+    /* ---- опрос ---- */
+    const renderStatus = (st) => {
+      const rows = [
+        h('div.dg-row', pill(st.runtime.reachable ? 'ComfyUI на связи' : 'ComfyUI недоступен', { tone: st.runtime.reachable ? 'ok' : 'err' })),
+        st.runtime.reason ? h('div.dg-small', st.runtime.reason) : null,
+        st.memory.measured
+          ? meter('Память', st.memory.used_mb, st.memory.total_mb, `занято ${Math.round(st.memory.used_mb / 1024)} из ${Math.round(st.memory.total_mb / 1024)} ГБ · свободно ${Math.round(st.memory.free_mb / 1024)} ГБ`)
+          : h('div.dg-small.dg-dim', 'Память: не измерена'),
+        h('div.dg-small', `Очередь: ${st.queue.running ? 'выполняется 1' : 'пусто'}, ждут ${st.queue.waiting}`),
+        h('div.dg-small', st.assist.available ? `ASSISTED: Qwen ${st.assist.model}` : `ASSISTED недоступен: ${st.assist.reason}`),
+      ];
+      statusBox.replaceChildren(...rows.filter(Boolean));
+    };
+    const renderHistory = () => {
+      const jobs = state.jobs.slice(0, 24);
+      const sig = JSON.stringify([state.current, jobs.map((j) => [j.job_id, j.status])]);
+      if (sig === state.histSig) return;
+      state.histSig = sig;
+      if (!jobs.length) {
+        histBox.replaceChildren(h('div.bx-blank', h('span.bx-blank-icon', icon('empty', 24)), h('div.bx-blank-title', 'История пуста'),
+          h('div.bx-blank-hint', 'Завершённые и неудавшиеся задачи появятся здесь. История видна только вам.')));
+        return;
+      }
+      histBox.replaceChildren(h('ul.dg-hist-grid', jobs.map((j) => {
+        const thumb = h('div.dg-thumb', { 'aria-hidden': 'true' });
+        if (j.status === 'completed' && j.result && String(j.result.mime).startsWith('video/')) {
+          thumb.append(h('video', { src: `${base}/jobs/${encodeURIComponent(j.job_id)}/file#t=0.1`, muted: true, playsinline: true, preload: 'metadata', tabindex: '-1' }));
+        } else thumb.append(STATUS_SHORT[j.status] || j.status);
+        const b = h('button.dg-hist', { type: 'button', 'aria-current': j.job_id === state.current ? 'true' : 'false', dataset: { job: j.job_id } },
+          thumb,
+          h('div.dg-hist-body',
+            h('div.dg-row', pill(STATUS_SHORT[j.status] || j.status, { tone: STATUS_TONE[j.status] || 'idle' })),
+            h('div.dg-hist-prompt', j.raw_prompt),
+            h('div.dg-hist-meta.dg-num', `${fmtWhen(j.created_at)} · ${j.model} · seed ${j.params.seed}`)));
+        b.setAttribute('aria-label', `Открыть задачу: ${STATUS_SHORT[j.status] || j.status}, ${j.model}, ${fmtWhen(j.created_at)}`);
+        b.addEventListener('click', () => { state.current = j.job_id; refresh(); focusJob(); });
+        return h('li', b);
+      })));
     };
 
+    let inflight = false;
+    async function refresh() {
+      if (inflight) return;
+      inflight = true;
+      try {
+        try {
+          const [st, list] = await Promise.all([api.raw(`${base}/status`), api.raw(`${base}/jobs`)]);
+          state.jobs = list.jobs; renderStatus(st);
+        } catch (e) { statusBox.replaceChildren(h('div.dg-alert', { role: 'alert' }, h('div.dg-alert-title', 'Состояние не получено'), h('pre.dg-raw', errText(e)))); }
+        if (state.tick % 4 === 0) {
+          try { state.models = (await api.raw(`${base}/models`)).models; renderModels(false); renderModelDetail(); } catch { /* список моделей остаётся прежним */ }
+        }
+        state.tick += 1;
+        const job = state.jobs.find((j) => j.job_id === state.current) || state.jobs[0];
+        if (job) {
+          if (jobHost.firstChild !== jobView.el) jobHost.replaceChildren(jobView.el);
+          jobView.update(job);
+        } else if (jobHost.firstChild !== jobEmpty) jobHost.replaceChildren(jobEmpty);
+        const live = job && LIVE.has(job.status);
+        stopBtn.disabled = !live;
+        renderHistory();
+      } finally { inflight = false; }
+    }
+
+    /* ---- первичная загрузка ---- */
     try {
       state.models = (await api.raw(`${base}/models`)).models;
     } catch (e) {
-      return h('div.bx-page', head, panel('Не удалось загрузить', h('div.small', errText(e))));
+      return h('div.bx-page.dg', { dataset: { testid: 'direct-gen' } }, head,
+        h('div.dg-alert', { role: 'alert' }, h('div.dg-alert-title', 'Каталог моделей не загружен'), h('pre.dg-raw', errText(e)),
+          btn('Повторить', () => { location.reload(); }, { variant: 'subtle', size: 'sm' })));
     }
-    for (const m of state.models) modelSel.append(h('option', { value: m.id }, `${m.label}${m.available ? '' : ' — недоступна'}`));
-    const firstOk = state.models.find((m) => m.available) || state.models[0];
-    if (firstOk) modelSel.value = firstOk.id;
-    showModel();
+    const first = state.models.find((m) => m.id === D.model) || state.models.find((m) => m.available) || state.models[0];
+    state.modelId = first ? first.id : null;
+    renderModels(true); renderModelDetail(); applyLimits(); countUpdate(); sumUpdate();
+    setMode(D.mode || 'DIRECT');
 
-    const root = h('div.bx-page', { dataset: { testid: 'direct-gen' } }, head,
-      panel('Модель и готовность', h('div.stack.sm', field('Видео-модель (установленные)', modelSel), modelNote, statusBox)),
-      panel('Запрос', h('div.stack.sm', field('Режим', modeSel), field('Prompt', prompt), field('Negative', negative),
-        h('div.row', { style: { gap: '12px', flexWrap: 'wrap' } }, field('Референс-изображение', image), field('Аудио (для S2V)', audio)),
-        h('div.row', { style: { gap: '12px', flexWrap: 'wrap' } }, field('Длительность, с', duration), field('Разрешение', resolution), field('Seed', seed)),
-        h('div.row.tight', { style: { gap: '8px' } }, create), assistBox)),
-      panel('Текущая задача', jobBox),
-      panel('История (только ваша)', historyBox));
+    prompt.addEventListener('input', () => {
+      countUpdate(); saveDraft();
+      if (prompt.value.trim()) prompt.removeAttribute('aria-invalid');
+      if (state.assist && prompt.value !== state.assist.original) { state.assist = null; showAssist(); }
+    });
+    prompt.addEventListener('keydown', (ev) => { if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') { ev.preventDefault(); createBtn.click(); } });
+    for (const f of [negative, duration, resolution, seed]) f.addEventListener('input', () => { sumUpdate(); saveDraft(); });
+    let objectUrl = null;
+    image.addEventListener('change', () => {
+      if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+      const f = image.files[0];
+      imgPreview.replaceChildren();
+      if (f) { objectUrl = URL.createObjectURL(f); imgPreview.append(h('img', { src: objectUrl, alt: 'Выбранное референс-изображение', style: { maxWidth: '96px', maxHeight: '64px', borderRadius: '8px', display: 'block', marginBottom: '4px' } }), `${f.name} · ${fmtBytes(f.size)}`); }
+    });
+
+    const requestPanel = panel('Запрос', h('div.dg-stack',
+      h('div.dg-row', h('span.dg-label', { style: { margin: '0' }, id: 'dg-mode-l' }, 'Режим'), modeGroup),
+      h('div', lab('Prompt', 'dg-prompt'), h('div.dg-prompt-wrap', prompt, count), modeNote),
+      paramsBox,
+      h('div.dg-actions', createBtn, stopBtn),
+      createErr,
+      assistBox), { icon: 'bolt' });
+
+    const modelPanel = panel('Модель', h('div.dg-stack', modelCards, modelDetail, modelsHelp));
+    const readyPanel = panel('Готовность', statusBox, { icon: 'activity' });
+
+    const root = h('div.bx-page.dg', { dataset: { testid: 'direct-gen' } }, head,
+      h('div.dg-grid',
+        h('div.dg-col', requestPanel),
+        h('div.dg-col', modelPanel, readyPanel)),
+      panel('Текущая задача', jobHost, { icon: 'play' }),
+      panel('История (только ваша)', histBox),
+      h('p.dg-legal', { dataset: { testid: 'dg-legal' } }, LEGAL));
 
     await refresh();
-    const timer = setInterval(() => {
-      if (!root.isConnected) { clearInterval(timer); return; }
-      refresh();
-    }, POLL_MS);
+    let misses = 0; let seen = false;
+    const tick = async () => {
+      if (!root.isConnected) {
+        if (seen || (misses += 1) > 10) { if (objectUrl) URL.revokeObjectURL(objectUrl); return; }
+      } else seen = true;
+      if (!document.hidden) await refresh();
+      const live = state.jobs.some((j) => LIVE.has(j.status));
+      setTimeout(tick, live ? POLL_LIVE_MS : POLL_IDLE_MS);
+    };
+    setTimeout(tick, POLL_LIVE_MS);
     return root;
   },
 
