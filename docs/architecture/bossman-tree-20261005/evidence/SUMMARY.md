@@ -1,16 +1,15 @@
 # Evidence summary
 
-Статусы дерева: blocked=12, branch=31, code=30, idea=7, mixed=14, prepared=3, recorded=170, reported=403, retired=5, working=164
+Статусы дерева: blocked=12, branch=31, code=28, idea=7, mixed=14, prepared=3, recorded=170, reported=405, retired=5, working=164
 
-Принято расписок: 1; отклонено: 846
+Принято расписок: 0; отклонено: 849
 
 ## По зонам
 
-- oss: 1
+- нет
 
 ## Принятые
 
-- `oss-109` (stage3-retire.json)
 
 ## Отклонённые
 
@@ -624,14 +623,15 @@
 - `plugin-11` (plugins.json): verdict not PASS
 - `plugin-13` (plugins.json): verdict not PASS
 - `plugin-15` (plugins.json): verdict not PASS
-- `plugin-17` (plugins.json): verdict not PASS
+- `plugin-17` (plugins.json): status reported not eligible
 - `plugin-19` (plugins.json): verdict not PASS
-- `plugin-21` (plugins.json): verdict not PASS
+- `plugin-21` (plugins.json): status reported not eligible
 - `skill-22` (skills.json): status recorded: only an integration receipt may promote a reference leaf
 - `skill-36` (skills.json): status recorded: only an integration receipt may promote a reference leaf
 - `skills-runtime` (skills.json): status reported not eligible
 - `mod-promotion_gate` (stage1-retire.json): status retired not eligible
 - `mod-pattern_miner` (stage1-retire.json): status retired not eligible
+- `oss-109` (stage3-retire.json): status retired not eligible
 - `oss-14` (stage3.json): status recorded: integration receipt must be PASS
 - `oss-16` (stage3.json): status recorded: integration receipt must be PASS
 - `oss-17` (stage3.json): status reported not eligible
@@ -647,6 +647,8 @@
 - `oss-68` (stage3.json): status reported not eligible
 - `oss-69` (stage3.json): status reported not eligible
 - `oss-117` (stage3.json): status reported not eligible
+- `plugin-17` (stage4.json): status reported not eligible
+- `plugin-21` (stage4.json): status reported not eligible
 - `None` (ux-sweep-desktop-raw.json): unreadable lane file
 - `None` (ux-sweep-gaps.json): unreadable lane file
 - `None` (ux-sweep-notes.json): unreadable lane file
