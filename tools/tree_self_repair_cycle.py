@@ -173,6 +173,18 @@ def stages(rec: dict, check: dict, case: dict, saved: dict | None, transfer: boo
     return out
 
 
+# Narrowed retry (owner 07.10, option 1): the base already carries the worker's OWN cycle-14 partial patch (NaN/inf done,
+# applied mechanically, not written by Claude); only the None handling is left. Same hidden holdout.
+CASES["discovery-none"] = {**CASES["discovery"], "wish": (
+    "В bcc/pit/discovery.py выбор вопроса (choose_discovery_question / score) уже не ломается на NaN и ±inf, но падает "
+    "TypeError: must be real number, not NoneType, если любое числовое поле кандидата (relevance, uncertainty, future_utility, "
+    "annoyance_cost, sensitivity_risk) равно None. Контракт: кандидат с None (или любым нечисловым значением) в числовом поле "
+    "НИКОГДА не выбирается и не роняет выбор; неизвестный риск нельзя превращать в безопасный ноль; результат не зависит от "
+    "порядка кандидатов; корректные кандидаты выбираются как раньше. Сначала открой discovery.py и найди место, где поля "
+    "приводятся к числу; правь именно его. ОБЪЁМ (жёстко): меняй ТОЛЬКО command-center/bcc/pit/discovery.py; тесты не трогай; "
+    "новых файлов не создавай.")}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--case", choices=sorted(CASES), default="discovery")
