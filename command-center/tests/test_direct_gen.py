@@ -223,6 +223,13 @@ async def test_cancel_queued_job_never_reaches_backend(env, tmp_path):
     assert jb["status"] == "queued" and jb["queue_position"] == 1
     await env.client.post(f"/api/direct-gen/jobs/{b}/cancel")
     assert (await finish(env, b))["status"] == "cancelled"
+
+    # job a must really be inside the backend before it is stopped; cancelling it
+    # while its task has not started yet made `submitted` 0 and the test flaky
+    async def a_submitted():
+        return len(fake.submitted) == 1
+
+    await wait_for(a_submitted, timeout=5)
     await env.client.post(f"/api/direct-gen/jobs/{a}/cancel")
     await finish(env, a)
 
