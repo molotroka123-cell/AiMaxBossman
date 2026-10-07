@@ -82,8 +82,9 @@ MANIFEST: list[Capability] = [
                "OBSIDIAN_VAULT", ("local-fs",), "Записать заметку внутри vault (ASK).",
                {"path": {"type": "string"}, "content": {"type": "string"}},
                ("path", "content")),
-    Capability("mcp", "tool_list", "mcp.read", "allow", False, "", "",
-               ("local-mcp",), "Список инструментов подключённого MCP-сервера.",
+    # ASK, а не ALLOW: обработчик запускает процесс настроенного MCP-сервера (ensure), пусть и из allowlist.
+    Capability("mcp", "tool_list", "mcp.read", "ask", False, "", "",
+               ("local-mcp",), "Список инструментов настроенного MCP-сервера (может запустить его процесс; ASK).",
                {"server": {"type": "string"}}, ("server",)),
     Capability("mcp", "tool_call", "mcp.execute", "ask", True, "", "",
                ("local-mcp",), "Вызов MCP-инструмента (ASK; неизвестный → DENY).",

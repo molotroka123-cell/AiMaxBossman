@@ -54,13 +54,15 @@ async def test_the_four_leaves_have_real_handlers_not_the_stub():
         assert REGISTRY.get(name).handler is fn, name
 
 
-async def test_policy_ollama_github_mcp_list_are_auto_openrouter_asks():
+async def test_policy_ollama_github_are_auto_openrouter_and_mcp_list_ask():
     await P.setup(None)
     assert REGISTRY.get("plugin:openrouter.chat").default_effect == "ask"
     effect, _ = decide_effect(REGISTRY.get("plugin:openrouter.chat"), {}, {})
     assert effect == "ask"
-    for name in ("plugin:ollama.chat", "plugin:github.repo_read", "plugin:mcp.tool_list"):
+    for name in ("plugin:ollama.chat", "plugin:github.repo_read"):
         assert REGISTRY.get(name).default_effect == "auto", name
+    # аудит 07.10: tool_list запускает процесс настроенного MCP-сервера, поэтому требует одобрения
+    assert REGISTRY.get("plugin:mcp.tool_list").default_effect == "ask"
 
 
 # ------------------------------------------------------------------ offline refusals
