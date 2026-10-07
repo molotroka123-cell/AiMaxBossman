@@ -19,7 +19,8 @@ import time
 from typing import Any
 
 NODE_ID = "module-a7105ffd5da5"            # leaf: command-center/bcc/pit/discovery.py (zone `jeff`)
-FREE_WORKERS = ("local", "nemotron-ultra-free", "openrouter-free", "openrouter-code-free")
+# nvidia-nim: бесплатный доступ разработчика build.nvidia.com (владелец назвал его допустимым вместе с OpenRouter :free)
+FREE_WORKERS = ("local", "nemotron-ultra-free", "openrouter-free", "openrouter-code-free", "nvidia-nim")
 WISH = ("В bcc/pit/discovery.py функция choose_discovery_question выбирает кандидата через max(candidates, key=score). Если у "
         "кандидата поле NaN (например relevance=float('nan')), его score — NaN; когда он стоит ПЕРВЫМ в списке, max() его не "
         "вытесняет и функция возвращает None, хотя в списке есть хороший вопрос. Нужно: NaN-оценка считается неприемлемой "
