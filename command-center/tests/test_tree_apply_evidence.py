@@ -252,7 +252,7 @@ def test_integration_receipt_promotes_recorded_leaf(tmp_path):
 def test_other_kinds_never_touch_a_recorded_leaf(tmp_path):
     repo, sha, seed, evid = _setup(tmp_path)
     bad = [_rc(sha, evid, nid="rec", kind=k) for k in ("import", "pytest", "live_call", "ui")]
-    bad.append(_rc(sha, evid, nid="rec", kind="audit", verdict="RETIRE", reason="dead upstream repository, 404 everywhere"))
+    # an audit RETIRE of a dead reference IS allowed (owner decision 07.10), see test_a_dead_reference_may_retire_*
     bad.append(_rc(sha, evid, nid="rec", kind="pytest", integration_code=["seed.json"]))
     r = _run(repo, seed, evid, bad)
     assert r["accepted"] == [] and len(r["rejected"]) == len(bad)
@@ -304,3 +304,13 @@ def test_written_files_use_lf_not_crlf(tmp_path):
     _run(repo, seed, evid, [_rc(sha, evid)], write=True)
     for f in (seed, evid / "tree.export.json", evid / "SUMMARY.md"):
         assert b"\r\n" not in f.read_bytes(), f.name
+
+
+
+def test_a_dead_reference_may_retire_by_audit_but_never_turn_green(tmp_path):
+    repo, sha, seed, evid = _setup(tmp_path)
+    assert _run(repo, seed, evid, [_rc(sha, evid, nid="rec", verdict="PASS", kind="audit")])["accepted"] == []
+    r = _run(repo, seed, evid, [_rc(sha, evid, nid="rec", verdict="RETIRE", kind="audit",
+                                    reason="repo and owner return 404 on the website and the API")], write=True)
+    assert len(r["accepted"]) == 1
+    assert {n["id"]: n["status"] for n in json.loads(seed.read_text(encoding="utf-8"))["nodes"]}["rec"] == "retired"

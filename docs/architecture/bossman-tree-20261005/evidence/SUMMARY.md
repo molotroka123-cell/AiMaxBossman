@@ -1,30 +1,16 @@
 # Evidence summary
 
-Статусы дерева: blocked=12, branch=31, code=30, idea=7, mixed=14, prepared=3, recorded=165, reported=409, retired=4, working=164
+Статусы дерева: blocked=12, branch=31, code=30, idea=7, mixed=14, prepared=3, recorded=170, reported=403, retired=5, working=164
 
-Принято расписок: 15; отклонено: 832
+Принято расписок: 1; отклонено: 846
 
 ## По зонам
 
-- oss: 15
+- oss: 1
 
 ## Принятые
 
-- `oss-14` (stage3.json)
-- `oss-16` (stage3.json)
-- `oss-17` (stage3.json)
-- `oss-19` (stage3.json)
-- `oss-20` (stage3.json)
-- `oss-22` (stage3.json)
-- `oss-24` (stage3.json)
-- `oss-28` (stage3.json)
-- `oss-29` (stage3.json)
-- `oss-50` (stage3.json)
-- `oss-51` (stage3.json)
-- `oss-67` (stage3.json)
-- `oss-68` (stage3.json)
-- `oss-69` (stage3.json)
-- `oss-117` (stage3.json)
+- `oss-109` (stage3-retire.json)
 
 ## Отклонённые
 
@@ -646,7 +632,21 @@
 - `skills-runtime` (skills.json): status reported not eligible
 - `mod-promotion_gate` (stage1-retire.json): status retired not eligible
 - `mod-pattern_miner` (stage1-retire.json): status retired not eligible
-- `oss-109` (stage3-retire.json): status recorded: only an integration receipt may promote a reference leaf
+- `oss-14` (stage3.json): status recorded: integration receipt must be PASS
+- `oss-16` (stage3.json): status recorded: integration receipt must be PASS
+- `oss-17` (stage3.json): status reported not eligible
+- `oss-19` (stage3.json): status reported not eligible
+- `oss-20` (stage3.json): status recorded: integration receipt must be PASS
+- `oss-22` (stage3.json): status reported not eligible
+- `oss-24` (stage3.json): status recorded: integration receipt must be PASS
+- `oss-28` (stage3.json): status reported not eligible
+- `oss-29` (stage3.json): status recorded: integration receipt must be PASS
+- `oss-50` (stage3.json): status recorded: integration receipt must be PASS
+- `oss-51` (stage3.json): status reported not eligible
+- `oss-67` (stage3.json): status reported not eligible
+- `oss-68` (stage3.json): status reported not eligible
+- `oss-69` (stage3.json): status reported not eligible
+- `oss-117` (stage3.json): status reported not eligible
 - `None` (ux-sweep-desktop-raw.json): unreadable lane file
 - `None` (ux-sweep-gaps.json): unreadable lane file
 - `None` (ux-sweep-notes.json): unreadable lane file

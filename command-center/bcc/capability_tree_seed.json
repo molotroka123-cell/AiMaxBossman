@@ -5542,20 +5542,14 @@
       "id": "oss-14",
       "label": "searxng/searxng",
       "parent": "oss",
-      "status": "reported",
-      "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its searxng/searxng integration at HEAD with the installed build's third-party packages: 21 passed, 15 deselected; integration modules loaded from checkout",
+      "status": "recorded",
+      "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции.",
       "sources": [
         {
           "path": "config/oss/searxng/README.md",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/config/oss/searxng/README.md"
-        },
-        {
-          "path": "docs/architecture/bossman-tree-20261005/evidence/stage3.json#oss-14",
-          "branch": "green/tree-leaves-20261006",
-          "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
-          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA.",
@@ -5589,20 +5583,14 @@
       "id": "oss-16",
       "label": "ggml-org/llama.cpp",
       "parent": "oss",
-      "status": "reported",
-      "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its ggml-org/llama.cpp integration at HEAD with the installed build's third-party packages: 14 passed; integration modules loaded from checkout",
+      "status": "recorded",
+      "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции.",
       "sources": [
         {
           "path": "docs/oss/README.md",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/docs/oss/README.md"
-        },
-        {
-          "path": "docs/architecture/bossman-tree-20261005/evidence/stage3.json#oss-16",
-          "branch": "green/tree-leaves-20261006",
-          "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
-          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA.",
@@ -5691,20 +5679,14 @@
       "id": "oss-20",
       "label": "Comfy-Org/ComfyUI",
       "parent": "oss",
-      "status": "reported",
-      "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its Comfy-Org/ComfyUI integration at HEAD with the installed build's third-party packages: 34 passed; integration modules loaded from checkout",
+      "status": "recorded",
+      "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции.",
       "sources": [
         {
           "path": "docs/oss/README.md",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/docs/oss/README.md"
-        },
-        {
-          "path": "docs/architecture/bossman-tree-20261005/evidence/stage3.json#oss-20",
-          "branch": "green/tree-leaves-20261006",
-          "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
-          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA.",
@@ -5787,20 +5769,14 @@
       "id": "oss-24",
       "label": "hyperfield/ai-file-sorter",
       "parent": "oss",
-      "status": "reported",
-      "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its hyperfield/ai-file-sorter integration at HEAD with the installed build's third-party packages: 67 passed; integration modules loaded from checkout",
+      "status": "recorded",
+      "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции.",
       "sources": [
         {
           "path": "docs/final/MASTER_PROMPT_NEXT_RUN.md",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/docs/final/MASTER_PROMPT_NEXT_RUN.md"
-        },
-        {
-          "path": "docs/architecture/bossman-tree-20261005/evidence/stage3.json#oss-24",
-          "branch": "green/tree-leaves-20261006",
-          "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
-          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA.",
@@ -5901,20 +5877,14 @@
       "id": "oss-29",
       "label": "openclaw/openclaw",
       "parent": "oss",
-      "status": "reported",
-      "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its openclaw/openclaw integration at HEAD with the installed build's third-party packages: 40 passed; integration modules loaded from checkout",
+      "status": "recorded",
+      "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции.",
       "sources": [
         {
           "path": "docs/research/openclaw.md",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/docs/research/openclaw.md"
-        },
-        {
-          "path": "docs/architecture/bossman-tree-20261005/evidence/stage3.json#oss-29",
-          "branch": "green/tree-leaves-20261006",
-          "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
-          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA.",
@@ -6331,20 +6301,14 @@
       "id": "oss-50",
       "label": "mltframework/shotcut",
       "parent": "oss",
-      "status": "reported",
-      "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its mltframework/shotcut integration at HEAD with the installed build's third-party packages: 2 passed, 2 skipped; integration modules loaded from checkout",
+      "status": "recorded",
+      "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции.",
       "sources": [
         {
           "path": "docs/video-studio/INTERCHANGE.md",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/docs/video-studio/INTERCHANGE.md"
-        },
-        {
-          "path": "docs/architecture/bossman-tree-20261005/evidence/stage3.json#oss-50",
-          "branch": "green/tree-leaves-20261006",
-          "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
-          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA.",
@@ -7550,14 +7514,20 @@
       "id": "oss-109",
       "label": "tonhowtf/omniget",
       "parent": "oss",
-      "status": "recorded",
-      "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции.",
+      "status": "retired",
+      "detail": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Выбыл 2026-10-07 @ 71fd2905: Dead reference: github.com/tonhowtf/omniget and the owner account tonhowtf both return HTTP 404 on the web and the GitHub REST API (no rename redirect); other repos named omniget belong to different owners and are not this project; Bossman code never referenced it.",
       "sources": [
         {
           "path": "docs/v8/audit-20260910-20260918/AUDIT_RU.md",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/docs/v8/audit-20260910-20260918/AUDIT_RU.md"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/stage3-retire.json#oss-109",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "71fd290557f188328ae903bc5e24166f396ac389",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA.",

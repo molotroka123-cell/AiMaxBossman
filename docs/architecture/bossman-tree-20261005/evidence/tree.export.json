@@ -1868,8 +1868,8 @@
    "id": "oss-14",
    "label": "searxng/searxng",
    "parent": "oss",
-   "status": "reported",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its searxng/searxng integration at HE"
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
   },
   {
    "id": "oss-15",
@@ -1882,8 +1882,8 @@
    "id": "oss-16",
    "label": "ggml-org/llama.cpp",
    "parent": "oss",
-   "status": "reported",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its ggml-org/llama.cpp integration at"
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
   },
   {
    "id": "oss-17",
@@ -1910,8 +1910,8 @@
    "id": "oss-20",
    "label": "Comfy-Org/ComfyUI",
    "parent": "oss",
-   "status": "reported",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its Comfy-Org/ComfyUI integration at "
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
   },
   {
    "id": "oss-21",
@@ -1938,8 +1938,8 @@
    "id": "oss-24",
    "label": "hyperfield/ai-file-sorter",
    "parent": "oss",
-   "status": "reported",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its hyperfield/ai-file-sorter integra"
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
   },
   {
    "id": "oss-25",
@@ -1973,8 +1973,8 @@
    "id": "oss-29",
    "label": "openclaw/openclaw",
    "parent": "oss",
-   "status": "reported",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its openclaw/openclaw integration at "
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
   },
   {
    "id": "oss-30",
@@ -2120,8 +2120,8 @@
    "id": "oss-50",
    "label": "mltframework/shotcut",
    "parent": "oss",
-   "status": "reported",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its mltframework/shotcut integration "
+   "status": "recorded",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
   },
   {
    "id": "oss-51",
@@ -2525,13 +2525,6 @@
   {
    "id": "oss-108",
    "label": "petergyang/no-ai-slop",
-   "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
-  },
-  {
-   "id": "oss-109",
-   "label": "tonhowtf/omniget",
    "parent": "oss",
    "status": "recorded",
    "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."

@@ -177,9 +177,11 @@ def validate_receipt(rc, nodes: dict, parents: set, evid: Path, repo: Path) -> s
         return "not a leaf"
     status = nodes[nid].get("status")
     if status == RECORDED:
-        if rc["kind"] != INTEGRATION_KIND:
+        if rc["verdict"] == "RETIRE" and rc["kind"] == "audit":
+            pass  # a reference that provably no longer exists (e.g. repo 404) may fall off; never turns green
+        elif rc["kind"] != INTEGRATION_KIND:
             return "status recorded: only an integration receipt may promote a reference leaf"
-        if rc["verdict"] != "PASS":
+        elif rc["verdict"] != "PASS":
             return "status recorded: integration receipt must be PASS"
     elif status not in ELIGIBLE:
         return f"status {status} not eligible"
