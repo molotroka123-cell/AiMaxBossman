@@ -1,0 +1,15 @@
+node_id: plugin-8
+installed_build: BOSSMAN-Windows-x64-84f721c6fe48 (source_sha 84f721c6fe48172498681a5880562dcfc6b94e17)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-84f721c6fe48\runtime\Lib\site-packages
+original receipt: opsplug.json sha=9fc68e0d8c986ff90d1037769377598a6039c43f command=python -c <execute_tool plugin:openrouter.chat live call> [cwd=command-center] && (cd command-center && python -m pytest -v -rA -p no:cacheprovider --timeout=100 tests/test_leaf_plugins_real_handlers.py -k "openrouter or four_leaves or policy")
+
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_leaf_plugins_real_handlers.py -k "openrouter or four_leaves or policy")
+[step shared by 1 leaf(s); exit 0 in 2.9s; reason=None]
+....s                                                                    [100%]
+4 passed, 1 skipped, 22 deselected in 1.24s
+
+[guard] product modules loaded from installed build: 46; from repo source: []; aux repo-source helper modules: 0
+
+
+VERDICT PASS

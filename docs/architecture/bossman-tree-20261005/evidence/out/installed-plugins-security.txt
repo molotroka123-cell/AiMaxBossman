@@ -1,0 +1,73 @@
+node_id: plugins-security
+installed_build: BOSSMAN-Windows-x64-84f721c6fe48 (source_sha 84f721c6fe48172498681a5880562dcfc6b94e17)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-84f721c6fe48\runtime\Lib\site-packages
+original receipt: opsplug.json sha=d394085de749ae57c0778f158533470569b7d3e5 command=python -c "import bcc.plugin_security" [PYTHONPATH=command-center first, then command-center;bossman-core;.] && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_plugin_security.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_plugin_security_malformed_url.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_plugins_real_handlers.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_osiris.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_plugins_adapter.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_searxng_setup.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_secrem_sibling_sweep.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_secret_never_reaches_owner_journal.py)
+
+import bcc.plugin_security: ok c:\users\asd\bossman\app\bossman-windows-x64-84f721c6fe48\runtime\lib\site-packages\bcc\plugin_security.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_plugin_security.py)
+[step shared by 1 leaf(s); exit 0 in 3.6s; reason=None]
+........................                                                 [100%]
+24 passed in 2.34s
+
+[guard] product modules loaded from installed build: 37; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.plugin_security loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_plugin_security_malformed_url.py)
+[step shared by 1 leaf(s); exit 0 in 1.6s; reason=None]
+.............                                                            [100%]
+13 passed in 0.21s
+
+[guard] product modules loaded from installed build: 37; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.plugin_security loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_leaf_plugins_real_handlers.py)
+[step shared by 1 leaf(s); exit 0 in 7.8s; reason=None]
+..........................s                                              [100%]
+26 passed, 1 skipped in 5.86s
+
+[guard] product modules loaded from installed build: 307; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.plugin_security loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_osiris.py)
+[step shared by 1 leaf(s); exit 0 in 19.5s; reason=None]
+....................................                                     [100%]
+36 passed in 17.77s
+
+[guard] product modules loaded from installed build: 307; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.plugin_security loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_plugins_adapter.py)
+[step shared by 1 leaf(s); exit 0 in 2.0s; reason=None]
+......................................................                   [100%]
+54 passed in 0.65s
+
+[guard] product modules loaded from installed build: 38; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.plugin_security loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_searxng_setup.py)
+[step shared by 1 leaf(s); exit 0 in 1.5s; reason=None]
+................                                                         [100%]
+16 passed in 0.20s
+
+[guard] product modules loaded from installed build: 45; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.plugin_security loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_secrem_sibling_sweep.py)
+[step shared by 2 leaf(s); exit 0 in 1.7s; reason=None]
+...........................................                              [100%]
+43 passed in 0.30s
+
+[guard] product modules loaded from installed build: 43; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.plugin_security loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_secret_never_reaches_owner_journal.py)
+[step shared by 1 leaf(s); exit 0 in 1.4s; reason=None]
+...                                                                      [100%]
+3 passed in 0.13s
+
+[guard] product modules loaded from installed build: 34; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.plugin_security loaded by this test process from installed build: True
+
+VERDICT PASS
