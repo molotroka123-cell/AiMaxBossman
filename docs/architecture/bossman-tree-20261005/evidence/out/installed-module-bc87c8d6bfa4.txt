@@ -1,0 +1,18 @@
+node_id: module-bc87c8d6bfa4
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.cost_control.store')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_audit_learn_cost_expired.py tests/test_budget_notification_integration.py tests/test_cost_enforcer_approval.py tests/test_cost_governor.py tests/test_cost_governor_adversarial.py tests/test_cost_governor_concurrency.py tests/test_cost_restart_ttl.py tests/test_gateway_anthropic_contract.py)
+
+import bossman.cost_control.store: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\cost_control\store.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_audit_learn_cost_expired.py tests/test_budget_notification_integration.py tests/test_cost_enforcer_approval.py tests/test_cost_governor.py tests/test_cost_governor_adversarial.py tests/test_cost_governor_concurrency.py tests/test_cost_restart_ttl.py tests/test_gateway_anthropic_contract.py)
+[step shared by 2 leaf(s); exit 0 in 3.6s; reason=None]
+........................................................................ [ 97%]
+..                                                                       [100%]
+74 passed in 3.16s
+
+[guard] product modules loaded from installed build: 51; from repo source: []; aux repo-source helper modules: 8
+
+module under test bossman.cost_control.store loaded by this test process from installed build: True
+
+VERDICT PASS

@@ -1873,7 +1873,7 @@
   },
   {
    "id": "oss-15",
-   "label": "VoltAgent/awesome-agent-skills.",
+   "label": "VoltAgent/awesome-agent-skills",
    "parent": "oss",
    "status": "recorded",
    "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
@@ -2792,22 +2792,22 @@
    "id": "module-637788ef482e",
    "label": "bossman/ai_lab/candidates.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-a1a2c4ccc239",
    "label": "bossman/ai_lab/export.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-cdb370a24157",
    "label": "bossman/ai_lab/routes.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-5386412e9f11",
@@ -2827,8 +2827,8 @@
    "id": "module-39e925886668",
    "label": "bossman/apprentice/claude_code_client.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-a7ad0d90993c",
@@ -2848,36 +2848,36 @@
    "id": "module-a17a422c65d7",
    "label": "bossman/apprentice/engine.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-86282a9efa67",
    "label": "bossman/apprentice/errors.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-d41ad480551d",
    "label": "bossman/apprentice/fable_direct.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-d4455ade6345",
    "label": "bossman/apprentice/fable_transcript.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-177f174d3f63",
    "label": "bossman/apprentice/flags.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-4780a1d5fdf7",
@@ -2890,43 +2890,43 @@
    "id": "module-c23f35941e16",
    "label": "bossman/apprentice/isolated_worktree.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-815783821b83",
    "label": "bossman/apprentice/live_workspace.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-bc25cd9f1e01",
    "label": "bossman/apprentice/local_sidecar.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-42a06e3c1b71",
    "label": "bossman/apprentice/models.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-049b601d5eaa",
    "label": "bossman/apprentice/openhands_client.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-efdcd8d35b9c",
    "label": "bossman/apprentice/openhands_teacher_client.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-d8ca33ba94f4",
@@ -2953,22 +2953,22 @@
    "id": "module-ac2f6e6dc2d9",
    "label": "bossman/apprentice/recording.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-e2dd4b7bfb5d",
    "label": "bossman/apprentice/sanctions.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-816c15a6b6a4",
    "label": "bossman/apprentice/scripted_model.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-ecf0929e5652",
@@ -2981,29 +2981,29 @@
    "id": "module-0541863355da",
    "label": "bossman/apprentice/skills.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-522cf2e79840",
    "label": "bossman/apprentice/teacher.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-edac8a22b815",
    "label": "bossman/apprentice/teacher_sandbox.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-b8a71e28fc47",
    "label": "bossman/apprentice/teacher_wiring_patch.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-ff7440d8b674",
@@ -3016,8 +3016,8 @@
    "id": "module-1184b1105ced",
    "label": "bossman/benchmark/cli.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-dadaec7d827b",
@@ -3100,15 +3100,15 @@
    "id": "module-f1cacda08a67",
    "label": "bossman/company/model.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-47931d1b717a",
    "label": "bossman/company/planner.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-eea9bcf7e3ac",
@@ -3121,8 +3121,8 @@
    "id": "module-e297560d568b",
    "label": "bossman/company/synthetic_seo.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-575dcc5a99f5",
@@ -3135,15 +3135,15 @@
    "id": "module-fb39c9a64573",
    "label": "bossman/computer_operator/capabilities.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-179cd95b7128",
    "label": "bossman/computer_operator/loop_guard.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-79d58034a65f",
@@ -3156,8 +3156,8 @@
    "id": "module-e376eaac5d8f",
    "label": "bossman/computer_operator/models.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-4b4b01b5e71a",
@@ -3184,22 +3184,22 @@
    "id": "module-3f26dfe54c72",
    "label": "bossman/computer_operator/policy.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-009f4807c914",
    "label": "bossman/computer_operator/routes.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-2d3d2ae733c1",
    "label": "bossman/computer_operator/secret_executor.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-e6b90349c6c6",
@@ -3219,22 +3219,22 @@
    "id": "module-c22cab3d4320",
    "label": "bossman/computer_operator/uitars.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-a270c9dbe40c",
    "label": "bossman/computer_operator/verifier.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-638ddbcb1a1b",
    "label": "bossman/computer_operator/wiring.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-2efac2124b8a",
@@ -3338,29 +3338,29 @@
    "id": "module-1c2e0a6599c0",
    "label": "bossman/cost_control/enforcer.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-e99c091d1c06",
    "label": "bossman/cost_control/governor.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-dd118749492b",
    "label": "bossman/cost_control/models.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-72f38f26214a",
    "label": "bossman/cost_control/pricing.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-6e615a668c7b",
@@ -3373,15 +3373,15 @@
    "id": "module-4efbb2fd9c4a",
    "label": "bossman/cost_control/runtime.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-bc87c8d6bfa4",
    "label": "bossman/cost_control/store.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-df0754d72d22",
@@ -3401,15 +3401,15 @@
    "id": "module-068b8f4fbeb2",
    "label": "bossman/cybersec/blast_radius.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-0b1e4d69a90c",
    "label": "bossman/cybersec/defender.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-3d1858d49e75",
@@ -3422,29 +3422,29 @@
    "id": "module-7a65bf88fb04",
    "label": "bossman/cybersec/gates.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-8de7f3a7cd44",
    "label": "bossman/cybersec/guards.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-d401165730fa",
    "label": "bossman/cybersec/ids.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-f6a4b22d7b2b",
    "label": "bossman/cybersec/injection.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-7e1490293776",
@@ -3457,29 +3457,29 @@
    "id": "module-63389f3e655f",
    "label": "bossman/cybersec/recovery.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-cc401f252307",
    "label": "bossman/cybersec/redteam.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-a43ab3ee85df",
    "label": "bossman/cybersec/repo_scanner.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-0aa387ab63a9",
    "label": "bossman/cybersec/secret_guardian.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-d68747affe30",
@@ -3492,29 +3492,29 @@
    "id": "module-4b4e00d7c711",
    "label": "bossman/cybersec/supply_chain.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-103910b19c50",
    "label": "bossman/cybersec/training.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-dc98760346bb",
    "label": "bossman/cybersec/trust.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-74b9d09c9a49",
    "label": "bossman/dev_factory/editor.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-74d93ed6921a",
@@ -3527,36 +3527,36 @@
    "id": "module-904a8396aa6c",
    "label": "bossman/dev_factory/executor.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-4aacff2330d4",
    "label": "bossman/dev_factory/factory.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-7f1adf1138f0",
    "label": "bossman/dev_factory/models.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-e2b6bd15aba1",
    "label": "bossman/dev_factory/planner.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-3adca9c27bdb",
    "label": "bossman/dev_factory/reviewer.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-7280885daae5",
@@ -3569,36 +3569,36 @@
    "id": "module-9a1970f7c3e5",
    "label": "bossman/dev_factory/store.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-3f0a90670bba",
    "label": "bossman/dev_factory/subsystem.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-b428d8c055bc",
    "label": "bossman/dev_factory/workspace.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-30ddab524cfc",
    "label": "bossman/gateway/anthropic_protocol.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-5fd57fccff12",
    "label": "bossman/gateway/app.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-745ed9f64ff7",
@@ -3611,15 +3611,15 @@
    "id": "module-95e88c430e38",
    "label": "bossman/gateway/backends.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-7fb28ee13497",
    "label": "bossman/gateway/client.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-4b5988e098bd",
@@ -3632,15 +3632,15 @@
    "id": "module-de7445e9d5f5",
    "label": "bossman/gateway/main.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-d5d8a9a7ab5c",
    "label": "bossman/gateway/prompt_cache.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-a548c779a998",
@@ -3653,8 +3653,8 @@
    "id": "module-8dba9550a502",
    "label": "bossman/gateway/telemetry.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-8319884cf006",
@@ -3723,8 +3723,8 @@
    "id": "module-24bbe5117ab0",
    "label": "bossman/notifications/dispatcher.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-9a0163231b1b",
@@ -3737,8 +3737,8 @@
    "id": "module-0ce0daf3140c",
    "label": "bossman/notifications/policy.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-45ef5a5cbb02",
@@ -3758,8 +3758,8 @@
    "id": "module-ddbf2f4b50d2",
    "label": "bossman/notifications/store.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-aaff14c2d261",
@@ -3779,8 +3779,8 @@
    "id": "module-2e5863355b9a",
    "label": "bossman/profiles/gate.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-9d355deb8dee",
@@ -3793,8 +3793,8 @@
    "id": "module-60f309b322d6",
    "label": "bossman/profiles/models.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-5c5bd2e61f67",
@@ -3807,15 +3807,15 @@
    "id": "module-99fc865d8c4b",
    "label": "bossman/profiles/service.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-ff3e6bc1044b",
    "label": "bossman/profiles/store.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-531fc123cd17",
@@ -3835,8 +3835,8 @@
    "id": "module-8bd73fd35c48",
    "label": "bossman/projects/planner.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-28048916831a",
@@ -3884,15 +3884,15 @@
    "id": "module-2bd9c1e2cdfd",
    "label": "bossman/remote_client/events.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-37dec999ab57",
    "label": "bossman/remote_client/mobile_api.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-f1437d4e2221",
@@ -3905,22 +3905,22 @@
    "id": "module-897d03f9aab0",
    "label": "bossman/remote_client/security.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-6bfb88803a15",
    "label": "bossman/remote_client/service.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-de0238268e77",
    "label": "bossman/remote_client/store.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-5bfdc6603e86",
@@ -3933,8 +3933,8 @@
    "id": "module-8f7bb546924a",
    "label": "bossman/research/engine.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-cb1aad058144",
@@ -3947,8 +3947,8 @@
    "id": "module-c5d464a7aa9e",
    "label": "bossman/research/tools.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-0ef2333ef23c",
@@ -3961,8 +3961,8 @@
    "id": "module-2f9db2f18c1b",
    "label": "bossman/resource_brain/ledger.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-22827787ecc5",
@@ -3975,8 +3975,8 @@
    "id": "module-dacafbe9e4ee",
    "label": "bossman/resource_brain/probe.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-fe0ffb0d2f88",
@@ -3996,8 +3996,8 @@
    "id": "module-9d055871ddff",
    "label": "bossman/sandbox/artifacts.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-abd99037a01e",
@@ -4010,22 +4010,22 @@
    "id": "module-9d8ee6730907",
    "label": "bossman/sandbox/egress.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-43a773f7d5a6",
    "label": "bossman/sandbox/manager.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-eb0be06d9db9",
    "label": "bossman/sandbox/models.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-9c2c49d71c15",
@@ -4038,15 +4038,15 @@
    "id": "module-5c36f1523214",
    "label": "bossman/sandbox/network.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-2eec9a135e0f",
    "label": "bossman/sandbox/policy.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-a11338c485f5",
@@ -4066,8 +4066,8 @@
    "id": "module-5d128fcf8dab",
    "label": "bossman/sandbox/runtime.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-fdd1e1e7e9a0",
@@ -4080,8 +4080,8 @@
    "id": "module-e999698f8e9e",
    "label": "bossman/sandbox/subsystem.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-0dc288edd324",
@@ -4101,8 +4101,8 @@
    "id": "module-0445b69844cc",
    "label": "bossman/sandbox/trajectory.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-e11418351fd7",
@@ -4115,8 +4115,8 @@
    "id": "module-6fcdcfb4b872",
    "label": "bossman/search_everything/engine.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-3e2b4af78a2e",
@@ -4136,8 +4136,8 @@
    "id": "module-76ae682ed2e4",
    "label": "bossman/search_everything/tools.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-59f6fbe27bd5",
@@ -4150,57 +4150,57 @@
    "id": "module-5f3e261c2cf4",
    "label": "bossman/toolkit/analysis.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-eb0bce4aaf5b",
    "label": "bossman/toolkit/browser.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-918d9d178fe3",
    "label": "bossman/toolkit/fileintel.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-2190e88ab8cb",
    "label": "bossman/toolkit/files.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-cf0d1b5d4d86",
    "label": "bossman/toolkit/gitops.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-6b8f5c457e7f",
    "label": "bossman/toolkit/journal.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-c2cd9f798b9b",
    "label": "bossman/toolkit/media.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-7be51ff76449",
    "label": "bossman/toolkit/net.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-ae9598734759",
@@ -4213,8 +4213,8 @@
    "id": "module-a91069ddd708",
    "label": "bossman/toolkit/shell.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-389fe1a92fa7",
@@ -4381,29 +4381,29 @@
    "id": "module-464a2a956fa0",
    "label": "bossman/video_factory/model.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-6285f40851f1",
    "label": "bossman/video_factory/pipeline.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-4c9ee5995fb6",
    "label": "bossman/video_factory/providers.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-3d62540e3028",
    "label": "bossman/video_factory/queue.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-a71668fad443",
@@ -4416,8 +4416,8 @@
    "id": "module-27cb1911d462",
    "label": "bossman/video_factory/service.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-f21597ba1fd6",
@@ -4430,15 +4430,15 @@
    "id": "module-266a95659ed4",
    "label": "bossman/world_intelligence/routes.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-7af8dc300eab",
    "label": "bossman/world_intelligence/subsystem.py",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eb"
   },
   {
    "id": "module-ce4bec7cff7e",

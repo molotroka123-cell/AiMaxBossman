@@ -1,0 +1,26 @@
+node_id: module-1184b1105ced
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.benchmark.cli')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cli_help_cp1252.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cli_entrypoint.py tests/telegram_calls/test_cli_call.py)
+
+import bossman.benchmark.cli: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\benchmark\cli.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_cli_help_cp1252.py)
+[step shared by 1 leaf(s); exit 0 in 0.6s; reason=None]
+.                                                                        [100%]
+1 passed in 0.28s
+
+[guard] product modules loaded from installed build: 27; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.benchmark.cli loaded by this test process from installed build: False
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_cli_entrypoint.py tests/telegram_calls/test_cli_call.py)
+[step shared by 1 leaf(s); exit 0 in 3.1s; reason=None]
+........................................................................ [ 94%]
+....                                                                     [100%]
+76 passed in 2.10s
+
+[guard] product modules loaded from installed build: 50; from repo source: []; aux repo-source helper modules: 0
+
+module under test bossman.benchmark.cli loaded by this test process from installed build: False
+
+VERDICT PASS

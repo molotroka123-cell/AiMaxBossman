@@ -1,64 +1,129 @@
 # Evidence summary
 
-Статусы дерева: blocked=12, branch=31, code=30, idea=7, mixed=14, prepared=3, recorded=180, reported=508, retired=4, working=50
+Статусы дерева: blocked=12, branch=31, code=30, idea=7, mixed=14, prepared=3, recorded=180, reported=394, retired=4, working=164
 
-Принято расписок: 49; отклонено: 642
+Принято расписок: 114; отклонено: 718
 
 ## По зонам
 
-- ops: 49
+- ops: 114
 
 ## Принятые
 
-- `mod-action_contract` (installed-ops.json)
-- `mod-action_gate` (installed-ops.json)
-- `mod-action_preview` (installed-ops.json)
-- `mod-apps` (installed-ops.json)
-- `mod-apps_control` (installed-ops.json)
-- `mod-bossnet_nodes_v16` (installed-ops.json)
-- `mod-chat_threads` (installed-ops.json)
-- `mod-code_intel` (installed-ops.json)
-- `mod-command_bar` (installed-ops.json)
-- `mod-diag_bundle` (installed-ops.json)
-- `mod-forks` (installed-ops.json)
-- `mod-governor` (installed-ops.json)
-- `mod-jeff_master_parser` (installed-ops.json)
-- `mod-jeff_settings` (installed-ops.json)
-- `mod-lab_agents` (installed-ops.json)
-- `mod-local_first` (installed-ops.json)
-- `mod-market_metrics` (installed-ops.json)
-- `mod-model_foundry_v16` (installed-ops.json)
-- `mod-objectives` (installed-ops.json)
-- `mod-offline_mode` (installed-ops.json)
-- `mod-opencode` (installed-ops.json)
-- `mod-osiris` (installed-ops.json)
-- `mod-oss_integrations` (installed-ops.json)
-- `mod-owner_input` (installed-ops.json)
-- `mod-provenance` (installed-ops.json)
-- `mod-qa_relay` (installed-ops.json)
-- `mod-reality` (installed-ops.json)
-- `mod-resources` (installed-ops.json)
-- `mod-review_gate` (installed-ops.json)
-- `mod-second_opinion` (installed-ops.json)
-- `mod-simulation_world_v16` (installed-ops.json)
-- `mod-skills` (installed-ops.json)
-- `mod-snapshot` (installed-ops.json)
-- `mod-telegram_calls` (installed-ops.json)
-- `mod-testing_period` (installed-ops.json)
-- `mod-tools_apps` (installed-ops.json)
-- `mod-tools_code` (installed-ops.json)
-- `mod-tools_facts` (installed-ops.json)
-- `mod-tools_jeff` (installed-ops.json)
-- `mod-tools_mcp` (installed-ops.json)
-- `mod-tools_openclaw` (installed-ops.json)
-- `mod-tools_opencode` (installed-ops.json)
-- `mod-trading_lab` (installed-ops.json)
-- `mod-unified_search` (installed-ops.json)
-- `mod-v15_autonomy` (installed-ops.json)
-- `mod-v15_owner_run` (installed-ops.json)
-- `mod-v15_self_repair` (installed-ops.json)
-- `mod-watchdog` (installed-ops.json)
-- `mod-web_designer` (installed-ops.json)
+- `module-009f4807c914` (installed-ops.json)
+- `module-0445b69844cc` (installed-ops.json)
+- `module-049b601d5eaa` (installed-ops.json)
+- `module-0541863355da` (installed-ops.json)
+- `module-068b8f4fbeb2` (installed-ops.json)
+- `module-0aa387ab63a9` (installed-ops.json)
+- `module-0b1e4d69a90c` (installed-ops.json)
+- `module-0ce0daf3140c` (installed-ops.json)
+- `module-103910b19c50` (installed-ops.json)
+- `module-1184b1105ced` (installed-ops.json)
+- `module-177f174d3f63` (installed-ops.json)
+- `module-179cd95b7128` (installed-ops.json)
+- `module-1c2e0a6599c0` (installed-ops.json)
+- `module-2190e88ab8cb` (installed-ops.json)
+- `module-24bbe5117ab0` (installed-ops.json)
+- `module-266a95659ed4` (installed-ops.json)
+- `module-27cb1911d462` (installed-ops.json)
+- `module-2bd9c1e2cdfd` (installed-ops.json)
+- `module-2d3d2ae733c1` (installed-ops.json)
+- `module-2e5863355b9a` (installed-ops.json)
+- `module-2eec9a135e0f` (installed-ops.json)
+- `module-2f9db2f18c1b` (installed-ops.json)
+- `module-30ddab524cfc` (installed-ops.json)
+- `module-37dec999ab57` (installed-ops.json)
+- `module-39e925886668` (installed-ops.json)
+- `module-3adca9c27bdb` (installed-ops.json)
+- `module-3d62540e3028` (installed-ops.json)
+- `module-3f0a90670bba` (installed-ops.json)
+- `module-3f26dfe54c72` (installed-ops.json)
+- `module-42a06e3c1b71` (installed-ops.json)
+- `module-43a773f7d5a6` (installed-ops.json)
+- `module-464a2a956fa0` (installed-ops.json)
+- `module-47931d1b717a` (installed-ops.json)
+- `module-4aacff2330d4` (installed-ops.json)
+- `module-4b4e00d7c711` (installed-ops.json)
+- `module-4c9ee5995fb6` (installed-ops.json)
+- `module-4efbb2fd9c4a` (installed-ops.json)
+- `module-522cf2e79840` (installed-ops.json)
+- `module-5c36f1523214` (installed-ops.json)
+- `module-5d128fcf8dab` (installed-ops.json)
+- `module-5f3e261c2cf4` (installed-ops.json)
+- `module-5fd57fccff12` (installed-ops.json)
+- `module-60f309b322d6` (installed-ops.json)
+- `module-6285f40851f1` (installed-ops.json)
+- `module-63389f3e655f` (installed-ops.json)
+- `module-637788ef482e` (installed-ops.json)
+- `module-638ddbcb1a1b` (installed-ops.json)
+- `module-6b8f5c457e7f` (installed-ops.json)
+- `module-6bfb88803a15` (installed-ops.json)
+- `module-6fcdcfb4b872` (installed-ops.json)
+- `module-72f38f26214a` (installed-ops.json)
+- `module-74b9d09c9a49` (installed-ops.json)
+- `module-76ae682ed2e4` (installed-ops.json)
+- `module-7a65bf88fb04` (installed-ops.json)
+- `module-7af8dc300eab` (installed-ops.json)
+- `module-7be51ff76449` (installed-ops.json)
+- `module-7f1adf1138f0` (installed-ops.json)
+- `module-7fb28ee13497` (installed-ops.json)
+- `module-815783821b83` (installed-ops.json)
+- `module-816c15a6b6a4` (installed-ops.json)
+- `module-86282a9efa67` (installed-ops.json)
+- `module-897d03f9aab0` (installed-ops.json)
+- `module-8bd73fd35c48` (installed-ops.json)
+- `module-8dba9550a502` (installed-ops.json)
+- `module-8de7f3a7cd44` (installed-ops.json)
+- `module-8f7bb546924a` (installed-ops.json)
+- `module-904a8396aa6c` (installed-ops.json)
+- `module-918d9d178fe3` (installed-ops.json)
+- `module-95e88c430e38` (installed-ops.json)
+- `module-99fc865d8c4b` (installed-ops.json)
+- `module-9a1970f7c3e5` (installed-ops.json)
+- `module-9d055871ddff` (installed-ops.json)
+- `module-9d8ee6730907` (installed-ops.json)
+- `module-a17a422c65d7` (installed-ops.json)
+- `module-a1a2c4ccc239` (installed-ops.json)
+- `module-a270c9dbe40c` (installed-ops.json)
+- `module-a43ab3ee85df` (installed-ops.json)
+- `module-a91069ddd708` (installed-ops.json)
+- `module-ac2f6e6dc2d9` (installed-ops.json)
+- `module-b428d8c055bc` (installed-ops.json)
+- `module-b8a71e28fc47` (installed-ops.json)
+- `module-bc25cd9f1e01` (installed-ops.json)
+- `module-bc87c8d6bfa4` (installed-ops.json)
+- `module-c22cab3d4320` (installed-ops.json)
+- `module-c23f35941e16` (installed-ops.json)
+- `module-c2cd9f798b9b` (installed-ops.json)
+- `module-c5d464a7aa9e` (installed-ops.json)
+- `module-cc401f252307` (installed-ops.json)
+- `module-cdb370a24157` (installed-ops.json)
+- `module-cf0d1b5d4d86` (installed-ops.json)
+- `module-d401165730fa` (installed-ops.json)
+- `module-d41ad480551d` (installed-ops.json)
+- `module-d4455ade6345` (installed-ops.json)
+- `module-d5d8a9a7ab5c` (installed-ops.json)
+- `module-dacafbe9e4ee` (installed-ops.json)
+- `module-dc98760346bb` (installed-ops.json)
+- `module-dd118749492b` (installed-ops.json)
+- `module-ddbf2f4b50d2` (installed-ops.json)
+- `module-de0238268e77` (installed-ops.json)
+- `module-de7445e9d5f5` (installed-ops.json)
+- `module-e297560d568b` (installed-ops.json)
+- `module-e2b6bd15aba1` (installed-ops.json)
+- `module-e2dd4b7bfb5d` (installed-ops.json)
+- `module-e376eaac5d8f` (installed-ops.json)
+- `module-e999698f8e9e` (installed-ops.json)
+- `module-e99c091d1c06` (installed-ops.json)
+- `module-eb0bce4aaf5b` (installed-ops.json)
+- `module-eb0be06d9db9` (installed-ops.json)
+- `module-edac8a22b815` (installed-ops.json)
+- `module-efdcd8d35b9c` (installed-ops.json)
+- `module-f1cacda08a67` (installed-ops.json)
+- `module-f6a4b22d7b2b` (installed-ops.json)
+- `module-fb39c9a64573` (installed-ops.json)
+- `module-ff3e6bc1044b` (installed-ops.json)
 
 ## Отклонённые
 
@@ -370,61 +435,61 @@
 - `reg-earning_emulator` (memapps.json): status reported not eligible
 - `reg-earning_emulator_cli` (memapps.json): status reported not eligible
 - `app-solana-volume-suite` (memapps.json): verdict not PASS
-- `mod-action_contract` (ops.json): status reported not eligible
-- `mod-action_gate` (ops.json): status reported not eligible
-- `mod-action_preview` (ops.json): status reported not eligible
+- `mod-action_contract` (ops.json): status working not eligible
+- `mod-action_gate` (ops.json): status working not eligible
+- `mod-action_preview` (ops.json): status working not eligible
 - `mod-agentmap` (ops.json): status reported not eligible
-- `mod-apps` (ops.json): status reported not eligible
-- `mod-apps_control` (ops.json): status reported not eligible
+- `mod-apps` (ops.json): status working not eligible
+- `mod-apps_control` (ops.json): status working not eligible
 - `mod-benchlab` (ops.json): status reported not eligible
-- `mod-bossnet_nodes_v16` (ops.json): status reported not eligible
-- `mod-chat_threads` (ops.json): status reported not eligible
-- `mod-code_intel` (ops.json): status reported not eligible
-- `mod-command_bar` (ops.json): status reported not eligible
+- `mod-bossnet_nodes_v16` (ops.json): status working not eligible
+- `mod-chat_threads` (ops.json): status working not eligible
+- `mod-code_intel` (ops.json): status working not eligible
+- `mod-command_bar` (ops.json): status working not eligible
 - `mod-deep_fix` (ops.json): status reported not eligible
-- `mod-diag_bundle` (ops.json): status reported not eligible
+- `mod-diag_bundle` (ops.json): status working not eligible
 - `mod-file_intelligence` (ops.json): status reported not eligible
-- `mod-forks` (ops.json): status reported not eligible
-- `mod-governor` (ops.json): status reported not eligible
+- `mod-forks` (ops.json): status working not eligible
+- `mod-governor` (ops.json): status working not eligible
 - `mod-jeff_insights` (ops.json): status reported not eligible
-- `mod-jeff_master_parser` (ops.json): status reported not eligible
-- `mod-jeff_settings` (ops.json): status reported not eligible
-- `mod-lab_agents` (ops.json): status reported not eligible
-- `mod-local_first` (ops.json): status reported not eligible
-- `mod-market_metrics` (ops.json): status reported not eligible
-- `mod-model_foundry_v16` (ops.json): status reported not eligible
-- `mod-objectives` (ops.json): status reported not eligible
-- `mod-offline_mode` (ops.json): status reported not eligible
-- `mod-opencode` (ops.json): status reported not eligible
-- `mod-oss_integrations` (ops.json): status reported not eligible
-- `mod-owner_input` (ops.json): status reported not eligible
+- `mod-jeff_master_parser` (ops.json): status working not eligible
+- `mod-jeff_settings` (ops.json): status working not eligible
+- `mod-lab_agents` (ops.json): status working not eligible
+- `mod-local_first` (ops.json): status working not eligible
+- `mod-market_metrics` (ops.json): status working not eligible
+- `mod-model_foundry_v16` (ops.json): status working not eligible
+- `mod-objectives` (ops.json): status working not eligible
+- `mod-offline_mode` (ops.json): status working not eligible
+- `mod-opencode` (ops.json): status working not eligible
+- `mod-oss_integrations` (ops.json): status working not eligible
+- `mod-owner_input` (ops.json): status working not eligible
 - `mod-plugins` (ops.json): status reported not eligible
-- `mod-provenance` (ops.json): status reported not eligible
-- `mod-qa_relay` (ops.json): status reported not eligible
-- `mod-reality` (ops.json): status reported not eligible
-- `mod-resources` (ops.json): status reported not eligible
-- `mod-review_gate` (ops.json): status reported not eligible
-- `mod-second_opinion` (ops.json): status reported not eligible
-- `mod-simulation_world_v16` (ops.json): status reported not eligible
-- `mod-skills` (ops.json): status reported not eligible
-- `mod-snapshot` (ops.json): status reported not eligible
-- `mod-telegram_calls` (ops.json): status reported not eligible
+- `mod-provenance` (ops.json): status working not eligible
+- `mod-qa_relay` (ops.json): status working not eligible
+- `mod-reality` (ops.json): status working not eligible
+- `mod-resources` (ops.json): status working not eligible
+- `mod-review_gate` (ops.json): status working not eligible
+- `mod-second_opinion` (ops.json): status working not eligible
+- `mod-simulation_world_v16` (ops.json): status working not eligible
+- `mod-skills` (ops.json): status working not eligible
+- `mod-snapshot` (ops.json): status working not eligible
+- `mod-telegram_calls` (ops.json): status working not eligible
 - `mod-telegram_settings` (ops.json): status reported not eligible
-- `mod-testing_period` (ops.json): status reported not eligible
-- `mod-tools_apps` (ops.json): status reported not eligible
-- `mod-tools_code` (ops.json): status reported not eligible
-- `mod-tools_facts` (ops.json): status reported not eligible
-- `mod-tools_jeff` (ops.json): status reported not eligible
-- `mod-tools_mcp` (ops.json): status reported not eligible
-- `mod-tools_openclaw` (ops.json): status reported not eligible
-- `mod-tools_opencode` (ops.json): status reported not eligible
-- `mod-trading_lab` (ops.json): status reported not eligible
-- `mod-unified_search` (ops.json): status reported not eligible
-- `mod-v15_autonomy` (ops.json): status reported not eligible
-- `mod-v15_owner_run` (ops.json): status reported not eligible
-- `mod-v15_self_repair` (ops.json): status reported not eligible
-- `mod-watchdog` (ops.json): status reported not eligible
-- `mod-web_designer` (ops.json): status reported not eligible
+- `mod-testing_period` (ops.json): status working not eligible
+- `mod-tools_apps` (ops.json): status working not eligible
+- `mod-tools_code` (ops.json): status working not eligible
+- `mod-tools_facts` (ops.json): status working not eligible
+- `mod-tools_jeff` (ops.json): status working not eligible
+- `mod-tools_mcp` (ops.json): status working not eligible
+- `mod-tools_openclaw` (ops.json): status working not eligible
+- `mod-tools_opencode` (ops.json): status working not eligible
+- `mod-trading_lab` (ops.json): status working not eligible
+- `mod-unified_search` (ops.json): status working not eligible
+- `mod-v15_autonomy` (ops.json): status working not eligible
+- `mod-v15_owner_run` (ops.json): status working not eligible
+- `mod-v15_self_repair` (ops.json): status working not eligible
+- `mod-watchdog` (ops.json): status working not eligible
+- `mod-web_designer` (ops.json): status working not eligible
 - `mod-workflow` (ops.json): status reported not eligible
 - `module-637788ef482e` (ops.json): status reported not eligible
 - `module-a1a2c4ccc239` (ops.json): status reported not eligible
@@ -604,7 +669,7 @@
 - `module-266a95659ed4` (ops.json): status reported not eligible
 - `module-7af8dc300eab` (ops.json): status reported not eligible
 - `mod-autonomy` (ops.json): status reported not eligible
-- `mod-osiris` (ops.json): status reported not eligible
+- `mod-osiris` (ops.json): status working not eligible
 - `mod-v15_owner` (opsplug-retire.json): status retired not eligible
 - `module-575dcc5a99f5` (opsplug.json): status reported not eligible
 - `module-bc12e1784cb5` (opsplug.json): status reported not eligible
@@ -612,7 +677,7 @@
 - `cap-46` (opsplug.json): status reported not eligible
 - `mod-agentmap` (opsplug.json): status reported not eligible
 - `mod-autonomy` (opsplug.json): status reported not eligible
-- `mod-osiris` (opsplug.json): status reported not eligible
+- `mod-osiris` (opsplug.json): status working not eligible
 - `module-a7ad0d90993c` (opsplug.json): status reported not eligible
 - `module-4780a1d5fdf7` (opsplug.json): status reported not eligible
 - `module-d8ca33ba94f4` (opsplug.json): status reported not eligible
@@ -675,22 +740,98 @@
 - `plugin-17` (plugins.json): verdict not PASS
 - `plugin-19` (plugins.json): verdict not PASS
 - `plugin-21` (plugins.json): verdict not PASS
-- `skill-22` (skills.json): status recorded not eligible
-- `skill-36` (skills.json): status recorded not eligible
+- `skill-22` (skills.json): status recorded: only an integration receipt may promote a reference leaf
+- `skill-36` (skills.json): status recorded: only an integration receipt may promote a reference leaf
 - `skills-runtime` (skills.json): status reported not eligible
 - `mod-promotion_gate` (stage1-retire.json): status retired not eligible
 - `mod-pattern_miner` (stage1-retire.json): status retired not eligible
+- `oss-109` (stage3-retire.json): status recorded: only an integration receipt may promote a reference leaf
 - `None` (ux-sweep-desktop-raw.json): unreadable lane file
 - `None` (ux-sweep-gaps.json): unreadable lane file
 - `None` (ux-sweep-notes.json): unreadable lane file
 - `None` (ux-sweep-phone-raw.json): unreadable lane file
 - `None` (ux-sweep.json): unreadable lane file
 - `module-a7105ffd5da5` (installed-final.json): status working is not reported (green first)
+- `mod-action_contract` (installed-ops.json): status working is not reported (green first)
+- `mod-action_gate` (installed-ops.json): status working is not reported (green first)
+- `mod-action_preview` (installed-ops.json): status working is not reported (green first)
+- `mod-apps` (installed-ops.json): status working is not reported (green first)
+- `mod-apps_control` (installed-ops.json): status working is not reported (green first)
 - `mod-autonomy` (installed-ops.json): verdict not PASS
+- `mod-bossnet_nodes_v16` (installed-ops.json): status working is not reported (green first)
+- `mod-chat_threads` (installed-ops.json): status working is not reported (green first)
+- `mod-code_intel` (installed-ops.json): status working is not reported (green first)
+- `mod-command_bar` (installed-ops.json): status working is not reported (green first)
 - `mod-deep_fix` (installed-ops.json): verdict not PASS
+- `mod-diag_bundle` (installed-ops.json): status working is not reported (green first)
 - `mod-file_intelligence` (installed-ops.json): verdict not PASS
+- `mod-forks` (installed-ops.json): status working is not reported (green first)
+- `mod-governor` (installed-ops.json): status working is not reported (green first)
+- `mod-jeff_master_parser` (installed-ops.json): status working is not reported (green first)
+- `mod-jeff_settings` (installed-ops.json): status working is not reported (green first)
+- `mod-lab_agents` (installed-ops.json): status working is not reported (green first)
+- `mod-local_first` (installed-ops.json): status working is not reported (green first)
+- `mod-market_metrics` (installed-ops.json): status working is not reported (green first)
+- `mod-model_foundry_v16` (installed-ops.json): status working is not reported (green first)
+- `mod-objectives` (installed-ops.json): status working is not reported (green first)
+- `mod-offline_mode` (installed-ops.json): status working is not reported (green first)
+- `mod-opencode` (installed-ops.json): status working is not reported (green first)
+- `mod-osiris` (installed-ops.json): status working is not reported (green first)
+- `mod-oss_integrations` (installed-ops.json): status working is not reported (green first)
+- `mod-owner_input` (installed-ops.json): status working is not reported (green first)
 - `mod-plugins` (installed-ops.json): verdict not PASS
+- `mod-provenance` (installed-ops.json): status working is not reported (green first)
+- `mod-qa_relay` (installed-ops.json): status working is not reported (green first)
+- `mod-reality` (installed-ops.json): status working is not reported (green first)
+- `mod-resources` (installed-ops.json): status working is not reported (green first)
+- `mod-review_gate` (installed-ops.json): status working is not reported (green first)
+- `mod-second_opinion` (installed-ops.json): status working is not reported (green first)
+- `mod-simulation_world_v16` (installed-ops.json): status working is not reported (green first)
+- `mod-skills` (installed-ops.json): status working is not reported (green first)
+- `mod-snapshot` (installed-ops.json): status working is not reported (green first)
+- `mod-telegram_calls` (installed-ops.json): status working is not reported (green first)
 - `mod-telegram_settings` (installed-ops.json): verdict not PASS
+- `mod-testing_period` (installed-ops.json): status working is not reported (green first)
+- `mod-tools_apps` (installed-ops.json): status working is not reported (green first)
+- `mod-tools_code` (installed-ops.json): status working is not reported (green first)
+- `mod-tools_facts` (installed-ops.json): status working is not reported (green first)
+- `mod-tools_jeff` (installed-ops.json): status working is not reported (green first)
+- `mod-tools_mcp` (installed-ops.json): status working is not reported (green first)
+- `mod-tools_openclaw` (installed-ops.json): status working is not reported (green first)
+- `mod-tools_opencode` (installed-ops.json): status working is not reported (green first)
+- `mod-trading_lab` (installed-ops.json): status working is not reported (green first)
+- `mod-unified_search` (installed-ops.json): status working is not reported (green first)
+- `mod-v15_autonomy` (installed-ops.json): status working is not reported (green first)
+- `mod-v15_owner_run` (installed-ops.json): status working is not reported (green first)
+- `mod-v15_self_repair` (installed-ops.json): status working is not reported (green first)
+- `mod-watchdog` (installed-ops.json): status working is not reported (green first)
+- `mod-web_designer` (installed-ops.json): status working is not reported (green first)
+- `module-1b34d40914f1` (installed-ops.json): verdict not PASS
+- `module-28048916831a` (installed-ops.json): verdict not PASS
+- `module-3a8ad5c2d247` (installed-ops.json): verdict not PASS
+- `module-3e2b4af78a2e` (installed-ops.json): verdict not PASS
+- `module-46de893ccfc9` (installed-ops.json): verdict not PASS
+- `module-4b4b01b5e71a` (installed-ops.json): verdict not PASS
+- `module-4b5988e098bd` (installed-ops.json): verdict not PASS
+- `module-5386412e9f11` (installed-ops.json): verdict not PASS
+- `module-5c5bd2e61f67` (installed-ops.json): verdict not PASS
+- `module-745ed9f64ff7` (installed-ops.json): verdict not PASS
+- `module-76a14f0ce102` (installed-ops.json): verdict not PASS
+- `module-771a003071ca` (installed-ops.json): verdict not PASS
+- `module-79d58034a65f` (installed-ops.json): verdict not PASS
+- `module-883a6692992b` (installed-ops.json): verdict not PASS
+- `module-9a0163231b1b` (installed-ops.json): verdict not PASS
+- `module-9c2c49d71c15` (installed-ops.json): verdict not PASS
+- `module-9f29d5a73f7f` (installed-ops.json): verdict not PASS
+- `module-a548c779a998` (installed-ops.json): verdict not PASS
+- `module-aab05d5c4f1a` (installed-ops.json): verdict not PASS
+- `module-c64e6d1041b0` (installed-ops.json): verdict not PASS
+- `module-ca6830e0de16` (installed-ops.json): verdict not PASS
+- `module-cdbbc088b662` (installed-ops.json): verdict not PASS
+- `module-e6b90349c6c6` (installed-ops.json): verdict not PASS
+- `module-e84c7b61d7a6` (installed-ops.json): verdict not PASS
+- `module-f1437d4e2221` (installed-ops.json): verdict not PASS
+- `module-fdd1e1e7e9a0` (installed-ops.json): verdict not PASS
 - `plugin-0` (installed-plugins.json): sha is not a registered installed build
 - `plugin-1` (installed-plugins.json): sha is not a registered installed build
 - `plugin-2` (installed-plugins.json): sha is not a registered installed build

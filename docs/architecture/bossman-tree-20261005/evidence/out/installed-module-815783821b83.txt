@@ -1,0 +1,17 @@
+node_id: module-815783821b83
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.apprentice.live_workspace')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apprentice_live_safety.py tests/test_audit_learn_workspace.py tests/test_teacher_isolation.py tests/test_teacher_live.py)
+
+import bossman.apprentice.live_workspace: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\apprentice\live_workspace.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_apprentice_live_safety.py tests/test_audit_learn_workspace.py tests/test_teacher_isolation.py tests/test_teacher_live.py)
+[step shared by 1 leaf(s); exit 0 in 3.8s; reason=None]
+....................s.....s.s                                            [100%]
+26 passed, 3 skipped in 3.45s
+
+[guard] product modules loaded from installed build: 77; from repo source: []; aux repo-source helper modules: 5
+
+module under test bossman.apprentice.live_workspace loaded by this test process from installed build: True
+
+VERDICT PASS

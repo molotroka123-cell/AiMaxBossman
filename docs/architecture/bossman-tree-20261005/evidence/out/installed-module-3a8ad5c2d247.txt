@@ -1,0 +1,27 @@
+node_id: module-3a8ad5c2d247
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.computer_operator.subsystem')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_adapter_p1_findings.py tests/test_computer_control_authorization.py tests/test_profiles.py tests/test_stage13_wiring_notepad.py tests/test_uitars_grounding.py tests/test_v26_operator_fixes.py)
+
+import bossman.computer_operator.subsystem: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\computer_operator\subsystem.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_adapter_p1_findings.py tests/test_computer_control_authorization.py tests/test_profiles.py tests/test_stage13_wiring_notepad.py tests/test_uitars_grounding.py tests/test_v26_operator_fixes.py)
+[step shared by 1 leaf(s); exit 1 in 4.0s; reason=tests_failed]
+........................................................................ [ 56%]
+......................F................................                  [100%]
+================================== FAILURES ===================================
+_____________________ test_live_notepad_actually_launches _____________________
+tests\test_stage13_wiring_notepad.py:443: in test_live_notepad_actually_launches
+    assert procs and procs[0].returncode is None       # процесс живёт
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   assert ([<Process 22096>] and 3221225477 is None)
+E    +  where 3221225477 = <Process 22096>.returncode
+=========================== short test summary info ===========================
+FAILED tests/test_stage13_wiring_notepad.py::test_live_notepad_actually_launches
+1 failed, 126 passed in 3.21s
+
+[guard] product modules loaded from installed build: 112; from repo source: []; aux repo-source helper modules: 6
+
+module under test bossman.computer_operator.subsystem loaded by this test process from installed build: True
+
+VERDICT FAIL reason=tests_failed

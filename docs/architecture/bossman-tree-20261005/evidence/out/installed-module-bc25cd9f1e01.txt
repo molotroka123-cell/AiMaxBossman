@@ -1,0 +1,39 @@
+node_id: module-bc25cd9f1e01
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.apprentice.local_sidecar')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/apprentice/test_local_sidecar.py) && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_evolution_embedded_python.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_apply.py tests/test_coding_path_owner_tool.py tests/test_coding_tasks.py tests/test_coding_tasks_local_sidecar.py tests/test_coding_workers.py tests/test_runtime_package_contract.py)
+
+import bossman.apprentice.local_sidecar: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\apprentice\local_sidecar.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/apprentice/test_local_sidecar.py)
+[step shared by 1 leaf(s); exit 0 in 19.9s; reason=None]
+...............s...........                                              [100%]
+26 passed, 1 skipped in 19.52s
+
+[guard] product modules loaded from installed build: 40; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.apprentice.local_sidecar loaded by this test process from installed build: True
+$ (cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_evolution_embedded_python.py)
+[step shared by 1 leaf(s); exit 0 in 7.5s; reason=None]
+.....                                                                    [100%]
+5 passed in 7.16s
+
+[guard] product modules loaded from installed build: 27; from repo source: []; aux repo-source helper modules: 3
+
+module under test bossman.apprentice.local_sidecar loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_coding_apply.py tests/test_coding_path_owner_tool.py tests/test_coding_tasks.py tests/test_coding_tasks_local_sidecar.py tests/test_coding_workers.py tests/test_runtime_package_contract.py)
+[step shared by 1 leaf(s); exit 0 in 68.1s; reason=None]
+............................................                             [100%]
+============================== warnings summary ===============================
+..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\starlette\testclient.py:53
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+44 passed, 1 warning in 66.59s (0:01:06)
+
+[guard] product modules loaded from installed build: 341; from repo source: []; aux repo-source helper modules: 0
+
+module under test bossman.apprentice.local_sidecar loaded by this test process from installed build: True
+
+VERDICT PASS

@@ -1,0 +1,26 @@
+node_id: module-049b601d5eaa
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.apprentice.openhands_client')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/apprentice/test_openhands_client.py tests/test_audit_learn_git_timeouts.py tests/apprentice/test_local_sidecar.py tests/apprentice/test_openhands_evidence_independence.py tests/apprentice/test_openhands_live_sdk.py tests/apprentice/test_openhands_path_boundary.py tests/apprentice/test_openhands_release_evidence.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_tasks.py)
+
+import bossman.apprentice.openhands_client: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\apprentice\openhands_client.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/apprentice/test_openhands_client.py tests/test_audit_learn_git_timeouts.py tests/apprentice/test_local_sidecar.py tests/apprentice/test_openhands_evidence_independence.py tests/apprentice/test_openhands_live_sdk.py tests/apprentice/test_openhands_path_boundary.py tests/apprentice/test_openhands_release_evidence.py)
+[step shared by 1 leaf(s); exit 0 in 42.9s; reason=None]
+.........................s....................ss................ssssssss [ 66%]
+ss......................ssss...s....                                     [100%]
+90 passed, 18 skipped in 42.42s
+
+[guard] product modules loaded from installed build: 41; from repo source: []; aux repo-source helper modules: 8
+
+module under test bossman.apprentice.openhands_client loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_coding_tasks.py)
+[step shared by 1 leaf(s); exit 0 in 8.8s; reason=None]
+............                                                             [100%]
+12 passed in 7.62s
+
+[guard] product modules loaded from installed build: 329; from repo source: []; aux repo-source helper modules: 0
+
+module under test bossman.apprentice.openhands_client loaded by this test process from installed build: True
+
+VERDICT PASS

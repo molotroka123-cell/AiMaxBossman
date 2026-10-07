@@ -1,0 +1,24 @@
+node_id: module-95e88c430e38
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.gateway.backends')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_gateway_anthropic_contract.py tests/test_gateway_circuit_breaker.py tests/test_gateway_cloud_policy.py tests/test_gateway_cost_governor.py tests/test_gateway_failover_4xx.py tests/test_gateway_free_only_policy.py tests/test_gateway_openrouter.py tests/test_gateway_provider_composition.py)
+
+import bossman.gateway.backends: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\gateway\backends.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_gateway_anthropic_contract.py tests/test_gateway_circuit_breaker.py tests/test_gateway_cloud_policy.py tests/test_gateway_cost_governor.py tests/test_gateway_failover_4xx.py tests/test_gateway_free_only_policy.py tests/test_gateway_openrouter.py tests/test_gateway_provider_composition.py)
+[step shared by 1 leaf(s); exit 0 in 6.7s; reason=None]
+........................................................................ [ 54%]
+............................................................             [100%]
+============================== warnings summary ===============================
+..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\starlette\testclient.py:53
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+132 passed, 1 warning in 6.11s
+
+[guard] product modules loaded from installed build: 54; from repo source: []; aux repo-source helper modules: 8
+
+module under test bossman.gateway.backends loaded by this test process from installed build: True
+
+VERDICT PASS

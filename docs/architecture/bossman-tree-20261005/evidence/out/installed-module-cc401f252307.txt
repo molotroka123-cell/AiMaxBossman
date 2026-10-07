@@ -1,0 +1,90 @@
+node_id: module-cc401f252307
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.cybersec.redteam')" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_redteam_rc_learning_20260921.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_redteam_benchmark_attacks.py tests/test_cybersec_integration.py tests/test_cybersec_v1.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_redteam_rc_20260921.py)
+
+import bossman.cybersec.redteam: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\cybersec\redteam.py
+
+$ (cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_redteam_rc_learning_20260921.py)
+[step shared by 1 leaf(s); exit 0 in 2.8s; reason=None]
+...................................                                      [100%]
+35 passed in 2.39s
+
+[guard] product modules loaded from installed build: 5; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.cybersec.redteam loaded by this test process from installed build: False
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_redteam_benchmark_attacks.py tests/test_cybersec_integration.py tests/test_cybersec_v1.py)
+[step shared by 1 leaf(s); exit 0 in 0.8s; reason=None]
+........................................................................ [ 86%]
+...........                                                              [100%]
+83 passed in 0.47s
+
+[guard] product modules loaded from installed build: 59; from repo source: []; aux repo-source helper modules: 3
+
+module under test bossman.cybersec.redteam loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_redteam_rc_20260921.py)
+[step shared by 1 leaf(s); exit 0 in 19.0s; reason=None]
+ssssss........................                                           [100%]
+============================== warnings summary ===============================
+tests/test_redteam_rc_20260921.py::test_rt_f2_symlink_escape_dotdot_and_reserved_names_are_refused_before_effect
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-64 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+      buffer.append(fh.read())
+                    ^^^^^^^^^
+    File "<frozen codecs>", line 322, in decode
+  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa4 in position 3: invalid start byte
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_redteam_rc_20260921.py::test_rt_f3_scope_policy_hostile_paths
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-69 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+      buffer.append(fh.read())
+                    ^^^^^^^^^
+    File "<frozen codecs>", line 322, in decode
+  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa4 in position 3: invalid start byte
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_redteam_rc_20260921.py::test_rt_f3_scope_policy_hostile_paths
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-67 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+      buffer.append(fh.read())
+                    ^^^^^^^^^
+    File "<frozen codecs>", line 322, in decode
+  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa4 in position 3: invalid start byte
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+24 passed, 6 skipped, 3 warnings in 17.28s
+
+[guard] product modules loaded from installed build: 338; from repo source: []; aux repo-source helper modules: 0
+
+module under test bossman.cybersec.redteam loaded by this test process from installed build: False
+
+VERDICT PASS

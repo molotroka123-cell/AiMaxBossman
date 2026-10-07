@@ -1,0 +1,51 @@
+node_id: module-266a95659ed4
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.world_intelligence.routes')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_world_intelligence_pythia.py)
+
+import bossman.world_intelligence.routes: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\world_intelligence\routes.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_world_intelligence_pythia.py)
+[step shared by 2 leaf(s); exit 0 in 2.0s; reason=None]
+.....................                                                    [100%]
+============================== warnings summary ===============================
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\api.py:112: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+tests/test_world_intelligence_pythia.py::test_routes_mounted_and_gated_in_core_app
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\api.py:124: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+21 passed, 8 warnings in 1.45s
+
+[guard] product modules loaded from installed build: 201; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.world_intelligence.routes loaded by this test process from installed build: True
+
+VERDICT PASS
