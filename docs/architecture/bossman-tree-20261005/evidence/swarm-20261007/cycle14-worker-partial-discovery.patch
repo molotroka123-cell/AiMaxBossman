@@ -1,0 +1,23 @@
+diff --git a/command-center/bcc/pit/discovery.py b/command-center/bcc/pit/discovery.py
+index c1b0c382..bafa5ab4 100644
+--- a/command-center/bcc/pit/discovery.py
++++ b/command-center/bcc/pit/discovery.py
+@@ -24,8 +24,17 @@ class DiscoveryCandidate:
+     previously_skipped: bool = False
+ 
+ 
++import math
++
++
+ def score(candidate: DiscoveryCandidate) -> float:
+-    if candidate.previously_skipped or candidate.sensitivity_risk >= 0.5:
++    if candidate.previously_skipped:
++        return float("-inf")
++    # Check for non-finite values in the five numeric fields.
++    for field in ("relevance", "uncertainty", "future_utility", "annoyance_cost", "sensitivity_risk"):
++        if not math.isfinite(getattr(candidate, field)):
++            return float("-inf")
++    if candidate.sensitivity_risk >= 0.5:
+         return float("-inf")
+     return (
+         candidate.relevance

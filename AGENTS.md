@@ -33,4 +33,10 @@ A specification, generated screenshot or new CLI entry point is not proof of an 
 
 Owner requested autonomous App/Skill acquisition, internet, an explicitly selected low-overrefusal local profile, own-voice/phone and shopping. Requirements live in `docs/v1.5/`. Reuse the existing backend and permission system; do not build four new cores. `LOCAL_UNRESTRICTED` controls model behavior, not authority over credentials, money or stable code.
 
-Canonical destination remains `release/bossman-owner`. Execute `docs/v1.5/CLAUDE_MERGE_MASTER.md` to consolidate today's verified work into that same line, preserving this documentation. Use an existing owner/fix staging branch, no new final branch, no force-push or automatic main merge. Required failures block product promotion; document presence does not enable calls, purchases, voice enrollment or background spending.
+## Owner amendment — canonical line (2026-10-08)
+
+**Canonical integration and release destination is `main`, as explicitly directed by the owner on 2026-10-08.** This supersedes older instructions naming `release/bossman-owner` as canonical, including that destination in `docs/v1.5/CLAUDE_MERGE_MASTER.md`. `release/bossman-owner` is a historical release line; do not send new consolidation work there.
+
+Use an existing isolated integration/owner/fix staging branch for candidate work, then integrate reviewed and verified changes into `main`. Do not create another final/canonical line, force-push, or automatically merge product changes into `main`. Required failures block product promotion. Explicit owner-authorized documentation corrections may be committed directly to `main`; they do not certify the product.
+
+Release and owner-test handoffs must record the accepted source SHA, installed build SHA, and capability-tree source SHA. Do not claim one unified Bossman until these identities are reconciled and verification is recorded for the accepted revision. Naming `main` canonical does not certify its current CI, installed build, or autonomy. Document presence does not enable calls, purchases, voice enrollment or background spending.

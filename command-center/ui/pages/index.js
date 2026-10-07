@@ -120,6 +120,8 @@ export const FEATURE_PAGES = [
     () => import('./jeff_settings.js'), (m) => m.default),
   lazyPage({ id: 'motion-studio', title: 'Motion Studio', icon: 'bolt', nav: 'more', section: 'studio' },
     () => import('./motion_studio.js'), (m) => m.default),
+  lazyPage({ id: 'direct-gen', title: 'Прямой генератор', icon: 'bolt', nav: 'more', section: 'studio' },
+    () => import('./direct_gen.js'), (m) => m.default),
   lazyPage({ id: 'jeff-passports', title: 'Jeff · паспорта', icon: 'agents', nav: 'primary', section: 'brains' },
     () => import('./jeff_passports.js'), (m) => m.default),
   lazyPage({ id: 'jeff-insights', title: 'Jeff · обзор', icon: 'agents', nav: 'more', section: 'brains' },

@@ -1,0 +1,38 @@
+{
+ "task_id": "4e4b5b8b7a1c",
+ "case": "discovery",
+ "worker": "nemotron-ultra-free",
+ "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+ "status": "failed",
+ "error": "сайдкар сообщил о неудаче",
+ "base_commit": "916f7c5ee95f5ff0369b951fed5d7ddb65a7c458",
+ "changed_files": [],
+ "verification": {
+  "ran": null,
+  "runner": null,
+  "exit_code": null,
+  "passed": null
+ },
+ "holdout_base": {
+  "total": 72,
+  "failed": 35,
+  "passed": false,
+  "exit_code": 1
+ },
+ "holdout_patched": {
+  "total": null,
+  "failed": null,
+  "passed": null,
+  "exit_code": null
+ },
+ "recipe_saved": null,
+ "stages": {
+  "DEFECT_REPRODUCED": true,
+  "MODEL_PATCH_CREATED": false,
+  "BOSSMAN_ZONE_CHECK_PASS": false,
+  "HOLDOUT_PASS_ON_PATCH": false,
+  "SCOPE_RESPECTED": true,
+  "INDEPENDENT_VERIFICATION_PASS": false,
+  "EXPERIENCE_AUTO_SAVED": false
+ }
+}
