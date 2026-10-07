@@ -93,7 +93,7 @@ include = ["bcc*"]
 [tool.setuptools.package-data]
 bcc = ["telegram_calls/addon_lock.json", "skills_catalog/*/LICENSE", "skills_catalog/*/*/SKILL.md",
        "skills_catalog/*/*/provenance.json", "skills_catalog/*/*/LICENSE.txt",
-       "capability_tree_seed.json"]
+       "capability_tree_seed.json", "autonomy/schema_data/*.json"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

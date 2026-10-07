@@ -33,7 +33,11 @@ class SchemaError(ValueError):
 
 
 def schema_dir() -> Path:
-    # <repo>/command-center/bcc/autonomy/schemas.py -> <repo>/schemas/autonomy
+    # Packaged copy first: the installed bundle has no <repo>/schemas (owner PC 07.10). The repo copy
+    # <repo>/schemas/autonomy stays canonical; a test keeps both byte-identical.
+    packaged = Path(__file__).resolve().parent / "schema_data"
+    if packaged.is_dir():
+        return packaged
     return Path(__file__).resolve().parents[3] / "schemas" / "autonomy"
 
 
