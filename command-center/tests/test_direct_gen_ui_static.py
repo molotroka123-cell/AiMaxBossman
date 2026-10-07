@@ -83,6 +83,15 @@ def test_page_is_registered_and_styled_from_the_shared_layer():
     assert "from './_ui.js'" in JS and "from '../components.js'" in JS
 
 
+def test_photo_video_switch_and_per_kind_controls():
+    assert "name: 'dg-kind'" in JS and "'Фото'" in JS and "'Видео'" in JS
+    assert "m.kind === state.kind" in JS            # selector shows only the current mode's models
+    assert "'dg-steps'" in JS and "PHOTO_PRESETS" in JS
+    assert "только для собственного или вымышленного персонажа" in JS
+    for code in ("insufficient_memory", "gpu_busy", "engine_error"):
+        assert f"{code}:" in JS
+
+
 def test_placeholders_are_neutral_and_have_no_example_prompts():
     for text in (JS, CSS):
         assert not re.search(r"\b(nsfw|nude|explicit|porn|erotic)\b", text, re.I)

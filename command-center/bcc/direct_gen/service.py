@@ -215,7 +215,7 @@ class DirectGenService:
             if live.get("ram_total_mb") is not None and live.get("ram_used_mb") is not None:
                 memory = {"measured": True, "total_mb": live["ram_total_mb"], "used_mb": live["ram_used_mb"],
                           "free_mb": live["ram_total_mb"] - live["ram_used_mb"]}
-        return {"runtime": runtime, "memory": memory, "queue": {"running": self._running, "waiting": len(self._waiting)},
+        return {"runtime": runtime, "sd_cli": {"present": self.sd_bin.is_file()}, "memory": memory, "queue": {"running": self._running, "waiting": len(self._waiting)},
                 "assist": await self.assist_status()}
 
     async def _default_qwen(self) -> tuple[Any, str] | None:
