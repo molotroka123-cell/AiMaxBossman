@@ -1,12 +1,8 @@
 [
   {
-    "sha": "84f721c6fe48172498681a5880562dcfc6b94e17",
-    "build_dir": "C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-84f721c6fe48",
-    "verified_at": "2026-10-07T11:35:57Z"
-  },
-  {
     "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
     "build_dir": "BOSSMAN-Windows-x64-eba6dc592ad9",
-    "verified_at": "2026-10-07T14:09:00Z"
+    "verified_at": "2026-10-07T14:09:00Z",
+    "note": "currently installed build; a receipt for a build that is no longer installed does not prove \"works in the installed Bossman\""
   }
 ]

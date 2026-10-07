@@ -1,15 +1,17 @@
 # Evidence summary
 
-Статусы дерева: blocked=12, branch=34, code=31, idea=7, mixed=14, prepared=3, recorded=180, reported=555, retired=2, working=1
+Статусы дерева: blocked=12, branch=33, code=30, idea=7, mixed=14, prepared=3, recorded=180, reported=557, retired=2, working=1
 
-Принято расписок: 0; отклонено: 633
+Принято расписок: 2; отклонено: 633
 
 ## По зонам
 
-- нет
+- ops: 2
 
 ## Принятые
 
+- `mod-autonomy` (ops.json)
+- `mod-osiris` (ops.json)
 
 ## Отклонённые
 
@@ -327,7 +329,6 @@
 - `mod-agentmap` (ops.json): status reported not eligible
 - `mod-apps` (ops.json): status reported not eligible
 - `mod-apps_control` (ops.json): status reported not eligible
-- `mod-autonomy` (ops.json): verdict not PASS
 - `mod-benchlab` (ops.json): status reported not eligible
 - `mod-bossnet_nodes_v16` (ops.json): status reported not eligible
 - `mod-chat_threads` (ops.json): status reported not eligible
@@ -348,7 +349,6 @@
 - `mod-objectives` (ops.json): status reported not eligible
 - `mod-offline_mode` (ops.json): status reported not eligible
 - `mod-opencode` (ops.json): status reported not eligible
-- `mod-osiris` (ops.json): verdict not PASS
 - `mod-oss_integrations` (ops.json): status reported not eligible
 - `mod-owner_input` (ops.json): status reported not eligible
 - `mod-plugins` (ops.json): status reported not eligible
@@ -562,8 +562,8 @@
 - `module-eea9bcf7e3ac` (opsplug.json): status reported not eligible
 - `cap-46` (opsplug.json): status reported not eligible
 - `mod-agentmap` (opsplug.json): status reported not eligible
-- `mod-autonomy` (opsplug.json): verdict not PASS
-- `mod-osiris` (opsplug.json): verdict not PASS
+- `mod-autonomy` (opsplug.json): status reported not eligible
+- `mod-osiris` (opsplug.json): status reported not eligible
 - `module-a7ad0d90993c` (opsplug.json): status reported not eligible
 - `module-4780a1d5fdf7` (opsplug.json): status reported not eligible
 - `module-d8ca33ba94f4` (opsplug.json): status reported not eligible
@@ -630,19 +630,21 @@
 - `skill-36` (skills.json): status recorded not eligible
 - `skills-runtime` (skills.json): status reported not eligible
 - `None` (ux-sweep-desktop-raw.json): unreadable lane file
+- `None` (ux-sweep-gaps.json): unreadable lane file
 - `None` (ux-sweep-notes.json): unreadable lane file
+- `None` (ux-sweep-phone-raw.json): unreadable lane file
 - `None` (ux-sweep.json): unreadable lane file
 - `module-a7105ffd5da5` (installed-final.json): status working is not reported (green first)
-- `plugin-0` (installed-plugins.json): output hash mismatch
-- `plugin-1` (installed-plugins.json): output hash mismatch
-- `plugin-2` (installed-plugins.json): output hash mismatch
-- `plugin-3` (installed-plugins.json): output hash mismatch
-- `plugin-4` (installed-plugins.json): output hash mismatch
-- `plugin-5` (installed-plugins.json): output hash mismatch
-- `plugin-7` (installed-plugins.json): output hash mismatch
-- `plugin-8` (installed-plugins.json): output hash mismatch
-- `plugin-9` (installed-plugins.json): output hash mismatch
-- `plugins-mcp` (installed-plugins.json): output hash mismatch
-- `plugins-oss` (installed-plugins.json): output hash mismatch
-- `plugins-security` (installed-plugins.json): output hash mismatch
-- `skills-runtime` (installed-skills.json): output hash mismatch
+- `plugin-0` (installed-plugins.json): sha is not a registered installed build
+- `plugin-1` (installed-plugins.json): sha is not a registered installed build
+- `plugin-2` (installed-plugins.json): sha is not a registered installed build
+- `plugin-3` (installed-plugins.json): sha is not a registered installed build
+- `plugin-4` (installed-plugins.json): sha is not a registered installed build
+- `plugin-5` (installed-plugins.json): sha is not a registered installed build
+- `plugin-7` (installed-plugins.json): sha is not a registered installed build
+- `plugin-8` (installed-plugins.json): sha is not a registered installed build
+- `plugin-9` (installed-plugins.json): sha is not a registered installed build
+- `plugins-mcp` (installed-plugins.json): sha is not a registered installed build
+- `plugins-oss` (installed-plugins.json): sha is not a registered installed build
+- `plugins-security` (installed-plugins.json): sha is not a registered installed build
+- `skills-runtime` (installed-skills.json): sha is not a registered installed build

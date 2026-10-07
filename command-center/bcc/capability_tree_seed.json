@@ -1238,14 +1238,20 @@
       "id": "mod-autonomy",
       "label": "autonomy",
       "parent": "ops",
-      "status": "branch",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-07 @ 526e2e55: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/autonomy.py",
           "branch": "claude/bossman-1.9-owner-bugtest-20260930",
           "sha": "0ec2ff5292cc8a9aab0a1ea946819963ec4dcff4",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/0ec2ff5292cc8a9aab0a1ea946819963ec4dcff4/command-center/bcc/features/autonomy.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-autonomy",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "526e2e5513fa442ba7fdbcbc8e0699a32118b089",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2392,14 +2398,20 @@
       "id": "mod-osiris",
       "label": "osiris",
       "parent": "ops",
-      "status": "code",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "reported",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-07 @ 526e2e55: import+pytest",
       "sources": [
         {
           "path": "command-center/bcc/features/osiris.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/osiris.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/ops.json#mod-osiris",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "526e2e5513fa442ba7fdbcbc8e0699a32118b089",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."

@@ -39,13 +39,27 @@ EVID = ROOT / "docs" / "architecture" / "bossman-tree-20261005" / "evidence"
 OUT = EVID / "out"
 SEED = ROOT / "command-center" / "bcc" / "capability_tree_seed.json"
 
-SHA = "84f721c6fe48172498681a5880562dcfc6b94e17"
-BUILD = "BOSSMAN-Windows-x64-84f721c6fe48"
-INSTALLED_BUILD = Path(r"C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-84f721c6fe48")
-SP = INSTALLED_BUILD / "runtime" / "Lib" / "site-packages"
-CLONE = Path(r"C:\Users\asd\Bossman\tree-build") / SHA / "src"
 PY = r"C:\Users\asd\AppData\Local\Programs\Python\Python312\python.exe"
 HEALTH = "http://127.0.0.1:8801/health/live"
+APP_ROOT = Path(r"C:\Users\asd\Bossman\app")
+BUILD_ROOT = Path(r"C:\Users\asd\Bossman\tree-build")
+
+
+def _installed_sha() -> str:
+    """The build installed NOW: IG_INSTALLED_SHA, else the live backend build_sha (was hard-coded to an old build)."""
+    env = os.environ.get("IG_INSTALLED_SHA", "").strip()
+    if env:
+        return env
+    import urllib.request
+    with urllib.request.urlopen(HEALTH, timeout=10) as r:
+        return json.load(r)["build_sha"]
+
+
+SHA = _installed_sha()
+BUILD = "BOSSMAN-Windows-x64-" + SHA[:12]
+INSTALLED_BUILD = APP_ROOT / BUILD
+SP = INSTALLED_BUILD / "runtime" / "Lib" / "site-packages"
+CLONE = BUILD_ROOT / SHA / "src"
 
 LANES = ["plugins", "skills", "ops", "opsplug", "jeffa", "jeffb", "memapps", "mediaux", "agcloud"]
 ZONES = ["plugins", "skills", "ops", "jeff", "memapps", "mediaux", "agcloud"]
