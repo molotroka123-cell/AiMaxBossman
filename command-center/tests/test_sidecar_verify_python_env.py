@@ -36,3 +36,36 @@ def test_a_missing_interpreter_path_is_not_forwarded(monkeypatch, tmp_path):
 def test_the_rest_of_the_backend_environment_still_stays_out(monkeypatch):
     env = _env(monkeypatch, BOSSMAN_VERIFY_PYTHON=sys.executable, SOME_OWNER_SECRET="s3cr3t")
     assert "SOME_OWNER_SECRET" not in env and set(env) <= {"BOSSMAN_VERIFY_PYTHON"}
+
+
+def test_a_cloud_worker_run_also_gets_the_test_interpreter_and_its_key(monkeypatch):
+    """Cycles 10-13 (06.10): the cloud-worker branch of `_run` passed only the worker key, so the worker's own
+    run_tests fell back to unittest and had no red/green signal."""
+    captured = {}
+
+    async def key(name, svc):  # noqa: ARG001
+        return "k-123"
+
+    def fake_execute(record, repo, body, context, env, command):  # noqa: ARG001
+        captured["env"], captured["command"] = env, command
+        return {**record, "status": "completed"}
+
+    class Bus:
+        async def emit(self, *a, **k):  # noqa: ARG002
+            return None
+
+    class Svc:
+        bus = Bus()
+
+    monkeypatch.setattr(coding_tasks, "_worker_key", key)
+    monkeypatch.setattr(coding_tasks, "_execute", fake_execute)
+    monkeypatch.setattr(coding_tasks, "_write", lambda svc, rec: None)
+    monkeypatch.setenv("BOSSMAN_VERIFY_PYTHON", sys.executable)
+    monkeypatch.setenv("SOME_OWNER_SECRET", "s3cr3t")
+    worker = next(iter(coding_tasks.WORKERS))
+    body = type("B", (), {"worker": worker})()
+    asyncio.run(coding_tasks._run(Svc(), {"id": "t1"}, __import__("pathlib").Path("."), body))
+    env = captured["env"]
+    assert env.get("BOSSMAN_VERIFY_PYTHON") == sys.executable
+    assert env.get(coding_tasks._WORKER_KEY_ENV) == "k-123"
+    assert "SOME_OWNER_SECRET" not in env
