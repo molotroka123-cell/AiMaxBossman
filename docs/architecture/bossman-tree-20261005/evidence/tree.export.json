@@ -1868,8 +1868,8 @@
    "id": "oss-14",
    "label": "searxng/searxng",
    "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+   "status": "reported",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its searxng/searxng integration at HE"
   },
   {
    "id": "oss-15",
@@ -1882,15 +1882,15 @@
    "id": "oss-16",
    "label": "ggml-org/llama.cpp",
    "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+   "status": "reported",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its ggml-org/llama.cpp integration at"
   },
   {
    "id": "oss-17",
    "label": "docling-project/docling",
    "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+   "status": "reported",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its docling-project/docling integrati"
   },
   {
    "id": "oss-18",
@@ -1903,15 +1903,15 @@
    "id": "oss-19",
    "label": "SYSTRAN/faster-whisper",
    "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+   "status": "reported",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its SYSTRAN/faster-whisper integratio"
   },
   {
    "id": "oss-20",
    "label": "Comfy-Org/ComfyUI",
    "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+   "status": "reported",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its Comfy-Org/ComfyUI integration at "
   },
   {
    "id": "oss-21",
@@ -1924,8 +1924,8 @@
    "id": "oss-22",
    "label": "GrapesJS/grapesjs",
    "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+   "status": "reported",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its GrapesJS/grapesjs integration at "
   },
   {
    "id": "oss-23",
@@ -1938,8 +1938,8 @@
    "id": "oss-24",
    "label": "hyperfield/ai-file-sorter",
    "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+   "status": "reported",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its hyperfield/ai-file-sorter integra"
   },
   {
    "id": "oss-25",
@@ -1966,15 +1966,15 @@
    "id": "oss-28",
    "label": "qdrant/qdrant-client",
    "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+   "status": "reported",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its qdrant/qdrant-client integration "
   },
   {
    "id": "oss-29",
    "label": "openclaw/openclaw",
    "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+   "status": "reported",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its openclaw/openclaw integration at "
   },
   {
    "id": "oss-30",
@@ -2120,15 +2120,15 @@
    "id": "oss-50",
    "label": "mltframework/shotcut",
    "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+   "status": "reported",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its mltframework/shotcut integration "
   },
   {
    "id": "oss-51",
    "label": "AcademySoftwareFoundation/OpenTimelineIO",
    "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+   "status": "reported",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its AcademySoftwareFoundation/OpenTim"
   },
   {
    "id": "oss-52",
@@ -2239,22 +2239,22 @@
    "id": "oss-67",
    "label": "prompt-toolkit/python-prompt-toolkit",
    "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+   "status": "reported",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its prompt-toolkit/python-prompt-tool"
   },
   {
    "id": "oss-68",
    "label": "Textualize/rich",
    "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+   "status": "reported",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its Textualize/rich integration at HE"
   },
   {
    "id": "oss-69",
    "label": "openai/codex",
    "parent": "oss",
-   "status": "recorded",
-   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции."
+   "status": "reported",
+   "short": "Ссылка в выбранном checkout; не утверждение об установке/интеграции. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its openai/codex integration at HEAD "
   },
   {
    "id": "oss-70",
@@ -5410,8 +5410,8 @@
    "id": "oss-117",
    "label": "modelcontextprotocol/python-sdk",
    "parent": "oss",
-   "status": "recorded",
-   "short": "MIT; официальный MCP SDK (pypi: mcp) — опора для mcp_runtime. Ссылка, не установленная зависимость."
+   "status": "reported",
+   "short": "MIT; официальный MCP SDK (pypi: mcp) — опора для mcp_runtime. Ссылка, не установленная зависимость. Прогон 2026-10-07 @ c8c3cfe0: Bossman's own tests for its mo"
   },
   {
    "id": "oss-118",

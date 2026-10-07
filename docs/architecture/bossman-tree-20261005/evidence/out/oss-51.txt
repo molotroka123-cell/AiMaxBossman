@@ -1,0 +1,17 @@
+# stage3 oss integration receipt output
+node: oss-51
+project: AcademySoftwareFoundation/OpenTimelineIO
+sha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13
+build_site_packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+integration_code: command-center/bcc/video_studio/interchange.py
+command: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-51   # = cd command-center && pytest -q -rs tests/test_video_studio_interchange.py tests/test_video_studio_otio_blocked.py + sys.modules check
+exit_code: 0
+
+.........                                                                [100%]
+9 passed in 1.98s
+
+@@ INTEGRATION CHECK (sys.modules after the test session) @@
+  bcc.video_studio.interchange: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\video_studio\interchange.py
+  upstream opentimelineio: loaded=True version=0.18.1 file=C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\opentimelineio\__init__.py
+
+@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@

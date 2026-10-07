@@ -1,0 +1,18 @@
+# stage3 oss integration receipt output
+node: oss-14
+project: searxng/searxng
+sha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13
+build_site_packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+integration_code: command-center/bcc/features/web_research/net.py, command-center/bcc/features/web_research/config.py, command-center/bcc/features/web_research/sources.py
+command: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-14   # = cd command-center && pytest -q -rs tests/test_searxng_setup.py tests/test_web_research_net.py -k searx + sys.modules check
+exit_code: 0
+
+.....................                                                    [100%]
+21 passed, 15 deselected in 2.63s
+
+@@ INTEGRATION CHECK (sys.modules after the test session) @@
+  bcc.features.web_research.net: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\features\web_research\net.py
+  bcc.features.web_research.config: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\features\web_research\config.py
+  bcc.features.web_research.sources: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\features\web_research\sources.py
+
+@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@

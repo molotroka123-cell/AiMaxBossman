@@ -1,0 +1,17 @@
+# stage3 oss integration receipt output
+node: oss-29
+project: openclaw/openclaw
+sha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13
+build_site_packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+integration_code: command-center/bcc/v2/openclaw_bridge.py, command-center/bcc/features/tools_openclaw.py
+command: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-29   # = cd command-center && pytest -q -rs tests/test_v23_openclaw_bridge.py tests/test_v23_openclaw_tools.py + sys.modules check
+exit_code: 0
+
+........................................                                 [100%]
+40 passed in 1.71s
+
+@@ INTEGRATION CHECK (sys.modules after the test session) @@
+  bcc.v2.openclaw_bridge: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\v2\openclaw_bridge.py
+  bcc.features.tools_openclaw: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\features\tools_openclaw.py
+
+@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@

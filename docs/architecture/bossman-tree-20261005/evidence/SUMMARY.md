@@ -1,129 +1,30 @@
 # Evidence summary
 
-Статусы дерева: blocked=12, branch=31, code=30, idea=7, mixed=14, prepared=3, recorded=180, reported=394, retired=4, working=164
+Статусы дерева: blocked=12, branch=31, code=30, idea=7, mixed=14, prepared=3, recorded=165, reported=409, retired=4, working=164
 
-Принято расписок: 114; отклонено: 718
+Принято расписок: 15; отклонено: 832
 
 ## По зонам
 
-- ops: 114
+- oss: 15
 
 ## Принятые
 
-- `module-009f4807c914` (installed-ops.json)
-- `module-0445b69844cc` (installed-ops.json)
-- `module-049b601d5eaa` (installed-ops.json)
-- `module-0541863355da` (installed-ops.json)
-- `module-068b8f4fbeb2` (installed-ops.json)
-- `module-0aa387ab63a9` (installed-ops.json)
-- `module-0b1e4d69a90c` (installed-ops.json)
-- `module-0ce0daf3140c` (installed-ops.json)
-- `module-103910b19c50` (installed-ops.json)
-- `module-1184b1105ced` (installed-ops.json)
-- `module-177f174d3f63` (installed-ops.json)
-- `module-179cd95b7128` (installed-ops.json)
-- `module-1c2e0a6599c0` (installed-ops.json)
-- `module-2190e88ab8cb` (installed-ops.json)
-- `module-24bbe5117ab0` (installed-ops.json)
-- `module-266a95659ed4` (installed-ops.json)
-- `module-27cb1911d462` (installed-ops.json)
-- `module-2bd9c1e2cdfd` (installed-ops.json)
-- `module-2d3d2ae733c1` (installed-ops.json)
-- `module-2e5863355b9a` (installed-ops.json)
-- `module-2eec9a135e0f` (installed-ops.json)
-- `module-2f9db2f18c1b` (installed-ops.json)
-- `module-30ddab524cfc` (installed-ops.json)
-- `module-37dec999ab57` (installed-ops.json)
-- `module-39e925886668` (installed-ops.json)
-- `module-3adca9c27bdb` (installed-ops.json)
-- `module-3d62540e3028` (installed-ops.json)
-- `module-3f0a90670bba` (installed-ops.json)
-- `module-3f26dfe54c72` (installed-ops.json)
-- `module-42a06e3c1b71` (installed-ops.json)
-- `module-43a773f7d5a6` (installed-ops.json)
-- `module-464a2a956fa0` (installed-ops.json)
-- `module-47931d1b717a` (installed-ops.json)
-- `module-4aacff2330d4` (installed-ops.json)
-- `module-4b4e00d7c711` (installed-ops.json)
-- `module-4c9ee5995fb6` (installed-ops.json)
-- `module-4efbb2fd9c4a` (installed-ops.json)
-- `module-522cf2e79840` (installed-ops.json)
-- `module-5c36f1523214` (installed-ops.json)
-- `module-5d128fcf8dab` (installed-ops.json)
-- `module-5f3e261c2cf4` (installed-ops.json)
-- `module-5fd57fccff12` (installed-ops.json)
-- `module-60f309b322d6` (installed-ops.json)
-- `module-6285f40851f1` (installed-ops.json)
-- `module-63389f3e655f` (installed-ops.json)
-- `module-637788ef482e` (installed-ops.json)
-- `module-638ddbcb1a1b` (installed-ops.json)
-- `module-6b8f5c457e7f` (installed-ops.json)
-- `module-6bfb88803a15` (installed-ops.json)
-- `module-6fcdcfb4b872` (installed-ops.json)
-- `module-72f38f26214a` (installed-ops.json)
-- `module-74b9d09c9a49` (installed-ops.json)
-- `module-76ae682ed2e4` (installed-ops.json)
-- `module-7a65bf88fb04` (installed-ops.json)
-- `module-7af8dc300eab` (installed-ops.json)
-- `module-7be51ff76449` (installed-ops.json)
-- `module-7f1adf1138f0` (installed-ops.json)
-- `module-7fb28ee13497` (installed-ops.json)
-- `module-815783821b83` (installed-ops.json)
-- `module-816c15a6b6a4` (installed-ops.json)
-- `module-86282a9efa67` (installed-ops.json)
-- `module-897d03f9aab0` (installed-ops.json)
-- `module-8bd73fd35c48` (installed-ops.json)
-- `module-8dba9550a502` (installed-ops.json)
-- `module-8de7f3a7cd44` (installed-ops.json)
-- `module-8f7bb546924a` (installed-ops.json)
-- `module-904a8396aa6c` (installed-ops.json)
-- `module-918d9d178fe3` (installed-ops.json)
-- `module-95e88c430e38` (installed-ops.json)
-- `module-99fc865d8c4b` (installed-ops.json)
-- `module-9a1970f7c3e5` (installed-ops.json)
-- `module-9d055871ddff` (installed-ops.json)
-- `module-9d8ee6730907` (installed-ops.json)
-- `module-a17a422c65d7` (installed-ops.json)
-- `module-a1a2c4ccc239` (installed-ops.json)
-- `module-a270c9dbe40c` (installed-ops.json)
-- `module-a43ab3ee85df` (installed-ops.json)
-- `module-a91069ddd708` (installed-ops.json)
-- `module-ac2f6e6dc2d9` (installed-ops.json)
-- `module-b428d8c055bc` (installed-ops.json)
-- `module-b8a71e28fc47` (installed-ops.json)
-- `module-bc25cd9f1e01` (installed-ops.json)
-- `module-bc87c8d6bfa4` (installed-ops.json)
-- `module-c22cab3d4320` (installed-ops.json)
-- `module-c23f35941e16` (installed-ops.json)
-- `module-c2cd9f798b9b` (installed-ops.json)
-- `module-c5d464a7aa9e` (installed-ops.json)
-- `module-cc401f252307` (installed-ops.json)
-- `module-cdb370a24157` (installed-ops.json)
-- `module-cf0d1b5d4d86` (installed-ops.json)
-- `module-d401165730fa` (installed-ops.json)
-- `module-d41ad480551d` (installed-ops.json)
-- `module-d4455ade6345` (installed-ops.json)
-- `module-d5d8a9a7ab5c` (installed-ops.json)
-- `module-dacafbe9e4ee` (installed-ops.json)
-- `module-dc98760346bb` (installed-ops.json)
-- `module-dd118749492b` (installed-ops.json)
-- `module-ddbf2f4b50d2` (installed-ops.json)
-- `module-de0238268e77` (installed-ops.json)
-- `module-de7445e9d5f5` (installed-ops.json)
-- `module-e297560d568b` (installed-ops.json)
-- `module-e2b6bd15aba1` (installed-ops.json)
-- `module-e2dd4b7bfb5d` (installed-ops.json)
-- `module-e376eaac5d8f` (installed-ops.json)
-- `module-e999698f8e9e` (installed-ops.json)
-- `module-e99c091d1c06` (installed-ops.json)
-- `module-eb0bce4aaf5b` (installed-ops.json)
-- `module-eb0be06d9db9` (installed-ops.json)
-- `module-edac8a22b815` (installed-ops.json)
-- `module-efdcd8d35b9c` (installed-ops.json)
-- `module-f1cacda08a67` (installed-ops.json)
-- `module-f6a4b22d7b2b` (installed-ops.json)
-- `module-fb39c9a64573` (installed-ops.json)
-- `module-ff3e6bc1044b` (installed-ops.json)
+- `oss-14` (stage3.json)
+- `oss-16` (stage3.json)
+- `oss-17` (stage3.json)
+- `oss-19` (stage3.json)
+- `oss-20` (stage3.json)
+- `oss-22` (stage3.json)
+- `oss-24` (stage3.json)
+- `oss-28` (stage3.json)
+- `oss-29` (stage3.json)
+- `oss-50` (stage3.json)
+- `oss-51` (stage3.json)
+- `oss-67` (stage3.json)
+- `oss-68` (stage3.json)
+- `oss-69` (stage3.json)
+- `oss-117` (stage3.json)
 
 ## Отклонённые
 
@@ -491,183 +392,183 @@
 - `mod-watchdog` (ops.json): status working not eligible
 - `mod-web_designer` (ops.json): status working not eligible
 - `mod-workflow` (ops.json): status reported not eligible
-- `module-637788ef482e` (ops.json): status reported not eligible
-- `module-a1a2c4ccc239` (ops.json): status reported not eligible
-- `module-cdb370a24157` (ops.json): status reported not eligible
+- `module-637788ef482e` (ops.json): status working not eligible
+- `module-a1a2c4ccc239` (ops.json): status working not eligible
+- `module-cdb370a24157` (ops.json): status working not eligible
 - `module-5386412e9f11` (ops.json): status reported not eligible
 - `module-73976a1cf54d` (ops.json): status reported not eligible
-- `module-39e925886668` (ops.json): status reported not eligible
+- `module-39e925886668` (ops.json): status working not eligible
 - `module-a7ad0d90993c` (ops.json): status reported not eligible
 - `module-bc12e1784cb5` (ops.json): status reported not eligible
-- `module-a17a422c65d7` (ops.json): status reported not eligible
-- `module-86282a9efa67` (ops.json): status reported not eligible
-- `module-d41ad480551d` (ops.json): status reported not eligible
-- `module-d4455ade6345` (ops.json): status reported not eligible
-- `module-177f174d3f63` (ops.json): status reported not eligible
+- `module-a17a422c65d7` (ops.json): status working not eligible
+- `module-86282a9efa67` (ops.json): status working not eligible
+- `module-d41ad480551d` (ops.json): status working not eligible
+- `module-d4455ade6345` (ops.json): status working not eligible
+- `module-177f174d3f63` (ops.json): status working not eligible
 - `module-4780a1d5fdf7` (ops.json): status reported not eligible
-- `module-c23f35941e16` (ops.json): status reported not eligible
-- `module-815783821b83` (ops.json): status reported not eligible
-- `module-bc25cd9f1e01` (ops.json): status reported not eligible
-- `module-42a06e3c1b71` (ops.json): status reported not eligible
-- `module-049b601d5eaa` (ops.json): status reported not eligible
-- `module-efdcd8d35b9c` (ops.json): status reported not eligible
+- `module-c23f35941e16` (ops.json): status working not eligible
+- `module-815783821b83` (ops.json): status working not eligible
+- `module-bc25cd9f1e01` (ops.json): status working not eligible
+- `module-42a06e3c1b71` (ops.json): status working not eligible
+- `module-049b601d5eaa` (ops.json): status working not eligible
+- `module-efdcd8d35b9c` (ops.json): status working not eligible
 - `module-d8ca33ba94f4` (ops.json): status reported not eligible
 - `module-6c727703c8ea` (ops.json): status reported not eligible
 - `module-9958189ad4d4` (ops.json): status reported not eligible
-- `module-ac2f6e6dc2d9` (ops.json): status reported not eligible
-- `module-e2dd4b7bfb5d` (ops.json): status reported not eligible
-- `module-816c15a6b6a4` (ops.json): status reported not eligible
-- `module-0541863355da` (ops.json): status reported not eligible
-- `module-522cf2e79840` (ops.json): status reported not eligible
-- `module-edac8a22b815` (ops.json): status reported not eligible
-- `module-b8a71e28fc47` (ops.json): status reported not eligible
+- `module-ac2f6e6dc2d9` (ops.json): status working not eligible
+- `module-e2dd4b7bfb5d` (ops.json): status working not eligible
+- `module-816c15a6b6a4` (ops.json): status working not eligible
+- `module-0541863355da` (ops.json): status working not eligible
+- `module-522cf2e79840` (ops.json): status working not eligible
+- `module-edac8a22b815` (ops.json): status working not eligible
+- `module-b8a71e28fc47` (ops.json): status working not eligible
 - `module-ff7440d8b674` (ops.json): status reported not eligible
-- `module-1184b1105ced` (ops.json): status reported not eligible
+- `module-1184b1105ced` (ops.json): status working not eligible
 - `module-dadaec7d827b` (ops.json): status reported not eligible
 - `module-771a003071ca` (ops.json): status reported not eligible
 - `module-d3f5977af5ba` (ops.json): status reported not eligible
 - `module-9f29d5a73f7f` (ops.json): status reported not eligible
-- `module-f1cacda08a67` (ops.json): status reported not eligible
-- `module-47931d1b717a` (ops.json): status reported not eligible
+- `module-f1cacda08a67` (ops.json): status working not eligible
+- `module-47931d1b717a` (ops.json): status working not eligible
 - `module-eea9bcf7e3ac` (ops.json): status reported not eligible
-- `module-e297560d568b` (ops.json): status reported not eligible
+- `module-e297560d568b` (ops.json): status working not eligible
 - `module-575dcc5a99f5` (ops.json): status reported not eligible
-- `module-fb39c9a64573` (ops.json): status reported not eligible
-- `module-179cd95b7128` (ops.json): status reported not eligible
+- `module-fb39c9a64573` (ops.json): status working not eligible
+- `module-179cd95b7128` (ops.json): status working not eligible
 - `module-79d58034a65f` (ops.json): status reported not eligible
-- `module-e376eaac5d8f` (ops.json): status reported not eligible
+- `module-e376eaac5d8f` (ops.json): status working not eligible
 - `module-4b4b01b5e71a` (ops.json): status reported not eligible
 - `module-1b34d40914f1` (ops.json): status reported not eligible
 - `module-c64e6d1041b0` (ops.json): status reported not eligible
-- `module-3f26dfe54c72` (ops.json): status reported not eligible
-- `module-009f4807c914` (ops.json): status reported not eligible
-- `module-2d3d2ae733c1` (ops.json): status reported not eligible
+- `module-3f26dfe54c72` (ops.json): status working not eligible
+- `module-009f4807c914` (ops.json): status working not eligible
+- `module-2d3d2ae733c1` (ops.json): status working not eligible
 - `module-e6b90349c6c6` (ops.json): status reported not eligible
 - `module-3a8ad5c2d247` (ops.json): status reported not eligible
-- `module-c22cab3d4320` (ops.json): status reported not eligible
-- `module-a270c9dbe40c` (ops.json): status reported not eligible
-- `module-638ddbcb1a1b` (ops.json): status reported not eligible
-- `module-1c2e0a6599c0` (ops.json): status reported not eligible
-- `module-e99c091d1c06` (ops.json): status reported not eligible
-- `module-dd118749492b` (ops.json): status reported not eligible
-- `module-72f38f26214a` (ops.json): status reported not eligible
+- `module-c22cab3d4320` (ops.json): status working not eligible
+- `module-a270c9dbe40c` (ops.json): status working not eligible
+- `module-638ddbcb1a1b` (ops.json): status working not eligible
+- `module-1c2e0a6599c0` (ops.json): status working not eligible
+- `module-e99c091d1c06` (ops.json): status working not eligible
+- `module-dd118749492b` (ops.json): status working not eligible
+- `module-72f38f26214a` (ops.json): status working not eligible
 - `module-6e615a668c7b` (ops.json): status reported not eligible
-- `module-4efbb2fd9c4a` (ops.json): status reported not eligible
-- `module-bc87c8d6bfa4` (ops.json): status reported not eligible
+- `module-4efbb2fd9c4a` (ops.json): status working not eligible
+- `module-bc87c8d6bfa4` (ops.json): status working not eligible
 - `module-df0754d72d22` (ops.json): status reported not eligible
 - `module-028fe7482116` (ops.json): status reported not eligible
-- `module-068b8f4fbeb2` (ops.json): status reported not eligible
-- `module-0b1e4d69a90c` (ops.json): status reported not eligible
-- `module-7a65bf88fb04` (ops.json): status reported not eligible
-- `module-8de7f3a7cd44` (ops.json): status reported not eligible
-- `module-d401165730fa` (ops.json): status reported not eligible
-- `module-f6a4b22d7b2b` (ops.json): status reported not eligible
-- `module-63389f3e655f` (ops.json): status reported not eligible
-- `module-cc401f252307` (ops.json): status reported not eligible
-- `module-a43ab3ee85df` (ops.json): status reported not eligible
-- `module-0aa387ab63a9` (ops.json): status reported not eligible
-- `module-4b4e00d7c711` (ops.json): status reported not eligible
-- `module-103910b19c50` (ops.json): status reported not eligible
-- `module-dc98760346bb` (ops.json): status reported not eligible
-- `module-74b9d09c9a49` (ops.json): status reported not eligible
-- `module-904a8396aa6c` (ops.json): status reported not eligible
-- `module-4aacff2330d4` (ops.json): status reported not eligible
-- `module-7f1adf1138f0` (ops.json): status reported not eligible
-- `module-e2b6bd15aba1` (ops.json): status reported not eligible
-- `module-3adca9c27bdb` (ops.json): status reported not eligible
+- `module-068b8f4fbeb2` (ops.json): status working not eligible
+- `module-0b1e4d69a90c` (ops.json): status working not eligible
+- `module-7a65bf88fb04` (ops.json): status working not eligible
+- `module-8de7f3a7cd44` (ops.json): status working not eligible
+- `module-d401165730fa` (ops.json): status working not eligible
+- `module-f6a4b22d7b2b` (ops.json): status working not eligible
+- `module-63389f3e655f` (ops.json): status working not eligible
+- `module-cc401f252307` (ops.json): status working not eligible
+- `module-a43ab3ee85df` (ops.json): status working not eligible
+- `module-0aa387ab63a9` (ops.json): status working not eligible
+- `module-4b4e00d7c711` (ops.json): status working not eligible
+- `module-103910b19c50` (ops.json): status working not eligible
+- `module-dc98760346bb` (ops.json): status working not eligible
+- `module-74b9d09c9a49` (ops.json): status working not eligible
+- `module-904a8396aa6c` (ops.json): status working not eligible
+- `module-4aacff2330d4` (ops.json): status working not eligible
+- `module-7f1adf1138f0` (ops.json): status working not eligible
+- `module-e2b6bd15aba1` (ops.json): status working not eligible
+- `module-3adca9c27bdb` (ops.json): status working not eligible
 - `module-7280885daae5` (ops.json): status reported not eligible
-- `module-9a1970f7c3e5` (ops.json): status reported not eligible
-- `module-3f0a90670bba` (ops.json): status reported not eligible
-- `module-b428d8c055bc` (ops.json): status reported not eligible
-- `module-30ddab524cfc` (ops.json): status reported not eligible
-- `module-5fd57fccff12` (ops.json): status reported not eligible
+- `module-9a1970f7c3e5` (ops.json): status working not eligible
+- `module-3f0a90670bba` (ops.json): status working not eligible
+- `module-b428d8c055bc` (ops.json): status working not eligible
+- `module-30ddab524cfc` (ops.json): status working not eligible
+- `module-5fd57fccff12` (ops.json): status working not eligible
 - `module-745ed9f64ff7` (ops.json): status reported not eligible
-- `module-95e88c430e38` (ops.json): status reported not eligible
-- `module-7fb28ee13497` (ops.json): status reported not eligible
+- `module-95e88c430e38` (ops.json): status working not eligible
+- `module-7fb28ee13497` (ops.json): status working not eligible
 - `module-4b5988e098bd` (ops.json): status reported not eligible
-- `module-de7445e9d5f5` (ops.json): status reported not eligible
-- `module-d5d8a9a7ab5c` (ops.json): status reported not eligible
+- `module-de7445e9d5f5` (ops.json): status working not eligible
+- `module-d5d8a9a7ab5c` (ops.json): status working not eligible
 - `module-a548c779a998` (ops.json): status reported not eligible
-- `module-8dba9550a502` (ops.json): status reported not eligible
+- `module-8dba9550a502` (ops.json): status working not eligible
 - `module-725a466f4b8f` (ops.json): status reported not eligible
-- `module-24bbe5117ab0` (ops.json): status reported not eligible
+- `module-24bbe5117ab0` (ops.json): status working not eligible
 - `module-9a0163231b1b` (ops.json): status reported not eligible
-- `module-0ce0daf3140c` (ops.json): status reported not eligible
+- `module-0ce0daf3140c` (ops.json): status working not eligible
 - `module-45ef5a5cbb02` (ops.json): status reported not eligible
 - `module-76a14f0ce102` (ops.json): status reported not eligible
-- `module-ddbf2f4b50d2` (ops.json): status reported not eligible
+- `module-ddbf2f4b50d2` (ops.json): status working not eligible
 - `module-aaff14c2d261` (ops.json): status reported not eligible
 - `module-46de893ccfc9` (ops.json): status reported not eligible
-- `module-2e5863355b9a` (ops.json): status reported not eligible
-- `module-60f309b322d6` (ops.json): status reported not eligible
+- `module-2e5863355b9a` (ops.json): status working not eligible
+- `module-60f309b322d6` (ops.json): status working not eligible
 - `module-5c5bd2e61f67` (ops.json): status reported not eligible
-- `module-99fc865d8c4b` (ops.json): status reported not eligible
-- `module-ff3e6bc1044b` (ops.json): status reported not eligible
+- `module-99fc865d8c4b` (ops.json): status working not eligible
+- `module-ff3e6bc1044b` (ops.json): status working not eligible
 - `module-531fc123cd17` (ops.json): status reported not eligible
 - `module-ca6830e0de16` (ops.json): status reported not eligible
-- `module-8bd73fd35c48` (ops.json): status reported not eligible
+- `module-8bd73fd35c48` (ops.json): status working not eligible
 - `module-28048916831a` (ops.json): status reported not eligible
 - `module-883a6692992b` (ops.json): status reported not eligible
 - `module-de49198eacce` (ops.json): status reported not eligible
-- `module-2bd9c1e2cdfd` (ops.json): status reported not eligible
-- `module-37dec999ab57` (ops.json): status reported not eligible
+- `module-2bd9c1e2cdfd` (ops.json): status working not eligible
+- `module-37dec999ab57` (ops.json): status working not eligible
 - `module-f1437d4e2221` (ops.json): status reported not eligible
-- `module-897d03f9aab0` (ops.json): status reported not eligible
-- `module-6bfb88803a15` (ops.json): status reported not eligible
-- `module-de0238268e77` (ops.json): status reported not eligible
+- `module-897d03f9aab0` (ops.json): status working not eligible
+- `module-6bfb88803a15` (ops.json): status working not eligible
+- `module-de0238268e77` (ops.json): status working not eligible
 - `module-5bfdc6603e86` (ops.json): status reported not eligible
-- `module-8f7bb546924a` (ops.json): status reported not eligible
+- `module-8f7bb546924a` (ops.json): status working not eligible
 - `module-cb1aad058144` (ops.json): status reported not eligible
-- `module-c5d464a7aa9e` (ops.json): status reported not eligible
+- `module-c5d464a7aa9e` (ops.json): status working not eligible
 - `module-0ef2333ef23c` (ops.json): status reported not eligible
-- `module-2f9db2f18c1b` (ops.json): status reported not eligible
+- `module-2f9db2f18c1b` (ops.json): status working not eligible
 - `module-22827787ecc5` (ops.json): status reported not eligible
-- `module-dacafbe9e4ee` (ops.json): status reported not eligible
+- `module-dacafbe9e4ee` (ops.json): status working not eligible
 - `module-fe0ffb0d2f88` (ops.json): status reported not eligible
 - `module-5fcedb9e4e99` (ops.json): status reported not eligible
-- `module-9d055871ddff` (ops.json): status reported not eligible
+- `module-9d055871ddff` (ops.json): status working not eligible
 - `module-abd99037a01e` (ops.json): status reported not eligible
-- `module-9d8ee6730907` (ops.json): status reported not eligible
-- `module-43a773f7d5a6` (ops.json): status reported not eligible
-- `module-eb0be06d9db9` (ops.json): status reported not eligible
+- `module-9d8ee6730907` (ops.json): status working not eligible
+- `module-43a773f7d5a6` (ops.json): status working not eligible
+- `module-eb0be06d9db9` (ops.json): status working not eligible
 - `module-9c2c49d71c15` (ops.json): status reported not eligible
-- `module-5c36f1523214` (ops.json): status reported not eligible
-- `module-2eec9a135e0f` (ops.json): status reported not eligible
+- `module-5c36f1523214` (ops.json): status working not eligible
+- `module-2eec9a135e0f` (ops.json): status working not eligible
 - `module-a11338c485f5` (ops.json): status reported not eligible
 - `module-1622458b008a` (ops.json): status reported not eligible
-- `module-5d128fcf8dab` (ops.json): status reported not eligible
+- `module-5d128fcf8dab` (ops.json): status working not eligible
 - `module-fdd1e1e7e9a0` (ops.json): status reported not eligible
-- `module-e999698f8e9e` (ops.json): status reported not eligible
+- `module-e999698f8e9e` (ops.json): status working not eligible
 - `module-0dc288edd324` (ops.json): status reported not eligible
 - `module-aab05d5c4f1a` (ops.json): status reported not eligible
-- `module-0445b69844cc` (ops.json): status reported not eligible
+- `module-0445b69844cc` (ops.json): status working not eligible
 - `module-e11418351fd7` (ops.json): status reported not eligible
-- `module-6fcdcfb4b872` (ops.json): status reported not eligible
+- `module-6fcdcfb4b872` (ops.json): status working not eligible
 - `module-3e2b4af78a2e` (ops.json): status reported not eligible
 - `module-5579b793e038` (ops.json): status reported not eligible
-- `module-76ae682ed2e4` (ops.json): status reported not eligible
+- `module-76ae682ed2e4` (ops.json): status working not eligible
 - `module-59f6fbe27bd5` (ops.json): status reported not eligible
-- `module-5f3e261c2cf4` (ops.json): status reported not eligible
-- `module-eb0bce4aaf5b` (ops.json): status reported not eligible
-- `module-918d9d178fe3` (ops.json): status reported not eligible
-- `module-2190e88ab8cb` (ops.json): status reported not eligible
-- `module-cf0d1b5d4d86` (ops.json): status reported not eligible
-- `module-6b8f5c457e7f` (ops.json): status reported not eligible
-- `module-c2cd9f798b9b` (ops.json): status reported not eligible
-- `module-7be51ff76449` (ops.json): status reported not eligible
+- `module-5f3e261c2cf4` (ops.json): status working not eligible
+- `module-eb0bce4aaf5b` (ops.json): status working not eligible
+- `module-918d9d178fe3` (ops.json): status working not eligible
+- `module-2190e88ab8cb` (ops.json): status working not eligible
+- `module-cf0d1b5d4d86` (ops.json): status working not eligible
+- `module-6b8f5c457e7f` (ops.json): status working not eligible
+- `module-c2cd9f798b9b` (ops.json): status working not eligible
+- `module-7be51ff76449` (ops.json): status working not eligible
 - `module-ae9598734759` (ops.json): status reported not eligible
-- `module-a91069ddd708` (ops.json): status reported not eligible
+- `module-a91069ddd708` (ops.json): status working not eligible
 - `module-cdbbc088b662` (ops.json): status reported not eligible
 - `module-e84c7b61d7a6` (ops.json): status reported not eligible
-- `module-464a2a956fa0` (ops.json): status reported not eligible
-- `module-6285f40851f1` (ops.json): status reported not eligible
-- `module-4c9ee5995fb6` (ops.json): status reported not eligible
-- `module-3d62540e3028` (ops.json): status reported not eligible
+- `module-464a2a956fa0` (ops.json): status working not eligible
+- `module-6285f40851f1` (ops.json): status working not eligible
+- `module-4c9ee5995fb6` (ops.json): status working not eligible
+- `module-3d62540e3028` (ops.json): status working not eligible
 - `module-a71668fad443` (ops.json): status reported not eligible
-- `module-27cb1911d462` (ops.json): status reported not eligible
+- `module-27cb1911d462` (ops.json): status working not eligible
 - `module-f21597ba1fd6` (ops.json): status reported not eligible
-- `module-266a95659ed4` (ops.json): status reported not eligible
-- `module-7af8dc300eab` (ops.json): status reported not eligible
+- `module-266a95659ed4` (ops.json): status working not eligible
+- `module-7af8dc300eab` (ops.json): status working not eligible
 - `mod-autonomy` (ops.json): status reported not eligible
 - `mod-osiris` (ops.json): status working not eligible
 - `mod-v15_owner` (opsplug-retire.json): status retired not eligible
@@ -806,32 +707,146 @@
 - `mod-v15_self_repair` (installed-ops.json): status working is not reported (green first)
 - `mod-watchdog` (installed-ops.json): status working is not reported (green first)
 - `mod-web_designer` (installed-ops.json): status working is not reported (green first)
+- `module-009f4807c914` (installed-ops.json): status working is not reported (green first)
+- `module-0445b69844cc` (installed-ops.json): status working is not reported (green first)
+- `module-049b601d5eaa` (installed-ops.json): status working is not reported (green first)
+- `module-0541863355da` (installed-ops.json): status working is not reported (green first)
+- `module-068b8f4fbeb2` (installed-ops.json): status working is not reported (green first)
+- `module-0aa387ab63a9` (installed-ops.json): status working is not reported (green first)
+- `module-0b1e4d69a90c` (installed-ops.json): status working is not reported (green first)
+- `module-0ce0daf3140c` (installed-ops.json): status working is not reported (green first)
+- `module-103910b19c50` (installed-ops.json): status working is not reported (green first)
+- `module-1184b1105ced` (installed-ops.json): status working is not reported (green first)
+- `module-177f174d3f63` (installed-ops.json): status working is not reported (green first)
+- `module-179cd95b7128` (installed-ops.json): status working is not reported (green first)
 - `module-1b34d40914f1` (installed-ops.json): verdict not PASS
+- `module-1c2e0a6599c0` (installed-ops.json): status working is not reported (green first)
+- `module-2190e88ab8cb` (installed-ops.json): status working is not reported (green first)
+- `module-24bbe5117ab0` (installed-ops.json): status working is not reported (green first)
+- `module-266a95659ed4` (installed-ops.json): status working is not reported (green first)
+- `module-27cb1911d462` (installed-ops.json): status working is not reported (green first)
 - `module-28048916831a` (installed-ops.json): verdict not PASS
+- `module-2bd9c1e2cdfd` (installed-ops.json): status working is not reported (green first)
+- `module-2d3d2ae733c1` (installed-ops.json): status working is not reported (green first)
+- `module-2e5863355b9a` (installed-ops.json): status working is not reported (green first)
+- `module-2eec9a135e0f` (installed-ops.json): status working is not reported (green first)
+- `module-2f9db2f18c1b` (installed-ops.json): status working is not reported (green first)
+- `module-30ddab524cfc` (installed-ops.json): status working is not reported (green first)
+- `module-37dec999ab57` (installed-ops.json): status working is not reported (green first)
+- `module-39e925886668` (installed-ops.json): status working is not reported (green first)
 - `module-3a8ad5c2d247` (installed-ops.json): verdict not PASS
+- `module-3adca9c27bdb` (installed-ops.json): status working is not reported (green first)
+- `module-3d62540e3028` (installed-ops.json): status working is not reported (green first)
 - `module-3e2b4af78a2e` (installed-ops.json): verdict not PASS
+- `module-3f0a90670bba` (installed-ops.json): status working is not reported (green first)
+- `module-3f26dfe54c72` (installed-ops.json): status working is not reported (green first)
+- `module-42a06e3c1b71` (installed-ops.json): status working is not reported (green first)
+- `module-43a773f7d5a6` (installed-ops.json): status working is not reported (green first)
+- `module-464a2a956fa0` (installed-ops.json): status working is not reported (green first)
 - `module-46de893ccfc9` (installed-ops.json): verdict not PASS
+- `module-47931d1b717a` (installed-ops.json): status working is not reported (green first)
+- `module-4aacff2330d4` (installed-ops.json): status working is not reported (green first)
 - `module-4b4b01b5e71a` (installed-ops.json): verdict not PASS
+- `module-4b4e00d7c711` (installed-ops.json): status working is not reported (green first)
 - `module-4b5988e098bd` (installed-ops.json): verdict not PASS
+- `module-4c9ee5995fb6` (installed-ops.json): status working is not reported (green first)
+- `module-4efbb2fd9c4a` (installed-ops.json): status working is not reported (green first)
+- `module-522cf2e79840` (installed-ops.json): status working is not reported (green first)
 - `module-5386412e9f11` (installed-ops.json): verdict not PASS
+- `module-5c36f1523214` (installed-ops.json): status working is not reported (green first)
 - `module-5c5bd2e61f67` (installed-ops.json): verdict not PASS
+- `module-5d128fcf8dab` (installed-ops.json): status working is not reported (green first)
+- `module-5f3e261c2cf4` (installed-ops.json): status working is not reported (green first)
+- `module-5fd57fccff12` (installed-ops.json): status working is not reported (green first)
+- `module-60f309b322d6` (installed-ops.json): status working is not reported (green first)
+- `module-6285f40851f1` (installed-ops.json): status working is not reported (green first)
+- `module-63389f3e655f` (installed-ops.json): status working is not reported (green first)
+- `module-637788ef482e` (installed-ops.json): status working is not reported (green first)
+- `module-638ddbcb1a1b` (installed-ops.json): status working is not reported (green first)
+- `module-6b8f5c457e7f` (installed-ops.json): status working is not reported (green first)
+- `module-6bfb88803a15` (installed-ops.json): status working is not reported (green first)
+- `module-6fcdcfb4b872` (installed-ops.json): status working is not reported (green first)
+- `module-72f38f26214a` (installed-ops.json): status working is not reported (green first)
 - `module-745ed9f64ff7` (installed-ops.json): verdict not PASS
+- `module-74b9d09c9a49` (installed-ops.json): status working is not reported (green first)
 - `module-76a14f0ce102` (installed-ops.json): verdict not PASS
+- `module-76ae682ed2e4` (installed-ops.json): status working is not reported (green first)
 - `module-771a003071ca` (installed-ops.json): verdict not PASS
 - `module-79d58034a65f` (installed-ops.json): verdict not PASS
+- `module-7a65bf88fb04` (installed-ops.json): status working is not reported (green first)
+- `module-7af8dc300eab` (installed-ops.json): status working is not reported (green first)
+- `module-7be51ff76449` (installed-ops.json): status working is not reported (green first)
+- `module-7f1adf1138f0` (installed-ops.json): status working is not reported (green first)
+- `module-7fb28ee13497` (installed-ops.json): status working is not reported (green first)
+- `module-815783821b83` (installed-ops.json): status working is not reported (green first)
+- `module-816c15a6b6a4` (installed-ops.json): status working is not reported (green first)
+- `module-86282a9efa67` (installed-ops.json): status working is not reported (green first)
 - `module-883a6692992b` (installed-ops.json): verdict not PASS
+- `module-897d03f9aab0` (installed-ops.json): status working is not reported (green first)
+- `module-8bd73fd35c48` (installed-ops.json): status working is not reported (green first)
+- `module-8dba9550a502` (installed-ops.json): status working is not reported (green first)
+- `module-8de7f3a7cd44` (installed-ops.json): status working is not reported (green first)
+- `module-8f7bb546924a` (installed-ops.json): status working is not reported (green first)
+- `module-904a8396aa6c` (installed-ops.json): status working is not reported (green first)
+- `module-918d9d178fe3` (installed-ops.json): status working is not reported (green first)
+- `module-95e88c430e38` (installed-ops.json): status working is not reported (green first)
+- `module-99fc865d8c4b` (installed-ops.json): status working is not reported (green first)
 - `module-9a0163231b1b` (installed-ops.json): verdict not PASS
+- `module-9a1970f7c3e5` (installed-ops.json): status working is not reported (green first)
 - `module-9c2c49d71c15` (installed-ops.json): verdict not PASS
+- `module-9d055871ddff` (installed-ops.json): status working is not reported (green first)
+- `module-9d8ee6730907` (installed-ops.json): status working is not reported (green first)
 - `module-9f29d5a73f7f` (installed-ops.json): verdict not PASS
+- `module-a17a422c65d7` (installed-ops.json): status working is not reported (green first)
+- `module-a1a2c4ccc239` (installed-ops.json): status working is not reported (green first)
+- `module-a270c9dbe40c` (installed-ops.json): status working is not reported (green first)
+- `module-a43ab3ee85df` (installed-ops.json): status working is not reported (green first)
 - `module-a548c779a998` (installed-ops.json): verdict not PASS
+- `module-a91069ddd708` (installed-ops.json): status working is not reported (green first)
 - `module-aab05d5c4f1a` (installed-ops.json): verdict not PASS
+- `module-ac2f6e6dc2d9` (installed-ops.json): status working is not reported (green first)
+- `module-b428d8c055bc` (installed-ops.json): status working is not reported (green first)
+- `module-b8a71e28fc47` (installed-ops.json): status working is not reported (green first)
+- `module-bc25cd9f1e01` (installed-ops.json): status working is not reported (green first)
+- `module-bc87c8d6bfa4` (installed-ops.json): status working is not reported (green first)
+- `module-c22cab3d4320` (installed-ops.json): status working is not reported (green first)
+- `module-c23f35941e16` (installed-ops.json): status working is not reported (green first)
+- `module-c2cd9f798b9b` (installed-ops.json): status working is not reported (green first)
+- `module-c5d464a7aa9e` (installed-ops.json): status working is not reported (green first)
 - `module-c64e6d1041b0` (installed-ops.json): verdict not PASS
 - `module-ca6830e0de16` (installed-ops.json): verdict not PASS
+- `module-cc401f252307` (installed-ops.json): status working is not reported (green first)
+- `module-cdb370a24157` (installed-ops.json): status working is not reported (green first)
 - `module-cdbbc088b662` (installed-ops.json): verdict not PASS
+- `module-cf0d1b5d4d86` (installed-ops.json): status working is not reported (green first)
+- `module-d401165730fa` (installed-ops.json): status working is not reported (green first)
+- `module-d41ad480551d` (installed-ops.json): status working is not reported (green first)
+- `module-d4455ade6345` (installed-ops.json): status working is not reported (green first)
+- `module-d5d8a9a7ab5c` (installed-ops.json): status working is not reported (green first)
+- `module-dacafbe9e4ee` (installed-ops.json): status working is not reported (green first)
+- `module-dc98760346bb` (installed-ops.json): status working is not reported (green first)
+- `module-dd118749492b` (installed-ops.json): status working is not reported (green first)
+- `module-ddbf2f4b50d2` (installed-ops.json): status working is not reported (green first)
+- `module-de0238268e77` (installed-ops.json): status working is not reported (green first)
+- `module-de7445e9d5f5` (installed-ops.json): status working is not reported (green first)
+- `module-e297560d568b` (installed-ops.json): status working is not reported (green first)
+- `module-e2b6bd15aba1` (installed-ops.json): status working is not reported (green first)
+- `module-e2dd4b7bfb5d` (installed-ops.json): status working is not reported (green first)
+- `module-e376eaac5d8f` (installed-ops.json): status working is not reported (green first)
 - `module-e6b90349c6c6` (installed-ops.json): verdict not PASS
 - `module-e84c7b61d7a6` (installed-ops.json): verdict not PASS
+- `module-e999698f8e9e` (installed-ops.json): status working is not reported (green first)
+- `module-e99c091d1c06` (installed-ops.json): status working is not reported (green first)
+- `module-eb0bce4aaf5b` (installed-ops.json): status working is not reported (green first)
+- `module-eb0be06d9db9` (installed-ops.json): status working is not reported (green first)
+- `module-edac8a22b815` (installed-ops.json): status working is not reported (green first)
+- `module-efdcd8d35b9c` (installed-ops.json): status working is not reported (green first)
 - `module-f1437d4e2221` (installed-ops.json): verdict not PASS
+- `module-f1cacda08a67` (installed-ops.json): status working is not reported (green first)
+- `module-f6a4b22d7b2b` (installed-ops.json): status working is not reported (green first)
+- `module-fb39c9a64573` (installed-ops.json): status working is not reported (green first)
 - `module-fdd1e1e7e9a0` (installed-ops.json): verdict not PASS
+- `module-ff3e6bc1044b` (installed-ops.json): status working is not reported (green first)
 - `plugin-0` (installed-plugins.json): sha is not a registered installed build
 - `plugin-1` (installed-plugins.json): sha is not a registered installed build
 - `plugin-2` (installed-plugins.json): sha is not a registered installed build

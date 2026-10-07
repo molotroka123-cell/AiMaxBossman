@@ -1,0 +1,17 @@
+# stage3 oss integration receipt output
+node: oss-16
+project: ggml-org/llama.cpp
+sha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13
+build_site_packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+integration_code: command-center/bcc/providers.py, command-center/bcc/discovery.py
+command: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-16   # = cd command-center && pytest -q -rs tests/test_llamacpp_catalog.py + sys.modules check
+exit_code: 0
+
+..............                                                           [100%]
+14 passed in 0.24s
+
+@@ INTEGRATION CHECK (sys.modules after the test session) @@
+  bcc.providers: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\providers.py
+  bcc.discovery: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\discovery.py
+
+@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@
