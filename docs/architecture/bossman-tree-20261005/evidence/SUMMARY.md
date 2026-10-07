@@ -1,6 +1,6 @@
 # Evidence summary
 
-Статусы дерева: blocked=11, branch=32, code=31, idea=6, mixed=14, prepared=2, recorded=180, reported=555, retired=2, working=1
+Статусы дерева: blocked=12, branch=34, code=31, idea=7, mixed=14, prepared=3, recorded=180, reported=555, retired=2, working=1
 
 Принято расписок: 0; отклонено: 633
 

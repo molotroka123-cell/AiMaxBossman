@@ -5825,6 +5825,41 @@
    "parent": "ops",
    "status": "reported",
    "short": "Per-leaf audit of the «code written» (blue) leaves of the capability tree. For every leaf with status ``code`` it answers, from the checkout and from JUnit file"
+  },
+  {
+   "id": "d0710-worker-verify-env",
+   "label": "Облачный воркер: BOSSMAN_VERIFY_PYTHON (803aa4d9)",
+   "parent": "cloud",
+   "status": "branch",
+   "short": "07.10: облачный воркер получает BOSSMAN_VERIFY_PYTHON, поэтому pytest у воркера работает. CODE и TEST прошли независимую проверку (тест красный на старом коде, "
+  },
+  {
+   "id": "d0710-swarm-queue",
+   "label": "Рой 07.10: очередь из 8 задач и проверяющий",
+   "parent": "agents",
+   "status": "branch",
+   "short": "07.10: исследователь составил очередь из 8 задач (queue.md/json): расхождений сайт/реестр по статусам нет, 11 листьев reported без PASS-receipt. Независимый про"
+  },
+  {
+   "id": "d0710-selfrepair-cycle14-15",
+   "label": "Самоисправление, циклы 14 и 15 (бесплатный Nemotron)",
+   "parent": "agents",
+   "status": "blocked",
+   "short": "07.10, сборка 803aa4d9, бесплатная модель Nemotron 3 Super, платных вызовов 0. Цикл 14: holdout 35 -> 15 падений, остановлен сторожем песочницы, патч не принят "
+  },
+  {
+   "id": "d0710-concert-faint-clip",
+   "label": "Концерт Faint: продолжение клипа 17 с",
+   "parent": "media",
+   "status": "prepared",
+   "short": "07.10: 17-секундное продолжение клипа отрендерено локально (S2V-14B, 4 шота, около 10 минут каждый). Это подготовленный артефакт. OWNER_HW (просмотр владельцем)"
+  },
+  {
+   "id": "d0710-direct-generator-spec",
+   "label": "Прямой генератор клипов (45 шотов): runbook",
+   "parent": "media",
+   "status": "idea",
+   "short": "07.10: написан runbook («файл») и спецификация генератора на 45 шотов. Генератор NOT_RUN: только описание, ни кода, ни прогона."
   }
  ]
 }
