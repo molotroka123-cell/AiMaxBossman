@@ -1,0 +1,50 @@
+{
+ "task_id": "040332fbc248",
+ "case": "discovery-none",
+ "worker": "openrouter-free",
+ "model": "nvidia/nemotron-3-super-120b-a12b:free",
+ "status": "completed",
+ "error": "",
+ "base_commit": "7760eb6e3ffadd96dafd88610bb437f55a4bf3da",
+ "changed_files": [
+  "command-center/bcc/pit/discovery.py",
+  "command-center/tests/test_discovery.py"
+ ],
+ "verification": {
+  "ran": true,
+  "runner": "pytest",
+  "exit_code": 0,
+  "passed": true
+ },
+ "holdout_base": {
+  "total": 72,
+  "failed": 15,
+  "passed": false,
+  "exit_code": 1
+ },
+ "holdout_patched": {
+  "total": 72,
+  "failed": 0,
+  "passed": true,
+  "exit_code": 0
+ },
+ "recipe_saved": {
+  "recipe_id": "tree-selfrepair-040332fbc248",
+  "lesson_id": "coach-lesson:5923d65d96287aa1",
+  "status": "VERIFIED",
+  "version": 3,
+  "project_id": "capability-tree",
+  "scope": "project",
+  "kind": "student_fix",
+  "learning_dir": "<HOME>\\AppData\\Local\\Bossman\\CommandCenter\\learning"
+ },
+ "stages": {
+  "DEFECT_REPRODUCED": true,
+  "MODEL_PATCH_CREATED": true,
+  "BOSSMAN_ZONE_CHECK_PASS": true,
+  "HOLDOUT_PASS_ON_PATCH": true,
+  "SCOPE_RESPECTED": true,
+  "INDEPENDENT_VERIFICATION_PASS": true,
+  "EXPERIENCE_AUTO_SAVED": true
+ }
+}
