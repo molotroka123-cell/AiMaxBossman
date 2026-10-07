@@ -18800,6 +18800,146 @@
       "sources": [],
       "next_action": "",
       "origin": "swarm session 07.10 (site data edited directly; carried into the seed so regeneration keeps it)"
+    },
+    {
+      "id": "s0710-top-01",
+      "label": "desktop-window-by-handle",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "Топ-10 навыков управления ПК и браузером (07.10). Управление окнами Windows только по точному pid/handle через UI Automation; широкие маски по заголовку запрещены (был случай закрытия чужой вкладки). Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt."
+    },
+    {
+      "id": "s0710-top-02",
+      "label": "chrome-devtools-browser",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "Топ-10 навыков управления ПК и браузером (07.10). Управление браузером: navigate, snapshot, click, fill, screenshot, консоль и сеть через Chrome DevTools; проверка страниц сайта и UI Bossman. Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt."
+    },
+    {
+      "id": "s0710-top-03",
+      "label": "screenshot-before-after",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "Топ-10 навыков управления ПК и браузером (07.10). Скриншоты «до» и «после» одной и той же страницы одним и тем же скриптом для отчётов по этапам (shot_tree.py). Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt."
+    },
+    {
+      "id": "s0710-top-04",
+      "label": "readonly-inventory-first",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "Топ-10 навыков управления ПК и браузером (07.10). Перед любым действием на ПК сначала чтение: диски, порты, процессы, модели, задачи планировщика; изменения только после списка фактов. Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt."
+    },
+    {
+      "id": "s0710-top-05",
+      "label": "safe-process-control",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "Топ-10 навыков управления ПК и браузером (07.10). Остановка процессов только по pid после проверенного бэкапа; без taskkill по имени; после старта проверка health и порта. Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt."
+    },
+    {
+      "id": "s0710-top-06",
+      "label": "scheduled-task-ops",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "Топ-10 навыков управления ПК и браузером (07.10). Планировщик Windows: BossmanOne/Tomorrow, повтор каждые 10 минут, режимы --ensure и --hold, остановка файлом STOP. Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt."
+    },
+    {
+      "id": "s0710-top-07",
+      "label": "secret-hygiene",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "Топ-10 навыков управления ПК и браузером (07.10). Ключи только в provider-keys.env и DPAPI-копиях; в логи и отчёты попадают одни имена; vault никогда не пушится. Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt."
+    },
+    {
+      "id": "s0710-top-08",
+      "label": "owner-confirmation-gate",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "Топ-10 навыков управления ПК и браузером (07.10). Необратимое (платёж, регистрация, вход в аккаунт, капча) идёт через подтверждение владельца в Telegram; обход капчи и проверок запрещён. Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt."
+    },
+    {
+      "id": "s0710-top-09",
+      "label": "windows-pitfalls-guard",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "Топ-10 навыков управления ПК и браузером (07.10). Ловушки Windows: CRLF, cp1251, обратные слэши в inline-Python, подмена путей Git Bash; запись файлов в LF, хэши байт-в-байт. Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt."
+    },
+    {
+      "id": "s0710-top-10",
+      "label": "evidence-receipt-after-action",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "Топ-10 навыков управления ПК и браузером (07.10). После каждого действия квитанция: команда, код выхода, sha256 вывода; без неё лист остаётся «записано», а не «доказано». Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt."
+    },
+    {
+      "id": "s0710-oss-1",
+      "label": "GEPA (gepa-ai/gepa)",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "OSS-навык на завтра (07.10). Эволюция текста промптов и навыков по метрике (100-500 вызовов), без GPU и RL; кандидат для самоулучшения навыков. Не измерено на бесплатных моделях. Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt.",
+      "external_url": "https://github.com/gepa-ai/gepa"
+    },
+    {
+      "id": "s0710-oss-2",
+      "label": "promptfoo",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "OSS-навык на завтра (07.10). Регрессионные проверки навыков и промптов (evals, red-team) в CI; MIT. Не измерено у нас. Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt.",
+      "external_url": "https://github.com/promptfoo/promptfoo"
+    },
+    {
+      "id": "s0710-oss-3",
+      "label": "LiteLLM proxy",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "OSS-навык на завтра (07.10). Единый прокси для локальных, OpenRouter и NIM моделей с лимитами и учётом стоимости; заменил бы часть своей маршрутизации. Не измерено. Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt.",
+      "external_url": "https://github.com/BerriAI/litellm"
+    },
+    {
+      "id": "s0710-oss-4",
+      "label": "mini-swe-agent",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "OSS-навык на завтра (07.10). Агент на 100 строк, bash-only; кандидат в воркеры. На голой Windows известные проблемы (issues #937, #968, #931), нужна проверка в WSL или адаптер. Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt.",
+      "external_url": "https://github.com/SWE-agent/mini-swe-agent"
+    },
+    {
+      "id": "s0710-oss-5",
+      "label": "OpenHands software-agent-sdk",
+      "parent": "skills",
+      "status": "idea",
+      "detail": "OSS-навык на завтра (07.10). Лёгкий SDK агента с локальным workspace и нативной Windows; sidecar OpenHands у нас уже есть. Не измерено. Только предложение, в runtime не подключён.",
+      "sources": [],
+      "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt.",
+      "external_url": "https://github.com/OpenHands/software-agent-sdk"
     }
   ],
   "memory_protocol": {
