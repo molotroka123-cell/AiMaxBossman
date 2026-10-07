@@ -247,10 +247,16 @@ async def _sidecar_env(svc) -> dict[str, str]:
         env["BOSSMAN_OPENHANDS_MODEL"] = model
     # The owner's test interpreter (a path, not a secret): without it the worker's own run_tests fell back to
     # unittest on pytest-style tests in the installed bundle (owner PC 06.10, task cecbba1c42a9).
+    env.update(_verify_python_env())
+    return env
+
+
+def _verify_python_env() -> dict[str, str]:
+    """The owner's test interpreter, if it exists. Shared by the local and the cloud-worker sidecar start."""
     verify_python = os.environ.get("BOSSMAN_VERIFY_PYTHON", "").strip()
     if verify_python and Path(verify_python).is_file():
-        env["BOSSMAN_VERIFY_PYTHON"] = verify_python
-    return env
+        return {"BOSSMAN_VERIFY_PYTHON": verify_python}
+    return {}
 
 
 async def readiness(svc, worker: str | None = None) -> dict[str, Any]:
@@ -566,11 +572,11 @@ async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None
     try:
         command = None
         if body.worker:
-            # A cloud worker gets ONLY its own key, under a fixed name the sidecar pops at start.
+            # A cloud worker gets ONLY its own key (a fixed name the sidecar pops at start) plus the test interpreter path.
             key = await _worker_key(WORKERS[body.worker]["key"], svc)
             if not key:
                 raise RuntimeError(f"нет ключа {WORKERS[body.worker]['key']} для исполнителя {body.worker}")
-            env, command = {_WORKER_KEY_ENV: key}, _worker_command(body.worker)
+            env, command = {_WORKER_KEY_ENV: key, **_verify_python_env()}, _worker_command(body.worker)
         else:
             env = await _sidecar_env(svc)
         final = await asyncio.to_thread(_execute, record, repo, body, context, env, command)
