@@ -31,7 +31,9 @@ const LIVE = new Set(['queued', 'loading', 'generating', 'postprocessing']);
 const POLL_LIVE_MS = 1500;
 const POLL_IDLE_MS = 5000;
 const MAX_PROMPT = 8000;
-const RES_PRESETS = [[480, 320], [640, 384], [832, 480], [1024, 576], [1280, 720]];
+const RES_PRESETS = [[480, 272], [480, 320], [640, 384], [832, 480], [1024, 576], [1280, 720]];
+const PHOTO_PRESETS = [[512, 512], [768, 768], [1024, 1024], [768, 512], [512, 768], [1152, 896]];
+const KIND_LABEL = { photo: 'Фото', video: 'Видео' };
 const base = '/api/direct-gen';
 const LEGAL = 'Только для совершеннолетних; материалы реальных людей без их согласия не создавать';
 
@@ -57,6 +59,11 @@ const ERRORS = {
   image_unsupported: ['Изображение не поддерживается', 'Workflow этой модели не принимает изображение: уберите файл.'],
   audio_unsupported: ['Аудио не поддерживается', 'Workflow этой модели не принимает аудио: уберите файл.'],
   unknown_model: ['Неизвестная модель', 'Обновите страницу и выберите модель из списка.'],
+  insufficient_memory: ['Не хватает свободной памяти', 'Задача не запускалась: модели нужно больше свободной памяти, чем есть. Закройте тяжёлые приложения или выберите модель полегче.'],
+  gpu_busy: ['GPU занят другим процессом', 'Уже работает другой sd-cli. Дождитесь его окончания; параллельный запуск не делается.'],
+  engine_error: ['Ошибка движка sd-cli', 'Движок завершился с ошибкой. Последние строки его вывода показаны ниже без правок.'],
+  image_invalid: ['Изображение не распознано', 'Нужен файл PNG или JPEG.'],
+  invalid_steps: ['Недопустимое число шагов', 'Проверьте предел шагов выбранной модели.'],
   already_finished: ['Задача уже завершена', 'Останавливать нечего.'],
 };
 
@@ -82,6 +89,7 @@ function humanReason(text) {
   return String(text || '')
     .replace(/weights missing on disk: /g, 'Нет весов на диске: ')
     .replace(/no verified workflow template installed \(([^)]+)\)/g, 'Нет проверенного workflow-шаблона ($1)')
+    .replace(/нет движка sd-cli \(stable-diffusion\.cpp\)/, 'Нет движка sd-cli (stable-diffusion.cpp)')
     .replace(/ANIMATE needs a driving video and pose inputs; the Direct window has no such input yet/,
       'ANIMATE требует управляющее видео и позы; такого входа в этом окне пока нет');
 }
@@ -189,12 +197,12 @@ function createJobView(hooks) {
     if (p.kind === 'steps') {
       if (!progressEl) {
         progressEl = {
-          bar: h('progress.dg-progress', { 'aria-label': 'Прогресс по шагам ComfyUI' }),
+          bar: h('progress.dg-progress', { 'aria-label': 'Прогресс по шагам движка' }),
           txt: h('div.dg-small.dg-num'),
         };
       }
       progressEl.bar.max = p.max; progressEl.bar.value = p.value;
-      progressEl.txt.textContent = `Шаг ${p.value} из ${p.max} (${p.percent}%): данные ComfyUI`;
+      progressEl.txt.textContent = `Шаг ${p.value} из ${p.max} (${p.percent}%): данные движка`;
       if (progMode !== 'steps') { progMode = 'steps'; progressBox.replaceChildren(progressEl.bar, progressEl.txt); }
     } else {
       const mode = LIVE.has(job.status) ? 'text' : '';
@@ -239,7 +247,8 @@ function createJobView(hooks) {
     if (statusEl.textContent !== label) statusEl.textContent = label;
     elapsedEl.textContent = job.status === 'queued' && !job.elapsed_s ? '' : fmtClock(job.elapsed_s);
     const p = job.params;
-    metaEl.textContent = `${job.model} · ${job.mode} · seed ${p.seed} · ${p.width}×${p.height} · ${p.duration} с (${p.frames} кадров)`
+    metaEl.textContent = `${job.model} · ${job.mode} · seed ${p.seed} · ${p.width}×${p.height}`
+      + (job.kind === 'video' ? ` · ${p.duration} с (${p.frames} кадров)` : '') + (p.steps ? ` · шагов ${p.steps}` : '')
       + (job.status === 'queued' ? ` · позиция в очереди: ${job.queue_position}` : '');
     setStages(job); setProgress(job);
     noteEl.textContent = STAGE_NOTE[job.stage] && live ? STAGE_NOTE[job.stage] : '';
@@ -296,9 +305,9 @@ const DirectGenPage = {
   section: 'studio',
 
   async render() {
-    const head = pageHead('Прямой генератор видео',
-      'Локальная генерация. DIRECT: ваш текст уходит в модель без изменений и без промежуточной модерации; отказы и ошибки показываются как есть.');
-    const state = { models: [], jobs: [], current: null, assist: null, modelId: null, mode: 'DIRECT', tick: 0, modelSig: '', histSig: '' };
+    const head = pageHead('Прямой генератор: фото и видео',
+      'Локальная генерация выбранной моделью. DIRECT: ваш текст уходит в модель без изменений и без промежуточной модерации; отказы и ошибки показываются как есть.');
+    const state = { models: [], jobs: [], current: null, assist: null, modelId: null, kind: (DRAFT || {}).kind || 'photo', mode: 'DIRECT', tick: 0, modelSig: '', histSig: '' };
     const D = DRAFT || {};
 
     /* ---- форма ---- */
@@ -323,15 +332,23 @@ const DirectGenPage = {
 
     const lab = (text, id, note) => h('div', h('label.dg-label', { for: id }, text), note || null);
 
+    const steps = h('input.dg-input', { id: 'dg-steps', name: 'dg-steps', type: 'number', min: '1', step: '1', inputmode: 'numeric' });
+    if (D.steps) steps.value = D.steps;
+    const stepsNote = h('div.dg-note');
+    const imageLabel = h('label.dg-label', { for: 'dg-image' }, 'Референс-изображение');
+    const imageNote = h('div.dg-note');
+    const durBox = h('div', lab('Длительность, с', 'dg-duration'), duration, durNote);
+    const audioBox = h('div', lab('Аудио (для S2V)', 'dg-audio'), audio);
+    const imageBox = h('div', imageLabel, image, imageNote, imgPreview);
     const paramsBox = h('details.dg-details', { dataset: { testid: 'dg-params' } },
       h('summary', 'Параметры', paramSum),
       h('div.dg-details-body', h('div.dg-fields',
-        h('div', lab('Длительность, с', 'dg-duration'), duration, durNote),
+        durBox,
+        h('div', lab('Шаги', 'dg-steps'), steps, stepsNote),
         h('div', lab('Разрешение', 'dg-resolution'), resolution, resNote, resChips),
         h('div', lab('Seed', 'dg-seed'), seed, h('div.dg-note', 'Пусто: случайный. Seed каждой задачи сохраняется для повтора.')),
         h('div.is-wide', lab('Negative', 'dg-negative'), negative),
-        h('div', lab('Референс-изображение', 'dg-image'), image, imgPreview),
-        h('div', lab('Аудио (для S2V)', 'dg-audio'), audio))));
+        imageBox, audioBox)));
     if (D.paramsOpen) paramsBox.open = true;
     paramsBox.addEventListener('toggle', () => { DRAFT = { ...(DRAFT || {}), paramsOpen: paramsBox.open }; });
 
@@ -346,7 +363,14 @@ const DirectGenPage = {
     const modeNote = h('div.dg-hint', { id: 'dg-prompt-hint' });
 
     /* ---- модели ---- */
-    const modelCards = h('fieldset.dg-cards', { dataset: { testid: 'dg-models' } }, h('legend.dg-sr', 'Видео-модель'));
+    const kindRadio = (value, title, sub) => {
+      const input = h('input', { type: 'radio', name: 'dg-kind', value, id: `dg-kind-${value}`, checked: value === state.kind });
+      input.addEventListener('change', () => { if (input.checked) setKind(value); });
+      return h('label.dg-seg-opt', { for: input.id }, input, h('span.dg-seg-t', title), h('span.dg-seg-s', sub));
+    };
+    const kindGroup = h('div.dg-seg', { role: 'radiogroup', 'aria-label': 'Тип результата', dataset: { testid: 'dg-kind' } },
+      kindRadio('photo', 'Фото', 'картинка'), kindRadio('video', 'Видео', 'ролик'));
+    const modelCards = h('fieldset.dg-cards', { dataset: { testid: 'dg-models' } }, h('legend.dg-sr', 'Модель'));
     const modelDetail = h('div.dg-stack', { dataset: { testid: 'dg-model-note' } });
     const statusBox = h('div.dg-stack', { dataset: { testid: 'dg-status' } });
 
@@ -377,8 +401,18 @@ const DirectGenPage = {
       resChips.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.res === resolution.value.trim() ? 'true' : 'false'));
     };
     const saveDraft = () => {
-      DRAFT = { ...(DRAFT || {}), prompt: prompt.value, negative: negative.value, duration: duration.value, resolution: resolution.value, seed: seed.value, mode: state.mode, model: state.modelId };
+      DRAFT = { ...(DRAFT || {}), prompt: prompt.value, negative: negative.value, duration: duration.value, resolution: resolution.value, seed: seed.value, steps: steps.value, mode: state.mode, model: state.modelId, kind: state.kind };
     };
+    const pickModel = (kind) => {
+      const ofKind = state.models.filter((m) => m.kind === kind);
+      return ofKind.find((m) => m.id === state.modelId) || ofKind.find((m) => m.available) || ofKind[0] || null;
+    };
+    function setKind(kind) {
+      state.kind = kind;
+      const m = pickModel(kind);
+      state.modelId = m ? m.id : null;
+      renderModels(true); renderModelDetail(); applyLimits(true); sumUpdate(); saveDraft();
+    }
     const setMode = (mode) => {
       state.mode = mode;
       modeNote.textContent = mode === 'DIRECT'
@@ -388,14 +422,30 @@ const DirectGenPage = {
       if (mode === 'DIRECT') { state.assist = null; showAssist(); }
       saveDraft();
     };
-    const applyLimits = () => {
+    const applyLimits = (reset) => {
       const m = selected();
       resChips.replaceChildren();
       if (!m) { durNote.textContent = ''; resNote.textContent = ''; return; }
-      duration.max = String(m.max_seconds);
-      durNote.textContent = `Не больше ${m.max_seconds} с · ${m.fps} к/с`;
+      const photo = m.kind === 'photo';
+      durBox.hidden = photo;
+      steps.parentElement.hidden = m.default_steps == null;
+      audioBox.hidden = !m.requires_audio;
+      imageBox.hidden = !m.accepts_image;
+      imageLabel.textContent = m.requires_image ? 'Референс-изображение (обязательно)' : 'Стартовое изображение (необязательно)';
+      imageNote.textContent = m.requires_image ? 'Правка по референсу: только для собственного или вымышленного персонажа.' : '';
+      if (m.default_steps != null) {
+        steps.max = String(m.max_steps);
+        stepsNote.textContent = `По умолчанию ${m.default_steps}, не больше ${m.max_steps}`;
+        steps.placeholder = String(m.default_steps);
+        if (reset) steps.value = '';
+      }
+      if (reset && m.default_resolution) resolution.value = m.default_resolution;
+      if (!photo) {
+        duration.max = String(m.max_seconds);
+        durNote.textContent = `Не больше ${m.max_seconds} с · ${m.fps} к/с`;
+      }
       resNote.textContent = `Каждая сторона ${m.min_side}–${m.max_side}, кратно ${m.side_multiple}`;
-      for (const [w, hh] of RES_PRESETS) {
+      for (const [w, hh] of (photo ? PHOTO_PRESETS : RES_PRESETS)) {
         if (w < m.min_side || hh < m.min_side || w > m.max_side || hh > m.max_side || w % m.side_multiple || hh % m.side_multiple) continue;
         const val = `${w}x${hh}`;
         const chip = h('button.dg-chip', { type: 'button', dataset: { res: val }, 'aria-pressed': 'false' }, `${w}×${hh}`);
@@ -411,7 +461,10 @@ const DirectGenPage = {
       if (!m) { modelDetail.append(h('div.dg-info', 'Каталог моделей пуст.')); return; }
       const sha = m.sha256 === 'UNKNOWN' ? 'UNKNOWN' : `${m.sha256.slice(0, 16)}…`;
       modelDetail.append(...[
-        h('div.dg-small', { 'aria-live': 'polite' }, `Выбрана: ${m.label} · до ${m.max_seconds} с · ${m.fps} к/с`),
+        h('div.dg-small', { 'aria-live': 'polite' }, m.kind === 'photo'
+          ? `Выбрана: ${m.label} · ${m.modes.join(' / ')} · шагов по умолчанию ${m.default_steps}`
+          : `Выбрана: ${m.label} · до ${m.max_seconds} с · ${m.fps} к/с`),
+        m.notes ? h('div.dg-small', m.notes) : null,
         m.requires_image ? h('div.dg-small', 'Нужно референс-изображение (поле в «Параметрах»).') : null,
         m.requires_audio ? h('div.dg-small', 'Нужен аудиофайл (поле в «Параметрах»).') : null,
         h('div.dg-note', `Источник ${m.source} · ревизия ${m.revision} · лицензия ${m.license} · sha256 ${sha}`),
@@ -419,19 +472,20 @@ const DirectGenPage = {
     };
 
     const renderModels = (force) => {
-      const sig = JSON.stringify(state.models.map((m) => [m.id, m.available, m.reason]));
+      const shown = state.models.filter((m) => m.kind === state.kind);
+      const sig = JSON.stringify([state.kind, shown.map((m) => [m.id, m.available, m.reason])]);
       if (!force && sig === state.modelSig) return;
       state.modelSig = sig;
       const hadFocus = modelCards.contains(document.activeElement);
-      modelCards.replaceChildren(h('legend.dg-sr', 'Видео-модель'), ...state.models.map((m) => {
+      modelCards.replaceChildren(h('legend.dg-sr', `${KIND_LABEL[state.kind]}: модель`), ...shown.map((m) => {
         const input = h('input', { type: 'radio', name: 'dg-model', value: m.id, id: `dg-model-${m.id}`, checked: m.id === state.modelId, 'aria-describedby': `dg-model-${m.id}-d` });
-        input.addEventListener('change', () => { if (input.checked) { state.modelId = m.id; renderModels(true); renderModelDetail(); applyLimits(); saveDraft(); } });
+        input.addEventListener('change', () => { if (input.checked) { state.modelId = m.id; renderModels(true); renderModelDetail(); applyLimits(true); sumUpdate(); saveDraft(); } });
         return h('label', { class: `dg-card${m.id === state.modelId ? ' is-on' : ''}${m.available ? '' : ' is-off'}`, for: input.id },
           input,
           h('div.dg-card-in',
             h('div.dg-card-top', h('span.dg-card-name', m.label), pill(m.available ? 'доступна' : 'недоступна', { tone: m.available ? 'ok' : 'err' })),
             h('div.dg-card-meta', `${m.modes.join(' / ')} · ${m.runtime}`),
-            h('div.dg-card-reason', { id: `dg-model-${m.id}-d` }, m.available ? 'Веса и workflow-шаблон на месте.' : [h('b', 'Почему недоступна: '), humanReason(m.reason)])));
+            h('div.dg-card-reason', { id: `dg-model-${m.id}-d` }, m.available ? (m.runtime === 'sdcpp' ? 'Веса и движок sd-cli на месте.' : 'Веса и workflow-шаблон на месте.') : [h('b', 'Почему недоступна: '), humanReason(m.reason)])));
       }));
       if (hadFocus) modelCards.querySelector('input:checked')?.focus();
     };
@@ -439,7 +493,8 @@ const DirectGenPage = {
     const modelsHelp = h('details.dg-details', { dataset: { testid: 'dg-models-help' } },
       h('summary', 'Как сделать модель доступной'),
       h('div.dg-details-body.dg-small',
-        'Веса ищутся в каталоге моделей ComfyUI (переменная BOSSMAN_COMFYUI_MODELS_DIR; по умолчанию Bossman/media-runtime/ComfyUI/models в домашней папке). ',
+        'Фото и Wan2.2 TI2V запускаются через sd-cli: веса ищутся в каталоге медиа-моделей (BOSSMAN_MEDIA_MODELS; по умолчанию Bossman/models/media), движок в BOSSMAN_SDCPP_BIN. ',
+        'Остальное видео идёт через ComfyUI: веса ищутся в его каталоге моделей (BOSSMAN_COMFYUI_MODELS_DIR; по умолчанию Bossman/media-runtime/ComfyUI/models). ',
         'Проверенный workflow-шаблон <id модели>.json кладётся в папку direct-gen/workflows каталога данных Bossman. ',
         'Ничего не скачивается и не подставляется автоматически; платной замены нет.'));
 
@@ -470,7 +525,9 @@ const DirectGenPage = {
     /* ---- создание ---- */
     const body = async (extra = {}) => ({
       model: state.modelId, prompt: prompt.value, negative: negative.value,
-      duration: Number(duration.value), resolution: resolution.value.trim(),
+      ...(selected()?.kind === 'video' ? { duration: Number(duration.value) } : {}),
+      ...(steps.value === '' || steps.parentElement.hidden ? {} : { steps: Number(steps.value) }),
+      resolution: resolution.value.trim(),
       seed: seed.value === '' ? null : Number(seed.value), mode: state.mode,
       image_b64: await readB64(image.files[0]), audio_b64: await readB64(audio.files[0]), ...extra,
     });
@@ -519,9 +576,16 @@ const DirectGenPage = {
 
     function loadToForm(job) {
       prompt.value = job.raw_prompt; negative.value = job.negative || '';
-      duration.value = job.params.duration; resolution.value = `${job.params.width}x${job.params.height}`;
+      if (job.params.duration) duration.value = job.params.duration;
       seed.value = job.params.seed;
-      if (state.models.some((m) => m.id === job.model)) { state.modelId = job.model; renderModels(true); renderModelDetail(); applyLimits(); }
+      const known = state.models.find((m) => m.id === job.model);
+      if (known) {
+        state.modelId = job.model; state.kind = known.kind;
+        kindGroup.querySelector(`#dg-kind-${known.kind}`).checked = true;
+        renderModels(true); renderModelDetail(); applyLimits(true);
+      }
+      resolution.value = `${job.params.width}x${job.params.height}`;
+      steps.value = job.params.steps || '';
       modeGroup.querySelector('#dg-mode-DIRECT').checked = true; setMode('DIRECT');
       countUpdate(); sumUpdate(); saveDraft();
       prompt.scrollIntoView({ block: 'center', behavior: 'auto' });
@@ -532,7 +596,9 @@ const DirectGenPage = {
     /* ---- опрос ---- */
     const renderStatus = (st) => {
       const rows = [
-        h('div.dg-row', pill(st.runtime.reachable ? 'ComfyUI на связи' : 'ComfyUI недоступен', { tone: st.runtime.reachable ? 'ok' : 'err' })),
+        h('div.dg-row',
+          pill(st.runtime.reachable ? 'ComfyUI на связи' : 'ComfyUI недоступен', { tone: st.runtime.reachable ? 'ok' : 'warn' }),
+          pill(st.sd_cli && st.sd_cli.present ? 'sd-cli на месте' : 'sd-cli не найден', { tone: st.sd_cli && st.sd_cli.present ? 'ok' : 'err' })),
         st.runtime.reason ? h('div.dg-small', st.runtime.reason) : null,
         st.memory.measured
           ? meter('Память', st.memory.used_mb, st.memory.total_mb, `занято ${Math.round(st.memory.used_mb / 1024)} из ${Math.round(st.memory.total_mb / 1024)} ГБ · свободно ${Math.round(st.memory.free_mb / 1024)} ГБ`)
@@ -556,6 +622,8 @@ const DirectGenPage = {
         const thumb = h('div.dg-thumb', { 'aria-hidden': 'true' });
         if (j.status === 'completed' && j.result && String(j.result.mime).startsWith('video/')) {
           thumb.append(h('video', { src: `${base}/jobs/${encodeURIComponent(j.job_id)}/file#t=0.1`, muted: true, playsinline: true, preload: 'metadata', tabindex: '-1' }));
+        } else if (j.status === 'completed' && j.result && String(j.result.mime).startsWith('image/')) {
+          thumb.append(h('img', { src: `${base}/jobs/${encodeURIComponent(j.job_id)}/file`, alt: '', loading: 'lazy' }));
         } else thumb.append(STATUS_SHORT[j.status] || j.status);
         const b = h('button.dg-hist', { type: 'button', 'aria-current': j.job_id === state.current ? 'true' : 'false', dataset: { job: j.job_id } },
           thumb,
@@ -601,9 +669,13 @@ const DirectGenPage = {
         h('div.dg-alert', { role: 'alert' }, h('div.dg-alert-title', 'Каталог моделей не загружен'), h('pre.dg-raw', errText(e)),
           btn('Повторить', () => { location.reload(); }, { variant: 'subtle', size: 'sm' })));
     }
-    const first = state.models.find((m) => m.id === D.model) || state.models.find((m) => m.available) || state.models[0];
-    state.modelId = first ? first.id : null;
-    renderModels(true); renderModelDetail(); applyLimits(); countUpdate(); sumUpdate();
+    const draftModel = state.models.find((m) => m.id === D.model);
+    if (draftModel) state.kind = draftModel.kind;
+    kindGroup.querySelector(`#dg-kind-${state.kind}`).checked = true;
+    state.modelId = (draftModel || pickModel(state.kind) || {}).id || null;
+    renderModels(true); renderModelDetail(); applyLimits(!draftModel); countUpdate(); sumUpdate();
+    if (draftModel && D.resolution) resolution.value = D.resolution;
+    sumUpdate();
     setMode(D.mode || 'DIRECT');
 
     prompt.addEventListener('input', () => {
@@ -622,6 +694,7 @@ const DirectGenPage = {
     });
 
     const requestPanel = panel('Запрос', h('div.dg-stack',
+      h('div.dg-row', h('span.dg-label', { style: { margin: '0' }, id: 'dg-kind-l' }, 'Что создаём'), kindGroup),
       h('div.dg-row', h('span.dg-label', { style: { margin: '0' }, id: 'dg-mode-l' }, 'Режим'), modeGroup),
       h('div', lab('Prompt', 'dg-prompt'), h('div.dg-prompt-wrap', prompt, count), modeNote),
       paramsBox,

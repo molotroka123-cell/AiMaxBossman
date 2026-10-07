@@ -52,9 +52,11 @@ SPECS: tuple[ModelSpec, ...] = (
     ModelSpec("wan2.2-s2v-14b", "Wan2.2 S2V 14B", "wan", ("S2V",),
               (Need("diffusion", "diffusion_models", "wan2.2_s2v_14B*.safetensors"), WAN_ENC,
                Need("vae", "vae", "wan_2.1_vae*.safetensors"),
-               Need("audio_encoder", "audio_encoders", "wav2vec2*.safetensors")),
+               Need("audio_encoder", "audio_encoders", "wav2vec2*.safetensors"),
+               Need("lora", "loras", "wan2.2_t2v_lightx2v_4steps_lora*high_noise*.safetensors")),
               fps=16, frame_step=4, max_seconds=20, requires_image=True, requires_audio=True,
-              notes="speech/song-to-video: needs a reference image and an audio file"),
+              notes="Речь/песня в видео: нужны референс-изображение и аудио. Ядро графа (S2V fp8 + lightning 4 шага) "
+                    "проверено бенчмарком; хвост сохранения видео (CreateVideo/SaveVideo) в этом окне ещё не прогонялся."),
     ModelSpec("wan2.2-animate-14b", "Wan2.2 Animate 14B", "wan", ("ANIMATE",),
               (Need("diffusion", "diffusion_models", "Wan2_2-Animate-14B*.safetensors"),),
               fps=16, frame_step=4, max_seconds=10,
@@ -86,7 +88,7 @@ def _sidecar_hash(path: Path) -> str:
     return token if re.fullmatch(r"[0-9a-f]{64}", token) else UNKNOWN
 
 
-def _overrides(data_dir: Path | None) -> dict:
+def overrides(data_dir: Path | None) -> dict:
     if data_dir is None:
         return {}
     try:
@@ -101,8 +103,13 @@ def default_models_dir() -> Path:
     return Path(env) if env else Path.home() / "Bossman" / "media-runtime" / "ComfyUI" / "models"
 
 
+BUILTIN_WORKFLOWS = Path(__file__).resolve().parent / "workflows"
+
+
 def template_path(workflows: Path, model_id: str) -> Path:
-    return Path(workflows) / f"{model_id}.json"
+    """The owner's installed template wins; otherwise the template shipped with Bossman (if any)."""
+    owned = Path(workflows) / f"{model_id}.json"
+    return owned if owned.is_file() else BUILTIN_WORKFLOWS / f"{model_id}.json"
 
 
 def describe(spec: ModelSpec, models: Path, workflows: Path, overrides: dict | None = None) -> dict:
@@ -125,12 +132,13 @@ def describe(spec: ModelSpec, models: Path, workflows: Path, overrides: dict | N
         reasons.append(f"no verified workflow template installed ({spec.id}.json)")
     main = next((w for w in weights if w["found"]), None)
     return {
-        "id": spec.id, "label": spec.label, "family": spec.family, "runtime": "comfyui",
+        "id": spec.id, "label": spec.label, "kind": "video", "family": spec.family, "runtime": "comfyui",
         "modes": list(spec.modes), "available": not reasons, "reason": "; ".join(reasons),
         "weights": weights, "fps": spec.fps, "max_seconds": spec.max_seconds,
         "min_side": spec.min_side, "max_side": spec.max_side, "side_multiple": spec.side_multiple,
         "requires_image": spec.requires_image, "requires_audio": spec.requires_audio,
-        "notes": spec.notes,
+        "accepts_image": spec.requires_image or "I2V" in spec.modes, "default_steps": None, "max_steps": None,
+        "default_resolution": "480x320", "notes": spec.notes,
         "source": str(over.get("source") or UNKNOWN), "revision": str(over.get("revision") or UNKNOWN),
         "license": str(over.get("license") or UNKNOWN),
         "sha256": str(over.get("sha256") or (main["sha256"] if main else UNKNOWN)),
@@ -138,7 +146,7 @@ def describe(spec: ModelSpec, models: Path, workflows: Path, overrides: dict | N
 
 
 def list_models(models: Path, workflows: Path, data_dir: Path | None = None) -> list[dict]:
-    over = _overrides(data_dir)
+    over = overrides(data_dir)
     return [describe(s, models, workflows, over) for s in SPECS]
 
 

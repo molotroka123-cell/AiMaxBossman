@@ -182,7 +182,7 @@ textarea.dg-input { resize: vertical; min-height: 64px; line-height: 1.5; }
 .dg-hist:hover { border-color: var(--bx-hairline-2); transform: translateY(-1px); }
 .dg-hist[aria-current="true"] { border-color: color-mix(in srgb, var(--bx-azure) 70%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--bx-azure) 50%, transparent); }
 .dg-thumb { aspect-ratio: 16 / 9; background: #05070b; display: grid; place-items: center; color: #8d98ab; font-size: 12px; overflow: hidden; }
-.dg-thumb video { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.dg-thumb video, .dg-thumb img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .dg-hist-body { padding: 9px 11px 11px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .dg-hist-prompt { font-size: 12.5px; line-height: 1.4; color: var(--bx-ink); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .dg-hist-meta { font-size: 11.5px; color: var(--bx-ink-3); }
