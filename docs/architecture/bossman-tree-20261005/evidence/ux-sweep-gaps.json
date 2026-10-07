@@ -1,0 +1,4165 @@
+{
+ "build": "BOSSMAN-Windows-x64-eba6dc592ad9",
+ "desktop": {
+  "hand": [
+   {
+    "control": "video-studio: '＋ Новый проект' dialog, submit 'Применить' (empty required name)",
+    "submit_label": "Применить",
+    "name_required_attr": true,
+    "form_valid_before": false,
+    "after_empty_submit": {
+     "dialog_still_open": true,
+     "validationMessage": "Заполните это поле.",
+     "invalid_matches": true,
+     "focused_is_name_input": true,
+     "requests": [],
+     "would_send": []
+    },
+    "after_valid_submit": {
+     "would_send": [
+      "POST /api/video-studio/projects {\"name\":\"ux-gap-test\",\"operation_id\":\"b31e0abf-5d18-4a53-a5a9-91c2655f12a1\",\"links\":{}}"
+     ],
+     "requests": [
+      "POST /api/video-studio/projects"
+     ],
+     "dialog_still_open": true,
+     "toasts": [
+      "TESTING PERIOD\nидёт запись действий — сессия 30413f240399\n76 записей\nОтправить в GitHub",
+      "Нет связи с сервером. Данные на экране могли устареть.\n      \n      Переподключить сейчас",
+      "Cannot read properties of undefined (reading 'id')\n×",
+      "Не удалось выполнить операцию\n×",
+      "Не удалось выполнить операцию"
+     ],
+     "pageerrors": [],
+     "console": [
+      "Cannot read properties of undefined (reading 'id')"
+     ]
+    },
+    "verdict": "BY_DESIGN"
+   },
+   {
+    "control": "images?studio=1: number input 'Количество' (value 1)",
+    "initial_value": "1",
+    "attrs": {
+     "type": "number",
+     "min": "1",
+     "max": "8"
+    },
+    "after_fill_3": {
+     "value": "3",
+     "rerendered_input_kept": true
+    },
+    "after_arrow_up": "4",
+    "submit_requests": {
+     "would_send": [
+      "POST /api/studio/jobs {\"model\":\"mock:image\",\"prompt\":\"ux gap test\",\"settings\":{},\"media\":[],\"count\":4,\"collection_id\":null}"
+     ],
+     "requests": [
+      "POST /api/studio/jobs"
+     ]
+    },
+    "submitted_payload": {
+     "model": "mock:image",
+     "prompt": "ux gap test",
+     "settings": {},
+     "media": [],
+     "count": 4,
+     "collection_id": null
+    },
+    "verdict": "BY_DESIGN"
+   }
+  ],
+  "hand_extra": [
+   {
+    "control": "web_designer: 'Применить размер' (desktop)",
+    "inputs": [
+     "1440",
+     "900"
+    ],
+    "same_values_click": {
+     "localStorage_changed": true,
+     "inputs": [
+      "1440",
+      "900"
+     ]
+    },
+    "new_values_click": {
+     "iframe_before": [
+      488,
+      305,
+      "width: 1440px; height: 900px; transform: scale(0.338889);"
+     ],
+     "iframe_after": [
+      333,
+      444,
+      "width: 333px; height: 444px; transform: scale(1);"
+     ],
+     "localStorage_changed": true,
+     "inputs": [
+      "333",
+      "444"
+     ],
+     "pageerrors": []
+    },
+    "verdict": "BY_DESIGN"
+   },
+   {
+    "control": "browser: 'Новое окно' then live-panel refresh (desktop)",
+    "would_send": [
+     "POST /api/browser/sessions {}"
+    ],
+    "refresh_buttons": 1,
+    "dialogs": [
+     "modal-wrap:Браузер · сессия #undefined\nПерейти\nневерный запрос: session",
+     "modal wide:Браузер · сессия #undefined\nПерейти\nневерный запрос: session"
+    ],
+    "refresh_click": {
+     "ok": true,
+     "requests": [
+      "GET /api/browser/sessions/undefined/screenshot",
+      "GET /api/browser/sessions/undefined/screenshot",
+      "GET /api/browser/sessions/undefined/state"
+     ],
+     "pageerrors": []
+    }
+   },
+   {
+    "control": "chat.html: 'Прикрепить файлы' (desktop)",
+    "file_chooser_opened": true,
+    "multiple": true,
+    "verdict": "BY_DESIGN"
+   },
+   {
+    "control": "shell: 'Очистить ленту' (desktop)",
+    "feed_items_before": 1,
+    "feed_items_after": 1,
+    "feed_html_changed": false,
+    "feed_empty_before": false,
+    "verdict": "NEEDS_REVIEW"
+   }
+  ],
+  "retries": [
+   {
+    "route": "capability-tree",
+    "label": "(без подписи)",
+    "kind": "button",
+    "sig": "button|button|(без подписи)|cap-tree-family-title|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-family-title",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      288,
+      2072,
+      111,
+      37
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "DEAD?",
+     "real_effects": [],
+     "detail": "GET /api/evolution/status -> 200"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Живой ответ 7,3 с описан 1 октября; непрерывность сегодня не проверена.",
+    "kind": "button",
+    "sig": "button|button|Живой ответ 7,3 с описан 1 октября; непрерывность |cap-tree-leaf is-reported|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-reported",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      288,
+      2109,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "DEAD?",
+     "real_effects": [],
+     "detail": "GET /api/evolution/status -> 200"
+    },
+    "topmost_after": "BUTTON.desktop-dock-item",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "/memory, /pause_memory, /forget; приватные training.jsonl и очистка. Прогон 2026",
+    "kind": "button",
+    "sig": "button|button|/memory, /pause_memory, /forget; приватные trainin|cap-tree-leaf is-reported|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-reported",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      288,
+      2149,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.2
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Факты, источники, уверенность, checkpoint и consent; не доказательство самообуче",
+    "kind": "button",
+    "sig": "button|button|Факты, источники, уверенность, checkpoint и consen|cap-tree-leaf is-reported|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-reported",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      288,
+      2189,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.2
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "participant/companion profile, behavior scores, roleplay policy; обновления в от",
+    "kind": "button",
+    "sig": "button|button|participant/companion profile, behavior scores, ro|cap-tree-leaf is-reported|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-reported",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      288,
+      2229,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Код, тесты и отдельные ветки есть; реальный двусторонний звонок и задержки не се",
+    "kind": "button",
+    "sig": "button|button|Код, тесты и отдельные ветки есть; реальный двусто|cap-tree-leaf is-branch|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-branch",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      288,
+      2530,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "В октябрьском аудите soak NOT RUN; заявления о 100% усилении не доказаны.",
+    "kind": "button",
+    "sig": "button|button|В октябрьском аудите soak NOT RUN; заявления о 100|cap-tree-leaf is-blocked|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-blocked",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      288,
+      2570,
+      238,
+      56
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+    "kind": "button",
+    "sig": "button|button|Найден исходный модуль. Наличие тестов и живой рез|cap-tree-leaf is-branch|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-reported",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      288,
+      2631,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+    "kind": "button",
+    "sig": "button|button|Найден исходный модуль. Наличие тестов и живой рез|cap-tree-leaf is-branch|",
+    "nth": 1,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-reported",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      288,
+      2671,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "(без подписи)",
+    "kind": "button",
+    "sig": "button|button|(без подписи)|cap-tree-family-title|",
+    "nth": 1,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-family-title",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      555,
+      2072,
+      66,
+      37
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "DEAD?",
+     "real_effects": [],
+     "detail": "GET /api/evolution/status -> 200"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Результат не доказан; прежний cold page прогон показал регрессию.",
+    "kind": "button",
+    "sig": "button|button|Результат не доказан; прежний cold page прогон пок|cap-tree-leaf is-blocked|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-blocked",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      555,
+      2210,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.2
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно.",
+    "kind": "button",
+    "sig": "button|button|Файлы приложения присутствуют; готовность владельц|cap-tree-leaf is-code|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-code",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      821,
+      2170,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.2
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно.",
+    "kind": "button",
+    "sig": "button|button|Файлы приложения присутствуют; готовность владельц|cap-tree-leaf is-code|",
+    "nth": 1,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-code",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      821,
+      2210,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.2
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Распознавание покерного стола по пикселям → проверенное состояние → история → ра",
+    "kind": "button",
+    "sig": "button|button|Распознавание покерного стола по пикселям → провер|cap-tree-leaf is-mixed|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-mixed",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      821,
+      2530,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "По сохранённому отчёту 4 октября; текущую конфигурацию ПК здесь не наблюдали.",
+    "kind": "button",
+    "sig": "button|button|По сохранённому отчёту 4 октября; текущую конфигур|cap-tree-leaf is-recorded|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-recorded",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      1088,
+      2109,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "DEAD?",
+     "real_effects": [],
+     "detail": "GET /api/evolution/status -> 200"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Pi не заменил PRIMARY; Ornith участвовал в коротком раунде. Модельный каталог не",
+    "kind": "button",
+    "sig": "button|button|Pi не заменил PRIMARY; Ornith участвовал в коротко|cap-tree-leaf is-recorded|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-recorded",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      1088,
+      2229,
+      238,
+      56
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "В отчёте встречается resident community uncensored Q8; не смешивать с PRIMARY и ",
+    "kind": "button",
+    "sig": "button|button|В отчёте встречается resident community uncensored|cap-tree-leaf is-recorded|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-recorded",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      1088,
+      2290,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Низкий приоритет; память ограничена. Не включать в обязательную загрузку.",
+    "kind": "button",
+    "sig": "button|button|Низкий приоритет; память ограничена. Не включать в|cap-tree-leaf is-idea|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-idea",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      1088,
+      2330,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Частичная telemetry есть; единый точный дневной отчёт, включая Codex CLI, требуе",
+    "kind": "button",
+    "sig": "button|button|Частичная telemetry есть; единый точный дневной от|cap-tree-leaf is-idea|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-idea",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      288,
+      7961,
+      238,
+      56
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Observe описан; действие WAIT_APPROVAL. Случай ложного сообщения об открытии cal",
+    "kind": "button",
+    "sig": "button|button|Observe описан; действие WAIT_APPROVAL. Случай лож|cap-tree-leaf is-blocked|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-blocked",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      555,
+      7900,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Предложенный ограниченный UX sidecar; не заменяет ядро.",
+    "kind": "button",
+    "sig": "button|button|Предложенный ограниченный UX sidecar; не заменяет |cap-tree-leaf is-idea|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-idea",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      555,
+      7940,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Pipeline и документы есть; непрерывный перенос обучения в выполнение не доказан.",
+    "kind": "button",
+    "sig": "button|button|Pipeline и документы есть; непрерывный перенос обу|cap-tree-leaf is-blocked|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-blocked",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      821,
+      7900,
+      238,
+      56
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Каталог кандидатов, не установленные работающие приложения.",
+    "kind": "button",
+    "sig": "button|button|Каталог кандидатов, не установленные работающие пр|cap-tree-leaf is-idea|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-idea",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      821,
+      7961,
+      238,
+      56
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "SKILL.md найден; не означает подключение навыка в текущий runtime. Перенесён в в",
+    "kind": "button",
+    "sig": "button|button|SKILL.md найден; не означает подключение навыка в |cap-tree-leaf is-recorded|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-recorded",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      821,
+      8342,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Scene spec -> finished video: voice-over, original score, deterministic frames, ",
+    "kind": "button",
+    "sig": "button|button|Scene spec -> finished video: voice-over, original|cap-tree-leaf is-code|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-code",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      821,
+      10008,
+      238,
+      56
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Render the Bossman \"32 days\" promo (tools/promo_video/promo.html) and mux it wit",
+    "kind": "button",
+    "sig": "button|button|Render the Bossman \"32 days\" promo (tools/promo_vi|cap-tree-leaf is-retired|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-retired",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      821,
+      10191,
+      238,
+      56
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "JSON карта подготовлена для загрузки. В runtime Bossman ещё не импортирована.",
+    "kind": "button",
+    "sig": "button|button|JSON карта подготовлена для загрузки. В runtime Bo|cap-tree-leaf is-prepared|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-prepared",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      1088,
+      8001,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+    "kind": "button",
+    "sig": "button|button|Найден исходный модуль. Наличие тестов и живой рез|cap-tree-leaf is-code|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-reported",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      288,
+      2631,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+    "kind": "button",
+    "sig": "button|button|Модуль найден. Семантика и live работоспособность |cap-tree-leaf is-branch|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-branch",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      1088,
+      10788,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Модуль найден. Семантика и live работоспособность не сертифицированы. Выбыл 2026",
+    "kind": "button",
+    "sig": "button|button|Модуль найден. Семантика и live работоспособность |cap-tree-leaf is-retired|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-branch",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      1088,
+      10788,
+      238,
+      35
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "browser",
+    "label": "Обновить",
+    "kind": "button",
+    "sig": "button|button|Обновить|icon-btn spin|",
+    "nth": 0,
+    "via": "Новое окно",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "result": "not_found",
+    "klass": "harness: control not found again (re-render)"
+   },
+   {
+    "route": "healing",
+    "label": "За сколько секунд считать",
+    "kind": "text",
+    "sig": "input|number|За сколько секунд считать|input mono|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Page.goto: Timeout 8000ms exceeded.",
+    "control": {
+     "tag": "input",
+     "type": "number",
+     "kind": "text",
+     "cls": "input mono",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      294,
+      294,
+      327,
+      40
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "self"
+    },
+    "closed_details_ancestors": 0,
+    "visible_before": true,
+    "methods": [
+     {
+      "m": "fill_long",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "fill_long",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "GET /api/approvals -> 200",
+      "field value"
+     ],
+     "detail": "GET /api/approvals -> 200; field value"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: first retry with scroll + 15 s timeout succeeded (earlier failure = 4 s harness timeout under re-render/animation)",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "on",
+    "kind": "toggle",
+    "sig": "input|checkbox|on||",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "input",
+     "type": "checkbox",
+     "kind": "toggle",
+     "cls": "",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      297,
+      1405,
+      13,
+      13
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "field value"
+     ],
+     "detail": "field value"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "on",
+    "kind": "toggle",
+    "sig": "input|checkbox|on||",
+    "nth": 1,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "input",
+     "type": "checkbox",
+     "kind": "toggle",
+     "cls": "",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      480,
+      1405,
+      13,
+      13
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "field value",
+      "scroll"
+     ],
+     "detail": "field value; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "0",
+    "kind": "text",
+    "sig": "input|number|0|input|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.fill: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "input",
+     "type": "number",
+     "kind": "text",
+     "cls": "input",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      293,
+      1456,
+      994,
+      40
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "fill_long",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "fill_long",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "field value",
+      "scroll"
+     ],
+     "detail": "field value; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "0",
+    "kind": "text",
+    "sig": "input|number|0|input|",
+    "nth": 1,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.fill: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "input",
+     "type": "number",
+     "kind": "text",
+     "cls": "input",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      293,
+      1529,
+      994,
+      40
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "fill_long",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "fill_long",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "field value",
+      "scroll"
+     ],
+     "detail": "field value; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "Верхняя стоимость моделей",
+    "kind": "text",
+    "sig": "textarea||Верхняя стоимость моделей|input|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.fill: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "textarea",
+     "type": "",
+     "kind": "text",
+     "cls": "input",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      293,
+      1602,
+      994,
+      81
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "fill_long",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "fill_long",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "field value",
+      "scroll"
+     ],
+     "detail": "field value; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "Разрешённые CDN",
+    "kind": "text",
+    "sig": "input||Разрешённые CDN|input|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.fill: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "input",
+     "type": "",
+     "kind": "text",
+     "cls": "input",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      293,
+      1716,
+      994,
+      40
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "fill_long",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "fill_long",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "field value",
+      "scroll"
+     ],
+     "detail": "field value; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "(без подписи)",
+    "kind": "button",
+    "sig": "button|button|(без подписи)|btn btn-sm|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "btn btn-sm",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      293,
+      1762,
+      175,
+      30
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "toast:Правила сохранены",
+      "PUT /api/studio/policy -> 200",
+      "GET /api/studio/jobs -> 200",
+      "GET /api/studio/policy -> 200"
+     ],
+     "detail": "toast:Правила сохранены; PUT /api/studio/policy -> 200; GET /api/studio/jobs -> 200; GET /api/studio/policy -> 200"
+    },
+    "topmost_after": "detached",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "(без подписи)",
+    "kind": "button",
+    "sig": "button|button|(без подписи)|btn btn-sm|",
+    "nth": 1,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "btn btn-sm",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      468,
+      1762,
+      230,
+      30
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "DELETE /api/studio/egress/confirmations -> 200",
+      "GET /api/studio/jobs -> 200",
+      "GET /api/studio/budget -> 200",
+      "GET /api/studio/runs -> 200"
+     ],
+     "detail": "DELETE /api/studio/egress/confirmations -> 200; GET /api/studio/jobs -> 200; GET /api/studio/budget -> 200; GET /api/studio/runs -> 200"
+    },
+    "topmost_after": "detached",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "motion-studio",
+    "label": "Остановить",
+    "kind": "button",
+    "sig": "button|button|Остановить|btn btn-sm|",
+    "nth": 0,
+    "via": "Предпросмотр кадров",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "result": "not_found",
+    "klass": "harness: control not found again (re-render)"
+   },
+   {
+    "route": "motion-studio",
+    "label": "Остановить",
+    "kind": "button",
+    "sig": "button|button|Остановить|btn btn-sm|",
+    "nth": 0,
+    "via": "Полный рендер (музыка + субтит",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "result": "not_found",
+    "klass": "harness: control not found again (re-render)"
+   },
+   {
+    "route": "motion-studio",
+    "label": "×",
+    "kind": "button",
+    "sig": "button|button|×|toast-close|",
+    "nth": 0,
+    "via": "Полный рендер (музыка + субтит",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "toast-close",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      1323,
+      782,
+      13,
+      16
+     ],
+     "vw": 1366,
+     "vh": 850,
+     "topmost": "self"
+    },
+    "closed_details_ancestors": 0,
+    "visible_before": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "DEAD",
+     "real_effects": [],
+     "detail": "no DOM / URL / request / dialog / toast / storage change (noisy page)"
+    },
+    "topmost_after": "detached",
+    "klass": "artifact: first retry with scroll + 15 s timeout succeeded (earlier failure = 4 s harness timeout under re-render/animation)",
+    "result": "ok"
+   }
+  ]
+ },
+ "phone": {
+  "hand_extra": [
+   {
+    "control": "web_designer: 'Применить размер' (phone)",
+    "inputs": [
+     "1440",
+     "900"
+    ],
+    "same_values_click": {
+     "localStorage_changed": true,
+     "inputs": [
+      "1440",
+      "900"
+     ]
+    },
+    "new_values_click": {
+     "iframe_before": [
+      344,
+      215,
+      "width: 1440px; height: 900px; transform: scale(0.238889);"
+     ],
+     "iframe_after": [
+      333,
+      444,
+      "width: 333px; height: 444px; transform: scale(1);"
+     ],
+     "localStorage_changed": true,
+     "inputs": [
+      "333",
+      "444"
+     ],
+     "pageerrors": []
+    },
+    "verdict": "BY_DESIGN"
+   },
+   {
+    "control": "browser: 'Новое окно' then live-panel refresh (phone)",
+    "would_send": [
+     "POST /api/browser/sessions {}"
+    ],
+    "refresh_buttons": 1,
+    "dialogs": [
+     "modal-wrap:Браузер · сессия #undefined\nПерейти\nневерный запрос: session",
+     "modal wide:Браузер · сессия #undefined\nПерейти\nневерный запрос: session"
+    ],
+    "refresh_click": {
+     "ok": true,
+     "requests": [
+      "GET /api/browser/sessions/undefined/screenshot",
+      "GET /api/browser/sessions/undefined/screenshot",
+      "GET /api/browser/sessions/undefined/state"
+     ],
+     "pageerrors": []
+    }
+   },
+   {
+    "control": "chat.html: 'Прикрепить файлы' (phone)",
+    "file_chooser_opened": true,
+    "multiple": true,
+    "verdict": "BY_DESIGN"
+   },
+   {
+    "control": "shell: 'Очистить ленту' (phone)",
+    "feed_items_before": 1,
+    "feed_items_after": 1,
+    "feed_html_changed": false,
+    "feed_empty_before": true,
+    "verdict": "BY_DESIGN (clearing an already empty feed is a no-op)"
+   }
+  ],
+  "retries": [
+   {
+    "route": "models",
+    "label": "Ollama · OpenAI-совместимый · http://127.0.0.1:11434/v1",
+    "kind": "select",
+    "sig": "select||Ollama · OpenAI-совместимый · http://127.0.0.1:114|select|",
+    "nth": 0,
+    "via": "Добавить модель",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "result": "not_found",
+    "klass": "harness: control not found again (re-render)"
+   },
+   {
+    "route": "capability-tree",
+    "label": "(без подписи)",
+    "kind": "button",
+    "sig": "button|button|(без подписи)|cap-tree-family-title|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-family-title",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      2599,
+      111,
+      37
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "DEAD?",
+     "real_effects": [],
+     "detail": "GET /api/evolution/status -> 200"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Живой ответ 7,3 с описан 1 октября; непрерывность сегодня не проверена.",
+    "kind": "button",
+    "sig": "button|button|Живой ответ 7,3 с описан 1 октября; непрерывность |cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-reported",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      2636,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "DEAD?",
+     "real_effects": [],
+     "detail": "GET /api/evolution/status -> 200"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "/memory, /pause_memory, /forget; приватные training.jsonl и очистка. Прогон 2026",
+    "kind": "button",
+    "sig": "button|button|/memory, /pause_memory, /forget; приватные trainin|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-reported",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      2676,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.2
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Факты, источники, уверенность, checkpoint и consent; не доказательство самообуче",
+    "kind": "button",
+    "sig": "button|button|Факты, источники, уверенность, checkpoint и consen|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-reported",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      2716,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.2
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "participant/companion profile, behavior scores, roleplay policy; обновления в от",
+    "kind": "button",
+    "sig": "button|button|participant/companion profile, behavior scores, ro|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-reported",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      2756,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Код, тесты и отдельные ветки есть; реальный двусторонний звонок и задержки не се",
+    "kind": "button",
+    "sig": "button|button|Код, тесты и отдельные ветки есть; реальный двусто|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-branch",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      3036,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "В октябрьском аудите soak NOT RUN; заявления о 100% усилении не доказаны.",
+    "kind": "button",
+    "sig": "button|button|В октябрьском аудите soak NOT RUN; заявления о 100|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-blocked",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      3076,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "(без подписи)",
+    "kind": "button",
+    "sig": "button|button|(без подписи)|cap-tree-family-title|",
+    "nth": 1,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-family-title",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      8226,
+      66,
+      37
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Результат не доказан; прежний cold page прогон показал регрессию.",
+    "kind": "button",
+    "sig": "button|button|Результат не доказан; прежний cold page прогон пок|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-blocked",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      8343,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно.",
+    "kind": "button",
+    "sig": "button|button|Файлы приложения присутствуют; готовность владельц|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-code",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      9690,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно.",
+    "kind": "button",
+    "sig": "button|button|Файлы приложения присутствуют; готовность владельц|cap-tree-leaf|",
+    "nth": 1,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-code",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      9730,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Распознавание покерного стола по пикселям → проверенное состояние → история → ра",
+    "kind": "button",
+    "sig": "button|button|Распознавание покерного стола по пикселям → провер|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-mixed",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      10050,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "По сохранённому отчёту 4 октября; текущую конфигурацию ПК здесь не наблюдали.",
+    "kind": "button",
+    "sig": "button|button|По сохранённому отчёту 4 октября; текущую конфигур|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-recorded",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      10258,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Pi не заменил PRIMARY; Ornith участвовал в коротком раунде. Модельный каталог не",
+    "kind": "button",
+    "sig": "button|button|Pi не заменил PRIMARY; Ornith участвовал в коротко|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-recorded",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      10378,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "В отчёте встречается resident community uncensored Q8; не смешивать с PRIMARY и ",
+    "kind": "button",
+    "sig": "button|button|В отчёте встречается resident community uncensored|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-recorded",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      10418,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Низкий приоритет; память ограничена. Не включать в обязательную загрузку.",
+    "kind": "button",
+    "sig": "button|button|Низкий приоритет; память ограничена. Не включать в|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-idea",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      10458,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Частичная telemetry есть; единый точный дневной отчёт, включая Codex CLI, требуе",
+    "kind": "button",
+    "sig": "button|button|Частичная telemetry есть; единый точный дневной от|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-idea",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      10664,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Observe описан; действие WAIT_APPROVAL. Случай ложного сообщения об открытии cal",
+    "kind": "button",
+    "sig": "button|button|Observe описан; действие WAIT_APPROVAL. Случай лож|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-blocked",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      11230,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Предложенный ограниченный UX sidecar; не заменяет ядро.",
+    "kind": "button",
+    "sig": "button|button|Предложенный ограниченный UX sidecar; не заменяет |cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-idea",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      11270,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Pipeline и документы есть; непрерывный перенос обучения в выполнение не доказан.",
+    "kind": "button",
+    "sig": "button|button|Pipeline и документы есть; непрерывный перенос обу|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-blocked",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      11716,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Каталог кандидатов, не установленные работающие приложения.",
+    "kind": "button",
+    "sig": "button|button|Каталог кандидатов, не установленные работающие пр|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-idea",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      11756,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "SKILL.md найден; не означает подключение навыка в текущий runtime. Перенесён в в",
+    "kind": "button",
+    "sig": "button|button|SKILL.md найден; не означает подключение навыка в |cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-recorded",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      12116,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Scene spec -> finished video: voice-over, original score, deterministic frames, ",
+    "kind": "button",
+    "sig": "button|button|Scene spec -> finished video: voice-over, original|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-code",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      13425,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Render the Bossman \"32 days\" promo (tools/promo_video/promo.html) and mux it wit",
+    "kind": "button",
+    "sig": "button|button|Render the Bossman \"32 days\" promo (tools/promo_vi|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-retired",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      13566,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "child",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "JSON карта подготовлена для загрузки. В runtime Bossman ещё не импортирована.",
+    "kind": "button",
+    "sig": "button|button|JSON карта подготовлена для загрузки. В runtime Bo|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-prepared",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      13812,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Навык импортирован в каталог (superpowers@5bf4e780, MIT, provenance + sha256), в",
+    "kind": "button",
+    "sig": "button|button|Навык импортирован в каталог (superpowers@5bf4e780|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-prepared",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      18824,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Capability manifest; scope: mcp.execute. Авторизация/live эффект не проверены.",
+    "kind": "button",
+    "sig": "button|button|Capability manifest; scope: mcp.execute. Авторизац|cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-code",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      19310,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+    "kind": "button",
+    "sig": "button|button|Модуль найден. Семантика и live работоспособность |cap-tree-leaf|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-branch",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      20556,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "capability-tree",
+    "label": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+    "kind": "button",
+    "sig": "button|button|Модуль найден. Семантика и live работоспособность |cap-tree-leaf|",
+    "nth": 1,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cap-tree-leaf is-branch",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      25,
+      20596,
+      355,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "scroll"
+     ],
+     "detail": "GET /api/evolution/status -> 200; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "on",
+    "kind": "toggle",
+    "sig": "input|checkbox|on||",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "input",
+     "type": "checkbox",
+     "kind": "toggle",
+     "cls": "",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      34,
+      1866,
+      13,
+      13
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "field value",
+      "scroll"
+     ],
+     "detail": "field value; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "on",
+    "kind": "toggle",
+    "sig": "input|checkbox|on||",
+    "nth": 1,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "input",
+     "type": "checkbox",
+     "kind": "toggle",
+     "cls": "",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      217,
+      1866,
+      13,
+      13
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "field value",
+      "scroll"
+     ],
+     "detail": "field value; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "0",
+    "kind": "text",
+    "sig": "input|number|0|input|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.fill: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "input",
+     "type": "number",
+     "kind": "text",
+     "cls": "input",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      30,
+      1938,
+      312,
+      40
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "fill_long",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "fill_long",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "field value",
+      "scroll"
+     ],
+     "detail": "field value; scroll"
+    },
+    "topmost_after": "BUTTON.mnav-item",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "0",
+    "kind": "text",
+    "sig": "input|number|0|input|",
+    "nth": 1,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.fill: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "input",
+     "type": "number",
+     "kind": "text",
+     "cls": "input",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      30,
+      2011,
+      312,
+      40
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "fill_long",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "fill_long",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "field value",
+      "scroll"
+     ],
+     "detail": "field value; scroll"
+    },
+    "topmost_after": "BUTTON.mnav-item",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "Верхняя стоимость моделей",
+    "kind": "text",
+    "sig": "textarea||Верхняя стоимость моделей|input|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.fill: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "textarea",
+     "type": "",
+     "kind": "text",
+     "cls": "input",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      30,
+      2084,
+      312,
+      81
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "fill_long",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "fill_long",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "field value",
+      "scroll"
+     ],
+     "detail": "field value; scroll"
+    },
+    "topmost_after": "self",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "Разрешённые CDN",
+    "kind": "text",
+    "sig": "input||Разрешённые CDN|input|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.fill: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "input",
+     "type": "",
+     "kind": "text",
+     "cls": "input",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      30,
+      2198,
+      312,
+      40
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "fill_long",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "fill_long",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "field value",
+      "scroll"
+     ],
+     "detail": "field value; scroll"
+    },
+    "topmost_after": "BUTTON.mnav-item",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "(без подписи)",
+    "kind": "button",
+    "sig": "button|button|(без подписи)|btn btn-sm|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "btn btn-sm",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      30,
+      2244,
+      175,
+      30
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "toast:Правила сохранены",
+      "PUT /api/studio/policy -> 200",
+      "GET /api/studio/policy -> 200",
+      "GET /api/studio/jobs -> 200"
+     ],
+     "detail": "toast:Правила сохранены; PUT /api/studio/policy -> 200; GET /api/studio/policy -> 200; GET /api/studio/jobs -> 200"
+    },
+    "topmost_after": "detached",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "images?studio=1",
+    "label": "(без подписи)",
+    "kind": "button",
+    "sig": "button|button|(без подписи)|btn btn-sm|",
+    "nth": 1,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "btn btn-sm",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      30,
+      2274,
+      230,
+      30
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "none"
+    },
+    "closed_details_ancestors": 1,
+    "visible_before": false,
+    "visible_after_opening_summary": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "DELETE /api/studio/egress/confirmations -> 200",
+      "GET /api/studio/jobs -> 200",
+      "GET /api/studio/policy -> 200",
+      "GET /api/studio/budget -> 200"
+     ],
+     "detail": "DELETE /api/studio/egress/confirmations -> 200; GET /api/studio/jobs -> 200; GET /api/studio/policy -> 200; GET /api/studio/budget -> 200"
+    },
+    "topmost_after": "detached",
+    "klass": "artifact: control sits inside 1 closed <details> (layout box exists, not visible); opening the summary first, as a user must, makes a normal click work",
+    "result": "ok"
+   },
+   {
+    "route": "chat.html",
+    "label": "Источники",
+    "kind": "button",
+    "sig": "button|button|Источники|chip|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "chip",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      184,
+      657,
+      116,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "child"
+    },
+    "closed_details_ancestors": 0,
+    "visible_before": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": true,
+      "s": 0.1
+     }
+    ],
+    "worked": "scroll+click_15s",
+    "effect": {
+     "verdict": "OK",
+     "real_effects": [
+      "localStorage"
+     ],
+     "detail": "localStorage"
+    },
+    "topmost_after": "ASIDE.panel",
+    "klass": "artifact: first retry with scroll + 15 s timeout succeeded (earlier failure = 4 s harness timeout under re-render/animation)",
+    "result": "ok"
+   },
+   {
+    "route": "chat.html",
+    "label": "Память",
+    "kind": "button",
+    "sig": "button|button|Память|chip|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "chip",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      308,
+      657,
+      94,
+      35
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "ASIDE.panel"
+    },
+    "closed_details_ancestors": 0,
+    "visible_before": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": false,
+      "s": 15.0,
+      "err": "Locator.click: Timeout 15000ms exceeded. Call log: - waiting for locator(\"[data-uxs=\\\"12\\\"]\") - locator resolved to <button class=\"chip\" type=\"button\" data-uxs=\"12\" id=\"chip-memory\" aria-haspopup=\"dialog\" title=\"Память Bossman\" aria-label=\"Память Bossman\">…</button> - attempting click action 2 × wai"
+     },
+     {
+      "m": "force_click",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "force_click",
+    "effect": {
+     "verdict": "DEAD",
+     "real_effects": [],
+     "detail": "no DOM / URL / request / dialog / toast / storage change (noisy page)"
+    },
+    "topmost_after": "ASIDE.panel",
+    "klass": "artifact: only Playwright actionability checks failed (Locator.click: Timeout 15000ms exceeded. Call log: - waiting for locator(\"[data-uxs=\\\"12\\\"); force/position click works",
+    "result": "ok"
+   },
+   {
+    "route": "chat.html",
+    "label": "Прикрепить файлы (или перетащите их в окно)",
+    "kind": "button",
+    "sig": "button|button|Прикрепить файлы (или перетащите их в окно)|icon-btn cmp-attach|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "icon-btn cmp-attach",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      89,
+      714,
+      38,
+      38
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "ASIDE.panel"
+    },
+    "closed_details_ancestors": 0,
+    "visible_before": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": false,
+      "s": 15.0,
+      "err": "Locator.click: Timeout 15000ms exceeded. Call log: - waiting for locator(\"[data-uxs=\\\"13\\\"]\") - locator resolved to <button type=\"button\" data-uxs=\"13\" id=\"chat-attach\" class=\"icon-btn cmp-attach\" title=\"Прикрепить файлы (или перетащите их в окно)\" aria-label=\"Прикрепить файлы (или перетащите их в о"
+     },
+     {
+      "m": "force_click",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "force_click",
+    "effect": {
+     "verdict": "DEAD",
+     "real_effects": [],
+     "detail": "no DOM / URL / request / dialog / toast / storage change (noisy page)"
+    },
+    "topmost_after": "ASIDE.panel",
+    "klass": "artifact: only Playwright actionability checks failed (Locator.click: Timeout 15000ms exceeded. Call log: - waiting for locator(\"[data-uxs=\\\"13\\\"); force/position click works",
+    "result": "ok"
+   },
+   {
+    "route": "chat.html",
+    "label": "Auto · Local-first",
+    "kind": "button",
+    "sig": "button|button|Auto · Local-first|cmp-picker|",
+    "nth": 0,
+    "via": "",
+    "orig_detail": "TimeoutError: Locator.click: Timeout 4000ms exceeded.",
+    "control": {
+     "tag": "button",
+     "type": "button",
+     "kind": "button",
+     "cls": "cmp-picker",
+     "disabled": false
+    },
+    "geometry_before_scroll": {
+     "rect": [
+      89,
+      764,
+      152,
+      30
+     ],
+     "vw": 390,
+     "vh": 844,
+     "topmost": "ASIDE.panel"
+    },
+    "closed_details_ancestors": 0,
+    "visible_before": true,
+    "methods": [
+     {
+      "m": "scroll+click_15s",
+      "ok": false,
+      "s": 15.0,
+      "err": "Locator.click: Timeout 15000ms exceeded. Call log: - waiting for locator(\"[data-uxs=\\\"15\\\"]\") - locator resolved to <button type=\"button\" data-uxs=\"15\" id=\"chat-picker\" class=\"cmp-picker\" aria-expanded=\"false\" aria-haspopup=\"listbox\" title=\"Кто выполнит сообщение\" aria-label=\"Исполнитель: Auto · Loc"
+     },
+     {
+      "m": "force_click",
+      "ok": true,
+      "s": 0.0
+     }
+    ],
+    "worked": "force_click",
+    "effect": {
+     "verdict": "DEAD",
+     "real_effects": [],
+     "detail": "no DOM / URL / request / dialog / toast / storage change (noisy page)"
+    },
+    "topmost_after": "ASIDE.panel",
+    "klass": "artifact: only Playwright actionability checks failed (Locator.click: Timeout 15000ms exceeded. Call log: - waiting for locator(\"[data-uxs=\\\"15\\\"); force/position click works",
+    "result": "ok"
+   }
+  ]
+ }
+}

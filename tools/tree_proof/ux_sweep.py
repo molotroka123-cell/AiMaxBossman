@@ -688,7 +688,7 @@ def sweep_route(sess: Session, route: str, scope: str, per_sig: int, deadline: f
         return recs, meta
     pre_err = sess.ev["pageerrors"][:] + [e for e in sess.ev["console"] if not e.startswith("RES:")]
     http_err = [(m, p, s) for (m, p, s) in sess.ev["responses"] if s >= 400]
-    sess.shot(f"{route.replace('?', '_').replace('=', '')}-{sess.vp}" if scope == "view" else f"shell-{sess.vp}")
+    sess.shot(f"{route.replace('?', '_').replace('=', '')}-{sess.vp}" if scope in ("view", "all") else f"shell-{sess.vp}")
     ctrls = sess.enum(scope)
     meta["controls_enumerated"] = len(ctrls)
     meta["load_errors"] = {"pageerrors": pre_err[:4], "http": [f"{m} {p} {s}" for m, p, s in http_err][:6]}
@@ -765,6 +765,7 @@ def write_md(doc: dict, notes: dict, path: Path) -> None:
     recs = doc["records"]
     L = [f"# UX sweep - Bossman Command Center ({doc.get('target', '?')})", "",
          f"- build: `{doc.get('build_sha', '?')}` (health/live: `{md_cell(doc.get('health_live', ''), 200)}`)",
+         *([f"- per-viewport builds: " + "; ".join(f"{vp}: `{b['build'].split('BOSSMAN-Windows-x64-')[-1]}` (health/live sha `{b.get('build_sha') or 'n/a'}`)" for vp, b in doc["builds"].items())] if doc.get("builds") else []),
          f"- harness sha (git HEAD): `{doc['sha']}`; run {doc['started_at']} .. {doc['finished_at']}",
          f"- viewports: {', '.join(doc['viewports'])}; pages: {len(doc['routes'])}; sampling: first {doc['per_sig']} identical controls per page",
          f"- external network blocked (page.route abort): {json.dumps(doc.get('external_blocked', {}), ensure_ascii=False)}", "",
@@ -795,6 +796,10 @@ def write_md(doc: dict, notes: dict, path: Path) -> None:
             L.append(f"| {r['route']} | {r['viewport']} | {md_cell(r['label'], 40)} | {r['verdict']} | {md_cell(r.get('detail', ''), 110)} | {md_cell(st, 90)} |")
     else:
         L.append("none")
+    gaps = notes.get("gaps")
+    if gaps:
+        L += ["", "## Gap closure (ux_gaps.py: hand reproductions, click-timeout retries)", ""]
+        L += [f"- {g}" for g in gaps]
     L += ["", "## Fixes (ux-fix commits)", ""]
     L += [f"- `{f['sha']}` {f['title']} - {f['evidence']}" for f in notes.get("fixes", [])] or ["none"]
     L += ["", "## Open issues / owner decisions", ""]
@@ -826,7 +831,9 @@ def merge(args) -> int:
     ext = {}
     for d in docs:
         ext.update(d.get("external_blocked", {}))
-    doc = dict(d0, viewports=[v for d in docs for v in d["viewports"]], records=recs, pages=metas, external_blocked=ext,
+    builds = {d["viewports"][0] if len(d["viewports"]) == 1 else "+".join(d["viewports"]): {"build": d.get("build", ""), "build_sha": d.get("build_sha", ""),
+              "health_live": d.get("health_live", "")} for d in docs}
+    doc = dict(d0, builds=builds, viewports=[v for d in docs for v in d["viewports"]], records=recs, pages=metas, external_blocked=ext,
                finished_at=max(d["finished_at"] for d in docs), started_at=min(d["started_at"] for d in docs),
                summary=summarize(recs, metas))
     notes_p = args.out / "ux-sweep-notes.json"
