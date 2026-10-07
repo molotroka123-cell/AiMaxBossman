@@ -17676,6 +17676,56 @@
         "tools/blue_leaf_audit.py",
         "tests/test_blue_leaf_audit.py"
       ]
+    },
+    {
+      "id": "d0710-worker-verify-env",
+      "label": "Облачный воркер: BOSSMAN_VERIFY_PYTHON (803aa4d9)",
+      "parent": "cloud",
+      "status": "branch",
+      "detail": "07.10: облачный воркер получает BOSSMAN_VERIFY_PYTHON, поэтому pytest у воркера работает. CODE и TEST прошли независимую проверку (тест красный на старом коде, зелёный на новом). Автор правки - Claude (инфраструктура), это НЕ…",
+      "sources": [],
+      "next_action": "",
+      "origin": "swarm session 07.10 (site data edited directly; carried into the seed so regeneration keeps it)"
+    },
+    {
+      "id": "d0710-swarm-queue",
+      "label": "Рой 07.10: очередь из 8 задач и проверяющий",
+      "parent": "agents",
+      "status": "branch",
+      "detail": "07.10: исследователь составил очередь из 8 задач (queue.md/json): расхождений сайт/реестр по статусам нет, 11 листьев reported без PASS-receipt. Независимый проверяющий выпустил verifier-pre.md и «файл». Это инструменты и отчёты; тесты…",
+      "sources": [],
+      "next_action": "",
+      "origin": "swarm session 07.10 (site data edited directly; carried into the seed so regeneration keeps it)"
+    },
+    {
+      "id": "d0710-selfrepair-cycle14-15",
+      "label": "Самоисправление, циклы 14 и 15 (бесплатный Nemotron)",
+      "parent": "agents",
+      "status": "blocked",
+      "detail": "07.10, сборка 803aa4d9, бесплатная модель Nemotron 3 Super, платных вызовов 0. Цикл 14: holdout 35 -> 15 падений, остановлен сторожем песочницы, патч не принят (failed). Цикл 15: 35 -> 35, только тест. Итог PARTIAL. Эти два цикла сами…",
+      "sources": [],
+      "next_action": "",
+      "origin": "swarm session 07.10 (site data edited directly; carried into the seed so regeneration keeps it)"
+    },
+    {
+      "id": "d0710-concert-faint-clip",
+      "label": "Концерт Faint: продолжение клипа 17 с",
+      "parent": "media",
+      "status": "prepared",
+      "detail": "07.10: 17-секундное продолжение клипа отрендерено локально (S2V-14B, 4 шота, около 10 минут каждый). Это подготовленный артефакт. OWNER_HW (просмотр владельцем) - NOT_RUN. CI не применим.",
+      "sources": [],
+      "next_action": "",
+      "origin": "swarm session 07.10 (site data edited directly; carried into the seed so regeneration keeps it)"
+    },
+    {
+      "id": "d0710-direct-generator-spec",
+      "label": "Прямой генератор клипов (45 шотов): runbook",
+      "parent": "media",
+      "status": "idea",
+      "detail": "07.10: написан runbook («файл») и спецификация генератора на 45 шотов. Генератор NOT_RUN: только описание, ни кода, ни прогона.",
+      "sources": [],
+      "next_action": "",
+      "origin": "swarm session 07.10 (site data edited directly; carried into the seed so regeneration keeps it)"
     }
   ],
   "memory_protocol": {
