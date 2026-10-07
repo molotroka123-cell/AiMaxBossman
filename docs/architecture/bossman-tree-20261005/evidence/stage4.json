@@ -1,0 +1,30 @@
+[
+ {
+  "node_id": "plugin-17",
+  "sha": "76b66db353b8f3905301a07809f75896234d8b94",
+  "probe": "live_call+pytest (stage4, handler written by Bossman worker glm-flash)",
+  "command": "python <execute_tool plugin:telegram.status live call on the owner's real local config> [cwd=command-center, BCC_DATA_DIR=%LOCALAPPDATA%/Bossman/CommandCenter, read-only] && (cd command-center && python -m pytest -v -rA -p no:cacheprovider tests/test_plugins_browser_telegram.py tests/test_plugins_stub_not_success.py -k \"telegram or generic or unperformed\")",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:46:09+00:00",
+  "finished_at": "2026-10-07T19:46:14+00:00",
+  "output_sha256": "67f1a5aa579d9e653b6613af38e4cfc796f37f04df8a0fcedf1bc7a2867b1606",
+  "output_tail": "_browser_open_live_example_com\nPASSED tests/test_plugins_stub_not_success.py::test_generic_set_is_what_we_think\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:mcp.tool_call]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:github.issue_create]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:gmail.search]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:gmail.send]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:calendar.search]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:calendar.create]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:drive.search]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:drive.write]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:telegram.send]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:n8n.workflow_list]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:n8n.workflow_run]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:browser.form_submit]\n============================= 28 passed in 2.92s ==============================\n[exit 0 in 4.1s]\n\nVERDICT: PASS\n",
+  "verdict": "PASS",
+  "model": "z-ai/glm-5.3-flash (worker glm-flash, author of the handler)",
+  "kind": "live_call"
+ },
+ {
+  "node_id": "plugin-21",
+  "sha": "76b66db353b8f3905301a07809f75896234d8b94",
+  "probe": "live_call+pytest (stage4, handler written by Bossman worker glm-flash)",
+  "command": "(cd command-center && python -m pytest -v -rA -p no:cacheprovider tests/test_plugins_browser_telegram.py -k browser_open_live_example_com)  # real Chromium -> https://example.com via plugin:browser.open && (cd command-center && python -m pytest -v -rA -p no:cacheprovider tests/test_plugins_browser_telegram.py tests/test_plugins_stub_not_success.py -k \"browser or generic or unperformed\")",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:46:14+00:00",
+  "finished_at": "2026-10-07T19:46:22+00:00",
+  "output_sha256": "c61e52bb0f2e018c5f27f48c20b889678901f3b8dabaec0e0e25b5166a0de944",
+  "output_tail": "_browser_open_live_example_com\nPASSED tests/test_plugins_stub_not_success.py::test_generic_set_is_what_we_think\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:mcp.tool_call]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:github.issue_create]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:gmail.search]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:gmail.send]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:calendar.search]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:calendar.create]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:drive.search]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:drive.write]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:telegram.send]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:n8n.workflow_list]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:n8n.workflow_run]\nPASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:browser.form_submit]\n============================= 28 passed in 2.98s ==============================\n[exit 0 in 4.2s]\n\nVERDICT: PASS\n",
+  "verdict": "PASS",
+  "model": "z-ai/glm-5.3-flash (worker glm-flash, author of the handler)",
+  "kind": "live_call"
+ }
+]

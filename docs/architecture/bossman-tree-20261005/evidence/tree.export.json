@@ -1742,8 +1742,8 @@
    "id": "plugin-17",
    "label": "telegram.status",
    "parent": "plugins",
-   "status": "code",
-   "short": "Capability manifest; scope: telegram.read. Авторизация/live эффект не проверены."
+   "status": "reported",
+   "short": "Capability manifest; scope: telegram.read. Проверено вживую на указанном коммите. Прогон 2026-10-07 @ 76b66db3: live_call+pytest (stage4, handler written by Bos"
   },
   {
    "id": "plugin-18",
@@ -1770,8 +1770,8 @@
    "id": "plugin-21",
    "label": "browser.open",
    "parent": "plugins",
-   "status": "code",
-   "short": "Capability manifest; scope: browser.navigate. Авторизация/live эффект не проверены."
+   "status": "reported",
+   "short": "Capability manifest; scope: browser.navigate. Проверено вживую на указанном коммите. Прогон 2026-10-07 @ 76b66db3: live_call+pytest (stage4, handler written by "
   },
   {
    "id": "plugin-22",

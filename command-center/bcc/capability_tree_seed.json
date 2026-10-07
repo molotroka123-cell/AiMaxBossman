@@ -5203,14 +5203,20 @@
       "id": "plugin-17",
       "label": "telegram.status",
       "parent": "plugins",
-      "status": "code",
-      "detail": "Capability manifest; scope: telegram.read. Авторизация/live эффект не проверены.",
+      "status": "reported",
+      "detail": "Capability manifest; scope: telegram.read. Проверено вживую на указанном коммите. Прогон 2026-10-07 @ 76b66db3: live_call+pytest (stage4, handler written by Bossman worker glm-flash)",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/stage4.json#plugin-17",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "76b66db353b8f3905301a07809f75896234d8b94",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -5267,14 +5273,20 @@
       "id": "plugin-21",
       "label": "browser.open",
       "parent": "plugins",
-      "status": "code",
-      "detail": "Capability manifest; scope: browser.navigate. Авторизация/live эффект не проверены.",
+      "status": "reported",
+      "detail": "Capability manifest; scope: browser.navigate. Проверено вживую на указанном коммите. Прогон 2026-10-07 @ 76b66db3: live_call+pytest (stage4, handler written by Bossman worker glm-flash)",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/stage4.json#plugin-21",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "76b66db353b8f3905301a07809f75896234d8b94",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
