@@ -281,3 +281,36 @@ def test_only_a_start_command_is_a_running_jeff():
     assert ob.process_kind("python -m bcc.pit.cli web-setup --data-dir x") is None
     assert ob.process_kind("python -m bcc.pit.cli start") == "jeff"
     assert ob.data_dir_arg(["python", "-m", "bcc.pit.cli", "start"]) is None
+
+
+# -- always-on Jeff (owner 07.10: "Jeff должен работать всегда") ------------------------
+
+def test_jeff_runs_under_its_own_watchdog_and_the_watchdog_is_recognised():
+    assert "watch" in ob.command_for("jeff", Path("H"), Path("D"), 8801, None)
+    assert ob.process_kind("python.exe -m bcc.pit.cli watch --data-dir D:/b") == "jeff"
+
+
+def test_ensure_respects_an_owner_hold_and_a_manual_launch_clears_it(tmp_path, monkeypatch):
+    data = tmp_path / "data"
+    hold = data / "one-bossman" / "hold-jeff"
+    hold.parent.mkdir(parents=True)
+    hold.write_text("x", encoding="utf-8")
+    spawned = []
+    monkeypatch.setattr(ob, "_spawn_hidden", lambda *a, **k: spawned.append(a) or 1)
+    out = io.StringIO()
+    assert ob.launch("jeff", tmp_path / "home", data, 8801, None, out=out, ensure=True) == 0
+    assert spawned == [] and hold.exists() and "HELD" in out.getvalue()
+    f = _hold_lock(data / "pit-v1.7" / "poller.lock")      # a running poller: the manual launch spawns nothing
+    try:
+        assert ob.launch("jeff", tmp_path / "home", data, 8801, None, out=io.StringIO()) == 0
+    finally:
+        f.close()
+    assert not hold.exists()
+
+
+def test_stop_with_hold_marks_the_kinds_so_ensure_leaves_them_down(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "find_processes", lambda d: [])
+    assert ob.main(["stop", "--data-dir", str(tmp_path), "--kinds", "jeff,companion", "--hold"]) == 0
+    assert (tmp_path / "one-bossman" / "hold-jeff").exists() and (tmp_path / "one-bossman" / "hold-companion").exists()
+    assert ob.main(["stop", "--data-dir", str(tmp_path / "x"), "--kinds", "jeff"]) == 0
+    assert not (tmp_path / "x" / "one-bossman" / "hold-jeff").exists()

@@ -335,7 +335,8 @@ def command_for(kind: str, home: Path, data_dir: Path, port: int, companion_conf
     if kind == "backend":
         return [py, "-I", "-X", "utf8", "-m", "bcc", "--host", "127.0.0.1", "--port", str(port)]
     if kind == "jeff":
-        return [py, "-I", "-X", "utf8", "-m", "bcc.pit.cli", "start", "--data-dir", str(data_dir)]
+        # under Jeff's own watchdog: restarted after a crash or a stale heartbeat (owner 07.10: always on)
+        return [py, "-I", "-X", "utf8", "-m", "bcc.pit.cli", "watch", "--data-dir", str(data_dir)]
     if kind == "companion":
         return [py, "-I", "-X", "utf8", "-m", "bcc.telegram_companion", "--config", str(companion_config)]
     if kind == "jeff-window":
@@ -392,11 +393,17 @@ def _pid_alive(pid: int) -> bool:
 
 
 def launch(kind: str, home: Path, data_dir: Path, port: int, companion_config: Path | None,
-           wait: float = 120.0, out=sys.stdout) -> int:
+           wait: float = 120.0, out=sys.stdout, ensure: bool = False) -> int:
     home, data_dir = Path(home), Path(data_dir)
     state = data_dir / STATE_DIR
     stamp = time.strftime("%Y%m%d-%H%M%S")
     say = lambda m: print(f"[one-bossman] {kind}: {m}", file=out, flush=True)  # noqa: E731
+    hold = state / f"hold-{kind}"
+    if ensure and hold.exists():
+        say(f"HELD: the owner stopped {kind} on purpose ({hold}); --ensure does not start it")
+        return 0
+    if not ensure:
+        hold.unlink(missing_ok=True)       # an explicit launch is the owner taking it back
     if kind == "supervisor":
         spec = state / "supervisor.json"
         if not spec.is_file():
@@ -557,7 +564,7 @@ def process_kind(line: str) -> str | None:
     """Which Bossman process a command line is (None: not one of ours)."""
     if re.search(r"-m\s+bcc(\.app)?(\s|$)", line):
         return "backend"
-    if "bcc.pit.cli" in line and re.search(r"\sstart(\s|$)", line):
+    if "bcc.pit.cli" in line and re.search(r"\s(start|watch)(\s|$)", line):
         return "jeff"
     if "bcc.telegram_companion" in line:
         return "companion"
@@ -697,6 +704,8 @@ def main(argv: list[str] | None = None) -> int:
     la.add_argument("--home", required=True); la.add_argument("--data-dir", required=True)
     la.add_argument("--port", type=int, default=8801); la.add_argument("--companion-config", default=None)
     la.add_argument("--wait", type=float, default=120.0)
+    la.add_argument("--ensure", action="store_true",
+                    help="periodic self-heal: start only if not running and not held by `stop --hold`")
     rp = sub.add_parser("repoint"); rp.add_argument("--config", action="append", required=True)
     rp.add_argument("--port", type=int, required=True)
     ag = sub.add_parser("agents"); ag.add_argument("--port", type=int, required=True)
@@ -708,6 +717,8 @@ def main(argv: list[str] | None = None) -> int:
     so.add_argument("--except-home", default="", help="leave processes whose executable is under this install")
     so.add_argument("--only-home", default="", help="stop only processes whose executable is under this install")
     so.add_argument("--force", action="store_true")
+    so.add_argument("--hold", action="store_true",
+                    help="keep these kinds down: the periodic --ensure launch will not restart them")
     st = sub.add_parser("status"); st.add_argument("--data-dir", required=True)
     st.add_argument("--companion-config", default=None)
     a = p.parse_args(argv)
@@ -722,7 +733,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if res["ok"] else 1
     if a.cmd == "launch":
         return launch(a.kind, Path(a.home), Path(a.data_dir), a.port,
-                      Path(a.companion_config) if a.companion_config else None, a.wait)
+                      Path(a.companion_config) if a.companion_config else None, a.wait, ensure=a.ensure)
     if a.cmd == "repoint":
         stamp = time.strftime("%Y%m%d-%H%M%S")
         res = [repoint(Path(c), a.port, stamp) for c in a.config]
@@ -750,6 +761,11 @@ def main(argv: list[str] | None = None) -> int:
                 if a.only_home and not exe.startswith(os.path.normcase(a.only_home).lower()):
                     continue
                 res.append({**stop_process(proc, Path(a.data_dir), force=a.force), "cmdline": proc["cmdline"]})
+        if a.hold:
+            state = Path(a.data_dir) / STATE_DIR
+            state.mkdir(parents=True, exist_ok=True)
+            for kind in kinds:
+                (state / f"hold-{kind}").write_text(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), encoding="utf-8")
         print(json.dumps(res, ensure_ascii=False, indent=1))
         return 0 if all(r["stopped"] != "NO" for r in res) else 1
     if a.cmd == "status":
