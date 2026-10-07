@@ -84,7 +84,12 @@ SPECS: tuple[SdSpec, ...] = (
     _photo("sdxl-base", "Stable Diffusion XL 1.0", "sdxl",
            {"model": "sdxl-base/sd_xl_base_1.0.safetensors", "vae": "sdxl-base/sdxl_vae.safetensors"},
            "sdcpp:sdxl-base", 25, max_steps=60, resolution="1024x1024", license="OpenRAIL++-M"),
-    _photo("qwen-image-2.1", "Qwen-Image 2.1", "qwen-image",
+    _photo("epicrealism-xl", "epiCRealism XL (Pure fix, SDXL)", "sdxl",
+           {"model": "epicrealism-xl/epicrealismXL_pureFix.safetensors", "vae": "sdxl-base/sdxl_vae.safetensors"},
+           "sdcpp:sdxl-base", 25, max_steps=60, resolution="1024x1024", manifest_key="",
+           notes="Фотореалистичный SDXL-чекпоинт с Civitai (6,46 ГБ): источник, ревизия и лицензия UNKNOWN; "
+                 "запуск не проверен в этой сборке (NOT_RUN)."),
+    _photo("qwen-image-2.1","Qwen-Image 2.1", "qwen-image",
            {"diffusion": "qwen-image-2.1/qwen_image_2.1-Q8_0.gguf", **QWEN_BASE},
            "sdcpp:qwen-image-2.1", 20, max_steps=50,
            license="Qwen Research License (non-commercial research/evaluation only)"),
