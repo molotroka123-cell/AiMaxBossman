@@ -18940,6 +18940,312 @@
       "sources": [],
       "next_action": "Внедрить завтра: оформить SKILL.md, проверить на живом сценарии на установленной сборке, получить receipt.",
       "external_url": "https://github.com/OpenHands/software-agent-sdk"
+    },
+    {
+      "id": "skills-computer-browser-candidates",
+      "label": "Компьютер и браузер · 10 навыков-кандидатов",
+      "parent": "skills",
+      "status": "mixed",
+      "detail": "Подготовленные карточки навыков для наблюдения экрана, управления браузером, форм, файлов и проверки результата. Это план на оценку; доступность функций в Bossman не подтверждена.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Оценить по одному кандидату на локальном изолированном браузерном сценарии."
+    },
+    {
+      "id": "skills-agents-code-writing-candidates",
+      "label": "Оркестрация, код и письмо · 5 навыков-кандидатов",
+      "parent": "skills",
+      "status": "mixed",
+      "detail": "Подготовленные карточки для передачи задач агентам, checkpoint/approval, безопасного кодирования и доказательной документации. Это план, не включённый runtime.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Сверить с существующей архитектурой Bossman; не добавлять второе ядро оркестрации."
+    },
+    {
+      "id": "skill-browser-screen-observation",
+      "label": "Наблюдение за экраном",
+      "parent": "skills-computer-browser-candidates",
+      "status": "prepared",
+      "detail": "Снимать состояние до действия и распознавать активное окно/видимые элементы. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://github.com/microsoft/OmniParser"
+    },
+    {
+      "id": "skill-browser-grounded-action",
+      "label": "Действие по наблюдаемой цели",
+      "parent": "skills-computer-browser-candidates",
+      "status": "prepared",
+      "detail": "Действовать только по свежему наблюдению; выполнять ограниченный шаг и проверять постусловие. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://github.com/browser-use/browser-use"
+    },
+    {
+      "id": "skill-browser-session-tabs",
+      "label": "Сессии и вкладки",
+      "parent": "skills-computer-browser-candidates",
+      "status": "prepared",
+      "detail": "Выбирать вкладку по известному URL/ID и сохранять корректный контекст сессии. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://github.com/browser-use/browser-use"
+    },
+    {
+      "id": "skill-browser-navigation-sources",
+      "label": "Навигация и проверка источников",
+      "parent": "skills-computer-browser-candidates",
+      "status": "prepared",
+      "detail": "Искать/открывать страницы и сверять, что источник подтверждает утверждение. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://github.com/browser-use/browser-use"
+    },
+    {
+      "id": "skill-browser-semantic-locators",
+      "label": "Семантический выбор элемента",
+      "parent": "skills-computer-browser-candidates",
+      "status": "prepared",
+      "detail": "Сначала использовать доступную роль, подпись или текст; координаты — после визуальной проверки. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://playwright.dev/docs/locators"
+    },
+    {
+      "id": "skill-browser-visual-checkpoints",
+      "label": "Скриншоты и сравнение состояния",
+      "parent": "skills-computer-browser-candidates",
+      "status": "prepared",
+      "detail": "Сохранять состояние до/после и находить неожиданные изменения интерфейса. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://playwright.dev/docs/screenshots"
+    },
+    {
+      "id": "skill-browser-dom-vision-extract",
+      "label": "Извлечение из DOM и визуального контекста",
+      "parent": "skills-computer-browser-candidates",
+      "status": "prepared",
+      "detail": "Сочетать DOM и визуальное наблюдение и извлекать только необходимые поля. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://github.com/browserbase/stagehand"
+    },
+    {
+      "id": "skill-browser-form-approval",
+      "label": "Формы с границей одобрения",
+      "parent": "skills-computer-browser-candidates",
+      "status": "prepared",
+      "detail": "Подготовить поля, показать сводку и остановиться до внешней отправки/покупки/публикации. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://github.com/openai/openai-agents-python"
+    },
+    {
+      "id": "skill-browser-file-transfer",
+      "label": "Выбор файла и передача",
+      "parent": "skills-computer-browser-candidates",
+      "status": "prepared",
+      "detail": "Работать только с указанным файлом; перепроверять назначение и завершение загрузки. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://playwright.dev/docs/input#upload-files"
+    },
+    {
+      "id": "skill-browser-waits-recovery",
+      "label": "Ожидание, восстановление и проверка",
+      "parent": "skills-computer-browser-candidates",
+      "status": "prepared",
+      "detail": "Ждать условие, ограничивать повторы и не повторять необратимое действие вслепую. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://github.com/ServiceNow/BrowserGym"
+    },
+    {
+      "id": "skill-agent-task-routing",
+      "label": "Разбиение задачи и передача агенту",
+      "parent": "skills-agents-code-writing-candidates",
+      "status": "prepared",
+      "detail": "Делить работу на независимые проверяемые части и возвращать результаты с источниками. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://github.com/openai/openai-agents-python"
+    },
+    {
+      "id": "skill-agent-parallel-ownership",
+      "label": "Параллельная работа и владение файлами",
+      "parent": "skills-agents-code-writing-candidates",
+      "status": "prepared",
+      "detail": "Параллелить независимые задачи, закреплять владельца файлов и сводить через review. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://github.com/obra/superpowers"
+    },
+    {
+      "id": "skill-agent-checkpoint-approval",
+      "label": "Checkpoint, одобрение и возобновление",
+      "parent": "skills-agents-code-writing-candidates",
+      "status": "prepared",
+      "detail": "Сохранять состояние и безопасно продолжать работу после паузы/одобрения. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://github.com/langchain-ai/langgraph"
+    },
+    {
+      "id": "skill-code-tdd-review",
+      "label": "TDD, отладка и проверка кода",
+      "parent": "skills-agents-code-writing-candidates",
+      "status": "prepared",
+      "detail": "Воспроизвести дефект тестом, исправить минимально и проверить регрессию на точном diff. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://github.com/obra/superpowers/tree/main/skills/test-driven-development"
+    },
+    {
+      "id": "skill-writing-evidence-docs",
+      "label": "Техническое письмо с доказательствами",
+      "parent": "skills-agents-code-writing-candidates",
+      "status": "prepared",
+      "detail": "Писать планы и отчёты с источниками, статусом доказательства, ограничениями и следующим шагом. Подготовленная спецификация; в runtime Bossman не установлено и не проверено.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Завтра сверить лицензию/совместимость, собрать изолированный кандидат, измерить пользу на одинаковых задачах и пройти независимую проверку; интегрировать только после одобрения владельца.",
+      "external_url": "https://github.com/obra/superpowers/tree/main/skills/writing-skills"
+    },
+    {
+      "id": "oss-123",
+      "label": "browser-use/browser-use",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "Open-source ссылка для оценки: Браузерный агент и управление сессией. Не установлен; оценить локальность и расходы. Ссылка не подтверждает интеграцию или работу в Bossman.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Проверить лицензию кода/весов, зависимости, безопасность и локальный тест до любого внедрения.",
+      "external_url": "https://github.com/browser-use/browser-use"
+    },
+    {
+      "id": "oss-124",
+      "label": "microsoft/playwright",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "Open-source ссылка для оценки: Детерминированное управление браузером и проверки E2E. Справочная ссылка; кандидат на первый узкий пилот. Ссылка не подтверждает интеграцию или работу в Bossman.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Проверить лицензию кода/весов, зависимости, безопасность и локальный тест до любого внедрения.",
+      "external_url": "https://github.com/microsoft/playwright"
+    },
+    {
+      "id": "oss-125",
+      "label": "browserbase/stagehand",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "Open-source ссылка для оценки: AI-навигация и повторяемые browser actions. Проверить разделение локальных/облачных функций. Ссылка не подтверждает интеграцию или работу в Bossman.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Проверить лицензию кода/весов, зависимости, безопасность и локальный тест до любого внедрения.",
+      "external_url": "https://github.com/browserbase/stagehand"
+    },
+    {
+      "id": "oss-126",
+      "label": "ServiceNow/BrowserGym",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "Open-source ссылка для оценки: Сценарии и benchmark веб-агентов; исследовательская среда, не потребительский runtime. Ссылка не подтверждает интеграцию или работу в Bossman.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Проверить лицензию кода/весов, зависимости, безопасность и локальный тест до любого внедрения.",
+      "external_url": "https://github.com/ServiceNow/BrowserGym"
+    },
+    {
+      "id": "oss-127",
+      "label": "microsoft/OmniParser",
+      "parent": "oss",
+      "status": "recorded",
+      "detail": "Open-source ссылка для оценки: Разбор скриншота и GUI-элементов; отдельно проверить лицензии весов и аппаратную стоимость. Ссылка не подтверждает интеграцию или работу в Bossman.",
+      "sources": [
+        {
+          "path": "docs/architecture/bossman-tree-20261007/SKILLS_AND_OSS_SHORTLIST_20261007.md"
+        }
+      ],
+      "next_action": "Проверить лицензию кода/весов, зависимости, безопасность и локальный тест до любого внедрения.",
+      "external_url": "https://github.com/microsoft/OmniParser"
     }
   ],
   "memory_protocol": {
