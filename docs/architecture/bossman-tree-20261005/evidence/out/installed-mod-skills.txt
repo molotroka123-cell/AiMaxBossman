@@ -1,0 +1,18 @@
+node_id: mod-skills
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bcc.features.skills')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/v2/test_skills.py tests/test_coding_tasks_local_sidecar.py tests/test_perf_20260930.py tests/test_skill_catalog.py tests/test_v22_skill_learning.py tests/test_v5_canary_production_caller.py)
+
+import bcc.features.skills: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bcc\features\skills.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/v2/test_skills.py tests/test_coding_tasks_local_sidecar.py tests/test_perf_20260930.py tests/test_skill_catalog.py tests/test_v22_skill_learning.py tests/test_v5_canary_production_caller.py)
+[step shared by 1 leaf(s); exit 0 in 42.8s; reason=None]
+........................................................................ [ 87%]
+..........                                                               [100%]
+82 passed in 41.57s
+
+[guard] product modules loaded from installed build: 331; from repo source: []; aux repo-source helper modules: 1
+
+module under test bcc.features.skills loaded by this test process from installed build: True
+
+VERDICT PASS

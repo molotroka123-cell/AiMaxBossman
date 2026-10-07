@@ -1,0 +1,3 @@
+== promotion_gate (32f69d63:command-center/bcc/features/promotion_gate.py, 189 lines)
+   OLD: promotion_gate.py — Self-Learning Orchestrator Layer 5 Validation harness + gate controller. Candidates pass only when benchmark + holdout confirm improvement without regression.
+   NEW bossman-core/bossman/learning_guard/promotion.py (157 lines): Конвейер продвижения кандидата с анти-деградационными гейтами (req.5,6,7,10). candidate → validation → shadow → verified → owner. Автопродвижения в продакшн НЕТ: OWNER_PROMOTED достижим только по явному решению владельца и требует

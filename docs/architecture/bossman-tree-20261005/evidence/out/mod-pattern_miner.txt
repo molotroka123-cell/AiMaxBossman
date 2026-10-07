@@ -1,0 +1,3 @@
+== pattern_miner (32f69d63:command-center/bcc/features/pattern_miner.py, 140 lines)
+   OLD: pattern_miner.py — Self-Learning Orchestrator Layer 3 Mines recurring failure patterns from traces + evals. Only promotes patterns with evidence >= MIN_SUPPORT runs.
+   NEW bossman-core/bossman/failure_patterns.py (148 lines): V2.6 — Failure Pattern Learner (модуль C): извлечение паттернов над КАНОНИЧЕСКОЙ failure memory. НЕ Failure Memory V2: пишет и читает та же таблица `failures` (bossman/failure_memory.py). Здесь три вещи: 1) `classify_error` — дете

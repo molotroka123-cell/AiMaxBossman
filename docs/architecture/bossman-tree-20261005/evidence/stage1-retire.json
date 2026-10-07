@@ -1,0 +1,30 @@
+[
+ {
+  "node_id": "mod-promotion_gate",
+  "sha": "dff6706d7863bfb87e9ad59bdb4c05418b94974a",
+  "probe": "audit: old-branch module vs current-line equivalent (docstrings, git history)",
+  "command": "python /tmp/cmp_doc.py  (git log --all -- */promotion_gate.py; git show <sha>:<path>; ast.get_docstring on old and current modules)",
+  "exit_code": 0,
+  "started_at": "2026-10-07T18:22:22Z",
+  "finished_at": "2026-10-07T18:22:22Z",
+  "output_sha256": "b38545ae3f8b51a07416c9b29bb4f5b1ceb75401dbb875d7ec9421940e591a02",
+  "output_tail": "== promotion_gate (32f69d63:command-center/bcc/features/promotion_gate.py, 189 lines)\n   OLD: promotion_gate.py — Self-Learning Orchestrator Layer 5 Validation harness + gate controller. Candidates pass only when benchmark + holdout confirm improvement without regression.\n   NEW bossman-core/bossman/learning_guard/promotion.py (157 lines): Конвейер продвижения кандидата с анти-деградационными гейтами (req.5,6,7,10). candidate → validation → shadow → verified → owner. Автопродвижения в продакшн НЕТ: OWNER_PROMOTED достижим только по явному решению владельца и требует",
+  "verdict": "RETIRE",
+  "kind": "audit",
+  "reason": "Superseded: old self-learning-orchestrator Layer 5 gate (branch 32f69d63, 2026-08-30, never merged) is covered on the current line by bossman/learning_guard/promotion.py (candidate->validation->shadow->verified->owner with anti-regression gates) and the hidden-holdout self-repair cycle"
+ },
+ {
+  "node_id": "mod-pattern_miner",
+  "sha": "dff6706d7863bfb87e9ad59bdb4c05418b94974a",
+  "probe": "audit: old-branch module vs current-line equivalent (docstrings, git history)",
+  "command": "python /tmp/cmp_doc.py  (git log --all -- */pattern_miner.py; git show <sha>:<path>; ast.get_docstring on old and current modules)",
+  "exit_code": 0,
+  "started_at": "2026-10-07T18:22:22Z",
+  "finished_at": "2026-10-07T18:22:22Z",
+  "output_sha256": "a13ff19fa2b21e7325f90598b27cabb4789035257079ceb6d764853bab1a8ba8",
+  "output_tail": "== pattern_miner (32f69d63:command-center/bcc/features/pattern_miner.py, 140 lines)\n   OLD: pattern_miner.py — Self-Learning Orchestrator Layer 3 Mines recurring failure patterns from traces + evals. Only promotes patterns with evidence >= MIN_SUPPORT runs.\n   NEW bossman-core/bossman/failure_patterns.py (148 lines): V2.6 — Failure Pattern Learner (модуль C): извлечение паттернов над КАНОНИЧЕСКОЙ failure memory. НЕ Failure Memory V2: пишет и читает та же таблица `failures` (bossman/failure_memory.py). Здесь три вещи: 1) `classify_error` — дете",
+  "verdict": "RETIRE",
+  "kind": "audit",
+  "reason": "Superseded: old self-learning-orchestrator Layer 3 failure-pattern miner (branch 32f69d63, 2026-08-30, never merged) is covered on the current line by bossman/failure_patterns.py (Failure Pattern Learner over the canonical failure memory)"
+ }
+]

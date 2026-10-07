@@ -1,0 +1,32 @@
+node_id: mod-telegram_settings
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bcc.features.telegram_settings')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_telegram_settings.py tests/test_telegram_settings_ui.py tests/test_backend_target_rc19.py tests/test_telegram_orphan_rc19.py tests/test_telegram_store_location.py)
+
+import bcc.features.telegram_settings: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bcc\features\telegram_settings.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_telegram_settings.py tests/test_telegram_settings_ui.py tests/test_backend_target_rc19.py tests/test_telegram_orphan_rc19.py tests/test_telegram_store_location.py)
+[step shared by 1 leaf(s); exit 1 in 43.6s; reason=tests_failed]
+........................................F.s............................. [ 90%]
+........                                                                 [100%]
+================================== FAILURES ===================================
+_______________ test_local_state_never_lands_in_the_repository ________________
+tests\test_telegram_settings.py:424: in test_local_state_never_lands_in_the_repository
+    gitignore = (repo / ".gitignore").read_text(encoding="utf-8")
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\.gitignore'
+=========================== short test summary info ===========================
+FAILED tests/test_telegram_settings.py::test_local_state_never_lands_in_the_repository
+1 failed, 78 passed, 1 skipped in 42.15s
+
+[guard] product modules loaded from installed build: 419; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.telegram_settings loaded by this test process from installed build: True
+
+VERDICT FAIL reason=tests_failed

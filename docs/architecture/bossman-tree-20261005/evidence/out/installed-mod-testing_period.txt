@@ -1,0 +1,17 @@
+node_id: mod-testing_period
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bcc.features.testing_period')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_testing_period.py)
+
+import bcc.features.testing_period: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bcc\features\testing_period.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_testing_period.py)
+[step shared by 1 leaf(s); exit 0 in 25.4s; reason=None]
+..............s...ssssss......s......                                    [100%]
+29 passed, 8 skipped in 24.09s
+
+[guard] product modules loaded from installed build: 335; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.testing_period loaded by this test process from installed build: True
+
+VERDICT PASS

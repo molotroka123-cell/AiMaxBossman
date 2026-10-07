@@ -1,0 +1,41 @@
+node_id: mod-deep_fix
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bcc.features.deep_fix')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_deep_fix_mode.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_deep_fix_gate.py)
+
+import bcc.features.deep_fix: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bcc\features\deep_fix.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_deep_fix_mode.py)
+[step shared by 1 leaf(s); exit 1 in 0.6s; reason=tests_failed]
+.......F                                                                 [100%]
+================================== FAILURES ===================================
+_________ test_store_learning_record_routes_partial_to_failed_corpus __________
+tests\test_deep_fix_mode.py:152: in test_store_learning_record_routes_partial_to_failed_corpus
+    saved = df.store_learning_record(rec)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\deep_fix.py:463: in store_learning_record
+    saved = LearningStore().add(record, write_markdown=False)
+            ^^^^^^^^^^^^^^^
+..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\learning\trace.py:480: in __init__
+    default_data, default_docs = default_dirs()
+                                 ^^^^^^^^^^^^^^
+..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\learning\trace.py:75: in default_dirs
+    raise LearningStoreLocationError(
+E   learning.trace.LearningStoreLocationError: learning package is installed at C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages; the checkout default would write into the installed application. Pass data_dir explicitly or set BOSSMAN_LEARNING_DIR.
+=========================== short test summary info ===========================
+FAILED tests/test_deep_fix_mode.py::test_store_learning_record_routes_partial_to_failed_corpus
+1 failed, 7 passed in 0.21s
+
+[guard] product modules loaded from installed build: 31; from repo source: []; aux repo-source helper modules: 1
+
+module under test bcc.features.deep_fix loaded by this test process from installed build: False
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_deep_fix_gate.py)
+[step shared by 1 leaf(s); exit 0 in 4.1s; reason=None]
+...                                                                      [100%]
+3 passed in 2.84s
+
+[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.deep_fix loaded by this test process from installed build: True
+
+VERDICT FAIL reason=tests_failed

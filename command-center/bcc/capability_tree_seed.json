@@ -1061,8 +1061,8 @@
       "id": "mod-action_contract",
       "label": "action_contract",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/action_contract.py",
@@ -1076,6 +1076,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-action_contract"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-action_contract",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -1084,8 +1090,8 @@
       "id": "mod-action_gate",
       "label": "action_gate",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/action_gate.py",
@@ -1099,6 +1105,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-action_gate"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-action_gate",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -1107,8 +1119,8 @@
       "id": "mod-action_preview",
       "label": "action_preview",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/action_preview.py",
@@ -1122,6 +1134,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-action_preview"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-action_preview",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -1176,8 +1194,8 @@
       "id": "mod-apps",
       "label": "apps",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/apps.py",
@@ -1191,6 +1209,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-apps"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-apps",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -1199,8 +1223,8 @@
       "id": "mod-apps_control",
       "label": "apps_control",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/apps_control.py",
@@ -1214,6 +1238,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-apps_control"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-apps_control",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -1283,8 +1313,8 @@
       "id": "mod-bossnet_nodes_v16",
       "label": "bossnet_nodes_v16",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 3)",
       "sources": [
         {
           "path": "command-center/bcc/features/bossnet_nodes_v16.py",
@@ -1298,6 +1328,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-bossnet_nodes_v16"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-bossnet_nodes_v16",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -1391,8 +1427,8 @@
       "id": "mod-chat_threads",
       "label": "chat_threads",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/chat_threads.py",
@@ -1406,6 +1442,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-chat_threads"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-chat_threads",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -1414,8 +1456,8 @@
       "id": "mod-code_intel",
       "label": "code_intel",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/code_intel.py",
@@ -1429,6 +1471,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-code_intel"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-code_intel",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -1529,8 +1577,8 @@
       "id": "mod-command_bar",
       "label": "command_bar",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/command_bar.py",
@@ -1544,6 +1592,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-command_bar"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-command_bar",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -1621,8 +1675,8 @@
       "id": "mod-diag_bundle",
       "label": "diag_bundle",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/diag_bundle.py",
@@ -1636,6 +1690,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-diag_bundle"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-diag_bundle",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -1752,8 +1812,8 @@
       "id": "mod-forks",
       "label": "forks",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/forks.py",
@@ -1767,6 +1827,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-forks"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-forks",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -1821,8 +1887,8 @@
       "id": "mod-governor",
       "label": "governor",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/governor.py",
@@ -1836,6 +1902,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-governor"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-governor",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -1913,8 +1985,8 @@
       "id": "mod-jeff_master_parser",
       "label": "jeff_master_parser",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/jeff_master_parser.py",
@@ -1928,6 +2000,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-jeff_master_parser"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-jeff_master_parser",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -1936,8 +2014,8 @@
       "id": "mod-jeff_settings",
       "label": "jeff_settings",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/jeff_settings.py",
@@ -1951,6 +2029,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-jeff_settings"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-jeff_settings",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2005,8 +2089,8 @@
       "id": "mod-lab_agents",
       "label": "lab_agents",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/lab_agents.py",
@@ -2020,6 +2104,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-lab_agents"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-lab_agents",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2028,8 +2118,8 @@
       "id": "mod-local_first",
       "label": "local_first",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/local_first.py",
@@ -2043,6 +2133,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-local_first"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-local_first",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2051,8 +2147,8 @@
       "id": "mod-market_metrics",
       "label": "market_metrics",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/market_metrics.py",
@@ -2066,6 +2162,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-market_metrics"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-market_metrics",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2136,8 +2238,8 @@
       "id": "mod-model_foundry_v16",
       "label": "model_foundry_v16",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 3)",
       "sources": [
         {
           "path": "command-center/bcc/features/model_foundry_v16.py",
@@ -2151,6 +2253,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-model_foundry_v16"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-model_foundry_v16",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2251,8 +2359,8 @@
       "id": "mod-objectives",
       "label": "objectives",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/objectives.py",
@@ -2266,6 +2374,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-objectives"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-objectives",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2290,8 +2404,8 @@
       "id": "mod-offline_mode",
       "label": "offline_mode",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/offline_mode.py",
@@ -2305,6 +2419,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-offline_mode"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-offline_mode",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2329,8 +2449,8 @@
       "id": "mod-opencode",
       "label": "opencode",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/opencode.py",
@@ -2344,6 +2464,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-opencode"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-opencode",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2398,8 +2524,8 @@
       "id": "mod-osiris",
       "label": "osiris",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-07 @ 526e2e55: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-07 @ 526e2e55: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/osiris.py",
@@ -2412,6 +2538,12 @@
           "branch": "green/tree-leaves-20261006",
           "sha": "526e2e5513fa442ba7fdbcbc8e0699a32118b089",
           "kind": "receipt"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-osiris",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2420,8 +2552,8 @@
       "id": "mod-oss_integrations",
       "label": "oss_integrations",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/oss_integrations.py",
@@ -2435,6 +2567,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-oss_integrations"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-oss_integrations",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2443,8 +2581,8 @@
       "id": "mod-owner_input",
       "label": "owner_input",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/owner_input.py",
@@ -2458,6 +2596,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-owner_input"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-owner_input",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2466,14 +2610,20 @@
       "id": "mod-pattern_miner",
       "label": "pattern_miner",
       "parent": "ops",
-      "status": "branch",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "retired",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Выбыл 2026-10-07 @ dff6706d: Superseded: old self-learning-orchestrator Layer 3 failure-pattern miner (branch 32f69d63, 2026-08-30, never merged) is covered on the current line by bossman/failure_patterns.py (Failure Pattern Learner over the canonical failure memory)",
       "sources": [
         {
           "path": "command-center/bcc/features/pattern_miner.py",
           "branch": "claude/v2-reasoning-engine",
           "sha": "6ebc9b75ae0ac4836e1c90a145c8a7d453cc9de5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/6ebc9b75ae0ac4836e1c90a145c8a7d453cc9de5/command-center/bcc/features/pattern_miner.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/stage1-retire.json#mod-pattern_miner",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "dff6706d7863bfb87e9ad59bdb4c05418b94974a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2505,14 +2655,20 @@
       "id": "mod-promotion_gate",
       "label": "promotion_gate",
       "parent": "ops",
-      "status": "branch",
-      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы.",
+      "status": "retired",
+      "detail": "Модуль найден. Семантика и live работоспособность не сертифицированы. Выбыл 2026-10-07 @ dff6706d: Superseded: old self-learning-orchestrator Layer 5 gate (branch 32f69d63, 2026-08-30, never merged) is covered on the current line by bossman/learning_guard/promotion.py (candidate->validation->shadow->verified->owner with anti-regression gates) and the hidden-holdout self-repair cycle",
       "sources": [
         {
           "path": "command-center/bcc/features/promotion_gate.py",
           "branch": "claude/v2-reasoning-engine",
           "sha": "6ebc9b75ae0ac4836e1c90a145c8a7d453cc9de5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/6ebc9b75ae0ac4836e1c90a145c8a7d453cc9de5/command-center/bcc/features/promotion_gate.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/stage1-retire.json#mod-promotion_gate",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "dff6706d7863bfb87e9ad59bdb4c05418b94974a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2521,8 +2677,8 @@
       "id": "mod-provenance",
       "label": "provenance",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/provenance.py",
@@ -2536,6 +2692,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-provenance"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-provenance",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2567,8 +2729,8 @@
       "id": "mod-qa_relay",
       "label": "qa_relay",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/qa_relay.py",
@@ -2582,6 +2744,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-qa_relay"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-qa_relay",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2613,8 +2781,8 @@
       "id": "mod-reality",
       "label": "reality",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/reality.py",
@@ -2628,6 +2796,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-reality"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-reality",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2636,8 +2810,8 @@
       "id": "mod-resources",
       "label": "resources",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/resources.py",
@@ -2651,6 +2825,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-resources"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-resources",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2659,8 +2839,8 @@
       "id": "mod-review_gate",
       "label": "review_gate",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/review_gate.py",
@@ -2674,6 +2854,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-review_gate"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-review_gate",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2705,8 +2891,8 @@
       "id": "mod-second_opinion",
       "label": "second_opinion",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/second_opinion.py",
@@ -2720,6 +2906,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-second_opinion"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-second_opinion",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2728,8 +2920,8 @@
       "id": "mod-simulation_world_v16",
       "label": "simulation_world_v16",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 3)",
       "sources": [
         {
           "path": "command-center/bcc/features/simulation_world_v16.py",
@@ -2743,6 +2935,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-simulation_world_v16"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-simulation_world_v16",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2751,8 +2949,8 @@
       "id": "mod-skills",
       "label": "skills",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/skills.py",
@@ -2766,6 +2964,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-skills"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-skills",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2774,8 +2978,8 @@
       "id": "mod-snapshot",
       "label": "snapshot",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/snapshot.py",
@@ -2789,6 +2993,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-snapshot"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-snapshot",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2889,8 +3099,8 @@
       "id": "mod-telegram_calls",
       "label": "telegram_calls",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/telegram_calls.py",
@@ -2904,6 +3114,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-telegram_calls"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-telegram_calls",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2958,8 +3174,8 @@
       "id": "mod-testing_period",
       "label": "testing_period",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/testing_period.py",
@@ -2973,6 +3189,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-testing_period"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-testing_period",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -2981,8 +3203,8 @@
       "id": "mod-tools_apps",
       "label": "tools_apps",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_apps.py",
@@ -2996,6 +3218,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-tools_apps"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-tools_apps",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -3027,8 +3255,8 @@
       "id": "mod-tools_code",
       "label": "tools_code",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_code.py",
@@ -3042,6 +3270,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-tools_code"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-tools_code",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -3073,8 +3307,8 @@
       "id": "mod-tools_facts",
       "label": "tools_facts",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_facts.py",
@@ -3088,6 +3322,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-tools_facts"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-tools_facts",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -3096,8 +3336,8 @@
       "id": "mod-tools_jeff",
       "label": "tools_jeff",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_jeff.py",
@@ -3111,6 +3351,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-tools_jeff"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-tools_jeff",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -3119,8 +3365,8 @@
       "id": "mod-tools_mcp",
       "label": "tools_mcp",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_mcp.py",
@@ -3134,6 +3380,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-tools_mcp"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-tools_mcp",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -3165,8 +3417,8 @@
       "id": "mod-tools_openclaw",
       "label": "tools_openclaw",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_openclaw.py",
@@ -3180,6 +3432,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-tools_openclaw"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-tools_openclaw",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -3188,8 +3446,8 @@
       "id": "mod-tools_opencode",
       "label": "tools_opencode",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_opencode.py",
@@ -3203,6 +3461,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-tools_opencode"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-tools_opencode",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -3250,8 +3514,8 @@
       "id": "mod-trading_lab",
       "label": "trading_lab",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/trading_lab.py",
@@ -3265,6 +3529,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-trading_lab"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-trading_lab",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -3289,8 +3559,8 @@
       "id": "mod-unified_search",
       "label": "unified_search",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/unified_search.py",
@@ -3304,6 +3574,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-unified_search"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-unified_search",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -3312,8 +3588,8 @@
       "id": "mod-v15_autonomy",
       "label": "v15_autonomy",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/v15_autonomy.py",
@@ -3327,6 +3603,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-v15_autonomy"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-v15_autonomy",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -3381,8 +3663,8 @@
       "id": "mod-v15_owner_run",
       "label": "v15_owner_run",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/v15_owner_run.py",
@@ -3396,6 +3678,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-v15_owner_run"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-v15_owner_run",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -3404,8 +3692,8 @@
       "id": "mod-v15_self_repair",
       "label": "v15_self_repair",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/v15_self_repair.py",
@@ -3419,6 +3707,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-v15_self_repair"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-v15_self_repair",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -3466,8 +3760,8 @@
       "id": "mod-watchdog",
       "label": "watchdog",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/watchdog.py",
@@ -3481,6 +3775,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-watchdog"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-watchdog",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -3489,8 +3789,8 @@
       "id": "mod-web_designer",
       "label": "web_designer",
       "parent": "ops",
-      "status": "reported",
-      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest",
+      "status": "working",
+      "detail": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ a6296e2f: import+pytest Работает в установленном Bossman @ eba6dc59: installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1)",
       "sources": [
         {
           "path": "command-center/bcc/features/web_designer.py",
@@ -3504,6 +3804,12 @@
           "sha": null,
           "kind": "receipt",
           "node": "mod-web_designer"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/installed-ops.json#mod-web_designer",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."

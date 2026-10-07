@@ -1,0 +1,43 @@
+node_id: mod-plugins
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bcc.features.plugins')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_plugins_adapter.py tests/test_plugins_obsidian_not_a_file.py tests/test_plugins_sql_uri_encoding.py tests/test_plugins_stub_not_success.py tests/test_capability_tree.py tests/test_feat_openrouter_owner_path.py tests/test_plugin_security.py tests/test_plugin_security_malformed_url.py)
+
+import bcc.features.plugins: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bcc\features\plugins.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_plugins_adapter.py tests/test_plugins_obsidian_not_a_file.py tests/test_plugins_sql_uri_encoding.py tests/test_plugins_stub_not_success.py tests/test_capability_tree.py tests/test_feat_openrouter_owner_path.py tests/test_plugin_security.py tests/test_plugin_security_malformed_url.py)
+[step shared by 1 leaf(s); exit 1 in 23.6s; reason=tests_failed]
+........................................................................ [ 44%]
+...........................F............................................ [ 89%]
+.................                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_ui_declares_working_status_with_distinct_color _____________
+tests\test_capability_tree.py:431: in test_ui_declares_working_status_with_distinct_color
+    js = (ui / "capability_tree.js").read_text(encoding="utf-8")
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\ui\\pages\\capability_tree.js'
+============================== warnings summary ===============================
+..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\starlette\testclient.py:53
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+tests/test_capability_tree.py::test_full_app_mounts_capability_tree
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\fastapi\openapi\utils.py:303: UserWarning: Duplicate Operation ID file_commander_view_api_apps_file_commander_mini_view__app_path__get for function file_commander_view at C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\features\apps_control.py
+    warnings.warn(message, stacklevel=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_capability_tree.py::test_ui_declares_working_status_with_distinct_color
+1 failed, 160 passed, 2 warnings in 22.22s
+
+[guard] product modules loaded from installed build: 331; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.plugins loaded by this test process from installed build: True
+
+VERDICT FAIL reason=tests_failed

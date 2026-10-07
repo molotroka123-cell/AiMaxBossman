@@ -1,17 +1,64 @@
 # Evidence summary
 
-Статусы дерева: blocked=12, branch=33, code=30, idea=7, mixed=14, prepared=3, recorded=180, reported=557, retired=2, working=1
+Статусы дерева: blocked=12, branch=31, code=30, idea=7, mixed=14, prepared=3, recorded=180, reported=508, retired=4, working=50
 
-Принято расписок: 2; отклонено: 633
+Принято расписок: 49; отклонено: 642
 
 ## По зонам
 
-- ops: 2
+- ops: 49
 
 ## Принятые
 
-- `mod-autonomy` (ops.json)
-- `mod-osiris` (ops.json)
+- `mod-action_contract` (installed-ops.json)
+- `mod-action_gate` (installed-ops.json)
+- `mod-action_preview` (installed-ops.json)
+- `mod-apps` (installed-ops.json)
+- `mod-apps_control` (installed-ops.json)
+- `mod-bossnet_nodes_v16` (installed-ops.json)
+- `mod-chat_threads` (installed-ops.json)
+- `mod-code_intel` (installed-ops.json)
+- `mod-command_bar` (installed-ops.json)
+- `mod-diag_bundle` (installed-ops.json)
+- `mod-forks` (installed-ops.json)
+- `mod-governor` (installed-ops.json)
+- `mod-jeff_master_parser` (installed-ops.json)
+- `mod-jeff_settings` (installed-ops.json)
+- `mod-lab_agents` (installed-ops.json)
+- `mod-local_first` (installed-ops.json)
+- `mod-market_metrics` (installed-ops.json)
+- `mod-model_foundry_v16` (installed-ops.json)
+- `mod-objectives` (installed-ops.json)
+- `mod-offline_mode` (installed-ops.json)
+- `mod-opencode` (installed-ops.json)
+- `mod-osiris` (installed-ops.json)
+- `mod-oss_integrations` (installed-ops.json)
+- `mod-owner_input` (installed-ops.json)
+- `mod-provenance` (installed-ops.json)
+- `mod-qa_relay` (installed-ops.json)
+- `mod-reality` (installed-ops.json)
+- `mod-resources` (installed-ops.json)
+- `mod-review_gate` (installed-ops.json)
+- `mod-second_opinion` (installed-ops.json)
+- `mod-simulation_world_v16` (installed-ops.json)
+- `mod-skills` (installed-ops.json)
+- `mod-snapshot` (installed-ops.json)
+- `mod-telegram_calls` (installed-ops.json)
+- `mod-testing_period` (installed-ops.json)
+- `mod-tools_apps` (installed-ops.json)
+- `mod-tools_code` (installed-ops.json)
+- `mod-tools_facts` (installed-ops.json)
+- `mod-tools_jeff` (installed-ops.json)
+- `mod-tools_mcp` (installed-ops.json)
+- `mod-tools_openclaw` (installed-ops.json)
+- `mod-tools_opencode` (installed-ops.json)
+- `mod-trading_lab` (installed-ops.json)
+- `mod-unified_search` (installed-ops.json)
+- `mod-v15_autonomy` (installed-ops.json)
+- `mod-v15_owner_run` (installed-ops.json)
+- `mod-v15_self_repair` (installed-ops.json)
+- `mod-watchdog` (installed-ops.json)
+- `mod-web_designer` (installed-ops.json)
 
 ## Отклонённые
 
@@ -556,6 +603,8 @@
 - `module-f21597ba1fd6` (ops.json): status reported not eligible
 - `module-266a95659ed4` (ops.json): status reported not eligible
 - `module-7af8dc300eab` (ops.json): status reported not eligible
+- `mod-autonomy` (ops.json): status reported not eligible
+- `mod-osiris` (ops.json): status reported not eligible
 - `mod-v15_owner` (opsplug-retire.json): status retired not eligible
 - `module-575dcc5a99f5` (opsplug.json): status reported not eligible
 - `module-bc12e1784cb5` (opsplug.json): status reported not eligible
@@ -629,12 +678,19 @@
 - `skill-22` (skills.json): status recorded not eligible
 - `skill-36` (skills.json): status recorded not eligible
 - `skills-runtime` (skills.json): status reported not eligible
+- `mod-promotion_gate` (stage1-retire.json): status retired not eligible
+- `mod-pattern_miner` (stage1-retire.json): status retired not eligible
 - `None` (ux-sweep-desktop-raw.json): unreadable lane file
 - `None` (ux-sweep-gaps.json): unreadable lane file
 - `None` (ux-sweep-notes.json): unreadable lane file
 - `None` (ux-sweep-phone-raw.json): unreadable lane file
 - `None` (ux-sweep.json): unreadable lane file
 - `module-a7105ffd5da5` (installed-final.json): status working is not reported (green first)
+- `mod-autonomy` (installed-ops.json): verdict not PASS
+- `mod-deep_fix` (installed-ops.json): verdict not PASS
+- `mod-file_intelligence` (installed-ops.json): verdict not PASS
+- `mod-plugins` (installed-ops.json): verdict not PASS
+- `mod-telegram_settings` (installed-ops.json): verdict not PASS
 - `plugin-0` (installed-plugins.json): sha is not a registered installed build
 - `plugin-1` (installed-plugins.json): sha is not a registered installed build
 - `plugin-2` (installed-plugins.json): sha is not a registered installed build
