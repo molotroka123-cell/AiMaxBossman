@@ -258,6 +258,7 @@ async def safe_get(url: str, *, allow_private: bool = False,
                 # Служебную метку ставим только мы: сервер не должен уметь её подделать.
                 head = {k: v for k, v in r.headers.items()
                         if k.lower() not in ("content-length", "x-bossman-truncated",
+                                     "x-bossman-original-content-encoding",   # служебная метка: сервер её не ставит
                                      # aiter_bytes() already decoded the body; keeping content-encoding
                                      # makes httpx.Response decode it twice (DecodingError)
                                      "content-encoding", "transfer-encoding")}
