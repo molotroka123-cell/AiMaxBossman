@@ -1,0 +1,51 @@
+{
+ "label": "cycle02",
+ "case": "discovery",
+ "task_id": "48306dce403a",
+ "worker": "haiku-5.5",
+ "model_audited_by": "anthropic/claude-haiku-5.5",
+ "prompt_sha256": "8e138d6741152d4b48e9c087f2cc9b99dd1345eb15235fbd9a549de422074681",
+ "diff_sha256": "cc1de295e49e85c3cc1b1ad16bfaac71bf8457a4cdde73de374f07fd55a4d160",
+ "elapsed_s": 6.0,
+ "usage": {
+  "prompt_tokens": 2092,
+  "completion_tokens": 948,
+  "total_tokens": 3040,
+  "cost": 0.0006832,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "cache_write_tokens": 0,
+   "audio_tokens": 0,
+   "video_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.0006832,
+   "upstream_inference_prompt_cost": 0.0002092,
+   "upstream_inference_completions_cost": 0.000474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 555,
+   "image_tokens": 0,
+   "audio_tokens": 0
+  }
+ },
+ "cost_usd": 0.0006832,
+ "raw_content": "{\"verdict\": \"REJECT\", \"defects\": [\"Нарушение жёсткого объёма: diff создаёт новый файл command-center/tests/test_discovery_probe_tmp.py, хотя задача запрещала создавать новые файлы.\", \"Проверка в score() только на входе: конечные, но огромные значения могут дать inf или NaN в самом выражении score (переполнение при умножении), и такой кандидат не отсекается.\", \"Ветка с -inf в choose_discovery_question опирается на сравнение с -inf; если score вернёт NaN, сравнение с порогом молча даст отказ, а не явный отсев, поведение не зафиксировано тестом.\"], \"missed_cases\": [\"Большие конечные значения (например 1e308), при которых вычисление score переполняется в inf или NaN.\", \"Кандидат, у которого все поля валидны, но score() вернул NaN из-за арифметики; проверки результата на NaN после вычисления нет.\", \"Тест не проверяет независимость от порядка при нескольких валидных кандидатах с равным score и при наличии невалидного кандидата с -inf на первой позиции.\"], \"scope_ok\": false}",
+ "verdict": {
+  "verdict": "REJECT",
+  "defects": [
+   "Нарушение жёсткого объёма: diff создаёт новый файл command-center/tests/test_discovery_probe_tmp.py, хотя задача запрещала создавать новые файлы.",
+   "Проверка в score() только на входе: конечные, но огромные значения могут дать inf или NaN в самом выражении score (переполнение при умножении), и такой кандидат не отсекается.",
+   "Ветка с -inf в choose_discovery_question опирается на сравнение с -inf; если score вернёт NaN, сравнение с порогом молча даст отказ, а не явный отсев, поведение не зафиксировано тестом."
+  ],
+  "missed_cases": [
+   "Большие конечные значения (например 1e308), при которых вычисление score переполняется в inf или NaN.",
+   "Кандидат, у которого все поля валидны, но score() вернул NaN из-за арифметики; проверки результата на NaN после вычисления нет.",
+   "Тест не проверяет независимость от порядка при нескольких валидных кандидатах с равным score и при наличии невалидного кандидата с -inf на первой позиции."
+  ],
+  "scope_ok": false
+ },
+ "audited_at": "2026-10-07T14:21:52",
+ "holdout_seen_before_audit": false
+}

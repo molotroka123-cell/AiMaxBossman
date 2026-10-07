@@ -1,0 +1,100 @@
+{
+ "recipe": {
+  "id": "tree-selfrepair-b3a251063618",
+  "title": "Bossman self-repair: command-center/bcc/pit/discovery.py",
+  "symptom": "В bcc/pit/discovery.py выбор вопроса (choose_discovery_question / score) ломается на некорректных числах. Прошлая попытка (задача 904e7a3c02be) закрыла только NaN в relevance, uncertainty и future_utility; остались annoyance_cost и sensitivity_risk, а также +inf/-inf и None в любом числовом поле. Контракт: кандидат, у которого любое числовое поле не является конечным числом, НИКОГДА не выбирается и не роняет выбор; неизвестный риск нельзя превращать в безопасный ноль; результат не зависит от порядка кандидатов; корректные кандидаты выбираются как раньше. Сначала напиши тест, который падает на старом коде. ОБЪЁМ (жёстко): меняй ТОЛЬКО command-center/bcc/pit/discovery.py и добавь тест-функции в уже существующий command-center/tests/test_pit_foundation.py; новых файлов не создавай.",
+  "cause": "Некорректное число (NaN/±inf/None/отрицательное) проходило проверку как допустимое: сравнения с NaN ложны. До исправления holdout 37/72; падали: annoyance_cost=-inf, annoyance_cost=None, annoyance_cost=nan, future_utility=+inf, future_utility=None, future_utility=nan, relevance=+inf, relevance=None, relevance=nan, sensitivity_risk=-inf, sensitivity_risk=None, sensitivity_risk=nan",
+  "diagnosis": "Скрытый holdout discovery_nonfinite.py на базе 916f7c5ee95f воспроизводит дефект по результату, а не по наличию проверки.",
+  "action": "Исполнитель Bossman (haiku-5.5/anthropic/claude-haiku-5.5, задача b3a251063618): Confirmed a real defect in command-center/bcc/pit/discovery.py. Before the fix, a candidate with None in any numeric field raised TypeError during scoring. NaN and ±inf in some fields could produce NaN scores, which made the chosen candidate depend on ordering. I added a regression test, test_discovery_never_selects_candidate_with_non_finite_numbers, to command-center/tests/test_pit_foundation.py. It is parametrized over the 5 numeric fields and NaN/±inf/None, and checks both orderings. The fix in discovery.py: non-finite or non-numeric fields score -inf (bools are rejected too), and choose_discovery_question returns None when the best score is -inf. Valid candidates are unchanged. The new t | Изменённые строки: import math ; _NUMERIC_FIELDS = ( ;     \"relevance\", ;     \"uncertainty\", ;     \"future_utility\", ;     \"annoyance_cost\", ;     \"sensitivity_risk\", ; ) ; def _is_finite_number(value: object) -> bool: ;     if isinstance(value, bool) or not isinstance(value, (int, float)): ;         return False ;     try: ;         return math.isfinite(float(value)) ;     except OverflowError: ;         return False ;     # Any non-finite or non-numeric field is unknown risk: never a safe zero, ;     # never selectable, and independent of candidate ordering. ;     if not all(_is_finite_number(getattr(candidate, f)) for f in _NUMERIC_FIELDS):",
+  "counterexample": "Не трогать корректные значения: valid/best_wins/abc, valid/best_wins/acb, valid/best_wins/bac, valid/best_wins/bca, valid/best_wins/cab, valid/best_wins/cba",
+  "required_check": {
+   "tool": "run_tests",
+   "args": {
+    "paths": [
+     "command-center/tests/test_discovery.py",
+     "command-center/tests/test_pit_foundation.py"
+    ]
+   }
+  },
+  "applies_when": {
+   "project_id": "capability-tree",
+   "language": "python",
+   "keywords": [
+    "nan",
+    "inf",
+    "non-finite",
+    "float",
+    "budget",
+    "score",
+    "max",
+    "comparison",
+    "isfinite",
+    "cost",
+    "threshold"
+   ]
+  },
+  "steps": [
+   {
+    "tool": "read_file",
+    "args": {
+     "path": "command-center/bcc/pit/discovery.py"
+    }
+   },
+   {
+    "tool": "search",
+    "args": {
+     "pattern": "float(",
+     "path": "command-center/bcc/pit/discovery.py"
+    }
+   },
+   {
+    "tool": "run_tests",
+    "args": {
+     "paths": [
+      "command-center/tests/test_discovery.py",
+      "command-center/tests/test_pit_foundation.py"
+     ]
+    }
+   }
+  ],
+  "provenance": {
+   "who": "bossman-worker:haiku-5.5/anthropic/claude-haiku-5.5",
+   "source": "student",
+   "assistance_level": "hint",
+   "what": "verified self-repair recipe",
+   "code_refs": [
+    "command-center/bcc/pit/discovery.py"
+   ],
+   "test_refs": [
+    "tools/tree_holdout/discovery_nonfinite.py"
+   ],
+   "evidence_refs": [
+    "coding-task:b3a251063618"
+   ]
+  },
+  "status": "VERIFIED",
+  "project_id": "capability-tree",
+  "scope": "project"
+ },
+ "evidence": {
+  "source": "tools/tree_holdout/discovery_nonfinite.py@916f7c5ee95f5ff0369b951fed5d7ddb65a7c458+task:b3a251063618",
+  "expected": "PASS",
+  "actual": "PASS",
+  "head_sha": "916f7c5ee95f5ff0369b951fed5d7ddb65a7c458",
+  "environment": "owner-pc Windows 11 python 3.12.10"
+ },
+ "verifier": {
+  "principal_id": "tree-holdout:discovery_nonfinite",
+  "independence_class": "external_tool"
+ },
+ "saved": {
+  "recipe_id": "tree-selfrepair-b3a251063618",
+  "lesson_id": "coach-lesson:72445981d0ceb957",
+  "status": "VERIFIED",
+  "version": 3,
+  "project_id": "capability-tree",
+  "scope": "project",
+  "kind": "student_fix",
+  "learning_dir": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\learning"
+ }
+}

@@ -1,0 +1,75 @@
+diff --git a/command-center/bcc/pit/discovery.py b/command-center/bcc/pit/discovery.py
+index c1b0c38..f6fc730 100644
+--- a/command-center/bcc/pit/discovery.py
++++ b/command-center/bcc/pit/discovery.py
+@@ -1,5 +1,6 @@
+ from __future__ import annotations
+ 
++import math
+ from dataclasses import dataclass
+ from enum import StrEnum
+ 
+@@ -24,7 +25,29 @@ class DiscoveryCandidate:
+     previously_skipped: bool = False
+ 
+ 
++_NUMERIC_FIELDS = (
++    "relevance",
++    "uncertainty",
++    "future_utility",
++    "annoyance_cost",
++    "sensitivity_risk",
++)
++
++
++def _is_finite_number(value: object) -> bool:
++    if isinstance(value, bool) or not isinstance(value, (int, float)):
++        return False
++    try:
++        return math.isfinite(float(value))
++    except OverflowError:
++        return False
++
++
+ def score(candidate: DiscoveryCandidate) -> float:
++    # Any non-finite or non-numeric field is unknown risk: never a safe zero,
++    # never selectable, and independent of candidate ordering.
++    if not all(_is_finite_number(getattr(candidate, f)) for f in _NUMERIC_FIELDS):
++        return float("-inf")
+     if candidate.previously_skipped or candidate.sensitivity_risk >= 0.5:
+         return float("-inf")
+     return (
+@@ -60,4 +83,7 @@ def choose_discovery_question(
+         threshold -= min(int(risk_score), 5) * 0.02
+     threshold += discovery_threshold_adjustment(engagement_score)
+     best = max(candidates, key=score)
+-    return best if score(best) >= threshold else None
++    best_score = score(best)
++    if best_score == float("-inf"):
++        return None
++    return best if best_score >= threshold else None
+diff --git a/command-center/tests/test_pit_foundation.py b/command-center/tests/test_pit_foundation.py
+index bc62771..e7d489e 100644
+--- a/command-center/tests/test_pit_foundation.py
++++ b/command-center/tests/test_pit_foundation.py
+@@ -262,6 +262,20 @@ def test_local_model_wins_after_ai_max_transition_when_quality_is_sufficient():
+     assert choose_route(request, [local, remote]).selected_model == "local-main"
+ 
+ 
++@pytest.mark.parametrize("field", ["relevance", "uncertainty", "future_utility", "annoyance_cost", "sensitivity_risk"])
++@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf"), None])
++def test_discovery_never_selects_candidate_with_non_finite_numbers(field, bad):
++    values = {"relevance": 0.9, "uncertainty": 0.9, "future_utility": 0.8, "annoyance_cost": 0.1, "sensitivity_risk": 0.0}
++    values[field] = bad
++    broken = DiscoveryCandidate("broken", "Broken?", **values)
++    good = DiscoveryCandidate("good", "Good?", 0.9, 0.9, 0.8, annoyance_cost=0.1)
++    for ordering in ([broken, good], [good, broken]):
++        selected = choose_discovery_question(ordering, enabled=True)
++        assert selected is not None
++        assert selected.key == "good"
++    assert choose_discovery_question([broken], enabled=True) is None
++
++
+ def test_discovery_returns_at_most_one_and_suppresses_sensitive_probe():
+     selected = choose_discovery_question(
+         [

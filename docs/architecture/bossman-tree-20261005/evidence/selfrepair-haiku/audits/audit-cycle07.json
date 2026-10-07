@@ -1,0 +1,53 @@
+{
+ "label": "cycle07",
+ "case": "discovery",
+ "task_id": "b3a251063618",
+ "worker": "haiku-5.5",
+ "model_audited_by": "anthropic/claude-haiku-5.5",
+ "prompt_sha256": "a2cea8317b1cc8950422fdf044bce9335b0b694b2d28e8b031b1b83d07494cab",
+ "diff_sha256": "c181638a793a7e816eb14a45a8d24145fa738a890a8835d80068f116aef44baa",
+ "elapsed_s": 9.5,
+ "usage": {
+  "prompt_tokens": 1961,
+  "completion_tokens": 1706,
+  "total_tokens": 3667,
+  "cost": 0.0010491,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "cache_write_tokens": 0,
+   "audio_tokens": 0,
+   "video_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.0010491,
+   "upstream_inference_prompt_cost": 0.0001961,
+   "upstream_inference_completions_cost": 0.000853
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 1196,
+   "image_tokens": 0,
+   "audio_tokens": 0
+  }
+ },
+ "cost_usd": 0.0010491,
+ "raw_content": "{\"verdict\": \"REJECT\", \"defects\": [\"Конечные, но огромные значения (например 1e308) могут дать inf или NaN внутри формулы score (inf - inf, inf * 0). Такой score не проходит проверку на не-конечность, поэтому max() становится зависящим от порядка кандидатов, что нарушает контракт.\", \"Проверка best_score == -inf не ловит NaN. Если score вернул NaN, сравнение NaN >= threshold даёт False и кандидат отбрасывается, но max() уже мог выбрать неверного кандидата, потому что сравнения с NaN не транзитивны.\"], \"missed_cases\": [\"relevance или future_utility = 1e308 при конечных остальных полях: проверить, что score конечен или что кандидат отбрасывается, и что результат не зависит от порядка\", \"Два кандидата с большими конечными значениями: порядок не должен менять выбор\", \"Тест на -inf в previously_skipped и sensitivity_risk=None с хорошими остальными полями (проверка, что None не превращается в безопасный ноль)\", \"Поведение, когда threshold становится NaN или -inf из-за engagement_score или risk_score (вне контракта кандидатов, но влияет на выбор)\", \"Отрицательные значения в полях, которые по формуле дают неограниченный score\", \"Тест не доказан как падающий на старом коде для всех параметров; корректность формулы ожидаемого кандидата 'good' не проверена\"], \"scope_ok\": true}",
+ "verdict": {
+  "verdict": "REJECT",
+  "defects": [
+   "Конечные, но огромные значения (например 1e308) могут дать inf или NaN внутри формулы score (inf - inf, inf * 0). Такой score не проходит проверку на не-конечность, поэтому max() становится зависящим от порядка кандидатов, что нарушает контракт.",
+   "Проверка best_score == -inf не ловит NaN. Если score вернул NaN, сравнение NaN >= threshold даёт False и кандидат отбрасывается, но max() уже мог выбрать неверного кандидата, потому что сравнения с NaN не транзитивны."
+  ],
+  "missed_cases": [
+   "relevance или future_utility = 1e308 при конечных остальных полях: проверить, что score конечен или что кандидат отбрасывается, и что результат не зависит от порядка",
+   "Два кандидата с большими конечными значениями: порядок не должен менять выбор",
+   "Тест на -inf в previously_skipped и sensitivity_risk=None с хорошими остальными полями (проверка, что None не превращается в безопасный ноль)",
+   "Поведение, когда threshold становится NaN или -inf из-за engagement_score или risk_score (вне контракта кандидатов, но влияет на выбор)",
+   "Отрицательные значения в полях, которые по формуле дают неограниченный score",
+   "Тест не доказан как падающий на старом коде для всех параметров; корректность формулы ожидаемого кандидата 'good' не проверена"
+  ],
+  "scope_ok": true
+ },
+ "audited_at": "2026-10-07T14:33:59",
+ "holdout_seen_before_audit": false
+}
