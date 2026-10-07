@@ -59,6 +59,22 @@ def test_public_view_and_repr_expose_only_masks(home, tmp_path):
     assert mask_phone("+7 (900) 123-45-67") == "+••••4567" and mask_phone("12") == ""
 
 
+def test_saved_login_phone_is_encrypted_masked_and_validated(home, tmp_path):
+    """eefc3705 (wt-calls-investor): the full login phone persists in credentials.enc, never in the clear."""
+    s = store_for(home, tmp_path)
+    assert s.saved_phone() == ""
+    s.save_phone("+7 (900) 123-45-67")
+    assert s.saved_phone() == "+79001234567" and s.load().phone_last4 == "4567"
+    raw = b"".join(p.read_bytes() for p in home.iterdir() if p.is_file())
+    assert b"79001234567" not in raw and b"900 123" not in raw
+    view = json.dumps(s.public())
+    assert "79001234567" not in view and s.public()["phone"] == "+••••4567"
+    assert "79001234567" not in repr(s.load())
+    with pytest.raises(CallError):
+        s.save_phone("12")
+    assert s.saved_phone() == "+79001234567"
+
+
 @pytest.mark.parametrize("api_id,api_hash", [(0, API_HASH), (-5, API_HASH), (API_ID, "short"), (API_ID, "z" * 32), ("1", API_HASH)])
 def test_bad_api_credentials_are_refused_without_echoing_them(home, tmp_path, api_id, api_hash):
     with pytest.raises(CallError) as ei:
