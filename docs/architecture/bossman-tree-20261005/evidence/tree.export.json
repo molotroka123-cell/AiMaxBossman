@@ -5944,6 +5944,160 @@
    "parent": "skills",
    "status": "idea",
    "short": "OSS-навык на завтра (07.10). Лёгкий SDK агента с локальным workspace и нативной Windows; sidecar OpenHands у нас уже есть. Не измерено. Только предложение, в ru"
+  },
+  {
+   "id": "skills-computer-browser-candidates",
+   "label": "Компьютер и браузер · 10 навыков-кандидатов",
+   "parent": "skills",
+   "status": "mixed",
+   "short": "Подготовленные карточки навыков для наблюдения экрана, управления браузером, форм, файлов и проверки результата. Это план на оценку; доступность функций в Bossm"
+  },
+  {
+   "id": "skills-agents-code-writing-candidates",
+   "label": "Оркестрация, код и письмо · 5 навыков-кандидатов",
+   "parent": "skills",
+   "status": "mixed",
+   "short": "Подготовленные карточки для передачи задач агентам, checkpoint/approval, безопасного кодирования и доказательной документации. Это план, не включённый runtime."
+  },
+  {
+   "id": "skill-browser-screen-observation",
+   "label": "Наблюдение за экраном",
+   "parent": "skills-computer-browser-candidates",
+   "status": "prepared",
+   "short": "Снимать состояние до действия и распознавать активное окно/видимые элементы. Подготовленная спецификация; в runtime Bossman не установлено и не проверено."
+  },
+  {
+   "id": "skill-browser-grounded-action",
+   "label": "Действие по наблюдаемой цели",
+   "parent": "skills-computer-browser-candidates",
+   "status": "prepared",
+   "short": "Действовать только по свежему наблюдению; выполнять ограниченный шаг и проверять постусловие. Подготовленная спецификация; в runtime Bossman не установлено и не"
+  },
+  {
+   "id": "skill-browser-session-tabs",
+   "label": "Сессии и вкладки",
+   "parent": "skills-computer-browser-candidates",
+   "status": "prepared",
+   "short": "Выбирать вкладку по известному URL/ID и сохранять корректный контекст сессии. Подготовленная спецификация; в runtime Bossman не установлено и не проверено."
+  },
+  {
+   "id": "skill-browser-navigation-sources",
+   "label": "Навигация и проверка источников",
+   "parent": "skills-computer-browser-candidates",
+   "status": "prepared",
+   "short": "Искать/открывать страницы и сверять, что источник подтверждает утверждение. Подготовленная спецификация; в runtime Bossman не установлено и не проверено."
+  },
+  {
+   "id": "skill-browser-semantic-locators",
+   "label": "Семантический выбор элемента",
+   "parent": "skills-computer-browser-candidates",
+   "status": "prepared",
+   "short": "Сначала использовать доступную роль, подпись или текст; координаты — после визуальной проверки. Подготовленная спецификация; в runtime Bossman не установлено и "
+  },
+  {
+   "id": "skill-browser-visual-checkpoints",
+   "label": "Скриншоты и сравнение состояния",
+   "parent": "skills-computer-browser-candidates",
+   "status": "prepared",
+   "short": "Сохранять состояние до/после и находить неожиданные изменения интерфейса. Подготовленная спецификация; в runtime Bossman не установлено и не проверено."
+  },
+  {
+   "id": "skill-browser-dom-vision-extract",
+   "label": "Извлечение из DOM и визуального контекста",
+   "parent": "skills-computer-browser-candidates",
+   "status": "prepared",
+   "short": "Сочетать DOM и визуальное наблюдение и извлекать только необходимые поля. Подготовленная спецификация; в runtime Bossman не установлено и не проверено."
+  },
+  {
+   "id": "skill-browser-form-approval",
+   "label": "Формы с границей одобрения",
+   "parent": "skills-computer-browser-candidates",
+   "status": "prepared",
+   "short": "Подготовить поля, показать сводку и остановиться до внешней отправки/покупки/публикации. Подготовленная спецификация; в runtime Bossman не установлено и не пров"
+  },
+  {
+   "id": "skill-browser-file-transfer",
+   "label": "Выбор файла и передача",
+   "parent": "skills-computer-browser-candidates",
+   "status": "prepared",
+   "short": "Работать только с указанным файлом; перепроверять назначение и завершение загрузки. Подготовленная спецификация; в runtime Bossman не установлено и не проверено"
+  },
+  {
+   "id": "skill-browser-waits-recovery",
+   "label": "Ожидание, восстановление и проверка",
+   "parent": "skills-computer-browser-candidates",
+   "status": "prepared",
+   "short": "Ждать условие, ограничивать повторы и не повторять необратимое действие вслепую. Подготовленная спецификация; в runtime Bossman не установлено и не проверено."
+  },
+  {
+   "id": "skill-agent-task-routing",
+   "label": "Разбиение задачи и передача агенту",
+   "parent": "skills-agents-code-writing-candidates",
+   "status": "prepared",
+   "short": "Делить работу на независимые проверяемые части и возвращать результаты с источниками. Подготовленная спецификация; в runtime Bossman не установлено и не провере"
+  },
+  {
+   "id": "skill-agent-parallel-ownership",
+   "label": "Параллельная работа и владение файлами",
+   "parent": "skills-agents-code-writing-candidates",
+   "status": "prepared",
+   "short": "Параллелить независимые задачи, закреплять владельца файлов и сводить через review. Подготовленная спецификация; в runtime Bossman не установлено и не проверено"
+  },
+  {
+   "id": "skill-agent-checkpoint-approval",
+   "label": "Checkpoint, одобрение и возобновление",
+   "parent": "skills-agents-code-writing-candidates",
+   "status": "prepared",
+   "short": "Сохранять состояние и безопасно продолжать работу после паузы/одобрения. Подготовленная спецификация; в runtime Bossman не установлено и не проверено."
+  },
+  {
+   "id": "skill-code-tdd-review",
+   "label": "TDD, отладка и проверка кода",
+   "parent": "skills-agents-code-writing-candidates",
+   "status": "prepared",
+   "short": "Воспроизвести дефект тестом, исправить минимально и проверить регрессию на точном diff. Подготовленная спецификация; в runtime Bossman не установлено и не прове"
+  },
+  {
+   "id": "skill-writing-evidence-docs",
+   "label": "Техническое письмо с доказательствами",
+   "parent": "skills-agents-code-writing-candidates",
+   "status": "prepared",
+   "short": "Писать планы и отчёты с источниками, статусом доказательства, ограничениями и следующим шагом. Подготовленная спецификация; в runtime Bossman не установлено и н"
+  },
+  {
+   "id": "oss-123",
+   "label": "browser-use/browser-use",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Open-source ссылка для оценки: Браузерный агент и управление сессией. Не установлен; оценить локальность и расходы. Ссылка не подтверждает интеграцию или работу"
+  },
+  {
+   "id": "oss-124",
+   "label": "microsoft/playwright",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Open-source ссылка для оценки: Детерминированное управление браузером и проверки E2E. Справочная ссылка; кандидат на первый узкий пилот. Ссылка не подтверждает "
+  },
+  {
+   "id": "oss-125",
+   "label": "browserbase/stagehand",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Open-source ссылка для оценки: AI-навигация и повторяемые browser actions. Проверить разделение локальных/облачных функций. Ссылка не подтверждает интеграцию ил"
+  },
+  {
+   "id": "oss-126",
+   "label": "ServiceNow/BrowserGym",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Open-source ссылка для оценки: Сценарии и benchmark веб-агентов; исследовательская среда, не потребительский runtime. Ссылка не подтверждает интеграцию или рабо"
+  },
+  {
+   "id": "oss-127",
+   "label": "microsoft/OmniParser",
+   "parent": "oss",
+   "status": "recorded",
+   "short": "Open-source ссылка для оценки: Разбор скриншота и GUI-элементов; отдельно проверить лицензии весов и аппаратную стоимость. Ссылка не подтверждает интеграцию или"
   }
  ]
 }
