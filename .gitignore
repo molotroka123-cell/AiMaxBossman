@@ -142,3 +142,10 @@ self-improve-lab/
 # Telegram user-account sessions (Telethon): a session file is the whole account
 *.session
 *.session-journal
+
+# owner rule 07.10: keys and vault are NEVER pushed
+*.dpapi
+provider-keys*
+**/keys/*.env
+vault.*
+*.vault
