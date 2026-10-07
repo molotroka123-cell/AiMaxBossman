@@ -59,3 +59,28 @@ DEFECT_REPRODUCED yes (4/4) | MODEL_PATCH_CREATED no (best: Nemotron Super touch
 ## Smallest next blocker
 
 The model cannot get red/green feedback from its own run_tests in the sidecar (cause above), so free workers burn steps (cohere, glm-flash 40-step cap) and glm-flash never reaches the source file. Smallest step: forward BOSSMAN_VERIFY_PYTHON in the cloud-worker env branch of coding_tasks._run (one line, product code change by the owner/dev, then rebuild + owner Switch), then rerun cycle with Nemotron Super (the only worker that actually changed discovery.py) and glm-flash. Secondary: Nemotron Super created extra files against the stated scope and hit a model_error; scope guard works as intended.
+
+---
+
+# Third series, 07.10.2026, build 84f721c6fe48 on :8801 (free workers only)
+
+Verdict: SELF_REPAIR_SINGLE_CYCLE_PASS NOT reached; SELF_REPAIR_3_CYCLE_PASS NOT reached. No fix, test or edit written by Claude; holdouts untouched; nothing pushed, switched or installed. Only free workers (OpenRouter :free). NVIDIA_API_KEY is present in the owner key file, but worker `nvidia-nim` is refused by the cycle tool itself (FREE_WORKERS in tools/tree_self_improve.py does not list it), so it was not used; the paid flag was never used.
+
+## Fix verification (BOSSMAN_VERIFY_PYTHON forwarded to cloud workers): CONFIRMED live
+Server pid 7764 (started 03:05) carries BOSSMAN_VERIFY_PYTHON. Worker sidecar `tests` block in cycles 15, 17, 18, 19, 20: runner pytest, exit_code 0 (before: unittest/error). Workers now get red/green feedback.
+
+## Attempts (discovery case, base evo-tree-src 916f7c5e, holdout base 37/72 pass, 35 fail)
+| cycle | worker | task | stage reached | holdout patched (failed of 72) | notes |
+|---|---|---|---|---|---|
+| 14 | nemotron-3-super :free | 46b9b214359b | DEFECT_REPRODUCED | n/a | provider 502 (Nvidia) at step 3, retried after 90 s, not counted |
+| 15 | nemotron-3-super :free | 7bc3c46cb768 | MODEL_PATCH_CREATED, zone check pass (pytest) | 28 (44/72 pass) | 23 steps; NaN/inf/None replaced by 0.0 in score only, not rejected |
+| 16 | nemotron-3-ultra :free | 4e4b5b8b7a1c | DEFECT_REPRODUCED | n/a | max_steps 40, 26+ consecutive no_tool_call, no edit |
+| 17 | cohere/north-mini-code :free | 0951e5ed6283 | DEFECT_REPRODUCED | n/a | finished after 11 steps with no change |
+| 18 | nemotron-3-super :free | ce82a599e6f2 | MODEL_PATCH_CREATED, zone check pass | 15 (57/72 pass) | 10 steps, -inf for non-finite; None still crashes (relevance/annoyance/future_utility/... =None) |
+| 19 | nemotron-3-super :free | ed6ced30b959 | MODEL_PATCH_CREATED, zone check pass | 26 (46/72 pass) | 38 steps, added new test file (scope breach) |
+| 20 | nemotron-3-super :free | 1642ae23d028 | MODEL_PATCH_CREATED, zone check pass | 15 (57/72 pass) | 27 steps; same residual None failures |
+
+Best: cycles 18 and 20, 57/72 vs base 37/72 (strictly better, no regression of valid cases seen) but holdout not passing, so INDEPENDENT_VERIFICATION_PASS false, EXPERIENCE_AUTO_SAVED false. 6 full attempts used (15-20). No patch.diff exported (no pass). Evidence: Bossman\bugtest-20261001\tree-1005\selfrepair\cycle14..cycle20 (+ .log). goal-budget case not run (needs source_repo in owner allowed roots; roots untouched).
+
+## Next smallest blocker
+Models handle NaN/inf but not None in numeric fields (15 holdout cases: *=None across candidates). Swarm stalls at "replace with default / -inf" instead of "reject candidate"; a stronger free model or an executable gate (holdout-style None check in run_tests) is needed. Also: allow `nvidia-nim` in the tool's FREE_WORKERS (owner-approved NIM route) to rotate to a third provider.
