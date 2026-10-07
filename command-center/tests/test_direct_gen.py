@@ -225,7 +225,14 @@ async def test_cancel_queued_job_never_reaches_backend(env, tmp_path):
     assert (await finish(env, b))["status"] == "cancelled"
     await env.client.post(f"/api/direct-gen/jobs/{a}/cancel")
     await finish(env, a)
-    assert len(fake.submitted) == 1 and svc.active_tasks() == 0
+
+    # status turns terminal slightly before the asyncio task is reaped: wait for
+    # the condition itself (bounded) instead of asserting at an arbitrary instant
+    async def idle():
+        return svc.active_tasks() == 0
+
+    await wait_for(idle, timeout=5)
+    assert len(fake.submitted) == 1
 
 
 async def test_missing_weights_is_a_clear_error_not_a_job(env, tmp_path):
