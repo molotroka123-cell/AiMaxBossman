@@ -11,9 +11,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-import numpy as np
 import pytest
-from PIL import Image
+
+np = pytest.importorskip("numpy", reason="root-ci installs no Command Center / media deps")
+pytest.importorskip("PIL", reason="root-ci installs no Command Center / media deps")
+from PIL import Image  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools" / "genjutsu"))

@@ -16,6 +16,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "command-center"))
 sys.path.insert(0, str(ROOT / "tools"))
 
+import pytest  # noqa: E402
+
+pytest.importorskip("fastapi", reason="root-ci installs no Command Center / media deps")
 import build_windows_bundle as bw  # noqa: E402
 from bcc.features import motion_studio as ms  # noqa: E402
 
