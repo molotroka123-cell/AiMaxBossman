@@ -156,6 +156,19 @@ async def test_uc_variant_uses_its_own_diffusion_weights_not_stock_qwen(env, tmp
     assert "viggle-turbo" in " ".join(argv) and argv[argv.index("--cfg-scale") + 1] == "1.0"
 
 
+async def test_heretic_variant_swaps_only_the_text_encoder(env, tmp_path):
+    install(env, tmp_path, FakeSd)
+    by = {m["id"]: m for m in (await env.client.get("/api/direct-gen/models")).json()["models"]}
+    h = by["qwen-image-2.1-uc-heretic"]
+    assert h["kind"] == "photo" and h["available"] is True and h["source"] == "UNKNOWN" and h["license"] == "UNKNOWN"
+    job = await finish(env, (await create(env, model="qwen-image-2.1-uc-heretic")).json()["job_id"])
+    assert job["status"] == "completed"
+    joined = " ".join(FakeSd.instances[-1].argv)
+    assert "qwen-image-2.1-UC-Q4_K_M.gguf" in joined                      # same UC diffusion weights
+    assert "qwen3vl_8b_heretic-Q4_K_M.gguf" in joined                     # heretic text encoder
+    assert "Qwen3VL-8B-Instruct-Q8_0.gguf" not in joined                  # not the stock encoder
+
+
 async def test_photo_lifecycle_progress_and_file(env, tmp_path):
     install(env, tmp_path, lambda: FakeSd(steps=4))
     r = await create(env)
