@@ -221,6 +221,50 @@ def test_evolution_start_tells_the_worker_which_command_center_started_it(tmp_pa
     assert argv[argv.index("--api-url") + 1] == "http://127.0.0.1:8801"
 
 
+def test_evolution_status_and_report_are_read_off_the_event_loop(tmp_path, monkeypatch):
+    # status()/report() read JSON, psutil and lease files synchronously; the dashboard polls them,
+    # so on the event loop every poll stalled all other requests. Same payloads, same 404/503.
+    def off_loop() -> bool:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return True
+        return False
+
+    seen = {}
+
+    def fake_status(work):
+        seen["status"] = off_loop()
+        return {"status": "RUNNING", "loop_running": True, "campaign": str(work)}
+
+    def fake_report(work):
+        seen["report"] = off_loop()
+        return {"verdict": "ok", "campaign": str(work)}
+
+    monkeypatch.setattr(evolution, "_loop", lambda: SimpleNamespace(status=fake_status, report=fake_report))
+    app = FastAPI()
+    app.state.svc = SimpleNamespace(settings=SimpleNamespace(data_dir=tmp_path / "data"))
+    app.include_router(evolution.router, prefix="/api")
+    work = (tmp_path / "data").resolve() / "evolution" / "campaign"
+    with TestClient(app) as client:
+        assert client.get("/api/evolution/report").status_code == 404   # no campaign yet
+        status = client.get("/api/evolution/status")
+        assert status.status_code == 200, status.text
+        assert status.json() == {"status": "RUNNING", "loop_running": True, "campaign": str(work)}
+        (work / "loop-state.json").write_text("{}", encoding="utf-8")
+        report = client.get("/api/evolution/report")
+        assert report.status_code == 200, report.text
+        assert report.json() == {"verdict": "ok", "campaign": str(work)}
+        assert seen == {"status": True, "report": True}
+
+        def missing():
+            raise evolution.HTTPException(503, {"code": "EVOLUTION_RUNTIME_MISSING", "message": "x"})
+        monkeypatch.setattr(evolution, "_loop", missing)
+        for path in ("/api/evolution/status", "/api/evolution/report"):
+            gone = client.get(path)
+            assert gone.status_code == 503 and gone.json()["detail"]["code"] == "EVOLUTION_RUNTIME_MISSING"
+
+
 def _zone_app(tmp_path, monkeypatch, created):
     from bcc.features import coding_tasks
     bossman = _bossman_checkout(tmp_path / "bm")
