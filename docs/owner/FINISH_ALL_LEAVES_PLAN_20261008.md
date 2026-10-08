@@ -6,7 +6,7 @@
 
 Same-product Terminal Run: CLI, окно и Telegram — один Bossman, один backend :8801, одни данные, память, модели,
 задачи, разрешения и STOP. Ничего параллельного не строится.
-North Star: достигнуто SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT и SELF_REPAIR_SINGLE_CYCLE_PASS. Не достигнуто:
+North Star: в реестре доказательств записано только SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT. Аудитор заявил цикл 23 как SELF_REPAIR_SINGLE_CYCLE_PASS, но в реестр он не записан и на точном SHA установленной сборки не воспроизведён — поэтому считаем его НЕ достигнутым. Не достигнуто:
 SELF_REPAIR_3_CYCLE_PASS, TRANSFER_MEASURED_GAIN, 24H/48H_SOAK, WEEK_MODE_READY, REVENUE_CAPABLE_PILOT.
 
 ## 1. Где мы сейчас
@@ -18,9 +18,9 @@ SELF_REPAIR_3_CYCLE_PASS, TRANSFER_MEASURED_GAIN, 24H/48H_SOAK, WEEK_MODE_READY,
   команда `/key` в «Пульте». После его слияния брать `main` за основу.
 - Версия НЕ сертифицирована: `tools/exact_sha_certify.py` требует зелёные обязательные проверки на точном SHA;
   «measured intelligence retention» ждёт твой замер на ПК (комментарий владельца к точному коммиту).
-- Данные дерева — `command-center/bcc/capability_tree_seed.json` (876 листьев). Статусы — заявления, не сертификат:
+- Данные дерева — `command-center/bcc/capability_tree_seed.json` (876 узлов: 1 корень, 13 зон, 4 промежуточных, **858 конечных листьев**). Статусы — заявления, не сертификат:
   `docs/architecture/tree-registry.json` на 08.10 содержит 0 листьев уровня `ci` и 0 уровня `owner_pc`.
-  Менять статус листа руками нельзя — только `tools/tree_registry_sync.py` / `tools/tree_apply_evidence.py` с файлами доказательств.
+  Менять статус листа руками нельзя — только `tools/tree_registry_sync.py registry --audit … --out docs/architecture/tree-registry.json --ci-evidence … --owner-evidence …` с файлами доказательств (`tree_apply_evidence.py` правит только статус в seed, в реестр не пишет).
 
 ## 2. Что значит «внедрить лист» — ворота пользы (по порядку, пропускать нельзя)
 
@@ -32,7 +32,7 @@ SELF_REPAIR_3_CYCLE_PASS, TRANSFER_MEASURED_GAIN, 24H/48H_SOAK, WEEK_MODE_READY,
 4. **Один backend.** Лист подключается к существующему backend, памяти, очереди, разрешениям; второго ядра нет.
 5. **PR в `main`** (изолированная ветка, без force-push), обязательный CI зелёный на точном SHA.
 6. **Доказательство на ПК** (уровень OWNER_HW) — для всего, что касается Windows, AMD, Telegram, голоса, GPU, экрана.
-7. **Только после 5–6** статус листа меняется через `tools/tree_apply_evidence.py` с приложенным файлом доказательств.
+7. **Только после 5–6** уровни `ci` / `owner_pc` записываются через `tools/tree_registry_sync.py registry --ci-evidence … --owner-evidence …` с приложенными файлами доказательств. Файлы доказательств: CI — ссылка на прогон на точном SHA; ПК — квитанция с командой, кодом выхода и sha256 вывода.
 
 Не считать доказательством: «код написан», попадание в память, правка от учителя, повтор известной задачи, слабый тест,
 сгенерированный скриншот, новая точка входа CLI. Уровни считаются раздельно: CODE → TEST → CI → OWNER_HW.
@@ -48,12 +48,11 @@ SELF_REPAIR_3_CYCLE_PASS, TRANSFER_MEASURED_GAIN, 24H/48H_SOAK, WEEK_MODE_READY,
 ## 4. Сначала — шаги на ПК (из облака недоступны)
 
 1. Поставить сборку с точного SHA `main` по `docs/owner/OWNER_RUN_20261008.md` (хэш архива из последнего комментария PR, откат — `rollback.ps1`).
-2. Собрать локальный manifest: `python tools\local_completeness_manifest.py --root %USERPROFILE%\Bossman --out <файл>.json`.
+2. Собрать локальный manifest (PowerShell): `python tools\local_completeness_manifest.py --root "$env:USERPROFILE\Bossman" --out "$env:USERPROFILE\Bossman\handoff\local-manifest-20261008.json"`.
    До этого `LOCAL_COMPLETENESS=UNVERIFIED`; секреты, веса и кэши инструмент не открывает.
-3. Запушить с ПК то, чего нет на GitHub: ветку `consolidate/jeff-20261007` (автоответчик Jeff, F1–F4) и всё, что покажет manifest
-   (незапушенные коммиты, stash, чужие рабочие копии). Без этого вносить нечего.
-4. `python tools\keys_guard.py verify` (0 — ключи на месте). Ключ можно прислать в «Пульт»: `/key ИМЯ=значение` (только владелец).
-5. Выложить замер «measured intelligence retention» комментарием к точному коммиту `main` (иначе этот гейт остаётся красным).
+3. Сохранить локально незапушенное с ПК (автоответчик Jeff в `consolidate/jeff-20261007`, незапушенные коммиты, stash, чужие рабочие копии). **Не публиковать всё подряд:** manifest только перечисляет пути и хэши, а не проверяет содержимое. Каждый фрагмент сначала просматривается, затем публикуется отдельной проверенной веткой, если владелец решил, что он для публикации. Без этого вносить нечего.
+4. `python tools\keys_guard.py verify` (0 — ключи на месте). **Команда появится на `main` только после слияния #99**; до этого `keys_guard.py` на `main` — только функции, и вызов не даёт проверки. Ключ можно прислать в «Пульт»: `/key ИМЯ=значение` (только владелец).
+5. Замер «measured intelligence retention» — не публиковать сырой отчёт: в нём приватный корпус задач, контексты, ответы и локальные пути. Использовать штатный поток `tools/intelligence_evidence_transport.py prepare`, проверить сформированный запрос, и опубликовать к точному коммиту только redacted `body` с маркером. Без этого гейт остаётся красным.
 6. K1m6a: `docs/trading/K1M6A_DAY_RUNBOOK_20261008.md` (продолжить с ролика #26; экзамен и вердикт — `k1m6a_exam aggregate`).
 
 ## 5. Очередь листьев, которых нет в `main` (из данных дерева на 08.10)
@@ -74,13 +73,14 @@ SELF_REPAIR_3_CYCLE_PASS, TRANSFER_MEASURED_GAIN, 24H/48H_SOAK, WEEK_MODE_READY,
 | Jeff: пути `telegram_calls/*` (8 листов) | — | код УЖЕ в `main` под новыми путями (`account/stopflag.py`, `addon.py`, `doctor_rows.py`, `account/guard.py`, `speech/jeff_engines.py`); исправить пути в данных дерева, не переносить код |
 | Звонки (cap-10), BOSSMAN_VERIFY_PYTHON, рой 07.10 | — | подтвердить на ПК живым звонком / прогоном |
 
-Из реестра веток (`docs/architecture/bossman-tree-20261005/evidence/branch-registry-20261008.md`) дополнительно подтверждено «перенести малым PR»:
-двойной клик в `computer_operator/adapters/playwright_browser.py` (fb6591e2), защита Home от ложного «всё спокойно»
-и от двойной отправки (`command-center/ui/pages/home.js`, 1969ce0b и 9e8f1266). Остальные 57 веток реестра разобраны не до конца —
+Из реестра веток (`docs/architecture/bossman-tree-20261005/evidence/branch-registry-20261008.md`) **кандидаты на перенос малым PR, но не перенесены и не проверены по диффу**:
+двойной клик в `computer_operator/adapters/playwright_browser.py` (fb6591e2), защита Home от ложного «всё спокойно» и от двойной отправки
+(`command-center/ui/pages/home.js`, 1969ce0b / 9e8f1266). Проверяющий агент пометил их как подтверждённые, но реестр по ним решения не записал,
+а коммит 1969ce0b в реестре вовсе не упомянут. Сначала сверить дифф и текущую реализацию, затем переносить. Остальные 57 веток реестра разобраны не до конца —
 перепроверить перед переносом (50 проверяющих агентов упёрлись в лимит сессии).
 
-### B. «Код написан», проверки нет
-- Приложения: ai-3d-maker, ai-webcam-vision, osiris, solana-volume-suite (виртуально, без подписи).
+### B. «Код написан», проверка не закрыта (тесты частично есть — см. пункт про приложения)
+- Приложения: ai-3d-maker, ai-webcam-vision, osiris, solana-volume-suite (виртуально, без подписи). **Тесты уже есть:** реестр доказательств фиксирует `PASSED_RECORDED_RUN` для ai-3d-maker, ai-webcam-vision, solana-volume-suite и integrated mod-osiris; blue-leaf audit — 224 зелёных теста webcam. Не хватает живой проверки, CI и подтверждения владельца, а не тестов. Не повторять тесты, а закрыть именно этот разрыв.
 - Poker Vision: pipeline, act, eval, ui, executor, source-panel, lora (только свой тренажёр; реальные деньги и чужие столы запрещены).
 - Плагины-заглушки (честно отвечают «не выполнено», нужны ключи/живые сервисы и одобрение): github.issue_create, gmail.search/send,
   calendar.search/create, drive.search/write, telegram.send, n8n.workflow_list/run, browser.form_submit. `mcp.tool_call` уже сделан в #99/#98.
@@ -106,6 +106,8 @@ voxel3d/TripoSR, collector, обучение 24/7 с отчётами в Пул�
 сверить «до/после» на холодной странице (это же закрывает блокер «UX +30%»).
 
 ## 7. Что вернуть владельцу после каждой волны
+
+В каждом отчёте — три идентичности: source SHA, installed build SHA (`build_sha` из `/health/live`), capability-tree source SHA. Без их сверки «одна версия» не заявляется.
 
 Короткий отчёт: какие листья внесены (PR, SHA), уровень по каждому (CODE/TEST/CI/OWNER_HW раздельно), что не удалось и почему,
 что осталось на ПК, прогресс по лестнице North Star, подтверждение контракта «один Bossman». Не писать «готово» без доказательства.
