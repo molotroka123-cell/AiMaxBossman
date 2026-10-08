@@ -98,6 +98,13 @@ SPECS: tuple[SdSpec, ...] = (
            "sdcpp:qwen-image-2.1", 20, max_steps=50, manifest_key="",
            notes="Вариант весов из benchmark-20261003 как есть: источник, ревизия и лицензия UNKNOWN. "
                  "VAE и текстовые энкодеры берутся от Qwen-Image 2.1."),
+    _photo("qwen-image-2.1-uc-heretic", "Qwen-Image 2.1 UC + heretic-энкодер", "qwen-image",
+           {**QWEN_BASE, "diffusion": "benchmark-20261003/uncensored/qwen-image-2.1-UC-Q4_K_M.gguf",
+            "llm": "benchmark-20261003/heretic/qwen3vl_8b_heretic-Q4_K_M.gguf",
+            "llm_vision": "benchmark-20261003/heretic/mmproj-qwen3vl_8b_heretic-f16.gguf"},
+           "sdcpp:qwen-image-2.1", 20, max_steps=50, manifest_key="",
+           notes="Веса как есть: источник, ревизия и лицензия UNKNOWN. Текстовый энкодер заменён на вариант "
+                 "heretic, диффузия и VAE те же, что у «UC». Запуск NOT_RUN в этой сборке (не проверялся здесь)."),
     _photo("qwen-image-viggle-turbo", "Qwen-Image 2.1 Viggle Turbo (6 шагов)", "qwen-image",
            {"diffusion": "benchmark-20261003/viggle/Qwen-Image-2.1-viggle-turbo-v0.3-6step-Q4_K_M.gguf", **QWEN_BASE},
            "sdcpp:qwen-image-2.1", 6, max_steps=12, manifest_key="", cfg=1.0,
