@@ -7,17 +7,22 @@ Same-product Terminal Run: пульт, CLI, дашборд и Telegram — од�
 
 Правило прохода: один зафиксированный SHA, пока идёт проверка — никто не пушит в ветку цели. Остальные сессии — read-only.
 
-## Шаг 0 — зафиксировать SHA
+## Шаг 0 — кандидат и заморозка (владелец выбрал PR #106, 08.10)
+Кандидат на интеграцию в `main`: **PR #106**, ветка `fix/safe-ux-keys-20261008`, 14 отобранных коммитов без изменений поведения моделей.
+**Не используйте ветку PR #99 `integrate/bossman-2.1-one-20261006` и шаг 0 старого runbook `OWNER_PC_RUNBOOK_BOSSMAN_2_1_20261006.md`:** они ведут на другую ветку, а замер привязывается к точному SHA кандидата.
 ```
-git fetch origin
-git checkout integrate/bossman-2.1-one-20261006
-git pull --ff-only
-git rev-parse HEAD            # записать: это <SHA> ниже
+git fetch origin fix/safe-ux-keys-20261008
+git checkout --detach origin/fix/safe-ux-keys-20261008
+git rev-parse HEAD
 ```
-Ожидаемо: на момент подготовки `ac643bbb4aafb414c70e49d488ac8e354e924aa9` (или более новый, если ведущая сессия что-то добавила — берите то, что показывает команда).
+Ожидаемо на момент подготовки: `be8b6b0aabe4e897e5a1e042f7d76a5bfa43c1a6`. Если команда показывает другой SHA — **остановитесь**: ветку кто-то изменил, и все дальнейшие шаги нужно привязать к новому SHA (и дождаться его Windows-артефакта).
+Условия до начала замера:
+1. Дождаться, чтобы на этом SHA завершились проверки и собрался Windows-артефакт (шаг 1). Без артефакта именно этого SHA шаги 1–2 выполнить нельзя.
+2. **Заморозить ветку:** до конца замера никто не пушит в `fix/safe-ux-keys-20261008`. Любой пуш меняет SHA и обнуляет доказательства retention.
+3. Остальные сессии — только чтение.
 
 ## Шаг 1 — пакет и проверка архива
-1. Windows-пакет собирает CI («One-download Windows application», Actions → Run workflow на этой ветке). Скачайте `BOSSMAN-Windows-x64-<sha12>.zip` и `bundle-acceptance.json`.
+1. Windows-пакет собирает CI («One-download Windows application», Actions → Run workflow на ветке `fix/safe-ux-keys-20261008`, на SHA из шага 0). Скачайте `BOSSMAN-Windows-x64-<sha12>.zip` и `bundle-acceptance.json`.
 2. `certutil -hashfile BOSSMAN-Windows-x64-<sha12>.zip SHA256` → должен совпасть с `archive_sha256` из `bundle-acceptance.json`.
 3. `python tools\verify_windows_bundle.py --archive <zip> --expected-sha <SHA> --out bundle-acceptance.json` → код 0 (PASS), 1 (FAIL), 2 (OWNER_REQUIRED). Любой код — вернуть как есть.
 
@@ -53,7 +58,7 @@ python tools\local_completeness_manifest.py
 **Что нужно на входе (обезличённо, без личных данных и секретов):**
 * локальная модель, которую вы реально используете; `<модель>`, `--endpoint` (если не по умолчанию), квантизация, железо (для `--quantization`, `--hardware`);
 * корпус заданий: либо `docs/benchmark/intelligence_tasks.json` (по умолчанию в репозитории), либо ваш `OWNER_REVIEWED_CORPUS.json`; **не менее 20 заданий на каждую метрику**; ни одно задание не должно содержать личных данных или секретов;
-* точный `<SHA>` из шага 0 (40 hex).
+* точный `<SHA>` из шага 0 (40 hex), то есть SHA кандидата #106.
 
 **Метрики (обязательны все):** `reasoning_accuracy`, `coding_correctness`, `structured_output_accuracy`, `unknown_task_adaptation`, `tool_selection_accuracy`, `schema_argument_accuracy`, `long_context_accuracy`, `memory_retrieval_accuracy`, `computer_use_planning_accuracy`, `task_completion_rate`, `hallucination_rate` (чем меньше, тем лучше).
 **Режимы одной и той же модели на одних и тех же заданиях:** `raw` → `system` → `context` → `full` (полностью через Bossman). Порог: сохранение ≥ 98 % исходного качества, выбор инструментов и аргументов не хуже.
