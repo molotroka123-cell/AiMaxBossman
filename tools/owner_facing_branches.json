@@ -29,17 +29,22 @@
     "требует, чтобы каждое ОГРАНИЧЕННОЕ ветками обязательное задание стояло",
     "здесь. bossman-v2-repair.yml был обязателен для сертификата, слушал одну",
     "чужую ветку и не был объявлен нигде: прогонов на release/bossman-owner",
-    "ровно ноль, то есть сертификат не мог быть выдан НИКОГДА."
+    "ровно ноль, то есть сертификат не мог быть выдан НИКОГДА.",
+    "",
+    "2026-10-08: владелец назначил main канонической линией (AGENTS.md, f52ee111).",
+    "main и интеграционная ветка 2.1 перенесены в must_be_covered; main больше не",
+    "в must_not_be_covered. Иначе продукт из канонической линии не собирался бы вовсе."
   ],
-  "canonical": "integrate/bossman-1.7-unified-20260925",
+  "canonical": "main",
   "must_be_covered": [
+    "main",
+    "integrate/bossman-2.1-one-20261006",
     "integrate/bossman-1.7-unified-20260925",
     "release/bossman-owner",
     "claude/bossman-final-convergence-hu2702",
     "night/v7-convergence-20260908"
   ],
   "must_not_be_covered": [
-    "main",
     "scratch/experiment",
     "releases/not-our-prefix",
     "wip/whatever"

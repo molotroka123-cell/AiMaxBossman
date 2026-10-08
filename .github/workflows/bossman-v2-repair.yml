@@ -25,6 +25,10 @@ on:
       - 'night/**'
       - 'release/**'
       - 'integrate/bossman-1.7-unified-20260925'
+      # Owner 2026-10-08 (AGENTS.md): main is the canonical line; the 2.1 integration
+      # branch feeds it. Declared in tools/owner_facing_branches.json.
+      - 'main'
+      - 'integrate/bossman-2.1-one-20261006'
   # pull_request намеренно оставлен КАК БЫЛ, и это замер, а не осторожность.
   # Прогон по событию pull_request несёт в `head_sha` вершину ветки, а не
   # коммит слияния — проверено на настоящем ответе API (прогон 35436272757:
