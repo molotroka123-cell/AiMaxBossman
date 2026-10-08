@@ -27,6 +27,13 @@
 | CI-контракт веток (`tools/owner_facing_branches.json` + 8 workflows) | `main` и 2.1 покрыты | да | 231 passed | см. PR | — |
 | OSS: faster-whisper + PyAV | `av<19` | да | измерено av 15–18 OK, 19 падает | см. PR | — |
 | Сценарий OS-60 | без гонки с тиком очереди | да | 3/3 локально | см. PR | — |
+| Jev (`features/jev.py`) | истёкшее теневое задание не снимает ожидание следующего шага | да | Jev 77 passed; новый тест падает на старом коде | см. PR | NOT_RUN |
+| Motion Studio (`features/motion_studio.py`) | отмена после перезапуска backend убивает рендер; чужой pid не «наш» | да | 93 passed, 1 skipped (нет scipy); 2 новых падают на старом коде | см. PR | NOT_RUN (Windows) |
+| Приём роликов (`trading_learning/ingest.py`, `cli.py`) | одобрение на развёрнутый путь; тесты без OpenCV не пропускаются | да | 46 passed, 4 skipped (кадры без cv2) | см. PR | NOT_RUN |
+| Плагины (`features/plugins.py`) | `mcp.tool_call` → настроенный MCP (ASK, deny, allowlist); скраб ключа-алиаса | да | 223 passed, 5 skipped; новые 11 падают на старом коде; MCP — настоящий stdio-сервер | см. PR | NOT_RUN |
+| Навыки (`features/skills.py`) | назначение: 404/422 вместо фантомного 200; нечитаемые назначения не затираются | да | 71 + 42 passed; 5 из 6 новых падают на старом коде | см. PR | NOT_RUN |
+| Студия: vision-проверка (`studio/review.py`, порт f017e570) | ждёт, пока `sd-cli` рендерит (≤30 мин), иначе INSUFFICIENT_EVIDENCE | да | 290 passed, 2 skipped | см. PR | замер владельца 23.09 (до порта) |
+| Лаунчер `start-bossman.ps1` (порт 1e707db8) | UTF-8 BOM для PowerShell 5.1 | да | 28 passed, 1 skipped (нет PowerShell) | см. PR | NOT_RUN |
 
 Полные прогоны в облаке на этой линии (до правок 08.10, коммит 4e08a314): root 2989 passed / 6 failed (все шесть разобраны:
 5 исправлены, 1 — нет pip в облачном venv); Command Center 8498 passed / 10 failed (исправлены 4, остальные — облачная
