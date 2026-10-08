@@ -36,6 +36,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from ..single_flight import await_shared
 from . import Feature
 
 router = APIRouter(prefix="/motion-studio", tags=["motion-studio"])
@@ -158,7 +159,7 @@ async def _settle_once(job: dict[str, Any], code: int | None) -> None:
     if task is None:
         task = _SETTLING[job["id"]] = asyncio.create_task(asyncio.to_thread(_settle, job, code))
         task.add_done_callback(lambda _done, key=job["id"]: _SETTLING.pop(key, None))
-    await asyncio.shield(task)
+    await await_shared(task)   # not asyncio.shield: Python 3.14 shield callback, see bcc/single_flight.py
 
 
 async def _refresh(job: dict[str, Any]) -> dict[str, Any]:
