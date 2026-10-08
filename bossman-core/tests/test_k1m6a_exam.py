@@ -150,6 +150,26 @@ def test_answers_are_saved_per_situation_and_a_restart_skips_the_answered(tmp_pa
     assert len(rest) == len(sits) - 1
 
 
+def _row(sid, mode="BASELINE", status="OK", seal="s", crit="c"):
+    return {"situation_id": sid, "mode": mode, "status": status, "seal_sha256": seal, "criteria_sha256": crit}
+
+
+def test_resume_keeps_only_matching_ok_rows_and_refuses_foreign_or_stale_files(tmp_path):
+    # Found by an independent Mistral Large 4 review: resume must never destroy another mode's rows
+    # and must never reuse answers given under a different seal / criteria.
+    f = tmp_path / "answers.jsonl"
+    f.write_text("".join(json.dumps(r) + "\n" for r in (_row("a"), _row("b", status="BAD_JSON"))), encoding="utf-8")
+    kept = ex.resume_rows(f, "BASELINE", "s", "c")
+    assert [r["situation_id"] for r in kept] == ["a"]                       # BAD_JSON is asked again
+    f.write_text(json.dumps(_row("a")) + "\n" + json.dumps(_row("x", mode="LESSONS")) + "\n", encoding="utf-8")
+    with pytest.raises(ex.ExamError, match="other mode"):
+        ex.resume_rows(f, "BASELINE", "s", "c")                              # would have deleted the LESSONS row
+    f.write_text(json.dumps(_row("a", crit="old")) + "\n", encoding="utf-8")
+    with pytest.raises(ex.ExamError, match="different seal or criteria"):
+        ex.resume_rows(f, "BASELINE", "s", "c")                              # answered under other criteria
+    assert ex.resume_rows(tmp_path / "missing.jsonl", "BASELINE", "s", "c") == []
+
+
 def test_the_student_cannot_answer_before_the_seal_or_see_lessons_in_baseline(tmp_path):
     split = pinned_split()
     sits = _situations(tmp_path, split)[:1]

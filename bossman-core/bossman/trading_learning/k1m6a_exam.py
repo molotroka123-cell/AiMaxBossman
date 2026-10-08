@@ -573,6 +573,24 @@ class OpenAICompatStudent:
         return str((choice.get("message") or {}).get("content") or "")
 
 
+def resume_rows(path: str | Path, mode: str, seal_sha: str, criteria_sha: str) -> list[dict]:
+    """OK rows of an earlier, interrupted run of the same mode, safe to keep after a restart.
+
+    Refuses (never silently drops) a file holding rows of another mode or rows answered under a different
+    reference seal / pinned criteria: those answers do not belong to this exam and rewriting the file would
+    destroy them. BAD_JSON / ERROR rows are not kept: they are asked again."""
+    path = Path(path)
+    if not path.is_file():
+        return []
+    rows = read_jsonl(path)
+    if any(r.get("mode") != mode for r in rows):
+        raise ExamError(f"{path.name} holds rows of another mode; use a separate --out per mode")
+    if any(r.get("seal_sha256") != seal_sha or r.get("criteria_sha256") != criteria_sha for r in rows):
+        raise ExamError(f"{path.name} holds rows answered under a different seal or criteria; "
+                        "start a new --out instead of resuming")
+    return [r for r in rows if r.get("status") == "OK"]
+
+
 def ask(situations: list[Situation], split: dict, *, mode: str, student: Callable[[list[dict]], str],
         seal_sha: str, criteria_sha: str, base: str | Path, model_meta: dict,
         lessons_for: Callable[[Situation], list[str]] | None = None,
@@ -907,8 +925,7 @@ def main(argv: list[str] | None = None) -> int:
             host = urllib.parse.urlsplit(args.endpoint).hostname or ""
             out = Path(args.out)
             out.parent.mkdir(parents=True, exist_ok=True)
-            kept = [r for r in read_jsonl(out) if r.get("status") == "OK" and r.get("mode") == args.mode] \
-                if (args.resume and out.is_file()) else []
+            kept = resume_rows(out, args.mode, sealed["sha256"], pinned["sha256"]) if args.resume else []
             out.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in kept), encoding="utf-8")
 
             def sink(row: dict) -> None:       # every finished answer is on disk before the next one starts
