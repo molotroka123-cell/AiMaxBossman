@@ -30,6 +30,9 @@ def assert_provider_egress(kind: str, url: str):
         return
     try:
         addr = ipaddress.ip_address(host)
+        # Judge [::ffff:a.b.c.d] by its IPv4 address: CPython <= 3.12.3 called the mapped
+        # metadata endpoint [::ffff:169.254.169.254] private-and-not-link-local.
+        addr = getattr(addr, "ipv4_mapped", None) or addr
         if (addr.is_loopback or addr.is_private) and not (addr.is_link_local or addr.is_unspecified):
             return
     except ValueError:
