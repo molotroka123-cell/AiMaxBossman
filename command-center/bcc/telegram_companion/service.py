@@ -20,6 +20,7 @@ from .jev_bridge import JevBridgeMixin
 from .form_bridge import FORM_COMMANDS, FormBridgeMixin
 from .parse_bridge import PARSE_COMMANDS, ParseBridgeMixin
 from .store import Store
+from . import key_intake
 from .secret_intake import (
     SecretField, SecretIntakeError, SecretIntakeManager, looks_like_secret_message, request_caption,
 )
@@ -452,6 +453,36 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
                 msg += " Telegram не подтвердил удаление сообщения — удалите его вручную."
         await self.telegram.send(person, msg)
 
+    async def _consume_key_update(self, person: Person, message: dict, update_id: int, text: str) -> None:
+        """Store an owner provider key in the local key file; reply with names only."""
+        if not self.store.acknowledge_without_body(update_id):
+            return
+        deleted = await self._delete_secret_message(person, message.get("message_id"))
+        suffix = "" if deleted else " Telegram не подтвердил удаление — удалите сообщение вручную."
+        if person.role != "owner":
+            await self.telegram.send(person, "🔐 Ключи принимает только владелец. Сообщение не сохранено." + suffix)
+            return
+        try:
+            keys = key_intake.parse_key_command(text)
+            out = await asyncio.to_thread(key_intake.store_keys, keys)
+        except key_intake.KeyIntakeError as exc:
+            await self.telegram.send(person, f"🔐 Ключ не принят: {exc}. Ничего не сохранено." + suffix)
+            return
+        except OSError as exc:
+            await self.telegram.send(person, f"🔐 Ключ не записан ({type(exc).__name__}). Ничего не сохранено." + suffix)
+            return
+        finally:
+            text = ""   # drop our reference to the plaintext as early as possible
+        parts = []
+        if out["added"]:
+            parts.append("добавлены: " + ", ".join(out["added"]))
+        if out["replaced"]:
+            parts.append("заменены: " + ", ".join(out["replaced"]))
+        if not parts:
+            parts.append("без изменений: " + ", ".join(sorted(keys)))
+        await self.telegram.send(person, "🔐 Ключи сохранены локально (" + "; ".join(parts) + "). "
+                                 "Защищённая копия обновится при следующем запуске backend." + suffix)
+
     async def ingest_callback(self, update: dict):
         cb = update.get("callback_query")
         if not isinstance(cb, dict) or not isinstance(cb.get("id"), str):
@@ -493,6 +524,12 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
         message = update.get("message")
         person = self.authorized(message)
         text = message.get("text") if isinstance(message, dict) else None
+
+        # Owner key intake (/key NAME=value): handled BEFORE the durable Store inbox, so the
+        # value never reaches SQLite, history, learning or a model. Anyone else's /key is
+        # refused the same way (acknowledged without body, deleted, never stored).
+        if person and isinstance(text, str) and key_intake.is_key_command(text):
+            return await self._consume_key_update(person, message, update["update_id"], text)
 
         # Secret lane is intercepted BEFORE the durable Store inbox. The next
         # owner text for an active one-time session is never encrypted into
