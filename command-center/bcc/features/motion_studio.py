@@ -46,6 +46,8 @@ LOG_TAIL = 2000
 OUTPUTS = {"video.mp4", "video-telegram.mp4", "soundtrack.wav", "spec.json"}
 _JOBS: dict[str, dict[str, Any]] = {}
 _PROCS: dict[str, asyncio.subprocess.Process] = {}
+_SEEN: dict[Path, tuple[int, int, Any]] = {}   # job.json -> (mtime_ns, size, its job id; "" = unreadable)
+_SETTLING: dict[str, asyncio.Task] = {}        # job id -> the one settle running for it in a worker thread
 
 
 def tool_dir() -> Path:
@@ -123,16 +125,43 @@ def _kill_orphan(proc) -> None:
 
 
 def _load_jobs(root: Path) -> None:
-    for path in root.glob("*/job.json") if root.is_dir() else []:
-        try:
-            job = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+    """Add jobs found on disk (also ones another process started) that are not in memory yet.
+
+    Runs on every 2 s poll, so each file is parsed once: a job already in memory is not re-read
+    (its file was never applied again anyway), a broken file only after its mtime/size changes.
+    One directory listing per poll; only folders of jobs not in memory yet are looked into.
+    """
+    for folder in root.iterdir() if root.is_dir() else []:
+        path = folder / "job.json"
+        seen = _SEEN.get(path)
+        if seen is not None and seen[2] and seen[2] in _JOBS:
             continue
-        if isinstance(job, dict) and job.get("id") and job["id"] not in _JOBS:
+        try:
+            st = path.stat()   # no job.json (or not a folder): OSError, skipped like glob skipped it
+            if seen is not None and not seen[2] and seen[:2] == (st.st_mtime_ns, st.st_size):
+                continue
+            job = json.loads(path.read_text(encoding="utf-8"))
+        except OSError:
+            continue
+        except ValueError:
+            job = None
+        ok = isinstance(job, dict) and job.get("id")
+        _SEEN[path] = (st.st_mtime_ns, st.st_size, job["id"] if ok else "")
+        if ok and job["id"] not in _JOBS:
             _JOBS[job["id"]] = job
 
 
-def _refresh(job: dict[str, Any]) -> dict[str, Any]:
+async def _settle_once(job: dict[str, Any], code: int | None) -> None:
+    """Run ``_settle`` in a worker thread (ffprobe may take a minute), once per job: concurrent
+    polls of the same finished render wait for that one settle instead of starting their own."""
+    task = _SETTLING.get(job["id"])
+    if task is None:
+        task = _SETTLING[job["id"]] = asyncio.create_task(asyncio.to_thread(_settle, job, code))
+        task.add_done_callback(lambda _done, key=job["id"]: _SETTLING.pop(key, None))
+    await asyncio.shield(task)
+
+
+async def _refresh(job: dict[str, Any]) -> dict[str, Any]:
     """Settle a job whose process has ended; a lost process after restart is «interrupted»."""
     if job.get("state") != "running":
         return job
@@ -144,11 +173,11 @@ def _refresh(job: dict[str, Any]) -> dict[str, Any]:
                 job.update(state="failed", error="время рендера вышло", finished=time.time())
                 _save(job)
             return job
-        _settle(job, int(proc.returncode))
+        await _settle_once(job, int(proc.returncode))
         return job
     orphan = _orphan(job)
     if orphan is None:
-        _settle(job, None)
+        await _settle_once(job, None)
     elif time.time() - float(job["started"]) > JOB_TIMEOUT_SECONDS:
         with contextlib.suppress(Exception):   # it may have ended on its own in the meantime
             orphan.kill()
@@ -173,10 +202,16 @@ def _settle(job: dict[str, Any], code: int | None) -> None:
 
 
 def _log_tail(job: dict[str, Any]) -> str:
+    """The last LOG_TAIL characters of the render log, reading only its end (it is polled every 2 s)."""
     try:
-        return (Path(job["dir"]) / "make_video.log").read_text(encoding="utf-8", errors="replace")[-LOG_TAIL:]
+        with (Path(job["dir"]) / "make_video.log").open("rb") as fh:
+            # a character is at most 4 UTF-8 bytes; 3 more cover a character cut at the window start
+            fh.seek(max(0, fh.seek(0, os.SEEK_END) - LOG_TAIL * 4 - 3))
+            raw = fh.read()
     except OSError:
         return ""
+    # the same text read_text() gave: errors replaced, universal newlines
+    return raw.decode("utf-8", errors="replace").replace("\r\n", "\n").replace("\r", "\n")[-LOG_TAIL:]
 
 
 def _public(job: dict[str, Any]) -> dict[str, Any]:
@@ -214,7 +249,8 @@ def _check(job: dict[str, Any]) -> dict[str, Any]:
     v = next((s for s in streams if s.get("codec_type") == "video"), None)
     a = next((s for s in streams if s.get("codec_type") == "audio"), None)
     duration = float((info.get("format") or {}).get("duration") or 0)
-    sha = hashlib.sha256(video.read_bytes()).hexdigest()
+    with video.open("rb") as fh:   # in chunks: a full render is never held in memory whole
+        sha = hashlib.file_digest(fh, "sha256").hexdigest()
     problems = []
     if v is None:
         problems.append("нет видеодорожки")
@@ -244,7 +280,7 @@ async def status(request: Request):
             "ready_full": available and not missing and deps["ffmpeg"] and deps["ffprobe"],
             "why_not": ("инструмент tools/motion_studio не найден в этой сборке" if not available else
                         ("не хватает: " + ", ".join(missing)) if missing else ""),
-            "jobs": [_public(_refresh(j)) for j in sorted(_JOBS.values(), key=lambda j: -j["started"])[:10]]}
+            "jobs": [_public(await _refresh(j)) for j in sorted(_JOBS.values(), key=lambda j: -j["started"])[:10]]}
 
 
 @router.get("/examples/{name}")
@@ -261,8 +297,8 @@ async def start_job(body: JobIn, request: Request):
         raise HTTPException(409, "Motion Studio не входит в эту сборку (нет tools/motion_studio).")
     root = _root(request)
     _load_jobs(root)
-    for job in _JOBS.values():
-        if _refresh(job).get("state") == "running":
+    for job in list(_JOBS.values()):   # a copy: other polls may add jobs while this one awaits a settle
+        if (await _refresh(job)).get("state") == "running":
             raise HTTPException(409, "Рендер уже идёт: дождитесь его или остановите.")
     if body.example and body.spec:
         raise HTTPException(422, "Укажите либо example, либо spec.")
@@ -308,28 +344,28 @@ async def start_job(body: JobIn, request: Request):
     return _public(job)
 
 
-def _job(job_id: str, request: Request) -> dict[str, Any]:
+async def _job(job_id: str, request: Request) -> dict[str, Any]:
     _load_jobs(_root(request))
     job = _JOBS.get(job_id)
     if job is None:
         raise HTTPException(404, "Такого рендера нет.")
-    return _refresh(job)
+    return await _refresh(job)
 
 
 @router.get("/jobs")
 async def jobs(request: Request):
     _load_jobs(_root(request))
-    return {"jobs": [_public(_refresh(j)) for j in sorted(_JOBS.values(), key=lambda j: -j["started"])[:20]]}
+    return {"jobs": [_public(await _refresh(j)) for j in sorted(_JOBS.values(), key=lambda j: -j["started"])[:20]]}
 
 
 @router.get("/jobs/{job_id}")
 async def get_job(job_id: str, request: Request):
-    return _public(_job(job_id, request))
+    return _public(await _job(job_id, request))
 
 
 @router.post("/jobs/{job_id}/cancel")
 async def cancel(job_id: str, request: Request):
-    job = _job(job_id, request)
+    job = await _job(job_id, request)
     proc = _PROCS.get(job_id)
     if job["state"] == "running":
         if proc is not None and proc.returncode is None:
@@ -344,7 +380,7 @@ async def cancel(job_id: str, request: Request):
 
 @router.get("/jobs/{job_id}/check")
 async def check(job_id: str, request: Request):
-    job = _job(job_id, request)
+    job = await _job(job_id, request)
     if job["state"] == "running":
         raise HTTPException(409, "Рендер ещё идёт.")
     return await asyncio.to_thread(_check, job)
@@ -352,7 +388,7 @@ async def check(job_id: str, request: Request):
 
 @router.get("/jobs/{job_id}/file")
 async def file(job_id: str, name: str, request: Request):
-    job = _job(job_id, request)
+    job = await _job(job_id, request)
     if not (name in OUTPUTS or (name.startswith("epic-preview-") and name.endswith(".png") and "/" not in name
                                 and "\\" not in name)):
         raise HTTPException(404, "Такого файла нет.")
