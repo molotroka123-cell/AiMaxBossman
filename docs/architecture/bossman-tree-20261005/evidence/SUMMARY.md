@@ -1,15 +1,23 @@
 # Evidence summary
 
-Статусы дерева: blocked=12, branch=31, code=28, idea=22, mixed=16, prepared=18, recorded=175, reported=405, retired=5, working=164
+Статусы дерева: blocked=12, branch=23, code=28, idea=22, mixed=16, prepared=18, recorded=175, reported=413, retired=5, working=164
 
-Принято расписок: 0; отклонено: 849
+Принято расписок: 8; отклонено: 849
 
 ## По зонам
 
-- нет
+- jeff: 8
 
 ## Принятые
 
+- `module-aacf13d1fab5` (jeff-telegram-calls-paths-20261008.json)
+- `module-8b9384b5a0ac` (jeff-telegram-calls-paths-20261008.json)
+- `module-7d6b56dd11d4` (jeff-telegram-calls-paths-20261008.json)
+- `module-fb3e7ddff256` (jeff-telegram-calls-paths-20261008.json)
+- `module-d25f75686dc7` (jeff-telegram-calls-paths-20261008.json)
+- `module-f4c52a69b401` (jeff-telegram-calls-paths-20261008.json)
+- `module-7c917a080544` (jeff-telegram-calls-paths-20261008.json)
+- `module-b3a1a55f12b0` (jeff-telegram-calls-paths-20261008.json)
 
 ## Отклонённые
 

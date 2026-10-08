@@ -5088,8 +5088,8 @@
    "id": "module-aacf13d1fab5",
    "label": "telegram_calls/addons.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/a"
   },
   {
    "id": "module-c0879a714994",
@@ -5186,8 +5186,8 @@
    "id": "module-8b9384b5a0ac",
    "label": "telegram_calls/doctor.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/d"
   },
   {
    "id": "module-7a8593010c20",
@@ -5200,8 +5200,8 @@
    "id": "module-7d6b56dd11d4",
    "label": "telegram_calls/guard.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/a"
   },
   {
    "id": "module-d87d5bf5141c",
@@ -5228,8 +5228,8 @@
    "id": "module-d25f75686dc7",
    "label": "telegram_calls/speech/brain.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/s"
   },
   {
    "id": "module-74990de09699",
@@ -5256,15 +5256,15 @@
    "id": "module-f4c52a69b401",
    "label": "telegram_calls/speech/stt.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/s"
   },
   {
    "id": "module-7c917a080544",
    "label": "telegram_calls/speech/testing.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/s"
   },
   {
    "id": "module-85f118831d7b",
@@ -5277,15 +5277,15 @@
    "id": "module-b3a1a55f12b0",
    "label": "telegram_calls/speech/tts.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/s"
   },
   {
    "id": "module-fb3e7ddff256",
    "label": "telegram_calls/stopflag.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/a"
   },
   {
    "id": "module-b1142d03395c",

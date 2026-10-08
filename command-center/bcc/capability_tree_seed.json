@@ -16523,14 +16523,20 @@
       "id": "module-aacf13d1fab5",
       "label": "telegram_calls/addons.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/addon.py in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/addons.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/addons.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-aacf13d1fab5",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -16838,14 +16844,20 @@
       "id": "module-8b9384b5a0ac",
       "label": "telegram_calls/doctor.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/doctor_rows.py in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/doctor.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/doctor.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-8b9384b5a0ac",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -16877,14 +16889,20 @@
       "id": "module-7d6b56dd11d4",
       "label": "telegram_calls/guard.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/account/guard.py in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/guard.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/guard.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-7d6b56dd11d4",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -16962,14 +16980,20 @@
       "id": "module-d25f75686dc7",
       "label": "telegram_calls/speech/brain.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/speech/jeff_engines.py (brain) in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/speech/brain.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/speech/brain.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-d25f75686dc7",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -17047,14 +17071,20 @@
       "id": "module-f4c52a69b401",
       "label": "telegram_calls/speech/stt.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/speech/jeff_engines.py (stt) in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/speech/stt.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/speech/stt.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-f4c52a69b401",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -17063,14 +17093,20 @@
       "id": "module-7c917a080544",
       "label": "telegram_calls/speech/testing.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/speech/scripted.py (testing) in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/speech/testing.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/speech/testing.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-7c917a080544",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -17102,14 +17138,20 @@
       "id": "module-b3a1a55f12b0",
       "label": "telegram_calls/speech/tts.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/speech/jeff_engines.py (tts) in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/speech/tts.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/speech/tts.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-b3a1a55f12b0",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -17118,14 +17160,20 @@
       "id": "module-fb3e7ddff256",
       "label": "telegram_calls/stopflag.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/account/stopflag.py in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/stopflag.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/stopflag.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-fb3e7ddff256",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
