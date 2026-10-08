@@ -950,17 +950,28 @@ def _require_enabled() -> None:
 
 
 @router.get("/command-bar")
-async def catalog(request: Request, limit: int = 500):
-    """Каталог возможностей и состояние командной строки."""
+async def catalog(request: Request, limit: int | None = None):
+    """Каталог возможностей и состояние командной строки.
+
+    По умолчанию каталог отдаётся ЦЕЛИКОМ. Раньше здесь стоял молчаливый
+    потолок 500: приложение доросло до 644 маршрутов, и всё, что по алфавиту
+    шло после ~«sys…» (включая tasks.create), пропадало из подсказок строки,
+    хотя count говорил правду. Явный limit по-прежнему работает, но обрезка
+    теперь видна полем truncated.
+    """
     if not enabled():
         return {"enabled": False, "capabilities": [], "aliases": {}, "tasks": []}
     svc = request.app.state.svc
     caps = catalog_for(request.app)
     store = store_for(svc)
+    listed = [c.as_dict() for c in sorted(caps.values(), key=lambda c: c.id)]
+    if limit is not None:
+        listed = listed[:max(0, limit)]
     return {
         "enabled": True,
         "count": len(caps),
-        "capabilities": [c.as_dict() for c in sorted(caps.values(), key=lambda c: c.id)][:limit],
+        "truncated": len(listed) < len(caps),
+        "capabilities": listed,
         "aliases": {name: a.target for name, a in sorted(ALIASES.items())
                     if a.target in caps},
         "groups": sorted({c.group for c in caps.values()}),
