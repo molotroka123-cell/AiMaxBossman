@@ -208,7 +208,8 @@ class CallsView {
     this.ctx = ctx;
     this.st = null;
     this.timer = null;
-    this.polling = false;
+    this.polling = null;          // the poll in flight (a promise) or null
+    this.pollAgain = false;       // an owner action / bus event came while it was in flight: one more poll right after it
     this.lastCallId = undefined;
     this.actionError = null;
     this.pickedConfirm = false;
@@ -216,29 +217,44 @@ class CallsView {
     this.refs = {};
     this.root = this.build();
     this.timer = setInterval(() => this.tick(), POLL_MS);
+    this.onVisible = () => { if (!document.hidden && this.root.isConnected) this.poll(); };
+    document.addEventListener('visibilitychange', this.onVisible);
     this.poll();
     this.loadHistory();
   }
 
-  /* ---- опрос: живёт, пока страница в документе */
+  /* ---- опрос: живёт, пока страница в документе; скрытая вкладка не опрашивает, при возврате — сразу опрос */
   tick() {
-    if (!this.root.isConnected) { clearInterval(this.timer); this.timer = null; return; }
+    if (!this.root.isConnected) { clearInterval(this.timer); this.timer = null; document.removeEventListener('visibilitychange', this.onVisible); return; }
+    if (document.hidden) return;
     this.poll();
   }
 
-  async poll() {
-    if (this.polling) return;
-    this.polling = true;
+  /* Один опрос за раз: тик, пока ответ не пришёл, пропускается (медленный сервер не долбим подряд).
+     fresh — после действия владельца или события шины: ответ в полёте мог быть снят ДО действия, поэтому сразу после
+     него идёт ещё один опрос, и вызывающий ждёт именно его (кнопки не остаются на устаревшем состоянии). */
+  async poll(fresh = false) {
+    if (this.polling) {
+      if (fresh) this.pollAgain = true;
+      return this.polling;
+    }
+    let settle;
+    this.polling = new Promise((resolve) => { settle = resolve; });
     try {
-      const st = await api.raw(`${BASE}/status`);
-      this.st = st;
-      this.refs.offline.hidden = true;
-      this.apply(st);
-    } catch (e) {
-      this.refs.offline.hidden = false;
-      this.refs.offline.textContent = 'Нет связи с Bossman. Состояние звонков не обновляется.';
-      if (e && e.isAuth) this.refs.offline.textContent = 'Нужен вход в Bossman.';
-    } finally { this.polling = false; }
+      do {
+        this.pollAgain = false;
+        try {
+          const st = await api.raw(`${BASE}/status`);
+          this.st = st;
+          this.refs.offline.hidden = true;
+          this.apply(st);
+        } catch (e) {
+          this.refs.offline.hidden = false;
+          this.refs.offline.textContent = 'Нет связи с Bossman. Состояние звонков не обновляется.';
+          if (e && e.isAuth) this.refs.offline.textContent = 'Нужен вход в Bossman.';
+        }
+      } while (this.pollAgain);
+    } finally { this.polling = null; settle(); }
   }
 
   async run(fn, { ok, fail = 'Не удалось выполнить действие', quiet = false } = {}) {
@@ -246,13 +262,13 @@ class CallsView {
       const res = await fn();
       this.actionError = null;
       if (ok) toastOk(ok);
-      await this.poll();
+      await this.poll(true);
       return res;
     } catch (e) {
       this.actionError = errorText(e);
       if (!quiet) toastError(e, fail);
       this.renderActionError();
-      await this.poll();
+      await this.poll(true);
       return null;
     }
   }
@@ -599,7 +615,7 @@ class CallsView {
       this.renderActionError();
       toastError(e, 'STOP не подтверждён');
     }
-    await this.poll();
+    await this.poll(true);
   }
 
   async resume() {
@@ -702,7 +718,7 @@ const TelegramCallsPage = {
   /* события шины только подгоняют состояние на месте: страница не пересоздаётся, набранное не пропадает */
   onEvent(ev) {
     const kind = String((ev && ev.kind) || '');
-    if (EVENT_KINDS.includes(kind) && live && live.root.isConnected) live.poll();
+    if (EVENT_KINDS.includes(kind) && live && live.root.isConnected) live.poll(true);
     return false;
   },
 };

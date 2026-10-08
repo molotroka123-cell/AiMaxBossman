@@ -361,6 +361,46 @@ async def test_a_live_call_is_not_reported_as_an_uncertain_previous_call(make):
     assert (await m.status())["uncertain_previous"] is False
 
 
+async def test_a_status_poll_reads_its_files_and_probes_off_the_event_loop(make, monkeypatch):
+    """The panel polls /calls/status every 1.5 s. config.json, credentials.enc (+ vault decrypt), the package probe and the
+    whole history.jsonl (up to 200 records, ~2 MB measured) were read ON the event loop: every other request and the worker
+    pipe waited behind each poll. The reads run in a worker thread now; the payload is the same (error path included)."""
+    import threading
+
+    from bcc.telegram_calls import deps
+    from bcc.telegram_calls.call import manager as manager_mod
+
+    m = make()
+    prep(m)
+    m.state.append_history({"call_id": "c-old", "transport": "loopback", "outcome": "declined"})
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {}
+
+    def spy(name, fn):
+        def wrapper(*args, **kwargs):
+            on_loop.setdefault(name, []).append(threading.get_ident() == loop_thread)
+            return fn(*args, **kwargs)
+        return wrapper
+
+    monkeypatch.setattr(manager_mod, "load_settings", spy("config.json", manager_mod.load_settings))
+    monkeypatch.setattr(m.store, "public", spy("credentials.enc", m.store.public))
+    monkeypatch.setattr(deps, "probe", spy("deps.probe", deps.probe))
+    monkeypatch.setattr(m.state, "history", spy("history.jsonl", m.state.history))
+    st = await m.status()
+    assert sorted(on_loop) == ["config.json", "credentials.enc", "deps.probe", "history.jsonl"], on_loop
+    assert not any(any(calls) for calls in on_loop.values()), f"ran on the event loop thread: {on_loop}"
+    assert st["enabled"] is True and st["account"]["state"] == "ready" and st["settings_error"] is None
+    assert st["last_call"]["call_id"] == "c-old" and st["last_error"]["code"] == "CALL_DECLINED"
+    assert st["deps"]["ready"] in (True, False) and isinstance(st["deps"]["packages"], dict)
+
+    on_loop.clear()                                                # paired: a corrupt config is still reported, never 'enabled'
+    (m.home / "config.json").write_text("{not json", encoding="utf-8")
+    bad = await m.status()
+    assert bad["settings_error"] == "settings_unreadable" and bad["enabled"] is False and bad["peer"] is None
+    assert on_loop["config.json"] == [False]
+    assert "deps.probe" not in on_loop, "the 10 s probe cache still holds between polls"
+
+
 async def test_status_merges_the_worker_status_when_the_worker_runs(make, tmp_path):
     m = make()
     prep(m)

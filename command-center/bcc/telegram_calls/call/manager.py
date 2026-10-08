@@ -650,12 +650,14 @@ class CallsManager:
             self._permissions_checked = True
             with contextlib.suppress(Exception):
                 await asyncio.to_thread(self.heal_permissions)
+        # The panel polls this every 1.5 s: the file reads (config.json, credentials.enc + vault decrypt, history.jsonl) and the
+        # package probe run in a worker thread, never on the event loop that also serves every other request and the worker pipe.
         settings_error: str | None = None
         try:
-            settings = self.settings()
+            settings = await asyncio.to_thread(self.settings)
         except (ValueError, OSError):
             settings, settings_error = CallSettings(), "settings_unreadable"
-        creds = self.store.public()
+        creds = await asyncio.to_thread(self.store.public)
         worker_status: dict | None = None
         worker_error: str | None = None
         if self.running:
@@ -670,9 +672,9 @@ class CallsManager:
             if isinstance(acct.get("state"), str) and acct["state"] in {s.value for s in AccountState}:
                 account_state = acct["state"]
             pending_phone = acct.get("pending_phone")
-        probe = await self._cached("deps", 10.0, deps.probe)
+        probe = await self._cached("deps", 10.0, deps.probe, thread=True)
         acl = await self._cached("acl", 30.0, self.acl_report, thread=True)
-        last = self._last_record or (self.state.history(1) or [None])[0]
+        last = self._last_record or ((await asyncio.to_thread(self.state.history, 1)) or [None])[0]
         call = self.call_view()
         if call is None and worker_status and isinstance(worker_status.get("call"), dict):
             wc = worker_status["call"]
