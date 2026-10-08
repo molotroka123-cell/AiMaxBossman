@@ -532,9 +532,46 @@ def os60_queue_cancel_and_status_are_honest(ctx) -> None:
     """
     ctx.reached_installed_product("bcc.api.create_app + фоновый тик /api/images этой ветки")
 
+    from bcc.features import images as images_feature  # noqa: PLC0415
+
+    blocker_prompt = "Долгая работа, которая держит очередь"
+    release = asyncio.Event()
+    real_provider = images_feature.PROVIDER
+
+    class HeldProvider:
+        """Долгая работа держит единственный воркер, пока владелец её не отменит.
+
+        Без неё предусловие сценария было гонкой: фоновый тик (0.7 с) успевал
+        забрать «отменяемую» работу между её созданием и отменой, и на быстром
+        раннере CI она завершалась раньше отмены (статусы ('running', 'queued'),
+        два артефакта; прогон на 5f008c19). Работы владельца рендерит настоящий
+        мок продукта; проверки ниже не ослаблены.
+        """
+
+        async def render(self, job, index):
+            if job.get("prompt") == blocker_prompt:
+                await release.wait()
+            return await real_provider.render(job, index)
+
+    async def wait_status(client, job_id, wanted, timeout=60.0):
+        started = time.monotonic()
+        job = {}
+        while time.monotonic() - started < timeout:
+            job = (await client.get(f"{IMAGES}/jobs/{job_id}")).json()
+            if job["status"] in wanted:
+                break
+            await asyncio.sleep(0.05)
+        return job, round(time.monotonic() - started, 3)
+
+    async def hold_queue(client):
+        blocker = (await client.post(IMAGES + "/jobs", json={"prompt": blocker_prompt, "count": 1})).json()
+        running, _ = await wait_status(client, blocker["id"], ("running",))
+        return blocker["id"], running["status"]
+
     async def run():
         out = {}
         async with _product(ctx, workers=True) as (svc, client):
+            blocker_id, out["blocker_running"] = await hold_queue(client)
             first = (await client.post(IMAGES + "/jobs",
                                        json={"prompt": "Отменяемая работа", "count": 1})).json()
             second = (await client.post(IMAGES + "/jobs",
@@ -543,31 +580,37 @@ def os60_queue_cancel_and_status_are_honest(ctx) -> None:
             cancelled = await client.post(f"{IMAGES}/jobs/{first['id']}/cancel")
             out["cancel_code"] = cancelled.status_code
             out["cancel_body"] = cancelled.json()
+            # Владелец отменяет и долгую работу: отмена освобождает воркер (BL-066), артефакта у неё нет.
+            out["blocker_cancel"] = (await client.post(f"{IMAGES}/jobs/{blocker_id}/cancel")).json()["status"]
 
-            started = time.monotonic()
-            neighbour = {}
-            while time.monotonic() - started < 60:
-                neighbour = (await client.get(f"{IMAGES}/jobs/{second['id']}")).json()
-                if neighbour["status"] in ("completed", "failed", "cancelled"):
-                    break
-                await asyncio.sleep(0.05)
-            out["neighbour"] = neighbour
-            out["seconds_to_finish"] = round(time.monotonic() - started, 3)
+            out["neighbour"], out["seconds_to_finish"] = await wait_status(
+                client, second["id"], ("completed", "failed", "cancelled"))
             # Дать очереди ещё один полный виток: отменённая работа не должна
             # ожить ни на следующем тике, ни после соседней.
             await asyncio.sleep(2.0)
             out["cancelled_after_wait"] = (await client.get(f"{IMAGES}/jobs/{first['id']}")).json()
             assets = (await client.get(IMAGES + "/assets")).json()
             out["assets"] = [(a["id"], a["source_job_id"]) for a in assets["items"]]
+            # Повтор ставится, пока воркер снова занят: иначе «в очереди» опять зависело бы от тика.
+            blocker2_id, _ = await hold_queue(client)
             out["retry"] = (await client.post(f"{IMAGES}/jobs/{first['id']}/retry")).json()
             out["after_retry"] = (await client.get(f"{IMAGES}/jobs/{first['id']}")).json()
             out["idle"] = (await client.get(f"{IMAGES}/jobs/{uuid.uuid4().int % 10**6 + 10**6}")).status_code
             # Владелец не заблокирован: пока очередь работает, продукт отвечает.
             out["overview"] = (await client.get(IMAGES + "/overview")).status_code
             out["listing"] = (await client.get(IMAGES + "/jobs")).json()["total"]
+            await client.post(f"{IMAGES}/jobs/{blocker2_id}/cancel")
+            await client.post(f"{IMAGES}/jobs/{out['retry']['id']}/cancel")
         return out
 
-    got = asyncio.run(run())
+    images_feature.PROVIDER = HeldProvider()
+    try:
+        got = asyncio.run(run())
+    finally:
+        images_feature.PROVIDER = real_provider
+    ctx.positive("долгая работа заняла воркер до того, как владелец поставил свои",
+                 got["blocker_running"] == "running" and got["blocker_cancel"] == "cancelled",
+                 f"долгая работа: {got['blocker_running']} -> {got['blocker_cancel']}")
     cancelled_now = got["cancelled_after_wait"]
     ctx.positive("обе работы встали в очередь, а не выполнились в ответе владельцу",
                  got["queued"] == ("queued", "queued"), f"статусы={got['queued']}")
